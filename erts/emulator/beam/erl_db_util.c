@@ -364,8 +364,8 @@ DMC_DECLARE_STACK_TYPE(unsigned);
 */
 
 typedef struct DMCVariable {
-    int is_bound;
-    int is_in_body;
+    bool is_bound;
+    bool is_in_body;
 } DMCVariable;
 
 typedef struct DMCHeap {
@@ -400,8 +400,8 @@ typedef struct dmc_context {
     int num_match;
     int current_match;
     Uint cflags;
-    int is_guard; /* 1 if in guard, 0 if in body */
-    int special; /* 1 if the head in the match was a single expression */ 
+    bool is_guard; /* true if in guard, false if in body */
+    bool special;  /* true if the head in the match was a single expression */
     DMCErrInfo *err_info;
     char *stack_limit;
     Uint freason;
@@ -445,7 +445,7 @@ typedef struct {
 static erts_tsd_key_t match_pseudo_process_key;
 
 static ERTS_INLINE void
-cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
+cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, bool keep_heap)
 {
     if (mpsp->process.mbuf || mpsp->process.off_heap.first) {
 	erts_cleanup_empty_process(&mpsp->process);
@@ -501,7 +501,7 @@ get_match_pseudo_process(Process *c_p, Uint heap_size)
     if (mpsp) {
         ASSERT(mpsp == erts_tsd_get(match_pseudo_process_key));
         ASSERT(mpsp->process.scheduler_data == esdp);
-	cleanup_match_pseudo_process(mpsp, 0);
+	cleanup_match_pseudo_process(mpsp, false);
     }
     else {
 	ASSERT(erts_tsd_get(match_pseudo_process_key) == NULL);
@@ -527,7 +527,7 @@ destroy_match_pseudo_process(void)
     ErtsMatchPseudoProcess *mpsp;
     mpsp = (ErtsMatchPseudoProcess *)erts_tsd_get(match_pseudo_process_key);
     if (mpsp) {
-	cleanup_match_pseudo_process(mpsp, 0);
+	cleanup_match_pseudo_process(mpsp, false);
 	erts_free(ERTS_ALC_T_DB_MS_PSDO_PROC, (void *) mpsp);
 	erts_tsd_set(match_pseudo_process_key, (void *) NULL);
     }
@@ -983,8 +983,8 @@ static Eterm dmc_lookup_bif_reversed(void *f);
 static int cmp_uint(void *a, void *b);
 static int cmp_guard_bif(void *a, void *b);
 static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info);
-static Uint my_size_object(Eterm t, int is_hashmap_node);
-static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap, int);
+static Uint my_size_object(Eterm t, bool is_hashmap_node);
+static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap, bool);
 
 /* Guard subroutines */
 static void
@@ -992,7 +992,7 @@ dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
                         int textpos, Eterm *p, Uint nelems);
 static DMCRet
 dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
-          Eterm *p, Uint nelems, int *constant);
+          Eterm *p, Uint nelems, bool *constant);
 /* Guard compilation */
 static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 			     Eterm t);
@@ -1000,30 +1000,30 @@ static DMCRet dmc_list(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant);
+		       bool *constant);
 static DMCRet dmc_tuple(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant);
+                       bool *constant);
 static DMCRet
 dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
-        Eterm t, int *constant);
+        Eterm t, bool *constant);
 static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm t,
-			   int *constant);
+			   bool *constant);
 static DMCRet dmc_fun(DMCContext *context,
 		      DMCHeap *heap,
 		      DMC_STACK_TYPE(UWord) *text,
 		      Eterm t,
-		      int *constant);
+		      bool *constant);
 static DMCRet dmc_expr(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant);
+                       bool *constant);
 static DMCRet compile_guard_expr(DMCContext *context,
 				    DMCHeap *heap,
 				    DMC_STACK_TYPE(UWord) *text,
@@ -1052,7 +1052,7 @@ static void vadd_dmc_err(DMCErrInfo*, DMCErrorSeverity, int var, const char *str
 
 static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity);
 
-static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace);
+static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, bool trace);
 
 static Eterm seq_trace_fake(Process *p, Eterm arg1);
 
@@ -1302,7 +1302,7 @@ error:
  * Returns true if 'b' is guaranteed to always construct
  * the same term as 'a' has matched.
  */
-static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
+static bool db_match_eq_body(Eterm a, Eterm b, bool const_mode)
 {
     DECLARE_ESTACK(s);
     Uint arity;
@@ -1313,7 +1313,7 @@ static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
         switch(b & _TAG_PRIMARY_MASK) {
         case TAG_PRIMARY_LIST:
             if (!is_list(a))
-                return 0;
+                return false;
             ESTACK_PUSH2(s, CDR(list_val(a)), CDR(list_val(b)));
             a = CAR(list_val(a));
             b = CAR(list_val(b));
@@ -1328,20 +1328,20 @@ static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
                     }
                     else if (bp[0] == make_arityval(2) && bp[1] == am_const) {
                         ESTACK_PUSH(s, CONST_MODE_OFF);
-                        const_mode = 1;   /* {const, term()} syntax */
+                        const_mode = true;   /* {const, term()} syntax */
                         b = bp[2];
                         continue; /* loop without pop */
                     }
                     else
-                        return 0; /* function call or invalid tuple syntax */
+                        return false; /* function call or invalid tuple syntax */
                 }
                 if (!is_tuple(a))
-                    return 0;
+                    return false;
 
                 ap = tuple_val(a);
                 bp = tuple_val(b);
                 if (ap[0] != bp[0])
-                    return 0;
+                    return false;
                 arity = arityval(ap[0]);
                 if (arity > 0) {
                     a = *(++ap);
@@ -1354,10 +1354,10 @@ static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
             }
             else if (is_map(b)) {
                 /* We don't know what other pairs the matched map may contain */
-                return 0;
+                return false;
             }
             else if (!eq(a,b)) /* other boxed */
-                return 0;
+                return false;
             break;
 
         case TAG_PRIMARY_IMMED1:
@@ -1365,7 +1365,7 @@ static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
                 || a == am_DollarUnderscore
                 || (const_mode && db_is_variable(a) >= 0)) {
 
-                return 0;
+                return false;
             }
             break;
         default:
@@ -1380,18 +1380,18 @@ pop_next:
         b = ESTACK_POP(s);
         if (b == CONST_MODE_OFF) {
             ASSERT(const_mode);
-            const_mode = 0;
+            const_mode = false;
             goto pop_next;
         }
         a = ESTACK_POP(s);
     }
 
     DESTROY_ESTACK(s);
-    return 1;
+    return true;
 }
 
 /* This is used by select_replace */
-int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
+bool db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
 {
     Eterm match_key;
     Eterm* body_list;
@@ -1400,7 +1400,7 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     Eterm single_body_subterm;
     Eterm single_body_subterm_key;
     Eterm* single_body_subterm_key_tpl;
-    int const_mode;
+    bool const_mode;
 
     if (!is_list(body)) {
         return 0;
@@ -1432,12 +1432,12 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
         single_body_term_tpl[1] == am_const) {
         /* {const, {"ets-tuple constant"}} */
         single_body_subterm = single_body_term_tpl[2];
-        const_mode = 1;
+        const_mode = true;
     }
     else if (*single_body_term_tpl == make_arityval(1)) {
         /* {{"ets-tuple construction"}} */
         single_body_subterm = single_body_term_tpl[1];
-        const_mode = 0;
+        const_mode = false;
     }
     else {
         /* not a tuple construction */
@@ -1690,7 +1690,7 @@ Binary *db_match_compile(Eterm *matchexpr,
     Eterm t;
     Uint i;
     Uint num_iters;
-    int structure_checked;
+    bool structure_checked;
     DMCRet res;
     int current_try_label;
     Binary *bp = NULL;
@@ -1726,7 +1726,7 @@ restart:
 	sys_memset(heap.vars, 0, heap.size * sizeof(*heap.vars));
 	t = context.matchexpr[context.current_match];
 	context.stack_used = 0;
-	structure_checked = 0;
+	structure_checked = false;
 	if (context.current_match < num_progs - 1) {
 	    DMC_PUSH(text,matchTryMeElse);
 	    current_try_label = DMC_STACK_NUM(text);
@@ -1744,7 +1744,7 @@ restart:
                     if (!structure_checked) {
                         DMC_PUSH2(text, matchMap, num_iters);
                     }
-                    structure_checked = 0;
+                    structure_checked = false;
                     for (i = 0; i < num_iters; ++i) {
                         Eterm key = flatmap_get_keys(flatmap_val(t))[i];
                         if (db_is_variable(key) >= 0) {
@@ -1792,7 +1792,7 @@ restart:
                     if (!structure_checked) {
                         DMC_PUSH2(text, matchMap, num_iters);
                     }
-                    structure_checked = 0;
+                    structure_checked = false;
 
                     hashmap_iterator_init(&wstack, t, 0);
 
@@ -1848,7 +1848,7 @@ restart:
 					     pop it */
 		    DMC_PUSH2(text, matchTuple, num_iters);
 		}
-		structure_checked = 0;
+		structure_checked = false;
 		for (i = 1; i <= num_iters; ++i) {
 		    if ((res = dmc_one_term(&context, 
 					    &heap, 
@@ -1868,7 +1868,7 @@ restart:
 		if (!structure_checked) {
 		    DMC_PUSH(text, matchList);
 		}
-		structure_checked = 0; /* Whatever it is, we did 
+		structure_checked = false; /* Whatever it is, we did
 					  not pop it */
 		if ((res = dmc_one_term(&context, &heap, &stack, 
 					&text, CAR(list_val(t))))
@@ -1883,7 +1883,7 @@ restart:
 			single terms as match 
 			expressions */
 	    simple_term:
-		structure_checked = 0;
+		structure_checked = false;
 		if ((res = dmc_one_term(&context, &heap, &stack, 
 					&text, t))
 		    != retOk) {
@@ -1908,10 +1908,10 @@ restart:
 		break;
 	    } else {
 		DMC_PUSH(text, matchPop);
-		structure_checked = 1; /* 
-					* Checked with matchPushT 
-					* or matchPushL
-					*/
+		structure_checked = true; /*
+					   * Checked with matchPushT
+					   * or matchPushL
+					   */
 		--(context.stack_used);
 	    }
 	}
@@ -1955,14 +1955,14 @@ restart:
 	/*
 	** ... and the guards
 	*/
-	context.is_guard = 1;
+	context.is_guard = true;
 	if (compile_guard_expr
 	    (&context,
 	     &heap,
 	     &text,
 	     context.guardexpr[context.current_match]) != retOk) 
 	    goto error;
-	context.is_guard = 0;
+	context.is_guard = false;
 	if ((context.cflags & DCOMP_TABLE) && 
 	    !is_list(context.bodyexpr[context.current_match])) {
 	    if (context.err_info) {
@@ -3065,7 +3065,7 @@ fail:
 			      lets restart, with the next match
 			      program */
 	pc = (prog->text) + fail_label;
-	cleanup_match_pseudo_process(mpsp, 1);
+	cleanup_match_pseudo_process(mpsp, true);
 	goto restart;
     }
     ret = THE_NON_VALUE;
@@ -3363,7 +3363,7 @@ Uint db_term_size(DbTable *tb, void* basep, Uint offset)
     }
 }
 
-void db_free_term_no_tab(int compress, void* basep, Uint offset)
+void db_free_term_no_tab(bool compress, void* basep, Uint offset)
 {
     DbTerm* db = (DbTerm*) ((byte*)basep + offset);
     Uint size;
@@ -3825,13 +3825,13 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 #endif
 }
 
-int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b)
+bool db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     ErlOffHeap tmp_offheap;
     Eterm* allocp;
     Eterm* hp;
     Eterm tmp_b;
-    int is_eq;
+    bool is_eq;
 
     ASSERT(tb->compress);
     hp = allocp = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
@@ -3915,7 +3915,7 @@ int db_has_map(Eterm node) {
 }
 
 /* Check if obj is fully bound (contains no variables, underscores, or maps) */
-int db_is_fully_bound(Eterm node) {
+bool db_is_fully_bound(Eterm node) {
     DECLARE_ESTACK(s);
 
     ESTACK_PUSH(s,node);
@@ -3941,19 +3941,19 @@ int db_is_fully_bound(Eterm node) {
                  * map that has the given elements, so they must be considered
                  * variable. */
                 DESTROY_ESTACK(s);
-                return 0;
+                return false;
             }
 	    break;
 	case TAG_PRIMARY_IMMED1:
 	    if (node == am_Underscore || db_is_variable(node) >= 0) {
 		DESTROY_ESTACK(s);
-		return 0;
+		return false;
 	    }
 	    break;
 	}
     }
     DESTROY_ESTACK(s);
-    return 1;
+    return true;
 }
 
 /* 
@@ -4071,7 +4071,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 		if (n >= heap->vars_used)
 		    heap->vars_used = n + 1;
 		DMC_PUSH2(*text, matchBind, n);
-		heap->vars[n].is_bound = 1;
+		heap->vars[n].is_bound = true;
 	    }
 	} else if (c == am_Underscore) {
 	    DMC_PUSH(*text, matchSkip);
@@ -4177,11 +4177,11 @@ static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
         if (is_immed(t)) {
 	    tmp = t;
 	} else {
-	    sz = my_size_object(t, 0);
+	    sz = my_size_object(t, false);
             if (sz) {
                 emb = new_message_buffer(sz);
                 hp = emb->mem;
-                tmp = my_copy_struct(t,&hp,&(emb->off_heap), 0);
+                tmp = my_copy_struct(t,&hp,&(emb->off_heap), false);
                 emb->next = context->save;
                 context->save = emb;
             }
@@ -4226,10 +4226,10 @@ static DMCRet dmc_list(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant)
+                       bool *constant)
 {
-    int c1;
-    int c2;
+    bool c1;
+    bool c2;
     int ret;
 
     if ((ret = dmc_expr(context, heap, text, CAR(list_val(t)), &c1)) != retOk)
@@ -4239,10 +4239,10 @@ static DMCRet dmc_list(DMCContext *context,
 	return ret;
 
     if (c1 && c2) {
-	*constant = 1;
+	*constant = true;
 	return retOk;
     } 
-    *constant = 0;
+    *constant = false;
     if (!c1) {
 	/* The CAR is not a constant, so if the CDR is, we just push it,
 	   otherwise it is already pushed. */
@@ -4279,9 +4279,9 @@ dmc_rearrange_constants(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 
 static DMCRet
 dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
-          Eterm *p, Uint nelems, int *constant)
+          Eterm *p, Uint nelems, bool *constant)
 {
-    int all_constant = 1;
+    bool all_constant = true;
     int textpos = DMC_STACK_NUM(*text);
     int preventive_bumps = 0;
     Uint i;
@@ -4294,14 +4294,14 @@ dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
     */
     for (i = nelems; i--;) {
         DMCRet ret;
-        int c;
+        bool c;
 
         ret = dmc_expr(context, heap, text, p[i], &c);
         if (ret != retOk) {
             return ret;
         }
         if (!c && all_constant) {
-            all_constant = 0;
+            all_constant = false;
             if (i < nelems - 1) {
                 /* Revert preventive stack bumps as they will now be done again
                  * for real by do_emit_constant() */
@@ -4338,9 +4338,9 @@ dmc_array(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 
 static DMCRet
 dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
-          Eterm t, int *constant)
+          Eterm t, bool *constant)
 {
-    int all_constant;
+    bool all_constant;
     Eterm *p = tuple_val(t);
     Uint nelems = arityval(*p);
     DMCRet ret;
@@ -4350,12 +4350,12 @@ dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         return ret;
     }
     if (all_constant) {
-        *constant = 1;
+        *constant = true;
         return retOk;
     }
     DMC_PUSH2(*text, matchMkTuple, nelems);
     context->stack_used -= (nelems - 1);
-    *constant = 0;
+    *constant = false;
     return retOk;
 }
 
@@ -4365,12 +4365,12 @@ dmc_tuple(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
  */
 static DMCRet
 dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
-        Eterm t, int *constant)
+        Eterm t, bool *constant)
 {
     int nelems;
     DMCRet ret;
     if (is_flatmap(t)) {
-        int constant_values, constant_keys;
+        bool constant_values, constant_keys;
         flatmap_t *m = (flatmap_t *)flatmap_val(t);
         Eterm *values = flatmap_get_values(m);
         int textpos = DMC_STACK_NUM(*text);
@@ -4398,7 +4398,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         }
 
         if (constant_values && constant_keys) {
-            *constant = 1;
+            *constant = true;
             return retOk;
         }
 
@@ -4417,13 +4417,13 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
 
         DMC_PUSH2(*text, matchMkFlatMap, nelems);
         context->stack_used -= (nelems + 1) - 1;  /* n values + 1 key-tuple - 1 map ptr => 1 map */
-        *constant = 0;
+        *constant = false;
         return retOk;
     } else {
         DECLARE_WSTACK(wstack);
         DMC_STACK_TYPE(UWord) instr_save;
         Eterm *kv;
-        int c = 0;
+        bool c = false;
         int textpos = DMC_STACK_NUM(*text);
         int preventive_bumps = 0;
 
@@ -4464,7 +4464,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
            encountering any variables */
         if (c) {
             ASSERT(DMC_STACK_NUM(*text) == textpos);
-            *constant = 1;
+            *constant = true;
             DESTROY_WSTACK(wstack);
             return retOk;
         }
@@ -4547,7 +4547,7 @@ dmc_map(DMCContext *context, DMCHeap *heap, DMC_STACK_TYPE(UWord) *text,
         DMC_PUSH2(*text, matchMkHashMap, nelems);
         context->stack_used -= 2*nelems - 1;  /* n keys & values => 1 map */
         DESTROY_WSTACK(wstack);
-        *constant = 0;
+        *constant = false;
         return retOk;
     }
 }
@@ -4556,7 +4556,7 @@ static DMCRet dmc_whole_expression(DMCContext *context,
 				   DMCHeap *heap,
 				   DMC_STACK_TYPE(UWord) *text,
 				   Eterm t,
-				   int *constant)
+				   bool *constant)
 {
     if (context->cflags & DCOMP_TRACE) {
 	/* Hmmm, convert array to list... */
@@ -4573,7 +4573,7 @@ static DMCRet dmc_whole_expression(DMCContext *context,
     ++context->stack_used;
     if (context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
-    *constant = 0;
+    *constant = false;
     return retOk;
 }
 
@@ -4589,7 +4589,7 @@ static void dmc_add_pushv_variant(DMCContext *context, DMCHeap *heap,
     if (!context->is_guard) {
         if(!v->is_in_body) {
 	    instr = matchPushVResult;
-	    v->is_in_body = 1;
+	    v->is_in_body = true;
 	}
     }
     DMC_PUSH(*text, instr);
@@ -4600,7 +4600,7 @@ static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm t,
-			   int *constant)
+			   bool *constant)
 {
     Uint n = db_is_variable(t);
 
@@ -4613,7 +4613,7 @@ static DMCRet dmc_variable(DMCContext *context,
     ++context->stack_used;
     if (context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
-    *constant = 0;
+    *constant = false;
     return retOk;
 }
 
@@ -4621,7 +4621,7 @@ static DMCRet dmc_all_bindings(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+			       bool *constant)
 {
     int i;
 
@@ -4636,7 +4636,7 @@ static DMCRet dmc_all_bindings(DMCContext *context,
     ++context->stack_used;
     if ((context->stack_used + 1) > context->stack_need)
 	context->stack_need = (context->stack_used + 1);
-    *constant = 0;
+    *constant = false;
     return retOk;
 }
 
@@ -4644,13 +4644,13 @@ static DMCRet dmc_const(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant)
+                       bool *constant)
 {
     if (tuple_val(t)[0] != make_arityval(2)) {
 	RETURN_TERM_ERROR("Special form 'const' called with more than one "
 			  "argument in %T.", t, context, *constant);
     }
-    *constant = 1;
+    *constant = true;
     return retOk;
 }
 
@@ -4658,19 +4658,19 @@ static DMCRet dmc_and(DMCContext *context,
 		      DMCHeap *heap,
 		      DMC_STACK_TYPE(UWord) *text,
 		      Eterm t,
-		      int *constant)
+                      bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
     int i;
-    int c;
+    bool c;
     
     if (a < 2) {
 	RETURN_TERM_ERROR("Special form 'and' called without arguments "
 			  "in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     for (i = a; i > 1; --i) {
 	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
 	    return ret;
@@ -4687,19 +4687,19 @@ static DMCRet dmc_or(DMCContext *context,
 		     DMCHeap *heap,
 		     DMC_STACK_TYPE(UWord) *text,
 		     Eterm t,
-		     int *constant)
+                     bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
     int i;
-    int c;
+    bool c;
     
     if (a < 2) {
 	RETURN_TERM_ERROR("Special form 'or' called without arguments "
 			  "in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     for (i = a; i > 1; --i) {
 	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
 	    return ret;
@@ -4717,13 +4717,13 @@ static DMCRet dmc_andalso(DMCContext *context,
 			  DMCHeap *heap,
 			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
-			  int *constant)
+                          bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
     int i;
-    int c;
+    bool c;
     Uint lbl;
     Uint lbl_next;
     Uint lbl_val;
@@ -4733,7 +4733,7 @@ static DMCRet dmc_andalso(DMCContext *context,
 			  " arguments "
 			  "in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     lbl = 0;
     for (i = 2; i <= a; ++i) {
 	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
@@ -4766,13 +4766,13 @@ static DMCRet dmc_orelse(DMCContext *context,
 			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
 			 Eterm t,
-			 int *constant)
+                         bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
     int i;
-    int c;
+    bool c;
     Uint lbl;
     Uint lbl_next;
     Uint lbl_val;
@@ -4781,7 +4781,7 @@ static DMCRet dmc_orelse(DMCContext *context,
 	RETURN_TERM_ERROR("Special form 'orelse' called without arguments "
 			  "in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     lbl = 0;
     for (i = 2; i <= a; ++i) {
 	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
@@ -4814,11 +4814,11 @@ static DMCRet dmc_message(DMCContext *context,
 			  DMCHeap *heap,
 			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
-			  int *constant)
+                          bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
-    int c;
+    bool c;
     
 
     if (!(context->cflags & DCOMP_TRACE)) {
@@ -4837,7 +4837,7 @@ static DMCRet dmc_message(DMCContext *context,
 			  "number of arguments in %T.", t, context, 
 			  *constant);
     }
-    *constant = 0;
+    *constant = false;
     if ((ret = dmc_expr(context, heap, text, p[2], &c)) != retOk) {
 	return ret;
     }
@@ -4855,7 +4855,7 @@ static DMCRet dmc_self(DMCContext *context,
 		     DMCHeap *heap,
 		     DMC_STACK_TYPE(UWord) *text,
 		     Eterm t,
-		     int *constant)
+                     bool *constant)
 {
     Eterm *p = tuple_val(t);
     
@@ -4863,7 +4863,7 @@ static DMCRet dmc_self(DMCContext *context,
 	RETURN_TERM_ERROR("Special form 'self' called with arguments "
 			  "in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchSelf);
     if (++context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
@@ -4874,7 +4874,7 @@ static DMCRet dmc_return_trace(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+			       bool *constant)
 {
     Eterm *p = tuple_val(t);
     
@@ -4892,7 +4892,7 @@ static DMCRet dmc_return_trace(DMCContext *context,
 	RETURN_TERM_ERROR("Special form 'return_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchSetReturnTrace); /* Pushes 'true' on the stack */
     if (++context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
@@ -4903,7 +4903,7 @@ static DMCRet dmc_exception_trace(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+                               bool *constant)
 {
     Eterm *p = tuple_val(t);
     
@@ -4921,55 +4921,56 @@ static DMCRet dmc_exception_trace(DMCContext *context,
 	RETURN_TERM_ERROR("Special form 'exception_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchSetExceptionTrace); /* Pushes 'true' on the stack */
     if (++context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
     return retOk;
 }
 
-static int check_trace(const char* op,
+static bool check_trace(const char* op,
                        DMCContext *context,
-                       int *constant,
+                       bool *constant,
                        int need_cflags,
-                       int allow_in_guard,
+                       bool allow_in_guard,
                        DMCRet* retp)
 {
     if (!(context->cflags & DCOMP_TRACE)) {
 	*retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
                                "used in wrong dialect.", op);
-        return 0;
+        return false;
     }
     if ((context->cflags & need_cflags) != need_cflags) {
         *retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
                                "not allow for this trace event.", op);
-        return 0;
+        return false;
     }
     if (context->is_guard && !allow_in_guard) {
         *retp = RETURN_ERROR_X(-1, context, *constant, "Special form '%s' "
                                "called in guard context.", op);
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 static DMCRet dmc_is_seq_trace(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+                               bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
     
-    if (!check_trace("is_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 1, &ret))
+    if (!check_trace("is_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     true, &ret))
         return ret;
 
     if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'is_seq_trace' called with "
 			  "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchIsSeqTrace); 
     /* Pushes 'true' or 'false' on the stack */
     if (++context->stack_used > context->stack_need)
@@ -4981,13 +4982,14 @@ static DMCRet dmc_set_seq_token(DMCContext *context,
 				DMCHeap *heap,
 				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
-				int *constant)
+                                bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
-    int c;
+    bool c;
     
-    if (!check_trace("set_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("set_seq_trace", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     if (p[0] != make_arityval(3)) {
@@ -4995,7 +4997,7 @@ static DMCRet dmc_set_seq_token(DMCContext *context,
 			  "number of arguments in %T.", t, context, 
 			  *constant);
     }
-    *constant = 0;
+    *constant = false;
     if ((ret = dmc_expr(context, heap, text, p[3], &c)) != retOk) {
 	return ret;
     }
@@ -5021,12 +5023,13 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 				DMCHeap *heap,
 				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
-				int *constant)
+				bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
 
-    if (!check_trace("get_seq_token", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("get_seq_token", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     if (p[0] != make_arityval(1)) {
@@ -5035,7 +5038,7 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 			  *constant);
     }
 
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchGetSeqToken);
     if (++context->stack_used > context->stack_need)
  	context->stack_need = context->stack_used;
@@ -5048,11 +5051,11 @@ static DMCRet dmc_display(DMCContext *context,
 			  DMCHeap *heap,
 			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
-			  int *constant)
+			  bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
-    int c;
+    bool c;
     
 
     if (!(context->cflags & DCOMP_TRACE)) {
@@ -5071,7 +5074,7 @@ static DMCRet dmc_display(DMCContext *context,
 			  "number of arguments in %T.", t, context, 
 			  *constant);
     }
-    *constant = 0;
+    *constant = false;
     if ((ret = dmc_expr(context, heap, text, p[2], &c)) != retOk) {
 	return ret;
     }
@@ -5087,19 +5090,20 @@ static DMCRet dmc_process_dump(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+			       bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
 
-    if (!check_trace("process_dump", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("process_dump", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     if (p[0] != make_arityval(1)) {
 	RETURN_TERM_ERROR("Special form 'process_dump' called with "
 			  "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchProcessDump); /* Creates binary */
     if (++context->stack_used > context->stack_need)
 	context->stack_need = context->stack_used;
@@ -5110,19 +5114,20 @@ static DMCRet dmc_enable_trace(DMCContext *context,
 			       DMCHeap *heap,
 			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
-			       int *constant)
+			       bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
-    int c;
+    bool c;
     
-    if (!check_trace("enable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("enable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     switch (a) {
     case 2:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[2], &c)) != retOk) {
 	    return ret;
 	}
@@ -5133,7 +5138,7 @@ static DMCRet dmc_enable_trace(DMCContext *context,
 	/* Push as much as we remove, stack_need is untouched */
 	break;
     case 3:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[3], &c)) != retOk) {
 	    return ret;
 	}
@@ -5161,19 +5166,20 @@ static DMCRet dmc_disable_trace(DMCContext *context,
 				DMCHeap *heap,
 				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
-				int *constant)
+				bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
-    int c;
+    bool c;
 
-    if (!check_trace("disable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("disable_trace", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     switch (a) {
     case 2:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[2], &c)) != retOk) {
 	    return ret;
 	}
@@ -5184,7 +5190,7 @@ static DMCRet dmc_disable_trace(DMCContext *context,
 	/* Push as much as we remove, stack_need is untouched */
 	break;
     case 3:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[3], &c)) != retOk) {
 	    return ret;
 	}
@@ -5212,19 +5218,20 @@ static DMCRet dmc_trace(DMCContext *context,
 			DMCHeap *heap,
 			DMC_STACK_TYPE(UWord) *text,
 			Eterm t,
-			int *constant)
+			bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
     DMCRet ret;
-    int c;
+    bool c;
     
-    if (!check_trace("trace", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("trace", context, constant, DCOMP_ALLOW_TRACE_OPS,
+                     false, &ret))
         return ret;
 
     switch (a) {
     case 3:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[3], &c)) != retOk) {
 	    return ret;
 	}
@@ -5241,7 +5248,7 @@ static DMCRet dmc_trace(DMCContext *context,
 	--context->stack_used; /* Remove two and add one */
 	break;
     case 4:
-	*constant = 0;
+	*constant = false;
 	if ((ret = dmc_expr(context, heap, text, p[4], &c)) != retOk) {
 	    return ret;
 	}
@@ -5277,20 +5284,20 @@ static DMCRet dmc_caller(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
  			 Eterm t,
- 			 int *constant)
+			 bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
      
     if (!check_trace("caller", context, constant,
-                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), false, &ret))
         return ret;
   
     if (p[0] != make_arityval(1)) {
  	RETURN_TERM_ERROR("Special form 'caller' called with "
  			  "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchCaller); /* Creates binary */
     if (++context->stack_used > context->stack_need)
  	context->stack_need = context->stack_used;
@@ -5301,20 +5308,20 @@ static DMCRet dmc_caller_line(DMCContext *context,
                          DMCHeap *heap,
                          DMC_STACK_TYPE(UWord) *text,
                          Eterm t,
-                         int *constant)
+                         bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
 
     if (!check_trace("caller_line", context, constant,
-                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), false, &ret))
         return ret;
 
     if (p[0] != make_arityval(1)) {
         RETURN_TERM_ERROR("Special form 'caller_line' called with "
                           "arguments in %T.", t, context, *constant);
     }
-    *constant = 0;
+    *constant = false;
     DMC_PUSH(*text, matchCallerLine); /* Creates binary */
     if (++context->stack_used > context->stack_need)
         context->stack_need = context->stack_used;
@@ -5325,7 +5332,7 @@ static DMCRet dmc_current_stacktrace(DMCContext *context,
                                     DMCHeap *heap,
                                     DMC_STACK_TYPE(UWord) *text,
                                     Eterm t,
-                                    int *constant)
+                                    bool *constant)
 {
     const Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
@@ -5333,17 +5340,17 @@ static DMCRet dmc_current_stacktrace(DMCContext *context,
     int depth;
 
     if (!check_trace("current_stacktrace", context, constant,
-                    (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+                    (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), false, &ret))
         return ret;
 
     switch (a) {
     case 1:
-        *constant = 0;
+        *constant = false;
         do_emit_constant(context, text, make_small(erts_backtrace_depth));
         DMC_PUSH(*text, matchCurrentStacktrace);
         break;
     case 2:
-        *constant = 0;
+        *constant = false;
 
         if (!is_small(p[2])) {
             RETURN_ERROR("Special form 'current_stacktrace' called with non "
@@ -5376,13 +5383,13 @@ static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
  			 Eterm t,
- 			 int *constant)
+			 bool *constant)
 {
     Eterm *p = tuple_val(t);
     DMCRet ret;
-    int c;
+    bool c;
      
-    if (!check_trace("silent", context, constant, DCOMP_ALLOW_TRACE_OPS, 0, &ret))
+    if (!check_trace("silent", context, constant, DCOMP_ALLOW_TRACE_OPS, false, &ret))
         return ret;
   
     if (p[0] != make_arityval(2)) {
@@ -5390,7 +5397,7 @@ static DMCRet dmc_silent(DMCContext *context,
 			  "number of arguments in %T.", t, context, 
 			  *constant);
     }
-    *constant = 0;
+    *constant = false;
     if ((ret = dmc_expr(context, heap, text, p[2], &c)) != retOk) {
 	return ret;
     }
@@ -5410,11 +5417,11 @@ static DMCRet dmc_fun(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant)
+                       bool *constant)
 {
     Eterm *p = tuple_val(t);
     Uint a = arityval(*p);
-    int c;
+    bool c;
     int i;
     DMCRet ret;
     DMCGuardBif *b;
@@ -5506,7 +5513,7 @@ static DMCRet dmc_fun(DMCContext *context,
 	}
     }	
 
-    *constant = 0;
+    *constant = false;
 
     for (i = a; i > 1; --i) {
 	if ((ret = dmc_expr(context, heap, text, p[i], &c)) != retOk)
@@ -5542,7 +5549,7 @@ static DMCRet dmc_expr(DMCContext *context,
 		       DMCHeap *heap,
 		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
-		       int *constant)
+                       bool *constant)
 {
     DMCRet ret;
     Eterm tmp;
@@ -5603,7 +5610,7 @@ static DMCRet dmc_expr(DMCContext *context,
 	/* Fall through */
     default:
     simple_term:
-	*constant = 1;
+	*constant = true;
     }
     return retOk;
 }
@@ -5615,7 +5622,7 @@ static DMCRet compile_guard_expr(DMCContext *context,
 				 Eterm l)
 {
     DMCRet ret;
-    int constant;
+    bool constant;
     Eterm t;
 
     if (l != NIL) {
@@ -5626,7 +5633,7 @@ static DMCRet compile_guard_expr(DMCContext *context,
 	    DMC_PUSH(*text, matchCatch);
 	}
 	while (is_list(l)) {
-	    constant = 0;
+	    constant = false;
 	    t = CAR(list_val(l));
 	    if ((ret = dmc_expr(context, heap, text, t, &constant)) !=
 		retOk)
@@ -5784,14 +5791,14 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 /*
  ** Simple size object that takes care of function calls and constant tuples
  */
-static Uint my_size_object(Eterm t, int is_hashmap_node)
+static Uint my_size_object(Eterm t, bool is_hashmap_node)
 {
     Uint sum = 0;
     Eterm *p;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	sum += 2 + my_size_object(CAR(list_val(t)), 0) +
-	    my_size_object(CDR(list_val(t)), 0);
+	sum += 2 + my_size_object(CAR(list_val(t)), false) +
+	    my_size_object(CDR(list_val(t)), false);
 	break;
     case TAG_PRIMARY_BOXED:
         if (is_tuple(t)) {
@@ -5816,7 +5823,7 @@ static Uint my_size_object(Eterm t, int is_hashmap_node)
             n = arityval(tpl[0]);
             sum += 1 + n;
             for (i = 1; i <= n; ++i)
-                sum += my_size_object(tpl[i], 0);
+                sum += my_size_object(tpl[i], false);
             break;
         } else if (is_map(t)) {
             if (is_flatmap(t)) {
@@ -5829,7 +5836,7 @@ static Uint my_size_object(Eterm t, int is_hashmap_node)
                 n = arityval(p[0]);
                 sum += 1 + n;
                 for (int i = 1; i <= n; ++i)
-                    sum += my_size_object(p[i], 0);
+                    sum += my_size_object(p[i], false);
 
                 /* Calculate size of values */
                 p = (Eterm *)mp;
@@ -5837,7 +5844,7 @@ static Uint my_size_object(Eterm t, int is_hashmap_node)
                 sum += n + 3;
                 p += 3; /* hdr + size + keys words */
                 while (n--) {
-                    sum += my_size_object(*p++, 0);
+                    sum += my_size_object(*p++, false);
                 }
             } else {
                 Eterm *head = (Eterm *)hashmap_val(t);
@@ -5849,7 +5856,7 @@ static Uint my_size_object(Eterm t, int is_hashmap_node)
                 head += 1 + header_arity(hdr);
 
                 while(sz-- > 0) {
-                    sum += my_size_object(head[sz], 1);
+                    sum += my_size_object(head[sz], true);
                 }
             }
             break;
@@ -5863,15 +5870,15 @@ static Uint my_size_object(Eterm t, int is_hashmap_node)
 }
 
 static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
-                            int is_hashmap_node)
+                            bool is_hashmap_node)
 {
     Eterm ret = NIL, a, b;
     Eterm *p;
     Uint sz;
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
-	a = my_copy_struct(CAR(list_val(t)), hp, off_heap, 0);
-	b = my_copy_struct(CDR(list_val(t)), hp, off_heap, 0);
+	a = my_copy_struct(CAR(list_val(t)), hp, off_heap, false);
+	b = my_copy_struct(CDR(list_val(t)), hp, off_heap, false);
 	ret = CONS(*hp, a, b);
 	*hp += 2;
 	break;
@@ -5907,7 +5914,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                 *hp += n + 1;
                 *savep++ = tpl[0];
                 for(i = 1; i <= n; ++i)
-                    *savep++ = my_copy_struct(tpl[i], hp, off_heap, 0);
+                    *savep++ = my_copy_struct(tpl[i], hp, off_heap, false);
             }
 
         } else if (is_map(t)) {
@@ -5930,7 +5937,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                     *hp += n + 1;
                     *savep++ = make_arityval(n);
                     for(i = 1; i <= n; ++i)
-                        *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
+                        *savep++ = my_copy_struct(p[i], hp, off_heap, false);
                 }
                 savep = *hp;
                 ret = make_flatmap(savep);
@@ -5942,7 +5949,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                 *savep++ = keys;
                 p += 3; /* hdr + size + keys words */
                 for (i = 0; i < n; i++)
-                    *savep++ = my_copy_struct(p[i], hp, off_heap, 0);
+                    *savep++ = my_copy_struct(p[i], hp, off_heap, false);
                 erts_usort_flatmap((flatmap_t*)flatmap_val(ret));
             } else {
                 Eterm *head = hashmap_val(t);
@@ -5959,7 +5966,7 @@ static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap,
                     *savep++ = *head++;  /* map size */
 
                 for (int i = 0; i < sz; i++) {
-                    *savep++ = my_copy_struct(head[i],hp,off_heap, 1);
+                    *savep++ = my_copy_struct(head[i],hp,off_heap, true);
                 }
             }
 	} else {
@@ -6001,12 +6008,12 @@ BIF_RETTYPE match_spec_test_3(BIF_ALIST_3)
     } else
 #endif
     if (BIF_ARG_3 == am_trace) {
-	res = match_spec_test(BIF_P, BIF_ARG_1, BIF_ARG_2, 1);
+	res = match_spec_test(BIF_P, BIF_ARG_1, BIF_ARG_2, true);
 	if (is_value(res)) {
 	    BIF_RET(res);
 	}
     } else if (BIF_ARG_3 == am_table) {
-	res = match_spec_test(BIF_P, BIF_ARG_1, BIF_ARG_2, 0);
+	res = match_spec_test(BIF_P, BIF_ARG_1, BIF_ARG_2, false);
 	if (is_value(res)) {
 	    BIF_RET(res);
 	}
@@ -6014,7 +6021,7 @@ BIF_RETTYPE match_spec_test_3(BIF_ALIST_3)
     BIF_ERROR(BIF_P, BADARG);
 }
 
-static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
+static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, bool trace)
 {
     Eterm lint_res;
     Binary *mps;
@@ -6183,7 +6190,7 @@ void db_match_dis(Binary *bp)
     UWord *t = prog->text;
     Uint n;
     Eterm p;
-    int first;
+    bool first;
     ErlHeapFragment *tmp;
 
     while (t < prog->prog_end) {
@@ -6290,10 +6297,10 @@ void db_match_dis(Binary *bp)
 		}
 
 		erts_printf("EqRef\t(%d) {", (int) ERTS_REF_NUMBERS);
-		first = 1;
+		first = true;
 		for (ri = 0; ri < ERTS_REF_NUMBERS; ++ri) {
 		    if (first)
-			first = 0;
+			first = false;
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64)
@@ -6312,11 +6319,11 @@ void db_match_dis(Binary *bp)
 		Eterm *et = (Eterm *) t;
 		t += n+1;
 		erts_printf("EqBig\t(%d) {", (int) n);
-		first = 1;
+		first = true;
 		++n;
 		while (n--) {
 		    if (first)
-			first = 0;
+			first = false;
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64)
@@ -6554,10 +6561,10 @@ void db_match_dis(Binary *bp)
 	}
     }
     erts_printf("\n\nterm_save: {");
-    first = 1;
+    first = true;
     for (tmp = prog->term_save; tmp; tmp = tmp->next) {
 	if (first)
-	    first = 0;
+	    first = false;
 	else
 	    erts_printf(", ");
 	erts_printf("%p", tmp);

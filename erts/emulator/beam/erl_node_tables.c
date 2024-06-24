@@ -2176,7 +2176,7 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_table(insert_ets_table, NULL, false);
     erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */

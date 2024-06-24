@@ -1279,8 +1279,8 @@ early_init(int *argc, char **argv) /*
     /* Creates threads on Windows that depend on the arguments, so has to be after erl_sys_args */
     erl_sys_init();
 
-    erts_ets_realloc_always_moves = 0;
-    erts_ets_always_compress = 0;
+    erts_ets_realloc_always_moves = false;
+    erts_ets_always_compress = false;
     erts_dist_buf_busy_limit = ERTS_DE_BUSY_LIMIT;
 
     return ncpu;
@@ -1649,7 +1649,7 @@ erl_start(int argc, char **argv)
 
 	case 'e':
 	    if (sys_strcmp("c", argv[i]+2) == 0) {
-		erts_ets_always_compress = 1;
+		erts_ets_always_compress = true;
 	    }
 	    else {
 		/* set maximum number of ets tables */
@@ -2244,7 +2244,7 @@ erl_start(int argc, char **argv)
 		/* already handled */
 	    }
 	    else {
-		erts_ets_realloc_always_moves = 1;
+		erts_ets_realloc_always_moves = true;
 	    }
 	    break;
 	}
