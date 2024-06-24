@@ -1349,17 +1349,32 @@ end
 
     <func>
       <name name="start" arity="0" since=""/>
-      <fsummary> Equivalent to application:start(crypto). </fsummary>
+      <fsummary>Use application:start(crypto) instead</fsummary>
       <desc>
-        <p> Equivalent to application:start(crypto).</p>
+        <p>
+	  Use <seemfa marker="kernel:application#start/1">
+          application:start(crypto)</seemfa> instead.
+        </p>
+	<warning>
+	  <p>
+	    This function does not work if FIPS mode is to be enabled. FIPS
+	    mode will be disabled even if configuration parameter
+	    <c>fips_mode</c> is set to <c>true</c>. Use
+	    <seemfa marker="kernel:application#start/1">
+            application:start(crypto)</seemfa> instead.
+          </p>
+        </warning>
       </desc>
     </func>
 
     <func>
       <name name="stop" arity="0" since=""/>
-      <fsummary> Equivalent to application:stop(crypto).</fsummary>
+      <fsummary>Use application:stop(crypto) instead.</fsummary>
       <desc>
-        <p> Equivalent to application:stop(crypto).</p>
+        <p>
+	  Use <seemfa marker="kernel:application#stop/1">
+          application:stop(crypto)</seemfa> instead.
+        </p>
       </desc>
     </func>
 
