@@ -8009,7 +8009,10 @@ erts_schedulers_state(Uint *total,
 {
     if (active || online || dirty_cpu_online
 	|| dirty_cpu_active || dirty_io_active) {
-	erts_mtx_lock(&schdlr_sspnd.mtx);
+        const int lock = !ERTS_IS_CRASH_DUMPING;
+        if (lock) {
+            erts_mtx_lock(&schdlr_sspnd.mtx);
+        }
 	if (active)
 	    *active = schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
 					       ERTS_SCHED_NORMAL);
@@ -8025,7 +8028,9 @@ erts_schedulers_state(Uint *total,
 	if (dirty_io_active)
 	    *dirty_io_active = schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
 							ERTS_SCHED_DIRTY_IO);
-	erts_mtx_unlock(&schdlr_sspnd.mtx);
+        if (lock) {
+            erts_mtx_unlock(&schdlr_sspnd.mtx);
+        }
     }
 
     if (total)
