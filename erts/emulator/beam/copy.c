@@ -120,11 +120,14 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                     goto pop_next;
                 }
                 hdr = *ptr;
-		ASSERT(is_header(hdr));
-		switch (hdr & _TAG_HEADER_MASK) {
-		case ARITYVAL_SUBTAG:
-		    arity = header_arity(hdr);
-		    if (arity == 0) { /* Empty tuple -- unusual. */
+                ASSERT(is_header(hdr));
+                switch (hdr & _TAG_HEADER_MASK) {
+                case ARITYVAL_SUBTAG:
+                case STRUCT_SUBTAG:
+                    /* Struct or tuple */
+                    arity = header_arity(hdr);
+                    ASSERT(arity > 0 || !is_struct_header(hdr));
+                    if (arity == 0) { /* Empty tuple -- unusual. */
                         ASSERT(!litopt &&
                                erts_is_literal(obj,ptr) &&
                                obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
@@ -135,7 +138,7 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                         */
 			goto pop_next;
 		    }
-                    ptr = tuple_val(obj);
+                    ptr = boxed_val(obj);
                     sum += arity + 1;
 		    while (arity-- > 1) {
 			obj = *++ptr;
@@ -377,11 +380,14 @@ Uint size_shared(Eterm obj)
 	    *ptr = (hdr - primary_tag(hdr)) + BOXED_VISITED;
 	    /* and count it */
 	    ASSERT(is_header(hdr));
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG: {
-		int arity = header_arity(hdr);
-		sum += arity + 1;
-		if (arity == 0) { /* Empty tuple -- unusual. */
+            switch (hdr & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG: {
+                /* Struct or tuple */
+                int arity = header_arity(hdr);
+                sum += arity + 1;
+                ASSERT(arity > 0 || !is_struct_header(hdr));
+                if (arity == 0) { /* Empty tuple -- unusual. */
                     ASSERT(COUNT_OFF_HEAP &&
                            erts_is_literal(obj,ptr) &&
                            obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
@@ -537,10 +543,13 @@ cleanup:
 		*ptr = hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
 	    }
 	    /* and its children too */
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG: {
-		int arity = header_arity(hdr);
-		if (arity == 0) { /* Empty tuple -- unusual. */
+            switch (hdr & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG: {
+                /* Struct or tuple */
+                int arity = header_arity(hdr);
+                ASSERT(arity > 0 || !is_struct_header(hdr));
+                if (arity == 0) { /* Empty tuple -- unusual. */
                     ASSERT(COUNT_OFF_HEAP &&
                            erts_is_literal(obj,ptr) &&
                            obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
@@ -788,6 +797,19 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    }
 		}
 		break;
+            case STRUCT_SUBTAG:
+                {
+                    i = header_arity(hdr);
+                    *argp = make_struct(htop);
+                    tp = htop;	/* tp is pointer to new arity value */
+                    *htop++ = *objp++; /* copy arity value */
+
+                    while (i--) {
+                        elem = *objp++;
+                        *htop++ = elem;
+                    }
+                }
+                break;
             case SUB_BITS_SUBTAG:
                 {
                     ErlSubBits *from_sb = (ErlSubBits*)objp;
@@ -1216,9 +1238,11 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 	    *ptr = (hdr - primary_tag(hdr)) + BOXED_VISITED;
 	    /* and count it */
 	    ASSERT(is_header(hdr));
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG: {
-		int arity = header_arity(hdr);
+            switch (hdr & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG: {
+                /* Struct or tuple */
+                int arity = header_arity(hdr);
                 /* arity cannot be 0 as the empty tuple is always a
                    global constant literal which is handled above */
                 ASSERT(arity != 0);
@@ -1540,9 +1564,12 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 		break;
 	    }
 	    /* and its children too */
-	    switch (hdr & _TAG_HEADER_MASK) {
-	    case ARITYVAL_SUBTAG: {
-		int arity = header_arity(hdr);
+            switch (hdr & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG: {
+                /* Struct or tuple */
+                int arity = header_arity(hdr);
+                ASSERT(arity > 0 || !is_struct_header(hdr));
 		*resp = make_boxed(hp);
 		*hp++ = hdr;
 		while (arity-- > 0) {
@@ -1753,8 +1780,9 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 			hscan += 2;
 			break; /* scanning loop */
 		    } else if (primary_tag(*hscan) == TAG_PRIMARY_HEADER) {
-			switch (*hscan & _TAG_HEADER_MASK) {
-			case ARITYVAL_SUBTAG:
+                        switch (*hscan & _TAG_HEADER_MASK) {
+                        case ARITYVAL_SUBTAG:
+                        case STRUCT_SUBTAG:
 			    remaining = header_arity(*hscan);
 			    hscan++;
 			    break;
@@ -1936,9 +1964,10 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
-	    switch (val & _HEADER_SUBTAG_MASK) {
-	    case ARITYVAL_SUBTAG:
-		break;
+            switch (val & _TAG_HEADER_MASK) {
+            case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG:
+                break;
             case SUB_BITS_SUBTAG:
                 {
                     const ErlSubBits *sb = (ErlSubBits*)(&tp[-1]);

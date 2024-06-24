@@ -44,6 +44,7 @@
 #include "dtrace-wrapper.h"
 #include "erl_proc_sig_queue.h"
 #include "beam_common.h"
+#include "erl_struct.h"
 
 /* #define HARDDEBUG 1 */
 

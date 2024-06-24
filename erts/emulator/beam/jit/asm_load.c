@@ -32,6 +32,7 @@
 #include "erl_version.h"
 #include "beam_bp.h"
 #include "erl_debugger.h"
+#include "erl_struct.h"
 
 #include "beam_asm.h"
 
@@ -1057,6 +1058,22 @@ int beam_load_finish_emit(LoaderState *stp) {
         /* Ensure deallocation of literals in case the prepared code is
          * deallocated (without calling erlang:finish_loading/1). */
         (stp->load_hdr)->literal_area = literal_area;
+    }
+
+    {
+        BeamFile_RecordTable rec = stp->beam.record;
+        ErtsStructEntry *entry;
+
+        for (int i = 0; i < rec.record_count; i++) {
+            Eterm def = beamfile_get_literal(&stp->beam,
+                                             rec.records[i].def_literal);
+            ErtsStructDefinition *defp = (ErtsStructDefinition *)boxed_val(def);
+            entry = erts_struct_put(stp->module, rec.records[i].name);
+
+            entry->definitions[erts_staging_code_ix()] = def;
+
+            defp->entry = make_small((Uint)entry);
+        }
     }
 
     /* Line information must be added after moving literals, since source file

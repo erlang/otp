@@ -396,8 +396,7 @@ bad_decls(Config) ->
 	   <<"\n-record(A, {{bad,a}}).
              ">>,
 	   [],
-           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
-            []}
+           {error,[{{2,9},erl_parse,["syntax error before: ","A"]}],[]}
            },
           {bad_decls_11,
 	   <<"\n-record(a, [a,b,c,d]).
@@ -409,8 +408,7 @@ bad_decls(Config) ->
 	   <<"\n-record(a).
              ">>,
 	   [],
-           {error,[{{2,9},erl_parse,"bad " ++ ["record"] ++ " declaration"}],
-            []}
+           {error,[{{2,10},erl_parse,["syntax error before: ","')'"]}],[]}
            }
           ],
     [] = run2(Config, Ts),

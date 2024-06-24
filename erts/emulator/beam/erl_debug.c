@@ -172,9 +172,12 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 	}
 	erts_putc(to, to_arg, ']');
 	break;
+    case STRUCT_DEF:
+        /* FIXME: placeholder. */
+        erts_putc(to, to_arg, '%');
     case TUPLE_DEF:
-	nobj = tuple_val(obj);	/* pointer to arity */
-	i = arityval(*nobj);	/* arity */
+        nobj = boxed_val(obj);      /* pointer to arity */
+        i = header_arity(*nobj);    /* arity */
 	erts_putc(to, to_arg, '{');
 	while (i--) {
 	    if (pdisplay1(to, to_arg, p, *++nobj) != 0) return(1);

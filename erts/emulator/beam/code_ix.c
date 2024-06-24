@@ -27,6 +27,7 @@
 #include "code_ix.h"
 #include "global.h"
 #include "beam_catches.h"
+#include "erl_struct.h"
 
 
 
@@ -104,6 +105,7 @@ void erts_start_staging_code_ix(int num_new)
     beam_catches_start_staging();
     erts_fun_start_staging();
     export_start_staging();
+    erts_struct_start_staging();
     module_start_staging();
     erts_start_staging_ranges(num_new);
     CIX_TRACE("start");
@@ -114,6 +116,7 @@ void erts_end_staging_code_ix(void)
     beam_catches_end_staging(1);
     erts_fun_end_staging(1);
     export_end_staging(1);
+    erts_struct_end_staging(1);
     module_end_staging(1);
     erts_end_staging_ranges(1);
     CIX_TRACE("end");
@@ -131,12 +134,17 @@ void erts_commit_staging_code_ix(void)
 
     export_staged_write_lock();
     fun_staged_write_lock();
+
+    /* FIXME: use erl_code_staged.h for structs */
+    erts_struct_staging_lock();
     {
         ix = erts_staging_code_ix();
         erts_atomic32_set_nob(&the_active_code_index, ix);
         ix = (ix + 1) % ERTS_NUM_CODE_IX;
         erts_atomic32_set_nob(&the_staging_code_index, ix);
     }
+    erts_struct_staging_unlock();
+
     fun_staged_write_unlock();
     export_staged_write_unlock();
 
@@ -149,6 +157,7 @@ void erts_abort_staging_code_ix(void)
     beam_catches_end_staging(0);
     erts_fun_end_staging(0);
     export_end_staging(0);
+    erts_struct_end_staging(0);
     module_end_staging(0);
     erts_end_staging_ranges(0);
     CIX_TRACE("abort");

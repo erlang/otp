@@ -542,6 +542,9 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
             get_map_element ->
                 [Map,_Key] = Args,
                 {aa_map_extraction(Dst, Map, SS0, AAS0), AAS0};
+            get_record_element ->
+                [Str, _Key] = Args,
+                {aa_struct_extraction(Dst, Str, SS0, AAS0), AAS0};
             get_tl ->
                 [Arg] = Args,
                 Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
@@ -566,6 +569,8 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
                 {aa_construct_pair(Dst, Args, Types, SS1, AAS0), AAS0};
             put_map ->
+                {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
+            put_record ->
                 {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
             put_tuple ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
@@ -620,6 +625,8 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
             has_map_field ->
                 {SS0, AAS0};
             is_nonempty_list ->
+                {SS0, AAS0};
+            is_record_accessible ->
                 {SS0, AAS0};
             is_tagged_tuple ->
                 {SS0, AAS0};
@@ -1375,6 +1382,11 @@ aa_map_extraction(Dst, Map, SS, AAS) ->
     aa_derive_from(
       Dst, Map,
       aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Map, SS, AAS)).
+
+aa_struct_extraction(Dst, Str, SS, AAS) ->
+    aa_derive_from(
+        Dst, Str,
+        aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Str, SS, AAS)).
 
 %% Extracting elements from a tuple.
 aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->

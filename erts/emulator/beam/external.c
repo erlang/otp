@@ -3716,9 +3716,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    }
 	    break;
 
+        case STRUCT_DEF:
 	case TUPLE_DEF:
 	    ptr = tuple_val(obj);
-	    i = arityval(*ptr);
+	    i = header_arity(*ptr);
 	    ptr++;
 	    if (i <= 0xff) {
 		*ep++ = SMALL_TUPLE_EXT;
@@ -5517,10 +5518,11 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    }
 	    break;
 	}
+        case STRUCT_DEF:
 	case TUPLE_DEF:
 	    {
-		Eterm* ptr = tuple_val(obj);
-		arity = arityval(*ptr);
+		Eterm* ptr = boxed_val(obj);
+		arity = header_arity(*ptr);
 		if (arity <= 0xff) {
 		    result += 1 + 1;
 		} else {

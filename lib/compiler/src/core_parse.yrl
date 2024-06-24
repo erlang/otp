@@ -52,6 +52,8 @@ variable clause clause_pattern
 map_expr anno_map_expr map_pairs anno_map_pair map_pair map_pair_assoc map_pair_exact
 map_pattern map_pair_patterns map_pair_pattern
 
+struct_pattern struct_pair_patterns struct_pair_pattern
+
 annotation anno_atom anno_fun anno_expression anno_expressions
 anno_variable anno_variables anno_pattern anno_patterns
 anno_function_name
@@ -186,6 +188,7 @@ anno_patterns -> anno_pattern : ['$1'].
 other_pattern -> atomic_pattern : '$1'.
 other_pattern -> tuple_pattern : '$1'.
 other_pattern -> map_pattern : '$1'.
+other_pattern -> struct_pattern : '$1'.
 other_pattern -> cons_pattern : '$1'.
 other_pattern -> binary_pattern : '$1'.
 other_pattern -> anno_variable '=' anno_pattern :
@@ -211,6 +214,25 @@ map_pair_pattern -> anno_expression ':=' anno_pattern :
 map_pair_pattern -> '(' anno_expression ':=' anno_pattern '-|' annotation ')' :
 			#c_map_pair{anno='$6',op=#c_literal{val=exact},
 				    key='$2',val='$4'}.
+
+struct_pattern -> '#' anno_atom ':' anno_atom '{' '}' :
+                      #c_struct{id = #c_literal{val={tok_val('$2'),tok_val('$4')}},
+                                es = []}.
+struct_pattern -> '#' anno_atom ':' anno_atom '{' struct_pair_patterns '}' :
+                      #c_struct{id = #c_literal{val={tok_val('$2'),tok_val('$4')}},
+                                es = '$6'}.
+struct_pattern -> '#' '/' '{' '}' :
+                      #c_struct{id = #c_literal{val={}}, es = []}.
+struct_pattern -> '#' '/' '{' struct_pair_patterns '}' :
+                      #c_struct{id = #c_literal{val={}}, es = '$4'}.
+
+struct_pair_patterns -> struct_pair_pattern : ['$1'].
+struct_pair_patterns -> struct_pair_pattern ',' struct_pair_patterns : ['$1' | '$3'].
+
+struct_pair_pattern -> anno_atom '=' anno_pattern :
+                           #c_struct_pair{key='$1',val='$3'}.
+struct_pair_pattern -> '(' anno_atom '=' anno_pattern '-|' annotation ')' :
+                           #c_struct_pair{anno='$6',key='$2',val='$4'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    c_cons('$2', '$3').

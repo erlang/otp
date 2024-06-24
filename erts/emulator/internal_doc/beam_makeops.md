@@ -1189,6 +1189,9 @@ an atom is written the same way as in the C source code.  For example,
 the atom `false` is written as `am_false`.  The atom must be listed in
 `atom.names`.
 
+As a special case, `a=$MODULE` will evaluate to the atom for the current
+module (the module being loaded).
+
 Here is an example showing how values can be specified:
 
     bs_put_utf32 Fail=j Flags=u Src=s =>

@@ -115,6 +115,10 @@
 -record(t_map, {super_key=any :: type(),
                 super_value=any :: type()}).
 
+-record(t_struct, {id :: {atom(), atom()},
+                   super_key=any :: type(),
+                   super_value=any :: type()}).
+
 %% `type` is the join of all list elements, and `terminator` is the tail of the
 %% last cons cell ('nil' for proper lists).
 %%

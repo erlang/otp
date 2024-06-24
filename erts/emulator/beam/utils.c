@@ -64,6 +64,7 @@
 #include "erl_unicode.h"
 #include "beam_common.h"
 #include "erl_global_literals.h"
+#include "erl_struct.h"
 
 /* *******************************
  * ** Yielding C Fun (YCF) Note **
@@ -1177,6 +1178,19 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
+            case STRUCT_SUBTAG:
+                {
+                    aa = struct_val(a);
+                    if (!is_boxed(b) || *boxed_val(b) != *aa) {
+                        goto not_equal;
+                    }
+                    bb = struct_val(b);
+                    sz = header_arity(*aa);
+                    ASSERT(sz >= 1);
+                    ++aa;
+                    ++bb;
+                    goto term_array;
+                }
             case HEAP_BITS_SUBTAG:
             case SUB_BITS_SUBTAG:
                 {
@@ -1860,6 +1874,51 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
+            case (_TAG_HEADER_STRUCT >> _TAG_PRIMARY_SIZE):
+                if (!is_struct(b)) {
+                    a_tag = STRUCT_DEF;
+                    goto mixed_types;
+                }
+
+                aa = struct_val(a);
+                bb = struct_val(b);
+
+                /* compare the definitions. */
+                {
+                    ErtsStructDefinition *def_a, *def_b;
+                    ErtsStructEntry *entry_a, *entry_b;
+                    Sint diff;
+
+                    def_a = (ErtsStructDefinition*)boxed_val(aa[1]);
+                    def_b = (ErtsStructDefinition*)boxed_val(bb[1]);
+                    entry_a = (ErtsStructEntry *)(unsigned_val(def_a->entry));
+                    entry_b = (ErtsStructEntry *)(unsigned_val(def_b->entry));
+
+                    diff = erts_cmp_atoms(entry_a->module, entry_b->module);
+                    if (diff != 0) {
+                        RETURN_NEQ(diff);
+                    }
+
+                    diff = erts_cmp_atoms(entry_a->name, entry_b->name);
+                    if (diff != 0) {
+                        RETURN_NEQ(diff);
+                    }
+                }
+
+                /* compare the arities */
+                i = header_arity(ahdr);
+                if (i != header_arity(*bb)) {
+                    RETURN_NEQ(((Sint)i) - (Sint)header_arity(*bb));
+                }
+
+                /* compare the values, if any. */
+                if (i == 1) {
+                    goto pop_next;
+                }
+
+                WSTACK_PUSH3(stack, (UWord)&aa[2], (UWord)&bb[2],
+                             OP_ARG_WORD(TERM_ARRAY_OP, i - 1));
+                goto term_array;
             case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
                     struct cmp_map_state* sp;

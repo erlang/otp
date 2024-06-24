@@ -124,7 +124,7 @@ atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
-atom badarg badarith badarity badfile badfun badkey badmap badmatch
+atom badarg badarith badarity badfield badfile badfun badkey badmap badmatch
 atom badrecord badsig
 atom badopt badtype
 atom bad_map_iterator
@@ -533,6 +533,7 @@ atom notempty_atstart
 atom notify
 atom notsup
 atom nouse_stdio
+atom novalue
 atom nul
 atom off_heap
 atom offset

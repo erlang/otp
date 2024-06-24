@@ -51,10 +51,10 @@
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
           {'ok',beam_asm:module_code()}.
 
-module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
+module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
     DebugInfo = member(beam_debug_info, Opts),
     {Asm,St} = functions(Fs, {atom,Mod}, DebugInfo),
-    {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
+    {ok,{Mod,Es,Attrs,Anno,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
                l=0 :: non_neg_integer(),   % lambdas (funs)
@@ -433,10 +433,12 @@ classify_heap_need(executable_line) -> neutral;
 classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
 classify_heap_need(get_map_element) -> neutral;
+classify_heap_need(get_record_element) -> neutral;
 classify_heap_need(get_tl) -> neutral;
 classify_heap_need(get_tuple_element) -> neutral;
 classify_heap_need(has_map_field) -> neutral;
 classify_heap_need(is_nonempty_list) -> neutral;
+classify_heap_need(is_record_accessible) -> neutral;
 classify_heap_need(is_tagged_tuple) -> neutral;
 classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
@@ -446,6 +448,7 @@ classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> neutral;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
+classify_heap_need(put_record) -> gc;
 classify_heap_need(raw_raise) -> gc;
 classify_heap_need(recv_marker_bind) -> neutral;
 classify_heap_need(recv_marker_clear) -> neutral;
@@ -733,6 +736,7 @@ need_live_anno(Op) ->
         call -> true;
         debug_line -> true;
         put_map -> true;
+        put_record -> true;
         update_record -> true;
         _ -> false
     end.
@@ -861,6 +865,7 @@ need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
 need_y_init(#cg_set{op=bs_start_match}) -> true;
 need_y_init(#cg_set{op=debug_line}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
+need_y_init(#cg_set{op=put_record}) -> true;
 need_y_init(#cg_set{op=update_record}) -> true;
 need_y_init(#cg_set{}) -> false.
 
@@ -1552,6 +1557,12 @@ cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0,anno=Anno},
     Dst = beam_arg(Dst0, St),
     Fail = ensure_label(Fail0, St),
     {[{get_map_elements,Fail,Map,{list,[Key,Dst]}}],St};
+cg_block([#cg_set{op=get_record_element,dst=Dst0,args=Args0,anno=Anno},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
+    [Str,Key] = typed_args(Args0, Anno, St),
+    Dst = beam_arg(Dst0, St),
+    Fail = ensure_label(Fail0, St),
+    {[{get_record_elements,Fail,Str,{list,[Key,Dst]}}],St};
 cg_block([#cg_set{op={float,convert},dst=Dst0,args=Args0,anno=Anno},
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {f,0} = bif_fail(Fail),                     %Assertion.
@@ -1569,6 +1580,9 @@ cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
 cg_block([#cg_set{op=bs_test_tail,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     [Ctx,{integer,Bits}] = beam_args(Args0, St),
     {[{test,bs_test_tail2,bif_fail(Fail),[Ctx,Bits]}],St};
+cg_block([#cg_set{op=is_record_accessible,dst=Bool,args=[Src0]}], {Bool,Fail}, St) ->
+    Src = beam_arg(Src0, St),
+    {[{test,is_record_accessible,ensure_label(Fail, St),[Src]}],St};
 cg_block([#cg_set{op=is_tagged_tuple,anno=Anno,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     case Anno of
         #{constraints := arity} ->
@@ -1816,6 +1830,10 @@ bif_to_test_1(is_list,     [_]=Ops, Fail) ->
     {test,is_list,Fail,Ops};
 bif_to_test_1(is_map,      [_]=Ops, Fail) ->
     {test,is_map,Fail,Ops};
+bif_to_test_1(is_record, [_]=Ops, Fail) ->
+    {test,is_any_native_record,Fail,Ops};
+bif_to_test_1(is_record, [_,_,_]=Ops, Fail) ->
+    {test,is_native_record,Fail,Ops};
 bif_to_test_1(is_number,   [_]=Ops, Fail) ->
     {test,is_number,Fail,Ops};
 bif_to_test_1(is_pid,      [_]=Ops, Fail) ->
@@ -2232,6 +2250,12 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, #cg_set{anno=Anno}=Set) ->
     Live = get_live(Set),
     [line(Anno),{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
+cg_test(put_record, Fail, [{atom,empty},Id|Ss], Dst, #cg_set{anno=Anno}=Set) ->
+    Live = get_live(Set),
+    [line(Anno),{put_record,Fail,Id,nil,Dst,Live,{list,Ss}}];
+cg_test(put_record, Fail, [Arg,Id|Ss], Dst, #cg_set{anno=Anno}=Set) ->
+    Live = get_live(Set),
+    [line(Anno),{put_record,Fail,Id,Arg,Dst,Live,{list,Ss}}];
 cg_test(set_tuple_element=Op, Fail, Args, Dst, Set) ->
     {f,0} = Fail,                               %Assertion.
     cg_instr(Op, Args, Dst, Set);
@@ -2796,6 +2820,7 @@ is_gc_bif(node, []) -> false;
 is_gc_bif(node, [_]) -> false;
 is_gc_bif(element, [_,_]) -> false;
 is_gc_bif(get, [_]) -> false;
+is_gc_bif(get_record_field, [_,_,_]) -> false;
 is_gc_bif(is_map_key, [_,_]) -> false;
 is_gc_bif(is_integer, [_,_,_]) -> false;
 is_gc_bif(map_get, [_,_]) -> false;

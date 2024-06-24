@@ -1078,6 +1078,7 @@ JIT_OBJS += \
 	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
+	$(OBJDIR)/instr_records.o \
 	$(OBJDIR)/instr_select.o \
 	$(OBJDIR)/instr_trace.o
 else
@@ -1092,6 +1093,7 @@ JIT_OBJS += \
 	$(OBJDIR)/instr_guard_bifs.o \
 	$(OBJDIR)/instr_map.o \
 	$(OBJDIR)/instr_msg.o \
+	$(OBJDIR)/instr_records.o \
 	$(OBJDIR)/instr_select.o \
 	$(OBJDIR)/instr_trace.o
 endif
@@ -1166,7 +1168,8 @@ RUN_OBJS += \
 	$(OBJDIR)/erl_bif_coverage.o \
 	$(OBJDIR)/erl_iolist.o \
 	$(OBJDIR)/erl_etp.o \
-	$(OBJDIR)/erl_internal_test.o
+	$(OBJDIR)/erl_internal_test.o \
+	$(OBJDIR)/erl_struct.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 

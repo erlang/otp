@@ -57,6 +57,7 @@
 #include "erl_global_literals.h"
 #include "erl_iolist.h"
 #include "erl_debugger.h"
+#include "erl_struct.h"
 
 #include "jit/beam_asm.h"
 
@@ -282,6 +283,7 @@ erl_init(int ncpu,
     erts_init_fun_table();
     init_atom_table();
     init_export_table();
+    erts_struct_init_table();
     init_module_table();
     init_register_table();
     init_message();

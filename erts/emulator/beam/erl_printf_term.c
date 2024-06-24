@@ -546,16 +546,19 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
 		goto L_print_one_cons;
 	    }
 	    break;
-	case TUPLE_DEF:
-	    nobj = tuple_val(wobj);	/* pointer to arity */
-	    i = arityval(*nobj);	/* arity */
-	    PRINT_CHAR(res, fn, arg, '{');
-	    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
-	    ++nobj;
-	    if (i > 0) {
-		WSTACK_PUSH2(s, (UWord) nobj, PRT_LAST_ARRAY_ELEMENT+i-1);
-	    }
-	    break;
+        case STRUCT_DEF:
+            /* FIXME: placeholder. */
+            PRINT_CHAR(res, fn, arg, '%');
+        case TUPLE_DEF:
+            nobj = boxed_val(wobj);     /* pointer to arity */
+            i = header_arity(*nobj);    /* arity */
+            PRINT_CHAR(res, fn, arg, '{');
+            WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+            ++nobj;
+            if (i > 0) {
+                WSTACK_PUSH2(s, (UWord) nobj, PRT_LAST_ARRAY_ELEMENT+i-1);
+            }
+            break;
 	case FLOAT_DEF: {
 	    FloatDef ff;
 	    GET_DOUBLE(wobj, ff);

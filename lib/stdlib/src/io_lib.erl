@@ -810,7 +810,10 @@ write1(T, D, E, O) when is_tuple(T) ->
 	    [${,
 	     [write1(element(1, T), D-1, E, O)|write_tuple(T, 2, D-1, E, O)],
 	     $}]
-    end.
+    end;
+write1(T, D, E, O) ->
+    true = erlang:is_record(T),
+    write_struct(T, D, E, O).
 
 %% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
@@ -821,6 +824,23 @@ write_tail([H|T], D, E, O) ->
     [$,,write1(H, D-1, E, O)|write_tail(T, D-1, E, O)];
 write_tail(Other, D, E, O) ->
     [$|,write1(Other, D-1, E, O)].
+
+write_struct(T, D, E, O) ->
+    if
+	D =:= 1 -> "{...}";
+	true ->
+	    [$#, write_atom(records:get_module(T)), $:,
+	     write_atom(records:get_name(T)), ${,
+	     write_struct_1(T, D-1, E, O), $}]
+    end.
+
+write_struct_1(T, D, E, O) ->
+    Fields = records:get_field_names(T),
+    Values = [records:get(F, T) || F <:- Fields],
+    L0 = [[write1(F, D, E, O)," = ",write1(V, D, E, O)] || F <:- Fields &&
+                                                           V <:- Values],
+    L1 = lists:join(", ", L0),
+    lists:flatten(L1).
 
 write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
 write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];

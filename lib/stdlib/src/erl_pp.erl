@@ -437,6 +437,9 @@ lattribute(file, {Name,Anno}, _Opts) ->
 lattribute(record, {Name,Is}, Opts) ->
     Nl = [leaf("-record("),{atom,Name},$,],
     [{first,Nl,record_fields(Is, Opts)},$)];
+lattribute(struct, {Name,Is}, Opts) ->
+  Nl = [leaf("-record("),{atom,Name},$,],
+  [{first,Nl,record_fields(Is, Opts)},$)];
 lattribute(Name, Arg, Options) ->
     attr(Name, [abstract(Arg, Options)]).
 
@@ -691,6 +694,11 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
     Nl = record_name(Name),
     El = {first,Nl,record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
+lexpr({struct, _, N, Fs}, Prec, Opts) ->
+    {P,_R} = preop_prec('#'),
+    Nl = struct_name(N),
+    El = {first,Nl,record_fields(Fs, Opts)},
+    maybe_paren(P, Prec, El);
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
@@ -942,6 +950,13 @@ record_field({typed_record_field,Field,Type}, Opts) ->
     typed(record_field(Field, Opts), Type);
 record_field({record_field,_,F}, Opts) ->
     lexpr(F, 0, Opts).
+
+struct_name({M, N}) when is_atom(M), is_atom(N) ->
+  [$#,{atom,M},$:,{atom,N}];
+struct_name(M) when is_atom(M) ->
+  [$#,{atom,M}];
+struct_name({}) ->
+  [$#, $_].
 
 map_fields(Fs, Opts) ->
     tuple(Fs, fun map_field/2, Opts).

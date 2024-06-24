@@ -32,6 +32,7 @@
 #include "erl_version.h"
 #include "beam_bp.h"
 #include "erl_debugger.h"
+#include "erl_struct.h"
 
 #define CodeNeed(w) do {                                                \
     ASSERT(ci <= codev_size);                                           \
@@ -335,6 +336,22 @@ int beam_load_finish_emit(LoaderState *stp) {
             lp = lp->next;
         }
         code_hdr->literal_area = literal_area;
+    }
+
+    {
+        BeamFile_RecordTable rec = stp->beam.record;
+        ErtsStructEntry *entry;
+
+        for (int i = 0; i < rec.record_count; i++) {
+            Eterm def = beamfile_get_literal(&stp->beam,
+                                             rec.records[i].def_literal);
+            ErtsStructDefinition *defp = (ErtsStructDefinition *) boxed_val(def);
+            entry = erts_struct_put(stp->module, rec.records[i].name);
+
+            entry->definitions[erts_staging_code_ix()] = def;
+
+            defp->entry = make_small((Uint)entry);
+        }
     }
 
     /*

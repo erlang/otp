@@ -684,6 +684,7 @@ type(erlang, is_port, 1, Xs) ->
   strict(erlang, is_port, 1, Xs, Fun);
 type(erlang, is_record, 2, Xs) ->
   Fun = fun ([X, Y]) ->
+            %% TODO: We must handle native records here.
 	    case t_is_tuple(X) of
 	      false ->
 		case t_is_none(t_inf(t_tuple(), X)) of
@@ -706,6 +707,7 @@ type(erlang, is_record, 2, Xs) ->
   strict(erlang, is_record, 2, Xs, Fun);
 type(erlang, is_record, 3, Xs) ->
   Fun = fun ([X, Y, Z]) ->
+            %% TODO: We must handle native records here.
 	    Arity = t_number_vals(Z),
 	    case t_is_tuple(X) of
 	      false when length(Arity) =:= 1 ->

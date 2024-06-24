@@ -363,10 +363,11 @@ tail_recur:
     case MAP_DEF:
         hash = hash*FUNNY_NUMBER13 + FUNNY_NUMBER14 + make_hash2(term);
         break;
+    case STRUCT_DEF:
     case TUPLE_DEF:
         {
-            Eterm* ptr = tuple_val(term);
-            Uint arity = arityval(*ptr);
+            Eterm* ptr = boxed_val(term);
+            Uint arity = header_arity(*ptr);
 
             WSTACK_PUSH3(stack, (UWord) arity, (UWord)(ptr+1), (UWord) arity);
             op = MAKE_HASH_TUPLE_OP;
@@ -1052,11 +1053,12 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
             ASSERT(is_header(hdr));
             switch (hdr & _TAG_HEADER_MASK) {
             case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG:
             {
                 ErtsMakeHash2Context_ARITYVAL_SUBTAG ctx = {
                     .i =  0,
                     .arity = header_arity(hdr),
-                    .elem = tuple_val(term)};
+                    .elem = boxed_val(term)};
                 UINT32_HASH(ctx.arity, HCONST_9);
                 if (ctx.arity == 0) /* Empty tuple */
                     goto hash2_common;
@@ -1789,8 +1791,9 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
 
             switch (hdr & _TAG_HEADER_MASK) {
             case ARITYVAL_SUBTAG:
+            case STRUCT_SUBTAG:
             {
-                const Eterm *elements = &tuple_val(term)[0];
+                const Eterm *elements = &boxed_val(term)[0];
                 const int arity = header_arity(hdr);
 
                 IHASH_MIX_ALPHA(IHASH_TYPE_TUPLE);

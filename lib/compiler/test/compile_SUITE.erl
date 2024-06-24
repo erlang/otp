@@ -639,7 +639,7 @@ other_output(Config) when is_list(Config) ->
 
     io:put_chars("to_asm (file)"),
     {ok,simple,Asm} = compile:file(Simple, [to_asm,binary,time]),
-    {simple,_,_,_,_} = Asm,
+    {simple,_,_,_,_,_} = Asm,
     io:put_chars("to_asm (forms)"),
     {ok,simple,Asm} = compile:forms(PP, [to_asm,binary,time]),
 
@@ -2358,7 +2358,7 @@ sys_coverage_2(DataDir) ->
     Source = filename:join(DataDir, "embedded_line_coverage"),
     {ok,Mod,Asm} = compile:file(Source, ['S',binary,report]),
 
-    {Mod,_,_,Fs,_} = Asm,
+    {Mod,_,_,_,Fs,_} = Asm,
     [{function,add,2,_,Is}|_] = Fs,
     true = lists:keymember(executable_line, 1, Is),
 

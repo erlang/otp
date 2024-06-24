@@ -93,7 +93,7 @@
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
-	       ann_c_map/3,cons_hd/1,cons_tl/1]).
+	       ann_c_map/3,ann_c_struct/4,cons_hd/1,cons_tl/1]).
 
 -include("core_parse.hrl").
 
@@ -167,6 +167,7 @@
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
 	       fcount=0 :: non_neg_integer(),	%Function counter
                gcount=0 :: non_neg_integer(),   %Goto counter
+               module :: atom(),                %Module name.
 	       function={none,0} :: fa(),	%Current function.
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
@@ -176,6 +177,7 @@
                file=[{file,""}],                %File.
                load_nif=false :: boolean()      %true if calls erlang:load_nif/2
 	      }).
+-type state() :: #core{}.
 
 %% XXX: The following type declarations do not belong in this module
 -type fa()        :: {atom(), arity()}.
@@ -271,9 +273,10 @@ defined_functions(Forms) ->
 
 function({function,_,Name,Arity,Cs0}, Module, Opts)
   when is_integer(Arity), 0 =< Arity, Arity =< 255 ->
-    #imodule{file=File, ws=Ws0, nifs=Nifs} = Module,
+    #imodule{name=Mod, file=File, ws=Ws0, nifs=Nifs} = Module,
     try
-        St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
+        St0 = #core{vcount=0,module=Mod,function={Name,Arity},
+                    opts=Opts,
                     dialyzer=member(dialyzer, Opts),
                     ws=Ws0,file=[{file,File}]},
         {Cs1,Anno} = handle_debug_line(Cs0, St0),
@@ -500,6 +503,7 @@ gexpr_test({atom,L,false}, Bools, St0) ->
     {#c_literal{anno=lineno_anno(L, St0),val=false},[],Bools,St0};
 gexpr_test(E0, Bools0, St0) ->
     {E1,Eps0,St1} = expr(E0, St0),
+
     %% Generate "top-level" test and argument calls.
     case E1 of
         #icall{anno=Anno,module=#c_literal{val=erlang},
@@ -726,6 +730,10 @@ expr({map,L,Es0}, St0) ->
     map_build_pairs(#c_literal{val=#{}}, Es0, full_anno(L, St0), St0);
 expr({map,L,M,Es}, St) ->
     expr_map(M, Es, L, St);
+expr({native_record,L,Id,Es0}, St0) ->
+    struct_build_pairs(#c_literal{val=empty}, #c_literal{val=Id}, Es0, full_anno(L, St0), St0);
+expr({native_record,L,Id,S,Es}, St) ->
+    expr_struct(S, #c_literal{val=Id}, Es, L, St);
 expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, full_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
@@ -960,6 +968,15 @@ expr({match,L,P0,E0}, St0) ->
     end;
 expr({single_match,L,P,#c_var{}=E}, St0) ->
     single_match(L, P, E, St0);
+expr({get_record_field=Op,Loc,Src0,Id0,F0}, St0) ->
+    {Src,Aps0,St1} = safe(Src0, St0),
+    {Id,Aps1,St2} = safe(Id0, St1),
+    {F,Aps2,St3} = safe(F0, St2),
+    PrimOp = #iprimop{anno=#a{anno=lineno_anno(Loc, St0)},
+                      name=#c_literal{val=Op},
+                      args=[Src,Id,F]},
+    Aps = Aps0 ++ Aps1 ++ Aps2,
+    {PrimOp,Aps,St3};
 expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
     %%
@@ -1084,6 +1101,7 @@ set_wanted(_, St) -> St.
 %%
 %%      {{X,Y},[Z]}
 
+-spec sanitize(erl_parse:af_pattern()) -> erl_parse:af_pattern().
 sanitize({match,L,P1,P2}) ->
     {tuple,L,[sanitize(P1),sanitize(P2)]};
 sanitize({cons,L,H,T}) ->
@@ -1096,6 +1114,9 @@ sanitize({bin,L,Segs0}) ->
     {tuple,L,Segs};
 sanitize({map,L,Ps0}) ->
     Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
+    {tuple,L,Ps};
+sanitize({native_record,L,_,Ps0}) ->
+    Ps = [sanitize(V) || {record_field,_,_,V} <- Ps0],
     {tuple,L,Ps};
 sanitize({op,L,_Name,P1,P2}) ->
     {tuple,L,[sanitize(P1),sanitize(P2)]};
@@ -1189,6 +1210,93 @@ maybe_warn_repeated_keys(Ck, K0, Used, St) ->
 
 map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
+
+expr_struct(S0, Id, Es0, L, St0) ->
+    {S1,Eps0,St1} = safe_record(S0, St0),
+    Badrecord = badrecord_term(S1, St1),
+    A = lineno_anno(L, St1),
+    Fc = fail_clause([], [{eval_failure,badrecord}|A], Badrecord),
+    {S2,Eps1,St2} = struct_build_pairs(S1, Id, Es0, full_anno(L, St1), St1),
+    S3 = case Es0 of
+             [] -> S1;
+             [_|_] -> S2
+         end,
+    {S4,St3} = expr_record_id(A, S1, S3, Id, St2),
+
+    Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
+                   pats=[],
+                   guard=[#icall{anno=#a{anno=A},
+                                 module=#c_literal{anno=A,val=erlang},
+                                 name=#c_literal{anno=A,val=is_record},
+                                 args=[S1]}],
+                   body=[S4]}],
+    Eps = Eps0 ++ Eps1,
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St3}.
+
+expr_record_id(A, Rec, Body0, #c_literal{val={Mod0,Name0}}, St0) ->
+    Mod = #c_literal{val=Mod0},
+    Name = #c_literal{val=Name0},
+    Args = [Rec,Mod,Name],
+    {Body,St} = expr_record_accessible(A, Rec, Body0, St0),
+    Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
+                   pats=[],
+                   guard=[#iprimop{name=#c_literal{anno=A,val=is_native_record},
+                                   args=Args}],
+                   body=[Body]}],
+    Badrecord = badrecord_term(Rec, St),
+    Fc = fail_clause([], [{eval_failure,badrecord}|A], Badrecord),
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},St};
+expr_record_id(A, Rec, Body, #c_literal{val={}}, St) ->
+    expr_record_accessible(A, Rec, Body, St).
+
+expr_record_accessible(A, Rec, Body, St) ->
+    Cs = [#iclause{anno=#a{anno=[compiler_generated|A]},
+                   pats=[],
+                   guard=[#iprimop{anno=#a{anno=A},
+                                   name=#c_literal{anno=A,val=is_record_accessible},
+                                   args=[Rec]}],
+                   body=[Body]}],
+    Badrecord = badrecord_term(Rec, St),
+    Fc = fail_clause([], [{eval_failure,badrecord}|A], Badrecord),
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},St}.
+
+safe_record(S0, St0) ->
+    case safe(S0, St0) of
+        {#c_var{},_,_}=Res ->
+            Res;
+        {NotStruct,Eps0,St1} ->
+            %% Not a native record. There will be a syntax error if we
+            %% try to pretty-print the Core Erlang code and then try
+            %% to parse it. To avoid the syntax error, force the term
+            %% into a variable.
+	    {V,St2} = new_var(St1),
+            Anno = cerl:get_ann(NotStruct),
+            Eps1 = [#iset{anno=#a{anno=Anno},var=V,arg=NotStruct}],
+	    {V,Eps0++Eps1,St2}
+    end.
+
+badrecord_term(_Record, #core{in_guard=true}) ->
+    %% The code generator cannot handle complex error reasons
+    %% in guards. But the exact error reason does not matter anyway
+    %% since it is not user-visible.
+    #c_literal{val=badrecord};
+badrecord_term(Record, #core{in_guard=false}) ->
+    c_tuple([#c_literal{val=badrecord},Record]).
+
+struct_build_pairs(Arg, Id, Es0, Ann, St0) ->
+    {Es,Pre,_,St1} = struct_build_pairs_1(Es0, sets:new(), St0),
+    {ann_c_struct(Ann, Arg, Id, Es),Pre,St1}.
+
+struct_build_pairs_1([{record_field,L,K0,V0}|Es], Used0, St0) ->
+    {K,Pre0,St1} = safe(K0, St0),
+    {V,Pre1,St2} = safe(V0, St1),
+    {Pairs,Pre2,Used1,St3} = struct_build_pairs_1(Es, Used0, St2),
+    As = lineno_anno(L, St3),
+    %% Need to check if a field exists?
+    Pair = cerl:ann_c_struct_pair(As, K, V),
+    {[Pair|Pairs],Pre0++Pre1++Pre2,Used1,St3};
+struct_build_pairs_1([], Used, St) ->
+    {[],[],Used,St}.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -2605,6 +2713,12 @@ pattern({tuple,L,Ps}, St) ->
 pattern({map,L,Pairs}, St0) ->
     {Ps,St1} = pattern_map_pairs(Pairs, St0),
     {#imap{anno=#a{anno=lineno_anno(L, St1)},es=Ps},St1};
+pattern({native_record,L,{M,N},Pairs}, St0) ->
+    {Ps,St1} = pattern_struct_pairs(Pairs, St0),
+    {#c_struct{anno=lineno_anno(L, St1),id=#c_literal{val={M,N}},es=Ps},St1};
+pattern({native_record,L,{},Pairs}, St0) ->
+    {Ps,St1} = pattern_struct_pairs(Pairs, St0),
+    {#c_struct{anno=lineno_anno(L, St1),id=#c_literal{val={}},es=Ps},St1};
 pattern({bin,L,Ps}, St0) ->
     {Segments,St} = pat_bin(Ps, St0),
     {#ibinary{anno=#a{anno=lineno_anno(L, St)},segments=Segments},St};
@@ -2685,6 +2799,19 @@ map_sort_key(Key, KeyMap) ->
         _ ->
             {expr,map_size(KeyMap)}
     end.
+
+-spec pattern_struct_pairs([erl_parse:af_record_field(erl_parse:af_pattern())], state()) ->
+          {[cerl:c_struct_pair()], state()}.
+pattern_struct_pairs(Ps, St0) ->
+    mapfoldl(fun pattern_struct_pair/2, St0, Ps).
+
+-spec pattern_struct_pair(erl_parse:af_record_field(erl_parse:af_pattern()), state()) ->
+          {cerl:c_struct_pair(), state()}.
+pattern_struct_pair({record_field, L, K, V}, St0) ->
+    {Ck, St1} = pattern(K, St0),
+    {Cv, St2} = pattern(V, St1),
+    {#c_struct_pair{anno=lineno_anno(L, St1),key=Ck,val=Cv},St2}.
+
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
@@ -2997,6 +3124,7 @@ annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
 %%%
 
 -record(known, {base=[],ks=[],prev_ks=[]}).
+-type known() :: #known{}.
 
 known_init() ->
     #known{}.
@@ -3459,6 +3587,12 @@ upattern(#c_alias{var=V0,pat=P0}=Alias, Ks, St0) ->
     {V1,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
     {P1,Pg,Pv,Pu,St2} = upattern(P0, known_union(Ks, Vv), St1),
     {Alias#c_alias{var=V1,pat=P1},Vg ++ Pg,union(Vv, Pv),union(Vu, Pu),St2};
+upattern(#c_struct{es=Es0}=Str, Ks, St0) ->
+    {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
+    {Str#c_struct{es=Es1},Esg,Esv,Eus,St1};
+upattern(#c_struct_pair{val=V0}=Pair, Ks, St0) ->
+    {V,Vg,Vn,Vu,St1} = upattern(V0, Ks, St0),
+    {Pair#c_struct_pair{val=V},Vg,Vn,Vu,St1};
 upattern(Other, _, St) -> {Other,[],[],[],St}.	%Constants
 
 %% upattern_list([Pat], [KnownVar], State) ->
@@ -3623,6 +3757,9 @@ ren_pat(#c_alias{var=Var0,pat=Pat0}=Alias, Ks, {_,_}=Subs0, St0) ->
 ren_pat(#imap{es=Es0}=Map, Ks, {_,_}=Subs0, St0) ->
     {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs0, St0),
     {Map#imap{es=Es},Subs,St};
+ren_pat(#c_struct{es=Es0}=Struct, Ks, {_,_}=Subs0, St0) ->
+    {Es,Subs,St} = ren_pat_struct(Es0, Ks, Subs0, St0),
+    {Struct#c_struct{es=Es},Subs,St};
 ren_pat(#ibinary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
     {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
     {P#ibinary{segments=Es},{Isub,Osub},St};
@@ -3657,6 +3794,13 @@ ren_pat_map([#imappair{val=Val0}=MapPair|Es0], Ks, Subs0, St0) ->
 ren_pat_map([], _Ks, Subs, St) ->
     {[],Subs,St}.
 
+-spec ren_pat_struct([cerl:c_struct_pair()], known(), {[iset()], [iset()]}, state()) -> {[cerl:c_struct_pair()], {[iset()], [iset()]}, state()}.
+ren_pat_struct([#c_struct_pair{val=Val0}=StrPair|Es0], Ks, Subs0, St0) ->
+  {Val,Subs1,St1} = ren_pat(Val0, Ks, Subs0, St0),
+  {Es,Subs,St} = ren_pat_struct(Es0, Ks, Subs1, St1),
+  {[StrPair#c_struct_pair{val=Val}|Es],Subs,St};
+ren_pat_struct([], _Ks, Subs, St) ->
+  {[],Subs,St}.
 ren_get_subst([#c_var{name=V}]=Old, Sub) ->
     case ren_is_subst(V, Sub) of
         no -> Old;
@@ -3724,6 +3868,8 @@ cpattern(#c_tuple{es=Es}=Tup) ->
     Tup#c_tuple{es=cpattern_list(Es)};
 cpattern(#imap{anno=#a{anno=Anno},es=Es}) ->
     #c_map{anno=Anno,es=cpat_map_pairs(Es),is_pat=true};
+cpattern(#c_struct{es=Es}=Str) ->
+    Str#c_struct{es=cpat_struct_pairs(Es)};
 cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
     Segs = [cpat_bin_seg(S) || S <- Segs0],
     #c_binary{anno=Anno,segments=Segs};
@@ -3735,6 +3881,13 @@ cpat_map_pairs([#imappair{anno=#a{anno=Anno},op=Op,key=Key0,val=Val0}|T]) ->
     Pair = #c_map_pair{anno=Anno,op=Op,key=Key,val=Val},
     [Pair|cpat_map_pairs(T)];
 cpat_map_pairs([]) -> [].
+
+-spec cpat_struct_pairs([cerl:c_struct_pair()]) -> [cerl:c_struct_pair()].
+cpat_struct_pairs([#c_struct_pair{val=Val0}=Pair0|T]) ->
+    Val = cpattern(Val0),
+    Pair = Pair0#c_struct_pair{val=Val},
+    [Pair|cpat_struct_pairs(T)];
+cpat_struct_pairs([]) -> [].
 
 cpat_bin_seg(#ibitstr{anno=#a{anno=Anno},val=E,size=Sz0,unit=Unit,
                       type=Type,flags=Flags}) ->
@@ -3997,6 +4150,7 @@ skip_lowering(#c_call{}, _A) -> skip;
 skip_lowering(#c_cons{}, _A) -> skip;
 skip_lowering(#c_literal{}, _A) -> skip;
 skip_lowering(#c_map{}, _A) -> skip;
+skip_lowering(#c_struct{}, _A) -> skip;
 skip_lowering(#c_opaque{}, _A) -> skip;
 skip_lowering(#c_primop{}, _A) -> skip;
 skip_lowering(#c_tuple{}, _A) -> skip;
@@ -4280,6 +4434,8 @@ split_pat(#c_binary{anno=Anno0,segments=Segs0}=Bin, St0) ->
     end;
 split_pat(#c_map{es=Es}=Map, St) ->
     split_map_pat(Es, Map, St, []);
+split_pat(#c_struct{es=Es}=Str, St) ->
+    split_struct_pat(Es, Str, St, []);
 split_pat(#c_var{}, _) ->
     none;
 split_pat(#c_alias{pat=Pat}=Alias0, St0) ->
@@ -4336,6 +4492,18 @@ split_map_pat([#c_map_pair{key=Key,val=Val}=E0|Es], Map0, St0, Acc) ->
             {BefMap,Split,St1}
     end;
 split_map_pat([], _, _, _) -> none.
+
+split_struct_pat([#c_struct_pair{val=Val}=E0|Es], Str0, St0, Acc) ->
+    case split_pat(Val, St0) of
+        none ->
+            split_struct_pat(Es, Str0, St0, [E0|Acc]);
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            E = E0#c_struct_pair{val=Var},
+            Str = Str0#c_struct{es=reverse(Acc, [E|Es])},
+            {Str,{split, [Var],Ps,Split},St}
+    end;
+split_struct_pat([], _, _, _) -> none.
 
 eval_map_key(#c_var{}, _E, _Es, _Map, _St) ->
     none;
@@ -4580,6 +4748,8 @@ is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
 is_simple(#c_map{es=Es}) -> is_simple_list(Es);
 is_simple(#c_map_pair{key=K,val=V}) ->
     is_simple(K) andalso is_simple(V);
+is_simple(#c_struct{es=Es}) -> is_simple_list(Es);
+is_simple(#c_struct_pair{val = V}) -> is_simple(V);
 is_simple(_) -> false.
 
 -spec is_simple_list([cerl:cerl()]) -> boolean().
