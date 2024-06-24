@@ -644,6 +644,7 @@ enable_year2038=yes
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 DEBUG_CFLAGS
+ERL_DETERMINISTIC_KEEP_SOURCE
 ERL_DETERMINISTIC
 CFLAGS32
 CC32
@@ -863,6 +864,7 @@ enable_prefer_elapsed_monotonic_time_during_suspend
 enable_gettimeofday_as_os_system_time
 with_javac
 enable_deterministic_build
+enable_deterministic_keep_source
 enable_year2038
 '
       ac_precious_vars='build_alias
@@ -1621,6 +1623,9 @@ Optional Features:
   --enable-deterministic-build
                           enable build determinism, stripping absolute paths
                           from build output
+  --enable-deterministic-keep-source
+                          enable keeping source when using deterministic
+                          builds
   --disable-year2038      don't support timestamps after 2038
 
 Optional Packages:
@@ -26877,6 +26882,21 @@ then :
   esac
 else case e in #(
   e) ERL_DETERMINISTIC=no ;;
+esac
+fi
+
+
+
+
+# Check whether --enable-deterministic-keep-source was given.
+if test ${enable_deterministic_keep_source+y}
+then :
+  enableval=$enable_deterministic_keep_source;  case "$enableval" in
+    no)  ERL_DETERMINISTIC_KEEP_SOURCE=no ;;
+    *) ERL_DETERMINISTIC_KEEP_SOURCE=yes ;;
+  esac
+else case e in #(
+  e) ERL_DETERMINISTIC_KEEP_SOURCE=no ;;
 esac
 fi
 

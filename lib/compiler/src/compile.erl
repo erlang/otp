@@ -333,9 +333,12 @@ Available options:
   For details, see [beam_lib(3)](`m:beam_lib#debug_info`).
 
 - **`deterministic`** - Omit the `options` and `source` tuples in the list
-  returned by `Module:module_info(compile)`, and reduce the paths in stack
-  traces to the module name alone. This option will make it easier to achieve
-  reproducible builds.
+  returned by `Module:module_info(compile)`, reduce the paths in stack traces
+  to the module name alone, and make embedded documentation ordered. This
+  option will make it easier to achieve reproducible builds.
+
+- **`deterministic_keep_source`** - When used with `deterministic`, preserves
+  the `source` tuple in the list returned by `Module:module_info(compile)`.
 
 - **`{feature, Feature, enable | disable}`** - [](){: #feature-option } Enable
   (disable) the [feature](`e:system:features.md#features`) `Feature` during
@@ -2583,10 +2586,14 @@ beam_strip_types(Beam0, #compile{}=St) ->
 compile_info(File, CompilerOpts, Opts) ->
     IsSlim = member(slim, CompilerOpts),
     IsDeterministic = member(deterministic, CompilerOpts),
+    IsDeterministicKeepSource =
+        member(deterministic_keep_source, CompilerOpts),
     Info0 = proplists:get_value(compile_info, Opts, []),
     Info1 =
 	case paranoid_absname(File) of
 	    [_|_] = Source when not IsSlim, not IsDeterministic ->
+		[{source,Source} | Info0];
+	    [_|_] = Source when IsDeterministicKeepSource ->
 		[{source,Source} | Info0];
 	    _ ->
 		Info0

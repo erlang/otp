@@ -143,6 +143,10 @@ while test $# != 0; do
       config_arguments="$config_arguments --enable-deterministic-build";;
 	--disable-deterministic-build)
       config_arguments="$config_arguments --disable-deterministic-build";;
+	--enable-deterministic-keep-source)
+      config_arguments="$config_arguments --enable-deterministic-keep-source";;
+	--disable-deterministic-keep-source)
+      config_arguments="$config_arguments --disable-deterministic-keep-source";;
 	CFLAGS=* | LDFLAGS=*)
         flgs_var=`echo "$1" | sed 's/=.*$//'`
         flgs_val=`echo "$1" | sed 's/^[^=]*=//'`

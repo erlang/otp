@@ -38,7 +38,7 @@
          beam_ssa_pp_smoke_test/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
-         deterministic_docs/1,
+         deterministic_docs/1, deterministic_keep_source/1,
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
          annotations_pp/1, option_order/1
@@ -61,7 +61,7 @@ all() ->
      warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
-     deterministic_docs,
+     deterministic_docs, deterministic_keep_source,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
      option_order].
@@ -1779,6 +1779,15 @@ deterministic_include(Config) when is_list(Config) ->
     {ok,_,DetD} = compile:file(Simple, [binary, deterministic, {i,"gaffel"}]),
     true = DetC =:= DetD,
 
+    %% ... and files with +deterministic_keep_source shouldn't.
+    {ok,_,DetE} = compile:file(
+                    Simple, [binary, deterministic,
+                             deterministic_keep_source, {i,"gurka"}]),
+    {ok,_,DetF} = compile:file(
+                    Simple, [binary, deterministic,
+                             deterministic_keep_source, {i,"gaffel"}]),
+    true = DetE =:= DetF,
+
     ok.
 
 deterministic_paths(Config) when is_list(Config) ->
@@ -1790,6 +1799,10 @@ deterministic_paths(Config) when is_list(Config) ->
 
     %% ... but files with +deterministic shouldn't.
     false = deterministic_paths_1(DataDir, "simple", [deterministic]),
+
+    %% ... and files with +deterministic_keep_source shouldn't.
+    false = deterministic_paths_1(DataDir, "simple",
+                                  [deterministic, deterministic_keep_source]),
 
     ok.
 
@@ -1827,6 +1840,26 @@ deterministic_docs_1(Filepath, Opts, Checks) ->
               peer:stop(Peer),
               Testing =:= Reference
       end, lists:seq(1, Checks)).
+
+deterministic_keep_source(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Simple = filename:join(DataDir, "simple"),
+    ModuleInfo1 = deterministic_keep_source_1(Simple, []),
+    true = lists:keymember(source, 1, ModuleInfo1),
+    ModuleInfo2 = deterministic_keep_source_1(Simple, [deterministic]),
+    false = lists:keymember(source, 1, ModuleInfo2),
+    ModuleInfo3 = deterministic_keep_source_1(
+                    Simple, [deterministic, deterministic_keep_source]),
+    true = lists:keymember(source, 1, ModuleInfo3),
+    ok.
+
+deterministic_keep_source_1(Simple, Opts) ->
+    {ok, simple} = compile:file(Simple, Opts),
+    {module, simple} = c:l(simple),
+    ModuleInfo = simple:module_info(compile),
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ModuleInfo.
 
 %% ERL-1058: -compile(debug_info) had no effect
 compile_attribute(Config) when is_list(Config) ->

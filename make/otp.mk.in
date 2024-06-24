@@ -92,6 +92,7 @@ BITS64 = @BITS64@
 OTP_RELEASE = @OTP_RELEASE@
 
 ERL_DETERMINISTIC = @ERL_DETERMINISTIC@
+ERL_DETERMINISTIC_KEEP_SOURCE = @ERL_DETERMINISTIC_KEEP_SOURCE@
 
 # ----------------------------------------------------
 #	Erlang language section
@@ -109,6 +110,9 @@ ifeq ($(ERL_DETERMINISTIC),yes)
   ERL_COMPILE_FLAGS += +deterministic
   YRL_FLAGS += +deterministic
   XRL_FLAGS += +deterministic
+endif
+ifeq ($(ERL_DETERMINISTIC_KEEP_SOURCE),yes)
+  ERL_COMPILE_FLAGS += +deterministic_keep_source
 endif
 
 ERLC_WFLAGS = -W

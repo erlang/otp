@@ -3646,6 +3646,19 @@ AS_HELP_STRING([--enable-deterministic-build], [enable build determinism, stripp
 ERL_DETERMINISTIC=no)
 AC_SUBST(ERL_DETERMINISTIC)
 
+dnl ----------------------------------------------------------------------
+dnl Enable keep sources flag for using with determinism flag
+dnl ----------------------------------------------------------------------
+
+AC_ARG_ENABLE(deterministic-keep-source,
+AS_HELP_STRING([--enable-deterministic-keep-source], [enable keeping source when using deterministic builds]),
+[ case "$enableval" in
+    no)  ERL_DETERMINISTIC_KEEP_SOURCE=no ;;
+    *) ERL_DETERMINISTIC_KEEP_SOURCE=yes ;;
+  esac ],
+ERL_DETERMINISTIC_KEEP_SOURCE=no)
+AC_SUBST(ERL_DETERMINISTIC_KEEP_SOURCE)
+
 AC_MSG_CHECKING([CFLAGS for -O switch])
 dnl                               Remove all "-O*" options
 no_opt_CFLAGS=$(echo " $CFLAGS" | sed 's/ -O[[^ ]]*/ /g')
