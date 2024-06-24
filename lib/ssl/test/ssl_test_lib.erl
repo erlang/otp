@@ -149,6 +149,8 @@
         ]).
 
 -export([tls_version/1,
+         n_version/1,
+         sig_algs/2,
          is_protocol_version/1,
          is_tls_version/1,
          is_dtls_version/1,
@@ -3661,6 +3663,17 @@ tls_version('dtlsv1.2' = Atom) ->
 tls_version(Atom) ->
     tls_record:protocol_version(Atom).
 
+n_version(Version) when
+      Version == 'tlsv1.3';
+      Version == 'tlsv1.2';
+      Version == 'tlsv1.1';
+      Version == 'tlsv1';
+      Version == 'sslv3' ->
+    tls_record:protocol_version(Version);
+n_version(Version) when Version == 'dtlsv1.2';
+                        Version == 'dtlsv1' ->
+    dtls_record:protocol_version(Version).
+
 consume_port_exit(OpenSSLPort) ->
     receive    	
         {'EXIT', OpenSSLPort, _} ->
@@ -4148,3 +4161,75 @@ curve_default(eddsa) ->
     ed25519;
 curve_default(_) ->
     ?DEFAULT_CURVE.
+sig_algs(rsa_pss_pss, _) ->
+    [{signature_algs, [rsa_pss_pss_sha512,
+                       rsa_pss_pss_sha384,
+                       rsa_pss_pss_sha256]}];
+sig_algs(rsa_pss_rsae, _) ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256]}];
+sig_algs(rsa, {3,N})  when N >=3  ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256,
+                       {sha512, rsa},
+                       {sha384, rsa},
+                       {sha256, rsa},
+                       {sha, rsa}
+                      ]}];
+sig_algs(ecdsa, {3,N})  when N >=3  ->
+    [{signature_algs, [
+                       {sha512, ecdsa},
+                       {sha384, ecdsa},
+                       {sha256, ecdsa},
+                       {sha, ecdsa}]}];
+sig_algs(dsa, {3, N}) when N >=3  ->
+    [{signature_algs, [{sha,dsa}]}];
+sig_algs(_,_) ->
+    [].
+
+all_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++  list_common_sig_algs() ++ list_1_2_sig_algs()}.
+
+all_1_3_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++ list_common_sig_algs()}.
+
+all_1_2_sig_algs() ->
+    {signature_algs, list_common_sig_algs() ++ list_1_2_sig_algs()}.
+list_1_3_sig_algs() ->
+    [
+     eddsa_ed25519,
+     eddsa_ed448,
+     ecdsa_secp521r1_sha512,
+     ecdsa_secp384r1_sha384,
+     ecdsa_secp256r1_sha256,
+     ecdsa_brainpoolP512r1tls13_sha512,
+     ecdsa_brainpoolP384r1tls13_sha384,
+     ecdsa_brainpoolP256r1tls13_sha256
+    ].
+
+list_common_sig_algs() ->
+    [
+     rsa_pss_pss_sha512,
+     rsa_pss_pss_sha384,
+     rsa_pss_pss_sha256,
+     rsa_pss_rsae_sha512,
+     rsa_pss_rsae_sha384,
+     rsa_pss_rsae_sha256
+     ].
+
+list_1_2_sig_algs() ->
+    [
+     {sha512, ecdsa},
+     {sha512, rsa},
+     {sha384, ecdsa},
+     {sha384, rsa},
+     {sha256, ecdsa},
+     {sha256, rsa},
+     {sha224, ecdsa},
+     {sha224, rsa},
+     {sha, ecdsa},
+     {sha, rsa},
+     {sha, dsa}
+    ].

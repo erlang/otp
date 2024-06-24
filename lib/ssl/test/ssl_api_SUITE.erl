@@ -65,6 +65,8 @@
          versions/1,
          versions_option_based_on_sni/0,
          versions_option_based_on_sni/1,
+         ciphers_option_based_on_sni/0,
+         ciphers_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
@@ -210,6 +212,7 @@
 	 log/2,
          get_connection_information/3,
          protocol_version_check/2,
+         suite_check/2,
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
@@ -263,7 +266,8 @@ since_1_2() ->
     [
      conf_signature_algs,
      no_common_signature_algs,
-     versions_option_based_on_sni
+     versions_option_based_on_sni,
+     ciphers_option_based_on_sni
     ].
 
 pre_1_3() ->
@@ -1101,6 +1105,42 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {ssl_test_lib, no_result, []}},
 					{options, [{server_name_indication, SNI}, {versions, Versions} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+
+ciphers_option_based_on_sni() ->
+    [{doc,"Test that SNI versions option is selected over default ciphers option"}].
+
+ciphers_option_based_on_sni(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+    Suites = rsa_cipher_suites_not_default(TestVersion),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{ciphers, Suites} | ServerOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, suite_check, [TestVersion]}},
+					{options, [{sni_fun, Fun} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, no_result, []}},
+					{options, [{server_name_indication, SNI} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -3507,5 +3547,105 @@ run_sha1_cert_conf('tlsv1.2', #{client_config := ClientOpts, server_config := Se
     IncludeLegacyAlg = SigAlgs ++ [LegacyAlg],
     ssl_test_lib:basic_test( [{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
                              [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
-run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config, _) ->
-    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts], ServerOpts, Config).
+
+run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) ->
+    NVersion = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    SigOpts = ssl_test_lib:sig_algs(LegacyAlg, NVersion),
+    ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts] ++ SigOpts, ServerOpts, Config).
+
+
+rsa_cipher_suites_not_default('tlsv1.3'= Version) ->
+    [_ | Suites] = ssl:cipher_suites(default, Version),
+    Suites;
+rsa_cipher_suites_not_default(Version) ->
+    ssl_test_lib:test_ciphers(ecdhe_rsa, aes_128_cbc, Version).
+
+suite_check(Socket, 'tlsv1.3'= Version) ->
+    [_, Suite| _] = ssl:cipher_suites(default, Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end;
+suite_check(Socket, Version) ->
+    [Suite |_] = rsa_cipher_suites_not_default(Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end.
+
+sig_algs(rsa_pss_pss, _) ->
+    [{signature_algs, [rsa_pss_pss_sha512,
+                       rsa_pss_pss_sha384,
+                       rsa_pss_pss_sha256]}];
+sig_algs(rsa_pss_rsae, _) ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256]}];
+sig_algs(rsa, {3,N})  when N >=3  ->
+    [{signature_algs, [rsa_pss_rsae_sha512,
+                       rsa_pss_rsae_sha384,
+                       rsa_pss_rsae_sha256,
+                       {sha512, rsa},
+                       {sha384, rsa},
+                       {sha256, rsa},
+                       {sha, rsa}
+                      ]}];
+sig_algs(ecdsa, {3,N})  when N >=3  ->
+    [{signature_algs, [
+                       {sha512, ecdsa},
+                       {sha384, ecdsa},
+                       {sha256, ecdsa},
+                       {sha, ecdsa}]}];
+sig_algs(dsa, {3, N}) when N >=3  ->
+    [{signature_algs, [{sha,dsa}]}];
+sig_algs(_,_) ->
+    [].
+
+all_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++  list_common_sig_algs() ++ list_1_2_sig_algs()}.
+
+all_1_3_sig_algs() ->
+    {signature_algs, list_1_3_sig_algs() ++ list_common_sig_algs()}.
+
+all_1_2_sig_algs() ->
+    {signature_algs, list_common_sig_algs() ++ list_1_2_sig_algs()}.
+list_1_3_sig_algs() ->
+    [
+     eddsa_ed25519,
+     eddsa_ed448,
+     ecdsa_secp521r1_sha512,
+     ecdsa_secp384r1_sha384,
+     ecdsa_secp256r1_sha256,
+     ecdsa_brainpoolP512r1tls13_sha512,
+     ecdsa_brainpoolP384r1tls13_sha384,
+     ecdsa_brainpoolP256r1tls13_sha256
+    ].
+
+list_common_sig_algs() ->
+    [
+     rsa_pss_pss_sha512,
+     rsa_pss_pss_sha384,
+     rsa_pss_pss_sha256,
+     rsa_pss_rsae_sha512,
+     rsa_pss_rsae_sha384,
+     rsa_pss_rsae_sha256
+     ].
+
+list_1_2_sig_algs() ->
+    [
+     {sha512, ecdsa},
+     {sha512, rsa},
+     {sha384, ecdsa},
+     {sha384, rsa},
+     {sha256, ecdsa},
+     {sha256, rsa},
+     {sha224, ecdsa},
+     {sha224, rsa},
+     {sha, ecdsa},
+     {sha, rsa},
+     {sha, dsa}
+    ].
