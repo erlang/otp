@@ -1844,8 +1844,25 @@ getifaddrs_verify_backend(IF, I_INFO, S_INFO) ->
                     {[], []} ->
                         io:format("flags for ~p *are* equal~n", [IF]),
                         {IR1, SR1};
+                    {[], [multicast]} ->
+                        io:format("flags for ~p are *not* equal - "
+                                  "extra multicast: "
+                                  "~n   INET:   ~p"
+                                  "~n   SOCKET: ~p"
+                                  "~n", [IF, I_FLAGS, S_FLAGS]),
+                        case lists:member(loopback, I_FLAGS) of
+                            true ->
+                                %% The net module getifaddrs contains
+                                %% some more flags...
+                                %% Happens on windows
+                                io:format("flags for ~p *acceptably* "
+                                          "different~n", [IF]),
+                                IR1, SR1;
+                            _ ->
+                                ct:fail(ifaddrs_not_equal)
+                        end;
                     {IRem, SRem} ->
-                        io:format("flags for ~p are *not* equal: "
+                        io:format("flags for ~p are *not* equal - check flags: "
                                   "~n   INET:   ~p"
                                   "~n   SOCKET: ~p"
                                   "~n   INET -- SOCKET: ~p"
