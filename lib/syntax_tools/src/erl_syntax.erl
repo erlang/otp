@@ -3290,6 +3290,32 @@ revert_attribute_1(record, [A, Tuple], Pos, Node) ->
 	_ ->
 	    Node
     end;
+revert_attribute_1(native_record, [Name, Fields], Pos, Node) ->
+    case type(Name) of
+	atom ->
+	    Fs = fold_record_fields(tuple_elements(Fields)),
+	    {attribute, Pos, record, {concrete(Name), Fs}};
+	_ ->
+	    Node
+    end;
+revert_attribute_1(import_record, [M, List], Pos, Node) ->
+    case revert_module_name(M) of
+	{ok, A} ->
+	    case is_list_skeleton(List) of
+		true ->
+		    case is_proper_list(List) of
+			true ->
+			    Fs = [concrete(L) || L <- list_elements(List)],
+			    {attribute, Pos, import_record, {A, Fs}};
+			false ->
+			    Node
+		    end;
+		false ->
+		    Node
+	    end;
+	error ->
+	    Node
+    end;
 revert_attribute_1(N, [T], Pos, _) ->
     {attribute, Pos, N, concrete(T)};
 revert_attribute_1(_, _, _, Node) ->
@@ -3358,6 +3384,11 @@ attribute_arguments(Node) ->
 		     set_pos(
 		       list(unfold_function_names(Imports, Pos)),
 		       Pos)];
+		import_record ->
+		    {Module, Imports} = Data,
+		    Imports1 = [set_pos(atom(I), Pos) || I <- Imports],
+		    [set_pos(atom(Module), Pos),
+		     set_pos(list(Imports1), Pos)];
 		file ->
 		    {File, Line} = Data,
 		    [set_pos(string(File), Pos),
@@ -3365,6 +3396,11 @@ attribute_arguments(Node) ->
 		record ->
 		    %% Note that we create a tuple as container
 		    %% for the second argument!
+		    {Type, Entries} = Data,
+		    [set_pos(atom(Type), Pos),
+		     set_pos(tuple(unfold_record_fields(Entries)),
+			     Pos)];
+		native_record ->
 		    {Type, Entries} = Data,
 		    [set_pos(atom(Type), Pos),
 		     set_pos(tuple(unfold_record_fields(Entries)),
@@ -4368,6 +4404,8 @@ _See also: _`record_access/3`.
 
 record_access_type(Node) ->
     case unwrap(Node) of
+	{record_field, Pos, _, {Mod, Name}, _} ->
+	    list([set_pos(atom(Mod), Pos), set_pos(atom(Name), Pos)]);
 	{record_field, Pos, _, Type, _} ->
 	    set_pos(atom(Type), Pos);
 	Node1 ->
@@ -4415,7 +4453,8 @@ _See also: _`record_access/3`, `record_expr/2`, `record_expr_argument/1`,
 `record_expr_fields/1`, `record_expr_type/1`, `record_field/2`,
 `record_index_expr/2`.
 """.
--spec record_expr('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
+-spec record_expr('none' | syntaxTree(),
+                  syntaxTree() | [syntaxTree()], [syntaxTree()]) ->
         syntaxTree().
 
 %% `erl_parse' representation:
@@ -4424,30 +4463,44 @@ _See also: _`record_access/3`, `record_expr/2`, `record_expr_argument/1`,
 %% {record, Pos, Argument, Type, Fields}
 %%
 %%	Argument = erl_parse()
-%%	Type = atom()
+%%	Type = atom() | {atom(), atom()}
 %%	Fields = [Entry]
 %%	Entry = {record_field, Pos, Field, Value}
 %%	      | {record_field, Pos, Field}
 %%	Field = Value = erl_parse()
 
 record_expr(Argument, Type, Fields) ->
-    tree(record_expr, #record_expr{argument = Argument,
-				   type = Type, fields = Fields}).
+    case Type of
+        [_, _] ->
+            tree(record_expr, #record_expr{argument = Argument,
+                                           type = list(Type), fields = Fields});
+        _ ->
+            tree(record_expr, #record_expr{argument = Argument,
+                                           type = Type, fields = Fields})
+    end.
 
 revert_record_expr(Node) ->
     Pos = get_pos(Node),
     Argument = record_expr_argument(Node),
     Type = record_expr_type(Node),
     Fields = record_expr_fields(Node),
+    Fs = fold_record_fields(Fields),
     case type(Type) of
 	atom ->
 	    T = concrete(Type),
-	    Fs = fold_record_fields(Fields),
 	    case Argument of
 		none ->
 		    {record, Pos, T, Fs};
 		_ ->
 		    {record, Pos, Argument, T, Fs}
+	    end;
+	list ->
+	    [Mod, Name] = list_elements(Type),
+	    case Argument of
+		none ->
+		    {record, Pos, {concrete(Mod), concrete(Name)}, Fs};
+		_ ->
+		    {record, Pos, Argument, {concrete(Mod), concrete(Name)}, Fs}
 	    end;
 	_ ->
 	    Node
@@ -4485,8 +4538,14 @@ _See also: _`record_expr/3`.
 
 record_expr_type(Node) ->
     case unwrap(Node) of
+	{record, Pos, {Mod, Name}, _} ->
+	    list([set_pos(atom(Mod), Pos), set_pos(atom(Name), Pos)]);
+	{record_field, Pos, _, Name, _} ->
+	   set_pos(atom(Name), Pos);
 	{record, Pos, Type, _} ->
 	    set_pos(atom(Type), Pos);
+	{record, Pos, _, {Mod, Name}, _} ->
+	    list([set_pos(atom(Mod), Pos), set_pos(atom(Name), Pos)]);
 	{record, Pos, _, Type, _} ->
 	    set_pos(atom(Type), Pos);
 	Node1 ->
@@ -7988,13 +8047,17 @@ subtrees(T) ->
                      [record_access_type(T)],
                      [record_access_field(T)]];
 		record_expr ->
+		    Type = case type(record_expr_type(T)) of
+			       atom -> [record_expr_type(T)];
+			       list -> list_elements(record_expr_type(T))
+			   end,
 		    case record_expr_argument(T) of
 			none ->
-			    [[record_expr_type(T)],
+			    [Type,
 			     record_expr_fields(T)];
 			V ->
 			    [[V],
-			     [record_expr_type(T)],
+			     Type,
 			     record_expr_fields(T)]
 		    end;
 		record_field ->
@@ -8144,7 +8207,9 @@ make_tree(receive_expr, [C, [E], A]) -> receive_expr(C, E, A);
 make_tree(record_access, [[E], [T], [F]]) ->
     record_access(E, T, F);
 make_tree(record_expr, [[T], F]) -> record_expr(T, F);
+make_tree(record_expr, [[M, D], F]) -> record_expr([M, D], F);
 make_tree(record_expr, [[E], [T], F]) -> record_expr(E, T, F);
+make_tree(record_expr, [[E], [M, D], F]) -> record_expr(E, [M, D], F);
 make_tree(record_field, [[N]]) -> record_field(N);
 make_tree(record_field, [[N], [E]]) -> record_field(N, E);
 make_tree(record_index_expr, [[T], [F]]) ->

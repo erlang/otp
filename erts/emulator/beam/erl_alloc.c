@@ -3070,27 +3070,31 @@ erts_allocator_options(void *proc)
     return res;
 }
 
-void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size)
+void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
+                                   Uint size,
+                                   Uint alignment)
 {
-    UWord v = (UWord) erts_alloc(type, size + (ERTS_CACHE_LINE_SIZE-1)
+    const UWord m = (alignment - 1);
+    UWord v = (UWord) erts_alloc(type,
 #ifdef VALGRIND
-				  + sizeof(UWord)
+                                 sizeof(UWord) +
 #endif
-				 );
+                                 size + (alignment - 1));
 
 #ifdef VALGRIND
     {   /* Link them to avoid Leak_PossiblyLost */
-	static UWord* first_in_list = NULL;
+        static UWord* first_in_list = NULL;
         *(UWord**)v = first_in_list;
-	first_in_list = (UWord*) v;
-	v += sizeof(UWord);
+        first_in_list = (UWord*) v;
+        v += sizeof(UWord);
     }
 #endif
 
-    if (v & ERTS_CACHE_LINE_MASK) {
-	v = (v & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
+    if (v & m) {
+        v = (v & ~m) + alignment;
     }
-    ASSERT((v & ERTS_CACHE_LINE_MASK) == 0);
+
+    ASSERT((v & m) == 0);
     return (void*)v;
 }
 

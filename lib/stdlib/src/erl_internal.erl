@@ -133,6 +133,7 @@ new_type_test(is_port, 1) -> true;
 new_type_test(is_record, 2) -> true;
 new_type_test(is_record, 3) -> true;
 new_type_test(is_reference, 1) -> true;
+new_type_test(is_record, 1) -> true;
 new_type_test(is_tuple, 1) -> true;
 new_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
@@ -363,6 +364,7 @@ bif(is_reference, 1) -> true;
 bif(is_tuple, 1) -> true;
 bif(is_record, 2) -> true;
 bif(is_record, 3) -> true;
+bif(is_record, 1) -> true;
 bif(length, 1) -> true;
 bif(link, 1) -> true;
 bif(link, 2) -> true;
@@ -503,6 +505,7 @@ is_type(number, 0) -> true;
 is_type(pid, 0) -> true;
 is_type(port, 0) -> true;
 is_type(pos_integer, 0) -> true;
+is_type(record, 0) -> true;
 is_type(reference, 0) -> true;
 is_type(string, 0) -> true;
 is_type(term, 0) -> true;

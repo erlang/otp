@@ -461,6 +461,10 @@ disasm_instr(B, Bs, Atoms, Literals, Types) ->
 	    disasm_map_inst(put_map_exact, Arity, Bs, Atoms, Literals, Types);
 	get_map_elements ->
 	    disasm_map_inst(get_map_elements, Arity, Bs, Atoms, Literals, Types);
+	get_record_elements ->
+	    disasm_map_inst(SymOp, Arity, Bs, Atoms, Literals, Types);
+	put_record ->
+	    disasm_map_inst(SymOp, Arity, Bs, Atoms, Literals, Types);
 	has_map_fields ->
 	    disasm_map_inst(has_map_fields, Arity, Bs, Atoms, Literals, Types);
 	put_tuple2 ->
@@ -1379,6 +1383,29 @@ resolve_inst({executable_line,[Location,Index]},_,_,_) ->
 resolve_inst({debug_line,[Kind,Location,Index,Live]},_,_,_) ->
     {debug_line,resolve_arg(Kind),resolve_arg(Location),
      resolve_arg(Index),resolve_arg(Live)};
+
+%%
+%% OTP 29.
+%%
+
+resolve_inst({is_any_native_record,[Location,Src]},_,_,_) ->
+    {test,is_record,resolve_arg(Location),resolve_arg(Src)};
+resolve_inst({is_native_record,[Location,Src,Mod,Name]},_,_,_) ->
+    {test,is_record,resolve_arg(Location),resolve_arg(Src),
+     resolve_arg(Mod),resolve_arg(Name)};
+resolve_inst({get_record_elements,Args0},_,_,_) ->
+    [FLbl,Src,{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {get_record_elements,FLbl,Src,{list,List}};
+resolve_inst({put_record,Args0},_,_,_) ->
+    [FLbl,Id,Src,Dst,{u,_},{{z,1},{u,_Len},List0}] = Args0,
+    List = resolve_args(List0),
+    {put_record,FLbl,Id,Src,Dst,{list,List}};
+resolve_inst({is_record_accessible,[Location,Src]},_,_,_) ->
+    {test,is_record_accessible,resolve_arg(Location),resolve_arg(Src)};
+resolve_inst({get_record_field,[Location,Src,Id,Name,Dst]},_,_,_) ->
+    {test,get_record_field,resolve_arg(Location),resolve_arg(Src),Id,
+     resolve_arg(Name),resolve_arg(Dst)};
 
 %%
 %% Catches instructions that are not yet handled.

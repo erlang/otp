@@ -90,6 +90,7 @@ MODULES= \
 	queue_property_test_SUITE \
 	rand_SUITE \
 	random_SUITE \
+	records_SUITE \
 	re_SUITE \
 	run_pcre_tests \
 	run_old_pcre1_tests \

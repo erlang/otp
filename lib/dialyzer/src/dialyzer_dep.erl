@@ -225,6 +225,15 @@ traverse(Tree, Out, State, CurrentFun) ->
       Val = cerl:map_pair_val(Tree),
       {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
       {merge_outs(List), State1};
+    record ->
+      Args = cerl:record_es(Tree),
+      {List, State1} = traverse_list(Args, Out, State, CurrentFun),
+      {merge_outs(List), State1};
+    record_pair ->
+      Key = cerl:record_pair_key(Tree),
+      Val = cerl:record_pair_val(Tree),
+      {List, State1} = traverse_list([Key,Val], Out, State, CurrentFun),
+      {merge_outs(List), State1};
     values ->
       OldNumRvals = state__num_rvals(State),
       State1 = state__store_num_rvals(1, State),

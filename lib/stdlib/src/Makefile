@@ -112,6 +112,7 @@ MODULES= \
 	orddict \
 	ordsets \
 	re \
+	records \
 	peer \
 	pool \
 	proc_lib \

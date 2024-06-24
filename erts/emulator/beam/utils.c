@@ -64,6 +64,7 @@
 #include "erl_unicode.h"
 #include "beam_common.h"
 #include "erl_global_literals.h"
+#include "erl_record.h"
 
 /* *******************************
  * ** Yielding C Fun (YCF) Note **
@@ -1177,6 +1178,19 @@ tailrecur_ne:
 		    ++bb;
 		    goto term_array;
 		}
+            case RECORD_SUBTAG:
+                {
+                    aa = record_val(a);
+                    if (!is_boxed(b) || *boxed_val(b) != *aa) {
+                        goto not_equal;
+                    }
+                    bb = record_val(b);
+                    sz = header_arity(*aa);
+                    ASSERT(sz >= 1);
+                    ++aa;
+                    ++bb;
+                    goto term_array;
+                }
             case HEAP_BITS_SUBTAG:
             case SUB_BITS_SUBTAG:
                 {
@@ -1685,6 +1699,7 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
 #define FLATMAP_ATOM_KEYS             8
 #define FLATMAP_ATOM_VALUES           9
 #define FLATMAP_ATOM_CMP_VALUES      10
+#define RECORD_VALUE_PAIR            11
 
 #define OP_WORD(OP)         (((OP)  << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER)
 #define OP_ARG_WORD(OP, SZ) OP_WORD(((SZ) << OP_BITS) | OP)
@@ -1860,6 +1875,83 @@ tailrecur_ne:
 		++aa;
 		++bb;
 		goto term_array;
+            case (_TAG_HEADER_RECORD >> _TAG_PRIMARY_SIZE):
+                if (!is_record(b)) {
+                    a_tag = RECORD_DEF;
+                    goto mixed_types;
+                }
+
+                {
+                    ErtsRecordInstance *inst_a, *inst_b;
+                    ErtsRecordDefinition *def_a, *def_b;
+                    Eterm *keys_a, *keys_b;
+                    Eterm *values_a, *values_b;
+                    Eterm *order_a, *order_b;
+                    Sint diff;
+                    int field_count;
+#ifdef DEBUG
+                    aa = bb = NULL; /* Don't use these variables */
+#endif
+                    inst_a = RECORD_INST_P(a);
+                    inst_b = RECORD_INST_P(b);
+
+                    def_a = RECORD_DEF_P(inst_a);
+                    def_b = RECORD_DEF_P(inst_b);
+
+                    order_a = tuple_val(def_a->field_order) + 1;
+                    order_b = tuple_val(def_b->field_order) + 1;
+
+                    field_count = RECORD_INST_FIELD_COUNT(inst_a);
+
+                    if (def_a != def_b) {
+                        diff = erts_cmp_atoms(def_a->module, def_b->module);
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        diff = erts_cmp_atoms(def_a->name, def_b->name);
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        ASSERT(false < true);
+                        diff = def_a->is_exported - def_b->is_exported;
+                        if (diff != 0) {
+                            RETURN_NEQ(diff);
+                        }
+
+                        i = record_header_arity(inst_a->thing_word);
+                        if (i != record_header_arity(inst_b->thing_word)) {
+                            RETURN_NEQ(((Sint)i) - (Sint)record_header_arity(inst_b->thing_word));
+                        }
+
+                        keys_a = def_a->keys;
+                        keys_b = def_b->keys;
+
+                        for (int i = 0; i < field_count; i++) {
+                            Eterm key_a = keys_a[unsigned_val(order_a[i])];
+                            Eterm key_b = keys_b[unsigned_val(order_b[i])];
+
+                            if (key_a != key_b) {
+                                RETURN_NEQ(erts_cmp_atoms(key_a, key_b));
+                            }
+                        }
+                    }
+
+                    /* Compare the values, if any. */
+                    values_a = inst_a->values;
+                    values_b = inst_b->values;
+
+                    for (int i = field_count-1; i >= 0; i--) {
+                        a = values_a[unsigned_val(order_a[i])];
+                        b = values_b[unsigned_val(order_b[i])];
+                        if (!is_same(a, b)) {
+                            WSTACK_PUSH3(stack, (UWord)b, (UWord)a,
+                                         OP_ARG_WORD(RECORD_VALUE_PAIR, 0));
+                        }
+                    }
+                    goto pop_next;
+                }
             case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE) :
 		{
                     struct cmp_map_state* sp;
@@ -2620,6 +2712,10 @@ pop_next:
                 sp->atom_keys++;
                 goto case_FLATMAP_ATOM_VALUES_LOOP;
             }
+
+	    case RECORD_VALUE_PAIR:
+		a = (Eterm)WSTACK_POP(stack);
+		goto tailrecur_ne;
 
             default:
                 ASSERT(!"Invalid cmp op");

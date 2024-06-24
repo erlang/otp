@@ -1340,10 +1340,6 @@ otp_14826(_Config) ->
                     {argument_limit,
                      {named_fun,1,'F',[{clause,1,Args,[],[{atom,1,a}]}]}},
                     [{erl_eval,expr,6}, ?MODULE]),
-    backtrace_check("#r{}.",
-                    {undef_record,r},
-                    [{erl_eval,expr,6}, ?MODULE],
-                    none, none),
     %% eval_bits
     backtrace_check("<<100:8/bitstring>>.",
                     badarg,
@@ -1409,13 +1405,6 @@ custom_stacktrace(Config) when is_list(Config) ->
                     [erl_eval, mystack(1)], none, EFH),
 
     backtrace_check("Unknown.", {unbound, 'Unknown'},
-                    [erl_eval, mystack(1)], none, EFH),
-
-    backtrace_check("#unknown{}.", {undef_record,unknown},
-                    [erl_eval, mystack(1)], none, EFH),
-    backtrace_check("#unknown{foo=bar}.", {undef_record,unknown},
-                    [erl_eval, mystack(1)], none, EFH),
-    backtrace_check("#unknown.index.", {undef_record,unknown},
                     [erl_eval, mystack(1)], none, EFH),
 
     backtrace_check("foo(1, 2).", undef,

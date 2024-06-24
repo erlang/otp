@@ -123,6 +123,7 @@ static void export_stage(Export *export,
 #define ERTS_CODE_STAGED_WANT_LIST_SIZE
 #define ERTS_CODE_STAGED_WANT_ENTRY_BYTES
 #define ERTS_CODE_STAGED_WANT_TABLE_SIZE
+#define ERTS_CODE_STAGED_WANT_INFO
 
 #include "erl_code_staged.h"
 

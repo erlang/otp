@@ -718,6 +718,30 @@ write_bin1(Map, D, Enc, O, Sz, Acc) when is_map(Map), is_integer(D) ->
             write_map_body_bin(NextI, D0, D0, Enc, O, Sz1, Start);
         none ->
             {~"#{}", 3}
+    end;
+write_bin1(T, D, Enc, O, Sz, Acc) when is_record(T) ->
+    write_record_bin(T, D, Enc, O, Sz, Acc).
+
+write_record_bin(T, D, Enc, O, Sz0, Acc0) ->
+    {ModStr,ModSz} = write_bin1(records:get_module(T), D, Enc, O, 0, <<>>),
+    {NameStr,NameSz} = write_bin1(records:get_name(T), D, Enc, O, 0, <<>>),
+    Fields = records:get_field_names(T),
+    Acc = <<Acc0/binary, "#", ModStr/binary, ":", NameStr/binary,"{">>,
+    Sz = Sz0 + ModSz + NameSz + 3,
+    write_record_bin1(Fields, T, D, Enc, O, Sz, Acc).
+
+write_record_bin1([], _T, _D, _Enc, _O, Sz0, Acc0) ->
+    {<<Acc0/binary, "}">>, Sz0+1};
+write_record_bin1(_, _T, 1, _Enc, _O, Sz0, Acc0) ->
+    {<<Acc0/binary, "...}">>, Sz0+4};
+write_record_bin1([F|Fs], T, D, Enc, O, Sz0, Acc0) ->
+    {Acc1,Sz1} = write_bin1(F, D, Enc, O, Sz0, Acc0),
+    {Acc2,Sz2} = write_bin1(records:get(F, T), D-1, Enc, O, Sz1 + 3, <<Acc1/binary, " = ">>),
+    case Fs of
+        [] ->
+            {<<Acc2/binary, "}">>, Sz2+1};
+        [_|_] ->
+            write_record_bin1(Fs, T, D-1, Enc, O, Sz2+2, <<Acc2/binary, ",">>)
     end.
 
 write_tail_bin([], _D, _Enc, _O, Sz, Acc) -> {<<Acc/binary, $]>>, Sz+1};
@@ -810,7 +834,9 @@ write1(T, D, E, O) when is_tuple(T) ->
 	    [${,
 	     [write1(element(1, T), D-1, E, O)|write_tuple(T, 2, D-1, E, O)],
 	     $}]
-    end.
+    end;
+write1(T, D, E, O) when is_record(T) ->
+    write_record(T, D, E, O).
 
 %% write_tail(List, Depth, Encoding)
 %%  Test the terminating case first as this looks better with depth.
@@ -821,6 +847,21 @@ write_tail([H|T], D, E, O) ->
     [$,,write1(H, D-1, E, O)|write_tail(T, D-1, E, O)];
 write_tail(Other, D, E, O) ->
     [$|,write1(Other, D-1, E, O)].
+
+write_record(T, D, E, O) ->
+    [$#, write_atom(records:get_module(T)),
+     $:, write_atom(records:get_name(T)),
+     ${, write_record_1(records:get_field_names(T), T, D, E, O), $}].
+
+write_record_1([], _T, _D, _E, _O) ->
+    [];
+write_record_1(_Fs, _T, 1, _E, _O) ->
+    "...";
+write_record_1([F], T, D, E, O) ->
+    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, 0)];
+write_record_1([F|Fs], T, D, E, O) ->
+    [write1(F, D, E, O), " = ", write1(records:get(F, T), D-1, E, 0), ","
+    | write_record_1(Fs, T, D-1, E, 0)].
 
 write_tuple(T, I, _D, _E, _O) when I > tuple_size(T) -> "";
 write_tuple(_, _I, 1, _E, _O) -> [$, | "..."];

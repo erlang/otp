@@ -36,7 +36,8 @@
          otp_14285/1, limit_term/1, otp_14983/1, otp_15103/1, otp_15076/1,
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
-         unscan_format_without_maps_order/1, build_text_without_maps_order/1]).
+         unscan_format_without_maps_order/1, build_text_without_maps_order/1,
+         native_records/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -71,7 +72,8 @@ all() ->
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
      error_info, otp_17525, unscan_format_without_maps_order,
-     build_text_without_maps_order].
+     build_text_without_maps_order,
+     native_records].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -759,7 +761,13 @@ otp_7421(Config) when is_list(Config) ->
     ok.
 
 bt(Bin, R) ->
-    R = binary_to_list(Bin).
+    case binary_to_list(Bin) of
+        R ->
+            ok;
+        Other ->
+            io:format("Expected:~n~ts~nGot:~n~ts~n", [Other, R]),
+            exit({fail, Bin, R})
+    end.
 
 p(Term, D) ->
     rp(Term, 1, 80, D).
@@ -946,98 +954,99 @@ manpage(Config) when is_list(Config) ->
 otp_6708(Config) when is_list(Config) ->
     bt(<<"[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,\n"
                " 23,24,25,26,27,28,29|...]">>,
-             p(lists:seq(1,1000), 30)),
+       p(lists:seq(1,1000), 30)),
     bt(<<"{lkjasklfjsdak,mlkasjdflksj,klasdjfklasd,jklasdfjkl,\n"
-               "               jklsdjfklsd,masdfjkkl}">>,
-             p({lkjasklfjsdak,mlkasjdflksj,klasdjfklasd,jklasdfjkl,
+         "               jklsdjfklsd,masdfjkkl}">>,
+       p({lkjasklfjsdak,mlkasjdflksj,klasdjfklasd,jklasdfjkl,
                 jklsdjfklsd, masdfjkkl}, -1)),
-    bt(<<"#b{f = {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,\n"
-               "                    kjdd}}">>,
-             p({b, {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,kjdd}}, 
-               -1)),
-    bt(<<"#b{f = {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,\n"
-               "                    kdd}}">>,
-             p({b, {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,kdd}}, 
-               -1)),
     bt(<<"#e{f = undefined,g = undefined,\n"
-               "   h = #e{f = 11,g = 22,h = 333}}">>,
-             p({e,undefined,undefined,{e,11,22,333}}, -1)),
+         "   h = #e{f = \"111111111111111111111111111111111\",g = 22,\n",
+         "          h = 333}}">>,
+       p({e,undefined,undefined,{e,"111111111111111111111111111111111",22,333}}, -1)),
+    bt(<<"#b{f = {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,\n"
+         "                    kjdd}}">>,
+       p({b, {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,kjdd}},
+         -1)),
+    bt(<<"#b{f = {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,\n"
+         "                    kdd}}">>,
+       p({b, {lkjljalksdf,jklaskfjd,kljasdlf,kljasdf,kljsdlkf,kdd}},
+         -1)),
     bt(<<"[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21|\n"
-               " apa11]">>,
-             p(lists:seq(1,21) ++ apa11, -1)),
+         " apa11]">>,
+       p(lists:seq(1,21) ++ apa11, -1)),
     bt(<<"[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,\n"
-               " 23,\n"
-               " {{abadalkjlasdjflksdajfksdklfsdjlkfdlskjflsdj"
-                        "flsdjfldsdsdddd}}]">>,
-          p(lists:seq(1,23) ++ 
-            [{{abadalkjlasdjflksdajfksdklfsdjlkfdlskjflsdjflsdjfldsdsdddd}}],
+         " 23,\n"
+         " {{abadalkjlasdjflksdajfksdklfsdjlkfdlskjflsdj"
+         "flsdjfldsdsdddd}}]">>,
+       p(lists:seq(1,23) ++
+             [{{abadalkjlasdjflksdajfksdklfsdjlkfdlskjflsdjflsdjfldsdsdddd}}],
             -1)),
     bt(<<"{lkjasdf,\n"
-               "    {kjkjsd,\n"
-               "        {kjsd,\n"
-               "            {kljsdf,\n"
-               "                {kjlsd,{dkjsdf,{kjlds,{kljsd,{kljs,"
-                                   "{kljlkjsd}}}}}}}}}}">>,
-             p({lkjasdf,{kjkjsd,{kjsd,
-                                 {kljsdf,
-                                  {kjlsd,
-                                   {dkjsdf,{kjlds,
-                                            {kljsd,{kljs,{kljlkjsd}}}}}}}}}},
-               -1)),
+         "    {kjkjsd,\n"
+         "        {kjsd,\n"
+         "            {kljsdf,\n"
+         "                {kjlsd,{dkjsdf,{kjlds,{kljsd,{kljs,"
+         "{kljlkjsd}}}}}}}}}}">>,
+       p({lkjasdf,{kjkjsd,{kjsd,
+                           {kljsdf,
+                            {kjlsd,
+                             {dkjsdf,{kjlds,
+                                      {kljsd,{kljs,{kljlkjsd}}}}}}}}}},
+         -1)),
     bt(<<"{lkjasdf,\n"
-               "    {kjkjsd,\n"
-               "        {kjsd,{kljsdf,{kjlsd,{dkjsdf,{kjlds,"
-                                "{kljsd,{kljs}}}}}}}}}">>,
-             p({lkjasdf,{kjkjsd,{kjsd,
-                                 {kljsdf,{kjlsd,{dkjsdf,
-                                                 {kjlds,{kljsd,{kljs}}}}}}}}},
+         "    {kjkjsd,\n"
+         "        {kjsd,{kljsdf,{kjlsd,{dkjsdf,{kjlds,"
+         "{kljsd,{kljs}}}}}}}}}">>,
+       p({lkjasdf,{kjkjsd,{kjsd,
+                           {kljsdf,{kjlsd,{dkjsdf,
+                                           {kjlds,{kljsd,{kljs}}}}}}}}},
                -1)),
     bt(<<"<<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,\n"
-               "  22,23>>">>,
-             p(list_to_binary(lists:seq(1,23)), -1)),
+         "  22,23>>">>,
+       p(list_to_binary(lists:seq(1,23)), -1)),
     bt(<<"<<100,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,\n"
-               "  27>>">>,
-             p(list_to_binary([100|lists:seq(10,27)]), -1)),
+         "  27>>">>,
+       p(list_to_binary([100|lists:seq(10,27)]), -1)),
     bt(<<"<<100,101,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,\n"
-               "  26>>">>,
-             p(list_to_binary([100,101|lists:seq(10,26)]), -1)),
+         "  26>>">>,
+       p(list_to_binary([100,101|lists:seq(10,26)]), -1)),
     bt(<<"{{<<100,101,102,10,11,12,13,14,15,16,17,18,19,20,21,22,\n"
-               "    23>>}}">>,
-             p({{list_to_binary([100,101,102|lists:seq(10,23)])}}, -1)),
+         "    23>>}}">>,
+       p({{list_to_binary([100,101,102|lists:seq(10,23)])}}, -1)),
     bt(<<"[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22|\n"
-               " ap]">>,
-             p(lists:seq(1,22) ++ ap, -1)),
+         " ap]">>,
+       p(lists:seq(1,22) ++ ap, -1)),
     bt(<<"[1,2,3,4,5,6,7,8,9,10,{},[],\n <<>>,11,12,13,14,15]">>,
-             p(lists:seq(1,10) ++ [{},[],<<>>] ++ lists:seq(11,15),1,30,-1)),
+       p(lists:seq(1,10) ++ [{},[],<<>>] ++ lists:seq(11,15),1,30,-1)),
     bt(<<"[ddd,ddd,\n"
-               " {1},\n"
-               " [1,2],\n"
-               " ddd,kdfd,\n"
-               " [[1,2],a,b,c],\n"
-               " <<\"foo\">>,<<\"bar\">>,1,\n"
-               " {2}]">>,
-             p([ddd,ddd,{1},[1,2],ddd,kdfd,[[1,2],a,b,c],<<"foo">>,<<"bar">>,
-                1,{2}],1,50,-1)),
+         " {1},\n"
+         " [1,2],\n"
+         " ddd,kdfd,\n"
+         " [[1,2],a,b,c],\n"
+         " <<\"foo\">>,<<\"bar\">>,1,\n"
+         " {2}]">>,
+       p([ddd,ddd,{1},[1,2],ddd,kdfd,[[1,2],a,b,c],<<"foo">>,<<"bar">>,
+          1,{2}],1,50,-1)),
 
     bt(<<"{dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,jksd,\n"
-               "                                                     "
-                   "lkjsdf,kljsdf,kljsf,kljsdf,kljsdf,jkldf,jklsdf,kljsdf,\n"
-               "                                                     "
-                   "kljsdf,jklsdf,lkjfd,lkjsdf,kljsdf,kljsdf,lkjsdf,kljsdf,\n"
-               "                                                     "
-                   "lkjsdfsd,kljsdf,kjsfj}">>,
-             p({dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,jksd,
-                lkjsdf,kljsdf,kljsf,kljsdf,kljsdf,jkldf,jklsdf,kljsdf,
-                kljsdf,jklsdf,lkjfd,lkjsdf,kljsdf,kljsdf,lkjsdf,kljsdf,
-                lkjsdfsd,kljsdf,kjsfj}, 1, 110, -1)),
+         "                                                     "
+         "lkjsdf,kljsdf,kljsf,kljsdf,kljsdf,jkldf,jklsdf,kljsdf,\n"
+         "                                                     "
+         "kljsdf,jklsdf,lkjfd,lkjsdf,kljsdf,kljsdf,lkjsdf,kljsdf,\n"
+         "                                                     "
+         "lkjsdfsd,kljsdf,kjsfj}">>,
+       p({dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,jksd,
+          lkjsdf,kljsdf,kljsf,kljsdf,kljsdf,jkldf,jklsdf,kljsdf,
+          kljsdf,jklsdf,lkjfd,lkjsdf,kljsdf,kljsdf,lkjsdf,kljsdf,
+          lkjsdfsd,kljsdf,kjsfj}, 1, 110, -1)),
     bt(<<"{dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,"
-                  "#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
-               "                                                        "
-                  "bbbbbbbbbbbbbbbbbbbb = 2,cccccccccccccccccccc = 3,\n"
-               "                                                        "
-                  "dddddddddddddddddddd = 4,eeeeeeeeeeeeeeeeeeee = 5}}">>,
-             rp({dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,
-                 {d,1,2,3,4,5}},1,200,-1)),
+         "#d{aaaaaaaaaaaaaaaaaaaa = 1,\n"
+         "                                                        "
+         "bbbbbbbbbbbbbbbbbbbb = 2,cccccccccccccccccccc = 3,\n"
+         "                                                        "
+         "dddddddddddddddddddd = 4,eeeeeeeeeeeeeeeeeeee = 5}}">>,
+       rp({dskljsadfkjsdlkjflksdjflksdjfklsdjklfjsdklfjlsdjfkl,
+           {d,1,2,3,4,5}},1,200,-1)),
     ok.
 
 -define(ONE(N), ((1 bsl N) - 1)).
@@ -3329,3 +3338,58 @@ build_text_without_maps_order(_Config) ->
         width => none
     },
     [["1"]] = io_lib:build_text([FormatSpec]).
+
+-record #empty{}.
+-record #vector{x, y}.
+-record #order{zzzz=0, true=1, aaaaaaaaaaaaaaaaaaaaa=2, wwww=3}.
+
+native_records(_Config) ->
+    "#io_SUITE:empty{}" = fmt("~w", [#empty{}]),
+
+    "#io_SUITE:vector{x = 1,y = 2}" = fmt("~w", [#vector{x=1, y=2}]),
+    "..." = fmt("~W", [#vector{x=1, y=2}, 0]),
+    "#io_SUITE:vector{...}" = fmt("~W", [#vector{x=1, y=2}, 1]),
+    "#io_SUITE:vector{x = 1,...}" = fmt("~W", [#vector{x=1, y=2}, 2]),
+
+    "#io_SUITE:order{zzzz = 0,true = 1,aaaaaaaaaaaaaaaaaaaaa = 2,wwww = 3}" = fmt("~w", [#order{}]),
+
+    "#io_SUITE:order{zzzz = #io_SUITE:empty{},true = 1,"
+        "aaaaaaaaaaaaaaaaaaaaa = #io_SUITE:vector{x = 0.0,y = 10.0},wwww = 3}" =
+        fmt("~w", [#order{zzzz = #empty{}, aaaaaaaaaaaaaaaaaaaaa = #vector{x = 0.0, y = 10.0}}]),
+
+    "#io_SUITE:order{zzzz = #io_SUITE:empty{},true = 1,"
+        "aaaaaaaaaaaaaaaaaaaaa = #io_SUITE:vector{...},...}" =
+        fmt("~W", [#order{zzzz = #empty{}, aaaaaaaaaaaaaaaaaaaaa = #vector{x = 0.0, y = 10.0}}, 4]),
+
+    %% ~p and ~P
+    "..." = p(#empty{}, 0),
+    "#io_SUITE:empty{}" = p(#empty{}, 1),
+    "#io_SUITE:vector{...}" = p(#vector{x = 0, y = 0}, 1),
+    "#io_SUITE:vector{x = 0,y = 0}" = p(#vector{x = 0, y = 0}, -1),
+
+    """
+#io_SUITE:order{
+    zzzz = 0,true = 1,
+    aaaaaaaaaaaaaaaaaaaaa =
+        #io_SUITE:vector{
+            x = "Align fields in record names, we want y to match x",
+            y = 1},
+    wwww = 3}
+""" = p(#order{aaaaaaaaaaaaaaaaaaaaa = #vector{x = "Align fields in record names, we want y to match x", y = 1}}, -1),
+
+"""
+#io_SUITE:order{
+             zzzz = 0,
+             true =
+                 #io_SUITE:order{
+                     zzzz = 0,true = "break aligned to the correct column",
+                     aaaaaaaaaaaaaaaaaaaaa = 2,wwww = 3},
+             aaaaaaaaaaaaaaaaaaaaa =
+                 "A very long string can be here and how is that handled",
+             wwww =
+                 #io_SUITE:order{
+                     zzzz = 0,true = 1,aaaaaaaaaaaaaaaaaaaaa = 2,wwww = 3}}
+""" = p(#order{true = #order{true = "break aligned to the correct column"},
+               aaaaaaaaaaaaaaaaaaaaa = "A very long string can be here and how is that handled",
+               wwww = #order{}}, 10, 80, -1),
+    ok.

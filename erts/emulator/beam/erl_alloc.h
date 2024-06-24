@@ -231,7 +231,11 @@ int erts_get_thr_alloc_ix(void);
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
-void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_US(2);
+void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
+                                   Uint size,
+                                   Uint alignment) ERTS_ATTR_MALLOC_US(2);
+#define erts_alloc_permanent_cache_aligned(type, size)                        \
+    erts_alloc_permanent_aligned(type, size, ERTS_CACHE_LINE_SIZE)
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assumed cache line size */

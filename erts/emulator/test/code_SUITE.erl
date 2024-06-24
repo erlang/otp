@@ -164,6 +164,7 @@ bad_beam_file(_Config) ->
 bad_beam_file_1(Mod) ->
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,3,
            [{label,1},
             {line,[]},
@@ -171,7 +172,7 @@ bad_beam_file_1(Mod) ->
             {label,2},
             {move,nil,nil},                     %Illegal destination.
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
 
     %% Bypass beam_validator.
     {ok,BadBeam} = beam_asm:module(Asm, [], [], []),
@@ -179,7 +180,7 @@ bad_beam_file_1(Mod) ->
 
 %% Build a BEAM file with an invalid attributes chunk.
 bad_beam_file_2(Mod) ->
-    Asm = {Mod,[],[],[],1},
+    Asm = {Mod,[],[],#{},[],1},
     {ok,BadBeam0} = beam_asm:module(Asm, [], [], []),
     {ok, Mod, Chunks0} = beam_lib:all_chunks(BadBeam0),
     Chunks1 = lists:keydelete("Attr", 1, Chunks0),
@@ -194,6 +195,7 @@ literal_leak(_Config) ->
     HugeLiteral = binary_to_list(<<0:(1024*1024)/unit:8>>),
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,3,
            [{label,1},
             {line,[]},
@@ -201,7 +203,7 @@ literal_leak(_Config) ->
             {label,2},
             {move,{literal,HugeLiteral},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
     {ok,Beam} = beam_asm:module(Asm, [], [], []),
 
     %% valgrind cannot help us find leak of literals because literal
@@ -484,6 +486,7 @@ constant_pools_test(Config) when is_list(Config) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
+    E = literals:records(),
     process_flag(trap_exit, true),
     Self = self(),
 
@@ -497,7 +500,7 @@ constant_pools_test(Config) when is_list(Config) ->
     true = erlang:purge_module(literals),
     NoOldHeap ! done,
     receive
-        {'EXIT',NoOldHeap,{A,B,C,D}} ->
+        {'EXIT',NoOldHeap,{A,B,C,D,E}} ->
             ok;
         Other_NoOldHeap ->
             ct:fail({unexpected,Other_NoOldHeap})
@@ -531,7 +534,8 @@ constant_pools_test(Config) when is_list(Config) ->
     erlang:purge_module(literals),
     OldHeap ! done,
     receive
-	{'EXIT',OldHeap,{A,B,C,D,[1,2,3|_]=Seq}} when length(Seq) =:= 16 ->
+	{'EXIT',OldHeap,{A,B,C,D,E,[1,2,3|_]=Seq}}
+          when length(Seq) =:= 16 ->
 	    ok
     end,
 
@@ -571,7 +575,8 @@ no_old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    Res = {A,B,C,D},
+    E = literals:records(),
+    Res = {A,B,C,D,E},
     Parent ! go,
     receive
         done ->
@@ -583,7 +588,8 @@ old_heap(Parent) ->
     B = literals:b(),
     C = literals:huge_bignum(),
     D = literals:funs(),
-    Res = {A,B,C,D,lists:seq(1, 16)},
+    E = literals:records(),
+    Res = {A,B,C,D,E,lists:seq(1, 16)},
     create_old_heap(),
     Parent ! go,
     receive
@@ -786,6 +792,7 @@ do_fake_literals(Mod) ->
 make_literal_module(Mod, Term) ->
     Exp = [{term,0}],
     Attr = [],
+    Anno = #{},
     Fs = [{function,term,0,2,
            [{label,1},
             {line,[]},
@@ -793,7 +800,7 @@ make_literal_module(Mod, Term) ->
             {label,2},
             {move,{literal,Term},{x,0}},
             return]}],
-    Asm = {Mod,Exp,Attr,Fs,3},
+    Asm = {Mod,Exp,Attr,Anno,Fs,3},
     {ok,Mod,Beam} = compile:forms(Asm, [from_asm,binary,report]),
     code:load_binary(Mod, atom_to_list(Mod), Beam).
 

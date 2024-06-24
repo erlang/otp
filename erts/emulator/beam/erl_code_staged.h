@@ -159,6 +159,7 @@ ERTS_CODE_STAGED_FUNC__(read_unlock)(void)
     erts_rwmtx_runlock(lock);
 }
 
+#ifdef ERTS_CODE_STAGED_WANT_INFO
 static void
 ERTS_CODE_STAGED_FUNC__(info)(fmtfn_t to, void *to_arg)
 {
@@ -177,6 +178,7 @@ ERTS_CODE_STAGED_FUNC__(info)(fmtfn_t to, void *to_arg)
         ERTS_CODE_STAGED_FUNC__(write_unlock)();
     }
 }
+#endif
 
 static HashValue
 ERTS_CODE_STAGED_FUNC__(hash)(ERTS_CODE_STAGED_ENTRY_T__ *entry)
@@ -461,6 +463,27 @@ ERTS_CODE_STAGED_FUNC__(put)(ERTS_CODE_STAGED_TEMPLATE_T__ *template)
 }
 #endif
 
+#if defined(ERTS_CODE_STAGED_WANT_FOREACH) || \
+    defined(ERTS_CODE_STAGED_WANT_FOREACH_ACTIVE)
+static void
+ERTS_CODE_STAGED_FUNC__(foreach)(
+    void (*callback)(ERTS_CODE_STAGED_OBJECT_TYPE *object,
+                     void *arg),
+    void *arg,
+    ErtsCodeIndex code_ix)
+{
+    IndexTable * const tables = ERTS_CODE_STAGED_CONCAT_MACRO_VALUES__
+                                 (ERTS_CODE_STAGED_PREFIX, _tables);
+    IndexTable *table = &tables[code_ix];
+
+    for (int ix = 0; ix < table->entries; ix++) {
+        ERTS_CODE_STAGED_ENTRY_T__ *src_entry =
+            (ERTS_CODE_STAGED_ENTRY_T__*)erts_index_lookup(table, ix);
+        callback(src_entry->object, arg);
+    }
+}
+#endif
+
 #ifdef ERTS_CODE_STAGED_WANT_FOREACH_ACTIVE
 static void
 ERTS_CODE_STAGED_FUNC__(foreach_active)(
@@ -468,15 +491,7 @@ ERTS_CODE_STAGED_FUNC__(foreach_active)(
                      void *arg),
     void *arg)
 {
-    IndexTable * const tables = ERTS_CODE_STAGED_CONCAT_MACRO_VALUES__
-                                 (ERTS_CODE_STAGED_PREFIX, _tables);
-    IndexTable *table = &tables[erts_active_code_ix()];
-
-    for (int ix = 0; ix < table->entries; ix++) {
-        ERTS_CODE_STAGED_ENTRY_T__ *src_entry =
-            (ERTS_CODE_STAGED_ENTRY_T__*)erts_index_lookup(table, ix);
-        callback(src_entry->object, arg);
-    }
+    ERTS_CODE_STAGED_FUNC__(foreach)(callback, arg, erts_active_code_ix());
 }
 #endif
 

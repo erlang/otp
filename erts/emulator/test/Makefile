@@ -89,6 +89,7 @@ MODULES= \
 	module_info_SUITE \
 	monitor_SUITE \
 	multi_load_SUITE \
+	native_record_SUITE \
 	nested_SUITE \
 	nif_SUITE \
 	node_container_SUITE \
@@ -144,7 +145,8 @@ MODULES= \
 	erts_test_utils \
 	erts_test_destructor \
 	crypto_reference \
-	literal_area_collector_test
+	literal_area_collector_test \
+        ext_records
 
 NO_OPT= bs_bincomp \
 	bs_bit_binaries \

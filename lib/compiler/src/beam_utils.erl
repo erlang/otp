@@ -39,8 +39,10 @@
 -type int_function() :: {'function',beam_asm:function_name(),arity(),
                          beam_asm:label(),[instruction()]}.
 
+-type beam_anno() :: #{'native_record' => tuple()}.
+
 -type module_code() ::
-        {module(),[_],[_],[int_function()],pos_integer()}.
+        {module(),[_],[_],beam_anno(),[int_function()],pos_integer()}.
 
 %% replace_labels(FunctionIs, Tail, ReplaceDb, Fallback) -> FunctionIs.
 %%  Replace all labels in instructions according to the ReplaceDb.
@@ -108,6 +110,8 @@ replace_labels_1([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D, Fb)
   when Lbl =/= 0 ->
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Op,Src,Dst,Live,List}|Acc], D, Fb);
 replace_labels_1([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D, Fb) when Lbl =/= 0 ->
+    replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Src,List}|Acc], D, Fb);
+replace_labels_1([{get_record_elements=I,{f,Lbl},Src,List}|Is], Acc, D, Fb) when Lbl =/= 0 ->
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Src,List}|Acc], D, Fb);
 replace_labels_1([{bs_start_match4,{f,Lbl},Live,Src,Dst}|Is], Acc, D, Fb) ->
     I = {bs_start_match4,{f,label(Lbl, D, Fb)},Live,Src,Dst},

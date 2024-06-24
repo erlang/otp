@@ -81,6 +81,7 @@
 		    t_is_pid/1,
 		    t_is_port/1,
 		    t_is_maybe_improper_list/1,
+		    t_is_record/1,
 		    t_is_reference/1,
 		    t_is_subtype/2,
 		    t_is_tuple/1,
@@ -99,6 +100,7 @@
 		    t_pid/0,
 		    t_port/0,
 		    t_maybe_improper_list/0,
+		    t_record/0,
 		    t_reference/0,
 		    t_string/0,
 		    t_subtract/2,
@@ -682,15 +684,19 @@ type(erlang, is_port, 1, Xs) ->
                         t_port())
         end,
   strict(erlang, is_port, 1, Xs, Fun);
+type(erlang, is_record, 1, Xs) ->
+  Fun = fun (X) ->
+	    check_guard(X, fun (Y) -> t_is_record(Y) end,
+			t_record())
+	end,
+  strict(erlang, is_record, 1, Xs, Fun);
 type(erlang, is_record, 2, Xs) ->
   Fun = fun ([X, Y]) ->
-	    case t_is_tuple(X) of
-	      false ->
-		case t_is_none(t_inf(t_tuple(), X)) of
-		  true -> t_atom('false');
-		  false -> t_boolean()
-		end;
-	      true ->
+	    case {t_is_tuple(X), t_is_record(X)} of
+	      {false, true} ->
+		%% TODO: We must handle native records here.
+		t_boolean();
+	      {true, false} ->
 		case t_tuple_subtypes(X) of
 		  unknown -> t_boolean();
 		  [Tuple] ->
@@ -700,26 +706,34 @@ type(erlang, is_record, 2, Xs) ->
 		    end;
 		  List when length(List) >= 2 ->
 		    t_sup([type(erlang, is_record, 2, [T, Y]) || T <- List])
+		end;
+	      {false, false} ->
+		case t_is_none(t_inf(t_tuple(), X)) of
+		  true -> t_atom('false');
+		  false -> t_boolean()
 		end
 	    end
 	end,
   strict(erlang, is_record, 2, Xs, Fun);
 type(erlang, is_record, 3, Xs) ->
   Fun = fun ([X, Y, Z]) ->
-	    Arity = t_number_vals(Z),
-	    case t_is_tuple(X) of
-	      false when length(Arity) =:= 1 ->
+	    Arity = case is_integer(Z) of
+                      true -> t_number_vals(Z);
+                      false -> -1
+	            end,
+	    case {t_is_tuple(X), t_is_record(X)} of
+	      {false, false} when length(Arity) =:= 1 ->
 		[RealArity] = Arity,
 		case t_is_none(t_inf(t_tuple(RealArity), X)) of
 		  true -> t_atom('false');
 		  false -> t_boolean()
 		end;
-	      false ->
+	      {false, false} ->
 		case t_is_none(t_inf(t_tuple(), X)) of
 		  true -> t_atom('false');
 		  false -> t_boolean()
 		end;
-	      true when length(Arity) =:= 1 ->
+	      {true, false} when length(Arity) =:= 1 ->
 		[RealArity] = Arity,
 		case t_tuple_subtypes(X) of
 		  unknown -> t_boolean();
@@ -734,7 +748,10 @@ type(erlang, is_record, 3, Xs) ->
 		  [_, _|_] ->
 		    t_boolean()
 		end;
-	      true ->
+	      {true, false} ->
+		t_boolean();
+	      {false, true} ->
+		%% TODO: We must handle native records here.
 		t_boolean()
 	    end
 	end,
@@ -2254,10 +2271,12 @@ arg_types(erlang, is_pid, 1) ->
   [t_any()];
 arg_types(erlang, is_port, 1) ->
   [t_any()];
+arg_types(erlang, is_record, 1) ->
+  [t_any()];
 arg_types(erlang, is_record, 2) ->
   [t_any(), t_atom()];
 arg_types(erlang, is_record, 3) ->
-  [t_any(), t_atom(), t_non_neg_fixnum()];
+  [t_any(), t_atom(), t_sup(t_non_neg_fixnum(),t_atom())];
 arg_types(erlang, is_reference, 1) ->
   [t_any()];
 arg_types(erlang, is_tuple, 1) ->

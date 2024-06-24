@@ -362,6 +362,8 @@ type    MSACC           DRIVER          SYSTEM          microstate_accounting
 type	SYS_CHECK_REQ	SHORT_LIVED	SYSTEM		system_check_request
 type	ATOMICS		STANDARD	SYSTEM		erl_bif_atomics
 type	COUNTERS	STANDARD	SYSTEM		erl_bif_counters
+type    RECORD_TABLE    LONG_LIVED      CODE            record_table
+type    RECORD          LONG_LIVED      CODE            record_entry
 
 #
 # Types used by system specific code

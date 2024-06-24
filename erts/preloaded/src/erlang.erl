@@ -231,6 +231,8 @@ that contains some items.
 -type port() :: port().
 -doc "An integer greater than zero.".
 -type pos_integer() :: pos_integer().
+-doc "A [native record](`e:system:data_types.md#native-record`).".
+-type record() :: record().
 -doc "An Erlang [reference](`e:system:data_types.md#reference`).".
 -type reference() :: reference().
 -doc """
@@ -254,8 +256,8 @@ A timeout value that can be passed to a
               none/0, nonempty_binary/0, nonempty_bitstring/0, nonempty_improper_list/2,
               nonempty_list/0, nonempty_list/1, nonempty_maybe_improper_list/0,
               nonempty_maybe_improper_list/2, nonempty_string/0, number/0, pid/0,
-              port/0, pos_integer/0, reference/0, string/0, term/0, timeout/0,
-              tuple/0]).
+              port/0, pos_integer/0, record/0, reference/0, string/0, term/0,
+              timeout/0, tuple/0]).
 
 %% Datatypes that need an erlang: prefix
 -export_type([timestamp/0]).
@@ -486,8 +488,8 @@ A list of binaries. This datatype is useful to use together with
 -export([abs/1, append/2, element/2, get_module_info/2, hd/1,
          is_atom/1, is_binary/1, is_bitstring/1, is_boolean/1,
          is_float/1, is_function/1, is_function/2, is_integer/1, is_integer/3,
-         is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/2,
-         is_record/3, is_reference/1, is_tuple/1, load_module/2,
+         is_list/1, is_map/1, is_number/1, is_pid/1, is_port/1, is_record/1,
+         is_record/2, is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
          make_tuple/2, make_tuple/3, open_port/2,
          port_call/2, port_call/3, port_info/1, port_info/2, process_flag/2,
@@ -7220,46 +7222,85 @@ false
 is_port(_Term) ->
     erlang:nif_error(undefined).
 
-%% Shadowed by erl_bif_types: erlang:is_record/2
+%% Shadowed by erl_bif_types: erlang:is_record/1
 -doc """
-Returns `true` if `Term` is a tuple and its first element is `RecordTag`;
-otherwise, returns `false`.
+Returns `true` if `Term` is a native record; otherwise, returns `false`.
 
-> #### Note {: .info }
->
-> Normally, the compiler treats calls to [`is_record/2`](`is_record/2`)
-> specially. It emits code to verify that `Term` is a tuple, its first
-> element is `RecordTag`, and its size is correct. However, if `RecordTag`
-> is not a literal atom, the BIF [`is_record/2`](`is_record/2`) is called
-> instead and the size of the tuple is not verified.
+## Examples
 
-Allowed in guard tests, if `RecordTag` is a literal atom.
+```erlang
+1> NR = records:create(test, native, [], #{is_exported => true}).
+2> is_record(NR).
+true
+3> is_record(an_atom).
+false
+4> is_record({a,b,c}).
+false
+```
 """.
 -doc #{ category => terms }.
--spec is_record(Term, RecordTag) -> boolean() when
+-doc #{ since => ~"OTP @OTP-19785@" }.
+-spec is_record(Term) -> boolean() when
+      Term :: term().
+is_record(_Term) ->
+    erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:is_record/2
+-doc """
+Returns `true` if `Term` is either a tuple record or a native record named `Name`;
+otherwise, returns `false`.
+
+This is allowed in guard tests if `Name` is a literal atom.
+
+The compilation will fail with an error message if `Name` does not
+refer to either a record defined in the same module as the call to
+`is_record/2` or a native record imported into it.
+
+If `Name` is a variable and `Term` is a native record, this function
+returns `true` if `Name` refers to a native record named `Name` in any
+module; otherwise, it returns `false`.
+
+If `Name` is a variable and `Term` is tuple, this function returns
+`true` if the first element of the tuple is `Name`; otherwise, it
+returns `false`.
+
+> #### Change {: .change }
+>
+> Before OTP 29, this function would only work for tuple records.
+
+""".
+-doc #{ category => terms }.
+-spec is_record(Term, Name) -> boolean() when
       Term :: term(),
-      RecordTag :: atom().
-is_record(_Term,_RecordTag) ->
+      Name :: atom().
+is_record(_Term,_Name) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:is_record/3
 -doc """
-Returns `true` if `Term` is a tuple, its first element is `RecordTag`, and its
-size is `Size`; otherwise, returns `false`.
+Returns `true` either if `Term` is a native record defined in module `Module`
+with name `Name`, or if `Term` is a tuple, its first element is `Name`, and its
+size is `Arity`; otherwise, returns `false`.
 
-Allowed in guard tests if `RecordTag` is a literal atom and `Size` is a literal
-integer.
+This is allowed in guard tests if either `Module` and `Name` are literal atoms, or
+`Name` is a literal atom and `Size` is a literal integer.
 
 > #### Note {: .info }
 >
-> This BIF is documented for completeness. Usually
-> [`is_record/2`](`is_record/2`) is to be used.
+> This BIF only checks if `Term` is a native record created from the given
+> module. It does not check whether `Term` is still defined in the given
+> module, nor whether it is exported.
+
+> #### Change {: .change }
+>
+> Before Erlang/OTP 29, this function only worked for tuple records.
+
 """.
 -doc #{ category => terms }.
--spec is_record(Term, RecordTag, Size) -> boolean() when
-      Term :: term(),
-      RecordTag :: atom(),
-      Size :: non_neg_integer().
+-spec is_record(Term :: dynamic(), Module :: module(),
+                Name :: atom()) -> boolean();
+               (Term :: dynamic(), Name :: atom(),
+                Arity :: non_neg_integer()) -> boolean().
 is_record(_Term,_RecordTag,_Size) ->
     erlang:nif_error(undefined).
 

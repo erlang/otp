@@ -423,6 +423,14 @@ extract_src_vars({'catch',_Anno,E}, Lc, Acc0) ->
 extract_src_vars({zip,_,Qs0}, _Lc, Acc0) ->
     Qs = extract_sv_qs(Qs0),
     extract_args(Qs, Acc0);
+extract_src_vars({record,_Anno,V,_Id,Es}=Blurf, Lc, Acc0) ->
+    extract_body(Es, Lc, extract_src_vars(V, Lc, Acc0));
+extract_src_vars({record,_Anno,_Id,Es}, Lc, Acc0) ->
+    extract_body(Es, Lc, Acc0);
+extract_src_vars({record_field,_,_,E}, Lc, Acc0) ->
+    extract_src_vars(E, Lc, Acc0);
+extract_src_vars({record_field,_,R,_,F}, Lc, Acc0) ->
+    extract_src_vars(F, Lc, extract_src_vars(R, Lc, Acc0));
 extract_src_vars({C,_,Build,Qs0}, Lc, Acc0)
   when C =:= lc; C =:= bc; C =:= mc ->
     case any_debug_line_instrs(Build) of
@@ -438,10 +446,15 @@ extract_src_vars({C,_,Build,Qs0}, Lc, Acc0)
             Acc1 = extract_src_vars(Build, Lc, Acc0),
             extract_args(Qs0, Acc1)
     end;
-extract_src_vars({G,_,P,E}, _Lc, Acc0) ->
-    true = is_generator(G),                     %Assertion.
-    Acc1 = extract_src_vars(P, false, Acc0),
-    extract_src_vars(E, false, Acc1).
+extract_src_vars({G,_,P,E}=X, _Lc, Acc0) ->
+    case is_generator(G) of
+        true ->
+            Acc1 = extract_src_vars(P, false, Acc0),
+            extract_src_vars(E, false, Acc1);
+        false ->
+            io:format("~p\n", [X]),
+            error(X)
+    end.
 
 is_generator(generate) -> true;
 is_generator(b_generate) -> true;
@@ -745,7 +758,7 @@ call_in_call_args(Config) ->
 
     ok = file:write_file(SrcName, S),
     {ok,M,Asm} = compile:file(SrcName, [report,beam_debug_info,binary,to_asm]),
-    {M,_,_,[{function,f,1,_,Is}|_],_} = Asm,
+    {M,_,_,_,[{function,f,1,_,Is}|_],_} = Asm,
 
     DebugLines = [I || I <- Is, element(1, I) =:= debug_line],
     io:format("~p\n", [DebugLines]),
@@ -775,7 +788,7 @@ missing_vars(Config) ->
 
     ok = file:write_file(SrcName, S),
     {ok,M,Asm} = compile:file(SrcName, [report,beam_debug_info,binary,to_asm]),
-    {M,_,_,[{function,f,3,_,Is}|_],_} = Asm,
+    {M,_,_,_,[{function,f,3,_,Is}|_],_} = Asm,
     DebugLines0 = [begin
                        {location,_File,Line} = lists:keyfind(location, 1, Anno),
                        {Kind,Line,FrameSz,[Name || {Name,_} <- Vars]}

@@ -31,8 +31,8 @@
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs,Lc}, _Opt) ->
-    {ok,{Mod,Exp,Attr,[function(F) || F <- Fs],Lc}}.
+module({Mod,Exp,Attr,Anno,Fs,Lc}, _Opt) ->
+    {ok,{Mod,Exp,Attr,Anno,[function(F) || F <- Fs],Lc}}.
 
 function({function,Name,Arity,CLabel,Is0}) ->
     Is = block(Is0),

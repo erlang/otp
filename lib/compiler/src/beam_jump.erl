@@ -143,9 +143,9 @@
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
-module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
+module({Mod,Exp,Attr,Anno,Fs0,Lc0}, _Opt) ->
     {Fs,Lc} = mapfoldl(fun function/2, Lc0, Fs0),
-    {ok,{Mod,Exp,Attr,Fs,Lc}}.
+    {ok,{Mod,Exp,Attr,Anno,Fs,Lc}}.
 
 %% function(Function) -> Function'
 %%  Optimize jumps and branches.
@@ -942,6 +942,8 @@ instr_labels({bs_create_bin,Lbl,_,_,_,_,_}) ->
 instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_map_elements,Lbl,_Src,_List}) ->
+    do_instr_labels(Lbl);
+instr_labels({get_record_elements,Lbl,_Src,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_start_match4,Fail,_,_,_}) ->
     case Fail of

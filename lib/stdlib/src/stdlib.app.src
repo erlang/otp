@@ -101,6 +101,7 @@
 	     rand,
 	     random,
 	     re,
+             records,
 	     sets,
 	     shell,
 	     shell_default,

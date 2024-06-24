@@ -58,7 +58,7 @@
 	 t_list_elements/1, t_nonempty_list/1, t_maybe_improper_list/0,
 	 t_module/0, t_number/0, t_number_vals/1,
 	 t_pid/0, t_port/0, t_product/1, t_reference/0,
-	 t_subst/2,
+	 t_record/1, t_subst/2,
 	 t_timeout/0, t_tuple/0, t_tuple/1,
          t_var/1, t_var_name/1,
 	 t_none/0, t_unit/0,
@@ -451,6 +451,12 @@ traverse(Tree, DefinedVars, State) ->
           {State, t_any()};
         executable_line ->
           {State, t_any()};
+        record_field ->
+          {State, t_any()};
+        is_native_record ->
+          {State, t_any()};
+        is_record_accessible ->
+          {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
     seq ->
@@ -607,6 +613,36 @@ traverse(Tree, DefinedVars, State) ->
 	    state__store_conj(ArgVar, sub, ArgType, State3)
 	end,
       {state__store_conj(MapVar, sub, MapType, State4), MapVar};
+    record ->
+      Id = cerl:concrete(cerl:record_id(Tree)),
+      RecordFoldFun = fun(Entry, AccState) ->
+                          AccState1 = state__set_in_match(AccState, false),
+                          {AccState2, KeyVar} = traverse(cerl:record_pair_key(Entry),
+                                                         DefinedVars, AccState1),
+                          AccState3 = state__set_in_match(
+                                        AccState2, state__is_in_match(AccState)),
+                          {AccState4, ValVar} = traverse(cerl:record_pair_val(Entry),
+                                                         DefinedVars, AccState3),
+                          {{KeyVar, ValVar}, AccState4}
+                      end,
+      Entries = cerl:record_es(Tree),
+      {_EVars, State1} = lists:mapfoldl(RecordFoldFun, State, Entries),
+      {State2, _ArgVar} = case cerl:record_arg(Tree) of
+                            {c_literal,[],empty} ->
+                              {State1, t_record(Id)};
+                            {c_literal,[],ok} ->
+                              {State1, t_record(Id)};
+                            _ ->
+                              traverse(cerl:record_arg(Tree), DefinedVars, State1)
+                          end,
+      RecordVar = mk_var(Tree),
+      RecordType = t_record(Id),
+      case lookup_record(State2, Id, 0) of
+        {error, State3} -> {State3, RecordType};
+        {ok, RecordType1, State3} ->
+          State4 = state__store_conj(RecordVar, sub, RecordType1, State3),
+          {State4, RecordType}
+        end;
     values ->
       %% We can get into trouble when unifying products that have the
       %% same element appearing several times. Handle these cases by
@@ -1137,6 +1173,8 @@ get_safe_underapprox_1([Pat0|Left], Acc, Map) ->
 	OtherPat ->
 	  get_safe_underapprox_1([OtherPat|Left], Acc, Map)
       end;
+    record ->
+      throw(dont_know);
     tuple ->
       Es = cerl:tuple_es(Pat),
       {Ts, Map1} = get_safe_underapprox_1(Es, [], Map),

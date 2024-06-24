@@ -2730,7 +2730,7 @@ binary_match_to_asm(Matches) ->
 	{function,erl_anno:new(3),example,1,Clauses}
     ],
 
-    {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,Funs,_},_} =
+    {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,_Anno,Funs,_},_} =
 	compile:forms(Module, [return, to_asm]),
 
     [{function,example,1,2,AllInstructions}|_] = Funs,

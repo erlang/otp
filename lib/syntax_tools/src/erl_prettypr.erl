@@ -680,6 +680,8 @@ lay_2(Node, Ctxt) ->
             N = case erl_syntax:attribute_name(Node) of
                     {atom, _, 'if'} ->
                         erl_syntax:variable('if');
+                    {atom, A, native_record} ->
+                        {atom, A, record};
                     N0 ->
                         N0
                 end,
@@ -733,7 +735,12 @@ lay_2(Node, Ctxt) ->
                                beside(text("("),
                                       beside(lay(As, Ctxt1),
                                              floating(text(")")))));
-                    _ when Args =:= none ->
+                    native_record ->
+                        [Name, Def] = Args,
+                        D1 = sep(seq([Def], text(","), Ctxt1, fun lay/2)),
+                        beside(text("record #"),
+			       beside(lay(Name, Ctxt1), D1));
+		    _ when Args =:= none ->
 			lay(N, Ctxt1);
                     _ ->
                         D1 = sep(seq(Args, text(","), Ctxt1,
@@ -1296,6 +1303,8 @@ attribute_type(Node) ->
             export_type;
         optional_callbacks ->
             optional_callbacks;
+        native_record ->
+            native_record;
         _ ->
             N
     end.

@@ -729,6 +729,45 @@ new(Name, Age) ->
 Read more about records in [Records](ref_man_records.md). More examples are
 found in [Programming Examples](`e:system:prog_ex_records.md`).
 
+## Native Record
+
+A native record is a data structure for storing a fixed number
+of elements. It is similar to the traditional [tuple-based records](#record),
+except that it is a true data type.
+
+_Examples:_
+
+```erlang
+-module(person).
+-export([new/2]).
+
+-record #person{name, age}.
+
+new(Name, Age) ->
+    #person{name=Name, age=Age}.
+```
+
+```erlang
+1> P = person:new(ernie, 44).
+#person:person{name = ernie,age = 44}
+2> is_record(P).
+true
+3> is_tuple(P).
+false
+4> is_map(P).
+false
+```
+
+> #### Warning {: .warning }
+>
+> Native records are considered experimental in Erlang/OTP 29. This
+> means that their behavior may change, potentially requiring updates
+> to applications that use them.
+
+> #### Change {: .info }
+>
+> Native records were introduced in Erlang/OTP 29.
+
 ## Boolean
 
 There is no Boolean data type in Erlang. Instead the atoms `true` and `false`

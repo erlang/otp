@@ -59,6 +59,7 @@
 #include "erl_md5.h"
 #include "erl_iolist.h"
 #include "erl_debugger.h"
+#include "erl_record.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -4805,6 +4806,12 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
                              ? am_true : am_false);
                 BIF_RET(TUPLE3(hp, bin_addr_term, refc_term, test_type));
 	    }
+	    else if (ERTS_IS_ATOM_STR("native_record_def", tp[1])) {
+                ErtsRecordInstance *instance;
+
+                instance = RECORD_INST_P(tp[2]);
+                BIF_RET(instance->record_definition);
+            }
 
 	    break;
 	}

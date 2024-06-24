@@ -730,6 +730,10 @@ scan1([$:|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, ":", ':', 1);
 scan1([$||Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "|", '|', 1);
+scan1("#_"++Cs, St, Line, Col, Toks) ->
+    tok2(Cs, St, Line, Col, Toks, "#_", '#_', 2);
+scan1("#"=Cs, St, Line, Col, Toks) ->
+    {more,{Cs,St,Col,Toks,Line,[],fun scan/6}};
 scan1([$#|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "#", '#', 1);
 scan1([$/|Cs], St, Line, Col, Toks) ->

@@ -258,7 +258,9 @@ t_type(Config) when is_list(Config) ->
                     ,{"#{atom() => integer()}", map_type, false}
                     ,{"#{atom() := integer()}", map_type, false}
                     ,{"#r{}", record_type, false}
+                    ,{"#ext:r{}", record_type, false}
                     ,{"#r{a :: integer()}", record_type, false}
+                    ,{"#ext:r{a :: integer()}", record_type, false}
                     ,{"[]", type_application, false}
                     ,{"nil()", type_application, false}
                     ,{"[atom()]", type_application, false}
@@ -365,10 +367,15 @@ t_erl_parse_type(Config) when is_list(Config) ->
                      {"<< <<B:8,C:8>> || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
 		     {"<< (catch <<B:8,C:8>>) || <<B>> <= Bs && <<C>> <= Cs>>", binary_comp,false},
 		     {"#state{ a = A, b = B}", record_expr,false},
+		     {"#ext:state{ a = A, b = B}", record_expr,false},
 		     {"#state{}", record_expr,false},
+		     {"#ext:state{}", record_expr,false},
 		     {"#s{ a = #def{ a=A }, b = B}", record_expr,false},
+		     {"#ext:s{ a = #ext:def{ a=A }, b = B}", record_expr,false},
 		     {"State#state{ a = A, b = B}", record_expr,false},
+		     {"State#ext:state{ a = A, b = B}", record_expr,false},
 		     {"State#state.a", record_access,false},
+		     {"State#ext:state.a", record_access,false},
 		     {"#state.a", record_index_expr,false},
 		     {"-X", prefix_expr,false},
 		     {"X1 + X2", infix_expr,false},

@@ -76,7 +76,14 @@ Syntax trees are defined in the module `m:cerl`.
 	       is_c_map_pattern/1, ann_c_map_pattern/2,
 	       map_pair_key/1,map_pair_val/1,map_pair_op/1,
 	       ann_c_map_pair/4,
-	       update_c_map_pair/4
+	       update_c_map_pair/4,
+
+               ann_c_record/4, record_arg/1, record_id/1, record_es/1,
+               update_c_record/4,
+               ann_c_record_pair/3,
+               record_es/1,
+               record_pair_key/1, record_pair_val/1,
+               update_c_record_pair/3
 	   ]).
 
 -type cerl() :: cerl:cerl().
@@ -154,6 +161,12 @@ map_1(F, T) ->
 	    update_c_map_pair(T, map(F, map_pair_op(T)),
                                  map(F, map_pair_key(T)),
                                  map(F, map_pair_val(T)));
+	record ->
+            update_c_record(T, map(F, record_arg(T)), map(F, record_id(T)),
+                            map_list(F, record_es(T)));
+	record_pair ->
+            update_c_record_pair(T, map(F, record_pair_key(T)),
+                                 map(F, record_pair_val(T)));
  	'let' ->
 	    update_c_let(T, map_list(F, let_vars(T)),
 			 map(F, let_arg(T)),
@@ -259,6 +272,10 @@ fold_1(F, S, T) ->
  	    fold_list(F, S, values_es(T));
 	cons ->
 	    fold(F, fold(F, S, cons_hd(T)), cons_tl(T));
+        record ->
+            fold_list(F, S, record_es(T));
+        record_pair ->
+            fold(F, fold(F, S, record_pair_key(T)), record_pair_val(T));
 	tuple ->
 	    fold_list(F, S, tuple_es(T));
 	map ->
@@ -421,6 +438,15 @@ mapfold(Pre, Post, S00, T0) ->
 		    {Key, S2} = mapfold(Pre, Post, S1, map_pair_key(T)),
 		    {Val, S3} = mapfold(Pre, Post, S2, map_pair_val(T)),
 		    Post(update_c_map_pair(T,Op,Key,Val), S3);
+                record ->
+                    {Arg, S1} = mapfold(Pre, Post, S0, record_arg(T)),
+                    {Id, S2} = mapfold(Pre, Post, S1, record_id(T)),
+                    {Ts, S3} = mapfold_list(Pre, Post, S2, record_es(T)),
+                    Post(update_c_record(T, Arg, Id, Ts), S3);
+                record_pair ->
+                    {Key, S1} = mapfold(Pre, Post, S0, record_pair_key(T)),
+                    {Val, S2} = mapfold(Pre, Post, S1, record_pair_val(T)),
+                    Post(update_c_record_pair(T, Key, Val), S2);
 		'let' ->
 		    {Vs, S1} = mapfold_list(Pre, Post, S0, let_vars(T)),
 		    {A, S2} = mapfold(Pre, Post, S1, let_arg(T)),
@@ -564,6 +590,10 @@ variables(T, S) ->
 	    vars_in_list([map_arg(T)|map_es(T)], S);
 	map_pair ->
 	    vars_in_list([map_pair_op(T),map_pair_key(T),map_pair_val(T)], S);
+        record ->
+            vars_in_list(record_es(T), S);
+        record_pair ->
+            variables(record_pair_val(T), S);
 	'let' ->
 	    Vs = variables(let_body(T), S),
 	    Vs1 = var_list_names(let_vars(T)),
@@ -736,6 +766,11 @@ next_free(T, Max) ->
         map_pair ->
             next_free_in_list([map_pair_op(T),map_pair_key(T),
                                map_pair_val(T)], Max);
+        record ->
+            next_free_in_list([record_arg(T)|record_es(T)], Max);
+        record_pair ->
+            next_free_in_list([record_pair_key(T),
+                               record_pair_val(T)], Max);
         'let' ->
             Max1 = next_free(let_body(T), Max),
             Max2 = next_free_in_list(let_vars(T), Max1),
@@ -887,6 +922,17 @@ label(T, N, Env) ->
 	    {Val, N3} = label(map_pair_val(T), N2, Env),
 	    {As,  N4} = label_ann(T, N3),
 	    {ann_c_map_pair(As,Op,Key,Val), N4};
+        record ->
+            {Arg, N1} = label(record_arg(T), N, Env),
+            {Id, N2} = label(record_id(T), N1, Env),
+            {Ts, N3} = label_list(record_es(T), N2, Env),
+            {As, N4} = label_ann(T, N3),
+            {ann_c_record(As, Arg, Id, Ts), N4};
+        record_pair ->
+            {Key, N1} = label(record_pair_key(T), N, Env),
+            {Val, N2} = label(record_pair_val(T), N1, Env),
+            {As,  N3} = label_ann(T, N2),
+            {ann_c_record_pair(As, Key, Val), N3};
  	'let' ->
 	    {A, N1} = label(let_arg(T), N, Env),
 	    {Vs, N2, Env1} = label_vars(let_vars(T), N1, Env),

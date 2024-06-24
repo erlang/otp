@@ -103,7 +103,7 @@ for manipulating annotations in abstract code.
                     | {'generated', generated()}
                     | {'location', location()}
                     | {'end_location', location()}
-                    | {'record', record()}
+                    | {'record', record_local()}
                     | {'text', string()}.
 
 -ifdef(DEBUG).
@@ -123,7 +123,7 @@ or a list of key-value pairs.
 -type filename() :: file:filename_all().
 -nominal line() :: non_neg_integer().
 -nominal location() :: line() | {line(), column()}.
--type record() :: boolean().
+-type record_local() :: boolean().
 -type text() :: string().
 
 -ifdef(DEBUG).
@@ -350,7 +350,7 @@ location(Anno) ->
     anno_info(Anno, location, 0).
 
 -doc false.
--spec record(Anno) -> record() when
+-spec record(Anno) -> record_local() when
       Anno :: anno().
 
 record(Line) when ?ALINE(Line) ->
@@ -438,7 +438,7 @@ set_end_location(Location, Anno) ->
 -doc "Modifies the record marker of the annotations Anno.".
 -doc(#{since => <<"OTP 18.0">>}).
 -spec set_record(Record, Anno) -> Anno when
-      Record :: record(),
+      Record :: record_local(),
       Anno :: anno().
 
 set_record(Record, Anno) ->

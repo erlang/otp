@@ -450,14 +450,95 @@ expr({mc,_,E,Qs}, Bs, Lf, Ef, RBs, FUVs) ->
 expr({tuple,_,Es}, Bs0, Lf, Ef, RBs, FUVs) ->
     {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
     ret_expr(list_to_tuple(Vs), Bs, RBs);
-expr({record_field,Anno,_,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
+expr({record_field,_Anno,{atom,_,N},V0}, Bs0, Lf, Ef, RBs, FUVs) ->
+    {value,V1,Bs1} = expr(V0, Bs0, Lf, Ef, RBs, FUVs),
+    ret_expr({N,V1}, Bs1, RBs);
+expr({record_field,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
+expr({record_field,Anno,{var,_,Src0},{M,N},{atom,_,K}}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case binding(Src0, Bs) of
+        {value, Src1} ->
+            case is_record(Src1, M, N) of
+                true ->
+                    Val = records:get(K, Src1),
+                    ret_expr(Val, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end;
+expr({record_field,Anno,{var,_,Src0},[],{atom,_,K}}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case binding(Src0, Bs) of
+        {value, Src1} ->
+            case is_record(Src1) of
+                true ->
+                    Val = records:get(K, Src1),
+                    ret_expr(Val, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end;
+expr({record_field,Anno,Src,Name,K}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case Src of
+        {var,_,_V} -> ok;
+        _ -> apply_error({badarg,Src}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    case K of
+        {atom,_,_Key} -> ok;
+        _ -> apply_error({badarg,K}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    apply_error({badarg,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
 expr({record_index,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
-expr({record,Anno,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
+expr({record,Anno,{M,N},Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    Error = [{Err,F} || {record_field,_,{atom,_,F},{nil,Err}} <- Es,
+                    Err =:= novalue orelse Err =:= badfield],
+    case Error of
+        [] ->
+            {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+            R = records:create(M, N, Vs, #{is_exported=>false}),
+            ret_expr(R, Bs, RBs);
+        [E|_] -> apply_error(E, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,Name,_Es}, Bs, _Lf, Ef, RBs, _FUVs) ->
     apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
-expr({record,Anno,_,Name,_}, Bs, _Lf, Ef, RBs, _FUVs) ->
-    apply_error({undef_record,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
+expr({record,Anno,{var,_,Src0},{M,N},Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case binding(Src0, Bs0) of
+        {value, Src1} ->
+            case is_record(Src1, M, N) of
+                true ->
+                    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+                    Updates = #{K => V || {K, V} <:- Vs},
+                    R = records:update(Src1, M, N, Updates),
+                    ret_expr(R, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,{var,_,Src0},[],Es}, Bs0, Lf, Ef, RBs, FUVs) ->
+    case binding(Src0, Bs0) of
+        {value, Src1} ->
+            case is_record(Src1) of
+                true ->
+                    M = records:get_module(Src1),
+                    N = records:get_name(Src1),
+                    {Vs,Bs} = expr_list(Es, Bs0, Lf, Ef, FUVs),
+                    Updates = #{K => V || {K, V} <:- Vs},
+                    R = records:update(Src1, M, N, Updates),
+                    ret_expr(R, Bs, RBs);
+                false ->
+                    apply_error({badarg,Src1}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+            end;
+        _ -> apply_error({unbound,Src0}, ?STACKTRACE, Anno, Bs0, Ef, RBs)
+    end;
+expr({record,Anno,Src,Name,_Es}, Bs, _Lf, Ef, RBs, _FUVs) ->
+    case Src of
+        {var,_,_V} -> ok;
+        _ -> apply_error({badarg,Src}, ?STACKTRACE, Anno, Bs, Ef, RBs)
+    end,
+    apply_error({badarg,Name}, ?STACKTRACE, Anno, Bs, Ef, RBs);
 
 %% map
 expr({map,Anno,Binding,Es}, Bs0, Lf, Ef, RBs, FUVs) ->
@@ -1788,6 +1869,10 @@ match1({map,_,Fs}, #{}=Map, Bs, BBs, Ef) ->
     match_map(Fs, Map, Bs, BBs, Ef);
 match1({map,_,_}, _, _Bs, _BBs, _Ef) ->
     throw(nomatch);
+match1({record,_,_,_}=R, Record, Bs, BBs, Ef) when is_record(Record) ->
+    match_record(R, Record, Bs, BBs, Ef);
+match1({record,_,_,_}, _, _Bs, _BBs, _Ef) ->
+    throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs, Ef) ->
     EvalFun = fun(E, Bs) ->
                       case erl_lint:is_guard_expr(E) of
@@ -1852,6 +1937,25 @@ match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs, Ef) ->
     {match, Bs} = match1(V, Vm, Bs0, BBs, Ef),
     match_map(Fs, Map, Bs, BBs, Ef);
 match_map([], _, Bs, _, _) ->
+    {match, Bs}.
+
+match_record({record, _, N, Fs}, R, Bs, BBs, Ef) ->
+    case {N, records:get_module(R), records:get_name(R)} of
+        {{Mod, Name}, Mod, Name} -> ok;
+        _ -> throw(nomatch)
+    end,
+    KVs = [{K, V} || {record_field, _, {atom, _, K}, V} <- Fs],
+    match_record_field(KVs, R, Bs, BBs, Ef).
+
+match_record_field([{K, V}|KVs], R, Bs0, BBs, Ef) ->
+    RV = try
+        records:get(K, R)
+    catch error:_ ->
+        throw(nomatch)
+    end,
+    {match, Bs} = match1(V, RV, Bs0, BBs, Ef),
+    match_record_field(KVs, R, Bs, BBs, Ef);
+match_record_field([], _, Bs, _, _) ->
     {match, Bs}.
 
 %% match_list(PatternList, TermList, Anno, NewBindings, Bindings, ExternalFunHnd) ->

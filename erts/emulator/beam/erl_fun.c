@@ -127,6 +127,7 @@ static void fun_stage(ErlFunEntry *entry,
 #define ERTS_CODE_STAGED_WANT_FOREACH_ACTIVE
 #define ERTS_CODE_STAGED_WANT_ENTRY_BYTES
 #define ERTS_CODE_STAGED_WANT_TABLE_SIZE
+#define ERTS_CODE_STAGED_WANT_INFO
 
 #include "erl_code_staged.h"
 

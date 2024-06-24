@@ -104,7 +104,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  *      0100    REF                               |
  *      0101    FUN                               | THINGS
  *      0110    FLONUM                            |
- *      0111    -- FREE --                        |
+ *      0111    RECORD                            |
  *      1000    HEAP_BITS     | BITSTRINGS        |
  *      1001    SUB_BITS      |                   |
  *      1010    BIN_REF	                          |
@@ -123,25 +123,34 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  *
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX
  */
-#define ARITYVAL_SUBTAG         (0x0 << _TAG_PRIMARY_SIZE) /* TUPLE */
-/* FREE */
-#define _BIG_TAG_MASK           (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
-#define _BIG_SIGN_BIT           (0x1 << _TAG_PRIMARY_SIZE)
-#define POS_BIG_SUBTAG          (0x2 << _TAG_PRIMARY_SIZE) /* BIGNUM */
-#define NEG_BIG_SUBTAG          (0x3 << _TAG_PRIMARY_SIZE) /* BIGNUM */
-#define REF_SUBTAG              (0x4 << _TAG_PRIMARY_SIZE) /* REF */
-#define FUN_SUBTAG              (0x5 << _TAG_PRIMARY_SIZE) /* FUN */
-#define FLOAT_SUBTAG            (0x6 << _TAG_PRIMARY_SIZE) /* FLOAT */
+
+#define __MAKE_SUBTAG(Pattern)                                                \
+     (((Pattern) << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
+
+#define _TRANSPARENT_TAG_MASK  (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
+#define ARITYVAL_SUBTAG        __MAKE_SUBTAG(0x0) /* Tuple */
+#define _BIG_TAG_MASK          (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
+#define _BIG_SIGN_BIT          (0x1 << _TAG_PRIMARY_SIZE)
+#define POS_BIG_SUBTAG         __MAKE_SUBTAG(0x2)
+#define NEG_BIG_SUBTAG         __MAKE_SUBTAG(0x3)
+#define REF_SUBTAG             __MAKE_SUBTAG(0x4)
+#define FUN_SUBTAG             __MAKE_SUBTAG(0x5)
+#define FLOAT_SUBTAG           __MAKE_SUBTAG(0x6)
+#define RECORD_SUBTAG          __MAKE_SUBTAG(0x7)
 #define _BITSTRING_TAG_MASK     (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
-#define HEAP_BITS_SUBTAG        (0x8 << _TAG_PRIMARY_SIZE) /* BITSTRING */
-#define SUB_BITS_SUBTAG         (0x9 << _TAG_PRIMARY_SIZE) /* BITSTRING */
-#define BIN_REF_SUBTAG          (0xA << _TAG_PRIMARY_SIZE)
-#define MAP_SUBTAG              (0xB << _TAG_PRIMARY_SIZE) /* MAP */
-#define _EXTERNAL_TAG_MASK      (~(0x3 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
-#define EXTERNAL_PID_SUBTAG     (0xC << _TAG_PRIMARY_SIZE) /* EXTERNAL_PID */
-#define EXTERNAL_PORT_SUBTAG    (0xD << _TAG_PRIMARY_SIZE) /* EXTERNAL_PORT */
-#define EXTERNAL_REF_SUBTAG     (0xE << _TAG_PRIMARY_SIZE) /* EXTERNAL_REF */
+#define HEAP_BITS_SUBTAG       __MAKE_SUBTAG(0x8)
+#define SUB_BITS_SUBTAG        __MAKE_SUBTAG(0x9)
+#define BIN_REF_SUBTAG         __MAKE_SUBTAG(0xA)
+#define MAP_SUBTAG             __MAKE_SUBTAG(0xB)
+#define _EXTERNAL_TAG_MASK     (~(0x3 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
+#define EXTERNAL_PID_SUBTAG    __MAKE_SUBTAG(0xC)
+#define EXTERNAL_PORT_SUBTAG   __MAKE_SUBTAG(0xD)
+#define EXTERNAL_REF_SUBTAG    __MAKE_SUBTAG(0xE)
 /* _EXTERNAL_TAG_MASK requires that 0xF is reserved for external terms. */
+
+#define _TAG_HEADER_MASK        0x3F
+#define _HEADER_ARITY_OFFS      6
+#define _HEADER_SUBTAG_MASK     0x3C    /* 4 bits for subtag */
 
 #define _TAG_HEADER_ARITYVAL       (TAG_PRIMARY_HEADER|ARITYVAL_SUBTAG)
 #define _TAG_HEADER_FUN            (TAG_PRIMARY_HEADER|FUN_SUBTAG)
@@ -150,22 +159,20 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_FLOAT          (TAG_PRIMARY_HEADER|FLOAT_SUBTAG)
 #define _TAG_HEADER_REF            (TAG_PRIMARY_HEADER|REF_SUBTAG)
 #define _TAG_HEADER_BIN_REF        (TAG_PRIMARY_HEADER|BIN_REF_SUBTAG)
-#define _TAG_HEADER_HEAP_BITS      (TAG_PRIMARY_HEADER|HEAP_BITS_SUBTAG)
-#define _TAG_HEADER_SUB_BITS       (TAG_PRIMARY_HEADER|SUB_BITS_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PID   (TAG_PRIMARY_HEADER|EXTERNAL_PID_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_PORT  (TAG_PRIMARY_HEADER|EXTERNAL_PORT_SUBTAG)
 #define _TAG_HEADER_EXTERNAL_REF   (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
+#define _TAG_HEADER_HEAP_BITS      (TAG_PRIMARY_HEADER|HEAP_BITS_SUBTAG)
 #define _TAG_HEADER_MAP	           (TAG_PRIMARY_HEADER|MAP_SUBTAG)
+#define _TAG_HEADER_RECORD         (TAG_PRIMARY_HEADER|RECORD_SUBTAG)
+#define _TAG_HEADER_SUB_BITS       (TAG_PRIMARY_HEADER|SUB_BITS_SUBTAG)
 
+#define header_is_transparent(x)                                \
+    (((x) & _TRANSPARENT_TAG_MASK) == ARITYVAL_SUBTAG ||        \
+     ((x) & _TAG_HEADER_MASK) == RECORD_SUBTAG)
 
-#define _TAG_HEADER_MASK	0x3F
-#define _HEADER_SUBTAG_MASK	0x3C	/* 4 bits for subtag */
-#define _HEADER_ARITY_OFFS	6
-
-#define header_is_transparent(x) \
- (((x) & (_HEADER_SUBTAG_MASK)) == ARITYVAL_SUBTAG)
-#define header_is_arityval(x)	(((x) & _HEADER_SUBTAG_MASK) == ARITYVAL_SUBTAG)
-#define header_is_thing(x)	(!header_is_transparent((x)))
+#define header_is_thing(x)                                                    \
+    (!header_is_transparent((x)))
 
 #define _CPMASK		0x3
 
@@ -421,6 +428,25 @@ _ET_DECLARE_CHECKED(Eterm*,bitstring_val,Eterm)
 #define _unchecked_fun_val(x)   _unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,fun_val,Eterm)
 #define fun_val(x)		_ET_APPLY(fun_val,(x))
+
+/* Native record objects. */
+#define make_record_header(Size)                                              \
+    _make_header((Size), _TAG_HEADER_RECORD)
+#define is_record_header(x)                                                   \
+    (((x) & _HEADER_SUBTAG_MASK) == RECORD_SUBTAG)
+#define is_record(x)                                                          \
+    (is_boxed((x)) && is_record_header(*boxed_val((x))))
+#define is_not_record(x) (!is_record(x))
+#define _unchecked_record_val(x)                                              \
+    _unchecked_boxed_val((x))
+_ET_DECLARE_CHECKED(Eterm*,record_val,Eterm)
+#define record_val(x)                                                         \
+    _ET_APPLY(record_val,(x))
+#define make_record(x)                                                        \
+    make_boxed((x))
+#define _unchecked_record_header_arity(x) _unchecked_header_arity((x))
+_ET_DECLARE_CHECKED(Uint,record_header_arity,Eterm)
+#define record_header_arity(x) _ET_APPLY(record_header_arity,(x))
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -1406,28 +1432,29 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 /*
  * Backwards compatibility definitions:
  * - #define virtual *_DEF constants with values that fit term order:
- *   number < atom < ref < fun < port < pid < tuple < map < nil < cons < binary
+ *   number < atom < ref < fun < port < pid < tuple < record < map < nil < cons < binary
  * - tag_val_def() function generates virtual _DEF tag
  * - not_eq_tags() and NUMBER_CODE() defined in terms
  *   of the tag_val_def() function
  */
 
-#define BITSTRING_DEF		0x0
-#define LIST_DEF		0x1
-#define NIL_DEF			0x2
-#define MAP_DEF			0x3
-#define TUPLE_DEF		0x4
-#define PID_DEF			0x5
-#define EXTERNAL_PID_DEF	0x6
-#define PORT_DEF		0x7
-#define EXTERNAL_PORT_DEF	0x8
-#define FUN_DEF			0xa
-#define REF_DEF			0xb
-#define EXTERNAL_REF_DEF	0xc
-#define ATOM_DEF		0xd
-#define FLOAT_DEF		0xe
-#define BIG_DEF			0xf
-#define SMALL_DEF		0x10
+#define BITSTRING_DEF           0x00
+#define LIST_DEF                0x01
+#define NIL_DEF                 0x02
+#define MAP_DEF                 0x03
+#define RECORD_DEF              0x04
+#define TUPLE_DEF               0x05
+#define PID_DEF                 0x06
+#define EXTERNAL_PID_DEF        0x07
+#define PORT_DEF                0x08
+#define EXTERNAL_PORT_DEF       0x09
+#define FUN_DEF                 0x0a
+#define REF_DEF                 0x0b
+#define EXTERNAL_REF_DEF        0x0c
+#define ATOM_DEF                0x0d
+#define FLOAT_DEF               0x0e
+#define BIG_DEF                 0x0f
+#define SMALL_DEF               0x10
 #define BIN_REF_DEF             0x11   /* not a "real" term */
 
 #define FIRST_VACANT_TAG_DEF    0x12
@@ -1494,6 +1521,7 @@ ERTS_GLB_INLINE unsigned tag_val_def(Eterm x)
 	  ET_ASSERT(is_header(hdr),file,line);
 	  switch ((hdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):	return TUPLE_DEF;
+	    case (_TAG_HEADER_RECORD >> _TAG_PRIMARY_SIZE):	return RECORD_DEF;
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):	return BIG_DEF;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):	return REF_DEF;

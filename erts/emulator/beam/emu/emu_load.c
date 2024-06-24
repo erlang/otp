@@ -32,6 +32,7 @@
 #include "erl_version.h"
 #include "beam_bp.h"
 #include "erl_debugger.h"
+#include "erl_record.h"
 
 #define CodeNeed(w) do {                                                \
     ASSERT(ci <= codev_size);                                           \
@@ -722,6 +723,22 @@ void beam_load_finalize_code(LoaderState* stp, struct erl_module_instance* inst_
         } else {
             ep->dispatch.addresses[staging_ix] = address;
         }
+    }
+
+    {
+        BeamFile_RecordTable rec = stp->beam.record;
+        ErtsRecordEntry *entry;
+
+        for (int i = 0; i < rec.record_count; i++) {
+            Eterm def = beamfile_get_literal(&stp->beam,
+                                             rec.records[i].def_literal);
+            entry = erts_record_put(stp->module, rec.records[i].name);
+
+            entry->definitions[staging_ix] = def;
+        }
+
+        erts_free(ERTS_ALC_T_PREPARED_CODE, rec.records);
+        stp->beam.record.records = NULL;
     }
 
 #ifdef DEBUG

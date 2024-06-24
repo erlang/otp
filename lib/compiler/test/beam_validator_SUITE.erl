@@ -321,6 +321,7 @@ undef_label(Config) when is_list(Config) ->
     M = {undef_label,
 	 [{t,1}],
 	 [],
+         #{},
 	 [{function,t,1,2,
 	   [{label,1},
 	    {func_info,{atom,undef_label},{atom,t},1},
@@ -343,6 +344,7 @@ illegal_instruction(Config) when is_list(Config) ->
     M = {illegal_instruction,
 	 [{t,1},{x,1},{y,0}],
 	 [],
+         #{},
 	 [{function,t,1,2,
 	   [{label,1},
 	    {func_info,{atom,illegal_instruction},{atom,t},1},
@@ -787,6 +789,7 @@ bs_saved_position_units(Config) when is_list(Config) ->
     M = {bs_saved_position_units,
          [{no_errors,1},{some_errors,1}],
          [],
+         #{},
          [{function,ctx_test_8,1,2,
               [{label,1},
                {func_info,{atom,bs_saved_position_units},{atom,ctx_test_8},1},
@@ -868,9 +871,9 @@ transform_remove(Remove, Module) ->
 transform_i(Transform, Module) ->
     transform_is(fun(Is) -> [Transform(I) || I <- Is] end, Module).
 
-transform_is(Transform, {Mod,Exp,Imp,Fs0,Lc}) ->
+transform_is(Transform, {Mod,Exp,Attr,Anno,Fs0,Lc}) ->
     Fs = [transform_is_1(Transform, F) || F <- Fs0],
-    {Mod,Exp,Imp,Fs,Lc}.
+    {Mod,Exp,Attr,Anno,Fs,Lc}.
 
 transform_is_1(Transform, {function,N,A,E,Is0}) ->
     Is = Transform(Is0),
@@ -1160,6 +1163,7 @@ too_many_arguments(_Config) ->
     M = {too_many_arguments,
          [{t,256},{t,0}],
          [],
+         #{},
          [{function,t,256,2,
            [{label,1},
             {func_info,{atom,too_many_arguments},{atom,t},256},
@@ -1183,6 +1187,7 @@ ensure_bits(_Config) ->
     M = {ensure,
          [{t,1}],
          [],
+         #{},
          [{function,short_eal,1,2,
            [{label,1},
             {func_info,{atom,short_eal},{atom,short_eal},1},
