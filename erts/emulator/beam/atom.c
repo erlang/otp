@@ -171,6 +171,7 @@ atom_alloc(Atom* tmpl)
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
+    obj->bin_term = NIL;
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -496,6 +497,7 @@ init_atom_table(void)
 	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
+    a.bin_term = NIL;
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
 	for (ix = 0; ix < a.len; ix++) {

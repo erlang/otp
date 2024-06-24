@@ -1923,27 +1923,30 @@ BIF_RETTYPE atom_to_binary_2(BIF_ALIST_2)
 
     ap = atom_tab(atom_val(BIF_ARG_1));
 
-    if (BIF_ARG_2 == am_latin1) {
-        Eterm bin_term;
+    if (ap->bin_term != NIL) {
+	BIF_RET(ap->bin_term);
+    }
 
+    if (BIF_ARG_2 == am_latin1) {
         if (ap->latin1_chars < 0) {
             goto error;
         }
 
         if (ap->latin1_chars == ap->len) {
-            bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+            ap->bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
         } else {
             byte* bin_p;
             int dbg_sz;
 
-            bin_term = erts_new_binary(BIF_P, ap->latin1_chars, &bin_p);
+            ap->bin_term = erts_new_binary(BIF_P, ap->latin1_chars, &bin_p);
             dbg_sz = erts_utf8_to_latin1(bin_p, ap->name, ap->len);
             ASSERT(dbg_sz == ap->latin1_chars); (void)dbg_sz;
         }
 
-        BIF_RET(bin_term);
+        BIF_RET(ap->bin_term);
     } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
-        BIF_RET(erts_new_binary_from_data(BIF_P, ap->len, ap->name));
+        ap->bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+	BIF_RET(ap->bin_term);
     } else {
     error:
 	BIF_ERROR(BIF_P, BADARG);
