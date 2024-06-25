@@ -178,13 +178,11 @@ atom_alloc(Atom* tmpl)
     Uint offset = 0;
     ErtsHeapFactory factory;
     Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
-
     bin_ptr = atom_text_alloc(tmpl->len, &size);
     erts_factory_tmp_init(&factory, bin_ptr, size, ERTS_ALC_T_LITERAL);
     obj->bin = erts_hfact_new_binary_from_data(&factory, 0, tmpl->len, tmpl->name);
-    erts_set_literal_tag(&obj->bin, bin_ptr, size);
+    erts_set_literal_tag(&obj->bin, bin_ptr, size + offset);
     ERTS_GET_BITSTRING(obj->bin, obj->name, offset, size);
-    ASSERT(offset == 0);
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
@@ -523,9 +521,7 @@ init_atom_table(void)
 	}
 #endif
 	ix = index_put(&erts_atom_table, (void*) &a);
-	// atom_text_pos -= a.len;
-	// atom_space -= a.len;
-	// atom_tab(ix)->name = (byte*)erl_atom_names[i];
+    atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
 
 }
