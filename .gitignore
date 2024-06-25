@@ -142,7 +142,7 @@ JAVADOC-GENERATED
 /doc
 
 /make/output.mk
-/make/emd2exml
+/make/ex_doc_wrapper
 /make/make_emakefile
 /make/install_dir_data.sh
 

@@ -7331,7 +7331,6 @@ fi
 done
 
 if test -z "$EX_DOC"; then
-  EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation " >&5
 printf "%s\n" "$as_me: WARNING: No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation " >&2;}
 fi
@@ -26903,6 +26902,9 @@ ac_config_files="$ac_config_files emulator/$host/Makefile:emulator/Makefile.in e
 ac_config_files="$ac_config_files ../make/make_emakefile:../make/make_emakefile.in"
 
 
+ac_config_files="$ac_config_files ../make/ex_doc_wrapper:../make/ex_doc_wrapper.in"
+
+
 ac_config_files="$ac_config_files ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in"
 
 
@@ -27616,6 +27618,7 @@ do
     "lib_src/$host/Makefile") CONFIG_FILES="$CONFIG_FILES lib_src/$host/Makefile:lib_src/Makefile.in" ;;
     "../make/$host/otp.mk") CONFIG_FILES="$CONFIG_FILES ../make/$host/otp.mk:../make/otp.mk.in" ;;
     "../make/make_emakefile") CONFIG_FILES="$CONFIG_FILES ../make/make_emakefile:../make/make_emakefile.in" ;;
+    "../make/ex_doc_wrapper") CONFIG_FILES="$CONFIG_FILES ../make/ex_doc_wrapper:../make/ex_doc_wrapper.in" ;;
     "../lib/os_mon/c_src/$host/Makefile") CONFIG_FILES="$CONFIG_FILES ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in" ;;
     "../lib/runtime_tools/c_src/$host/Makefile") CONFIG_FILES="$CONFIG_FILES ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in" ;;
     "../make/install_dir_data.sh") CONFIG_FILES="$CONFIG_FILES ../make/install_dir_data.sh:../make/install_dir_data.sh.in" ;;
@@ -28172,6 +28175,7 @@ printf "%s\n" "$as_me: $ac_file is unchanged" >&6;}
 
   case $ac_file$ac_mode in
     "../make/make_emakefile":F) chmod +x ../make/make_emakefile ;;
+    "../make/ex_doc_wrapper":F) chmod +x ../make/ex_doc_wrapper ;;
     "../make/install_dir_data.sh":F) chmod +x ../make/install_dir_data.sh ;;
 
   esac

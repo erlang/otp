@@ -474,7 +474,6 @@ fi
 
 AC_CHECK_PROGS(EX_DOC, ex_doc)
 if test -z "$EX_DOC"; then
-  EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
   AC_MSG_WARN([No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation ])
 fi
 
@@ -3676,6 +3675,9 @@ AC_CONFIG_FILES([
 
 AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
                 [chmod +x ../make/make_emakefile])
+
+AC_CONFIG_FILES([../make/ex_doc_wrapper:../make/ex_doc_wrapper.in],
+                [chmod +x ../make/ex_doc_wrapper])
 
 dnl
 dnl The ones below should be moved to their respective lib
