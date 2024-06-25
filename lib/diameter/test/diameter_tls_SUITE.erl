@@ -149,7 +149,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ssl:stop(),
-    application:stop(crypto).
+    application:stop(crypto),
     ?DUTIL:end_per_suite(Config).
 
 parallel(Config) ->
@@ -187,7 +187,7 @@ run(Dir, B) ->
         ?TL("run(after) -> stop ssl"),
         ssl:stop(),
         ?TL("run(after) -> stop crypto"),
-        application:stop(crypto)
+        application:stop(crypto),
         ?TL("run(after) -> done"),
         ok
     end.
