@@ -29,8 +29,15 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
-         all/0]).
+-export([
+         %% Framework functions
+         suite/0,
+         all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2
+        ]).
 
 %% testcases
 -export([keys/1,
@@ -43,7 +50,11 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(util, diameter_util).
+-include("diameter_util.hrl").
+
+
+%% ===========================================================================
+
 -define(A, list_to_atom).
 
 %% Modules not in the app and that should not have dependencies on it
@@ -58,10 +69,14 @@
 -define(INFO_MODULES, [diameter_dbg,
                        diameter_info]).
 
+-define(AL(F),    ?AL(F, [])).
+-define(AL(F, A), ?LOG("DAPPS", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 20}}].
+    [{timetrap, {seconds, 120}}].
 
 all() ->
     [keys,
@@ -72,13 +87,45 @@ all() ->
      xref,
      relup].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+init_per_testcase(xref = Case, Config) when is_list(Config) ->
+    ?AL("init_per_testcase(~w) -> check factor", [Case]),
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 10) ->
+            ?AL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+                [Case, Factor]),
+            {skip, {machine_too_slow, Factor}};
+        _ ->
+            ?AL("init_per_testcase(~w) -> run test", [Case]),
+            Config
+    end;
+init_per_testcase(Case, Config) ->
+    ?AL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?AL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
 %% ===========================================================================
 
 run() ->
     run(all()).
 
 run(List) ->
-    Tmp = ?util:mktemp("diameter_app"),
+    Tmp = ?MKTEMP("diameter_app"),
     try
         run([{priv_dir, Tmp}], List)
     after
@@ -86,9 +133,22 @@ run(List) ->
     end.
 
 run(Config, List) ->
-    [{application, diameter, App}] = ?util:consult(diameter, app),
-    ?util:run([{{?MODULE, F, [{App, Config}]}, 10000} || F <- List]).
+    Timeout = factor2timeout(Config, 10000),
+    ?AL("run -> use Timeout: ~w", [Timeout]),
+    [{application, diameter, App}] = ?CONSULT(diameter, app),
+    ?RUN([{{?MODULE, F, [{App, Config}]}, Timeout} || F <- List]).
 
+
+factor2timeout(Config, BaseTime) ->
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 0) ->
+            BaseTime + (((Factor-1)*BaseTime) div 10);
+        _ ->
+            BaseTime
+    end.
+
+    
 %% ===========================================================================
 %% # keys/1
 %%
@@ -178,7 +238,7 @@ release(Config) ->
 %% in the case of relup/1.
 
 appvsn(Name) ->
-    [{application, Name, App}] = ?util:consult(Name, app),
+    [{application, Name, App}] = ?CONSULT(Name, app),
     fetch(vsn, App).
 
 %% ===========================================================================
@@ -189,17 +249,17 @@ appvsn(Name) ->
 %% ===========================================================================
 
 xref({App, _Config}) ->
-    i("xref -> entry with"
-      "~n   App:    ~p"
-      "~n   Config: ~p", [App, _Config]),
+    ?AL("xref -> entry with"
+        "~n   App:    ~p"
+        "~n   Config: ~p", [App, _Config]),
 
     Mods = fetch(modules, App),  %% modules listed in the app file
 
     %% List of application names extracted from runtime_dependencies.
-    i("xref -> get deps"),
+    ?AL("xref -> get deps"),
     Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
-    i("xref -> start xref"),
+    ?AL("xref -> start xref"),
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
 
@@ -209,30 +269,31 @@ xref({App, _Config}) ->
     %% was previously in kernel. Erts isn't an application however, in
     %% the sense that there's no .app file, and isn't listed in
     %% applications.
-    i("xref -> add own and dep apps"),
-    ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
-                       [diameter, erts | fetch(applications, App)]),
+    Apps = [diameter, erts | fetch(applications, App)],
+    ?AL("xref -> add own and dep apps: "
+        "~n   ~p", [Apps]),
+    ok = lists:foreach(fun(A) -> add_application(XRef, A) end, Apps),
 
-    i("xref -> analyze undefined_function_calls"),
+    ?AL("xref -> analyze undefined_function_calls"),
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
-    i("xref -> analyze module use: "
-      "~n   For mods: ~p", [Mods]),
+    ?AL("xref -> analyze module use: "
+        "~n   For mods: ~p", [Mods]),
     {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
-    i("xref -> analyze (compiler) module use: "
-      "~n   For mods: ~p", [?COMPILER_MODULES]),
+    ?AL("xref -> analyze (compiler) module use: "
+        "~n   For mods: ~p", [?COMPILER_MODULES]),
     {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
-    i("xref -> analyze module call: "
-      "~n   For mods: ~p", [Mods]),
+    ?AL("xref -> analyze module call: "
+        "~n   For mods: ~p", [Mods]),
     {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
-    i("xref -> stop xref"),
+    ?AL("xref -> stop xref"),
     xref:stop(XRef),
 
-    i("xref -> get OTP release"),
+    ?AL("xref -> get OTP release"),
     Rel = release(),  %% otp_release-ish
 
     %% Only care about calls from our own application.
-    i("xref -> Only care about calls from our own application"),
+    ?AL("xref -> Only care about calls from our own application"),
     [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
                                   andalso not ignored(From, To, Rel)
@@ -244,30 +305,30 @@ xref({App, _Config}) ->
     %% depend on other diameter modules but it's a simple source of
     %% build errors if not properly encoded in the makefile so guard
     %% against it.
-    i("xref -> ensure only runtime and info mod"),
+    ?AL("xref -> ensure only runtime and info mod"),
     [] = (RTmods -- Mods) -- ?INFO_MODULES,
 
     %% Ensure that runtime modules don't call compiler modules.
-    i("xref -> ensure runtime mods don't call compiler mods"),
+    ?AL("xref -> ensure runtime mods don't call compiler mods"),
     CTmods = CTmods -- Mods,
 
     %% Ensure that runtime modules only call other runtime modules, or
     %% applications declared in runtime_dependencies in the app file.
     %% The declared application versions are ignored since we only
     %% know what we see now.
-    i("xref -> ensure runtime mods only call runtime mods"),
+    ?AL("xref -> ensure runtime mods only call runtime mods"),
     [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
                       RTdeps -- Mods),
 
-    i("xref -> done"),
+    ?AL("xref -> done"),
     ok;
 
 xref(Config) ->
-    i("xref -> entry with"
-      "~n   Config: ~p", [Config]),
+    ?AL("xref -> entry with"
+        "~n   Config: ~p", [Config]),
     Res = run(Config, [xref]),
-    i("xref -> done when"
-      "~n   Res: ~p", [Res]),
+    ?AL("xref -> done when"
+        "~n   Res: ~p", [Res]),
     Res.
 
 ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
@@ -326,10 +387,15 @@ app(Mod) ->
     end.
 
 add_application(XRef, App) ->
-    {ok, App} = xref:add_application(XRef, code:lib_dir(App), []).
+    ?AL("add_application -> get lib dir for app ~p", [App]),
+    LibDir = code:lib_dir(App),
+    ?AL("add_application -> [xref] add lib dir:"
+        "~n   ~p", [LibDir]),
+    {ok, App} = xref:add_application(XRef, LibDir, []).
 
 make_name(Suf) ->
     list_to_atom("diameter_" ++ atom_to_list(Suf)).
+
 
 %% ===========================================================================
 %% # relup/1
@@ -342,7 +408,7 @@ relup({App, Config}) ->
       "~n   App:    ~p"
       "~n   Config: ~p", [App, Config]),
 
-    [{Vsn, Up, Down}] = ?util:consult(diameter, appup),
+    [{Vsn, Up, Down}] = ?CONSULT(diameter, appup),
     true = is_vsn(Vsn),
 
     i("relup -> "

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,14 +29,21 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+
+         %% The test cases
          client/1,
          server/1,
          uncommon/1,
          transport/1,
          service/1,
-         application/1]).
+         application/1
+        ]).
 
 %% internal
 -export([connect/1,
@@ -50,6 +57,9 @@
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc6733.hrl").
+
+-include("diameter_util.hrl").
+
 
 %% ===========================================================================
 
@@ -85,6 +95,11 @@
          []]
         ++ [[{dpr, [{timeout, 5000}, {cause, T}]}] || T <- ?CAUSES]).
 
+
+-define(DL(F),    ?DL(F, [])).
+-define(DL(F, A), ?LOG("DDPRS", F, A)).
+
+
 %% ===========================================================================
 
 suite() ->
@@ -93,7 +108,15 @@ suite() ->
 all() ->
     [client, server, uncommon, transport, service, application].
 
--define(tc(Name), Name(_) -> run([Name])).
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
+-define(tc(Name), Name(_) -> ?DL("~w -> entry", [Name]), run([Name])).
 
 ?tc(client).
 ?tc(server).
@@ -101,6 +124,7 @@ all() ->
 ?tc(transport).
 ?tc(service).
 ?tc(application).
+
 
 %% ===========================================================================
 
@@ -113,20 +137,34 @@ run() ->
 
 run(List)
   when is_list(List) ->
+    ?DL("run -> entry with"
+        "~n   List: ~p", [List]),
     try
-        ?util:run([[{[fun run/1, T], 15000} || T <- List]])
+        ?RUN([[{[fun run/1, T], 15000} || T <- List]])
     after
+        ?DL("run(after) -> stop diameter"),
         diameter:stop()
     end;
 
 run(Grp) ->
+    ?DL("run(~w) -> start (diameter) app", [Grp]),
     ok = diameter:start(),
+    ?DL("run(~w) -> start (diameter) service 'server'", [Grp]),
     ok = diameter:start_service(?SERVER, service(?SERVER, Grp)),
+    ?DL("run(~w) -> start (diameter) service 'client'", [Grp]),
     ok = diameter:start_service(?CLIENT, service(?CLIENT, Grp)),
-    _ = lists:foldl(fun(F,A) -> apply(?MODULE, F, [A]) end,
+    _ = lists:foldl(fun(F,A) ->
+                            ?DL("run(~w) -> apply"
+                                "~n   F: ~p"
+                                "~n   A: ~p", [Grp, F, A]),
+                            apply(?MODULE, F, [A])
+                    end,
                     [{group, Grp}],
                     tc(Grp)),
-    ok = diameter:stop().
+    ?DL("run(~w) -> stop (diameter) app", [Grp]),
+    ok = diameter:stop(),
+    ?DL("run(~w) -> done", [Grp]),
+    ok.
 
 tc(T)
   when T == client;
@@ -178,10 +216,28 @@ service(?CLIENT = Svc, _) ->
 %% send_dpr/1
 
 send_dpr(Config) ->
-    LRef = ?util:listen(?SERVER, tcp),
-    Ref = ?util:connect(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
-    Svc = sender(group(Config)),
-    [Info] = diameter:service_info(Svc, connections),
+    ?DL("~w -> entry with"
+        "~n   Config: ~p"
+        "~n   => try listen", [?FUNCTION_NAME, Config]),
+    LRef = ?LISTEN(?SERVER, tcp),
+    ?DL("~w -> try listen", [?FUNCTION_NAME]),
+    Ref  = ?CONNECT(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
+    ?DL("~w -> get sender", [?FUNCTION_NAME]),
+    Svc  = sender(group(Config)),
+    ?DL("~w -> get connections for ~p", [?FUNCTION_NAME, Svc]),
+    Info = case diameter:service_info(Svc, connections) of
+               [I] ->
+                   I;
+               [] ->
+                   ?DL("send_dpr -> no connections found: "
+                       "~n   Svc:      ~p"
+                       "~n   Svc info: ~p"
+                       "~n   Services: ~p",
+                       [Svc,
+                        diameter:service_info(Svc, all),
+                        diameter:services()]),
+                   ct:fail({no_connections, Svc})
+           end,
     {_, {TPid, _}} = lists:keyfind(peer, 1, Info),
     #diameter_base_DPA{'Result-Code' = 2001}
         = diameter:call(Svc,
