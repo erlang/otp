@@ -605,6 +605,7 @@ root_any_sign() ->
       "as it is not verified"}].
 
 root_any_sign(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
     #{client_config := CSucess, server_config := SSucess} =
         public_key:pkix_test_data(#{server_chain =>
                                          #{root => [{digest, sha},
@@ -636,11 +637,13 @@ root_any_sign(Config) when is_list(Config) ->
                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
                                           peer => [{digest, sha256},
                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
-
-    %% Root signatures are not validated, so its signature will not fail the connection
-    ssl_test_lib:basic_test(CSucess, [{verify, verify_peer} | SSucess], Config),
-    %% Intermediate cert signatures are validated, so sha1 signatures will fail connection
-    ssl_test_lib:basic_alert(CFail, [{verify, verify_peer} | SFail],
+    %% Makes sha1 disallowed for certificate signatures when set explicitly 
+    %% (default for signature_algs_cert was changed to allow them if signatures_algs is not set explicitly)
+    SigAlgs = ssl:signature_algs(default, Version), 
+    %% Root signatures are not validated, so its signature will not fail the connection                             
+    ssl_test_lib:basic_test(CSucess, [{verify, verify_peer}, {signature_algs, SigAlgs} | SSucess], Config),
+    %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
+    ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
                              Config, unsupported_certificate).
 
 %%--------------------------------------------------------------------
@@ -3080,7 +3083,7 @@ options_sni(_Config) -> %% server_name_indication
     ok.
 
 options_sign_alg(_Config) ->  %% signature_algs[_cert]
-    ?OK(#{signature_algs := [_|_], signature_algs_cert := undefined},
+    ?OK(#{signature_algs := [_|_], signature_algs_cert := [_|_]},
         [], client),
     ?OK(#{signature_algs := [rsa_pss_rsae_sha512,{sha512,rsa}], signature_algs_cert := undefined},
         [{signature_algs, [rsa_pss_rsae_sha512,{sha512,rsa}]}], client),

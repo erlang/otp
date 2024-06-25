@@ -552,15 +552,21 @@ version.
 	  signatures as a whole.  If this is not required this
 	  extension is not need.
 	</p>
-
+	
 	<p>
-	  The client will send a <c>signature_algorithms_cert</c> extension
+	  The client will send a `signature_algorithms_cert` extension
 	  (in the client hello message), if TLS version 1.2
-	  (back-ported to TLS 1.2 in 24.1) or later is used, and
-	  the signature_algs_cert option is explicitly specified. By
-	  default, only the <seetype
-	  marker="#signature_algs">signature_algs</seetype> extension
-	  is sent. </p>
+	  (back-ported to TLS 1.2 in 24.1) or later is used, and the
+	  signature_algs_cert option is explicitly specified.  By
+	  default, only the extension <seetype
+	  marker="#signature_algs">signature_algs</seetype> is sent
+	  with the exception of when signature_algs option is not
+	  explicitly specified, in which case it will append the
+	  rsa_pkcs1_sha1 algorithm to the default value of
+	  signature_algs and use it as value for signature_algs_cert
+	  to allow certificates to have this signature but still
+	  disallow sha1 use in the TLS protocol, since OTP-26.2.5.2
+	</p>
 
 	  <note> <p> Note that supported signature schemes for TLS-1.2
 	  are <seetype
