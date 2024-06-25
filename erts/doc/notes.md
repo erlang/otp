@@ -249,6 +249,20 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.1
+
+### Fixed Bugs and Malfunctions
+
+* A call to socket:\[recv|recvfrom|recvmsg]/* with Timeout = 0 on Windows could cause a (case clause) crash if data is immediately available.
+
+  Own Id: OTP-19063 Aux Id: OTP-18835
+* When a port command crashed in the inet driver during `gen_tcp:send/2`, a monitor `'DOWN'` message could be left lingering in the caller's mailbox. This has now been fixed.
+
+  Own Id: OTP-19121 Aux Id: GH-8484
+* `'DOWN'` messages originating from a monitored port, contained the atom `process` instead of the atom `port` as the third element when the exit reason was not an immediate term.
+
+  Own Id: OTP-19123 Aux Id: GH-8484, PR-8546
+
 ## Erts 14.2.5
 
 ### Fixed Bugs and Malfunctions
