@@ -161,7 +161,7 @@ current_datetime = System.os_time() |> DateTime.from_unix!(:native)
 config = [
   proglang: :erlang,
   source_url_pattern: source_url_pattern,
-  assets: Path.join(cwd, "/assets"),
+  assets: %{ Path.join(cwd, "/assets") => "assets" },
   logo: Path.join(:code.root_dir(), "system/doc/assets/erlang-logo.png"),
   before_closing_head_tag: fn _ -> "<style>.dark img { background-color: white; }</style>" end,
   before_closing_footer_tag: fn _ ->
