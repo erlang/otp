@@ -52,6 +52,17 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.1
+
+### Fixed Bugs and Malfunctions
+
+* With this change, ssh client will automatically adjust transfer window size for commands executed remotely over SSH.
+
+  Own Id: OTP-19057 Aux Id: PR-8345, GH-7483
+* With this change, race condition between connection closing and automatic window adjustment is fixed.
+
+  Own Id: OTP-19109 Aux Id: PR-8345
+
 ## Ssh 5.1.4
 
 ### Fixed Bugs and Malfunctions

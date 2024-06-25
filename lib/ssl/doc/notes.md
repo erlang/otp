@@ -97,6 +97,29 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.1
+
+### Fixed Bugs and Malfunctions
+
+* Check for TLS-1.3 support should check minimum requirements.
+
+  Own Id: OTP-19094 Aux Id: GH-8489
+* If both TLS-1.3 and TLS-1.2 is supported and TLS-1.2 negotiated convert TLS-1.3 ECDSA schemes to TLS-1.2 hash and signature pairs for increased interoperability.
+
+  Own Id: OTP-19107 Aux Id: GH-8376
+* TLS-1.3 negotiation now uses SNI based options correctly instead of ignoring them.
+
+  Own Id: OTP-19140
+
+### Improvements and New Features
+
+* Make it easier to distinguish between a invalid signature and unsupported signature.
+
+  Own Id: OTP-19091
+* Enhance ALERT logs to help understand what causes the alert.
+
+  Own Id: OTP-19092 Aux Id: GH-8482
+
 ## SSL 11.1.4
 
 ### Fixed Bugs and Malfunctions

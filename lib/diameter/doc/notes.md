@@ -41,6 +41,14 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8399]: https://github.com/erlang/otp/pull/8399
 
+## diameter 2.3.2.1
+
+### Improvements and New Features
+
+* Pick peer can now also handle request of type #diameter_packet\{\}.
+
+  Own Id: OTP-19090 Aux Id: PR-8399
+
 ## diameter 2.3.2
 
 ### Fixed Bugs and Malfunctions

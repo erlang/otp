@@ -68,6 +68,14 @@ limitations under the License.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Public_Key 1.15.1.1
+
+### Fixed Bugs and Malfunctions
+
+* Fix bug in dnsName constraint check, could cause valid cert to be considered bad during path validation.
+
+  Own Id: OTP-19100 Aux Id: GH-8482, PR-8508
+
 ## Public_Key 1.15.1
 
 ### Fixed Bugs and Malfunctions
