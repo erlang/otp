@@ -51,7 +51,7 @@ typedef struct atom {
     Sint16 latin1_chars; /* 0-255 if atom can be encoded in latin1; otherwise, -1 */
     int ord0;        /* ordinal value of first 3 bytes + 7 bits */
     byte* name;      /* name of atom */
-    Eterm bin_term; /* pointer to the binary literal that is converted from the atom*/
+    Eterm bin;       /* pointer to the binary literal that is converted from the atom*/
 } Atom;
 
 extern IndexTable erts_atom_table;

@@ -89,7 +89,7 @@ more_atom_space(void)
 {
     AtomText* ptr;
 
-    ptr = (AtomText*) erts_alloc(ERTS_ALC_T_ATOM_TXT, sizeof(AtomText));
+    ptr = (AtomText*) erts_alloc(ERTS_ALC_T_LITERAL, sizeof(AtomText));
 
     ptr->next = text_list;
     text_list = ptr;
@@ -105,19 +105,28 @@ more_atom_space(void)
  * Allocate string space within an atom text segment.
  */
 
-static byte*
-atom_text_alloc(int bytes)
+static Eterm*
+atom_text_alloc(int bytes, Uint* size)
 {
     byte *res;
 
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
+    if (bytes < ERL_ONHEAP_BINARY_LIMIT) {
+        bytes = heap_bits_size(NBITS(bytes));
+    } else {
+        bytes = ERL_REFC_BITS_SIZE;
+    }
+    bytes *= sizeof(Eterm);
+
     if (atom_text_pos + bytes >= atom_text_end) {
 	more_atom_space();
     }
     res = atom_text_pos;
     atom_text_pos += bytes;
     atom_space    += bytes;
-    return res;
+    *size = bytes;
+    ASSERT(_is_taggable_pointer(res));
+    return (Eterm*)res;
 }
 
 /*
@@ -165,19 +174,20 @@ static Atom*
 atom_alloc(Atom* tmpl)
 {
     Eterm* bin_ptr;
+    Uint size = 0;
+    Uint offset = 0;
+    ErtsHeapFactory factory;
     Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
 
-    obj->name = atom_text_alloc(tmpl->len);
-    sys_memcpy(obj->name, tmpl->name, tmpl->len);
+    bin_ptr = atom_text_alloc(tmpl->len, &size);
+    erts_factory_tmp_init(&factory, bin_ptr, size, ERTS_ALC_T_LITERAL);
+    obj->bin = erts_hfact_new_binary_from_data(&factory, 0, tmpl->len, tmpl->name);
+    erts_set_literal_tag(&obj->bin, bin_ptr, size);
+    ERTS_GET_BITSTRING(obj->bin, obj->name, offset, size);
+    ASSERT(offset == 0);
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
-
-    atom_write_lock();
-    bin_ptr = erts_alloc(ERTS_ALC_T_LITERAL, sizeof(Eterm));
-    *bin_ptr = NIL;
-    obj->bin_term = make_boxed(bin_ptr);
-    atom_write_unlock();
     
 
     /*
@@ -467,7 +477,6 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
-    Eterm* bin_ptr; 
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
@@ -506,11 +515,6 @@ init_atom_table(void)
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
 
-    atom_write_lock();
-    bin_ptr = erts_alloc(ERTS_ALC_T_LITERAL, sizeof(Eterm));
-    *bin_ptr = NIL;
-    a.bin_term = make_boxed(bin_ptr);
-    atom_write_unlock();
 
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
@@ -519,9 +523,9 @@ init_atom_table(void)
 	}
 #endif
 	ix = index_put(&erts_atom_table, (void*) &a);
-	atom_text_pos -= a.len;
-	atom_space -= a.len;
-	atom_tab(ix)->name = (byte*)erl_atom_names[i];
+	// atom_text_pos -= a.len;
+	// atom_space -= a.len;
+	// atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
 
 }
