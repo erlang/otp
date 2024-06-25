@@ -164,6 +164,7 @@ atom_cmp(Atom* tmpl, Atom* obj)
 static Atom*
 atom_alloc(Atom* tmpl)
 {
+    Eterm* bin_ptr;
     Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
 
     obj->name = atom_text_alloc(tmpl->len);
@@ -171,7 +172,13 @@ atom_alloc(Atom* tmpl)
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
-    obj->bin_term = NIL;
+
+    atom_write_lock();
+    bin_ptr = erts_alloc(ERTS_ALC_T_LITERAL, sizeof(Eterm));
+    *bin_ptr = NIL;
+    obj->bin_term = make_boxed(bin_ptr);
+    atom_write_unlock();
+    
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -460,6 +467,7 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
+    Eterm* bin_ptr; 
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
     rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
@@ -497,7 +505,13 @@ init_atom_table(void)
 	a.latin1_chars = a.len;
 	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
-    a.bin_term = NIL;
+
+    atom_write_lock();
+    bin_ptr = erts_alloc(ERTS_ALC_T_LITERAL, sizeof(Eterm));
+    *bin_ptr = NIL;
+    a.bin_term = make_boxed(bin_ptr);
+    atom_write_unlock();
+
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
 	for (ix = 0; ix < a.len; ix++) {

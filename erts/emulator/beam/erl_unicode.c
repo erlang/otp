@@ -1923,30 +1923,35 @@ BIF_RETTYPE atom_to_binary_2(BIF_ALIST_2)
 
     ap = atom_tab(atom_val(BIF_ARG_1));
 
-    if (ap->bin_term != NIL) {
-	BIF_RET(ap->bin_term);
+    if (*boxed_val(ap->bin_term) != NIL) {
+	BIF_RET(*boxed_val(ap->bin_term));
     }
 
     if (BIF_ARG_2 == am_latin1) {
+	Eterm* unboxed = boxed_val(ap->bin_term);
         if (ap->latin1_chars < 0) {
             goto error;
         }
 
         if (ap->latin1_chars == ap->len) {
-            ap->bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+	    *unboxed = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+            ap->bin_term = make_boxed(unboxed);
         } else {
             byte* bin_p;
             int dbg_sz;
 
-            ap->bin_term = erts_new_binary(BIF_P, ap->latin1_chars, &bin_p);
+            *unboxed = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+            ap->bin_term = make_boxed(unboxed);
             dbg_sz = erts_utf8_to_latin1(bin_p, ap->name, ap->len);
             ASSERT(dbg_sz == ap->latin1_chars); (void)dbg_sz;
         }
 
-        BIF_RET(ap->bin_term);
+        BIF_RET(*unboxed);
     } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
-        ap->bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
-	BIF_RET(ap->bin_term);
+	Eterm* unboxed = boxed_val(ap->bin_term);
+        *unboxed = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+        ap->bin_term = make_boxed(unboxed);
+	BIF_RET(*unboxed);
     } else {
     error:
 	BIF_ERROR(BIF_P, BADARG);
