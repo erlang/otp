@@ -579,7 +579,7 @@ static int load_code(LoaderState* stp)
                  * No specific operations and no transformations means that
                  * the instruction is obsolete.
                  */
-                if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
+                if (num_specific == 0 && gen_opc[tmp_op->op].transform == 0) {
                     BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
