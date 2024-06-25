@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to socket:[recv|recvfrom|recvmsg]/* with Timeout =
+	    0 on Windows could cause a (case clause) crash if data is
+	    immediately available.</p>
+          <p>
+	    Own Id: OTP-19063 Aux Id: OTP-18835 </p>
+        </item>
+        <item>
+	    <p>Open a <c>disk_log</c> file and combining
+	    <c>head_func</c> with <c>rotate</c> options did not
+	    work.</p>
+          <p>
+	    Own Id: OTP-19104 Aux Id: ERIERL-870 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

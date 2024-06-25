@@ -31,6 +31,39 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A call to socket:[recv|recvfrom|recvmsg]/* with Timeout =
+	    0 on Windows could cause a (case clause) crash if data is
+	    immediately available.</p>
+          <p>
+	    Own Id: OTP-19063 Aux Id: OTP-18835 </p>
+        </item>
+        <item>
+	    <p>When a port command crashed in the inet driver during
+	    <c>gen_tcp:send/2</c>, a monitor <c>'DOWN'</c> message
+	    could be left lingering in the caller's mailbox. This has
+	    now been fixed. </p>
+          <p>
+	    Own Id: OTP-19121 Aux Id: GH-8484 </p>
+        </item>
+        <item>
+	    <p><c>'DOWN'</c> messages originating from a monitored
+	    port, contained the atom <c>process</c> instead of the
+	    atom <c>port</c> as the third element when the exit
+	    reason was not an immediate term.</p>
+          <p>
+	    Own Id: OTP-19123 Aux Id: GH-8484, PR-8546 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

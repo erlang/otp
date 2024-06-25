@@ -35,6 +35,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.15.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in dnsName constraint check, could cause valid
+	    cert to be considered bad during path validation.</p>
+          <p>
+	    Own Id: OTP-19100 Aux Id: GH-8482, PR-8508 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
