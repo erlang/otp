@@ -388,17 +388,22 @@ handle_client_hello(ClientHello, State0) ->
 do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                                      random = Random,
                                      session_id = SessionId,
-                                     extensions = Extensions} = Hello,
-                       #state{ssl_options = #{ciphers := ServerCiphers,
-                                              signature_algs := ServerSignAlgs,
-                                              supported_groups := ServerGroups0,
-                                              alpn_preferred_protocols := ALPNPreferredProtocols,
-                                              honor_cipher_order := HonorCipherOrder,
-                                              early_data := EarlyDataEnabled} = Opts} = State0) ->
+                                     extensions = Extensions} = Hello, State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
+        #state{connection_states = ConnectionStates0,
+               session = Session0,
+               ssl_options = #{ciphers := ServerCiphers,
+                               signature_algs := ServerSignAlgs,
+                               supported_groups := ServerGroups0,
+                               alpn_preferred_protocols := ALPNPreferredProtocols,
+                               honor_cipher_order := HonorCipherOrder},
+               connection_env = #connection_env{cert_key_alts = CertKeyAlts}
+              } = State1 =
+            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
+
         ClientGroups0 = Maybe(tls_handshake_1_3:supported_groups_from_extensions(Extensions)),
         ClientGroups = Maybe(tls_handshake_1_3:get_supported_groups(ClientGroups0)),
         ServerGroups = Maybe(tls_handshake_1_3:get_supported_groups(ServerGroups0)),
@@ -413,14 +418,9 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                            maps:get(signature_algs, Extensions, undefined)),
         ClientSignAlgsCert = tls_handshake_1_3:get_signature_scheme_list(
                                maps:get(signature_algs_cert, Extensions, undefined)),
-        CertAuths = tls_handshake_1_3:get_certificate_authorities(maps:get(certificate_authorities,
-                                                                           Extensions, undefined)),
+               CertAuths = tls_handshake_1_3:get_certificate_authorities(maps:get(certificate_authorities,
+                                                                                  Extensions, undefined)),
         Cookie = maps:get(cookie, Extensions, undefined),
-
-        #state{connection_states = ConnectionStates0,
-               session = Session0,
-               connection_env = #connection_env{cert_key_alts = CertKeyAlts}} = State1 =
-            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
 
@@ -469,6 +469,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
                          State1#state{session = Session}
                  end,
 
+        Opts = State2#state.ssl_options,
         State3 = case maps:get(keep_secrets, Opts, false) of
                      true ->
                          tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random);
@@ -495,7 +496,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         case Maybe(send_hello_retry_request(State4, ClientPubKey, KeyShare, SessionId)) of
             {_, start} = NextStateTuple ->
                 NextStateTuple;
-            {State5, negotiated} ->
+            {#state{ssl_options = #{early_data := EarlyDataEnabled}} = State5, negotiated} ->
                 %% Determine if early data is accepted
                 State = handle_early_data(State5, EarlyDataEnabled, EarlyDataIndication),
                 %% Exclude any incompatible PSKs.
