@@ -1670,7 +1670,7 @@ its transports.</p>
 <type>
 <v>SvcName = &service_name;</v>
 <v>App = &application_alias;</v>
-<v>Request = &codec_message;</v>
+<v>Request = &codec_message; | &codec_packet;</v>
 <v>Answer = term()</v>
 <v>Opt = &call_opt;</v>
 </type>
