@@ -540,7 +540,7 @@ check_io_format([Fmt, Args], Cause) ->
         _ when not is_list(Args) ->
                 [[],must_be_list(Args)];
         true ->
-            case erl_lint:check_format_string(Fmt) of
+            case erl_lint:check_format_string(Fmt, false) of
                 {error,S} ->
                     [io_lib:format("format string invalid (~ts)",[S])];
                 {ok,ArgTypes} when length(ArgTypes) =/= length(Args) ->
@@ -587,6 +587,11 @@ check_io_arguments([], [], _No) ->
     [];
 check_io_arguments([Type|TypeT], [Arg|ArgT], No) ->
     case Type of
+	'fun' when Arg =:= undefined; Arg =:= ordered; Arg =:= reversed; is_function(Arg, 2) ->
+	    check_io_arguments(TypeT, ArgT, No+1);
+	'fun' ->
+	    [io_lib:format("element ~B must be 'undefined', 'ordered', 'reversed', or a fun that takes two arguments", [No]) |
+	     check_io_arguments(TypeT, ArgT, No+1)];
         float when is_float(Arg) ->
             check_io_arguments(TypeT, ArgT, No+1);
         int when is_integer(Arg) ->
@@ -1157,7 +1162,7 @@ expand_error(not_integer) ->
 expand_error(not_list) ->
     <<"not a list">>;
 expand_error(not_map_iterator_order) ->
-    <<"not 'undefined', 'ordered', or a fun that takes two arguments">>;
+    <<"not 'undefined', 'ordered', 'reversed', or a fun that takes two arguments">>;
 expand_error(not_map_or_iterator) ->
     <<"not a map or an iterator">>;
 expand_error(not_number) ->

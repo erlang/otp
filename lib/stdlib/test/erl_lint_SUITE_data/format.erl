@@ -51,6 +51,14 @@ f(F) ->
     io:format("~14p", [F]),
     io:format("~*p", [a, F]),			%no type checking
     io:format("~*p", [14, F]),
+    
+    io:format("~tlp", [F]),			%1
+    io:format("~kKp", [undefined, F]),		%1
+    io:format("~tb", [1]),			%1
+    io:format("~lb", [1]),			%1
+    io:format("~kb", [1]),			%1
+    io:format("~Kb", [undefined, 1]),		%1
+    io:format("~llp", [F]),			%1
 
     io:fwrite("~p", []),			%1
     io_lib:format("~p", []),			%1
