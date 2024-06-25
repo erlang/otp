@@ -171,7 +171,10 @@ erts_cleanup_offheap_list(struct erl_off_heap_header* first)
             erts_bin_release(u.br->val);
 	    break;
 	case FUN_REF_SUBTAG:
-            if (erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
+            /* The pointer to the fun entry can be NULL if loading
+             * was aborted because of an invalid BEAM file. */
+            if (u.fref->entry &&
+                erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
                 erts_erase_fun_entry(u.fref->entry);
             }
 	    break;
