@@ -3135,7 +3135,15 @@ error_info(Config) ->
            {Format,["~s",["Спутник-1"]],[{1,"failed to format string"}]},
            {Format,["~s",[1]],[{2,"1 must be of type string"}]},
            {Format,["~s~s",[a,1]],[{2,"2 must be of type string"}]},
-           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]}] || Format <- [format,fwrite]]
+           {Format,["~s",[[a]]],[{2,"1 must be of type string"}]},
+
+	   %% Ensure error messages contain the correct reason (GH-8568)
+	   {Format, ["~ltkKltkKp", []], [{1,"wrong number of arguments"}]},
+	   {Format, ["~ltkKltkKm", [undefined, ordered, a]], [{1,"format string"}]},
+	   {Format, ["~ltkKltkKb", [undefined, ordered, a]], [{2,"3 must be of type integer"}]},
+	   {Format, ["~ltkKp", [foo, #{a => b}]], [{2,"1 must be 'undefined', 'ordered', 'reversed', or a fun that takes two arguments"}]}
+	  ]
+	  || Format <- [format,fwrite]]
 
         ],
 

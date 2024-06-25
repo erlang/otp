@@ -74,7 +74,7 @@ Module:format_error(ErrorDescriptor)
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--export([check_format_string/1]).
+-export([check_format_string/1, check_format_string/2]).
 
 -export_type([error_info/0, error_description/0]).
 -export_type([fun_used_vars/0]). % Used from erl_eval.erl.
@@ -4582,7 +4582,7 @@ check_format_2a(Fmt, FmtAnno, As) ->
     end.
 
 check_format_3(Fmt, FmtAnno, As) ->
-    case check_format_string(Fmt) of
+    case check_format_string(Fmt, true) of
         {ok,Need} ->
             check_format_4(Need, FmtAnno, As);
         {error,S} ->
@@ -4632,99 +4632,101 @@ args_list(_Other) -> 'maybe'.
 args_length({cons,_A,_H,T}) -> 1 + args_length(T);
 args_length({nil,_A}) -> 0.
 
--doc false.
-check_format_string(Fmt) when is_atom(Fmt) ->
-    check_format_string(atom_to_list(Fmt));
-check_format_string(Fmt) when is_binary(Fmt) ->
-    check_format_string(binary_to_list(Fmt));
-check_format_string(Fmt) ->
-    extract_sequences(Fmt, []).
 
-extract_sequences(Fmt, Need0) ->
+-doc false.
+check_format_string(Fmt) ->
+    check_format_string(Fmt, true).
+
+-doc false.
+check_format_string(Fmt, Strict) when is_atom(Fmt) ->
+    check_format_string(atom_to_list(Fmt), Strict);
+check_format_string(Fmt, Strict) when is_binary(Fmt) ->
+    check_format_string(binary_to_list(Fmt), Strict);
+check_format_string(Fmt, Strict) ->
+    extract_sequences(Fmt, [], Strict).
+
+extract_sequences(Fmt, Need0, Strict) ->
     case string:find(Fmt, [$~]) of
         nomatch -> {ok,lists:reverse(Need0)};         %That's it
         [$~|Fmt1] ->
-            case extract_sequence(1, Fmt1, Need0) of
-                {ok,Need1,Rest} -> extract_sequences(Rest, Need1);
+            case extract_sequence(1, Fmt1, Need0, Strict) of
+                {ok,Need1,Rest} -> extract_sequences(Rest, Need1, Strict);
                 Error -> Error
             end
     end.
 
-extract_sequence(1, [$-,C|Fmt], Need)
+extract_sequence(1, [$-,C|Fmt], Need, Strict)
   when is_integer(C), C >= $0, C =< $9 ->
-    extract_sequence_digits(1, Fmt, Need);
-extract_sequence(1, [C|Fmt], Need)
+    extract_sequence_digits(1, Fmt, Need, Strict);
+extract_sequence(1, [C|Fmt], Need, Strict)
   when is_integer(C), C >= $0, C =< $9 ->
-    extract_sequence_digits(1, Fmt, Need);
-extract_sequence(1, [$-,$*|Fmt], Need) ->
-    extract_sequence(2, Fmt, [int|Need]);
-extract_sequence(1, [$*|Fmt], Need) ->
-    extract_sequence(2, Fmt, [int|Need]);
-extract_sequence(1, Fmt, Need) ->
-    extract_sequence(2, Fmt, Need);
+    extract_sequence_digits(1, Fmt, Need, Strict);
+extract_sequence(1, [$-,$*|Fmt], Need, Strict) ->
+    extract_sequence(2, Fmt, [int|Need], Strict);
+extract_sequence(1, [$*|Fmt], Need, Strict) ->
+    extract_sequence(2, Fmt, [int|Need], Strict);
+extract_sequence(1, Fmt, Need, Strict) ->
+    extract_sequence(2, Fmt, Need, Strict);
 
-extract_sequence(2, [$.,C|Fmt], Need)
+extract_sequence(2, [$.,C|Fmt], Need, Strict)
   when is_integer(C), C >= $0, C =< $9 ->
-    extract_sequence_digits(2, Fmt, Need);
-extract_sequence(2, [$.,$*|Fmt], Need) ->
-    extract_sequence(3, Fmt, [int|Need]);
-extract_sequence(2, [$.|Fmt], Need) ->
-    extract_sequence(3, Fmt, Need);
-extract_sequence(2, Fmt, Need) ->
-    extract_sequence(4, Fmt, Need);
+    extract_sequence_digits(2, Fmt, Need, Strict);
+extract_sequence(2, [$.,$*|Fmt], Need, Strict) ->
+    extract_sequence(3, Fmt, [int|Need], Strict);
+extract_sequence(2, [$.|Fmt], Need, Strict) ->
+    extract_sequence(3, Fmt, Need, Strict);
+extract_sequence(2, Fmt, Need, Strict) ->
+    extract_sequence(4, Fmt, Need, Strict);
 
-extract_sequence(3, [$.,$*|Fmt], Need) ->
-    extract_sequence(4, Fmt, [int|Need]);
-extract_sequence(3, [$.,_|Fmt], Need) ->
-    extract_sequence(4, Fmt, Need);
-extract_sequence(3, Fmt, Need) ->
-    extract_sequence(4, Fmt, Need);
+extract_sequence(3, [$.,$*|Fmt], Need, Strict) ->
+    extract_sequence(4, Fmt, [int|Need], Strict);
+extract_sequence(3, [$.,_|Fmt], Need, Strict) ->
+    extract_sequence(4, Fmt, Need, Strict);
+extract_sequence(3, Fmt, Need, Strict) ->
+    extract_sequence(4, Fmt, Need, Strict);
 
-extract_sequence(4, Fmt0, Need) ->
-    case extract_modifiers(Fmt0, []) of
+extract_sequence(4, Fmt0, Need0, Strict) ->
+    case extract_modifiers(Fmt0, [], Need0, Strict) of
         {error, _} = Error ->
             Error;
-        {[C|Fmt], Modifiers} ->
+        {[C|Fmt], Modifiers, Need1} when Strict ->
             maybe
                 ok ?= check_modifiers(C, Modifiers),
-                case ordsets:is_element($K, Modifiers) of
-                    true ->
-                        extract_sequence(5, [C|Fmt], ['fun'|Need]);
-                    false ->
-                        extract_sequence(5, [C|Fmt], Need)
-                end
+                extract_sequence(5, [C|Fmt], Need1, Strict)
             end;
-        {[], _} ->
-            extract_sequence(5, [], Need)
+        {Fmt, _, Need1} ->
+            extract_sequence(5, Fmt, Need1, Strict)
     end;
 
-extract_sequence(5, [C|Fmt], Need0) ->
+extract_sequence(5, [C|Fmt], Need0, _Strict) ->
     case control_type(C, Need0) of
         error -> {error,"invalid control ~" ++ [C]};
         Need1 -> {ok,Need1,Fmt}
     end;
-extract_sequence(_, [], _Need) -> {error,"truncated"}.
+extract_sequence(_, [], _Need, _Strict) -> {error,"truncated"}.
 
-extract_sequence_digits(Fld, [C|Fmt], Need)
+extract_sequence_digits(Fld, [C|Fmt], Need, Strict)
   when is_integer(C), C >= $0, C =< $9 ->
-    extract_sequence_digits(Fld, Fmt, Need);
-extract_sequence_digits(Fld, Fmt, Need) ->
-    extract_sequence(Fld+1, Fmt, Need).
+    extract_sequence_digits(Fld, Fmt, Need, Strict);
+extract_sequence_digits(Fld, Fmt, Need, Strict) ->
+    extract_sequence(Fld+1, Fmt, Need, Strict).
 
-extract_modifiers([C|Fmt], Modifiers0) ->
-    case is_modifier(C) of
-        true ->
+extract_modifiers([C|Fmt], Modifiers0, Need0, Strict) ->
+    case is_modifier(C, Need0) of
+	{true, Need1} when Strict ->
             case ordsets:add_element(C, Modifiers0) of
                 Modifiers0 ->
                     {error, "repeated modifier " ++ [C]};
                 Modifiers ->
-                    extract_modifiers(Fmt, Modifiers)
+                    extract_modifiers(Fmt, Modifiers, Need1, Strict)
             end;
+	{true, Need1} ->
+	    extract_modifiers(Fmt, ordsets:add_element(C, Modifiers0), Need1, Strict);
         false ->
-            {[C|Fmt], Modifiers0}
+            {[C|Fmt], Modifiers0, Need0}
     end;
-extract_modifiers([], Modifiers) ->
-    {[], Modifiers}.
+extract_modifiers([], Modifiers, Need, _Strict) ->
+    {[], Modifiers, Need}.
 
 check_modifiers(C, Modifiers) ->
     maybe
@@ -4749,11 +4751,11 @@ check_modifiers_1(M, Modifiers, C, Cs) ->
             {error, "conflicting modifiers ~" ++ M ++ [C]}
     end.
 
-is_modifier($k) -> true;
-is_modifier($K) -> true;
-is_modifier($l) -> true;
-is_modifier($t) -> true;
-is_modifier(_) -> false.
+is_modifier($k, Need) -> {true, Need};
+is_modifier($K, Need) -> {true, ['fun'|Need]};
+is_modifier($l, Need) -> {true, Need};
+is_modifier($t, Need) -> {true, Need};
+is_modifier(_, _) -> false.
 
 control_type($~, Need) -> Need;
 control_type($c, Need) -> [int|Need];
