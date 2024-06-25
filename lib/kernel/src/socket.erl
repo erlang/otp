@@ -6457,10 +6457,13 @@ These operations require elevated privileges.
   point-to-point interface with the specified name.
 
 - **`sifbrdaddr`** - Set the broadcast address, `t:sockaddr/0`,
-  of the interface with the specified name.
+of the interface with the specified name.
 
 - **`sifnetmask`** - Set the network mask, `t:sockaddr/0`, of the interface
   with the specified name.
+
+- **`sifhwaddr`** - Set the hardware address, `t:sockaddr/0`,
+of the interface with the specified name.
 
 - **`sifmtu`** - Set the MTU (Maximum Transfer Unit), `t:integer/0`,
   for the interface with the specified name.
@@ -6473,7 +6476,7 @@ These operations require elevated privileges.
       SetRequest :: 'sifflags' |
                     'sifaddr' | 'sifdstaddr' | 'sifbrdaddr' |
                     'sifnetmask' | 'sifhwaddr' |
-                    'gifmtu' | 'siftxqlen',
+                    'sifmtu' | 'siftxqlen',
       Name       :: string(),
       Value      :: term(),
       Reason     :: posix() | 'closed'.
@@ -6493,6 +6496,9 @@ ioctl(?socket(SockRef), sifbrdaddr = SetRequest, Name, BrdAddr)
 ioctl(?socket(SockRef), sifnetmask = SetRequest, Name, NetMask)
   when is_list(Name) andalso is_map(NetMask) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(NetMask));
+ioctl(?socket(SockRef), sifhwaddr = SetRequest, Name, HWAddr)
+  when is_list(Name) andalso is_map(HWAddr) ->
+    prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(HWAddr));
 ioctl(?socket(SockRef), sifmtu = SetRequest, Name, MTU)
   when is_list(Name) andalso is_integer(MTU) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, MTU);
