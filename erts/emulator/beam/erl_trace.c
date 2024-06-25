@@ -542,11 +542,24 @@ erts_change_default_proc_tracing(ErtsTraceSession* session,
                                  int setflags, Uint32 flags,
                                  const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
+    was_tracer = session->on_spawn_proc_tracer;
+
     erts_change_on_spawn_tracing(
         setflags, flags, tracer,
         &session->on_spawn_proc_trace_flags,
         &session->on_spawn_proc_tracer);
+
+    if (session->on_spawn_proc_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_num_on_spawn_tracers, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->on_spawn_proc_tracer)) {
+            erts_refc_dec(&erts_num_on_spawn_tracers, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
@@ -555,11 +568,24 @@ erts_change_default_port_tracing(ErtsTraceSession* session,
                                  int setflags, Uint32 flags,
                                  const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
+    was_tracer = session->on_open_port_tracer;
+
     erts_change_on_spawn_tracing(
         setflags, flags, tracer,
         &session->on_open_port_trace_flags,
         &session->on_open_port_tracer);
+
+    if (session->on_open_port_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_num_on_open_port_tracers, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->on_open_port_tracer)) {
+            erts_refc_dec(&erts_num_on_open_port_tracers, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 

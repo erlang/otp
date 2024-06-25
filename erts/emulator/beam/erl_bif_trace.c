@@ -103,6 +103,8 @@ static void clean_export_entries(BpFunctions* f);
 
 ErtsTraceSession erts_trace_session_0;
 erts_rwmtx_t erts_trace_session_list_lock;
+erts_refc_t erts_new_procs_trace_cnt;
+erts_refc_t erts_new_ports_trace_cnt;
 
 ErtsTraceSession* erts_trace_cleaner_wait_list;
 erts_mtx_t erts_trace_cleaner_lock;
@@ -254,6 +256,8 @@ erts_bif_trace_init(void)
     erts_mtx_init(&erts_trace_cleaner_lock, "trace_cleaner", NIL,
                     ERTS_LOCK_FLAGS_PROPERTY_STATIC |
                     ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    erts_refc_init(&erts_new_procs_trace_cnt, 0);
+    erts_refc_init(&erts_new_ports_trace_cnt, 0);
 }
 
 /*

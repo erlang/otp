@@ -116,6 +116,8 @@ Eterm erts_make_trace_session_weak_ref(ErtsTraceSession*, Eterm **hpp);
 
 extern ErtsTraceSession erts_trace_session_0;
 extern erts_rwmtx_t erts_trace_session_list_lock;
+extern erts_refc_t erts_new_procs_trace_cnt;
+extern erts_refc_t erts_new_ports_trace_cnt;
 
 void erts_ref_trace_session(ErtsTraceSession*);
 void erts_deref_trace_session(ErtsTraceSession*);
