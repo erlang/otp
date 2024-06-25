@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2022. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,9 +29,16 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
-         parallel/1]).
+         init_per_suite/1,
+         end_per_suite/1,
+        
+         %% The test cases
+         parallel/1
+        ]).
 
 -export([accept/1,
          connect/1,
@@ -41,7 +48,7 @@
 -include_lib("kernel/include/inet_sctp.hrl").
 -include("diameter.hrl").
 
--define(util, diameter_util).
+-include("diameter_util.hrl").
 
 %% Corresponding to diameter_* transport modules.
 -define(TRANSPORTS, [tcp, sctp]).
@@ -77,6 +84,11 @@
 %% Messages from gen_sctp.
 -define(SCTP(Sock, Data), {sctp, Sock, _, _, Data}).
 
+
+-define(TL(F),    ?TL(F, [])).
+-define(TL(F, A), ?LOG("DTRANSPS", F, A)).
+
+
 %% ===========================================================================
 %% common_test wrapping
 
@@ -86,8 +98,21 @@ suite() ->
 all() ->
     [parallel].
 
+
+init_per_suite(Config) ->
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?DUTIL:end_per_suite(Config).
+
+
 parallel(_) ->
-    run().
+    ?TL("parallel -> entry"),
+    Res = run(),
+    ?TL("parallel -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 
@@ -96,9 +121,9 @@ parallel(_) ->
 run() ->
     ok = diameter:start(),
     try
-        ?util:run([[fun run/1, {P,F}]
-                   || P <- [sctp || ?util:have_sctp()] ++ [tcp],
-                      F <- [connect, accept, reconnect]])
+        ?RUN([[fun run/1, {P,F}]
+              || P <- [sctp || ?HAVE_SCTP()] ++ [tcp],
+                 F <- [connect, accept, reconnect]])
     after
         diameter:stop()
     end.
@@ -106,13 +131,29 @@ run() ->
 %% run/1
 
 run({Prot, reconnect}) ->
-    reconnect(Prot);
+    ?TL("run(reconnect) -> entry with"
+        "~n   Prot: ~p", [Prot]),
+    Res = reconnect(Prot),
+    ?TL("run(reconnect) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
 
 run({Prot, accept}) ->
-    accept(Prot);
+    ?TL("run(accept) -> entry with"
+        "~n   Prot: ~p", [Prot]),
+    Res = accept(Prot),
+    ?TL("run(accept) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res;
 
 run({Prot, connect}) ->
-    connect(Prot).
+    ?TL("run(connect) -> entry with"
+        "~n   Prot: ~p", [Prot]),
+    Res = connect(Prot),
+    ?TL("run(connect) -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
+
 
 %% ===========================================================================
 %% accept/1
@@ -120,11 +161,19 @@ run({Prot, connect}) ->
 %% diameter transport accepting, test code connecting.
 
 accept(Prot) ->
+    ?TL("accept -> entry with"
+        "~n   Prot: ~p", [Prot]),
+
     Ref = make_ref(),
     true = diameter_reg:add_new({diameter_config, transport, Ref}), %% fake it
     T = {Prot, Ref},
-    ?util:run([{{?MODULE, [init, X, T]}, 15000}
-               || X <- [accept, gen_connect]]).
+    Res = ?RUN([{{?MODULE, [init, X, T]}, 15000}
+                || X <- [accept, gen_connect]]),
+
+    ?TL("accept -> done when"
+        "~n   Res: ~p", [Res]),
+    ok.
+
 
 %% ===========================================================================
 %% connect/1
@@ -132,9 +181,17 @@ accept(Prot) ->
 %% Test code accepting, diameter transport connecting.
 
 connect(Prot) ->
+    ?TL("connect -> entry with"
+        "~n   Prot: ~p", [Prot]),
+
     T = {Prot, make_ref()},
-    ?util:run([{{?MODULE, [init, X, T]}, 15000}
-               || X <- [gen_accept, connect]]).
+    Res = ?RUN([{{?MODULE, [init, X, T]}, 15000}
+                 || X <- [gen_accept, connect]]),
+
+    ?TL("connect -> done when"
+        "~n   Res: ~p", [Res]),
+    ok.
+
 
 %% ===========================================================================
 %% reconnect/1
@@ -144,50 +201,86 @@ connect(Prot) ->
 %% broken.
 
 reconnect({listen, Ref}) ->
+    ?TL("reconnect(listen) -> entry with"
+        "~n   Ref: ~p", [Ref]),
     SvcName = make_ref(),
+    ?TL("reconnect(listen) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
-    LRef = ?util:listen(SvcName, tcp, [{watchdog_timer, 6000}]),
+    ?TL("reconnect(listen) -> connect"),
+    LRef = ?LISTEN(SvcName, tcp, [{watchdog_timer, 6000}]),
+    ?TL("reconnect(listen) -> wait"),
     [_] = diameter_reg:wait({diameter_tcp, listener, {LRef, '_'}}),
+    ?TL("reconnect(listen) -> register new transport"),
     true = diameter_reg:add_new({?MODULE, Ref, LRef}),
 
     %% Wait for partner to request transport death.
+    ?TL("reconnect(listen) -> abort: await (request for) transport death"),
     TPid = abort(SvcName, LRef, Ref),
 
     %% Kill transport to force the peer to reconnect.
+    ?TL("reconnect(listen) -> kill transport"),
     exit(TPid, kill),
 
     %% Wait for the partner again.
-    abort(SvcName, LRef, Ref);
+    ?TL("reconnect(listen) -> abort: wait for partner again"),
+    Res = abort(SvcName, LRef, Ref),
+
+    ?TL("reconnect(listen) -> done when"
+        "~n   Res: ~p", [Res]),
+    ok;
 
 reconnect({connect, Ref}) ->
+    ?TL("reconnect(connect) -> entry with"
+        "~n   Ref: ~p", [Ref]),
+
     SvcName = make_ref(),
+    ?TL("reconnect(connect) -> subscribe"),
     true = diameter:subscribe(SvcName),
+    ?TL("reconnect(connect) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
+    ?TL("reconnect(connect) -> wait"),
     [{{_, _, LRef}, Pid}] = diameter_reg:wait({?MODULE, Ref, '_'}),
-    CRef = ?util:connect(SvcName, tcp, LRef, [{connect_timer, 2000},
-                                              {watchdog_timer, 6000}]),
+    ?TL("reconnect(connect) -> connect"),
+    CRef = ?CONNECT(SvcName, tcp, LRef, [{connect_timer, 2000},
+                                         {watchdog_timer, 6000}]),
 
     %% Tell partner to kill transport after seeing that there are no
     %% reconnection attempts.
+    ?TL("reconnect(connect) -> abort (kill transport)"),
     abort(SvcName, Pid, Ref),
 
     %% Transport goes down and is reestablished.
+    ?TL("reconnect(connect) -> await transport down"),
     ?RECV(#diameter_event{service = SvcName, info = {down, CRef, _, _}}),
+    ?TL("reconnect(connect) -> await transport reconnect"),
     ?RECV(#diameter_event{service = SvcName, info = {reconnect, CRef, _}}),
+    ?TL("reconnect(connect) -> await transport up"),
     ?RECV(#diameter_event{service = SvcName, info = {up, CRef, _, _, _}}),
 
     %% Kill again.
+    ?TL("reconnect(connect) -> abort (kill transport again)"),
     abort(SvcName, Pid, Ref),
 
     %% Wait for partner to die.
+    ?TL("reconnect(connect) -> await partner death"),
     MRef = erlang:monitor(process, Pid),
-    ?RECV({'DOWN', MRef, process, _, _});
+    Res = ?RECV({'DOWN', MRef, process, _, _}),
+
+    ?TL("reconnect(connect) -> done when"
+        "~n   Res: ~p", [Res]),
+    ok;
 
 reconnect(Prot) ->
+    ?TL("reconnect -> entry with"
+        "~n   Prot: ~p", [Prot]),
     Ref = make_ref(),
-    ?util:run([{{?MODULE, [reconnect, {T, Ref}]}, 240000}
-               || Prot == tcp,  %% ignore sctp
-                  T <- [listen, connect]]).
+    Res = ?RUN([{{?MODULE, [reconnect, {T, Ref}]}, 240000}
+                || Prot == tcp,  %% ignore sctp
+                   T <- [listen, connect]]),
+
+    ?TL("reconnect -> done when"
+        "~n   Res: ~p", [Res]),
+    ok.
 
 start_service(SvcName) ->
     OH = diameter_util:unique_string(),
@@ -225,6 +318,10 @@ abort(SvcName, LRef, Ref)
 %% init/2
 
 init(accept, {Prot, Ref}) ->
+    ?TL("init(accept) -> entry with"
+        "~n   Prot: ~p"
+        "~n   Ref:  ~p", [Prot, Ref]),
+
     %% Start an accepting transport and receive notification of a
     %% connection.
     TPid = start_accept(Prot, Ref),
@@ -238,19 +335,34 @@ init(accept, {Prot, Ref}) ->
     %% Expect the transport process to die as a result of the peer
     %% closing the connection.
     MRef = erlang:monitor(process, TPid),
-    ?RECV({'DOWN', MRef, process, _, _});
+    Res = ?RECV({'DOWN', MRef, process, _, _}),
+
+    ?TL("init(accept) -> done when"
+        "~n   Res: ~p", [Res]),
+    ok;
 
 init(gen_connect, {Prot, Ref}) ->
+    ?TL("init(gen_connect) -> entry with"
+        "~n   Prot: ~p"
+        "~n   Ref:  ~p", [Prot, Ref]),
+
     %% Lookup the peer's listening socket.
-    [PortNr] = ?util:lport(Prot, Ref),
+    [PortNr] = ?LPORT(Prot, Ref),
 
     %% Connect, send a message and receive it back.
     {ok, Sock} = gen_connect(Prot, PortNr),
     Bin = make_msg(),
     ok = gen_send(Prot, Sock, Bin),
-    Bin = gen_recv(Prot, Sock);
+    Bin = gen_recv(Prot, Sock),
+
+    ?TL("init(gen_connect) -> done"),
+    ok;
 
 init(gen_accept, {Prot, Ref}) ->
+    ?TL("init(gen_accept) -> entry with"
+        "~n   Prot: ~p"
+        "~n   Ref:  ~p", [Prot, Ref]),
+
     %% Open a listening socket and publish the port number.
     {ok, LSock} = gen_listen(Prot),
     {ok, PortNr} = inet:port(LSock),
@@ -261,14 +373,22 @@ init(gen_accept, {Prot, Ref}) ->
     {ok, Sock} = gen_accept(Prot, LSock),
     Bin = gen_recv(Prot, Sock),
     ok = gen_send(Prot, Sock, Bin),
-    receive
-        {tcp_closed, Sock} = T ->
-            T;
-        ?SCTP(Sock, {_, #sctp_assoc_change{}}) = T ->
-            T
-    end;
+    _Res = receive
+               {tcp_closed, Sock} = T ->
+                   T;
+               ?SCTP(Sock, {_, #sctp_assoc_change{}}) = T ->
+                   T
+           end,
+
+    ?TL("init(gen_accept) -> done when"
+        "~n   Res: ~p", [_Res]),
+    ok;
 
 init(connect, {Prot, Ref}) ->
+    ?TL("init(connect) -> entry with"
+        "~n   Prot: ~p"
+        "~n   Ref:  ~p", [Prot, Ref]),
+
     %% Lookup the peer's listening socket.
     [{?TEST_LISTENER(_, PortNr), _}]
         = diameter_reg:wait(?TEST_LISTENER(Ref, '_')),
@@ -280,7 +400,10 @@ init(connect, {Prot, Ref}) ->
     %% Send a message and receive it back.
     Bin = make_msg(),
     TPid ! ?TMSG({send, Bin}),
-    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P)).
+    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P)),
+
+    ?TL("init(connect) -> done"),
+    ok.
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
     Bin;
@@ -390,12 +513,22 @@ gen_send(tcp, Sock, Bin) ->
 %% gen_recv/2
 
 gen_recv(sctp, Sock) ->
-    {_OS, _IS, Id} = getr(assoc),
+    {OS, IS, Id} = getr(assoc),
     receive
-        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I}], Bin})
+        ?SCTP(Sock, {[#sctp_sndrcvinfo{assoc_id = I} = INFO], Bin})
           when is_binary(Bin) ->
-            {Id, _} = {I, Id},  %% assert
-            Bin
+            case {I, Id} of
+                {Id, _} -> % assert
+                    Bin;
+                _ ->
+                    ?TL("unexpected assoc id in received info msg:"
+                        "~n   Expected Assoc ID: ~p"
+                        "~n      OS: ~p"
+                        "~n      IS: ~p"
+                        "~n   Received Assoc ID: ~p"
+                        "~n   Info:              ~p", [Id, OS, IS, I, INFO]),
+                    ct:fail({unexpected_assoc_id, I, Id})
+            end
     end;
 gen_recv(tcp, Sock) ->
     tcp_recv(Sock, <<>>).

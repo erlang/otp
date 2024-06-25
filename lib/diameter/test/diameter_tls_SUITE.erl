@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,11 +38,16 @@
 -export([run/0]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
          init_per_suite/1,
          end_per_suite/1,
-         parallel/1]).
+        
+         %% The test cases
+         parallel/1
+        ]).
 
 %% diameter callbacks
 -export([prepare_request/3,
@@ -53,9 +58,10 @@
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 
-%% ===========================================================================
+-include("diameter_util.hrl").
 
--define(util, diameter_util).
+
+%% ===========================================================================
 
 -define(ADDR, {127,0,0,1}).
 
@@ -97,7 +103,7 @@
 %% Config for diameter:add_transport/2. In the listening case, listen
 %% on a free port that we then lookup using the implementation detail
 %% that diameter_tcp registers the port with diameter_reg.
--define(CONNECT(PortNr, Caps, Opts),
+-define(TCONNECT(PortNr, Caps, Opts),
         {connect, [{transport_module, diameter_tcp},
                    {transport_config, [{raddr, ?ADDR},
                                        {rport, PortNr},
@@ -105,13 +111,17 @@
                                        {port, 0}
                                        | Opts]},
                    {capabilities, Caps}]}).
--define(LISTEN(Caps, Opts),
+-define(TLISTEN(Caps, Opts),
         {listen, [{transport_module, diameter_tcp},
                   {transport_config, [{ip, ?ADDR}, {port, 0} | Opts]},
                   {capabilities, Caps}]}).
 
 -define(SUCCESS, 2001).
 -define(LOGOUT, ?'DIAMETER_BASE_TERMINATION-CAUSE_LOGOUT').
+
+-define(TL(F),    ?TL(F, [])).
+-define(TL(F, A), ?LOG("DTLSS", F, A)).
+
 
 %% ===========================================================================
 %% common_test wrapping
@@ -125,31 +135,38 @@ all() ->
 %% Shouldn't really have to know about crypto here but 'ok' from
 %% ssl:start() isn't enough to guarantee that TLS is available.
 init_per_suite(Config) ->
+    Config2 = ?DUTIL:init_per_suite(Config),
     try
-        [] == (catch make_certs(dir(Config)))
+        [] == (catch make_certs(dir(Config2)))
             orelse throw({?MODULE, no_certs}),
         ok == crypto:start() orelse throw({?MODULE, no_crypto}),
         ok == ssl:start() orelse throw({?MODULE, no_ssl}),
-        Config
+        Config2
     catch
         {?MODULE, E} ->
             {skip, E}
     end.
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
     ssl:stop(),
-    crypto:stop().
+    crypto:stop(),
+    ?DUTIL:end_per_suite(Config).
 
 parallel(Config) ->
-    run(dir(Config), false).
+    ?TL("parallel -> entry"),
+    Res = run(dir(Config), false),
+    ?TL("parallel -> done when"
+        "~n   Res: ~p", [Res]),
+    Res.
 
 dir(Config) ->
     proplists:get_value(priv_dir, Config).
 
+
 %% ===========================================================================
 
 run() ->
-    Tmp = ?util:mktemp("diameter_tls"),
+    Tmp = ?MKTEMP("diameter_tls"),
     try
         run(Tmp, true)
     after
@@ -157,34 +174,51 @@ run() ->
     end.
 
 run(Dir, B) ->
+    ?TL("run -> start crypto"),
     crypto:start(),
+    ?TL("run -> start ssl"),
     ssl:start(),
     try
-        ?util:run([{[fun traffic/2, Dir, B], 60000}])
+        ?TL("run -> try run traffic"),
+        ?RUN([{[fun traffic/2, Dir, B], 60000}])
     after
+        ?TL("run(after) -> stop diameter"),
         diameter:stop(),
+        ?TL("run(after) -> stop ssl"),
         ssl:stop(),
-        crypto:stop()
+        ?TL("run(after) -> stop crypto"),
+        crypto:stop(),
+        ?TL("run(after) -> done"),
+        ok
     end.
 
 traffic(Dir, true) ->
+    ?TL("traffic(true) -> make certs"),
     [] = make_certs(Dir),
     traffic(Dir, false);
 
 traffic(Dir, false) ->
+    ?TL("traffic(false) -> start diameter"),
     ok = diameter:start(),
+    ?TL("traffic(false) -> start (diameter) services"),
     Servers = start_services(Dir),
+    ?TL("traffic(false) -> add transports"),
     Connections = add_transports(Dir, Servers),
-    [] = ?util:run([[fun call/1, S] || S <- ?util:scramble(?SERVERS)]),
+    ?TL("traffic(false) -> calls"),
+    [] = ?RUN([[fun call/1, S] || S <- ?SCRAMBLE(?SERVERS)]),
+    ?TL("traffic(false) -> remove transports"),
     [] = remove_transports(Connections),
-    [] = stop_services().
+    ?TL("traffic(false) -> stop (diameter) services"),
+    [] = stop_services(),
+    ?TL("traffic(false) -> done"),
+    ok.
 
 make_certs(Dir) ->
-    ?util:run([[fun make_cert/2, Dir, B] || B <- ["server1",
-                                                  "server2",
-                                                  "server4",
-                                                  "server5",
-                                                  "client"]]).
+    ?RUN([[fun make_cert/2, Dir, B] || B <- ["server1",
+                                             "server2",
+                                             "server4",
+                                             "server5",
+                                             "client"]]).
 
 start_services(Dir) ->
     Servers = [{S, {_,_} = server(S, sopts(S, Dir))} || S <- ?SERVERS],
@@ -200,7 +234,7 @@ add_transports(Dir, Servers) ->
 %% transport to go down.
 remove_transports(Connections) ->
     [] = [T || S <- ?SERVERS, T <- [diameter:subscribe(S)], T /= true],
-    [] = ?util:run([[fun disconnect/1, T] || T <- Connections]),
+    [] = ?RUN([[fun disconnect/1, T] || T <- Connections]),
     [S || S <- ?SERVERS,
           I <- [receive #diameter_event{service = S, info = I} -> I end],
           down /= catch element(1, I)].
@@ -257,14 +291,19 @@ handle_request(#diameter_packet{msg = #diameter_base_STR{'Session-Id' = SId}},
 
 %% Send an STR intended for a specific server and expect success.
 call(Server) ->
+    ?TL("call -> entry with"
+        "~n   Server: ~p", [Server]),
     Realm = realm(Server),
     Req = ['STR', {'Destination-Realm', Realm},
                   {'Termination-Cause', ?LOGOUT},
                   {'Auth-Application-Id', ?APP_ID}],
-    #diameter_base_STA{'Result-Code' = ?SUCCESS,
-                       'Origin-Host' = Server,
+    ?TL("call -> make (STR) call (with filter and realm) - expect STA"),
+    #diameter_base_STA{'Result-Code'  = ?SUCCESS,
+                       'Origin-Host'  = Server,
                        'Origin-Realm' = Realm}
-        = call(Req, [{filter, realm}]).
+        = call(Req, [{filter, realm}]),
+    ?TL("call -> done"),
+    ok.
 
 call(Req, Opts) ->
     diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
@@ -308,8 +347,8 @@ join(Strs) ->
 
 server(Host, {Caps, Opts}) ->
     ok = diameter:start_service(Host, ?SERVICE(Host, ?DICT_COMMON)),
-    {ok, LRef} = diameter:add_transport(Host, ?LISTEN(Caps, Opts)),
-    {LRef, hd([_] = ?util:lport(tcp, LRef))}.
+    {ok, LRef} = diameter:add_transport(Host, ?TLISTEN(Caps, Opts)),
+    {LRef, hd([_] = ?LPORT(tcp, LRef))}.
 
 sopts(?SERVER1, Dir) ->
     {inband_security([?TLS]),
@@ -330,7 +369,7 @@ ssl([{ssl_options = T, Opts}]) ->
 %% connect/3
 
 connect(Host, {_LRef, PortNr}, {Caps, Opts}) ->
-    {ok, Ref} = diameter:add_transport(Host, ?CONNECT(PortNr, Caps, Opts)),
+    {ok, Ref} = diameter:add_transport(Host, ?TCONNECT(PortNr, Caps, Opts)),
     {up, Ref, _, _, #diameter_packet{}}
          = receive
                #diameter_event{service = Host, info = Info}
