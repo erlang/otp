@@ -2074,19 +2074,19 @@ esock_ifset(Socket, Name, [{Req, Value}|Opts]) ->
     end.
 
 do_esock_ifset(Socket, Name, 'addr' = _Req, Addr) ->
-    do_esock_ifset2(Socket, sifaddr, Name, Addr);
+    do_esock_ifset2(Socket, Name, sifaddr, Addr);
 do_esock_ifset(Socket, Name, 'broadaddr' = _Req, Addr) ->
-    do_esock_ifset2(Socket, sifbrdaddr, Name, Addr);
+    do_esock_ifset2(Socket, Name, sifbrdaddr, Addr);
 do_esock_ifset(Socket, Name, 'dstdaddr' = _Req, Addr) ->
-    do_esock_ifset2(Socket, sifdstaddr, Name, Addr);
+    do_esock_ifset2(Socket, Name, sifdstaddr, Addr);
 do_esock_ifset(Socket, Name, 'mtu' = _Req, MTU) ->
-    do_esock_ifset2(Socket, sifmtu, Name, MTU);
+    do_esock_ifset2(Socket, Name, sifmtu, MTU);
 do_esock_ifset(Socket, Name, 'netmask' = _Req, Addr) ->
-    do_esock_ifset2(Socket, sifnetmask, Name, Addr);
+    do_esock_ifset2(Socket, Name, sifnetmask, Addr);
 do_esock_ifset(Socket, Name, 'flags' = _Req, Flags) ->
-    do_esock_ifset2(Socket, sifflags, Name, Flags);
+    do_esock_ifset2(Socket, Name, sifflags, Flags);
 do_esock_ifset(Socket, Name, 'hwaddr' = _Req, Addr) ->
-    do_esock_ifset2(Socket, sifhwaddr, Name, Addr).
+    do_esock_ifset2(Socket, Name, sifhwaddr, Addr).
 
 do_esock_ifset2(Socket, Name, Req, Value) ->
     try socket:ioctl(Socket, Req, Name, Value) of
@@ -2140,7 +2140,7 @@ do_ifset(Backend, Name, Opts) ->
 	{'error', posix()}.
 
 getif() ->
-    withsocket(fun(S) -> getif(S) end).
+    withsocket(fun(S) -> getif(S) end, inet_backend(), []).
 
 %% backwards compatible getif
 -doc false.
@@ -2150,26 +2150,59 @@ getif() ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} |
 	{'error', posix()}.
 
+getif([{inet_backend, Backend}|Opts]) ->
+    withsocket(fun(S) -> getif(Backend, S) end, Backend, Opts);
 getif(Opts) when is_list(Opts) ->
-    withsocket(fun(S) -> getif(S) end, Opts);
-getif(Socket) ->
-    case prim_inet:getiflist(Socket) of
-	{ok, IfList} ->
-	    {ok, lists:foldl(
-		   fun(Name,Acc) ->
-			   case prim_inet:ifget(Socket,Name,
-						[addr,broadaddr,netmask]) of
-			       {ok,[{addr,A},{broadaddr,B},{netmask,M}]} ->
-				   [{A,B,M}|Acc];
-			       %% Some interfaces does not have a b-addr
+    Backend = inet_backend(),
+    withsocket(fun(S) -> getif(Backend, S) end, Backend, Opts);
+getif(?module_socket(GenSocketMod, ESock) = _Socket)
+  when is_atom(GenSocketMod) ->
+    getif('socket', ESock);
+getif(Socket) when is_port(Socket) ->
+    getif('inet', Socket).
+
+
+getif('socket', Socket) ->
+    net_getif(Socket);
+getif('inet', Socket) ->
+    inet_getif(Socket).
+
+net_getif(Socket) ->
+    GetIfList = fun() -> net_getiflist(Socket) end,
+    IfGet     = fun(Name) ->
+                        esock_ifget(Socket, Name,
+                                    [addr, broadaddr, netmask])
+                end,
+    do_getif(GetIfList, IfGet).
+
+inet_getif(Socket) ->
+    GetIfList = fun() -> inet_getiflist(Socket) end,
+    IfGet     = fun(Name) ->
+                        prim_inet:ifget(Socket, Name,
+                                        [addr, broadaddr, netmask])
+                end,
+    do_getif(GetIfList, IfGet).
+
+do_getif(GetIfList, IfGet) ->
+    case GetIfList() of
+        {ok, IfList} ->
+            {ok, lists:foldl(
+                   fun(Name,Acc) ->
+                           case IfGet(Name) of
+                               {ok, [{addr, A}, {broadaddr, B}, {netmask,M}]} ->
+                                   [{A, B, M}|Acc];
+                               %% Some interfaces does not have a b-addr
 			       {ok,[{addr,A},{netmask,M}]} ->
 				   [{A,undefined,M}|Acc];
-			       _ ->
-				   Acc
-			   end
-		   end, [], IfList)};
-	Error -> Error
+                               _ ->
+                                   Acc
+                           end
+                   end, [], IfList)};
+        Error -> Error
     end.
+
+
+%% --------------------------------------------------------------------------
 
 withsocket(Fun) ->
     withsocket(Fun, []).
@@ -2654,13 +2687,6 @@ getservbyport(Port, Protocol) ->
     end.
 
 inet_getservbyport(Port, Protocol) ->
-    %% case inet_udp:open(0, []) of
-    %%     {ok,U} ->
-    %%         Res = prim_inet:getservbyport(U, Port, Protocol),
-    %%         inet_udp:close(U),
-    %%         Res;
-    %%     Error -> Error
-    %% end.
     withsocket(fun(S) -> prim_inet:getservbyport(S, Port, Protocol) end).
 
 net_getservbyport(Port, Protocol) when is_list(Protocol) ->
