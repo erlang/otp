@@ -2424,14 +2424,13 @@ file_header_atime_to_datetime(FH) ->
             calendar:system_time_to_local_time(Atime, second)
     end.
 
-%% If we have ctime we use that, otherwise use dos time
+%% Normally ctime will not be set, but if it is we use that. If it is not set
+%% we return undefined so that when we later do write_file_info ctime will remain
+%% the time that the file was created when extracted from the archive.
 file_header_ctime_to_datetime(FH) ->
     #cd_file_header.ctime = #local_file_header.ctime,
     case element(#cd_file_header.ctime, FH) of
-        undefined ->
-            dos_date_time_to_datetime(
-              element(#cd_file_header.last_mod_date, FH),
-              element(#cd_file_header.last_mod_time, FH));
+        undefined -> undefined;
         Ctime ->
             calendar:system_time_to_local_time(Ctime, second)
     end.
