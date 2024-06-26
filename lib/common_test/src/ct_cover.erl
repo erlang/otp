@@ -20,8 +20,6 @@
 
 -module(ct_cover).
 -moduledoc """
-Common Test framework code coverage support module.
-
 `Common Test` framework code coverage support module.
 
 This module exports help functions for performing code coverage analysis.

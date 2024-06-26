@@ -20,8 +20,6 @@
 
 -module(ct).
 -moduledoc """
-Main user interface for the Common Test framework.
-
 Main user interface for the `Common Test` framework.
 
 This module implements the command-line interface for running tests and basic
@@ -506,7 +504,7 @@ require(Name,Required) ->
 -doc(#{equiv => get_config(Required, undefined, [])}).
 -spec get_config(Required) -> Value
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
-           KeyOrName :: atom(),
+           KeyOrName :: key_or_name(),
            SubKey :: atom(),
            Value :: term().
 get_config(Required) ->
@@ -515,7 +513,7 @@ get_config(Required) ->
 -doc(#{equiv => get_config(Required, Default, [])}).
 -spec get_config(Required, Default) -> Value
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
-           KeyOrName :: atom(),
+           KeyOrName :: key_or_name(),
            SubKey :: atom(),
            Default :: term(),
            Value :: term().
@@ -574,7 +572,7 @@ See also [`ct:get_config/1`](`get_config/1`),
 """.
 -spec get_config(Required, Default, Opts) -> ValueOrElement
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
-           KeyOrName :: atom(),
+           KeyOrName :: key_or_name(),
            SubKey :: atom(),
            Default :: term(),
            Opts :: [Opt],
@@ -597,7 +595,7 @@ aliases.
 -doc(#{since => <<"OTP R14B">>}).
 -spec reload_config(Required) -> ValueOrElement | {error, Reason}
       when Required :: KeyOrName | {KeyOrName, SubKey} | {KeyOrName, SubKey, SubKey},
-           KeyOrName :: atom(),
+           KeyOrName :: key_or_name(),
            SubKey :: atom(),
            ValueOrElement :: term(),
            Reason :: term().
@@ -661,7 +659,7 @@ escape_chars(Format, Args) ->
 	    {error,Reason}
     end.
 
--doc(#{equiv => log(default, ?STD_IMPORTANCE, Format, [], [])}).
+-doc "Equivalent to [`log(default, ?STD_IMPORTANCE, Format, [], [])`](`log/5`).".
 -spec log(Format) -> ok
       when Format :: string().
 log(Format) ->
@@ -750,7 +748,7 @@ printed with this function, unless the `esc_chars` option is used.
 log(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_log(Category,Importance,Format,Args,Opts).
 
--doc(#{equiv => print(default, ?STD_IMPORTANCE, Format, [], [])}).
+-doc "Equivalent to [`print(default, ?STD_IMPORTANCE, Format, [], [])`](`print/5`).".
 -spec print(Format) -> ok
       when Format :: string().
 print(Format) ->
@@ -835,7 +833,7 @@ the User's Guide.
 print(Category,Importance,Format,Args,Opts) ->
     ct_logs:tc_print(Category,Importance,Format,Args,Opts).
 
--doc(#{equiv => pal(default, ?STD_IMPORTANCE, Format, [], [])}).
+-doc "Equivalent to [`pal(default, ?STD_IMPORTANCE, Format, [])`](`pal/4`).".
 -spec pal(Format) -> ok
       when Format :: string().
 pal(Format) ->
