@@ -200,7 +200,7 @@ void BeamGlobalAssembler::emit_process_main() {
 #endif
 
         a.str(ZERO, start_time);
-        mov_imm(ARG1, &erts_system_monitor_long_schedule);
+        mov_imm(ARG1, &erts_system_monitor_long_schedule_cnt);
         a.ldr(TMP1, arm::Mem(ARG1));
         a.cbz(TMP1, skip_long_schedule);
 

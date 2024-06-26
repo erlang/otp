@@ -34,7 +34,10 @@
          erlang_trace/3,
          erlang_trace_info/2,
          erlang_trace_pattern/2,
-         erlang_trace_pattern/3
+         erlang_trace_pattern/3,
+         erlang_system_monitor/0,
+         erlang_system_monitor/1,
+         erlang_system_monitor/2
         ]).
 
 group_map() ->
@@ -206,6 +209,31 @@ erlang_trace_info(PidPortFuncEvent, Item) ->
         [{dynamic_session, S}] ->
             trace:info(S, PidPortFuncEvent, Item)
     end.
+
+erlang_system_monitor() ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:system_monitor();
+        [{dynamic_session, S}] ->
+            erts_internal:system_monitor(S)
+    end.
+
+erlang_system_monitor(Arg) ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:system_monitor(Arg);
+        [{dynamic_session, S}] ->
+            erts_internal:system_monitor(S, Arg)
+    end.
+
+erlang_system_monitor(Pid, Opts) ->
+    case ets:lookup(?MODULE, dynamic_session) of
+        [] ->
+            erlang:system_monitor(Pid, Opts);
+        [{dynamic_session, S}] ->
+            erts_internal:system_monitor(S, Pid, Opts)
+    end.
+
 
 init_per_group(Group, Config) ->
     init_group(group_tricks(Group), Config).
