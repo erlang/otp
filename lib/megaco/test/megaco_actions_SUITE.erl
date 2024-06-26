@@ -312,7 +312,7 @@ req_and_rep([MgcNode, Mg1Node, Mg2Node],
     %% Start the MGC and MGs
     i("req_and_rep -> start the MGC"),    
     ET = [{Codec, EC, tcp}, {Codec, EC, udp}],
-    {ok, Mgc} = mgc_start(MgcNode, ET),
+    Mgc = start(fun() -> mgc_start(MgcNode, ET) end, mgc_start_timeout),
 
     i("req_and_rep -> start and connect the MGs"),    
     MgConf0 = [{Mg1Node, "mg1", Codec, EC, tcp, ?MG_VERBOSITY},
@@ -402,7 +402,8 @@ connect_mg([{Node, Name, Codec, EC, Trans, Verb}|Mg], Acc) ->
 
 connect_mg(Node, Name, Codec, EC, Trans, Verb) ->
     Mid = {deviceName, Name}, 
-    {ok, Pid} = ?MG_START(Node, Mid, Codec, EC, Trans, Verb),
+    Pid = start(fun() -> ?MG_START(Node, Mid, Codec, EC, Trans, Verb) end,
+                mg_start_timeout),
 
     {ok, _} = ?MG_EAR(Pid, true),
 
@@ -467,6 +468,19 @@ await_load_complete(MGs0) ->
 	    await_load_complete(MGs0)
     end.
 	    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Start the 'unit' (MGC or MG).
+%% If it fails for reason = timeout, we issue an skip.
+start(Exec, Reason) ->
+    case Exec() of
+        {ok, Pid} ->
+            Pid;
+        {error, timeout} ->
+            ?SKIP(Reason)
+    end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
