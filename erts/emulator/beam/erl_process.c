@@ -421,7 +421,7 @@ static ErtsAlignedBlockPollThreadData *ERTS_WRITE_UNLIKELY(block_poll_thread_dat
 
 static Uint last_reductions;
 static Uint last_exact_reductions;
-Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);

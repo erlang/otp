@@ -1575,11 +1575,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 
 extern erts_rwmtx_t erts_cpu_bind_rwmtx;
-/* If any of the erts_system_monitor_* variables are set (enabled),
-** erts_system_monitor must be != NIL, to allow testing on just
-** the erts_system_monitor_* variables.
-*/
-extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);

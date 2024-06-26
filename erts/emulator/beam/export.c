@@ -219,7 +219,7 @@ Export *erts_export_put(Eterm mod, Eterm func, unsigned int arity)
  * export entry (making a call through it will cause the error_handler to
  * be called).
  *
- * Stub export entries will be placed in the loader export table.
+ * Stub export entries will be placed in the staging export table.
  */
 
 Export *erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
