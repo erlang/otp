@@ -2608,6 +2608,9 @@ getll(Socket) when is_port(Socket) ->
 -spec getfd(Socket :: socket()) ->
 	{'ok', non_neg_integer()} | {'error', posix()}.
 
+getfd(?module_socket(GenSocketMod, ESock) = _Socket)
+  when is_atom(GenSocketMod) ->
+    socket:getopt(ESock, otp, fd);
 getfd(Socket) ->
     prim_inet:getfd(Socket).
 
