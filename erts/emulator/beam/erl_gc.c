@@ -730,7 +730,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     Uint ext_msg_usage = 0;
     Eterm gc_trace_end_tag;
     int reds;
-    ErtsMonotonicTime start_time;
+    ErtsMonotonicTime start_time = 0;
     ErtsSchedulerData *esdp = erts_proc_sched_data(p);
     erts_aint32_t state;
 #ifdef USE_VM_PROBES
@@ -738,7 +738,6 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 #endif
     ERTS_MSACC_PUSH_STATE();
 
-    ERTS_UNDEF(start_time, 0);
     ERTS_CHK_MBUF_SZ(p);
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls) >= esdp->virtual_reds);
@@ -766,7 +765,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_GC);
 
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
-    if (erts_system_monitor_long_gc != 0)
+    if (erts_system_monitor_long_gc)
 	start_time = erts_get_monotonic_time(esdp);
 
     ERTS_CHK_OFFHEAP(p);
@@ -867,7 +866,7 @@ do_major_collection:
         trace_gc(p, gc_trace_end_tag, reclaimed_now, THE_NON_VALUE);
     }
 
-    if (erts_system_monitor_long_gc != 0) {
+    if (start_time && erts_system_monitor_long_gc) {
 	ErtsMonotonicTime end_time;
 	Uint gc_time;
 	if (erts_test_long_gc_sleep)
@@ -882,7 +881,7 @@ do_major_collection:
 	Uint size = HEAP_SIZE(p);
 	size += OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0;
 	if (size >= erts_system_monitor_large_heap)
-	    monitor_large_heap(p);
+	    monitor_large_heap(p, size);
     }
 
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {

@@ -34,6 +34,8 @@
          meta/1,
          ms_enable_flags/1,
          return_to/1,
+         system_monitor_info/1,
+         system_monitor_long_msgq/1,
          destroy/1,
          negative/1,
          error_info/1,
@@ -69,6 +71,8 @@ all() ->
      test_set_on_link,
      test_set_on_first_link,
      return_to,
+     system_monitor_info,
+     system_monitor_long_msgq,
      destroy,
      negative,
      error_info,
@@ -1419,6 +1423,208 @@ io_format(Frmt, List) ->
             ok
     end.
 
+
+system_monitor_info(_Config) ->
+    undefined = erlang:system_monitor(),
+
+    S = trace:session_create(system_monitor, self(), []),
+
+    ok = trace:system(S, large_heap, 1_234_567),
+    {system, [{large_heap,1_234_567}]} = trace:info(S, system, all),
+
+    ok = trace:system(S, long_gc, 2_345),
+    {system, L1} = trace:info(S, system, all),
+    [{large_heap,1_234_567}, {long_gc,2_345}] = lists:sort(L1),
+
+    ok = trace:system(S, long_message_queue, {22,33}),
+    {system, L2} = trace:info(S, system, all),
+    [{large_heap,1_234_567}, {long_gc,2_345}, {long_message_queue,{22,33}}] = lists:sort(L2),
+
+    ok = trace:system(S, long_schedule, 3_456),
+    {system, L3} = trace:info(S, system, all),
+    [{large_heap,1_234_567}, {long_gc,2_345},
+     {long_message_queue,{22,33}},
+     {long_schedule,3_456}] = lists:sort(L3),
+
+    ok = trace:system(S, busy_port, true),
+    {system, L4} = trace:info(S, system, all),
+    [busy_port,
+     {large_heap,1_234_567}, {long_gc,2_345},
+     {long_message_queue,{22,33}},
+     {long_schedule,3_456}] = lists:sort(L4),
+
+    ok = trace:system(S, busy_dist_port, true),
+    {system, L5} = trace:info(S, system, all),
+    L5s = lists:sort(L5),
+    [busy_dist_port,
+     busy_port,
+     {large_heap,1_234_567},
+     {long_gc,2_345},
+     {long_message_queue,{22,33}},
+     {long_schedule,3_456}] = L5s,
+
+    undefined = erlang:system_monitor(),
+
+    ok = trace:system(S, large_heap, false),
+    {system, L6} = trace:info(S, system, all),
+    L6exp = lists:keydelete(large_heap, 1, L5s),
+    L6exp = lists:sort(L6),
+
+    ok = trace:system(S, long_message_queue, false),
+    {system, L7} = trace:info(S, system, all),
+    L7exp = lists:keydelete(long_message_queue, 1, L6exp),
+    L7exp = lists:sort(L7),
+
+    ok = trace:system(S, busy_port, false),
+    {system, L8} = trace:info(S, system, all),
+    L8exp = lists:delete(busy_port, L7exp),
+    L8exp = lists:sort(L8),
+
+    ok = trace:system(S, long_schedule, false),
+    {system, L9} = trace:info(S, system, all),
+    L9exp = lists:keydelete(long_schedule, 1, L8exp),
+    L9exp = lists:sort(L9),
+
+    ok = trace:system(S, busy_dist_port, false),
+    {system, L10} = trace:info(S, system, all),
+    L10exp = lists:delete(busy_dist_port, L9exp),
+    L10exp = lists:sort(L10),
+
+    ok = trace:system(S, long_gc, false),
+    {system, []} = trace:info(S, system, all),
+
+    undefined = erlang:system_monitor(),
+    ok.
+
+
+system_monitor_long_msgq(_Config) ->
+    Tester = self(),
+    Receiver = spawn_link(fun () -> message_receiver() end),
+
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1", Tester) end),
+    Tracer2 = spawn_link(fun() -> tracer("Tracer2", Tester) end),
+    S1 = trace:session_create(system_monitor_long_msgq, Tracer1, []),
+    S2 = trace:session_create(system_monitor_long_msgq, Tracer2, []),
+
+    sysmon_long_msgq(S1, Tracer1, S2, Tracer2, Receiver),
+    sysmon_long_msgq(S2, Tracer2, S1, Tracer1, Receiver),
+
+    trace:session_destroy(S1),
+    trace:session_destroy(S2),
+
+    unlink(Receiver),
+    exit(Receiver, die),
+    unlink(Tracer1),
+    exit(Tracer1, die),
+    unlink(Tracer2),
+    exit(Tracer2, die),
+    ok.
+
+sysmon_long_msgq(S1, Tracer1, S2, Tracer2, Receiver) ->
+    trace:system(S1, long_message_queue, {50,70}),
+    trace:system(S2, long_message_queue, {60,80}),
+
+    [Receiver ! message || _ <- lists:seq(1,50)],   % 50
+    receive_nothing(),
+
+    [begin
+         [begin
+              [Receiver ! message || _ <- lists:seq(1,10)],   % 60
+              receive_nothing(),
+
+              [Receiver ! message || _ <- lists:seq(1,10)],   % 70
+              {Tracer1, {monitor,Receiver,long_message_queue,true}} = receive_any(),
+              receive_nothing(),
+
+              [Receiver ! message || _ <- lists:seq(1,10)],   % 80
+              {Tracer2, {monitor,Receiver,long_message_queue,true}} = receive_any(),
+              receive_nothing(),
+
+              message_receive_order(Receiver, 10),            % 70
+              receive_nothing(),
+
+              [Receiver ! message || _ <- lists:seq(1,10)],   % 80
+              receive_nothing(),
+
+              message_receive_order(Receiver, 20),            % 60
+              {Tracer2, {monitor,Receiver,long_message_queue,false}} = receive_any(),
+              receive_nothing(),
+
+              [Receiver ! message || _ <- lists:seq(1,10)],   % 70
+              receive_nothing(),
+
+              message_receive_order(Receiver, 20),            % 50
+              {Tracer1, {monitor,Receiver,long_message_queue,false}} = receive_any(),
+              receive_nothing()
+          end
+          || _ <- [1,2]
+         ],
+
+         trace:system(S1, long_message_queue, false),
+
+         [Receiver ! message || _ <- lists:seq(1,20)],   % 70
+         receive_nothing(),
+
+         [Receiver ! message || _ <- lists:seq(1,10)],   % 80
+         {Tracer2, {monitor,Receiver,long_message_queue,true}} = receive_any(),
+         receive_nothing(),
+
+         message_receive_order(Receiver, 10),            % 70
+         receive_nothing(),
+
+         message_receive_order(Receiver, 10),            % 60
+         {Tracer2, {monitor,Receiver,long_message_queue,false}} = receive_any(),
+         receive_nothing(),
+
+         message_receive_order(Receiver, 10),            % 50
+         receive_nothing(),
+
+         trace:system(S1, long_message_queue, {50,70})
+     end
+     || _ <- [1,2]],
+
+    %% Set same limits as S2
+    %% and test that we can produce more than one message at a time
+    trace:system(S1, long_message_queue, {60,80}),
+
+    [Receiver ! message || _ <- lists:seq(1,29)],   % 79
+    receive_nothing(),
+
+    [Receiver ! message || _ <- lists:seq(1,1)],   % 80
+    receive_parallel(
+      {[{Tracer1, {monitor,Receiver,long_message_queue,true}}],
+       [{Tracer2, {monitor,Receiver,long_message_queue,true}}]}),
+    receive_nothing(),
+
+    message_receive_order(Receiver, 19),            % 61
+    receive_nothing(),
+
+    message_receive_order(Receiver, 1),             % 60
+    receive_parallel(
+      {[{Tracer1, {monitor,Receiver,long_message_queue,false}}],
+       [{Tracer2, {monitor,Receiver,long_message_queue,false}}]}),
+    receive_nothing(),
+
+    message_receive_order(Receiver, 60),            % 0
+    receive_nothing(),
+
+    ok.
+
+message_receiver() ->
+    receive
+        {'receive', N, From} ->
+            [receive_any() || _ <- lists:seq(1,N)],
+            From ! {done, N, self()}
+    end,
+    message_receiver().
+
+message_receive_order(Receiver, N) ->
+    Receiver ! {'receive', N, self()},
+    receive
+        {done, N, Receiver} -> ok
+    end.
+
+
 destroy(_Config) ->
     Name = ?MODULE,
     {_,SName1}=S1 = trace:session_create(Name, self(), []),
@@ -1643,7 +1849,7 @@ receive_any(Timeout) ->
     end.
 
 receive_nothing() ->
-    receive_any(10).
+    timeout = receive_any(10).
 
 %% Argument is a tuple of lists with expected messages to receive.
 %% Each list is internally ordered according to expected reception.

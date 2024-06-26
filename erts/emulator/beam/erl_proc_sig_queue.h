@@ -1928,25 +1928,22 @@ erts_proc_sig_queue_unget_buffers(ErtsSignalInQueueBufferArray* buffers,
     }
 }
 
+
 ERTS_GLB_INLINE void
 erts_chk_sys_mon_long_msgq_on(Process *proc)
 {
-    if (((proc->sig_qs.flags & (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
-         == FS_MON_MSGQ_LEN)
-        && proc->sig_qs.mq_len >= erts_system_monitor_long_msgq_on) {
-        proc->sig_qs.flags |= FS_MON_MSGQ_LEN_LONG;
-        monitor_generic(proc, am_long_message_queue, am_true);
+    if ((proc->sig_qs.flags & FS_MON_MSGQ_LEN_HIGH)
+        && proc->sig_qs.mq_len >= (Sint)erts_system_monitor_long_msgq_on) {
+        monitor_long_msgq_on(proc);
     }
 }
 
 ERTS_GLB_INLINE void
 erts_chk_sys_mon_long_msgq_off(Process *proc)
 {
-    if (((proc->sig_qs.flags & (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
-         == (FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG))
+    if ((proc->sig_qs.flags & FS_MON_MSGQ_LEN_LOW)
         && proc->sig_qs.mq_len <= erts_system_monitor_long_msgq_off) {
-        proc->sig_qs.flags &= ~FS_MON_MSGQ_LEN_LONG;
-        monitor_generic(proc, am_long_message_queue, am_false);
+        monitor_long_msgq_off(proc);
     }
 }
 

@@ -83,6 +83,15 @@ enum erts_trace_session_state {
     ERTS_TRACE_SESSION_DEAD
 };
 
+enum erts_sysmon_limit_index {
+    ERTS_SYSMON_LONG_GC = 0,
+    ERTS_SYSMON_LONG_SCHEDULE,
+    ERTS_SYSMON_LARGE_HEAP,
+    ERTS_SYSMON_LONG_MSGQ,
+
+    ERTS_SYSMON_LIMIT_CNT
+};
+
 typedef struct ErtsTraceSession {
     struct ErtsTraceSession* next;
     struct ErtsTraceSession* prev;
@@ -105,6 +114,13 @@ typedef struct ErtsTraceSession {
     ErtsTracer new_procs_tracer;
     Uint32 new_ports_trace_flags;
     ErtsTracer new_ports_tracer;
+
+    struct system_monitor_session {
+        Eterm receiver;
+        Uint limits[ERTS_SYSMON_LIMIT_CNT];
+        Sint long_msgq_off;
+        struct erts_system_monitor_flags_t flags;
+    } system_monitor;
 
 #ifdef DEBUG
     erts_refc_t dbg_bp_refc;  /* Number of breakpoints */
@@ -143,7 +159,7 @@ void erts_assert_tracer_refs(ErtsPTabElementCommon* t_p);
 
 /* erl_bif_trace.c */
 Eterm erl_seq_trace_info(Process *p, Eterm arg1);
-void erts_system_monitor_clear(Process *c_p);
+void erts_system_monitor_clear(ErtsTraceSession*);
 void erts_system_profile_clear(Process *c_p);
 
 /* erl_trace.c */
@@ -163,8 +179,8 @@ void erts_change_new_ports_tracing(ErtsTraceSession* session,
                                       const ErtsTracer tracerp);
 void erts_get_new_port_tracing(ErtsTraceSession*,
                                    Uint32 *flagsp, ErtsTracer *tracerp);
-void erts_set_system_monitor(Eterm monitor);
-Eterm erts_get_system_monitor(void);
+void erts_set_system_monitor(ErtsTraceSession*, Eterm monitor);
+Eterm erts_get_system_monitor(ErtsTraceSession*);
 int erts_is_tracer_valid(Process* p);
 
 void erts_check_my_tracer_proc(Process *);
@@ -218,8 +234,15 @@ void monitor_long_gc(Process *p, Uint time);
 void monitor_long_schedule_proc(Process *p, const ErtsCodeMFA *in_i,
                                 const ErtsCodeMFA *out_i, Uint time);
 void monitor_long_schedule_port(Port *pp, ErtsPortTaskType type, Uint time);
-void monitor_large_heap(Process *p);
-void monitor_generic(Process *p, Eterm type, Eterm spec);
+void monitor_large_heap(Process *p, Uint size);
+void monitor_busy_port(Process *p, Eterm spec);
+void monitor_busy_dist_port(Process *p, Eterm spec);
+void monitor_long_msgq_on(Process*);
+void monitor_long_msgq_off(Process*);
+void erts_clear_all_msgq_low_sessions(Process *p);
+void erts_consolidate_all_msgq_low_sessions(Process *p);
+
+
 Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(ErtsTraceSession*, Eterm List,
                      Uint *pMask, ErtsTracer *pTracer, int *pCpuTimestamp);
@@ -276,6 +299,7 @@ void erts_tracer_replace(ErtsPTabElementCommon *t_p,
                          const ErtsTracer new_tracer);
 void erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer);
 int erts_tracer_nif_clear(void);
+bool erts_get_tracer_pid(ErtsTracer, Eterm* pid);
 
 #define erts_tracer_update(t,n) do { if (*(t) != (n)) erts_tracer_update_impl(t,n); } while(0)
 #define ERTS_TRACER_CLEAR(t) erts_tracer_update(t, erts_tracer_nil)

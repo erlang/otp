@@ -38,6 +38,7 @@
 	 set_on_spawn/1, set_on_first_spawn/1, cpu_timestamp/1,
 	 set_on_link/1, set_on_first_link/1,
 	 system_monitor_args/1, more_system_monitor_args/1,
+	 system_monitor_badargs/1,
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1, system_monitor_long_message_queue/1,
@@ -74,6 +75,7 @@ testcases() ->
      new_clear, existing_clear, tracer_die, set_on_spawn,
      set_on_first_spawn, set_on_link, set_on_first_link,
      system_monitor_args,
+     system_monitor_badargs,
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
@@ -117,6 +119,13 @@ erlang_trace_pattern(A,B,C) ->
 
 erlang_trace_info(A,B) ->
     trace_sessions:erlang_trace_info(A,B).
+
+erlang_system_monitor() ->
+    trace_sessions:erlang_system_monitor().
+erlang_system_monitor(A) ->
+    trace_sessions:erlang_system_monitor(A).
+erlang_system_monitor(A,B) ->
+    trace_sessions:erlang_system_monitor(A,B).
 
 %% No longer testing anything, just reporting whether cpu_timestamp
 %% is enabled or not.
@@ -876,46 +885,50 @@ set_on_first_link(_Config) ->
 system_monitor_args(Config) when is_list(Config) ->
     Self = self(),
     %%
-    OldMonitor = erlang:system_monitor(undefined),
-    undefined = erlang:system_monitor(Self, [{long_gc,0}]),
-    MinT = case erlang:system_monitor() of
+    OldMonitor = erlang_system_monitor(undefined),
+    undefined = erlang_system_monitor(Self, [{long_gc,0}]),
+    MinT = case erlang_system_monitor() of
                {Self,[{long_gc,T}]} when is_integer(T), T > 0 -> T;
-               Other1 -> test_server:fault(Other1)
+               Other1 -> ct:fail(Other1)
            end,
-    {Self,[{long_gc,MinT}]} = erlang:system_monitor(),
+    {Self,[{long_gc,MinT}]} = erlang_system_monitor(),
     {Self,[{long_gc,MinT}]} = 
-    erlang:system_monitor({Self,[{large_heap,0}]}),
-    MinN = case erlang:system_monitor() of
+    erlang_system_monitor({Self,[{large_heap,0}]}),
+    MinN = case erlang_system_monitor() of
                {Self,[{large_heap,N}]} when is_integer(N), N > 0 -> N;
-               Other2 -> test_server:fault(Other2)
+               Other2 -> ct:fail(Other2)
            end,
-    {Self,[{large_heap,MinN}]} = erlang:system_monitor(),
+    {Self,[{large_heap,MinN}]} = erlang_system_monitor(),
     {Self,[{large_heap,MinN}]} = 
-        erlang:system_monitor(Self,[{long_message_queue, {100,101}}]),
-    {Self,[{long_message_queue,{100,101}}]} = erlang:system_monitor(),
+        erlang_system_monitor(Self,[{long_message_queue, {100,101}}]),
+    {Self,[{long_message_queue,{100,101}}]} = erlang_system_monitor(),
     {Self,[{long_message_queue,{100,101}}]} =
-        erlang:system_monitor(Self, [busy_port]),
-    {Self,[busy_port]} = erlang:system_monitor(),
+        erlang_system_monitor(Self, [busy_port]),
+    {Self,[busy_port]} = erlang_system_monitor(),
     {Self,[busy_port]} = 
-    erlang:system_monitor({Self,[busy_dist_port]}),
-    {Self,[busy_dist_port]} = erlang:system_monitor(),
+    erlang_system_monitor({Self,[busy_dist_port]}),
+    {Self,[busy_dist_port]} = erlang_system_monitor(),
     All = lists:sort([busy_port,busy_dist_port,
                       {long_gc,1},{large_heap,65535},{long_message_queue,{99,100}}]),
-    {Self,[busy_dist_port]} = erlang:system_monitor(Self, All),
-    {Self,A1} = erlang:system_monitor(),
+    {Self,[busy_dist_port]} = erlang_system_monitor(Self, All),
+    {Self,A1} = erlang_system_monitor(),
     All = lists:sort(A1),
-    {Self,A1} = erlang:system_monitor(Self, []),
+    {Self,A1} = erlang_system_monitor(Self, []),
     Pid = spawn(fun () -> receive {Self,die} -> exit(die) end end),
     Mref = erlang:monitor(process, Pid),
-    undefined = erlang:system_monitor(Pid, All),
-    {Pid,A2} = erlang:system_monitor(),
+    undefined = erlang_system_monitor(Pid, All),
+    {Pid,A2} = erlang_system_monitor(),
     All = lists:sort(A2),
     Pid ! {Self,die},
     receive {'DOWN',Mref,_,_,_} -> ok end,
-    undefined = erlang:system_monitor(OldMonitor),
+    undefined = erlang_system_monitor(OldMonitor),
     erlang:yield(),
-    OldMonitor = erlang:system_monitor(),
-    %%
+    OldMonitor = erlang_system_monitor(),
+    ok.
+
+
+system_monitor_badargs(Config) when is_list(Config) ->
+    Self = self(),
     {'EXIT',{badarg,_}} = (catch erlang:system_monitor(atom)),
     {'EXIT',{badarg,_}} = (catch erlang:system_monitor({})),
     {'EXIT',{badarg,_}} = (catch erlang:system_monitor({1})),
@@ -959,14 +972,14 @@ try_l(Val) ->
     Arbitrary1 = 77777,
     Arbitrary2 = 88888,
 
-    erlang:system_monitor(undefined),
+    erlang_system_monitor(undefined),
 
-    undefined = erlang:system_monitor(Self, [{long_gc,Val},{large_heap,Arbitrary1}]),
+    undefined = erlang_system_monitor(Self, [{long_gc,Val},{large_heap,Arbitrary1}]),
 
-    {Self,Comb0} = erlang:system_monitor(Self, [{long_gc,Arbitrary2},{large_heap,Val}]),
+    {Self,Comb0} = erlang_system_monitor(Self, [{long_gc,Arbitrary2},{large_heap,Val}]),
     [{large_heap,Arbitrary1},{long_gc,Val}] = lists:sort(Comb0),
 
-    {Self,Comb1} = erlang:system_monitor(undefined),
+    {Self,Comb1} = erlang_system_monitor(undefined),
     [{large_heap,Val},{long_gc,Arbitrary2}] = lists:sort(Comb1).
 
 monitor_sys(Parent) ->
@@ -987,7 +1000,7 @@ monitor_sys(Parent) ->
 start_monitor() ->
     Parent = self(),
     Mpid = spawn_link(fun() -> monitor_sys(Parent) end),
-    erlang:system_monitor(Mpid,[{long_schedule,100}]),
+    erlang_system_monitor(Mpid,[{long_schedule,100}]),
     erlang:yield(), % Need to be rescheduled for the trace to take
     ok.
 
@@ -1030,7 +1043,7 @@ do_system_monitor_long_schedule() ->
             ct:fail(no_trace_of_port)
     end,
     port_close(Port),
-    erlang:system_monitor(undefined),
+    erlang_system_monitor(undefined),
     ok.
 
 
@@ -1093,11 +1106,11 @@ system_monitor_long_gc_2(Config) when is_list(Config) ->
 long_gc(LoadFun, ExpectMonMsg) ->
     Self = self(),
     Time = 1,
-    OldMonitor = erlang:system_monitor(Self, [{long_gc,Time}]),
+    OldMonitor = erlang_system_monitor(Self, [{long_gc,Time}]),
     Pid = LoadFun(),
     Ref = erlang:trace_delivered(Pid),
     receive {trace_delivered, Pid, Ref} -> ok end,
-    {Self,[{long_gc,Time}]} = erlang:system_monitor(OldMonitor),
+    {Self,[{long_gc,Time}]} = erlang_system_monitor(OldMonitor),
     case {long_gc_check(Pid, Time, undefined), ExpectMonMsg} of
         {ok, true} when Pid =/= Self ->
             ok;
@@ -1181,11 +1194,11 @@ large_heap(LoadFun, ExpectMonMsg) ->
     Size = 65535,
     Self = self(),
     NewMonitor = {Self,[{large_heap,Size}]},
-    OldMonitor = erlang:system_monitor(NewMonitor),
+    OldMonitor = erlang_system_monitor(NewMonitor),
     Pid = LoadFun(Size),
     Ref = erlang:trace_delivered(Pid),
     receive {trace_delivered, Pid, Ref} -> ok end,
-    {Self,[{large_heap,Size}]} = erlang:system_monitor(OldMonitor),
+    {Self,[{large_heap,Size}]} = erlang_system_monitor(OldMonitor),
     case {large_heap_check(Pid, Size, undefined), ExpectMonMsg} of
         {ok, true} when Pid =/= Self ->
             ok;
@@ -1236,7 +1249,7 @@ large_heap_check(Pid, Size, Result) ->
 system_monitor_long_message_queue(Config) when is_list(Config) ->
     Self = self(),
     SMonPrxy = spawn_link(fun () -> smon_lmq_proxy(Self) end),
-    erlang:system_monitor(SMonPrxy,[{long_message_queue, {50,100}}]),
+    erlang_system_monitor(SMonPrxy,[{long_message_queue, {50,100}}]),
     erlang:yield(),
     lists:foreach(fun (_) -> self() ! hello end, lists:seq(1, 100)),
     receive {monitor,Self,long_message_queue,true} -> ok
@@ -1280,7 +1293,7 @@ system_monitor_long_message_queue(Config) when is_list(Config) ->
     exit(SMonPrxy, kill),
     false = is_process_alive(SMonPrxy),
 
-    erlang:system_monitor(undefined),
+    erlang_system_monitor(undefined),
     ok.
 
 smon_lmq_proxy(To) ->
@@ -1292,7 +1305,7 @@ system_monitor_long_message_queue_ignore(Config) when is_list(Config) ->
     %% Ensure that messages are delivered and monitored even if a
     %% process ignores the message queue while continuesly executing.
     %%
-    erlang:system_monitor(self(),[{long_message_queue, {50,100}}]),
+    erlang_system_monitor(self(),[{long_message_queue, {50,100}}]),
     Pid = spawn_opt(fun ignore_messages_working/0, [{priority,low}, link]),
     lists:foreach(fun (_) -> Pid ! hello end, lists:seq(1, 50)),
     receive {monitor,Pid,long_message_queue,_} = Msg0 -> ct:fail({unexpected_message, Msg0})
@@ -1308,7 +1321,7 @@ system_monitor_long_message_queue_ignore(Config) when is_list(Config) ->
     exit(Pid, kill),
     false = is_process_alive(Pid),
 
-    erlang:system_monitor(undefined),
+    erlang_system_monitor(undefined),
 
     ok.
 

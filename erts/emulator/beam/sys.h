@@ -309,6 +309,9 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
     } while (0)
 #endif
 
+/* C99: bool, true and false */
+#include <stdbool.h>
+
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
  * But MSC doesn't define __STDC__, unless we compile with the -Za
