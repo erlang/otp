@@ -5112,12 +5112,27 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
                            {ok, State#{server_sa => SSA}}
                    end},
          #{desc => "create socket",
-           cmd  => fun(#{fd  := FD,
-                         dup := DUP} = State) ->
-                           case socket:open(FD, #{dup => DUP}) of
+           cmd  => fun(#{fd     := FD,
+                         dup    := DUP,
+                         domain := Domain} = State) ->
+                           ?SEV_IPRINT("try create socket with: "
+                                       "~n   FD:     ~p"
+                                       "~n   DUP:    ~p"
+                                       "~n   Domain: ~p", [FD, DUP, Domain]),
+                           %% On some platforms (Darwin and NetBSD) domain
+                           %% is needed...
+                           case socket:open(FD, #{dup    => DUP,
+                                                  domain => Domain}) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
-                               {error, _} = ERROR ->
+                               {error,
+                                {invalid,{options,domain,#{dup := DUP}}} = R} ->
+                                   ?SEV_IPRINT("failed create socket:"
+                                               "~n   ~p", [R]),
+                                   {skip, domain};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_IPRINT("failed create socket:"
+                                               "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
