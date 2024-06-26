@@ -2227,7 +2227,7 @@ esock_withsocket(Fun, Opts) ->
     case socket:open(inet, dgram, default, EOpts) of
         {ok, Socket} ->
             Res = Fun(Socket),
-            socket:close(Socket),
+            _ = socket:close(Socket),
             Res;
         {error, _} = ERROR ->
             ERROR
