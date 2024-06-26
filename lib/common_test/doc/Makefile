@@ -26,7 +26,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include ../vsn.mk
 VSN=$(COMMON_TEST_VSN)
 APPLICATION=common_test
-EX_DOC_WARNINGS_AS_ERRORS=false
 
 # ----------------------------------------------------
 # Release Target
