@@ -111,7 +111,7 @@ atom_text_alloc(int bytes, Uint* size)
     byte *res;
 
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-    if (bytes < ERL_ONHEAP_BINARY_LIMIT) {
+    if (bytes <= ERL_ONHEAP_BINARY_LIMIT) {
         bytes = heap_bits_size(NBITS(bytes));
     } else {
         bytes = ERL_REFC_BITS_SIZE;
