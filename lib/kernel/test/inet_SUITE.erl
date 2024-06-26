@@ -1553,13 +1553,18 @@ inet_ifget(default, Name, Opts) ->
 inet_ifget(Backend, Name, Opts) ->
     inet:ifget(Name, [{inet_backend, Backend}|Opts]).
 
+inet_getif(default) ->
+    inet:getif();
+inet_getif(Backend) ->
+    inet:getif([{inet_backend, Backend}]).
+
 
 do_getif(OsName, Backend) ->
     io:format("~w(~w) -> entry with"
               "~n   OsName:  ~p"
               "~n", [?FUNCTION_NAME, Backend, OsName]),
     {ok, Hostname}   = inet:gethostname(),
-    {ok, Address}    = inet:getaddr(Hostname, inet),
+    {ok, Address}    = inet:getaddr(Hostname,    inet),
     {ok, Loopback}   = inet:getaddr("localhost", inet),
     {ok, Interfaces} = inet_getiflist(Backend),
     HWAs =
@@ -1590,7 +1595,7 @@ do_getif(OsName, Backend) ->
               "~n   Addresses: "
               "~n      ~p"
               "~n", [?FUNCTION_NAME, Backend, Addresses]),
-    {ok,Getif} = inet:getif(),
+    {ok,Getif} = inet_getif(Backend),
     Addresses = lists:sort([A || {A,_,_} <- Getif]),
     true = ip_member(Address, Addresses),
     true = ip_member(Loopback, Addresses),
