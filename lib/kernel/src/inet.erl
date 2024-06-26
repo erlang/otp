@@ -912,6 +912,9 @@ port(Socket) ->
 -spec send(Socket :: socket(), Packet :: iolist()) -> % iolist()?
 	'ok' | {'error', posix()}.
 
+send(?module_socket(GenSocketMod, _) = Socket, Packet)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Packet);
 send(Socket, Packet) ->
     prim_inet:send(Socket, Packet).
 
@@ -2031,15 +2034,6 @@ do_ifget(Backend, Name, Opts) ->
                end,
                Backend, NSOpts).
 
-%% ifget(Name, Opts) ->
-%%     {NSOpts,IFOpts} =
-%%         lists:partition(
-%%           fun ({netns,_}) -> true;
-%%               (_) -> false
-%%           end, Opts),
-%%     withsocket(fun(S) -> prim_inet:ifget(S, Name, IFOpts) end, NSOpts).
-
-
 
 %% --------------------------------------------------------------------------
 
@@ -2048,9 +2042,6 @@ do_ifget(Backend, Name, Opts) ->
             Name :: string() | atom(),
 	    Opts :: [if_setopt()]) ->
 	'ok' | {'error', posix()}.
-
-%% ifset(Socket, Name, Opts) ->
-%%     prim_inet:ifset(Socket, Name, Opts).
 
 ifset(?module_socket(GenSocketMod, ESock) = _Socket, Name, Opts)
   when is_atom(GenSocketMod) ->
@@ -2103,7 +2094,8 @@ do_esock_ifset2(Socket, Name, Req, Value) ->
 -doc false.
 -spec ifset(
         Name :: string() | atom(),
-        Opts :: [if_setopt() |
+        Opts :: [inet_backend() |
+                 if_setopt() |
                  {netns, Namespace :: file:filename_all()}]) ->
 	'ok' | {'error', posix()}.
 
@@ -2123,14 +2115,6 @@ do_ifset(Backend, Name, Opts) ->
                end,
                Backend, NSOpts).
 
-%% ifset(Name, Opts) ->
-%%     {NSOpts,IFOpts} =
-%%         lists:partition(
-%%           fun ({netns,_}) -> true;
-%%               (_) -> false
-%%           end, Opts),
-%%     withsocket(fun(S) -> prim_inet:ifset(S, Name, IFOpts) end, NSOpts).
-
 
 %% --------------------------------------------------------------------------
 
@@ -2145,7 +2129,7 @@ getif() ->
 %% backwards compatible getif
 -doc false.
 -spec getif(
-        [Option :: {netns, Namespace :: file:filename_all()}]
+        [Option :: inet_backend() | {netns, Namespace :: file:filename_all()}]
         | socket()) ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} |
 	{'error', posix()}.
@@ -2254,6 +2238,8 @@ popf(_Socket) ->
     {error, einval}.
 
 
+%% --------------------------------------------------------------------------
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the hostname is not cached any more because this
 % could cause troubles on at least windows with plug-and-play
@@ -2272,6 +2258,18 @@ Returns the local hostname. Never fails.
 %%% XXX gethostname() -> net:gethostname().
 
 gethostname() ->
+    do_gethostname(inet_backend()).
+
+do_gethostname('socket') ->
+    case net:gethostname() of
+        {ok, Hostname} ->
+            %% If its a long name (including domain), shorten to only name
+            {H,_} = lists:splitwith(fun($.)->false;(_)->true end, Hostname),
+            {ok, H};
+        {error, _} ->
+            {ok, "nohost.nodomain"}
+    end;
+do_gethostname('inet') ->
     case inet_udp:open(0,[]) of
 	{ok,U} ->
 	    {ok,Res} = gethostname(U),
@@ -2286,8 +2284,17 @@ gethostname() ->
 -spec gethostname(Socket :: socket()) ->
 	{'ok', string()} | {'error', posix()}.
 
+%% The esock version of should never really be called. Its supposed to 
+%% be a utility function for gethostname/0. But just in case...
+gethostname(?module_socket(GenSocketMod, _) = _Socket)
+  when is_atom(GenSocketMod) ->
+    %% We do not really need the socket for anything...
+    net:gethostname();
 gethostname(Socket) ->
     prim_inet:gethostname(Socket).
+
+
+%% --------------------------------------------------------------------------
 
 -doc(#{equiv => getstat/2}).
 -spec getstat(Socket) ->
@@ -2338,6 +2345,9 @@ getstat(?module_socket(GenSocketMod, _) = Socket, What)
     GenSocketMod:?FUNCTION_NAME(Socket, What);
 getstat(Socket, What) ->
     prim_inet:getstat(Socket, What).
+
+
+%% --------------------------------------------------------------------------
 
 -doc """
 Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record.
