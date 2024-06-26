@@ -2723,13 +2723,6 @@ getservbyname(Name, Protocol) when is_list(Name) ->
     end.
 
 inet_getservbyname(Name, Protocol) ->
-    %% case inet_udp:open(0, []) of
-    %%     {ok, U} ->
-    %%         Res = prim_inet:getservbyname(U, Name, Protocol),
-    %%         inet_udp:close(U),
-    %%         Res;
-    %%     Error -> Error
-    %% end.
     withsocket(fun(S) -> prim_inet:getservbyname(S, Name, Protocol) end).
 
 net_getservbyname(Name, Protocol) when is_list(Protocol) ->
@@ -3840,7 +3833,6 @@ open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
 %%
 open_setopts(S, BAddr, BPort, Opts, Module) ->
     %% ?DBG([{s, S}, {baddr, BAddr}, {bport, BPort}, {opts, Opts}, {mod, Module}]),
-    %% ok = prim_inet:setopts(S, [{debug, true}]),
     case prim_inet:setopts(S, Opts) of
         ok when BAddr =:= undefined ->
             %% ?DBG("ok -> register socket"),
