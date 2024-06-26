@@ -25,9 +25,6 @@
 %%----------------------------------------------------------------------
 -module(ct_slave).
 -moduledoc """
-Common Test framework functions for starting and stopping nodes for Large-Scale
-Testing.
-
 `Common Test` framework functions for starting and stopping nodes for
 Large-Scale Testing.
 
@@ -48,6 +45,7 @@ term in the Test Specification.
 		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,
 		  stop_timeout}).
 
+-doc "Options used for starting `ct_slave` node.".
 -type start_options() :: [{'username', string()}
                          | {'password', string()}
                          | {'boot_timeout', non_neg_integer()}
@@ -61,6 +59,7 @@ term in the Test Specification.
                          | {'ssh_port', inet:port_number()}
                          | {'ssh_opts', ssh:client_options()}].
 
+-doc "Options used for stopping `ct_slave` node.".
 -type stop_options() :: [{'stop_timeout', non_neg_integer()}].
 
 -export_type([start_options/0, stop_options/0]).

@@ -20,8 +20,6 @@
 
 -module(ct_testspec).
 -moduledoc """
-Parsing of test specifications for Common Test.
-
 Parsing of test specifications for `Common Test`.
 
 This module exports help functions for parsing of test specifications.
