@@ -91,8 +91,15 @@ erlang_trace(Session, Pid, How, FlagList) when is_pid(Pid) ->
 
 erlang_trace_pattern(legacy, MFA, MS, FlagList) ->
     erlang:trace_pattern(MFA, MS, FlagList);
-erlang_trace_pattern(Session, MFA, MS, FlagList) ->
-    trace:function(Session, MFA, MS, FlagList).
+erlang_trace_pattern(Session, MFA, MS, FlagList0) ->
+    FlagList1 = lists:keydelete(tracer, 1, FlagList0),
+    FlagList3 = case lists:keytake(meta, 1, FlagList1) of
+                    {value, {meta,_Tracer}, FlagList2} ->
+                        [meta | FlagList2];
+                    false ->
+                        FlagList1
+                end,
+    trace:function(Session, MFA, MS, FlagList3).
 
 
 on_load(_Config) ->
@@ -1152,27 +1159,44 @@ call_do2(S1, Tracer1, Opts1, S2, Tracer2, Opts2, {TPopt, Call}) ->
 meta(_Config) ->
     Tester = self(),
     Tracer0 = spawn_link(fun() -> tracer("Tracer0",Tester) end),
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester) end),
+    S1 = trace:session_create(session1, Tracer1, []),
 
-    MFArity = {?MODULE,foo,0},
-    MFArgs = {?MODULE,foo,[]},
-    1 = erlang:trace_pattern(MFArity,true,[{meta,Tracer0}]),
-
-    ?line,
-    foo(),
-    {Tracer0, {trace_ts,P,call,MFArgs,{_,_,_}}} = receive_any(),
-
-    ?line,
-    ?MODULE:foo(),
-    {Tracer0, {trace_ts,P,call,MFArgs,{_,_,_}}} = receive_any(),
-
-    1 = erlang:trace_pattern(MFArity,false,[meta]),
-
-    ?line,
-    foo(),
-    timeout = receive_nothing(),
+    meta_do(legacy, Tracer0, S1, Tracer1),
+    meta_do(S1, Tracer1, legacy, Tracer0),
 
     unlink(Tracer0),
     exit(Tracer0, die),
+    unlink(Tracer1),
+    exit(Tracer1, die),
+    ok.
+
+meta_do(S1, Tracer1, S2, Tracer2) ->
+    Tester = self(),
+    MFArity = {?MODULE,foo,0},
+    MFArgs = {?MODULE,foo,[]},
+
+    1 = erlang_trace_pattern(S1, MFArity, true, [{meta,Tracer1}]),
+    1 = erlang_trace_pattern(S2, MFArity, true, [{meta,Tracer2}]),
+
+    ?line,
+    foo(),
+    receive_parallel({[{Tracer1, {trace_ts,Tester,call,MFArgs,{'_','_','_'}}}],
+                      [{Tracer2, {trace_ts,Tester,call,MFArgs,{'_','_','_'}}}]}),
+
+    ?line,
+    ?MODULE:foo(),
+    receive_parallel({[{Tracer1, {trace_ts,Tester,call,MFArgs,{'_','_','_'}}}],
+                      [{Tracer2, {trace_ts,Tester,call,MFArgs,{'_','_','_'}}}]}),
+
+    1 = erlang_trace_pattern(S1, MFArity, false, [meta]),
+
+    ?line,
+    foo(),
+    {Tracer2, {trace_ts,Tester,call,MFArgs,{_,_,_}}} = receive_any(),
+
+    1 = erlang_trace_pattern(S2, MFArity, false, [meta]),
+    timeout = receive_nothing(),
 
     ok.
 
