@@ -37,7 +37,7 @@
          in_degree/2, in_edges/2, in_neighbours/2,
          no_vertices/1,
          out_degree/2, out_edges/2, out_neighbours/2,
-         vertex/2, vertices/1,
+         vertex/2, vertex/3, vertices/1,
          reverse_postorder/2,
          roots/1,
          topsort/1,
@@ -188,6 +188,12 @@ no_vertices(#dg{vs=Vs}) ->
 -spec vertex(graph(), vertex()) -> label().
 vertex(#dg{vs=Vs}, V) ->
     map_get(V, Vs).
+
+%% As vertex/2 but if the vertex does not exist a default value is
+%% returned.
+-spec vertex(graph(), vertex(), label()) -> label().
+vertex(#dg{vs=Vs}, V, Default) ->
+    maps:get(V, Vs, Default).
 
 -spec vertices(graph()) -> [{vertex(), label()}].
 vertices(#dg{vs=Vs}) ->
