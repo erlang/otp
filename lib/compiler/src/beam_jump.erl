@@ -408,7 +408,7 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-unambigous_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+unambigous_deallocation([bs_init_writable|Is]) ->
     %% beam_validator requires that the size of the stack frame is
     %% unambigously known when certain instructions are used.
     %%
@@ -429,7 +429,7 @@ unambigous_deallocation([]) ->
 
 find_deallocation([{block,_}|Is]) ->
     find_deallocation(Is);
-find_deallocation([{bs_init,_,bs_init_writable,_,_,_}|Is]) ->
+find_deallocation([bs_init_writable|Is]) ->
     find_deallocation(Is);
 find_deallocation([{call,_,_}|Is]) ->
     find_deallocation(Is);
@@ -936,10 +936,6 @@ instr_labels({bif,_Name,Lbl,_As,_R}) ->
 instr_labels({gc_bif,_Name,Lbl,_Live,_As,_R}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_create_bin,Lbl,_,_,_,_,_}) ->
-    do_instr_labels(Lbl);
-instr_labels({bs_init,Lbl,_,_,_,_}) ->
-    do_instr_labels(Lbl);
-instr_labels({bs_put,Lbl,_,_}) ->
     do_instr_labels(Lbl);
 instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);

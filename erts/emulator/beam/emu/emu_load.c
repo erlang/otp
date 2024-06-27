@@ -1434,7 +1434,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         /* Remember offset for the on_load function. */
         stp->on_load = ci;
         break;
-    case op_bs_put_string_WW:
     case op_i_bs_match_string_xfWW:
     case op_i_bs_match_string_yfWW:
         new_string_patch(stp, ci-1);

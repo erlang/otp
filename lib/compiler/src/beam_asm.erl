@@ -81,7 +81,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts
 reject_unsupported_versions(Dict) ->
     %% Emit an instruction that was added in our lowest supported
     %% version so that it cannot be loaded by earlier releases.
-    Instr = beam_opcodes:opcode(make_fun3, 3),  %OTP 24
+    Instr = beam_opcodes:opcode(bs_create_bin, 6),  %OTP 25
     beam_dict:opcode(Instr, Dict).
 
 on_load(Fs0, Attr0) ->
@@ -390,8 +390,6 @@ make_op({gc_bif,Bif,Fail,Live,Args,Dest}, Dict) ->
 		3 -> gc_bif3
 	    end,
     encode_op(BifOp, [Fail,Live,{extfunc,erlang,Bif,Arity}|Args++[Dest]],Dict);
-make_op({bs_add=Op,Fail,[Src1,Src2,Unit],Dest}, Dict) ->
-    encode_op(Op, [Fail,Src1,Src2,Unit,Dest], Dict);
 make_op({test,Cond,Fail,Src,{list,_}=Ops}, Dict) ->
     encode_op(Cond, [Fail,Src,Ops], Dict);
 make_op({test,Cond,Fail,Ops}, Dict) when is_list(Ops) ->

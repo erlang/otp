@@ -320,8 +320,6 @@ void process_main(ErtsSchedulerData *esdp)
 
     ERTS_MSACC_DECLARE_CACHE_X() /* a cached value of the tsd pointer for msacc */
 
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
-
     /*
      * Note: In this function, we attempt to place rarely executed code towards
      * the end of the function, in the hope that the cache hit rate will be better.
@@ -379,7 +377,6 @@ void process_main(ErtsSchedulerData *esdp)
 	start_time_i = c_p->i;
     }
 
-    ERL_BITS_RELOAD_STATEP(c_p);
     {
 	int reds;
 	BeamInstr next;

@@ -923,6 +923,7 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
     return 1;
 }
 
+#if !defined(BEAMASM)
 int
 erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
 {
@@ -981,6 +982,7 @@ erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
 
     return 1;
 }
+#endif
 
 int
 erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
@@ -1475,36 +1477,6 @@ build_writable_bitstring(Process *p,
  *   raise an exception.
  */
 Eterm
-erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
-               Uint extra_words, Uint unit)
-{
-    Uint unsigned_bits;
-    Uint build_size_in_bits;
-
-    /*
-     * Check and untag the requested build size.
-     */
-    if (is_small(build_size_term)) {
-	Sint signed_bits = signed_val(build_size_term);
-	if (signed_bits < 0) {
-            c_p->freason = BADARG;
-            return THE_NON_VALUE;
-	}
-	build_size_in_bits = (Uint) signed_bits;
-    } else if (term_to_Uint(build_size_term, &unsigned_bits)) {
-	build_size_in_bits = unsigned_bits;
-    } else {
-	c_p->freason = unsigned_bits;
-	return THE_NON_VALUE;
-    }
-    return erts_bs_append_checked(c_p, reg, live, build_size_in_bits,
-                                  extra_words, unit);
-}
-
-/*
- * See erts_bs_append().
- */
-Eterm
 erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                        Uint build_size_in_bits, Uint extra_words,
                        Uint unit)
@@ -1696,31 +1668,6 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 
         return make_bitstring(sb);
     }
-}
-
-Eterm
-erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
-{
-    Uint unsigned_bits;
-    Uint build_size_in_bits;
-
-    /*
-     * Check and untag the requested build size.
-     */
-    if (is_small(build_size_term)) {
-	Sint signed_bits = signed_val(build_size_term);
-	if (signed_bits < 0) {
-	    p->freason = BADARG;
-	    return THE_NON_VALUE;
-	}
-	build_size_in_bits = (Uint) signed_bits;
-    } else if (term_to_Uint(build_size_term, &unsigned_bits)) {
-	build_size_in_bits = unsigned_bits;
-    } else {
-	p->freason = unsigned_bits;
-	return THE_NON_VALUE;
-    }
-    return erts_bs_private_append_checked(p, bin, build_size_in_bits, unit);
 }
 
 Eterm
