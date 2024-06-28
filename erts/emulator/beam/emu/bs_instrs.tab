@@ -280,17 +280,6 @@ i_bs_skip_bits2.execute(Fail, Unit) {
     }
 }
 
-i_bs_skip_bits_imm2(Fail, Ms, Bits) {
-    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ms);
-    size_t new_offset;
-    new_offset = sb->start + ($Bits);
-    if (new_offset <= sb->end) {
-        sb->start = new_offset;
-    } else {
-        $FAIL($Fail);
-    }
-}
-
 bs_init_writable() {
     HEAVY_SWAPOUT;
     x(0) = erts_bs_init_writable(c_p, x(0));
