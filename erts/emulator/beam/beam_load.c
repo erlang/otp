@@ -497,16 +497,28 @@ static int load_code(LoaderState* stp)
 	     * Use bit masks to quickly find the most specific of the
 	     * the possible specific instructions associated with this
 	     * specific instruction.
+             *
+             * Note that currently only instructions having no more
+             * than 6 operands are supported.
 	     */
             int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
-            arity = gen_opc[tmp_op->op].arity;
+            if (num_specific != 0) {
+                /* The `bs_append` instruction made obsolete in
+                 * Erlang/OTP 28 has 8 operands. Therefore, the if
+                 * statement preventing the loop that follows to be
+                 * entered is necessary to prevent writing beyond the
+                 * last entry of the mask array. */
+                arity = gen_opc[tmp_op->op].arity;
 
-            for (arg = 0; arg < arity; arg++) {
-                int type = tmp_op->a[arg].type;
+                ASSERT(2 * (sizeof(mask) / sizeof(mask[0])) >= arity);
 
-                mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                for (arg = 0; arg < arity; arg++) {
+                    int type = tmp_op->a[arg].type;
+
+                    mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                }
             }
 
             specific = gen_opc[tmp_op->op].specific;
@@ -572,7 +584,7 @@ static int load_code(LoaderState* stp)
                  * No specific operations and no transformations means that
                  * the instruction is obsolete.
                  */
-                if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
+                if (num_specific == 0 && gen_opc[tmp_op->op].transform == 0) {
                     BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
