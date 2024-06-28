@@ -4820,8 +4820,6 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St, Mode) ->
 		    end;
 		false ->
 		    case collect_cases(CaseList, St, Mode1) of
-			{ok,[],_St} = Empty ->
-			    Empty;
 			{ok,FlatCases,St1} ->
 			    {ok,[{conf,Ref,Props1,InitMF} |
 				 FlatCases ++ [{conf,Ref,

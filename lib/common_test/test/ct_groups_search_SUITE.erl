@@ -127,7 +127,8 @@ groups() ->
 		      testcase_in_sub_groups11,
 		      testcase_in_sub_groups12,
 		      testcase_in_sub_groups13,
-		      bad_testcase_in_sub_groups1]},
+		      bad_testcase_in_sub_groups1,
+		      bad_testcase_in_sub_groups2]},
 
      {run_groups,[sequence],[run_groups_with_options,
 			     run_groups_with_testspec]}
@@ -488,6 +489,10 @@ testcase_in_top_groups3(_) ->
     [{conf,[{name,top1}],
       {?M2,init_per_group},
       [{?M2,top1_tc1}],
+      {?M2,end_per_group}},
+     {conf,[{name,top2}],
+      {?M2,init_per_group},
+      [],
       {?M2,end_per_group}}] = Found,
 
     {?M2,GPath,TCs,Found}.
@@ -499,7 +504,11 @@ testcase_in_top_groups4(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [{conf,[{name,top2}],
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [],
+      {?M2,end_per_group}},
+     {conf,[{name,top2}],
       {?M2,init_per_group},
       [{conf,[{name,sub21}],
 	{?M2,init_per_group},
@@ -527,7 +536,11 @@ testcase_in_top_groups5(_) ->
     Found = ct_groups:find_groups(?M2, [top1,top2], [sub21_tc1,sub22_tc1],
 				  groups2()),
 
-    [{conf,[{name,top2}],
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [],
+      {?M2,end_per_group}},
+     {conf,[{name,top2}],
       {?M2,init_per_group},
       [{conf,[{name,sub21}],
 	{?M2,init_per_group},
@@ -964,7 +977,10 @@ bad_testcase_in_sub_groups1(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [] = Found,
+    [{conf,[{name,sub2xx}],
+      {?M2,init_per_group},
+      [],
+      {?M2,end_per_group}}] = Found,
 
     {?M2,GPath,TCs,Found}.
 
@@ -975,7 +991,10 @@ bad_testcase_in_sub_groups2(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [] = Found,
+    [{conf,[{name,sub2xx}],
+      {?M2,init_per_group},
+      [],
+      {?M2,end_per_group}}] = Found,
 
     {?M2,GPath,TCs,Found}.
 
