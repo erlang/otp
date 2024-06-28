@@ -490,7 +490,7 @@ void BeamModuleAssembler::emit_bs_skip_bits(const ArgLabel &Fail,
 }
 
 void BeamModuleAssembler::emit_i_bs_skip_bits2(const ArgRegister &Ctx,
-                                               const ArgRegister &Size,
+                                               const ArgSource &Size,
                                                const ArgLabel &Fail,
                                                const ArgWord &Unit) {
     Label fail = resolve_beam_label(Fail, dispUnknown);
@@ -519,13 +519,6 @@ void BeamModuleAssembler::emit_i_bs_skip_bits2(const ArgRegister &Ctx,
     } else if (emit_bs_get_field_size(Size, Unit.get(), fail, ARG1) >= 0) {
         emit_bs_skip_bits(Fail, Ctx);
     }
-}
-
-void BeamModuleAssembler::emit_i_bs_skip_bits_imm2(const ArgLabel &Fail,
-                                                   const ArgRegister &Ctx,
-                                                   const ArgWord &Bits) {
-    mov_arg(ARG1, Bits);
-    emit_bs_skip_bits(Fail, Ctx);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
