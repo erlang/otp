@@ -323,7 +323,7 @@ dump_element(fmtfn_t to, void *to_arg, Eterm x)
 	erts_print(to, to_arg, "H" PTR_FMT, boxed_val(x));
     } else if (is_immed(x)) {
 	if (is_atom(x)) {
-	    unsigned char* s = atom_tab(atom_val(x))->name;
+	    unsigned char* s = erts_atom_get_name(atom_tab(atom_val(x)));
 	    int len = atom_tab(atom_val(x))->len;
 	    int i;
 
