@@ -973,14 +973,14 @@ userinfo() ->
     [{doc, "Test user info e.i. http://user:passwd@host:port/"}].
 userinfo(Config) when is_list(Config) ->
     
-    URLAuth = url(group_name(Config), "alladin:sesame", "/userinfo.html", Config),
+    URLAuth = url(group_name(Config), "alladin%40example.com:sesame", "/userinfo.html", Config),
     RequestOpts = proplists:get_value(request_opts, Config, []),
     Profile = ?profile(Config),
 
     {ok, {{_,200,_}, [_ | _], _}}
 	= httpc:request(get, {URLAuth, []}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
-    URLUnAuth = url(group_name(Config), "alladin:foobar", "/userinfo.html", Config),
+    URLUnAuth = url(group_name(Config), "alladin%40example.com:foobar", "/userinfo.html", Config),
 
     {ok, {{_,401, _}, [_ | _], _}} =
 	httpc:request(get, {URLUnAuth, []}, [?SSL_NO_VERIFY], RequestOpts, Profile).
@@ -2521,7 +2521,7 @@ content_type_header([_|T]) ->
 
 handle_auth("Basic " ++ UserInfo, Challenge, DefaultResponse) ->
     case string:tokens(base64:decode_to_string(UserInfo), ":") of
-	["alladin", "sesame"] = Auth ->
+	["alladin@example.com", "sesame"] = Auth ->
 	    ct:log("Auth: ~p~n", [Auth]),
 	    DefaultResponse;
 	Other ->
