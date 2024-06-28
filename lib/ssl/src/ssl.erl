@@ -411,14 +411,16 @@ requirements on the signatures used in the certificates that differs from the
 requirements on digital signatures as a whole. If this is not required this
 extension is not needed.
 
-The client will send a `signature_algorithms_cert` extension (in the client
-hello message), if TLS version 1.2 (back-ported to TLS 1.2 in 24.1) or later is
-used, and the signature_algs_cert option is explicitly specified.
-By default, only the [signature_algs](`t:signature_algs/0`) extension is sent with the
-exeption of when signature_algs option is not explicitly specified, in which case it
-will use the default value for signature_algs plus rsa_pkcs1_sha1 to allow
-certificates to have this signature but still disallow sha1 use in the TLS protocol,
-since @OTP-19152@.
+The client will send a `signature_algorithms_cert` extension (in the
+client hello message), if TLS version 1.2 (back-ported to TLS 1.2 in
+24.1) or later is used, and the signature_algs_cert option is
+explicitly specified.  By default, only the
+[signature_algs](`t:signature_algs/0`) extension is sent with the
+exception of when signature_algs option is not explicitly specified,
+in which case it will append the rsa_pkcs1_sha1 algorithm to the
+default value of signature_algs and use it as value for
+signature_algs_cert to allow certificates to have this signature but
+still disallow sha1 use in the TLS protocol, since @OTP-19152@.
 
 > #### Note {: .info }
 >
@@ -4235,8 +4237,8 @@ opt_signature_algs_valid(UserOpts, #{versions := Versions} = Opts, [TlsVersion|_
     {SA, SAC2} =
         case get_opt_list(signature_algs, undefined, UserOpts, Opts) of
             {default, undefined}  ->
-                %% Smooth upgrade path allow rsa_pkcs1_sha1 for signatures_alg_cert
-                %% by default as long as signatures_algs is set to default
+                %% Smooth upgrade path allow rsa_pkcs1_sha1 for signatures_algs_cert
+                %% by default as long as signature_algs is set to default
                 DefAlgs0 = tls_v1:default_signature_algs(TlsVsns),
                 DefAlgs = handle_hashsigns_option(DefAlgs0, TlsVersion),
                 DSAC0 = case SAC1 of
@@ -4272,8 +4274,7 @@ opt_signature_algs_not_valid(UserOpts, #{versions := Versions} = Opts0)->
             {old, _} ->
                 Opts0;
             _ ->
-                assert_version_dep(signature_algs, Versions, ['tlsv1.2', 'tlsv1.3']),
-                Opts0#{signature_algs => undefined}
+                option_incompatible([signature_algs, {versions, Versions}])
         end,
     case get_opt_list(signature_algs_cert, undefined, UserOpts, Opts) of
         {default, undefined} ->
@@ -4281,8 +4282,7 @@ opt_signature_algs_not_valid(UserOpts, #{versions := Versions} = Opts0)->
         {old, _} ->
             Opts;
         _ ->
-            assert_version_dep(signature_algs_cert, Versions, ['tlsv1.2', 'tlsv1.3']),
-            Opts#{signature_algs_cert => undefined}
+            option_incompatible([signature_algs_cert, {versions, Versions}])
     end.
 
 sha_rsa(?TLS_1_2) ->

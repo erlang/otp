@@ -646,7 +646,7 @@ root_any_sign(Config) when is_list(Config) ->
     ssl_test_lib:basic_test(CSucess, [{verify, verify_peer}, {signature_algs, SigAlgs} | SSucess], Config),
     %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
     ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
-                             Config, insufficient_security).
+                             Config, unsupported_certificate).
 
 %%--------------------------------------------------------------------
 connection_information() ->

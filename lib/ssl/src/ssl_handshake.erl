@@ -1482,7 +1482,7 @@ signature_algs_ext(SignatureSchemes0) ->
 
 signature_algs_cert(undefined) ->
     undefined;
-signature_algs_cert([default| SignatureSchemes]) ->
+signature_algs_cert([default | SignatureSchemes]) ->
     #signature_algorithms_cert{signature_scheme_list = SignatureSchemes};
 signature_algs_cert(SignatureSchemes) ->
     #signature_algorithms_cert{signature_scheme_list = SignatureSchemes}.

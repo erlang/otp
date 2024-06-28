@@ -182,7 +182,7 @@ handle_client_hello(Version,
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
             TLSVersion = dtls_v1:corresponding_tls_version(Version),
-             SupportedHashSigns =
+            SupportedHashSigns =
                 ssl_handshake:supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),

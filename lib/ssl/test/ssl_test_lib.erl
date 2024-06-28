@@ -462,15 +462,22 @@ default_ecc_cert_chain_conf(eddsa_1_3) ->
 default_ecc_cert_chain_conf(_) ->
     default_cert_chain_conf().
 
-sig_algs(rsa_pss_pss, _) ->
+sig_algs(Alg, Version) when is_atom(Version)->
+    do_sig_algs(Alg, tls_version(Version));
+sig_algs(Alg, {254,_} = Version) ->
+    do_sig_algs(Alg, dtls_v1:corresponding_tls_version(Version));
+sig_algs(Alg, Version) ->
+    do_sig_algs(Alg, Version).
+
+do_sig_algs(rsa_pss_pss, _) ->
     [{signature_algs, [rsa_pss_pss_sha512,
                        rsa_pss_pss_sha384,
                        rsa_pss_pss_sha256]}];
-sig_algs(rsa_pss_rsae, _) ->
+do_sig_algs(rsa_pss_rsae, _) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256]}];
-sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+do_sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [rsa_pss_rsae_sha512,
                        rsa_pss_rsae_sha384,
                        rsa_pss_rsae_sha256,
@@ -479,15 +486,15 @@ sig_algs(rsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
                        {sha256, rsa},
                        {sha, rsa}
                       ]}];
-sig_algs(ecdsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+do_sig_algs(ecdsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [
                        {sha512, ecdsa},
                        {sha384, ecdsa},
                        {sha256, ecdsa},
                        {sha, ecdsa}]}];
-sig_algs(dsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
+do_sig_algs(dsa, Version) when ?TLS_GTE(Version, ?TLS_1_2) ->
     [{signature_algs, [{sha,dsa}]}];
-sig_algs(_,_) ->
+do_sig_algs(_,_) ->
     [].
 
 all_sig_algs() ->
