@@ -20,8 +20,6 @@
 
 -module(ct_snmp).
 -moduledoc """
-Common Test user interface module for the SNMP application.
-
 `Common Test` user interface module for the `SNMP` application.
 
 The purpose of this module is to simplify SNMP configuration for the test case

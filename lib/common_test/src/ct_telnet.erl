@@ -20,8 +20,6 @@
 
 -module(ct_telnet).
 -moduledoc """
-Common Test specific layer on top of Telnet client ct_telnet_client.erl
-
 `Common Test` specific layer on top of Telnet client `ct_telnet_client.erl`.
 
 Use this module to set up Telnet connections, send commands, and perform string
@@ -176,8 +174,9 @@ suite() ->
 
 -include("ct_util.hrl").
 
--doc "For `target_name()`, see module `m:ct`.".
+-doc "Reference to opened Telnet connection associated to either a `handle` or `target_name`.".
 -type connection() :: handle() | {ct:target_name(), connection_type()} | ct:target_name().
+-doc "Telnet connection_type, valid values: 'telnet' | 'ts1' | 'ts2'.".
 -type connection_type() :: telnet | ts1 | ts2.
 -doc "Handle for a specific Telnet connection, see module `m:ct`.".
 -type handle() :: ct:handle().
@@ -187,7 +186,8 @@ Regular expression matching all possible prompts for a specific target type.
 STDLIB) must return a list with one single element.
 """.
 -type prompt_regexp() :: string().
--type send_option() :: {'newline', boolean() | string()}.
+-doc "See `cmd/3` for explanation.".
+-type newline_option() :: {'newline', boolean() | string()}.
 -export_type([connection/0, connection_type/0, handle/0, prompt_regexp/0]).
 
 -record(state,{host,
@@ -237,7 +237,7 @@ open(Name,ConnType) ->
 
 -doc(#{equiv => open(KeyOrName, ConnType, TargetMod, KeyOrName)}).
 -spec open(KeyOrName, ConnType, TargetMod) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    ConnType :: connection_type(),
                    TargetMod :: module(),
                    Handle :: handle(),
@@ -265,12 +265,10 @@ without an associated target name can only be closed with the `Handle` value.
 `connect(Ip, Port, KeepAlive, Extra)` and `get_prompt_regexp()` for the
 specified `TargetType` (for example, `unix_telnet`).
 
-For `target_name()`, see module `m:ct`.
-
 See also `ct:require/2`.
 """.
 -spec open(KeyOrName, ConnType, TargetMod, Extra) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    ConnType :: connection_type(),
                    TargetMod :: module(),
                    Extra :: term(),
@@ -371,7 +369,7 @@ module.
 -spec cmd(Connection, Cmd, Opts) -> {'ok', Data} | {'error', Reason}
               when Connection :: connection(),
                    Cmd :: iodata(),
-                   Opts :: [{'timeout', Timeout} | send_option()] | Timeout,
+                   Opts :: [{'timeout', Timeout} | newline_option()] | Timeout,
                    Timeout :: integer(),
                    Data :: string(),
                    Reason :: term().
@@ -419,7 +417,7 @@ For details, see [`ct_telnet:cmd/3`](`cmd/3`).
               when Connection :: connection(),
                    CmdFormat :: io:format(),
                    Args :: [term()],
-                   Opts :: [{'timeout', Timeout} | send_option()] | Timeout,
+                   Opts :: [{'timeout', Timeout} | newline_option()] | Timeout,
                    Timeout :: integer(),
                    Data :: string(),
                    Reason :: term().
@@ -475,7 +473,7 @@ The resulting output from the command can be read with
 -spec send(Connection, Cmd, Opts) -> 'ok' | {'error', Reason}
               when Connection :: connection(),
                    Cmd :: iodata(),
-                   Opts :: [send_option()],
+                   Opts :: [newline_option()],
                    Reason :: term().
 send(Connection,Cmd,Opts) ->
     case check_send_opts(Opts) of
@@ -526,7 +524,7 @@ For details, see [`ct_telnet:send/3`](`send/3`).
               when Connection :: connection(),
                    CmdFormat :: io:format(),
                    Args :: [term()],
-                   Opts :: [send_option()],
+                   Opts :: [newline_option()],
                    Reason :: term().
 sendf(Connection,CmdFormat,Args,Opts) when is_list(Args) ->
     Cmd = lists:flatten(io_lib:format(CmdFormat,Args)),
