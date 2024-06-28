@@ -56,7 +56,7 @@
               kills :: kills_map(),
               st_map :: st_map(),
               orig_st_map :: st_map(),
-              repeats = sets:new([{version,2}]) :: sets:set(func_id()),
+              repeats = sets:new() :: sets:set(func_id()),
               %% The next unused variable name in caller
               cnt = 0 :: non_neg_integer()
              }).
@@ -181,7 +181,7 @@ killsets_update_live_and_last_use(Live0, Uses) ->
                           {sets:add_element(Use, LiveAcc),
                            sets:add_element(Use, LastAcc)}
                   end
-          end, {Live0,sets:new([{version,2}])}, Uses).
+          end, {Live0,sets:new()}, Uses).
 
 killsets_add_kills(Dst, LastUses, Kills) ->
     Kills#{Dst=>LastUses}.
@@ -205,7 +205,7 @@ killsets_phi_uses_in_block(Lbl, [#b_set{op=phi,args=Args}|Is], PhiLiveIns0) ->
                                Key = {From,Lbl},
                                Old = case Acc of
                                          #{Key:=O} -> O;
-                                         #{} -> sets:new([{version,2}])
+                                         #{} -> sets:new()
                                      end,
                                Acc#{Key=>sets:add_element(Var, Old)};
                           ({#b_literal{},_},Acc) ->
@@ -219,7 +219,7 @@ killsets_phi_uses_in_block(_Lbl, _, PhiLiveIns) ->
 %% Create a set of variables which are live out from this block.
 killsets_blk_live_outs(Successors, ThisBlock, LiveIns, PhiLiveIns) ->
     killsets_blk_live_outs(Successors, ThisBlock, LiveIns,
-                           PhiLiveIns, sets:new([{version,2}])).
+                           PhiLiveIns, sets:new()).
 
 killsets_blk_live_outs([Successor|Successors],
                        ThisBlock, LiveIns, PhiLiveIns, Acc0) ->
@@ -362,7 +362,7 @@ aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
     %% Following the depth first order, select those in Repeats.
     NewOrder = [Id || Id <- Order, sets:is_element(Id, Repeats)],
     aa_fixpoint(NewOrder, Order, AliasMap, CallArgs,
-                AAS#aas{repeats=sets:new([{version,2}])}, Limit - 1).
+                AAS#aas{repeats=sets:new()}, Limit - 1).
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
        AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
@@ -407,8 +407,8 @@ aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
 aa_blocks([], _Kills, Lbl2SS, AAS) ->
     {Lbl2SS,AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
-    ?DP("I: ~p~n", [I]),
+aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
+    ?DP("I: ~p~n", [_I]),
     SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
@@ -559,11 +559,9 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             resume ->
                 {SS1, AAS0};
             wait_timeout ->
-                {SS1, AAS0};
-            _ ->
-                exit({unknown_instruction, I})
+                {SS1, AAS0}
         end,
-    ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
+    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -1257,7 +1255,7 @@ aa_reverse_post_order(Funs, FuncDb) ->
     ExportedLocalCallers =
         lists:sort([ F || F <- Funs, IsExportedLocalCallers(F)]),
     aa_reverse_post_order(ExportedNoLocalCallers, ExportedLocalCallers,
-                          sets:new([{version,2}]), FuncDb).
+                          sets:new(), FuncDb).
 
 aa_reverse_post_order([F|Work], Next, Seen, FuncDb) ->
     case sets:is_element(F, Seen) of
@@ -1299,17 +1297,11 @@ eru_blocks([], Cnt, Acc) ->
 
 eru_is([#b_set{op=update_record,
                args=[_Hint,#b_literal{val=Size},Src|Updates]=Args,
-               anno=Anno0}=I0|Rest], First, Acc) ->
-    ArgTypes0 = maps:get(arg_types, Anno0, #{}),
+               anno=#{arg_types:=ArgTypes0}=Anno0}=I0|Rest], First, Acc) ->
     TupleType = maps:get(2, ArgTypes0, any),
     {Extracts,ExtraArgs,Next,ArgTypes} =
         eru_args(Updates, First, Src, Size, TupleType, ArgTypes0),
-    Anno = if map_size(ArgTypes) =:= 0 ->
-                   Anno0;
-              true ->
-                   Anno0#{arg_types=>ArgTypes}
-           end,
-    I = I0#b_set{args=Args++ExtraArgs,anno=Anno},
+    I = I0#b_set{args=Args++ExtraArgs,anno=Anno0#{arg_types=>ArgTypes}},
     eru_is(Rest, Next, [I|Extracts]++Acc);
 eru_is([I|Rest], First, Acc) ->
     eru_is(Rest, First, [I|Acc]);
@@ -1317,7 +1309,7 @@ eru_is([], First, Acc) ->
     {reverse(Acc), First}.
 
 eru_args(Updates, First, Src, Size, TupleType, ArgTypes) ->
-    eru_args1(Updates, sets:from_list(lists:seq(1, Size), [{version,2}]),
+    eru_args1(Updates, sets:from_list(lists:seq(1, Size)),
               4, First, Src, TupleType, ArgTypes).
 
 eru_args1([#b_literal{val=Idx},_Val|Updates],

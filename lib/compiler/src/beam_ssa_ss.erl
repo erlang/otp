@@ -321,7 +321,7 @@ merge(StateA, StateB) ->
     ?DP("Large:~n"),
     ?DBG(dump(Large)),
     R = merge(Large, Small, beam_digraph:vertices(Small),
-              sets:new([{version,2}]), sets:new([{version,2}])),
+              sets:new(), sets:new()),
     ?assert_state(R).
 
 merge(Dest, Source, [{V,VStatus}|Vertices], Edges0, Forced) ->
@@ -352,7 +352,7 @@ merge(Dest, Source, [{V,VStatus}|Vertices], Edges0, Forced) ->
     end;
 merge(Dest0, _Source, [], Edges, Forced) ->
     merge1(Dest0, _Source, sets:to_list(Edges),
-           sets:new([{version,2}]), Forced).
+           sets:new(), Forced).
 
 merge1(Dest0, Source, [{plain,To,Lbl}|Edges], Fixups, Forced) ->
     ?DP("  Adding edge ~p -> ~p, lbl: ~p~n", [plain,To,Lbl]),
