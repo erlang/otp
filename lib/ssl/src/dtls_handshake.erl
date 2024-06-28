@@ -175,16 +175,20 @@ handle_client_hello(Version,
                                   random = Random,
                                   extensions = HelloExt},
 		    #{versions := Versions,
-                      signature_algs := SupportedHashSigns,
                       eccs := SupportedECCs,
                       honor_ecc_order := ECCOrder} = SslOpts,
 		    {SessIdTracker, Session0, ConnectionStates0, CertKeyPairs, _},
                     Renegotiation) ->
     case dtls_record:is_acceptable_version(Version, Versions) of
 	true ->
+            TLSVersion = dtls_v1:corresponding_tls_version(Version),
+            SupportedHashSigns =
+                ssl_handshake:supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = maps:get(signature_algs, HelloExt, undefined),
-	    TLSVersion = dtls_v1:corresponding_tls_version(Version),
+            ClientSignatureSchemes =
+                tls_handshake:get_signature_ext(signature_algs_cert, HelloExt,
+                                                TLSVersion),
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, TLSVersion),
 	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
@@ -199,7 +203,7 @@ handle_client_hello(Version,
 		    throw(?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY));
 		_ ->
 		    #{key_exchange := KeyExAlg} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-		    case ssl_handshake:select_hashsign({ClientHashSigns, undefined}, OwnCert, KeyExAlg,
+		    case ssl_handshake:select_hashsign({ClientHashSigns, ClientSignatureSchemes}, OwnCert, KeyExAlg,
 						       SupportedHashSigns, TLSVersion) of
 			#alert{} = Alert ->
 			    throw(Alert);

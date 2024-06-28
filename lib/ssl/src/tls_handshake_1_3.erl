@@ -245,7 +245,9 @@ add_signature_algorithms_cert(Extensions, SignAlgsCert) ->
 
 filter_tls13_algs(undefined) -> undefined;
 filter_tls13_algs(Algo) ->
-    lists:foldl(fun(Atom, Acc) when is_atom(Atom) ->
+    lists:foldl(fun(default, Acc) ->
+                        Acc;
+                   (Atom, Acc) when is_atom(Atom) ->
                         [Atom | Acc];
                    ({sha512, rsa}, Acc) ->
                         [rsa_pkcs1_sha512 | Acc];

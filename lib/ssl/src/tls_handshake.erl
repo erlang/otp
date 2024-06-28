@@ -46,7 +46,7 @@
 -export([get_tls_handshakes/4, decode_handshake/3]).
 
 %% Handshake helper
--export([ocsp_nonce/1]).
+-export([ocsp_nonce/1, get_signature_ext/3]).
 
 -type tls_handshake() :: #client_hello{} | ssl_handshake:ssl_handshake().
 
@@ -335,7 +335,8 @@ handle_client_hello(Version,
                     Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
-            SupportedHashSigns = supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
+            SupportedHashSigns =
+                ssl_handshake:supported_hashsigns(maps:get(signature_algs, SslOpts, undefined)),
             Curves = maps:get(elliptic_curves, HelloExt, undefined),
             ClientHashSigns = get_signature_ext(signature_algs, HelloExt, Version),
             ClientSignatureSchemes = get_signature_ext(signature_algs_cert, HelloExt, Version),
@@ -370,11 +371,6 @@ handle_client_hello(Version,
 	false ->
 	    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION))
     end.
-
-supported_hashsigns(undefined) ->
-    undefined;
-supported_hashsigns(SigAlgs) ->
-    ssl_cipher:signature_schemes_1_2(SigAlgs).
 
 handle_client_hello_extensions(Version, Type, Random, CipherSuites,
                                HelloExt, SslOpts, Session0, ConnectionStates0, 

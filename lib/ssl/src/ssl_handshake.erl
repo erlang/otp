@@ -126,6 +126,7 @@
 	 add_alpn/2,
          add_selected_version/1,
          decode_alpn/1,
+         supported_hashsigns/1,
          max_frag_enum/1
 	]).
 
@@ -1481,9 +1482,10 @@ signature_algs_ext(SignatureSchemes0) ->
 
 signature_algs_cert(undefined) ->
     undefined;
+signature_algs_cert([default | SignatureSchemes]) ->
+    #signature_algorithms_cert{signature_scheme_list = SignatureSchemes};
 signature_algs_cert(SignatureSchemes) ->
     #signature_algorithms_cert{signature_scheme_list = SignatureSchemes}.
-
 
 use_srtp_ext(#{use_srtp := #{protection_profiles := Profiles, mki := MKI}}) ->
     #use_srtp{protection_profiles = Profiles, mki = MKI};
@@ -1739,10 +1741,12 @@ do_select_hashsign(HashSigns, PublicKeyAlgo, SupportedHashSigns) ->
                         is_acceptable_hash_sign(Scheme, SupportedHashSigns);
                     rsa_pss_pss when PublicKeyAlgo  == rsa_pss_pss -> %% Backported
                         is_acceptable_hash_sign(Scheme, SupportedHashSigns);
-                              ecdsa when (PublicKeyAlgo == ecdsa) andalso (H == sha) ->
+                    ecdsa when (PublicKeyAlgo == ecdsa) andalso (H == sha) ->
                         is_acceptable_hash_sign({H, S}, SupportedHashSigns) orelse  %% TLS-1.2 name
                             is_acceptable_hash_sign(Scheme, SupportedHashSigns); %% TLS-1.3 legacy name
-                              _ ->
+                    ecdsa when (PublicKeyAlgo == ecdsa)  ->
+                        is_acceptable_hash_sign({H, S}, SupportedHashSigns);
+                    _ ->
                         false
                 end
         end,
@@ -3667,6 +3671,12 @@ sni(SslOpts) ->
         disable -> undefined;
         Hostname -> #sni{hostname = Hostname}
     end.
+supported_hashsigns(undefined) ->
+    undefined;
+supported_hashsigns([default | SigAlgs]) ->
+    supported_hashsigns(SigAlgs);
+supported_hashsigns(SigAlgs) ->
+    ssl_cipher:signature_schemes_1_2(SigAlgs).
 
 %% convert max_fragment_length (in bytes) to the RFC 6066 ENUM
 max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_1) ->
@@ -3893,7 +3903,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                 #{cert_ext := CertExt,
                   stapling_state := StaplingState}) ->
     SignAlgos = maps:get(signature_algs, Opts, undefined),
-    SignAlgosCert = maps:get(signature_algs_cert, Opts, undefined),
+    SignAlgosCert = supported_cert_signs(maps:get(signature_algs_cert, Opts, undefined)),
     ValidationFunAndState =
         validation_fun_and_state(VerifyFun, #{role => Role,
                                               certdb => CertDbHandle,
@@ -3924,6 +3934,13 @@ path_validation_cb(?TLS_1_3) ->
     tls_handshake_1_3;
 path_validation_cb(_) ->
     ?MODULE.
+
+supported_cert_signs(undefined) ->
+    undefined;
+supported_cert_signs([default|Signs]) ->
+    Signs;
+supported_cert_signs(Signs) ->
+    Signs.
 
 %%%################################################################
 %%%#
