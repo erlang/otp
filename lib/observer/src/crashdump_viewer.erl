@@ -2537,11 +2537,12 @@ sort_allocator_types([],Acc,DoTotal) ->
 
 sort_type_data(Type,[?opt_e_false|Data],Acc,_) when Type=/=?sbmbc_alloc->
     sort_type_data(Type,Data,Acc,false);
-sort_type_data(Type,[{Key,Val0}|Data],Acc,DoTotal) ->
+sort_type_data(Type,[{Key0,Val0}|Data],Acc,DoTotal) ->
+    Key = re:replace(Key0, "([^[]*)(\\[[^]]*\\])(.*)", "\\1\\3", [{return, list}]),
     case lists:member(Key,?interesting_allocator_info) of
 	true ->
 	    Val = list_to_integer(hd(Val0)),
-	    sort_type_data(Type,Data,update_value(Key,Val,Acc),DoTotal);
+	    sort_type_data(Type,Data,update_value(Key0,Val,Acc),DoTotal);
 	false ->
 	    sort_type_data(Type,Data,Acc,DoTotal)
     end;
