@@ -334,7 +334,7 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
     ?DP("Tracking ~p of ~p in fun ~s~n", [Element, V, ff(Fun)]),
     ValuesInFun = ValuesInFun0#{{V,Element}=>visited},
     case Defs of
-        #{V:=#b_set{dst=V,op=Op,args=Args}} ->
+        #{V:=#b_set{dst=V,op=Op,args=Args,anno=Anno}} ->
             case {Op,Args,Element} of
                 {bs_create_bin,[#b_literal{val=append},_,Arg|_],
                  {self,init_writable}} ->
@@ -378,20 +378,74 @@ fiv_track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work0, Defs,
                     %% be able to safely rewrite an accumulator in the
                     %% tail field of the cons, thus we will never
                     %% have to track it.
-                    Depth = fiv_get_new_depth(Element),
-                    ?DP("value is created by a get_hd, adding ~p.~n",
-                        [{List,{hd,Element,Depth}}]),
-                    fiv_track_value_in_fun(
-                      [{List,{hd,Element,Depth}}|Rest], Fun, Work0,
-                      Defs, ValuesInFun, FivSt0);
+
+                    %% We know that there will be type information
+                    %% about the list as get_hd is never used
+                    %% unprotected without a guard (which will allow
+                    %% the type pass to deduce the type) or when
+                    %% existing type information allows the guard to
+                    %% be eliminated.
+                    #{arg_types:=#{0:=#t_cons{type=Type}}} = Anno,
+                    IsComp = fiv_elem_is_compatible(Element, Type),
+                    ?DP("~p is ~scompatible with ~p~n",
+                        [Element,
+                         case IsComp of true -> ""; false -> "not " end,
+                         Type]),
+                    case IsComp of
+                        true ->
+                            Depth = fiv_get_new_depth(Element),
+                            ?DP("value is created by a get_hd, adding ~p.~n",
+                                [{List,{hd,Element,Depth}}]),
+                            fiv_track_value_in_fun(
+                              [{List,{hd,Element,Depth}}|Rest], Fun, Work0,
+                              Defs, ValuesInFun, FivSt0);
+                        false ->
+                            ?DP("value type is not compatible with element.~n"),
+                            fiv_track_value_in_fun(
+                              Rest, Fun, Work0, Defs, ValuesInFun, FivSt0)
+                    end;
                 {get_tuple_element,[#b_var{}=Tuple,#b_literal{val=Idx}],_} ->
-                    Depth = fiv_get_new_depth(Element),
-                    ?DP("value is created by a get_tuple_element, adding ~p.~n",
-                        [{Tuple,{tuple_element,Idx,Element,Depth}}]),
-                    fiv_track_value_in_fun(
-                      [{Tuple,{tuple_element,Idx,Element,Depth}}|Rest],
-                      Fun, Work0,
-                      Defs, ValuesInFun, FivSt0);
+                    %% The type annotation is present following the
+                    %% same argument as for get_hd. We know that it
+                    %% must be either a #t_tuple{} or a #t_union{}
+                    %% containing tuples.
+                    #{arg_types:=#{0:=TupleType}} = Anno,
+                    ?DP("  tuple-type: ~p~n", [TupleType]),
+                    ?DP("  idx: ~p~n", [Idx]),
+                    ?DP("  element: ~p~n", [Element]),
+                    Type =
+                        case TupleType of
+                            #t_tuple{elements=Es} ->
+                                T = maps:get(Idx + 1, Es, any),
+                                ?DP(" type: ~p~n", [T]),
+                                T;
+                            #t_union{tuple_set=TS} ->
+                                ?DP(" tuple-set: ~p~n", [TS]),
+                                JointType =
+                                    fiv_get_effective_tuple_set_type(Idx, TS),
+                                ?DP(" joint-type: ~p~n", [JointType]),
+                                JointType
+                        end,
+                    IsComp = fiv_elem_is_compatible(Element, Type),
+                    ?DP("~p is ~scompatible with ~p~n",
+                        [Element,
+                         case IsComp of true -> ""; false -> "not " end,
+                         TupleType]),
+                    case IsComp of
+                        true ->
+                            Depth = fiv_get_new_depth(Element),
+                            ?DP("value is created by a get_tuple_element,"
+                                " adding ~p.~n",
+                                [{Tuple,{tuple_element,Idx,Element,Depth}}]),
+                            fiv_track_value_in_fun(
+                              [{Tuple,{tuple_element,Idx,Element,Depth}}|Rest],
+                              Fun, Work0,
+                              Defs, ValuesInFun, FivSt0);
+                        false ->
+                            ?DP("value type is not compatible with element.~n"),
+                            fiv_track_value_in_fun(
+                              Rest, Fun, Work0, Defs, ValuesInFun, FivSt0)
+                    end;
                 {phi,_,_} ->
                     ?DP("value is created by a phi~n"),
                     {ToExplore,FivSt} = fiv_handle_phi(Fun, V, Args,
@@ -701,6 +755,52 @@ fiv_get_new_depth({hd,_,D}) ->
     D + 1;
 fiv_get_new_depth(_) ->
     0.
+
+fiv_elem_is_compatible({tuple_element,Idx,Element,_},
+                       #t_tuple{exact=true,elements=Types}) ->
+    %% There is no need to check if the index is within bounds as the
+    %% compiler will ensure that the size of the tuple, and that, in
+    %% turn, will ensure that there is type information.
+    fiv_elem_is_compatible(Element, maps:get(Idx + 1, Types, any));
+fiv_elem_is_compatible({tuple_element,_,_,_}=Element,
+                       #t_union{tuple_set=TS}) ->
+    fiv_elem_is_compatible_with_ts(Element, TS);
+fiv_elem_is_compatible({self,heap_tuple}, #t_tuple{}) ->
+    true;
+fiv_elem_is_compatible({self,heap_tuple}=Element, #t_union{tuple_set=TS}) ->
+    fiv_elem_is_compatible_with_ts(Element, TS);
+fiv_elem_is_compatible({self,heap_tuple}, any) ->
+    true;
+fiv_elem_is_compatible({self,heap_tuple}, _) ->
+    %% With a heap_tuple, anything which isn't t_union{}, #t_tuple{}
+    %% or any is not compatible.
+    false;
+fiv_elem_is_compatible({hd,Element,_}, #t_cons{type=T}) ->
+    fiv_elem_is_compatible(Element, T);
+fiv_elem_is_compatible({hd,Element,_}, #t_union{list=T}) ->
+    fiv_elem_is_compatible(Element, T);
+fiv_elem_is_compatible({hd,_,_}, _) ->
+    %% With a hd, anything which isn't t_list{}, t_cons{} or
+    %% #t_union{} is not compatible.
+    false;
+fiv_elem_is_compatible(_Element, _Type) ->
+    %% Conservatively consider anything which isn't explicitly flagged
+    %% as incompatible as compatible.
+    true.
+
+fiv_get_effective_tuple_set_type(TupleIdx, TS) ->
+    beam_types:join([maps:get(TupleIdx + 1, Es, any)
+                     || {_,#t_tuple{elements=Es}} <- TS]).
+
+%% Check if the element is compatible with a record_set()
+fiv_elem_is_compatible_with_ts(Element, #t_tuple{}=Type) ->
+    fiv_elem_is_compatible(Element, Type);
+fiv_elem_is_compatible_with_ts(Element, [{_,T}|Rest]) ->
+    fiv_elem_is_compatible(Element, T)
+        orelse fiv_elem_is_compatible_with_ts(Element, Rest);
+fiv_elem_is_compatible_with_ts(_Element, []) ->
+    %% The element was not compatible with any of the record sets.
+    false.
 
 patch_f(SSA0, Cnt0, Patches) ->
     patch_f(SSA0, Cnt0, Patches, [], []).

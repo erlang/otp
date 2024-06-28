@@ -16,21 +16,34 @@
 %%
 %% %CopyrightEnd%
 %%
-%% Check that the compiler doesn't enter an infinte loop while trying
+%% Check that the compiler doesn't enter an infinite loop while trying
 %% to run the destructive update pass.
 %%
--module(tuple_inplace_abort0).
+-module(tuple_inplace_abort3).
 
--export([f/0]).
+-export([f0/0,f1/0,f2/0,f3/0]).
 
 -record(rec, {a, b = ext:ernal()}).
 
-f() ->
+f0() ->
     g([#rec{}]).
 
+f1() ->
+    g({#rec{}}).
+
+f2() ->
+    g([[{#rec{}}]]).
+
+f3() ->
+    g([[[#rec{}]]]).
+
+g({A}) ->
+    g(A);
+g([[A]]) ->
+    g(A);
 g([A]) ->
     g(A);
 g(#rec{} = A) ->
 %ssa% (_) when post_ssa_opt ->
-%ssa% _ = update_record(inplace, 3, ...).
+%ssa% _ = update_record(reuse, 3, ...).
     A#rec{ a = a }.
