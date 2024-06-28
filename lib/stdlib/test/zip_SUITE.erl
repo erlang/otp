@@ -37,6 +37,8 @@
          basic_timestamp/1, extended_timestamp/1,
          uid_gid/1]).
 
+-export([zip/5, unzip/3]).
+
 -import(proplists,[get_value/2, get_value/3]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -61,7 +63,10 @@ groups() ->
 %% ezip  - Use erlang zip on disk
 %% emzip - Use erlang zip in memory
 -define(ZIP_MODES,[zip, ezip, emzip]).
+%% -define(ZIP_MODES,[emzip]).
 -define(UNZIP_MODES,[unzip, unezip, unemzip]).
+%% How much memory the zip/unzip 64 testcases that zip/unzip from/to are expected to use
+-define(EMZIP64_MEM_USAGE, (8 * (1 bsl 30))).
 
 zip_groups() ->
 
@@ -83,14 +88,6 @@ z64(Mode) when is_atom(Mode) ->
     list_to_atom(lists:concat([z64_,Mode]));
 z64(Modes) when is_list(Modes) ->
     [z64(M) || M <- Modes].
-
-noz64(Z64Mode) ->
-    case string:split(atom_to_list(Z64Mode), "_") of
-        ["z64",Mode] ->
-            list_to_atom(Mode);
-        [_Mode] ->
-            Z64Mode
-    end.
 
 zip_testcases() ->
     [mode, basic_timestamp, extended_timestamp, uid_gid].
@@ -125,7 +122,7 @@ init_per_group(zip64_group, Config) ->
         {8, error, _} ->
             {skip, "Failed to query disk space for priv_dir. "
              "Is it on a remote file system?~n"};
-        {8, N,M} when N >= 16 * (1 bsl 20), M >= 8 * (1 bsl 30) ->
+        {8, N,M} when N >= 16 * (1 bsl 20), M >= ?EMZIP64_MEM_USAGE ->
             ct:log("Free disk: ~w KByte~n", [N]),
             ct:log("Free memory: ~w MByte~n", [M div (1 bsl 20)]),
             OneMB = <<0:(8 bsl 20)>>,
@@ -147,11 +144,11 @@ init_per_group(Group, Config) ->
                 undefined ->
                     Pdir = filename:join(get_value(priv_dir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
-                    [{pdir, Pdir},{zip, noz64(Group)} | Config];
+                    [{pdir, Pdir},{zip, Group} | Config];
                 _Zip ->
                     Pdir = filename:join(get_value(pdir, Config),Group),
                     ok = filelib:ensure_path(Pdir),
-                    [{pdir, Pdir},{unzip, noz64(Group)} | Config]
+                    [{pdir, Pdir},{unzip, Group} | Config]
             end;
         false ->
             Config
@@ -1569,57 +1566,63 @@ uid_gid(Config) ->
 zip(Config, Archive, ZipOpts, Filelist, Opts) when is_list(Config) ->
     zip(get_value(zip, Config),
         Archive, ZipOpts, Filelist, Opts);
+zip(z64_zip, Archive, ZipOpts, Filelist, Opts) ->
+    zip(zip, Archive, ZipOpts, Filelist, Opts);
 zip(zip, Archive, ZipOpts, Filelist, Opts) ->
     cmd("cd "++get_value(cwd, Opts)++" && "
         "zip "++ZipOpts++" "++Archive++" "++lists:join($ ,Filelist)),
     {ok, Archive};
+zip(z64_ezip, Archive, _ZipOpts, Filelist, Opts) ->
+    zip(ezip, Archive, _ZipOpts, Filelist, Opts);
 zip(ezip, Archive, _ZipOpts, Filelist, Opts) ->
     ct:log("Creating zip:zip(~p,~n~p,~n~p)",[Archive, Filelist, Opts]),
     zip:zip(Archive, Filelist, Opts);
-zip(emzip, Archive, _ZipOpts, Filelist, Opts) ->
-    ct:log("Creating emzip ~ts",[Archive]),
-    Cwd = get_value(cwd, Opts),
-
+zip(z64_emzip, Archive, _ZipOpts, Filelist, Opts) ->
     %% Run in peer node so that memory issues don't crash test node
     {ok, Peer, Node} = ?CT_PEER(#{ args => emzip_peer_args() }),
     try
         erpc:call(
           Node,
           fun() ->
-                  %% For this not to use a huge amount of memory we re-use
-                  %% the binary for files that are the same size as those are the same file.
-                  %% This cuts memory usage from ~16GB to ~4GB.
-
-                  {Files,_Cache} =
-                      lists:mapfoldl(
-                        fun F(Fn, Cache) ->
-                                AbsFn = filename:join(Cwd, Fn),
-                                {ok, Fi} = file:read_file_info(AbsFn),
-                                CacheKey = {Fi#file_info.type, Fi#file_info.size},
-                                {SubDirFiles, NewCache} =
-                                    if Fi#file_info.type == directory ->
-                                            {ok, Files} = file:list_dir(AbsFn),
-                                            lists:mapfoldl(F, Cache#{ CacheKey => <<>> },
-                                                           [filename:join(Fn, DirFn) || DirFn <- Files]);
-                                       Fi#file_info.type == regular ->
-                                            {[],
-                                             case maps:find(CacheKey, Cache) of
-                                                 {ok, _} -> Cache;
-                                                 error ->
-                                                     {ok, Data} = read_file(
-                                                                    file:open(AbsFn, [read, raw, binary]),
-                                                                    Fi#file_info.size),
-                                                     Cache#{ CacheKey => Data }
-                                             end}
-                                    end,
-                                {[{Fn, maps:get(CacheKey, NewCache), Fi}|SubDirFiles], NewCache}
-                        end,  #{}, Filelist),
-                  zip:zip(Archive, lists:flatten(Files), proplists:delete(cwd,Opts))
+            ?MODULE:zip(emzip, Archive, _ZipOpts, Filelist, Opts)
           end)
     after
         peer:stop(Peer)
-    end.
+    end;
+zip(emzip, Archive, _ZipOpts, Filelist, Opts) ->
+    ct:log("Creating emzip ~ts",[Archive]),
+    Cwd = get_value(cwd, Opts),
 
+    
+    %% For this not to use a huge amount of memory we re-use
+    %% the binary for files that are the same size as those are the same file.
+    %% This cuts memory usage from ~16GB to ~4GB.
+
+    {Files,_Cache} =
+        lists:mapfoldl(
+        fun F(Fn, Cache) ->
+                AbsFn = filename:join(Cwd, Fn),
+                {ok, Fi} = file:read_file_info(AbsFn),
+                CacheKey = {Fi#file_info.type, Fi#file_info.size},
+                {SubDirFiles, NewCache} =
+                    if Fi#file_info.type == directory ->
+                            {ok, Files} = file:list_dir(AbsFn),
+                            lists:mapfoldl(F, Cache#{ CacheKey => <<>> },
+                                            [filename:join(Fn, DirFn) || DirFn <- Files]);
+                        Fi#file_info.type == regular ->
+                            {[],
+                                case maps:find(CacheKey, Cache) of
+                                    {ok, _} -> Cache;
+                                    error ->
+                                        {ok, Data} = read_file(
+                                                    file:open(AbsFn, [read, raw, binary]),
+                                                    Fi#file_info.size),
+                                        Cache#{ CacheKey => Data }
+                                end}
+                    end,
+                {[{Fn, maps:get(CacheKey, NewCache), Fi}|SubDirFiles], NewCache}
+        end,  #{}, Filelist),
+    zip:zip(Archive, lists:flatten(Files), proplists:delete(cwd,Opts)).
 
 %% Special read_file that works on windows on > 4 GB files
 read_file({ok, D}, Size) ->
@@ -1639,6 +1642,8 @@ read_file(D, Size) ->
 
 unzip(Config, Archive, Opts) when is_list(Config) ->
     unzip(get_value(unzip, Config), Archive, Opts);
+unzip(z64_unzip, Archive, Opts) ->
+    unzip(unzip, Archive, Opts);
 unzip(unzip, Archive, Opts) ->
     UidGid = [" -X " || lists:member(uid_gid, get_value(extra, Opts, []))],
     Files = lists:join($ , get_value(file_list, Opts, [])),
@@ -1652,41 +1657,43 @@ unzip(unzip, Archive, Opts) ->
                          {match,Match} -> Match
                      end
              end,string:split(Res,"\n",all)))};
+unzip(z64_unezip, Archive, Opts) ->
+    unzip(unezip, Archive, Opts);
 unzip(unezip, Archive, Opts) ->
     Cwd = get_value(cwd, Opts) ++ "/",
     {ok, Files} = zip:unzip(Archive, Opts),
     {ok, lists:sort([F -- Cwd || F <- Files])};
-unzip(unemzip, Archive, Opts) ->
-    Cwd = get_value(cwd, Opts) ++ "/",
-
+unzip(z64_unemzip, Archive, Opts) ->
     %% Run in peer node so that memory issues don't crash test node
     {ok, Peer, Node} = ?CT_PEER(#{ args => emzip_peer_args() }),
     try
       erpc:call(
         Node,
         fun() ->
-                {ok, Files} = zip:unzip(Archive, [memory | Opts]),
-                {ok, lists:sort(
-                       [begin
-                            case lists:last(F) of
-                                $/ ->
-                                    filelib:ensure_path(F);
-                                _ ->
-                                    filelib:ensure_dir(F),
-                                    file:write_file(F, B)
-                            end,
-                            F -- Cwd
-                        end || {F, B} <- Files])}
+            unzip(unemzip, Archive, Opts)
         end)
     after
         peer:stop(Peer)
-    end.
+    end;
+unzip(unemzip, Archive, Opts) ->
+    Cwd = get_value(cwd, Opts) ++ "/",
+    
+    {ok, Files} = zip:unzip(Archive, [memory | Opts]),
+    {ok, lists:sort(
+            [begin
+                case lists:last(F) of
+                    $/ ->
+                        filelib:ensure_path(F);
+                    _ ->
+                        filelib:ensure_dir(F),
+                        file:write_file(F, B)
+                end,
+                F -- Cwd
+            end || {F, B} <- Files])}.
 
 emzip_peer_args() ->
-    case erlang:system_info(wordsize) of
-        8 -> ["+MMscs","809600"]; %% Supercarrier only supported on 64-bit
-        4 -> []
-    end.
+    8 = erlang:system_info(wordsize),%% Supercarrier only supported on 64-bit
+    ["+MMscs",integer_to_list(?EMZIP64_MEM_USAGE div (1024 * 1024))].
 
 cmp(Source, Target) ->
     {ok, SrcInfo} = file:read_file_info(Source),
@@ -1704,7 +1711,7 @@ cmp(Source, Target) ->
 
 %% Check if first 100 MB are the same
 cmp(Src, Tgt, Pos) when Pos < 100 bsl 20 ->
-
+    erlang:garbage_collect(),
     case {file:read(Src, 20 bsl 20), file:read(Tgt, 20 bsl 20)} of
         {{ok, Data}, {ok, Data}} ->
             cmp(Src, Tgt, Pos + 20 bsl 20);
