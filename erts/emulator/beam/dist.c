@@ -838,7 +838,7 @@ int is_node_name_atom(Eterm a)
 	return 0;
     i = atom_val(a);
     ASSERT((i > 0) && (i < atom_table_size()) &&  (atom_tab(i) != NULL));
-    return is_node_name((char*)atom_tab(i)->name, atom_tab(i)->len);
+    return is_node_name((char*)erts_atom_get_name(atom_tab(i)), atom_tab(i)->len);
 }
 
 static void
