@@ -663,11 +663,22 @@ grab_bag(_Config) ->
     %% Cover a line v3_kernel:get_line/1.
     _ = catch << ok || <<>> <= ok, ok >>,
 
+    [] = grab_bag_gh_8617(<<>>),
+    [0] = grab_bag_gh_8617(<<1:1>>),
+    [0,0,0] = grab_bag_gh_8617(<<0:3>>),
+
     ok.
 
 grab_bag_gh_6553(<<X>>) ->
     %% Would crash in beam_ssa_pre_codegen.
     <<X, ((<<_:0>> = <<_>>) = <<>>)>>.
+
+grab_bag_gh_8617(Bin) ->
+    %% GH-8617: CSE would cause a call self/0 to be inserted in
+    %% the middle of a sequence of `bs_match` instructions, causing
+    %% unsafe matching code to be emitted.
+    [0 || <<_:0, _:(tuple_size({self()}))>> <= Bin,
+          is_pid(id(self()))].
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
