@@ -54,6 +54,9 @@ WTARGET_DIR=$(shell (w32_path.sh -d "$(TARGET_DIR)"))
 ifeq ($(CONFIG_SUBTYPE),win64)
   WINTYPE=win64
   REDIST_TARGET=vcredist_x64.exe
+else ifeq ($(CONFIG_SUBTYPE),arm64)
+  WINTYPE=arm64
+  REDIST_TARGET=vcredist_arm64.exe
 else
   WINTYPE=win32
   REDIST_TARGET=vcredist_x86.exe
