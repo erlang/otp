@@ -1718,7 +1718,7 @@ scan_escape([$x,H1], _Col) when ?HEX(H1) ->
     more;
 scan_escape([$x|Cs], Col) ->
     {error,Cs,{illegal,character},incr_column(Col, 1)};
-%% \^X -> Control-X
+%% \^X -> Ctrl+X
 scan_escape([$^=C0,C|Cs], Col) when ?CHAR(C) ->
     case caret_char_code(C) of
         error ->

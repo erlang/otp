@@ -374,9 +374,9 @@ create_menus(Parent) ->
     MenuEntries =
 	[{"View",
 	  [#create_menu{id = ?ID_PORT_INFO_SELECTED,
-			text = "Port info for selected ports\tCtrl-I"},
+			text = "Port info for selected ports\tCtrl+I"},
 	   separator,
-	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 	   #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
 	  ]},
 	 {"Trace",

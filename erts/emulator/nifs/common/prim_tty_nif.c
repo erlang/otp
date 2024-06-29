@@ -467,7 +467,7 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
              *   - Normal key presses
              *   - Microsoft IME
              *   - Pasting into console
-             *   - Using ALT+ modifiers
+             *   - Using Alt+ modifiers
              *
              * ### Normal key presses
              *
@@ -493,11 +493,11 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
              * a keydown event with UnicodeChar set to 0 and then immediately followed by a
              * keyup event with the non-ascii text.
              *
-             * ### Using ALT+ modifiers
+             * ### Using Alt+ modifiers
              *
              * A very old way of inputting Unicode characters on Windows is to press
              * the left alt key and then some numbers on the number pad. For instance
-             * you can type ALT+1 to write a ☺. When doing this first a keydown
+             * you can type Alt+1 to write a ☺. When doing this first a keydown
              * with 0 is sent and then some events later a keyup with the character
              * is sent. This behavior seems to only work on cmd.exe and powershell.
              *
@@ -506,11 +506,11 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
              *  - Normal presses -- Always keydown and keyup events
              *  - IME -- Always keydown, sometimes keyup
              *  - Pasting -- Always keydown=0 directly followed by keyup=value
-             *  - ALT+ -- Sometimes keydown=0 followed eventually by keyup=value
+             *  - Alt+ -- Sometimes keydown=0 followed eventually by keyup=value
              *
              * So in order to read characters we should always read the keydown event,
              * except when it is 0, then we should read the adjacent keyup event.
-             * This covers all modes and consoles except ALT+. If we want ALT+ to work
+             * This covers all modes and consoles except Alt+. If we want Alt+ to work
              * we probably have to use PeekConsoleInput to make sure the correct events
              * are available and inspect the state of the key event somehow.
              **/

@@ -759,12 +759,12 @@ void erts_set_ignore_break(void) {
      * typing certain key combinations at the
      * controlling terminal...
      */
-    sys_signal(SIGINT,  SIG_IGN);       /* Ctrl-C */
-    sys_signal(SIGQUIT, SIG_IGN);       /* Ctrl-\ */
-    sys_signal(SIGTSTP, SIG_IGN);       /* Ctrl-Z */
+    sys_signal(SIGINT,  SIG_IGN);       /* Ctrl+C */
+    sys_signal(SIGQUIT, SIG_IGN);       /* Ctrl+\ */
+    sys_signal(SIGTSTP, SIG_IGN);       /* Ctrl+Z */
 }
 
-/* Don't use ctrl-c for break handler but let it be 
+/* Don't use Ctrl+C for break handler but let it be
    used by the shell instead (see user_drv.erl) */
 void erts_replace_intr(void) {
   struct termios mode;
@@ -772,11 +772,11 @@ void erts_replace_intr(void) {
   if (isatty(0)) {
     tcgetattr(0, &mode);
 
-    /* here's an example of how to replace ctrl-c with ctrl-u */
+    /* here's an example of how to replace Ctrl+C with Ctrl+U */
     /* mode.c_cc[VKILL] = 0;
        mode.c_cc[VINTR] = CKILL; */
 
-    mode.c_cc[VINTR] = 0;	/* disable ctrl-c */
+    mode.c_cc[VINTR] = 0;	/* disable Ctrl+C */
     tcsetattr(0, TCSANOW, &mode);
     replace_intr = 1;
   }

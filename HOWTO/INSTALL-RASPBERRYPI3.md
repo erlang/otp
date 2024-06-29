@@ -241,7 +241,7 @@ Uncheck option:
 
     $ cat > test.c
     $ int main() { printf("Hello, world!\n"); return 0; }
-    <CTRL+D>
+    <Ctrl+D>
     $ armv8-rpi3-linux-gnueabihf-gcc -o test test.c
 
 

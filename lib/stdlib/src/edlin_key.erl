@@ -197,13 +197,13 @@ normal_map() ->
         %% Enter
         "\n" => new_line_finish,
         "\r" => new_line_finish,
-        %%% Alt-Enter or Esc + Enter
+        %%% Alt+Enter or Esc + Enter
         "\^[\n" => new_line,
         "\^[\r" => new_line,
         %% Tab ^I
         "\t" => tab_expand,
 
-        %% Ctrl-alpha_key, can not distinguish case
+        %% Ctrl+alpha_key, can not distinguish case
         "\^A" => beginning_of_line,
         "\^B" => backward_char,
         %%"\^C" => sig_term_menu, currently handled by user_drv.erl
@@ -227,9 +227,9 @@ normal_map() ->
         %%"\^X" => ,
         "\^Y" => yank,
         %%"\^Z" => sig_stop, currently not handled by edlin.erl
-        "\^]" => auto_blink, % ctrl+5 seems to do the same thing,
+        "\^]" => auto_blink, % Ctrl+5 seems to do the same thing,
 
-        %%# Alt-alpha_key or Esc + alpha_key, can distinguish case,
+        %%# Alt+alpha_key or Esc + alpha_key, can distinguish case,
         "\^[B" => backward_word,
         "\^[b" => backward_word,
         "\^[c" => clear_line,
@@ -355,7 +355,7 @@ valid_functions() ->
 %% ^V
 %% ^@, ^\, ^], ^^, ^_  %% not straightforward how to type these
 %% 
-%% Alt-Shift-char, Alt-char or Esc + Shift-char, Esc + char
+%% Alt+Shift+char, Alt+char or Esc + Shift+char, Esc + char
 %% ^[A, a
 %% ^[C
 %% ^[E, e

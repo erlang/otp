@@ -133,7 +133,7 @@ create_pro_menu(Parent, Holder) ->
 				  type=check,
 				  check=call(Holder, {get_accum, self()})},
 		     separator,
-		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl-R"},
+		     #create_menu{id=?ID_REFRESH, text="Refresh\tCtrl+R"},
 		     #create_menu{id=?ID_REFRESH_INTERVAL, text="Refresh Interval"}]},
 		   {"Trace",
 		    [#create_menu{id=?ID_TRACE_PIDS, text="Trace processes"},

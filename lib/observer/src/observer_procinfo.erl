@@ -365,7 +365,7 @@ init_log_page(Parent, Pid, Table) ->
 
 create_menus(MenuBar) ->
     Menus = [{"File", [#create_menu{id=?wxID_CLOSE, text="Close"}]},
-	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl-R"}]}],
+	     {"View", [#create_menu{id=?REFRESH, text="Refresh\tCtrl+R"}]}],
     observer_lib:create_menus(Menus, MenuBar, new_window).
 
 process_info_fields(Pid, WSz) ->

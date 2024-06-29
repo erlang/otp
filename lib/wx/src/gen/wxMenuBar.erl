@@ -30,7 +30,7 @@ frame that contains the menu bar.
 If you have a toolbar which uses the same identifiers as your EVT_MENU entries,
 events from the toolbar will also be processed by your EVT_MENU event handlers.
 
-Tip: under Windows, if you discover that menu shortcuts (for example, Alt-F to
+Tip: under Windows, if you discover that menu shortcuts (for example, Alt+F to
 show the file menu) are not working, check any EVT_CHAR events you are handling
 in child windows. If you are not calling event.Skip() for events that you don't
 process in these event handlers, menu shortcuts may cease to work.
