@@ -591,7 +591,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 		a = atom_tab(atom_val(atom));
                 sz = a->len;
                 ep -= sz;
-                sys_memcpy((void *) ep, (void *) erts_atom_get_name(a), sz);
+                sys_memcpy((void *) ep, (void *) a->name, sz);
 		if (long_atoms) {
 		    ep -= 2;
 		    put_int16(sz, ep);
@@ -2910,16 +2910,16 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 		put_int8(len, ep);
 		ep += 1;
 	    }
-	    sys_memcpy((char *) ep, (char *) erts_atom_get_name(a), len);
+	    sys_memcpy((char *) ep, (char *) a->name, len);
 	}
 	else {
 	    if (a->latin1_chars <= 255 && (dflags & DFLAG_SMALL_ATOM_TAGS)) {
 		*ep++ = SMALL_ATOM_EXT;
 		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+1, erts_atom_get_name(a), len);
+		    sys_memcpy(ep+1, a->name, len);
 		}
 		else {
-		    len = erts_utf8_to_latin1(ep+1, erts_atom_get_name(a), len);
+		    len = erts_utf8_to_latin1(ep+1, a->name, len);
 		    ASSERT(len == a->latin1_chars);
 		}
 		put_int8(len, ep);
@@ -2928,10 +2928,10 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 	    else {
 		*ep++ = ATOM_EXT;
 		if (len == a->latin1_chars) {
-		    sys_memcpy(ep+2, erts_atom_get_name(a), len);
+		    sys_memcpy(ep+2, a->name, len);
 		}
 		else {
-		    len = erts_utf8_to_latin1(ep+2, erts_atom_get_name(a), len);
+		    len = erts_utf8_to_latin1(ep+2, a->name, len);
 		    ASSERT(len == a->latin1_chars);
 		}
 		put_int16(len, ep);

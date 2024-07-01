@@ -1024,7 +1024,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			    }
 			}
                         ASSERT(tmpb != NULL);
-			sys_memcpy(tmpb,erts_atom_get_name(ap),ap->len);
+			sys_memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
 			ErlDrvSizeT slen;

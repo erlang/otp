@@ -201,8 +201,8 @@ ERTS_GLB_INLINE int erts_cmp_atoms(Eterm a, Eterm b) {
         return diff;
     }
 
-    name_a = &erts_atom_get_name(aa)[3];
-    name_b = &erts_atom_get_name(bb)[3];
+    name_a = &aa->name[3];
+    name_b = &bb->name[3];
     len_a = aa->len-3;
     len_b = bb->len-3;
 
