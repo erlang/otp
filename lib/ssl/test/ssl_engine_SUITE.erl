@@ -47,8 +47,8 @@ all() ->
     ].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             case crypto:info_lib() of
                 [{_,_, <<"OpenSSL 1.0.1s-freebsd  1 Mar 2016">>}] ->

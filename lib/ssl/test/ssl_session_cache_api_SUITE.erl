@@ -47,8 +47,8 @@ all() ->
      client_cb].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             ssl_test_lib:clean_start(),
             Config0

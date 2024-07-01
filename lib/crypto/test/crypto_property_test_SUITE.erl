@@ -39,7 +39,7 @@ all() -> [encrypt_decrypt_one_time,
 %%% First prepare Config and compile the property tests for the found tool:
 init_per_suite(Config) ->
     case
-        try crypto:start() of
+        try application:start(crypto) of
             ok -> true;
             {error, already_started} -> true;
             {error,{already_started,crypto}} -> true;

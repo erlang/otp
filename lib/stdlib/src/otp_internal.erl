@@ -36,6 +36,8 @@ obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
 obsolete(code, lib_dir, 2) ->
     {deprecated, "this functionality will be removed in a future release"};
+obsolete(crypto, enable_fips_mode, 1) ->
+    {deprecated, "use config parameter fips_mode"};
 obsolete(crypto, private_decrypt, 4) ->
     {deprecated, "do not use"};
 obsolete(crypto, private_encrypt, 4) ->
@@ -46,6 +48,10 @@ obsolete(crypto, public_encrypt, 4) ->
     {deprecated, "do not use"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
+obsolete(crypto, start, 0) ->
+    {deprecated, "use application:start(crypto) instead"};
+obsolete(crypto, stop, 0) ->
+    {deprecated, "use application:stop(crypto) instead"};
 obsolete(dbg, stop_clear, 0) ->
     {deprecated, "use dbg:stop/0 instead", "OTP 27"};
 obsolete(disk_log, inc_wrap_file, 1) ->
@@ -330,5 +336,7 @@ obsolete_callback(gen_server, format_status, 2) ->
     {deprecated, "use format_status/1 instead"};
 obsolete_callback(gen_statem, format_status, 2) ->
     {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_fsm, _, _) ->
+    {deprecated, "use the 'gen_statem' module instead"};
 obsolete_callback(_,_,_) -> no.
 

@@ -594,7 +594,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
     end;
 
 encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
-    _ = crypto:start(),
+    _ = application:start(crypto),
     {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(SrcFileName) of
 	{ok,Bin0} ->
@@ -633,7 +633,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
     end;
 
 decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
-    _ = crypto:start(),
+    _ = application:start(crypto),
     {CryptoKey,IVec} = make_crypto_key(Key),
     case file:read_file(EncryptFileName) of
 	{ok,Bin} ->

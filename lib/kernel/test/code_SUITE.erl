@@ -111,7 +111,7 @@ end_per_suite(Config) ->
 -define(TESTMODOBJ, ?TESTMODSTR ".beam").
 
 init_per_testcase(big_boot_embedded, Config) ->
-    case catch crypto:start() of
+    case catch application:start(crypto) of
 	ok ->
 	    init_per_testcase(do_big_boot_embedded, Config);
 	_Else ->

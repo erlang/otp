@@ -3053,7 +3053,7 @@ maybe_stop_crypto() ->
     case (catch crypto:version()) of
 	{'EXIT', {undef, _}} ->
 	    %% This is the version of crypto before the NIFs...
-	    crypto:stop();
+	    application:stop(crypto);
 	_ ->
 	    %% There is nothing to stop in this version of crypto..
 	    ok

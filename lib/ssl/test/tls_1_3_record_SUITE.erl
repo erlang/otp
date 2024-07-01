@@ -55,8 +55,8 @@ all() ->
      '0_RTT_handshake'].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try (ok == crypto:start()) andalso ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
+    catch application:stop(crypto),
+    try (ok == application:start(crypto)) andalso ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
 	true ->
 	    ssl_test_lib:clean_start(),
             Config;
