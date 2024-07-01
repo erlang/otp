@@ -54,7 +54,8 @@
          erl_1424/1, net_kernel_start/1, differing_cookies/1,
          cmdline_setcookie_2/1, connection_cookie/1,
          dyn_differing_cookies/1,
-         xdg_cookie/1]).
+         xdg_cookie/1,
+         allowed/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -107,7 +108,9 @@ all() ->
      {group, monitor_nodes},
      erl_uds_dist_smoke_test,
      erl_1424, net_kernel_start,
-     {group, differing_cookies}].
+     {group, differing_cookies},
+     allowed
+     ].
 
 groups() -> 
     [{monitor_nodes, [],
@@ -2719,7 +2722,100 @@ xdg_cookie(Config) when is_list(Config) ->
 
     ok.
 
+allowed(_Config) ->
+    %% inspired by differing_cookies/1
+    test_server:timetrap({minutes, 1}),
+    Node = node(),
+    true = Node =/= nonode@nohost,
+    [] = nodes(),
+    BaseName = atom_to_list(?FUNCTION_NAME),
 
+    %% Use -hidden nodes to avoid global connecting all nodes
+
+    %% Start node A with different cookie
+    NodeAName = BaseName++"_nodeA",
+    NodeA = full_node_name(NodeAName),
+    NodeACookieL = BaseName++"_cookieA",
+    NodeACookie = list_to_atom(NodeACookieL),
+    true = erlang:set_cookie( NodeA, NodeACookie ),
+    { ok, NodeA } =
+        start_node( "-hidden", NodeAName, "-setcookie "++NodeACookieL ),
+   
+    %% allow Node on NodeA so that other connections are dismissed
+    {ok,[]} = rpc:call(NodeA, net_kernel, allowed, []),
+    ok = rpc:call(NodeA, net_kernel, allow, [[Node]]),
+    {ok,[Node]} = rpc:call(NodeA, net_kernel, allowed, []),
+    try
+
+        %% Verify the cluster
+        [ NodeA ] = nodes(hidden),
+        [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+
+        %% Start node B with another different cookie
+        NodeBName = BaseName++"_nodeB",
+        NodeB = full_node_name(NodeBName),
+        NodeBCookieL = BaseName++"_cookieB",
+        NodeBCookie = list_to_atom(NodeBCookieL),
+        true = erlang:set_cookie( NodeB, NodeBCookie ),
+        { ok, NodeB } =
+            start_node( "-hidden", NodeBName, "-setcookie "++NodeBCookieL ),
+
+        try
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] ),
+
+            %% Verify that the nodes can not connect
+            %% before correcting the cookie configuration
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Configure cookie and connect node A -> B
+            true = rpc:call( NodeA, erlang, set_cookie, [NodeB, NodeBCookie] ),
+            %% Verify that the nodes can not connect
+            %% even though they have the same cookie
+            pang = rpc:call( NodeA, net_adm, ping, [NodeB] ),
+            pang = rpc:call( NodeB, net_adm, ping, [NodeA] ),
+
+            %% Allow node B on node A
+            ok = rpc:call(NodeA, net_kernel, allow, [[NodeB]]),
+            {ok,[Node,NodeB]} = rpc:call(NodeA, net_kernel, allowed, []),
+            pong = rpc:call(NodeA, net_adm, ping, [NodeB]),
+            pong = rpc:call(NodeB, net_adm, ping, [NodeA]),
+
+            %% Verify that A can connect to B
+            %% even though they have different cookies
+            true = rpc:call( NodeA, erlang, set_cookie, [NodeB, NodeACookie] ),
+            pong = rpc:call(NodeA, net_adm, ping, [NodeB]),
+            pong = rpc:call(NodeB, net_adm, ping, [NodeA]),
+
+            %% Verify the cluster
+            NodeACookie = rpc:call( NodeA, erlang, get_cookie, []),
+            NodeBCookie = rpc:call( NodeB, erlang, get_cookie, []),
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            equal_sets( [Node, NodeB],
+                        rpc:call( NodeA, erlang, nodes, [hidden] )),
+            equal_sets( [Node, NodeA],
+                        rpc:call( NodeB, erlang, nodes, [hidden] )),
+
+            %% Disconnect node A from B
+            true = rpc:call( NodeB, net_kernel, disconnect, [NodeA] ),
+
+            %% Verify the cluster
+            equal_sets( [NodeA, NodeB], nodes(hidden) ),
+            [ Node ] = rpc:call( NodeA, erlang, nodes, [hidden] ),
+            [ Node ] = rpc:call( NodeB, erlang, nodes, [hidden] )
+
+        after
+            _ = stop_node(NodeB)
+        end
+    after
+        _ = stop_node(NodeA)
+    end,
+    [] = nodes(hidden),
+    ok.
 
 %% Misc. functions
 
