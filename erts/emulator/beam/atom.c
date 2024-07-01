@@ -89,7 +89,7 @@ more_atom_space(void)
 {
     AtomText* ptr;
 
-    ptr = (AtomText*) erts_alloc(ERTS_ALC_T_LITERAL, sizeof(AtomText));
+    ptr = (AtomText*) erts_alloc(ERTS_ALC_T_ATOM_TXT, sizeof(AtomText));
 
     ptr->next = text_list;
     text_list = ptr;
@@ -105,28 +105,19 @@ more_atom_space(void)
  * Allocate string space within an atom text segment.
  */
 
-static Eterm*
-atom_text_alloc(int bytes, Uint* size)
+static byte*
+atom_text_alloc(int bytes)
 {
     byte *res;
 
     ASSERT(bytes <= MAX_ATOM_SZ_LIMIT);
-    if (bytes <= ERL_ONHEAP_BINARY_LIMIT) {
-        bytes = heap_bits_size(NBITS(bytes));
-    } else {
-        bytes = ERL_REFC_BITS_SIZE;
-    }
-    bytes *= sizeof(Eterm);
-
     if (atom_text_pos + bytes >= atom_text_end) {
 	more_atom_space();
     }
     res = atom_text_pos;
     atom_text_pos += bytes;
     atom_space    += bytes;
-    *size = bytes;
-    ASSERT(_is_taggable_pointer(res));
-    return (Eterm*)res;
+    return res;
 }
 
 /*
@@ -137,7 +128,7 @@ atom_text_alloc(int bytes, Uint* size)
 static HashValue
 atom_hash(Atom* obj)
 {
-    byte* p = obj->u.name;
+    byte* p = obj->name;
     int len = obj->len;
     HashValue h = 0, g;
     byte v;
@@ -159,22 +150,12 @@ atom_hash(Atom* obj)
     return h;
 }
 
-byte *erts_atom_get_name(Atom *atom)
-{
-    byte *name;
-    Uint size;
-    Uint offset;
-    ERTS_GET_BITSTRING(atom->u.bin, name, size, offset);
-    (void) size;
-    (void) offset;
-    return name;
-}
 
 static int 
 atom_cmp(Atom* tmpl, Atom* obj)
 {
     if (tmpl->len == obj->len &&
-	sys_memcmp(tmpl->u.name, erts_atom_get_name(obj), tmpl->len) == 0)
+	sys_memcmp(tmpl->name, obj->name, tmpl->len) == 0)
 	return 0;
     return 1;
 }
@@ -183,18 +164,13 @@ atom_cmp(Atom* tmpl, Atom* obj)
 static Atom*
 atom_alloc(Atom* tmpl)
 {
-    Eterm* bin_ptr;
-    Uint size = 0;
-    ErtsHeapFactory factory;
     Atom* obj = (Atom*) erts_alloc(ERTS_ALC_T_ATOM, sizeof(Atom));
-    bin_ptr = atom_text_alloc(tmpl->len, &size);
-    erts_factory_tmp_init(&factory, bin_ptr, size, ERTS_ALC_T_LITERAL);
-    obj->u.bin = erts_hfact_new_binary_from_data(&factory, 0, tmpl->len, tmpl->u.name);
-    erts_set_literal_tag(&obj->u.bin, bin_ptr, size);
+
+    obj->name = atom_text_alloc(tmpl->len);
+    sys_memcpy(obj->name, tmpl->name, tmpl->len);
     obj->len = tmpl->len;
     obj->latin1_chars = tmpl->latin1_chars;
     obj->slot.index = -1;
-    
 
     /*
      * Precompute ordinal value of first 3 bytes + 7 bits.
@@ -210,7 +186,7 @@ atom_alloc(Atom* tmpl)
 
 	j = (tmpl->len < 4) ? tmpl->len : 4;
 	for(i = 0; i < j; ++i)
-	    c[i] = tmpl->u.name[i];
+	    c[i] = tmpl->name[i];
 	for(; i < 4; ++i)
 	    c[i] = '\0';
 	obj->ord0 = (c[0] << 23) + (c[1] << 15) + (c[2] << 7) + (c[3] >> 1);
@@ -317,7 +293,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
     }
 
     a.len = tlen;
-    a.u.name = (byte *) text;
+    a.name = (byte *) text;
     atom_read_lock();
     aix = index_get(&erts_atom_table, (void*) &a);
     atom_read_unlock();
@@ -357,7 +333,7 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     a.len = tlen;
     a.latin1_chars = (Sint16) no_latin1_chars;
-    a.u.name = (byte *) text;
+    a.name = (byte *) text;
     atom_write_lock();
     aix = index_put(&erts_atom_table, (void*) &a);
     atom_write_unlock();
@@ -424,7 +400,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
 
         latin1_to_utf8(utf8_copy, sizeof(utf8_copy), (const byte**)&name, &len);
 
-        a.u.name = (byte*)name;
+        a.name = (byte*)name;
         a.len = (Sint16)len;
         break;
     case ERTS_ATOM_ENC_7BIT_ASCII:
@@ -439,7 +415,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
         }
 
         a.len = (Sint16)len;
-        a.u.name = (byte*)name;
+        a.name = (byte*)name;
         break;
     case ERTS_ATOM_ENC_UTF8:
         if (len > MAX_ATOM_SZ_LIMIT) {
@@ -451,7 +427,7 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
          * name will fail. */
 
         a.len = (Sint16)len;
-        a.u.name = (byte*)name;
+        a.name = (byte*)name;
         break;
     }
 
@@ -518,19 +494,18 @@ init_atom_table(void)
 	int ix;
 	a.len = sys_strlen(erl_atom_names[i]);
 	a.latin1_chars = a.len;
-	a.u.name = (byte*)erl_atom_names[i];
+	a.name = (byte*)erl_atom_names[i];
 	a.slot.index = i;
-
-
 #ifdef DEBUG
 	/* Verify 7-bit ascii */
 	for (ix = 0; ix < a.len; ix++) {
-	    ASSERT((a.u.name[ix] & 0x80) == 0);
+	    ASSERT((a.name[ix] & 0x80) == 0);
 	}
 #endif
 	ix = index_put(&erts_atom_table, (void*) &a);
-    (void) ix;
-    ASSERT(erts_atom_get_name(atom_tab(ix)));
+	atom_text_pos -= a.len;
+	atom_space -= a.len;
+	atom_tab(ix)->name = (byte*)erl_atom_names[i];
     }
 
 }

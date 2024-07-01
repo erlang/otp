@@ -1799,9 +1799,9 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
             return 0;
         }
         if (ap->latin1_chars == ap->len) {
-            sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
+            sys_memcpy(buf, ap->name, ap->len);
         } else {
-            int dlen = erts_utf8_to_latin1((byte*)buf, erts_atom_get_name(ap), ap->len);
+            int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
             ASSERT(dlen == ap->latin1_chars); (void)dlen;
         }
         buf[ap->latin1_chars] = '\0';
@@ -1810,7 +1810,7 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
         if (ap->len >= len) {
             return 0;
         }
-        sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
+        sys_memcpy(buf, ap->name, ap->len);
         buf[ap->len] = '\0';
         return ap->len + 1;
     }
@@ -4480,8 +4480,8 @@ void erts_print_nif_taints(fmtfn_t to, void* to_arg)
 
     t = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
     for ( ; t; t = t->next) {
-	Atom* atom = atom_tab(atom_val(t->module_atom));
-	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, erts_atom_get_name(atom));
+	const Atom* atom = atom_tab(atom_val(t->module_atom));
+	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
 	delim = ",";
     }
     erts_cbprintf(to,to_arg,"\n");

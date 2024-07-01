@@ -2929,10 +2929,10 @@ BIF_RETTYPE atom_to_list_1(BIF_ALIST_1)
 	BIF_RET(NIL);	/* the empty atom */
 
     ares =
-	erts_analyze_utf8(erts_atom_get_name(ap), ap->len, &err_pos, &num_chars, NULL);
+	erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
     ASSERT(ares == ERTS_UTF8_OK); (void)ares;
     
-    res = erts_utf8_to_list(BIF_P, num_chars, erts_atom_get_name(ap), ap->len, ap->len,
+    res = erts_utf8_to_list(BIF_P, num_chars, ap->name, ap->len, ap->len,
 			    &num_built, &num_eaten, NIL);
     ASSERT(num_built == num_chars);
     ASSERT(num_eaten == ap->len);

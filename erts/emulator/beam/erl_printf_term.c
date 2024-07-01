@@ -234,7 +234,7 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 	return res;
     }
 
-    s = erts_atom_get_name(atom_tab(i));
+    s = atom_tab(i)->name;
     n = atom_tab(i)->len;
 
     *dcount -= atom_tab(i)->len;
@@ -657,7 +657,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                     Atom *ap = atom_tab(atom_val(fe->module));
 
                     PRINT_STRING(res, fn, arg, "#Fun<");
-                    PRINT_BUF(res, fn, arg, erts_atom_get_name(ap), ap->len);
+                    PRINT_BUF(res, fn, arg, ap->name, ap->len);
                     PRINT_CHAR(res, fn, arg, '.');
                     PRINT_SWORD(res, fn, arg, 'd', 0, 1,
                             (ErlPfSWord) fe->old_index);

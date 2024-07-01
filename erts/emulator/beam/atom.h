@@ -50,10 +50,7 @@ typedef struct atom {
     Sint16 len;      /* length of atom name (UTF-8 encoded) */
     Sint16 latin1_chars; /* 0-255 if atom can be encoded in latin1; otherwise, -1 */
     int ord0;        /* ordinal value of first 3 bytes + 7 bits */
-    union{
-        byte* name;      /* name of atom, used by templates */
-        Eterm bin;       /* name of atom, used when atom is in table*/
-    } u;
+    byte* name;      /* name of atom */
 } Atom;
 
 extern IndexTable erts_atom_table;
@@ -61,8 +58,6 @@ extern IndexTable erts_atom_table;
 ERTS_GLB_INLINE Atom* atom_tab(Uint i);
 ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term);
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1);
-
-byte *erts_atom_get_name(Atom *atom);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE Atom*
@@ -78,7 +73,7 @@ ERTS_GLB_INLINE int erts_is_atom_utf8_bytes(byte *text, size_t len, Eterm term)
 	return 0;
     a = atom_tab(atom_val(term));
     return (len == (size_t) a->len
-	    && sys_memcmp((void *) erts_atom_get_name(a), (void *) text, len) == 0);
+	    && sys_memcmp((void *) a->name, (void *) text, len) == 0);
 }
 
 ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
@@ -92,7 +87,7 @@ ERTS_GLB_INLINE int erts_is_atom_str(const char *str, Eterm term, int is_latin1)
 	return 0;
     a = atom_tab(atom_val(term));
     len = a->len;
-    aname = erts_atom_get_name(a);
+    aname = a->name;
     if (is_latin1) {
 	for (i = 0; i < len; s++) {
 	    if (aname[i] < 0x80) {

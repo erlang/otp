@@ -39,7 +39,7 @@ extern "C"
 
 static std::string getAtom(Eterm atom) {
     Atom *ap = atom_tab(atom_val(atom));
-    return std::string((char *)erts_atom_get_name(ap), ap->len);
+    return std::string((char *)ap->name, ap->len);
 }
 
 BeamAssemblerCommon::BeamAssemblerCommon(BaseAssembler &assembler_)
