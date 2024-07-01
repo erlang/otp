@@ -121,7 +121,6 @@ add_edge(State, Src, Dst, Lbl) ->
 derive_from(Dst, Src, State) ->
     ?DP("Deriving ~p from ~p~nSS:~n~s~n", [Dst, Src, dump(State)]),
     ?assert_state(State),
-    ?ASSERT(assert_variable_exists(Dst, State)),
     case {beam_digraph:vertex(State, Dst, unique),
           beam_digraph:vertex(State, Src, plain)} of
         {_,plain} ->
@@ -142,7 +141,13 @@ derive_from(Dst, Src, State) ->
                 false ->
                     %% Source is not aliased and has not been embedded
                     %% in a term, record that it now is.
-                    ?assert_state(add_edge(State, Src, Dst, embed))
+                    State1 = case beam_digraph:has_vertex(State, Dst) of
+                                 true ->
+                                     State;
+                                 false ->
+                                     beam_ssa_ss:add_var(Dst, unique, State)
+                             end,
+                    ?assert_state(add_edge(State1, Src, Dst, embed))
             end
     end.
 
@@ -240,7 +245,8 @@ extract_element(Dst, Src, Element, [], State0) ->
     %% aliased (checked in extract/4). It could be that we're about to
     %% extract an element which is known to be aliased.
     ?DP("  the element has not been extracted so far~n"),
-    State = ?assert_state(add_edge(State0, Src, Dst, {extract,Element})),
+    State1 = beam_ssa_ss:add_var(Dst, unique, State0),
+    State = ?assert_state(add_edge(State1, Src, Dst, {extract,Element})),
     extract_status_for_element(Element, Src, Dst, State).
 
 extract_status_for_element(Element, Src, Dst, State0) ->
@@ -266,11 +272,7 @@ extract_status_for_element(Element, Src, Dst, State0) ->
             ?DP("    Returned SS~n~s~n", [dump(State)]),
             ?assert_state(State);
         {[], [{Aggregate,_Dst,{extract,E}}]} ->
-            %% We are trying extract from an extraction. The database
-            %% keeps no information about the strucure of the
-            %% extracted term. We have to conservatively set the
-            %% status of Dst to aliased.
-
+            %% We are trying extract from an extraction.
             S = get_status_of_extracted_element(Aggregate, [E,Element], State0),
             ?DP("    status of ~p will be ~p~n", [Dst, S]),
             ?assert_state(set_status(Dst, S, State0))

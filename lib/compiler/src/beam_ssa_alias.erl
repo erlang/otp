@@ -436,21 +436,20 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             {bif,Bif} ->
                 {aa_bif(Dst, Bif, Args, SS0, AAS0), AAS0};
             bs_create_bin ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 case Args of
                     [#b_literal{val=Flag},_,Arg|_] when
                           Flag =:= private_append ; Flag =:= append ->
                         case aa_all_dies([Arg], Dst, AAS0) of
                             true ->
                                 %% Inherit the status of the argument
-                                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                                {aa_derive_from(Dst, Arg, SS0), AAS0};
                             false ->
                                 %% We alias with the surviving arg
-                                {aa_set_aliased([Dst|Args], SS1), AAS0}
+                                {aa_set_aliased([Dst|Args], SS0), AAS0}
                         end;
                     _ ->
                         %% TODO: Too conservative?
-                        {aa_set_aliased([Dst|Args], SS1), AAS0}
+                        {aa_set_aliased([Dst|Args], SS0), AAS0}
                 end;
             bs_extract ->
                 {aa_set_aliased([Dst|Args], SS0), AAS0};
@@ -472,27 +471,22 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 aa_call(Dst, Args, Anno0, SS1, AAS0);
             'catch_end' ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [_Tag,Arg] = Args,
-                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                {aa_derive_from(Dst, Arg, SS0), AAS0};
             extract ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [Arg,_] = Args,
-                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                {aa_derive_from(Dst, Arg, SS0), AAS0};
             get_hd ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [Arg] = Args,
                 Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
-                {aa_pair_extraction(Dst, Arg, hd, Type, SS1), AAS0};
+                {aa_pair_extraction(Dst, Arg, hd, Type, SS0), AAS0};
             get_map_element ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [Map,_Key] = Args,
-                {aa_map_extraction(Dst, Map, SS1, AAS0), AAS0};
+                {aa_map_extraction(Dst, Map, SS0, AAS0), AAS0};
             get_tl ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [Arg] = Args,
                 Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
-                {aa_pair_extraction(Dst, Arg, tl, Type, SS1), AAS0};
+                {aa_pair_extraction(Dst, Arg, tl, Type, SS0), AAS0};
             get_tuple_element ->
                 [Arg,Idx] = Args,
                 Types = maps:get(arg_types, Anno0, #{}),
@@ -506,16 +500,14 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             peek_message ->
                 {aa_set_aliased(Dst, SS0), AAS0};
             phi ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
-                {aa_phi(Dst, Args, SS1, AAS0), AAS0};
+                {aa_phi(Dst, Args, SS0, AAS0), AAS0};
             put_list ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 Types =
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
                 {aa_construct_pair(Dst, Args, Types, SS1, AAS0), AAS0};
             put_map ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
             put_tuple ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 Types = aa_map_arg_to_type(Args,
@@ -523,8 +515,7 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                 Values = lists:enumerate(0, Args),
                 {aa_construct_tuple(Dst, Values, Types, SS1, AAS0), AAS0};
             update_tuple ->
-                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
             update_record ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [#b_literal{val=Hint},_Size,Src|Updates] = Args,
@@ -1086,32 +1077,27 @@ aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
     %% point in trying to provide aa_tuple_extraction/5 with type
     %% information.
     aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, #{}, SS);
-aa_bif(Dst, element, [#b_literal{},Tuple], SS0, _AAS) ->
+aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
     %% This BIF will fail, but in order to avoid any later transforms
     %% making use of uniqueness, conservatively alias.
-    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_set_aliased([Dst,Tuple], SS);
-aa_bif(Dst, element, [#b_var{},Tuple], SS0, _AAS) ->
-    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
+aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
     aa_set_aliased([Dst,Tuple], SS);
-aa_bif(Dst, hd, [Pair], SS0, _AAS) ->
+aa_bif(Dst, hd, [Pair], SS, _AAS) ->
     %% The hd bif is always rewritten to a get_hd instruction when the
     %% argument is known to be a pair. Therefore this code is only
     %% reached when the type of Pair is unknown, thus there is no
     %% point in trying to provide aa_pair_extraction/5 with type
     %% information.
-    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_pair_extraction(Dst, Pair, hd, SS);
-aa_bif(Dst, tl, [Pair], SS0, _AAS) ->
+aa_bif(Dst, tl, [Pair], SS, _AAS) ->
     %% The tl bif is always rewritten to a get_tl instruction when the
     %% argument is known to be a pair. Therefore this code is only
     %% reached when the type of Pair is unknown, thus there is no
     %% point in trying to provide aa_pair_extraction/5 with type
     %% information.
-    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_pair_extraction(Dst, Pair, tl, SS);
-aa_bif(Dst, map_get, [_Key,Map], SS0, AAS) ->
-    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
+aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
 aa_bif(Dst, binary_part, Args, SS0, _AAS) ->
     %% bif:binary_part/{2,3} is the only guard bif which could lead to
@@ -1215,9 +1201,9 @@ aa_pair_extraction(Dst, Pair, Element, SS) ->
 
 aa_pair_extraction(Dst, #b_var{}=Pair, Element, Type, SS) ->
     IsPlainValue = case {Type,Element} of
-                       {#t_cons{type=Ty},hd} ->
-                           aa_is_plain_type(Ty);
                        {#t_cons{terminator=Ty},tl} ->
+                           aa_is_plain_type(Ty);
+                       {#t_cons{type=Ty},hd} ->
                            aa_is_plain_type(Ty);
                        _ ->
                            %% There is no type information,
@@ -1242,11 +1228,11 @@ aa_map_extraction(Dst, Map, SS, AAS) ->
       aa_alias_inherit_and_alias_if_arg_does_not_die(Dst, Map, SS, AAS)).
 
 %% Extracting elements from a tuple.
-aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS0) ->
+aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
     TupleType = maps:get(0, Types, any),
     TypeIdx = I+1, %% In types tuple indices starting at zero.
     IsPlainValue = case TupleType of
-                       #t_tuple{elements=#{TypeIdx:=T}} ->
+                       #t_tuple{elements=#{TypeIdx:=T}} when T =/= any ->
                            aa_is_plain_type(T);
                        _ ->
                            %% There is no type information,
@@ -1257,12 +1243,12 @@ aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS0) ->
     ?DP("tuple-extraction dst:~p, tuple: ~p, idx: ~p,~n"
         "  type: ~p,~n  plain: ~p~n",
         [Dst, Tuple, I, TupleType, IsPlainValue]),
-    if IsPlainValue ->
+    case IsPlainValue of
+        true ->
             %% A plain value was extracted, it doesn't change the
             %% alias status of Dst nor the tuple.
-             SS0;
-       true ->
-            SS = beam_ssa_ss:add_var(Dst, unique, SS0),
+            SS;
+        false ->
             beam_ssa_ss:extract(Dst, Tuple, I, SS)
     end;
 aa_tuple_extraction(_, #b_literal{}, _, _, SS) ->
