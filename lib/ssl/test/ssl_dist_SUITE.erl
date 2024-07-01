@@ -48,6 +48,8 @@
          monitor_nodes/1,
          payload/0,
          payload/1,
+         multisend/0,
+         multisend/1,
          dist_port_overload/0,
          dist_port_overload/1,
          plain_options/0,
@@ -78,6 +80,7 @@
 -export([basic_test/3,
          monitor_nodes_test/3,
          payload_test/3,
+         multisend_test/3,
          plain_options_test/3,
          plain_verify_options_test/3,
          do_listen_options/2,
@@ -119,6 +122,7 @@ all() ->
      ktls_verify,
      monitor_nodes,
      payload,
+     multisend,
      dist_port_overload,
      plain_options,
      plain_verify_options,
@@ -391,6 +395,11 @@ payload() ->
     [{doc,"Test that send a lot of data between the ssl distributed nodes"}].
 payload(Config) when is_list(Config) ->
     gen_dist_test(payload_test, Config).
+
+multisend() ->
+    [{doc,"Test that sends a payload to multiple receivers over ssl distributed nodes"}].
+multisend(Config) when is_list(Config) ->
+    gen_dist_test(multisend_test, Config).
 
 %%--------------------------------------------------------------------
 dist_port_overload() ->
@@ -830,6 +839,39 @@ payload_test(NH1, NH2, _) ->
 			    end
 		    end)
      end.
+
+multisend_test(NH1, NH2, _) ->
+    Node1 = NH1#node_handle.nodename,
+    Node2 = NH2#node_handle.nodename,
+
+    pong = apply_on_ssl_node(NH1, fun () -> net_adm:ping(Node2) end),
+
+    verify_tls(NH1, NH2),
+
+    [Node2] = apply_on_ssl_node(NH1, fun () -> nodes() end),
+    [Node1] = apply_on_ssl_node(NH2, fun () -> nodes() end),
+
+    ProcCount = 10,
+    Ref = make_ref(),
+    spawn(fun () ->
+                  apply_on_ssl_node(
+                    NH1,
+                    fun () ->
+                            F = fun() -> receive {ping, From} -> From ! {pong, self()} end end,
+                            Pids = [ spawn(F) || _ <- lists:seq(1, ProcCount) ],
+                            send_to_tstcntrl({Ref, Pids})
+                    end)
+          end),
+    receive
+        {Ref, Pids} ->
+            ok = apply_on_ssl_node(
+                   NH2,
+                   fun () ->
+                           Pids ! {ping, self()},
+                           [ receive {pong, Pid} -> ok end || Pid <- Pids ],
+                           ok
+                   end)
+    end.
 
 plain_options_test(NH1, NH2, _) ->
     Node1 = NH1#node_handle.nodename,
