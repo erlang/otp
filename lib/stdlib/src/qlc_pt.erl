@@ -292,9 +292,15 @@ record_attributes(Forms) ->
 %% transformation.
 %%
 compile_messages(Forms, FormsNoShadows, Options, State) ->
-    %% The qlc module cannot handle binary generators.
-    BGenF = fun(_QId,{b_generate,Anno,_P,_LE}=BGen, GA, A) ->
+    %% The qlc module can only handle skipping list generators.
+    BGenF = fun(_QId,{Type,Anno,_P,_LE}=BGen, GA, A) when Type =:= b_generate; Type =:= b_generate_ns ->
                     M = {loc(Anno),?APIMOD,binary_generator},
+                    {BGen,[{get(?QLC_FILE),[M]}|GA],A};
+               (_QId,{Type,Anno,_P,_LE}=BGen, GA, A) when Type =:= m_generate; Type =:= m_generate_ns ->
+                    M = {loc(Anno),?APIMOD,map_generator},
+                    {BGen,[{get(?QLC_FILE),[M]}|GA],A};
+               (_QId,{generate_ns,Anno,_P,_LE}=BGen, GA, A) ->
+                    M = {loc(Anno),?APIMOD,non_skipping_generator},
                     {BGen,[{get(?QLC_FILE),[M]}|GA],A};
                (_QId, Q, GA, A) ->
                     {Q,GA,A}

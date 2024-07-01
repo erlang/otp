@@ -127,7 +127,11 @@ the code base that might collide with keywords in features not yet enabled.
 
 The following configurable features exist:
 
-- **`maybe_expr` (experimental)** - Implementation of the
+- **`maybe_expr` (approved)** - Implementation of the
   [`maybe`](expressions.md#maybe) expression proposed in
   [EEP 49](https://www.erlang.org/eeps/eep-0049).
   It was approved in Erlang/OTP 27.
+
+- **`non_skipping_generators` (experimental)** - Introduction of
+  non-skipping variant of generators to be used in
+  [comprehensions](expressions.md#comprehensions).

@@ -173,8 +173,9 @@ RELSYSDIR = $(RELEASE_PATH)/compiler_test
 # FLAGS
 # ----------------------------------------------------
 
+NON_SKIPPING_GENERATORS_OPT = '+{enable_feature,non_skipping_generators}'
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += +clint +clint0 +ssalint +nowarn_missing_spec_documented
+ERL_COMPILE_FLAGS += +clint +clint0 +ssalint +nowarn_missing_spec_documented ${NON_SKIPPING_GENERATORS_OPT}
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
@@ -265,7 +266,7 @@ docs:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt

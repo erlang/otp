@@ -74,6 +74,15 @@ feature_specs() ->
             experimental => 25,
             approved => 27,
             keywords => ['maybe', 'else'],
+            type => extension},
+      non_skipping_generators =>
+          #{short => "Non-skipping generators",
+            description =>
+                "Introduction of non-skipping variant of generators "
+            "to be used in comprehensions.",
+            status => experimental,
+            experimental => 28,
+            keywords => [],
             type => extension}}.
 
 %% Return all currently known features.

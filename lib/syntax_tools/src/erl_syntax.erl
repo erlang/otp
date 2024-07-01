@@ -269,6 +269,15 @@ trees.
 	 named_fun_expr_clauses/1,
 	 named_fun_expr_name/1,
 	 nil/0,
+         non_skipping_binary_generator/2,
+         non_skipping_binary_generator_body/1,
+         non_skipping_binary_generator_pattern/1,
+         non_skipping_generator/2,
+         non_skipping_generator_body/1,
+         non_skipping_generator_pattern/1,
+         non_skipping_map_generator/2,
+         non_skipping_map_generator_body/1,
+         non_skipping_map_generator_pattern/1,
 	 operator/1,
 	 operator_literal/1,
 	 operator_name/1,
@@ -621,8 +630,11 @@ type(Node) ->
 	{cons, _, _, _} -> list;
 	{function, _, _, _, _} -> function;
 	{b_generate, _, _, _} -> binary_generator;
+	{b_generate_ns, _, _, _} -> non_skipping_binary_generator;
 	{generate, _, _, _} -> generator;
+	{generate_ns, _, _, _} -> non_skipping_generator;
 	{m_generate, _, _, _} -> map_generator;
+	{m_generate_ns, _, _, _} -> non_skipping_map_generator;
 	{lc, _, _, _} -> list_comp;
 	{bc, _, _, _} -> binary_comp;
 	{mc, _, _, _} -> map_comp;
@@ -2650,7 +2662,7 @@ compact_list(Node) ->
 					  copy_attrs(Node,
 						     Node1));
 			_ ->
-			    Node 
+			    Node
 		    end
 	    end;
 	_ ->
@@ -3172,7 +3184,7 @@ revert_attribute(Node) ->
 
 revert_attribute_1(module, [M], Pos, Node) ->
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, A};
 	error -> Node
     end;
@@ -3189,7 +3201,7 @@ revert_attribute_1(module, [M, List], Pos, Node) ->
 		 Node
 	 end,
     case revert_module_name(M) of
-	{ok, A} -> 
+	{ok, A} ->
 	    {attribute, Pos, module, {A, Vs}};
 	error -> Node
     end;
@@ -5838,6 +5850,68 @@ generator_body(Node) ->
 
 %% =====================================================================
 
+-record(non_skipping_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract non-skipping list generator.
+
+The result represents "`*Pattern*<-:- *Body*`".
+
+_See also: _`binary_comp/2`, `non_skipping_generator_body/1`,
+`non_skipping_generator_pattern/1`, `list_comp/2`.
+""".
+-spec non_skipping_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {generate_ns, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+non_skipping_generator(Pattern, Body) ->
+    tree(non_skipping_generator, #non_skipping_generator{pattern = Pattern, body = Body}).
+
+revert_non_skipping_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = non_skipping_generator_pattern(Node),
+    Body = non_skipping_generator_body(Node),
+    {generate_ns, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`non_skipping_generator/2`.
+""".
+-spec non_skipping_generator_pattern(syntaxTree()) -> syntaxTree().
+
+non_skipping_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{generate_ns, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#non_skipping_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`non_skipping_generator/2`.
+""".
+-spec non_skipping_generator_body(syntaxTree()) -> syntaxTree().
+
+non_skipping_generator_body(Node) ->
+    case unwrap(Node) of
+	{generate_ns, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#non_skipping_generator.body
+    end.
+
+
+%% =====================================================================
+
 -record(binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 -doc """
@@ -5900,6 +5974,68 @@ binary_generator_body(Node) ->
 
 %% =====================================================================
 
+-record(non_skipping_binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract non-skipping binary_generator.
+
+The result represents "`*Pattern*<-:- *Body*`".
+
+_See also: _`binary_comp/2`, `non_skipping_binary_generator_body/1`,
+`non_skipping_binary_generator_pattern/1`, `list_comp/2`.
+""".
+-spec non_skipping_binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {b_generate_ns, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+non_skipping_binary_generator(Pattern, Body) ->
+    tree(non_skipping_binary_generator, #non_skipping_binary_generator{pattern = Pattern, body = Body}).
+
+revert_non_skipping_binary_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = non_skipping_binary_generator_pattern(Node),
+    Body = non_skipping_binary_generator_body(Node),
+    {b_generate_ns, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`non_skipping_binary_generator/2`.
+""".
+-spec non_skipping_binary_generator_pattern(syntaxTree()) -> syntaxTree().
+
+non_skipping_binary_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{b_generate_ns, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#non_skipping_binary_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`non_skipping_binary_generator/2`.
+""".
+-spec non_skipping_binary_generator_body(syntaxTree()) -> syntaxTree().
+
+non_skipping_binary_generator_body(Node) ->
+    case unwrap(Node) of
+	{b_generate_ns, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#non_skipping_binary_generator.body
+    end.
+
+
+%% =====================================================================
+
 -record(map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 -doc """
@@ -5957,6 +6093,68 @@ map_generator_body(Node) ->
 	    Body;
 	Node1 ->
 	    (data(Node1))#map_generator.body
+    end.
+
+
+%% =====================================================================
+
+-record(non_skipping_map_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
+
+-doc """
+Creates an abstract non-skipping map_generator. The result represents
+"`*Pattern*<- *Body*`".
+
+_See also: _`list_comp/2`, `map_comp/2`,
+`non_skipping_map_generator_body/1`,
+`non_skipping_map_generator_pattern/1`.
+""".
+-spec non_skipping_map_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {m_generate_ns, Pos, Pattern, Body}
+%%
+%%	Pattern = Body = erl_parse()
+
+non_skipping_map_generator(Pattern, Body) ->
+    tree(non_skipping_map_generator, #non_skipping_map_generator{pattern = Pattern, body = Body}).
+
+revert_non_skipping_map_generator(Node) ->
+    Pos = get_pos(Node),
+    Pattern = non_skipping_map_generator_pattern(Node),
+    Body = non_skipping_map_generator_body(Node),
+    {m_generate_ns, Pos, Pattern, Body}.
+
+
+-doc """
+Returns the pattern subtree of a `generator` node.
+
+_See also: _`non_skipping_map_generator/2`.
+""".
+-spec non_skipping_map_generator_pattern(syntaxTree()) -> syntaxTree().
+
+non_skipping_map_generator_pattern(Node) ->
+    case unwrap(Node) of
+	{m_generate_ns, _, Pattern, _} ->
+	    Pattern;
+	Node1 ->
+	    (data(Node1))#non_skipping_map_generator.pattern
+    end.
+
+
+-doc """
+Returns the body subtree of a `generator` node.
+
+_See also: _`non_skipping_map_generator/2`.
+""".
+-spec non_skipping_map_generator_body(syntaxTree()) -> syntaxTree().
+
+non_skipping_map_generator_body(Node) ->
+    case unwrap(Node) of
+	{m_generate_ns, _, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#non_skipping_map_generator.body
     end.
 
 
@@ -7337,6 +7535,12 @@ revert_root(Node) ->
 	    revert_named_fun_expr(Node);
 	nil ->
 	    revert_nil(Node);
+	non_skipping_binary_generator ->
+	    revert_non_skipping_binary_generator(Node);
+	non_skipping_generator ->
+	    revert_non_skipping_generator(Node);
+	non_skipping_map_generator ->
+	    revert_non_skipping_map_generator(Node);
 	parentheses ->
 	    revert_parentheses(Node);
 	prefix_expr ->
@@ -7528,7 +7732,7 @@ subtrees(T) ->
 			     Ts]
 		    end;
 	        binary_generator ->
-		    [[binary_generator_pattern(T)], 
+		    [[binary_generator_pattern(T)],
                      [binary_generator_body(T)]];
                 bitstring_type ->
                     [[bitstring_type_m(T)],
@@ -7655,6 +7859,15 @@ subtrees(T) ->
 		named_fun_expr ->
 			[[named_fun_expr_name(T)],
 			 named_fun_expr_clauses(T)];
+                non_skipping_binary_generator ->
+                    [[non_skipping_binary_generator_pattern(T)],
+                     [non_skipping_binary_generator_body(T)]];
+                non_skipping_generator ->
+                    [[non_skipping_generator_pattern(T)],
+                     [non_skipping_generator_body(T)]];
+                non_skipping_map_generator ->
+                    [[non_skipping_map_generator_pattern(T)],
+                     [non_skipping_map_generator_body(T)]];
 		parentheses ->
 		    [[parentheses_body(T)]];
 		prefix_expr ->
@@ -7816,6 +8029,9 @@ make_tree(maybe_expr, [Body, [Else]]) -> maybe_expr(Body, Else);
 make_tree(maybe_match_expr, [[P], [E]]) -> maybe_match_expr(P, E);
 make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
+make_tree(non_skipping_binary_generator, [[P], [E]]) -> non_skipping_binary_generator(P, E);
+make_tree(non_skipping_generator, [[P], [E]]) -> non_skipping_generator(P, E);
+make_tree(non_skipping_map_generator, [[P], [E]]) -> non_skipping_map_generator(P, E);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);
 make_tree(receive_expr, [C]) -> receive_expr(C);
