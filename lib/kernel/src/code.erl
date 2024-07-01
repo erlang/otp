@@ -1773,8 +1773,7 @@ locate application resource files.
       Filename :: file:filename(),
       Absname :: file:filename().
 where_is_file(File) when is_list(File) ->
-    Path = get_path(),
-    where_is_file(Path, File).
+    call({where_is_file, File}).
 
 %% To avoid unnecessary work when looking at many modules, this also
 %% accepts pairs of directories and pre-fetched contents in the path
