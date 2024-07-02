@@ -742,7 +742,7 @@ BOOLEAN_T esock_decode_hwsockaddr(ErlNifEnv*    env,
                                   SOCKLEN_T*    addrLen)
 {
     ERL_NIF_TERM efamily;
-    int          family = ARPHRD_VOID;
+    int          family = -1;
 
     if (!IS_MAP(env, eSockAddr))
         return FALSE;
@@ -807,6 +807,8 @@ BOOLEAN_T esock_decode_hwsockaddr(ErlNifEnv*    env,
     }
 #endif
 
+    if (family == -1)
+	return FALSE;
 
     return esock_decode_sockaddr_native(env, eSockAddr,
                                         sockAddrP, family, addrLen);
