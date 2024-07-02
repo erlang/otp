@@ -171,6 +171,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {"fun_tab",				        NULL},
     {"atom_tab",				NULL},
     LEVEL,
+    {"global_literals",                         NULL},
+    LEVEL,
     {"alcu_allocator",			        "index"},
     LEVEL,
     {"mseg",				        NULL},
