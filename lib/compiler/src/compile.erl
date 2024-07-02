@@ -2588,6 +2588,8 @@ compile_info(File, CompilerOpts, Opts) ->
 	case paranoid_absname(File) of
 	    [_|_] = Source when not IsSlim, not IsDeterministic ->
 		[{source,Source} | Info0];
+	    [_|_] = Source when IsDeterministic ->
+		[{source,filename:basename(Source)} | Info0];
 	    _ ->
 		Info0
 	end,
