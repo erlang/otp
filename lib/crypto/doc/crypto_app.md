@@ -51,6 +51,7 @@ The following configuration parameters are defined for the crypto application.
 See [`app(3)`](`e:kernel:app.md`) for more information about configuration
 parameters.
 
+[](){: #fips_mode }
 - **`fips_mode = boolean()`** - Specifies whether to run crypto in FIPS mode.
   This setting will take effect when the nif module is loaded. If FIPS mode is
   requested but not available at run time the nif module and thus the crypto

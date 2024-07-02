@@ -18,6 +18,13 @@
 #
 
 #
+# Added in OTP 28.
+#
+crypto:start/0 since=28
+crypto:stop/0 since=28
+crypto:enable_fips_mode/1 since=28
+
+#
 # Added in OTP 27.
 #
 mnesia_registry:create_table/_ since=27 remove=28

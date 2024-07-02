@@ -193,7 +193,7 @@ do_init(Config) ->
 
     %% Start used applications
     ?DEBUG("ensure crypto started", []), 
-    crypto:start(),
+    application:start(crypto),
     ?DEBUG("ensure ssh started", []), 
     ssh:start(),
 

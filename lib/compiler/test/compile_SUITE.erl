@@ -644,7 +644,7 @@ encrypted_abstr(Config) when is_list(Config) ->
 		  OldPath = code:get_path(),
 		  try
 		      NewPath = OldPath -- [filename:dirname(code:which(crypto))],
-		      (catch crypto:stop()),
+		      (catch application:stop(crypto)),
 		      code:delete(crypto),
 		      code:purge(crypto),
 		      code:set_path(NewPath),
@@ -804,8 +804,8 @@ verify_abstract(Beam, Backend) ->
 
 has_crypto() ->
     try
-	crypto:start(),
-	crypto:stop(),
+	application:start(crypto),
+	application:stop(crypto),
 	true
     catch
 	error:_ -> false

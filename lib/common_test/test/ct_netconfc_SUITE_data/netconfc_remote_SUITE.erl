@@ -70,7 +70,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     ssh:stop(),
-    crypto:stop(),
+    application:stop(crypto),
     Config.
 
 %% This test case is related to seq12645

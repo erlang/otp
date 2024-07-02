@@ -321,7 +321,7 @@ get_client_opts(Config) ->
 
 init_per_suite(Config0, Type) ->
     end_per_suite(Config0),
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
             clean_start(),
             ssl:clear_pem_cache(),

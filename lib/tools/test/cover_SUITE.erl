@@ -204,7 +204,7 @@ compile(Config) when is_list(Config) ->
     remove(files(Files, ".beam")).
 
 crypto_works() ->
-    try crypto:start() of
+    try application:start(crypto) of
         {error,{already_started,crypto}} -> true;
         ok -> true
     catch

@@ -228,8 +228,8 @@ init_per_group(Group, Config0) when Group == https_basic;
                                     Group == https_not_sup;
                                     Group == https_alert
 				    ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             init_ssl(Group,  [{http_version, "HTTP/1.0"} | Config0])
     catch

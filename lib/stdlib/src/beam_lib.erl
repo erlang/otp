@@ -1376,7 +1376,7 @@ anno_from_forms(Forms0) ->
     [erl_parse:anno_from_term(Form) || Form <- Forms].
 
 start_crypto() ->
-    case crypto:start() of
+    case application:start(crypto) of
 	{error, {already_started, _}} ->
 	    ok;
 	ok ->

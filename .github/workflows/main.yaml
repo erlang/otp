@@ -212,7 +212,7 @@ jobs:
           cd otp/release
           ./Install -sasl $PWD
           ./bin/erl -noshell -eval 'io:format("~s", [erlang:system_info(system_version)]), halt().'
-          ./bin/erl -noshell -eval 'ok = crypto:start(), io:format("crypto ok~n"), halt().'
+          ./bin/erl -noshell -eval 'ok = application:start(crypto), io:format("crypto ok~n"), halt().'
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball

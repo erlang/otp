@@ -16,7 +16,7 @@
 %%-------------------------------------------------------------------------
 -define(CHECK_CRYPTO(UsersInitCode),
 	try
-            crypto:start(),
+            application:start(crypto),
             ssh_test_lib:try_enable_fips_mode()
 	of
             ok -> UsersInitCode;

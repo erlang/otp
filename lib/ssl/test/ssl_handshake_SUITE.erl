@@ -83,8 +83,8 @@ end_per_group(_,Config) ->
 init_per_testcase(TC, Config0) when
       TC =:= ignore_hassign_extension_pre_tls_1_2 orelse
       TC =:= signature_algorithms ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    case is_supported(sha512) of
 		true ->
@@ -105,7 +105,7 @@ init_per_testcase(_, Config0) ->
     Config0.
 
 end_per_testcase(ignore_hassign_extension_pre_tls_1_2, _) ->
-    crypto:stop();
+    application:stop(crypto);
 end_per_testcase(_TestCase, Config) ->
     Config.
 

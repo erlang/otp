@@ -204,7 +204,7 @@ groups() ->
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
     application:stop(crypto),
-    try crypto:start() of
+    try application:start(crypto) of
         ok ->
             application:start(asn1),
             Config
