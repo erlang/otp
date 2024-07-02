@@ -159,7 +159,7 @@ file_1(Config) when is_list(Config) ->
     %% Test option 'deterministic'.
     {ok,simple} = compile:file(Simple, [deterministic]),
     {module,simple} = c:l(simple),
-    [{version,_}] = simple:module_info(compile),
+    [{version,_},{source,"simple.erl"}] = simple:module_info(compile),
     true = code:delete(simple),
     false = code:purge(simple),
 
@@ -172,7 +172,7 @@ file_1(Config) when is_list(Config) ->
     {DetPath, DetTarget} = get_files(Config, Det, "det_target"),
     {ok,Det,DetCode} = compile:file(DetPath, [binary]),
     {module,Det} = code:load_binary(Det, "", DetCode),
-    [{version,_}] = Det:module_info(compile),
+    [{version,_},{source,"deterministic_module.erl"}] = Det:module_info(compile),
     true = code:delete(Det),
     false = code:purge(Det),
 
