@@ -239,17 +239,6 @@ void erl_error(const char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
-static void init_constant_literals(void) {
-       Eterm* hp = erts_alloc_global_literal(ERTS_LIT_EMPTY_TUPLE, 2);
-       Eterm tuple;
-       hp[0] = make_arityval_zero();
-       hp[1] = make_arityval_zero();
-       tuple = make_tuple(hp);
-       erts_register_global_literal(ERTS_LIT_EMPTY_TUPLE, tuple);
-       ERTS_GLOBAL_LIT_EMPTY_TUPLE =
-           erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
-}
-
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
@@ -263,7 +252,7 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
-    init_constant_literals();
+    init_global_literals();
     erts_monitor_link_init();
     erts_bif_unique_init();
     erts_proc_sig_queue_init(); /* Must be after erts_bif_unique_init(); */

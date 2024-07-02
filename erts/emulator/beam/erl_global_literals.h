@@ -21,19 +21,15 @@
 #ifndef __ERL_GLOBAL_LITERALS_H__
 #define __ERL_GLOBAL_LITERALS_H__
 
-#define ERTS_LIT_OS_TYPE         0
-#define ERTS_LIT_OS_VERSION      1
-#define ERTS_LIT_DFLAGS_RECORD   2
-#define ERTS_LIT_EMPTY_TUPLE     3
-#define ERTS_LIT_ERL_FILE_SUFFIX 4
-
-#define ERTS_NUM_GLOBAL_LITERALS 5
-
+extern Eterm ERTS_GLOBAL_LIT_OS_TYPE;
+extern Eterm ERTS_GLOBAL_LIT_OS_VERSION;
+extern Eterm ERTS_GLOBAL_LIT_DFLAGS_RECORD;
+extern Eterm ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX;
 extern Eterm ERTS_GLOBAL_LIT_EMPTY_TUPLE;
 
-Eterm* erts_alloc_global_literal(Uint index, Uint sz);
-void erts_register_global_literal(Uint index, Eterm term);
-Eterm erts_get_global_literal(Uint index);
-ErtsLiteralArea* erts_get_global_literal_area(Uint index);
+void init_global_literals(void);
+Eterm *erts_global_literal_allocate(Uint sz, struct erl_off_heap_header ***ohp);
+void erts_global_literal_register(Eterm *variable, Eterm *hp, Uint heap_size);
+ErtsLiteralArea *erts_global_literal_iterate_area(ErtsLiteralArea *prev);
 
 #endif

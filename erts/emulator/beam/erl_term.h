@@ -317,8 +317,8 @@ _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 /*
   Due to an optimization that assumes that the word after the arity
   word is allocated, one should generally not create tuples of arity
-  zero. One should instead use the literal that can be obtained by
-  calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+  zero. One should instead use the literal identified by 
+  ERTS_GLOBAL_LIT_EMPTY_TUPLE.
 
   If one really wants to create a zero arityval one should use
   make_arityval_zero() or make_arityval_unchecked(sz)
@@ -517,7 +517,7 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Eterm)
   Due to an optimization that assumes that the word after the arity
   word is allocated, one should generally not create tuples of arity
   zero on heaps. One should instead use the literal that can be
-  obtained by calling erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE).
+  obtained by use the literal identified by ERTS_GLOBAL_LIT_EMPTY_TUPLE.
  */
 #define TUPLE1(t,e1) \
         ((t)[0] = make_arityval(1), \
