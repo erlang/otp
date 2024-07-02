@@ -3373,6 +3373,9 @@ cpool_link(ErtsAlcCPoolData_t* link,
     ErtsAlcCPoolData_t *prev, *next;
     erts_aint_t val;
 
+    ASSERT(link->thr_prgr == ERTS_THR_PRGR_INVALID
+           || erts_thr_progress_has_reached(link->thr_prgr));
+
     /* Find a predecessor to be, and set mod marker on its next ptr */
 
     prev = start_after;
@@ -7097,7 +7100,8 @@ typedef struct alcu_blockscan {
     ErtsAlcCPoolData_t *cpool_cursor;
     CarrierList_t *current_clist;
     Carrier_t *clist_cursor;
-    Carrier_t dummy_carrier;
+    Carrier_t dummy_carriers[2];
+    Carrier_t *dummy_carrier;
 
     /* Called if the process that started this job dies before we're done. */
     void (*abort)(void *user_data);
@@ -7120,9 +7124,9 @@ static Carrier_t *blockscan_restore_clist_cursor(blockscan_t *state)
     Carrier_t *cursor = state->clist_cursor;
 
     ASSERT(state->clist_cursor == (state->current_clist)->first ||
-           state->clist_cursor == &state->dummy_carrier);
+           state->clist_cursor == state->dummy_carrier);
 
-    if (cursor == &state->dummy_carrier) {
+    if (cursor == state->dummy_carrier) {
         cursor = cursor->next;
 
         unlink_carrier(state->current_clist, state->clist_cursor);
@@ -7134,9 +7138,9 @@ static Carrier_t *blockscan_restore_clist_cursor(blockscan_t *state)
 static void blockscan_save_clist_cursor(blockscan_t *state, Carrier_t *after)
 {
     ASSERT(state->clist_cursor == (state->current_clist)->first ||
-           state->clist_cursor == &state->dummy_carrier);
+           state->clist_cursor == state->dummy_carrier);
 
-    state->clist_cursor = &state->dummy_carrier;
+    state->clist_cursor = state->dummy_carrier;
 
     (state->clist_cursor)->next = after->next;
     (state->clist_cursor)->prev = after;
@@ -7181,8 +7185,18 @@ static ErtsAlcCPoolData_t *blockscan_restore_cpool_cursor(blockscan_t *state)
 
     cursor = cpool_aint2cpd(cpool_read(&(state->cpool_cursor)->next));
 
-    if (state->cpool_cursor == &state->dummy_carrier.cpool) {
-        cpool_unlink(&state->dummy_carrier.cpool);
+    if (state->cpool_cursor == &(state->dummy_carrier)->cpool) {
+        cpool_unlink(&(state->dummy_carrier)->cpool);
+
+        /* A given (dummy) carrier cannot be re-linked into the pool until
+         * thread progress has been made, so we alternate between two dummy
+         * carriers to get around that limitation. */
+        if (state->dummy_carrier == &state->dummy_carriers[0]) {
+            state->dummy_carrier = &state->dummy_carriers[1];
+        } else {
+            ASSERT(state->dummy_carrier == &state->dummy_carriers[1]);
+            state->dummy_carrier = &state->dummy_carriers[0];
+        }
     }
 
     return cursor;
@@ -7191,9 +7205,9 @@ static ErtsAlcCPoolData_t *blockscan_restore_cpool_cursor(blockscan_t *state)
 static void blockscan_save_cpool_cursor(blockscan_t *state,
                                         ErtsAlcCPoolData_t *after)
 {
-    cpool_link(&state->dummy_carrier.cpool, after, after);
+    cpool_link(&(state->dummy_carrier)->cpool, after, after);
 
-    state->cpool_cursor = &state->dummy_carrier.cpool;
+    state->cpool_cursor = &(state->dummy_carrier)->cpool;
 }
 
 static int blockscan_cpool_yielding(blockscan_t *state)
@@ -7297,7 +7311,7 @@ static int blockscan_sweep_sbcs(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_sbcs) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_SBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_SBC, state->allocator);
         state->current_clist = &(state->allocator)->sbc_list;
         state->clist_cursor = (state->current_clist)->first;
     }
@@ -7319,7 +7333,7 @@ static int blockscan_sweep_mbcs(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_mbcs) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->current_clist = &(state->allocator)->mbc_list;
         state->clist_cursor = (state->current_clist)->first;
     }
@@ -7341,7 +7355,7 @@ static int blockscan_sweep_cpool(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_cpool) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->cpool_cursor = (state->allocator)->cpool.sentinel;
     }
 
@@ -7430,9 +7444,13 @@ static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
 
     erts_proc_inc_refc(scanner->process);
 
-    cpool_init_carrier_data(scanner->allocator, &scanner->dummy_carrier);
-    erts_atomic_init_nob(&(scanner->dummy_carrier).allctr,
-                         (erts_aint_t)allocator | ERTS_CRR_ALCTR_FLG_BUSY);
+    /* See blockscan_restore_cpool_cursor */
+    for (int i = 0; i < 2; i++) {
+        cpool_init_carrier_data(scanner->allocator, &scanner->dummy_carriers[i]);
+        erts_atomic_init_nob(&(scanner->dummy_carriers[i]).allctr,
+                             (erts_aint_t)allocator | ERTS_CRR_ALCTR_FLG_BUSY);
+    }
+    scanner->dummy_carrier = &scanner->dummy_carriers[0];
 
     if (ERTS_ALC_IS_CPOOL_ENABLED(scanner->allocator)) {
         scanner->next_op = blockscan_sweep_cpool;
@@ -7449,6 +7467,47 @@ static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
     erts_schedule_misc_aux_work(aux_work_tid, blockscan_sched_trampoline, scanner);
 }
 
+static void continue_scan_after_thr_prgr(void *arg)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+    ErtsAuxWorkData *awdp;
+    blockscan_t *scanner;
+
+    awdp = erts_get_aux_work_data();
+
+    yield = &awdp->yield.alcu_blockscan;
+    scanner = yield->current;
+    scanner->next_op = (int (*)(blockscan_t*))arg;
+
+    erts_more_yield_aux_work(awdp);
+}
+
+static void next_scanner_after_thr_prgr(void *arg)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+    ErtsAuxWorkData *awdp;
+    blockscan_t *scanner;
+
+    awdp = erts_get_aux_work_data();
+    yield = &awdp->yield.alcu_blockscan;
+    scanner = yield->current;
+
+    ASSERT(ERTS_PROC_IS_EXITING(scanner->process) ||
+           scanner->current_op == blockscan_finish);
+
+    yield->current = scanner->scanner_queue;
+
+    if (yield->current == NULL) {
+        ASSERT(scanner == yield->last);
+        yield->last = NULL;
+    }
+
+    erts_proc_dec_refc(scanner->process);
+    free(scanner);
+
+    erts_more_yield_aux_work(awdp);
+}
+
 int erts_handle_yielded_alcu_blockscan(ErtsAuxWorkData *awdp)
 {
     ErtsAlcuBlockscanYieldData *yield = &awdp->yield.alcu_blockscan;
@@ -7456,27 +7515,36 @@ int erts_handle_yielded_alcu_blockscan(ErtsAuxWorkData *awdp)
 
     ASSERT((yield->last == NULL) == (yield->current == NULL));
 
-    if (scanner) {
+    if (scanner && scanner->next_op) {
         if (scanner->next_op(scanner)) {
-            return 1;
+            if (!awdp->esdp) {
+                /* Regular aux thread; keep going without waiting for thread
+                 * progress. */
+                return 1;
+            }
+
+            /* If we're on a normal scheduler we may be scanning a
+             * carrier pool, which requires us to wait for thread progress
+             * before scheduling back in or freeing the scanner. */
+            ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
+            erts_schedule_thr_prgr_later_op(continue_scan_after_thr_prgr,
+                                            scanner->next_op,
+                                            &yield->later_op);
+            scanner->next_op = NULL;
+        } else {
+            if (!awdp->esdp) {
+                /* Regular aux thread; keep going without waiting for thread
+                 * progress. */
+                next_scanner_after_thr_prgr(awdp);
+                return yield->current != NULL;
+            }
+
+            ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
+            erts_schedule_thr_prgr_later_op(next_scanner_after_thr_prgr,
+                                            awdp,
+                                            &yield->later_op);
+            scanner->next_op = NULL;
         }
-
-        ASSERT(ERTS_PROC_IS_EXITING(scanner->process) ||
-               scanner->current_op == blockscan_finish);
-
-        yield->current = scanner->scanner_queue;
-
-        if (yield->current == NULL) {
-            ASSERT(scanner == yield->last);
-            yield->last = NULL;
-        }
-
-        erts_proc_dec_refc(scanner->process);
-
-        /* Plain free is intentional. */
-        free(scanner);
-
-        return yield->current != NULL;
     }
 
     return 0;
@@ -7653,7 +7721,8 @@ static void gather_ahist_update(gather_ahist_t *state,
     hist_node = hist_tree_rbt_lookup(state->hist_tree, &key);
 
     if (hist_node == NULL) {
-        /* Plain calloc is intentional. */
+        /* Plain calloc is intentional to avoid using the allocators we are
+         * scanning. */
         hist_node = (hist_tree_t*)calloc(1,
                                          sizeof(hist_tree_t) +
                                          (state->hist_slot_count - 1) *
@@ -7900,7 +7969,8 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
 
     ensure_atoms_initialized(allocator);
 
-    /* Plain calloc is intentional. */
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     gather_state = (gather_ahist_t*)calloc(1, sizeof(gather_ahist_t));
     gather_state->flags = flags;
 
@@ -7968,6 +8038,9 @@ static int gather_cinfo_scan(Allctr_t *allocator,
     Block_t *block;
 
     state = (gather_cinfo_t*)user_data;
+
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     node = calloc(1, sizeof(chist_node_t) +
                      (state->hist_slot_count - 1) *
                      sizeof(node->free_histogram[0]));
@@ -8225,7 +8298,8 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
 
     ensure_atoms_initialized(allocator);
 
-    /* Plain calloc is intentional. */
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     gather_state = (gather_cinfo_t*)calloc(1, sizeof(gather_cinfo_t));
     scanner = &gather_state->common;
 
