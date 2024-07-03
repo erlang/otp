@@ -30,6 +30,30 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, ssh client will automatically adjust
+	    transfer window size for commands executed remotely over
+	    SSH.</p>
+          <p>
+	    Own Id: OTP-19057 Aux Id: PR-8345, GH-7483 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, race condition between connection
+	    closing and automatic window adjustment is fixed.</p>
+          <p>
+	    Own Id: OTP-19109 Aux Id: PR-8345 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15.3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
