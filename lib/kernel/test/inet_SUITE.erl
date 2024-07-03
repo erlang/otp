@@ -1857,7 +1857,7 @@ getifaddrs_verify_backend(IF, I_INFO, S_INFO) ->
                                 %% Happens on windows
                                 io:format("flags for ~p *acceptably* "
                                           "different~n", [IF]),
-                                IR1, SR1;
+                                {IR1, SR1};
                             _ ->
                                 ct:fail(ifaddrs_not_equal)
                         end;
