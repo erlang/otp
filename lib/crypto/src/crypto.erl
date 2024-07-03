@@ -794,13 +794,21 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
     end.
 
 -doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to [`application:start(crypto)`](`application:start/1`).".
+-doc """
+Use [`application:start(crypto)`](`application:start/1`) instead.
+
+> #### Warning {: .warning }
+>
+> This function does not work if FIPS mode is to be enabled. FIPS mode will be
+> disabled even if configuration parameter `fips_mode` is set to `true`. Use
+> [`application:start(crypto)`](`application:start/1`) instead.
+""".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
 -doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to [`application:stop(crypto)`](`application:stop/1`).".
+-doc "Use [`application:stop(crypto)`](`application:stop/1`) instead.".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
     application:stop(crypto).
