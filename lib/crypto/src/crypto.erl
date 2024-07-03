@@ -3478,7 +3478,15 @@ on_load() ->
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
     LibBin   = path2bin(Lib),
-    FipsMode = application:get_env(crypto, fips_mode, false) == true,
+    {FipsMode,AppLoaded} =
+        case application:get_env(crypto, fips_mode) of
+            {ok, true} -> {true, loaded};
+            {ok, _} -> {false, loaded};
+            undefined ->
+                %% We assume application crypto has a default value for fips_mode.
+                %% If undefined the application has not been loaded.
+                {false, unloaded}
+        end,
     Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
@@ -3500,7 +3508,9 @@ on_load() ->
 		 Error1 -> Error1
 	     end,
     case Status of
-	ok -> ok;
+	ok ->
+            warn_app_not_loaded_maybe(AppLoaded),
+            ok;
 	{error, {E, Str}} ->
             Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
             Extra = case E of
@@ -3510,6 +3520,19 @@ on_load() ->
                     end,
 	    error_logger:error_msg(Fmt, [E,Str,Extra]),
 	    Status
+    end.
+
+warn_app_not_loaded_maybe(loaded) ->
+    ok;
+warn_app_not_loaded_maybe(unloaded) ->
+    %% For backward compatible reasons we allow application crypto
+    %% not being loaded.
+    case info_fips() of
+        not_enabled ->
+            logger:warning("Module 'crypto' loaded without application 'crypto' being loaded.\n"
+                           "Without application config 'fips_mode' loaded, FIPS mode is disabled by default.");
+        _ ->
+            ok
     end.
 
 path2bin(Path) when is_list(Path) ->
