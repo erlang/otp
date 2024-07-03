@@ -623,17 +623,23 @@ build_content(Context, THash) ->
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = Hello,
-         #state{ssl_options = #{ciphers := ServerCiphers,
-                                signature_algs := ServerSignAlgs,
-                                supported_groups := ServerGroups0,
-                                alpn_preferred_protocols := ALPNPreferredProtocols,
-                                keep_secrets := KeepSecrets,
-                                honor_cipher_order := HonorCipherOrder,
-                                early_data := EarlyDataEnabled}} = State0) ->
+         State0) ->
     SNI = maps:get(sni, Extensions, undefined),
     EarlyDataIndication = maps:get(early_data, Extensions, undefined),
     {Ref,Maybe} = maybe(),
     try
+        #state{connection_states = ConnectionStates0,
+               session = Session0,
+               ssl_options = #{ciphers := ServerCiphers,
+                               signature_algs := ServerSignAlgs,
+                               supported_groups := ServerGroups0,
+                               alpn_preferred_protocols := ALPNPreferredProtocols,
+                               keep_secrets := KeepSecrets,
+                               honor_cipher_order := HonorCipherOrder,
+                               early_data := EarlyDataEnabled},
+               connection_env = #connection_env{cert_key_alts = CertKeyAlts}} = State1 =
+            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
+
         ClientGroups0 = Maybe(supported_groups_from_extensions(Extensions)),
         ClientGroups = Maybe(get_supported_groups(ClientGroups0)),
         ServerGroups = Maybe(get_supported_groups(ServerGroups0)),
@@ -653,11 +659,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         CertAuths = get_certificate_authorities(maps:get(certificate_authorities, Extensions, undefined)),
         CookieExt = maps:get(cookie, Extensions, undefined),
         Cookie = get_cookie(CookieExt),
-
-        #state{connection_states = ConnectionStates0,
-               session = Session0,
-               connection_env = #connection_env{cert_key_alts = CertKeyAlts}} = State1 =
-            Maybe(ssl_gen_statem:handle_sni_extension(SNI, State0)),
 
         Maybe(validate_cookie(Cookie, State1)),
 
