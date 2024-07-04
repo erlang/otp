@@ -113,8 +113,8 @@ Interface address filtering selector.
 
 - **default** - Interfaces with address family `inet` _or_ `inet6`
 
-- **inet | inet6 | packet| link** - Interfaces with _only_ the specified address
-  family
+- **inet | inet6 | packet | link** - Interfaces with _only_ the specified
+ address family
 - **hwaddr** - Interfaces with address family `packet` _or_ `link`
 """.
 -type ifaddrs_filter()     :: all | default | inet | inet6 |
@@ -127,6 +127,10 @@ Interface address filtering selector map.
 
 The `family` field can only have the (above) specified values
 (and not all the values of socket:domain()).
+It can also be a list of values, to cover the situation when
+any of the specified families are accepted.
+For example, family can be set to `[inet,inet6]` if either `inet` or `inet6`
+is accepted.
 
 The use of the `flags` field is that any flag provided must exist for the
 interface.
@@ -135,8 +139,9 @@ For example, if `family` is set to `inet` and `flags` to
 `[broadcast, multicast]` only interfaces with address family `inet`
 and the flags `broadcast` and `multicast` will be listed.
 """.
--type ifaddrs_filter_map() :: #{family := default | local |
-                                inet | inet6 | packet | all,
+-type ifaddrs_filter_map() :: #{family := all | default |
+                                local | inet | inet6 | packet | link |
+                                [local | inet | inet6 | packet | link],
                                 flags  := any | [ifaddrs_flag()]}.
 
 -doc """
