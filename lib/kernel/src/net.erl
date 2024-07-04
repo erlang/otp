@@ -421,6 +421,8 @@ getifaddrs_filter_map(inet6) ->
     getifaddrs_filter_map_inet6();
 getifaddrs_filter_map(packet) ->
     getifaddrs_filter_map_packet();
+getifaddrs_filter_map(link) ->
+    getifaddrs_filter_map_link();
 getifaddrs_filter_map(FilterMap) when is_map(FilterMap) ->
     maps:merge(getifaddrs_filter_map_default(), FilterMap).
 
@@ -438,6 +440,9 @@ getifaddrs_filter_map_inet6() ->
 
 getifaddrs_filter_map_packet() ->
     #{family => packet, flags => any}.
+
+getifaddrs_filter_map_link() ->
+    #{family => link, flags => any}.
 
 -compile({nowarn_unused_function, getifaddrs_filter/2}).
 
