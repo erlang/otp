@@ -1964,10 +1964,15 @@ esock_ifget(ESock, Name, [Opt|Opts], Acc) ->
     case do_esock_ifget(ESock, Name, Opt) of
         {ok, Value} ->
             esock_ifget(ESock, Name, Opts, [{Opt, Value}|Acc]);
-        {error, _} = ERROR ->
-            ERROR
+        {error, _} ->
+            esock_ifget(ESock, Name, Opts, Acc)
     end.
 
+%% We should really check if these ioctl get requests are supported:
+%% socket:is_supported(ioctl_requests, Req).
+%% But since the error will just result in a missing result value
+%% anyway (which the user needs to handle), unless there is some
+%% alternative method (see hwaddr) we just return it...
 do_esock_ifget(ESock, Name, 'addr') ->
     case socket:ioctl(ESock, gifaddr, Name) of
         {ok, #{addr := Addr}} ->
@@ -2001,14 +2006,90 @@ do_esock_ifget(ESock, Name, 'netmask') ->
 do_esock_ifget(ESock, Name, 'flags') ->
     socket:ioctl(ESock, gifflags, Name);
 do_esock_ifget(ESock, Name, 'hwaddr') ->
-    case socket:ioctl(ESock, gifhwaddr, Name) of
-        {ok, #{family := _Fam,
-               addr   := <<HWADDRBin:6/binary, _/binary>> = _Addr}} ->
-            {ok, binary_to_list(HWADDRBin)};
+    case use_ioctl_for_hwaddr() of
+        {ok, Req} ->
+            case socket:ioctl(ESock, Req, Name) of
+                {ok, #{family := _Fam,
+                       addr   := <<HWADDRBin:6/binary, _/binary>> = _Addr}} ->
+                    {ok, binary_to_list(HWADDRBin)};
+                {error, _} ->
+                    %% Last effort...
+                    hwaddr_from_net_getifaddrs(Name)
+            end;
+        error ->
+            %% Try getifaddrs instead
+            hwaddr_from_net_getifaddrs(Name)
+    end.
+
+use_ioctl_for_hwaddr() ->
+    case socket:is_supported(ioctl_requests, gifhwaddr) of
+        true ->
+            {ok, gifhwaddr};
+        false ->
+            case socket:is_supported(ioctl_requests, genhwaddr) of
+                true ->
+                    {ok, genhwaddr};
+                false ->
+                    error
+            end
+    end.
+
+hwaddr_from_net_getifaddrs(Name) ->
+    %% Platforms "use" different Family.
+    %% FreeBSD use 'link', Linux use 'packet'.
+    Filter = fun(#{name := IF,
+                   addr := #{family := Fam}})
+                   when (IF =:= Name) andalso
+                        ((Fam =:= link) orelse (Fam =:= packet)) ->
+                     %% io:format("+ right interface and family~n", []),
+                     true;
+                (#{name := IF,
+                   addr := #{family := _Fam}})
+                   when (IF =:= Name) ->
+                     %% io:format("- right interface but wrong family: "
+                     %%           "~n   Fam: ~p (link|packet)"
+                     %%           "~n", [_Fam]),
+                     false;
+                (#{name := _IF,
+                   addr := #{family := Fam}})
+                   when ((Fam =:= link) orelse (Fam =:= packet)) ->
+                     %% io:format("- right family but wrong interface"
+                     %%           "~n   IF: ~p (~p)"
+                     %%           "~n", [_IF, Name]),
+                     false;
+                (#{name := _IF,
+                   addr := #{family := _Fam}}) ->
+                     %% io:format("- wrong interface and family: "
+                     %%           "~n   IF:  ~p (~p)"
+                     %%           "~n   Fam: ~p (link|packet)"
+                     %%           "~n", [_IF, Name, _Fam]),
+                     false;
+                (_X) ->
+                     %% io:format("- just plain wrong: "
+                     %%           "~n   X: ~p"
+                     %%           "~n", [_X]),
+                     false
+             end,
+    case net:getifaddrs(Filter) of
+        {ok, [#{addr := #{family := packet,
+                          addr   := HwAddrBin}}|_]} ->
+            {ok, binary_to_list(HwAddrBin)};
+        {ok, [#{addr := #{family := link,
+                          nlen   := NLen,
+                          alen   := ALen,
+                          data   := Data}}|_]} ->
+            case Data of
+                <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                    {ok, binary_to_list(ABin)};
+                _ -> %% Ouch - what is this? malformed data?
+                    {error, unknown}
+            end;
+        {ok, _} -> %% Ouch - we got something but don't know how to decode it
+            {error, unknown};
         {error, _} = ERROR ->
             ERROR
     end.
-
+        
 
 -doc false.
 -spec ifget(
