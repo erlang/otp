@@ -93,6 +93,9 @@
 /* Socket address dl length */
 #undef ESOCK_SDL_LEN
 
+/* Interface hwaddr supported */
+#undef ESOCK_USE_ENADDR
+
 /* Use extended error info */
 #undef ESOCK_USE_EXTENDED_ERROR_INFO
 
