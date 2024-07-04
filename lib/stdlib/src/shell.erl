@@ -1370,7 +1370,6 @@ local_func(tf, [{atom,_,A}], Bs, _Shell, _RT, FT, _Lf, _Ef) ->
 local_func(tf, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell,tf,1}]);
 local_func(rd, [{string, _, TypeDef}], Bs, _Shell, RT, FT, _Lf, _Ef) ->
-    %% currently not documented in help()
     case erl_scan:tokens([], TypeDef, {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]) of
         {done, {ok, Toks, _}, _} ->
             case erl_parse:parse_form(Toks) of
