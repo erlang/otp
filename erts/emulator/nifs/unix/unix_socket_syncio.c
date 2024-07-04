@@ -4523,8 +4523,10 @@ IOCTL_GET_FUNCS2
 /* *** essio_ioctl_gifhwaddr *** */
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 #define IOCTL_GIFHWADDR_FUNC3_DECL					\
-  IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
-#else
+    IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
+#elif defined(SIOCGENHWADDR) && defined(ESOCK_USE_ENADDR)
+#define IOCTL_GIFHWADDR_FUNC3_DECL					\
+    IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGENHWADDR, hwaddr, &ifreq.ifr_enaddr)
 #define IOCTL_GIFHWADDR_FUNC3_DECL
 #endif
 
@@ -5127,6 +5129,7 @@ BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
 }
 
 
+#if defined(SIOCSIFHWADDR)
 static
 BOOLEAN_T decode_ioctl_hwaddr(ErlNifEnv*       env,
                               ESockDescriptor* descP,
@@ -5147,6 +5150,7 @@ BOOLEAN_T decode_ioctl_hwaddr(ErlNifEnv*       env,
 
     return result;
 }
+#endif
 
 
 /* #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR) */
