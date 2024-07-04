@@ -578,7 +578,18 @@ async(Config) when is_list(Config) ->
 		ct:fail(Msg)
 	end,
     inets_test_lib:check_body(binary_to_list(Body)),
-
+    %% Check full result false option for async request
+    {ok, RequestId2} =
+        httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false},
+                                                       {full_result, false}], ?profile(Config)),
+    Body2 =
+        receive
+            {http, {RequestId2, {200, BinBody2}}} ->
+                BinBody2;
+            {http, Msg2} ->
+                ct:fail(Msg2)
+        end,
+    inets_test_lib:check_body(binary_to_list(Body2)),
     {ok, NewRequestId} =
 	httpc:request(get, Request, [], [{sync, false}]),
     ok = httpc:cancel_request(NewRequestId).
