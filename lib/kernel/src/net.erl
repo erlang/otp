@@ -113,10 +113,12 @@ Interface address filtering selector.
 
 - **default** - Interfaces with address family `inet` _or_ `inet6`
 
-- **inet | inet6 | packet** - Interfaces with _only_ the specified address
+- **inet | inet6 | packet| link** - Interfaces with _only_ the specified address
   family
+- **hwaddr** - Interfaces with address family `packet` _or_ `link`
 """.
--type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
+-type ifaddrs_filter()     :: all | default | inet | inet6 |
+                              packet | link | hwaddr |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
 
@@ -423,6 +425,8 @@ getifaddrs_filter_map(packet) ->
     getifaddrs_filter_map_packet();
 getifaddrs_filter_map(link) ->
     getifaddrs_filter_map_link();
+getifaddrs_filter_map(hwaddr) ->
+    getifaddrs_filter_map_hwaddr();
 getifaddrs_filter_map(FilterMap) when is_map(FilterMap) ->
     maps:merge(getifaddrs_filter_map_default(), FilterMap).
 
@@ -444,29 +448,45 @@ getifaddrs_filter_map_packet() ->
 getifaddrs_filter_map_link() ->
     #{family => link, flags => any}.
 
+getifaddrs_filter_map_hwaddr() ->
+    #{family => [link,packet], flags => any}.
+
 -compile({nowarn_unused_function, getifaddrs_filter/2}).
 
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
   when (FFamily =:= default) andalso
-       ((Family =:= inet) orelse (Family =:= inet6)) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet) andalso (Family =:= inet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet6) andalso (Family =:= inet6) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= packet) andalso (Family =:= packet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{flags := Flags} = _Entry)
+       ((EFamily =:= inet) orelse (EFamily =:= inet6)) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet) andalso (EFamily =:= inet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet6) andalso (EFamily =:= inet6) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= packet) andalso (EFamily =:= packet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= link) andalso (EFamily =:= link) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{flags := EFlags} = _Entry)
   when (FFamily =:= all) ->
-    getifaddrs_filter_flags(FFlags, Flags);
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFams, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when is_list(FFams) ->
+    case lists:member(EFamily, FFams) of
+    	 true ->
+    	      getifaddrs_filter_flags(FFlags, EFlags);
+	 false ->
+	       false
+     end;
 getifaddrs_filter(_Filter, _Entry) ->
     false.
 
