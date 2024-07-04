@@ -976,6 +976,7 @@ shell_huge_input(Config) ->
     after
         stop_tty(Term)
     end.
+
 shell_receive_standard_out(Config) ->
     Term = start_tty(Config),
     try
@@ -987,7 +988,19 @@ shell_receive_standard_out(Config) ->
         ok
     after
         stop_tty(Term)
+    end,
+    Term2 = start_tty([{args,["-stdlib","shell_bgmsg_location","below"]}|Config]),
+    try
+        send_tty(Term2,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
+        send_tty(Term2, "spawn(shell_default, my_fun, [0]). ABC\n"),
+        timer:sleep(1000),
+        check_location(Term2, {0,-18}), %% Check that we are at the same location relative to the start.
+        check_content(Term2, "..0\\s+1\\s+2\\s+3\\s+4"),
+        ok
+    after
+        stop_tty(Term2)
     end.
+
 %% Test that the shell works when invalid utf-8 (aka latin1) is sent to it
 shell_invalid_unicode(Config) ->
     Term = start_tty(Config),

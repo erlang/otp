@@ -633,18 +633,8 @@ handle_request(State, {expand_with_trim, Binary}) ->
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
-    %% print above the prompt if we have a prompt.
-    %% otherwise print on the current line.
-    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
-        {[],{[],[]},[]} ->
-            {PutBuffer, _} = insert_buf(State, Binary),
-            {[encode(PutBuffer, U)], State};
-        _ ->
-            {Delete, DeletedState} = handle_request(State, delete_line),
-            {PutBuffer, _} = insert_buf(DeletedState, Binary),
-            {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
-            {[Delete, encode(PutBuffer, U), Redraw], State}
-    end;
+    {PutBuffer, _} = insert_buf(State, Binary),
+    {[encode(PutBuffer, U)], State};
 handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],
      State#state{buffer_after = [],

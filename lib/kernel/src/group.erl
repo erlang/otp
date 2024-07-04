@@ -818,9 +818,17 @@ more_data(What, Cont0, Drv, Shell, Ls, Encoding) ->
             get_line1(edlin:edit_line(eof, Cont0), Drv, Shell, Ls, Encoding);
         {io_request,From,ReplyAs,Req} when is_pid(From) ->
             {more_chars,Cont,_More} = edlin:edit_line([], Cont0),
-            send_drv_reqs(Drv, edlin:erase_line()),
-            io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
-            send_drv_reqs(Drv, edlin:redraw_line(Cont)),
+            Location = application:get_env(stdlib,
+                                           shell_bgmsg_location,
+                                           above),
+            case Location of
+                above ->
+                    send_drv_reqs(Drv, edlin:erase_line()),
+                    io_request(Req, From, ReplyAs, Drv, Shell, []), %WRONG!!!
+                    send_drv_reqs(Drv, edlin:redraw_line(Cont));
+                _ ->
+                    io_request(Req, From, ReplyAs, Drv, Shell, [])
+            end,
             get_line1({more_chars,Cont,[]}, Drv, Shell, Ls, Encoding);
         {reply,{From,ReplyAs},Reply} ->
             %% We take care of replies from puts here as well
