@@ -387,11 +387,15 @@ over_map_record_or_tuple(Bef0) ->
                         _ -> %% Tuple
                             {Bef4, {tuple, Clause}}
                     end;
-                _Record -> %% Record
-                    [$#|Bef5] = Bef4,
-                    {Bef6, _Var} = edlin_expand:over_word(Bef5),
-                    {Bef6, {record, _Var++"#"++_Record++Clause}}
-        end
+                Record ->
+                    case Bef4 of
+                        [$#|Bef5] -> %% Record
+                            {Bef6, _Var} = edlin_expand:over_word(Bef5),
+                            {Bef6, {record, _Var++"#"++Record++Clause}};
+                        _ -> %% Tuple
+                            {Bef4, {tuple, Clause}}
+                    end
+            end
     end.
 over_pid_port_or_ref(Bef2) ->
         %% Extracts argument or part of an operation
