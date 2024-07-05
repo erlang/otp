@@ -20,42 +20,47 @@
 
 -module(wxTaskBarIcon).
 -moduledoc """
-Functions for wxTaskBarIcon class
+This class represents a taskbar icon.
 
-This class represents a taskbar icon. A taskbar icon is an icon that appears in
-the 'system tray' and responds to mouse clicks, optionally with a tooltip above
-it to help provide information.
+A taskbar icon is an icon that appears in the 'system tray' and responds to mouse clicks,
+optionally with a tooltip above it to help provide information.
 
 X Window System Note
 
-Under X Window System, the window manager must support either the "System Tray
-Protocol" (see
-[http://freedesktop.org/wiki/Specifications/systemtray-spec](http://freedesktop.org/wiki/Specifications/systemtray-spec))
-by freedesktop.org (WMs used by modern desktop environments such as GNOME >= 2,
-KDE >= 3 and XFCE >= 4 all do) or the older methods used in GNOME 1.2 and KDE 1
-and 2.
+Under X Window System, the window manager must support either the "System Tray Protocol"
+(see [http://freedesktop.org/wiki/Specifications/systemtray-spec](http://freedesktop.org/wiki/Specifications/systemtray-spec))
+by freedesktop.org (WMs used by modern desktop environments such as GNOME >= 2, KDE >= 3
+and XFCE >= 4 all do) or the older methods used in GNOME 1.2 and KDE 1 and 2.
 
-If it doesn't, the icon will appear as a toplevel window on user's desktop.
-Because not all window managers have system tray, there's no guarantee that
-`m:wxTaskBarIcon` will work correctly under X Window System and so the
-applications should use it only as an optional component of their user
-interface. The user should be required to explicitly enable the taskbar icon on
-Unix, it shouldn't be on by default.
+If it doesn't, the icon will appear as a toplevel window on user's desktop. Because not
+all window managers have system tray, there's no guarantee that `m:wxTaskBarIcon` will
+work correctly under X Window System and so the applications should use it only as an
+optional component of their user interface. The user should be required to explicitly
+enable the taskbar icon on Unix, it shouldn't be on by default.
 
-This class is derived (and can use functions) from: `m:wxEvtHandler`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxTaskBarIcon](https://docs.wxwidgets.org/3.1/classwx_task_bar_icon.html)
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxTaskBarIcon](https://docs.wxwidgets.org/3.2/classwx_task_bar_icon.html)
 
 ## Events
 
-Event types emitted from this class: [`taskbar_move`](`m:wxTaskBarIconEvent`),
-[`taskbar_left_down`](`m:wxTaskBarIconEvent`),
-[`taskbar_left_up`](`m:wxTaskBarIconEvent`),
-[`taskbar_right_down`](`m:wxTaskBarIconEvent`),
-[`taskbar_right_up`](`m:wxTaskBarIconEvent`),
-[`taskbar_left_dclick`](`m:wxTaskBarIconEvent`),
-[`taskbar_right_dclick`](`m:wxTaskBarIconEvent`)
+Event types emitted from this class:
+
+* [`taskbar_move`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_left_down`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_left_up`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_right_down`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_right_up`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_left_dclick`](`m:wxTaskBarIconEvent`)
+
+* [`taskbar_right_dclick`](`m:wxTaskBarIconEvent`)
 """.
 -include("wxe.hrl").
 -export([ new/0, new/1 ,destroy/1,popupMenu/2,removeIcon/1,setIcon/2,setIcon/3]).
@@ -65,13 +70,11 @@ Event types emitted from this class: [`taskbar_move`](`m:wxTaskBarIconEvent`),
 
 -type wxTaskBarIcon() :: wx:wx_object().
 -export_type([wxTaskBarIcon/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 
--doc false.
 -spec new() -> wxTaskBarIcon().
 new() ->
     new([]).
@@ -79,11 +82,6 @@ new() ->
 %% @doc Creates a TaskBarIcon with a callback function for CreatePopupMenu:
 %%   <pre>Callback() -> term()</pre>
 %%
--doc """
-Default constructor.
-
-The iconType is only applicable on wxOSX/Cocoa.
-""".
 -spec new([Option]) -> wxTaskBarIcon() when
       Option :: {'iconType', wx:wx_enum()} |
                 {'createPopupMenu', fun(() -> wxMenu:wxMenu())}.
@@ -97,15 +95,14 @@ new(Options) when is_list(Options) ->
     wxe_util:queue_cmd(Opts,?get_env(), Op),
     wxe_util:rec(Op).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconpopupmenu">external documentation</a>.
 -doc """
 Pops up a menu at the current mouse position.
 
 The events can be handled by a class derived from `m:wxTaskBarIcon`.
 
-Note: It is recommended to override `CreatePopupMenu()` (not implemented in wx)
-callback instead of calling this method from event handler, because some ports
-(e.g. wxCocoa) may not implement `popupMenu/2` and mouse click events at all.
+Note: It is recommended to override `CreatePopupMenu()` (not implemented in wx) callback
+instead of calling this method from event handler, because some ports (e.g. wxCocoa) may
+not implement `popupMenu/2` and mouse click events at all.
 """.
 -spec popupMenu(This, Menu) -> boolean() when
 	This::wxTaskBarIcon(), Menu::wxMenu:wxMenu().
@@ -115,7 +112,6 @@ popupMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
   wxe_util:queue_cmd(This,Menu,?get_env(),?wxTaskBarIcon_PopupMenu),
   wxe_util:rec(?wxTaskBarIcon_PopupMenu).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconremoveicon">external documentation</a>.
 -doc "Removes the icon previously set with `setIcon/3`.".
 -spec removeIcon(This) -> boolean() when
 	This::wxTaskBarIcon().
@@ -124,7 +120,7 @@ removeIcon(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTaskBarIcon_RemoveIcon),
   wxe_util:rec(?wxTaskBarIcon_RemoveIcon).
 
-%% @equiv setIcon(This,Icon, [])
+-doc(#{equiv => setIcon(This,Icon, [])}).
 -spec setIcon(This, Icon) -> boolean() when
 	This::wxTaskBarIcon(), Icon::wxIcon:wxIcon().
 
@@ -132,7 +128,6 @@ setIcon(This,Icon)
  when is_record(This, wx_ref),is_record(Icon, wx_ref) ->
   setIcon(This,Icon, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtaskbaricon.html#wxtaskbariconseticon">external documentation</a>.
 -doc "Sets the icon, and optional tooltip text.".
 -spec setIcon(This, Icon, [Option]) -> boolean() when
 	This::wxTaskBarIcon(), Icon::wxIcon:wxIcon(),
@@ -147,26 +142,20 @@ setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon, Options)
   wxe_util:queue_cmd(This,Icon, Opts,?get_env(),?wxTaskBarIcon_SetIcon),
   wxe_util:rec(?wxTaskBarIcon_SetIcon).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the `m:wxTaskBarIcon` object, removing the icon if not already removed.".
+-doc "Destroys the object".
 -spec destroy(This::wxTaskBarIcon()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTaskBarIcon),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxEvtHandler
-%% @hidden
 -doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
 -doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
 -doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
 -doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
 -doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

@@ -20,17 +20,15 @@
 
 -module(wxHtmlEasyPrinting).
 -moduledoc """
-Functions for wxHtmlEasyPrinting class
+This class provides very simple interface to printing architecture.
 
-This class provides very simple interface to printing architecture. It allows
-you to print HTML documents using only a few commands.
+It allows you to print HTML documents using only a few commands.
 
-Note: Do not create this class on the stack only. You should create an instance
-on app startup and use this instance for all printing operations. The reason is
-that this class stores various settings in it.
+Note: Do not create this class on the stack only. You should create an instance on app
+startup and use this instance for all printing operations. The reason is that this class
+stores various settings in it.
 
-wxWidgets docs:
-[wxHtmlEasyPrinting](https://docs.wxwidgets.org/3.1/classwx_html_easy_printing.html)
+wxWidgets docs: [wxHtmlEasyPrinting](https://docs.wxwidgets.org/3.2/classwx_html_easy_printing.html)
 """.
 -include("wxe.hrl").
 -export([destroy/1,getPageSetupData/1,getPrintData/1,new/0,new/1,pageSetup/1,
@@ -43,17 +41,15 @@ wxWidgets docs:
 
 -type wxHtmlEasyPrinting() :: wx:wx_object().
 -export_type([wxHtmlEasyPrinting/0]).
-%% @hidden
 -doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv new([])
+-doc(#{equiv => new([])}).
 -spec new() -> wxHtmlEasyPrinting().
 
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingwxhtmleasyprinting">external documentation</a>.
 -doc "Constructor.".
 -spec new([Option]) -> wxHtmlEasyPrinting() when
 	Option :: {'name', unicode:chardata()}
@@ -67,7 +63,6 @@ new(Options)
   wxe_util:queue_cmd(Opts,?get_env(),?wxHtmlEasyPrinting_new),
   wxe_util:rec(?wxHtmlEasyPrinting_new).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintinggetprintdata">external documentation</a>.
 -doc """
 Returns pointer to `m:wxPrintData` instance used by this class.
 
@@ -80,7 +75,6 @@ getPrintData(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_GetPrintData),
   wxe_util:rec(?wxHtmlEasyPrinting_GetPrintData).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintinggetpagesetupdata">external documentation</a>.
 -doc """
 Returns a pointer to `m:wxPageSetupDialogData` instance used by this class.
 
@@ -93,12 +87,11 @@ getPageSetupData(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_GetPageSetupData),
   wxe_util:rec(?wxHtmlEasyPrinting_GetPageSetupData).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingpreviewfile">external documentation</a>.
 -doc """
 Preview HTML file.
 
-Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
-information about the kind of the error.
+Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed information about the kind of the
+error.
 """.
 -spec previewFile(This, Htmlfile) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
@@ -109,7 +102,7 @@ previewFile(#wx_ref{type=ThisT}=This,Htmlfile)
   wxe_util:queue_cmd(This,Htmlfile_UC,?get_env(),?wxHtmlEasyPrinting_PreviewFile),
   wxe_util:rec(?wxHtmlEasyPrinting_PreviewFile).
 
-%% @equiv previewText(This,Htmltext, [])
+-doc(#{equiv => previewText(This,Htmltext, [])}).
 -spec previewText(This, Htmltext) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
@@ -117,12 +110,10 @@ previewText(This,Htmltext)
  when is_record(This, wx_ref),?is_chardata(Htmltext) ->
   previewText(This,Htmltext, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingpreviewtext">external documentation</a>.
 -doc """
-Preview HTML text (not file\!).
+Preview HTML text (not file!).
 
-Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
-information about the kind of the error.
+Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed information about the kind of the error.
 """.
 -spec previewText(This, Htmltext, [Option]) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata(),
@@ -137,12 +128,11 @@ previewText(#wx_ref{type=ThisT}=This,Htmltext, Options)
   wxe_util:queue_cmd(This,Htmltext_UC, Opts,?get_env(),?wxHtmlEasyPrinting_PreviewText),
   wxe_util:rec(?wxHtmlEasyPrinting_PreviewText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingprintfile">external documentation</a>.
 -doc """
 Print HTML file.
 
-Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
-information about the kind of the error.
+Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed information about the kind of the
+error.
 """.
 -spec printFile(This, Htmlfile) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
@@ -153,7 +143,7 @@ printFile(#wx_ref{type=ThisT}=This,Htmlfile)
   wxe_util:queue_cmd(This,Htmlfile_UC,?get_env(),?wxHtmlEasyPrinting_PrintFile),
   wxe_util:rec(?wxHtmlEasyPrinting_PrintFile).
 
-%% @equiv printText(This,Htmltext, [])
+-doc(#{equiv => printText(This,Htmltext, [])}).
 -spec printText(This, Htmltext) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
@@ -161,12 +151,10 @@ printText(This,Htmltext)
  when is_record(This, wx_ref),?is_chardata(Htmltext) ->
   printText(This,Htmltext, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingprinttext">external documentation</a>.
 -doc """
-Print HTML text (not file\!).
+Print HTML text (not file!).
 
-Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
-information about the kind of the error.
+Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed information about the kind of the error.
 """.
 -spec printText(This, Htmltext, [Option]) -> boolean() when
 	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata(),
@@ -181,7 +169,6 @@ printText(#wx_ref{type=ThisT}=This,Htmltext, Options)
   wxe_util:queue_cmd(This,Htmltext_UC, Opts,?get_env(),?wxHtmlEasyPrinting_PrintText),
   wxe_util:rec(?wxHtmlEasyPrinting_PrintText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingpagesetup">external documentation</a>.
 -doc "Display page setup dialog and allows the user to modify settings.".
 -spec pageSetup(This) -> 'ok' when
 	This::wxHtmlEasyPrinting().
@@ -189,7 +176,7 @@ pageSetup(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlEasyPrinting_PageSetup).
 
-%% @equiv setFonts(This,Normal_face,Fixed_face, [])
+-doc(#{equiv => setFonts(This,Normal_face,Fixed_face, [])}).
 -spec setFonts(This, Normal_face, Fixed_face) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
@@ -197,12 +184,10 @@ setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),?is_chardata(Normal_face),?is_chardata(Fixed_face) ->
   setFonts(This,Normal_face,Fixed_face, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetfonts">external documentation</a>.
 -doc """
 Sets fonts.
 
-See `wxHtmlDCRenderer::SetFonts` (not implemented in wx) for detailed
-description.
+See `wxHtmlDCRenderer::SetFonts` (not implemented in wx) for detailed description.
 """.
 -spec setFonts(This, Normal_face, Fixed_face, [Option]) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
@@ -217,7 +202,7 @@ setFonts(#wx_ref{type=ThisT}=This,Normal_face,Fixed_face, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This,Normal_face_UC,Fixed_face_UC, Opts,?get_env(),?wxHtmlEasyPrinting_SetFonts).
 
-%% @equiv setHeader(This,Header, [])
+-doc(#{equiv => setHeader(This,Header, [])}).
 -spec setHeader(This, Header) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Header::unicode:chardata().
 
@@ -225,11 +210,20 @@ setHeader(This,Header)
  when is_record(This, wx_ref),?is_chardata(Header) ->
   setHeader(This,Header, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetheader">external documentation</a>.
 -doc """
 Set page header.
 
 The following macros can be used inside it:
+
+* @DATE@ is replaced by the current date in default format
+
+* @PAGENUM@ is replaced by page number
+
+* @PAGESCNT@ is replaced by total number of pages
+
+* @TIME@ is replaced by the current time in default format
+
+* @TITLE@ is replaced with the title of the document
 """.
 -spec setHeader(This, Header, [Option]) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Header::unicode:chardata(),
@@ -243,7 +237,7 @@ setHeader(#wx_ref{type=ThisT}=This,Header, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This,Header_UC, Opts,?get_env(),?wxHtmlEasyPrinting_SetHeader).
 
-%% @equiv setFooter(This,Footer, [])
+-doc(#{equiv => setFooter(This,Footer, [])}).
 -spec setFooter(This, Footer) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Footer::unicode:chardata().
 
@@ -251,14 +245,13 @@ setFooter(This,Footer)
  when is_record(This, wx_ref),?is_chardata(Footer) ->
   setFooter(This,Footer, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetfooter">external documentation</a>.
 -doc """
 Set page footer.
 
-The following macros can be used inside it: @DATE@ is replaced by the current
-date in default format @PAGENUM@ is replaced by page number @PAGESCNT@ is
-replaced by total number of pages @TIME@ is replaced by the current time in
-default format @TITLE@ is replaced with the title of the document
+The following macros can be used inside it: @DATE@ is replaced by the current date in
+default format @PAGENUM@ is replaced by page number @PAGESCNT@ is replaced by total number
+of pages @TIME@ is replaced by the current time in default format @TITLE@ is replaced with
+the title of the document
 """.
 -spec setFooter(This, Footer, [Option]) -> 'ok' when
 	This::wxHtmlEasyPrinting(), Footer::unicode:chardata(),
@@ -272,8 +265,7 @@ setFooter(#wx_ref{type=ThisT}=This,Footer, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This,Footer_UC, Opts,?get_env(),?wxHtmlEasyPrinting_SetFooter).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the object.".
+-doc "Destroys the object".
 -spec destroy(This::wxHtmlEasyPrinting()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlEasyPrinting),

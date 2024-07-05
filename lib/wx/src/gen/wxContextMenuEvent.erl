@@ -20,38 +20,37 @@
 
 -module(wxContextMenuEvent).
 -moduledoc """
-Functions for wxContextMenuEvent class
+This class is used for context menu events, sent to give the application a chance to show
+a context (popup) menu for a `m:wxWindow`.
 
-This class is used for context menu events, sent to give the application a
-chance to show a context (popup) menu for a `m:wxWindow`.
+Note that if `getPosition/1` returns wxDefaultPosition, this means that the event originated from a
+keyboard context button event, and you should compute a suitable position yourself, for
+example by calling `wx_misc:getMousePosition/0`.
 
-Note that if `getPosition/1` returns wxDefaultPosition, this means that the
-event originated from a keyboard context button event, and you should compute a
-suitable position yourself, for example by calling `wx_misc:getMousePosition/0`.
+Notice that the exact sequence of mouse events is different across the platforms. For
+example, under MSW the context menu event is generated after `EVT_RIGHT_UP` event and only
+if it was not handled but under GTK the context menu event is generated after `EVT_RIGHT_DOWN`
+event. This is correct in the sense that it ensures that the context menu is shown
+according to the current platform UI conventions and also means that you must not handle
+(or call `wxEvent:skip/2` in your handler if you do have one) neither right mouse down nor right mouse up
+event if you plan on handling `EVT_CONTEXT_MENU` event.
 
-Notice that the exact sequence of mouse events is different across the
-platforms. For example, under MSW the context menu event is generated after
-`EVT_RIGHT_UP` event and only if it was not handled but under GTK the context
-menu event is generated after `EVT_RIGHT_DOWN` event. This is correct in the
-sense that it ensures that the context menu is shown according to the current
-platform UI conventions and also means that you must not handle (or call
-`wxEvent:skip/2` in your handler if you do have one) neither right mouse down
-nor right mouse up event if you plan on handling `EVT_CONTEXT_MENU` event.
+See:
+* `m:wxCommandEvent`
 
-See: `m:wxCommandEvent`,
-[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+* [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
 
-This class is derived (and can use functions) from: `m:wxCommandEvent`
-`m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxContextMenuEvent](https://docs.wxwidgets.org/3.1/classwx_context_menu_event.html)
+* `m:wxCommandEvent`
+
+* `m:wxEvent`
+
+wxWidgets docs: [wxContextMenuEvent](https://docs.wxwidgets.org/3.2/classwx_context_menu_event.html)
 
 ## Events
 
-Use `wxEvtHandler:connect/3` with
-[`wxContextMenuEventType`](`t:wxContextMenuEventType/0`) to subscribe to events
-of this type.
+Use `wxEvtHandler:connect/3` with `wxContextMenuEventType` to subscribe to events of this type.
 """.
 -include("wxe.hrl").
 -export([getPosition/1,setPosition/2]).
@@ -66,23 +65,20 @@ of this type.
 -include("wx.hrl").
 -type wxContextMenuEventType() :: 'context_menu'.
 -export_type([wxContextMenuEvent/0, wxContextMenu/0, wxContextMenuEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventgetposition">external documentation</a>.
 -doc """
 Returns the position in screen coordinates at which the menu should be shown.
 
 Use `wxWindow:screenToClient/2` to convert to client coordinates.
 
-You can also omit a position from `wxWindow:popupMenu/4` in order to use the
-current mouse pointer position.
+You can also omit a position from `wxWindow:popupMenu/4` in order to use the current mouse pointer position.
 
-If the event originated from a keyboard event, the value returned from this
-function will be wxDefaultPosition.
+If the event originated from a keyboard event, the value returned from this function will
+be wxDefaultPosition.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
 	This::wxContextMenuEvent().
@@ -91,7 +87,6 @@ getPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxContextMenuEvent_GetPosition),
   wxe_util:rec(?wxContextMenuEvent_GetPosition).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontextmenuevent.html#wxcontextmenueventsetposition">external documentation</a>.
 -doc "Sets the position at which the menu should be shown.".
 -spec setPosition(This, Point) -> 'ok' when
 	This::wxContextMenuEvent(), Point::{X::integer(), Y::integer()}.
@@ -101,58 +96,40 @@ setPosition(#wx_ref{type=ThisT}=This,{PointX,PointY} = Point)
   wxe_util:queue_cmd(This,Point,?get_env(),?wxContextMenuEvent_SetPosition).
 
  %% From wxCommandEvent
-%% @hidden
 -doc false.
 setString(This,String) -> wxCommandEvent:setString(This,String).
-%% @hidden
 -doc false.
 setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
-%% @hidden
 -doc false.
 isSelection(This) -> wxCommandEvent:isSelection(This).
-%% @hidden
 -doc false.
 isChecked(This) -> wxCommandEvent:isChecked(This).
-%% @hidden
 -doc false.
 getString(This) -> wxCommandEvent:getString(This).
-%% @hidden
 -doc false.
 getSelection(This) -> wxCommandEvent:getSelection(This).
-%% @hidden
 -doc false.
 getInt(This) -> wxCommandEvent:getInt(This).
-%% @hidden
 -doc false.
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
-%% @hidden
 -doc false.
 getClientData(This) -> wxCommandEvent:getClientData(This).
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

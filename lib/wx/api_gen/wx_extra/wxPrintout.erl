@@ -20,10 +20,20 @@
 <<EXPORT:wxPrintout new/2,new/3 wxPrintout:EXPORT>>
 
 <<wxPrintout
-%% @doc @equiv new(Title, OnPrintPage, [])
+-doc(#{equiv => new/3}).
 -spec new(Title::string(), OnPrintPage::function()) -> wxPrintout:wxPrintout().
 new(Title, OnPrintPage) ->
     new(Title, OnPrintPage, []).
+
+-doc """
+Constructor.
+
+Creates a `m:wxPrintout` object with a callback fun and optionally other
+callback funs. The `This` argument is the `m:wxPrintout` object reference to
+this object
+
+Notice: The callbacks may not call other processes.
+""".
 
 -spec new(Title::string(), OnPrintPage, [Option]) ->
           wxPrintout:wxPrintout() when
