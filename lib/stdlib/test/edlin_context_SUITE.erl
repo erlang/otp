@@ -186,4 +186,6 @@ get_context(_Config) ->
     {term,[{integer,"2"}],{operation,"1 + 3"}} = edlin_context:get_context(lists:reverse("receive X -> 2, 1+3")),
     {term,[],{integer,"-1"}} = edlin_context:get_context(lists:reverse("-1")),
     {term,[],{float,"-1.2"}} = edlin_context:get_context(lists:reverse("-1.2")),
+    {term,[],{tuple, "{hej, svej}"}} = edlin_context:get_context(lists:reverse("begin {hej, svej}")),
+    {term,[],[]} = edlin_context:get_context(lists:reverse("begin {hej, svej} = {")),
     ok.
