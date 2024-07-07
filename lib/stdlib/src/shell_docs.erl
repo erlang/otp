@@ -116,7 +116,9 @@ The configuration of how the documentation should be rendered.
 
 - **columns** - Configure how wide the target documentation should be rendered.
   By default `shell_docs` used the value returned by
-  [`io:columns()`](`io:columns/0`).
+  [`io:columns()`](`io:columns/0`). It is possible to override this default
+  by setting the stdlib configuration parameter `shell_docs_columns`
+  to a `t:pos_integer/0` value.
 """.
 -doc #{ since => ~"OTP 23.2" }.
 -type config() :: #{ encoding => unicode | latin1,
@@ -919,12 +921,7 @@ init_config(D, Config) when is_map(Config) ->
     Columns =
         case maps:find(columns, Config) of
             error ->
-                case io:columns() of
-                    {ok, C} ->
-                        C;
-                    _ ->
-                        80
-                end;
+                get_columns();
             {ok, C} ->
                 C
         end,
@@ -935,6 +932,19 @@ init_config(D, Config) when is_map(Config) ->
            };
 init_config(D, Config) ->
     Config#config{ docs = D }.
+
+get_columns() ->
+    case application:get_env(stdlib, shell_docs_columns) of
+        {ok, C} when is_integer(C), C > 0 ->
+            C;
+        _ ->
+            case io:columns() of
+                 {ok, C} ->
+                     C;
+                 _ ->
+                     80
+             end
+    end.
 
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->
     lists:mapfoldl(fun(Elem,P) ->

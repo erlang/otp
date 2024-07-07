@@ -22,7 +22,7 @@
    init_per_group/2, end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([render/1, render_smoke/1, links/1, normalize/1, render_prop/1,
-         render_non_native/1, ansi/1]).
+         render_non_native/1, ansi/1, columns/1]).
 
 -export([render_all/1, update_render/0, update_render/1]).
 
@@ -34,7 +34,7 @@ suite() ->
 
 all() ->
     [render_smoke, render, render_non_native, links, normalize,
-     {group, prop}, ansi].
+     {group, prop}, ansi, columns].
 
 groups() ->
     [{prop,[],[render_prop]}].
@@ -61,7 +61,8 @@ end_per_group(_GroupName, _Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     Env = [{App, Key, application:get_env(App, Key)}
-           || {App, Key} <- [{kernel, shell_docs_ansi}]],
+           || {App, Key} <- [{kernel, shell_docs_ansi},
+                             {stdlib, shell_docs_columns}]],
     [{env, Env} | Config].
 
 end_per_testcase(_TestCase, Config) ->
@@ -437,5 +438,38 @@ ansi(_Config) ->
     ?assertNot(HasESC(#{})),
     ?assertNot(HasESC(#{ansi => false})),
     ?assert(HasESC(#{ansi => true})),
+
+    ok.
+
+-doc """
+Doc doc doc doc doc doc doc doc doc doc doc doc doc doc doc.
+""".
+columns(_Config) ->
+    {ok, Docs} = code:get_doc(?MODULE),
+
+    MaxColumns =
+        fun(Config0) ->
+                Config = maps:merge(#{ansi => false}, Config0),
+                Doc = shell_docs:render(?MODULE, ?FUNCTION_NAME, Docs, Config),
+                Lines = string:split(Doc, "\n", all),
+                lists:max(lists:map(fun string:length/1, Lines))
+        end,
+
+    application:set_env(stdlib, shell_docs_columns, 30),
+    ?assert(MaxColumns(#{}) =< 30),
+    ?assert(MaxColumns(#{columns => 20}) =< 20),
+
+    application:set_env(stdlib, shell_docs_columns, not_an_integer),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:set_env(stdlib, shell_docs_columns, 0),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:set_env(stdlib, shell_docs_columns, -30),
+    ?assert(MaxColumns(#{}) > 30),
+
+    application:unset_env(stdlib, shell_docs_columns),
+    ?assert(MaxColumns(#{}) > 30),
+    ?assert(MaxColumns(#{columns => 20}) =< 20),
 
     ok.
