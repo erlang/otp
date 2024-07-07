@@ -332,7 +332,7 @@ render_element({code, Attr, Content}, State, Pos, Ind, D) ->
                     {["[",NameStr,"](",NameStr,"_cmd.md)"], Pos + string:length(NameStr)};
                 false ->
                     try
-                        %% This is an op type (such as <c>=:=/2</c>)
+                        %% This is an op type (such as <c>'=:='/2</c>)
                         erl_internal:op_type(Name, length(Args)),
                         {lists:concat(["[`",Docs,"`](`erlang:",io_lib:write_atom(Name),"/",length(Args),"`)"]), NewPos}
                     catch error:function_clause ->

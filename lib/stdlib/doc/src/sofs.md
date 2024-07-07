@@ -292,7 +292,7 @@ The functions of this module exit the process with a `badarg`, `bad_function`,
 or `type_mismatch` message when given badly formed arguments or sets the types
 of which are not compatible.
 
-When comparing external sets, operator `==/2` is used.
+When comparing external sets, operator `'=='/2` is used.
 
 ## See Also
 

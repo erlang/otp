@@ -1782,7 +1782,7 @@ warnings(Flag, Message, [F | Fs]) ->
 %% pack(term()) -> term()
 %%
 %% The identify function. The returned term does not use more heap
-%% than the given term. Tuples that are equal (=:=/2) are made
+%% than the given term. Tuples that are equal ('=:='/2) are made
 %% "the same".
 %%
 %% The process dictionary is used because it seems to be faster than

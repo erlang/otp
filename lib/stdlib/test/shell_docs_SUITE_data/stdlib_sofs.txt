@@ -344,7 +344,7 @@
   [;;4mbad_function[0m, or [;;4mtype_mismatch[0m message when given badly formed
   arguments or sets the types of which are not compatible.
 
-  When comparing external sets, operator [;;4m==/2[0m is used.
+  When comparing external sets, operator [;;4m'=='/2[0m is used.
 
 [;1mSee Also[0m
 

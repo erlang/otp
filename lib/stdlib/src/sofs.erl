@@ -679,7 +679,7 @@ constant_function(S, _) when ?IS_ORDSET(S) ->
 
 -doc """
 Returns `true` if `AnySet1` and `AnySet2` are [equal](`m:sofs#equal`), otherwise
-`false`. The following example shows that `==/2` is used when comparing sets for
+`false`. The following example shows that `'=='/2` is used when comparing sets for
 equality:
 
 ```erlang

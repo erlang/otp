@@ -100,7 +100,7 @@ user to order the joins by introducing query handles.
 The join is to be expressed as a guard filter. The filter must be placed
 immediately after the two joined generators, possibly after guard filters that
 use variables from no other generators but the two joined generators. The `qlc`
-module inspects the operands of `=:=/2`, `==/2`, [`is_record/2`](`is_record/2`),
+module inspects the operands of `'=:='/2`, `'=='/2`, [`is_record/2`](`is_record/2`),
 [`element/2`](`element/2`), and logical operators (`and/2`, `or/2`, `andalso/2`,
 `orelse/2`, `xor/2`) when determining which joins to consider.
 
@@ -406,17 +406,17 @@ before secondary keys regardless of the number of constants to look up.
 
 ## Key Equality
 
-Erlang/OTP has two operators for testing term equality: `==/2` and `=:=/2`. The
+Erlang/OTP has two operators for testing term equality: `'=='/2` and `'=:='/2`. The
 difference is all about the integers that can be represented by floats. For
 example, `2 == 2.0` evaluates to `true` while `2 =:= 2.0` evaluates to `false`.
 Normally this is a minor issue, but the `qlc` module cannot ignore the
 difference, which affects the user's choice of operators in QLCs.
 
 If the `qlc` module at compile time can determine that some constant is free of
-integers, it does not matter which one of `==/2` or `=:=/2` is used:
+integers, it does not matter which one of `'=='/2` or `'=:='/2` is used:
 
 ```erlang
-1> E1 = ets:new(t, [set]), % uses =:=/2 for key equality
+1> E1 = ets:new(t, [set]), % uses '=:='/2 for key equality
 Q1 = qlc:q([K ||
 {K} <- ets:table(E1),
 K == 2.71 orelse K == a]),
@@ -430,9 +430,9 @@ ets:match_spec_run(
        ets:match_spec_compile([{{'$1'}, [], ['$1']}]))
 ```
 
-In the example, operator `==/2` has been handled exactly as `=:=/2` would have
+In the example, operator `'=='/2` has been handled exactly as `'=:='/2` would have
 been handled. However, if it cannot be determined at compile time that some
-constant is free of integers, and the table uses `=:=/2` when comparing keys for
+constant is free of integers, and the table uses `'=:='/2` when comparing keys for
 equality (see option [key_equality](`m:qlc#key_equality`)), then the `qlc`
 module does not try to look up the constant. The reason is that there is in the
 general case no upper limit on the number of key values that can compare equal
@@ -456,12 +456,12 @@ ets:table(#Ref<0.3098908599.2283929601.256125>,
 
 Looking up only `{2,2}` would not return `b` and `c`.
 
-If the table uses `==/2` when comparing keys for equality, the `qlc` module
+If the table uses `'=='/2` when comparing keys for equality, the `qlc` module
 looks up the constant regardless of which operator is used in the QLC. However,
-`==/2` is to be preferred:
+`'=='/2` is to be preferred:
 
 ```erlang
-4> E3 = ets:new(t, [ordered_set]), % uses ==/2 for key equality
+4> E3 = ets:new(t, [ordered_set]), % uses '=='/2 for key equality
 true = ets:insert(E3, [{{2,2.0},b}]),
 F3 = fun(I) ->
 qlc:q([V || {K,V} <- ets:table(E3), K == I])
@@ -476,8 +476,8 @@ ets:match_spec_run(ets:lookup(#Ref<0.3098908599.2283929601.256211>,
 ```
 
 Lookup join is handled analogously to lookup of constants in a table: if the
-join operator is `==/2`, and the table where constants are to be looked up uses
-`=:=/2` when testing keys for equality, then the `qlc` module does not consider
+join operator is `'=='/2`, and the table where constants are to be looked up uses
+`'=:='/2` when testing keys for equality, then the `qlc` module does not consider
 lookup join for that table.
 
 ## See Also

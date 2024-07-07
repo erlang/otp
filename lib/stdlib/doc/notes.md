@@ -6673,7 +6673,7 @@ This document describes the changes made to the STDLIB application.
 ### Improvements and New Features
 
 - A new option, `key_equality`, has been added to `qlc:table/2`. This option
-  makes it possible for `qlc` to better handle tables that use `==/2` when
+  makes it possible for `qlc` to better handle tables that use `'=='/2` when
   comparing keys for equality (examples of such tables are ordered ETS tables
   and gb_table in qlc(3)).
 

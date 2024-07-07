@@ -7196,7 +7196,7 @@ manpage(Config) when is_list(Config) ->
        \"end\",
           L = qlc:info(Q)">>,
 
-       <<"E1 = ets:new(t, [set]), % uses =:=/2
+       <<"E1 = ets:new(t, [set]), % uses '=:='/2
           Q1 = qlc:q([K ||
           {K} <- ets:table(E1),
           K == 2.71 orelse K == a]),
@@ -7216,7 +7216,7 @@ manpage(Config) when is_list(Config) ->
           [a,b,c] = lists:sort(qlc:e(Q2)),
           true = ets:delete(E2),
 
-          E3 = ets:new(t, [ordered_set]), % uses ==/2
+          E3 = ets:new(t, [ordered_set]), % uses '=='/2
           true = ets:insert(E3, [{{2,2.0},b}]),
           Q3 = F(E3,{2,2}),
           {list,{table,_},[{{'$1','$2'},[],['$2']}]} = i(Q3),

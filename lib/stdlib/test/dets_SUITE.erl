@@ -3070,7 +3070,7 @@ otp_6359(Config) ->
     file:delete(File),
     ok.
 
-%% OTP-4738. ==/2 and =:=/2.
+%% OTP-4738. '=='/2 and '=:='/2.
 otp_4738(Config) ->
     otp_4738_set(Config),
     otp_4738_bag(Config),
