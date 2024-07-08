@@ -429,6 +429,14 @@ This document describes the changes made to the SSL application.
 
   Own Id: OTP-18572
 
+## SSL 10.9.1.5
+
+### Fixed Bugs and Malfunctions
+
+* TLS-1.3 negotiation now uses SNI based options correctly instead of ignoring them.
+
+  Own Id: OTP-19140
+
 ## SSL 10.9.1.4
 
 ### Fixed Bugs and Malfunctions
