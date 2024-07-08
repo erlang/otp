@@ -30,7 +30,7 @@
 -export([read_and_add_records/5]).
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
 -export([prompt_width/1, prompt_width/2]).
--export([whereis/0]).
+-export([help/0,whereis/0]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -1165,6 +1165,49 @@ init_dict([{K,V}|Ds]) ->
     put(K, V),
     init_dict(Ds);
 init_dict([]) -> true.
+
+
+-doc "Print the help for all shell internal commands.".
+-spec help() -> true.
+help() ->
+    S = ~"""
+         ** shell internal commands **
+         b()        -- display all variable bindings
+         e(N)       -- repeat the expression in query <N>
+         exit()     -- terminate the shell instance
+         f()        -- forget all variable bindings
+         f(X)       -- forget the binding of variable X
+         ff()       -- forget all locally defined functions
+         ff(F,A)    -- forget locally defined function named as atom F and arity A
+         fl()       -- forget all locally defined functions, types and records
+         h()        -- history
+         h(Mod)     -- help about module
+         h(Mod,Func) -- help about function in module
+         h(Mod,Func,Arity) -- help about function with arity in module
+         lf()       -- list locally defined functions
+         lr()       -- list locally defined records
+         lt()       -- list locally defined types
+         rd(R,D)    -- define a record
+         rf()       -- remove all record information
+         rf(R)      -- remove record information about R
+         rl()       -- display all record information
+         rl(R)      -- display record information about R
+         rp(Term)   -- display Term using the shell's record information
+         rr(File)   -- read record information from File (wildcards allowed)
+         rr(F,R)    -- read selected record information from file(s)
+         rr(F,R,O)  -- read selected record information with options
+         tf()       -- forget all locally defined types
+         tf(T)      -- forget locally defined type named as atom T
+         v(N)       -- use the value of query <N>
+         catch_exception(B) -- how exceptions are handled
+         history(N) -- set how many previous commands to keep
+         results(N) -- set how many previous command results to keep
+         save_module(FilePath) -- save all locally defined functions, types and records to a file
+         """,
+    io:put_chars(S),
+    io:nl(),
+    true.
+
 
 %% local_func(Function, Args, Bindings, Shell, RecordTable,
 %%            LocalFuncHandler, ExternalFuncHandler) -> {value,Val,Bs}
