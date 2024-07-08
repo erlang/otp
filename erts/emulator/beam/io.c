@@ -423,7 +423,7 @@ static Port *create_port(char *name,
         for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
             Uint32 trace_flags;
             ErtsTracer tracer;
-            erts_get_on_open_port_tracing(s, &trace_flags, &tracer);
+            erts_get_new_port_tracing(s, &trace_flags, &tracer);
             if (trace_flags) {
                 ErtsTracerRef *ref = new_tracer_ref(&prt->common, s);
                 ref->flags = trace_flags;

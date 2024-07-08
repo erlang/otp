@@ -12551,7 +12551,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
             Uint32 trace_flags;
             ErtsTracer tracer;
-            erts_get_on_spawn_tracing(s, &trace_flags, &tracer);
+            erts_get_new_proc_tracing(s, &trace_flags, &tracer);
             if (trace_flags) {
                 ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
                 ref->flags = trace_flags;
