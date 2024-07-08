@@ -55,7 +55,7 @@ macros described here and in the User's Guide:
                   {function,<<"Certificate Revocation API">>},
                   {function,<<"ASN.1 Encoding API">>},
                   {function,<<"Test Data API">>},
-                  {function,<<"Deprecated API">>}
+                  {function,<<"Legacy RSA Encryption API">>}
                  ]}).
 
 -feature(maybe_expr,enable).
@@ -814,8 +814,7 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_private(CipherText, Key, []),
-       deprecated => ~"Do not use",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key) ->
                              PlainText when CipherText :: binary(),
@@ -824,15 +823,14 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the private key. See also `crypto:private_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 """.
 -spec decrypt_private(CipherText, Key, Options) ->
                              PlainText when CipherText :: binary(),
@@ -850,8 +848,7 @@ decrypt_private(CipherText,
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_public(CipherText, Key, []),
-       deprecated => ~"Use sign and verify instead",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key) ->
 			    PlainText
@@ -861,17 +858,16 @@ decrypt_private(CipherText,
 decrypt_public(CipherText, Key) ->
     decrypt_public(CipherText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the public key. See also `crypto:public_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`verify/4`](`verify/4`) together
-> with [`sign/3`](`sign/3`) instead.
-.
+> This is a legacy function, for security reasons do not use  with rsa_pkcs1_padding.
+> For digital signatures the use of [`verify/4`](`verify/4`) together
+> with [`sign/3`](`sign/3`) is a prefered solution.
 """.
 -spec decrypt_public(CipherText, Key, Options) ->
 			    PlainText
@@ -887,8 +883,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_public(PlainText, Key, []),
-       deprecated => ~"Do not use",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
@@ -898,15 +893,14 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the public key. See also `crypto:public_encrypt/4`.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 """.
 -spec encrypt_public(PlainText, Key, Options) ->
 			     CipherText
@@ -920,8 +914,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_private(PlainText, Key, []),
-       deprecated => ~"Use sign and verify instead",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
@@ -931,8 +924,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the private key.
@@ -945,7 +937,9 @@ or trusted platform modules (TPM).
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`sign/3`](`sign/3`) together with [`verify/4`](`verify/4`)  instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`sign/3`](`sign/3`) together with [`verify/4`](`verify/4`)  is
+> the prefered solution.
 """.
 -spec encrypt_private(PlainText, Key, Options) ->
 			     CipherText
