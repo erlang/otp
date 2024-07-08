@@ -2342,7 +2342,7 @@ opt_identity(UserOpts, #{versions := Versions} = Opts, _Env) ->
 opt_supported_groups(UserOpts, #{versions := TlsVsns} = Opts, _Env) ->
     SG = case get_opt_list(supported_groups,  undefined, UserOpts, Opts) of
              {default, undefined} ->
-                 handle_supported_groups_option(groups(default));
+                 handle_supported_groups_option(tls_v1:default_groups());
              {new, SG0} ->
                  assert_version_dep(supported_groups, TlsVsns, ['tlsv1.3']),
                  handle_supported_groups_option(SG0);
