@@ -249,10 +249,15 @@ Eterm erts_make_trace_session_weak_ref(ErtsTraceSession *s, Eterm **hpp)
 void
 erts_bif_trace_init(void)
 {
+    erts_rwmtx_opt_t rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opts.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    rwmtx_opts.lived = ERTS_RWMTX_LONG_LIVED;
+
     erts_trace_session_init(&erts_trace_session_0, erts_tracer_nil, am_legacy);
-    erts_rwmtx_init(&erts_trace_session_list_lock, "trace_session_list", NIL,
-		    ERTS_LOCK_FLAGS_PROPERTY_STATIC |
-		    ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    erts_rwmtx_init_opt(&erts_trace_session_list_lock, &rwmtx_opts,
+                        "trace_session_list", NIL,
+                        ERTS_LOCK_FLAGS_PROPERTY_STATIC |
+                        ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     erts_mtx_init(&erts_trace_cleaner_lock, "trace_cleaner", NIL,
                     ERTS_LOCK_FLAGS_PROPERTY_STATIC |
                     ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
