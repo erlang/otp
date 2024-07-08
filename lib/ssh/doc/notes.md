@@ -178,6 +178,17 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change, ssh client will automatically adjust transfer window size for commands executed remotely over SSH.
+
+  Own Id: OTP-19057 Aux Id: PR-8345, GH-7483
+* With this change, race condition between connection closing and automatic window adjustment is fixed.
+
+  Own Id: OTP-19109 Aux Id: PR-8345
+
 ## Ssh 4.15.3.4
 
 ### Fixed Bugs and Malfunctions
