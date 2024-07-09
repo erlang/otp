@@ -220,7 +220,7 @@ validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}, _LogLevel) ->
 validate(_, {bad_cert, _} = Reason, _, _LogLevel) ->
     {fail, Reason};
 validate(Cert, valid, #{path_len := N} = UserState, LogLevel) ->
-    case verify_sign(Cert, UserState) of
+    case verify_sign_support(Cert, UserState) of
         true ->
             case maps:get(cert_ext, UserState, undefined) of
                 undefined ->
@@ -230,7 +230,7 @@ validate(Cert, valid, #{path_len := N} = UserState, LogLevel) ->
                                            LogLevel)
             end;
         false ->
-            {fail, {bad_cert, invalid_signature}}
+            {fail, {bad_cert, unsupported_signature}}
     end;
 validate(Cert, valid_peer, UserState = #{role := client, server_name := Hostname, 
                                          customize_hostname_check := Customize},
@@ -637,22 +637,22 @@ verify_cert_extensions(Cert, UserState, [_|Exts], Context, LogLevel) ->
     %% Skip unknown extensions!
     verify_cert_extensions(Cert, UserState, Exts, Context, LogLevel).
 
-verify_sign(_, #{version := Version})
+verify_sign_support(_, #{version := Version})
             when ?TLS_LT(Version, ?TLS_1_2) ->
     %% This verification is not applicable pre TLS-1.2 
     true; 
-verify_sign(Cert, #{version := ?TLS_1_2,
+verify_sign_support(Cert, #{version := ?TLS_1_2,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?TLS_1_2,
+verify_sign_support(Cert, #{version := ?TLS_1_2,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_2(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?TLS_1_3,
+verify_sign_support(Cert, #{version := ?TLS_1_3,
                     signature_algs := SignAlgs,
                     signature_algs_cert := undefined}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs);
-verify_sign(Cert, #{version := ?TLS_1_3,
+verify_sign_support(Cert, #{version := ?TLS_1_3,
                     signature_algs_cert := SignAlgs}) ->
     is_supported_signature_algorithm_1_3(Cert, SignAlgs).
 
