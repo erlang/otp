@@ -1040,7 +1040,7 @@ do_update_ex_doc ()
 
     OTP_VERSION=$(awk -F. '{ print $1 }' "$ERL_TOP/OTP_VERSION")
     EX_DOC_VSN=$(curl --silent -qI https://github.com/elixir-lang/ex_doc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
-    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null; then
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null || curl --silent -Li "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > /dev/null; then
         OTP_VERSION="$(($OTP_VERSION-1))"
     fi
     if command -v sha1sum > /dev/null && command -v sha256sum > /dev/null; then

@@ -176,7 +176,7 @@ config = [
   extras: extras,
   skip_undefined_reference_warnings_on: ["notes.md"],
   groups_for_docs:
-    (Access.get(local_config, :groups_for_extras, []) ++ groups_for_docs) |> Enum.uniq(),
+    (Access.get(local_config, :groups_for_docs, []) ++ groups_for_docs) |> Enum.uniq(),
   deps:
     deps ++
       [
@@ -229,4 +229,7 @@ config = [
   end
 ]
 
-Keyword.merge(config, local_config |> Keyword.drop([:extras, :groups_for_extras]))
+Keyword.merge(
+  config,
+  local_config |> Keyword.drop([:extras, :groups_for_extras, :group_for_docs])
+)
