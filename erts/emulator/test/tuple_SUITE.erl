@@ -26,7 +26,8 @@
 	 t_make_tuple_2/1, t_make_upper_boundry_tuple_2/1, t_make_tuple_3/1,
 	 t_append_element/1, t_append_element_upper_boundry/1,
          build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
-         get_two_tuple_elements/1]).
+         get_two_tuple_elements/1,
+         record_update/1]).
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -49,12 +50,14 @@ all() ->
      t_append_element, t_append_element_upper_boundry,
      t_insert_element, t_delete_element,
      tuple_with_case, tuple_in_guard,
-     get_two_tuple_elements].
+     get_two_tuple_elements,
+     record_update].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    id(Config),
     A0 = case application:start(sasl) of
 	     ok -> [sasl];
 	     _ -> []
@@ -630,9 +633,77 @@ get_two_tuple_elements(Config) ->
 
     ok.
 
+
+%% Do some basic tests of the destructive tuple update added in
+%% Erlang/OTP 27 (commit 8d4df9ae9fc9d1289b3c5a37e5bc6d73abb73297).
+
+-record(rec, {a,b,c,d,e}).
+record_update(_Config) ->
+    N = id(100_000),
+    First = id(1 bsl 64),
+    Last = id(First + N),
+
+    #rec{a=Last} = record_update_1(First, Last, #rec{b=id(42)}),
+    #rec{a=N} = record_update_1(id(0), N, #rec{b=id(42)}),
+
+    #rec{a=Last} = record_update_2(First, Last, #rec{b=id(42)}),
+
+    #rec{a=List} = record_update_3(id([]), N, #rec{b=id(42)}),
+    N = length(List),
+    true = lists:all(fun(a) -> true end, List),
+
+    ok.
+
+record_update_1(I, N, R) when is_integer(I) ->
+    do_record_update_1(I, N, R).
+
+do_record_update_1(I, Last, R0) ->
+    %% An incorrect test for an immediate would allow a boxed term
+    %% (such as a bignum) to be written into an existing tuple without
+    %% testing whether the tuple were in the safe part of the heap.
+    R = R0#rec{a=I},
+
+    %% Force a minor collection here to force the tuple over to the
+    %% unsafe part of the new heap (below the high-water mark).
+    erlang:garbage_collect(self(), [{type,minor}]),
+    if
+        I < Last ->
+            do_record_update_1(I + 1, Last, R);
+        true ->
+            R
+    end.
+
+record_update_2(I, Last, R0) ->
+    R = R0#rec{a=I},
+
+    %% Force a minor collection here to force the tuple over to the
+    %% unsafe part of the new heap (below the high-water mark).
+    erlang:garbage_collect(self(), [{type,minor}]),
+    if
+        I < Last ->
+            record_update_2(I + 1, Last, R);
+        true ->
+            R
+    end.
+
+record_update_3(L, N, R) when is_list(L); is_integer(L) ->
+    do_record_update_3(L, N, R).
+
+do_record_update_3(L, N, R0) ->
+    %% Test that the basic test for the tuple being in the
+    %% safe part of the new heap is correct.
+    R = R0#rec{a=L},
+
+    if
+        N > 0 ->
+            do_record_update_3(id([a|L]), N-1, R);
+        true ->
+            R
+    end.
+
+
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
-
 
 sys_mem_cond_run(ReqSizeMB, TestFun) when is_integer(ReqSizeMB) ->
     case total_memory() of

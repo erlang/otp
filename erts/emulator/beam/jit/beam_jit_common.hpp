@@ -659,4 +659,8 @@ Export *beam_jit_handle_unloaded_fun(Process *c_p,
 bool beam_jit_is_list_of_immediates(Eterm term);
 bool beam_jit_is_shallow_boxed(Eterm term);
 
+#ifdef DEBUG
+void beam_jit_invalid_heap_ptr(Process *p, Eterm term);
+#endif
+
 #endif
