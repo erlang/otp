@@ -159,11 +159,11 @@ moduledoc_include(Config) when is_list(Config) ->
     {attribute, _, moduledoc, ModuleDoc} = lists:keyfind(moduledoc, 3, List),
     ?assertEqual({ok, unicode:characters_to_binary(ModuleDoc)}, file:read_file(DocName)),
 
-    %% negative test: checks that we produce an expected error
-    ModuleErrContent = binary:replace(ModuleFileContent, <<"README">>, <<"NotExistingFile">>),
-    ModuleErrName = CreateFile("module_attr", "moduledoc_err.erl", ModuleErrContent),
-    {ok, ListErr} = epp:parse_file(ModuleErrName, []),
-    {error,{_,epp,{moduledoc,file, "NotExistingFile.md"}}} = lists:keyfind(error, 1, ListErr),
+    %% negative test: checks that we produce an expected warning
+    ModuleWarnContent = binary:replace(ModuleFileContent, <<"README">>, <<"NotExistingFile">>),
+    ModuleWarnName = CreateFile("module_attr", "moduledoc_err.erl", ModuleWarnContent),
+    {ok, ListWarn} = epp:parse_file(ModuleWarnName, []),
+    {warning,{_,epp,{moduledoc,file, "NotExistingFile.md"}}} = lists:keyfind(warning, 1, ListWarn),
 
     ok.
 
