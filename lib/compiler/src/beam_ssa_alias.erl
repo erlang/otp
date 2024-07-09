@@ -90,12 +90,20 @@
 opt(StMap0, FuncDb0) ->
     %% Ignore functions which are not in the function db (never
     %% called).
-    Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
-    StMap1 = #{ F=>expand_record_update(OptSt) || F:=OptSt <- StMap0},
-    KillsMap = killsets(Funs, StMap1),
-    {StMap2, FuncDb} = aa(Funs, KillsMap, StMap1, FuncDb0),
-    StMap = #{ F=>restore_update_record(OptSt) || F:=OptSt <- StMap2},
-    {StMap, FuncDb}.
+    try
+        Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
+        StMap1 = #{ F=>expand_record_update(OptSt) || F:=OptSt <- StMap0},
+        KillsMap = killsets(Funs, StMap1),
+        {StMap2, FuncDb} = aa(Funs, KillsMap, StMap1, FuncDb0),
+        StMap = #{ F=>restore_update_record(OptSt) || F:=OptSt <- StMap2},
+        {StMap, FuncDb}
+    catch
+        throw:too_deep ->
+            %% Give up and leave the module unmodified. Thrown by
+            %% beam_ssa_ss:prune/2 when the depth of sharing state
+            %% value chains exceeds a fixed limit.
+            {StMap0,FuncDb0}
+    end.
 
 %%%
 %%% Calculate the set of variables killed at each instruction. The
