@@ -4970,44 +4970,91 @@ ERL_NIF_TERM essio_ioctl_sifflags(ErlNifEnv*       env,
  *
  */
 
+#if defined(AF_LINK) && !defined(NO_SA_LEN)
+#define SIZEA(p) (((p).sa_len > sizeof(p)) ? (p).sa_len : sizeof(p))
+#else
+#define SIZEA(p) (sizeof (p))
+#endif
+
 static
 ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 struct ifconf*   ifcP)
 {
-  ERL_NIF_TERM result;
-  unsigned int len = ((ifcP == NULL) ? 0 :
-		      (ifcP->ifc_len / sizeof(struct ifreq)));
-
-  SSDBG( descP,
-	 ("UNIX-ESSIO",
-          "encode_ioctl_ifconf -> entry (when len = %d)\r\n", len) );
-
-  if (len > 0) {
-    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
-    unsigned int  i     = 0;
-    struct ifreq* p     = ifcP->ifc_req;
-
-    for (i = 0 ; i < len ; i++) {
-      SSDBG( descP,
-	     ("UNIX-ESSIO",
-              "encode_ioctl_ifconf -> encode ifreq entry %d\r\n", i) );
-      array[i] = encode_ioctl_ifconf_ifreq(env, descP, &p[i]);
-    }
+    ERL_NIF_TERM result;
+    unsigned int len = (ifcP == NULL) ? 0 : ifcP->ifc_len;
 
     SSDBG( descP,
-	   ("UNIX-ESSIO", "encode_ioctl_ifconf -> all entries encoded\r\n", i) );
+           ("UNIX-ESSIO",
+            "encode_ioctl_ifconf -> entry with"
+            "\r\n   (total) len: %d\r\n", len) );
 
-    result = esock_make_ok2(env, MKLA(env, array, len));
-    FREE(array);
+    if (len > 0) {
+        ERL_NIF_TERM  elem, array;
+        SocketTArray  tarray = TARRAY_CREATE(32);
+        unsigned int  n     = 1; // Just for debugging
+        unsigned int  i     = 0;
+        unsigned int  sz;
+        struct ifreq* ifrP;
 
-  } else {
+        for (;;) {
 
-    result = esock_make_ok2(env, MKEL(env));
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> encode entry %d at %d\r\n", n, i) );
 
-  }
+            ifrP = (struct ifreq*) VOIDP(ifcP->ifc_buf + i);
+            sz   = sizeof(ifrP->ifr_name) + SIZEA(ifrP->ifr_addr);
+            if (sz < sizeof(*ifrP)) sz = sizeof(*ifrP);
 
-  return result;
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> "
+                    "\r\n   size:     %d"
+                    "\r\n      Name len: %d"
+                    "\r\n      Addr len: %d"
+                    "\r\n      Rec len:  %d"
+                    "\r\n",
+                    sz,
+                    sizeof(ifrP->ifr_name),
+                    SIZEA(ifrP->ifr_addr),
+                    sizeof(*ifrP)) );
+
+            i += sz;
+            if (i > len) break;
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> encode new entry\r\n") );
+
+            elem = encode_ioctl_ifconf_ifreq(env, descP, ifrP);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> add new entry: "
+                    "\r\n   %T\r\n", elem) );
+
+            TARRAY_ADD(tarray, elem);
+
+            n++;
+        }
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "encode_ioctl_ifconf -> all entries encoded\r\n") );
+
+        TARRAY_TOLIST(tarray, env, &array);
+        result = esock_make_ok2(env, array);
+
+    } else {
+
+        result = esock_make_ok2(env, MKEL(env));
+
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifconf -> done\r\n") );
+
+    return result;
 }
 
 
