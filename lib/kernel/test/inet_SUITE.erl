@@ -1617,9 +1617,21 @@ do_getif2(OsName, Backend) ->
 
     %% For this to work with the 'socket' backend, we need to verify 
     {ok, Hostname}   = inet:gethostname(),
+    io:format("~w(~w) -> "
+              "~n   Hostname: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Hostname]),
     {ok, Address}    = inet:getaddr(Hostname,    inet),
+    io:format("~w(~w) -> "
+              "~n   Address: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Address]),
     {ok, Loopback}   = inet:getaddr("localhost", inet),
+    io:format("~w(~w) -> "
+              "~n   Loopback: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Loopback]),
     {ok, Interfaces} = inet_getiflist(Backend),
+    io:format("~w(~w) -> "
+              "~n   Interfaces: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Interfaces]),
     HWAs =
         lists:sort(
           lists:foldl(
@@ -1638,19 +1650,27 @@ do_getif2(OsName, Backend) ->
     Addresses =
         lists:sort(
           lists:foldl(
-            fun (I, Acc) ->
+            fun(I, Acc) ->
                     case inet_ifget(Backend, I, [addr]) of
                         {ok, [{addr,A}]} -> [A|Acc];
                         {ok, []} -> Acc
                     end
             end, [], Interfaces)),
-    io:format("~w(~w) -> "
+    io:format("~w(~w) -> ifget result: "
               "~n   Addresses: "
               "~n      ~p"
               "~n", [?FUNCTION_NAME, Backend, Addresses]),
-    {ok,Getif} = inet_getif(Backend),
+    {ok, Getif} = inet_getif(Backend),
+    io:format("~w(~w) -> ifget verify: "
+              "~n   Addresses: "
+              "~n      ~p"
+              "~n", [?FUNCTION_NAME, Backend, Addresses]),
     Addresses = lists:sort([A || {A,_,_} <- Getif]),
+    io:format("~w(~w) -> verify address"
+              "~n", [?FUNCTION_NAME, Backend]),
     true = ip_member(Address, Addresses),
+    io:format("~w(~w) -> verify loopback"
+              "~n", [?FUNCTION_NAME, Backend]),
     true = ip_member(Loopback, Addresses),
     io:format("~w(~w) -> done~n", [?FUNCTION_NAME, Backend]),
     ok.
