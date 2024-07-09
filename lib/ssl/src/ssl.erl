@@ -414,7 +414,7 @@ exception of when signature_algs option is not explicitly specified,
 in which case it will append the rsa_pkcs1_sha1 algorithm to the
 default value of signature_algs and use it as value for
 signature_algs_cert to allow certificates to have this signature but
-still disallow sha1 use in the TLS protocol, since @OTP-19152@.
+still disallow sha1 use in the TLS protocol, since 27.0.1 and 26.2.5.2.
 
 > #### Note {: .info }
 >
