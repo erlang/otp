@@ -58,6 +58,8 @@
          select_best_cert/1,
          select_sha1_cert/0,
          select_sha1_cert/1,
+         root_any_sign/0,
+         root_any_sign/1,
          connection_information/0,
          connection_information/1,
          secret_connection_info/0,
@@ -274,7 +276,8 @@ since_1_2() ->
      conf_signature_algs,
      no_common_signature_algs,
      versions_option_based_on_sni,
-     ciphers_option_based_on_sni
+     ciphers_option_based_on_sni,
+     root_any_sign
     ].
 
 pre_1_3() ->
@@ -596,6 +599,54 @@ select_sha1_cert(Config) when is_list(Config) ->
                                           peer => [{digest, sha},
                                                    {key, {namedCurve, secp256r1}}]}}),
     test_sha1_cert_conf(Version, TestConfRSA, TestConfECDSA, Config).
+
+%%--------------------------------------------------------------------
+root_any_sign() ->
+    [{doc,"Use cert signed with unsupported signature for the root will succeed, "
+      "as it is not verified"}].
+
+root_any_sign(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    #{client_config := CSucess, server_config := SSucess} =
+        public_key:pkix_test_data(#{server_chain =>
+                                         #{root => [{digest, sha},
+                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                           intermediates => [[{digest, sha256},
+                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                           peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                          },
+                                     client_chain =>
+                                         #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                           intermediates => [[{digest, sha256},
+                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                           peer => [{digest, sha256},
+                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+
+    #{client_config := CFail, server_config := SFail} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+
+    %% Makes sha1 disallowed for certificate signatures when set explicitly 
+    %% (default for signature_algs_cert was changed to allow them if signatures_algs is not set explicitly)
+    SigAlgs = ssl:signature_algs(default, Version), 
+    %% Root signatures are not validated, so its signature will not fail the connection                             
+    ssl_test_lib:basic_test(CSucess, [{verify, verify_peer}, {signature_algs, SigAlgs} | SSucess], Config),
+    %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
+    ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
+                             Config, unsupported_certificate).
 
 %%--------------------------------------------------------------------
 connection_information() ->
@@ -3172,7 +3223,7 @@ options_sni(_Config) -> %% server_name_indication
     ok.
 
 options_sign_alg(_Config) ->  %% signature_algs[_cert]
-    ?OK(#{signature_algs := [_|_], signature_algs_cert := undefined},
+    ?OK(#{signature_algs := [_|_], signature_algs_cert := [_|_]},
         [], client),
     ?OK(#{signature_algs := [rsa_pss_rsae_sha512,{sha512,rsa}], signature_algs_cert := undefined},
         [{signature_algs, [rsa_pss_rsae_sha512,{sha512,rsa}]}], client),

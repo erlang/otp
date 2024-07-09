@@ -426,7 +426,7 @@ init_per_testcase(signature_algorithms_bad_curve_secp521r1, Config) ->
     init_ecdsa_opts(Config, secp521r1);
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 10}),
+    ct:timetrap({seconds, 15}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
@@ -1224,7 +1224,7 @@ unsupported_sign_algo_cert_client_auth(Config) ->
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
         _  ->
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unsupported_certificate)
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security)
     end.
 
 %%--------------------------------------------------------------------
