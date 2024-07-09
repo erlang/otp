@@ -420,7 +420,7 @@ exception of when signature_algs option is not explicitly specified,
 in which case it will append the rsa_pkcs1_sha1 algorithm to the
 default value of signature_algs and use it as value for
 signature_algs_cert to allow certificates to have this signature but
-still disallow sha1 use in the TLS protocol, since @OTP-19152@.
+still disallow sha1 use in the TLS protocol, since 27.0.1 and 26.2.5.2.
 
 > #### Note {: .info }
 >
@@ -3534,13 +3534,7 @@ format_error(Reason) ->
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 21.0">>}).
 -spec suite_to_str(CipherSuite) -> string() when
-      CipherSuite :: erl_cipher_suite();
-                  (CipherSuite) -> string() when
-      %% For internal use!
-      CipherSuite :: #{key_exchange := null,
-                       cipher := null,
-                       mac := null,
-                       prf := null}.
+      CipherSuite :: erl_cipher_suite().
 -doc """
 Converts an [`erl_cipher_suite()`](`t:erl_cipher_suite/0`) value to an RFC
 name string.
