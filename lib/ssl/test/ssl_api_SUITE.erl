@@ -68,6 +68,8 @@
          versions/1,
          versions_option_based_on_sni/0,
          versions_option_based_on_sni/1,
+         ciphers_option_based_on_sni/0,
+         ciphers_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
@@ -223,6 +225,7 @@
 	 log/2,
          get_connection_information/3,
          protocol_version_check/2,
+         suite_check/2,
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
@@ -270,7 +273,8 @@ since_1_2() ->
     [
      conf_signature_algs,
      no_common_signature_algs,
-     versions_option_based_on_sni
+     versions_option_based_on_sni,
+     ciphers_option_based_on_sni
     ].
 
 pre_1_3() ->
@@ -1152,6 +1156,42 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{options, [{server_name_indication, SNI}, {versions, Versions},
                                                    {ciphers, Ciphers}
                                                   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+
+ciphers_option_based_on_sni() ->
+    [{doc,"Test that SNI versions option is selected over default ciphers option"}].
+
+ciphers_option_based_on_sni(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+    Suites = rsa_cipher_suites_not_default(TestVersion),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{ciphers, Suites} | ServerOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, suite_check, [TestVersion]}},
+					{options, [{sni_fun, Fun} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, no_result, []}},
+					{options, [{server_name_indication, SNI} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -4586,3 +4626,25 @@ run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts
     ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts] ++ SigOpts, ServerOpts, Config).
 
 
+rsa_cipher_suites_not_default('tlsv1.3'= Version) ->
+    [_ | Suites] = ssl:cipher_suites(default, Version),
+    Suites;
+rsa_cipher_suites_not_default(Version) ->
+    ssl_test_lib:test_ciphers(ecdhe_rsa, aes_128_gcm, Version).
+
+suite_check(Socket, 'tlsv1.3'= Version) ->
+    [_, Suite| _] = ssl:cipher_suites(default, Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end;
+suite_check(Socket, Version) ->
+    [Suite |_] = rsa_cipher_suites_not_default(Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end.
