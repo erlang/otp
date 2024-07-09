@@ -19,6 +19,18 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.16.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix bug in dnsName constraint check, could cause valid cert to be considered bad
+  during path validation.
+
+  Own Id: OTP-19100 Aux Id: [GH-8482], [PR-8508]
+
+[GH-8482]: https://github.com/erlang/otp/issues/8482
+[PR-8508]: https://github.com/erlang/otp/pull/8508
+
 ## Public_Key 1.16
 
 ### Improvements and New Features

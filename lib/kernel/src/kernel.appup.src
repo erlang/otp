@@ -28,7 +28,9 @@
 %% stated previous versions.
 %%
 {"%VSN%",
- [{<<"^8\\.4$">>,[restart_new_emulator]},
+ [{<<"^10\\.0$">>,[restart_new_emulator]},
+  {<<"^10\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^8\\.4$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
@@ -50,7 +52,9 @@
   {<<"^9\\.2\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^9\\.2\\.3(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^9\\.2\\.4(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
- [{<<"^8\\.4$">>,[restart_new_emulator]},
+ [{<<"^10\\.0$">>,[restart_new_emulator]},
+  {<<"^10\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
+  {<<"^8\\.4$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^8\\.4\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]},

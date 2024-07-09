@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
+## Edoc 1.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix broken makefile dependency when building HTML documentation.
+
+  Own Id: OTP-19116 Aux Id: [PR-8534]
+
+[PR-8534]: https://github.com/erlang/otp/pull/8534
+
 ## Edoc 1.3
 
 ### Fixed Bugs and Malfunctions
