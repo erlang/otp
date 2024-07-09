@@ -31,6 +31,40 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> When <seeguide
+	    marker="time_correction#no-time-warp-mode"><i>no time
+	    warp mode</i></seeguide> was enabled, a smaller Erlang
+	    monotonic time could be read than a previously read time,
+	    i.e., breaking the monotonic property. The runtime system
+	    will abort when detecting an issue like this since OTP
+	    24.3.4.17 and OTP 25.0. </p> <p> Up until OTP 25 <i>no
+	    time warp mode</i> is the default. As of OTP 26 <seeguide
+	    marker="time_correction#multi-time-warp-mode"><i>multi
+	    time warp mode</i></seeguide> is the default. </p>
+          <p>
+	    Own Id: OTP-19147 Aux Id: ERIERL-1043, ERIERL-1106,
+	    PR-8619 </p>
+        </item>
+        <item>
+          <p>
+	    A scheduler thread could get stuck when deleting a memory
+	    allocator carrier when adjacent carriers were deleted
+	    and/or inserted simultaneously by other schedulers. This
+	    in turn could cause the other schedulers to get stuck as
+	    well.</p>
+          <p>
+	    Own Id: OTP-19154 Aux Id: GH-8613, PR-8627 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
