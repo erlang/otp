@@ -203,6 +203,7 @@ start_services() ->
                                                       ?SERVER4]],
     [R1,R2] = [server(N, ?DICT_RELAY) || N <- [?RELAY1, ?RELAY2]],
 
+    ?RL("server -> try start service ~s", [?CLIENT]),
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
 
     [{?RELAY1, [S1,S2,R2]}, {?RELAY2, [S3,S4]}, {?CLIENT, [R1,R2]}].
@@ -223,14 +224,18 @@ stop_services() ->
 %% Traffic cases run when services are started and connections
 %% established.
 send() ->
-    ?RUN([[fun traffic/1, T] || T <- [send1,
-                                      send2,
-                                      send3,
-                                      send4,
-                                      send_loop,
-                                      send_timeout_1,
-                                      send_timeout_2,
-                                      info]]).
+    ?RUN([[fun(X) ->
+                   ?RL("send:fun -> entry with ~w", [X]),
+                   traffic(X)
+           end, T] || T <- [send1,
+                            send2,
+                            send3,
+                            send4,
+                            send_loop,
+                            send_timeout_1,
+                            send_timeout_2,
+                            info]]).
+
 
 %% ----------------------------------------
 
@@ -242,6 +247,7 @@ break({{CN,CR},{SN,SR}}) ->
     end.
 
 server(Name, Dict) ->
+    ?RL("server -> try start service ~s", [Name]),
     ok = diameter:start_service(Name, ?SERVICE(Name, Dict)),
     {Name, ?LISTEN(Name, tcp)}.
 
@@ -293,7 +299,13 @@ traffic(info) ->
     [] = ?INFO().
 
 counters() ->
-    ?RUN([[fun counters/2, K, S]
+    ?RUN([[fun(XK, XS) ->
+                   ?RL("counters:fun -> entry with"
+                       "~n   (X)Key: ~w"
+                       "~n   (X)Svc: ~p", [XK, XS]),                   
+                   counters(XK, XS)
+           end,
+           K, S]
           || K <- [statistics, transport, connections],
              S <- ?SERVICES]).
 
