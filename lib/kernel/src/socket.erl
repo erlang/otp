@@ -2265,15 +2265,14 @@ fmt_state(X) when is_atom(X) ->
 
 
 fmt_sockaddr(#{family := Fam,
-	       addr   := Addr,
-	       port   := Port}, Proto)
+	       addr   := Addr} = SockAddr, _Proto)
   when (Fam =:= inet) orelse (Fam =:= inet6) ->
     case Addr of
-	{0,0,0,0}         -> "*:" ++ fmt_port(Port, Proto);
-	{0,0,0,0,0,0,0,0} -> "*:" ++ fmt_port(Port, Proto);
-	{127,0,0,1}       -> "localhost:" ++ fmt_port(Port, Proto);
-	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_port(Port, Proto);
-	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
+	{0,0,0,0}         -> "*:" ++ fmt_service(SockAddr);
+	{0,0,0,0,0,0,0,0} -> "*:" ++ fmt_service(SockAddr);
+	{127,0,0,1}       -> "localhost:" ++ fmt_service(SockAddr);
+	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_service(SockAddr);
+	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_service(SockAddr)
     end;
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
@@ -2284,11 +2283,20 @@ fmt_sockaddr(#{family := local,
 		binary_to_list(Path)
 	end.
 
-
-fmt_port(N, Proto) ->
-    case net:getservbyport(N, Proto) of
-	{ok, Name} -> f("~s (~w)", [Name, N]);
-	_ -> integer_to_list(N)
+fmt_service(#{port := Port} = SockAddr) ->
+    case net:getnameinfo(SockAddr) of
+	{ok, #{service := Service}} ->
+            %% Even if there is no actual service associated with 
+            %% this port number, we still get a value: The port number
+            try list_to_integer(Service) of
+                FOO when is_integer(FOO) -> % This should be equal to Port...
+                    integer_to_list(Port)
+            catch
+                _C:_E:_S -> %% This means that it's an actual service
+                    f("~s (~w)", [Service, Port])
+            end;
+	_ ->
+            integer_to_list(Port)
     end.
 
 
