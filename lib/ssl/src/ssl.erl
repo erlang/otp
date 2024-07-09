@@ -3444,14 +3444,12 @@ format_error(Reason) ->
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 21.0">>}).
 -spec suite_to_str(CipherSuite) -> string() when
-      CipherSuite :: erl_cipher_suite();
-                  (CipherSuite) -> string() when
-      %% For internal use!
-      CipherSuite :: #{key_exchange := null,
-                       cipher := null,
-                       mac := null,
-                       prf := null}.
--doc "Converts `t:erl_cipher_suite/0` to RFC name string.".
+      CipherSuite :: erl_cipher_suite().
+-doc """
+Converts an [`erl_cipher_suite()`](`t:erl_cipher_suite/0`) value to an RFC
+name string.
+""".
+
 %%--------------------------------------------------------------------
 suite_to_str(Cipher) ->
     ssl_cipher_format:suite_map_to_str(Cipher).
