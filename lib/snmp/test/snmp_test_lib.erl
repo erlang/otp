@@ -1468,7 +1468,7 @@ analyze_and_print_linux_host_info(Version) ->
             _ ->
                 5
         end,
-    AddLabelFactor = label2factor(Label),
+    AddLabelFactor = label2factor(simplify_label(Label)),
     %% Check if we need to adjust the factor because of the memory
     AddMemFactor = try linux_which_meminfo()
                    catch _:_:_ -> 0
