@@ -107,6 +107,7 @@
     mon_port_pid_demonitor/1,
     mon_port_remote_on_remote/1,
     mon_port_driver_die/1,
+    mon_port_down_sig/1,
     mul_basic/1,
     mul_slow_writes/1,
     name1/1,
@@ -190,6 +191,7 @@ all() ->
      mon_port_pid_demonitor,
      mon_port_name_demonitor,
      mon_port_driver_die,
+     mon_port_down_sig,
      {group, port_exit_signal_race}].
 
 groups() ->
@@ -2776,6 +2778,42 @@ mon_port_driver_die(Config) ->
         {'DOWN', _R, _P, _, _} = M -> ct:fail({got_wrong_down,M})
     after 5000 -> ?assert(false)
     end,
+    ok.
+
+mon_port_down_sig(Config) ->
+    ct:log("By id with immediate reason"),
+    chk_port_down(Config, undefined, bye),
+    ct:log("By id with non-immediate reason"),
+    chk_port_down(Config, undefined, {bye, bye}),
+    ct:log("By name with immediate reason"),
+    chk_port_down(Config, a_port_test_name, bye),
+    ct:log("By name with non-immediate reason"),
+    chk_port_down(Config, another_port_test_name, {bye, bye}),
+    ok.
+
+chk_port_down(Config, Name, Reason) ->
+    Port = create_port(Config, ["-h1", "-q"]), % will close after we send 1 byte
+    true = is_port(Port),
+    {MonWhat, DownItem} = if Name == undefined ->
+                                  {Port, Port};
+                             true ->
+                                  true = register(Name, Port),
+                                  {Name, {Name, node()}}
+                          end,
+    Mon = erlang:monitor(port, MonWhat),
+    unlink(Port),
+    receive after 100 -> ok end,
+    Proc = spawn(fun () ->
+                         link(Port),
+                         exit(Reason)
+                 end),
+    receive
+        {'DOWN', Mon, Type, Item, ExitReason} ->
+            port = Type,
+            Reason = ExitReason,
+            DownItem = Item
+    end,
+    false = is_process_alive(Proc),
     ok.
 
 -ifdef(DISABLED_TESTCASE).
