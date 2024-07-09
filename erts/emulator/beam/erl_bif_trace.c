@@ -349,8 +349,15 @@ trace_pattern(Process* p, ErtsTraceSession *session,
 		}
 		flags.breakpoint = 1;
 		flags.meta       = 1;
-                if (ERTS_TRACER_IS_NIL(meta_tracer))
-                    meta_tracer = erts_term_to_tracer(THE_NON_VALUE, p->common.id);
+                if (ERTS_TRACER_IS_NIL(meta_tracer)) {
+                    if (ERTS_TRACER_IS_NIL(session->tracer)) {
+                        meta_tracer = erts_term_to_tracer(THE_NON_VALUE,
+                                                          p->common.id);
+                    }
+                    else {
+                        erts_tracer_update(&meta_tracer, session->tracer);
+                    }
+                }
 		break;
 	    case am_global:
 		if (flags.breakpoint) {
