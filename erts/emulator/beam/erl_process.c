@@ -12530,19 +12530,21 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     ERTS_P_ALL_TRACE_FLAGS(p) = 0;
     p->common.tracee.first_ref = NULL;
-    erts_rwmtx_rlock(&erts_trace_session_list_lock);
-    for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
-        Uint32 trace_flags;
-        ErtsTracer tracer;
-        // ToDo: Optimize
-        erts_get_on_spawn_tracing(s, &trace_flags, &tracer);
-        if (trace_flags) {
-            ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
-            ref->flags = trace_flags;
-            ref->tracer = tracer;
+
+    if (erts_refc_read(&erts_new_procs_trace_cnt, 0)) {
+        erts_rwmtx_rlock(&erts_trace_session_list_lock);
+        for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+            Uint32 trace_flags;
+            ErtsTracer tracer;
+            erts_get_new_proc_tracing(s, &trace_flags, &tracer);
+            if (trace_flags) {
+                ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
+                ref->flags = trace_flags;
+                ref->tracer = tracer;
+            }
         }
+        erts_rwmtx_runlock(&erts_trace_session_list_lock);
     }
-    erts_rwmtx_runlock(&erts_trace_session_list_lock);
 
     if (parent && ERTS_IS_P_TRACED(parent)) {
         if (ERTS_IS_P_TRACED_FL(parent, F_TRACE_SOS|F_TRACE_SOS1)
