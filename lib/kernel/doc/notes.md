@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.0.1
+
+### Improvements and New Features
+
+- Polish the `m:logger` documentation.
+
+  Own Id: OTP-19118 Aux Id: [PR-8534]
+
+[PR-8534]: https://github.com/erlang/otp/pull/8534
+
 ## Kernel 10.0
 
 ### Fixed Bugs and Malfunctions
