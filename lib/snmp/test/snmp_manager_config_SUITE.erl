@@ -238,6 +238,10 @@ init_per_suite(Config0) when is_list(Config0) ->
             %% We need one on this node also
             snmp_test_sys_monitor:start(),
 
+            ?IPRINT("init_per_suite -> try ensure snmpm_config not running"),
+
+            config_ensure_not_running(),
+
             ?IPRINT("init_per_suite -> end when"
                     "~n   Config: ~p", [Config2]),
 
