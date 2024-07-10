@@ -21,6 +21,45 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.0.1
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances the JIT could do an unsafe in-place update of a tuple.
+
+  Own Id: OTP-19108 Aux Id: [PR-8539]
+
+- When a port command crashed in the inet driver during `gen_tcp:send/2`, a monitor `'DOWN'` message could be left lingering in the caller's mailbox. This has now been fixed.
+
+  Own Id: OTP-19121 Aux Id: [GH-8484]
+
+- `'DOWN'` messages originating from a monitored port, contained the atom `process` instead of the atom `port` as the third element when the exit reason was not an immediate term.
+
+  Own Id: OTP-19123 Aux Id: [GH-8484], [PR-8546]
+
+- Fix so that the options to enable Transparent Huge Page alignment of the Erlang VM executable are only applied to the Erlang VM and not other native programs such as `erlc` and `dialyzer`. This bug was introduced in Erlang/OTP 27.0.
+
+  Own Id: OTP-19137 Aux Id: [GH-8574]
+
+- When [*no time warp mode*](time_correction.md#no-time-warp-mode) was enabled, a smaller Erlang monotonic time could be read than a previously read time, i.e., breaking the monotonic property. The runtime system will abort when detecting an issue like this since OTP 24.3.4.17 and OTP 25.0.
+  
+  Up until OTP 25 *no time warp mode* is the default. As of OTP 26 [*multi time warp mode*](time_correction.md#multi-time-warp-mode) is the default.
+
+  Own Id: OTP-19147 Aux Id: ERIERL-1043, ERIERL-1106, [PR-8619]
+
+- When calling `trace:function(Session, _, true, [meta])` the meta tracer was incorrectly set to be the calling process. Now it's set to the session tracer as expected.
+
+  Own Id: OTP-19151 Aux Id: [PR-8616], [GH-8614]
+
+[PR-8539]: https://github.com/erlang/otp/pull/8539
+[GH-8484]: https://github.com/erlang/otp/issues/8484
+[GH-8484]: https://github.com/erlang/otp/issues/8484
+[PR-8546]: https://github.com/erlang/otp/pull/8546
+[GH-8574]: https://github.com/erlang/otp/issues/8574
+[PR-8619]: https://github.com/erlang/otp/pull/8619
+[PR-8616]: https://github.com/erlang/otp/pull/8616
+[GH-8614]: https://github.com/erlang/otp/issues/8614
+
 ## Erts 15.0
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,22 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5.1
+
+### Fixed Bugs and Malfunctions
+
+- One of the compiler's optimization passes would get very slow when compiling certain modules. The compiler will now automatically disable that pass for input that would trigger the slowdown.
+
+  Own Id: OTP-19131 Aux Id: [PR-8567]
+
+- Fix `+deterministic` to work properly with documentation attributes.
+
+  Own Id: OTP-19142 Aux Id: [PR-8585] [GH-8579]
+
+[PR-8567]: https://github.com/erlang/otp/pull/8567
+[PR-8585]: https://github.com/erlang/otp/pull/8585
+[GH-8579]: https://github.com/erlang/otp/issues/8579
+
 ## Compiler 8.5
 
 ### Fixed Bugs and Malfunctions
