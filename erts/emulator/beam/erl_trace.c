@@ -2810,7 +2810,11 @@ erts_term_to_tracer(Eterm prefix, Eterm t)
 {
     ErtsTracer tracer = erts_tracer_nil;
     ASSERT(is_atom(prefix) || prefix == THE_NON_VALUE);
-    if (!is_nil(t)) {
+
+    if (is_internal_pid(t)) {
+        tracer = t;
+    }
+    else if (!is_nil(t)) {
         Eterm module = am_erl_tracer, state = THE_NON_VALUE;
         Eterm hp[2];
         if (is_tuple(t)) {
@@ -3152,7 +3156,7 @@ static void free_tracer(void *p)
 }
 
 /*
- * ErtsTracer is either NIL, 'true' or [Mod | State]
+ * ErtsTracer is either NIL, 'true', local pid or [Mod | State]
  *
  * - If State is immediate then the memory for
  *   the cons cell is just two words + sizeof(ErtsThrPrgrLaterOp) large.
@@ -3177,15 +3181,15 @@ static void free_tracer(void *p)
  * the refc when *tracer is NIL.
  */
 void
-erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer)
+erts_tracer_update_impl(ErtsTracer *tracer, ErtsTracer new_tracer)
 {
     ErlHeapFragment *hf;
 
-    if (is_not_nil(*tracer)) {
+    if (is_list(*tracer)) {
         Uint offs = 2;
         UWord size = 2 * sizeof(Eterm) + sizeof(ErtsThrPrgrLaterOp);
         ErtsThrPrgrLaterOp *lop;
-        ASSERT(is_list(*tracer));
+
         if (is_not_immed(ERTS_TRACER_STATE(*tracer))) {
             hf = ErtsContainerStruct_(ptr_val(*tracer), ErlHeapFragment, mem);
             offs = hf->used_size;
@@ -3212,7 +3216,15 @@ erts_tracer_update_impl(ErtsTracer *tracer, const ErtsTracer new_tracer)
             free_tracer, (void*)(*tracer), lop, size);
     }
 
-    if (is_nil(new_tracer)) {
+    if (is_list(new_tracer)) {
+        const Eterm module = ERTS_TRACER_MODULE(new_tracer);
+        const Eterm state = ERTS_TRACER_STATE(new_tracer);
+        if (module == am_erl_tracer && is_internal_pid(state)) {
+            new_tracer = state;
+        }
+    }
+    if (is_immed(new_tracer)) {
+        ASSERT(is_nil(new_tracer) || is_internal_pid(new_tracer));
         *tracer = new_tracer;
     } else if (is_immed(ERTS_TRACER_STATE(new_tracer))) {
         /* If tracer state is an immediate we only allocate a 2 Eterm heap.
