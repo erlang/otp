@@ -52,6 +52,7 @@
 -export([eprint/2, wprint/2, nprint/2, iprint/2]).
 -export([explicit_inet_backend/0, test_inet_backends/0]).
 -export([which_host_ip/2]).
+-export([ftime/2]).
 
 %% Convenient exports...
 -export([analyze_and_print_host_info/0]).
@@ -3272,6 +3273,20 @@ timetrap_scale_factor() ->
 	    N
     end.
 
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (0 < Factor) andalso (Factor < 3) ->
+    BaseTime;
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (3 =< Factor) andalso (Factor =< 10) ->
+    BaseTime + (Factor-2) * (BaseTime div 4);
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (10 < Factor) ->
+    3*BaseTime + (Factor-10) * (BaseTime div 10).
+    
+    
     
 %% ----------------------------------------------------------------------
 %% file & dir functions
