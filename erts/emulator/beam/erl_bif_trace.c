@@ -103,6 +103,8 @@ static void clean_export_entries(BpFunctions* f);
 
 ErtsTraceSession erts_trace_session_0;
 erts_rwmtx_t erts_trace_session_list_lock;
+erts_refc_t erts_new_procs_trace_cnt;
+erts_refc_t erts_new_ports_trace_cnt;
 
 ErtsTraceSession* erts_trace_cleaner_wait_list;
 erts_mtx_t erts_trace_cleaner_lock;
@@ -130,10 +132,10 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
     s->on_load_trace_pattern_flags = erts_trace_pattern_flags_off;
     s->on_load_meta_tracer = erts_tracer_nil;
 
-    s->on_spawn_proc_trace_flags = F_INITIAL_TRACE_FLAGS;
-    s->on_spawn_proc_tracer = erts_tracer_nil;
-    s->on_open_port_trace_flags = F_INITIAL_TRACE_FLAGS;
-    s->on_open_port_tracer = erts_tracer_nil;
+    s->new_procs_trace_flags = F_INITIAL_TRACE_FLAGS;
+    s->new_procs_tracer = erts_tracer_nil;
+    s->new_ports_trace_flags = F_INITIAL_TRACE_FLAGS;
+    s->new_ports_tracer = erts_tracer_nil;
 
 
     erts_atomic32_init_nob(&s->trace_control_word, 0);
@@ -247,13 +249,20 @@ Eterm erts_make_trace_session_weak_ref(ErtsTraceSession *s, Eterm **hpp)
 void
 erts_bif_trace_init(void)
 {
+    erts_rwmtx_opt_t rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opts.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    rwmtx_opts.lived = ERTS_RWMTX_LONG_LIVED;
+
     erts_trace_session_init(&erts_trace_session_0, erts_tracer_nil, am_legacy);
-    erts_rwmtx_init(&erts_trace_session_list_lock, "trace_session_list", NIL,
-		    ERTS_LOCK_FLAGS_PROPERTY_STATIC |
-		    ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    erts_rwmtx_init_opt(&erts_trace_session_list_lock, &rwmtx_opts,
+                        "trace_session_list", NIL,
+                        ERTS_LOCK_FLAGS_PROPERTY_STATIC |
+                        ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     erts_mtx_init(&erts_trace_cleaner_lock, "trace_cleaner", NIL,
                     ERTS_LOCK_FLAGS_PROPERTY_STATIC |
                     ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+    erts_refc_init(&erts_new_procs_trace_cnt, 0);
+    erts_refc_init(&erts_new_ports_trace_cnt, 0);
 }
 
 /*
@@ -1116,11 +1125,11 @@ Eterm trace(Process* p, ErtsTraceSession *session,
 	    ok = 1;
             if (mask & ERTS_PROC_TRACEE_FLAGS &&
                 pid_spec != am_ports && pid_spec != am_new_ports)
-                erts_change_default_proc_tracing(session,
+                erts_change_new_procs_tracing(session,
                     on, mask & ERTS_PROC_TRACEE_FLAGS, tracer);
             if (mask & ERTS_PORT_TRACEE_FLAGS &&
                 pid_spec != am_processes && pid_spec != am_new_processes)
-                erts_change_default_port_tracing(
+                erts_change_new_ports_tracing(
                     session, on, mask & ERTS_PORT_TRACEE_FLAGS, tracer);
 
 #ifdef HAVE_ERTS_NOW_CPU
@@ -1201,8 +1210,8 @@ static void free_session(ErtsTraceSession *session)
     ASSERT(erts_refc_read(&session->dbg_p_refc, 0) == 0);
     ASSERT(erts_atomic_read_nob(&session->state) == ERTS_TRACE_SESSION_DEAD);
     ASSERT(ERTS_TRACER_IS_NIL(session->tracer));
-    ASSERT(ERTS_TRACER_IS_NIL(session->on_spawn_proc_tracer));
-    ASSERT(ERTS_TRACER_IS_NIL(session->on_open_port_tracer));
+    ASSERT(ERTS_TRACER_IS_NIL(session->new_procs_tracer));
+    ASSERT(ERTS_TRACER_IS_NIL(session->new_ports_tracer));
     ASSERT(ERTS_TRACER_IS_NIL(session->on_load_meta_tracer));
     erts_magic_binary_free(bin);
 }
@@ -1348,8 +1357,8 @@ trace_session_destroy(ErtsTraceSession* session)
     erts_rwmtx_rwunlock(&erts_trace_session_list_lock);
 
     ERTS_TRACER_CLEAR(&session->tracer);
-    ERTS_TRACER_CLEAR(&session->on_spawn_proc_tracer);
-    ERTS_TRACER_CLEAR(&session->on_open_port_tracer);
+    ERTS_TRACER_CLEAR(&session->new_procs_tracer);
+    ERTS_TRACER_CLEAR(&session->new_ports_tracer);
     clear_on_load_trace_pattern(session);
 
     prepare_clear_all_trace_pattern(session);
@@ -1652,12 +1661,12 @@ trace_info_pid(Process* p, ErtsTraceSession* session, Eterm pid_spec, Eterm key)
 
     if (pid_spec == am_new || pid_spec == am_new_processes) {
         ErtsTracer def_tracer;
-	erts_get_on_spawn_tracing(session, &trace_flags, &def_tracer);
+	erts_get_new_proc_tracing(session, &trace_flags, &def_tracer);
         tracer = erts_tracer_to_term(p, def_tracer);
         ERTS_TRACER_CLEAR(&def_tracer);
     } else if (pid_spec == am_new_ports) {
         ErtsTracer def_tracer;
-	erts_get_on_open_port_tracing(session, &trace_flags, &def_tracer);
+	erts_get_new_port_tracing(session, &trace_flags, &def_tracer);
         tracer = erts_tracer_to_term(p, def_tracer);
         ERTS_TRACER_CLEAR(&def_tracer);
     } else if (is_internal_port(pid_spec)) {
@@ -2210,8 +2219,8 @@ trace_info_sessions(Process* p, Eterm What, Eterm key)
         case am_send:      on = s->send_tracing[bp_ix].on; break;
         case am_receive:   on = s->receive_tracing[bp_ix].on; break;
         case am_new_processes:
-        case am_new:       on = s->on_spawn_proc_trace_flags; break;
-        case am_new_ports: on = s->on_open_port_trace_flags; break;
+        case am_new:       on = s->new_procs_trace_flags; break;
+        case am_new_ports: on = s->new_ports_trace_flags; break;
         default:
             erts_rwmtx_runlock(&erts_trace_session_list_lock);
             erts_factory_undo(&factory);

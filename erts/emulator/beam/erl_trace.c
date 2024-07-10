@@ -476,9 +476,9 @@ erts_get_system_seq_tracer(void)
 }
 
 static ERTS_INLINE void
-get_on_spawn_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
-                    Uint32 *default_trace_flags,
-                    ErtsTracer *default_tracer)
+get_new_p_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
+                  Uint32 *default_trace_flags,
+                  ErtsTracer *default_tracer)
 {
     if (!(*default_trace_flags & TRACEE_FLAGS))
 	ERTS_TRACER_CLEAR(default_tracer);
@@ -522,10 +522,10 @@ get_on_spawn_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
 }
 
 static void
-erts_change_on_spawn_tracing(int setflags, Uint32 flags,
-                            const ErtsTracer tracer,
-                            Uint32 *default_trace_flags,
-                            ErtsTracer *default_tracer)
+erts_change_new_p_tracing(int setflags, Uint32 flags,
+                          const ErtsTracer tracer,
+                          Uint32 *default_trace_flags,
+                          ErtsTracer *default_tracer)
 {
     if (setflags)
         *default_trace_flags |= flags;
@@ -534,58 +534,84 @@ erts_change_on_spawn_tracing(int setflags, Uint32 flags,
 
     erts_tracer_update(default_tracer, tracer);
 
-    get_on_spawn_tracing(NULL, NULL, default_trace_flags, default_tracer);
+    get_new_p_tracing(NULL, NULL, default_trace_flags, default_tracer);
 }
 
 void
-erts_change_default_proc_tracing(ErtsTraceSession* session,
-                                 int setflags, Uint32 flags,
-                                 const ErtsTracer tracer)
+erts_change_new_procs_tracing(ErtsTraceSession* session,
+                              int setflags, Uint32 flags,
+                              const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_on_spawn_tracing(
+    was_tracer = session->new_procs_tracer;
+
+    erts_change_new_p_tracing(
         setflags, flags, tracer,
-        &session->on_spawn_proc_trace_flags,
-        &session->on_spawn_proc_tracer);
+        &session->new_procs_trace_flags,
+        &session->new_procs_tracer);
+
+    if (session->new_procs_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_new_procs_trace_cnt, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->new_procs_tracer)) {
+            erts_refc_dec(&erts_new_procs_trace_cnt, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_change_default_port_tracing(ErtsTraceSession* session,
-                                 int setflags, Uint32 flags,
-                                 const ErtsTracer tracer)
+erts_change_new_ports_tracing(ErtsTraceSession* session,
+                              int setflags, Uint32 flags,
+                              const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_on_spawn_tracing(
+    was_tracer = session->new_ports_tracer;
+
+    erts_change_new_p_tracing(
         setflags, flags, tracer,
-        &session->on_open_port_trace_flags,
-        &session->on_open_port_tracer);
+        &session->new_ports_trace_flags,
+        &session->new_ports_tracer);
+
+    if (session->new_ports_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_new_ports_trace_cnt, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->new_ports_tracer)) {
+            erts_refc_dec(&erts_new_ports_trace_cnt, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_on_spawn_tracing(ErtsTraceSession* session,
+erts_get_new_proc_tracing(ErtsTraceSession* session,
                           Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_on_spawn_tracing(
+    get_new_p_tracing(
         flagsp, tracerp,
-        &session->on_spawn_proc_trace_flags,
-        &session->on_spawn_proc_tracer);
+        &session->new_procs_trace_flags,
+        &session->new_procs_tracer);
     erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_on_open_port_tracing(ErtsTraceSession* session,
+erts_get_new_port_tracing(ErtsTraceSession* session,
                               Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_on_spawn_tracing(
+    get_new_p_tracing(
         flagsp, tracerp,
-        &session->on_open_port_trace_flags,
-        &session->on_open_port_tracer);
+        &session->new_ports_trace_flags,
+        &session->new_ports_tracer);
     erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 

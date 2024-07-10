@@ -100,10 +100,10 @@ typedef struct ErtsTraceSession {
     struct trace_pattern_flags  on_load_trace_pattern_flags;
     ErtsTracer                  on_load_meta_tracer;
 
-    Uint32 on_spawn_proc_trace_flags;
-    ErtsTracer on_spawn_proc_tracer;
-    Uint32 on_open_port_trace_flags;
-    ErtsTracer on_open_port_tracer;
+    Uint32 new_procs_trace_flags;
+    ErtsTracer new_procs_tracer;
+    Uint32 new_ports_trace_flags;
+    ErtsTracer new_ports_tracer;
 
 #ifdef DEBUG
     erts_refc_t dbg_bp_refc;  /* Number of breakpoints */
@@ -116,6 +116,8 @@ Eterm erts_make_trace_session_weak_ref(ErtsTraceSession*, Eterm **hpp);
 
 extern ErtsTraceSession erts_trace_session_0;
 extern erts_rwmtx_t erts_trace_session_list_lock;
+extern erts_refc_t erts_new_procs_trace_cnt;
+extern erts_refc_t erts_new_ports_trace_cnt;
 
 void erts_ref_trace_session(ErtsTraceSession*);
 void erts_deref_trace_session(ErtsTraceSession*);
@@ -150,15 +152,15 @@ ErtsTracer erts_set_system_seq_tracer(Process *c_p,
                                       ErtsProcLocks c_p_locks,
                                       ErtsTracer new_);
 ErtsTracer erts_get_system_seq_tracer(void);
-void erts_change_default_proc_tracing(ErtsTraceSession* session,
+void erts_change_new_procs_tracing(ErtsTraceSession* session,
                                       int setflags, Uint32 flags,
                                       const ErtsTracer tracerp);
-void erts_get_on_spawn_tracing(ErtsTraceSession*,
+void erts_get_new_proc_tracing(ErtsTraceSession*,
                                Uint32 *flagsp, ErtsTracer *tracerp);
-void erts_change_default_port_tracing(ErtsTraceSession* session,
+void erts_change_new_ports_tracing(ErtsTraceSession* session,
                                       int setflags, Uint32 flags,
                                       const ErtsTracer tracerp);
-void erts_get_on_open_port_tracing(ErtsTraceSession*,
+void erts_get_new_port_tracing(ErtsTraceSession*,
                                    Uint32 *flagsp, ErtsTracer *tracerp);
 void erts_set_system_monitor(Eterm monitor);
 Eterm erts_get_system_monitor(void);
