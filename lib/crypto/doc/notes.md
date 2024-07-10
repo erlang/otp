@@ -71,6 +71,14 @@ This document describes the changes made to the Crypto application.
 [PR-8168]: https://github.com/erlang/otp/pull/8168
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Crypto 5.4.2.1
+
+### Improvements and New Features
+
+* Add warning in documentation to avoid `crypto:start/0` as it does not work for FIPS mode. Use `application:start(crypto)` instead.
+
+  Own Id: OTP-19143
+
 ## Crypto 5.4.2
 
 ### Fixed Bugs and Malfunctions
