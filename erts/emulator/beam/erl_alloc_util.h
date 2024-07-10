@@ -262,6 +262,8 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
 struct alcu_blockscan;
 
 typedef struct {
+    ErtsThrPrgrLaterOp later_op;
+
     struct alcu_blockscan *current;
     struct alcu_blockscan *last;
 } ErtsAlcuBlockscanYieldData;
