@@ -374,6 +374,14 @@ This document describes the changes made to the STDLIB application.
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 [PR-8111]: https://github.com/erlang/otp/pull/8111
 
+## STDLIB 5.2.3.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug that caused the shell completion to crash when keyword and tuple appeared on the same line.
+
+  Own Id: OTP-19157 Aux Id: PR-8638
+
 ## STDLIB 5.2.3
 
 ### Fixed Bugs and Malfunctions

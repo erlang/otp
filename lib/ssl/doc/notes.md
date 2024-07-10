@@ -97,6 +97,14 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.2
+
+### Improvements and New Features
+
+* When the default value for signature_algs is used, default the signature_algs_cert to the default value + rsa_pkcs1_sha1 to allow this algorithms for certificates but not for the TLS protocol. This is for better interoperability. If signature_algs is set explicitly signature_algs_cert must also be set explicitly if they should be different.
+
+  Own Id: OTP-19152 Aux Id: GH-8588
+
 ## SSL 11.1.4.1
 
 ### Fixed Bugs and Malfunctions
