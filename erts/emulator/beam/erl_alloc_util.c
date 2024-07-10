@@ -793,6 +793,7 @@ static Block_t *create_carrier(Allctr_t *, Uint, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *, Carrier_t **);
 static void mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp);
 static void dealloc_block(Allctr_t *, ErtsAlcType_t, Uint32, void *, ErtsAlcFixList_t *);
+static void cpool_link(ErtsAlcCPoolData_t* to_link, ErtsAlcCPoolData_t* try_after, ErtsAlcCPoolData_t* strict_after);
 
 int ERTS_WRITE_UNLIKELY(erts_alcu_enable_code_atags);
 
@@ -3329,8 +3330,6 @@ cpool_mod_mark(erts_atomic_t *aptr)
 static void
 cpool_insert(Allctr_t *allctr, Carrier_t *crr)
 {
-    ErtsAlcCPoolData_t *cpd1p, *cpd2p;
-    erts_aint_t val;
     ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
     Allctr_t *orig_allctr = crr->cpool.orig_allctr;
     int ix;
@@ -3351,72 +3350,168 @@ cpool_insert(Allctr_t *allctr, Carrier_t *crr)
     erts_atomic_inc_nob(&orig_allctr->cpool.stat.no_carriers);
 
     /*
-     * We search in 'next' direction and begin by passing
-     * one element before trying to insert. This in order to
+     * We begin by passing one element before trying to insert. This in order to
      * avoid contention with threads fetching elements.
      */
+    cpool_link(&crr->cpool,
+               cpool_aint2cpd(cpool_read(&sentinel->next)),
+               sentinel);
 
-    val = cpool_read(&sentinel->next);
+    LTTNG3(carrier_pool_put, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, CARRIER_SZ(crr));
+}
+
+/*
+ * Link 'link' into list by searching in 'next' direction and insert somewhere
+ * after 'start_after' but not further away than after 'end_after'.
+ * Node 'end_after' must be guaranteed to not be deleted (sentinel or busy).
+ */
+static void
+cpool_link(ErtsAlcCPoolData_t* link,
+           ErtsAlcCPoolData_t* start_after,
+           ErtsAlcCPoolData_t* end_after)
+{
+    ErtsAlcCPoolData_t *prev, *next;
+    erts_aint_t val;
+
+    ASSERT(link->thr_prgr == ERTS_THR_PRGR_INVALID
+           || erts_thr_progress_has_reached(link->thr_prgr));
 
     /* Find a predecessor to be, and set mod marker on its next ptr */
 
+    prev = start_after;
     while (1) {
-	cpd1p = cpool_aint2cpd(val);
-	if (cpd1p == sentinel) {
-	    val = cpool_mod_mark(&cpd1p->next);
+	if (prev == end_after) {
+	    val = cpool_mod_mark(&prev->next);
 	    break;
 	}
-	val = cpool_read(&cpd1p->next);
+	val = cpool_read(&prev->next);
 	if (!(val & ERTS_ALC_CPOOL_PTR_MRKS)) {
-	    erts_aint_t tmp = cpool_try_mod_mark_exp(&cpd1p->next, val);
+	    erts_aint_t tmp = cpool_try_mod_mark_exp(&prev->next, val);
 	    if (tmp == val) {
 		val = tmp;
 		break;
 	    }
 	    val = tmp;
 	}
+        prev = cpool_aint2cpd(val);
     }
 
     /* Set mod marker on prev ptr of the to be successor */
 
-    cpd2p = cpool_aint2cpd(val);
+    next = cpool_aint2cpd(val);
 
-    cpool_init(&crr->cpool.next, (erts_aint_t) cpd2p);
-    cpool_init(&crr->cpool.prev, (erts_aint_t) cpd1p);
+    cpool_init(&link->next, (erts_aint_t) next);
+    cpool_init(&link->prev, (erts_aint_t) prev);
 
-    val = (erts_aint_t) cpd1p;
+    val = (erts_aint_t) prev;
 
     while (1) {
 	int b;
 	erts_aint_t tmp;
 
-	tmp = cpool_mod_mark_exp(&cpd2p->prev, val);
+	tmp = cpool_mod_mark_exp(&next->prev, val);
 	if (tmp == val)
 	    break;
 	b = 1;
 	do {
 	    b = backoff(b);
-	    tmp = cpool_read(&cpd2p->prev);
+	    tmp = cpool_read(&next->prev);
 	} while (tmp != val);
     }
 
     /* Write pointers to this element in successor and predecessor */
 
-    cpool_set_mod_marked(&cpd1p->next,
-			 (erts_aint_t) &crr->cpool,
-			 (erts_aint_t) cpd2p);
-    cpool_set_mod_marked(&cpd2p->prev,
-			 (erts_aint_t) &crr->cpool,
-			 (erts_aint_t) cpd1p);
+    cpool_set_mod_marked(&prev->next,
+			 (erts_aint_t) link,
+			 (erts_aint_t) next);
+    cpool_set_mod_marked(&next->prev,
+			 (erts_aint_t) link,
+			 (erts_aint_t) prev);
+}
 
-    LTTNG3(carrier_pool_put, ERTS_ALC_A2AD(allctr->alloc_no), allctr->ix, CARRIER_SZ(crr));
+static void
+cpool_unlink(ErtsAlcCPoolData_t *unlink)
+{
+    ErtsAlcCPoolData_t *prev, *next;
+    erts_aint_t val;
+
+    /* Set mod marker on next ptr of our predecessor */
+
+    val = (erts_aint_t) unlink;
+    while (1) {
+        erts_aint_t tmp;
+        prev = cpool_aint2cpd(cpool_read(&unlink->prev));
+        tmp = cpool_mod_mark_exp(&prev->next, val);
+        if (tmp == val)
+            break;
+    }
+
+    /* Set mod marker on our next ptr */
+
+    val = cpool_mod_mark(&unlink->next);
+
+    /* Set mod marker on the prev ptr of our successor */
+
+    next = cpool_aint2cpd(val);
+
+    val = (erts_aint_t) unlink;
+
+    while (1) {
+	int b;
+	erts_aint_t tmp;
+
+        tmp = cpool_mod_mark_exp(&next->prev, val);
+        if (tmp == val)
+            break;
+        b = 1;
+        do {
+            b = backoff(b);
+            tmp = cpool_read(&next->prev);
+        } while (tmp != val);
+    }
+
+    /* Set mod marker on our prev ptr */
+
+    val = (erts_aint_t) prev;
+
+    while (1) {
+	int b;
+	erts_aint_t tmp;
+
+        tmp = cpool_mod_mark_exp(&unlink->prev, val);
+        if (tmp == val)
+            break;
+        b = 1;
+        do {
+            b = backoff(b);
+            tmp = cpool_read(&unlink->prev);
+        } while (tmp != val);
+    }
+
+    /* Write pointers past this element in predecessor and successor */
+
+    cpool_set_mod_marked(&prev->next,
+                         (erts_aint_t) next,
+                         (erts_aint_t) unlink);
+    cpool_set_mod_marked(&next->prev,
+                         (erts_aint_t) prev,
+                         (erts_aint_t) unlink);
+
+    /* Repleace mod markers with delete markers on this element */
+    cpool_set_mod_marked(&unlink->next,
+                         ((erts_aint_t) next) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
+                         ((erts_aint_t) next) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
+    cpool_set_mod_marked(&unlink->prev,
+                         ((erts_aint_t) prev) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
+                         ((erts_aint_t) prev) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
+
+    /* Not allowed to free or re-insert this one until thread progress */
+    unlink->thr_prgr = erts_thr_progress_later(NULL);
 }
 
 static void
 cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 {
-    ErtsAlcCPoolData_t *cpd1p, *cpd2p;
-    erts_aint_t val;
 #ifdef ERTS_ALC_CPOOL_DEBUG
     ErtsAlcCPoolData_t *sentinel = allctr->cpool.sentinel;
 #endif
@@ -3429,77 +3524,7 @@ cpool_delete(Allctr_t *allctr, Allctr_t *prev_allctr, Carrier_t *crr)
 
     ERTS_ALC_CPOOL_ASSERT(orig_allctr == prev_allctr);
 
-    /* Set mod marker on next ptr of our predecessor */
-
-    val = (erts_aint_t) &crr->cpool;
-    while (1) {
-	erts_aint_t tmp;
-	cpd1p = cpool_aint2cpd(cpool_read(&crr->cpool.prev));
-	tmp = cpool_mod_mark_exp(&cpd1p->next, val);
-	if (tmp == val)
-	    break;
-    }
-
-    /* Set mod marker on our next ptr */
-
-    val = cpool_mod_mark(&crr->cpool.next);
-
-    /* Set mod marker on the prev ptr of our successor */
-
-    cpd2p = cpool_aint2cpd(val);
-
-    val = (erts_aint_t) &crr->cpool;
-
-    while (1) {
-	int b;
-	erts_aint_t tmp;
-
-	tmp = cpool_mod_mark_exp(&cpd2p->prev, val);
-	if (tmp == val)
-	    break;
-	b = 1;
-	do {
-	    b = backoff(b);
-	    tmp = cpool_read(&cpd2p->prev);
-	} while (tmp != val);
-    }
-
-    /* Set mod marker on our prev ptr */
-
-    val = (erts_aint_t) cpd1p;
-
-    while (1) {
-	int b;
-	erts_aint_t tmp;
-
-	tmp = cpool_mod_mark_exp(&crr->cpool.prev, val);
-	if (tmp == val)
-	    break;
-	b = 1;
-	do {
-	    b = backoff(b);
-	    tmp = cpool_read(&crr->cpool.prev);
-	} while (tmp != val);
-    }
-
-    /* Write pointers past this element in predecessor and successor */
-
-    cpool_set_mod_marked(&cpd1p->next,
-			 (erts_aint_t) cpd2p,
-			 (erts_aint_t) &crr->cpool);
-    cpool_set_mod_marked(&cpd2p->prev,
-			 (erts_aint_t) cpd1p,
-			 (erts_aint_t) &crr->cpool);
-
-    /* Repleace mod markers with delete markers on this element */
-    cpool_set_mod_marked(&crr->cpool.next,
-			 ((erts_aint_t) cpd2p) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
-			 ((erts_aint_t) cpd2p) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
-    cpool_set_mod_marked(&crr->cpool.prev,
-			 ((erts_aint_t) cpd1p) | ERTS_ALC_CPOOL_PTR_DEL_MRK,
-			 ((erts_aint_t) cpd1p) | ERTS_ALC_CPOOL_PTR_MOD_MRK);
-
-    crr->cpool.thr_prgr = erts_thr_progress_later(NULL);
+    cpool_unlink(&crr->cpool);
 
     /* Subtract the carrier's block statistics from the pool. */
     for (ix = 0; ix < ERTS_ALC_A_COUNT; ix++) {
@@ -7075,7 +7100,8 @@ typedef struct alcu_blockscan {
     ErtsAlcCPoolData_t *cpool_cursor;
     CarrierList_t *current_clist;
     Carrier_t *clist_cursor;
-    Carrier_t dummy_carrier;
+    Carrier_t dummy_carriers[2];
+    Carrier_t *dummy_carrier;
 
     /* Called if the process that started this job dies before we're done. */
     void (*abort)(void *user_data);
@@ -7098,9 +7124,9 @@ static Carrier_t *blockscan_restore_clist_cursor(blockscan_t *state)
     Carrier_t *cursor = state->clist_cursor;
 
     ASSERT(state->clist_cursor == (state->current_clist)->first ||
-           state->clist_cursor == &state->dummy_carrier);
+           state->clist_cursor == state->dummy_carrier);
 
-    if (cursor == &state->dummy_carrier) {
+    if (cursor == state->dummy_carrier) {
         cursor = cursor->next;
 
         unlink_carrier(state->current_clist, state->clist_cursor);
@@ -7112,9 +7138,9 @@ static Carrier_t *blockscan_restore_clist_cursor(blockscan_t *state)
 static void blockscan_save_clist_cursor(blockscan_t *state, Carrier_t *after)
 {
     ASSERT(state->clist_cursor == (state->current_clist)->first ||
-           state->clist_cursor == &state->dummy_carrier);
+           state->clist_cursor == state->dummy_carrier);
 
-    state->clist_cursor = &state->dummy_carrier;
+    state->clist_cursor = state->dummy_carrier;
 
     (state->clist_cursor)->next = after->next;
     (state->clist_cursor)->prev = after;
@@ -7159,8 +7185,18 @@ static ErtsAlcCPoolData_t *blockscan_restore_cpool_cursor(blockscan_t *state)
 
     cursor = cpool_aint2cpd(cpool_read(&(state->cpool_cursor)->next));
 
-    if (state->cpool_cursor == &state->dummy_carrier.cpool) {
-        cpool_delete(state->allocator, state->allocator, &state->dummy_carrier);
+    if (state->cpool_cursor == &(state->dummy_carrier)->cpool) {
+        cpool_unlink(&(state->dummy_carrier)->cpool);
+
+        /* A given (dummy) carrier cannot be re-linked into the pool until
+         * thread progress has been made, so we alternate between two dummy
+         * carriers to get around that limitation. */
+        if (state->dummy_carrier == &state->dummy_carriers[0]) {
+            state->dummy_carrier = &state->dummy_carriers[1];
+        } else {
+            ASSERT(state->dummy_carrier == &state->dummy_carriers[1]);
+            state->dummy_carrier = &state->dummy_carriers[0];
+        }
     }
 
     return cursor;
@@ -7169,24 +7205,9 @@ static ErtsAlcCPoolData_t *blockscan_restore_cpool_cursor(blockscan_t *state)
 static void blockscan_save_cpool_cursor(blockscan_t *state,
                                         ErtsAlcCPoolData_t *after)
 {
-    ErtsAlcCPoolData_t *dummy_carrier, *prev_carrier, *next_carrier;
+    cpool_link(&(state->dummy_carrier)->cpool, after, after);
 
-    dummy_carrier = &state->dummy_carrier.cpool;
-
-    next_carrier = cpool_aint2cpd(cpool_mod_mark(&after->next));
-    prev_carrier = cpool_aint2cpd(cpool_mod_mark(&next_carrier->prev));
-
-    cpool_init(&dummy_carrier->next, (erts_aint_t)next_carrier);
-    cpool_init(&dummy_carrier->prev, (erts_aint_t)prev_carrier);
-
-    cpool_set_mod_marked(&prev_carrier->next,
-                         (erts_aint_t)dummy_carrier,
-                         (erts_aint_t)next_carrier);
-    cpool_set_mod_marked(&next_carrier->prev,
-                         (erts_aint_t)dummy_carrier,
-                         (erts_aint_t)prev_carrier);
-
-    state->cpool_cursor = dummy_carrier;
+    state->cpool_cursor = &(state->dummy_carrier)->cpool;
 }
 
 static int blockscan_cpool_yielding(blockscan_t *state)
@@ -7290,7 +7311,7 @@ static int blockscan_sweep_sbcs(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_sbcs) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_SBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_SBC, state->allocator);
         state->current_clist = &(state->allocator)->sbc_list;
         state->clist_cursor = (state->current_clist)->first;
     }
@@ -7312,7 +7333,7 @@ static int blockscan_sweep_mbcs(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_mbcs) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->current_clist = &(state->allocator)->mbc_list;
         state->clist_cursor = (state->current_clist)->first;
     }
@@ -7334,7 +7355,7 @@ static int blockscan_sweep_cpool(blockscan_t *state)
     blockscan_lock_helper(state);
 
     if (state->current_op != blockscan_sweep_cpool) {
-        SET_CARRIER_HDR(&state->dummy_carrier, 0, SCH_MBC, state->allocator);
+        SET_CARRIER_HDR(state->dummy_carrier, 0, SCH_MBC, state->allocator);
         state->cpool_cursor = (state->allocator)->cpool.sentinel;
     }
 
@@ -7423,9 +7444,13 @@ static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
 
     erts_proc_inc_refc(scanner->process);
 
-    cpool_init_carrier_data(scanner->allocator, &scanner->dummy_carrier);
-    erts_atomic_init_nob(&(scanner->dummy_carrier).allctr,
-                         (erts_aint_t)allocator | ERTS_CRR_ALCTR_FLG_BUSY);
+    /* See blockscan_restore_cpool_cursor */
+    for (int i = 0; i < 2; i++) {
+        cpool_init_carrier_data(scanner->allocator, &scanner->dummy_carriers[i]);
+        erts_atomic_init_nob(&(scanner->dummy_carriers[i]).allctr,
+                             (erts_aint_t)allocator | ERTS_CRR_ALCTR_FLG_BUSY);
+    }
+    scanner->dummy_carrier = &scanner->dummy_carriers[0];
 
     if (ERTS_ALC_IS_CPOOL_ENABLED(scanner->allocator)) {
         scanner->next_op = blockscan_sweep_cpool;
@@ -7442,6 +7467,47 @@ static void blockscan_dispatch(blockscan_t *scanner, Process *owner,
     erts_schedule_misc_aux_work(aux_work_tid, blockscan_sched_trampoline, scanner);
 }
 
+static void continue_scan_after_thr_prgr(void *arg)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+    ErtsAuxWorkData *awdp;
+    blockscan_t *scanner;
+
+    awdp = erts_get_aux_work_data();
+
+    yield = &awdp->yield.alcu_blockscan;
+    scanner = yield->current;
+    scanner->next_op = (int (*)(blockscan_t*))arg;
+
+    erts_more_yield_aux_work(awdp);
+}
+
+static void next_scanner_after_thr_prgr(void *arg)
+{
+    ErtsAlcuBlockscanYieldData *yield;
+    ErtsAuxWorkData *awdp;
+    blockscan_t *scanner;
+
+    awdp = erts_get_aux_work_data();
+    yield = &awdp->yield.alcu_blockscan;
+    scanner = yield->current;
+
+    ASSERT(ERTS_PROC_IS_EXITING(scanner->process) ||
+           scanner->current_op == blockscan_finish);
+
+    yield->current = scanner->scanner_queue;
+
+    if (yield->current == NULL) {
+        ASSERT(scanner == yield->last);
+        yield->last = NULL;
+    }
+
+    erts_proc_dec_refc(scanner->process);
+    free(scanner);
+
+    erts_more_yield_aux_work(awdp);
+}
+
 int erts_handle_yielded_alcu_blockscan(ErtsAuxWorkData *awdp)
 {
     ErtsAlcuBlockscanYieldData *yield = &awdp->yield.alcu_blockscan;
@@ -7449,27 +7515,36 @@ int erts_handle_yielded_alcu_blockscan(ErtsAuxWorkData *awdp)
 
     ASSERT((yield->last == NULL) == (yield->current == NULL));
 
-    if (scanner) {
+    if (scanner && scanner->next_op) {
         if (scanner->next_op(scanner)) {
-            return 1;
+            if (!awdp->esdp) {
+                /* Regular aux thread; keep going without waiting for thread
+                 * progress. */
+                return 1;
+            }
+
+            /* If we're on a normal scheduler we may be scanning a
+             * carrier pool, which requires us to wait for thread progress
+             * before scheduling back in or freeing the scanner. */
+            ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
+            erts_schedule_thr_prgr_later_op(continue_scan_after_thr_prgr,
+                                            scanner->next_op,
+                                            &yield->later_op);
+            scanner->next_op = NULL;
+        } else {
+            if (!awdp->esdp) {
+                /* Regular aux thread; keep going without waiting for thread
+                 * progress. */
+                next_scanner_after_thr_prgr(awdp);
+                return yield->current != NULL;
+            }
+
+            ASSERT(!ERTS_SCHEDULER_IS_DIRTY(awdp->esdp));
+            erts_schedule_thr_prgr_later_op(next_scanner_after_thr_prgr,
+                                            awdp,
+                                            &yield->later_op);
+            scanner->next_op = NULL;
         }
-
-        ASSERT(ERTS_PROC_IS_EXITING(scanner->process) ||
-               scanner->current_op == blockscan_finish);
-
-        yield->current = scanner->scanner_queue;
-
-        if (yield->current == NULL) {
-            ASSERT(scanner == yield->last);
-            yield->last = NULL;
-        }
-
-        erts_proc_dec_refc(scanner->process);
-
-        /* Plain free is intentional. */
-        free(scanner);
-
-        return yield->current != NULL;
     }
 
     return 0;
@@ -7646,7 +7721,8 @@ static void gather_ahist_update(gather_ahist_t *state,
     hist_node = hist_tree_rbt_lookup(state->hist_tree, &key);
 
     if (hist_node == NULL) {
-        /* Plain calloc is intentional. */
+        /* Plain calloc is intentional to avoid using the allocators we are
+         * scanning. */
         hist_node = (hist_tree_t*)calloc(1,
                                          sizeof(hist_tree_t) +
                                          (state->hist_slot_count - 1) *
@@ -7893,7 +7969,8 @@ int erts_alcu_gather_alloc_histograms(Process *p, int allocator_num,
 
     ensure_atoms_initialized(allocator);
 
-    /* Plain calloc is intentional. */
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     gather_state = (gather_ahist_t*)calloc(1, sizeof(gather_ahist_t));
     gather_state->flags = flags;
 
@@ -7961,6 +8038,9 @@ static int gather_cinfo_scan(Allctr_t *allocator,
     Block_t *block;
 
     state = (gather_cinfo_t*)user_data;
+
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     node = calloc(1, sizeof(chist_node_t) +
                      (state->hist_slot_count - 1) *
                      sizeof(node->free_histogram[0]));
@@ -8218,7 +8298,8 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
 
     ensure_atoms_initialized(allocator);
 
-    /* Plain calloc is intentional. */
+    /* Plain calloc is intentional to avoid using the allocators we are
+     * scanning. */
     gather_state = (gather_cinfo_t*)calloc(1, sizeof(gather_cinfo_t));
     scanner = &gather_state->common;
 
