@@ -254,7 +254,7 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 	    return result;
     }
 
-    s = entry->name;
+    s = erts_atom_get_name(entry);
     length = entry->len;
 
     *dcount -= entry->len;

@@ -1347,7 +1347,7 @@ static Eterm do_utf8_to_list(Process *p, Uint num, const byte *bytes, Uint sz,
                                         num_built, num_eaten,
                                         tail);
 }
-Eterm erts_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz, Uint left,
+Eterm erts_utf8_to_list(Process *p, Uint num, const byte *bytes, Uint sz, Uint left,
 			Uint *num_built, Uint *num_eaten, Eterm tail)
 {
     return do_utf8_to_list(p, num, bytes, sz, left, num_built, num_eaten, tail);
@@ -1366,7 +1366,7 @@ Uint erts_atom_to_string_length(Eterm atom)
         const byte* err_pos;
         Uint num_chars;
         int ares =
-            erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
+            erts_analyze_utf8(erts_atom_get_name(ap), ap->len, &err_pos, &num_chars, NULL);
         ASSERT(ares == ERTS_UTF8_OK); (void)ares;
 
         return num_chars;
@@ -1380,7 +1380,7 @@ Eterm erts_atom_to_string(Eterm **hpp, Eterm atom, Eterm tail)
     ASSERT(is_atom(atom));
     ap = atom_tab(atom_val(atom));
     if (ap->latin1_chars >= 0)
-        return buf_to_intlist(hpp, (char*)ap->name, ap->len, tail);
+        return buf_to_intlist(hpp, (char*)erts_atom_get_name(ap), ap->len, tail);
     else {
         Eterm res;
         const byte* err_pos;
@@ -1389,10 +1389,10 @@ Eterm erts_atom_to_string(Eterm **hpp, Eterm atom, Eterm tail)
         Eterm *hp_start = *hpp;
         int ares =
 #endif
-            erts_analyze_utf8(ap->name, ap->len, &err_pos, &num_chars, NULL);
+            erts_analyze_utf8(erts_atom_get_name(ap), ap->len, &err_pos, &num_chars, NULL);
         ASSERT(ares == ERTS_UTF8_OK);
 
-        res = erts_make_list_from_utf8_buf(hpp, num_chars, ap->name, ap->len,
+        res = erts_make_list_from_utf8_buf(hpp, num_chars, erts_atom_get_name(ap), ap->len,
                                            &num_built, &num_eaten, tail);
 
         ASSERT(num_built == num_chars);
@@ -1924,26 +1924,23 @@ BIF_RETTYPE atom_to_binary_2(BIF_ALIST_2)
     ap = atom_tab(atom_val(BIF_ARG_1));
 
     if (BIF_ARG_2 == am_latin1) {
-        Eterm bin_term;
-
+	Eterm bin_term;
         if (ap->latin1_chars < 0) {
             goto error;
         }
 
         if (ap->latin1_chars == ap->len) {
-            bin_term = erts_new_binary_from_data(BIF_P, ap->len, ap->name);
+	    BIF_RET(ap->u.bin);
         } else {
             byte* bin_p;
             int dbg_sz;
-
             bin_term = erts_new_binary(BIF_P, ap->latin1_chars, &bin_p);
-            dbg_sz = erts_utf8_to_latin1(bin_p, ap->name, ap->len);
+            dbg_sz = erts_utf8_to_latin1(bin_p, erts_atom_get_name(ap), ap->len);
             ASSERT(dbg_sz == ap->latin1_chars); (void)dbg_sz;
+	    BIF_RET(bin_term);
         }
-
-        BIF_RET(bin_term);
     } else if (BIF_ARG_2 == am_utf8 || BIF_ARG_2 == am_unicode) {
-        BIF_RET(erts_new_binary_from_data(BIF_P, ap->len, ap->name));
+	BIF_RET(ap->u.bin);
     } else {
     error:
 	BIF_ERROR(BIF_P, BADARG);
@@ -2233,12 +2230,13 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 		need = 2* ap->latin1_chars;
             }
 	    else {
+		const byte * name = erts_atom_get_name(ap);
 		for (i = 0; i < ap->len; ) {
-                    if (ap->name[i] < 0x80) {
+                    if (name[i] < 0x80) {
 			i++;
-                    } else if (ap->name[i] < 0xE0) {
+                    } else if (name[i] < 0xE0) {
 			i += 2;
-                    } else if (ap->name[i] < 0xF0) {
+                    } else if (name[i] < 0xF0) {
 			i += 3;
                     } else {
 			need = -1;
@@ -2256,7 +2254,7 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
          * the middle of filenames
          */
         if (need > 0) {
-            byte *name = ap->name;
+            const byte *name = erts_atom_get_name(ap);
             int len = ap->len;
             for (i = 0; i < len; i++) {
                 if (name[i] == 0) {
@@ -2398,33 +2396,33 @@ void erts_native_filename_put(Eterm ioterm, int encoding, byte *p)
 	switch (encoding) {
 	case ERL_FILENAME_LATIN1:
 	    for (i = 0; i < ap->len; i++) {
-		if (ap->name[i] < 0x80) {
-		    *p++ = ap->name[i];
+		if (erts_atom_get_name(ap)[i] < 0x80) {
+		    *p++ = erts_atom_get_name(ap)[i];
 		} else {
-		    ASSERT(ap->name[i] < 0xC4);
-		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
+		    ASSERT(erts_atom_get_name(ap)[i] < 0xC4);
+		    *p++ = ((erts_atom_get_name(ap)[i] & 3) << 6) | (erts_atom_get_name(ap)[i+1] & 0x3F);
 		    i++;
 		}
 	    }
 	    break;
 	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
-	    sys_memcpy(p, ap->name, ap->len);
+	    sys_memcpy(p, erts_atom_get_name(ap), ap->len);
 	    break;
 	case ERL_FILENAME_WIN_WCHAR:
 	    for (i = 0; i < ap->len; i++) {
 		/* Little endian */
-                if (ap->name[i] < 0x80) {
-		    *p++ = ap->name[i];
+                if (erts_atom_get_name(ap)[i] < 0x80) {
+		    *p++ = erts_atom_get_name(ap)[i];
 		    *p++ = 0;
-                } else if (ap->name[i] < 0xE0) {
-		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
-		    *p++ = ((ap->name[i] & 0x1C) >> 2);
+                } else if (erts_atom_get_name(ap)[i] < 0xE0) {
+		    *p++ = ((erts_atom_get_name(ap)[i] & 3) << 6) | (erts_atom_get_name(ap)[i+1] & 0x3F);
+		    *p++ = ((erts_atom_get_name(ap)[i] & 0x1C) >> 2);
 		    i++;
                 } else {
-		    ASSERT(ap->name[i] < 0xF0);
-		    *p++ = ((ap->name[i+1] & 3) << 6) | (ap->name[i+2] & 0x3C);
-		    *p++ = ((ap->name[i] & 0xF) << 4) | ((ap->name[i+1] & 0x3C) >> 2);
+		    ASSERT(erts_atom_get_name(ap)[i] < 0xF0);
+		    *p++ = ((erts_atom_get_name(ap)[i+1] & 3) << 6) | (erts_atom_get_name(ap)[i+2] & 0x3C);
+		    *p++ = ((erts_atom_get_name(ap)[i] & 0xF) << 4) | ((erts_atom_get_name(ap)[i+1] & 0x3C) >> 2);
 		    i += 2;
 		}
             }
