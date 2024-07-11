@@ -4751,17 +4751,24 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
 
 /* Convert an "native" socket type to an erlang socket type.
  * Note that this is not currently exhaustive, but only supports
- * stream and dgram. Other values will be returned as is, that is
- * in the form of an integer.
+ * stream, dgram, raw, seqpacket and rdm.
+ * Also, the value 0 (zero) has the special meaning: any.
+ * Other values will be returned as is, that is in the form of
+ * an integer.
  */
 static
 ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                       int        socktype)
 {
     ERL_NIF_TERM etype;
+    ERL_NIF_TERM zero = MKI(env, 0);
 
     esock_encode_type(env, socktype, &etype);
-    return etype;
+
+    if (IS_IDENTICAL(zero, etype))
+        return esock_atom_any;
+    else
+        return etype;
 }
 
 
@@ -4775,7 +4782,7 @@ void make_address_info(ErlNifEnv*    env,
                        ERL_NIF_TERM* ai)
 {
     ERL_NIF_TERM keys[]  = {esock_atom_family,
-                            esock_atom_type,
+                            esock_atom_socktype,
                             esock_atom_protocol,
                             esock_atom_addr};
     ERL_NIF_TERM vals[]  = {fam, sockType, proto, addr};

@@ -535,6 +535,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(sockaddr);                 \
     GLOBAL_ATOM_DEF(socket);                   \
     GLOBAL_ATOM_DEF(socket_tag);               \
+    GLOBAL_ATOM_DEF(socktype);                 \
     GLOBAL_ATOM_DEF(spec_dst);                 \
     GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
