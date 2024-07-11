@@ -13257,36 +13257,35 @@ delete_process(Process* p)
     /* free all pending messages */
     erts_proc_sig_cleanup_queues(p);
 
-    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
-
-    if (scb) {
-#ifndef BEAMASM
-	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
-#endif
-
-        erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
-    }
-
-    pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
-    while (pbt) {
-        process_breakpoint_trace_t *next = pbt->next;
-        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-        pbt = next;
-    }
-    pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
-    while (pbt) {
-        process_breakpoint_trace_t *next = pbt->next;
-        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-        pbt = next;
-    }
-
-    erts_destroy_nfunc(p);
-
     /* Cleanup psd */
 
     psd = (ErtsPSD *) erts_atomic_read_nob(&p->psd);
-
     if (psd) {
+        scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+
+        if (scb) {
+#ifndef BEAMASM
+            p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
+#endif
+
+            erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
+        }
+
+        pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+        while (pbt) {
+            process_breakpoint_trace_t *next = pbt->next;
+            erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+            pbt = next;
+        }
+        pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
+        while (pbt) {
+            process_breakpoint_trace_t *next = pbt->next;
+            erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+            pbt = next;
+        }
+
+        erts_destroy_nfunc(p);
+
 	erts_atomic_set_nob(&p->psd, (erts_aint_t) NULL); /* Reduction counting depends on this... */
 	erts_free(ERTS_ALC_T_PSD, psd);
     }
