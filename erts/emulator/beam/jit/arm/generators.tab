@@ -262,7 +262,7 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
 
     tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
     if (size == 0) {
-        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
         keys = make_tuple(thp);
         *thp++ = make_arityval(size/2);

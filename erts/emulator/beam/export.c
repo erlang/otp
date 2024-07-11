@@ -28,19 +28,13 @@
 #include "export.h"
 #include "hash.h"
 #include "jit/beam_asm.h"
+#include "erl_global_literals.h"
 
 #define EXPORT_INITIAL_SIZE   4000
 #define EXPORT_LIMIT  (512*1024)
 
 #define EXPORT_HASH(m,f,a) ((atom_val(m) * atom_val(f)) ^ (a))
 
-#ifndef DEBUG
-#  define SHARED_LAMBDA_INITIAL_SIZE EXPORT_INITIAL_SIZE
-#  define SHARED_LAMBDA_EXPAND_SIZE 512
-#else
-#  define SHARED_LAMBDA_INITIAL_SIZE 256
-#  define SHARED_LAMBDA_EXPAND_SIZE 16
-#endif
 
 #ifdef DEBUG
 #  define IF_DEBUG(x) x
@@ -57,17 +51,6 @@ static erts_atomic_t total_entries_bytes;
  */
 erts_mtx_t export_staging_lock;
 
-/* Bump allocator for globally shared external funs, allocating them in
- * reasonably large chunks to simplify crash dumping and avoid fragmenting the
- * literal heap too much.
- *
- * This is protected by the export staging lock. */
-struct lambda_chunk {
-    struct lambda_chunk *next;
-    Eterm *hp;
-
-    ErtsLiteralArea area;
-} *lambda_chunk = NULL;
 
 struct export_entry
 {
@@ -129,70 +112,21 @@ export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
 	     tmpl->info.mfa.arity == obj->info.mfa.arity);
 }
 
-ErtsLiteralArea *erts_get_next_lambda_lit_area(ErtsLiteralArea *prev)
-{
-    struct lambda_chunk *next;
-
-    ASSERT(ERTS_IS_CRASH_DUMPING);
-
-    if (prev != NULL) {
-        struct lambda_chunk *chunk = ErtsContainerStruct(prev,
-                                                         struct lambda_chunk,
-                                                         area);
-        next = chunk->next;
-
-        if (next == NULL) {
-            return NULL;
-        }
-    } else {
-        next = lambda_chunk;
-    }
-
-    next->area.end = next->hp;
-    return &next->area;
-}
-
-static void expand_shared_lambda_area(Uint count)
-{
-    struct lambda_chunk *chunk;
-    Uint heap_size;
-
-    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&export_staging_lock));
-
-    heap_size = count * ERL_FUN_SIZE;
-    chunk = erts_alloc(ERTS_ALC_T_LITERAL,
-                       sizeof(struct lambda_chunk) +
-                        (heap_size - 1) * sizeof(Eterm));
-    chunk->hp = &chunk->area.start[0];
-    chunk->area.end = &chunk->hp[heap_size];
-    chunk->area.off_heap = NULL;
-    chunk->next = lambda_chunk;
-
-    lambda_chunk = chunk;
-}
 
 static void create_shared_lambda(Export *export)
 {
     ErlFunThing *lambda;
-
+    struct erl_off_heap_header **ohp;
     ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&export_staging_lock));
-
-    ASSERT((lambda_chunk->hp <= lambda_chunk->area.end &&
-            lambda_chunk->hp >= lambda_chunk->area.start) &&
-           ((lambda_chunk->area.end - lambda_chunk->hp) % ERL_FUN_SIZE) == 0);
-    if (lambda_chunk->hp == lambda_chunk->area.end) {
-        expand_shared_lambda_area(SHARED_LAMBDA_EXPAND_SIZE);
-    }
-
-    lambda = (ErlFunThing*)lambda_chunk->hp;
-    lambda_chunk->hp += ERL_FUN_SIZE;
+    
+    lambda = (ErlFunThing*)erts_global_literal_allocate(ERL_FUN_SIZE, &ohp);
 
     lambda->thing_word = MAKE_FUN_HEADER(export->info.mfa.arity, 0, 1);
     lambda->entry.exp = export;
 
     export->lambda = make_fun(lambda);
 
-    erts_set_literal_tag(&export->lambda, (Eterm*)lambda, ERL_FUN_SIZE);
+    erts_global_literal_register(&export->lambda, (Eterm*)lambda, ERL_FUN_SIZE);
 }
 
 static struct export_entry*
@@ -285,15 +219,6 @@ init_export_table(void)
 			EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
     }
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    export_staging_lock();
-#endif
-
-    expand_shared_lambda_area(SHARED_LAMBDA_INITIAL_SIZE);
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    export_staging_unlock();
-#endif
 }
 
 static struct export_entry* init_template(struct export_templ* templ,
