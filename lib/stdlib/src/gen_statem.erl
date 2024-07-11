@@ -1987,7 +1987,7 @@ format_status(Status) ->
 
 
 %% Helper function for #params.callback_mode, that caches callback_mode()
--compile({inline, [params_callback_mode/2]}).
+-compile({inline, [params_callback_mode/2, params_callback_mode/1]}).
 params_callback_mode(CallbackMode, Modules) ->
     case CallbackMode of
         state_functions -> CallbackMode;
@@ -1995,6 +1995,15 @@ params_callback_mode(CallbackMode, Modules) ->
             Module = hd(Modules),
             fun Module:handle_event/4
 end.
+%%
+%% Inverse of the above - return the callback_mode() value before caching
+params_callback_mode(CallbackMode) ->
+    case CallbackMode of
+        state_functions ->
+            CallbackMode;
+        HandleEventFun when is_function(HandleEventFun, 4) ->
+            handle_event_function
+    end.
 
 %% Type validation functions
 %% - return true if the value is of the type, false otherwise
@@ -4968,7 +4977,7 @@ error_info(
                  queue=>maps:get(queue,Status),
                  postponed=>maps:get(postponed,Status),
                  modules=>Modules,
-                 callback_mode=>CallbackMode,
+                 callback_mode=>params_callback_mode(CallbackMode),
                  state_enter=>StateEnter,
                  state=>NewState,
                  timeouts=>{NumTimers,maps:get(timeouts,Status)},

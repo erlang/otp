@@ -1405,16 +1405,21 @@ terminate_crash_format(Config) ->
     error_logger_forwarder:register(),
     OldFl = process_flag(trap_exit, true),
     try
-        terminate_crash_format(Config,?MODULE,{formatted,idle,crash_terminate}),
-        terminate_crash_format(Config,format_status_statem,
-                               {{formatted,idle},{formatted,crash_terminate}})
+        terminate_crash_format(
+          Config, ?MODULE, {formatted,idle,crash_terminate}, state_functions),
+        terminate_crash_format(
+          Config, format_status_statem,
+          {{formatted,idle},{formatted,crash_terminate}}, state_functions),
+        terminate_crash_format(
+          [{callback_mode,handle_event_function} | Config], ?MODULE,
+          {formatted,idle,crash_terminate}, handle_event_function)
     after
         dbg:stop(),
         process_flag(trap_exit, OldFl),
         error_logger_forwarder:unregister()
     end.
 
-terminate_crash_format(Config, Module, Match) ->
+terminate_crash_format(Config, Module, State, CallbackMode) ->
     Data = crash_terminate,
     {ok,Pid} =
 	gen_statem:start(
@@ -1424,10 +1429,13 @@ terminate_crash_format(Config, Module, Match) ->
     receive
 	{error,_GroupLeader,
 	 {Pid,
-	  "** State machine"++_,
+	  "** State machine "++_,
 	  [Pid,
 	   {{call,{Self,_}},stop},
-	   Match,exit,{crash,terminate}|_]}} ->
+	   State,
+           exit, {crash,terminate},
+           [Module],
+           CallbackMode | _]}} ->
 	    ok;
 	Other when is_tuple(Other), element(1, Other) =:= error ->
 	    ct:fail({unexpected,Other})
