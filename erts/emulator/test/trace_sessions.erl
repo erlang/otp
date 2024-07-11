@@ -264,9 +264,9 @@ init_group([pre_session|Tail], Config) ->
 
     %% Set a dummy send trace on all processes and ports
     %% but disable send trace to not get any messages.
+    1 = trace:send(S, false, []),
     trace:process(S, all, true, [send]),
     trace:port(S, all, true, [send]),
-    1 = trace:send(S, false, []),
 
     ets:insert(?MODULE, {pre_session, S, Tracer}),
     init_group(Tail, Config);
