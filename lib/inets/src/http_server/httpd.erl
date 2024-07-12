@@ -480,7 +480,7 @@ property list.
 
   Example:
 
-  ```erl
+  ```erlang
   {script, {"PUT", "/cgi-bin/put"}}
   ```
 
@@ -493,7 +493,7 @@ property list.
   all URLs matching url-path as erl scheme scripts. A matching URL is mapped
   into a specific module and function, for example:
 
-  ```erl
+  ```erlang
   {erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
   ```
 
@@ -581,7 +581,7 @@ property list.
 
 [](){: #prop_dri }
 
-```erl
+```erlang
 {directory, {path(), [{property(), term()}]}}
 ```
 
@@ -592,7 +592,7 @@ The properties for directories are as follows:
 - [](){: #prop_allow_from } **`{allow_from, all | [RegxpHostString]}`**  
   Defines a set of hosts to be granted access to a given directory, for example:
 
-  ```erl
+  ```erlang
   {allow_from, ["123.34.56.11", "150.100.23"]}
   ```
 
@@ -679,7 +679,7 @@ The properties for directories are as follows:
 
 [](){: #prop_sec_dir }
 
-```erl
+```erlang
 {security_directory, {path(), [{property(), term()}]}}
 ```
 
