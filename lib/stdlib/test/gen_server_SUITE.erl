@@ -2375,7 +2375,7 @@ echo_loop() ->
 
 throw_terminate(Config) when is_list(Config) ->
     {ok, Server} = gen_server:start_link(?MODULE, [], []),
-    MRef = monitor(process, Pid),
+    MRef = monitor(process, Server),
     Server ! throw_terminate,
     ok = verify_down_reason(MRef, Server, normal).
 
