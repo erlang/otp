@@ -59,7 +59,19 @@ int erts_is_fun_loaded(const ErlFunEntry* fe, ErtsCodeIndex ix)
 
 static HashValue fun_hash(ErlFunEntry *fe)
 {
-    return (HashValue) (fe->old_uniq ^ fe->index ^ atom_val(fe->module));
+    HashValue components[2];
+
+#ifdef ARCH_64
+    ERTS_CT_ASSERT(sizeof(HashValue) == sizeof(Uint64));
+    sys_memcpy(&components[0], &fe->uniq[0], sizeof(Uint64));
+    sys_memcpy(&components[1], &fe->uniq[8], sizeof(Uint64));
+#else
+    ERTS_CT_ASSERT(sizeof(HashValue) == sizeof(Uint32));
+    sys_memcpy(&components[0], &fe->uniq[0], sizeof(Uint32));
+    sys_memcpy(&components[1], &fe->uniq[4], sizeof(Uint32));
+#endif
+
+    return components[0] ^ components[1] ^ (HashValue)fe->index;
 }
 
 static int fun_cmp(ErlFunEntry *lhs, ErlFunEntry *rhs)

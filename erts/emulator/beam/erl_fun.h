@@ -32,16 +32,18 @@ typedef struct erl_fun_entry {
      * complexity of instructions like `call_fun` and `is_function2`. */
     ErtsDispatchable dispatch;
 
+    ErtsCodePtr pend_purge_address; /* Address during a pending purge */
+
     /* These fields identify the function and must not be altered after fun
      * creation. */
     Eterm module;                   /* Tagged atom for module. */
     Uint arity;                     /* The arity of the fun. */
-    int index;                      /* New style index. */
     byte uniq[16];                  /* MD5 for module. */
+    int index;                      /* New style index. */
+
+    /* These have been prepared for removal in OTP 29. */
     int old_uniq;                   /* Unique number (old_style) */
     int old_index;                  /* Old style index */
-
-    ErtsCodePtr pend_purge_address; /* Address during a pending purge */
 } ErlFunEntry;
 
 /* This structure represents a 'fun' (lambda), whether local or external. It is
