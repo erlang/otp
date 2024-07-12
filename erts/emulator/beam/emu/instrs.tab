@@ -231,7 +231,7 @@ i_move_call_ext_last(CallDest, Deallocate, Src) {
 
 APPLY(I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = apply(c_p, reg, $I, $Deallocate);
@@ -278,7 +278,7 @@ i_apply_only() {
 
 FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);

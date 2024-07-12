@@ -528,7 +528,7 @@ void process_main(ErtsSchedulerData *esdp)
          * code[3]: &&call_error_handler
          * code[4]: Not used
          */
-        Export *error_handler;
+        const Export *error_handler;
 
         HEAVY_SWAPOUT;
         error_handler = call_error_handler(c_p, erts_code_to_codemfa(I),

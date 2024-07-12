@@ -166,7 +166,7 @@ int beam_load_prepare_emit(LoaderState *stp) {
 
     for (i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *import;
-        Export *export;
+        const Export *export;
         int bif_number;
 
         import = &stp->beam.imports.entries[i];
@@ -1099,10 +1099,9 @@ void beam_load_finalize_code(LoaderState *stp,
      * the module may remote-call itself*/
     for (int i = 0; i < stp->beam.imports.count; i++) {
         BeamFile_ImportEntry *entry = &stp->beam.imports.entries[i];
-        Export *import;
+        const Export *import;
 
         import = erts_export_put(entry->module, entry->function, entry->arity);
-
         beamasm_patch_import(stp->ba, stp->writable_region, i, import);
     }
 

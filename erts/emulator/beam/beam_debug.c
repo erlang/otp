@@ -346,10 +346,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	}
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
+	const Export *ep;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
-	Export* ep;
 	Sint arity;
 	int n;
 

@@ -145,8 +145,9 @@ void erts_release_literal_area(struct ErtsLiteralArea_* literal_area);
 
 struct erl_fun_entry;
 void erts_purge_state_add_fun(struct erl_fun_entry *fe);
-Export *erts_suspend_process_on_pending_purge_lambda(Process *c_p,
-                                                     struct erl_fun_entry*);
+const Export *
+erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                             const struct erl_fun_entry*);
 
 /*
  * MFA event debug "tracing" usage:

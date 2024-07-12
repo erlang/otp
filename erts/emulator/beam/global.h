@@ -1319,7 +1319,7 @@ void erts_cleanup_offheap(ErlOffHeap *offheap);
 
 Uint64 erts_timestamp_millis(void);
 
-Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
+const Export *erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 
 /* ERTS_NOINLINE prevents link-time optimization across modules */
 const void *erts_get_stacklimit(void);

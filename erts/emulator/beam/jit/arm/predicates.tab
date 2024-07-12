@@ -20,7 +20,7 @@
 //
 
 pred.is_mfa_bif(M, F, A) {
-    Export *e;
+    const Export *e;
 
     ASSERT(M.type == TAG_a && F.type == TAG_a && A.type == TAG_u);
     e = erts_active_export_entry(M.val, F.val, A.val);
