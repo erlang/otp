@@ -599,9 +599,10 @@ call(Config) when is_list(Config) ->
     timer:sleep(500),
     ok = gen_server:call(my_test_name, next_call),
     ok = gen_server:call(my_test_name, {call_within, 1000}),
-    ok = gen_server:call(my_test_name, throw_reply),
     timer:sleep(1500),
     false = gen_server:call(my_test_name, next_call),
+
+    ok = gen_server:call(my_test_name, throw_reply),
 
     %% timeout call.
     delayed = gen_server:call(my_test_name, {delayed_answer,1}, 30),
