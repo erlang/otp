@@ -59,7 +59,9 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
               orig_st_map :: st_map(),
               repeats = sets:new() :: sets:set(func_id()),
               %% The next unused variable name in caller
-              cnt = 0 :: non_neg_integer()
+              cnt = 0 :: non_neg_integer(),
+              %% Functions which have been analyzed at least once.
+              analyzed = sets:new() :: sets:set(func_id())
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -384,7 +386,7 @@ aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, Limit) ->
     end.
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
-       AAS0=#aas{alias_map=AliasMap0,kills=KillsMap}) ->
+       AAS0=#aas{alias_map=AliasMap0,analyzed=Analyzed,kills=KillsMap}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -403,7 +405,7 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
                   AAS1
           end,
     AliasMap = AliasMap0#{ F => SS },
-    AAS#aas{alias_map=AliasMap}.
+    AAS#aas{alias_map=AliasMap,analyzed=sets:add_element(F, Analyzed)}.
 
 %% Main entry point for the alias analysis
 aa_blocks([{?EXCEPTION_BLOCK,_}|Bs],
@@ -1129,16 +1131,17 @@ aa_phi(Dst, Args0, SS0, AAS) ->
     aa_derive_from(Dst, Args, SS).
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
-        #aas{alias_map=AliasMap,st_map=StMap,cnt=Cnt0}=AAS0) ->
+        #aas{alias_map=AliasMap,analyzed=Analyzed,
+             st_map=StMap,cnt=Cnt0}=AAS0) ->
     ?DP("A Call~n  callee: ~s~n  args: ~p~n", [fn(Callee), Args]),
     ?DP("  caller args: ~p~n", [Args]),
     SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
     ?DP("  caller ss before call:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
     #aas{alias_map=AliasMap} = AAS =
         aa_add_call_info(Callee, Args, SS1, AAS0),
-    case is_map_key(Callee, AliasMap) of
+    case sets:is_element(Callee, Analyzed) of
         true ->
-            ?DP("  The callee is known~n"),
+            ?DP("  The callee has been analyzed~n"),
             #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
             #{Callee:=#{0:=_CalleeSS}=Lbl2SS} = AliasMap,
@@ -1160,10 +1163,11 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
             {SS, AAS#aas{cnt=Cnt}};
         false ->
-            ?DP("  The callee is unknown~n"),
-            %% We don't know anything about the function, so don't
-            %% change the status of the result.
-            {SS0, AAS}
+            ?DP("  The callee has not been analyzed~n"),
+            %% We don't know anything about the function, so
+            %% explicitly mark that we don't know anything about the
+            %% result.
+            {beam_ssa_ss:set_status(Dst, no_info, SS0), AAS}
     end;
 aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
                          name=#b_literal{val=exit},

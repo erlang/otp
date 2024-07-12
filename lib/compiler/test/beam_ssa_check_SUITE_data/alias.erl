@@ -1207,7 +1207,7 @@ see_through() ->
     see_through1(R).
 
 see_through1({_,R}) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
     R#see_through{a=e:f()}.
 
