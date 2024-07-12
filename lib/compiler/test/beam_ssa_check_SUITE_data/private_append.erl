@@ -81,7 +81,8 @@
          bs_create_bin_on_literal/0,
 
          crash_in_value_tracking/3,
-         crash_in_value_tracking_inner/3]).
+         crash_in_value_tracking_inner/3,
+         gh8630/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1035,3 +1036,13 @@ crash_in_value_tracking(_, _V0, _) ->
     ((<<((crash_in_value_tracking_inner(
             {#{#{ ok => ok || _ := _ <- ok} => ok},
              _V0, false, _V0, "Bo"}, _V0, ok)))/bytes>>) =/= ok).
+
+gh8630(<<"\\",R/binary>>, Xs) ->
+%ssa% (_, _) when post_ssa_opt ->
+%ssa% _ = bs_init_writable(_).
+    gh8630(R, [<<>> | Xs]);
+gh8630(<<A:8,R/binary>>, [X|Xs]) ->
+    gh8630(R, [<<X/binary,A:8>> | Xs]).
+
+gh8630(I) ->
+    gh8630(I, []).
