@@ -122,6 +122,7 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
     ErlFunEntryContainer *fc;
     ErlFunEntry *tp;
     erts_aint_t refc;
+    int is_read_lock;
 
     tp = &template.entry;
 
@@ -135,14 +136,34 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 
     sys_memcpy(tp->uniq, uniq, sizeof(tp->uniq));
 
-    erts_fun_write_lock();
-    fc = (ErlFunEntryContainer*)hash_put(&erts_fun_table, (void*)&template);
+    /*
+     * Start with a shared, reader-lock which avoids contention when an insert
+     * is not required.
+     */
+    is_read_lock = 1;
+    erts_fun_read_lock();
+    fc = (ErlFunEntryContainer*)hash_get(&erts_fun_table, (void*)&template);
+    if (fc == NULL) {
+        /*
+         * Key is not present.  Acquire an exclusive, writer-lock and retry with
+         * a lookup that will insert if the key is still not present.
+         */
+        erts_fun_read_unlock();
+        is_read_lock = 0;
+        erts_fun_write_lock();
+        fc = (ErlFunEntryContainer*)hash_put(&erts_fun_table, (void*)&template);
+    }
+
     refc = erts_refc_inctest(&fc->entry.refc, 0);
     if (refc < 2) {
         /* New or pending delete */
         erts_refc_inc(&fc->entry.refc, 1);
     }
-    erts_fun_write_unlock();
+
+    if (is_read_lock)
+        erts_fun_read_unlock();
+    else
+        erts_fun_write_unlock();
 
     return &fc->entry;
 }
