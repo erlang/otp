@@ -98,7 +98,6 @@ const Eterm etp_pos_big_subtag = POS_BIG_SUBTAG;
 const Eterm etp_neg_big_subtag = NEG_BIG_SUBTAG;
 const Eterm etp_ref_subtag = REF_SUBTAG;
 const Eterm etp_fun_subtag = FUN_SUBTAG;
-const Eterm etp_fun_ref_subtag = FUN_REF_SUBTAG;
 const Eterm etp_float_subtag = FLOAT_SUBTAG;
 const Eterm etp_bitstring_tag_mask = _BITSTRING_TAG_MASK;
 const Eterm etp_heap_bits_subtag = HEAP_BITS_SUBTAG;

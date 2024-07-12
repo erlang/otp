@@ -26,7 +26,6 @@
          bad_arglist/1,
 	 equality/1,ordering/1,
 	 fun_to_port/1,t_phash/1,t_phash2/1,md5/1,
-	 refc/1,refc_ets/1,refc_dist/1,
 	 const_propagation/1,t_arity/1,t_is_function2/1,
 	 t_fun_info/1,t_fun_info_mfa/1,t_fun_to_list/1]).
 
@@ -43,7 +42,7 @@ all() ->
     [bad_apply, bad_fun_call, badarity, ext_badarity,
      bad_arglist,
      equality, ordering, fun_to_port, t_phash,
-     t_phash2, md5, refc, refc_ets, refc_dist,
+     t_phash2, md5,
      const_propagation, t_arity, t_is_function2, t_fun_info,
      t_fun_info_mfa,t_fun_to_list].
 
@@ -508,178 +507,18 @@ md5(Config) when is_list(Config) ->
 bad_md5(Bad) ->
     {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
 
-refc(Config) when is_list(Config) ->
-    %% As the fun entry is owned by the fun's shared reference holder and not
-    %% the fun itself, its reference count should be generally be unchanged
-    %% regardless of how many copies we create, and on which process we do so.
-    %%
-    %% Only certain operations that break the sharing of the literal reference
-    %% holder should have an impact.
-    F1 = fun_factory(2),
-    {refc,2} = erlang:fun_info(F1, refc),
-    F2 = fun_factory(42),
-    {refc,2} = erlang:fun_info(F1, refc),
-
-    process_flag(trap_exit, true),
-    Pid = spawn_link(fun() -> {refc,2} = erlang:fun_info(F1, refc) end),
-    receive
-	{'EXIT',Pid,normal} -> ok;
-	Other -> ct:fail({unexpected,Other})
-    end,
-    process_flag(trap_exit, false),
-    %% Wait to make sure that the process has terminated completely.
-    receive after 1 -> ok end,
-    {refc,2} = erlang:fun_info(F1, refc),
-
-    %% Force a copy of the underlying reference holder by passing through the
-    %% external term format.
-    F3 = binary_to_term(term_to_binary(F1)),
-    3 = fun_refc(F1),
-    3 = fun_refc(F3),
-
-    %% Garbage collect. Only the F2 fun will be left.
-    7 = F1(5),
-    true = erlang:garbage_collect(),
-    40 = F2(-2),
-    {refc,2} = erlang:fun_info(F2, refc),
-
-    ok.
-
-fun_factory(Const) ->
-    fun(X) -> X + Const end.
-
-refc_ets(Config) when is_list(Config) ->
-    F = fun(X) -> X + 33 end,
-    {refc,2} = erlang:fun_info(F, refc),
-
-    refc_ets_set(F, [set]),
-    refc_ets_set(F, [ordered_set]),
-    refc_ets_bag(F, [bag]),
-    refc_ets_bag(F, [duplicate_bag]),
-    ok.
-
-refc_ets_set(F1, Options) ->
-    io:format("~p", [Options]),
-    Tab = ets:new(kalle, Options),
-    true = ets:insert(Tab, {a_key,F1}),
-    3 = fun_refc(F1),
-    [{a_key,F3}] = ets:lookup(Tab, a_key),
-    4 = fun_refc(F1),
-    true = ets:insert(Tab, {a_key,not_a_fun}),
-    3 = fun_refc(F1),
-    true = ets:insert(Tab, {another_key,F1}),
-    4 = fun_refc(F1),
-    true = ets:delete(Tab),
-    3 = fun_refc(F1),
-    10 = F3(-23),
-    true = erlang:garbage_collect(),
-    2 = fun_refc(F1),
-    ok.
-
-refc_ets_bag(F1, Options) ->
-    io:format("~p", [Options]),
-    Tab = ets:new(kalle, Options),
-    true = ets:insert(Tab, {a_key,F1}),
-    3 = fun_refc(F1),
-    [{a_key,F3}] = ets:lookup(Tab, a_key),
-    4 = fun_refc(F1),
-    true = ets:insert(Tab, {a_key,not_a_fun}),
-    4 = fun_refc(F1),
-    true = ets:insert(Tab, {another_key,F1}),
-    5 = fun_refc(F1),
-    true = ets:delete(Tab),
-    3 = fun_refc(F1),
-    10 = F3(-23),
-    true = erlang:garbage_collect(),
-    2 = fun_refc(F1),
-    ok.
-
-refc_dist(Config) when is_list(Config) ->
-    {ok, Peer, Node} = ?CT_PEER(),
-    process_flag(trap_exit, true),
-    Pid = spawn_link(Node, fun() -> receive
-                                        Fun when is_function(Fun) ->
-                                            3 = fun_refc(Fun),
-                                            exit({normal,Fun}) end
-                           end),
-    F = fun() -> 42 end,
-    2 = fun_refc(F),
-    Pid ! F,
-    F2 = receive
-	     {'EXIT',Pid,{normal,Fun}} -> Fun;
-	     Other -> ct:fail({unexpected,Other})
-	 end,
-    %% dist.c:net_mess2 have a reference to Fun for a while since
-    %% Fun is passed in an exit signal. Wait until it is gone.
-    wait_until(fun () -> 4 =/= fun_refc(F2) end),
-    3 = fun_refc(F2),
-    true = erlang:garbage_collect(),
-    2 = fun_refc(F),
-    refc_dist_send(Node, F),
-    peer:stop(Peer).
-
-refc_dist_send(Node, F) ->
-    Pid = spawn_link(Node, fun() -> receive
-                                        {To,Fun} when is_function(Fun) ->
-                                            wait_until(fun () ->
-                                                               3 =:= fun_refc(Fun)
-                                                       end),
-                                            To ! Fun
-                                    end
-                           end),
-    2 = fun_refc(F),
-    Pid ! {self(),F},
-    F2 = receive
-	     Fun when is_function(Fun) -> Fun;
-	     Other -> ct:fail({unexpected,Other})
-	 end,
-    receive {'EXIT',Pid,normal} -> ok end,
-    %% No reference from dist.c:net_mess2 since Fun is passed
-    %% in an ordinary message.
-    3 = fun_refc(F),
-    3 = fun_refc(F2),
-    refc_dist_reg_send(Node, F).
-
-refc_dist_reg_send(Node, F) ->
-    true = erlang:garbage_collect(),
-    2 = fun_refc(F),
-    Ref = make_ref(),
-    Me = self(),
-    Pid = spawn_link(Node, fun() ->
-                                   true = register(my_fun_tester, self()),
-                                   Me ! Ref,
-                                   receive
-                                       {Me,Fun} when is_function(Fun) ->
-                                           3 = fun_refc(Fun),
-                                           Me ! Fun
-                                   end
-                           end),
-    erlang:yield(),
-    2 = fun_refc(F),
-    receive Ref -> ok end,
-    {my_fun_tester,Node} ! {self(),F},
-    F2 = receive
-	     Fun when is_function(Fun) -> Fun;
-	     Other -> ct:fail({unexpected,Other})
-	 end,
-    receive {'EXIT',Pid,normal} -> ok end,
-
-    3 = fun_refc(F),
-    3 = fun_refc(F2),
-    ok.
-    
 fun_refc(F) ->
     {refc,Count} = erlang:fun_info(F, refc),
     Count.
 
 const_propagation(Config) when is_list(Config) ->
     Fun1 = fun wait_until/1,
-    2 = fun_refc(Fun1),
+    1 = fun_refc(Fun1),
     Fun2 = Fun1,
     my_cmp({Fun1,Fun2}),
 
     Fun3 = fun() -> ok end,
-    2 = fun_refc(Fun3),
+    1 = fun_refc(Fun3),
     Fun4 = Fun3,
     my_cmp({Fun3,Fun4}),
     ok.

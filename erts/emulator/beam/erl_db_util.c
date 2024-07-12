@@ -3801,11 +3801,6 @@ void db_cleanup_offheap_comp(DbTerm* obj)
         case BIN_REF_SUBTAG:
             erts_bin_release(u.br->val);
             break;
-        case FUN_REF_SUBTAG:
-            if (erts_refc_dectest(&(u.fref->entry)->refc, 0) == 0) {
-                erts_erase_fun_entry(u.fref->entry);
-            }
-            break;
         case REF_SUBTAG:
             ASSERT(is_magic_ref_thing(u.hdr));
             erts_bin_release((Binary *)u.mref->mb);

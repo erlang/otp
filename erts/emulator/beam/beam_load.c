@@ -679,24 +679,6 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
                 erts_bin_release(bin);
                 break;
             }
-        case FUN_REF_SUBTAG:
-            {
-                ErlFunEntry* fe = ((FunRef*)oh)->entry;
-
-                /* All fun entries are NULL during module loading, before the
-                 * code is finalized, so we need to tolerate it to avoid
-                 * crashing in the prepared code destructor.
-                 *
-                 * Strictly speaking it would be nice to crash when we see this
-                 * outside of loading, but it's too complicated to keep track
-                 * of whether we are. */
-                if (fe != NULL) {
-                    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                        erts_erase_fun_entry(fe);
-                    }
-                }
-                break;
-            }
         case REF_SUBTAG:
             {
                 ErtsMagicBinary *bptr;

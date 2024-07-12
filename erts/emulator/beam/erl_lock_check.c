@@ -168,7 +168,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #endif /* __WIN32__ */
     {"tracer_mtx", 				NULL},
     {"sys_msg_q", 				NULL},
-    {"fun_tab",				        NULL},
+    {"fun_staging_lock",                        NULL},
     {"atom_tab",				NULL},
     LEVEL,
     {"global_literals",                         NULL},

@@ -425,23 +425,19 @@ define etp-boxed-immediate-1
                   if ($etp_boxed_immediate_h == etp_fun_subtag)
                     printf "#Fun<"
                   else
-                    if ($etp_boxed_immediate_h == etp_fun_ref_subtag)
-                      printf "#FunRef<"
+                    if ($etp_boxed_immediate_h == etp_bin_ref_subtag)
+                      printf "#BinRef<"
                     else
-                      if ($etp_boxed_immediate_h == etp_bin_ref_subtag)
-                        printf "#BinRef<"
-                      else
                       if ($etp_boxed_immediate_h == etp_heap_bits_subtag)
                         printf "#HeapBits<"
                       else
-                      if ($etp_boxed_immediate_h == etp_sub_bits_subtag)
-                        printf "#SubBits<"
-                      else
-                        printf "#Header%X<", $etp_boxed_immediate_h
+                        if ($etp_boxed_immediate_h == etp_sub_bits_subtag)
+                          printf "#SubBits<"
+                        else
+                          printf "#Header%X<", $etp_boxed_immediate_h
+                        end
                       end
                     end
-		  end
-		  end
                   end
                   set $etp_boxed_immediate_arity = \
                     ($etp_boxed_immediate_p[0] >> etp_header_arity_offs)

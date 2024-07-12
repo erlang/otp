@@ -1735,12 +1735,7 @@ call_fun(Process* p,    /* Current process. */
 
     if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
                     fun_arity(funp) == arity)) {
-        /* Copy the free variables, skipping the FunRef in the environment.
-         *
-         * Note that we avoid using fun_num_free as it asserts that the
-         * argument is a local function, which we don't need to care about
-         * here. */
-        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
+        for (int i = 0; i < fun_num_free(funp); i++) {
             reg[i + arity] = funp->env[i];
         }
 

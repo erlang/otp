@@ -189,7 +189,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &Arity,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
-    ASSERT((NumFree.get() + 1) == env.size() &&
+    ASSERT((NumFree.get()) == env.size() &&
            (NumFree.get() + Arity.get()) < MAX_ARG);
 
     mov_arg(RET, Lambda);

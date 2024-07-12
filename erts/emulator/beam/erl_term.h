@@ -97,7 +97,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  * HEADER tags:
  *
  *      0000    ARITYVAL
- *      0001    FUN_REF                           |
+ *      0001    -- FREE --                        |
  *      001x    BIGNUM with sign bit              |
  *      0100    REF                               |
  *      0101    FUN                               | THINGS
@@ -122,7 +122,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
  * XXX: globally replace XXX_SUBTAG with TAG_HEADER_XXX
  */
 #define ARITYVAL_SUBTAG         (0x0 << _TAG_PRIMARY_SIZE) /* TUPLE */
-#define FUN_REF_SUBTAG          (0x1 << _TAG_PRIMARY_SIZE) /* FUN_REF */
+/* FREE */
 #define _BIG_TAG_MASK           (~(0x1 << _TAG_PRIMARY_SIZE) & _TAG_HEADER_MASK)
 #define _BIG_SIGN_BIT           (0x1 << _TAG_PRIMARY_SIZE)
 #define POS_BIG_SUBTAG          (0x2 << _TAG_PRIMARY_SIZE) /* BIGNUM */
@@ -142,7 +142,6 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 /* _EXTERNAL_TAG_MASK requires that 0xF is reserved for external terms. */
 
 #define _TAG_HEADER_ARITYVAL       (TAG_PRIMARY_HEADER|ARITYVAL_SUBTAG)
-#define _TAG_HEADER_FUN_REF        (TAG_PRIMARY_HEADER|FUN_REF_SUBTAG)
 #define _TAG_HEADER_FUN            (TAG_PRIMARY_HEADER|FUN_SUBTAG)
 #define _TAG_HEADER_POS_BIG        (TAG_PRIMARY_HEADER|POS_BIG_SUBTAG)
 #define _TAG_HEADER_NEG_BIG        (TAG_PRIMARY_HEADER|NEG_BIG_SUBTAG)
@@ -395,28 +394,24 @@ _ET_DECLARE_CHECKED(Eterm*,bitstring_val,Eterm)
  * Since the arity and number of free variables are both limited to 255, we can
  * fit them both into the header word.
  *
- *     0000000eeeeeeeee aaaaaaaa00010100       environment_size:9, arity:8
+ *     0000000keeeeeeee aaaaaaaa00010100       kind:1,environment:8,arity:8
  *
  * Note that the lowest byte contains only the function subtag, and the next
  * byte after that contains only the arity. This lets us combine the type
  * and/or arity check into a single comparison without masking, by using 8- or
- * 16-bit operations on the header word.
- *
- * Furthermore, as local funs always have at least one environment variable as
- * the `FunRef` is treated as part of the environment, we can distinguish
- * them by checking whether the environment size is zero. */
+ * 16-bit operations on the header word. */
 
 #define FUN_HEADER_ARITY_OFFS (_HEADER_ARITY_OFFS + 2)
 #define FUN_HEADER_ENV_SIZE_OFFS (FUN_HEADER_ARITY_OFFS + 8)
+#define FUN_HEADER_KIND_OFFS (FUN_HEADER_ENV_SIZE_OFFS + 8)
 
 #define MAKE_FUN_HEADER(Arity, NumFree, External)                             \
     (ASSERT((!(External)) || ((NumFree) == 0)),                               \
      (_TAG_HEADER_FUN |                                                       \
      (((Arity)) << FUN_HEADER_ARITY_OFFS) |                                   \
-     (((NumFree + !External)) << FUN_HEADER_ENV_SIZE_OFFS)))
+     (((NumFree)) << FUN_HEADER_ENV_SIZE_OFFS) |                              \
+     ((!!(External)) << FUN_HEADER_KIND_OFFS)))
 
-#define is_fun_ref(x)                                                         \
-    (is_boxed((x)) && *boxed_val(x) == HEADER_FUN_REF)
 #define is_fun_header(x)        (((x) & _HEADER_SUBTAG_MASK) == FUN_SUBTAG)
 #define make_fun(x)             make_boxed((Eterm*)(x))
 #define is_any_fun(x)           (is_boxed((x)) && is_fun_header(*boxed_val((x))))
@@ -1425,9 +1420,8 @@ _ET_DECLARE_CHECKED(Uint,loader_y_reg_index,Uint)
 #define BIG_DEF			0xf
 #define SMALL_DEF		0x10
 #define BIN_REF_DEF             0x11   /* not a "real" term */
-#define FUN_REF_DEF             0x12   /* not a "real" term */
 
-#define FIRST_VACANT_TAG_DEF    0x13
+#define FIRST_VACANT_TAG_DEF    0x12
 
 #if ET_DEBUG
 ERTS_GLB_INLINE unsigned tag_val_def(Eterm, const char*, unsigned);
@@ -1493,7 +1487,6 @@ ERTS_GLB_INLINE unsigned tag_val_def(Eterm x)
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):	return EXTERNAL_REF_DEF;
 	    case (_TAG_HEADER_MAP >> _TAG_PRIMARY_SIZE):	return MAP_DEF;
 	    case (_TAG_HEADER_BIN_REF >> _TAG_PRIMARY_SIZE):	return BIN_REF_DEF;
-	    case (_TAG_HEADER_FUN_REF >> _TAG_PRIMARY_SIZE):	return FUN_REF_DEF;
 	    case (_TAG_HEADER_HEAP_BITS >> _TAG_PRIMARY_SIZE):	return BITSTRING_DEF;
 	    case (_TAG_HEADER_SUB_BITS >> _TAG_PRIMARY_SIZE):	return BITSTRING_DEF;
 	  }

@@ -123,15 +123,19 @@ void erts_commit_staging_code_ix(void)
      * active. */
     extern void export_staged_write_lock(void);
     extern void export_staged_write_unlock(void);
+    extern void fun_staged_write_lock(void);
+    extern void fun_staged_write_unlock(void);
     ErtsCodeIndex ix;
 
     export_staged_write_lock();
+    fun_staged_write_lock();
     {
         ix = erts_staging_code_ix();
         erts_atomic32_set_nob(&the_active_code_index, ix);
         ix = (ix + 1) % ERTS_NUM_CODE_IX;
         erts_atomic32_set_nob(&the_staging_code_index, ix);
     }
+    fun_staged_write_unlock();
     export_staged_write_unlock();
 
     erts_tracer_nif_clear();

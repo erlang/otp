@@ -288,9 +288,10 @@ set_on_spawn(Config) when is_list(Config) ->
     %% check per-process stats
     ?assertMatch({?MODULE, {_, 0}, 1, DownMsgSz, DownMsgSzFl, _}, lists:keyfind(?MODULE, 1, TotalProfile)),
 
-    %% MFA takes 4 more words. The memory of the 'DOWN' message is a bit racy,
-    %% so sometimes it will be there or not.
-    MfaSz = 4,
+    %% MFA version takes 3 more words (fun + one environment variable). The
+    %% memory of the 'DOWN' message is a bit racy, so sometimes it will be
+    %% there or not.
+    MfaSz = 3,
     ?assertMatch({?MODULE, {seq, 1}, 1, Sz, SzAvg, _}
                  when Sz =:= (DownMsgSz + MfaSz) andalso SzAvg == (DownMsgSz + MfaSz);
                       Sz =:= MfaSz andalso SzAvg == MfaSz,

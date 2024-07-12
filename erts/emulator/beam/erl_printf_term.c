@@ -637,7 +637,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                 ErlFunThing *funp = (ErlFunThing *) fun_val(wobj);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry *fe = funp->entry.fun;
+                    const ErlFunEntry *fe = funp->entry.fun;
                     Atom *ap = atom_tab(atom_val(fe->module));
 
                     PRINT_STRING(res, fn, arg, "#Fun<");
@@ -650,7 +650,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                             (ErlPfSWord) fe->old_uniq);
                     PRINT_CHAR(res, fn, arg, '>');
                 } else {
-                    Export* ep = funp->entry.exp;
+                    const Export *ep = funp->entry.exp;
                     long tdcount;
                     int tres;
 
@@ -756,9 +756,6 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
         }
         case BIN_REF_DEF:
             PRINT_STRING(res, fn, arg, "#BinRef");
-            break;
-        case FUN_REF_DEF:
-            PRINT_STRING(res, fn, arg, "#FunRef");
             break;
         default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
