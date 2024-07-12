@@ -185,17 +185,17 @@ start(Config) when is_list(Config) ->
     {'EXIT', {noproc,_}} = (catch gen_server:call(Pid0, started_p, 1)),
 
     %% init can throw its response.
-    {ok, Pid0} = gen_server:start(gen_server_SUITE, throw, []),
-    ok = gen_server:call(Pid0, started_p),
-    ok = gen_server:call(Pid0, stop),
-    busy_wait_for_process(Pid0,600),
+    {ok, Pid0b} = gen_server:start(gen_server_SUITE, throw, []),
+    ok = gen_server:call(Pid0b, started_p),
+    ok = gen_server:call(Pid0b, stop),
+    busy_wait_for_process(Pid0b,600),
 
     %% anonymous with timeout
     io:format("try init timeout~n", []),
-    {ok, Pid00} = gen_server:start(gen_server_SUITE, [],
+    {ok, Pid0c} = gen_server:start(gen_server_SUITE, [],
 				   [{timeout,1000}]),
-    ok = gen_server:call(Pid00, started_p),
-    ok = gen_server:call(Pid00, stop),
+    ok = gen_server:call(Pid0c, started_p),
+    ok = gen_server:call(Pid0c, stop),
     {error, timeout} = gen_server:start(gen_server_SUITE, sleep,
 					[{timeout,100}]),
 
