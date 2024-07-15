@@ -502,7 +502,7 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             peek_message ->
                 {aa_set_aliased(Dst, SS0), AAS0};
             phi ->
-                {aa_phi(Dst, Args, SS0, AAS0), AAS0};
+                aa_phi(Dst, Args, SS0, AAS0);
             put_list ->
                 SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 Types =
@@ -1125,10 +1125,14 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             aa_set_aliased([Dst|Args], SS)
     end.
 
-aa_phi(Dst, Args0, SS0, AAS) ->
+aa_phi(Dst, Args0, SS0, #aas{cnt=Cnt0}=AAS) ->
+    %% TODO: Use type info?
     Args = [V || {V,_} <- Args0],
-    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
-    aa_derive_from(Dst, Args, SS).
+    ?DP("Phi~n"),
+    SS1 = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
+    ?DP("  after aa_alias_surviving_args:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
+    {SS,Cnt} = beam_ssa_ss:phi(Dst, Args, SS1, Cnt0),
+    {SS,AAS#aas{cnt=Cnt}}.
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #aas{alias_map=AliasMap,analyzed=Analyzed,
