@@ -8,7 +8,7 @@ else
 fi
 sudo chown -R `whoami` docs
 cd docs
-if [[ ${release} < 27 ]]; then
+if test -x man; then
     tar czf ../otp_doc_man.tar.gz man
     rm -rf man
 fi
