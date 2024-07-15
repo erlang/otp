@@ -364,7 +364,7 @@ browse_file(File) ->
     {ok,Mods,_ModsTW} = crashdump_viewer:loaded_modules(),
     {ok,_Mem,_MemTW} = crashdump_viewer:memory(),
     {ok,_AllocAreas,_AreaTW} = crashdump_viewer:allocated_areas(),
-    {ok,_AllocINfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
+    {ok,AllocInfo,_AllocInfoTW} = crashdump_viewer:allocator_info(),
     {ok,_HashTabs,_HashTabsTW} = crashdump_viewer:hash_tables(),
     {ok,_IndexTabs,_IndexTabsTW} = crashdump_viewer:index_tables(),
     {ok,_PTs,_PTsTW} = crashdump_viewer:persistent_terms(),
@@ -379,6 +379,9 @@ browse_file(File) ->
     io:format("  mods ok",[]),
     lookat_all_nodes(Nodes),
     io:format("  nodes ok",[]),
+
+    lookat_alloc_info(AllocInfo),
+    io:format("  alloc info ok",[]),
 
     Procs. % used as second arg to special/2
 
@@ -732,6 +735,15 @@ lookat_all_nodes([#nod{channel=Channel0}|Nodes]) ->
     Channel = integer_to_list(Channel0),
     {ok,_Node=#nod{},_NodeTW} = crashdump_viewer:node_info(Channel),
     lookat_all_nodes(Nodes).
+
+lookat_alloc_info([AllocSummary|_]) ->
+    {"Allocator Summary",
+     ["blocks size", "carriers size", "mseg carriers size"],
+     [{"total", [BSTotal, CSTotal, _MsegTotal]}|_]
+    } = AllocSummary,
+    true = (BSTotal =/= "N/A"),
+    true = (CSTotal =/= "N/A"),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% 

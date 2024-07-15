@@ -84,5 +84,5 @@ fix_alloc([]) ->
     [].
 
 alloc_columns(Columns) ->
-    [{"",   ?wxLIST_FORMAT_LEFT,  180} |
+    [{"", ?wxLIST_FORMAT_LEFT, 240} |
      [{Column, ?wxLIST_FORMAT_RIGHT, 140} || Column <- Columns]].
