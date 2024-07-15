@@ -7,6 +7,8 @@ else
 fi
 sudo chown -R `whoami` docs
 cd docs
-tar czf ../otp_doc_man.tar.gz man
-rm -rf man
+if [[ $1 < 27 ]]; then
+    tar czf ../otp_doc_man.tar.gz man
+    rm -rf man
+fi
 tar czf ../otp_doc_html.tar.gz *
