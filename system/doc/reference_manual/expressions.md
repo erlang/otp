@@ -573,8 +573,8 @@ Now let us assume that `a()` returns `error`. The conditional match operator in
 the value of the expression that failed to match, namely `error`. Similarly, if
 `b()` returns `wrong`, the return value of the `maybe` block is `wrong`.
 
-Finally, let us assume that `a()` returns `-1`. Because `true = A >= 0` uses the
-match operator `=`, a `{badmatch,false}` run-time error occurs when the
+Finally, let us assume that `a()` returns `{ok,-1}`. Because `true = A >= 0` uses
+the match operator `=`, a `{badmatch,false}` run-time error occurs when the
 expression fails to match the pattern.
 
 The example can be written in a less succient way using nested case expressions:
