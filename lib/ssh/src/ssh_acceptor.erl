@@ -103,7 +103,7 @@ acceptor_init(Parent, SystemSup,
 
         undefined ->
             %% No listening socket (nor fd option) was provided; open a listening socket:
-            case listen(Port, Opts) of
+            case try_listen(Port, Opts, 4) of
                 {ok,LSock} ->
                     proc_lib:init_ack(Parent, {ok, self()}),
                     acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
