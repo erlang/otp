@@ -180,6 +180,7 @@ in the Erlang Reference Manual.
 -type connection_type() :: normal | hidden.
 
 -include("net_address.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Relaxed typing to allow ets:select without Dialyzer complains.
 -record(connection, {
@@ -2399,12 +2400,8 @@ split_node(Name) ->
 %%
 -doc false.
 protocol_childspecs() ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    protocol_childspecs(Protos);
-	_ ->
-	    protocol_childspecs(["inet_tcp"])
-    end.
+    Protos = proto_dist_argument(),
+    protocol_childspecs(Protos).
 
 protocol_childspecs([]) ->
     [];
@@ -2456,17 +2453,31 @@ hidden_argument() ->
             false
     end.
 
+%%%
+%%% -proto_dist command line argument
+%%%
+
+proto_dist_argument() ->
+    case init:get_argument(proto_dist) of
+        {ok, [Protos | Rest]} ->
+            case Rest of
+                [] ->
+                    ok;
+                _ ->
+                    ?LOG_WARNING("Multiple -proto_dist given to erl, using the first, ~p", [Protos])
+            end,
+            Protos;
+        _ ->
+            ["inet_tcp"]
+    end.
+
 %%
 %% Start all protocols
 %%
 
 start_protos(Node, CleanHalt, Listen) ->
-    case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
-	    start_protos(Node, Protos, CleanHalt, Listen);
-	_ ->
-	    start_protos(Node, ["inet_tcp"], CleanHalt, Listen)
-    end.
+    Protos = proto_dist_argument(),
+    start_protos(Node, Protos, CleanHalt, Listen).
 
 start_protos(Node, Ps, CleanHalt, Listen) ->
     Listeners = case Listen of
@@ -3011,4 +3022,3 @@ opts_node(Op, Node, Opts, From, #state{req_map = ReqMap0} = S0) ->
         _ ->
             async_reply({reply, {error, noconnection}, S0}, From)
     end.
-
