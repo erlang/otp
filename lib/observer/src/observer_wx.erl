@@ -776,12 +776,13 @@ get_nodes() ->
 
 %% see erl_epmd:(listen_)port_please/2
 erl_dist_port() ->
-    try
-        erl_epmd = net_kernel:epmd_module(),
-        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
-        list_to_integer(StringPort)
-    catch
-        _:_ ->
+    case net_kernel:epmd_module() of
+        erl_epmd ->
+            case erl_epmd:listen_port_please(nonode, nohost) of
+                {ok, 0} -> undefined;
+                {ok, Port} -> Port
+            end;
+        _ ->
             undefined
     end.
 
@@ -903,5 +904,3 @@ filter_nodedown_messages(Node) ->
 %%     io:format("[owx] " ++ F ++ "~n", A);
 %% d(_, _, _) ->
 %%     ok.
-
-

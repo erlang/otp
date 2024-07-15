@@ -90,9 +90,6 @@ The `init` module interprets the following command-line flags:
   It defaults to `strict` from OTP 27 and this option is scheduled for removal
   in OTP 28.
 
-- **`-epmd_module Module`** - Specifies the module to use for registration and
-  lookup of node names. Defaults to `erl_epmd`.
-
 - **`-eval Expr`** - Scans, parses, and evaluates an arbitrary expression `Expr`
   during system initialization. If any of these steps fail (syntax error, parse
   error, or exception during evaluation), Erlang stops with an error message. In
