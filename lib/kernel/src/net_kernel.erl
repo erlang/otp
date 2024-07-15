@@ -2400,7 +2400,7 @@ split_node(Name) ->
 -doc false.
 protocol_childspecs() ->
     case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
+	{ok, [Protos | _]} ->
 	    protocol_childspecs(Protos);
 	_ ->
 	    protocol_childspecs(["inet_tcp"])
@@ -2462,7 +2462,7 @@ hidden_argument() ->
 
 start_protos(Node, CleanHalt, Listen) ->
     case init:get_argument(proto_dist) of
-	{ok, [Protos]} ->
+	{ok, [Protos | _]} ->
 	    start_protos(Node, Protos, CleanHalt, Listen);
 	_ ->
 	    start_protos(Node, ["inet_tcp"], CleanHalt, Listen)
