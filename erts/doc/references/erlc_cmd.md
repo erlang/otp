@@ -63,7 +63,7 @@ The following flags are supported:
   containing tuples and lists must be quoted. Terms containing spaces must be
   quoted on all platforms.
 
-- **`-WError`** - Makes all warnings into errors.
+- **`-Werror`** - Makes all warnings into errors.
 
 - **`-W<Number>`** - Sets warning level to `Number`. Defaults to `1`. To turn
   off warnings, use `-W0`.
