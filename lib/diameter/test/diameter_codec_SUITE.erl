@@ -220,7 +220,9 @@ make(Dir, File, Out) ->
     ?CL("~w -> entry with"
         "~n   File: ~p"
         "~n", [?FUNCTION_NAME, File]),
-    diameter_make:codec(filename:join(Dir, File), [{outdir, Out}]).
+    pcall(fun() ->
+                  diameter_make:codec(filename:join(Dir, File), [{outdir, Out}])
+          end).
 
 compile(Dir, File) ->
     compile(Dir, File, []).
@@ -230,7 +232,51 @@ compile(Dir, File, Opts) ->
         "~n   File: ~p"
         "~n   Opts: ~p"
         "~n", [?FUNCTION_NAME, File, Opts]),
-    compile:file(filename:join(Dir, File), [return | Opts]).
+    pcall(fun() -> compile:file(filename:join(Dir, File), [return | Opts]) end).
+
+%% Proxy call
+%% That is; create a proxy process that calls a fun.
+%% The point of this is to "supervise" the (proxy) process,
+%% and print various status info about the (proxy) process.
+%% Normally this process would terminate in (much) less than
+%% one second, so nothing "should" be printed...
+pcall(F) when is_function(F) ->
+    Parent = self(),
+    pcall_loop(spawn_link(fun() ->
+                                  Parent ! {?MODULE, pcall, self(), F()},
+                                  exit(normal)
+                          end)).
+
+pcall_loop(Pid) ->
+    receive
+        {?MODULE, pcall, Pid, Res} ->
+            Res
+    after 1000 ->
+            ?CL("pcall_loop -> timeout: "
+                "~n   Current Function: ~p"
+                "~n   Status:           ~p"
+                "~n   Memory:           ~p"
+                "~n   Heap Size:        ~p"
+                "~n   Stack Size:       ~p"
+                "~n   Messages:         ~p"
+                "~n   Reductions:       ~p",
+                [pinfo(Pid, current_function),
+                 pinfo(Pid, status),
+                 pinfo(Pid, memory),
+                 pinfo(Pid, heap_size),
+                 pinfo(Pid, stack_size),
+                 pinfo(Pid, messages),
+                 pinfo(Pid, reductions)]),
+            pcall_loop(Pid)
+    end.
+
+pinfo(P, Key) when is_pid(P) ->
+    case erlang:process_info(P) of
+        {Key, Value} ->
+            Value;
+        _ ->
+            undefined
+    end.
 
 
 %% ===========================================================================
