@@ -233,7 +233,7 @@ if [ ${UPLOADED} = false ]; then
                -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
         docker run -v "$PWD":/github otp \
                "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-        .github/scripts/release-docs.sh
+        .github/scripts/release-docs.sh $release
         .github/scripts/create-artifacts.sh downloads "${name}"
 
         ## Delete any artifacts that we should not upload
