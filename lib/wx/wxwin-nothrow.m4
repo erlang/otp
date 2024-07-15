@@ -188,9 +188,6 @@ AC_DEFUN([WX_CONFIG_CHECK],
      wx_config_args="$wx_config_args --prefix=$wx_config_prefix"
      WX_LOOKUP_PATH="$WX_LOOKUP_PATH:$wx_config_prefix/bin"
   fi
-  if test "$cross_compiling" = "yes"; then
-     wx_config_args="$wx_config_args --host=$host_alias"
-  fi
 
   dnl don't search the PATH if WX_CONFIG_NAME is absolute filename
   if test -x "$WX_CONFIG_NAME" ; then
