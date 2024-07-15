@@ -43,6 +43,7 @@
          merge_in_args/3,
          new/0,
          new/3,
+         phi/4,
          prune/3,
          set_call_result/4,
          set_status/3,
@@ -449,6 +450,20 @@ accumulate_edges(V, State, Edges0) ->
 -spec new() -> sharing_state().
 new() ->
     beam_digraph:new().
+
+-spec phi(beam_ssa:b_var(), [beam_ssa:b_var()],
+          sharing_state(), non_neg_integer())
+         -> sharing_state().
+phi(Dst, Args, State0, Cnt) ->
+    ?assert_state(State0),
+    ?DP("** phi **~n~s~n", [dump(State0)]),
+    ?DP("  dst: ~p~n", [Dst]),
+    ?DP("  args: ~p~n", [Args]),
+    Structure = foldl(fun(Arg, Acc) ->
+                              merge_in_arg(Arg, Acc, ?ARGS_DEPTH_LIMIT, State0)
+                      end, no_info, Args),
+    ?DP("  structure: ~p~n", [Structure]),
+    new([Dst], [Structure], Cnt, State0).
 
 %%%
 %%% Throws `too_deep` if the depth of sharing state value chains
