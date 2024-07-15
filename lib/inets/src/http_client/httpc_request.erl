@@ -285,10 +285,12 @@ handle_user_info([], Headers) ->
 handle_user_info(UserInfo, Headers) ->
     case string:tokens(UserInfo, ":") of
 	[User, Passwd] ->
-	    UserPasswd = base64:encode_to_string(User ++ ":" ++ Passwd),
+	    UserPasswd = base64:encode_to_string(
+	        uri_string:percent_decode(User) ++ ":" ++ uri_string:percent_decode(Passwd)
+	    ),
 	    Headers#http_request_h{authorization = "Basic " ++ UserPasswd};
 	[User] ->
-	    UserPasswd = base64:encode_to_string(User ++ ":"),
+	    UserPasswd = base64:encode_to_string(uri_string:percent_decode(User) ++ ":"),
 	    Headers#http_request_h{authorization = "Basic " ++ UserPasswd}; 
 	_ ->
 	    Headers
