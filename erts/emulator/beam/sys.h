@@ -309,6 +309,9 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
     } while (0)
 #endif
 
+/* C99: bool, true and false */
+#include <stdbool.h>
+
 /*
  * Microsoft C/C++: We certainly want to use stdarg.h and prototypes.
  * But MSC doesn't define __STDC__, unless we compile with the -Za
@@ -701,12 +704,13 @@ typedef struct preload {
 } Preload;
 
 /*
- * ErtsTracer is either NIL, 'true' or [Mod | State]
+ * ErtsTracer is either NIL, 'true', LocalPid or [Mod | State]
  *
  * If set to NIL, it means no tracer.
  * If set to 'true' it means the current process' tracer.
  * If set to [Mod | State], there is a tracer.
- *  See erts_tracer_update for more details
+ * LocalPid is the optimized form of the common case [erl_tracer | LocalPid].
+ *  See erts_tracer_update_impl for more details
  */
 typedef Eterm ErtsTracer;
 

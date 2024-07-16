@@ -372,7 +372,7 @@ void process_main(ErtsSchedulerData *esdp)
 
     ERTS_MSACC_UPDATE_CACHE_X();
 
-    if (erts_system_monitor_long_schedule != 0) {
+    if (erts_system_monitor_long_schedule_cnt != 0) {
 	start_time = erts_timestamp_millis();
 	start_time_i = c_p->i;
     }

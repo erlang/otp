@@ -127,6 +127,8 @@
 
 -export([term_to_string/1, term_to_string/2]).
 
+-export([system_monitor/1, system_monitor/2, system_monitor/3]).
+
 %%
 %% Await result of send to port
 %%
@@ -1149,4 +1151,13 @@ term_to_string(T) ->
     Limit :: undefined | pos_integer().
 
 term_to_string(_T, _Limit) ->
+    erlang:nif_error(undefined).
+
+system_monitor(_Session) ->
+    erlang:nif_error(undefined).
+
+system_monitor(_Session, _Arg) ->
+    erlang:nif_error(undefined).
+
+system_monitor(_Session, _MonitorPid, _Options) ->
     erlang:nif_error(undefined).

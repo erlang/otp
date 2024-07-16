@@ -5941,7 +5941,7 @@ The order of the options can be different from the one that was set.
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ].
 system_monitor() ->
-    erlang:nif_error(undefined).
+    erts_internal:system_monitor(default).
 
 %% system_monitor/1
 -doc """
@@ -5960,8 +5960,8 @@ Returns the previous system monitor settings just like
       MonSettings :: undefined | { MonitorPid, Options },
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ].
-system_monitor(_Arg) ->
-    erlang:nif_error(undefined).
+system_monitor(Arg) ->
+    erts_internal:system_monitor(default, Arg).
 
 %% system_monitor/2
 -doc """
@@ -6099,8 +6099,8 @@ Failures:
       MonSettings :: undefined | { OldMonitorPid, OldOptions },
       OldMonitorPid :: pid(),
       OldOptions :: [ system_monitor_option() ].
-system_monitor(_MonitorPid, _Options) ->
-    erlang:nif_error(undefined).
+system_monitor(MonitorPid, Options) ->
+    erts_internal:system_monitor(default, MonitorPid, Options).
 
 %% system_profile/0
 -doc """

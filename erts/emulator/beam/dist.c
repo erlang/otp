@@ -3610,8 +3610,8 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 if (ctx->fragments) {
                     ctx->c_p->flags |= F_FRAGMENTED_SEND;
                     retval = ERTS_DSIG_SEND_CONTINUE;
-                    if (!resume && erts_system_monitor_flags.busy_dist_port)
-                        monitor_generic(ctx->c_p, am_busy_dist_port, cid);
+                    if (!resume && erts_system_monitor_busy_dist_port_cnt)
+                        monitor_busy_dist_port(ctx->c_p, cid);
                     goto done;
                 }
 	    }
@@ -3635,8 +3635,9 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 			    port_str, remote_str, pid_str);
 		}
     #endif
-		if (!resume && erts_system_monitor_flags.busy_dist_port)
-		    monitor_generic(ctx->c_p, am_busy_dist_port, cid);
+                if (!resume && erts_system_monitor_busy_dist_port_cnt) {
+                    monitor_busy_dist_port(ctx->c_p, cid);
+                }
 		retval = ERTS_DSIG_SEND_YIELD;
 	    } else {
 		retval = ERTS_DSIG_SEND_OK;

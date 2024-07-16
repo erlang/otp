@@ -26,6 +26,8 @@
 #  include "config.h"
 #endif
 
+#include <stdbool.h>
+
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -74,7 +76,7 @@ static int stage_trace_event_pattern(Eterm event, Binary*, int on);
 
 static void smp_bp_finisher(void* arg);
 static BIF_RETTYPE
-system_monitor(Process *p, Eterm monitor_pid, Eterm list);
+system_monitor(Process *p, ErtsTraceSession*, Eterm monitor_pid, Eterm list);
 static Eterm trace_session_create(Process*, Eterm name, Eterm tracer_term, Eterm opts);
 static void trace_session_destroy_aux(void *session_v);
 static void trace_session_destroy(ErtsTraceSession*);
@@ -142,6 +144,9 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
     s->tracer = tracer;
     s->name_atom = name_atom;
     erts_atomic_init_nob(&s->state, ERTS_TRACE_SESSION_ALIVE);
+
+    erts_system_monitor_clear(s, NULL);
+
 #ifdef DEBUG
     erts_refc_init(&s->dbg_bp_refc, 0);
     erts_refc_init(&s->dbg_p_refc, 0);
@@ -174,7 +179,7 @@ int erts_trace_session_init(ErtsTraceSession* s, ErtsTracer tracer,
  * Does refc++ on returned trace session.
  */
 static int term_to_session(Eterm term, ErtsTraceSession **session_p,
-                           int allow_dead)
+                           bool allow_dead)
 {
     ErtsTraceSession *s = NULL;
     Binary *bin;
@@ -286,7 +291,7 @@ erts_internal_trace_pattern_4(BIF_ALIST_4)
 {
     ErtsTraceSession* session;
 
-    if (!term_to_session(BIF_ARG_1, &session, 0)) {
+    if (!term_to_session(BIF_ARG_1, &session, false)) {
         goto session_error;
     }
 
@@ -881,7 +886,7 @@ Eterm erts_internal_trace_4(BIF_ALIST_4)
     ErtsTraceSession* session;
     Eterm ret;
 
-    if (!term_to_session(BIF_ARG_1, &session, 0)) {
+    if (!term_to_session(BIF_ARG_1, &session, false)) {
         goto session_error;
     }
     if (!erts_try_seize_code_mod_permission(BIF_P)) {
@@ -1268,7 +1273,7 @@ Eterm
 erts_internal_trace_session_destroy_1(BIF_ALIST_1)
 {
     ErtsTraceSession* session;
-    if (!term_to_session(BIF_ARG_1, &session, 1)) {
+    if (!term_to_session(BIF_ARG_1, &session, true)) {
         BIF_P->fvalue = am_badopt;
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
@@ -1392,7 +1397,7 @@ Eterm erts_internal_trace_info_3(BIF_ALIST_3)
         /* trace:session_info */
         session = NULL;
     }
-    else if (!term_to_session(BIF_ARG_1, &session, 0)) {
+    else if (!term_to_session(BIF_ARG_1, &session, true)) {
         goto session_error;
     }
 
@@ -3025,19 +3030,18 @@ BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)
     BIF_RET(am_true);
 }
 
-void erts_system_monitor_clear(Process *c_p) {
+void erts_system_monitor_clear(ErtsTraceSession *session, Process *c_p) {
     if (c_p) {
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
     }
-    erts_set_system_monitor(NIL);
-    erts_system_monitor_long_gc = 0;
-    erts_system_monitor_long_schedule = 0;
-    erts_system_monitor_large_heap = 0;
-    erts_system_monitor_flags.busy_port = 0;
-    erts_system_monitor_flags.busy_dist_port = 0;
-    erts_system_monitor_long_msgq_on = ERTS_SWORD_MAX;
-    erts_system_monitor_long_msgq_off = -1;
+    erts_set_system_monitor(session, NIL);
+    for (int i = 0; i < ERTS_SYSMON_LIMIT_CNT; i++) {
+        session->system_monitor.limits[i] = 0;
+    }
+    session->system_monitor.flags.busy_port = 0;
+    session->system_monitor.flags.busy_dist_port = 0;
+    session->system_monitor.long_msgq_off = -1;
     if (c_p) {
 	erts_thr_progress_unblock();
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -3045,62 +3049,61 @@ void erts_system_monitor_clear(Process *c_p) {
 }
 
 
-static Eterm system_monitor_get(Process *p)
+static Eterm system_monitor_get(ErtsTraceSession *session, Process *p)
 {
     Eterm *hp;
-    Eterm system_monitor = erts_get_system_monitor();
+    Eterm system_monitor = erts_get_system_monitor(session);
     
     if (system_monitor == NIL) {
 	return am_undefined;
     } else {
 	Eterm res;
-	Uint hsz = 3 + (erts_system_monitor_flags.busy_dist_port ? 2 : 0) +
-	    (erts_system_monitor_flags.busy_port ? 2 : 0); 
+	Uint hsz = 3 + (session->system_monitor.flags.busy_dist_port ? 2 : 0) +
+	    (session->system_monitor.flags.busy_port ? 2 : 0);
 	Eterm long_gc = NIL;
 	Eterm long_schedule = NIL;
 	Eterm large_heap = NIL;
         Eterm long_msgq_off = NIL;
         Eterm long_msgq_on = NIL;
 
-        if (erts_system_monitor_long_msgq_off >= 0) {
-            ASSERT(erts_system_monitor_long_msgq_on
-                   > erts_system_monitor_long_msgq_off);
+        if (session->system_monitor.long_msgq_off >= 0) {
+            ASSERT(session->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]
+                   > (Uint)session->system_monitor.long_msgq_off);
 	    hsz += 2+3+3;
 	    (void) erts_bld_uint(NULL, &hsz,
-                                 (Sint) erts_system_monitor_long_msgq_off);
+                                 (Uint) session->system_monitor.long_msgq_off);
 	    (void) erts_bld_uint(NULL, &hsz,
-                                 (Sint) erts_system_monitor_long_msgq_on);
+                                 session->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]);
         }
-	if (erts_system_monitor_long_gc != 0) {
+        if (session->system_monitor.limits[ERTS_SYSMON_LONG_GC] != 0) {
 	    hsz += 2+3;
-	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_gc);
+            erts_bld_uint(NULL, &hsz, session->system_monitor.limits[ERTS_SYSMON_LONG_GC]);
 	}
-	if (erts_system_monitor_long_schedule != 0) {
-	    hsz += 2+3;
-	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_long_schedule);
-	}
-	if (erts_system_monitor_large_heap != 0) {
-	    hsz += 2+3;
-	    (void) erts_bld_uint(NULL, &hsz, erts_system_monitor_large_heap);
-	}
+        if (session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE] != 0) {
+            hsz += 2+3;
+            erts_bld_uint(NULL, &hsz, session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE]);
+        }
+        if (session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP] != 0) {
+            hsz += 2+3;
+            erts_bld_uint(NULL, &hsz, session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP]);
+        }
 
 	hp = HAlloc(p, hsz);
-        if (erts_system_monitor_long_msgq_off >= 0) {
+        if (session->system_monitor.long_msgq_off >= 0) {
 	    long_msgq_off = erts_bld_uint(&hp, NULL,
-                                          (Sint) erts_system_monitor_long_msgq_off);
+                                          session->system_monitor.long_msgq_off);
 	    long_msgq_on =  erts_bld_uint(&hp, NULL,
-                                          (Sint) erts_system_monitor_long_msgq_on);
+                                          session->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ]);
         }
-	if (erts_system_monitor_long_gc != 0) {
-	    long_gc = erts_bld_uint(&hp, NULL, erts_system_monitor_long_gc);
+        if (session->system_monitor.limits[ERTS_SYSMON_LONG_GC] != 0) {
+            long_gc = erts_bld_uint(&hp, NULL, session->system_monitor.limits[ERTS_SYSMON_LONG_GC]);
 	}
-	if (erts_system_monitor_long_schedule != 0) {
-	    long_schedule = erts_bld_uint(&hp, NULL, 
-					  erts_system_monitor_long_schedule);
-	}
-	if (erts_system_monitor_large_heap != 0) {
-	    large_heap = erts_bld_uint(&hp, NULL, erts_system_monitor_large_heap);
-	}
+        if (session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE] != 0) {
+            long_schedule = erts_bld_uint(&hp, NULL, session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE]);
+        }
+        if (session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP] != 0) {
+            large_heap = erts_bld_uint(&hp, NULL, session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP]);
+        }
 	res = NIL;
         if (long_msgq_off != NIL) {
 	    Eterm t;
@@ -3121,10 +3124,10 @@ static Eterm system_monitor_get(Process *p)
 	    Eterm t = TUPLE2(hp, am_large_heap, large_heap); hp += 3;
 	    res = CONS(hp, t, res); hp += 2;
 	}
-	if (erts_system_monitor_flags.busy_port) {
+	if (session->system_monitor.flags.busy_port) {
 	    res = CONS(hp, am_busy_port, res); hp += 2;
 	}
-	if (erts_system_monitor_flags.busy_dist_port) {
+	if (session->system_monitor.flags.busy_dist_port) {
 	    res = CONS(hp, am_busy_dist_port, res); hp += 2;
 	}
 	return TUPLE2(hp, system_monitor, res);
@@ -3132,63 +3135,161 @@ static Eterm system_monitor_get(Process *p)
 }
 
 
-BIF_RETTYPE system_monitor_0(BIF_ALIST_0)
+BIF_RETTYPE erts_internal_system_monitor_1(BIF_ALIST_1)
 {
-    BIF_RET(system_monitor_get(BIF_P));
+    ErtsTraceSession *session;
+    Eterm res;
+
+    if (BIF_ARG_1 == am_default) {
+        session = &erts_trace_session_0;
+    }
+    else if (!term_to_session(BIF_ARG_1, &session, false)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    res = system_monitor_get(session, BIF_P);
+    erts_deref_trace_session(session);
+    BIF_RET(res);
 }
 
-BIF_RETTYPE system_monitor_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_system_monitor_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
-    Eterm spec = BIF_ARG_1;
+    Eterm spec = BIF_ARG_2;
+    ErtsTraceSession *session;
+    Eterm res;
 
-    if (spec == am_undefined) {
-	BIF_RET(system_monitor(p, spec, NIL));
-    } else if (is_tuple(spec)) {
-	Eterm *tp = tuple_val(spec);
-	if (tp[0] != make_arityval(2)) goto error;
-	BIF_RET(system_monitor(p, tp[1], tp[2]));
+    if (BIF_ARG_1 == am_default) {
+        session = &erts_trace_session_0;
     }
- error:
-    BIF_ERROR(p, BADARG);
+    else if (!term_to_session(BIF_ARG_1, &session, false)) {
+        BIF_ERROR(p, BADARG);
+    }
+    if (spec == am_undefined) {
+        res = system_monitor(p, session, spec, NIL);
+    }
+    else if (is_tuple_arity(spec, 2)) {
+	Eterm *tp = tuple_val(spec);
+        res = system_monitor(p, session, tp[1], tp[2]);
+    }
+    else {
+        ERTS_BIF_PREP_ERROR(res, p, BADARG);
+    }
+    erts_deref_trace_session(session);
+
+    return res;
 }
 
-BIF_RETTYPE system_monitor_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_system_monitor_3(BIF_ALIST_3)
 {
-    return system_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2);
+    ErtsTraceSession *session;
+    Eterm res;
+
+    if (BIF_ARG_1 == am_default) {
+        session = &erts_trace_session_0;
+    }
+    else if (!term_to_session(BIF_ARG_1, &session, false)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+    res = system_monitor(BIF_P, session, BIF_ARG_2, BIF_ARG_3);
+
+    erts_deref_trace_session(session);
+    return res;
 }
+
+static Sint calc_sysmon_global_msgq_off_max(void)
+{
+    Sint max_limit = -1;
+
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+        if (s->system_monitor.long_msgq_off > max_limit) {
+            max_limit = s->system_monitor.long_msgq_off;
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    return max_limit;
+}
+
+static Uint calc_sysmon_global_limit(Uint limit_ix)
+{
+    ErtsTraceSession *s;
+    Uint min_limit = 0;
+
+    erts_rwmtx_rlock(&erts_trace_session_list_lock);
+    for (s = &erts_trace_session_0; s; s = s->next) {
+        if (s->system_monitor.limits[limit_ix]-1 < min_limit-1) {
+            min_limit = s->system_monitor.limits[limit_ix];
+        }
+    }
+    erts_rwmtx_runlock(&erts_trace_session_list_lock);
+    return min_limit;
+}
+
+static void
+set_sysmon_global_limit(Uint *global_limit, Uint new_limit, Uint limit_ix)
+{
+    ASSERT(limit_ix < ERTS_SYSMON_LIMIT_CNT);
+
+    /* Trick: Do -1 with underflow to compare 0 (off) as UINT_MAX */
+
+    if (new_limit - 1 < *global_limit - 1) {
+        /* Enable or lower limit */
+        *global_limit = new_limit;
+    }
+    else if (new_limit != *global_limit) {
+        *global_limit = calc_sysmon_global_limit(limit_ix);
+    }
+    else {
+        ASSERT(*global_limit == calc_sysmon_global_limit(limit_ix));
+    }
+}
+
+static void set_sysmon_global_enabled_cnt(bool was_enabled, bool is_enabled,
+                                          Sint *counter_p)
+{
+    if (was_enabled != is_enabled) {
+        if (is_enabled) {
+            (*counter_p)++;
+        }
+        else {
+            ASSERT(was_enabled);
+            ASSERT(*counter_p > 0);
+            (*counter_p)--;
+        }
+    }
+}
+
 
 static BIF_RETTYPE
-system_monitor(Process *p, Eterm monitor_pid, Eterm list)
+system_monitor(Process *p, ErtsTraceSession *session,
+               Eterm monitor_pid, Eterm list)
 {
-    Eterm prev;
-    int system_blocked = 0;
+    Eterm prev_term;
+    bool system_blocked = false;
 
     if (monitor_pid == am_undefined || list == NIL) {
-	prev = system_monitor_get(p);
-	erts_system_monitor_clear(p);
-	BIF_RET(prev);
+	prev_term = system_monitor_get(session, p);
+	erts_system_monitor_clear(session, p);
+	BIF_RET(prev_term);
     }
     if (is_not_list(list)) goto error;
     else {
-	Uint long_gc, long_schedule, large_heap;
-        Sint long_msgq_on, long_msgq_off;
-	int busy_port, busy_dist_port;
+	Uint long_gc = 0, long_schedule = 0, large_heap = 0;
+        Sint long_msgq_on = ERTS_SINT_MAX, long_msgq_off = -1;
+	int busy_port = 0, busy_dist_port = 0;
+        struct system_monitor_session prev;
 
-	system_blocked = 1;
+	system_blocked = true;
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
-        erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+        erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);        
 
 	if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, monitor_pid, 0))
 	    goto error;
 
-	for (long_gc = 0, long_schedule = 0, large_heap = 0, 
-		 busy_port = 0, busy_dist_port = 0,
-                 long_msgq_on = ERTS_SWORD_MAX, long_msgq_off = -1;
-	     is_list(list);
-	     list = CDR(list_val(list))) {
-	    Eterm t = CAR(list_val(list));
+	for ( ; is_list(list); list = CDR(list_val(list))) {
+            Eterm t = CAR(list_val(list));
 	    if (is_tuple(t)) {
 		Eterm *tp = tuple_val(t);
 		if (arityval(tp[0]) != 2) goto error;
@@ -3217,19 +3318,46 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 		busy_dist_port = !0;
 	    } else goto error;
 	}
-	if (is_not_nil(list)) goto error;
-	prev = system_monitor_get(p);
-	erts_set_system_monitor(monitor_pid);
-	erts_system_monitor_long_gc = long_gc;
-	erts_system_monitor_long_schedule = long_schedule;
-	erts_system_monitor_large_heap = large_heap;
-	erts_system_monitor_flags.busy_port = !!busy_port;
-	erts_system_monitor_flags.busy_dist_port = !!busy_dist_port;
-        erts_system_monitor_long_msgq_off = long_msgq_off;
-        erts_system_monitor_long_msgq_on = long_msgq_on;
+	if (is_not_nil(list)) {
+            goto error;
+        }
 
+        prev = session->system_monitor;
+	prev_term = system_monitor_get(session, p);
+	erts_set_system_monitor(session, monitor_pid);
+	session->system_monitor.limits[ERTS_SYSMON_LONG_GC] = long_gc;
+	session->system_monitor.limits[ERTS_SYSMON_LONG_SCHEDULE] = long_schedule;
+	session->system_monitor.limits[ERTS_SYSMON_LARGE_HEAP] = large_heap;
+        session->system_monitor.limits[ERTS_SYSMON_LONG_MSGQ] = long_msgq_on;
+        session->system_monitor.long_msgq_off = long_msgq_off;
+        session->system_monitor.flags.busy_port = !!busy_port;
+	session->system_monitor.flags.busy_dist_port = !!busy_dist_port;
+
+        set_sysmon_global_limit(&erts_system_monitor_long_gc, long_gc,
+                                ERTS_SYSMON_LONG_GC);
+        set_sysmon_global_limit(&erts_system_monitor_long_schedule, long_schedule,
+                                ERTS_SYSMON_LONG_SCHEDULE);
+        set_sysmon_global_limit(&erts_system_monitor_large_heap, large_heap,
+                                ERTS_SYSMON_LARGE_HEAP);
+        set_sysmon_global_limit(&erts_system_monitor_long_msgq_on, long_msgq_on,
+                                ERTS_SYSMON_LONG_MSGQ);
+
+        if (long_msgq_off > erts_system_monitor_long_msgq_off) {
+            erts_system_monitor_long_msgq_off = long_msgq_off;
+        }
+        else if (long_msgq_off != erts_system_monitor_long_msgq_off) {
+            erts_system_monitor_long_msgq_off = calc_sysmon_global_msgq_off_max();
+        }
+        else {
+            ASSERT(erts_system_monitor_long_msgq_off == calc_sysmon_global_msgq_off_max());
+        }
+
+        set_sysmon_global_enabled_cnt(prev.flags.busy_port, busy_port,
+                                      &erts_system_monitor_busy_port_cnt);
+        set_sysmon_global_enabled_cnt(prev.flags.busy_dist_port, busy_dist_port,
+                                      &erts_system_monitor_busy_dist_port_cnt);
 	erts_thr_progress_unblock();
-	BIF_RET(prev);
+	BIF_RET(prev_term);
     }
 
  error:
