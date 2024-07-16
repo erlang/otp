@@ -612,7 +612,8 @@ define etp-atom-1
   else
     set $etp_atom_1_ap = (Atom*)erts_atom_table.seg_table[(Eterm)($arg0)>>16][((Eterm)($arg0)>>6)&0x3FF]
     set $etp_atom_1_i = ($etp_atom_1_ap)->len
-    set $etp_atom_1_p = ($etp_atom_1_ap)->name
+    etp-bitstring-data-1 ($etp_atom_1_ap)->u.bin
+    set $etp_atom_1_p = ($etp_bitstring_data)
     set $etp_atom_1_quote = 1
     # Check if atom has to be quoted
     if ($etp_atom_1_i > 0)
@@ -642,7 +643,7 @@ define etp-atom-1
       printf "'"
     end
     set $etp_atom_1_i = ($etp_atom_1_ap)->len
-    set $etp_atom_1_p = ($etp_atom_1_ap)->name
+    set $etp_atom_1_p = ($etp_bitstring_data)
     while $etp_atom_1_i > 0
         etp-char-1 (*$etp_atom_1_p) '\''
 	set $etp_atom_1_p++
@@ -652,6 +653,25 @@ define etp-atom-1
       printf "'"
     end
   end
+end
+
+define etp-bitstring-data-1
+# Args: Eterm bitstring
+# 
+# Non-reentrant
+#
+# Unbox and retrieve the binary data pointer from any bitstring
+ set $etp_bitstring_unboxed = ((Eterm*)(($arg0) & etp_ptr_mask))
+ set $etp_bitstring_subtag = ($etp_bitstring_unboxed[0] & etp_header_subtag_mask)
+ if ($etp_bitstring_subtag == etp_sub_bits_subtag)
+  set $etp_bitstring_ptr = (ErlSubBits *) $etp_bitstring_unboxed
+  set $etp_bitstring_size = ($etp_bitstring_ptr)->end - ($etp_bitstring_ptr)->start
+  set $etp_bitstring_data = (byte *)(($etp_bitstring_ptr)->base_flags & ~(UWord)3)
+ else
+  set $etp_bitstring_ptr = (ErlHeapBits *) $etp_bitstring_unboxed
+  set $etp_bitstring_size = ($etp_bitstring_ptr)->size
+  set $etp_bitstring_data = (byte *)&($etp_bitstring_ptr)->data
+ end
 end
 
 
@@ -691,8 +711,10 @@ define etp-string-to-atom
   # search hash bucket list
   while $etp_p
     set $etp_i = 0
+    etp-bitstring-data-1 ($etp_p)->u.bin
+    set $etp_atom_1_p = ($etp_bitstring_data)
     while $etp_i < $etp_p->len && ($arg0)[$etp_i]
-      if $etp_p->name[$etp_i] != ($arg0)[$etp_i]
+      if $etp_atom_1_p[$etp_i] != ($arg0)[$etp_i]
 	loop_break
       end
       set $etp_i++
@@ -2094,7 +2116,8 @@ define etp-term-dump-atom
 # Args: atom term
   set $etp_atom_1_ap = (Atom*)erts_atom_table.seg_table[(Eterm)($arg0)>>16][((Eterm)($arg0)>>6)&0x3FF]
   set $etp_atom_1_i = ($etp_atom_1_ap)->len
-  set $etp_atom_1_p = ($etp_atom_1_ap)->name
+  etp-bitstring-data-1 ($etp_atom_1_ap)->u.bin
+  set $etp_atom_1_p = ($etp_bitstring_data)
   set $etp_atom_1_quote = 1
   set $etp_atom_indent = 13
 
@@ -2142,7 +2165,7 @@ define etp-term-dump-atom
       printf "'"
     end
     set $etp_atom_1_i = ($etp_atom_1_ap)->len
-    set $etp_atom_1_p = ($etp_atom_1_ap)->name
+    set $etp_atom_1_p = ($etp_bitstring_data)
     while $etp_atom_1_i > 0
         etp-char-1 (*$etp_atom_1_p) '\''
         set $etp_atom_1_p++

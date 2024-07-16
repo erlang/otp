@@ -7820,7 +7820,7 @@ static int gather_ahist_append_result(hist_tree_t *node, void *arg, Sint reds)
 
     hp = erts_produce_heap(&state->msg_factory, heap_size, 0);
     if (state->hist_slot_count == 0) {
-        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+        histogram_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
         hp[0] = make_arityval(state->hist_slot_count);
 
@@ -8168,7 +8168,7 @@ static void gather_cinfo_append_result(gather_cinfo_t *state,
         }
     }
     if (state->hist_slot_count == 0) {
-        histogram_tuple = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+        histogram_tuple = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
         hp[0] = make_arityval(state->hist_slot_count);
         for (ix = 0; ix < state->hist_slot_count; ix++) {

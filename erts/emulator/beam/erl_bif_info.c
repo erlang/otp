@@ -2703,7 +2703,7 @@ c_compiler_used(Eterm **hpp, Uint *szp)
 static int is_snif_term(Eterm module_atom) {
     int i;
     Atom *a = atom_tab(atom_val(module_atom));
-    char *aname = (char *) a->name;
+    char *aname = (char *) erts_atom_get_name(a);
 
     /* if a->name has a '.' then the bif (snif) is bogus i.e a package */
     for (i = 0; i < a->len; i++) {
@@ -2985,7 +2985,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 			       NIL));
     } 
     else if (BIF_ARG_1 == am_os_type) {
-	BIF_RET(erts_get_global_literal(ERTS_LIT_OS_TYPE));
+	BIF_RET(ERTS_GLOBAL_LIT_OS_TYPE);
     }
     else if (BIF_ARG_1 == am_allocator) {
 	BIF_RET(erts_allocator_options((void *) BIF_P));
@@ -3001,7 +3001,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_alloc_util_allocators((void *) BIF_P));
     }
     else if (BIF_ARG_1 == am_os_version) {
-	BIF_RET(erts_get_global_literal(ERTS_LIT_OS_VERSION));
+	BIF_RET(ERTS_GLOBAL_LIT_OS_VERSION);
     }
     else if (BIF_ARG_1 == am_version) {
 	int n = sys_strlen(ERLANG_VERSION);
@@ -6265,21 +6265,25 @@ static void os_info_init(void)
     char* buf = erts_alloc(ERTS_ALC_T_TMP, 1024); /* More than enough */
     Eterm* hp;
     Eterm tuple;
+    struct erl_off_heap_header **ohp;
 
     os_flavor(buf, 1024);
     flav = erts_atom_put((byte *) buf, sys_strlen(buf), ERTS_ATOM_ENC_LATIN1, 1);
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    hp = erts_alloc_global_literal(ERTS_LIT_OS_TYPE, 3);
-    tuple = TUPLE2(hp, type, flav);
-    erts_register_global_literal(ERTS_LIT_OS_TYPE, tuple);
 
-    hp = erts_alloc_global_literal(ERTS_LIT_OS_VERSION, 4);
+    hp = erts_global_literal_allocate(3, &ohp);
+    tuple = TUPLE2(hp, type, flav);
+    erts_global_literal_register(&tuple, hp, 3);
+    ERTS_GLOBAL_LIT_OS_TYPE = tuple;
+
+    hp = erts_global_literal_allocate(4, &ohp);
     os_version(&major, &minor, &build);
     tuple = TUPLE3(hp,
                    make_small(major),
                    make_small(minor),
                    make_small(build));
-    erts_register_global_literal(ERTS_LIT_OS_VERSION, tuple);
+    erts_global_literal_register(&tuple, hp, 4);
+    ERTS_GLOBAL_LIT_OS_VERSION = tuple;
 }
 
 void

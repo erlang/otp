@@ -323,7 +323,7 @@ dump_element(fmtfn_t to, void *to_arg, Eterm x)
 	erts_print(to, to_arg, "H" PTR_FMT, boxed_val(x));
     } else if (is_immed(x)) {
 	if (is_atom(x)) {
-	    unsigned char* s = atom_tab(atom_val(x))->name;
+	    const byte* s = erts_atom_get_name(atom_tab(atom_val(x)));
 	    int len = atom_tab(atom_val(x))->len;
 	    int i;
 
@@ -888,8 +888,9 @@ dump_literals(fmtfn_t to, void *to_arg)
 
     erts_print(to, to_arg, "=literals\n");
 
-    for (i = 0; i < ERTS_NUM_GLOBAL_LITERALS; i++) {
-        ErtsLiteralArea* area = erts_get_global_literal_area(i);
+    for (ErtsLiteralArea *area = erts_global_literal_iterate_area(NULL);
+         area != NULL;
+         area = erts_global_literal_iterate_area(area)) {
         dump_module_literals(to, to_arg, area);
     }
 
@@ -905,11 +906,6 @@ dump_literals(fmtfn_t to, void *to_arg)
         dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
     }
 
-    for (ErtsLiteralArea *lambda_area = erts_get_next_lambda_lit_area(NULL);
-         lambda_area != NULL;
-         lambda_area = erts_get_next_lambda_lit_area(lambda_area)) {
-        dump_module_literals(to, to_arg, lambda_area);
-    }
 }
 
 static void

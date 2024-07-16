@@ -184,26 +184,42 @@ static int is_printable_ascii(byte* bytep, Uint bytesize, Uint bitoffs)
 }
 
 /*
- * Helper function for print_atom_name(). Not generally useful.
+ * Helper function for print_atom_name() that decodes Utf8. After decoding a 
+ * valid character, the offset is updated to point to the next character. size 
+ * is only used for debugging.
  */
-static ERTS_INLINE int latin1_char(int c1, int c2)
+static ERTS_INLINE int utf8_decode(const byte *text, int *offset, int size)
 {
-    if ((c1 & 0x80) == 0) {
-        /* Plain old 7-bit ASCII. */
-        return c1;
-    } else if ((c1 & 0xE0) == 0xC0) {
-        /* Unicode code points from 0x80 through 0x7FF. */
-        ASSERT((c2 & 0xC0) == 0x80);
-        return (c1 & 0x1F) << 6 | (c2 & 0x3F);
-    } else if ((c1 & 0xC0) == 0x80) {
-        /* A continutation byte in a utf8 sequence. Pretend that it is
-         * a character that is allowed in an atom. */
-        return 'a';
+    int component = text[*offset];
+    int codepoint = 0;
+    int length = 0;
+
+    if ((component & 0x80) == 0) {
+        codepoint = component;
+        length = 1;
+    } else if ((component & 0xE0) == 0xC0) {
+        codepoint = component & 0x1F;
+        length = 2;
+    } else if ((component & 0xF0) == 0xE0) {
+        codepoint = component & 0x0F;
+        length = 3;
     } else {
-        /* The start of a utf8 sequence comprising three or four
-         * bytes. Always needs quoting. */
-        return 0;
+        ASSERT((component & 0xF8) == 0xF0);
+        codepoint = component & 0x07;
+        length = 4;
+    } 
+
+    /* Assert that there are enough bytes for decoding */
+    ASSERT(*offset + length <= size);
+
+    for (int i = 1; i < length; i++) {
+        component = text[*offset + i];
+        ASSERT((component & 0xC0) == 0x80);
+        codepoint = (codepoint << 6) | (component & 0x3F);
     }
+
+    *offset += length;
+    return codepoint;
 }
 
 /*
@@ -215,34 +231,38 @@ static ERTS_INLINE int latin1_char(int c1, int c2)
  */
 static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 {
-    int n, i;
-    int res;
+    int length, index;
+    const Atom *entry;
+    int result;
     int need_quote;
-    int pos;
-    byte *s;
-    byte *cpos;
-    int c;
-    int lc;
+    int position;
+    const byte *s;
+    int codepoint;
 
-    res = 0;
-    i = atom_val(atom);
+    result = 0;
+    index = atom_val(atom);
+    entry = NULL;
 
-    if ((i < 0) || (i >= atom_table_size()) ||  (atom_tab(i) == NULL)) {
-	PRINT_STRING(res, fn, arg, "<bad atom index: ");
-	PRINT_SWORD(res, fn, arg, 'd', 0, 1, (ErlPfSWord) i);
-	PRINT_CHAR(res, fn, arg, '>');
-	return res;
+    if ((index > 0) || (index <= atom_table_size()) ) {
+        entry = atom_tab(index);
     }
 
-    s = atom_tab(i)->name;
-    n = atom_tab(i)->len;
+    if (entry == NULL) {
+        PRINT_STRING(result, fn, arg, "<bad atom index: ");
+	    PRINT_SWORD(result, fn, arg, 'd', 0, 1, (ErlPfSWord) index);
+	    PRINT_CHAR(result, fn, arg, '>');
+	    return result;
+    }
 
-    *dcount -= atom_tab(i)->len;
+    s = erts_atom_get_name(entry);
+    length = entry->len;
 
-    if (n == 0) {
+    *dcount -= entry->len;
+
+    if (length == 0) {
         /* The empty atom: '' */
-	PRINT_STRING(res, fn, arg, "''");
-	return res;
+	PRINT_STRING(result, fn, arg, "''");
+	return result;
     }
 
     /*
@@ -256,22 +276,12 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
      *     the Latin-1 code block or the character '_'.
      */
 
-    need_quote = 0;
-    cpos = s;
-    pos = n - 1;
-    c = *cpos++;
-    lc = latin1_char(c, *cpos);
-    if (!IS_LOWER(lc))
-	need_quote++;
-    else {
-	while (pos--) {
-	    c = *cpos++;
-            lc = latin1_char(c, *cpos);
-	    if (!IS_ALNUM(lc) && lc != '_') {
-		need_quote++;
-		break;
-	    }
-	}
+    position = 0;
+    codepoint = utf8_decode(s, &position, length);
+    need_quote = !IS_LOWER(codepoint);
+    while (position < length && !need_quote) {
+        codepoint = utf8_decode(s, &position, length);
+        need_quote = !IS_ALNUM(codepoint) && codepoint != '_';
     }
 
     /*
@@ -281,62 +291,36 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
      * be specially printed. Therefore, we must do a partial
      * decoding of the utf8 encoding.
      */
-    cpos = s;
-    pos = n;
+    position = 0;
     if (need_quote)
-	PRINT_CHAR(res, fn, arg, '\'');
-    while(pos--) {
-	c = *cpos++;
-	switch(c) {
-	case '\'': PRINT_STRING(res, fn, arg, "\\'"); break;
-	case '\\': PRINT_STRING(res, fn, arg, "\\\\"); break;
-	case '\n': PRINT_STRING(res, fn, arg, "\\n"); break;
-	case '\f': PRINT_STRING(res, fn, arg, "\\f"); break;
-	case '\t': PRINT_STRING(res, fn, arg, "\\t"); break;
-	case '\r': PRINT_STRING(res, fn, arg, "\\r"); break;
-	case '\b': PRINT_STRING(res, fn, arg, "\\b"); break;
-	case '\v': PRINT_STRING(res, fn, arg, "\\v"); break;
-	default:
-            if (c < ' ') {
-                /* ASCII control character (0-31). */
-		PRINT_CHAR(res, fn, arg, '\\');
-		PRINT_UWORD(res, fn, arg, 'o', 1, 3, (ErlPfUWord) c);
-            } else if (c >= 0x80) {
-                /* A multi-byte utf8-encoded code point. Determine the
-                 * length of the sequence. */
-                int n;
-                if ((c & 0xE0) == 0xC0) {
-                    n = 2;
-                } else if ((c & 0xF0) == 0xE0) {
-                    n = 3;
-                } else {
-                    ASSERT((c & 0xF8) == 0xF0);
-                    n = 4;
-                }
-                ASSERT(pos - n + 1 >= 0);
+	PRINT_CHAR(result, fn, arg, '\'');
 
-                if (c == 0xC2 && *cpos < 0xA0) {
-                    /* Extended ASCII control character (128-159). */
-                    ASSERT(pos > 0);
-                    ASSERT(0x80 <= *cpos);
-                    PRINT_CHAR(res, fn, arg, '\\');
-                    PRINT_UWORD(res, fn, arg, 'o', 1, 3, (ErlPfUWord) *cpos);
-                    pos--, cpos++;
-                } else {
-                    PRINT_BUF(res, fn, arg, cpos-1, n);
-                    cpos += n - 1;
-                    pos -= n - 1;
-                }
+    while(position < length) {
+        int cp_start = position;
+        codepoint = utf8_decode(s, &position, length);
+        switch(codepoint) {
+        case '\'': PRINT_STRING(result, fn, arg, "\\'"); break;
+        case '\\': PRINT_STRING(result, fn, arg, "\\\\"); break;
+        case '\n': PRINT_STRING(result, fn, arg, "\\n"); break;
+        case '\f': PRINT_STRING(result, fn, arg, "\\f"); break;
+        case '\t': PRINT_STRING(result, fn, arg, "\\t"); break;
+        case '\r': PRINT_STRING(result, fn, arg, "\\r"); break;
+        case '\b': PRINT_STRING(result, fn, arg, "\\b"); break;
+        case '\v': PRINT_STRING(result, fn, arg, "\\v"); break;
+        default:
+            if (codepoint < 32 || (codepoint >= 128 && codepoint <= 159)) {
+                /* ASCII control character (0-31) or extended ASCII control character (128-159)*/
+                PRINT_CHAR(result, fn, arg, '\\');
+                PRINT_UWORD(result, fn, arg, 'o', 1, 3, (ErlPfUWord) codepoint);
             } else {
-                /* Printable ASCII character. */
-		PRINT_CHAR(res, fn, arg, (char) c);
+                PRINT_BUF(result, fn, arg, &s[cp_start], position - cp_start);
             }
-	    break;
-	}
+            break;
+        }
     }
     if (need_quote)
-	PRINT_CHAR(res, fn, arg, '\'');
-    return res;
+	PRINT_CHAR(result, fn, arg, '\'');
+    return result;
 }
 
 #define PRT_BAR                ((Eterm) 0)
@@ -657,7 +641,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount) {
                     Atom *ap = atom_tab(atom_val(fe->module));
 
                     PRINT_STRING(res, fn, arg, "#Fun<");
-                    PRINT_BUF(res, fn, arg, ap->name, ap->len);
+                    PRINT_BUF(res, fn, arg, erts_atom_get_name(ap), ap->len);
                     PRINT_CHAR(res, fn, arg, '.');
                     PRINT_SWORD(res, fn, arg, 'd', 0, 1,
                             (ErlPfSWord) fe->old_index);
