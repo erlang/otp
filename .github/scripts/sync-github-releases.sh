@@ -238,8 +238,8 @@ if [ ${UPLOADED} = false ]; then
 
         ## Delete any artifacts that we should not upload
         for artifact in dowloads/*; do
-            if ! echo "${RI[@]}" | grep "${artifact}" 2> /dev/null > /dev/null; then
-                rm -f "downloads/${artifact}"
+            if ! echo "${RI[@]}" | grep "${artifact#downloads/}" 2> /dev/null > /dev/null; then
+                rm -f "${artifact}"
             fi
         done
         _upload_artifacts "${name}"
