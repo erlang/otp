@@ -37,8 +37,8 @@ typedef struct erl_fun_entry {
     /* These fields identify the function and must not be altered after fun
      * creation. */
     Eterm module;                   /* Tagged atom for module. */
-    Uint arity;                     /* The arity of the fun. */
     byte uniq[16];                  /* MD5 for module. */
+    int arity;                      /* The arity of the fun. */
     int index;                      /* New style index. */
 
     /* These have been prepared for removal in OTP 29. */
