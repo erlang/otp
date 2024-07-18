@@ -32,12 +32,9 @@
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
+-include("beam_ssa_alias_debug.hrl").
 
-%% Uncomment the following to get trace printouts.
-
-%% -define(DEBUG, true).
-
--ifdef(DEBUG).
+-ifdef(DEBUG_ALIAS).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
 -define(DBG(STMT), STMT).

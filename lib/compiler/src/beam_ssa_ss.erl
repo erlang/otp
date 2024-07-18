@@ -50,15 +50,18 @@
 
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
+-include("beam_ssa_alias_debug.hrl").
+
+-ifdef(PROVIDE_DUMP).
+-export([dump/1]).
+-endif.
 
 -import(lists, [foldl/3]).
 
 -define(ARGS_DEPTH_LIMIT, 4).
 -define(SS_DEPTH_LIMIT, 30).
 
-%% -define(DEBUG, true).
-
--ifdef(DEBUG).
+-ifdef(DEBUG_SS).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
 -else.
@@ -66,13 +69,7 @@
 -define(DP(FMT), skip).
 -endif.
 
-
-%% Uncomment the following to check that all invariants for the state
-%% hold. These checks are expensive and not enabled by default.
-
-%% -define(EXTRA_ASSERTS, true).
-
--ifdef(EXTRA_ASSERTS).
+-ifdef(SS_EXTRA_ASSERTS).
 -define(assert_state(State), assert_state(State)).
 -define(ASSERT(Assert), Assert).
 -else.
@@ -786,7 +783,7 @@ has_out_edges(V, State) ->
 
 %% Debug support below
 
--ifdef(EXTRA_ASSERTS).
+-ifdef(SS_EXTRA_ASSERTS).
 
 -spec assert_state(sharing_state()) -> sharing_state().
 
@@ -910,8 +907,9 @@ assert_variable_exists(#b_var{}=V, State) ->
     end.
 
 -endif.
--ifdef(DEBUG).
 
+-ifdef(PROVIDE_DUMP).
+-spec dump(sharing_state()) -> iolist().
 dump(State) ->
     Ls = lists:enumerate(0, beam_digraph:vertices(State)),
     V2Id = #{ V=>Id || {Id,{V,_}} <- Ls },

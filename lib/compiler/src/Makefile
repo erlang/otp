@@ -112,6 +112,7 @@ BEAM_H = $(wildcard ../priv/beam_h/*.h)
 HRL_FILES= \
 	beam_asm.hrl \
 	beam_disasm.hrl \
+	beam_ssa_alias_debug.hrl \
 	beam_ssa_opt.hrl \
 	beam_ssa.hrl \
 	beam_types.hrl \
@@ -216,7 +217,8 @@ $(EBIN)/beam_jump.beam: beam_asm.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl beam_ssa.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_alias.beam: beam_ssa_opt.hrl beam_types.hrl
+$(EBIN)/beam_ssa_alias.beam: beam_ssa_opt.hrl beam_ssa_alias_debug.hrl \
+     beam_types.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl
@@ -229,7 +231,7 @@ $(EBIN)/beam_ssa_pp.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_pre_codegen.beam: beam_ssa.hrl beam_asm.hrl
 $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_types.hrl
+$(EBIN)/beam_ssa_ss.beam: beam_ssa.hrl beam_ssa_alias_debug.hrl beam_types.hrl
 $(EBIN)/beam_ssa_throw.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_trim.beam: beam_asm.hrl
