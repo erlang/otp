@@ -58,8 +58,9 @@ compile(_Config) ->
                        list_to_integer(NumTests0)
                end,
 
-    %% Conservatively assume that we can run 10 tests each second.
-    TimeTrap = {seconds,60_000 + (NumTests+99) div 100},
+    %% Conservatively assume that we can run 10 tests each
+    %% second.
+    TimeTrap = {seconds, (60 + (NumTests+9) div 10)},
     ct:timetrap(TimeTrap),
     io:format("~p tests\n", [NumTests]),
     true = proper:quickcheck(compile_prop:compile(),
