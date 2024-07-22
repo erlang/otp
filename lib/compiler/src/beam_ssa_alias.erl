@@ -347,63 +347,61 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   to detect incomplete information in a hypothetical
 %%%   ssa_opt_alias_finish pass.
 %%%
-aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
-                           func_db=FuncDb}) ->
+aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
     Order = aa_reverse_post_order(Funs, FuncDb),
-    aa_fixpoint(Order, Order, AliasMap, CallArgs, AAS, ?MAX_REPETITIONS).
+    aa_fixpoint(Order, Order, AAS, ?MAX_REPETITIONS).
 
-aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
-            Limit) ->
-    AAS1 = AAS0#aas{caller=F},
+aa_fixpoint([F|Fs], Order, AAS0=#aas{st_map=StMap,repeats=Repeats}, Limit) ->
+
     ?DP("-= ~s =-~n", [fn(F)]),
+    %% If, when analysing another function, this function has been
+    %% scheduled for revisiting, we can remove it, as we otherwise
+    %% revisit it again in the next iteration.
+    AAS1 = AAS0#aas{caller=F,repeats=sets:del_element(F, Repeats)},
+
     St = #opt_st{ssa=_Is} = map_get(F, StMap),
     ?DP("code:~n~p.~n", [_Is]),
     AAS = aa_fun(F, St, AAS1),
     ?DP("Done ~s~n", [fn(F)]),
-    aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
-aa_fixpoint([], Order, OldAliasMap, OldCallArgs,
-            #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
-                 func_db=FuncDb}=AAS, _Limit) ->
-    ?DP("**** End of iteration ~p ****~n", [_Limit]),
-    {StMap,_} = aa_update_annotations(Order, AAS),
-    {StMap, FuncDb};
-aa_fixpoint([], _, _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
+    aa_fixpoint(Fs, Order, AAS, Limit);
+aa_fixpoint([], _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
     ?DP("**** End of iteration, too many iterations ****~n"),
     {StMap, FuncDb};
-aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
-            #aas{alias_map=AliasMap,call_args=CallArgs,repeats=Repeats}=AAS,
-            Limit) ->
-    ?DP("**** Things have changed, starting next iteration ****~n"),
+aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, Limit) ->
     %% Following the depth first order, select those in Repeats.
-    NewOrder = [Id || Id <- Order, sets:is_element(Id, Repeats)],
-    aa_fixpoint(NewOrder, Order, AliasMap, CallArgs,
-                AAS#aas{repeats=sets:new()}, Limit - 1).
+    case [Id || Id <- Order, sets:is_element(Id, Repeats)] of
+        [] ->
+            ?DP("**** Fixpoint reached after ~p iterations ****~n",
+                [?MAX_REPETITIONS - Limit]),
+            {StMap,_} = aa_update_annotations(Order, AAS),
+            {StMap, FuncDb};
+        NewOrder ->
+            ?DP("**** Starting iteration ~p ****~n",
+                [?MAX_REPETITIONS - Limit + 1]),
+            aa_fixpoint(NewOrder, Order, AAS#aas{repeats=sets:new()}, Limit - 1)
+    end.
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
-       AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
-                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0}) ->
+       AAS0=#aas{alias_map=AliasMap0,kills=KillsMap}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
     %% assumed to be aliased.
     {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
     #{F:={LiveIns,Kills,PhiLiveIns}} = KillsMap,
-    {SS,#aas{call_args=CallArgs}=AAS} =
-        aa_blocks(Linear0, LiveIns, PhiLiveIns,
-                  Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+    {SS,AAS1} = aa_blocks(Linear0, LiveIns, PhiLiveIns,
+                          Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+    Lbl2SS0 = maps:get(F, AliasMap0, #{}),
+    Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
+    Type2Status = maps:get(returns, SS, #{}),
+    AAS = case Type2Status0 =/= Type2Status of
+              true ->
+                  aa_schedule_revisit_callers(F, AAS1);
+              false ->
+                  AAS1
+          end,
     AliasMap = AliasMap0#{ F => SS },
-    PrevSS = maps:get(F, AliasMap0, #{}),
-    Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
-                  true ->
-                      %% Alias status has changed, so schedule both
-                      %% our callers and callees for renewed analysis.
-                      #{ F := #func_info{in=In,out=Out} } = FuncDb,
-                      foldl(fun sets:add_element/2,
-                            foldl(fun sets:add_element/2, Repeats0, Out), In);
-                  false ->
-                      Repeats0
-              end,
-    AAS#aas{alias_map=AliasMap,repeats=Repeats}.
+    AAS#aas{alias_map=AliasMap}.
 
 %% Main entry point for the alias analysis
 aa_blocks([{?EXCEPTION_BLOCK,_}|Bs],
@@ -1160,9 +1158,12 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
             {SS, AAS#aas{cnt=Cnt}};
         false ->
+            ?DP("  The callee is unknown~n"),
             %% We don't know anything about the function, don't change
-            %% the status of any variables
-            {SS0, AAS0}
+            %% the status of any variables, but make sure that it will
+            %% be visited.
+
+            {SS0, aa_schedule_revisit(Callee, AAS0)}
     end;
 aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
                          name=#b_literal{val=exit},
@@ -1186,10 +1187,15 @@ aa_add_call_info(Callee, Args, SS0,
         "  args: ~p.~n  ss:~n~s.~n",
         [fn(Callee), fn(_Caller), Args, beam_ssa_ss:dump(SS0)]),
     InStatus = beam_ssa_ss:merge_in_args(Args, InStatus0, SS0),
-    ?DP("  orig in-info: ~p.~n", [InStatus0]),
+    ?DP("  orig in-info:~n  ~p.~n", [InStatus0]),
     ?DP("  updated in-info for ~s:~n    ~p.~n", [fn(Callee), InStatus]),
-    InInfo = InInfo0#{Callee => InStatus},
-    AAS#aas{call_args=InInfo}.
+    case InStatus0 =/= InStatus of
+        true ->
+            InInfo = InInfo0#{Callee => InStatus},
+            aa_schedule_revisit(Callee, AAS#aas{call_args=InInfo});
+        false ->
+            AAS
+    end.
 
 aa_init_fun_ss(Args, FunId, #aas{call_args=Info,st_map=StMap}) ->
     #{FunId:=ArgsStatus} = Info,
@@ -1258,8 +1264,7 @@ aa_tuple_extraction(_, #b_literal{}, _, _, SS) ->
     SS.
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
-            Env0, SS0,
-            AAS0=#aas{call_args=Info0,repeats=Repeats0}) ->
+            Env0, SS0, AAS0=#aas{call_args=Info0}) ->
     %% When a value is copied into the environment of a fun we assume
     %% that it has been aliased as there is no obvious way to track
     %% and ensure that the value is only used once, even if the
@@ -1273,16 +1278,15 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
     Status = [aliased || _ <- Status0],
     #{ Callee := PrevStatus } = Info0,
     Info = Info0#{ Callee := Status },
-    Repeats = case PrevStatus =/= Status of
-                  true ->
-                      %% We have new information for the callee, we
-                      %% have to revisit it.
-                      sets:add_element(Callee, Repeats0);
-                  false ->
-                      Repeats0
+    AAS1 = case PrevStatus =/= Status of
+               true ->
+                   %% We have new information for the callee, we
+                   %% have to revisit it.
+                   aa_schedule_revisit(Callee, AAS0);
+               false ->
+                   AAS0
               end,
-    AAS = AAS0#aas{call_args=Info,repeats=Repeats},
-    {SS, AAS}.
+    {SS, AAS1#aas{call_args=Info}}.
 
 aa_reverse_post_order(Funs, FuncDb) ->
     %% In order to produce a reverse post order of the call graph, we
@@ -1328,6 +1332,22 @@ aa_reverse_post_order([], [], _Seen, _FuncDb) ->
     [];
 aa_reverse_post_order([], Next, Seen, FuncDb) ->
     aa_reverse_post_order(Next, [], Seen, FuncDb).
+
+%% Schedule a function for revisting.
+aa_schedule_revisit(FuncId,
+                    #aas{func_db=FuncDb,st_map=StMap,repeats=Repeats}=AAS)
+  when is_map_key(FuncId, FuncDb), is_map_key(FuncId, StMap) ->
+    ?DP("Scheduling ~s for revisit~n", [fn(FuncId)]),
+    AAS#aas{repeats=sets:add_element(FuncId, Repeats)};
+aa_schedule_revisit(_, AAS) ->
+    AAS.
+
+%% Schedule the callers of a function for revisting.
+aa_schedule_revisit_callers(FuncId, #aas{func_db=FuncDb}=AAS) ->
+    #{FuncId:=#func_info{in=In}} = FuncDb,
+    ?DP("Scheduling callers of ~s for revisit: ~s.~n",
+        [fn(FuncId), string:join([fn(I) || I <- In], ", ")]),
+    foldl(fun aa_schedule_revisit/2, AAS, In).
 
 expand_record_update(#opt_st{ssa=Linear0,cnt=First,anno=Anno0}=OptSt) ->
     {Linear,Cnt} = eru_blocks(Linear0, First),
