@@ -393,7 +393,7 @@ aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
     aa_blocks(Bs, Kills, Lbl2SS, AAS);
 aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
-    ?DP("Block: ~p~nSS: ~p~n", [L, SS0]),
+    ?DP("Block: ~p~nSS:~n~s~n", [L, beam_ssa_ss:dump(SS0)]),
     {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
     #{{live_outs,L}:=LiveOut} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
@@ -558,7 +558,7 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             wait_timeout ->
                 {SS1, AAS0}
         end,
-    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
+    ?DP("Post I: ~p.~n~s~n", [_I, beam_ssa_ss:dump(SS)]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -982,7 +982,7 @@ aa_construct_tuple(Dst, IdxValues, Types, SS, AAS) ->
                  killed=>aa_dies(V, Types, KillSet),
                  plain=>aa_is_plain_value(V, Types)}
                || {Idx,V} <- IdxValues]]),
-    ?DP("~p~n", [SS]),
+    ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
     aa_build_tuple_or_pair(Dst, IdxValues, Types, KillSet, SS, []).
 
 aa_build_tuple_or_pair(Dst, [{Idx,#b_literal{val=Lit}}|IdxValues], Types,
@@ -1016,7 +1016,8 @@ aa_build_tuple_or_pair(Dst, [], _Types, _KillSet, SS, Sources) ->
 aa_construct_pair(Dst, Args0, Types, SS, AAS) ->
     KillSet = aa_killset_for_instr(Dst, AAS),
     [Hd,Tl] = Args0,
-    ?DP("Constructing pair in ~p~n from ~p and ~p~n~p~n", [Dst,Hd,Tl,SS]),
+    ?DP("Constructing pair in ~p~n from ~p and ~p~n~s~n",
+        [Dst, Hd, Tl, beam_ssa_ss:dump(SS)]),
     Args = [{hd,Hd},{tl,Tl}],
     aa_build_tuple_or_pair(Dst, Args, Types, KillSet, SS, []).
 
@@ -1089,12 +1090,12 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
             ?DP("  caller args: ~p~n", [Args]),
             SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
-            ?DP("  caller ss before call:~n  ~p.~n", [SS1]),
+            ?DP("  caller ss before call:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
             #aas{alias_map=AliasMap} = AAS =
                 aa_add_call_info(Callee, Args, SS1, AAS0),
             #{Callee:=#{0:=_CalleeSS}=Lbl2SS} = AliasMap,
-            ?DP("  callee ss: ~p~n", [_CalleeSS]),
-            ?DP("  caller ss after call: ~p~n", [SS1]),
+            ?DP("  callee ss:~n~s~n", [beam_ssa_ss:dump(_CalleeSS)]),
+            ?DP("  caller ss after call:~n~s~n", [beam_ssa_ss:dump(SS1)]),
 
             ReturnStatusByType = maps:get(returns, Lbl2SS, #{}),
             ?DP("  status by type: ~p~n", [ReturnStatusByType]),
@@ -1108,7 +1109,7 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ?DP("  result status: ~p~n", [ResultStatus]),
             {SS,Cnt} =
                 beam_ssa_ss:set_call_result(Dst, ResultStatus, SS1, Cnt0),
-            ?DP("~p~n", [SS]),
+            ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
             {SS, AAS#aas{cnt=Cnt}};
         false ->
             %% We don't know anything about the function, don't change
@@ -1136,7 +1137,8 @@ aa_add_call_info(Callee, Args, SS0,
     ?DBG(#b_local{name=#b_literal{val=_CN},arity=_CA} = _Caller),
     ?DBG(#b_local{name=#b_literal{val=_N},arity=_A} = Callee),
     ?DP("Adding call info for ~p/~p when called by ~p/~p~n"
-        "  args: ~p.~n  ss:~p.~n", [_N,_A,_CN,_CA,Args,SS0]),
+        "  args: ~p.~n  ss:~n~s.~n",
+        [_N, _A, _CN, _CA, Args, beam_ssa_ss:dump(SS0)]),
     InStatus = beam_ssa_ss:merge_in_args(Args, InStatus0, SS0),
     ?DP("  orig in-info: ~p.~n", [InStatus0]),
     ?DP("  updated in-info for ~p/~p:~n    ~p.~n", [_N,_A,InStatus]),
