@@ -38,6 +38,10 @@
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
 -define(DBG(STMT), STMT).
+
+fn(#b_local{name=#b_literal{val=N},arity=A}) ->
+    io_lib:format("~p/~p", [N, A]).
+
 -else.
 -define(DP(FMT, ARGS), skip).
 -define(DP(FMT), skip).
@@ -335,13 +339,12 @@ aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
 
 aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
             Limit) ->
-    #b_local{name=#b_literal{val=_N},arity=_A} = F,
     AAS1 = AAS0#aas{caller=F},
-    ?DP("-= ~p/~p =-~n", [_N, _A]),
+    ?DP("-= ~s =-~n", [fn(F)]),
     St = #opt_st{ssa=_Is} = map_get(F, StMap),
     ?DP("code:~n~p.~n", [_Is]),
     AAS = aa_fun(F, St, AAS1),
-    ?DP("Done ~p/~p~n", [_N, _A]),
+    ?DP("Done ~s~n", [fn(F)]),
     aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
 aa_fixpoint([], Order, OldAliasMap, OldCallArgs,
             #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
@@ -667,8 +670,7 @@ aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
                   #{F:=Lbl2SS0} = AliasMapAcc,
                   #{F:=OptSt0} = StMapAcc,
-                  #b_local{name=#b_literal{val=_N},arity=_A} = F,
-                  ?DP("Updating annotations for ~p/~p~n", [_N,_A]),
+                  ?DP("Updating annotations for ~s~n", [fn(F)]),
                   {OptSt,Lbl2SS} =
                       aa_update_fun_annotation(OptSt0, Lbl2SS0,
                                                AAS#aas{caller=F}),
@@ -1081,8 +1083,7 @@ aa_phi(Dst, Args0, SS0, AAS) ->
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #aas{alias_map=AliasMap,st_map=StMap,cnt=Cnt0}=AAS0) ->
-    #b_local{name=#b_literal{val=_N},arity=_A} = Callee,
-    ?DP("A Call~n  callee: ~p/~p~n  args: ~p~n", [_N, _A, Args]),
+    ?DP("A Call~n  callee: ~s~n  args: ~p~n", [fn(Callee), Args]),
     case is_map_key(Callee, AliasMap) of
         true ->
             ?DP("  The callee is known~n"),
@@ -1134,22 +1135,20 @@ aa_call(Dst, [_Callee|Args], _Anno, SS0, AAS) ->
 aa_add_call_info(Callee, Args, SS0,
                  #aas{call_args=InInfo0,caller=_Caller}=AAS) ->
     #{Callee := InStatus0} = InInfo0,
-    ?DBG(#b_local{name=#b_literal{val=_CN},arity=_CA} = _Caller),
-    ?DBG(#b_local{name=#b_literal{val=_N},arity=_A} = Callee),
-    ?DP("Adding call info for ~p/~p when called by ~p/~p~n"
+    ?DP("Adding call info for ~s when called by ~s~n"
         "  args: ~p.~n  ss:~n~s.~n",
-        [_N, _A, _CN, _CA, Args, beam_ssa_ss:dump(SS0)]),
+        [fn(Callee), fn(_Caller), Args, beam_ssa_ss:dump(SS0)]),
     InStatus = beam_ssa_ss:merge_in_args(Args, InStatus0, SS0),
     ?DP("  orig in-info: ~p.~n", [InStatus0]),
-    ?DP("  updated in-info for ~p/~p:~n    ~p.~n", [_N,_A,InStatus]),
+    ?DP("  updated in-info for ~s:~n    ~p.~n", [fn(Callee), InStatus]),
     InInfo = InInfo0#{Callee => InStatus},
     AAS#aas{call_args=InInfo}.
 
 aa_init_fun_ss(Args, FunId, #aas{call_args=Info,st_map=StMap}) ->
     #{FunId:=ArgsStatus} = Info,
     #{FunId:=#opt_st{cnt=Cnt}} = StMap,
-    ?DP("aa_init_fun_ss: ~p~n  args: ~p~n  status: ~p~n  cnt: ~p~n",
-        [FunId,Args,ArgsStatus,Cnt]),
+    ?DP("aa_init_fun_ss: ~s~n  args: ~p~n  status: ~p~n  cnt: ~p~n",
+        [fn(FunId), Args, ArgsStatus, Cnt]),
     beam_ssa_ss:new(Args, ArgsStatus, Cnt).
 
 %% Pair extraction.
