@@ -12587,11 +12587,179 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 }
 
 
+static int tcp_recv_check_error(tcp_descriptor *desc, int n) {
+    if (n == 0) {
+        DEBUGF(("  => detected close\r\n"));
+        return tcp_recv_closed(desc);
+    }
+    else {
+        int err = sock_errno();
+        if (err == ECONNRESET) {
+            DEBUGF((" => detected close (connreset)\r\n"));
+            if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+                return tcp_recv_error(desc, err);
+            else
+                return tcp_recv_closed(desc);
+        }
+        if (err == ERRNO_BLOCK) {
+            DEBUGF((" => would block\r\n"));
+            return 0;
+        }
+	else {
+	    DEBUGF((" => error: %d\r\n", err));
+	    return tcp_recv_error(desc, err);
+	}
+    }
+}
+
+static int packet_header_size(enum PacketParseType htype, char *p, int n) {
+    ASSERT(n >= 0);
+
+    switch (htype) {
+    case TCP_PB_SSL_TLS:
+        return 5;
+    default:
+        /* We should have handled all header types above */
+        ASSERT(htype != TCP_PB_RAW);
+        ASSERT(htype == TCP_PB_RAW);
+        return n + 1;
+    }
+}
+
+/* Receive packet (packeted packet of inet.htype)
+ * while avoiding read ahead, so we can for example switch
+ * to KTLS (OS protocol stack starts decrypting at the current point.
+ */
+static int tcp_recv_packet_minimal(tcp_descriptor *desc) {
+
+    if (desc->i_buf == NULL) {
+
+        /* Allocate the configured buffer size */
+	if ((desc->i_buf = alloc_buffer(desc->inet.bufsz)) == NULL)
+	    return -1;
+
+	desc->i_bufsz         = desc->inet.bufsz;
+	desc->i_ptr_start     = desc->i_buf->orig_bytes;
+	desc->i_ptr           = desc->i_ptr_start;
+        desc->i_remain        = 0;
+    }
+
+    for (;;) {
+        int n, nread;
+
+        /* nread = How many bytes to read
+         * desc->i_remain != 0 when we know the packet size
+         */
+        if (desc->i_remain != 0) {
+            nread = desc->i_remain;
+        }
+        else {
+            int len;
+
+            n = desc->i_ptr - desc->i_ptr_start;    /* Bytes we have */
+
+            len =
+                packet_get_length(desc->inet.htype, desc->i_ptr_start, n,
+                                  desc->inet.psize, desc->i_bufsz,
+                                  desc->inet.delimiter, &desc->http_state);
+            if (len < 0 ) {
+                /* Packet header error */
+                return tcp_recv_error(desc, EMSGSIZE);
+            }
+            else if (0 < len) {
+                /* We have the packet length */
+                desc->i_remain = len - n;
+            }
+            else { /* len == 0 */
+                /* We haven't got a complete header - how much do we need? */
+                len =
+                    packet_header_size(desc->inet.htype,
+                                       desc->i_ptr_start, n);
+            }
+            ASSERT( len >= n ); /* Failed to not read ahead */
+            if (tcp_expand_buffer(desc, len) < 0)
+                return tcp_recv_error(desc, ENOMEM);
+            nread = len - n;
+        }
+
+        DEBUGF(("tcp_recv_packet_minimal(%p): "
+                "s=%d about to read %d bytes...\r\n",
+                desc->inet.port, desc->inet.s, nread));
+
+        if (nread != 0) {
+            n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
+            if (0 >= n)
+                return tcp_recv_check_error(desc, n);
+            ASSERT(nread >= n); /* We shouldn't get more than we asked for */
+        }
+        else n = 0;
+
+        DEBUGF((" => got %d bytes\r\n", n));
+        desc->i_ptr += n;
+        if (desc->i_remain > 0) {
+            /* We need desc->i_remain bytes to have a complete packet */
+            int code;
+
+            ASSERT(desc->i_remain >= n);
+            desc->i_remain -= n;
+            if (desc->i_remain == 0) {
+                /* Got a complete packet */
+                n = desc->i_ptr - desc->i_ptr_start;
+
+                inet_input_count(INETP(desc), n);
+
+                /* deliver binary? */
+                if ((n >> 1) >= desc->i_buf->orig_size) { /* >=50% */
+                    /* Deliver and ditch this buffer */
+                    code = tcp_reply_binary_data(desc, desc->i_buf,
+                                                 (desc->i_ptr_start -
+                                                  desc->i_buf->orig_bytes),
+                                                 n);
+                    if (code < 0)
+                        return code;
+                    tcp_clear_input(desc);
+                }
+                else {
+                    /* Deliver and reuse the buffer */
+                    code = tcp_reply_data(desc, desc->i_ptr_start, n);
+                    /* XXX The buffer gets thrown away on error (code < 0)
+                     * Windows needs workaround for this in tcp_inet_event...
+                     */
+                    if (code < 0)
+                        return code;
+                    desc->i_bufsz       = desc->i_buf->orig_size;
+                    desc->i_ptr_start   = desc->i_buf->orig_bytes;
+                    desc->i_ptr         = desc->i_ptr_start;
+                    desc->i_remain      = 0;
+                }
+                if (! desc->inet.active) {
+                    cancel_multi_timer(desc, INETP(desc)->port,
+                                       &tcp_inet_recv_timeout);
+                    sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
+                }
+            }
+            /* else: We didn't get all bytes to complete the packet */
+        }
+        /* else i_remain == 0: We don't know the packet size */
+    }
+}
+
 static int tcp_recv(tcp_descriptor* desc, int request_len)
 {
+    /* request_len is 0 unless called from TCP_REQ_RECV, and then
+     * inet.htype == TCP_PB_RAW and inet.active is INET_PASSIVE (false).
+     */
     int n;
     int len;
     int nread;
+
+    if (desc->inet.htype == TCP_PB_SSL_TLS) {
+        /* XXX We should have a flag for this mode, that is
+         * receive packet with absolutely no read ahead
+         */
+        ASSERT(request_len == 0);
+        return tcp_recv_packet_minimal(desc);
+    }
 
     if (desc->i_buf == NULL) {  /* allocate a read buffer */
 	int sz = (request_len > 0) ? request_len : desc->inet.bufsz;
@@ -12635,28 +12803,9 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 
     n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
 
-    if (IS_SOCKET_ERROR(n)) {
-	int err = sock_errno();
-	if (err == ECONNRESET) {
-	    DEBUGF((" => detected close (connreset)\r\n"));
-	    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
-		return tcp_recv_error(desc, err);
-	    else
-		return tcp_recv_closed(desc);
-	}
-	if (err == ERRNO_BLOCK) {
-	    DEBUGF((" => would block\r\n"));
-	    return 0;
-	}
-	else {
-	    DEBUGF((" => error: %d\r\n", err));
-	    return tcp_recv_error(desc, err);
-	}
-    }
-    else if (n == 0) {
-	DEBUGF(("  => detected close\r\n"));
-	return tcp_recv_closed(desc);
-    }
+    if (0 >= n)
+        return tcp_recv_check_error(desc, n);
+    ASSERT(nread >= n);
 
     DEBUGF((" => got %d bytes\r\n", n));
     desc->i_ptr += n;
