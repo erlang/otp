@@ -348,7 +348,9 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   ssa_opt_alias_finish pass.
 %%%
 aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
-    Order = aa_reverse_post_order(Funs, FuncDb),
+    Order = aa_order(Funs, FuncDb),
+    ?DP("Traversal order:~n  ~s~n",
+        [string:join([fn(F) || F <- Order], ",\n  ")]),
     aa_fixpoint(Order, Order, AAS, ?MAX_REPETITIONS).
 
 aa_fixpoint([F|Fs], Order, AAS0=#aas{st_map=StMap,repeats=Repeats}, Limit) ->
@@ -1288,10 +1290,14 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
               end,
     {SS, AAS1#aas{call_args=Info}}.
 
-aa_reverse_post_order(Funs, FuncDb) ->
-    %% In order to produce a reverse post order of the call graph, we
-    %% have to make sure all exported functions without local callers
-    %% are visited before exported functions with local callers.
+aa_order(Funs, FuncDb) ->
+    %% Information about the alias status flows from callers to
+    %% callees and then back through the status of the result.  In
+    %% order to avoid the most pessimistic estimate of the aliasing
+    %% status we want to process callers before callees with one
+    %% exception: zero-arity functions are always processed before
+    %% their callers as they are likely to give the most precise alias
+    %% information to their callers.
     IsExportedNoLocalCallers =
         fun (F) ->
                 #{ F := #func_info{exported=E,in=In} } = FuncDb,
@@ -1304,9 +1310,12 @@ aa_reverse_post_order(Funs, FuncDb) ->
                 #{ F := #func_info{exported=E,in=In} } = FuncDb,
                 E andalso In =/= []
         end,
+
+    ZeroArityFunctions = lists:sort([ F || #b_local{arity=0}=F <- Funs]),
     ExportedLocalCallers =
         lists:sort([ F || F <- Funs, IsExportedLocalCallers(F)]),
-    aa_reverse_post_order(ExportedNoLocalCallers, ExportedLocalCallers,
+    aa_reverse_post_order(ZeroArityFunctions ++ ExportedNoLocalCallers,
+                          ExportedLocalCallers,
                           sets:new(), FuncDb).
 
 aa_reverse_post_order([F|Work], Next, Seen, FuncDb) ->
