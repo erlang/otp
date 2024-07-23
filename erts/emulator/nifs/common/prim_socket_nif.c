@@ -2260,6 +2260,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(snd_wnd);                         \
     GLOBAL_ATOM_DECL(sockaddr);                        \
     GLOBAL_ATOM_DECL(socket);                          \
+    GLOBAL_ATOM_DECL(socktype);                        \
     GLOBAL_ATOM_DECL(spec_dst);                        \
     GLOBAL_ATOM_DECL(staticarp);		       \
     GLOBAL_ATOM_DECL(state);                           \

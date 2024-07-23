@@ -763,7 +763,7 @@ verify_addr_info2([#{addr     := #{addr   := Addr,
 				   family := Domain,
 				   port   := Port},
                      family   := Domain,
-                     type     := _Type,
+                     socktype := _Type,
                      protocol := _Proto}|T], Domain) 
   when is_integer(Port) andalso
        (((Domain =:= inet) andalso is_tuple(Addr) andalso (size(Addr) =:= 4)) orelse
