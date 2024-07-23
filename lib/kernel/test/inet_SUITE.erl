@@ -1546,58 +1546,131 @@ getif(Config) when is_list(Config) ->
 inet_getiflist(default) ->
     inet:getiflist();
 inet_getiflist(Backend) ->
-    inet:getiflist([{inet_backend, Backend}]).
+    Func = getiflist,
+    Fun  = fun() -> inet:Func([{inet_backend, Backend}]) end,
+    backend_conditional_run(Backend, Func, Fun).
+
+
+backend_conditional_run(default = Backend, Func, Fun)
+  when is_atom(Func) andalso
+       is_function(Fun, 0) ->
+       io:format("try '~w' ~w~n", [Backend, Func]),
+       Fun();
+backend_conditional_run(Backend, Func, Fun)
+  when ((Backend =:= inet) orelse (Backend =:= socket)) andalso
+       is_atom(Func) andalso
+       is_function(Fun, 0) ->
+    try is_supported_backend(Backend) of
+        true ->
+            io:format("try '~w' ~w~n", [Backend, Func]),
+            Fun();            
+        false ->
+            io:format("skip '~w' ~w: not supported~n", [Backend, Func]),
+            throw({skip, {Func, Backend, notsup}})
+    catch
+        C:E:S ->
+            %% Assume its because we run in a 'noesock' (or similar) system...
+            io:format("skipping ~p: "
+                      "~n   (Error) Class: ~p"
+                      "~n   Error:         ~p"
+                      "~n   Stack:         ~p"
+                      "~n", [Backend, C, E, S]),
+            throw({skip, {Func, Backend, C, E}})
+    end.            
+
 
 inet_ifget(default, Name, Opts) ->
     inet:ifget(Name, Opts);
 inet_ifget(Backend, Name, Opts) ->
-    inet:ifget(Name, [{inet_backend, Backend}|Opts]).
+    Func = ifget,
+    Fun  = fun() -> inet:Func(Name, [{inet_backend, Backend}|Opts]) end,
+    backend_conditional_run(Backend, Func, Fun).
 
 inet_getif(default) ->
     inet:getif();
 inet_getif(Backend) ->
-    inet:getif([{inet_backend, Backend}]).
-
+    Func = getif,
+    Fun  = fun() -> inet:Func([{inet_backend, Backend}]) end,
+    backend_conditional_run(Backend, Func, Fun).
+    
 
 do_getif(OsName, Backend) ->
     io:format("~w(~w) -> entry with"
               "~n   OsName:  ~p"
               "~n", [?FUNCTION_NAME, Backend, OsName]),
+    try do_getif2(OsName, Backend) of
+        ok ->
+            io:format("~w(~w) -> success~n", [?FUNCTION_NAME, Backend]),
+            ok
+    catch
+        throw:{skip, Reason} ->
+            io:format("~w(~w) -> skipping: "
+                      "~n   ~p"
+                      "~n", [?FUNCTION_NAME, Backend, Reason]),
+            ok
+    end.
+
+do_getif2(OsName, Backend) ->
+    io:format("~w(~w) -> entry with"
+              "~n   OsName:  ~p"
+              "~n", [?FUNCTION_NAME, Backend, OsName]),
+
+    %% For this to work with the 'socket' backend, we need to verify 
     {ok, Hostname}   = inet:gethostname(),
+    io:format("~w(~w) -> "
+              "~n   Hostname: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Hostname]),
     {ok, Address}    = inet:getaddr(Hostname,    inet),
+    io:format("~w(~w) -> "
+              "~n   Address: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Address]),
     {ok, Loopback}   = inet:getaddr("localhost", inet),
+    io:format("~w(~w) -> "
+              "~n   Loopback: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Loopback]),
     {ok, Interfaces} = inet_getiflist(Backend),
+    io:format("~w(~w) -> "
+              "~n   Interfaces: ~p"
+              "~n", [?FUNCTION_NAME, Backend, Interfaces]),
     HWAs =
-	lists:sort(
-	  lists:foldl(
-	    fun (I, Acc) ->
-		    case inet_ifget(Backend, I, [hwaddr]) of
-			{ok,[{hwaddr,A}]} -> [A|Acc];
-			{ok,[]} -> Acc
-		    end
-	    end, [], Interfaces)),
+        lists:sort(
+          lists:foldl(
+            fun (I, Acc) ->
+                    case inet_ifget(Backend, I, [hwaddr]) of
+                        {ok,[{hwaddr,A}]} -> [A|Acc];
+                        {ok,[]} -> Acc
+                    end
+            end, [], Interfaces)),
     io:format("~w(~w) -> "
               "~n   HW Addrs:"
               "~n      ~p"
               "~n", [?FUNCTION_NAME, Backend, HWAs]),
     (OsName =/= sunos)
-	andalso ((length(HWAs) > 0) orelse (ct:fail(no_HWAs))),
+        andalso ((length(HWAs) > 0) orelse (ct:fail(no_HWAs))),
     Addresses =
-	lists:sort(
-	  lists:foldl(
-	    fun (I, Acc) ->
-		    case inet_ifget(Backend, I, [addr]) of
-			{ok, [{addr,A}]} -> [A|Acc];
-			{ok, []} -> Acc
-		    end
-	    end, [], Interfaces)),
-    io:format("~w(~w) -> "
+        lists:sort(
+          lists:foldl(
+            fun(I, Acc) ->
+                    case inet_ifget(Backend, I, [addr]) of
+                        {ok, [{addr,A}]} -> [A|Acc];
+                        {ok, []} -> Acc
+                    end
+            end, [], Interfaces)),
+    io:format("~w(~w) -> ifget result: "
               "~n   Addresses: "
               "~n      ~p"
               "~n", [?FUNCTION_NAME, Backend, Addresses]),
-    {ok,Getif} = inet_getif(Backend),
+    {ok, Getif} = inet_getif(Backend),
+    io:format("~w(~w) -> ifget verify: "
+              "~n   Addresses: "
+              "~n      ~p"
+              "~n", [?FUNCTION_NAME, Backend, Addresses]),
     Addresses = lists:sort([A || {A,_,_} <- Getif]),
+    io:format("~w(~w) -> verify address"
+              "~n", [?FUNCTION_NAME, Backend]),
     true = ip_member(Address, Addresses),
+    io:format("~w(~w) -> verify loopback"
+              "~n", [?FUNCTION_NAME, Backend]),
     true = ip_member(Loopback, Addresses),
     io:format("~w(~w) -> done~n", [?FUNCTION_NAME, Backend]),
     ok.
@@ -1630,18 +1703,28 @@ getifaddrs(Config) when is_list (Config) ->
     do_getifaddrs(socket),
     getifaddrs_verify_backends().
 
-do_getifaddrs(default) ->
-    io:format("try 'default' getifaddrs~n", []),
-    do_getifaddrs2(inet:getifaddrs());
 do_getifaddrs(Backend) ->
-    case is_supported_backend(Backend) of
-        true ->
-            io:format("try '~w' getifaddrs~n", [Backend]),
-            do_getifaddrs2(inet:getifaddrs([{inet_backend, Backend}]));
-        false ->
-            io:format("skip '~w' getifaddrs: not supported~n", [Backend]),
+    try do_getifaddrs2(Backend) of
+        ok ->
+            io:format("~w(~w) -> success~n", [?FUNCTION_NAME, Backend]),
+            ok
+    catch
+        throw:{skip, Reason} ->
+            io:format("~w(~w) -> skipping: "
+                      "~n   ~p"
+                      "~n", [?FUNCTION_NAME, Backend, Reason]),
             ok
     end.
+
+
+do_getifaddrs2(default) ->
+    io:format("try 'default' getifaddrs~n", []),
+    do_getifaddrs3(inet:getifaddrs());
+do_getifaddrs2(Backend) ->
+    Func = getifaddrs,
+    Fun  = fun() -> inet:Func([{inet_backend, Backend}]) end,
+    do_getifaddrs3(backend_conditional_run(Backend, Func, Fun)).
+    
 
 is_supported_backend(inet = _Backend) ->
     true;
@@ -1660,10 +1743,10 @@ is_socket_supported() ->
     end.
 
     
-do_getifaddrs2({ok, IfAddrs}) ->
-    io:format("IfAddrs: "
+do_getifaddrs3({ok, IfAddrs}) ->
+    io:format("~w(ok) -> IfAddrs: "
               "~n   ~p"
-              "~n", [IfAddrs]),
+              "~n", [?FUNCTION_NAME, IfAddrs]),
     case [If || {If,Opts} <- IfAddrs, lists:keymember(hwaddr, 1, Opts)] of
         [] ->
             case os:type() of
@@ -1788,18 +1871,34 @@ fold_ifopts(Fun, Acc, IfMap, Keys) ->
 
 getifaddrs_verify_backends() ->
     io:format("maybe attempt verify backends~n", []),
-    case is_supported_backend(inet) of
+    try is_supported_backend(inet) of
         true ->
-            case is_supported_backend(socket) of
+            try is_supported_backend(socket) of
                 true ->
                     getifaddrs_verify_backends(
                       inet:getifaddrs([{inet_backend, inet}]),
                       inet:getifaddrs([{inet_backend, socket}]));
                 false ->
                     io:format("'socket' backend not supported: skip~n", [])
+            catch
+                SC:SE:SS ->
+                    io:format("skipping ~p: "
+                              "~n   (Error) Class: ~p"
+                              "~n   Error:         ~p"
+                              "~n   Stack:         ~p"
+                              "~n", [socket, SC, SE, SS]),
+                    ok
             end;
         false ->
             io:format("'inet' backend not supported: skip~n", [])
+    catch
+        IC:IE:IS ->
+            io:format("skipping ~p: "
+                      "~n   (Error) Class: ~p"
+                      "~n   Error:         ~p"
+                      "~n   Stack:         ~p"
+                      "~n", [inet, IC, IE, IS]),
+            ok
     end.
 
 getifaddrs_verify_backends({ok, IfAddrs},

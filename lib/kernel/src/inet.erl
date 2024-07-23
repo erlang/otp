@@ -329,7 +329,10 @@ Function `parse_address/1` can be useful:
 	element(1, Record) =:= element(1, RS),
 	tuple_size(Record) =:= element(2, RS)).
 
+%% Two kinds of debug macros (depnds on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(F, A), io:format("~w -> " ++ F ++ "~n", [?FUNCTION_NAME | A])).
+%% -define(DBG(F),    ?DBG(F, [])).
 
 
 %%% ---------------------------------
@@ -1918,10 +1921,28 @@ do_getiflist2('inet' = _Backend, Socket) when is_port(Socket) ->
 net_getiflist(Socket) ->
     case socket:ioctl(Socket, gifconf) of
         {ok, Interfaces} ->
-            {ok, [Name || #{name := Name} <- Interfaces]};
+            Names = [Name || #{name := Name,
+                               addr := #{family := Fam}} <-
+                                 Interfaces, ((Fam =:= inet) orelse
+                                              (Fam =:= inet6))],
+            {ok, ensure_unique_names(Names)};
         {error, _} = ERROR ->
             ERROR
     end.
+
+ensure_unique_names(Names) ->
+    ensure_unique_names(Names, []).
+
+ensure_unique_names([], Acc) ->
+    lists:reverse(Acc);
+ensure_unique_names([Name|Names], Acc) ->
+    case lists:member(Name, Acc) of
+        true ->
+            ensure_unique_names(Names, Acc);
+        false ->
+            ensure_unique_names(Names, [Name|Acc])
+    end.
+
 
 inet_getiflist(Socket) ->
     prim_inet:getiflist(Socket).

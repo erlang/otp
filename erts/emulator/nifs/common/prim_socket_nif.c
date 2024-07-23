@@ -2360,6 +2360,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
+    LOCAL_ATOM_DECL(genhwaddr);        \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifbrdaddr);       \
     LOCAL_ATOM_DECL(gifconf);          \
@@ -4934,6 +4935,8 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
   requests = MKC(env, MKT2(env, atom_gifhwaddr, MKUL(env, SIOCGIFHWADDR)), requests);
+#elif defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
+  requests = MKC(env, MKT2(env, atom_genaddr, MKUL(env, SIOCGENADDR)), requests);
 #endif
 
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)

@@ -6139,11 +6139,12 @@ the `GetRequest` argument.
 
 > #### Note {: .info }
 >
+> Not all requests are supported by all platforms.
 > To see if a ioctl request is supported on the current platform:
 >
 > ```erlang
 > 	    Request = nread,
-> 	    {ok, true} = socket:is_supported(ioctl_requests, Request),
+> 	    true = socket:is_supported(ioctl_requests, Request),
 > 	    :
 > ```
 """.
@@ -6260,6 +6261,7 @@ This function retrieves a specific parameter, according to
 one of the following `GetRequest` arguments. The third argument is
 the (lookup) "key", identifying the interface, for most requests
 the name of the interface as a `t:string/0`.
+Also, see the note above.
 
 - **`gifname`** - Get the name of the interface with the specified index
   (`t:integer/0`).
@@ -6289,7 +6291,7 @@ the name of the interface as a `t:string/0`.
 
   Result; the network mask of the interface, `t:sockaddr/0`.
 
-- **`gifhwaddr`** - Get the hardware address for the interface with the
+- **`gifhwaddr` | `gifenaddr`** - Get the hardware address for the interface with the
   specified name.
 
   Result; the hardware address of the interface, `t:sockaddr/0`.
@@ -6370,7 +6372,7 @@ the `Value` for the request parameter *(since OTP 26.1)*.
       Socket      :: socket(),
       GetRequest  :: 'gifname' | 'gifindex' |
                      'gifaddr' | 'gifdstaddr' | 'gifbrdaddr' |
-                     'gifnetmask' | 'gifhwaddr' |
+                     'gifnetmask' | 'gifhwaddr' | 'gifhwaddr' |
                      'gifmtu' | 'giftxqlen' | 'gifflags' |
 		     'tcp_info',
       NameOrIndex :: string() | integer(),
@@ -6409,6 +6411,9 @@ ioctl(?socket(SockRef), gifmtu = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifhwaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifenaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
