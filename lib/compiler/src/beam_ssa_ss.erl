@@ -750,15 +750,20 @@ merge_elements([{Src,_,{embed,Idx}}|Rest], Elements0, Cutoff, State) when
     merge_elements(Rest, Elements, Cutoff, State);
 merge_elements([{_Src,_,embed}|Rest], _Elements0, Cutoff, State) ->
     %% We don't know where this element is embedded.  Src will always
-    %% be unique as otherwise erge_in_arg/4 will not bother merging
+    %% be unique as otherwise merge_in_arg/4 will not bother merging
     %% the in-edges.
     ?ASSERT(unique = get_status(_Src, State)),
     merge_elements(Rest, no_info, Cutoff, State);
-merge_elements([{_,V,{extract,_}}|_Rest], _Elements0, _, State) ->
-    %% For now we don't try to derive the structure of this argument
-    %% further.
-    %% TODO: Revisit the decision above.
-    get_status(V, State).
+merge_elements([{Src,V,{extract,E}}], Elements, Cutoff, State) ->
+    ?DP("Looking for an embedding of the ~p element from ~p~n", [E, Src]),
+    InEdges = beam_digraph:in_edges(State, Src),
+    case [Other || {Other,_,{embed,EdgeOp}} <- InEdges, EdgeOp =:= E] of
+        [Next] ->
+            ?DP("Found: ~p~n", [Next]),
+            merge_in_arg(Next, {unique,Elements}, Cutoff, State);
+        [] ->
+            get_status(V, State)
+    end.
 
 -spec new([beam_ssa:b_var()], call_in_arg_info(), non_neg_integer()) ->
           sharing_state().
