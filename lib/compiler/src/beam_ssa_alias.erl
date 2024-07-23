@@ -61,7 +61,8 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
               %% The next unused variable name in caller
               cnt = 0 :: non_neg_integer(),
               %% Functions which have been analyzed at least once.
-              analyzed = sets:new() :: sets:set(func_id())
+              analyzed = sets:new() :: sets:set(func_id()),
+              run_count = #{} :: #{ func_id() => non_neg_integer() }
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -353,9 +354,11 @@ aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
     Order = aa_order(Funs, FuncDb),
     ?DP("Traversal order:~n  ~s~n",
         [string:join([fn(F) || F <- Order], ",\n  ")]),
-    aa_fixpoint(Order, Order, AAS, ?MAX_REPETITIONS).
+    aa_fixpoint(Order, Order, AAS, 1).
 
-aa_fixpoint([F|Fs], Order, AAS0=#aas{st_map=StMap,repeats=Repeats}, Limit) ->
+aa_fixpoint([F|Fs], Order,
+            AAS0=#aas{func_db=FuncDb,st_map=StMap,
+                      repeats=Repeats,run_count=RC}, NoofIters) ->
 
     ?DP("-= ~s =-~n", [fn(F)]),
     %% If, when analysing another function, this function has been
@@ -367,22 +370,26 @@ aa_fixpoint([F|Fs], Order, AAS0=#aas{st_map=StMap,repeats=Repeats}, Limit) ->
     ?DP("code:~n~p.~n", [_Is]),
     AAS = aa_fun(F, St, AAS1),
     ?DP("Done ~s~n", [fn(F)]),
-    aa_fixpoint(Fs, Order, AAS, Limit);
-aa_fixpoint([], _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
-    ?DP("**** End of iteration, too many iterations ****~n"),
-    {StMap, FuncDb};
-aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, Limit) ->
+    case maps:get(F, RC, ?MAX_REPETITIONS) of
+        0 ->
+            ?DP("**** End of iteration, too many iterations ****~n"),
+            {StMap, FuncDb};
+        N ->
+            aa_fixpoint(Fs, Order,
+                        AAS#aas{run_count=RC#{F => N - 1}}, NoofIters)
+    end;
+aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, NoofIters) ->
     %% Following the depth first order, select those in Repeats.
     case [Id || Id <- Order, sets:is_element(Id, Repeats)] of
         [] ->
-            ?DP("**** Fixpoint reached after ~p iterations ****~n",
-                [?MAX_REPETITIONS - Limit]),
+            ?DP("**** Fixpoint reached after ~p traversals ****~n",
+                [NoofIters]),
             {StMap,_} = aa_update_annotations(Order, AAS),
             {StMap, FuncDb};
         NewOrder ->
-            ?DP("**** Starting iteration ~p ****~n",
-                [?MAX_REPETITIONS - Limit + 1]),
-            aa_fixpoint(NewOrder, Order, AAS#aas{repeats=sets:new()}, Limit - 1)
+            ?DP("**** Starting traversal ~p ****~n", [NoofIters + 1]),
+            aa_fixpoint(NewOrder, Order,
+                        AAS#aas{repeats=sets:new()}, NoofIters + 1)
     end.
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
