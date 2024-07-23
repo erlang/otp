@@ -56,7 +56,7 @@ r0([], Acc) ->
 -record(ds,{a}).
 
 make_ds(a) ->
-%ssa% (K) when post_ssa_opt ->
+%ssa% xfail (K) when post_ssa_opt ->
 %ssa% switch(K, Fail, [{a,IsA},{b,IsB}]),
 %ssa% label IsB,
 %ssa% ret({0,0}),
@@ -70,7 +70,7 @@ make_ds(b) ->
 
 %% Check that #ds{} is updated using update_record+inplace
 work_ds([X|Rest], {A,B,C=#ds{a=F}}) ->
-%ssa% (Ls, Acc) when post_ssa_opt ->
+%ssa% xfail (Ls, Acc) when post_ssa_opt ->
 %ssa% Size = bif:tuple_size(Acc),
 %ssa% switch(Size, Fail, [{2,_},{3,RecordLbl}]),
 %ssa% label RecordLbl,

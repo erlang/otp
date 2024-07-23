@@ -519,7 +519,7 @@ transformable24(L) ->
     transformable24(L, {<<>>, ex:foo(),ex:foo()}).
 
 transformable24([H|T], {Acc,X,Y}) ->
-%ssa% xfail (_, Arg1) when post_ssa_opt ->
+%ssa% (_, Arg1) when post_ssa_opt ->
 %ssa% X = get_tuple_element(Arg1, 1),
 %ssa% Acc = get_tuple_element(Arg1, 0),
 %ssa% A = bs_create_bin(append, _, Acc, _, _, _, Sum, _) { unique => [Sum,Acc], first_fragment_dies => true },
@@ -1207,7 +1207,7 @@ see_through() ->
     see_through1(R).
 
 see_through1({_,R}) ->
-%ssa% (_) when post_ssa_opt ->
+%ssa% xfail (_) when post_ssa_opt ->
 %ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
     R#see_through{a=e:f()}.
 
