@@ -16659,6 +16659,23 @@ printf "%s\n" "#define ESOCK_USE_HWADDR /**/" >>confdefs.h
 fi
 
 
+ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_enaddr" "ac_cv_member_struct_ifreq_ifr_enaddr" "#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+
+"
+if test "x$ac_cv_member_struct_ifreq_ifr_enaddr" = xyes
+then :
+
+printf "%s\n" "#define HAVE_STRUCT_IFREQ_IFR_ENADDR 1" >>confdefs.h
+
+
+printf "%s\n" "#define ESOCK_USE_ENADDR /**/" >>confdefs.h
+
+fi
+
+
 ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_ifindex" "ac_cv_member_struct_ifreq_ifr_ifindex" "#ifdef __WIN32__
 	 #else
 	 #include <net/if.h>

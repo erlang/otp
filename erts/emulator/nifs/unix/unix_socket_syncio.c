@@ -517,6 +517,13 @@ static ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
 #define IOCTL_GIFHWADDR_FUNC3_DEF
 #endif
 
+/* esock_ioctl_gifenaddr */
+#if defined(SIOCGENHWADDR) && defined(ESOCK_USE_ENADDR)
+#define IOCTL_GIFENADDR_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifenaddr)
+#else
+#define IOCTL_GIFENADDR_FUNC3_DEF
+#endif
+
 /* esock_ioctl_gifmap */
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
 #define IOCTL_GIFMAP_FUNC3_DEF IOCTL_GET_FUNC3_DEF(gifmap)
@@ -540,6 +547,7 @@ static ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
     IOCTL_GIFNETMASK_FUNC3_DEF;			\
     IOCTL_GIFMTU_FUNC3_DEF;			\
     IOCTL_GIFHWADDR_FUNC3_DEF;			\
+    IOCTL_GIFENADDR_FUNC3_DEF;			\
     IOCTL_GIFMAP_FUNC3_DEF;			\
     IOCTL_GIFTXQLEN_FUNC3_DEF;
 #define IOCTL_GET_FUNC3_DEF(F)					\
@@ -598,6 +606,13 @@ IOCTL_GET_FUNCS3_DEF
 #define IOCTL_SIFTXQLEN_FUNC_DEF
 #endif
 
+/* esock_ioctl_sifhwaddr */
+#if defined(SIOCSIFHWADDR)
+#define IOCTL_SIFHWADDR_FUNC_DEF IOCTL_SET_FUNC_DEF(sifhwaddr)
+#else
+#define IOCTL_SIFHWADDR_FUNC_DEF
+#endif
+
 #define IOCTL_SET_FUNCS_DEF			\
   IOCTL_SIFFLAGS_FUNC_DEF;			\
   IOCTL_SIFADDR_FUNC_DEF;			\
@@ -605,7 +620,8 @@ IOCTL_GET_FUNCS3_DEF
   IOCTL_SIFBRDADDR_FUNC_DEF;			\
   IOCTL_SIFNETMASK_FUNC_DEF;			\
   IOCTL_SIFMTU_FUNC_DEF;			\
-  IOCTL_SIFTXQLEN_FUNC_DEF;
+  IOCTL_SIFTXQLEN_FUNC_DEF;			\
+  IOCTL_SIFHWADDR_FUNC_DEF;
 #define IOCTL_SET_FUNC_DEF(F)					\
   static ERL_NIF_TERM essio_ioctl_##F(ErlNifEnv*       env,	\
 				      ESockDescriptor* descP,	\
@@ -634,7 +650,8 @@ static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct ifmap*    mapP);
 #endif
-#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)) || \
+    (defined(SIOCGIFENADDR) && defined(ESOCK_USE_ENADDR))
 static ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct sockaddr* addrP);
@@ -655,6 +672,13 @@ static BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
 				       ESockDescriptor* descP,
 				       ERL_NIF_TERM     eaddr,
 				       ESockAddress*    addr);
+#if defined(SIOCSIFHWADDR)
+static
+BOOLEAN_T decode_ioctl_hwaddr(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     eaddr,
+                              ESockAddress*    addr);
+#endif
 #if defined(SIOCSIFMTU)
 static BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
 				  ESockDescriptor* descP,
@@ -4149,8 +4173,14 @@ ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
 
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
   case SIOCGIFHWADDR:
-    return essio_ioctl_gifhwaddr(env, descP, arg);
-    break;
+      return essio_ioctl_gifhwaddr(env, descP, arg);
+      break;
+#endif
+
+#if defined(SIOCGENHWADDR) && defined(ESOCK_USE_ENADDR)
+  case SIOCGIFENADDR:
+      return essio_ioctl_gifenaddr(env, descP, arg);
+      break;
 #endif
 
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
@@ -4222,8 +4252,8 @@ ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
 
 #if defined(SIOCSIFBRDADDR)
   case SIOCSIFBRDADDR:
-    return essio_ioctl_sifbrdaddr(env, descP, ename, eval);
-    break;
+      return essio_ioctl_sifbrdaddr(env, descP, ename, eval);
+      break;
 #endif
 
 #if defined(SIOCSIFNETMASK)
@@ -4242,6 +4272,12 @@ ERL_NIF_TERM essio_ioctl4(ErlNifEnv*       env,
   case SIOCSIFTXQLEN:
     return essio_ioctl_siftxqlen(env, descP, ename, eval);
     break;
+#endif
+
+#if defined(SIOCSIFHWADDR)
+  case SIOCSIFHWADDR:
+      return essio_ioctl_sifhwaddr(env, descP, ename, eval);
+      break;
 #endif
 
   default:
@@ -4502,9 +4538,17 @@ IOCTL_GET_FUNCS2
 /* *** essio_ioctl_gifhwaddr *** */
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
 #define IOCTL_GIFHWADDR_FUNC3_DECL					\
-  IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
+    IOCTL_GET_REQUEST3_DECL(gifhwaddr, SIOCGIFHWADDR, hwaddr, &ifreq.ifr_hwaddr)
 #else
 #define IOCTL_GIFHWADDR_FUNC3_DECL
+#endif
+
+/* *** essio_ioctl_gifenaddr *** */
+#if defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
+#define IOCTL_GIFENADDR_FUNC3_DECL					\
+    IOCTL_GET_REQUEST3_DECL(gifenaddr, SIOCGENENADDR, hwaddr, &ifreq.ifr_enaddr)
+#else
+#define IOCTL_GIFENADDR_FUNC3_DECL
 #endif
 
 /* *** essio_ioctl_gifmap *** */
@@ -4523,7 +4567,7 @@ IOCTL_GET_FUNCS2
 #define IOCTL_GIFTXQLEN_FUNC3_DECL
 #endif
 
-#define IOCTL_GET_FUNCS3				\
+#define IOCTL_GET_FUNCS3                        \
   IOCTL_GIFINDEX_FUNC3_DECL			\
   IOCTL_GIFFLAGS_FUNC3_DECL			\
   IOCTL_GIFADDR_FUNC3_DECL			\
@@ -4532,6 +4576,7 @@ IOCTL_GET_FUNCS2
   IOCTL_GIFNETMASK_FUNC3_DECL			\
   IOCTL_GIFMTU_FUNC3_DECL			\
   IOCTL_GIFHWADDR_FUNC3_DECL			\
+  IOCTL_GIFENADDR_FUNC3_DECL			\
   IOCTL_GIFMAP_FUNC3_DECL			\
   IOCTL_GIFTXQLEN_FUNC3_DECL
 
@@ -4679,8 +4724,8 @@ ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
 /* *** essio_ioctl_sifbrdaddr *** */
 #if defined(SIOCSIFBRDADDR)
 #define IOCTL_SIFBRDADDR_FUNC_DECL					\
-  IOCTL_SET_REQUEST_DECL(sifbrdaddr, SIOCSIFBRDADDR, sockaddr,		\
-			 ((ESockAddress*) &ifreq.ifr_broadaddr))
+    IOCTL_SET_REQUEST_DECL(sifbrdaddr, SIOCSIFBRDADDR, sockaddr,        \
+                           ((ESockAddress*) &ifreq.ifr_broadaddr))
 #else
 #define IOCTL_SIFBRDADDR_FUNC_DECL
 #endif
@@ -4718,13 +4763,23 @@ ERL_NIF_TERM essio_ioctl_gifname(ErlNifEnv*       env,
 #define IOCTL_SIFTXQLEN_FUNC_DECL
 #endif
 
+/* *** essio_ioctl_sifhqaddr *** */
+#if defined(SIOCSIFHWADDR)
+#define IOCTL_SIFHWADDR_FUNC_DECL                                     \
+    IOCTL_SET_REQUEST_DECL(sifhwaddr, SIOCSIFHWADDR, hwaddr,          \
+                           ((ESockAddress*) &ifreq.ifr_hwaddr))
+#else
+#define IOCTL_SIFHWADDR_FUNC_DECL
+#endif
+
 #define IOCTL_SET_FUNCS				\
   IOCTL_SIFADDR_FUNC_DECL			\
   IOCTL_SIFDSTADDR_FUNC_DECL			\
   IOCTL_SIFBRDADDR_FUNC_DECL			\
   IOCTL_SIFNETMASK_FUNC_DECL			\
   IOCTL_SIFMTU_FUNC_DECL			\
-  IOCTL_SIFTXQLEN_FUNC_DECL
+  IOCTL_SIFTXQLEN_FUNC_DECL                     \
+  IOCTL_SIFHWADDR_FUNC_DECL
 
 #define IOCTL_SET_REQUEST_DECL(OR, R, DF, UVP)				\
   static								\
@@ -4915,44 +4970,91 @@ ERL_NIF_TERM essio_ioctl_sifflags(ErlNifEnv*       env,
  *
  */
 
+#if defined(AF_LINK) && !defined(NO_SA_LEN)
+#define SIZEA(p) (((p).sa_len > sizeof(p)) ? (p).sa_len : sizeof(p))
+#else
+#define SIZEA(p) (sizeof (p))
+#endif
+
 static
 ERL_NIF_TERM encode_ioctl_ifconf(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 struct ifconf*   ifcP)
 {
-  ERL_NIF_TERM result;
-  unsigned int len = ((ifcP == NULL) ? 0 :
-		      (ifcP->ifc_len / sizeof(struct ifreq)));
-
-  SSDBG( descP,
-	 ("UNIX-ESSIO",
-          "encode_ioctl_ifconf -> entry (when len = %d)\r\n", len) );
-
-  if (len > 0) {
-    ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
-    unsigned int  i     = 0;
-    struct ifreq* p     = ifcP->ifc_req;
-
-    for (i = 0 ; i < len ; i++) {
-      SSDBG( descP,
-	     ("UNIX-ESSIO",
-              "encode_ioctl_ifconf -> encode ifreq entry %d\r\n", i) );
-      array[i] = encode_ioctl_ifconf_ifreq(env, descP, &p[i]);
-    }
+    ERL_NIF_TERM result;
+    unsigned int len = (ifcP == NULL) ? 0 : ifcP->ifc_len;
 
     SSDBG( descP,
-	   ("UNIX-ESSIO", "encode_ioctl_ifconf -> all entries encoded\r\n", i) );
+           ("UNIX-ESSIO",
+            "encode_ioctl_ifconf -> entry with"
+            "\r\n   (total) len: %d\r\n", len) );
 
-    result = esock_make_ok2(env, MKLA(env, array, len));
-    FREE(array);
+    if (len > 0) {
+        ERL_NIF_TERM  elem, array;
+        SocketTArray  tarray = TARRAY_CREATE(32);
+        unsigned int  n     = 1; // Just for debugging
+        unsigned int  i     = 0;
+        unsigned int  sz;
+        struct ifreq* ifrP;
 
-  } else {
+        for (;;) {
 
-    result = esock_make_ok2(env, MKEL(env));
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> encode entry %d at %d\r\n", n, i) );
 
-  }
+            ifrP = (struct ifreq*) VOIDP(ifcP->ifc_buf + i);
+            sz   = sizeof(ifrP->ifr_name) + SIZEA(ifrP->ifr_addr);
+            if (sz < sizeof(*ifrP)) sz = sizeof(*ifrP);
 
-  return result;
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> "
+                    "\r\n   size:     %d"
+                    "\r\n      Name len: %d"
+                    "\r\n      Addr len: %d"
+                    "\r\n      Rec len:  %d"
+                    "\r\n",
+                    sz,
+                    sizeof(ifrP->ifr_name),
+                    SIZEA(ifrP->ifr_addr),
+                    sizeof(*ifrP)) );
+
+            i += sz;
+            if (i > len) break;
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> encode new entry\r\n") );
+
+            elem = encode_ioctl_ifconf_ifreq(env, descP, ifrP);
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "encode_ioctl_ifconf -> add new entry: "
+                    "\r\n   %T\r\n", elem) );
+
+            TARRAY_ADD(tarray, elem);
+
+            n++;
+        }
+
+        SSDBG( descP,
+               ("UNIX-ESSIO",
+                "encode_ioctl_ifconf -> all entries encoded\r\n") );
+
+        TARRAY_TOLIST(tarray, env, &array);
+        result = esock_make_ok2(env, array);
+
+    } else {
+
+        result = esock_make_ok2(env, MKEL(env));
+
+    }
+
+    SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifconf -> done\r\n") );
+
+    return result;
 }
 
 
@@ -4990,22 +5092,23 @@ ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 #endif
 
 
-#if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
+#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)) ||    \
+    (defined(SIOCGIFENADDR) && defined(ESOCK_USE_ENADDR))
 static
 ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
 				 struct sockaddr* addrP)
 {
-  ERL_NIF_TERM eaddr;
-  SOCKLEN_T    sz = sizeof(struct sockaddr);
+    ERL_NIF_TERM eaddr;
+    SOCKLEN_T    sz = sizeof(struct sockaddr);
 
-  esock_encode_hwsockaddr(env, addrP, sz, &eaddr);
+    esock_encode_hwsockaddr(env, addrP, sz, &eaddr);
 
-  SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_ifraddr -> done with"
-		 "\r\n    Sock Addr: %T"
-		 "\r\n", eaddr) );
+    SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_hwaddr -> done with"
+                   "\r\n    Sock Addr: %T"
+                   "\r\n", eaddr) );
 
-  return esock_make_ok2(env, eaddr);;
+    return esock_make_ok2(env, eaddr);;
 }
 #endif
 
@@ -5033,8 +5136,8 @@ ERL_NIF_TERM encode_ioctl_flags(ErlNifEnv*       env,
 				short            flags)
 {
     int          i, flag, num = esock_ioctl_flags_length; // NUM(ioctl_flags);
-  ERL_NIF_TERM eflags, eflag;
-  SocketTArray ta = TARRAY_CREATE(20); // Just to be on the safe side
+    ERL_NIF_TERM eflags, eflag;
+    SocketTArray ta = TARRAY_CREATE(20); // Just to be on the safe side
 
   if (flags == 0) {
     eflags = MKEL(env);
@@ -5081,21 +5184,47 @@ BOOLEAN_T decode_ioctl_sockaddr(ErlNifEnv*       env,
 				ERL_NIF_TERM     eaddr,
 				ESockAddress*    addr)
 {
-  SOCKLEN_T addrLen;
-  BOOLEAN_T result;
+    SOCKLEN_T addrLen;
+    BOOLEAN_T result;
 
-  result = esock_decode_sockaddr(env, eaddr, (ESockAddress*) addr, &addrLen);
+    result = esock_decode_sockaddr(env, eaddr, (ESockAddress*) addr, &addrLen);
 
-  VOID(addrLen);
+    VOID(addrLen);
 
-  SSDBG( descP,
-	 ("UNIX-ESSIO", "decode_ioctl_sockaddr {%d} -> decode result: %s"
-	  "\r\n", descP->sock, B2S(result)) );
+    SSDBG( descP,
+           ("UNIX-ESSIO", "decode_ioctl_sockaddr {%d} -> decode result: %s"
+            "\r\n", descP->sock, B2S(result)) );
 
-  return result;
+    return result;
 }
-				 
 
+
+#if defined(SIOCSIFHWADDR)
+static
+BOOLEAN_T decode_ioctl_hwaddr(ErlNifEnv*       env,
+                              ESockDescriptor* descP,
+                              ERL_NIF_TERM     eaddr,
+                              ESockAddress*    addr)
+{
+    SOCKLEN_T addrLen;
+    BOOLEAN_T result;
+
+    result = esock_decode_hwsockaddr(env, eaddr,
+                                     (ESockAddress*) addr, &addrLen);
+
+    VOID(addrLen);
+
+    SSDBG( descP,
+           ("UNIX-ESSIO", "decode_ioctl_hwaddr {%d} -> decode result: %s"
+            "\r\n", descP->sock, B2S(result)) );
+
+    return result;
+}
+#endif
+
+
+
+#if defined(SIOCSIFMTU)
 static
 BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
 			   ESockDescriptor* descP,
@@ -5116,6 +5245,7 @@ BOOLEAN_T decode_ioctl_mtu(ErlNifEnv*       env,
 
   return result;
 }
+#endif
 				 
 
 #if defined(SIOCSIFTXQLEN)

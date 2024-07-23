@@ -1446,6 +1446,15 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr],
 	 #endif
 	])
 
+AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr],
+        [AC_DEFINE(ESOCK_USE_ENADDR, [], [Interface hwaddr supported])],
+	[],
+	[#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+	])
+
 AC_CHECK_MEMBERS([struct ifreq.ifr_ifindex],
         [AC_DEFINE(ESOCK_USE_IFINDEX, [], [Interface ifindex supported])],
 	[],

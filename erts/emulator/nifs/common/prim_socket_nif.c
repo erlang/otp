@@ -2057,6 +2057,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
     GLOBAL_ATOM_DECL(host);                            \
+    GLOBAL_ATOM_DECL(hwaddr);                          \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
     GLOBAL_ATOM_DECL(ieee802);                         \
@@ -2186,6 +2187,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(protocol);                        \
     GLOBAL_ATOM_DECL(pup);                             \
     GLOBAL_ATOM_DECL(raw);                             \
+    GLOBAL_ATOM_DECL(rawip);                           \
     GLOBAL_ATOM_DECL(rcvbuf);                          \
     GLOBAL_ATOM_DECL(rcvbufforce);                     \
     GLOBAL_ATOM_DECL(rcvlowat);                        \
@@ -2258,6 +2260,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(snd_wnd);                         \
     GLOBAL_ATOM_DECL(sockaddr);                        \
     GLOBAL_ATOM_DECL(socket);                          \
+    GLOBAL_ATOM_DECL(socktype);                        \
     GLOBAL_ATOM_DECL(spec_dst);                        \
     GLOBAL_ATOM_DECL(staticarp);		       \
     GLOBAL_ATOM_DECL(state);                           \
@@ -2358,6 +2361,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
+    LOCAL_ATOM_DECL(genhwaddr);        \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifbrdaddr);       \
     LOCAL_ATOM_DECL(gifconf);          \
@@ -4519,7 +4523,7 @@ ERL_NIF_TERM esock_command_socket_debug(ErlNifEnv* env, ERL_NIF_TERM cdata)
     data.sockDbg = dbg;
     MUNLOCK(data.cntMtx);
 
-    return esock_atom_ok;;
+    return esock_atom_ok;
 }
 
 
@@ -4932,6 +4936,8 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
 
 #if defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)
   requests = MKC(env, MKT2(env, atom_gifhwaddr, MKUL(env, SIOCGIFHWADDR)), requests);
+#elif defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
+  requests = MKC(env, MKT2(env, atom_genaddr, MKUL(env, SIOCGENADDR)), requests);
 #endif
 
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)

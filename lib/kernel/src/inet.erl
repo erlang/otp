@@ -293,6 +293,7 @@ Function `parse_address/1` can be useful:
 -export([getaddrs/2, getaddrs/3, getaddrs_tm/3,
 	 getaddr/2, getaddr/3, getaddr_tm/3]).
 -export([translate_ip/2]).
+-export([inet_backend/0]).
 
 -export([get_rc/0]).
 
@@ -328,7 +329,10 @@ Function `parse_address/1` can be useful:
 	element(1, Record) =:= element(1, RS),
 	tuple_size(Record) =:= element(2, RS)).
 
+%% Two kinds of debug macros (depnds on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%% -define(DBG(F, A), io:format("~w -> " ++ F ++ "~n", [?FUNCTION_NAME | A])).
+%% -define(DBG(F),    ?DBG(F, [])).
 
 
 %%% ---------------------------------
@@ -911,6 +915,9 @@ port(Socket) ->
 -spec send(Socket :: socket(), Packet :: iolist()) -> % iolist()?
 	'ok' | {'error', posix()}.
 
+send(?module_socket(GenSocketMod, _) = Socket, Packet)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Packet);
 send(Socket, Packet) ->
     prim_inet:send(Socket, Packet).
 
@@ -1619,27 +1626,248 @@ getopts(Socket, Opts) ->
 	    Other
     end.
 
+%% --------------------------------------------------------------------------
+
 -doc """
 Get interface names and addresses, in a specific namespace.
 
 Equivalent to `getifaddrs/0`, but accepts an `Option`
 `{netns, Namespace}` that, on platforms that support the feature (Linux),
 sets a network namespace for the OS call.
+Also,
+If the option 'inet_backend' is *first* in the options list,
+the specified backend will be used (for 'inet', inet and
+for 'socket' the equivalent net functions will be used).
+                                         
 
 See the socket option [`{netns, Namespace}`](#option-netns)
-under`setopts/2`.
+under `setopts/2`.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec getifaddrs(
-        [Option :: {netns, Namespace :: file:filename_all()}]
+        [Option :: inet_backend() | {netns, Namespace :: file:filename_all()}]
         | socket()) ->
                         {'ok', [{Ifname :: string(),
                                  Ifopts :: getifaddrs_ifopts()}]}
                             | {'error', posix()}.
+
+getifaddrs([{inet_backend, Backend}|Opts]) ->
+    do_getifaddrs(Backend, Opts);
 getifaddrs(Opts) when is_list(Opts) ->
+    do_getifaddrs(inet_backend(), Opts);
+getifaddrs(?module_socket(GenSocketMod, _) = _Socket)
+  when is_atom(GenSocketMod) ->
+    do_getifaddrs('socket', []);
+getifaddrs(Socket) when is_port(Socket) ->
+    do_getifaddrs('inet', Socket).
+
+do_getifaddrs('socket', []) ->
+    net_getifaddrs(net:getifaddrs(all));
+do_getifaddrs('socket', [{netns, Namespace}]) ->
+    net_getifaddrs(net:getifaddrs(all, Namespace));
+do_getifaddrs('inet', Opts) when is_list(Opts) ->
     withsocket(fun(S) -> prim_inet:getifaddrs(S) end, Opts);
-getifaddrs(Socket) ->
+do_getifaddrs('inet', Socket) when is_port(Socket) ->
     prim_inet:getifaddrs(Socket).
+
+
+net_unique_if_names(Ifs) ->
+    net_unique_if_names(Ifs, []).
+
+net_unique_if_names([], IfNames) ->
+    lists:reverse(IfNames);
+net_unique_if_names([#{name := IfName}|Ifs], IfNames) ->
+    case lists:member(IfName, IfNames) of
+        true ->
+            net_unique_if_names(Ifs, IfNames);
+        false ->
+            net_unique_if_names(Ifs, [IfName|IfNames])
+    end.
+
+net_getifaddrs({ok, AllIfs}) ->
+    IfNames = net_unique_if_names(AllIfs),
+    {ok, net_collect_ifopts(IfNames, AllIfs)};
+net_getifaddrs({error, _} = ERROR) ->
+    ERROR.
+
+
+net_collect_ifopts(IfNames, AllIfs) ->
+    net_collect_ifopts(IfNames, AllIfs, []).
+
+net_collect_ifopts([], _AllIfs, AllNameAndOpts) ->
+    lists:reverse(AllNameAndOpts);
+net_collect_ifopts([IfName|IfNames], AllIfs, NameAndOpts) ->
+    %% Get the Ifs with the name IfName
+    Ifs = [If || #{name := N} = If <- AllIfs, (N =:= IfName)],
+    IfOpts = net_ifs2ifopts(Ifs),
+    net_collect_ifopts(IfNames, AllIfs, [{IfName, IfOpts}|NameAndOpts]).
+
+net_ifs2ifopts(Ifs) ->
+    net_ifs2ifopts(Ifs, #{flags  => [],
+                          addrs  => [],
+                          hwaddr => []}).
+
+
+net_ifs2ifopts([], #{flags  := Flags,
+                     addrs  := Addrs,
+                     hwaddr := HwAddr}) ->
+    [{flags, net_flags_to_inet_flags(Flags)}] ++
+        lists:reverse(Addrs) ++
+        case HwAddr of
+            [] ->
+                [];
+            _ ->
+                [{hwaddr, HwAddr}]
+        end;
+net_ifs2ifopts([If|Ifs], #{flags := []} = IfOpts0) ->
+    IfOpts =
+        case If of
+	     %% LINK or PACKET
+	     %% - On some platforms LINK is used (FreeBSD for instance)
+	     %%   LINK does not include an explicit HW address. Instead
+	     %%   its part of the 'data', together with name and possibly
+	     %%   link layer selector (the lengths can be used to decode
+	     %%   the data)..
+	     %% - On others PACKET is used.
+            #{flags := Flags,
+              addr  := #{family := packet,
+                         addr   := HwAddrBin}} ->
+                IfOpts0#{flags  => Flags,
+                         hwaddr => binary_to_list(HwAddrBin)};
+            #{flags := Flags,
+              addr  := #{family := link,
+                         nlen    := NLen,
+                         alen    := ALen,
+                         data    := Data}} when (ALen > 0) ->
+		case Data of
+		      <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                           IfOpts0#{flags  => Flags,
+                                    hwaddr => binary_to_list(ABin)};
+		      _ ->
+                        IfOpts0#{flags => Flags}
+		end;
+            #{flags := Flags,
+              addr  := #{family := Fam,
+                         addr   := Addr},
+              netmask := #{family := Fam,
+                           addr   := Mask}} when (Fam =:= inet) orelse
+                                                 (Fam =:= inet6) ->
+                %% We may also have broadcast or dest addr
+                BroadAddr = case maps:get(broadaddr, If, undefined) of
+                                undefined ->
+                                    [];
+                                #{addr := BA} ->
+                                    [{broadaddr, BA}]
+                            end,
+                DstAddr = case maps:get(dstaddr, If, undefined) of
+                              undefined ->
+                                  [];
+                              #{addr := DA} ->
+                                  [{dstaddr, DA}]
+                          end,
+                IfOpts0#{flags  => Flags,
+                         addrs  => DstAddr ++ BroadAddr ++ [{netmask, Mask},
+                                                            {addr,    Addr}]};
+            #{flags := Flags} ->
+                IfOpts0#{flags => Flags}
+        end,
+    net_ifs2ifopts(Ifs, IfOpts);
+net_ifs2ifopts([If|Ifs], IfOpts0) ->
+    %% We can only have one 'flags' entry
+    %% (they are supposed to be the same for all if:s of the same name).
+    %% For each 'addr' entry we can have one 'netmask' and 'broadcast'
+    %% or 'dstaddr'
+    IfOpts =
+        case If of
+            #{flags := Flags,
+              addr := #{family := packet,
+                        addr   := HwAddrBin}} ->
+                Flags0 = maps:get(flags, IfOpts0, []),
+                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
+                         hwaddr => binary_to_list(HwAddrBin)};
+            #{flags := Flags,
+              addr  := #{family := Fam,
+                         addr   := Addr},
+              netmask := #{family := Fam,
+                           addr   := Mask}} when (Fam =:= inet) orelse
+                                                 (Fam =:= inet6) ->
+                Addrs0 = maps:get(addrs, IfOpts0, []),
+                Flags0 = maps:get(flags, IfOpts0, []),
+                %% We may also have broadcast or dest addr
+                BroadAddr = case maps:get(broadaddr, If, undefined) of
+                                undefined ->
+                                    [];
+                                #{addr := BA} ->
+                                    [{broadaddr, BA}]
+                            end,
+                DstAddr = case maps:get(dstaddr, If, undefined) of
+                              undefined ->
+                                  [];
+                              #{addr := DA} ->
+                                  [{dstaddr, DA}]
+                          end,
+                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
+                         addrs =>
+                             DstAddr ++
+                             BroadAddr ++
+                             [{netmask, Mask},
+                              {addr,    Addr}] ++
+                             Addrs0};
+            _ ->
+                IfOpts0
+        end,
+    net_ifs2ifopts(Ifs, IfOpts).
+
+net_flags_to_inet_flags(Flags) ->
+    net_flags_to_inet_flags(Flags, []).
+
+net_flags_to_inet_flags([], OutFlags) ->
+    lists:reverse(net_flags_maybe_add_running(OutFlags));
+net_flags_to_inet_flags([InFlag|InFlags], OutFlags) ->
+    case net_flag_to_inet_flag(InFlag) of
+        {value, OutFlag} ->
+            net_flags_to_inet_flags(InFlags, [OutFlag | OutFlags]);
+        false ->
+            net_flags_to_inet_flags(InFlags, OutFlags)
+    end.
+
+net_flags_maybe_add_running(Flags) ->
+    case lists:member(running, Flags) of
+        true ->
+            Flags;
+        false ->
+            case lists:member(up, Flags) of
+                true ->
+                    [running | Flags];
+                false ->
+                    Flags
+            end
+    end.
+
+
+%% Should we do this as map instead?
+%% #{up          => up,
+%%   broadcast   => broadcast,
+%%   loopback    => loopback,
+%%   pointopoint => pointtopoint,
+%%   running     => running,
+%%   multicast   => multicast},
+net_flag_to_inet_flag(InFlag) ->
+    InetFlags = [up, broadcast, loopback,
+                 {pointopoint, pointtopoint},
+                 running, multicast],
+    net_flag_to_inet_flag(InFlag, InetFlags).
+
+net_flag_to_inet_flag(_InFlag, []) ->
+    false;
+net_flag_to_inet_flag(InFlag, [InFlag|_]) ->
+    {value, InFlag};
+net_flag_to_inet_flag(InFlag, [{InFlag, OutFlag}|_]) ->
+    {value, OutFlag};
+net_flag_to_inet_flag(InFlag, [_|InetFlags]) ->
+    net_flag_to_inet_flag(InFlag, InetFlags).
+
+
 
 -doc """
 Get interface names and addresses.
@@ -1653,29 +1881,81 @@ the type of the [`Ifopts`](`t:getifaddrs_ifopts/0`) value.
 """.
 -doc(#{since => <<"OTP R14B01">>}).
 -spec getifaddrs() ->
-                        {'ok', [{Ifname :: string(),
-                                 Ifopts :: getifaddrs_ifopts()}]}
-                            | {'error', posix()}.
-getifaddrs() ->
-    withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
+          {'ok', [{Ifname :: string(),
+                   Ifopts :: getifaddrs_ifopts()}]}
+              | {'error', posix()}.
 
+getifaddrs() ->
+    do_getifaddrs(inet_backend(), []).
+
+
+%% --------------------------------------------------------------------------
 
 -doc false.
 -spec getiflist(
-        [Option :: {netns, Namespace :: file:filename_all()}]
+        [Option :: inet_backend() | {netns, Namespace :: file:filename_all()}]
         | socket()) ->
                        {'ok', [string()]} | {'error', posix()}.
 
+getiflist([{inet_backend, Backend}|Opts]) ->
+    do_getiflist(Backend, Opts);
 getiflist(Opts) when is_list(Opts) ->
-    withsocket(fun(S) -> prim_inet:getiflist(S) end, Opts);
-getiflist(Socket) ->
+    do_getiflist(inet_backend(), Opts);
+getiflist(?module_socket(GenSocketMod, ESock) = _Socket)
+  when is_atom(GenSocketMod) ->
+    do_getiflist('socket', ESock);
+getiflist(Socket) when is_port(Socket) ->
+    do_getiflist('inet', Socket).
+
+do_getiflist(Backend, Opts) when is_list(Opts) ->
+    withsocket(fun(S) -> do_getiflist2(Backend, S) end, Backend, Opts);
+do_getiflist(Backend, Socket) ->
+    do_getiflist2(Backend, Socket).
+
+
+do_getiflist2('socket' = _Backend, Socket) ->
+    net_getiflist(Socket);
+do_getiflist2('inet' = _Backend, Socket) when is_port(Socket) ->
+    inet_getiflist(Socket).
+
+net_getiflist(Socket) ->
+    case socket:ioctl(Socket, gifconf) of
+        {ok, Interfaces} ->
+            Names = [Name || #{name := Name,
+                               addr := #{family := Fam}} <-
+                                 Interfaces, ((Fam =:= inet) orelse
+                                              (Fam =:= inet6))],
+            {ok, ensure_unique_names(Names)};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+ensure_unique_names(Names) ->
+    ensure_unique_names(Names, []).
+
+ensure_unique_names([], Acc) ->
+    lists:reverse(Acc);
+ensure_unique_names([Name|Names], Acc) ->
+    case lists:member(Name, Acc) of
+        true ->
+            ensure_unique_names(Names, Acc);
+        false ->
+            ensure_unique_names(Names, [Name|Acc])
+    end.
+
+
+inet_getiflist(Socket) ->
     prim_inet:getiflist(Socket).
+
 
 -doc false.
 -spec getiflist() -> {'ok', [string()]} | {'error', posix()}.
 
 getiflist() ->
-    withsocket(fun(S) -> prim_inet:getiflist(S) end).
+    do_getiflist(inet_backend(), []).
+
+
+%% --------------------------------------------------------------------------
 
 -doc false.
 -spec ifget(Socket :: socket(),
@@ -1683,23 +1963,181 @@ getiflist() ->
 	    Opts :: [if_getopt()]) ->
 	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
-ifget(Socket, Name, Opts) ->
+ifget(?module_socket(GenSocketMod, ESock) = _Socket, Name, Opts)
+  when is_atom(GenSocketMod) ->
+    do_ifget('socket', ESock, Name, Opts);
+ifget(Socket, Name, Opts) when is_port(Socket) ->
+    do_ifget('inet', Socket, Name, Opts).
+
+
+do_ifget('socket', Socket, Name, Opts) ->
+    esock_ifget(Socket, Name, Opts);
+do_ifget('inet',   Socket, Name, Opts) ->
     prim_inet:ifget(Socket, Name, Opts).
+
+
+esock_ifget(ESock, Name, Opts) ->
+    esock_ifget(ESock, Name, Opts, []).
+
+esock_ifget(_ESock, _Name, [] = _Opts, Acc) ->
+    {ok, lists:reverse(Acc)};
+esock_ifget(ESock, Name, [Opt|Opts], Acc) ->
+    case do_esock_ifget(ESock, Name, Opt) of
+        {ok, Value} ->
+            esock_ifget(ESock, Name, Opts, [{Opt, Value}|Acc]);
+        {error, _} ->
+            esock_ifget(ESock, Name, Opts, Acc)
+    end.
+
+%% We should really check if these ioctl get requests are supported:
+%% socket:is_supported(ioctl_requests, Req).
+%% But since the error will just result in a missing result value
+%% anyway (which the user needs to handle), unless there is some
+%% alternative method (see hwaddr) we just return it...
+do_esock_ifget(ESock, Name, 'addr') ->
+    case socket:ioctl(ESock, gifaddr, Name) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_esock_ifget(ESock, Name, 'broadaddr') ->
+    case socket:ioctl(ESock, gifbrdaddr, Name) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_esock_ifget(ESock, Name, 'dstaddr') ->
+    case socket:ioctl(ESock, gifdstaddr, Name) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_esock_ifget(ESock, Name, 'mtu') ->
+    socket:ioctl(ESock, gifmtu, Name);
+do_esock_ifget(ESock, Name, 'netmask') ->
+    case socket:ioctl(ESock, gifnetmask, Name) of
+        {ok, #{addr := Addr}} ->
+            {ok, Addr};
+        {error, _} = ERROR ->
+            ERROR
+    end;
+do_esock_ifget(ESock, Name, 'flags') ->
+    socket:ioctl(ESock, gifflags, Name);
+do_esock_ifget(ESock, Name, 'hwaddr') ->
+    case use_ioctl_for_hwaddr() of
+        {ok, Req} ->
+            case socket:ioctl(ESock, Req, Name) of
+                {ok, #{family := _Fam,
+                       addr   := <<HWADDRBin:6/binary, _/binary>> = _Addr}} ->
+                    {ok, binary_to_list(HWADDRBin)};
+                {error, _} ->
+                    %% Last effort...
+                    hwaddr_from_net_getifaddrs(Name)
+            end;
+        error ->
+            %% Try getifaddrs instead
+            hwaddr_from_net_getifaddrs(Name)
+    end.
+
+use_ioctl_for_hwaddr() ->
+    case socket:is_supported(ioctl_requests, gifhwaddr) of
+        true ->
+            {ok, gifhwaddr};
+        false ->
+            case socket:is_supported(ioctl_requests, genhwaddr) of
+                true ->
+                    {ok, genhwaddr};
+                false ->
+                    error
+            end
+    end.
+
+hwaddr_from_net_getifaddrs(Name) ->
+    %% Platforms "use" different Family.
+    %% FreeBSD use 'link', Linux use 'packet'.
+    Filter = fun(#{name := IF,
+                   addr := #{family := Fam}})
+                   when (IF =:= Name) andalso
+                        ((Fam =:= link) orelse (Fam =:= packet)) ->
+                     %% io:format("+ right interface and family~n", []),
+                     true;
+                (#{name := IF,
+                   addr := #{family := _Fam}})
+                   when (IF =:= Name) ->
+                     %% io:format("- right interface but wrong family: "
+                     %%           "~n   Fam: ~p (link|packet)"
+                     %%           "~n", [_Fam]),
+                     false;
+                (#{name := _IF,
+                   addr := #{family := Fam}})
+                   when ((Fam =:= link) orelse (Fam =:= packet)) ->
+                     %% io:format("- right family but wrong interface"
+                     %%           "~n   IF: ~p (~p)"
+                     %%           "~n", [_IF, Name]),
+                     false;
+                (#{name := _IF,
+                   addr := #{family := _Fam}}) ->
+                     %% io:format("- wrong interface and family: "
+                     %%           "~n   IF:  ~p (~p)"
+                     %%           "~n   Fam: ~p (link|packet)"
+                     %%           "~n", [_IF, Name, _Fam]),
+                     false;
+                (_X) ->
+                     %% io:format("- just plain wrong: "
+                     %%           "~n   X: ~p"
+                     %%           "~n", [_X]),
+                     false
+             end,
+    case net:getifaddrs(Filter) of
+        {ok, [#{addr := #{family := packet,
+                          addr   := HwAddrBin}}|_]} ->
+            {ok, binary_to_list(HwAddrBin)};
+        {ok, [#{addr := #{family := link,
+                          nlen   := NLen,
+                          alen   := ALen,
+                          data   := Data}}|_]} ->
+            case Data of
+                <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                    {ok, binary_to_list(ABin)};
+                _ -> %% Ouch - what is this? malformed data?
+                    {error, unknown}
+            end;
+        {ok, _} -> %% Ouch - we got something but don't know how to decode it
+            {error, unknown};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+        
 
 -doc false.
 -spec ifget(
         Name :: string() | atom(),
-        Opts :: [if_getopt() |
+        Opts :: [inet_backend() |
+                 if_getopt() |
                  {netns, Namespace :: file:filename_all()}]) ->
 	{'ok', [if_getopt_result()]} | {'error', posix()}.
 
+ifget(Name, [{inet_backend, Backend}|Opts]) ->
+    do_ifget(Backend, Name, Opts);
 ifget(Name, Opts) ->
-    {NSOpts,IFOpts} =
+    do_ifget(inet_backend(), Name, Opts).
+
+do_ifget(Backend, Name, Opts) ->
+    {NSOpts, IFOpts} =
         lists:partition(
           fun ({netns,_}) -> true;
               (_) -> false
           end, Opts),
-    withsocket(fun(S) -> prim_inet:ifget(S, Name, IFOpts) end, NSOpts).
+    withsocket(fun(S) ->
+                       do_ifget(Backend, S, Name, IFOpts)
+               end,
+               Backend, NSOpts).
+
+
+%% --------------------------------------------------------------------------
 
 -doc false.
 -spec ifset(Socket :: socket(),
@@ -1707,23 +2145,80 @@ ifget(Name, Opts) ->
 	    Opts :: [if_setopt()]) ->
 	'ok' | {'error', posix()}.
 
-ifset(Socket, Name, Opts) ->
+ifset(?module_socket(GenSocketMod, ESock) = _Socket, Name, Opts)
+  when is_atom(GenSocketMod) ->
+    do_ifset('socket', ESock, Name, Opts);
+ifset(Socket, Name, Opts) when is_port(Socket) ->
+    do_ifset('inet', Socket, Name, Opts).
+
+do_ifset('socket', Socket, Name, Opts) ->
+    esock_ifset(Socket, Name, Opts);
+do_ifset('inet', Socket, Name, Opts) ->
     prim_inet:ifset(Socket, Name, Opts).
 
+esock_ifset(_Socket, _Name, [] = _Opts) ->
+    ok;
+esock_ifset(Socket, Name, [{Req, Value}|Opts]) ->
+    case do_esock_ifset(Socket, Name, Req, Value) of
+        ok ->
+            esock_ifset(Socket, Name, Opts);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+do_esock_ifset(Socket, Name, 'addr' = _Req, Addr) ->
+    do_esock_ifset2(Socket, Name, sifaddr, Addr);
+do_esock_ifset(Socket, Name, 'broadaddr' = _Req, Addr) ->
+    do_esock_ifset2(Socket, Name, sifbrdaddr, Addr);
+do_esock_ifset(Socket, Name, 'dstdaddr' = _Req, Addr) ->
+    do_esock_ifset2(Socket, Name, sifdstaddr, Addr);
+do_esock_ifset(Socket, Name, 'mtu' = _Req, MTU) ->
+    do_esock_ifset2(Socket, Name, sifmtu, MTU);
+do_esock_ifset(Socket, Name, 'netmask' = _Req, Addr) ->
+    do_esock_ifset2(Socket, Name, sifnetmask, Addr);
+do_esock_ifset(Socket, Name, 'flags' = _Req, Flags) ->
+    do_esock_ifset2(Socket, Name, sifflags, Flags);
+do_esock_ifset(Socket, Name, 'hwaddr' = _Req, Addr) ->
+    do_esock_ifset2(Socket, Name, sifhwaddr, Addr).
+
+do_esock_ifset2(Socket, Name, Req, Value) ->
+    try socket:ioctl(Socket, Req, Name, Value) of
+        ok ->
+            ok;
+        {error, _} = ERROR -> % This is "einval" stuff...
+            ERROR
+    catch
+        error:notsup -> % These are siently ignored
+            ok
+    end.
+
+    
 -doc false.
 -spec ifset(
         Name :: string() | atom(),
-        Opts :: [if_setopt() |
+        Opts :: [inet_backend() |
+                 if_setopt() |
                  {netns, Namespace :: file:filename_all()}]) ->
 	'ok' | {'error', posix()}.
 
+ifset(Name, [{inet_backend, Backend}|Opts]) ->
+    do_ifset(Backend, Name, Opts);
 ifset(Name, Opts) ->
-    {NSOpts,IFOpts} =
+    do_ifset(inet_backend(), Name, Opts).
+
+do_ifset(Backend, Name, Opts) ->
+    {NSOpts, IFOpts} =
         lists:partition(
           fun ({netns,_}) -> true;
               (_) -> false
           end, Opts),
-    withsocket(fun(S) -> prim_inet:ifset(S, Name, IFOpts) end, NSOpts).
+    withsocket(fun(S) ->
+                       do_ifset(Backend, S, Name, IFOpts)
+               end,
+               Backend, NSOpts).
+
+
+%% --------------------------------------------------------------------------
 
 -doc false.
 -spec getif() ->
@@ -1731,49 +2226,110 @@ ifset(Name, Opts) ->
 	{'error', posix()}.
 
 getif() ->
-    withsocket(fun(S) -> getif(S) end).
+    withsocket(fun(S) -> getif(S) end, inet_backend(), []).
 
 %% backwards compatible getif
 -doc false.
 -spec getif(
-        [Option :: {netns, Namespace :: file:filename_all()}]
+        [Option :: inet_backend() | {netns, Namespace :: file:filename_all()}]
         | socket()) ->
 	{'ok', [{ip_address(), ip_address() | 'undefined', ip_address()}]} |
 	{'error', posix()}.
 
+getif([{inet_backend, Backend}|Opts]) ->
+    withsocket(fun(S) -> getif(Backend, S) end, Backend, Opts);
 getif(Opts) when is_list(Opts) ->
-    withsocket(fun(S) -> getif(S) end, Opts);
-getif(Socket) ->
-    case prim_inet:getiflist(Socket) of
-	{ok, IfList} ->
-	    {ok, lists:foldl(
-		   fun(Name,Acc) ->
-			   case prim_inet:ifget(Socket,Name,
-						[addr,broadaddr,netmask]) of
-			       {ok,[{addr,A},{broadaddr,B},{netmask,M}]} ->
-				   [{A,B,M}|Acc];
-			       %% Some interfaces does not have a b-addr
+    Backend = inet_backend(),
+    withsocket(fun(S) -> getif(Backend, S) end, Backend, Opts);
+getif(?module_socket(GenSocketMod, ESock) = _Socket)
+  when is_atom(GenSocketMod) ->
+    getif('socket', ESock);
+getif(Socket) when is_port(Socket) ->
+    getif('inet', Socket).
+
+
+getif('socket', Socket) ->
+    net_getif(Socket);
+getif('inet', Socket) ->
+    inet_getif(Socket).
+
+net_getif(Socket) ->
+    GetIfList = fun() -> net_getiflist(Socket) end,
+    IfGet     = fun(Name) ->
+                        esock_ifget(Socket, Name,
+                                    [addr, broadaddr, netmask])
+                end,
+    do_getif(GetIfList, IfGet).
+
+inet_getif(Socket) ->
+    GetIfList = fun() -> inet_getiflist(Socket) end,
+    IfGet     = fun(Name) ->
+                        prim_inet:ifget(Socket, Name,
+                                        [addr, broadaddr, netmask])
+                end,
+    do_getif(GetIfList, IfGet).
+
+do_getif(GetIfList, IfGet) ->
+    case GetIfList() of
+        {ok, IfList} ->
+            {ok, lists:foldl(
+                   fun(Name,Acc) ->
+                           case IfGet(Name) of
+                               {ok, [{addr, A}, {broadaddr, B}, {netmask,M}]} ->
+                                   [{A, B, M}|Acc];
+                               %% Some interfaces does not have a b-addr
 			       {ok,[{addr,A},{netmask,M}]} ->
 				   [{A,undefined,M}|Acc];
-			       _ ->
-				   Acc
-			   end
-		   end, [], IfList)};
-	Error -> Error
+                               _ ->
+                                   Acc
+                           end
+                   end, [], IfList)};
+        Error -> Error
     end.
+
+
+%% --------------------------------------------------------------------------
 
 withsocket(Fun) ->
     withsocket(Fun, []).
 %%
 withsocket(Fun, Opts) ->
-    case inet_udp:open(0, Opts) of
-	{ok,Socket} ->
-	    Res = Fun(Socket),
-	    inet_udp:close(Socket),
-	    Res;
-	Error ->
-	    Error
+    inet_withsocket(Fun, Opts).
+
+
+withsocket(Fun, 'socket', Opts) ->
+    esock_withsocket(Fun, Opts);
+withsocket(Fun, 'inet', Opts) ->
+    inet_withsocket(Fun, Opts).
+
+esock_withsocket(Fun, Opts) ->
+    EOpts =
+        case Opts of
+            [{netns, Namespace}] ->
+                #{netns => Namespace};
+            [] ->
+                #{}
+        end,
+    case socket:open(inet, dgram, default, EOpts) of
+        {ok, Socket} ->
+            Res = Fun(Socket),
+            _ = socket:close(Socket),
+            Res;
+        {error, _} = ERROR ->
+            ERROR
     end.
+
+inet_withsocket(Fun, Opts) ->
+    case inet_udp:open(0, Opts) of
+        {ok,Socket} ->
+            Res = Fun(Socket),
+            inet_udp:close(Socket),
+            Res;
+        Error ->
+            Error
+    end.
+
+
 
 -doc false.
 pushf(_Socket, Fun, _State) when is_function(Fun) ->
@@ -1783,6 +2339,8 @@ pushf(_Socket, Fun, _State) when is_function(Fun) ->
 popf(_Socket) ->
     {error, einval}.
 
+
+%% --------------------------------------------------------------------------
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the hostname is not cached any more because this
@@ -1802,6 +2360,18 @@ Returns the local hostname. Never fails.
 %%% XXX gethostname() -> net:gethostname().
 
 gethostname() ->
+    do_gethostname(inet_backend()).
+
+do_gethostname('socket') ->
+    case net:gethostname() of
+        {ok, Hostname} ->
+            %% If its a long name (including domain), shorten to only name
+            {H,_} = lists:splitwith(fun($.)->false;(_)->true end, Hostname),
+            {ok, H};
+        {error, _} ->
+            {ok, "nohost.nodomain"}
+    end;
+do_gethostname('inet') ->
     case inet_udp:open(0,[]) of
 	{ok,U} ->
 	    {ok,Res} = gethostname(U),
@@ -1816,8 +2386,17 @@ gethostname() ->
 -spec gethostname(Socket :: socket()) ->
 	{'ok', string()} | {'error', posix()}.
 
+%% The esock version of should never really be called. Its supposed to 
+%% be a utility function for gethostname/0. But just in case...
+gethostname(?module_socket(GenSocketMod, _) = _Socket)
+  when is_atom(GenSocketMod) ->
+    %% We do not really need the socket for anything...
+    net:gethostname();
 gethostname(Socket) ->
     prim_inet:gethostname(Socket).
+
+
+%% --------------------------------------------------------------------------
 
 -doc(#{equiv => getstat/2}).
 -spec getstat(Socket) ->
@@ -1868,6 +2447,9 @@ getstat(?module_socket(GenSocketMod, _) = Socket, What)
     GenSocketMod:?FUNCTION_NAME(Socket, What);
 getstat(Socket, What) ->
     prim_inet:getstat(Socket, What).
+
+
+%% --------------------------------------------------------------------------
 
 -doc """
 Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record.
@@ -2128,6 +2710,9 @@ getll(Socket) when is_port(Socket) ->
 -spec getfd(Socket :: socket()) ->
 	{'ok', non_neg_integer()} | {'error', posix()}.
 
+getfd(?module_socket(GenSocketMod, ESock) = _Socket)
+  when is_atom(GenSocketMod) ->
+    socket:getopt(ESock, otp, fd);
 getfd(Socket) ->
     prim_inet:getfd(Socket).
 
@@ -2208,14 +2793,21 @@ getaddrs(Address, Family, Timeout) ->
 -spec getservbyport(Port :: port_number(), Protocol :: atom() | string()) ->
 	{'ok', string()} | {'error', posix()}.
 
-getservbyport(Port, Proto) ->
-    case inet_udp:open(0, []) of
-	{ok,U} ->
-	    Res = prim_inet:getservbyport(U, Port, Proto),
-	    inet_udp:close(U),
-	    Res;
-	Error -> Error
+getservbyport(Port, Protocol) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyport(Port, Protocol);
+        'socket' ->
+            net_getservbyport(Port, Protocol)
     end.
+
+inet_getservbyport(Port, Protocol) ->
+    withsocket(fun(S) -> prim_inet:getservbyport(S, Port, Protocol) end).
+
+net_getservbyport(Port, Protocol) when is_list(Protocol) ->
+    net_getservbyport(Port, list_to_atom(Protocol));
+net_getservbyport(Port, Protocol) when is_atom(Protocol) ->
+    net:getservbyport(Port, Protocol).
 
 -doc false.
 -spec getservbyname(Name :: atom() | string(),
@@ -2223,13 +2815,23 @@ getservbyport(Port, Proto) ->
 	{'ok', port_number()} | {'error', posix()}.
 
 getservbyname(Name, Protocol) when is_atom(Name) ->
-    case inet_udp:open(0, []) of
-	{ok,U} ->
-	    Res = prim_inet:getservbyname(U, Name, Protocol),
-	    inet_udp:close(U),
-	    Res;
-	Error -> Error
+    getservbyname(atom_to_list(Name), Protocol);
+getservbyname(Name, Protocol) when is_list(Name) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyname(Name, Protocol);
+        'socket' ->
+            net_getservbyname(Name, Protocol)
     end.
+
+inet_getservbyname(Name, Protocol) ->
+    withsocket(fun(S) -> prim_inet:getservbyname(S, Name, Protocol) end).
+
+net_getservbyname(Name, Protocol) when is_list(Protocol) ->
+    net_getservbyname(Name, list_to_atom(Protocol));
+net_getservbyname(Name, Protocol) when is_atom(Protocol) ->
+    net:getservbyname(Name, Protocol).
+
 
 -doc "Parse an `t:ip_address/0` to an IPv4 or IPv6 address string.".
 -doc(#{since => <<"OTP R16B02">>}).
@@ -3333,7 +3935,6 @@ open_opts(Fd_or_OpenOpts, BAddr, BPort, Opts, Protocol, Family, Type, Module) ->
 %%
 open_setopts(S, BAddr, BPort, Opts, Module) ->
     %% ?DBG([{s, S}, {baddr, BAddr}, {bport, BPort}, {opts, Opts}, {mod, Module}]),
-    %% ok = prim_inet:setopts(S, [{debug, true}]),
     case prim_inet:setopts(S, Opts) of
         ok when BAddr =:= undefined ->
             %% ?DBG("ok -> register socket"),
@@ -3962,3 +4563,8 @@ ensure_sockaddr(SockAddr) ->
         throw : {invalid, _} = Invalid : Stacktrace ->
             erlang:raise(error, Invalid, Stacktrace)
     end.
+
+
+-doc false.
+inet_backend() ->
+    persistent_term:get({kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND).

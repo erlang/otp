@@ -5862,7 +5862,7 @@ ERL_NIF_TERM esaio_ioctl_tcp_info(ErlNifEnv*       env,
     }
 
     SSDBG( descP,
-           ("UNIX-ESSIO", "essio_ioctl_tcp_info(%d) -> done with"
+           ("WIN-ESAIO", "esaio_ioctl_tcp_info(%d) -> done with"
             "\r\n      result: %T"
             "\r\n",
             descP->sock, result) );

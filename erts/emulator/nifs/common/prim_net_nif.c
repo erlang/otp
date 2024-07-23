@@ -330,7 +330,8 @@ ENET_NIF_FUNCS
 
 /* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM enet_command(ErlNifEnv*   env,
-                                 ERL_NIF_TERM cmd);
+                                 ERL_NIF_TERM cmd,
+                                 ERL_NIF_TERM cdata);
 
 static ERL_NIF_TERM enet_gethostname(ErlNifEnv* env);
 
@@ -558,20 +559,17 @@ static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, int* err);
 #endif
-static ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa);
+static ERL_NIF_TERM encode_sockaddr(ErlNifEnv*       env,
+                                    struct sockaddr* sa);
 static BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
                                        const ERL_NIF_TERM eflags,
                                        int*               flags);
 static BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                                             const ERL_NIF_TERM eflags,
                                             int*               flags);
-static
-BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
-                                 const ERL_NIF_TERM eString,
-                                 char**             stringP);
-static ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                                ERL_NIF_TERM ebool,
-                                BOOLEAN_T*   ibool);
+static BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
+                                        const ERL_NIF_TERM eString,
+                                        char**             stringP);
 static ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
                                          struct addrinfo* addrInfo);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
@@ -868,25 +866,37 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
  * Command - This is a general purpose command, of any type.
  *           Currently, the only supported command is:
  *
- *                  {debug, boolean()}
+ *                  debug: boolean()
  */
 static
 ERL_NIF_TERM nif_command(ErlNifEnv*         env,
                          int                argc,
                          const ERL_NIF_TERM argv[])
 {
-    ERL_NIF_TERM ecmd, result;
+    ERL_NIF_TERM command, cdata, result;
 
     NDBG( ("NET", "command -> entry (%d)\r\n", argc) );
 
-    if (argc != 1)
+    ESOCK_ASSERT( argc == 1 );
+
+    if (! GET_MAP_VAL(env, argv[0], esock_atom_command, &command)) {
+        NDBG( ("NET",
+               "nif_command -> field not found: command\r\n") );
         return enif_make_badarg(env);
+    }
 
-    ecmd = argv[0];
+    if (! GET_MAP_VAL(env, argv[0], esock_atom_data, &cdata)) {
+        NDBG( ("NET",
+               "nif_command -> field not found: data\r\n") );
+        return enif_make_badarg(env);
+    }
 
-    NDBG( ("NET", "command -> ecmd: %T\r\n", ecmd) );
+    NDBG( ("NET", "nif_command -> "
+           "\r\n   command:  %T"
+           "\r\n   cdata:    %T"
+           "\r\n", command, cdata) );
 
-    result = enet_command(env, ecmd);
+    result = enet_command(env, command, cdata);
 
     NDBG( ("NET", "command -> result: %T\r\n", result) );
 
@@ -901,29 +911,33 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
  */
 static
 ERL_NIF_TERM enet_command(ErlNifEnv*   env,
-                          ERL_NIF_TERM cmd)
+                          ERL_NIF_TERM cmd,
+                          ERL_NIF_TERM cdata)
 {
-    const ERL_NIF_TERM* t;
-    int                 tsz;
+    NDBG( ("NET", "enet_command -> entry with %T\r\n", cmd) );
 
-    if (IS_TUPLE(env, cmd)) {
-        /* Could be the debug tuple */
-        if (!GET_TUPLE(env, cmd, &tsz, &t))
-            return esock_make_error(env, esock_atom_einval);
+    if (COMPARE(cmd, esock_atom_debug) == 0) {
+        BOOLEAN_T dbg;
 
-        if (tsz != 2)
-            return esock_make_error(env, esock_atom_einval);
+        NDBG( ("NET", "enet_command -> debug command with"
+               "\r\n   data: %T"
+               "\r\n", cdata) );
 
-        /* First element should be the atom 'debug' */
-        if (COMPARE(t[0], atom_debug) != 0)
-            return esock_make_error(env, esock_atom_einval);
+        if (! esock_decode_bool(cdata, &dbg))
+            return esock_raise_invalid(env, MKT2(env, esock_atom_data, cdata));
 
-        return decode_bool(env, t[1], &data.debug);
+        NDBG( ("NET", "enet_command -> update debug (%T)\r\n", cdata) );
 
-    } else {
-        return esock_make_error(env, esock_atom_einval);
+        data.debug = dbg;
+
+        return esock_atom_ok;
+        
     }
 
+    NDBG( ("NET", "enet_command -> invalid command: %T\r\n", cmd) );
+
+    return esock_raise_invalid(env, MKT2(env, esock_atom_command, cmd));
+    
 }
 
 
@@ -1527,16 +1541,23 @@ ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv* env, struct ifaddrs* ifap)
         while (i < len) {
             ERL_NIF_TERM entry;
 
+            NDBG( ("NET",
+                   "enet_getifaddrs_process -> encode entry %d\r\n", i) );
+
             encode_ifaddrs(env, p, &entry);
 
-            NDBG( ("NET", "enet_getifaddrs_process -> entry: %T\r\n", entry) );
+            NDBG( ("NET", "enet_getifaddrs_process -> new entry (%d):"
+                   "\r\n   %T"
+                   "\r\n", i, entry) );
 
             array[i] = entry;
             p = p->ifa_next;
             i++;
         }
 
-        NDBG( ("NET", "enet_getifaddrs_process -> all entries processed\r\n") );
+        NDBG( ("NET",
+               "enet_getifaddrs_process -> all (%d) entries processed\r\n",
+               len) );
 
         result = esock_make_ok2(env, MKLA(env, array, len));
         FREE(array);        
@@ -1587,29 +1608,54 @@ void encode_ifaddrs(ErlNifEnv*      env,
 {
     ERL_NIF_TERM ename, eflags, eaddr, enetmask, eifu_key, eifu_value, edata;
     ERL_NIF_TERM eifAddrs;
+    BOOLEAN_T    extraAddr; // This is just for debugging...
 
     ename     = encode_ifaddrs_name(env,  ifap->ifa_name);
     NDBG( ("NET", "encode_ifaddrs -> name: %T\r\n", ename) );
     eflags    = encode_ifaddrs_flags(env, ifap->ifa_flags);
     NDBG( ("NET", "encode_ifaddrs -> flags: %T\r\n", eflags) );
     eaddr     = encode_ifaddrs_addr(env,  ifap->ifa_addr);
-    NDBG( ("NET", "encode_ifaddrs -> addr: %T\r\n", eaddr) );
+    NDBG( ("NET", "encode_ifaddrs -> addr: "
+           "\r\n   %T"
+           "\r\n", eaddr) );
+    /* This is an ugly (OpenBSD?) hack... 
+     * "For some reason" the netmask family is set to 'AF_UNSPEC'
+     * (when the addr family is AF_INET) on OpenBSD,
+     * which makes encoding the address "difficult"...
+     * So force the family to AF_INET in this case to allow encoding
+     * the netmask...
+     */
+    if ((ifap->ifa_addr != NULL) &&
+        (((ESockAddress*)ifap->ifa_addr)->sa.sa_family == AF_INET)) {
+        if ((ifap->ifa_netmask != NULL) &&
+            (((ESockAddress*)ifap->ifa_netmask)->sa.sa_family == AF_UNSPEC)) {
+            ((ESockAddress*)ifap->ifa_netmask)->sa.sa_family = AF_INET;
+        }
+    }
     enetmask  = encode_ifaddrs_addr(env,  ifap->ifa_netmask);
-    NDBG( ("NET", "encode_ifaddrs -> netmask: %T\r\n", enetmask) );
+    NDBG( ("NET", "encode_ifaddrs -> netmask: "
+           "\r\n   %T"
+           "\r\n", enetmask) );
     if (ifap->ifa_dstaddr && (ifap->ifa_flags & IFF_POINTOPOINT)) {
+        extraAddr  = TRUE;
         eifu_key   = atom_dstaddr;
         eifu_value = encode_ifaddrs_addr(env, ifap->ifa_dstaddr);
     } else if (ifap->ifa_broadaddr && (ifap->ifa_flags & IFF_BROADCAST)) {
+        extraAddr  = TRUE;
         eifu_key   = atom_broadaddr;
         eifu_value = encode_ifaddrs_addr(env, ifap->ifa_broadaddr);
     } else {
+        extraAddr  = FALSE;
         eifu_key   = esock_atom_undefined;
         eifu_value = esock_atom_undefined;
     }
-    NDBG( ("NET", "encode_ifaddrs -> ifu: "
-            "\r\n   key: %T"
-            "\r\n   val: %T"
-            "\r\n", eifu_key, eifu_value) );
+    if (extraAddr) {
+        NDBG( ("NET", "encode_ifaddrs -> ifu: "
+               "\r\n   key: %T"
+               "\r\n   val: %T"
+               "\r\n", eifu_key, eifu_value) );
+    }
+
     /* Don't know how to encode this yet...
      * We don't even know the size...
      */
@@ -1620,7 +1666,10 @@ void encode_ifaddrs(ErlNifEnv*      env,
                  eifu_key, eifu_value, edata,
                  &eifAddrs);
 
-    NDBG( ("NET", "encode_ifaddrs -> encoded ifAddrs: %T\r\n", eifAddrs) );
+    NDBG( ("NET", "encode_ifaddrs -> encoded ifAddrs: "
+           "\r\n   %T"
+           "\r\n", eifAddrs) );
+
     *eifa = eifAddrs;
 }
 
@@ -1722,7 +1771,8 @@ ERL_NIF_TERM encode_ifaddrs_flags(ErlNifEnv* env, unsigned int flags)
 
 
 static
-ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv* env, struct sockaddr* sa)
+ERL_NIF_TERM encode_ifaddrs_addr(ErlNifEnv*       env,
+                                 struct sockaddr* sa)
 {
     return encode_sockaddr(env, sa);
 }
@@ -1760,7 +1810,9 @@ void make_ifaddrs(ErlNifEnv*    env,
     idx++;
 
     /* *** Addr (can be 'undefined' = NULL) *** */
-    NDBG( ("NET", "make_ifaddrs -> addr: %T\r\n", eaddr) );
+    NDBG( ("NET", "make_ifaddrs -> addr: "
+           "\r\n   %T"
+           "\r\n", eaddr) );
     if (COMPARE(eaddr, esock_atom_undefined) != 0) {    
         keys[idx] = esock_atom_addr;
         vals[idx] = eaddr;
@@ -1770,7 +1822,9 @@ void make_ifaddrs(ErlNifEnv*    env,
     }
 
     /* *** Netmask (can be 'undefined' = NULL) *** */
-    NDBG( ("NET", "make_ifaddrs -> netmask: %T\r\n", enetmask) );
+    NDBG( ("NET", "make_ifaddrs -> netmask: "
+           "\r\n   %T"
+           "\r\n", enetmask) );
     if (COMPARE(enetmask, esock_atom_undefined) != 0) {    
         keys[idx] = atom_netmask;
         vals[idx] = enetmask;
@@ -2457,7 +2511,7 @@ static
 ERL_NIF_TERM encode_adapter_unicast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2662,7 +2716,7 @@ static
 ERL_NIF_TERM encode_adapter_anycast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2741,7 +2795,7 @@ static
 ERL_NIF_TERM encode_adapter_multicast_addr_sockaddr(ErlNifEnv*       env,
                                                     struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2805,7 +2859,7 @@ static
 ERL_NIF_TERM encode_adapter_dns_server_addr_sockaddr(ErlNifEnv*       env,
                                                      struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -2949,7 +3003,7 @@ static
 ERL_NIF_TERM encode_adapter_prefix_sockaddr(ErlNifEnv*       env,
                                             struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP);
+    return encode_sockaddr(env, addrP, -1);
 }
 #endif // __WIN32__
 
@@ -4428,7 +4482,8 @@ unsigned int enet_if_names_length(struct if_nameindex* p)
  */
 
 static
-ERL_NIF_TERM encode_sockaddr(ErlNifEnv* env, struct sockaddr* sa)
+ERL_NIF_TERM encode_sockaddr(ErlNifEnv*       env,
+                             struct sockaddr* sa)
 {
     ERL_NIF_TERM esa;
 
@@ -4696,17 +4751,24 @@ ERL_NIF_TERM encode_address_info_family(ErlNifEnv* env,
 
 /* Convert an "native" socket type to an erlang socket type.
  * Note that this is not currently exhaustive, but only supports
- * stream and dgram. Other values will be returned as is, that is
- * in the form of an integer.
+ * stream, dgram, raw, seqpacket and rdm.
+ * Also, the value 0 (zero) has the special meaning: any.
+ * Other values will be returned as is, that is in the form of
+ * an integer.
  */
 static
 ERL_NIF_TERM encode_address_info_type(ErlNifEnv* env,
                                       int        socktype)
 {
     ERL_NIF_TERM etype;
+    ERL_NIF_TERM zero = MKI(env, 0);
 
     esock_encode_type(env, socktype, &etype);
-    return etype;
+
+    if (IS_IDENTICAL(zero, etype))
+        return esock_atom_any;
+    else
+        return etype;
 }
 
 
@@ -4720,7 +4782,7 @@ void make_address_info(ErlNifEnv*    env,
                        ERL_NIF_TERM* ai)
 {
     ERL_NIF_TERM keys[]  = {esock_atom_family,
-                            esock_atom_type,
+                            esock_atom_socktype,
                             esock_atom_protocol,
                             esock_atom_addr};
     ERL_NIF_TERM vals[]  = {fam, sockType, proto, addr};
@@ -4828,24 +4890,6 @@ BOOLEAN_T restore_network_namespace(int ns, int* err)
 }
 #endif // if !defined(__WIN32__)
 #endif // ifdef HAVE_SETNS
-
-
-static
-ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                         ERL_NIF_TERM ebool,
-                         BOOLEAN_T*   ibool)
-{
-    if (COMPARE(ebool, esock_atom_true) == 0) {
-        *ibool = TRUE;
-        return esock_atom_ok;
-    } else if (COMPARE(ebool, esock_atom_false) == 0) {
-        *ibool = FALSE;
-        return esock_atom_ok;
-    } else {
-        return esock_make_error(env, esock_atom_einval);
-    }
-}
-
 
 
 /* ----------------------------------------------------------------------

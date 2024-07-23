@@ -29,7 +29,7 @@ This module provides an API for the network interface.
 %% Administrative and utility functions
 -export([
 	 info/0,
-         command/1
+         debug/1
         ]).
 
 -export([
@@ -113,10 +113,12 @@ Interface address filtering selector.
 
 - **default** - Interfaces with address family `inet` _or_ `inet6`
 
-- **inet | inet6 | packet** - Interfaces with _only_ the specified address
-  family
+- **inet | inet6 | packet | link** - Interfaces with _only_ the specified
+ address family
+- **hwaddr** - Interfaces with address family `packet` _or_ `link`
 """.
--type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
+-type ifaddrs_filter()     :: all | default | inet | inet6 |
+                              packet | link | hwaddr |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
 
@@ -125,6 +127,10 @@ Interface address filtering selector map.
 
 The `family` field can only have the (above) specified values
 (and not all the values of socket:domain()).
+It can also be a list of values, to cover the situation when
+any of the specified families are accepted.
+For example, family can be set to `[inet,inet6]` if either `inet` or `inet6`
+is accepted.
 
 The use of the `flags` field is that any flag provided must exist for the
 interface.
@@ -133,8 +139,9 @@ For example, if `family` is set to `inet` and `flags` to
 `[broadcast, multicast]` only interfaces with address family `inet`
 and the flags `broadcast` and `multicast` will be listed.
 """.
--type ifaddrs_filter_map() :: #{family := default | local |
-                                inet | inet6 | packet | all,
+-type ifaddrs_filter_map() :: #{family := all | default |
+                                local | inet | inet6 | packet | link |
+                                [local | inet | inet6 | packet | link],
                                 flags  := any | [ifaddrs_flag()]}.
 
 -doc """
@@ -167,13 +174,13 @@ net:getifaddrs(
 %% The following (ext) flags has been removed
 %% (as they are deprecated by later version of gcc):
 %%    idn_allow_unassigned | idn_use_std3_ascii_rules.
--type name_info_flag_ext()      :: idn.
--type name_info()               :: #{host    := string(),
-                                     service := string()}.
--type address_info()            :: #{family   := socket:domain(),
-                                     socktype := socket:type(),
-                                     protocol := socket:protocol(),
-                                     address  := socket:sockaddr()}.
+-type name_info_flag_ext() :: idn.
+-type name_info()    :: #{host    := string(),
+                          service := string()}.
+-type address_info() :: #{family   := socket:domain(),
+                          socktype := any | socket:type() | integer(),
+                          protocol := socket:protocol(),
+                          address  := socket:sockaddr()}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -222,10 +229,15 @@ sleep(T) -> receive after T -> ok end.
 info() ->
     prim_net:info().
 
+
 -doc false.
--spec command(Cmd :: term()) -> term().
-command(Cmd) ->
-    prim_net:command(Cmd).
+-spec debug(D :: boolean()) -> 'ok'.
+%%
+debug(D) when is_boolean(D) ->
+    prim_net:debug(D);
+debug(D) ->
+    erlang:error(badarg, [D]).
+
 
 %% ===========================================================================
 %%
@@ -416,6 +428,10 @@ getifaddrs_filter_map(inet6) ->
     getifaddrs_filter_map_inet6();
 getifaddrs_filter_map(packet) ->
     getifaddrs_filter_map_packet();
+getifaddrs_filter_map(link) ->
+    getifaddrs_filter_map_link();
+getifaddrs_filter_map(hwaddr) ->
+    getifaddrs_filter_map_hwaddr();
 getifaddrs_filter_map(FilterMap) when is_map(FilterMap) ->
     maps:merge(getifaddrs_filter_map_default(), FilterMap).
 
@@ -434,29 +450,48 @@ getifaddrs_filter_map_inet6() ->
 getifaddrs_filter_map_packet() ->
     #{family => packet, flags => any}.
 
+getifaddrs_filter_map_link() ->
+    #{family => link, flags => any}.
+
+getifaddrs_filter_map_hwaddr() ->
+    #{family => [link,packet], flags => any}.
+
 -compile({nowarn_unused_function, getifaddrs_filter/2}).
 
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
   when (FFamily =:= default) andalso
-       ((Family =:= inet) orelse (Family =:= inet6)) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet) andalso (Family =:= inet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet6) andalso (Family =:= inet6) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= packet) andalso (Family =:= packet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{flags := Flags} = _Entry)
+       ((EFamily =:= inet) orelse (EFamily =:= inet6)) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet) andalso (EFamily =:= inet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet6) andalso (EFamily =:= inet6) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= packet) andalso (EFamily =:= packet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= link) andalso (EFamily =:= link) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{flags := EFlags} = _Entry)
   when (FFamily =:= all) ->
-    getifaddrs_filter_flags(FFlags, Flags);
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFams, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when is_list(FFams) ->
+    case lists:member(EFamily, FFams) of
+    	 true ->
+    	      getifaddrs_filter_flags(FFlags, EFlags);
+	 false ->
+	       false
+     end;
 getifaddrs_filter(_Filter, _Entry) ->
     false.
 
