@@ -12428,6 +12428,24 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 
 
 
+static int packet_header_length(tcp_descriptor *desc) {
+    /* XXX RaNi. Here we shall decide whether to read as short as possible,
+     * or to fill the buffer as much as possible.
+     *
+     * Return 0 when we shall read ahead, and > 0 for the amount of byte
+     * we need to deduce the packet length.
+     */
+
+    switch (desc->inet.htype) {
+    case TCP_PB_SSL_TLS:
+        /* Return the minimal length to not read ahead */
+        return 5;
+    default:
+        return 0; /* Read ahead as much as is comfortable */
+    }
+}
+
+
 /*
 ** Calculate number of bytes that remain to read before deliver
 ** Assume buf, ptr_start, ptr has been setup
@@ -12437,8 +12455,9 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 **         < 0 on error
 **
 ** if return value == 0 then *len will hold the length of the first packet
-**    return value > 0 then if *len == 0 then value means upperbound
-**                             *len > 0  then value means exact
+**    return value > 0 then
+**       if *len == 0 then value means what to read next: upperbound or minimum
+**          *len > 0  then value means exactly what is missing for a packet
 **
 */
 static int tcp_remain(tcp_descriptor* desc, int* len)
@@ -12449,7 +12468,7 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
     int n = desc->i_ptr - ptr;  /* number of bytes read */
     int tlen;
 
-    tlen = packet_get_length(desc->inet.htype, ptr, n, 
+    tlen = packet_get_length(desc->inet.htype, ptr, n,
                              desc->inet.psize, desc->i_bufsz,
                              desc->inet.delimiter, &desc->http_state);
 
@@ -12471,10 +12490,20 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
         }
     }
     else if (tlen == 0) { /* need unknown more */
+        int nread;
+
         *len = 0;
-        if (nsz == 0) {
-            if (nfill == n) {
+        nread = packet_header_length(desc);
+        if (nread != 0)
+            return nread;
+
+        if (nsz == 0) { /* No remaining space - buffer is full */
+            if (nfill == n) {   /* The current packet itself fills the buffer */
                 if (desc->inet.psize != 0 && desc->inet.psize > nfill) {
+                    /* There is a max packet size that is larger than
+                     * the current buffer - expand the buffer
+                     * to max packet size
+                     */
                     if (tcp_expand_buffer(desc, desc->inet.psize) < 0)
                         return -1;
                     return desc->inet.psize;
@@ -12483,12 +12512,17 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
                     goto error;
             }
             DEBUGF((" => restart more=%d\r\n", nfill - n));
+            /* Return the unused buffer space before desc->i_ptr_start,
+             * XXX RaNi. Is there a missing copy down here?
+             * Won't the sock_recv that follows overwrite
+             * the buffer end...???
+             */
             return nfill - n;
         }
         else {
             DEBUGF((" => more=%d \r\n", nsz));
-            return nsz;
-        }	    
+            return nsz; /* Remaining buffer space */
+        }
     }
 
 error:
@@ -12513,7 +12547,8 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	if ((n = tcp_remain(desc, &len)) != 0) {
 	    if (n < 0) /* packet error */
 		return n;
-	    if (len > 0)  /* more data pending */
+            /* Packet incomplete */
+	    if (len > 0)  /* This is what is missing */
 		desc->i_remain = len;
 	    return 0;
 	}
@@ -12589,8 +12624,9 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 
 static int tcp_recv(tcp_descriptor* desc, int request_len)
 {
-    int n;
-    int len;
+    /* request_len is 0 unless called from TCP_REQ_RECV, and then
+     * inet.htype == TCP_PB_RAW and inet.active is INET_PASSIVE (false).
+     */
     int nread;
 
     if (desc->i_buf == NULL) {  /* allocate a read buffer */
@@ -12604,14 +12640,24 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	desc->i_bufsz = sz; /* use i_bufsz not i_buf->orig_size ! */
 	desc->i_ptr_start = desc->i_buf->orig_bytes;
 	desc->i_ptr = desc->i_ptr_start;
-	nread = sz;
+        if (request_len > 0) {
+            nread = sz; /* Read ahead */
+            desc->i_remain = request_len;
+        }
+        else {
+            nread = packet_header_length(desc);
+            if (nread == 0)
+                nread = sz; /* Read ahead */
+	    desc->i_remain = 0;
+        }
 	if (request_len > 0)
 	    desc->i_remain = request_len;
 	else
 	    desc->i_remain = 0;
     }
     else if (request_len > 0) { /* we have a data in buffer and a request */
-	n = desc->i_ptr - desc->i_ptr_start;
+        int n = desc->i_ptr - desc->i_ptr_start;
+
 	if (n >= request_len)
 	    return tcp_deliver(desc, request_len);
 	else if (tcp_expand_buffer(desc, request_len) < 0)
@@ -12620,6 +12666,8 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	    desc->i_remain = nread = request_len - n;
     }
     else if (desc->i_remain == 0) {  /* poll remain from buffer data */
+        int len;
+
 	if ((nread = tcp_remain(desc, &len)) < 0)
 	    return tcp_recv_error(desc, EMSGSIZE);
 	else if (nread == 0)
@@ -12628,53 +12676,70 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	    desc->i_remain = len;  /* set remain */
     }
     else  /* remain already set use it */
+        /* XXX RaNi. I think there is a race here...
+         * If the packet mode is changed between desc->i_remain is set
+         * and remaining data is read, then when the packet is delivered;
+         * packet_parse() is called with the new packet mode (desc->inet.htype)
+         * which is wrong for that packet.
+         */
 	nread = desc->i_remain;
-    
-    DEBUGF(("tcp_recv(%p): s=%d about to read %d bytes...\r\n",  
-	    desc->inet.port, desc->inet.s, nread));
 
-    n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
+    for (;;) {
+        int n;
 
-    if (IS_SOCKET_ERROR(n)) {
-	int err = sock_errno();
-	if (err == ECONNRESET) {
-	    DEBUGF((" => detected close (connreset)\r\n"));
-	    if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
-		return tcp_recv_error(desc, err);
-	    else
-		return tcp_recv_closed(desc);
-	}
-	if (err == ERRNO_BLOCK) {
-	    DEBUGF((" => would block\r\n"));
-	    return 0;
-	}
-	else {
-	    DEBUGF((" => error: %d\r\n", err));
-	    return tcp_recv_error(desc, err);
-	}
-    }
-    else if (n == 0) {
-	DEBUGF(("  => detected close\r\n"));
-	return tcp_recv_closed(desc);
-    }
+        DEBUGF(("tcp_recv(%p): s=%d about to read %d bytes...\r\n",
+                desc->inet.port, desc->inet.s, nread));
 
-    DEBUGF((" => got %d bytes\r\n", n));
-    desc->i_ptr += n;
-    if (desc->i_remain > 0) {
-	desc->i_remain -= n;
-	if (desc->i_remain == 0)
-	    return tcp_deliver(desc, desc->i_ptr - desc->i_ptr_start);
-    }
-    else {
-        nread = tcp_remain(desc, &len);
-	if (nread < 0)
-	    return tcp_recv_error(desc, EMSGSIZE);
-	else if (nread == 0)
-            return tcp_deliver(desc, len);
-	else if (len > 0)
-	    desc->i_remain = len;  /* set remain */
-    }
-    return 0;
+        n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
+
+        if (IS_SOCKET_ERROR(n)) {
+            int err = sock_errno();
+            if (err == ECONNRESET) {
+                DEBUGF((" => detected close (connreset)\r\n"));
+                if (desc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET)
+                    return tcp_recv_error(desc, err);
+                else
+                    return tcp_recv_closed(desc);
+            }
+            if (err == ERRNO_BLOCK) {
+                DEBUGF((" => would block\r\n"));
+                return 0;
+            }
+            else {
+                DEBUGF((" => error: %d\r\n", err));
+                return tcp_recv_error(desc, err);
+            }
+        }
+        else if (n == 0) {
+            DEBUGF(("  => detected close\r\n"));
+            return tcp_recv_closed(desc);
+        }
+        ASSERT(nread >= n);
+
+        DEBUGF((" => got %d bytes\r\n", n));
+        desc->i_ptr += n;
+        if (desc->i_remain > 0) {
+            desc->i_remain -= n;
+            if (desc->i_remain == 0)
+                return tcp_deliver(desc, desc->i_ptr - desc->i_ptr_start);
+            else
+                /* We just tried to read the whole packet,
+                 * no point in trying again immediately
+                 */
+                return 0;
+        }
+        else {
+            int len;
+
+            nread = tcp_remain(desc, &len);
+            if (nread < 0)
+                return tcp_recv_error(desc, EMSGSIZE);
+            else if (nread == 0)
+                return tcp_deliver(desc, len);
+            else if (len > 0) /* nread > 0 */
+                desc->i_remain = len;  /* What is missing for this packet */
+        }
+    } /* for (;;) */
 }
 
 
