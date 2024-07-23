@@ -549,8 +549,14 @@ host_and_addr() ->
     [{timetrap,{minutes,5}}|required(hosts)].
 
 host_and_addr(Config) when is_list(Config) ->
-    lists:foreach(fun try_host/1, get_hosts(Config)),
-    ok.
+    do_host_and_addr(get_hosts(Config)).
+
+do_host_and_addr(Hosts) when is_list(Hosts) andalso (Hosts =/= []) ->
+    lists:foreach(fun try_host/1, Hosts),
+    ok;
+do_host_and_addr(Hosts) ->
+    exit({skip, {no_valid_hosts, Hosts}}).
+
 
 try_host({Ip0, Host}) ->
     {ok, Ip}                             = inet:getaddr(Ip0, inet),
@@ -1587,10 +1593,48 @@ getservbyname_overflow(Config) when is_list(Config) ->
     {error,einval} = inet:getservbyname(list_to_atom(lists:flatten(lists:duplicate(128, "x"))), tcp),
     ok.
 
+
 %% Test inet:gifaddrs/0.
 getifaddrs(Config) when is_list (Config) ->
-    {ok,IfAddrs} = inet:getifaddrs(),
-    io:format("IfAddrs = ~p.~n", [IfAddrs]),
+    do_getifaddrs(default),
+    do_getifaddrs(inet),
+    do_getifaddrs(socket),
+    getifaddrs_verify_backends().
+
+do_getifaddrs(default) ->
+    io:format("try 'default' getifaddrs~n", []),
+    do_getifaddrs2(inet:getifaddrs());
+do_getifaddrs(Backend) ->
+    case is_supported_backend(Backend) of
+        true ->
+            io:format("try '~w' getifaddrs~n", [Backend]),
+            do_getifaddrs2(inet:getifaddrs([{inet_backend, Backend}]));
+        false ->
+            io:format("skip '~w' getifaddrs: not supported~n", [Backend]),
+            ok
+    end.
+
+is_supported_backend(inet = _Backend) ->
+    true;
+is_supported_backend(socket = _Backend) ->
+    is_socket_supported().
+
+is_socket_supported() ->
+    try socket:info() of
+        #{} ->
+            true
+    catch
+        error : notsup ->
+            false;
+        error : undef ->
+            false
+    end.
+
+    
+do_getifaddrs2({ok, IfAddrs}) ->
+    io:format("IfAddrs: "
+              "~n   ~p"
+              "~n", [IfAddrs]),
     case [If || {If,Opts} <- IfAddrs, lists:keymember(hwaddr, 1, Opts)] of
         [] ->
             case os:type() of
@@ -1601,7 +1645,9 @@ getifaddrs(Config) when is_list (Config) ->
         [_|_] -> ok
     end,
     Addrs = ifaddrs(IfAddrs),
-    io:format("Addrs = ~p.~n", [Addrs]),
+    io:format("Addrs: "
+              "~n   ~p"
+              "~n", [Addrs]),
     [check_addr(Addr) || Addr <- Addrs],
     ok.
 
@@ -1609,6 +1655,9 @@ check_addr(Addr)
   when tuple_size(Addr) =:= 8,
        element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
     io:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
+    ok;
+check_addr({169, 254, 118, _} = Addr) ->
+    io:format("Addr: ~p reserved (not usable); SKIPPED!~n", [Addr]),
     ok;
 check_addr(Addr) ->
     io:format("Addr: ~p.~n", [Addr]),
@@ -1706,6 +1755,193 @@ fold_ifopts(Fun, Acc, IfMap, Keys) ->
         [] ->
             Acc
     end.
+
+
+getifaddrs_verify_backends() ->
+    io:format("maybe attempt verify backends~n", []),
+    case is_supported_backend(inet) of
+        true ->
+            case is_supported_backend(socket) of
+                true ->
+                    getifaddrs_verify_backends(
+                      inet:getifaddrs([{inet_backend, inet}]),
+                      inet:getifaddrs([{inet_backend, socket}]));
+                false ->
+                    io:format("'socket' backend not supported: skip~n", [])
+            end;
+        false ->
+            io:format("'inet' backend not supported: skip~n", [])
+    end.
+
+getifaddrs_verify_backends({ok, IfAddrs},
+                           {ok, IfAddrs}) ->
+    io:format("IfAddrs are equal: "
+              "~n   ~p"
+              "~n", [IfAddrs]),
+    ok;
+getifaddrs_verify_backends({ok, IfAddrs_INET},
+                           {ok, IfAddrs_SOCKET}) ->
+    io:format("IfAddrs are not *identical* - check what differs: "
+              "~n   INET:"
+              "~n      ~p"
+              "~n   SOCKET:"
+              "~n      ~p"
+              "~n   INET -- SOCKET: "
+              "~n      ~p"
+              "~n   SOCKET -- INET: "
+              "~n      ~p"
+              "~n", [IfAddrs_INET, IfAddrs_SOCKET,
+                     IfAddrs_INET -- IfAddrs_SOCKET,
+                     IfAddrs_SOCKET -- IfAddrs_INET]),
+    getifaddrs_verify_backends2(IfAddrs_INET, IfAddrs_SOCKET).
+
+getifaddrs_verify_backends2(INET, SOCKET) ->
+    getifaddrs_verify_backends3(lists:keysort(1, INET),
+                                lists:keysort(1, SOCKET)).
+
+getifaddrs_verify_backends3([] = _INET, [] = _SOCKET) ->
+    ok;
+getifaddrs_verify_backends3([] = _INET, SOCKET) ->
+    io:format("'socket' backend contains extra interfaces: "
+              "~n   ~p"
+              "~n", [SOCKET]),
+    ct:fail(ifaddrs_not_equal);
+getifaddrs_verify_backends3(INET, [] = _SOCKET) ->
+    io:format("'inet' backend contains extra interfaces: "
+              "~n   ~p"
+              "~n", [INET]),
+    ct:fail(ifaddrs_not_equal);
+getifaddrs_verify_backends3([{IF, INFO}|INET],
+                            [{IF, INFO}|SOCKET]) ->
+    io:format("backend(s) identical for ~p~n", [IF]),
+    getifaddrs_verify_backends3(INET, SOCKET);
+getifaddrs_verify_backends3([{IF, I_INFO}|INET],
+                            [{IF, S_INFO}|SOCKET]) ->
+    io:format("backend(s) not *identical* for ~p~n", [IF]),
+    getifaddrs_verify_backend(IF, I_INFO, S_INFO),
+    getifaddrs_verify_backends3(INET, SOCKET);
+getifaddrs_verify_backends3([{I_IF, _}|_], [{S_IF, _}|_]) ->
+    io:format("not equal interfaces"
+              "~n   ~p"
+              "~n   ~p"
+              "~n", [I_IF, S_IF]),
+    ct:fail(ifaddrs_not_equal).
+
+
+%% On windows the info may be in different order
+%% (inet and net versions) because the information
+%% comes from several sources. And the processing
+%% is different on inet and net.
+%% The info always starts with 'flags' and ends with
+%% 'hwaddr'. So deal with those two first and the rest
+%% can compared after.
+
+getifaddrs_verify_backend(IF, I_INFO, S_INFO) ->
+    {I_Rest1, S_Rest1} =
+        case {I_INFO, S_INFO} of
+            {[{flags, I_FLAGS}|IR1], [{flags, S_FLAGS}|SR1]} ->
+                case {I_FLAGS -- S_FLAGS, S_FLAGS -- I_FLAGS} of
+                    {[], []} ->
+                        io:format("flags for ~p *are* equal~n", [IF]),
+                        {IR1, SR1};
+                    {[], [multicast]} ->
+                        io:format("flags for ~p are *not* equal - "
+                                  "extra flag 'multicast': "
+                                  "~n   INET:   ~p"
+                                  "~n   SOCKET: ~p"
+                                  "~n", [IF, I_FLAGS, S_FLAGS]),
+                        case lists:member(loopback, I_FLAGS) of
+                            true ->
+                                %% The net module getifaddrs contains
+                                %% some more flags...
+                                %% Happens on windows
+                                io:format("flags for ~p *acceptably* "
+                                          "different~n", [IF]),
+                                {IR1, SR1};
+                            _ ->
+                                ct:fail(ifaddrs_not_equal)
+                        end;
+                    {[], [running]} ->
+                        io:format("flags for ~p are *not* equal - "
+                                  "extra flag 'running': "
+                                  "~n   INET:   ~p"
+                                  "~n   SOCKET: ~p"
+                                  "~n", [IF, I_FLAGS, S_FLAGS]),
+                        case lists:member(up, I_FLAGS) of
+                            true ->
+                                %% The net module getifaddrs contains
+                                %% some more flags...
+                                %% Happens on windows
+                                io:format("flags for ~p *acceptably* "
+                                          "different~n", [IF]),
+                                {IR1, SR1};
+                            _ ->
+                                ct:fail(ifaddrs_not_equal)
+                        end;
+                    {IRem, SRem} ->
+                        io:format("flags for ~p are *not* equal - check flags: "
+                                  "~n   INET:   ~p"
+                                  "~n   SOCKET: ~p"
+                                  "~n   INET -- SOCKET: ~p"
+                                  "~n   SOCKET -- INET: ~p"
+                                  "~n", [IF, I_FLAGS, S_FLAGS, IRem, SRem]),
+                        ct:fail(ifaddrs_not_equal)
+                end;
+            _ ->
+                io:format("flags for ~p missing for one or both backends: "
+                          "~n   INET:   ~p"
+                          "~n   SOCKET: ~p"
+                          "~n", [IF, I_INFO, S_INFO]),
+                ct:fail(ifaddrs_not_equal)
+        end,
+    {I_Rest2, S_Rest2} =
+        case {lists:reverse(I_Rest1), lists:reverse(S_Rest1)} of
+            {[{hwaddr, HWADDR}|IR2], [{hwaddr, HWADDR}|SR2]} ->
+                io:format("hwaddr for ~p *is* equal~n", [IF]),
+                {lists:reverse(IR2), lists:reverse(SR2)};
+            {[{hwaddr, I_HWADDR}|_IR2], [{hwaddr, S_HWADDR}|_SR2]} ->
+                io:format("hwaddr for ~p *not* equal:"
+                          "~n   INET:   ~p"
+                          "~n   SOCKET: ~p"
+                          "~n", [IF, I_HWADDR, S_HWADDR]),
+                ct:fail(ifaddrs_not_equal);
+            {IR2, [{hwaddr, HWADDR}|SR2]} ->
+                io:format("hwaddr for ~p only for socket - accept: "
+                          "~n   ~p"
+                          "~n", [IF, HWADDR]),
+                {lists:reverse(IR2), lists:reverse(SR2)};
+            {[{hwaddr, HWADDR}|_IR2], _SR2} ->
+                io:format("hwaddr for ~p only for inet - fail: "
+                          "~n   ~p"
+                          "~n", [IF, HWADDR]),
+                ct:fail(ifaddrs_not_equal);
+            _ ->
+                io:format("hwaddr for ~p missing for both backends - accept~n",
+                          [IF]),
+                {I_Rest1, S_Rest1}
+        end,
+    case {I_Rest2 -- S_Rest2, S_Rest2 -- I_Rest2} of
+        {[], []} ->
+            io:format("remaining info for ~p is equal~n", [IF]),
+            ok;
+        {I_Diff, S_Diff} ->
+            io:format("remaining info for ~p not equal: "
+                      "~n   INET:           ~p"
+                      "~n   SOCKET:         ~p"
+                      "~n   INET -- SOCKET: ~p"
+                      "~n   SOCKET -- INET: ~p"
+                      "~n", [IF, I_Rest2, S_Rest2, I_Diff, S_Diff]),
+            %% Check if its a link local address, then ignore...
+            %% This is "a bit" loosey-goosey...
+            case lists:keysearch(addr, 1, S_Rest2) of
+                {value, {addr, {169, 254, _, _}}} ->
+                    io:format("link local address for ~p - accept~n", [IF]),
+                    ok;
+                _ ->
+                    ct:fail(ifaddrs_not_equal)
+            end
+    end.
+
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems

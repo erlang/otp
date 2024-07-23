@@ -464,12 +464,18 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
   switch (family) {
   case AF_INET:
       len = SALEN(addrLen, sizeof(struct sockaddr_in));
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'inet' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_in(env, &sockAddrP->in4, len, eSockAddr);
       break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
   case AF_INET6:
       len = SALEN(addrLen, sizeof(struct sockaddr_in6));      
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'inet6' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_in6(env, &sockAddrP->in6, len, eSockAddr);
       break;
 #endif
@@ -477,6 +483,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #ifdef HAS_AF_LOCAL
   case AF_LOCAL:
       len = sa_local_length(addrLen, &sockAddrP->un);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'local' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_un(env, &sockAddrP->un, len, eSockAddr);
       break;
 #endif
@@ -484,6 +493,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #ifdef AF_UNSPEC
   case AF_UNSPEC:
       len = SALEN(addrLen, 0);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'unspec' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_native(env,
                                    &sockAddrP->sa, len,
                                    esock_atom_unspec,
@@ -494,6 +506,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #if defined(HAVE_NETPACKET_PACKET_H)
   case AF_PACKET:
       len = SALEN(addrLen, sizeof(struct sockaddr_ll));      
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'packet' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_ll(env, &sockAddrP->ll, len, eSockAddr);
       break;
 #endif
@@ -501,6 +516,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #if defined(AF_IMPLINK)
   case AF_IMPLINK:
       len = SALEN(addrLen, 0);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'implink' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_native(env,
                                    &sockAddrP->sa, len,
                                    esock_atom_implink,
@@ -511,6 +529,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #if defined(AF_PUP)
   case AF_PUP:
       len = SALEN(addrLen, 0);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'pup' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_native(env,
                                    &sockAddrP->sa, len,
                                    esock_atom_pup,
@@ -521,6 +542,9 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
 #if defined(AF_CHAOS)
   case AF_CHAOS:
       len = SALEN(addrLen, 0);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'chaos' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_native(env,
                                    &sockAddrP->sa, len,
                                    esock_atom_chaos,
@@ -586,12 +610,18 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                   (CHARP(sockAddrP->dl.sdl_data) - CHARP(sockAddrP)) +
                   sockAddrP->dl.sdl_nlen + sockAddrP->dl.sdl_alen);
 #endif
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> 'link' family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_dl(env, &sockAddrP->dl, len, eSockAddr);
     break;
 #endif
 
   default:
       len = SALEN(addrLen, 0);
+      UDBG( ("SUTIL", "esock_encode_sockaddr -> default (native) family addr: "
+             "\r\n   len: %d"
+             "\r\n", len) );
       esock_encode_sockaddr_native(env,
                                    &sockAddrP->sa, len,
                                    MKI(env, family),
@@ -784,10 +814,16 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
 {
     ERL_NIF_TERM ePort, eAddr;
     int          port;
+    /* The size of the actual data part, excluding padding */
+    SOCKLEN_T    minSz = sizeof(struct sockaddr_in) -
+        sizeof(sockAddrP->sin_zero);
 
-    UDBG( ("SUTIL", "esock_encode_sockaddr_in -> entry\r\n") );
+    UDBG( ("SUTIL", "esock_encode_sockaddr_in -> entry with"
+           "\r\n   addrLen:           %d"
+           "\r\n   required min size: %d"
+           "\r\n", addrLen, minSz) );
 
-    if (addrLen >= sizeof(struct sockaddr_in)) {
+    if (addrLen >= minSz) {
 
         /* The port */
         port  = ntohs(sockAddrP->sin_port);
@@ -803,7 +839,7 @@ void esock_encode_sockaddr_in(ErlNifEnv*          env,
         UDBG( ("SUTIL", "esock_encode_sockaddr_in -> wrong size: "
                "\r\n   addrLen:   %d"
                "\r\n   addr size: %d"
-               "\r\n", addrLen, sizeof(struct sockaddr_in)) );
+               "\r\n", addrLen, minSz) );
         esock_encode_sockaddr_native(env, (struct sockaddr *)sockAddrP,
                                      addrLen, esock_atom_inet, eSockAddr);
     }
@@ -1095,11 +1131,14 @@ void esock_encode_sockaddr_un(ErlNifEnv*          env,
  * (beside the mandatory family attribute, which is "inherited" from
  * the "sockaddr" type):
  *
- *    protocol: integer() (should be an atom really)
+ *    protocol: protocol()
  *    ifindex:  integer()
- *    hatype:   integer() (should be an atom really)
- *    pkttype:  integer() (should be an atom really)
- *    addr:     list()    (should be something useful...)
+ *    hatype:   hatype()
+ *    pkttype:  pkttype()
+ *    addr:     binary()
+ *
+ * Or if the address length is not enough, its encoded as a "native"
+ * packet (with type 'packet').
  *
  */
 
@@ -1176,32 +1215,46 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
 {
     ERL_NIF_TERM eindex, etype, enlen, ealen, eslen, edata;
     SOCKLEN_T    dlen;
+    SOCKLEN_T    ndsz = sizeof(struct sockaddr_dl)-sizeof(sockAddrP->sdl_data);
 
     UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> entry with"
-           "\r\n.  addrLen: %d"
-           "\r\n", addrLen) );
+           "\r\n   addrLen:              %d"
+           "\r\n   non-data fields size: %d"
+           "\r\n", addrLen, ndsz) );
 
-    /* There is a minumum length (defined by the size of the data field) */
-    if (addrLen >= sizeof(struct sockaddr_dl)) {
+    /* Make sure the data field actually contains something */
+    if (addrLen >= ndsz) {
 
         /* index - if != 0, system given index for interface */
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> index: %d"
+               "\r\n", sockAddrP->sdl_index) );
         eindex = MKUI(env, sockAddrP->sdl_index);
 
         /* type -  interface type */
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> type: %d"
+               "\r\n", sockAddrP->sdl_type) );
         etype = MKUI(env, sockAddrP->sdl_type);
 
         /* nlen - interface name length, no trailing 0 reqd. */
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> nlen: %d"
+               "\r\n", sockAddrP->sdl_nlen) );
         enlen = MKUI(env, sockAddrP->sdl_nlen);
 
         /* alen - link level address length */
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> alen: %d"
+               "\r\n", sockAddrP->sdl_alen) );
         ealen = MKUI(env, sockAddrP->sdl_alen);
 
-        /* slen - ink layer selector length */
+        /* slen - link layer selector length */
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> slen: %d"
+               "\r\n", sockAddrP->sdl_slen) );
         eslen = MKUI(env, sockAddrP->sdl_slen);
 
         /* data - minimum work area, can be larger;    *
          *        contains both if name and ll address */
         dlen  = addrLen - (CHARP(sockAddrP->sdl_data) - CHARP(sockAddrP));
+        UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> data len: %d"
+               "\r\n", dlen) );
         edata = esock_make_new_binary(env, &sockAddrP->sdl_data, dlen);
 
         make_sockaddr_dl(env,

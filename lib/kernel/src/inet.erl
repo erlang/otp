@@ -293,6 +293,7 @@ Function `parse_address/1` can be useful:
 -export([getaddrs/2, getaddrs/3, getaddrs_tm/3,
 	 getaddr/2, getaddr/3, getaddr_tm/3]).
 -export([translate_ip/2]).
+-export([inet_backend/0]).
 
 -export([get_rc/0]).
 
@@ -1625,21 +1626,284 @@ Get interface names and addresses, in a specific namespace.
 Equivalent to `getifaddrs/0`, but accepts an `Option`
 `{netns, Namespace}` that, on platforms that support the feature (Linux),
 sets a network namespace for the OS call.
+Also,
+If the option 'inet_backend' is *first* in the options list,
+the specified backend will be used (for 'inet', inet and
+for 'socket' the equivalent net functions will be used).
+                                         
 
 See the socket option [`{netns, Namespace}`](#option-netns)
 under`setopts/2`.
 """.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec getifaddrs(
-        [Option :: {netns, Namespace :: file:filename_all()}]
+        [Option :: inet_backend() | {netns, Namespace :: file:filename_all()}]
         | socket()) ->
                         {'ok', [{Ifname :: string(),
                                  Ifopts :: getifaddrs_ifopts()}]}
                             | {'error', posix()}.
+
+getifaddrs([{inet_backend, Backend}|Opts]) ->
+    do_getifaddrs(Backend, Opts);
 getifaddrs(Opts) when is_list(Opts) ->
+    do_getifaddrs(inet_backend(), Opts);
+getifaddrs(?module_socket(GenSocketMod, _) = _Socket)
+  when is_atom(GenSocketMod) ->
+    do_getifaddrs('socket', []);
+getifaddrs(Socket) when is_port(Socket) ->
+    do_getifaddrs('inet', Socket).
+
+do_getifaddrs('socket', []) ->
+    net_getifaddrs(net:getifaddrs(all));
+do_getifaddrs('socket', [{netns, Namespace}]) ->
+    net_getifaddrs(net:getifaddrs(all, Namespace));
+do_getifaddrs('inet', Opts) when is_list(Opts) ->
     withsocket(fun(S) -> prim_inet:getifaddrs(S) end, Opts);
-getifaddrs(Socket) ->
+do_getifaddrs('inet', Socket) when is_port(Socket) ->
     prim_inet:getifaddrs(Socket).
+
+
+net_unique_if_names(Ifs) ->
+    net_unique_if_names(Ifs, []).
+
+net_unique_if_names([], IfNames) ->
+    lists:reverse(IfNames);
+net_unique_if_names([#{name := IfName}|Ifs], IfNames) ->
+    case lists:member(IfName, IfNames) of
+        true ->
+            net_unique_if_names(Ifs, IfNames);
+        false ->
+            net_unique_if_names(Ifs, [IfName|IfNames])
+    end.
+
+
+net_getifaddrs({ok, AllIfs}) ->
+    IfNames = net_unique_if_names(AllIfs),
+    {ok, net_collect_ifopts(IfNames, AllIfs)};
+net_getifaddrs({error, _} = ERROR) ->
+    ERROR.
+
+
+net_collect_ifopts(IfNames, AllIfs) ->
+    net_collect_ifopts(IfNames, AllIfs, []).
+
+net_collect_ifopts([], _AllIfs, AllNameAndOpts) ->
+    lists:reverse(AllNameAndOpts);
+net_collect_ifopts([IfName|IfNames], AllIfs, NameAndOpts) ->
+    %% Get the Ifs with the name IfName
+    %% io:format("~w -> entry with"
+    %%           "~n   IfName: ~p"
+    %%           "~n", [?FUNCTION_NAME, IfName]),
+    Ifs = [If || #{name := N} = If <- AllIfs, (N =:= IfName)],
+    IfOpts = net_ifs2ifopts(Ifs),
+    net_collect_ifopts(IfNames, AllIfs, [{IfName, IfOpts}|NameAndOpts]).
+
+net_ifs2ifopts(Ifs) ->
+    net_ifs2ifopts(Ifs, #{flags  => [],
+                          addrs  => [],
+                          hwaddr => []}).
+
+
+net_ifs2ifopts([], #{flags  := Flags,
+                     addrs  := Addrs,
+                     hwaddr := HwAddr}) ->
+    %% io:format("~w -> entry when done with"
+    %%           "~n   Flags:  ~p"
+    %%           "~n   Addrs:  ~p"
+    %%           "~n   HwAddr: ~p"
+    %%           "~n", [?FUNCTION_NAME, Flags, Addrs, HwAddr]),
+    [{flags, net_flags_to_inet_flags(Flags)}] ++
+        lists:reverse(Addrs) ++
+        case HwAddr of
+            [] ->
+                [];
+            _ ->
+                [{hwaddr, HwAddr}]
+        end;
+net_ifs2ifopts([If|Ifs], #{flags := []} = IfOpts0) ->
+    %% io:format("~w -> entry initial with"
+    %%           "~n   If: ~p"
+    %%           "~n", [?FUNCTION_NAME, If]),
+    IfOpts =
+        case If of
+	     %% LINK or PACKET
+	     %% - On some platforms LINK is used (FreeBSD for instance)
+	     %%   LINK does not include an explicit HW address. Instead
+	     %%   its part of the 'data', together with name and possibly
+	     %%   link layer selector (the lengths can be used to decode
+	     %%   the data)..
+	     %% - On others PACKET is used.
+            #{flags := Flags,
+              addr  := #{family := packet,
+                         addr   := HwAddrBin}} ->
+                %% io:format("~w(~w) -> packet entry"
+                %%           "~n", [?FUNCTION_NAME, ?LINE]),
+                IfOpts0#{flags  => Flags,
+                         hwaddr => binary_to_list(HwAddrBin)};
+            #{flags := Flags,
+              addr  := #{family := link,
+                         nlen    := NLen,
+                         alen    := ALen,
+                         data    := Data}} when (ALen > 0) ->
+                %% io:format("~w(~w) -> link entry with"
+		%% 	  "~n   NLen: ~w"
+		%% 	  "~n   ALen: ~w"
+                %%           "~n   Data:  ~p"
+                %%           "~n", [?FUNCTION_NAME, ?LINE, NLen, ALen, Data]),
+		case Data of
+		      <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                           IfOpts0#{flags  => Flags,
+                                    hwaddr => binary_to_list(ABin)};
+		      _ ->
+                        IfOpts0#{flags => Flags}
+		end;
+            #{flags := Flags,
+              addr  := #{family := Fam,
+                         addr   := Addr},
+              netmask := #{family := Fam,
+                           addr   := Mask}} when (Fam =:= inet) orelse
+                                                 (Fam =:= inet6) ->
+                %% io:format("~w(~w) -> ~w entry"
+                %%           "~n", [?FUNCTION_NAME, ?LINE, Fam]),
+                %% We may also have broadcast or dest addr
+                BroadAddr = case maps:get(broadaddr, If, undefined) of
+                                undefined ->
+                                    [];
+                                #{addr := BA} ->
+                                    [{broadaddr, BA}]
+                            end,
+                DstAddr = case maps:get(dstaddr, If, undefined) of
+                              undefined ->
+                                  [];
+                              #{addr := DA} ->
+                                  [{dstaddr, DA}]
+                          end,
+                IfOpts0#{flags  => Flags,
+                         addrs  => DstAddr ++ BroadAddr ++ [{netmask, Mask},
+                                                            {addr,    Addr}]};
+            #{flags := Flags} ->
+                %% io:format("~w(~w) -> only flags entry"
+                %%           "~n", [?FUNCTION_NAME, ?LINE]),
+                IfOpts0#{flags => Flags}
+        end,
+    net_ifs2ifopts(Ifs, IfOpts);
+net_ifs2ifopts([If|Ifs], IfOpts0) ->
+    %% We can only have one 'flags' entry
+    %% (they are supposed to be the same for all if:s of the same name).
+    %% For each 'addr' entry we can have one 'netmask' and 'broadcast'
+    %% or 'dstaddr'
+    %% io:format("~w -> entry with"
+    %%           "~n   If: ~p"
+    %%           "~nwhen"
+    %%           "~n   IfOpts0: ~p"
+    %%           "~n", [?FUNCTION_NAME, If, IfOpts0]),
+    IfOpts =
+        case If of
+            #{flags := Flags,
+              addr := #{family := packet,
+                        addr   := HwAddrBin}} ->
+                Flags0 = maps:get(flags, IfOpts0, []),
+                %% io:format("~w(~w) -> packet entry"
+                %%           "~n", [?FUNCTION_NAME, ?LINE]),
+                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
+                         hwaddr => binary_to_list(HwAddrBin)};
+            #{flags := Flags,
+              addr  := #{family := Fam,
+                         addr   := Addr},
+              netmask := #{family := Fam,
+                           addr   := Mask}} when (Fam =:= inet) orelse
+                                                 (Fam =:= inet6) ->
+                %% io:format("~w(~w) -> ~w entry"
+                %%           "~n", [?FUNCTION_NAME, ?LINE, Fam]),
+                Addrs0 = maps:get(addrs, IfOpts0, []),
+                Flags0 = maps:get(flags, IfOpts0, []),
+                %% We may also have broadcast or dest addr
+                BroadAddr = case maps:get(broadaddr, If, undefined) of
+                                undefined ->
+                                    [];
+                                #{addr := BA} ->
+                                    [{broadaddr, BA}]
+                            end,
+                DstAddr = case maps:get(dstaddr, If, undefined) of
+                              undefined ->
+                                  [];
+                              #{addr := DA} ->
+                                  [{dstaddr, DA}]
+                          end,
+                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
+                         addrs =>
+                             DstAddr ++
+                             BroadAddr ++
+                             [{netmask, Mask},
+                              {addr,    Addr}] ++
+                             Addrs0};
+            _ ->
+                %% io:format("~w(~w) -> nothing updated"
+                %%           "~n", [?FUNCTION_NAME, ?LINE]),
+                IfOpts0
+        end,
+    net_ifs2ifopts(Ifs, IfOpts).
+
+net_flags_to_inet_flags(Flags) ->
+    net_flags_to_inet_flags(Flags, []).
+
+net_flags_to_inet_flags([], OutFlags) ->
+    %% io:format("~w(~w) -> done when"
+    %%           "~n   OutFlags: ~p"
+    %%           "~n", [?FUNCTION_NAME, ?LINE, OutFlags]),    
+    lists:reverse(net_flags_maybe_add_running(OutFlags));
+net_flags_to_inet_flags([InFlag|InFlags], OutFlags) ->
+    %% io:format("~w(~w) -> entry with"
+    %%           "~n   InFlag: ~p"
+    %%           "~n", [?FUNCTION_NAME, ?LINE, InFlag]),    
+    case net_flag_to_inet_flag(InFlag) of
+        {value, OutFlag} ->
+            %% io:format("~w(~w) -> known flag => ~w"
+            %%           "~n", [?FUNCTION_NAME, ?LINE, OutFlag]),    
+            net_flags_to_inet_flags(InFlags, [OutFlag | OutFlags]);
+        false ->
+            %% io:format("~w(~w) -> unknown flag => skip"
+            %%           "~n", [?FUNCTION_NAME, ?LINE]),    
+            net_flags_to_inet_flags(InFlags, OutFlags)
+    end.
+
+net_flags_maybe_add_running(Flags) ->
+    case lists:member(running, Flags) of
+        true ->
+            Flags;
+        false ->
+            case lists:member(up, Flags) of
+                true ->
+                    [running | Flags];
+                false ->
+                    Flags
+            end
+    end.
+
+
+%% Should we do this as map instead?
+%% #{up          => up,
+%%   broadcast   => broadcast,
+%%   loopback    => loopback,
+%%   pointopoint => pointtopoint,
+%%   running     => running,
+%%   multicast   => multicast},
+net_flag_to_inet_flag(InFlag) ->
+    InetFlags = [up, broadcast, loopback,
+                 {pointopoint, pointtopoint},
+                 running, multicast],
+    net_flag_to_inet_flag(InFlag, InetFlags).
+
+net_flag_to_inet_flag(_InFlag, []) ->
+    false;
+net_flag_to_inet_flag(InFlag, [InFlag|_]) ->
+    {value, InFlag};
+net_flag_to_inet_flag(InFlag, [{InFlag, OutFlag}|_]) ->
+    {value, OutFlag};
+net_flag_to_inet_flag(InFlag, [_|InetFlags]) ->
+    net_flag_to_inet_flag(InFlag, InetFlags).
+
+
 
 -doc """
 Get interface names and addresses.
@@ -1653,11 +1917,13 @@ the type of the [`Ifopts`](`t:getifaddrs_ifopts/0`) value.
 """.
 -doc(#{since => <<"OTP R14B01">>}).
 -spec getifaddrs() ->
-                        {'ok', [{Ifname :: string(),
-                                 Ifopts :: getifaddrs_ifopts()}]}
-                            | {'error', posix()}.
+          {'ok', [{Ifname :: string(),
+                   Ifopts :: getifaddrs_ifopts()}]}
+              | {'error', posix()}.
+
 getifaddrs() ->
-    withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
+    do_getifaddrs(inet_backend(), []).
+
 
 
 -doc false.
@@ -2208,14 +2474,28 @@ getaddrs(Address, Family, Timeout) ->
 -spec getservbyport(Port :: port_number(), Protocol :: atom() | string()) ->
 	{'ok', string()} | {'error', posix()}.
 
-getservbyport(Port, Proto) ->
-    case inet_udp:open(0, []) of
-	{ok,U} ->
-	    Res = prim_inet:getservbyport(U, Port, Proto),
-	    inet_udp:close(U),
-	    Res;
-	Error -> Error
+getservbyport(Port, Protocol) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyport(Port, Protocol);
+        'socket' ->
+            net_getservbyport(Port, Protocol)
     end.
+
+inet_getservbyport(Port, Protocol) ->
+    %% case inet_udp:open(0, []) of
+    %%     {ok,U} ->
+    %%         Res = prim_inet:getservbyport(U, Port, Protocol),
+    %%         inet_udp:close(U),
+    %%         Res;
+    %%     Error -> Error
+    %% end.
+    withsocket(fun(S) -> prim_inet:getservbyport(S, Port, Protocol) end).
+
+net_getservbyport(Port, Protocol) when is_list(Protocol) ->
+    net_getservbyport(Port, list_to_atom(Protocol));
+net_getservbyport(Port, Protocol) when is_atom(Protocol) ->
+    net:getservbyport(Port, Protocol).
 
 -doc false.
 -spec getservbyname(Name :: atom() | string(),
@@ -2223,13 +2503,30 @@ getservbyport(Port, Proto) ->
 	{'ok', port_number()} | {'error', posix()}.
 
 getservbyname(Name, Protocol) when is_atom(Name) ->
-    case inet_udp:open(0, []) of
-	{ok,U} ->
-	    Res = prim_inet:getservbyname(U, Name, Protocol),
-	    inet_udp:close(U),
-	    Res;
-	Error -> Error
+    getservbyname(atom_to_list(Name), Protocol);
+getservbyname(Name, Protocol) when is_list(Name) ->
+    case inet_backend() of
+        'inet' ->
+            inet_getservbyname(Name, Protocol);
+        'socket' ->
+            net_getservbyname(Name, Protocol)
     end.
+
+inet_getservbyname(Name, Protocol) ->
+    %% case inet_udp:open(0, []) of
+    %%     {ok, U} ->
+    %%         Res = prim_inet:getservbyname(U, Name, Protocol),
+    %%         inet_udp:close(U),
+    %%         Res;
+    %%     Error -> Error
+    %% end.
+    withsocket(fun(S) -> prim_inet:getservbyname(S, Name, Protocol) end).
+
+net_getservbyname(Name, Protocol) when is_list(Protocol) ->
+    net_getservbyname(Name, list_to_atom(Protocol));
+net_getservbyname(Name, Protocol) when is_atom(Protocol) ->
+    net:getservbyname(Name, Protocol).
+
 
 -doc "Parse an `t:ip_address/0` to an IPv4 or IPv6 address string.".
 -doc(#{since => <<"OTP R16B02">>}).
@@ -3962,3 +4259,8 @@ ensure_sockaddr(SockAddr) ->
         throw : {invalid, _} = Invalid : Stacktrace ->
             erlang:raise(error, Invalid, Stacktrace)
     end.
+
+
+-doc false.
+inet_backend() ->
+    persistent_term:get({kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND).
