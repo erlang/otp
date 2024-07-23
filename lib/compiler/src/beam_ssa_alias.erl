@@ -354,7 +354,7 @@ aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
     Order = aa_order(Funs, FuncDb),
     ?DP("Traversal order:~n  ~s~n",
         [string:join([fn(F) || F <- Order], ",\n  ")]),
-    aa_fixpoint(Order, Order, AAS, 1).
+    aa_fixpoint(Order, reverse(Order), AAS, 1).
 
 aa_fixpoint([F|Fs], Order,
             AAS0=#aas{func_db=FuncDb,st_map=StMap,
@@ -388,7 +388,7 @@ aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, NoofIters) ->
             {StMap, FuncDb};
         NewOrder ->
             ?DP("**** Starting traversal ~p ****~n", [NoofIters + 1]),
-            aa_fixpoint(NewOrder, Order,
+            aa_fixpoint(NewOrder, reverse(Order),
                         AAS#aas{repeats=sets:new()}, NoofIters + 1)
     end.
 
