@@ -825,7 +825,10 @@ aa_update_annotation_for_var(Var, Status, Anno0) ->
                                  ordsets:del_element(Var, Unique0)};
                             unique ->
                                 {ordsets:del_element(Var, Aliased0),
-                                 ordsets:add_element(Var, Unique0)}
+                                 ordsets:add_element(Var, Unique0)};
+                            no_info ->
+                                {ordsets:del_element(Var, Aliased0),
+                                 ordsets:del_element(Var, Unique0)}
                         end,
     Anno1 = case Aliased of
                 [] ->

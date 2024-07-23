@@ -78,7 +78,7 @@
 -endif.
 
 -type sharing_state() :: any(). % A beam_digraph graph.
--type sharing_status() :: 'unique' | 'aliased'.
+-type sharing_status() :: 'unique' | 'aliased' | 'no_info'.
 -type element() :: 'hd' | 'tl' | non_neg_integer().
 
 -spec add_var(beam_ssa:b_var(), sharing_status(), sharing_state()) ->
@@ -222,6 +222,8 @@ extract(Dst, Src, Element, State) ->
             ?DP("dst: ~p, src: ~p, e: ~p, out-edges: ~p~n",
                 [Dst, Src, Element, OutEdges]),
             extract_element(Dst, Src, Element, OutEdges, State);
+        no_info ->
+            ?assert_state(set_status(Dst, no_info, State));
         plain ->
             %% Extracting from a plain value is not possible, but the
             %% alias analysis pass can sometimes encounter it when no
@@ -376,7 +378,14 @@ merge(Dest, Source, [{V,VStatus}|Vertices], Edges0, Forced) ->
         {aliased,unique} ->
             %% V has to be revisited and non-aliased copied parts will
             %% be aliased.
-            merge(Dest, Source, Vertices, Edges, sets:add_element(V, Forced))
+            merge(Dest, Source, Vertices, Edges, sets:add_element(V, Forced));
+        {aliased,no_info} ->
+            %% Nothing to do.
+            merge(Dest, Source, Vertices, Edges, Forced);
+        {no_info,aliased} ->
+            %% Alias in Dest.
+            merge(set_status(V, aliased, Dest), Source,
+                  Vertices, Edges, Forced)
     end;
 merge(Dest0, _Source, [], Edges, Forced) ->
     merge1(Dest0, _Source, sets:to_list(Edges),
@@ -544,7 +553,12 @@ set_status(#b_var{}=V, Status, State0) ->
             State0;
         unique when Status =:= aliased ->
             State = add_vertex(State0, V, Status),
-            set_alias(get_alias_edges(V, State), State)
+            set_alias(get_alias_edges(V, State), State);
+        no_info when Status =/= no_info ->
+            add_vertex(State0, V, Status);
+        unique when Status =:= no_info ->
+            %% Can only be used safely for newly created variables.
+            add_vertex(State0, V, Status)
     end.
 
 set_alias([#b_var{}=V|Vars], State0) ->
@@ -657,10 +671,26 @@ merge_in_arg(_, aliased, _, _State) ->
     aliased;
 merge_in_arg(plain, _, _, _State) ->
     unique;
-merge_in_arg(#b_var{}=V, _Status, 0, State) ->
+merge_in_arg(#b_var{}=V, Status, 0, State) ->
     %% We will not traverse this argument further, this means that no
     %% element-level aliasing info will be kept for this element.
-    get_status(V, State);
+    case {Status, get_status(V, State)} of
+        {S,S} ->
+            S;
+        {no_info,S} ->
+            S;
+        {S,no_info} ->
+            S;
+        {_,aliased} ->
+            aliased
+    end;
+merge_in_arg(#b_var{}=V, unique, _Cutoff, State) ->
+    case beam_digraph:vertex(State, V, unique) of
+        no_info ->
+            unique;
+        S ->
+            S
+    end;
 merge_in_arg(#b_var{}=V, Status, Cutoff, State) ->
     case beam_digraph:vertex(State, V, unique) of
         aliased ->
@@ -668,17 +698,18 @@ merge_in_arg(#b_var{}=V, Status, Cutoff, State) ->
         unique ->
             InEdges = beam_digraph:in_edges(State, V),
             Elements = case Status of
-                           unique -> #{};
                            {unique,Es} -> Es;
                            no_info -> #{}
                        end,
-            merge_elements(InEdges, Elements, Cutoff, State)
+            merge_elements(InEdges, Elements, Cutoff, State);
+        no_info ->
+            Status
     end;
-merge_in_arg(#b_literal{}, _, 0, _State) ->
+merge_in_arg(#b_literal{}, Status, 0, _State) ->
     %% We have reached the cutoff while traversing a larger construct,
-    %% as we're not looking deeper down into the structure we indicate
-    %% that we have no information.
-    no_info;
+    %% as we're not looking deeper down into the structure we stop
+    %% constructing detailed information.
+    Status;
 merge_in_arg(#b_literal{val=[Hd|Tl]}, Status, Cutoff, State) ->
     {HdS,TlS,Elements0} = case Status of
                               {unique,#{hd:=HdS0,tl:=TlS0}=All} ->
@@ -694,12 +725,15 @@ merge_in_arg(#b_literal{val=[Hd|Tl]}, Status, Cutoff, State) ->
     {unique,Elements};
 merge_in_arg(#b_literal{val=[]}, Status, _, _State) ->
     Status;
+merge_in_arg(#b_literal{val=T}, unique, _Cutoff, _State) when is_tuple(T) ->
+    %% The uniqe status cannot be safely upgraded to a more detailed
+    %% info.
+    unique;
 merge_in_arg(#b_literal{val=T}, Status, Cutoff, State) when is_tuple(T) ->
     SrcElements = tuple_to_list(T),
     OrigElements = case Status of
                        {unique,TupleElems} ->
                            TupleElems;
-                       unique -> #{};
                        no_info -> #{}
                    end,
     Elements = merge_tuple_elems(SrcElements, OrigElements, Cutoff, State),
@@ -752,7 +786,8 @@ merge_elements([{_Src,_,embed}|Rest], _Elements0, Cutoff, State) ->
     %% We don't know where this element is embedded.  Src will always
     %% be unique as otherwise merge_in_arg/4 will not bother merging
     %% the in-edges.
-    ?ASSERT(unique = get_status(_Src, State)),
+    ?ASSERT(true = get_status(_Src, State) =:= unique
+            orelse get_status(_Src, State) =:= no_info),
     merge_elements(Rest, no_info, Cutoff, State);
 merge_elements([{Src,V,{extract,E}}], Elements, Cutoff, State) ->
     ?DP("Looking for an embedding of the ~p element from ~p~n", [E, Src]),
@@ -773,12 +808,8 @@ new(Args, ArgsInfo, Cnt) ->
     ?assert_state(SS),
     R.
 
-new([A|As], [S0|Stats], Cnt, SS)
-  when S0 =:= aliased; S0 =:= unique; S0 =:= no_info ->
-    S = case S0 of
-            no_info -> unique;
-            _ -> S0
-        end,
+new([A|As], [S|Stats], Cnt, SS)
+  when S =:= aliased; S =:= unique; S =:= no_info ->
     new(As, Stats, Cnt, add_var(A, S, SS));
 new([A|As], [{unique,Elements}|Stats], Cnt0, SS0) ->
     SS1 = add_var(A, unique, SS0),
@@ -859,7 +890,8 @@ assert_embedded_in_aliased_implies_aliased(State) ->
 assert_eiaia(Embedder, State) ->
     NotAliased = [ Src
                    || {Src,_,embed} <- beam_digraph:in_edges(State, Embedder),
-                      beam_digraph:vertex(State, Src, unique) =/= aliased],
+                      beam_digraph:vertex(State, Src, unique) =/= aliased,
+                      beam_digraph:vertex(State, Src, unique) =/= no_info],
     case NotAliased of
         [] ->
             State;
