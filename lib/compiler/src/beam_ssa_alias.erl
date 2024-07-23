@@ -1131,16 +1131,16 @@ aa_phi(Dst, Args0, SS0, AAS) ->
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
         #aas{alias_map=AliasMap,st_map=StMap,cnt=Cnt0}=AAS0) ->
     ?DP("A Call~n  callee: ~s~n  args: ~p~n", [fn(Callee), Args]),
+    ?DP("  caller args: ~p~n", [Args]),
+    SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
+    ?DP("  caller ss before call:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
+    #aas{alias_map=AliasMap} = AAS =
+        aa_add_call_info(Callee, Args, SS1, AAS0),
     case is_map_key(Callee, AliasMap) of
         true ->
             ?DP("  The callee is known~n"),
             #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
-            ?DP("  caller args: ~p~n", [Args]),
-            SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
-            ?DP("  caller ss before call:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
-            #aas{alias_map=AliasMap} = AAS =
-                aa_add_call_info(Callee, Args, SS1, AAS0),
             #{Callee:=#{0:=_CalleeSS}=Lbl2SS} = AliasMap,
             ?DP("  callee ss:~n~s~n", [beam_ssa_ss:dump(_CalleeSS)]),
             ?DP("  caller ss after call:~n~s~n", [beam_ssa_ss:dump(SS1)]),
@@ -1161,11 +1161,9 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             {SS, AAS#aas{cnt=Cnt}};
         false ->
             ?DP("  The callee is unknown~n"),
-            %% We don't know anything about the function, don't change
-            %% the status of any variables, but make sure that it will
-            %% be visited.
-
-            {SS0, aa_schedule_revisit(Callee, AAS0)}
+            %% We don't know anything about the function, so don't
+            %% change the status of the result.
+            {SS0, AAS}
     end;
 aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
                          name=#b_literal{val=exit},
