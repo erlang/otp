@@ -110,7 +110,9 @@
 
          nested_tuple/0,
          nested_cons/0,
-         nested_mixed/0]).
+         nested_mixed/0,
+
+         see_through/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1194,3 +1196,20 @@ nested_mixed() ->
 %ssa% ret(R).
     [{[{Z,X}]}] = nested_mixed_inner(),
     {<<Z/binary, 1:8>>,X}.
+
+%%
+%% Check that the analysis can see through embed-extract chains.
+%%
+-record(see_through, {a,b}).
+
+see_through() ->
+    [R] = see_through0(),
+    see_through1(R).
+
+see_through1({_,R}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
+    R#see_through{a=e:f()}.
+
+see_through0() ->
+    [{foo, #see_through{a={bar, [foo]}}}].
