@@ -108,6 +108,11 @@ void esock_encode_sockaddr(ErlNifEnv*    env,
                            int           addrLen,
                            ERL_NIF_TERM* eSockAddr);
 extern
+BOOLEAN_T esock_decode_hwsockaddr(ErlNifEnv*    env,
+                                  ERL_NIF_TERM  eSockAddr,
+                                  ESockAddress* sockAddrP,
+                                  SOCKLEN_T*    addrLen);
+extern
 void esock_encode_hwsockaddr(ErlNifEnv*       env,
 			     struct sockaddr* sockAddrP,
 			     SOCKLEN_T        addrLen,

@@ -654,77 +654,165 @@ void esock_encode_hwsockaddr(ErlNifEnv*       env,
 			     SOCKLEN_T        addrLen,
 			     ERL_NIF_TERM*    eSockAddr)
 {
-  ERL_NIF_TERM efamily;
-  int          family;
+    ERL_NIF_TERM efamily;
+    int          family;
 
-  // Sanity check
-  if (addrLen < (char *)&sockAddrP->sa_data - (char *)sockAddrP) {
-    // We got crap, cannot even know the address family
-    esock_encode_sockaddr_broken(env, sockAddrP, addrLen, eSockAddr);
-    return;
-  }
-  family = sockAddrP->sa_family;
+    // Sanity check
+    if (addrLen < (char *)&sockAddrP->sa_data - (char *)sockAddrP) {
+        // We got crap, cannot even know the address family
+        esock_encode_sockaddr_broken(env, sockAddrP, addrLen, eSockAddr);
+        return;
+    }
+    family = sockAddrP->sa_family;
 
-  UDBG( ("SUTIL", "esock_encode_hwsockaddr -> entry with"
-	 "\r\n   family:  %d"
-	 "\r\n   addrLen: %d"
-	 "\r\n", family, addrLen) );
+    UDBG( ("SUTIL", "esock_encode_hwsockaddr -> entry with"
+           "\r\n   family:  %d"
+           "\r\n   addrLen: %d"
+           "\r\n", family, addrLen) );
 
-  switch (family) {
+    switch (family) {
 #if defined(ARPHRD_NETROM)
-  case ARPHRD_NETROM:
-    efamily = esock_atom_netrom;
-    break;
+    case ARPHRD_NETROM:
+        efamily = esock_atom_netrom;
+        break;
 #endif
 
 #if defined(ARPHRD_ETHER)
-  case ARPHRD_ETHER:
-    efamily = esock_atom_ether;
-    break;
+    case ARPHRD_ETHER:
+        efamily = esock_atom_ether;
+        break;
 #endif
 
 #if defined(ARPHRD_IEEE802)
-  case ARPHRD_IEEE802:
-    efamily = esock_atom_ieee802;
-    break;
+    case ARPHRD_IEEE802:
+        efamily = esock_atom_ieee802;
+        break;
 #endif
 
 #if defined(ARPHRD_DLCI)
-  case ARPHRD_DLCI:
-    efamily = esock_atom_dlci;
-    break;
+    case ARPHRD_DLCI:
+        efamily = esock_atom_dlci;
+        break;
 #endif
 
 #if defined(ARPHRD_FRELAY)
-  case ARPHRD_FRELAY:
-    efamily = esock_atom_frelay;
-    break;
+    case ARPHRD_FRELAY:
+        efamily = esock_atom_frelay;
+        break;
 #endif
 
 #if defined(ARPHRD_IEEE1394)
-  case ARPHRD_IEEE1394:
-    efamily = esock_atom_ieee1394;
-    break;
+    case ARPHRD_IEEE1394:
+        efamily = esock_atom_ieee1394;
+        break;
 #endif
 
 #if defined(ARPHRD_LOOPBACK)
-  case ARPHRD_LOOPBACK:
-    efamily = esock_atom_loopback;
-    break;
+    case ARPHRD_LOOPBACK:
+        efamily = esock_atom_loopback;
+        break;
+#endif
+
+#if defined(ARPHRD_RAWIP)
+    case ARPHRD_RAWIP:
+        efamily = esock_atom_rawip;
+        break;
 #endif
 
 #if defined(ARPHRD_NONE)
-  case ARPHRD_NONE:
-    efamily = esock_atom_none;
-    break;
+    case ARPHRD_NONE:
+        efamily = esock_atom_none;
+        break;
 #endif
 
-  default:
-    efamily = MKI(env, family);
-    break;
-  }
+    default:
+        efamily = MKI(env, family);
+        break;
+    }
 
-  esock_encode_sockaddr_native(env, sockAddrP, addrLen, efamily, eSockAddr);
+    esock_encode_sockaddr_native(env, sockAddrP, addrLen, efamily, eSockAddr);
+}
+
+
+
+extern
+BOOLEAN_T esock_decode_hwsockaddr(ErlNifEnv*    env,
+                                  ERL_NIF_TERM  eSockAddr,
+                                  ESockAddress* sockAddrP,
+                                  SOCKLEN_T*    addrLen)
+{
+    ERL_NIF_TERM efamily;
+    int          family = -1;
+
+    if (!IS_MAP(env, eSockAddr))
+        return FALSE;
+
+    if (!GET_MAP_VAL(env, eSockAddr, esock_atom_family, &efamily))
+        return FALSE;
+
+    /* This is a bit ugly, but if-defing this properly is
+     * a bit messy so for now...
+     */
+#if defined(ARPHRD_NETROM)
+    if (IS_IDENTICAL(efamily, esock_atom_netrom)) {
+        family = ARPHRD_NETROM;
+    }
+#endif
+    
+#if defined(ARPHRD_ETHER)
+    if (IS_IDENTICAL(efamily, esock_atom_ether)) {
+        family = ARPHRD_ETHER;
+    }
+#endif
+
+#if defined(ARPHRD_IEEE802)
+    if (IS_IDENTICAL(efamily, esock_atom_ieee802)) {
+        family = ARPHRD_IEEE802;
+    }
+#endif
+
+#if defined(ARPHRD_DLCI)
+    if (IS_IDENTICAL(efamily, esock_atom_dlci)) {
+        family = ARPHRD_DLCI;
+    }
+#endif
+
+#if defined(ARPHRD_FRELAY)
+    if (IS_IDENTICAL(efamily, esock_atom_frelay)) {
+        family = ARPHRD_FRELAY;
+    }
+#endif
+
+#if defined(ARPHRD_IEEE1394)
+    if (IS_IDENTICAL(efamily, esock_atom_ieee1394)) {
+        family = ARPHRD_IEEE1394;
+    }
+#endif
+
+#if defined(ARPHRD_LOOPBACK)
+    if (IS_IDENTICAL(efamily, esock_atom_loopback)) {
+        family = ARPHRD_LOOPBACK;
+    }
+#endif
+
+#if defined(ARPHRD_RAWIP)
+    if (IS_IDENTICAL(efamily, esock_atom_rawip)) {
+        family = ARPHRD_RAWIP;
+    }
+#endif
+
+#if defined(ARPHRD_NONE)
+    if (IS_IDENTICAL(efamily, esock_atom_none)) {
+        family = ARPHRD_NONE;
+    }
+#endif
+
+    if (family == -1)
+	return FALSE;
+
+    return esock_decode_sockaddr_native(env, eSockAddr,
+                                        sockAddrP, family, addrLen);
+
 }
 
 

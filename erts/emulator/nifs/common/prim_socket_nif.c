@@ -2057,6 +2057,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
     GLOBAL_ATOM_DECL(host);                            \
+    GLOBAL_ATOM_DECL(hwaddr);                          \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
     GLOBAL_ATOM_DECL(ieee802);                         \
@@ -2186,6 +2187,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(protocol);                        \
     GLOBAL_ATOM_DECL(pup);                             \
     GLOBAL_ATOM_DECL(raw);                             \
+    GLOBAL_ATOM_DECL(rawip);                           \
     GLOBAL_ATOM_DECL(rcvbuf);                          \
     GLOBAL_ATOM_DECL(rcvbufforce);                     \
     GLOBAL_ATOM_DECL(rcvlowat);                        \

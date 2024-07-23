@@ -1536,41 +1536,70 @@ lookup_bad_search_option(Config) when is_list(Config) ->
 getif(Config) when is_list(Config) ->
     case os:type() of
 	{unix,Osname} ->
-	    do_getif(Osname);
+	    do_getif(Osname, default),
+            do_getif(Osname, inet),
+            do_getif(Osname, socket);
 	{_,_} ->
 	    {skip,"inet:getif/0 probably not supported"}
     end.
 
-do_getif(Osname) ->
-    {ok,Hostname} = inet:gethostname(),
-    {ok,Address} = inet:getaddr(Hostname, inet),
-    {ok,Loopback} = inet:getaddr("localhost", inet),
-    {ok,Interfaces} = inet:getiflist(),
+inet_getiflist(default) ->
+    inet:getiflist();
+inet_getiflist(Backend) ->
+    inet:getiflist([{inet_backend, Backend}]).
+
+inet_ifget(default, Name, Opts) ->
+    inet:ifget(Name, Opts);
+inet_ifget(Backend, Name, Opts) ->
+    inet:ifget(Name, [{inet_backend, Backend}|Opts]).
+
+inet_getif(default) ->
+    inet:getif();
+inet_getif(Backend) ->
+    inet:getif([{inet_backend, Backend}]).
+
+
+do_getif(OsName, Backend) ->
+    io:format("~w(~w) -> entry with"
+              "~n   OsName:  ~p"
+              "~n", [?FUNCTION_NAME, Backend, OsName]),
+    {ok, Hostname}   = inet:gethostname(),
+    {ok, Address}    = inet:getaddr(Hostname,    inet),
+    {ok, Loopback}   = inet:getaddr("localhost", inet),
+    {ok, Interfaces} = inet_getiflist(Backend),
     HWAs =
 	lists:sort(
 	  lists:foldl(
 	    fun (I, Acc) ->
-		    case inet:ifget(I, [hwaddr]) of
+		    case inet_ifget(Backend, I, [hwaddr]) of
 			{ok,[{hwaddr,A}]} -> [A|Acc];
 			{ok,[]} -> Acc
 		    end
 	    end, [], Interfaces)),
-    io:format("HWAs = ~p~n", [HWAs]),
-    (Osname =/= sunos)
+    io:format("~w(~w) -> "
+              "~n   HW Addrs:"
+              "~n      ~p"
+              "~n", [?FUNCTION_NAME, Backend, HWAs]),
+    (OsName =/= sunos)
 	andalso ((length(HWAs) > 0) orelse (ct:fail(no_HWAs))),
     Addresses =
 	lists:sort(
 	  lists:foldl(
 	    fun (I, Acc) ->
-		    case inet:ifget(I, [addr]) of
-			{ok,[{addr,A}]} -> [A|Acc];
-			{ok,[]} -> Acc
+		    case inet_ifget(Backend, I, [addr]) of
+			{ok, [{addr,A}]} -> [A|Acc];
+			{ok, []} -> Acc
 		    end
 	    end, [], Interfaces)),
-    {ok,Getif} = inet:getif(),
+    io:format("~w(~w) -> "
+              "~n   Addresses: "
+              "~n      ~p"
+              "~n", [?FUNCTION_NAME, Backend, Addresses]),
+    {ok,Getif} = inet_getif(Backend),
     Addresses = lists:sort([A || {A,_,_} <- Getif]),
     true = ip_member(Address, Addresses),
     true = ip_member(Loopback, Addresses),
+    io:format("~w(~w) -> done~n", [?FUNCTION_NAME, Backend]),
     ok.
 
 %% Test long interface names do not overrun buffer.

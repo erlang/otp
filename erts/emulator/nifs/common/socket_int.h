@@ -331,6 +331,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
     GLOBAL_ATOM_DEF(host);                     \
+    GLOBAL_ATOM_DEF(hwaddr);                   \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
     GLOBAL_ATOM_DEF(ieee802);                  \
@@ -460,6 +461,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(protocol);                 \
     GLOBAL_ATOM_DEF(pup);                      \
     GLOBAL_ATOM_DEF(raw);                      \
+    GLOBAL_ATOM_DEF(rawip);                    \
     GLOBAL_ATOM_DEF(rcvbuf);                   \
     GLOBAL_ATOM_DEF(rcvbufforce);              \
     GLOBAL_ATOM_DEF(rcvlowat);                 \
