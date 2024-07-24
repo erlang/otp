@@ -7754,8 +7754,16 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 	/* XXX: UDP sockets could also trigger immediate read here NIY */
 	if ((desc->stype==SOCK_STREAM) && desc->active) {
-	    if (!old_active || (desc->htype != old_htype)) {
-		/* passive => active change OR header type change in active mode */
+	    if (! old_active) {
+		/* passive => active change */
+		return 1;
+	    }
+	    if (desc->htype != old_htype) {
+                tcp_descriptor *tdesc = (tcp_descriptor *) desc;
+		/* Header type change in active mode.
+                 * Invalidate the calculated packet remaining length.
+                 */
+                tdesc->i_remain = 0;
 		return 1;
 	    }
 
@@ -12676,12 +12684,6 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	    desc->i_remain = len;  /* set remain */
     }
     else  /* remain already set use it */
-        /* XXX RaNi. I think there is a race here...
-         * If the packet mode is changed between desc->i_remain is set
-         * and remaining data is read, then when the packet is delivered;
-         * packet_parse() is called with the new packet mode (desc->inet.htype)
-         * which is wrong for that packet.
-         */
 	nread = desc->i_remain;
 
     for (;;) {
