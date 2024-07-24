@@ -3853,21 +3853,19 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 
                     ASSERT(!use_iov);
 
-                    /* Use [BIT_]BINARY_INTERNAL_REF, copying the actual BinRef
-                     * and/or ErlSubBits whenever that is smaller than the data
-                     * itself. */
-                    if (wire_size >= sizeof(BinRef)) {
-                        if ((encoding == BINARY_EXT) &&
-                            (base == (byte*)refc_binary->orig_bytes) &&
-                            (size == refc_binary->orig_size * 8) &&
-                            (offset == 0)) {
-                            encoding = BINARY_INTERNAL_REF;
-                            copy_payload = 0;
-                        } else if (wire_size >= (sizeof(ErlSubBits) +
-                                                 sizeof(BinRef))) {
-                            encoding = BITSTRING_INTERNAL_REF;
-                            copy_payload = 0;
-                        }
+                    /* Always use [BIT_]BINARY_INTERNAL_REF: this may lead to a
+                     * larger result than copying the payload, but ensures that
+                     * the decoded object is exactly the same as the encoded
+                     * one, simplifying the decompression logic in ETS. */
+                    if ((encoding == BINARY_EXT) &&
+                        (base == (byte*)refc_binary->orig_bytes) &&
+                        (size == refc_binary->orig_size * 8) &&
+                        (offset == 0)) {
+                        encoding = BINARY_INTERNAL_REF;
+                        copy_payload = 0;
+                    } else {
+                        encoding = BITSTRING_INTERNAL_REF;
+                        copy_payload = 0;
                     }
                 }
 
@@ -5606,19 +5604,15 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 
                 ASSERT(vlen < 0);
 
-                /* Use [BIT_]BINARY_INTERNAL_REF, copying the actual BinRef
-                 * and/or ErlSubBits whenever that is smaller than the data
-                 * itself. */
-                if (wire_size >= sizeof(BinRef)) {
-                    if ((encoding == BINARY_EXT) &&
-                        (base == (byte*)refc_binary->orig_bytes) &&
-                        (size == refc_binary->orig_size * 8) &&
-                        (offset == 0)) {
-                        encoding = BINARY_INTERNAL_REF;
-                    } else if (wire_size >= (sizeof(ErlSubBits) +
-                                             sizeof(BinRef))) {
-                        encoding = BITSTRING_INTERNAL_REF;
-                    }
+                /* Always use [BIT_]BINARY_INTERNAL_REF: see matching comment
+                 * in enc_term_int. */
+                if ((encoding == BINARY_EXT) &&
+                    (base == (byte*)refc_binary->orig_bytes) &&
+                    (size == refc_binary->orig_size * 8) &&
+                    (offset == 0)) {
+                    encoding = BINARY_INTERNAL_REF;
+                } else {
+                    encoding = BITSTRING_INTERNAL_REF;
                 }
             }
 
