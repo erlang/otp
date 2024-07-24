@@ -1561,12 +1561,26 @@ will_succeed_1(#b_set{op=wait_timeout}, _Src, _Ts) ->
 will_succeed_1(#b_set{}, _Src, _Ts) ->
     'maybe'.
 
+%% Take care to not produce a reuse hint when more than one update
+%% exists. There is no point in attempting the reuse optimization when
+%% more than one element is updated, as checking more than one element
+%% at runtime is known to be slower than just copying the tuple in
+%% most cases. Additionally, using a copy hint occasionally allows the
+%% alias analysis pass to do a better job.
 simplify_update_record(Src, Hint0, Updates, Ts) ->
     case sur_1(Updates, concrete_type(Src, Ts), Ts, Hint0, []) of
+        {#b_literal{val=reuse}, []} when length(Updates) > 2 ->
+            {changed, #b_literal{val=copy}, Updates};
         {Hint0, []} ->
             unchanged;
-        {Hint, Skipped} ->
-            {changed, Hint, sur_skip(Updates, Skipped)}
+        {Hint1, Skipped} ->
+            Updates1 = sur_skip(Updates, Skipped),
+            Hint = if length(Updates1) > 2 ->
+                           #b_literal{val=copy};
+                      true ->
+                           Hint1
+                   end,
+            {changed, Hint, Updates1}
     end.
 
 sur_1([Index, Arg | Updates], RecordType, Ts, Hint, Skipped) ->
