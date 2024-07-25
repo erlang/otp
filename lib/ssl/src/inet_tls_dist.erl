@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -233,7 +233,8 @@ listen(Name, Host) ->
 
 fam_listen(Family, Name, Host) ->
     ForcedOptions =
-        [Family, {active, false}, {packet, 4}, {nodelay, true}],
+        [Family, {active, false}, {packet, 4},
+         {read_ahead, false}, {nodelay, true}],
     ListenFun =
         fun (First, Last, ListenOptions) ->
                 listen_loop(
@@ -640,7 +641,8 @@ do_setup(
           inet_tcp_dist:merge_options(
             ConnectOptions,
             get_ssl_options(client)),
-          [Family, binary, {active, false}, {packet, 4}, {nodelay, true}],
+          [Family, binary, {active, false}, {packet, 4},
+           {read_ahead, false}, {nodelay, true}],
           [{server_name_indication, Host}]),
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
