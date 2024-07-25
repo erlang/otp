@@ -296,6 +296,10 @@ start(Key, Vs)
     start(make_ref(), [list_to_tuple([Key | Vs]) | apps(Key)]);
 
 start(SvcName, Opts) ->
+    io:format("~w:~w -> entry with"
+              "~n   SvcName: ~p"
+              "~n   Opts:    ~p"
+              "~n", [?MODULE, ?FUNCTION_NAME, SvcName, Opts]),
     try
         diameter:start_service(SvcName, Opts)
     after

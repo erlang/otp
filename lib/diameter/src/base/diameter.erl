@@ -87,6 +87,7 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+
 %% ---------------------------------------------------------------------------
 %% start/0
 %% ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ start() ->
 stop() ->
     application:stop(?APPLICATION).
 
+
 %% ---------------------------------------------------------------------------
 %% start_service/2
 %% ---------------------------------------------------------------------------
@@ -121,6 +123,7 @@ start_service(SvcName, Opts)
   when is_list(Opts) ->
     diameter_config:start_service(SvcName, Opts).
 
+
 %% ---------------------------------------------------------------------------
 %% stop_service/1
 %% ---------------------------------------------------------------------------
@@ -129,8 +132,48 @@ start_service(SvcName, Opts)
    -> ok
     | {error, term()}.
 
+%% To handle possible race conditions we check whois and then wait...
+%% This should be simple, but just in case the function is called
+%% when there is no service actually running...
 stop_service(SvcName) ->
-    diameter_config:stop_service(SvcName).
+    case diameter_service:whois(SvcName) of
+        undefined ->
+            %% Nothing, so we just call stop to perform possible cleanup...
+            diameter_config:stop_service(SvcName);
+        _ ->
+            %% Note that the service may die/be killed just after we checked...
+            subscribe(SvcName),
+            Result = do_stop_service(SvcName),
+            unsubscribe(SvcName),
+            Result
+    end.
+
+do_stop_service(SvcName) ->
+    case diameter_config:stop_service(SvcName) of
+        ok ->
+            %% Now wait for the stop event
+            await_service_stop_event(SvcName),
+            %% And finally wait for the registry to be "flushed" (ugh!)...
+            diameter_service:await_service_cleanup(SvcName),
+            ok;
+        {error, _} = ERROR ->
+            ERROR
+    end.
+    
+await_service_stop_event(SvcName) ->
+    receive
+        #diameter_event{service = SvcName,
+                        info    = stop} ->
+            ok
+    after 1000 ->
+            case diameter_service:whois(SvcName) of
+                undefined ->
+                    ok;
+                _Pid ->
+                    await_service_stop_event(SvcName)
+            end
+    end.
+
 
 %% ---------------------------------------------------------------------------
 %% services/0
@@ -437,3 +480,5 @@ call(SvcName, App, Message) ->
     | {filter, peer_filter()}
     | {peer, peer_ref()}
     | {timeout, 'Unsigned32'()}.
+
+
