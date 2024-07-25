@@ -194,16 +194,18 @@ stop(No, _) ->
 %% but the cleanup may not have completed...
 %% This is a simple race, so we should not have to wait long...
 await_service_cleanup(SvcName) ->
-    do_await_service_cleanup(SvcName).
+    do_await_service_cleanup(SvcName, 10).
 
-do_await_service_cleanup(SvcName) ->
+do_await_service_cleanup(_SvcName, N) when (N =< 0) ->
+    {error, service_cleanup_timeout};
+do_await_service_cleanup(SvcName, N) ->
     case whois(SvcName) of
         undefined ->
             %% We are done!
             ok;
         _Pid ->
             receive after 100 -> ok end,
-            do_await_service_cleanup(SvcName)
+            do_await_service_cleanup(SvcName, N-1)
     end.
                              
 

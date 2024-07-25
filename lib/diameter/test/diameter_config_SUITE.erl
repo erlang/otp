@@ -296,14 +296,16 @@ start(Key, Vs)
     start(make_ref(), [list_to_tuple([Key | Vs]) | apps(Key)]);
 
 start(SvcName, Opts) ->
-    io:format("~w:~w -> entry with"
-              "~n   SvcName: ~p"
-              "~n   Opts:    ~p"
-              "~n", [?MODULE, ?FUNCTION_NAME, SvcName, Opts]),
     try
-        diameter:start_service(SvcName, Opts)
+        Res1 = diameter:start_service(SvcName, Opts),
+        %% io:format("[started] Is service ~p: ~p~n",
+        %%           [SvcName, diameter:is_service(SvcName)]),
+        Res1
     after
-        diameter:stop_service(SvcName)
+        Res2 = diameter:stop_service(SvcName),
+        %% io:format("[stopped] Is service ~p: ~p~n",
+        %%           [SvcName, diameter:is_service(SvcName)]),
+        Res2
     end.
 
 apps(application) ->

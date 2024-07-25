@@ -36,6 +36,7 @@
 
 %% Information.
 -export([services/0,
+         is_service/1,
          peer_info/1,
          peer_find/1,
          service_info/2]).
@@ -154,8 +155,7 @@ do_stop_service(SvcName) ->
             %% Now wait for the stop event
             await_service_stop_event(SvcName),
             %% And finally wait for the registry to be "flushed" (ugh!)...
-            diameter_service:await_service_cleanup(SvcName),
-            ok;
+            diameter_service:await_service_cleanup(SvcName);
         {error, _} = ERROR ->
             ERROR
     end.
@@ -176,14 +176,27 @@ await_service_stop_event(SvcName) ->
 
 
 %% ---------------------------------------------------------------------------
+%% is_service/1
+%% ---------------------------------------------------------------------------
+
+%% -doc false.
+-spec is_service(service_name())
+                -> boolean().
+
+is_service(SvcName) ->
+    (undefined =/= diameter_service:whois(SvcName)).
+
+
+%% ---------------------------------------------------------------------------
 %% services/0
 %% ---------------------------------------------------------------------------
 
 -spec services()
-   -> [service_name()].
+              -> [service_name()].
 
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
+
 
 %% ---------------------------------------------------------------------------
 %% service_info/2
