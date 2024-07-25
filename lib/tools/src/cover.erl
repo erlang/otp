@@ -1259,7 +1259,7 @@ main_process_loop(State) ->
 	    ?MODULE:main_process_loop(S);
 
 	{From, {export,OutFile,Module}} ->
-	    spawn(fun() ->
+	    spawn_link(fun() ->
 			  ?SPAWN_DBG(export,{OutFile, Module}),
 			  do_export(Module, OutFile, From, State)
 		  end),
@@ -1671,7 +1671,7 @@ remote_start(MainNode) ->
     case whereis(?SERVER) of
 	undefined ->
 	    Starter = self(),
-	    Pid = spawn(fun() -> 
+	    Pid = spawn_link(fun() -> 
 				?SPAWN_DBG(remote_start,{MainNode}),
 				init_remote(Starter,MainNode) 
 			end),
