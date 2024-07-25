@@ -2302,9 +2302,7 @@ time_unit_conversion(Process *c_p, Eterm term, ErtsMonotonicTime val, ErtsMonoto
     case am_nanosecond:
     case am_nano_seconds:
     case make_small(1000*1000*1000):
-	result = ERTS_MONOTONIC_TO_NSEC(val) + muloff*ERTS_MONOTONIC_OFFSET_NSEC;
-	ERTS_BIF_PREP_RET(ret, make_time_val(c_p, result));
-	break;
+    goto trap_to_erlang_code;
 #endif
     case am_perf_counter:
 	goto trap_to_erlang_code;
