@@ -839,6 +839,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define TCP_ADDF_SHUTDOWN_WR_DONE 256 /* A shutdown(sock, SHUT_WR) or SHUT_RDWR was made */
 #define TCP_ADDF_LINGER_ZERO 	  512 /* Discard driver queue on port close */
 #define TCP_ADDF_SENDFILE         1024 /* Send from an fd instead of the driver queue */
+#define TCP_ADDF_NO_READ_AHEAD    2048 /* Don't read ahead in packet modes */
 
 /* *_REQ_* replies */
 #define INET_REP_ERROR       0
@@ -896,6 +897,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
+#define INET_LOPT_TCP_READ_AHEAD    49  /* Read ahead of packet data */
 #define INET_LOPT_DEBUG             99  /* Enable/disable DEBUG for a socket */
 
 /* SCTP options: a separate range, from 100: */
@@ -7082,6 +7084,21 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    }
 	    continue;
 
+	case INET_LOPT_TCP_READ_AHEAD:
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "inet_set_opts(read_ahead) -> %d (%s)\r\n",
+                  __LINE__,
+                  desc->s, driver_caller(desc->port), ival, B2S(ival)) );
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		if (! ival)
+		    tdesc->tcp_add_flags |= TCP_ADDF_NO_READ_AHEAD;
+		else
+		    tdesc->tcp_add_flags &= ~TCP_ADDF_NO_READ_AHEAD;
+	    }
+	    continue;
+
 	case INET_LOPT_LINE_DELIM:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
@@ -9037,6 +9054,17 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
 		*ptr++ = opt;
 		ival = !!(tdesc->tcp_add_flags & TCP_ADDF_SHOW_ECONNRESET);
+		put_int32(ival, ptr);
+	    } else {
+		TRUNCATE_TO(0,ptr);
+	    }
+	    continue;
+
+	case INET_LOPT_TCP_READ_AHEAD:
+	    if (desc->sprotocol == IPPROTO_TCP) {
+		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+		*ptr++ = opt;
+		ival = !(tdesc->tcp_add_flags & TCP_ADDF_NO_READ_AHEAD);
 		put_int32(ival, ptr);
 	    } else {
 		TRUNCATE_TO(0,ptr);
@@ -11275,8 +11303,9 @@ static void inet_input_count(inet_descriptor* desc, ErlDrvSizeT len)
 
 /*
 ** Set new size on buffer, used when packet size is determined
-** and the buffer is to small.
-** buffer must have a size of at least len bytes (counting from ptr_start!)
+** and the buffer is to small.  Expand the buffer to len bytes
+** from ptr_start, don't move ptr_start's position and
+** keep the content before ptr_start.
 */
 static int tcp_expand_buffer(tcp_descriptor* desc, int len)
 {
@@ -11465,7 +11494,8 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     copy_desc->send_timeout_close = desc->send_timeout_close;
 
     copy_desc->tcp_add_flags = desc->tcp_add_flags
-        & (TCP_ADDF_SHOW_ECONNRESET | TCP_ADDF_LINGER_ZERO);
+        & (TCP_ADDF_SHOW_ECONNRESET | TCP_ADDF_LINGER_ZERO |
+           TCP_ADDF_NO_READ_AHEAD);
     
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
@@ -12435,22 +12465,61 @@ static int tcp_recv_error(tcp_descriptor* desc, int err)
 }
 
 
-
+/* To be called after packet_get_length() has returned that
+ * more bytes are needed (or when we know that it would).
+ */
 static int packet_header_length(tcp_descriptor *desc) {
-    /* XXX RaNi. Here we shall decide whether to read as short as possible,
-     * or to fill the buffer as much as possible.
-     *
-     * Return 0 when we shall read ahead, and > 0 for the amount of byte
-     * we need to deduce the packet length.
-     */
+    int n, hlen;
+
+    if (! (desc->tcp_add_flags & TCP_ADDF_NO_READ_AHEAD))
+        return 0;  /* Read ahead */
 
     switch (desc->inet.htype) {
-    case TCP_PB_SSL_TLS:
-        /* Return the minimal length to not read ahead */
-        return 5;
+    case TCP_PB_RAW:
+        return 0;
+
+    /* Return how many more bytes we should read to make
+     * packet_get_length() return the packet length.
+     *
+     * Set hlen to the minimal header bytes, for starters.
+     */
+    case TCP_PB_1:          hlen = 1; break;
+    case TCP_PB_2:          hlen = 2; break;
+    case TCP_PB_4:          hlen = 4; break;
+    case TCP_PB_RM:         hlen = 4; break;
+    case TCP_PB_ASN1:       hlen = 2; break;
+    case TCP_PB_SSL_TLS:    hlen = 5; break;
+    case TCP_PB_CDR:        hlen = 12; break;
+    case TCP_PB_FCGI:       hlen = sizeof(struct fcgi_head); break;
+    case TCP_PB_TPKT:       hlen = 4; break;
     default:
-        return 0; /* Read ahead as much as is comfortable */
+        /* We should always be able to read another byte
+         * to see if we then can deduce the packet length.
+         * Note that for line mode packet formats,
+         * not a length in a header, this is very inefficient,
+         * but there is no other way to not read ahead.
+         * For TCP_PB_ASN1 it is also inefficient, but we
+         * would have to re-implement quite some decoding rules
+         * here to figure out a better value that probably isn't
+         * that much better since some field have to be read one byte
+         * at the time to find the end of the field.
+         *
+         * Just don't combine TCP_ADDF_NO_READ_AHEAD
+         * with non-suitable packet types.
+         */
+        return 1;
     }
+    n = desc->i_ptr - desc->i_ptr_start;
+    ASSERT(n >= 0);
+
+    if (hlen > n)
+        return hlen - n;
+    else
+        /* Since packet_get_length() couldn't return a length
+         * and since the minimal header size above apprently isn't enough
+         * we need at least another byte
+         */
+        return 1;
 }
 
 
@@ -12458,15 +12527,17 @@ static int packet_header_length(tcp_descriptor *desc) {
 ** Calculate number of bytes that remain to read before deliver
 ** Assume buf, ptr_start, ptr has been setup
 **
-** return  > 0 if more to read
-**         = 0 if holding complete packet
-**         < 0 on error
-**
-** if return value == 0 then *len will hold the length of the first packet
-**    return value > 0 then
-**       if *len == 0 then value means what to read next: upperbound or minimum
-**          *len > 0  then value means exactly what is missing for a packet
-**
+** return == 0 if we have a complete packet. *len holds the packet length.
+**        >  0 is how many bytes to read.
+**             *len is the packet's length.
+**                  == 0 if we don't know, then the return value is either
+**                       the minimum bytes to read to figure out the packet's
+**                       length or the maximum bytes to read which avoids
+**                       numerous calls to sock_recv(), depending on
+**                       TCP_ADDF_NO_READ_AHEAD.
+**                  >  0 Implies that the return value is
+**                       exactly what's missing.
+**        <  0 if there is a decode error
 */
 static int tcp_remain(tcp_descriptor* desc, int* len)
 {
@@ -12484,17 +12555,18 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
 	    desc->inet.port, desc->inet.s, n, nfill, nsz, tlen));
 
     if (tlen > 0) {
+        *len = tlen;
         if (tlen <= n) { /* got a packet */
-            *len = tlen;
             DEBUGF((" => nothing remain packet=%d\r\n", tlen));
             return 0;
         }
         else { /* need known more */
+            int nread;
             if (tcp_expand_buffer(desc, tlen) < 0)
                 return -1;
-            *len = tlen - n;
-            DEBUGF((" => remain=%d\r\n", *len));
-            return *len;
+            nread = tlen - n;
+            DEBUGF((" => remain=%d\r\n", nread));
+            return nread;
         }
     }
     else if (tlen == 0) { /* need unknown more */
@@ -12514,17 +12586,14 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
                      */
                     if (tcp_expand_buffer(desc, desc->inet.psize) < 0)
                         return -1;
-                    return desc->inet.psize;
+                    return desc->inet.psize - n;;
                 }
                 else
                     goto error;
             }
             DEBUGF((" => restart more=%d\r\n", nfill - n));
-            /* Return the unused buffer space before desc->i_ptr_start,
-             * XXX RaNi. Is there a missing copy down here?
-             * Won't the sock_recv that follows overwrite
-             * the buffer end...???
-             */
+            tcp_clear_input(desc); /* Move the data to buffer start */
+            /* Return the unused buffer space before desc->i_ptr_start */
             return nfill - n;
         }
         else {
@@ -12556,8 +12625,8 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	    if (n < 0) /* packet error */
 		return n;
             /* Packet incomplete */
-	    if (len > 0)  /* This is what is missing */
-		desc->i_remain = len;
+	    if (len > 0)
+		desc->i_remain = n; /* This is what is missing */
 	    return 0;
 	}
     }
@@ -12621,7 +12690,7 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 		    return n;
 		tcp_restart_input(desc);
 		if (len > 0)
-		    desc->i_remain = len;
+		    desc->i_remain = n;
 		len = 0;
 	    }
 	}
@@ -12663,15 +12732,14 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	else
 	    desc->i_remain = 0;
     }
-    else if (request_len > 0) { /* we have a data in buffer and a request */
+    else if (request_len > 0) { /* we have data in buffer and a request */
         int n = desc->i_ptr - desc->i_ptr_start;
 
 	if (n >= request_len)
 	    return tcp_deliver(desc, request_len);
 	else if (tcp_expand_buffer(desc, request_len) < 0)
 	    return tcp_recv_error(desc, ENOMEM);
-	else
-	    desc->i_remain = nread = request_len - n;
+        desc->i_remain = nread = request_len - n;
     }
     else if (desc->i_remain == 0) {  /* poll remain from buffer data */
         int len;
@@ -12681,7 +12749,7 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	else if (nread == 0)
 	    return tcp_deliver(desc, len);
 	else if (len > 0)
-	    desc->i_remain = len;  /* set remain */
+	    desc->i_remain = nread;  /* set remain */
     }
     else  /* remain already set use it */
 	nread = desc->i_remain;
@@ -12739,7 +12807,7 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
             else if (nread == 0)
                 return tcp_deliver(desc, len);
             else if (len > 0) /* nread > 0 */
-                desc->i_remain = len;  /* What is missing for this packet */
+                desc->i_remain = nread;  /* What is missing for this packet */
         }
     } /* for (;;) */
 }

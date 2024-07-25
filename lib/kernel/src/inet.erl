@@ -999,7 +999,7 @@ connect_options() ->
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset, bind_to_device].
+     show_econnreset, bind_to_device, read_ahead].
     
 connect_options(Opts, Mod) ->
     BaseOpts = 
@@ -1089,7 +1089,7 @@ listen_options() ->
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset, bind_to_device].
+     packet_size, raw, show_econnreset, bind_to_device, read_ahead].
 
 listen_options(Opts, Mod) ->
     BaseOpts = 
