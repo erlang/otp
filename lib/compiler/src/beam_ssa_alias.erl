@@ -62,7 +62,10 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
               cnt = 0 :: non_neg_integer(),
               %% Functions which have been analyzed at least once.
               analyzed = sets:new() :: sets:set(func_id()),
-              run_count = #{} :: #{ func_id() => non_neg_integer() }
+              run_count = #{} :: #{ func_id() => non_neg_integer() },
+              prune_strategy = #{} :: #{ func_id() =>
+                                             #{beam_ssa:label() =>
+                                                   'add' | 'del'} }
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -393,15 +396,18 @@ aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, NoofIters) ->
     end.
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
-       AAS0=#aas{alias_map=AliasMap0,analyzed=Analyzed,kills=KillsMap}) ->
+       AAS0=#aas{alias_map=AliasMap0,analyzed=Analyzed,kills=KillsMap,
+                 prune_strategy=StrategyMap0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
     %% assumed to be aliased.
     {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
     #{F:={LiveIns,Kills,PhiLiveIns}} = KillsMap,
-    {SS,AAS1} = aa_blocks(Linear0, LiveIns, PhiLiveIns,
-                          Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+    Strategy0 = maps:get(F, StrategyMap0, #{}),
+    {SS,Strategy,AAS1} =
+        aa_blocks(Linear0, LiveIns, PhiLiveIns,
+                  Kills, #{0=>SS0}, Strategy0, AAS0#aas{cnt=Cnt}),
     Lbl2SS0 = maps:get(F, AliasMap0, #{}),
     Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
     Type2Status = maps:get(returns, SS, #{}),
@@ -412,30 +418,58 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
                   AAS1
           end,
     AliasMap = AliasMap0#{ F => SS },
-    AAS#aas{alias_map=AliasMap,analyzed=sets:add_element(F, Analyzed)}.
+    StrategyMap = StrategyMap0#{F => Strategy},
+    AAS#aas{alias_map=AliasMap,analyzed=sets:add_element(F, Analyzed),
+            prune_strategy=StrategyMap}.
 
 %% Main entry point for the alias analysis
 aa_blocks([{?EXCEPTION_BLOCK,_}|Bs],
-          LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS) ->
+          LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS) ->
     %% Nothing happening in the exception block can propagate to the
     %% other block.
-    aa_blocks(Bs, LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS);
+    aa_blocks(Bs, LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS);
 aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0],
-          LiveIns, PhiLiveIns, Kills, Lbl2SS0, AAS0) ->
+          LiveIns, PhiLiveIns, Kills, Lbl2SS0, Strategy0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
     ?DP("Block: ~p~nSS:~n~s~n", [L, beam_ssa_ss:dump(SS0)]),
     {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
     #{{live_outs,L}:=LiveOut} = Kills,
-    #{{killed_in_block,L}:=KilledInBlock} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
-    PrunedSS = beam_ssa_ss:prune(LiveOut, KilledInBlock, FullSS),
+    %% In around 80% of the cases when prune is called, more than half
+    %% of the nodes in the sharing state database survive. Therefore
+    %% we default to a pruning strategy which removes nodes from the
+    %% database. But if only a few nodes survive it is faster to
+    %% recreate the pruned state from scratch. We therefore track the
+    %% result of a previous prune for the current basic block and
+    %% select the, hopefully, best pruning strategy.
+    Before = beam_ssa_ss:size(FullSS),
+    S = maps:get(L, Strategy0, del),
+    PrunedSS =
+        case S of
+            del ->
+                #{{killed_in_block,L}:=KilledInBlock} = Kills,
+                beam_ssa_ss:prune(LiveOut, KilledInBlock, FullSS);
+            add ->
+                beam_ssa_ss:prune_by_add(LiveOut, FullSS)
+        end,
+    After = beam_ssa_ss:size(PrunedSS),
+    Strategy = case After < (Before div 2) of
+                   true when S =:= add ->
+                       Strategy0;
+                   false when S =:= del ->
+                       Strategy0;
+                   true ->
+                       Strategy0#{L => add};
+                   false ->
+                       Strategy0#{L => del}
+               end,
     ?DP("Live out from ~p: ~p~n", [L, sets:to_list(LiveOut)]),
     Lbl2SS2 = aa_add_block_entry_ss(Successors, L, PrunedSS,
                                     LiveOut, LiveIns, PhiLiveIns, Lbl2SS1),
     Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
-    aa_blocks(Bs0, LiveIns, PhiLiveIns, Kills, Lbl2SS, AAS1);
-aa_blocks([], _LiveIns, _PhiLiveIns, _Kills, Lbl2SS, AAS) ->
-    {Lbl2SS,AAS}.
+    aa_blocks(Bs0, LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS1);
+aa_blocks([], _LiveIns, _PhiLiveIns, _Kills, Lbl2SS, Strategy, AAS) ->
+    {Lbl2SS, Strategy, AAS}.
 
 aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
     ?DP("I: ~p~n", [_I]),
