@@ -59,6 +59,7 @@
          transformable32/0,
          transformable32/1,
          transformable33/0,
+         transformable34/0,
 
 	 not_transformable1/2,
 	 not_transformable2/1,
