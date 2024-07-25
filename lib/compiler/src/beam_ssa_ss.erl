@@ -45,8 +45,10 @@
          new/3,
          phi/4,
          prune/3,
+         prune_by_add/2,
          set_call_result/4,
          set_status/3,
+         size/1,
          variables/1]).
 
 -include("beam_ssa.hrl").
@@ -520,6 +522,58 @@ is_safe_to_prune(V, LiveVars, State) ->
             end
     end.
 
+%%%
+%%% As prune/3, but doing the pruning by rebuilding the surviving
+%%% state from scratch.
+%%%
+%%% Throws `too_deep` if the depth of sharing state value chains
+%%% exceeds SS_DEPTH_LIMIT.
+%%%
+-spec prune_by_add(sets:set(beam_ssa:b_var()), sharing_state())
+                  -> sharing_state().
+prune_by_add(LiveVars, State) ->
+    ?assert_state(State),
+    ?DP("Pruning to ~p~n", [sets:to_list(LiveVars)]),
+    ?DP("~s~n", [dump(State)]),
+    ?DP("Vertices: ~p~n", [beam_digraph:vertices(State)]),
+    R = prune_by_add([{0,V} || V <- sets:to_list(LiveVars),
+                               beam_digraph:has_vertex(State, V)],
+                     [], new(), State),
+    ?DP("Pruned result~n~s~n", [dump(R)]),
+    ?assert_state(R).
+
+prune_by_add([{Depth0,V}|Wanted], Edges, New0, Old) ->
+    ?DP("Looking at ~p~n", [V]),
+    ?DP("Curr:~n~s~n", [dump(New0)]),
+    ?DP("Wanted: ~p~n", [Wanted]),
+    case beam_digraph:has_vertex(New0, V) of
+        true ->
+            %% This variable is already added.
+            prune_by_add(Wanted, Edges, New0, Old);
+        false when Depth0 < ?SS_DEPTH_LIMIT ->
+            %% This variable has to be kept. Add it to the new graph.
+            New = add_vertex(New0, V, beam_digraph:vertex(Old, V)),
+            %% Add all incoming edges to this node.
+            InEdges = beam_digraph:in_edges(Old, V),
+            Depth = Depth0 + 1,
+            InNodes = [{Depth, From} || {From,_,_} <- InEdges],
+            prune_by_add(InNodes ++ Wanted, InEdges ++ Edges, New, Old);
+        false ->
+            %% We're in too deep, give up. This case will probably
+            %% never be hit as it would require a previous prune/3
+            %% application which doesn't hit the depth limit and for
+            %% it to remove more than half of the nodes to trigger the
+            %% use of prune_by_add/2, and in a later iteration trigger
+            %% the depth limit. As it cannot be definitely ruled out,
+            %% take the hit against the coverage statistics, as the
+            %% handling code in beam_ssa_alias is tested.
+            throw(too_deep)
+    end;
+prune_by_add([], Edges, New0, _Old) ->
+    foldl(fun({Src,Dst,Lbl}, New) ->
+                  add_edge(New, Src, Dst, Lbl)
+          end, New0, Edges).
+
 -spec set_call_result(beam_ssa:b_var(), call_in_arg_status(),
                       sharing_state(), non_neg_integer()) ->
           {sharing_state(),non_neg_integer()}.
@@ -603,6 +657,10 @@ get_alias_edges(V, State) ->
                          _ -> false
                      end],
     EmbedEdges ++ OutEdges.
+
+-spec size(sharing_state()) -> non_neg_integer().
+size(State) ->
+    beam_digraph:no_vertices(State).
 
 -spec variables(sharing_state()) -> [beam_ssa:b_var()].
 variables(State) ->
