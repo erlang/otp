@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2022-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -380,7 +380,7 @@ init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
 internal_active_n(#{ktls := true}, Socket) ->
-    inet:setopts(Socket, [{packet, ssl_tls}]),
+    inet:setopts(Socket, [{packet, ssl_tls}, {read_ahead, false}]),
     1;
 internal_active_n(#{erl_dist := true}, _) ->
     %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
