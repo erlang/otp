@@ -173,33 +173,47 @@ run(List) ->
 
 %% Establish multiple connections between a client and server.
 connect(ClientProt, ServerProt) ->
+    ?PL("connect -> start 'server' (~w) and 'client' services (~w)",
+        [ClientProt, ServerProt]),
     [] = [{S,T} || S <- ["server", "client"],
                    T <- [diameter:start_service(S, ?SERVICE(S))],
                    T /= ok],
     %% Listen with a single transport with pool_size = 4. Ensure the
     %% expected number of transport processes are started.
+    ?PL("connect -> start 'server' listener with pool size 4"),
     LRef = ?LISTEN("server", ServerProt, [{pool_size, 4}]),
     {4,0} = count("server", LRef, accept), %% 4 transports, no connections
     %% Establish 5 connections.
     N = pool_size(5),  %% connections to establish
+    ?PL("connect -> start 'client' connections with pool size ~p", [N]),
     Ref = ?CONNECT("client", ClientProt, LRef, [{pool_size, N}]),
     {N,N} = count("client", Ref, pool),    %% N connections
     %% Ensure the server has started replacement transports within a
     %% reasonable time. Sleepsince there's no guarantee the
     %% replacements have been started before the client has received
     %% 'up' events. (Although it's likely.)
+    ?PL("connect -> sleep some"),
     timer:sleep(1000),
     N4 = N + 4,
+    ?PL("connect -> verify 'server' acceptors"),
     {N4,N} = count("server", LRef, accept), %% N connections + 4 accepting
     %% Ensure there are still the expected number of accepting transports
     %% after stopping the client service.
+    ?PL("connect -> stop 'client' service"),
     ok = diameter:stop_service("client"),
+    ?PL("connect -> sleep some"),
     timer:sleep(1000),
+    ?PL("connect -> verify 'server' acceptors"),
     {4,0} = count("server", LRef, accept), %% 4 transports, no connections
     %% Done.
+    ?PL("connect -> remote 'client' transport"),
     ok = diameter:remove_transport("client", true),
+    ?PL("connect -> remote 'server' transport"),
     ok = diameter:remove_transport("server", true),
-    ok = diameter:stop_service("server").
+    ?PL("connect -> stop 'server' service"),
+    ok = diameter:stop_service("server"),
+    ?PL("connect -> done"),
+    ok.
 
 count(Name, Ref, Key) ->
     [{transport, [[{ref, Ref} | T]]},

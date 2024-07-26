@@ -468,7 +468,7 @@ listen(SvcName, Prot, Opts) ->
         "~n   SvcName: ~p"
         "~n   Prot:    ~p"
         "~n   Opts:    ~p"
-        "~n  => verisfy service name", [?FUNCTION_NAME, SvcName, Prot, Opts]),
+        "~n  => verify service name", [?FUNCTION_NAME, SvcName, Prot, Opts]),
     SvcName = diameter:service_info(SvcName, name),  %% assert
     ?UL("~w -> add transport", [?FUNCTION_NAME]),
     Ref = add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}),
