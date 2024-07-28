@@ -4,7 +4,7 @@
 %% Description : A test inspired by a post of Mkcael Remond to the
 %%		 Erlang mailing list suggesting thst Dialyzer should
 %%		 be reporting sends to records rather than to pids.
-%%		 Dialyzer v1.3.0 indeed reports one of the dicrepancies
+%%		 Dialyzer v1.3.0 indeed reports one of the discrepancies
 %%		 (the one with the 4-tuple) but not the one where the
 %%		 message is sent to a pair which is a record.
 %%		 This should be fixed.

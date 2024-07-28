@@ -42,7 +42,7 @@ group_map() ->
       %%legacy_pre_session => [pre_session],
       %%legacy_post_session => [post_session],
       legacy_pre_post => [pre_session, post_session],
-      %%dynamic_sesssion => [dynamic_session]
+      %%dynamic_session => [dynamic_session]
       dynamic_pre_post => [pre_session, post_session, dynamic_session]
      }.
 

@@ -228,7 +228,7 @@ call_to_size_1(Config) when is_list(Config) ->
     not_recommended_calls(Config, Apps, {erlang,size,1}).
 
 call_to_now_0(Config) when is_list(Config) ->
-    %% Forbid the use of erlang:now/1 in all applications except et.
+    %% Forbid the use of erlang:now/0 in all applications except et.
     Apps = all_otp_applications(Config) -- [et],
     not_recommended_calls(Config, Apps, {erlang,now,0}).
 
