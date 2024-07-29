@@ -216,7 +216,7 @@ $(EBIN)/beam_jump.beam: beam_asm.hrl
 $(EBIN)/beam_listing.beam: core_parse.hrl beam_ssa.hrl \
      beam_asm.hrl beam_types.hrl
 $(EBIN)/beam_ssa.beam: beam_ssa.hrl
-$(EBIN)/beam_ssa_alias_opt.beam: beam_ssa_opt.hrl beam_types.hrl
+$(EBIN)/beam_ssa_alias.beam: beam_ssa_opt.hrl beam_types.hrl
 $(EBIN)/beam_ssa_bsm.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_bool.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_check.beam: beam_ssa.hrl beam_types.hrl
