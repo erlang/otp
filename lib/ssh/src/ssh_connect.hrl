@@ -180,8 +180,8 @@
 -define(VEOL,6).        %% End-of-line character in addition to carriage return
                         %% or,and). linefeed.
 -define(VEOL2,7).       %% Additional end-of-line character.
--define(VSTART,8).      %% Continues paused output (normally control-Q).
--define(VSTOP,9).       %% Pauses output (normally control-S).
+-define(VSTART,8).      %% Continues paused output (normally Ctrl+Q).
+-define(VSTOP,9).       %% Pauses output (normally Ctrl+S).
 -define(VSUSP,10).      %% Suspends the current program.
 -define(VDSUSP,11).     %% Another suspend character.
 -define(VREPRINT,12).   %% Reprints the current input line.

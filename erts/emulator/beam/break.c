@@ -608,7 +608,7 @@ do_break(void)
 	case '*': /* 
 		   * The asterisk is an read error on windows, 
 		   * where sys_get_key isn't that great in console mode.
-		   * The usual reason for a read error is Ctrl-C. Treat this as
+		   * The usual reason for a read error is Ctrl+C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
 	    erts_exit(0, "");

@@ -2024,7 +2024,7 @@ multiline_prompt_func(PromptFunc) ->
 Can be used to set the formatting of the Erlang shell output.
 
 This has an effect on commands that have been submitted, and how it is saved in history.
-Or if the formatting hotkey is pressed while editing an expression (Alt-r by default). You
+Or if the formatting hotkey is pressed while editing an expression (Alt+R by default). You
 can specify a `Mod:Func/1` that expects the whole expression as a string and
 returns a formatted expressions as a string. See
 [`stdlib app config`](stdlib_app.md#format_shell_func) for how to set it before

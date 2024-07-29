@@ -86,7 +86,7 @@ init([Notebook, Parent, Config]) ->
 
 
 create_sys_menu(Parent) ->
-    View = {"View", [#create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+    View = {"View", [#create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh interval"}]},
     observer_wx:create_menus(Parent, [View]).
 

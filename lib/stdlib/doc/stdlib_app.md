@@ -55,7 +55,7 @@ For more information about configuration parameters, see the
 - **`format_shell_func = {Mod, Func} | string() | default`{: #format_shell_func
   }** - Can be used to set the formatting of the Erlang shell output. This has
   an effect on commands that have been submitted and how it is saved in history
-  or if the formatting hotkey is pressed while editing an expression (Alt-f by
+  or if the formatting hotkey is pressed while editing an expression (Alt+F by
   default). You can specify a Mod:Func/1 that expects the whole expression as a
   string and returns a formatted expressions as a string. See
   `shell:format_shell_func/1` for how to set it from inside the shell.

@@ -542,8 +542,8 @@ void erts_usage(void)
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
     erts_fprintf(stderr, "\n");
 
-    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl-C) behavior; valid letters are:\n");
-    erts_fprintf(stderr, "                  'c' to have Ctrl-C interrupt the Erlang shell;\n");
+    erts_fprintf(stderr, "-B[c|d|i]      set break (Ctrl+C) behavior; valid letters are:\n");
+    erts_fprintf(stderr, "                  'c' to have Ctrl+C interrupt the Erlang shell;\n");
     erts_fprintf(stderr, "                  'd' (or no extra option) to disable the break handler;\n");
     erts_fprintf(stderr, "                  'i' to ignore break signals\n");
     erts_fprintf(stderr, "\n");
