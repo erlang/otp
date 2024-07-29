@@ -243,7 +243,7 @@ t_gethostbyaddr(Config) when is_list(Config) ->
 
 do_gethostbyaddr(Config) when is_list(Config) ->
     ?P("begin - try get config 'test_host_ipv4_only'"),
-    {Name,FullName,IPStr,{A,B,C,D}=IP,Aliases,_,_} =
+    {Name, FullName, IPStr, {A,B,C,D} = IP, Aliases, _, _} =
         ct:get_config(test_host_ipv4_only),
     ?P("config 'test_host_ipv4_only': "
        "~n   Name:      ~p"
@@ -254,12 +254,17 @@ do_gethostbyaddr(Config) when is_list(Config) ->
        "~n   (IP) C:    ~p"
        "~n   (IP) D:    ~p"
        "~n   Aliases:   ~p",
-       [Name, FullName, IPStr, A, B, C, D,Aliases]),
+       [Name, FullName, IPStr, A, B, C, D, Aliases]),
     Rname = integer_to_list(D) ++ "." ++
 	integer_to_list(C) ++ "." ++
 	integer_to_list(B) ++ "." ++
 	integer_to_list(A) ++ ".in-addr.arpa",
-    {ok, HEnt} = inet:gethostbyaddr(IPStr),
+    HEnt = case inet:gethostbyaddr(IPStr) of
+               {ok, HE} ->
+                   HE;
+               {error, nxdomain = R1} ->
+                   exit({skip, R1})
+           end,
     {ok, HEnt} = inet:gethostbyaddr(IP),
     ?P("gethostbyaddr for (both):"
        "~n   IPStr: ~p"
@@ -338,13 +343,32 @@ t_gethostbyname(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, fun() -> do_gethostbyname(Config) end).
 
 do_gethostbyname(Config) when is_list(Config) ->
-    {Name,FullName,IPStr,IP,Aliases,IP_46_Str,_} =
+    ?P("begin - try get config 'test_host_ipv4_only'"),
+    {Name, FullName, IPStr, IP, Aliases, IP_46_Str, _} =
 	ct:get_config(test_host_ipv4_only),
-    {ok,_} = inet:gethostbyname(IPStr),
-    {ok,HEnt} = inet:gethostbyname(Name),
-    {ok,HEnt} = inet:gethostbyname(list_to_atom(Name)),
-    HEnt_ = HEnt#hostent{h_addrtype = inet,
-			 h_length = 4,
+    ?P("config 'test_host_ipv4_only': "
+       "~n   Name:      ~p"
+       "~n   Full Name: ~p"
+       "~n   IPStr:     ~p"
+       "~n   IP:        ~p"
+       "~n   Aliases:   ~p"
+       "~n   IP_46_Str: ~p",
+       [Name, FullName, IPStr, IP, Aliases, IP_46_Str]),
+    case inet:gethostbyname(IPStr) of
+        {ok, _} ->
+            ok;
+        {error, nxdomain = R1} ->
+            exit({skip, R1})
+    end,
+    HEnt = case inet:gethostbyname(Name) of
+               {ok, HE} ->
+                   HE;
+               {error, nxdomain = R2} ->
+                   exit({skip, R2})
+           end,
+    {ok, HEnt} = inet:gethostbyname(list_to_atom(Name)),
+    HEnt_ = HEnt#hostent{h_addrtype  = inet,
+			 h_length    = 4,
 			 h_addr_list = [IP]},
 
     HEnt_ = HEnt,
