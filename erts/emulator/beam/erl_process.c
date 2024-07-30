@@ -111,9 +111,6 @@
 #define ERTS_EMPTY_RUNQ(RQ) \
     ERTS_IS_RUNQ_EMPTY_FLGS(ERTS_RUNQ_FLGS_GET_NOB((RQ)))
 
-#define ERTS_EMPTY_RUNQ_PORTS(RQ) \
-    ERTS_IS_RUNQ_EMPTY_FLGS(ERTS_RUNQ_FLGS_GET_NOB((RQ)))
-
 static ERTS_INLINE int
 runq_got_work_to_execute_flags(Uint32 flags)
 {
