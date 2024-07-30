@@ -191,46 +191,46 @@ down(Parent, Worker)
 down(ParentMRef, WorkerPid) ->
     ?UL("down -> await worker (~p) termination", [WorkerPid]),
     timer:send_after(1000, self(), check_worker_status),
-    await_down(ParentMRef, WorkerPid).
+    await_down(ParentMRef, WorkerPid, 1).
 
-await_down(ParentMRef, WorkerPid) ->
+await_down(ParentMRef, WorkerPid, N) ->
     receive
         check_worker_status ->
-            ?UL("await_down -> check worker process (~p) status: "
+            ?UL("await_down -> check worker process ~p status [~w]: "
                 "~n   Current Function:     ~p"
                 "~n   Message Queue Length: ~p"
                 "~n   Reductions:           ~p"
                 "~n   Status:               ~p",
-                [WorkerPid,
+                [WorkerPid, N,
                  pi(WorkerPid, current_function),
                  pi(WorkerPid, message_queue_len),
                  pi(WorkerPid, reductions),
                  pi(WorkerPid, status)]),
             timer:send_after(1000, self(), check_worker_status),
-            await_down(ParentMRef, WorkerPid);
+            await_down(ParentMRef, WorkerPid, N+1);
 
         {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCStack}} ->
-            ?UL("await_down -> test case timetrap timeout when"
+            ?UL("await_down -> test case timetrap timeout when (~w)"
                 "~n   (test case) Pid:     ~p"
                 "~n   (test case) Timeout: ~p"
-                "~n   (test case) Stack:   ~p", [TCPid, TCTimeout, TCStack]),
+                "~n   (test case) Stack:   ~p", [N, TCPid, TCTimeout, TCStack]),
             exit(WorkerPid, kill),
             %% So many wrapper levels, make sure we go with a bang
             exit({TCPid, R, TCStack});
 
         {'DOWN', ParentMRef, process, PPid, PReason} ->
-            ?UL("await_down -> parent process [~p] died: "
-                "~n   Reason: ~p", [PPid, PReason]),
+            ?UL("await_down -> parent process ~p died [~w]: "
+                "~n   Reason: ~p", [PPid, N, PReason]),
             exit(WorkerPid, kill);
 
         {'DOWN', _, process, WorkerPid, {skip, WSkipReason} = SKIP} ->
-            ?UL("await_down -> worker process [~p] died with skip: "
-                "~n   Skip Reason: ~p", [WorkerPid, WSkipReason]),
+            ?UL("await_down -> worker process ~p died with skip [~w]: "
+                "~n   Skip Reason: ~p", [WorkerPid, N, WSkipReason]),
             exit(SKIP);
 
         {'DOWN', _, process, WorkerPid, WReason} ->
-            ?UL("await_down -> worker process [~p] died: "
-                "~n   Reason: ~p", [WorkerPid, WReason]),
+            ?UL("await_down -> worker process ~p died [~w]: "
+                "~n   Reason: ~p", [WorkerPid, N, WReason]),
             ok
     end.
 
