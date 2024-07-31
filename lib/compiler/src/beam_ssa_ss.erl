@@ -557,7 +557,6 @@ get_alias_edges(V, State) ->
 
 -spec variables(sharing_state()) -> [beam_ssa:b_var()].
 variables(State) ->
-    %% TODO: Sink this beam_digraph to avoid splitting the list?
     [V || {V,_Lbl} <- beam_digraph:vertices(State)].
 
 -type call_in_arg_status() :: no_info
