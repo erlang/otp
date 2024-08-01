@@ -2364,8 +2364,17 @@ standard_move(Mod) ->
     end.
 
 native_move(Mod) ->
-    Coverage = maps:from_list(code:get_coverage(cover_id_line, Mod)),
-    _ = code:reset_coverage(Mod),
+    Coverage0 =
+        try
+            code:get_coverage(cover_id_line, Mod)
+        catch
+            error:badarg ->
+                log_native_move_error(Mod),
+                []
+        end,
+    _ = catch code:reset_coverage(Mod),
+    Coverage = maps:from_list(Coverage0),
+
     fun({#bump{}=Key,Index}) ->
             case Coverage of
                 #{Index := false} ->
@@ -2378,6 +2387,21 @@ native_move(Mod) ->
                     {Key,0}
             end
     end.
+
+log_native_move_error(Mod) ->
+    S = "Module ~tp: Failed to collect coverage information. "
+        "Has it been reloaded or unloaded?",
+    F = fun(#{node := Node}) ->
+                case Node of
+                    nonode@nohost ->
+                        {S,[Mod]};
+                    _ ->
+                        {"On node ~tp: " ++ S,[Node,Mod]}
+                end
+        end,
+    logger:warning(#{coverage_collection_failed => Mod,
+                     node => node()},
+                   #{report_cb => F}).
 
 %% Reset counters (set counters to 0).
 reset_counters(Mod) ->

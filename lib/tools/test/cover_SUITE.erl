@@ -35,7 +35,7 @@ all() ->
                    otp_13277, otp_13289, guard_in_lc, gh_4796,
                    eep49, gh_8159],
     StartStop = [start, compile, analyse, misc, stop,
-                 distribution, reconnect, die_and_reconnect,
+                 distribution, distribution_export, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
                  otp_8270, otp_10979_hanging_node, otp_14817,
@@ -538,6 +538,30 @@ distribution(Config) when is_list(Config) ->
     remove(files(Files, ".beam")),
     peer:stop(P1),
     peer:stop(P2).
+
+%% GH-8661. An attempt to export cover data on a remote node could
+%% hang if the module had been reloaded.
+distribution_export(Config) when is_list(Config) ->
+    ct:timetrap({seconds, 30}),
+
+    DataDir = proplists:get_value(data_dir, Config),
+
+    ok = file:set_cwd(DataDir),
+
+    {ok,P1,N1} = ?CT_PEER(),
+
+    {ok,f} = cover:compile(f),
+    {ok,[_]} = cover:start([N1]),
+    ok = cover:export("f.coverdata"),
+
+    {ok,f} = compile:file(f, [debug_info]),
+    {module, f} = erpc:call(N1, code, load_file, [f]),
+
+    ok = cover:export("f.coverdata"),
+
+    %% Cleanup
+    peer:stop(P1),
+    ok.
 
 %% Test that a lost node is reconnected
 reconnect(Config) ->
