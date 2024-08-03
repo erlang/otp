@@ -1388,6 +1388,20 @@ protected:
                                const x86::Gp &out,
                                unsigned max_size = 0);
 
+    void emit_bs_get_small(const Label &fail,
+                           const ArgRegister &Ctx,
+                           const ArgWord &Live,
+                           const ArgSource &Sz,
+                           Uint unit,
+                           Uint flags);
+
+    void emit_bs_get_any_int(const Label &fail,
+                             const ArgRegister &Ctx,
+                             const ArgWord &Live,
+                             const ArgSource &Sz,
+                             Uint unit,
+                             Uint flags);
+
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,

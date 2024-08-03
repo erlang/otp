@@ -1255,6 +1255,20 @@ protected:
                                Label Fail,
                                const a64::Gp &out);
 
+    void emit_bs_get_small(const Label &fail,
+                           const ArgRegister &Ctx,
+                           const ArgWord &Live,
+                           const ArgSource &Sz,
+                           Uint unit,
+                           Uint flags);
+
+    void emit_bs_get_any_int(const Label &fail,
+                             const ArgRegister &Ctx,
+                             const ArgWord &Live,
+                             const ArgSource &Sz,
+                             Uint unit,
+                             Uint flags);
+
     void emit_bs_get_utf8(const ArgRegister &Ctx, const ArgLabel &Fail);
     void emit_bs_get_utf16(const ArgRegister &Ctx,
                            const ArgLabel &Fail,

@@ -245,6 +245,60 @@ void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
     flush_var(dst_reg);
 }
 
+void BeamModuleAssembler::emit_bs_get_small(const Label &fail,
+                                            const ArgRegister &Ctx,
+                                            const ArgWord &Live,
+                                            const ArgSource &Sz,
+                                            Uint unit,
+                                            Uint flags) {
+    if (emit_bs_get_field_size(Sz, unit, fail, ARG2) >= 0) {
+        auto ctx_reg = load_source(Ctx, TMP1);
+
+        comment("simplified helper call because the result is a known small");
+        emit_enter_runtime(Live.get());
+
+        /* We KNOW that the process argument is never actually used. */
+#ifdef DEBUG
+        mov_imm(ARG1, 0);
+#endif
+        mov_imm(ARG3, flags);
+        emit_untag_ptr(ARG4, ctx_reg.reg);
+        runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+                     erts_bs_get_integer_2>();
+
+        emit_leave_runtime(Live.get());
+
+        emit_branch_if_not_value(ARG1, fail);
+    }
+}
+
+void BeamModuleAssembler::emit_bs_get_any_int(const Label &fail,
+                                              const ArgRegister &Ctx,
+                                              const ArgWord &Live,
+                                              const ArgSource &Sz,
+                                              Uint unit,
+                                              Uint flags) {
+    if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        mov_arg(ARG3, Ctx);
+        mov_imm(ARG4, flags);
+        mov_arg(ARG6, Live);
+
+        emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
+                           Update::eReductions>(Live.get());
+        runtime_call<Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, Uint),
+                     beam_jit_bs_get_integer>();
+        emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
+                           Update::eReductions>(Live.get());
+
+        emit_branch_if_not_value(ARG1, fail);
+        /* Test for max heap size exceeded. */
+        emit_is_not_cons(resolve_fragment(ga->get_do_schedule(), dispUnknown),
+                         ARG1);
+    }
+}
+
 void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
                                                const ArgRegister &Ctx,
                                                const ArgWord &Live,
@@ -279,64 +333,17 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
     } else {
         Label fail = resolve_beam_label(Fail, dispUnknown);
         int unit = Unit.get();
+        auto max = std::get<1>(getClampedRange(Sz));
+        bool potential_gc =
+                max >= SMALL_BITS || (max * Unit.get()) >= SMALL_BITS;
 
-        if (emit_bs_get_field_size(Sz, unit, fail, ARG5) >= 0) {
-            /* If there cannot possibly be a GC in the code that
-             * follows, we can avoid loading registers that will never
-             * be used. */
-            auto max = std::get<1>(getClampedRange(Sz));
-            bool potential_gc =
-                    max >= SMALL_BITS || (max * Unit.get()) >= SMALL_BITS;
-
-            mov_arg(ARG3, Ctx);
-            mov_imm(ARG4, flags);
-            if (potential_gc) {
-                mov_arg(ARG6, Live);
-            } else {
-#ifdef DEBUG
-                /* Never actually used. */
-                mov_imm(ARG6, 1023);
-#endif
-            }
-
-            if (potential_gc) {
-                emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
-                                   Update::eReductions>(Live.get());
-            } else {
-                comment("simplified entering runtime because result is always "
-                        "small");
-                emit_enter_runtime(Live.get());
-            }
-
-            a.mov(ARG1, c_p);
-            if (potential_gc) {
-                load_x_reg_array(ARG2);
-            } else {
-#ifdef DEBUG
-                /* Never actually used. */
-                mov_imm(ARG2, 0);
-#endif
-            }
-            runtime_call<Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, Uint),
-                         beam_jit_bs_get_integer>();
-
-            if (potential_gc) {
-                emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
-                                   Update::eReductions>(Live.get());
-            } else {
-                emit_leave_runtime(Live.get());
-            }
-
-            emit_branch_if_not_value(ARG1, fail);
-            if (potential_gc) {
-                /* Test for max heap size exceeded. */
-                emit_is_not_cons(
-                        resolve_fragment(ga->get_do_schedule(), dispUnknown),
-                        ARG1);
-            }
-
-            mov_arg(Dst, ARG1);
+        if (potential_gc) {
+            emit_bs_get_any_int(fail, Ctx, Live, Sz, unit, flags);
+        } else {
+            emit_bs_get_small(fail, Ctx, Live, Sz, unit, flags);
         }
+
+        mov_arg(Dst, ARG1);
     }
 }
 
