@@ -14,12 +14,12 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1.9.3
+        uses: actions/create-github-app-token@v1.10.3
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PEM }}
 
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.7
         with:
           token: ${{ steps.generate_token.outputs.token }}
 
