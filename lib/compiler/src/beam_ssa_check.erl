@@ -159,6 +159,12 @@ op_check([set,Result,{{atom,_,bif},{atom,_,Op}}|PArgs], PAnno,
         [Op, Result, Dst, PArgs, AArgs, _I]),
     Env = op_check_call(Op, Result, Dst, PArgs, AArgs, Env0),
     check_annos(PAnno, AAnno, Env);
+op_check([set,Result,{{atom,_,succeeded},{atom,_,Kind}}|PArgs], PAnno,
+         #b_set{dst=Dst,args=AArgs,op={succeeded,Kind},anno=AAnno}=_I, Env0) ->
+    ?DP("trying succeed ~p:~n  res: ~p <-> ~p~n  args: ~p <-> ~p~n  i: ~p~n",
+        [Kind, Result, Dst, PArgs, AArgs, _I]),
+    Env = op_check_call(dont_care, Result, Dst, PArgs, AArgs, Env0),
+    check_annos(PAnno, AAnno, Env);
 op_check([none,{atom,_,ret}|PArgs], PAnno,
          #b_ret{arg=AArg,anno=AAnno}=_I, Env) ->
     ?DP("trying return:, arg: ~p <-> ~p~n  i: ~p~n",
