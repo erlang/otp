@@ -86,7 +86,8 @@
          tilde_k/1,
          match_float_zero/1,
          undefined_module/1,
-         update_literal/1]).
+         update_literal/1,
+         messages_with_jaro_suggestions/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -121,7 +122,8 @@ all() ->
      documentation_attributes,
      match_float_zero,
      undefined_module,
-     update_literal].
+     update_literal,
+     messages_with_jaro_suggestions].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -1489,15 +1491,15 @@ unsafe_vars_try(Config) when is_list(Config) ->
 	   {errors,[{{5,41},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
 		    {{7,24},erl_lint,{unsafe_var,'Rc',{'try',{3,19}}}},
 		    {{13,38},erl_lint,{unsafe_var,'R',{'try',{10,19}}}},
-		    {{13,40},erl_lint,{unbound_var,'RR'}},
-		    {{13,43},erl_lint,{unbound_var,'Ro'}},
+		    {{13,40},erl_lint,{unbound_var,'RR',"R"}},
+		    {{13,43},erl_lint,{unbound_var,'Ro',"R"}},
 		    {{15,24},erl_lint,{unsafe_var,'R',{'try',{10,19}}}},
 		    {{15,26},erl_lint,{unsafe_var,'RR',{'try',{10,19}}}},
 		    {{15,29},erl_lint,{unsafe_var,'Ro',{'try',{10,19}}}},
 		    {{15,32},erl_lint,{unsafe_var,'Class',{'try',{10,19}}}},
 		    {{15,38},erl_lint,{unsafe_var,'Data',{'try',{10,19}}}},
 		    {{21,38},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
-		    {{21,40},erl_lint,{unbound_var,'RR'}},
+		    {{21,40},erl_lint,{unbound_var,'RR',"R"}},
 		    {{23,27},erl_lint,{unsafe_var,'R',{'try',{18,19}}}},
 		    {{23,29},erl_lint,{unsafe_var,'RR',{'try',{18,19}}}},
 		    {{23,32},erl_lint,{unsafe_var,'Class',{'try',{18,19}}}},
@@ -1522,8 +1524,8 @@ unsafe_vars_try(Config) when is_list(Config) ->
            ">>,
 	   [],
 	   {errors,[{{6,41},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
-		    {{6,43},erl_lint,{unbound_var,'RR'}},
-		    {{6,46},erl_lint,{unbound_var,'Ro'}},
+		    {{6,43},erl_lint,{unbound_var,'RR',"R"}},
+		    {{6,46},erl_lint,{unbound_var,'Ro',"R"}},
 		    {{8,27},erl_lint,{unsafe_var,'R',{'try',{3,19}}}},
 		    {{8,29},erl_lint,{unsafe_var,'RR',{'try',{3,19}}}},
 		    {{8,32},erl_lint,{unsafe_var,'Ro',{'try',{3,19}}}},
@@ -2306,7 +2308,7 @@ otp_5362(Config) when is_list(Config) ->
           {[warn_unused_vars, warn_unused_import]},
            {error,[{{5,15},erl_lint,{bad_inline,{inl,7}}},
                    {{6,15},erl_lint,{bad_inline,{inl,17}}},
-                   {{11,18},erl_lint,{undefined_function,{fipp,0}}},
+                   {{11,18},erl_lint,{undefined_function,{fipp,0},"foop"}},
                    {{22,15},erl_lint,{bad_nowarn_unused_function,{and_not_used,2}}}],
             [{{3,15},erl_lint,{unused_import,{{b,1},lists}}},
              {{9,14},erl_lint,{unused_function,{foop,0}}},
@@ -3073,7 +3075,7 @@ otp_11254(Config) when is_list(Config) ->
             manifest(Module, Name) ->
               fun Module:Nine/1.
          ">>,
-    {error,[{{4,26},erl_lint,{unbound_var,'Nine'}}],
+    {error,[{{4,26},erl_lint,{unbound_var,'Nine',"Name"}}],
      [{{3,30},erl_lint,{unused_var,'Name'}}]} =
         run_test2(Config, Ts, []),
     ok.
@@ -5381,6 +5383,67 @@ update_literal(Config) ->
            [],
            {warnings,[{{1,31},erl_lint,update_literal},
                       {{1,34},erl_lint,update_literal}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%% For certain kinds of errors that are easily caused by typos, error 
+%% messages try to suggest fixes according to jaro_similarity.
+messages_with_jaro_suggestions(Config) ->
+    Ts = [{on_load_fun,
+           <<"-on_load(foa/0).
+              foo() -> ok.">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{undefined_on_load,{foa,0},"foo"}}],
+            [{{2,15},erl_lint,{unused_function,{foo,0}}}]}},
+          {undefined_nif,
+           <<"-export([foo/1]).
+              -nifs([foa/1]).
+              -on_load(init/0).
+              init() ->
+                  ok = erlang:load_nif(\"./example_nif\", 0).
+              foo(_X) ->
+                  erlang:nif_error(nif_library_not_loaded).">>,
+           {[]},
+           {errors,[{{2,16},erl_lint,{undefined_nif,{foa,1},"foo"}}],[]}},
+          {record_and_field,
+           <<"-record(meep, { moo, muu }).
+              t(State) ->
+                  Var = State#meep.mo,
+                  State#mee{ moo = Var }.">>,
+           {[]},
+           {error,[{{3,36},erl_lint,{undefined_field,meep,mo,"moo"}},
+                   {{4,24},erl_lint,{undefined_record,mee,"meep"}}],
+            [{{2,15},erl_lint,{unused_function,{t,1}}},
+             {{3,19},erl_lint,{unused_var,'Var'}}]}},
+          {unbound_var,
+           <<"-record(meep, { moo, muu }).
+              t(State) ->
+                  Var = State#meep.moo,
+                  Stat#meep{ moo = Var }.">>,
+           {[]},
+           {error,[{{4,19},erl_lint,{unbound_var,'Stat',"State"}}],
+            [{{2,15},erl_lint,{unused_function,{t,1}}}]}},
+          {undefined_fun,
+           <<"-export([bar/1]).
+              baz(X) -> X.">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{undefined_function,{bar,1},"baz"}}],
+            [{{2,15},erl_lint,{unused_function,{baz,1}}}]}},
+          {nowarn_undefined_fun,
+           <<"-compile({nowarn_unused_function,[{an_not_used,1}]}).
+              and_not_used(_) -> foo.">>,
+           {[]},
+           {error,[{{1,22}, erl_lint,
+                    {bad_nowarn_unused_function,{an_not_used,1},"and_not_used"}}],
+            [{{2,15},erl_lint,{unused_function,{and_not_used,1}}}]}},
+          {bad_inline,
+           <<"-compile({inline, {go,1}}).
+              gi(A) -> {A}.">>,
+           {[]},
+           {error,[{{1,22},erl_lint,{bad_inline,{go,1},"gi"}}],
+            [{{2,15},erl_lint,{unused_function,{gi,1}}}]}}
          ],
     [] = run(Config, Ts),
 
