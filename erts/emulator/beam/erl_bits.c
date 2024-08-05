@@ -2392,10 +2392,11 @@ erts_copy_bits_fwd(const byte* src, /* Base pointer to source. */
 }
 
 /*
- * The basic bit copy operation. Copies n bits from the source buffer to
- * the destination buffer. The source pointer is incremented, whereas the
- * destination pointer is decremented, resulting in a reversal of the
- * stored bytes.
+ * The reverse bit copy operation. Copies n bits from the source
+ * buffer to the destination buffer. The bits are read 8 bits at the
+ * time from the source buffer, while incrementing the source buffer
+ * pointer. The 8 bit groups are stored into the destination buffer,
+ * while decrementing the destination buffer pointer.
  */
 
 void
