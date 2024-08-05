@@ -1722,11 +1722,12 @@ Available options:
    fun(_DP, CRL) -> CRL end
   ```
 
-- **\{issuer_fun, fun()\}** - The fun has the following type specification:
+- **\{issuer_fun, \{fun(), UserState::term()\}\}** - The fun has the following type
+  specification:
 
   ```erlang
   fun(#'DistributionPoint'{}, #'CertificateList'{},
-      {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
+      {rdnSequence,[#'AttributeTypeAndValue'{}]}, UserState::term()) ->
   	{ok, #'OTPCertificate'{}, [der_encoded]}
   ```
 
