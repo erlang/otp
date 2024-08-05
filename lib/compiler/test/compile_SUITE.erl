@@ -1476,7 +1476,7 @@ beam_ssa_pp_1(Mod, Abstr, Outdir) ->
 
 %% Test that warnings contain filenames and line numbers.
 warnings(_Config) ->
-    Files = get_unique_files(".erl"),
+    Files = test_lib:get_unique_files(".erl"),
     test_lib:p_run(fun do_warnings/1, Files).
 
 do_warnings(F) ->
@@ -1749,7 +1749,10 @@ bc_options(Config) ->
          {182, small, [r26]},
          {182, small, []},
 
-         {183, small, [line_coverage]}
+         {183, small, [line_coverage]},
+
+         {184, small, [beam_debug_info]},
+         {184, big, [beam_debug_info]}
         ],
 
     Test = fun({Expected,Mod,Options}) ->
@@ -2371,22 +2374,7 @@ compile_and_verify(Name, Target, Opts) ->
     Opts = BeamOpts.
 
 get_unique_beam_files() ->
-    get_unique_files(".beam").
-
-get_unique_files(Ext) ->
-    Wc = filename:join(filename:dirname(code:which(?MODULE)), "*"++Ext),
-    [F || F <- filelib:wildcard(Wc),
-	  not is_cloned(F, Ext), not is_lfe_module(F, Ext)].
-
-is_cloned(File, Ext) ->
-    Mod = list_to_atom(filename:basename(File, Ext)),
-    test_lib:is_cloned_mod(Mod).
-
-is_lfe_module(File, Ext) ->
-    case filename:basename(File, Ext) of
-	"lfe_" ++ _ -> true;
-	_ -> false
-    end.
+    test_lib:get_unique_files(".beam").
 
 %% Compiles a test module and returns the list of errors and warnings.
 

@@ -695,3 +695,9 @@ BEAM_FORMAT_NUMBER=0
 ## @spec executable_line Location Index
 ## @doc  Provide location for an executable line.
 183: executable_line/2
+
+# OTP 28
+
+## @spec debug_line Location Index Live
+## @doc  Provide location for a place where a break point can be placed.
+184: debug_line/3

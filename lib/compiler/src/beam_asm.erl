@@ -27,10 +27,13 @@
 
 -export_type([fail/0,label/0,src/0,module_code/0,function_name/0]).
 
--import(lists, [append/1,duplicate/2,map/2,member/2,keymember/3,splitwith/2]).
+-import(lists, [append/1,duplicate/2,keymember/3,last/1,map/2,
+                member/2,splitwith/2]).
 
 -include("beam_opcodes.hrl").
 -include("beam_asm.hrl").
+
+-define(BEAM_DEBUG_INFO_VERSION, 0).
 
 %% Common types for describing operands for BEAM instructions.
 -type src() :: beam_reg() |
@@ -60,23 +63,24 @@
 -define(BEAMFILE_EXECUTABLE_LINE, 1).
 -define(BEAMFILE_FORCE_LINE_COUNTERS, 2).
 
--spec module(module_code(), [{binary(), binary()}], [{atom(),term()}], [compile:option()]) ->
-                    {'ok',binary()}.
+-spec module(module_code(), [{binary(), binary()}],
+             [{atom(),term()}], [compile:option()]) ->
+          {'ok',binary()}.
 
-module(Code, ExtraChunks, CompileInfo, CompilerOpts) ->
-    {ok,assemble(Code, ExtraChunks, CompileInfo, CompilerOpts)}.
-
-assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, CompileInfo, CompilerOpts) ->
+module(Code0, ExtraChunks, CompileInfo, CompilerOpts) ->
+    {Mod,Exp0,Attr0,Asm0,NumLabels} = Code0,
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
     {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     {0,Dict2} = beam_dict:type(any, Dict1),
     Dict3 = reject_unsupported_versions(Dict2),
+
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = sets:from_list(Exp0),
-    {Code,Dict} = assemble_1(Asm, Exp, Dict3, []),
-    build_file(Code, Attr, Dict, NumLabels, NumFuncs,
-               ExtraChunks, CompileInfo, CompilerOpts).
+    {Code,Dict} = assemble(Asm, Exp, Dict3, []),
+    Beam = build_file(Code, Attr, Dict, NumLabels, NumFuncs,
+                      ExtraChunks, CompileInfo, CompilerOpts),
+    {ok,Beam}.
 
 reject_unsupported_versions(Dict) ->
     %% Emit an instruction that was added in our lowest supported
@@ -106,7 +110,7 @@ insert_on_load_instruction(Is0, Entry) ->
 		  end, Is0),
     Bef ++ [El,on_load|Is].
 
-assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
+assemble([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
     Dict1 = case sets:is_element({Name,Arity}, Exp) of
 		true ->
 		    beam_dict:export(Name, Arity, Entry, Dict0);
@@ -114,8 +118,8 @@ assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
 		    beam_dict:local(Name, Arity, Entry, Dict0)
 	    end,
     {Code, Dict2} = assemble_function(Asm, Acc, Dict1),
-    assemble_1(T, Exp, Dict2, Code);
-assemble_1([], _Exp, Dict0, Acc) ->
+    assemble(T, Exp, Dict2, Code);
+assemble([], _Exp, Dict0, Acc) ->
     {IntCodeEnd,Dict1} = make_op(int_code_end, Dict0),
     {list_to_binary(lists:reverse(Acc, [IntCodeEnd])),Dict1}.
 
@@ -125,16 +129,22 @@ assemble_function([H|T], Acc, Dict0) ->
 assemble_function([], Code, Dict) ->
     {Code, Dict}.
 
-build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, CompilerOpts) ->
+build_file(Code, Attr, Dict0, NumLabels, NumFuncs, ExtraChunks0,
+           CompileInfo, CompilerOpts) ->
     %% Create the code chunk.
 
     CodeChunk = chunk(<<"Code">>,
 		      <<16:32,
 		       (beam_opcodes:format_number()):32,
-		       (beam_dict:highest_opcode(Dict)):32,
+		       (beam_dict:highest_opcode(Dict0)):32,
 		       NumLabels:32,
 		       NumFuncs:32>>,
 		      Code),
+
+    %% Build the BEAM debug information chunk. It is important
+    %% to build it early, because it will add entries to the
+    %% atom and literal tables.
+    {ExtraChunks1,Dict} = build_beam_debug_info(ExtraChunks0, CompilerOpts, Dict0),
 
     %% Create the atom table chunk.
     AtomChunk = build_atom_table(CompilerOpts, Dict),
@@ -186,13 +196,14 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, Com
                       TypeTab),
 
     %% Create the meta chunk
-    Meta = proplists:get_value(<<"Meta">>, ExtraChunks0, empty),
+    Meta = proplists:get_value(<<"Meta">>, ExtraChunks1, empty),
     MetaChunk = case Meta of
                     empty -> [];
                     Meta -> chunk(<<"Meta">>, Meta)
                 end,
+
     %% Remove Meta chunk from ExtraChunks since it is essential
-    ExtraChunks = ExtraChunks0 -- [{<<"Meta">>, Meta}],
+    ExtraChunks = ExtraChunks1 -- [{<<"Meta">>, Meta}],
 
     %% Create the attributes and compile info chunks.
 
@@ -381,6 +392,108 @@ filter_essentials([<<>>|T]) ->
     filter_essentials(T);
 filter_essentials([]) -> [].
 
+%%%
+%%% Build the BEAM debug information chunk.
+%%%
+
+build_beam_debug_info(ExtraChunks, CompilerOpts, Dict) ->
+    case member(beam_debug_info, CompilerOpts) of
+        true ->
+            build_beam_debug_info_1(ExtraChunks, Dict);
+        false ->
+            {ExtraChunks,Dict}
+    end.
+
+build_beam_debug_info_1(ExtraChunks0, Dict0) ->
+    DebugTab0 = beam_dict:debug_table(Dict0),
+    DebugTab1 = [{Index,Info} ||
+                    Index := Info <- maps:iterator(DebugTab0, ordered)],
+    DebugTab = build_bdi_fill_holes(DebugTab1),
+    NumVars = lists:sum([length(Vs) || {_,Vs} <- DebugTab]),
+    {Contents0,Dict} = build_bdi(DebugTab, Dict0),
+    NumItems = length(Contents0),
+    Contents1 = iolist_to_binary(Contents0),
+
+    0 = NumItems bsr 31,                        %Assertion.
+    0 = NumVars bsr 31,                         %Assertion.
+
+    Contents = <<?BEAM_DEBUG_INFO_VERSION:32,
+                 NumItems:32,
+                 NumVars:32,
+                 Contents1/binary>>,
+    ExtraChunks = [{~"DbgB",Contents}|ExtraChunks0],
+    {ExtraChunks,Dict}.
+
+build_bdi_fill_holes([]) ->
+    [];
+build_bdi_fill_holes([{_,Item}]) ->
+    [Item];
+build_bdi_fill_holes([{I0,Item}|[{I1,_}|_]=T]) ->
+    case I0 + 1 of
+        I1 ->
+            [Item|build_bdi_fill_holes(T)];
+        Next ->
+            NewPair = {Next,{none,[]}},
+            [Item|build_bdi_fill_holes([NewPair|T])]
+    end.
+
+build_bdi([{FrameSize0,Vars0}|Items], Dict0) ->
+    %% The debug information utilizes the encoding machinery for BEAM
+    %% instructions. The debug information for `debug_line`
+    %% instructions is translated to:
+    %%
+    %%    {call,FrameSize,{list,[VariableName,Where,...]}}
+    %%
+    %% Where:
+    %%
+    %%    FrameSize := 'none' | 0..1023
+    %%    VariableName := binary()
+    %%    Where := {x,0..1023} | {y,0..1023} | {literal,_} |
+    %%             {integer,_} | {atom,_} | {float,_} | nil
+    %%
+    %% The only reason the `call` instruction is used is because it
+    %% has two operands.
+    %%
+    %% The debug information in the following example:
+    %%
+    %%    {debug_line,[...],1,1,
+    %%       {4, [{'Args',[{y,3}]},
+    %%            {'Line',[{y,2}]},
+    %%            {'Live',[{x,0},{y,1}]}]}}
+    %%
+    %% will be translated to the following instruction:
+    %%
+    %%     {call,4,{list,[{literal,<<"Args">>},{y,3},
+    %%                    {literal,<<"Line">>},{y,2},
+    %%                    {literal,<<"Live">>},{y,1}]}}
+    %%
+    %% Note that only one register is given for each variable. It
+    %% is always the last register listed.
+
+    FrameSize = case FrameSize0 of
+                    none -> nil;
+                    entry -> {atom,entry};
+                    _ -> FrameSize0
+                end,
+    Vars1 = case FrameSize0 of
+                entry ->
+                    [[Name,Reg] || {Name,[Reg]} <:- Vars0];
+                _ ->
+                    [[{literal,atom_to_binary(Name)},last(Regs)] ||
+                        {Name,[_|_]=Regs} <:- Vars0]
+            end,
+    Vars = append(Vars1),
+    Instr0 = {call,FrameSize,{list,Vars}},
+    {Instr,Dict1} = make_op(Instr0, Dict0),
+    {Tail,Dict2} = build_bdi(Items, Dict1),
+    {[Instr|Tail],Dict2};
+build_bdi([], Dict) ->
+    {[],Dict}.
+
+%%%
+%%% Functions for assembling BEAM instruction.
+%%%
+
 bif_type(fnegate, 1) -> {op,fnegate};
 bif_type(fadd, 2)   -> {op,fadd};
 bif_type(fsub, 2)   -> {op,fsub};
@@ -397,6 +510,10 @@ make_op({line=Op,Location}, Dict0) ->
 make_op({executable_line=Op,Location,Index}, Dict0) ->
     {LocationIndex,Dict} = beam_dict:line(Location, Dict0, Op),
     encode_op(executable_line, [LocationIndex,Index], Dict);
+make_op({debug_line=Op,Location,Index,Live,DebugInfo}, Dict0) ->
+    {LocationIndex,Dict1} = beam_dict:line(Location, Dict0, Op),
+    Dict = beam_dict:debug_info(Index, DebugInfo, Dict1),
+    encode_op(debug_line, [LocationIndex,Index,Live], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

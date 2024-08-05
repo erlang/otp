@@ -65,6 +65,7 @@ norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],{line,_}=Line}) -> Line;
 norm({set,[],[],{executable_line,_,_}=Line}) -> Line;
+norm({set,[],_,{debug_line,_,_,_,_}=Line}) -> Line;
 norm({set,[D1,D2],[D1,D2],swap})   -> {swap,D1,D2}.
 
 norm_allocate({_Zero,nostack,Nh,[]}, Regs) ->

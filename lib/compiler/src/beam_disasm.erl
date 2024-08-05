@@ -1300,6 +1300,13 @@ resolve_inst({executable_line,[Location,Index]},_,_,_) ->
     {executable_line,resolve_arg(Location),resolve_arg(Index)};
 
 %%
+%% OTP 28.
+%%
+
+resolve_inst({debug_line,[Location,Index,Live]},_,_,_) ->
+    {debug_line,resolve_arg(Location),resolve_arg(Index),resolve_arg(Live)};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).

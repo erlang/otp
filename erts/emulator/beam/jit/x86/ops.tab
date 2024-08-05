@@ -91,6 +91,8 @@ line I
 
 executable_line I I
 
+debug_line u u u => _
+
 allocate t t
 allocate_heap t I t
 

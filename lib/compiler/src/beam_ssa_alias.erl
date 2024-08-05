@@ -610,6 +610,8 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
                 {SS0, AAS0};
             bs_test_tail ->
                 {SS0, AAS0};
+            debug_line ->
+                {SS0, AAS0};
             executable_line ->
                 {SS0, AAS0};
             has_map_field ->

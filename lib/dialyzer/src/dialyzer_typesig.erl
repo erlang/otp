@@ -438,6 +438,8 @@ traverse(Tree, DefinedVars, State) ->
           {State, t_any()};
         nif_start ->
           {State, t_any()};
+        debug_line ->
+          {State, t_any()};
         executable_line ->
           {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})

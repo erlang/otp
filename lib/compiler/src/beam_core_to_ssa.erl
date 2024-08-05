@@ -93,7 +93,7 @@
 %% matching. (Construction of those term types is translated directly
 %% to SSA instructions.)
 
--record(cg_tuple, {es}).
+-record(cg_tuple, {es,keep=ordsets:new()}).
 -record(cg_map, {var=#b_literal{val=#{}},op,es}).
 -record(cg_map_pair, {key,val}).
 -record(cg_cons, {hd,tl}).
@@ -148,7 +148,8 @@ get_anno(#cg_select{anno=Anno}) -> Anno.
                funs=[],                         %Fun functions
                free=#{},                        %Free variables
                ws=[]   :: [warning()],          %Warnings.
-               no_min_max_bifs=false :: boolean()
+               no_min_max_bifs=false :: boolean(),
+               beam_debug_info=false :: boolean()
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -158,8 +159,10 @@ module(#c_module{name=#c_literal{val=Mod},exports=Es,attrs=As,defs=Fs}, Options)
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     NoMinMaxBifs = proplists:get_bool(no_min_max_bifs, Options),
+    DebugInfo = proplists:get_bool(beam_debug_info, Options),
     St0 = #kern{module=Mod,
-                no_min_max_bifs=NoMinMaxBifs},
+                no_min_max_bifs=NoMinMaxBifs,
+                beam_debug_info=DebugInfo},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Body = Kfs ++ St#kern.funs,
     Code = #b_module{name=Mod,exports=Kes,attributes=Kas,body=Body},
@@ -198,12 +201,17 @@ include_attribute(file) -> false;
 include_attribute(compile) -> false;
 include_attribute(_) -> true.
 
-function({#c_var{name={F,Arity}=FA},Body}, St0) ->
+function({#c_var{anno=Anno,name={F,Arity}=FA},Body0}, St0) ->
     try
         %% Find a suitable starting value for the counter
         %% used for generating labels and variable names.
-        Count0 = cerl_trees:next_free_variable_name(Body),
+        Count0 = cerl_trees:next_free_variable_name(Body0),
         Count = max(?EXCEPTION_BLOCK + 1, Count0),
+
+        %% If this module is being compiled with `beam_debug_info`,
+        %% insert a special `debug_line` instruction as the
+        %% first instruction in this function.
+        Body = handle_debug_line(Anno, Body0),
 
         %% First pass: Basic translation.
         St1 = St0#kern{func=FA,vcount=Count,fcount=0},
@@ -216,12 +224,21 @@ function({#c_var{name={F,Arity}=FA},Body}, St0) ->
 
         %% Third pass: Translation to SSA code.
         FDef = make_ssa_function(Ab, F, Kvs, B1, St5),
+
         {FDef,St5}
     catch
         Class:Error:Stack ->
             io:fwrite("Function: ~w/~w\n", [F,Arity]),
             erlang:raise(Class, Error, Stack)
     end.
+
+handle_debug_line([{debug_line,{Location,Index}}], #c_fun{body=Body}=Fun) ->
+    DbgLine = #c_primop{anno=Location,
+                        name=#c_literal{val=debug_line},
+                        args=[#c_literal{val=Index}]},
+    Seq = #c_seq{arg=DbgLine,body=Body},
+    Fun#c_fun{body=Seq};
+handle_debug_line(_, Fun) -> Fun.
 
 %%%
 %%% First pass: Basic translation.
@@ -368,6 +385,15 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
                            args=[M0,F0,cerl:make_list(Cargs)]},
             expr(Call, Sub, St)
     end;
+expr(#c_primop{anno=A0,name=#c_literal{val=debug_line},
+               args=Cargs}, Sub, St0) ->
+    {Args,Ap,St1} = atomic_list(Cargs, Sub, St0),
+    #b_set{anno=A1} = I0 = primop(debug_line, A0, Args),
+    {_,Alias} = Sub,
+    A = A1#{alias => Alias},
+    I = I0#b_set{anno=A},
+    St2 = St1#kern{beam_debug_info=true},
+    {I,Ap,St2};
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=[Arg]}, Sub, St) ->
     translate_match_fail(Arg, Sub, A, St);
 expr(#c_primop{anno=A,name=#c_literal{val=Op},args=Cargs}, Sub, St0) ->
@@ -1665,9 +1691,24 @@ get_match(#cg_bin_seg{}=Seg, St0) ->
 get_match(#cg_bin_int{}=BinInt, St0) ->
     {N,St1} = new_var(St0),
     {BinInt#cg_bin_int{next=N},[N],St1};
-get_match(#cg_tuple{es=Es}, St0) ->
+get_match(#cg_tuple{es=Es}, #kern{beam_debug_info=DebugInfo}=St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
-    {#cg_tuple{es=Mes},Mes,St1};
+    Keep =
+        case DebugInfo of
+            true ->
+                %% Force extraction of all variables mentioned in the
+                %% original source to give them a chance to appear in
+                %% the debug information. This is a not guarantee that
+                %% they will appear, since they can be killed before
+                %% reaching a `debug_line` instruction.
+                Keep0 = [New ||
+                            #b_var{name=Old} <- Es && #b_var{name=New} <- Mes,
+                            beam_ssa_codegen:is_original_variable(Old)],
+                ordsets:from_list(Keep0);
+            false ->
+                []
+        end,
+    {#cg_tuple{es=Mes,keep=Keep},Mes,St1};
 get_match(#cg_map{op=exact,es=Es0}, St0) ->
     {Mes,St1} = new_vars(length(Es0), St0),
     {Es,_} = mapfoldl(fun(#cg_map_pair{}=Pair, [V|Vs]) ->
@@ -2251,12 +2292,13 @@ umatch_list(Ms0, Br, St) ->
                   {[M1|Ms1],union(Mu, Us),Stb}
           end, {[],[],St}, Ms0).
 
-pat_mark_unused(#cg_tuple{es=Es0}=P, Used0, Ps) ->
+pat_mark_unused(#cg_tuple{es=Es0,keep=Keep}=P, Used0, Ps) ->
     %% Not extracting unused tuple elements is an optimization for
     %% compile time and memory use during compilation. It is probably
     %% worthwhile because it is common to extract only a few elements
     %% from a huge record.
-    Used = intersection(Used0, Ps),
+    Used1 = ordsets:union(Used0, Keep),
+    Used = intersection(Used1, Ps),
     Es = [case member(V, Used) of
               true -> Var;
               false -> #b_literal{val=unused}
@@ -2373,6 +2415,29 @@ cg(#b_set{op=copy,dst=#b_var{name=Dst},args=[Arg0]}, St0) ->
     Arg = ssa_arg(Arg0, St0),
     St = set_ssa_var(Dst, Arg, St0),
     {[],St};
+cg(#b_set{anno=Anno0,op=debug_line,args=Args0}=Set0, St) ->
+    Args = ssa_args(Args0, St),
+    Literals = [{Val,From} || From := #b_literal{val=Val} <- St#cg.vars],
+    Anno1 = Anno0#{literals => Literals},
+    NewAlias = [{To,From} || From := #b_var{name=To} <- St#cg.vars],
+    case NewAlias of
+        [_|_] ->
+            Alias0 = maps:get(alias, Anno0, #{}),
+            Alias1 = foldl(fun({To,From}, A) ->
+                                   case A of
+                                       #{To := Vars0} ->
+                                           Vars1 = ordsets:add_element(From, Vars0),
+                                           A#{To := Vars1};
+                                       #{} ->
+                                           A#{To => [From]}
+                                   end
+                           end, Alias0, NewAlias),
+            Anno = Anno1#{alias => Alias1},
+            Set = Set0#b_set{anno=Anno,args=Args},
+            {[Set],St};
+        [] ->
+            {[Set0#b_set{anno=Anno1,args=Args}],St}
+    end;
 cg(#b_set{args=Args0}=Set0, St) ->
     Args = ssa_args(Args0, St),
     Set = Set0#b_set{args=Args},
@@ -2434,8 +2499,10 @@ cg(#cg_opaque{val=Check}, St) ->
 match_cg(#cg_alt{first=F,then=S}, Fail, St0) ->
     {Tf,St1} = new_label(St0),
     {Fis,St2} = match_cg(F, Tf, St1),
-    {Sis,St3} = match_cg(S, Fail, St2),
-    {Fis ++ [{label,Tf}] ++ Sis,St3};
+    St3 = restore_vars(St1, St2),
+    {Sis,St4} = match_cg(S, Fail, St3),
+    St5 = restore_vars(St3, St4),
+    {Fis ++ [{label,Tf}] ++ Sis,St5};
 match_cg(#cg_select{var=#b_var{}=Src0,types=Scs}, Fail, St) ->
     Src = ssa_arg(Src0, St),
     match_fmf(fun (#cg_type_clause{type=Type,values=Vs}, F, Sta) ->
@@ -2476,7 +2543,8 @@ select_cg(Type, Scs, Var, Tf, Vf, St0) ->
     {Vis,St1} =
         mapfoldl(fun (S, Sta) ->
                          {Val,Is,Stb} = select_val(S, Var, Vf, Sta),
-                         {{Is,[Val]},Stb}
+                         Stc = restore_vars(Sta, Stb),
+                         {{Is,[Val]},Stc}
                  end, St0, Scs),
     OptVls = combine(lists:sort(combine(Vis))),
     {Vls,Sis,St2} = select_labels(OptVls, St1, [], []),
@@ -2789,13 +2857,25 @@ test_cg(Test, Inverted, As0, Fail, St0) ->
 %%  an externally generated failure label, LastFail.  N.B. We do not
 %%  know or care how the failure labels are used.
 
-match_fmf(F, LastFail, St, [H]) ->
-    F(H, LastFail, St);
+match_fmf(F, LastFail, St0, [H]) ->
+    {R,St1} = F(H, LastFail, St0),
+    {R,restore_vars(St0, St1)};
 match_fmf(F, LastFail, St0, [H|T]) ->
     {Fail,St1} = new_label(St0),
     {R,St2} = F(H, Fail, St1),
-    {Rs,St3} = match_fmf(F, LastFail, St2, T),
-    {R ++ [{label,Fail}] ++ Rs,St3}.
+    St3 = restore_vars(St1, St2),
+    {Rs,St4} = match_fmf(F, LastFail, St3, T),
+    {R ++ [{label,Fail}] ++ Rs,St4}.
+
+%% restore_vars(PreviousState, CurrentSt) -> UpdatedCurrentState.
+%%  Restore variables to their previous state. When exiting a scope,
+%%  any substitutions that are no longer applicable will be
+%%  discarded. More importantly, when generating BEAM debug
+%%  information, variables bound to literal values will only appear in
+%%  `debug_line` instructions if they are still in scope.
+
+restore_vars(St0, St) ->
+    St#cg{vars=St0#cg.vars}.
 
 %% fail_context(State) -> {body | guard, FailureLabel}.
 %%  Return an indication of which part of a function code is

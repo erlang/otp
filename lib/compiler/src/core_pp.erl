@@ -62,7 +62,11 @@ maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
 	    maybe_anno(Node, Fun, Ctxt, As0);
   	Line ->
 	    As = strip_line(As0),
-	    if Line > Ctxt#ctxt.line ->
+            NeedsAnno = needs_line_anno(Node),
+	    if
+                NeedsAnno ->
+                    maybe_anno(Node, Fun, Ctxt, As0);
+                Line > Ctxt#ctxt.line ->
 		    [io_lib:format("%% Line ~w",[Line]),
 		     nl_indent(Ctxt),
 		     maybe_anno(Node, Fun, Ctxt#ctxt{line = Line}, As)
@@ -70,6 +74,14 @@ maybe_anno(Node, Fun, #ctxt{clean=true}=Ctxt) ->
 		true ->
 		    maybe_anno(Node, Fun, Ctxt, As)
 	    end
+    end.
+
+needs_line_anno(Node) ->
+    case (cerl:is_c_primop(Node) andalso
+          cerl:concrete(cerl:primop_name(Node))) of
+        debug_line -> true;
+        executable_line -> true;
+        _ -> false
     end.
 
 maybe_anno(Node, Fun, Ctxt, []) ->

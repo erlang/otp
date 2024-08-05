@@ -97,6 +97,8 @@ line I
 
 executable_line _Id _Line => _
 
+debug_line u u u => _
+
 # For the JIT, the init_yregs/1 instruction allows generation of better code.
 # For the BEAM interpreter, though, it will probably be more efficient to
 # translate all uses of init_yregs/1 back to the instructions that the compiler

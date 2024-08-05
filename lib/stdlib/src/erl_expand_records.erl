@@ -498,6 +498,8 @@ expr({op,Anno,Op,L0,R0}, St0) ->
     {{op,Anno,Op,L,R},St2};
 expr({executable_line,_,_}=E, St) ->
     {E, St};
+expr({debug_line,_,_}=E, St) ->
+    {E, St};
 expr({ssa_check_when,_,_,_,_,_}=E, St) ->
     {E, St}.
 

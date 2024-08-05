@@ -274,7 +274,8 @@ function({function,_,Name,Arity,Cs0}, Module, Opts)
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
                     dialyzer=member(dialyzer, Opts),
                     ws=Ws0,file=[{file,File}]},
-        {B0,St1} = body(Cs0, Name, Arity, St0),
+        {Cs1,Anno} = handle_debug_line(Cs0, St0),
+        {B0,St1} = body(Cs1, Name, Arity, St0),
         %% ok = function_dump(Name, Arity, "body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
         %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
@@ -282,11 +283,21 @@ function({function,_,Name,Arity,Cs0}, Module, Opts)
         %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
         {B3,#core{ws=Ws,load_nif=LoadNif}} = lbody(B2, St3),
         %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
-        {{#c_var{name={Name,Arity}},B3},Ws,LoadNif}
+        {{#c_var{anno=Anno,name={Name,Arity}},B3},Ws,LoadNif}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
+    end.
+
+handle_debug_line(Cs0, #core{opts=Opts}=St) ->
+    maybe
+        true ?= member(beam_debug_info, Opts),
+        [{clause,_,_,_,[{debug_line,Line,Index}|_]}|Cs] ?= Cs0,
+        {Cs,[{debug_line,{lineno_anno(Line, St),Index}}]}
+    else
+        _ ->
+            {Cs0,[]}
     end.
 
 body(Cs0, Name, Arity, St0) ->
@@ -986,9 +997,10 @@ expr({op,L,Op,L0,R0}, St0) ->
     {#icall{anno=#a{anno=LineAnno},		%Must have an #a{}
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1};
-expr({executable_line,Loc,Index}, St0) ->
+expr({Op,Loc,Index}, St0) when Op =:= executable_line;
+                               Op =:= debug_line ->
     {#iprimop{anno=#a{anno=lineno_anno(Loc, St0)},
-              name=#c_literal{val=executable_line},
+              name=#c_literal{val=Op},
               args=[#c_literal{val=Index}]},[],St0};
 expr({ssa_check_when,L,WantedResult,Args,Tag,Clauses}, St) ->
     {#c_opaque{anno=full_anno(L, St),val={ssa_check_when,WantedResult,Tag,Args,Clauses}}, [], St}.
@@ -1205,7 +1217,11 @@ try_after(Line, Es0, As0, St0) ->
     {V, St3} = new_var(St2),                    % (must not exist in As1)
     LineAnno = lineno_anno(Line, St3),
 
-    case is_iexprs_small(As, 20) of
+    %% If BEAM debug info has been requested, we must not duplicate
+    %% `debug_line` instructions.
+    BeamDebugInfo = member(beam_debug_info, St0#core.opts),
+
+    case not BeamDebugInfo andalso is_iexprs_small(As, 20) of
         true -> try_after_small(LineAnno, Es, As, V, St3);
         false -> try_after_large(LineAnno, Es, As, V, St3)
     end.
@@ -3104,8 +3120,16 @@ uexprs([#iexprs{bodies=Es0}|Les], Ks0, St0) ->
 uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
     case upat_is_new_var(P0, Ks) of
 	true ->
-	    %% Assignment to a new variable.
-	    uexprs([#iset{var=P0,arg=Arg}|Les], Ks, St0);
+            case P0 of
+                #c_var{name='_'} ->
+                    %% We need to rename '_' to a fresh name to
+                    %% ensure that '_' does not end up in the debug
+                    %% information.
+                    {Var,St1} = new_var(St0),
+                    uexprs([#iset{var=Var,arg=Arg}|Les], Ks, St1);
+                _ ->
+                    uexprs([#iset{var=P0,arg=Arg}|Les], Ks, St0)
+            end;
 	false when Les =:= [] ->
 	    %% Need to explicitly return match "value", make
 	    %% safe for efficiency.
