@@ -37,7 +37,8 @@
          t35/1, t36/0, t37/0, t38/0, t39/1,
          t40/0, t41/0, t42/0, t43/0, t44/0,
 
-         check_env/0]).
+         check_env/0,
+         check_succeeded/1]).
 
 %% Check that we do not trigger on the wrong pass
 check_wrong_pass() ->
@@ -339,3 +340,11 @@ check_env() ->
     A = <<>>,
     B = ex:f(),
     <<A/binary, B/binary>>.
+
+%% Check that succeeded-instructions can be matched.
+check_succeeded(L) ->
+%ssa% (L) when post_ssa_opt ->
+%ssa% X = bif:hd(L),
+%ssa% Y = succeeded:body(X),
+%ssa% ret(X).
+    hd(L).
