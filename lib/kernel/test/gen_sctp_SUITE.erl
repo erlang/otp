@@ -180,10 +180,17 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(api_connectx_init=Case, Config) ->
+init_per_testcase(api_connectx_init = Case, Config) ->
     check_sctp_connectx(Case, Config);
-init_per_testcase(t_simple_local_sockaddr_in_connectx_init=Case, Config) ->
+init_per_testcase(t_simple_local_sockaddr_in_connectx_init = Case, Config) ->
     check_sctp_connectx(Case, Config);
+init_per_testcase(names_multihoming_ipv4 = Case, Config) ->
+    case lists:keylookup(label, 1, Config) of
+        {value, {label, docker}} ->
+            {skip, "Unstable/broken on docker"};
+        _ ->
+            init_per_testcase_common(Case, Config)
+    end;
 init_per_testcase(Case, Config) ->
     init_per_testcase_common(Case, Config).
     
