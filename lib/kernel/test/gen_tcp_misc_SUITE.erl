@@ -418,10 +418,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
--define(UNIQ_NODE_NAME,
-  list_to_atom(?MODULE_STRING ++ "__" ++
-               atom_to_list(?FUNCTION_NAME) ++ "_" ++
-	       integer_to_list(erlang:unique_integer([positive])))).
 
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
