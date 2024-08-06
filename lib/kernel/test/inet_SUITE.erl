@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -546,34 +546,117 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 
 host_and_addr() ->
     ?P("host_and_addr -> entry"),
+    %% [{timetrap,{minutes,5}}].
     [{timetrap,{minutes,5}}|required(hosts)].
 
 host_and_addr(Config) when is_list(Config) ->
-    do_host_and_addr(get_hosts(Config)).
+    ?P("host_and_addr -> entry with"
+       "~n   Config: ~p", [Config]),
 
-do_host_and_addr(Hosts) when is_list(Hosts) andalso (Hosts =/= []) ->
+    Hosts = get_hosts(Config),
+
+    ?P("host_and_addr -> try hosts: "
+       "~n   ~p", [Hosts]),
+
     lists:foreach(fun try_host/1, Hosts),
-    ok;
-do_host_and_addr(Hosts) ->
-    exit({skip, {no_valid_hosts, Hosts}}).
 
+    ?P("host_and_addr -> done"),
 
-try_host({Ip0, Host}) ->
-    {ok, Ip}                             = inet:getaddr(Ip0, inet),
-    {ok,{hostent, _, _, inet, _, Ips1}}  = inet:gethostbyaddr(Ip),
-    {ok,{hostent, _, _, inet, _, _Ips2}} = inet:gethostbyname(Host),
-    true = lists:member(Ip, Ips1),
+    ok.
+
+try_host({IP0, Host}) ->
+    ?P("try_host -> entry with"
+       "~n   IP0:  ~p"
+       "~n   Host: ~p", [IP0, Host]),
+
+    {ok, IP} = inet:getaddr(IP0, inet),
+    ?P("try_host -> IP: ~p", [IP]),
+
+    IPs1 =
+        case inet:gethostbyaddr(IP) of
+            {ok, #hostent{h_name      = AHost,
+                          h_addr_list = AAddrs} = AHE} ->
+                ?P("try_host -> got hostent (by addr): "
+                   "~n   AHost:  ~p"
+                   "~n   AAddrs: ~p", [AHost, AAddrs]),
+                case string:prefix(AHost, Host) of
+                    nomatch ->
+                        %% 'Host' is not a prefix of 'AHost'
+                        %% Check if its the other way araound (just in case)
+                        case string:prefix(Host, AHost) of
+                            nomatch ->
+                                ?P("[GHBA] Host entry for wrong host: "
+                                   "~n   ~p"
+                                   "~n   => SKIP", [AHE]),
+                                exit({skip, {invalid_hostent, addr,
+                                             AHost, Host}});
+                            _ -> % Yes
+				?P("'HHost' prefix of 'Host'"),
+                                AAddrs
+                        end;
+                    _ -> % Yes
+			?P("'Host' prefix of 'AHost'"),
+                        AAddrs
+                end;
+            {error, AReason} ->
+                ?P("Failed get hostent (by addr) for ~p: "
+                   "~n   Reason: ~p"
+                   "~n   => SKIP", [IP, AReason]),
+                exit({skip, {failed_get_hostent, addr}})
+        end,
+
+    _IPs2 =
+        case inet:gethostbyname(Host) of
+            {ok, #hostent{h_name      = NHost,
+                          h_addr_list = NAddrs} = NHE} ->
+                ?P("try_host -> got hostent (by name): "
+                   "~n   NHost:  ~p"
+                   "~n   NAddrs: ~p", [NHost, NAddrs]),
+                case string:prefix(NHost, Host) of
+                    nomatch ->
+                        %% 'Host' is not a prefix of 'NHost'
+                        %% Check if its the other way araound (just in case)
+                        case string:prefix(Host, NHost) of
+                            nomatch ->
+                                ?P("[GHBN] Host entry for wrong host: "
+                                   "~n   ~p"
+                                   "~n   => SKIP", [NHE]),
+                                exit({skip, {invalid_hostent, name,
+                                             NHost, Host}});
+                            _ -> % Yes
+				?P("'NHost' prefix of 'Host'"),
+                                NAddrs
+                        end;
+                    _ -> % Yes
+			?P("'Host' prefix of 'NHost'"),
+                        NAddrs
+                end;
+            {error, NReason} ->
+                ?P("Failed get hostent (by name) for ~p: "
+                   "~n   Reason: ~p"
+                   "~n   => SKIP", [Host, NReason]),
+                exit({skip, {failed_get_hostent, name}})
+        end,
+
+    ?P("try_host -> verify IP: "
+       "~n   IP:   ~p"
+       "~n   IPs1: ~p", [IP, IPs1]),
+    true = lists:member(IP, IPs1),
+    
+    ?P("try_host -> host '~s' (~s) done", [Host, IP0]),
     ok.
 
 %% Get all hosts from the system using 'ypcat hosts' or the local
 %% equvivalent.
 
-get_hosts(_Config) -> 
+get_hosts(_Config) ->
+    Hosts = ct:get_config(test_hosts),
+    %% Hosts = _
     case os:type() of
 	{unix, _} ->
 	    List = lists:map(fun(X) ->
 				     atom_to_list(X)++" "
-			     end, ct:get_config(test_hosts)),
+			     end, Hosts),
 	    Cmd = "ypmatch "++List++" hosts.byname", 
 	    HostFile = os:cmd(Cmd),
 	    get_hosts(HostFile, [], [], []);
