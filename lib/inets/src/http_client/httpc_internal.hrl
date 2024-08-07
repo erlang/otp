@@ -117,7 +117,8 @@
 	  timer         :: undefined | reference(),
 	  socket_opts,   % undefined | [socket_option()]
 	  unix_socket,   % undefined | string()
-	  ipv6_host_with_brackets % boolean()
+	  ipv6_host_with_brackets, % boolean()
+	  request_options :: undefined | proplists:proplist()
 	}
        ).
 -type request() :: #request{}.

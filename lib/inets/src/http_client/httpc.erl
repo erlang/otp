@@ -1204,7 +1204,8 @@ handle_request(Method, Url,
 			       socket_opts   = SocketOpts, 
 			       started       = Started,
 			       unix_socket   = UnixSocket,
-			       ipv6_host_with_brackets = BracketedHost},
+			       ipv6_host_with_brackets = BracketedHost,
+			       request_options       = Options},
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
 		    handle_answer(RequestId, Sync, Options);
@@ -1267,22 +1268,16 @@ handle_answer(RequestId, false, _) ->
     {ok, RequestId};
 handle_answer(RequestId, true, Options) ->
     receive
-	{http, {RequestId, saved_to_file}} ->
-	    {ok, saved_to_file};
-	{http, {RequestId, {_,_,_} = Result}} ->
-	    return_answer(Options, Result);
-	{http, {RequestId, {error, Reason}}} ->
-	    {error, Reason}
-    end.
-
-return_answer(Options, {StatusLine, Headers, BinBody}) ->
-    Body = maybe_format_body(BinBody, Options),
-    case proplists:get_value(full_result, Options, true) of
-	true ->
-	    {ok, {StatusLine, Headers, Body}};
-	false ->
-	    {_, Status, _} = StatusLine,
-	    {ok, {Status, Body}}
+        {http, {RequestId, {ok, saved_to_file}}} ->
+            {ok, saved_to_file};
+        {http, {RequestId, {error, Reason}}} ->
+            {error, Reason};
+        {http, {RequestId, {ok, {StatusLine,Headers,BinBody}}}} ->
+            Body = maybe_format_body(BinBody, Options),
+            {ok, {StatusLine, Headers, Body}};
+        {http, {RequestId, {ok, {StatusCode,BinBody}}}} ->
+            Body = maybe_format_body(BinBody, Options),
+            {ok, {StatusCode, Body}}
     end.
 
 maybe_format_body(BinBody, Options) ->
