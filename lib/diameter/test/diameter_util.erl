@@ -2925,10 +2925,12 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
             Default;
 
         {'DOWN', MRef, process, Pid, Res} ->
+            ?UL("pcall_loop -> DOWN from supervised process (~p) with: "
+                "~n   ~p", [Pid, Res]),
             pcall_cancel_poll_timer(TRef),
             Res;
 
-        {?MODULE, ?FUNCTION_NAME, status_poll} ->
+        {?MODULE, status_poll} ->
             ?UL("pcall_loop -> worker status timeout: "
                 "~n   Current Function: ~p"
                 "~n   Status:           ~p"
@@ -2955,6 +2957,7 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
             pcall_loop(Pid, MRef, Timeout2, PTimeout, NewTRef, Default)
 
     after Timeout ->
+            ?UL("pcall_loop -> timeout"),
             pcall_cancel_poll_timer(TRef),
             erlang:demonitor(MRef, [flush]),
             exit(Pid, kill),
@@ -2964,14 +2967,14 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
 pcall_start_poll_timer(infinity = TRef) ->
     TRef;
 pcall_start_poll_timer(Timeout) ->
-    erlang:send_after(Timeout, self(), status_poll).
+    erlang:send_after(Timeout, self(), {?MODULE, status_poll}).
 
 pcall_cancel_poll_timer(infinity = _TRef) ->
     ok;
 pcall_cancel_poll_timer(TRef) when is_reference(TRef) ->
     erlang:cancel_timer(TRef),
     receive
-        {?MODULE, ?FUNCTION_NAME, status_poll} ->
+        {?MODULE, status_poll} ->
             ok
     after 0 ->
             ok
@@ -2979,7 +2982,7 @@ pcall_cancel_poll_timer(TRef) when is_reference(TRef) ->
 
     
 pinfo(P, Key) when is_pid(P) ->
-    case erlang:process_info(P) of
+    case erlang:process_info(P, Key) of
         {Key, Value} ->
             Value;
         _ ->

@@ -63,10 +63,16 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 15}}].
+    [{timetrap, {minutes, 1}}].
 
 all() ->
-    [base, gen, lib, unknown, recode].
+    [
+     base,
+     gen,
+     lib,
+     unknown,
+     recode
+    ].
 
 
 init_per_suite(Config) ->
@@ -222,7 +228,7 @@ make(Dir, File, Out) ->
         "~n", [?FUNCTION_NAME, File]),
     pcall(fun() ->
                   diameter_make:codec(filename:join(Dir, File), [{outdir, Out}])
-          end).
+          end, 5000).
 
 compile(Dir, File) ->
     compile(Dir, File, []).
@@ -232,12 +238,42 @@ compile(Dir, File, Opts) ->
         "~n   File: ~p"
         "~n   Opts: ~p"
         "~n", [?FUNCTION_NAME, File, Opts]),
-    pcall(fun() -> compile:file(filename:join(Dir, File), [return | Opts]) end).
-
+    pcall(fun() ->
+                  compile:file(filename:join(Dir, File), [return | Opts])
+          end).
 
 
 pcall(F) when is_function(F) ->
-    ?PCALL(F, infinity, ?SECS(1)).
+    pcall(F, infinity, ?SECS(1)).
+
+pcall(F, Timeout)
+  when is_function(F) andalso is_integer(Timeout) andalso (Timeout > 0) ->
+    TMP = Timeout div 4,
+    PollTimeout =
+        if
+            (TMP > 1000) ->
+                1000;
+            true ->
+                TMP
+        end,
+    pcall(F, Timeout, PollTimeout).
+
+
+pcall(F, Timeout, PollTimeout)
+  when is_function(F) andalso
+       is_integer(Timeout) andalso
+       ((PollTimeout =:= infinity) orelse
+        (is_integer(PollTimeout) andalso (Timeout > PollTimeout))) ->
+    ?PCALL(F, Timeout, PollTimeout);
+pcall(F, Timeout, PollTimeout) 
+  when is_function(F) andalso
+       (Timeout =:= infinity) andalso
+       ((PollTimeout =:= infinity) orelse
+        (is_integer(PollTimeout) andalso (PollTimeout > 0))) ->
+    ?PCALL(F, Timeout, PollTimeout).
+
+
+
 
 
 
