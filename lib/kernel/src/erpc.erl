@@ -59,6 +59,8 @@ is available on the involved nodes.
          call/3,
          call/4,
          call/5,
+	 call_opt/3,
+	 call_opt/5,
          cast/2,
 	 cast/4,
          send_request/2,
@@ -130,21 +132,23 @@ The value can be:
 %% Exported API
 %%------------------------------------------------------------------------
 
--doc(#{equiv => call(Node, Fun, infinity)}).
+-doc(#{equiv => call_opt(Node, Fun, [])}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Fun) -> Result when
       Node :: node(),
       Fun :: function(),
       Result :: term().
 
-call(N, Fun) ->
-    call(N, Fun, infinity).
+call(N, Fun) when is_function(Fun, 0) ->
+    do_call(N, erlang, apply, [Fun, []], infinity, false);
+call(_N, _Fun) ->
+    error({?MODULE, badarg}).
 
 -doc """
 Equivalent to
-[`erpc:call(Node, erlang, apply, [Fun,[]], Timeout)`](`call/5`).
+[`call_opt(Node, erlang, apply, [Fun,[]], [{timeout, Timeout}])`](`call_opt/5`).
 
-May raise all the same exceptions as [`call/5`](`call/5`) plus an `{erpc, badarg}`
+May raise all the same exceptions as [`call_opt/5`](`call_opt/5`) plus an `{erpc, badarg}`
 `error` exception if `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
@@ -155,11 +159,11 @@ May raise all the same exceptions as [`call/5`](`call/5`) plus an `{erpc, badarg
       Result :: term().
 
 call(N, Fun, Timeout) when is_function(Fun, 0) ->
-    call(N, erlang, apply, [Fun, []], Timeout);
+    do_call(N, erlang, apply, [Fun, []], Timeout, false);
 call(_N, _Fun, _Timeout) ->
     error({?MODULE, badarg}).
 
--doc(#{equiv => call(Node, Module, Function, Args, infinity)}).
+-doc(#{equiv => call_opt(Node, Module, Function, Args, [])}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Module, Function, Args) -> Result when
       Node :: node(),
@@ -169,14 +173,51 @@ call(_N, _Fun, _Timeout) ->
       Result :: term().
 
 call(N, M, F, A) ->
-    call(N, M, F, A, infinity).
+    do_call(N, M, F, A, infinity, false).
 
--dialyzer([{nowarn_function, call/5}, no_return]).
+-doc(#{equiv => call_opt(Node, Module, Function, Args, [{timeout, Timeout}])}).
+-doc(#{since => <<"OTP 23.0">>}).
+-spec call(Node, Module, Function, Args, Timeout) -> Result when
+      Node :: node(),
+      Module :: atom(),
+      Function :: atom(),
+      Args :: [term()],
+      Timeout :: timeout_time(),
+      Result :: term().
+
+call(N, M, F, A, T) ->
+    do_call(N, M, F, A, T, false).
+
+-doc """
+Equivalent to
+[`call_opt(Node, erlang, apply, [Fun, []], Options`)](`call_opt/5`).
+
+May raise all the same exceptions as [`call_opt/5`](`call_opt/5`) plus an `{erpc, badarg}`
+`error` exception if `Fun` is not a fun of zero arity.
+""".
+-doc(#{since => <<"OTP 28.0">>}).
+-spec call_opt(Node, Fun, Options) -> Result when
+      Node :: node(),
+      Fun :: function(),
+      Options :: [Option],
+      Option :: {'always_spawn', boolean()} | {'timeout', timeout_time()},
+      Result :: term().
+
+call_opt(N, Fun, Options) when is_function(Fun, 0) ->
+    call_opt(N, erlang, apply, [Fun, []], Options);
+call_opt(_N, _Fun, _Options) ->
+    error({?MODULE, badarg}).
 
 -doc """
 Evaluates [`apply(Module, Function, Args)`](`apply/3`) on node `Node` and
-returns the corresponding value `Result`. `Timeout` sets an upper time limit for
-the `call` operation to complete.
+returns the corresponding value `Result`.
+
+The `timeout` option sets an upper time limit for the `call` operation to complete
+(default: `infinity`).
+
+The `always_spawn` option specifies if the `apply` _may_ be done in the calling
+process (`false`, the default), or if a new process _must_ be spawned to perform
+the `apply` (`true`).
 
 The `call()` function only returns if the applied function successfully returned
 without raising any uncaught exceptions, the operation did not time out, and no
@@ -244,18 +285,27 @@ communication may, of course, reach the calling process.
 > spawned process.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec call(Node, Module, Function, Args, Timeout) -> Result when
+-doc(#{since => <<"OTP 28.0">>}).
+-spec call_opt(Node, Module, Function, Args, Options) -> Result when
       Node :: node(),
       Module :: atom(),
       Function :: atom(),
       Args :: [term()],
-      Timeout :: timeout_time(),
+      Options :: [Option],
+      Option :: {'always_spawn', boolean()} | {'timeout', timeout_time()},
       Result :: term().
 
-call(N, M, F, A, infinity) when node() =:= N,  %% Optimize local call
-                                is_atom(M),
-                                is_atom(F),
-                                is_list(A) ->
+call_opt(N, M, F, A, Options) ->
+    Timeout = proplists:get_value(timeout, Options, infinity),
+    AlwaysSpawn = proplists:get_value(always_spawn, Options, false),
+    do_call(N, M, F, A, Timeout, AlwaysSpawn).
+
+-dialyzer([{nowarn_function, do_call/6}, no_return]).
+
+do_call(N, M, F, A, infinity, false) when node() =:= N,
+					  is_atom(M),
+					  is_atom(F),
+					  is_list(A) ->
     try
         {return, Return} = execute_call(M,F,A),
         Return
@@ -271,10 +321,11 @@ call(N, M, F, A, infinity) when node() =:= N,  %% Optimize local call
                     error({exception, Reason, ErpcStack})
             end
     end;
-call(N, M, F, A, T) when is_atom(N),
-                         is_atom(M),
-                         is_atom(F),
-                         is_list(A) ->
+do_call(N, M, F, A, T, AlwaysSpawn) when is_atom(N),
+					 is_atom(M),
+					 is_atom(F),
+					 is_list(A),
+					 is_boolean(AlwaysSpawn) ->
     Timeout = timeout_value(T),
     Res = make_ref(),
     ReqId = spawn_request(N, ?MODULE, execute_call, [Res, M, F, A],
@@ -287,8 +338,9 @@ call(N, M, F, A, T) when is_atom(N),
     after Timeout ->
             result(timeout, ReqId, Res, undefined)
     end;
-call(_N, _M, _F, _A, _T) ->
+do_call(_N, _M, _F, _A, _T, _AlwaysSpawn) ->
     error({?MODULE, badarg}).
+
 
 %% Asynchronous call
 
@@ -1129,7 +1181,7 @@ Equivalent to
 if:
 
 - `Nodes` is not a proper list of atoms.
-- `Fun` is not a a fun of zero arity.
+- `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicast(Nodes, Fun) -> 'ok' when
@@ -1192,7 +1244,7 @@ Equivalent to [`erpc:cast(Node,erlang,apply,[Fun,[]])`](`cast/4`).
 [`cast/2`](`cast/2`) fails with an `{erpc, badarg}` `error` exception if:
 
 - `Node` is not an atom.
-- `Fun` is not a a fun of zero arity.
+- `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
 -spec cast(Node, Fun) -> 'ok' when

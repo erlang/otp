@@ -308,9 +308,9 @@ call_test(Peer, Node, Timeout, NodesOfSameRelease, ToTestServer) ->
                 boom,
                 [{?MODULE, call_func3, A2, _},
                  {?MODULE, call_func2, 1, _}]},
-               [{erpc, call, A1, _},
+               [{erpc, do_call, A1, _},
                 {?MODULE, call_func1, 1, _}]}
-          when ((A1 == 5)
+          when ((A1 == 6)
                 orelse (A1 == [Node, ?MODULE, call_func2, [boom]]))
                andalso ((A2 == 1)
                         orelse (A2 == [boom])) ->
@@ -326,10 +326,10 @@ call_test(Peer, Node, Timeout, NodesOfSameRelease, ToTestServer) ->
                         boom,
                         [{?MODULE, call_func3, A4, _},
                          {?MODULE, call_func2, 1, _}]},
-                       [{erpc, call, A3, _},
+                       [{erpc, do_call, A3, _},
                         {?MODULE, call_func1, 1, _},
                         {erlang, apply, 2, _}]}
-                  when ((A3 == 5)
+                  when ((A3 == 6)
                         orelse (A3 == [Node, ?MODULE, call_func2, [boom]]))
                        andalso ((A4 == 1)
                                 orelse (A4 == [boom])) ->
@@ -364,7 +364,7 @@ check_call_func4_error({exception,
     ok;
 check_call_func4_error({exception,
                         Exception,
-                        [{erpc, call, _, _},
+                        [{erpc, do_call, _, _},
                          {?MODULE, call_func5, _, _},
                          {?MODULE, call_func4, _, _}]},
                        N) ->
