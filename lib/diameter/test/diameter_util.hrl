@@ -42,6 +42,8 @@
 -define(INFO(),                       ?DUTIL:info()).
 -define(SCRAMBLE(SS),                 ?DUTIL:scramble(SS)).
 
+-define(UNIQUE_STRING(),              ?DUTIL:unique_string()).
+
 -define(PCALL(F), 
         ?DUTIL:proxy_call((F), infinity, infinity, {error, timeout})).
 -define(PCALL(F, T, PT),
