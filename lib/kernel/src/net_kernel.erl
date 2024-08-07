@@ -204,13 +204,13 @@ in the Erlang Reference Manual.
 -record(tick,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000                %% ticks until timout
+         intensity  :: 4..1000                %% ticks until timeout
         }).
 
 -record(tick_change,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000,               %% ticks until timout
+         intensity  :: 4..1000,               %% ticks until timeout
          how        :: 'longer' | 'shorter'   %% What type of change
         }).
 
@@ -249,11 +249,17 @@ list of allowed nodes. It is not possible to remove nodes from the list.
 
 Returns `error` if any element in `Nodes` is not an atom.
 """.
--spec allow(Nodes) -> ok | error when
+-spec allow(Nodes) -> ok | error | ignored when
       Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
 
--doc false.
+-doc """
+Returns a list of nodes that are explicitly allowed to connect to the node by calling
+[`allow/1`](`allow/1`). If empty list is returned, it means that any node using the
+same cookie will be able to connect.
+""".
+-spec allowed() -> {ok, Nodes} | ignored when
+      Nodes :: [node()].
 allowed() ->                   request(allowed).
 
 -doc false.
