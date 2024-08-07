@@ -58,6 +58,7 @@
 	 not_transformable3/1,
 	 not_transformable4/1,
 	 not_transformable5/1,
+	 not_transformable6/0,
 
          bad_get_status_by_type/0,
          stacktrace0/0,
@@ -634,6 +635,17 @@ not_transformable5b([H|T], Acc) ->
     not_transformable5a(T, <<Acc/binary, 1:8, H:8>>);
 not_transformable5b([], Acc) ->
     Acc.
+
+%% Check that anything extracted from a map is aliased. This is
+%% required as otherwise the destructive update pass could try to
+%% update a literal.
+not_transformable6() ->
+%ssa% () when post_ssa_opt ->
+%ssa% E = get_map_element(...),
+%ssa% _ = bs_create_bin(append, _, E, ...) { aliased => [E], first_fragment_dies => true }.
+    M = #{a=> <<>>},
+    #{a:=X} = M,
+    <<X/binary, 17:8>>.
 
 %% Reproducer for a bug in beam_ssa_alias:aa_get_status_by_type/2
 %% where it would return the wrong alias/uniqe status for certain

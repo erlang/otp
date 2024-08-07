@@ -658,6 +658,8 @@ aa_derive_from(_Dst, [], _, State0) ->
 aa_derive_from(Dst, Parent, Types, State0) ->
     aa_derive_from1(Dst, Parent, Types, State0).
 
+aa_derive_from1(#b_var{}=Dst, #b_literal{val=Val}, _, State) when is_map(Val) ->
+    aa_set_aliased(Dst, State);
 aa_derive_from1(#b_var{}, #b_literal{}, _, State) ->
     State;
 aa_derive_from1(Dst, Parent, Types, State) ->
