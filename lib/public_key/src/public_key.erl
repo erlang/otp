@@ -1571,19 +1571,36 @@ is intended as information to end users.
 
 Available options:
 
-- **\{verify_fun, \{fun(), InitialUserState::term()\}** - The fun must be
+- **\{verify_fun, \{fun(), UserState::term()\}** - The fun must be
   defined as:
 
   ```erlang
   fun(OtpCert :: #'OTPCertificate'{},
       Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
                {extension, #'Extension'{}},
-      InitialUserState :: term()) ->
+      UserState :: term()) ->
   	{valid, UserState :: term()} |
   	{valid_peer, UserState :: term()} |
   	{fail, Reason :: term()} |
   	{unknown, UserState :: term()}.
   ```
+
+  or as:
+
+  ```erlang
+  fun(OtpCert :: #'OTPCertificate'{},
+      DerCert :: der_encoded(),
+      Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
+               {extension, #'Extension'{}},
+      UserState :: term()) ->
+	{valid, UserState :: term()} |
+	{valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} |
+	{unknown, UserState :: term()}.
+  ```
+
+  The verify callback can have 3 or 4 arguments in case the DER encoded
+  version is needed by the callback.
 
   If the verify callback fun returns `{fail, Reason}`, the verification process
   is immediately stopped. If the verify callback fun returns
@@ -1592,6 +1609,15 @@ Available options:
   as verifying application-specific extensions. If called with an extension
   unknown to the user application, the return value `{unknown, UserState}` is to
   be used.
+
+  > #### Note {: .note }
+  > If you need the DER encoded version of the certificate and have
+  > the OTP decoded version encoding it back can fail to give the correct result,
+  > due to work arounds for common misbehaving encoders. So it is recommended
+  > to call `pkix_path_validation` with `Cert` and `CertChain` arguments as
+  >  `der_encoded() | #cert{}` and `[der_encoded() | #cert{}]`. Also note
+  > that the path validation itself needs both the encoded and the
+  > decoded version of the certificate.
 
   > #### Warning {: .warning }
   >
@@ -1650,20 +1676,16 @@ Explanations of reasons for a bad certificate:
           {ok, {PublicKeyInfo, ConstrainedPolicyNodes}} |
           {error, {bad_cert, Reason :: bad_cert_reason()}}
               when
-      Cert :: cert() | atom(),
+      Cert :: cert() | combined_cert() | atom(),
       CertChain :: [cert() | combined_cert()],
       Options  :: [{max_path_length, integer()} | {verify_fun, {fun(), term()}}],
       PublicKeyInfo :: public_key_info(),
       ConstrainedPolicyNodes :: [policy_node()].
 
 %%--------------------------------------------------------------------
-pkix_path_validation(TrustedCert, CertChain, Options)
-  when is_binary(TrustedCert) ->
-
-    OtpCert = pkix_decode_cert(TrustedCert, otp),
-    pkix_path_validation(OtpCert, CertChain, Options);
-pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
-  when is_list(CertChain), is_list(Options) ->
+pkix_path_validation(Cert, CertChain, Options)
+  when (not is_atom(Cert)), is_list(CertChain), is_list(Options) ->
+    TrustedCert = combined_cert(Cert),
     MaxPathDefault = length(CertChain),
     {VerifyFun, UserState0} =
 	proplists:get_value(verify_fun, Options, ?DEFAULT_VERIFYFUN),
@@ -1683,15 +1705,15 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
         throw:{bad_cert, _} = Result ->
             {error, Result}
     end;
-pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
+pkix_path_validation(PathErr, [Cert0 | Chain], Options0) when is_atom(PathErr)->
     {VerifyFun, Userstat0} =
 	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
-    Otpcert = otp_cert(Cert),
+    Cert = combined_cert(Cert0),
     Reason = {bad_cert, PathErr},
-    try VerifyFun(Otpcert, Reason, Userstat0) of
+    try pubkey_cert:apply_fun(VerifyFun, Cert#cert.otp, Cert#cert.der, Reason, Userstat0) of
 	{valid, Userstate} ->
 	    Options = proplists:delete(verify_fun, Options0),
-	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
+	    pkix_path_validation(Cert, Chain, [{verify_fun,
 						   {VerifyFun, Userstate}}| Options]);
 	{fail, UserReason} ->
 	    {error, UserReason}
@@ -2395,8 +2417,9 @@ path_validation([Cert | _] = Path,
 		    ValidationState) ->
     Reason = {bad_cert, max_path_length_reached},
     OtpCert = otp_cert(Cert),
+    DerCert = der_cert(Cert),
 
-    try VerifyFun(OtpCert,  Reason, UserState0) of
+    try pubkey_cert:apply_fun(VerifyFun, OtpCert, DerCert, Reason, UserState0) of
 	{valid, UserState} ->
 	    path_validation(Path,
 			    ValidationState#path_validation_state{
@@ -2409,7 +2432,7 @@ path_validation([Cert | _] = Path,
 	    {error, Reason}
     end.
 
-validate(Cert, #path_validation_state{working_issuer_name = Issuer,
+validate(Cert0, #path_validation_state{working_issuer_name = Issuer,
                                       working_public_key = Key,
                                       working_public_key_parameters = 
                                           KeyParams, 
@@ -2420,37 +2443,37 @@ validate(Cert, #path_validation_state{working_issuer_name = Issuer,
                                       verify_fun = VerifyFun} =
 	     ValidationState0) ->
     
-    OtpCert = otp_cert(Cert),
+    Cert = combined_cert(Cert0),
 
     {ValidationState1, UserState1} =
-	pubkey_cert:validate_extensions(OtpCert, ValidationState0, UserState0,
+	pubkey_cert:validate_extensions(Cert, ValidationState0, UserState0,
 					VerifyFun),
 
     %% We want the key_usage extension to be checked before we validate
     %% other things so that CRL validation errors will comply to standard
     %% test suite description
 
-    UserState2 = pubkey_cert:validate_time(OtpCert, UserState1, VerifyFun),
+    UserState2 = pubkey_cert:validate_time(Cert, UserState1, VerifyFun),
 
-    UserState3 = pubkey_cert:validate_issuer(OtpCert, Issuer, UserState2, VerifyFun),
+    UserState3 = pubkey_cert:validate_issuer(Cert, Issuer, UserState2, VerifyFun),
 
-    UserState4 = pubkey_cert:validate_names(OtpCert, Permit, Exclude, Last,
+    UserState4 = pubkey_cert:validate_names(Cert, Permit, Exclude, Last,
 					    UserState3, VerifyFun),
 
-    UserState5 = pubkey_cert:validate_signature(OtpCert, der_cert(Cert),
+    UserState5 = pubkey_cert:validate_signature(Cert, der_cert(Cert),
 						Key, KeyParams, UserState4, VerifyFun),
     UserState = case Last of
 		    false ->
-			pubkey_cert:verify_fun(OtpCert, valid, UserState5, VerifyFun);
+			pubkey_cert:verify_fun(Cert, valid, UserState5, VerifyFun);
 		    true ->
-			pubkey_cert:verify_fun(OtpCert, valid_peer,
+			pubkey_cert:verify_fun(Cert, valid_peer,
 					       UserState5, VerifyFun)
 		end,
 
     ValidationState  = 
 	ValidationState1#path_validation_state{user_state = UserState},
 
-    pubkey_cert:prepare_for_next_cert(OtpCert, ValidationState).
+    pubkey_cert:prepare_for_next_cert(Cert, ValidationState).
 
 otp_cert(Der) when is_binary(Der) ->
     pkix_decode_cert(Der, otp);
@@ -2462,6 +2485,16 @@ otp_cert(#cert{otp = OtpCert}) ->
 combined_cert(#'Certificate'{} = Cert) ->
     Der = der_encode('Certificate', Cert),
     Otp = pkix_decode_cert(Der, otp),
+    #cert{der = Der, otp = Otp};
+combined_cert(#cert{} = CombinedCert) ->
+    CombinedCert;
+combined_cert(Der) when is_binary(Der) ->
+    Otp = pkix_decode_cert(Der, otp),
+    #cert{der = Der, otp = Otp};
+combined_cert(#'OTPCertificate'{} = Otp) ->
+    %% Note that this conversion is not
+    %% safe due to encodeing work arounds.
+    Der = der_cert(Otp),
     #cert{der = Der, otp = Otp}.
 
 der_cert(#'OTPCertificate'{} = Cert) ->
