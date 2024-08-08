@@ -56,6 +56,8 @@
 -export([flush_monitor_messages/3,
          '@flush_monitor_messages_refopt'/0]).
 
+-export([multisend/2, multisend_bif/2]).
+
 -export([await_result/1, gather_io_bytes/2]).
 
 -export([time_unit/0, perf_counter_unit/0]).
@@ -536,6 +538,24 @@ flush_monitor_messages(Ref, Multi, Res) when is_reference(Ref) ->
     Ref = make_ref(),
     flush_monitor_messages(Ref, true, ok),
     flush_monitor_messages(Ref, true, ok).
+
+-spec multisend(Dest, Msg) -> Msg when
+      Dest :: [pid()],
+      Msg :: term().
+multisend(Dest, Msg) ->
+    Groups = maps:groups_from_list(fun erlang:node/1, Dest),
+    maps:foreach(fun(N, Ps) when N =:= erlang:node() -> lists:foreach(fun(P) -> P ! Msg end, Ps);
+                    (_N, Ps) -> case erts_internal:multisend_bif(Ps, Msg) of
+                                    nomultisend ->
+                                        lists:foreach(fun(P) -> P ! Msg end, Ps);
+                                    _ -> nil
+                                end
+                 end,
+                 Groups),
+    Msg.
+
+multisend_bif(_Pids, _Msg) ->
+    erlang:nif_error(undefined).
 
 -spec erts_internal:time_unit() -> pos_integer().
 
