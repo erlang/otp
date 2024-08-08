@@ -47,6 +47,8 @@
          rsa_pem/1,
          rsa_pss_pss_pem/0,
          rsa_pss_pss_pem/1,
+         rsa_pss_default_pem/0,
+         rsa_pss_default_pem/1,
          rsa_priv_pkcs8/0,
          rsa_priv_pkcs8/1,
          ec_pem/0,
@@ -191,7 +193,8 @@ all() ->
     ].
 
 groups() -> 
-    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem,
+    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, 
+                              rsa_pss_default_pem, ec_pem,
 			      encrypted_pem_pwdstring, encrypted_pem_pwdfun,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
@@ -369,6 +372,20 @@ rsa_pss_pss_pem(Config) when is_list(Config) ->
     {ok, RsaPem} = file:read_file(filename:join(Datadir, "rsa_pss_pss_key.pem")),
     [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(RsaPem),
     {RSAKey, Parms} = public_key:der_decode('PrivateKeyInfo', DerRSAKey),
+    {RSAKey, Parms} = public_key:pem_entry_decode(Entry0),
+    true = check_entry_type(RSAKey, 'RSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', {RSAKey, Parms}),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+rsa_pss_default_pem() ->
+    [{doc, "RSA PKCS8 RSASSA-PSS private key with default params decode/encode"}].
+rsa_pss_default_pem(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, RsaPem} = file:read_file(filename:join(Datadir, "pss_default.pem")),
+    [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(RsaPem),
+    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
+    {RSAKey, Params} = public_key:der_decode('PrivateKeyInfo', DerRSAKey),
     {RSAKey, Parms} = public_key:pem_entry_decode(Entry0),
     true = check_entry_type(RSAKey, 'RSAPrivateKey'),
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', {RSAKey, Parms}),
