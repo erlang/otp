@@ -38,14 +38,6 @@ obsolete(code, lib_dir, 2) ->
     {deprecated, "this functionality will be removed in a future release"};
 obsolete(crypto, enable_fips_mode, 1) ->
     {deprecated, "use config parameter fips_mode"};
-obsolete(crypto, private_decrypt, 4) ->
-    {deprecated, "do not use"};
-obsolete(crypto, private_encrypt, 4) ->
-    {deprecated, "use public_key:sign/3 instead"};
-obsolete(crypto, public_decrypt, 4) ->
-    {deprecated, "use public_key:verify/4 instead"};
-obsolete(crypto, public_encrypt, 4) ->
-    {deprecated, "do not use"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
 obsolete(crypto, start, 0) ->
@@ -76,22 +68,6 @@ obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
-obsolete(public_key, decrypt_private, 2) ->
-    {deprecated, "do not use"};
-obsolete(public_key, decrypt_private, 3) ->
-    {deprecated, "do not use"};
-obsolete(public_key, decrypt_public, 2) ->
-    {deprecated, "use public_key:verify/4 instead"};
-obsolete(public_key, decrypt_public, 3) ->
-    {deprecated, "use public_key:verify/5 instead"};
-obsolete(public_key, encrypt_private, 2) ->
-    {deprecated, "use public_key:sign/3 instead"};
-obsolete(public_key, encrypt_private, 3) ->
-    {deprecated, "use public_key:sign 4 instead"};
-obsolete(public_key, encrypt_public, 2) ->
-    {deprecated, "do not use"};
-obsolete(public_key, encrypt_public, 3) ->
-    {deprecated, "do not use"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(ssl, prf, 5) ->

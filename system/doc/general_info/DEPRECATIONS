@@ -31,18 +31,6 @@ mnesia_registry:create_table/_ since=27 remove=28
 code:lib_dir/2 since=27
 ssl:prf/5 since=27
 ssl:prf_random/0 since=27 remove=28
-public_key:decrypt_public/3 since=27
-public_key:decrypt_public/2 since=27
-public_key:encrypt_public/3 since=27
-public_key:encrypt_public/2 since=27
-public_key:decrypt_private/3 since=27
-public_key:decrypt_private/2 since=27
-public_key:encrypt_private/3 since=27
-public_key:encrypt_private/2 since=27
-crypto:public_decrypt/4 since=27
-crypto:public_encrypt/4 since=27
-crypto:private_decrypt/4 since=27
-crypto:private_encrypt/4 since=27
 
 #
 # Added in OTP 26.

@@ -156,7 +156,7 @@ end
                   {function,<<"Random API">>},
                   {function,<<"Utility Functions">>},
                   {function,<<"Engine API">>},
-                  {function,<<"Deprecated API">>},
+                  {function,<<"Legacy RSA Encryption API">>},
                   {type,<<"Ciphers">>},
                   {type,<<"Digests and hash">>},
                   {type,<<"Elliptic Curves">>},
@@ -193,14 +193,11 @@ end
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
--deprecated([{private_encrypt, 4, "use public_key:sign/3 instead"},
-             {private_decrypt, 4, "do not use"},
-             {public_encrypt,  4,  "do not use"},
-             {public_decrypt,  4,  "use public_key:verify/4 instead"},
-             {start, 0, "use application:start(crypto) instead"},
+-deprecated([{start, 0, "use application:start(crypto) instead"},
              {stop,  0, "use application:stop(crypto) instead"},
              {enable_fips_mode, 1, "use config parameter fips_mode"}
             ]).
+
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
@@ -2576,7 +2573,6 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 -doc(#{title => <<"Public Key Ciphers">>}).
 -type rsa_padding() :: rsa_pkcs1_padding
                      | rsa_pkcs1_oaep_padding
-                     | rsa_sslv23_padding
                      | rsa_x931_padding
                      | rsa_no_padding.
 
@@ -2601,11 +2597,10 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use together with rsa_pkcs1_padding.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2631,12 +2626,11 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 
 """.
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2663,13 +2657,13 @@ Public-key decryption using the private key. See also `crypto:private_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`sign/4`](`sign/4`) together
-> with [`verify/5`](`verify/5`) instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`sign/4`](`sign/4`) together
+> with [`verify/5`](`verify/5`) is the prefered solution.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
-       since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Legacy RSA Encryption API">>,
+        since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -2694,12 +2688,12 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`verify/5`](`verify/5`) together
-> with [`sign/4`](`sign/4`) instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`verify/5`](`verify/5`) together
+> with [`sign/4`](`sign/4`) is the prefered solution.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use verify and sign instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
