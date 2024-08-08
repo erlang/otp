@@ -258,7 +258,7 @@ described in the corresponding application documentation.
 
 - **`-erl_epmd_port Port`{: #erl_epmd_port }** - This flag is deprecated and
   has been replaced by the `kernel` application parameter
-  [`erl_epmd_listen_port`](`e:kernel:kernel_app.md#erl_epmd_listen_port`).
+  [`erl_epmd_node_listen_port`](`e:kernel:kernel_app.md#erl_epmd_node_listen_port`).
 
 - **`-eval Expr` (init flag)** - Makes `init` evaluate the expression `Expr`;
   see `m:init`.

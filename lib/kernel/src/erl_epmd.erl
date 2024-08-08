@@ -164,7 +164,7 @@ to when accepting new distribution requests.
       Host :: atom() | string() | inet:ip_address(),
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
-    case erl_epmd_listen_port() of
+    case erl_epmd_node_listen_port() of
         {ok, Port} -> {ok, Port};
         undefined -> {ok, 0}
     end.
@@ -295,7 +295,7 @@ handle_call({register, Name, PortNo, Family}, _From, State) ->
 		                    family = Family},
                     {reply, {ok, Creation}, S};
                 Error ->
-                    case erl_epmd_listen_port() of
+                    case erl_epmd_node_listen_port() of
                         {ok, _} ->
                             {reply, {ok, -1}, State#state{ socket = -1,
                                                            port_no = PortNo,
@@ -374,17 +374,17 @@ get_epmd_port() ->
 	    ?erlang_daemon_port
     end.
 
-erl_epmd_listen_port() ->
-    case application:get_env(kernel, erl_epmd_listen_port) of
+erl_epmd_node_listen_port() ->
+    case application:get_env(kernel, erl_epmd_node_listen_port) of
         {ok, Port} when is_integer(Port), Port >= 0 ->
             {ok, Port};
         {ok, Invalid} ->
-            error({invalid_parameter_value, erl_epmd_listen_port, Invalid});
+            error({invalid_parameter_value, erl_epmd_node_listen_port, Invalid});
         undefined ->
             try
                 {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
                 Port = list_to_integer(StringPort),
-                ok = application:set_env(kernel, erl_epmd_listen_port, Port, [{timeout, infinity}]),
+                ok = application:set_env(kernel, erl_epmd_node_listen_port, Port, [{timeout, infinity}]),
                 {ok, Port}
             catch error:_ ->
                 undefined
