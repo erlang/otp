@@ -168,43 +168,28 @@ struct erl_bits_state {
     /*
      * Pointer to the beginning of the current binary.
      */
-    byte* erts_current_bin_;
+    byte* erts_current_bin;
 
     /*
      * Offset in bits into the current binary.
      */
-    Uint erts_bin_offset_;
+    Uint erts_bin_offset;
 };
 
+typedef struct erl_bits_state ErlBitsState;
+
 /*
- * Reentrant API with the state passed as a parameter.
- * (Except when the current Process* already is a parameter.)
+ * The bit syntax construction state resides in the current process's
+ * schduler data. The following macro retrieves the pointer to that
+ * state given a pointer to the X register array.
  */
-/* the state resides in the current process' scheduler data */
-#define ERL_BITS_DECLARE_STATEP struct erl_bits_state *EBS
 
-#define ERL_BITS_RELOAD_STATEP(P)                                              \
-    do {                                                                       \
-        EBS = &erts_proc_sched_data((P))->registers->aux_regs.d.erl_bits_state;  \
-    } while(0)
-
-#define ERL_BITS_DEFINE_STATEP(P) \
-    struct erl_bits_state *EBS = \
-        &erts_proc_sched_data((P))->registers->aux_regs.d.erl_bits_state
-
-#define ErlBitsState				(*EBS)
-
-#define ERL_BITS_PROTO_0			struct erl_bits_state *EBS
-#define ERL_BITS_PROTO_1(PARM1)			struct erl_bits_state *EBS, PARM1
-#define ERL_BITS_PROTO_2(PARM1,PARM2)		struct erl_bits_state *EBS, PARM1, PARM2
-#define ERL_BITS_PROTO_3(PARM1,PARM2,PARM3)	struct erl_bits_state *EBS, PARM1, PARM2, PARM3
-#define ERL_BITS_ARGS_0				EBS
-#define ERL_BITS_ARGS_1(ARG1)			EBS, ARG1
-#define ERL_BITS_ARGS_2(ARG1,ARG2)		EBS, ARG1, ARG2
-#define ERL_BITS_ARGS_3(ARG1,ARG2,ARG3)		EBS, ARG1, ARG2, ARG3
-
-#define erts_bin_offset		(ErlBitsState.erts_bin_offset_)
-#define erts_current_bin	(ErlBitsState.erts_current_bin_)
+#define ERL_BITS_EBS_FROM_REG(Reg)                              \
+    ((ErlBitsState *) ((char *)(Reg) +                          \
+                       (offsetof(ErtsSchedulerRegisters,        \
+                                 aux_regs.d.erl_bits_state) -   \
+                        offsetof(ErtsSchedulerRegisters,        \
+                                 x_reg_array.d))))
 
 /*
  * Return number of Eterm words needed for allocation with HAlloc(),
@@ -231,22 +216,25 @@ Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits
 Eterm erts_bs_get_binary_all_2(Process *p, ErlSubBits* sb);
 
 /* Binary construction, new instruction set. */
-int erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm Integer, Uint num_bits, unsigned flags));
+int erts_bs_put_integer_be(ErlBitsState *EBS, Eterm Integer, Uint num_bits);
+int erts_bs_put_integer_le(ErlBitsState *EBS, Eterm Integer, Uint num_bits);
 #if !defined(BEAMASM)
-int erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm Integer));
+int erts_bs_put_utf8(ErlBitsState *EBS, Eterm Integer);
 #endif
-int erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm Integer, Uint flags));
-int erts_new_bs_put_binary(Process *c_p, Eterm Bin, Uint num_bits);
-int erts_new_bs_put_binary_all(Process *c_p, Eterm Bin, Uint unit);
-Eterm erts_new_bs_put_float(Process *c_p, Eterm Float, Uint num_bits, int flags);
-void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
+int erts_bs_put_utf16(ErlBitsState *EBS, Eterm Integer, Uint flags);
+int erts_bs_put_binary(ErlBitsState *EBS, Process *c_p, Eterm Bin, Uint num_bits);
+int erts_bs_put_binary_all(ErlBitsState* EBS, Process *c_p, Eterm Bin, Uint unit);
+Eterm erts_bs_put_float(ErlBitsState *EBS, Process *c_p, Eterm Float,
+                        Uint num_bits, int flags);
+void erts_bs_put_string(ErlBitsState *EBS, byte* iptr, Uint num_bytes);
 
 Uint32 erts_bs_get_unaligned_uint32(ErlSubBits* sb);
 Eterm erts_bs_get_utf8(ErlSubBits* sb);
 Eterm erts_bs_get_utf16(ErlSubBits* sb, Uint flags);
 Eterm erts_bs_append_checked(Process* p, Eterm* reg, Uint live, Uint size,
                              Uint extra_words, Uint unit);
-Eterm erts_bs_private_append_checked(Process* p, Eterm bin, Uint size, Uint unit);
+Eterm erts_bs_private_append_checked(ErlBitsState* EBS, Process* p,
+                                     Eterm bin, Uint size);
 Eterm erts_bs_init_writable(Process* p, Eterm sz);
 
 /* ************************************************************************* */
@@ -257,8 +245,10 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
                       const byte *src_base, Uint src_offset,
                       Uint size);
 
-void erts_copy_bits(const byte* src, size_t soffs, int sdir,
-                    byte* dst, size_t doffs, int ddir, size_t n);
+void erts_copy_bits_fwd(const byte* src, size_t soffs,
+                        byte* dst, size_t doffs, size_t n);
+void erts_copy_bits_rev(const byte* src, size_t soffs,
+                        byte* dst, size_t doffs, size_t n);
 
 ERTS_GLB_INLINE int erts_cmp_bits(const byte* a_ptr,
                                   Uint a_offs,
@@ -544,9 +534,9 @@ copy_binary_to_buffer(byte *dst_base, Uint dst_offset,
         if (((dst_offset | src_offset | size) & 7) == 0) {
             sys_memcpy(dst_base, src_base, BYTE_SIZE(size));
         } else {
-            erts_copy_bits(src_base, BIT_OFFSET(src_offset), 1,
-                           dst_base, BIT_OFFSET(dst_offset), 1,
-                           size);
+            erts_copy_bits_fwd(src_base, BIT_OFFSET(src_offset),
+                               dst_base, BIT_OFFSET(dst_offset),
+                               size);
         }
     }
 }
@@ -618,7 +608,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin,
                                                 NBYTES(size) + extra);
                 *base_ptr = bytes;
 
-                erts_copy_bits(base, offset, 1, &bytes[extra], 0, 1, size);
+                erts_copy_bits_fwd(base, offset, &bytes[extra], 0, size);
                 return &bytes[extra];
             }
 

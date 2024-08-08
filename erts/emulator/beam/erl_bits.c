@@ -302,15 +302,15 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
      * Move bits to temporary buffer. We want the buffer to be stored in
      * little-endian order, since bignums are little-endian.
      */
-    
+
     if (flags & BSF_LITTLE) {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       LSB, 0, 1, num_bits);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           LSB, 0, num_bits);
 	*MSB >>= offs;		/* adjust msb */
     } else {
 	*MSB = 0;
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       MSB, offs, -1, num_bits);
+        erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start,
+                           MSB, offs, num_bits);
     }
     sb->start += num_bits;
 
@@ -472,13 +472,13 @@ erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
     }
 
     if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-		  fptr, 0, 1,
-		  num_bits);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           fptr, 0,
+                           num_bits);
     } else {
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-		  fptr + NBYTES(num_bits) - 1, 0, -1,
-		  num_bits);
+        erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start,
+                           fptr + NBYTES(num_bits) - 1, 0,
+                           num_bits);
     }
     ERTS_FP_CHECK_INIT(p);
     if (num_bits == 16) {
@@ -532,331 +532,361 @@ erts_bs_get_binary_all_2(Process *p, ErlSubBits *sb)
  ****************************************************************/
 
 
-/* COPY_VAL:
- * copy sz byte from val to dst buffer, 
- * dst, val are updated!!!
+/* FMT_COPY_VAL:
+ * Copy sz bytes from val to dst buffer;
+ * dst and val are updated.
  */
 
-#define COPY_VAL(dst,ddir,val,sz) do { \
-   Uint __sz = (sz); \
-   while(__sz) { \
-     switch(__sz) { \
-     default: \
-     case 4: *dst = (val&0xff); dst += ddir; val >>= 8; __sz--; \
-     case 3: *dst = (val&0xff); dst += ddir; val >>= 8; __sz--; \
-     case 2: *dst = (val&0xff); dst += ddir; val >>= 8; __sz--; \
-     case 1: *dst = (val&0xff); dst += ddir; val >>= 8; __sz--; \
-     } \
-   } \
+#define FMT_COPY_VAL(dst,ddir,val,sz) do {                      \
+   Uint __sz = (sz);                                            \
+   while (__sz) {                                               \
+     switch(__sz) {                                             \
+     default:                                                   \
+     case 8: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 7: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 6: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 5: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 4: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 3: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 2: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     case 1: *dst = val; dst += ddir; val >>= 8; __sz--;        \
+     }                                                          \
+   }                                                            \
  } while(0)
 
 static void
-fmt_small(byte *buf, Uint num_bytes, Eterm arg, Uint num_bits, Uint flags)
+fmt_small_be(byte *buf, Eterm arg, Uint num_bits)
 {
     Uint bit_offset;
     Sint val;
+    Uint num_bytes;
 
     ASSERT(is_small(arg));
     ASSERT(num_bits != 0);      /* Tested by caller */
 
+    num_bytes = NBYTES(num_bits);
     bit_offset = BIT_OFFSET(num_bits);
     val = signed_val(arg);
 
-    if (flags & BSF_LITTLE) { /* Little endian */
+    buf += num_bytes - 1;
+    if (bit_offset) {
+        *buf-- = val << (8-bit_offset);
         num_bytes--;
-        COPY_VAL(buf, 1, val, num_bytes);
-        *buf = bit_offset ? (val << (8-bit_offset)) : val;
-    } else {		/* Big endian */
-        buf += num_bytes - 1;
-        if (bit_offset) {
-            *buf-- = val << (8-bit_offset);
-            num_bytes--;
-            val >>= bit_offset;
-        }
-        COPY_VAL(buf, -1, val, num_bytes);
+        val >>= bit_offset;
     }
+    FMT_COPY_VAL(buf, -1, val, num_bytes);
 }
 
-/* calculate a - *cp (carry)  (store result in b), *cp is updated! */
-#define SUBc(a, cp, b) do { \
-   byte __x = (a); \
-   byte __y = (__x - (*(cp))); \
-   (*cp) = (__y > __x); \
-   *(b) = ~__y; \
- } while(0)
+static void
+fmt_small_le(byte *buf, Eterm arg, Uint num_bits)
+{
+    Uint bit_offset;
+    Sint val;
+    Uint num_bytes;
+
+    ASSERT(is_small(arg));
+    ASSERT(num_bits != 0);      /* Tested by caller */
+
+    num_bytes = NBYTES(num_bits);
+    bit_offset = BIT_OFFSET(num_bits);
+    val = signed_val(arg);
+    num_bytes--;
+    FMT_COPY_VAL(buf, 1, val, num_bytes);
+    *buf = bit_offset ? (val << (8-bit_offset)) : val;
+}
+
+#undef FMT_COPY_VAL
+
+/*
+ * Calculate a - c (carry), storing the result in b; set c
+ * to the new carry.
+ */
+#if __has_builtin(__builtin_subc) && !defined(DEBUG)
+#define SUBc(a, c, b)                           \
+   do {                                         \
+       *(b) = __builtin_subc(0, (a), c, &c);    \
+   } while(0)
+#else
+#define SUBc(a, c, b)                           \
+   do {                                         \
+       byte __x = (a);                          \
+       byte __y = (__x - !(c));                 \
+       c = !(__y > __x);                        \
+       *(b) = ~__y;                             \
+   } while(0)
+#endif
 
 static void
-fmt_big(byte *buf, Uint num_bytes, Eterm val, Uint num_bits, Uint flags)
+fmt_big_be(byte *buf, Eterm val, Uint num_bits)
 {
     unsigned long offs;
     int sign;
     Uint ds;
     ErtsDigit* dp;
     int n;
+    ErtsDigit acc = 0;
+    ErtsDigit d;
+    Uint num_bytes;
 
     ASSERT(is_big(val));
+    ASSERT(num_bits != 0);
 
-    if (num_bits == 0) {
-        return;
-    }
-
+    num_bytes = NBYTES(num_bits);
     sign = big_sign(val);
     ds = big_size(val)*sizeof(ErtsDigit); /* number of digits bytes */
     dp = big_v(val);
     n = MIN(num_bytes, ds);
 
     offs = BIT_OFFSET(num_bits);
-    if (flags & BSF_LITTLE) {
-        num_bytes -= n;         /* pad with this amount */
-        if (sign) {             /* negative */
-            int c = 1;
-            while (n >= sizeof(ErtsDigit)) {
-                ErtsDigit d = *dp++;
-                int i;
-                for (i = 0; i < sizeof(ErtsDigit); i++) {
-                    SUBc(d & 0xff, &c, buf);
-                    buf++;
-                    d >>= 8;
-                }
-                n -= sizeof(ErtsDigit);
-            }
-            if (n) {
-                ErtsDigit d = *dp;
-                do {
-                    SUBc(d & 0xff, &c, buf);
-                    buf++;
-                    d >>= 8;
-                } while (--n > 0);
-            }
-            /* pad */
-            while (num_bytes--) {
-                SUBc(0, &c, buf);
-                buf++;
-            }
-        } else {                /* positive */
-            while (n >= sizeof(ErtsDigit)) {
-                ErtsDigit d = *dp++;
-                int i;
-                for(i = 0; i < sizeof(ErtsDigit); i++) {
-                    *buf++ = d;
-                    d >>= 8;
-                }
-                n -= sizeof(ErtsDigit);
-            }
-            if (n) {
-                ErtsDigit d = *dp;
-                do {
-                    *buf++ = d;
-                    d >>= 8;
-                } while (--n > 0);
-            }
-            /* pad */
-            while (num_bytes) {
-                *buf++ = 0;
-                num_bytes--;
-            }
-        }
 
-        /* adjust MSB */
-        if (offs) {
+    buf += num_bytes - 1;       /* end of buffer */
+    num_bytes -= n;             /* pad with this amount */
+    offs = offs ? (8-offs) : 0; /* shift offset */
+
+    if (sign) {             /* negative bignum */
+        unsigned int c = 0;
+
+        while (n >= sizeof(ErtsDigit)) {
+            int i;
+
+            d = *dp++;
+            acc |= d << offs;
+            SUBc(acc & 0xff, c, buf);
             buf--;
-            *buf <<= (8 - offs);
+            acc = d >> (8-offs);
+            for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
+                SUBc(acc & 0xff, c, buf);
+                buf--;
+                acc >>= 8;
+            }
+            n -= sizeof(ErtsDigit);
         }
-    } else {   /* BIG ENDIAN */
-        ErtsDigit acc = 0;
-        ErtsDigit d;
-
-        buf += num_bytes - 1;       /* end of buffer */
-        num_bytes -= n;             /* pad with this amount */
-        offs = offs ? (8-offs) : 0; /* shift offset */
-
-        if (sign) {             /* negative bignum */
-            int c = 1;
-
-            while (n >= sizeof(ErtsDigit)) {
-                int i;
-
-                d = *dp++;
-                acc |= d << offs;
-                SUBc(acc & 0xff, &c, buf);
-                buf--;
-                acc = d >> (8-offs);
-                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
-                    SUBc(acc & 0xff, &c, buf);
-                    buf--;
-                    acc >>= 8;
-                }
-                n -= sizeof(ErtsDigit);
-            }
-            if (n) {
-                acc |= ((ErtsDigit)*dp << offs);
-                do {
-                    SUBc(acc & 0xff, &c, buf);
-                    buf--;
-                    acc >>= 8;
-                } while (--n > 0);
-            }
-            /* pad */
-            while (num_bytes--) {
-                SUBc(acc & 0xff, &c, buf);
+        if (n) {
+            acc |= ((ErtsDigit)*dp << offs);
+            do {
+                SUBc(acc & 0xff, c, buf);
                 buf--;
                 acc >>= 8;
-            }
-        } else {                /* positive bignum */
-            while (n >= sizeof(ErtsDigit)) {
-                int i;
+            } while (--n > 0);
+        }
+        /* pad */
+        while (num_bytes--) {
+            SUBc(acc & 0xff, c, buf);
+            buf--;
+            acc >>= 8;
+        }
+    } else {                /* positive bignum */
+        while (n >= sizeof(ErtsDigit)) {
+            int i;
 
-                d = *dp++;
-                acc |= d << offs;
-                *buf-- = acc;
-                acc = d >> (8-offs);
-                for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
-                    *buf-- = acc;
-                    acc >>= 8;
-                }
-                n -= sizeof(ErtsDigit);
-            }
-            if (n) {
-                acc |= (*dp << offs);
-                do {
-                    *buf-- = acc;
-                    acc >>= 8;
-                } while (--n > 0);
-            }
-            while (num_bytes--) {
+            d = *dp++;
+            acc |= d << offs;
+            *buf-- = acc;
+            acc = d >> (8-offs);
+            for (i = 0; i < sizeof(ErtsDigit)-1; i++) {
                 *buf-- = acc;
                 acc >>= 8;
             }
+            n -= sizeof(ErtsDigit);
+        }
+        if (n) {
+            acc |= (*dp << offs);
+            do {
+                *buf-- = acc;
+                acc >>= 8;
+            } while (--n > 0);
+        }
+        while (num_bytes--) {
+            *buf-- = acc;
+            acc >>= 8;
         }
     }
 }
 
-int
-erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flags))
+static void
+fmt_big_le(byte *buf, Eterm val, Uint num_bits)
 {
-    Uint bin_offset = erts_bin_offset;
+    unsigned long offs;
+    int sign;
+    Uint ds;
+    ErtsDigit* dp;
+    int n;
+    Uint num_bytes;
+
+    ASSERT(is_big(val));
+    ASSERT(num_bits != 0);
+
+    num_bytes = NBYTES(num_bits);
+    sign = big_sign(val);
+    ds = big_size(val)*sizeof(ErtsDigit); /* number of digits bytes */
+    dp = big_v(val);
+    n = MIN(num_bytes, ds);
+
+    offs = BIT_OFFSET(num_bits);
+    num_bytes -= n;         /* pad with this amount */
+    if (sign) {             /* negative */
+        unsigned int c = 0;
+        while (n >= sizeof(ErtsDigit)) {
+            ErtsDigit d = *dp++;
+            int i;
+            for (i = 0; i < sizeof(ErtsDigit); i++) {
+                SUBc(d & 0xff, c, buf);
+                buf++;
+                d >>= 8;
+            }
+            n -= sizeof(ErtsDigit);
+        }
+        if (n) {
+            ErtsDigit d = *dp;
+            do {
+                SUBc(d & 0xff, c, buf);
+                buf++;
+                d >>= 8;
+            } while (--n > 0);
+        }
+        /* pad */
+        while (num_bytes--) {
+            SUBc(0, c, buf);
+            buf++;
+        }
+    } else {                /* positive */
+        while (n >= sizeof(ErtsDigit)) {
+            ErtsDigit d = *dp++;
+            int i;
+            for(i = 0; i < sizeof(ErtsDigit); i++) {
+                *buf++ = d;
+                d >>= 8;
+            }
+            n -= sizeof(ErtsDigit);
+        }
+        if (n) {
+            ErtsDigit d = *dp;
+            do {
+                *buf++ = d;
+                d >>= 8;
+            } while (--n > 0);
+        }
+        /* pad */
+        while (num_bytes) {
+            *buf++ = 0;
+            num_bytes--;
+        }
+    }
+
+    /* adjust MSB */
+    if (offs) {
+        buf--;
+        *buf <<= (8 - offs);
+    }
+}
+
+#undef SUBc
+
+static void
+restore_and_shift(byte *buf, Uint orig_byte, Uint bit_offset, Uint num_bits)
+{
+    Uint rshift = bit_offset;
+    Uint lshift = 8 - bit_offset;
+    Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
+    Uint lmask = MAKE_MASK(8 - bit_offset);
+    Uint count = (num_bits - lshift) / 8;
+    Uint bits, bits1;
+
+    ASSERT(num_bits - lshift >= 0);
+
+    bits = *buf;
+    bits1 = bits >> rshift;
+    *buf = MASK_BITS(bits1, orig_byte, lmask);
+    buf++;
+
+    while (count--) {
+        bits1 = bits << lshift;
+        bits = *buf;
+        *buf++ = bits1 | (bits >> rshift);
+    }
+
+    if (deoffs) {
+        Uint rmask = MAKE_MASK(deoffs) << (8 - deoffs);
+
+        bits1 = bits << lshift;
+        if ((rmask << rshift) & 0xff) {
+            bits = *buf;
+            bits1 |= (bits >> rshift);
+        }
+        *buf = MASK_BITS(bits1, *buf, rmask);
+    }
+}
+
+int
+erts_bs_put_integer_be(ErlBitsState *EBS, Eterm arg, Uint num_bits)
+{
+    byte* dst_bin = EBS->erts_current_bin;
+    Uint bin_offset = EBS->erts_bin_offset;
     Uint bit_offset;
-    Uint b;
+    byte b;
     byte *iptr;
 
+    if (ERTS_UNLIKELY(num_bits == 0)) {
+        return is_small(arg) || is_big(arg);
+    }
+
+    iptr = dst_bin + BYTE_OFFSET(bin_offset);
     bit_offset = BIT_OFFSET(bin_offset);
     if (is_small(arg)) {
-	Uint rbits = 8 - bit_offset;
+        Uint rbits = 8 - bit_offset;
 
-	if (num_bits == 0) {
-	    return 1;
-	} else if (bit_offset + num_bits <= 8) {
-	    /*
-	     * All bits are in the same byte.
-	     */
-	    iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
-	    b = *iptr & (0xff << rbits);
-	    b |= (signed_val(arg) & ((1 << num_bits)-1)) << (rbits-num_bits);
-	    *iptr = b;
-	} else if (bit_offset == 0) {
-	    /*
-	     * More than one bit, starting at a byte boundary.
-	     */
-            iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
-            fmt_small(iptr, NBYTES(num_bits), arg, num_bits, flags);
-	} else if (flags & BSF_LITTLE) {
-            /*
-             * Little endian small in more than one byte, not
-             * aligned on a byte boundary.
-             */
-            Sint val = signed_val(arg);
-            Uint rshift = bit_offset;
-            Uint lshift = rbits;
-            Uint lmask = MAKE_MASK(rbits);
-            Uint count = (num_bits - rbits) / 8;
-            Uint bits, bits1;
-
-            iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
-
-            if (BIT_OFFSET(num_bits) == 0) {
-                bits = val;
-                bits1 = bits >> rshift;
-                *iptr = MASK_BITS(bits1, *iptr, lmask);
-                iptr++;
-                val >>= 8;
-
-                while (count--) {
-                    bits1 = bits << lshift;
-                    bits = val & 0xff;
-                    *iptr++ = bits1 | (bits >> rshift);
-                    val >>= 8;
-                }
-
-                *iptr = bits << lshift;
+        if (bit_offset == 0) {
+            /* Aligned on a byte boundary. */
+            if (num_bits <= 8) {
+                /* All bits are in the same byte. */
+                b = (signed_val(arg) & MAKE_MASK(num_bits)) << (rbits-num_bits);
+                *iptr = b;
             } else {
-                Sint num_bytes = NBYTES(num_bits) - 1;
-                Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
-
-                if (num_bytes-- > 0) {
-                    bits = val;
-                } else {
-                    bits = (val << (8 - BIT_OFFSET(num_bits)));
-                }
-                bits1 = bits >> rshift;
-                *iptr = MASK_BITS(bits1, *iptr, lmask);
-                iptr++;
-                val >>= 8;
-
-                while (count--) {
-                    bits1 = bits << lshift;
-                    if (num_bytes-- > 0) {
-                        bits = val & 0xff;
-                    } else {
-                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
-                    }
-                    *iptr++ = bits1 | (bits >> rshift);
-                    val >>= 8;
-                }
-
-                if (deoffs) {
-                    bits1 = bits << lshift;
-                    if (rshift < deoffs) {
-                        bits = (val << (8 - BIT_OFFSET(num_bits))) & 0xff;
-                        bits1 |= bits >> rshift;
-                    }
-                    *iptr = bits1;
-                }
+                /* More than one byte. */
+                fmt_small_be(iptr, arg, num_bits);
             }
-	} else {		/* Big endian */
-	    /*
-	     * Big-endian, more than one byte, but not aligned on a byte boundary.
-	     * Handle the bits up to the next byte boundary specially,
-	     * then let fmt_int() handle the rest.
-	     */
-	    Uint shift_count = num_bits - rbits;
-	    Sint val = signed_val(arg);
-	    iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
-	    b = *iptr & (0xff << rbits);
+        } else if (bit_offset + num_bits <= 8) {
+            /*
+             * All bits are in the same byte.
+             */
+            b = *iptr & (0xff << rbits);
+            b |= (signed_val(arg) & MAKE_MASK(num_bits)) << (rbits-num_bits);
+            *iptr = b;
+        } else {		/* Big endian */
+            /*
+             * Big-endian, more than one byte, but not aligned on a byte boundary.
+             * Handle the bits up to the next byte boundary specially,
+             * then let fmt_small_be() handle the rest.
+             */
+            Uint shift_count = num_bits - rbits;
+            Sint val = signed_val(arg);
 
-	    /*
-	     * Shifting with a shift count greater than or equal to the word
-	     * size may be a no-op (instead of 0 the result may be the unshifted
-	     * value). Therefore, only do the shift and the OR if the shift count
-	     * is less than the word size if the number is positive; if negative,
-	     * we must simulate the sign extension.
-	     */
-	    if (shift_count < sizeof(Uint)*8) {
-		b |= (val >> shift_count) & ((1 << rbits) - 1);
-	    } else if (val < 0) {
-		/* Simulate sign extension. */
-		b |= (-1) & ((1 << rbits) - 1);
-	    }
-	    *iptr++ = b;
+            ASSERT(num_bits > rbits);
+            b = *iptr & (0xff << rbits);
 
-            fmt_small(iptr, NBYTES(num_bits-rbits), arg, num_bits-rbits, flags);
-	}
+            /*
+             * Shifting with a shift count greater than or equal to the word
+             * size may be a no-op (instead of 0 the result may be the unshifted
+             * value). Therefore, only do the shift and the OR if the shift count
+             * is less than the word size if the number is positive; if negative,
+             * we must simulate the sign extension.
+             */
+            if (shift_count < sizeof(Uint)*8) {
+                b |= (val >> shift_count) & MAKE_MASK(rbits);
+            } else if (val < 0) {
+                /* Simulate sign extension. */
+                b |= (-1) & MAKE_MASK(rbits);
+            }
+            *iptr++ = b;
+
+            fmt_small_be(iptr, arg, shift_count);
+        }
     } else if (is_big(arg) && bit_offset == 0) {
-	/*
-	 * Big number, aligned on a byte boundary. We can format the
-	 * integer directly into the binary.
-	 */
-	fmt_big(erts_current_bin+BYTE_OFFSET(bin_offset),
-                NBYTES(num_bits), arg, num_bits, flags);
+        /*
+         * Big number, aligned on a byte boundary. We can format the
+         * integer directly into the binary.
+         */
+        fmt_big_be(iptr, arg, num_bits);
     } else if (is_big(arg) && bit_offset + num_bits <= 8) {
         /*
          * All bits are in the same byte.
@@ -866,68 +896,167 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
         ErtsDigit* dp = big_v(arg);
         Uint val = sign ? -*dp : *dp;
 
-        iptr = erts_current_bin+BYTE_OFFSET(bin_offset);
         b = *iptr & (0xff << rbits);
-        b |= (val & ((1 << num_bits)-1)) << (rbits-num_bits);
+        b |= (val & MAKE_MASK(num_bits)) << (rbits-num_bits);
         *iptr = b;
     } else if (is_big(arg)) {
         /*
          * Big number, not aligned on a byte boundary.
-         */
-        Uint rshift = bit_offset;
-        Uint lshift = 8 - bit_offset;
-        Uint deoffs = BIT_OFFSET(bit_offset + num_bits);
-        Uint lmask = MAKE_MASK(8 - bit_offset);
-        Uint rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
-        Uint count = (num_bits - lshift) / 8;
-        Uint bits, bits1;
-
-        ASSERT(num_bits - lshift >= 0);
-
-        /*
+         *
          * Format the integer byte-aligned using the binary itself as
          * a temporary buffer.
          */
-        iptr = erts_current_bin + BYTE_OFFSET(bin_offset);
         b = *iptr;
-        fmt_big(iptr, NBYTES(num_bits), arg, num_bits, flags);
+        fmt_big_be(iptr, arg, num_bits);
 
         /*
          * Now restore the overwritten bits of the first byte and
          * shift everything to the right.
          */
-        bits = *iptr;
-        bits1 = bits >> rshift;
-        *iptr = MASK_BITS(bits1, b, lmask);
-        iptr++;
-
-        while (count--) {
-            bits1 = bits << lshift;
-            bits = *iptr;
-            *iptr++ = bits1 | (bits >> rshift);
-        }
-
-        if (rmask) {
-            bits1 = bits << lshift;
-            if ((rmask << rshift) & 0xff) {
-                bits = *iptr;
-                bits1 |= (bits >> rshift);
-            }
-            *iptr = MASK_BITS(bits1, *iptr, rmask);
-        }
+        restore_and_shift(iptr, b, bit_offset, num_bits);
     } else {
         /* Not an integer. */
         return 0;
     }
-    erts_bin_offset = bin_offset + num_bits;
+    EBS->erts_bin_offset = bin_offset + num_bits;
+    return 1;
+}
+
+int
+erts_bs_put_integer_le(ErlBitsState *EBS, Eterm arg, Uint num_bits)
+{
+    byte* dst_bin = EBS->erts_current_bin;
+    Uint bin_offset = EBS->erts_bin_offset;
+    Uint bit_offset;
+    byte b;
+    byte *iptr;
+
+    if (ERTS_UNLIKELY(num_bits == 0)) {
+        return is_small(arg) || is_big(arg);
+    }
+
+    iptr = dst_bin + BYTE_OFFSET(bin_offset);
+    bit_offset = BIT_OFFSET(bin_offset);
+    if (is_small(arg)) {
+        Uint rbits = 8 - bit_offset;
+
+        if (bit_offset == 0) {
+            /* Aligned on a byte boundary. */
+            if (num_bits <= 8) {
+                /* All bits are in the same byte. */
+                b = (signed_val(arg) & MAKE_MASK(num_bits)) << (rbits-num_bits);
+                *iptr = b;
+            } else {
+                /* More than one byte. */
+                fmt_small_le(iptr, arg, num_bits);
+            }
+        } else if (bit_offset + num_bits <= 8) {
+            /*
+             * All bits are in the same byte.
+             */
+            b = *iptr & (0xff << rbits);
+            b |= (signed_val(arg) & MAKE_MASK(num_bits)) << (rbits-num_bits);
+            *iptr = b;
+        } else if (BIT_OFFSET(num_bits) == 0) {
+            /*
+             * Little endian small in more than one byte, not
+             * aligned on a byte boundary. The size is evenly
+             * divisible by 8, which means that there will be
+             * one partial byte, followed by zero or more
+             * complete bytes, followed by a final partial byte.
+             */
+            Sint val = signed_val(arg);
+            Uint rshift = bit_offset;
+            Uint lshift = rbits;
+            Uint lmask = MAKE_MASK(rbits);
+            Uint count = (num_bits - rbits) / 8;
+            Uint bits, bits1;
+
+            /* Handle the first partial byte. */
+            bits = val;
+            bits1 = bits >> rshift;
+            *iptr = MASK_BITS(bits1, *iptr, lmask);
+            iptr++;
+            val >>= 8;
+
+            /* Handle all complete bytes. */
+            while (count--) {
+                bits1 = bits << lshift;
+                bits = val & 0xff;
+                *iptr++ = bits1 | (bits >> rshift);
+                val >>= 8;
+            }
+
+            /* Handle the final partial byte. */
+            *iptr = bits << lshift;
+        } else {
+            /*
+             * Little endian small in more than one byte, not aligned
+             * on a byte boundary, and the size is not evenly
+             * divisible by 8.
+             *
+             * Now this gets complicated. We used to handle this
+             * directly, but since this case is presumably uncommon,
+             * we do this in a simpler way in two steps.
+             *
+             * First format the integer byte-aligned using the binary
+             * itself as a temporary buffer.
+             */
+            b = *iptr;
+            fmt_small_le(iptr, arg, num_bits);
+
+            /*
+             * Now restore the overwritten bits of the first byte and
+             * shift everything to the right.
+             */
+            restore_and_shift(iptr, b, bit_offset, num_bits);
+        }
+    } else if (is_big(arg) && bit_offset == 0) {
+        /*
+         * Big number, aligned on a byte boundary. We can format the
+         * integer directly into the binary.
+         */
+        fmt_big_le(iptr, arg, num_bits);
+    } else if (is_big(arg) && bit_offset + num_bits <= 8) {
+        /*
+         * All bits are in the same byte.
+         */
+        Uint rbits = 8 - bit_offset;
+        Sint sign = big_sign(arg);
+        ErtsDigit* dp = big_v(arg);
+        Uint val = sign ? -*dp : *dp;
+
+        b = *iptr & (0xff << rbits);
+        b |= (val & MAKE_MASK(num_bits)) << (rbits-num_bits);
+        *iptr = b;
+    } else if (is_big(arg)) {
+        /*
+         * Big number, not aligned on a byte boundary.
+         *
+         * Format the integer byte-aligned using the binary itself as
+         * a temporary buffer.
+         */
+        b = *iptr;
+        fmt_big_le(iptr, arg, num_bits);
+
+        /*
+         * Now restore the overwritten bits of the first byte and
+         * shift everything to the right.
+         */
+        restore_and_shift(iptr, b, bit_offset, num_bits);
+    } else {
+        /* Not an integer. */
+        return 0;
+    }
+    EBS->erts_bin_offset = bin_offset + num_bits;
     return 1;
 }
 
 #if !defined(BEAMASM)
 int
-erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
+erts_bs_put_utf8(ErlBitsState *EBS, Eterm arg)
 {
-    Uint bin_offset = erts_bin_offset;
+    Uint bin_offset = EBS->erts_bin_offset;
     Uint bit_offset;
     Uint num_bits;
     byte tmp_buf[4];
@@ -944,7 +1073,7 @@ erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
 
     if ((bit_offset = BIT_OFFSET(bin_offset)) == 0) {
 	/* We can write directly into the destination binary. */
-	dst = erts_current_bin+BYTE_OFFSET(bin_offset);
+        dst = EBS->erts_current_bin + BYTE_OFFSET(bin_offset);
     } else {
 	/* Unaligned destination binary. Must use a temporary buffer. */
 	dst = tmp_buf;
@@ -975,19 +1104,19 @@ erts_bs_put_utf8(ERL_BITS_PROTO_1(Eterm arg))
     }
 
     if (bin_offset != 0) {
-	erts_copy_bits(dst, 0, 1, erts_current_bin, bin_offset, 1, num_bits);
+        erts_copy_bits_fwd(dst, 0, EBS->erts_current_bin, bin_offset, num_bits);
     }
 
-    erts_bin_offset += num_bits;
+    EBS->erts_bin_offset += num_bits;
 
     return 1;
 }
 #endif
 
 int
-erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
+erts_bs_put_utf16(ErlBitsState *EBS, Eterm arg, Uint flags)
 {
-    Uint bin_offset = erts_bin_offset;
+    Uint bin_offset = EBS->erts_bin_offset;
     Uint bit_offset;
     Uint num_bits;
     byte tmp_buf[4];
@@ -1004,7 +1133,7 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
 
     if ((bit_offset = BIT_OFFSET(bin_offset)) == 0) {
 	/* We can write directly into the destination binary. */
-	dst = erts_current_bin+BYTE_OFFSET(bin_offset);
+	dst = EBS->erts_current_bin + BYTE_OFFSET(bin_offset);
     } else {
 	/* Unaligned destination binary. Must use a temporary buffer. */
 	dst = tmp_buf;
@@ -1040,17 +1169,16 @@ erts_bs_put_utf16(ERL_BITS_PROTO_2(Eterm arg, Uint flags))
     }
 
     if (bin_offset != 0) {
-	erts_copy_bits(dst, 0, 1, erts_current_bin, bin_offset, 1, num_bits);
+	erts_copy_bits_fwd(dst, 0, EBS->erts_current_bin, bin_offset, num_bits);
     }
 
-    erts_bin_offset += num_bits;
+    EBS->erts_bin_offset += num_bits;
     return 1;
 }
 
 int
-erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
+erts_bs_put_binary(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint num_bits)
 {
-    ERL_BITS_DEFINE_STATEP(c_p);
     Uint offset, size;
     byte *base;
 
@@ -1066,18 +1194,17 @@ erts_new_bs_put_binary(Process *c_p, Eterm arg, Uint num_bits)
         return 0;
     }
 
-    copy_binary_to_buffer(erts_current_bin, erts_bin_offset,
+    copy_binary_to_buffer(EBS->erts_current_bin, EBS->erts_bin_offset,
                           base, offset, num_bits);
-    erts_bin_offset += num_bits;
+    EBS->erts_bin_offset += num_bits;
 
     BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
     return 1;
 }
 
 int
-erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
+erts_bs_put_binary_all(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint unit)
 {
-    ERL_BITS_DEFINE_STATEP(c_p);
     Uint offset, size;
     byte *base;
 
@@ -1091,9 +1218,9 @@ erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
         return 0;
     }
 
-    copy_binary_to_buffer(erts_current_bin, erts_bin_offset,
+    copy_binary_to_buffer(EBS->erts_current_bin, EBS->erts_bin_offset,
                           base, offset, size);
-    erts_bin_offset += size;
+    EBS->erts_bin_offset += size;
 
     BUMP_REDS(c_p, size / BITS_PER_REDUCTION);
     return 1;
@@ -1106,11 +1233,9 @@ erts_new_bs_put_binary_all(Process *c_p, Eterm arg, Uint unit)
  * and sets c_p-fvalue to 'type', 'no_float', or 'invalid'.
  */
 Eterm
-erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
+erts_bs_put_float(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint num_bits, int flags)
 {
-    ERL_BITS_DEFINE_STATEP(c_p);
-
-    if (BIT_OFFSET(erts_bin_offset) == 0) {
+    if (BIT_OFFSET(EBS->erts_bin_offset) == 0) {
 	Uint32 a;
 	Uint32 b;
 	
@@ -1222,7 +1347,7 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	}
 
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset);
+	    byte* t = EBS->erts_current_bin + BYTE_OFFSET(EBS->erts_bin_offset);
 #ifdef WORDS_BIGENDIAN
 	    if (num_bits == 16) {
 		t[0] = a >> 8;
@@ -1255,7 +1380,9 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    }
 #endif
 	} else {
-	    byte* t = erts_current_bin+BYTE_OFFSET(erts_bin_offset) + NBYTES(num_bits);
+	    byte* t = EBS->erts_current_bin +
+                BYTE_OFFSET(EBS->erts_bin_offset) +
+                NBYTES(num_bits);
 #ifdef WORDS_BIGENDIAN
 	    if (num_bits == 16) {
 		t[-1] = a >> 8;
@@ -1384,28 +1511,41 @@ erts_new_bs_put_float(Process *c_p, Eterm arg, Uint num_bits, int flags)
 	    return make_small(num_bits);
 	}
 	if (BIT_IS_MACHINE_ENDIAN(flags)) {
-	    erts_copy_bits(bptr, 0, 1,
-		      erts_current_bin,
-		      erts_bin_offset, 1, num_bits);
+            erts_copy_bits_fwd(bptr, 0,
+                               EBS->erts_current_bin,
+                               EBS->erts_bin_offset, num_bits);
 	} else {
-	    erts_copy_bits(bptr+NBYTES(num_bits)-1, 0, -1,
-			   erts_current_bin, erts_bin_offset, 1,
-			   num_bits);
+            byte tmp_buf[8];
+            Uint n = BYTE_OFFSET(num_bits);
+            byte *dst = tmp_buf + n;
+
+            do {
+                *--dst = *bptr++;
+            } while (--n != 0);
+
+            erts_copy_bits_fwd(tmp_buf, 0,
+                               EBS->erts_current_bin,
+                               EBS->erts_bin_offset, num_bits);
 	}
     }
-    erts_bin_offset += num_bits;
+    EBS->erts_bin_offset += num_bits;
     return THE_NON_VALUE;
 }
 
-void 
-erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes))
+void
+erts_bs_put_string(ErlBitsState* EBS, byte* iptr, Uint num_bytes)
 {
-    if (BIT_OFFSET(erts_bin_offset) != 0) {
-	erts_copy_bits(iptr, 0, 1, erts_current_bin, erts_bin_offset, 1, num_bytes*8);
+    byte* dst_bin = EBS->erts_current_bin;
+    Uint dst_offset = EBS->erts_bin_offset;
+
+    EBS->erts_bin_offset = dst_offset + num_bytes * 8;
+    if (BIT_OFFSET(dst_offset) != 0) {
+        erts_copy_bits_fwd(iptr, 0,
+                           dst_bin, dst_offset,
+                           num_bytes * 8);
     } else {
-	sys_memcpy(erts_current_bin+BYTE_OFFSET(erts_bin_offset), iptr, num_bytes);
+        sys_memcpy(dst_bin + BYTE_OFFSET(dst_offset), iptr, num_bytes);
     }
-    erts_bin_offset += num_bytes*8;
 }
 
 static ERTS_INLINE
@@ -1488,8 +1628,9 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     BinRef* br;
     Binary* binp;
     Uint heap_need;
+    Uint position;
     Uint used_size_in_bits;
-    ERL_BITS_DEFINE_STATEP(c_p);
+    ErlBitsState* EBS = ERL_BITS_EBS_FROM_REG(reg);
 
     /*
      * Check the binary argument.
@@ -1528,10 +1669,10 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
      * OK, the binary is writable.
      */
     ASSERT(sb->start == 0);
-    erts_bin_offset = sb->end;
+    EBS->erts_bin_offset = position = sb->end;
     if (unit > 1) {
-	if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
-	    (unit != 8 && (erts_bin_offset % unit) != 0)) {
+	if ((unit == 8 && (position & 7) != 0) ||
+	    (unit != 8 && (position % unit) != 0)) {
             c_p->fvalue = am_unit;
 	    goto badarg;
 	}
@@ -1548,13 +1689,13 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 	return bin;
     }
 
-    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+    if ((ERTS_UINT_MAX - build_size_in_bits) < position) {
         c_p->fvalue = am_size;
         c_p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
     }
 
-    used_size_in_bits = erts_bin_offset + build_size_in_bits;
+    used_size_in_bits = position + build_size_in_bits;
 
     /* Make sure that no one else can append to the incoming bitstring. */
     erl_sub_bits_clear_writable(sb);
@@ -1569,11 +1710,11 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
         binp = erts_bin_realloc(binp, new_size);
         br->val = binp;
 
-        BUMP_REDS(c_p, erts_bin_offset / BITS_PER_REDUCTION);
+        BUMP_REDS(c_p, position / BITS_PER_REDUCTION);
     }
 
     binp->intern.apparent_size = NBYTES(used_size_in_bits);
-    erts_current_bin = (byte*)binp->orig_bytes;
+    EBS->erts_current_bin = (byte*)binp->orig_bytes;
 
     /* Allocate heap space and build a new sub binary. */
     reg[live] = sb->orig;
@@ -1592,7 +1733,7 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
     erl_sub_bits_init(sb,
                       ERL_SUB_BITS_FLAGS_WRITABLE,
                       reg[live],
-                      erts_current_bin,
+                      EBS->erts_current_bin,
                       0,
                       used_size_in_bits);
 
@@ -1656,10 +1797,10 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                                  &br,
                                  &sb);
 
-        erts_current_bin = (byte*)(br->val)->orig_bytes;
-        erts_bin_offset = src_size;
+        EBS->erts_current_bin = (byte*)(br->val)->orig_bytes;
+        EBS->erts_bin_offset = src_size;
 
-        copy_binary_to_buffer(erts_current_bin,
+        copy_binary_to_buffer(EBS->erts_current_bin,
                               0,
                               src_bytes,
                               src_offset,
@@ -1671,14 +1812,13 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 }
 
 Eterm
-erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, Uint unit)
+erts_bs_private_append_checked(ErlBitsState* EBS, Process* p,
+                               Eterm bin, Uint build_size_in_bits)
 {
-    Uint new_position, new_size, used_size;
+    Uint old_position, new_position, used_size;
     Binary *refc_binary;
     ErlSubBits *sb;
     BinRef *br;
-
-    ERL_BITS_DEFINE_STATEP(p);
 
     sb = (ErlSubBits*)bitstring_val(bin);
     ASSERT(sb->thing_word == HEADER_SUB_BITS);
@@ -1688,21 +1828,24 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
 
     /* Calculate new size in bits. */
     ASSERT(sb->start == 0);
-    erts_bin_offset = sb->end;
+    EBS->erts_bin_offset = old_position = sb->end;
 
-    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+#ifdef BEAMASM
+    ASSERT(ERTS_UINT_MAX - build_size_in_bits >= old_position);
+#else
+    if (ERTS_UINT_MAX - build_size_in_bits < old_position) {
         p->fvalue = am_size;
         p->freason = SYSTEM_LIMIT;
         return THE_NON_VALUE;
     }
+#endif
 
     refc_binary = br->val;
 
-    new_position = erts_bin_offset + build_size_in_bits;
-    update_wb_overhead(p, br, sb->end, new_position);
-
+    new_position = old_position + build_size_in_bits;
     used_size = NBYTES(new_position);
-    new_size = GROW_PROC_BIN_SIZE(used_size);
+
+    update_wb_overhead(p, br, old_position, new_position);
 
     if (refc_binary->intern.flags & BIN_FLAG_WRITABLE) {
         /* This is the normal case - the binary is writable. There are no other
@@ -1711,10 +1854,11 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
         ASSERT(erl_sub_bits_is_writable(sb));
         ASSERT(erts_refc_read(&refc_binary->intern.refc, 1) == 1);
         if (refc_binary->orig_size < used_size) {
+            Uint new_size = GROW_PROC_BIN_SIZE(used_size);
             refc_binary = erts_bin_realloc(refc_binary, new_size);
             br->val = refc_binary;
 
-            BUMP_REDS(p, erts_bin_offset / BITS_PER_REDUCTION);
+            BUMP_REDS(p, EBS->erts_bin_offset / BITS_PER_REDUCTION);
         }
 
         ASSERT(sb->start == 0);
@@ -1730,10 +1874,11 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
          * binary and make a copy of the data.
          *
          * We'll also make a new BinRef as the old one may have been moved from
-         * the `wrt_bins` list to the regular `off_heap` list by the GC. To
+         * the `wrt_bins` list to the regular `off_heap` list by the GC.
          * To move it back would mean traversing the `off_heap` list from the
          * start, so we'll create a new BinRef instead for this (hopefully)
          * rare case. */
+        Uint new_size = GROW_PROC_BIN_SIZE(used_size);
         Binary *new_binary = erts_bin_nrml_alloc(new_size);
         Eterm *hp = HeapFragOnlyAlloc(p, ERL_REFC_BITS_SIZE);
 
@@ -1749,12 +1894,12 @@ erts_bs_private_append_checked(Process* p, Eterm bin, Uint build_size_in_bits, U
                    refc_binary->orig_bytes,
                    MIN(refc_binary->orig_size, new_size));
 
-        BUMP_REDS(p, erts_bin_offset / BITS_PER_REDUCTION);
+        BUMP_REDS(p, EBS->erts_bin_offset / BITS_PER_REDUCTION);
         refc_binary = new_binary;
     }
 
     ASSERT(refc_binary->intern.flags & BIN_FLAG_WRITABLE);
-    erts_current_bin = (byte*)&refc_binary->orig_bytes[0];
+    EBS->erts_current_bin = (byte*)&refc_binary->orig_bytes[0];
 
     return make_bitstring(sb);
 }
@@ -1829,7 +1974,7 @@ erts_bs_get_unaligned_uint32(ErlSubBits* sb)
     byte bigbuf[4];
     byte* LSB;
     byte* MSB;
-	
+
     CHECK_MATCH_BUFFER(sb);
     ASSERT((sb->start & 7) != 0);
     ASSERT(sb->end - sb->start >= 32);
@@ -1841,7 +1986,7 @@ erts_bs_get_unaligned_uint32(ErlSubBits* sb)
     MSB = LSB + bytes - 1;
 
     *MSB = 0;
-    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, MSB, offs, -1, 32);
+    erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start, MSB, offs, 32);
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
@@ -1864,7 +2009,7 @@ erts_align_utf8_bytes(ErlSubBits *sb, byte* buf)
     } else {
 	bits = 16;
     }
-    erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1, buf, 0, 1, bits);
+    erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start, buf, 0, bits);
 }
 
 Eterm
@@ -1989,8 +2134,8 @@ erts_bs_get_utf16(ErlSubBits *sb, Uint flags)
 	 * get 4 bytes, otherwise two bytes.
 	 */
 	Uint n = num_bits < 32 ? 16 : 32;
-	erts_copy_bits(erl_sub_bits_get_base(sb), sb->start, 1,
-                       tmp_buf, 0, 1, n);
+        erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
+                           tmp_buf, 0, n);
 	src = tmp_buf;
     }
     
@@ -2124,19 +2269,15 @@ int erts_cmp_bits__(const byte *a_ptr,
 
 /*
  * The basic bit copy operation. Copies n bits from the source buffer to
- * the destination buffer. Depending on the directions, it can reverse the
- * copied bits.
+ * the destination buffer.
  */
 
-
-void 
-erts_copy_bits(const byte* src, /* Base pointer to source. */
-               size_t soffs,    /* Bit offset for source relative to src. */
-               int sdir,        /* Direction: 1 (forward) or -1 (backward). */
-               byte* dst,       /* Base pointer to destination. */
-               size_t doffs,    /* Bit offset for destination relative to dst. */
-               int ddir,        /* Direction: 1 (forward) or -1 (backward). */
-               size_t n)        /* Number of bits to copy. */
+void
+erts_copy_bits_fwd(const byte* src, /* Base pointer to source. */
+                   size_t soffs,    /* Bit offset for source relative to src. */
+                   byte* dst,       /* Base pointer to destination. */
+                   size_t doffs,    /* Bit offset for destination relative to dst. */
+                   size_t n)        /* Number of bits to copy. */
 {
     Uint lmask;
     Uint rmask;
@@ -2144,11 +2285,11 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
     Uint deoffs;
 
     if (n == 0) {
-	return;
+        return;
     }
 
-    src += sdir*BYTE_OFFSET(soffs);
-    dst += ddir*BYTE_OFFSET(doffs);
+    src += BYTE_OFFSET(soffs);
+    dst += BYTE_OFFSET(doffs);
     soffs = BIT_OFFSET(soffs);
     doffs = BIT_OFFSET(doffs);
     deoffs = BIT_OFFSET(doffs+n);
@@ -2160,21 +2301,148 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
      */
 
     if (doffs+n < 8) {		/* All bits are in the same byte */
-	lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
+        lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
 
-	if (soffs == doffs) {
-	    *dst = MASK_BITS(*src,*dst,lmask);
-	} else if (soffs > doffs) {
-	    Uint bits = (*src << (soffs-doffs));
-	    if (soffs+n > 8) {
-		src += sdir;
-		bits |= (*src >> (8-(soffs-doffs)));
-	    }
-	    *dst = MASK_BITS(bits,*dst,lmask);
-	} else {
-	    *dst = MASK_BITS((*src >> (doffs-soffs)),*dst,lmask);
-	}
-	return;			/* We are done! */
+        if (soffs == doffs) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+        } else if (soffs > doffs) {
+            Uint bits = (*src << (soffs-doffs));
+            if (soffs+n > 8) {
+                src++;
+                bits |= (*src >> (8-(soffs-doffs)));
+            }
+            *dst = MASK_BITS(bits, *dst, lmask);
+        } else {
+            *dst = MASK_BITS((*src >> (doffs-soffs)), *dst, lmask);
+        }
+        return;			/* We are done! */
+    }
+
+    /*
+     * At this point, we know that the bits are in 2 or more bytes.
+     */
+
+    count = (lmask ? (n - (8 - doffs)) : n) >> 3;
+
+    if (soffs == doffs) {
+        /*
+         * The bits are aligned in the same way. We can just copy the bytes
+         * (except for the first and last bytes).
+         */
+
+        if (lmask) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+            dst++, src++;
+        }
+
+        sys_memcpy(dst, src, count);
+
+        if (rmask) {
+            dst += count;
+            src += count;
+            *dst = MASK_BITS(*src, *dst, rmask);
+        }
+    } else {
+        Uint bits;
+        Uint bits1;
+        Uint rshift;
+        Uint lshift;
+
+        /*
+         * The tricky case. The bits must be shifted into position.
+         */
+
+        if (soffs > doffs) {
+            lshift = soffs - doffs;
+            rshift = 8 - lshift;
+            bits = *src;
+            if (soffs + n > 8) {
+                src++;
+            }
+        } else {
+            rshift = doffs - soffs;
+            lshift = 8 - rshift;
+            bits = 0;
+        }
+
+        if (lmask) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            bits1 |= (bits >> rshift);
+            *dst = MASK_BITS(bits1, *dst, lmask);
+            dst++;
+        }
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            *dst = bits1 | (bits >> rshift);
+            dst++;
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *src;
+                bits1 |= (bits >> rshift);
+            }
+            *dst = MASK_BITS(bits1, *dst, rmask);
+        }
+    }
+}
+
+/*
+ * The reverse bit copy operation. Copies n bits from the source
+ * buffer to the destination buffer. The bits are read 8 bits at the
+ * time from the source buffer, while incrementing the source buffer
+ * pointer. The 8 bit groups are stored into the destination buffer,
+ * while decrementing the destination buffer pointer.
+ */
+
+void
+erts_copy_bits_rev(const byte* src, /* Base pointer to source. */
+               size_t soffs,    /* Bit offset for source relative to src. */
+               byte* dst,       /* Base pointer to destination. */
+               size_t doffs,    /* Bit offset for destination relative to dst. */
+               size_t n)        /* Number of bits to copy. */
+{
+    Uint lmask;
+    Uint rmask;
+    Uint count;
+    Uint deoffs;
+
+    if (n == 0) {
+        return;
+    }
+
+    src += BYTE_OFFSET(soffs);
+    dst -= BYTE_OFFSET(doffs);
+    soffs = BIT_OFFSET(soffs);
+    doffs = BIT_OFFSET(doffs);
+    deoffs = BIT_OFFSET(doffs+n);
+    lmask = (doffs) ? MAKE_MASK(8-doffs) : 0;
+    rmask = (deoffs) ? (MAKE_MASK(deoffs)<<(8-deoffs)) : 0;
+
+    /*
+     * Take care of the case that all bits are in the same byte.
+     */
+
+    if (doffs+n < 8) {		/* All bits are in the same byte */
+        lmask = (lmask & rmask) ? (lmask & rmask) : (lmask | rmask);
+
+        if (soffs == doffs) {
+            *dst = MASK_BITS(*src,*dst,lmask);
+        } else if (soffs > doffs) {
+            Uint bits = (*src << (soffs-doffs));
+            if (soffs+n > 8) {
+                src++;
+                bits |= (*src >> (8-(soffs-doffs)));
+            }
+            *dst = MASK_BITS(bits,*dst,lmask);
+        } else {
+            *dst = MASK_BITS((*src >> (doffs-soffs)),*dst,lmask);
+        }
+        return;			/* We are done! */
     }
 
     /*
@@ -2184,75 +2452,70 @@ erts_copy_bits(const byte* src, /* Base pointer to source. */
     count = ((lmask) ? (n - (8 - doffs)) : n) >> 3;
 
     if (soffs == doffs) {
-	/*
-	 * The bits are aligned in the same way. We can just copy the bytes
-	 * (except for the first and last bytes). Note that the directions
-	 * might be different, so we can't just use memcpy().
-	 */
+        /*
+         * The bits are aligned in the same way. We can just copy the bytes
+         * (except for the first and last bytes).
+         */
 
-	if (lmask) {
-	    *dst = MASK_BITS(*src, *dst, lmask);
-	    dst += ddir;
-	    src += sdir;
-	}
+        if (lmask) {
+            *dst = MASK_BITS(*src, *dst, lmask);
+            dst--, src++;
+        }
 
-	while (count--) {
-	    *dst = *src;
-	    dst += ddir;
-	    src += sdir;
-	}
+        while (count--) {
+            *dst-- = *src++;
+        }
 
-	if (rmask) {
-	    *dst = MASK_BITS(*src,*dst,rmask);
-	}
+        if (rmask) {
+            *dst = MASK_BITS(*src, *dst, rmask);
+        }
     } else {
-	Uint bits;
-	Uint bits1;
-	Uint rshift;
-	Uint lshift;
+        Uint bits;
+        Uint bits1;
+        Uint rshift;
+        Uint lshift;
 
-	/*
-	 * The tricky case. The bits must be shifted into position.
-	 */
-	
-	if (soffs > doffs) {
-	    lshift = (soffs - doffs);
-	    rshift = 8 - lshift;
-	    bits = *src;
-	    if (soffs + n > 8) {
-		src += sdir;
-	    }
-	} else {
-	    rshift = (doffs - soffs);
-	    lshift = 8 - rshift;
-	    bits = 0;
-	}
-	    
-	if (lmask) {
-	    bits1 = bits << lshift;
-	    bits = *src;
-	    src += sdir;
-	    bits1 |= (bits >> rshift);
-	    *dst = MASK_BITS(bits1,*dst,lmask);
-	    dst += ddir;
-	}
+        /*
+         * The tricky case. The bits must be shifted into position.
+         */
 
-	while (count--) {
-	    bits1 = bits << lshift;
-	    bits = *src;
-	    src += sdir;
-	    *dst = bits1 | (bits >> rshift);
-	    dst += ddir;
-	}
-	
-	if (rmask) {
-	    bits1 = bits << lshift;
-	    if ((rmask << rshift) & 0xff) {
-		bits = *src;
-		bits1 |= (bits >> rshift);
-	    }
-	    *dst = MASK_BITS(bits1,*dst,rmask);
-	}
+        if (soffs > doffs) {
+            lshift = (soffs - doffs);
+            rshift = 8 - lshift;
+            bits = *src;
+            if (soffs + n > 8) {
+                src++;
+            }
+        } else {
+            rshift = doffs - soffs;
+            lshift = 8 - rshift;
+            bits = 0;
+        }
+
+        if (lmask) {
+            bits1 = bits << lshift;
+            bits = *src;
+            src++;
+            bits1 |= (bits >> rshift);
+            *dst = MASK_BITS(bits1, *dst, lmask);
+            dst--;
+        }
+
+        while (count--) {
+            bits1 = bits << lshift;
+            bits = *src++;
+            *dst = bits1 | (bits >> rshift);
+            dst--;
+        }
+
+        if (rmask) {
+            bits1 = bits << lshift;
+            if ((rmask << rshift) & 0xff) {
+                bits = *src;
+                bits1 |= (bits >> rshift);
+            }
+            *dst = MASK_BITS(bits1, *dst, rmask);
+        }
     }
 }
 

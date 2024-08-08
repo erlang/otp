@@ -808,7 +808,7 @@ void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B) {
 
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
-                            ERL_BITS_DECLARE_STATEP,
+                            ErlBitsState *EBS,
                             Uint num_bits,
                             Uint alloc,
                             unsigned Live) {
@@ -818,7 +818,7 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
         alloc += ERL_REFC_BITS_SIZE;
     }
 
-    erts_bin_offset = 0;
+    EBS->erts_bin_offset = 0;
 
     if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
         ErlHeapBits *hb;
@@ -830,7 +830,7 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
         hb->thing_word = header_heap_bits(num_bits);
         hb->size = num_bits;
 
-        erts_current_bin = (byte *)hb->data;
+        EBS->erts_current_bin = (byte *)hb->data;
         return make_bitstring(hb);
     } else {
         const Uint num_bytes = NBYTES(num_bits);
@@ -839,13 +839,13 @@ Eterm beam_jit_bs_init_bits(Process *c_p,
         test_bin_vheap(c_p, reg, num_bytes / sizeof(Eterm), alloc, Live);
 
         new_binary = erts_bin_nrml_alloc(num_bytes);
-        erts_current_bin = (byte *)new_binary->orig_bytes;
+        EBS->erts_current_bin = (byte *)new_binary->orig_bytes;
 
         return erts_wrap_refc_bitstring(&MSO(c_p).first,
                                         &MSO(c_p).overhead,
                                         &HEAP_TOP(c_p),
                                         new_binary,
-                                        erts_current_bin,
+                                        EBS->erts_current_bin,
                                         0,
                                         num_bits);
     }

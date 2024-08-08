@@ -1262,10 +1262,10 @@ void BeamModuleAssembler::update_bin_state(x86::Gp bin_offset,
     const int x_reg_offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
     const int cur_bin_base =
             offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_current_bin_);
+            offsetof(struct erl_bits_state, erts_current_bin);
     const int cur_bin_offset =
             offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_bin_offset_);
+            offsetof(struct erl_bits_state, erts_bin_offset);
 
     x86::Mem mem_bin_base =
             x86::Mem(registers, cur_bin_base - x_reg_offset, sizeof(UWord));
@@ -1822,10 +1822,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 offsetof(ErtsSchedulerRegisters, x_reg_array.d);
         const int cur_bin_base =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_current_bin_);
+                offsetof(struct erl_bits_state, erts_current_bin);
         const int cur_bin_offset =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_bin_offset_);
+                offsetof(struct erl_bits_state, erts_bin_offset);
         x86::Mem mem_bin_base =
                 x86::qword_ptr(registers, cur_bin_base - x_reg_offset);
         x86::Mem mem_bin_offset =
@@ -2195,14 +2195,14 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         runtime_entered = bs_maybe_enter_runtime(runtime_entered);
         comment("private append to binary");
         ASSERT(Alloc.get() == 0);
-        mov_arg(ARG2, seg.src);
+        mov_arg(ARG3, seg.src);
         if (sizeReg.isValid()) {
-            a.mov(ARG3, sizeReg);
+            a.mov(ARG4, sizeReg);
         } else {
-            mov_imm(ARG3, num_bits);
+            mov_imm(ARG4, num_bits);
         }
-        a.mov(ARG4, seg.unit);
-        a.mov(ARG1, c_p);
+        a.mov(ARG2, c_p);
+        load_erl_bits_state(ARG1);
         runtime_call<4>(erts_bs_private_append_checked);
         /* There is no way the call can fail on a 64-bit architecture. */
         a.mov(TMP_MEM1q, RET);
@@ -2251,10 +2251,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             comment("construct a binary segment");
             if (seg.effectiveSize >= 0) {
                 /* The segment has a literal size. */
-                mov_imm(ARG3, seg.effectiveSize);
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary);
+                mov_imm(ARG4, seg.effectiveSize);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -2263,10 +2264,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                        seg.size.as<ArgAtom>().get() == am_all) {
                 /* Include the entire binary/bitstring in the
                  * resulting binary. */
-                a.mov(ARG3, seg.unit);
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary_all);
+                mov_imm(ARG4, seg.unit);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary_all);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
@@ -2282,16 +2284,17 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                  * the value is a non-negative small in the
                  * appropriate range. Multiply the size with the
                  * unit. */
-                mov_arg(ARG3, seg.size);
-                a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_arg(ARG4, seg.size);
+                a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(RET, seg.unit);
-                    a.mul(ARG3); /* CLOBBERS RDX = ARG3! */
-                    a.mov(ARG3, RET);
+                    a.mul(ARG4); /* CLOBBERS RDX = ARG3! */
+                    a.mov(ARG4, RET);
                 }
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -2311,20 +2314,21 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             comment("construct float segment");
             if (seg.effectiveSize >= 0) {
-                mov_imm(ARG3, seg.effectiveSize);
+                mov_imm(ARG4, seg.effectiveSize);
             } else {
-                mov_arg(ARG3, seg.size);
-                a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_arg(ARG4, seg.size);
+                a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(RET, seg.unit);
-                    a.mul(ARG3); /* CLOBBERS RDX = ARG3! */
-                    a.mov(ARG3, RET);
+                    a.mul(ARG4); /* CLOBBERS RDX = ARG3! */
+                    a.mov(ARG4, RET);
                 }
             }
-            mov_arg(ARG2, seg.src);
-            mov_imm(ARG4, seg.flags);
-            a.mov(ARG1, c_p);
-            runtime_call<4>(erts_new_bs_put_float);
+            mov_arg(ARG3, seg.src);
+            mov_imm(ARG5, seg.flags);
+            a.mov(ARG2, c_p);
+            load_erl_bits_state(ARG1);
+            runtime_call<5>(erts_bs_put_float);
             if (Fail.get() == 0) {
                 mov_imm(ARG4,
                         beam_jit_update_bsc_reason_info(seg.error_info,
@@ -2595,9 +2599,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                      * integer into the binary. */
                     runtime_entered = bs_maybe_enter_runtime(runtime_entered);
                     mov_arg(ARG2, seg.src);
-                    mov_imm(ARG4, seg.flags);
                     load_erl_bits_state(ARG1);
-                    runtime_call<4>(erts_new_bs_put_integer);
+                    if (seg.flags & BSF_LITTLE) {
+                        runtime_call<3>(erts_bs_put_integer_le);
+                    } else {
+                        runtime_call<3>(erts_bs_put_integer_be);
+                    }
                     if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         comment("skipped test for success because construction "
                                 "can't fail");
@@ -2628,7 +2635,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_imm(ARG3, seg.effectiveSize / 8);
             mov_arg(ARG2, string_ptr);
             load_erl_bits_state(ARG1);
-            runtime_call<3>(erts_new_bs_put_string);
+            runtime_call<3>(erts_bs_put_string);
         } break;
         case am_utf8: {
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
@@ -2656,9 +2663,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG2, seg.src);
             mov_imm(ARG3, 4 * 8);
-            a.mov(ARG4, seg.flags);
             load_erl_bits_state(ARG1);
-            runtime_call<4>(erts_new_bs_put_integer);
+            if (seg.flags & BSF_LITTLE) {
+                runtime_call<3>(erts_bs_put_integer_le);
+            } else {
+                runtime_call<3>(erts_bs_put_integer_be);
+            }
             if (Fail.get() == 0) {
                 mov_arg(ARG1, seg.src);
                 mov_imm(ARG4,
