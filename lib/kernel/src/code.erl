@@ -1751,7 +1751,8 @@ file containing object code for `Module` and returns the absolute filename.
 which(Module) when is_atom(Module) ->
     case is_loaded(Module) of
 	false ->
-            which(Module, get_path());
+            File = atom_to_list(Module) ++ objfile_extension(),
+            where_is_file(File);
 	{file, File} ->
 	    File
     end.
