@@ -315,8 +315,12 @@ elif [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
     TARGET=$OVERRIDE_TARGET
 fi
 
-# Check for cleanup
 inst_app_vers="$idir/releases/$otp_rel/installed_application_versions"
+if [ $install_docs = yes ]; then
+    $cp "$inst_app_vers" "${inst_app_vers}.pre_patch"
+fi
+
+# Check for cleanup
 rm_app_vers=
 if [ $cleanup = yes ]; then
     $mv "$inst_app_vers" "${inst_app_vers}.save" || \
@@ -391,6 +395,15 @@ if [ $install_docs = yes ]; then
     (cd "$sdir/system/doc" && \
 	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
 	TESTROOT="$idir" release_docs) || exit 1
+
+    (cd "$sdir/system/doc/top" && \
+	$MAKE MAKE="$MAKE" RELEASE_ROOT="$idir" RELEASE_PATH="$idir" \
+	TESTROOT="$idir" release_docs) || exit 1
+
+    "$sdir/make/patch_apply_adjust_docs" -s "$sdir" -r "$idir" -a "${inst_app_vers}.pre_patch" \
+        || exit 1
+
+    $rm -f "${inst_app_vers}.pre_patch"
 
     echo ""
     echo "*"
