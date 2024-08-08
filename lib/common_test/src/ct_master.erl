@@ -20,8 +20,6 @@
 
 -module(ct_master).
 -moduledoc """
-Distributed test execution control for Common Test.
-
 Distributed test execution control for `Common Test`.
 
 This module exports functions for running `Common Test` nodes on multiple hosts
@@ -43,6 +41,7 @@ in parallel.
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
+-doc "Filename of test spec to be executed.".
 -type test_spec() :: file:name_all().
 
 -record(state, {node_ctrl_pids=[],

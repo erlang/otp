@@ -90,16 +90,20 @@ All time-out parameters in `ct_ssh` functions are values in milliseconds.
 
 -doc "Handle for a specific SSH/SFTP connection, see module `m:ct`.".
 -type handle() :: pid().
--doc "For `target_name`, see module `m:ct`.".
+-doc "Reference to opened SSH/SFTP connection associated to either a `handle` or `target_name`.".
 -type connection() :: handle() | ct:target_name().
--doc "Connection type used for connect".
+-doc "Connection type used for connect.".
 -type connection_type() :: 'host' | 'ssh' | 'sftp'.
 -doc """
 The valid values are `0` ("normal") and `1` ("stderr"), see
-[RFC 4254, Section 5.2](https://tools.ietf.org/html/rfc4254#page/8).
+[RFC 4254, Section 5.2](https://tools.ietf.org/html/rfc4254#page-8).
 """.
 -type ssh_data_type_code() :: non_neg_integer().
--doc "For `ssh_channel_id`, see module `m:ssh`.".
+-doc """
+Data type representing a channel inside a connection.
+
+"For `ssh_channel_id`, see module `m:ssh`.".
+""".
 -type ssh_channel_id() :: non_neg_integer().
 
 %%%-----------------------------------------------------------------
@@ -107,7 +111,7 @@ The valid values are `0` ("normal") and `1` ("stderr"), see
 
 -doc(#{equiv => connect(KeyOrName, host, [])}).
 -spec connect(KeyOrName) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    Handle :: handle(),
                    Reason :: term().
 connect(KeyOrName) ->
@@ -124,12 +128,12 @@ Equivalent to [`connect(KeyOrName, host, ExtraOpts)`](`connect/3`) if
 called with ExtraOpts being list.
 """.
 -spec connect(KeyOrName, ConnType) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    ConnType :: connection_type(),
                    Handle :: handle(),
                    Reason :: term();
              (KeyOrName, ExtraOpts) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    ExtraOpts :: [ExtraOption],
                    ExtraOption :: {'ssh', Address} | {'sftp', Address} | ssh:client_option()
                                 | ssh_sftp:sftp_option(),
@@ -154,8 +158,6 @@ opened using the configuration data specified by `Key`).
 
 For information on how to create a new `Name`, see `ct:require/2`.
 
-For `target_name`, see module `m:ct`.
-
 `ConnType` always overrides the type specified in the address tuple in the
 configuration data (and in `ExtraOpts`). So it is possible to, for example, open
 an SFTP connection directly using data originally specifying an SSH connection.
@@ -168,7 +170,7 @@ same key in the configuration data. For details on valid SSH options, see
 application [`SSH`](`e:ssh:index.html`).
 """.
 -spec connect(KeyOrName, ConnType, ExtraOpts) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    ConnType :: connection_type(),
                    ExtraOpts :: [ExtraOption],
                    ExtraOption :: {'ssh', Address} | {'sftp', Address} | ssh:client_option()
@@ -629,7 +631,7 @@ shell(SSH, ChannelId) ->
     shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
 
 -doc """
-Requests that the user default shell (typically defined in `/etc/passwd` in Unix
+Requests that the user's default shell (typically defined in `/etc/passwd` in Unix
 systems) is executed at the server end.
 """.
 -doc(#{since => <<"OTP 20.0">>}).

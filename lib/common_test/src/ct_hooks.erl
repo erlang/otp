@@ -126,7 +126,7 @@ That is:
 - If a test case is skipped, this function is called after
   [`post_end_per_testcase`](`c:post_end_per_testcase/5`).
 
-If the skipped test case belongs to a test case group, the first argument is a
+If the skipped test case belongs to a test case group, the second argument is a
 tuple `{FuncName,GroupName}`, otherwise only the function name.
 
 The data that comes with `Reason` follows the same format as events
@@ -163,7 +163,7 @@ That is:
 - If a test case fails, this function is called after
   [`post_end_per_testcase`](`c:post_end_per_testcase/5`).
 
-If the failed test case belongs to a test case group, the first argument is a
+If the failed test case belongs to a test case group, the second argument is a
 tuple `{FuncName,GroupName}`, otherwise only the function name.
 
 The data that comes with `Reason` follows the same format as

@@ -1,7 +1,5 @@
 -module(ct_suite).
 -moduledoc """
-\-behaviour(ct_suite).
-
 The following section describes the mandatory and optional test suite functions
 that `Common Test` calls during test execution. For more details, see section
 [Writing Test Suites](write_test_chapter.md) in the User's Guide.
@@ -96,7 +94,9 @@ The test suite information, as returned by [`Module:suite/0`](`c:suite/0`),
 
 -doc """
 Returns the list of all test cases and test case groups in the test suite module
-to be executed. This list also specifies the order the cases and groups are
+to be executed.
+
+This list also specifies the order the cases and groups are
 executed by `Common Test`. A test case is represented by an atom, the name of
 the test case function, or a `testcase` tuple indicating that the test case
 shall be repeated. A test case group is represented by a `group` tuple, where
@@ -163,12 +163,11 @@ Guide.
     [Info :: ct_info()].
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:end_per_suite/1`](`c:end_per_suite/1`) must also be defined.
-
 This configuration function is called as the first function in the suite. It
 typically contains initializations that are common for all test cases in the
-suite, and that must only be done once. Parameter `Config` is the configuration
+suite, and that must only be done once.
+
+Parameter `Config` is the configuration
 data that can be modified. Whatever is returned from this function is specified
 as `Config` to all configuration functions and test cases in the suite.
 
@@ -178,6 +177,9 @@ If `{skip, Reason}` is returned, all test cases in the suite are skipped and
 For information on `save_config` and `skip_and_save`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
+
+If this function is defined, then
+[`Module:end_per_suite/1`](`c:end_per_suite/1`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback init_per_suite(Config :: ct_config()) ->
@@ -186,15 +188,15 @@ Guide.
     {skip_and_save, Reason :: term(), SaveConfig :: ct_config()}.
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:init_per_suite/1`](`c:init_per_suite/1`) must also be defined.
-
 This function is called as the last test case in the suite. It is meant to be
 used for cleaning up after [`Module:init_per_suite/1`](`c:init_per_suite/1`).
 
 For information on `save_config`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
+
+If this function is defined, then
+[`Module:init_per_suite/1`](`c:init_per_suite/1`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback end_per_suite(Config :: ct_config()) ->
@@ -240,13 +242,11 @@ Guide.
     [Info :: ct_info()].
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:end_per_group/2`](`c:end_per_group/2`) must also be defined.
-
 This configuration function is called before execution of a test case group. It
 typically contains initializations that are common for all test cases and
-subgroups in the group, and that must only be performed once. `GroupName` is the
-name of the group, as specified in the group definition (see
+subgroups in the group, and that must only be performed once.
+
+`GroupName` is the name of the group, as specified in the group definition (see
 [`Module:groups/0`](`c:groups/0`)). Parameter `Config` is the configuration data
 that can be modified. The return value of this function is given as `Config` to
 all test cases and subgroups in the group.
@@ -256,6 +256,9 @@ If `{skip, Reason}` is returned, all test cases in the group are skipped and
 
 For information about test case groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
+
+If this function is defined, then
+[`Module:end_per_group/2`](`c:end_per_group/2`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback init_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
@@ -263,20 +266,20 @@ For information about test case groups, see section
     {skip, Reason :: term()}.
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:init_per_group/2`](`c:init_per_group/2`) must also be defined.
-
 This function is called after the execution of a test case group is finished. It
-is meant to be used for cleaning up after
-[`Module:init_per_group/2`](`c:init_per_group/2`). A status value for a nested
-subgroup can be returned with `{return_group_result, Status}`. The status can be
-retrieved in [`Module:end_per_group/2`](`c:end_per_group/2`) for the group on
+is meant to be used for cleaning up after [`Module:init_per_group/2`](`c:init_per_group/2`).
+
+A status value for a nested subgroup can be returned with `{return_group_result, Status}`.
+The status can be retrieved in [`Module:end_per_group/2`](`c:end_per_group/2`) for the group on
 the level above. The status is also used by `Common Test` for deciding if
 execution of a group is to proceed if property `sequence` or `repeat_until_*` is
 set.
 
 For details about test case groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
+
+If this function is defined, then
+[`Module:init_per_group/2`](`c:init_per_group/2`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback end_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
@@ -284,17 +287,19 @@ For details about test case groups, see section
     {return_group_result, Status :: ct_status()}.
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:end_per_testcase/2`](`c:end_per_testcase/2`) must also be defined.
+This function is called before each test case.
 
-This function is called before each test case. Argument `TestCase` is the test
-case name, and `Config` (list of key-value tuples) is the configuration data
-that can be modified. The `NewConfig` list returned from this function is given
-as `Config` to the test case. If `{fail, Reason}` is returned, the test case is
-marked as failed without being executed.
+Argument `TestCase` is the test case name, and `Config` (list of key-value tuples)
+is the configuration data that can be modified. The `NewConfig` list returned from this
+function is given as `Config` to the test case.
+
+If `{fail, Reason}` is returned, the test case is marked as failed without being executed.
 
 If `{skip, Reason}` is returned, the test case is skipped and `Reason` is
 printed in the overview log for the suite.
+
+If this function is defined, then
+[`Module:end_per_testcase/2`](`c:end_per_testcase/2`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback init_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
@@ -303,12 +308,10 @@ printed in the overview log for the suite.
     {skip, Reason :: term()}.
 
 -doc """
-OPTIONAL; if this function is defined, then
-[`Module:init_per_testcase/2`](`c:init_per_testcase/2`) must also be defined.
-
 This function is called after each test case, and can be used to clean up after
-[`Module:init_per_testcase/2`](`c:init_per_testcase/2`) and the test case. Any
-return value (besides `{fail, Reason}` and `{save_config, SaveConfig}`) is
+[`Module:init_per_testcase/2`](`c:init_per_testcase/2`) and the test case.
+
+Any return value (besides `{fail, Reason}` and `{save_config, SaveConfig}`) is
 ignored. By returning `{fail, Reason}`, `TestCase` is marked as faulty (even
 though it was successful in the sense that it returned a value instead of
 terminating).
@@ -316,6 +319,9 @@ terminating).
 For information on `save_config`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
+
+If this function is defined, then
+[`Module:init_per_testcase/2`](`c:init_per_testcase/2`) must also be defined.
 """.
 -doc(#{title => <<"Callback Functions">>}).
 -callback end_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
