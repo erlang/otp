@@ -2568,7 +2568,6 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 -doc(#{title => <<"Public Key Ciphers">>}).
 -type rsa_padding() :: rsa_pkcs1_padding
                      | rsa_pkcs1_oaep_padding
-                     | rsa_sslv23_padding
                      | rsa_x931_padding
                      | rsa_no_padding.
 
