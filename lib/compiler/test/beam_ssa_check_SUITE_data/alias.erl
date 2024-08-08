@@ -106,7 +106,13 @@
 
          fuzz0/0, fuzz0/1,
          alias_after_phi/0,
-         check_identifier_type/0]).
+         check_identifier_type/0,
+
+         nested_tuple/0,
+         nested_cons/0,
+         nested_mixed/0,
+
+         see_through/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1071,7 +1077,7 @@ update_record0() ->
 
 update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+%ssa% _ = update_record(copy, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
     R = Acc#r0{not_aliased=N+1,aliased=Val},
     update_record0(Ls, R);
 update_record0([], Acc) ->
@@ -1084,7 +1090,7 @@ update_record1() ->
 
 update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
+%ssa% _ = update_record(copy, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
     R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
     update_record1(Ls, R);
 update_record1([], Acc) ->
@@ -1153,3 +1159,57 @@ should_return_unique({X}) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% ret(R) { unique => [R] }.
     X.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% tuples.
+nested_tuple_inner() ->
+    {{{{<<>>, e:x()}}}}.
+
+nested_tuple() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    {{{{Z,X}}}} = nested_tuple_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%% Check that the alias analysis handles a chain of extracts from
+%% pairs.
+nested_cons_inner() ->
+    [[[[<<>>, e:x()]]]].
+
+nested_cons() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [[[[Z,X]]]] = nested_cons_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+nested_mixed_inner() ->
+    [{[{<<>>, e:x()}]}].
+
+nested_mixed() ->
+%ssa% () when post_ssa_opt ->
+%ssa% U = bs_create_bin(append, _, T, ...) { unique => [T] },
+%ssa% R = put_tuple(U, A) { aliased => [A], unique => [U] },
+%ssa% ret(R).
+    [{[{Z,X}]}] = nested_mixed_inner(),
+    {<<Z/binary, 1:8>>,X}.
+
+%%
+%% Check that the analysis can see through embed-extract chains.
+%%
+-record(see_through, {a,b}).
+
+see_through() ->
+    [R] = see_through0(),
+    see_through1(R).
+
+see_through1({_,R}) ->
+%ssa% (_) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, 3, Rec, _, _) {unique => [Rec], source_dies => true}.
+    R#see_through{a=e:f()}.
+
+see_through0() ->
+    [{foo, #see_through{a={bar, [foo]}}}].

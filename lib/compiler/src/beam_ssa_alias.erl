@@ -32,15 +32,16 @@
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
+-include("beam_ssa_alias_debug.hrl").
 
-%% Uncomment the following to get trace printouts.
-
-%% -define(DEBUG, true).
-
--ifdef(DEBUG).
+-ifdef(DEBUG_ALIAS).
 -define(DP(FMT, ARGS), io:format(FMT, ARGS)).
 -define(DP(FMT), io:format(FMT)).
 -define(DBG(STMT), STMT).
+
+fn(#b_local{name=#b_literal{val=N},arity=A}) ->
+    io_lib:format("~p/~p", [N, A]).
+
 -else.
 -define(DP(FMT, ARGS), skip).
 -define(DP(FMT), skip).
@@ -58,20 +59,38 @@
               orig_st_map :: st_map(),
               repeats = sets:new() :: sets:set(func_id()),
               %% The next unused variable name in caller
-              cnt = 0 :: non_neg_integer()
+              cnt = 0 :: non_neg_integer(),
+              %% Functions which have been analyzed at least once.
+              analyzed = sets:new() :: sets:set(func_id()),
+              run_count = #{} :: #{ func_id() => non_neg_integer() },
+              prune_strategy = #{} :: #{ func_id() =>
+                                             #{beam_ssa:label() =>
+                                                   'add' | 'del'} }
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
 %% or the terminator of a block.
 -type kill_loc() :: #b_var{}
                   | {terminator, beam_ssa:label()}
-                  | {live_outs, beam_ssa:label()}.
+                  | {live_outs, beam_ssa:label()}
+                  | {killed_in_block, beam_ssa:label()}.
+
+-type var_set() :: sets:set(#b_var{}).
 
 %% Map a code location to the set of variables which die at that
 %% location.
--type kill_set() :: #{ kill_loc() => sets:set(#b_var{}) }.
+-type kill_set() :: #{ kill_loc() => var_set() }.
 
--type kills_map() :: #{ func_id() => kill_set() }.
+%% Map a label to the set of variables which are live in to that block.
+-type live_in_set() :: #{ beam_ssa:label() => var_set() }.
+
+%% Map a flow-control edge to the set of variables which are live in
+%% to the destination block due to phis.
+-type phi_live_set() :: #{ {beam_ssa:label(), beam_ssa:label()} => var_set() }.
+
+-type kills_map() :: #{ func_id() => {live_in_set(),
+                                      kill_set(),
+                                      phi_live_set()} }.
 
 -type alias_map() :: #{ func_id() => lbl2ss() }.
 
@@ -135,19 +154,19 @@ killsets_fun(Blocks) ->
 killsets_blks([{Lbl,Blk}|Blocks], LiveIns0, Kills0, PhiLiveIns) ->
     {LiveIns,Kills} = killsets_blk(Lbl, Blk, LiveIns0, Kills0, PhiLiveIns),
     killsets_blks(Blocks, LiveIns, Kills, PhiLiveIns);
-killsets_blks([], _LiveIns0, Kills, _PhiLiveIns) ->
-    Kills.
+killsets_blks([], LiveIns, Kills, PhiLiveIns) ->
+    {LiveIns,Kills,PhiLiveIns}.
 
 killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
     Successors = beam_ssa:successors(Blk),
     Live1 = killsets_blk_live_outs(Successors, Lbl, LiveIns0, PhiLiveIns),
     Kills1 = Kills0#{{live_outs,Lbl}=>Live1},
     Is = [L|reverse(Is0)],
-    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl),
+    {Live,Kills} = killsets_is(Is, Live1, Kills1, Lbl, sets:new()),
     LiveIns = LiveIns0#{Lbl=>Live},
     {LiveIns, Kills}.
 
-killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl) ->
+killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl, KilledInBlock0) ->
     %% The Phi uses are logically located in the predecessors, so we
     %% don't want them live in to this block. But to correctly
     %% calculate the aliasing of the arguments to the Phi in this
@@ -156,21 +175,24 @@ killsets_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Kills0, Lbl) ->
     Uses = beam_ssa:used(I),
     {_,LastUses} = killsets_update_live_and_last_use(Live, Uses),
     Kills = killsets_add_kills({phi,Dst}, LastUses, Kills0),
-    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl);
-killsets_is([I|Is], Live0, Kills0, Lbl) ->
+    KilledInBlock = sets:union(LastUses, KilledInBlock0),
+    killsets_is(Is, sets:del_element(Dst, Live), Kills, Lbl, KilledInBlock);
+killsets_is([I|Is], Live0, Kills0, Lbl, KilledInBlock0) ->
     Uses = beam_ssa:used(I),
     {Live,LastUses} = killsets_update_live_and_last_use(Live0, Uses),
+    KilledInBlock = sets:union(LastUses, KilledInBlock0),
     case I of
         #b_set{dst=Dst} ->
             killsets_is(Is, sets:del_element(Dst, Live),
-                        killsets_add_kills(Dst, LastUses, Kills0), Lbl);
+                        killsets_add_kills(Dst, LastUses, Kills0),
+                        Lbl, KilledInBlock);
         _ ->
             killsets_is(Is, Live,
                         killsets_add_kills({terminator,Lbl}, LastUses, Kills0),
-                        Lbl)
+                        Lbl, KilledInBlock)
     end;
-killsets_is([], Live, Kills, _) ->
-    {Live,Kills}.
+killsets_is([], Live, Kills, Lbl, KilledInBlock) ->
+    {Live,killsets_add_kills({killed_in_block,Lbl}, KilledInBlock, Kills)}.
 
 killsets_update_live_and_last_use(Live0, Uses) ->
     foldl(fun(Use, {LiveAcc,LastAcc}=Acc) ->
@@ -331,90 +353,131 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
 %%%   to detect incomplete information in a hypothetical
 %%%   ssa_opt_alias_finish pass.
 %%%
-aa_fixpoint(Funs, AAS=#aas{alias_map=AliasMap,call_args=CallArgs,
-                           func_db=FuncDb}) ->
-    Order = aa_reverse_post_order(Funs, FuncDb),
-    aa_fixpoint(Order, Order, AliasMap, CallArgs, AAS, ?MAX_REPETITIONS).
+aa_fixpoint(Funs, AAS=#aas{func_db=FuncDb}) ->
+    Order = aa_order(Funs, FuncDb),
+    ?DP("Traversal order:~n  ~s~n",
+        [string:join([fn(F) || F <- Order], ",\n  ")]),
+    aa_fixpoint(Order, reverse(Order), AAS, 1).
 
-aa_fixpoint([F|Fs], Order, OldAliasMap, OldCallArgs, AAS0=#aas{st_map=StMap},
-            Limit) ->
-    #b_local{name=#b_literal{val=_N},arity=_A} = F,
-    AAS1 = AAS0#aas{caller=F},
-    ?DP("-= ~p/~p =-~n", [_N, _A]),
+aa_fixpoint([F|Fs], Order,
+            AAS0=#aas{func_db=FuncDb,st_map=StMap,
+                      repeats=Repeats,run_count=RC}, NoofIters) ->
+
+    ?DP("-= ~s =-~n", [fn(F)]),
+    %% If, when analysing another function, this function has been
+    %% scheduled for revisiting, we can remove it, as we otherwise
+    %% revisit it again in the next iteration.
+    AAS1 = AAS0#aas{caller=F,repeats=sets:del_element(F, Repeats)},
+
     St = #opt_st{ssa=_Is} = map_get(F, StMap),
     ?DP("code:~n~p.~n", [_Is]),
     AAS = aa_fun(F, St, AAS1),
-    ?DP("Done ~p/~p~n", [_N, _A]),
-    aa_fixpoint(Fs, Order, OldAliasMap, OldCallArgs, AAS, Limit);
-aa_fixpoint([], Order, OldAliasMap, OldCallArgs,
-            #aas{alias_map=OldAliasMap,call_args=OldCallArgs,
-                 func_db=FuncDb}=AAS, _Limit) ->
-    ?DP("**** End of iteration ~p ****~n", [_Limit]),
-    {StMap,_} = aa_update_annotations(Order, AAS),
-    {StMap, FuncDb};
-aa_fixpoint([], _, _, _, #aas{func_db=FuncDb,orig_st_map=StMap}, 0) ->
-    ?DP("**** End of iteration, too many iterations ****~n"),
-    {StMap, FuncDb};
-aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
-            #aas{alias_map=AliasMap,call_args=CallArgs,repeats=Repeats}=AAS,
-            Limit) ->
-    ?DP("**** Things have changed, starting next iteration ****~n"),
+    ?DP("Done ~s~n", [fn(F)]),
+    case maps:get(F, RC, ?MAX_REPETITIONS) of
+        0 ->
+            ?DP("**** End of iteration, too many iterations ****~n"),
+            {StMap, FuncDb};
+        N ->
+            aa_fixpoint(Fs, Order,
+                        AAS#aas{run_count=RC#{F => N - 1}}, NoofIters)
+    end;
+aa_fixpoint([], Order, #aas{func_db=FuncDb,repeats=Repeats}=AAS, NoofIters) ->
     %% Following the depth first order, select those in Repeats.
-    NewOrder = [Id || Id <- Order, sets:is_element(Id, Repeats)],
-    aa_fixpoint(NewOrder, Order, AliasMap, CallArgs,
-                AAS#aas{repeats=sets:new()}, Limit - 1).
+    case [Id || Id <- Order, sets:is_element(Id, Repeats)] of
+        [] ->
+            ?DP("**** Fixpoint reached after ~p traversals ****~n",
+                [NoofIters]),
+            {StMap,_} = aa_update_annotations(Order, AAS),
+            {StMap, FuncDb};
+        NewOrder ->
+            ?DP("**** Starting traversal ~p ****~n", [NoofIters + 1]),
+            aa_fixpoint(NewOrder, reverse(Order),
+                        AAS#aas{repeats=sets:new()}, NoofIters + 1)
+    end.
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
-       AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
-                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0}) ->
+       AAS0=#aas{alias_map=AliasMap0,analyzed=Analyzed,kills=KillsMap,
+                 prune_strategy=StrategyMap0}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
     %% assumed to be aliased.
     {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
-    #{F:=Kills} = KillsMap,
-    {SS,#aas{call_args=CallArgs}=AAS} =
-        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+    #{F:={LiveIns,Kills,PhiLiveIns}} = KillsMap,
+    Strategy0 = maps:get(F, StrategyMap0, #{}),
+    {SS,Strategy,AAS1} =
+        aa_blocks(Linear0, LiveIns, PhiLiveIns,
+                  Kills, #{0=>SS0}, Strategy0, AAS0#aas{cnt=Cnt}),
+    Lbl2SS0 = maps:get(F, AliasMap0, #{}),
+    Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
+    Type2Status = maps:get(returns, SS, #{}),
+    AAS = case Type2Status0 =/= Type2Status of
+              true ->
+                  aa_schedule_revisit_callers(F, AAS1);
+              false ->
+                  AAS1
+          end,
     AliasMap = AliasMap0#{ F => SS },
-    PrevSS = maps:get(F, AliasMap0, #{}),
-    Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
-                  true ->
-                      %% Alias status has changed, so schedule both
-                      %% our callers and callees for renewed analysis.
-                      #{ F := #func_info{in=In,out=Out} } = FuncDb,
-                      foldl(fun sets:add_element/2,
-                            foldl(fun sets:add_element/2, Repeats0, Out), In);
-                  false ->
-                      Repeats0
-              end,
-    AAS#aas{alias_map=AliasMap,repeats=Repeats}.
+    StrategyMap = StrategyMap0#{F => Strategy},
+    AAS#aas{alias_map=AliasMap,analyzed=sets:add_element(F, Analyzed),
+            prune_strategy=StrategyMap}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs],
+          LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS) ->
     %% Nothing happening in the exception block can propagate to the
     %% other block.
-    aa_blocks(Bs, Kills, Lbl2SS, AAS);
-aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
+    aa_blocks(Bs, LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS);
+aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0],
+          LiveIns, PhiLiveIns, Kills, Lbl2SS0, Strategy0, AAS0) ->
     #{L:=SS0} = Lbl2SS0,
-    ?DP("Block: ~p~nSS: ~p~n", [L, SS0]),
+    ?DP("Block: ~p~nSS:~n~s~n", [L, beam_ssa_ss:dump(SS0)]),
     {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
     #{{live_outs,L}:=LiveOut} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
-    PrunedSS = beam_ssa_ss:prune(LiveOut, FullSS),
-    Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
+    %% In around 80% of the cases when prune is called, more than half
+    %% of the nodes in the sharing state database survive. Therefore
+    %% we default to a pruning strategy which removes nodes from the
+    %% database. But if only a few nodes survive it is faster to
+    %% recreate the pruned state from scratch. We therefore track the
+    %% result of a previous prune for the current basic block and
+    %% select the, hopefully, best pruning strategy.
+    Before = beam_ssa_ss:size(FullSS),
+    S = maps:get(L, Strategy0, del),
+    PrunedSS =
+        case S of
+            del ->
+                #{{killed_in_block,L}:=KilledInBlock} = Kills,
+                beam_ssa_ss:prune(LiveOut, KilledInBlock, FullSS);
+            add ->
+                beam_ssa_ss:prune_by_add(LiveOut, FullSS)
+        end,
+    After = beam_ssa_ss:size(PrunedSS),
+    Strategy = case After < (Before div 2) of
+                   true when S =:= add ->
+                       Strategy0;
+                   false when S =:= del ->
+                       Strategy0;
+                   true ->
+                       Strategy0#{L => add};
+                   false ->
+                       Strategy0#{L => del}
+               end,
+    ?DP("Live out from ~p: ~p~n", [L, sets:to_list(LiveOut)]),
+    Lbl2SS2 = aa_add_block_entry_ss(Successors, L, PrunedSS,
+                                    LiveOut, LiveIns, PhiLiveIns, Lbl2SS1),
     Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
-    aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
-aa_blocks([], _Kills, Lbl2SS, AAS) ->
-    {Lbl2SS,AAS}.
+    aa_blocks(Bs0, LiveIns, PhiLiveIns, Kills, Lbl2SS, Strategy, AAS1);
+aa_blocks([], _LiveIns, _PhiLiveIns, _Kills, Lbl2SS, Strategy, AAS) ->
+    {Lbl2SS, Strategy, AAS}.
 
 aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
     ?DP("I: ~p~n", [_I]),
-    SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
     {SS, AAS} =
         case Op of
             %% Instructions changing the alias status.
             {bif,Bif} ->
-                {aa_bif(Dst, Bif, Args, SS1, AAS0), AAS0};
+                {aa_bif(Dst, Bif, Args, SS0, AAS0), AAS0};
             bs_create_bin ->
                 case Args of
                     [#b_literal{val=Flag},_,Arg|_] when
@@ -422,76 +485,82 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
                         case aa_all_dies([Arg], Dst, AAS0) of
                             true ->
                                 %% Inherit the status of the argument
-                                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                                {aa_derive_from(Dst, Arg, SS0), AAS0};
                             false ->
                                 %% We alias with the surviving arg
-                                {aa_set_aliased([Dst|Args], SS1), AAS0}
+                                {aa_set_aliased([Dst|Args], SS0), AAS0}
                         end;
                     _ ->
                         %% TODO: Too conservative?
-                        {aa_set_aliased([Dst|Args], SS1), AAS0}
+                        {aa_set_aliased([Dst|Args], SS0), AAS0}
                 end;
             bs_extract ->
-                {aa_set_aliased([Dst|Args], SS1), AAS0};
+                {aa_set_aliased([Dst|Args], SS0), AAS0};
             bs_get_tail ->
-                {aa_set_aliased([Dst|Args], SS1), AAS0};
+                {aa_set_aliased([Dst|Args], SS0), AAS0};
             bs_match ->
-                {aa_set_aliased([Dst|Args], SS1), AAS0};
+                {aa_set_aliased([Dst|Args], SS0), AAS0};
             bs_start_match ->
                 [_,Bin] = Args,
-                {aa_set_aliased([Dst,Bin], SS1), AAS0};
+                {aa_set_aliased([Dst,Bin], SS0), AAS0};
             build_stacktrace ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 %% build_stacktrace can potentially alias anything
                 %% live at this point in the code. We handle it by
                 %% aliasing everything known to us. Touching
                 %% variables which are dead is harmless.
                 {aa_alias_all(SS1), AAS0};
             call ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 aa_call(Dst, Args, Anno0, SS1, AAS0);
             'catch_end' ->
                 [_Tag,Arg] = Args,
-                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                {aa_derive_from(Dst, Arg, SS0), AAS0};
             extract ->
                 [Arg,_] = Args,
-                {aa_derive_from(Dst, Arg, SS1), AAS0};
+                {aa_derive_from(Dst, Arg, SS0), AAS0};
             get_hd ->
                 [Arg] = Args,
                 Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
-                {aa_pair_extraction(Dst, Arg, hd, Type, SS1), AAS0};
+                {aa_pair_extraction(Dst, Arg, hd, Type, SS0), AAS0};
             get_map_element ->
                 [Map,_Key] = Args,
-                {aa_map_extraction(Dst, Map, SS1, AAS0), AAS0};
+                {aa_map_extraction(Dst, Map, SS0, AAS0), AAS0};
             get_tl ->
                 [Arg] = Args,
                 Type = maps:get(0, maps:get(arg_types, Anno0, #{0=>any}), any),
-                {aa_pair_extraction(Dst, Arg, tl, Type, SS1), AAS0};
+                {aa_pair_extraction(Dst, Arg, tl, Type, SS0), AAS0};
             get_tuple_element ->
                 [Arg,Idx] = Args,
                 Types = maps:get(arg_types, Anno0, #{}),
-                {aa_tuple_extraction(Dst, Arg, Idx, Types, SS1), AAS0};
+                {aa_tuple_extraction(Dst, Arg, Idx, Types, SS0), AAS0};
             landingpad ->
-                {aa_set_aliased(Dst, SS1), AAS0};
+                {aa_set_aliased(Dst, SS0), AAS0};
             make_fun ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [Callee|Env] = Args,
                 aa_make_fun(Dst, Callee, Env, SS1, AAS0);
             peek_message ->
-                {aa_set_aliased(Dst, SS1), AAS0};
+                {aa_set_aliased(Dst, SS0), AAS0};
             phi ->
-                {aa_phi(Dst, Args, SS1, AAS0), AAS0};
+                aa_phi(Dst, Args, SS0, AAS0);
             put_list ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 Types =
                     aa_map_arg_to_type(Args, maps:get(arg_types, Anno0, #{})),
                 {aa_construct_pair(Dst, Args, Types, SS1, AAS0), AAS0};
             put_map ->
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
             put_tuple ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 Types = aa_map_arg_to_type(Args,
                                            maps:get(arg_types, Anno0, #{})),
                 Values = lists:enumerate(0, Args),
                 {aa_construct_tuple(Dst, Values, Types, SS1, AAS0), AAS0};
             update_tuple ->
-                {aa_construct_term(Dst, Args, SS1, AAS0), AAS0};
+                {aa_construct_term(Dst, Args, SS0, AAS0), AAS0};
             update_record ->
+                SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
                 [#b_literal{val=Hint},_Size,Src|Updates] = Args,
                 RecordType = maps:get(arg_types, Anno0, #{}),
                 ?DP("UPDATE RECORD dst: ~p, src: ~p, type:~p~n",
@@ -521,47 +590,47 @@ aa_is([_I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
 
             %% Instructions which don't change the alias status
             {float,_} ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             {succeeded,_} ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             bs_init_writable ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             bs_test_tail ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             executable_line ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             has_map_field ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             is_nonempty_list ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             is_tagged_tuple ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             kill_try_tag ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             match_fail ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             new_try_tag ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             nif_start ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             raw_raise ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             recv_marker_bind ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             recv_marker_clear ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             recv_marker_reserve ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             recv_next ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             remove_message ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             resume ->
-                {SS1, AAS0};
+                {SS0, AAS0};
             wait_timeout ->
-                {SS1, AAS0}
+                {SS0, AAS0}
         end,
-    ?DP("Post I: ~p.~n      ~p~n", [_I, SS]),
+    ?DP("Post I: ~p.~n~s~n", [_I, beam_ssa_ss:dump(SS)]),
     aa_is(Is, SS, AAS);
 aa_is([], SS, AAS) ->
     {SS, AAS}.
@@ -594,11 +663,25 @@ aa_set_block_exit_ss(ThisBlockLbl, SS, Lbl2SS) ->
     Lbl2SS#{ThisBlockLbl=>SS}.
 
 %% Extend the SS valid on entry to the blocks in the list with NewSS.
-aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], NewSS, Lbl2SS) ->
-    aa_add_block_entry_ss(BlockLabels, NewSS, Lbl2SS);
-aa_add_block_entry_ss([L|BlockLabels], NewSS, Lbl2SS) ->
-    aa_add_block_entry_ss(BlockLabels, NewSS, aa_merge_ss(L, NewSS, Lbl2SS));
-aa_add_block_entry_ss([], _, Lbl2SS) ->
+aa_add_block_entry_ss([?EXCEPTION_BLOCK|BlockLabels], From, NewSS,
+                      LiveOut, LiveIns, PhiLiveIns, Lbl2SS) ->
+    aa_add_block_entry_ss(BlockLabels, From, NewSS, LiveOut,
+                          LiveIns, PhiLiveIns, Lbl2SS);
+aa_add_block_entry_ss([L|BlockLabels], From,
+                      NewSS, LiveOut, LiveIns, PhiLiveIns, Lbl2SS) ->
+    #{L:=LiveIn} = LiveIns,
+    PhiLiveIn = case PhiLiveIns of
+                    #{{From,L}:=Vs} -> Vs;
+                    #{} -> sets:new()
+                end,
+    AllLiveIn = sets:union(LiveIn, PhiLiveIn),
+    KilledOnEdge = sets:subtract(LiveOut, AllLiveIn),
+    ?DP("Killed on edge to ~p: ~p~n", [L, sets:to_list(KilledOnEdge)]),
+    ?DP("Live on edge to ~p: ~p~n", [L, sets:to_list(AllLiveIn)]),
+    Pruned = beam_ssa_ss:prune(AllLiveIn, KilledOnEdge, NewSS),
+    aa_add_block_entry_ss(BlockLabels, From, NewSS, LiveOut, LiveIns,
+                          PhiLiveIns, aa_merge_ss(L, Pruned, Lbl2SS));
+aa_add_block_entry_ss([], _, _, _, _, _, Lbl2SS) ->
     Lbl2SS.
 
 %% Merge two sharing states when traversing the execution graph
@@ -670,8 +753,7 @@ aa_update_annotations(Funs, #aas{alias_map=AliasMap0,st_map=StMap0}=AAS) ->
     foldl(fun(F, {StMapAcc,AliasMapAcc}) ->
                   #{F:=Lbl2SS0} = AliasMapAcc,
                   #{F:=OptSt0} = StMapAcc,
-                  #b_local{name=#b_literal{val=_N},arity=_A} = F,
-                  ?DP("Updating annotations for ~p/~p~n", [_N,_A]),
+                  ?DP("Updating annotations for ~s~n", [fn(F)]),
                   {OptSt,Lbl2SS} =
                       aa_update_fun_annotation(OptSt0, Lbl2SS0,
                                                AAS#aas{caller=F}),
@@ -786,7 +868,10 @@ aa_update_annotation_for_var(Var, Status, Anno0) ->
                                  ordsets:del_element(Var, Unique0)};
                             unique ->
                                 {ordsets:del_element(Var, Aliased0),
-                                 ordsets:add_element(Var, Unique0)}
+                                 ordsets:add_element(Var, Unique0)};
+                            no_info ->
+                                {ordsets:del_element(Var, Aliased0),
+                                 ordsets:del_element(Var, Unique0)}
                         end,
     Anno1 = case Aliased of
                 [] ->
@@ -805,7 +890,7 @@ aa_update_annotation_for_var(Var, Status, Anno0) ->
 %% instruction.
 dies_at(Var, #b_set{dst=Dst}, AAS) ->
     #aas{caller=Caller,kills=KillsMap} = AAS,
-    KillMap = map_get(Caller, KillsMap),
+    {_LiveIns,KillMap,_PhiLiveIns} = map_get(Caller, KillsMap),
     sets:is_element(Var, map_get(Dst, KillMap)).
 
 aa_set_aliased(Args, SS) ->
@@ -853,7 +938,7 @@ aa_alias_surviving_args1([], SS, _KillSet) ->
 
 %% Return the kill-set for the instruction defining Dst.
 aa_killset_for_instr(Dst, #aas{caller=Caller,kills=Kills}) ->
-    KillMap = map_get(Caller, Kills),
+    {_LiveIns,KillMap,_PhiLiveIns} = map_get(Caller, Kills),
     map_get(Dst, KillMap).
 
 %% Predicate to check if all variables in `Vars` dies at `Where`.
@@ -985,7 +1070,7 @@ aa_construct_tuple(Dst, IdxValues, Types, SS, AAS) ->
                  killed=>aa_dies(V, Types, KillSet),
                  plain=>aa_is_plain_value(V, Types)}
                || {Idx,V} <- IdxValues]]),
-    ?DP("~p~n", [SS]),
+    ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
     aa_build_tuple_or_pair(Dst, IdxValues, Types, KillSet, SS, []).
 
 aa_build_tuple_or_pair(Dst, [{Idx,#b_literal{val=Lit}}|IdxValues], Types,
@@ -1019,7 +1104,8 @@ aa_build_tuple_or_pair(Dst, [], _Types, _KillSet, SS, Sources) ->
 aa_construct_pair(Dst, Args0, Types, SS, AAS) ->
     KillSet = aa_killset_for_instr(Dst, AAS),
     [Hd,Tl] = Args0,
-    ?DP("Constructing pair in ~p~n from ~p and ~p~n~p~n", [Dst,Hd,Tl,SS]),
+    ?DP("Constructing pair in ~p~n from ~p and ~p~n~s~n",
+        [Dst, Hd, Tl, beam_ssa_ss:dump(SS)]),
     Args = [{hd,Hd},{tl,Tl}],
     aa_build_tuple_or_pair(Dst, Args, Types, KillSet, SS, []).
 
@@ -1033,8 +1119,9 @@ aa_bif(Dst, element, [#b_literal{val=Idx},Tuple], SS, _AAS)
     %% The element bif is always rewritten to a get_tuple_element
     %% instruction when the index is an integer and the second
     %% argument is a known to be a tuple. Therefore this code is only
-    %% reached when the type of is unknown, thus there is no point in
-    %% trying to provide aa_tuple_extraction/5 with type information.
+    %% reached when the type of Tuple is unknown, thus there is no
+    %% point in trying to provide aa_tuple_extraction/5 with type
+    %% information.
     aa_tuple_extraction(Dst, Tuple, #b_literal{val=Idx-1}, #{}, SS);
 aa_bif(Dst, element, [#b_literal{},Tuple], SS, _AAS) ->
     %% This BIF will fail, but in order to avoid any later transforms
@@ -1045,21 +1132,24 @@ aa_bif(Dst, element, [#b_var{},Tuple], SS, _AAS) ->
 aa_bif(Dst, hd, [Pair], SS, _AAS) ->
     %% The hd bif is always rewritten to a get_hd instruction when the
     %% argument is known to be a pair. Therefore this code is only
-    %% reached when the type of is unknown, thus there is no point in
-    %% trying to provide aa_pair_extraction/5 with type information.
+    %% reached when the type of Pair is unknown, thus there is no
+    %% point in trying to provide aa_pair_extraction/5 with type
+    %% information.
     aa_pair_extraction(Dst, Pair, hd, SS);
 aa_bif(Dst, tl, [Pair], SS, _AAS) ->
     %% The tl bif is always rewritten to a get_tl instruction when the
     %% argument is known to be a pair. Therefore this code is only
-    %% reached when the type of is unknown, thus there is no point in
-    %% trying to provide aa_pair_extraction/5 with type information.
+    %% reached when the type of Pair is unknown, thus there is no
+    %% point in trying to provide aa_pair_extraction/5 with type
+    %% information.
     aa_pair_extraction(Dst, Pair, tl, SS);
 aa_bif(Dst, map_get, [_Key,Map], SS, AAS) ->
     aa_map_extraction(Dst, Map, SS, AAS);
-aa_bif(Dst, binary_part, Args, SS, _AAS) ->
+aa_bif(Dst, binary_part, Args, SS0, _AAS) ->
     %% bif:binary_part/{2,3} is the only guard bif which could lead to
     %% aliasing, it extracts a sub-binary with a reference to its
     %% argument.
+    SS = beam_ssa_ss:add_var(Dst, unique, SS0),
     aa_set_aliased([Dst|Args], SS);
 aa_bif(Dst, Bif, Args, SS, _AAS) ->
     Arity = length(Args),
@@ -1076,28 +1166,32 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
             aa_set_aliased([Dst|Args], SS)
     end.
 
-aa_phi(Dst, Args0, SS0, AAS) ->
+aa_phi(Dst, Args0, SS0, #aas{cnt=Cnt0}=AAS) ->
+    %% TODO: Use type info?
     Args = [V || {V,_} <- Args0],
-    SS = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
-    aa_derive_from(Dst, Args, SS).
+    ?DP("Phi~n"),
+    SS1 = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
+    ?DP("  after aa_alias_surviving_args:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
+    {SS,Cnt} = beam_ssa_ss:phi(Dst, Args, SS1, Cnt0),
+    {SS,AAS#aas{cnt=Cnt}}.
 
 aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
-        #aas{alias_map=AliasMap,st_map=StMap,cnt=Cnt0}=AAS0) ->
-    #b_local{name=#b_literal{val=_N},arity=_A} = Callee,
-    ?DP("A Call~n  callee: ~p/~p~n  args: ~p~n", [_N, _A, Args]),
-    case is_map_key(Callee, AliasMap) of
+        #aas{alias_map=AliasMap,analyzed=Analyzed,
+             st_map=StMap,cnt=Cnt0}=AAS0) ->
+    ?DP("A Call~n  callee: ~s~n  args: ~p~n", [fn(Callee), Args]),
+    ?DP("  caller args: ~p~n", [Args]),
+    SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
+    ?DP("  caller ss before call:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
+    #aas{alias_map=AliasMap} = AAS =
+        aa_add_call_info(Callee, Args, SS1, AAS0),
+    case sets:is_element(Callee, Analyzed) of
         true ->
-            ?DP("  The callee is known~n"),
+            ?DP("  The callee has been analyzed~n"),
             #opt_st{args=_CalleeArgs} = map_get(Callee, StMap),
             ?DP("  callee args: ~p~n", [_CalleeArgs]),
-            ?DP("  caller args: ~p~n", [Args]),
-            SS1 = aa_alias_surviving_args(Args, Dst, SS0, AAS0),
-            ?DP("  caller ss before call:~n  ~p.~n", [SS1]),
-            #aas{alias_map=AliasMap} = AAS =
-                aa_add_call_info(Callee, Args, SS1, AAS0),
             #{Callee:=#{0:=_CalleeSS}=Lbl2SS} = AliasMap,
-            ?DP("  callee ss: ~p~n", [_CalleeSS]),
-            ?DP("  caller ss after call: ~p~n", [SS1]),
+            ?DP("  callee ss:~n~s~n", [beam_ssa_ss:dump(_CalleeSS)]),
+            ?DP("  caller ss after call:~n~s~n", [beam_ssa_ss:dump(SS1)]),
 
             ReturnStatusByType = maps:get(returns, Lbl2SS, #{}),
             ?DP("  status by type: ~p~n", [ReturnStatusByType]),
@@ -1111,12 +1205,14 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             ?DP("  result status: ~p~n", [ResultStatus]),
             {SS,Cnt} =
                 beam_ssa_ss:set_call_result(Dst, ResultStatus, SS1, Cnt0),
-            ?DP("~p~n", [SS]),
+            ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
             {SS, AAS#aas{cnt=Cnt}};
         false ->
-            %% We don't know anything about the function, don't change
-            %% the status of any variables
-            {SS0, AAS0}
+            ?DP("  The callee has not been analyzed~n"),
+            %% We don't know anything about the function, so
+            %% explicitly mark that we don't know anything about the
+            %% result.
+            {beam_ssa_ss:set_status(Dst, no_info, SS0), AAS}
     end;
 aa_call(_Dst, [#b_remote{mod=#b_literal{val=erlang},
                          name=#b_literal{val=exit},
@@ -1136,21 +1232,25 @@ aa_call(Dst, [_Callee|Args], _Anno, SS0, AAS) ->
 aa_add_call_info(Callee, Args, SS0,
                  #aas{call_args=InInfo0,caller=_Caller}=AAS) ->
     #{Callee := InStatus0} = InInfo0,
-    ?DBG(#b_local{name=#b_literal{val=_CN},arity=_CA} = _Caller),
-    ?DBG(#b_local{name=#b_literal{val=_N},arity=_A} = Callee),
-    ?DP("Adding call info for ~p/~p when called by ~p/~p~n"
-        "  args: ~p.~n  ss:~p.~n", [_N,_A,_CN,_CA,Args,SS0]),
+    ?DP("Adding call info for ~s when called by ~s~n"
+        "  args: ~p.~n  ss:~n~s.~n",
+        [fn(Callee), fn(_Caller), Args, beam_ssa_ss:dump(SS0)]),
     InStatus = beam_ssa_ss:merge_in_args(Args, InStatus0, SS0),
-    ?DP("  orig in-info: ~p.~n", [InStatus0]),
-    ?DP("  updated in-info for ~p/~p:~n    ~p.~n", [_N,_A,InStatus]),
-    InInfo = InInfo0#{Callee => InStatus},
-    AAS#aas{call_args=InInfo}.
+    ?DP("  orig in-info:~n  ~p.~n", [InStatus0]),
+    ?DP("  updated in-info for ~s:~n    ~p.~n", [fn(Callee), InStatus]),
+    case InStatus0 =/= InStatus of
+        true ->
+            InInfo = InInfo0#{Callee => InStatus},
+            aa_schedule_revisit(Callee, AAS#aas{call_args=InInfo});
+        false ->
+            AAS
+    end.
 
 aa_init_fun_ss(Args, FunId, #aas{call_args=Info,st_map=StMap}) ->
     #{FunId:=ArgsStatus} = Info,
     #{FunId:=#opt_st{cnt=Cnt}} = StMap,
-    ?DP("aa_init_fun_ss: ~p~n  args: ~p~n  status: ~p~n  cnt: ~p~n",
-        [FunId,Args,ArgsStatus,Cnt]),
+    ?DP("aa_init_fun_ss: ~s~n  args: ~p~n  status: ~p~n  cnt: ~p~n",
+        [fn(FunId), Args, ArgsStatus, Cnt]),
     beam_ssa_ss:new(Args, ArgsStatus, Cnt).
 
 %% Pair extraction.
@@ -1159,9 +1259,9 @@ aa_pair_extraction(Dst, Pair, Element, SS) ->
 
 aa_pair_extraction(Dst, #b_var{}=Pair, Element, Type, SS) ->
     IsPlainValue = case {Type,Element} of
-                       {#t_cons{type=Ty},hd} ->
-                           aa_is_plain_type(Ty);
                        {#t_cons{terminator=Ty},tl} ->
+                           aa_is_plain_type(Ty);
+                       {#t_cons{type=Ty},hd} ->
                            aa_is_plain_type(Ty);
                        _ ->
                            %% There is no type information,
@@ -1190,7 +1290,7 @@ aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
     TupleType = maps:get(0, Types, any),
     TypeIdx = I+1, %% In types tuple indices starting at zero.
     IsPlainValue = case TupleType of
-                       #t_tuple{elements=#{TypeIdx:=T}} ->
+                       #t_tuple{elements=#{TypeIdx:=T}} when T =/= any ->
                            aa_is_plain_type(T);
                        _ ->
                            %% There is no type information,
@@ -1201,19 +1301,19 @@ aa_tuple_extraction(Dst, #b_var{}=Tuple, #b_literal{val=I}, Types, SS) ->
     ?DP("tuple-extraction dst:~p, tuple: ~p, idx: ~p,~n"
         "  type: ~p,~n  plain: ~p~n",
         [Dst, Tuple, I, TupleType, IsPlainValue]),
-    if IsPlainValue ->
+    case IsPlainValue of
+        true ->
             %% A plain value was extracted, it doesn't change the
             %% alias status of Dst nor the tuple.
             SS;
-       true ->
+        false ->
             beam_ssa_ss:extract(Dst, Tuple, I, SS)
     end;
 aa_tuple_extraction(_, #b_literal{}, _, _, SS) ->
     SS.
 
 aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
-            Env0, SS0,
-            AAS0=#aas{call_args=Info0,repeats=Repeats0}) ->
+            Env0, SS0, AAS0=#aas{call_args=Info0}) ->
     %% When a value is copied into the environment of a fun we assume
     %% that it has been aliased as there is no obvious way to track
     %% and ensure that the value is only used once, even if the
@@ -1227,21 +1327,24 @@ aa_make_fun(Dst, Callee=#b_local{name=#b_literal{}},
     Status = [aliased || _ <- Status0],
     #{ Callee := PrevStatus } = Info0,
     Info = Info0#{ Callee := Status },
-    Repeats = case PrevStatus =/= Status of
-                  true ->
-                      %% We have new information for the callee, we
-                      %% have to revisit it.
-                      sets:add_element(Callee, Repeats0);
-                  false ->
-                      Repeats0
+    AAS1 = case PrevStatus =/= Status of
+               true ->
+                   %% We have new information for the callee, we
+                   %% have to revisit it.
+                   aa_schedule_revisit(Callee, AAS0);
+               false ->
+                   AAS0
               end,
-    AAS = AAS0#aas{call_args=Info,repeats=Repeats},
-    {SS, AAS}.
+    {SS, AAS1#aas{call_args=Info}}.
 
-aa_reverse_post_order(Funs, FuncDb) ->
-    %% In order to produce a reverse post order of the call graph, we
-    %% have to make sure all exported functions without local callers
-    %% are visited before exported functions with local callers.
+aa_order(Funs, FuncDb) ->
+    %% Information about the alias status flows from callers to
+    %% callees and then back through the status of the result.  In
+    %% order to avoid the most pessimistic estimate of the aliasing
+    %% status we want to process callers before callees with one
+    %% exception: zero-arity functions are always processed before
+    %% their callers as they are likely to give the most precise alias
+    %% information to their callers.
     IsExportedNoLocalCallers =
         fun (F) ->
                 #{ F := #func_info{exported=E,in=In} } = FuncDb,
@@ -1254,9 +1357,12 @@ aa_reverse_post_order(Funs, FuncDb) ->
                 #{ F := #func_info{exported=E,in=In} } = FuncDb,
                 E andalso In =/= []
         end,
+
+    ZeroArityFunctions = lists:sort([ F || #b_local{arity=0}=F <- Funs]),
     ExportedLocalCallers =
         lists:sort([ F || F <- Funs, IsExportedLocalCallers(F)]),
-    aa_reverse_post_order(ExportedNoLocalCallers, ExportedLocalCallers,
+    aa_reverse_post_order(ZeroArityFunctions ++ ExportedNoLocalCallers,
+                          ExportedLocalCallers,
                           sets:new(), FuncDb).
 
 aa_reverse_post_order([F|Work], Next, Seen, FuncDb) ->
@@ -1282,6 +1388,22 @@ aa_reverse_post_order([], [], _Seen, _FuncDb) ->
     [];
 aa_reverse_post_order([], Next, Seen, FuncDb) ->
     aa_reverse_post_order(Next, [], Seen, FuncDb).
+
+%% Schedule a function for revisting.
+aa_schedule_revisit(FuncId,
+                    #aas{func_db=FuncDb,st_map=StMap,repeats=Repeats}=AAS)
+  when is_map_key(FuncId, FuncDb), is_map_key(FuncId, StMap) ->
+    ?DP("Scheduling ~s for revisit~n", [fn(FuncId)]),
+    AAS#aas{repeats=sets:add_element(FuncId, Repeats)};
+aa_schedule_revisit(_, AAS) ->
+    AAS.
+
+%% Schedule the callers of a function for revisting.
+aa_schedule_revisit_callers(FuncId, #aas{func_db=FuncDb}=AAS) ->
+    #{FuncId:=#func_info{in=In}} = FuncDb,
+    ?DP("Scheduling callers of ~s for revisit: ~s.~n",
+        [fn(FuncId), string:join([fn(I) || I <- In], ", ")]),
+    foldl(fun aa_schedule_revisit/2, AAS, In).
 
 expand_record_update(#opt_st{ssa=Linear0,cnt=First,anno=Anno0}=OptSt) ->
     {Linear,Cnt} = eru_blocks(Linear0, First),

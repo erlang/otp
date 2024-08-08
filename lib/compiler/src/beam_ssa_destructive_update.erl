@@ -92,7 +92,7 @@
 
 -export([opt/2]).
 
--import(lists, [foldl/3, foldr/3, keysort/2, reverse/1]).
+-import(lists, [foldl/3, foldr/3, keysort/2, splitwith/2, reverse/1]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -830,19 +830,18 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
     PD = maps:remove(Dst, PD0),
     case Patches of
         [{opargs,Dst,_,_,_}|_] ->
+            Splitter = fun({opargs,D,_Idx,_Lit,_Element}) ->
+                               Dst =:= D;
+                          (_) ->
+                               false
+                       end,
+            {OpArgs0, Other} = splitwith(Splitter, Patches),
             OpArgs = [{Idx,Lit,Element}
-                      || {opargs,D,Idx,Lit,Element} <- Patches, Dst =:= D],
-            Forced = [ F || {force_copy,_}=F <- Patches],
-            I1 = case Forced of
-                     [] ->
-                         I0;
-                     _ ->
-                         no_reuse(I0)
-                 end,
-            0 = length(Patches) - length(Forced) - length(OpArgs),
+                      || {opargs,_D,Idx,Lit,Element} <- OpArgs0],
             Ps = keysort(1, OpArgs),
-            {Is,Cnt} = patch_opargs(I1, Ps, Cnt0),
-            patch_is(Rest, PD, Cnt, Is++Acc, BlockAdditions0);
+            {Is,Cnt} = patch_opargs(I0, Ps, Cnt0),
+            patch_is([hd(Is)|Rest], PD#{Dst=>Other}, Cnt,
+                     tl(Is)++Acc, BlockAdditions0);
         [{appendable_binary,Dst,#b_literal{val= <<>>}=Lit}] ->
             %% Special case for when the first fragment is a literal
             %% <<>> and it has to be replaced with a bs_init_writable.
