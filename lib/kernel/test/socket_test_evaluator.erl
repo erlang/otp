@@ -562,10 +562,10 @@ await_termination(Pid, ExpReason) ->
       Reason       :: term().
 
 await(ExpPid, Name, Announcement, Slogan, OtherPids) 
-  when (is_pid(ExpPid) orelse (ExpPid =:= any)) andalso 
-       is_atom(Name) andalso 
-       is_atom(Announcement) andalso 
-       is_atom(Slogan) andalso 
+  when (is_pid(ExpPid) orelse (ExpPid =:= any)) andalso
+       is_atom(Name) andalso
+       is_atom(Announcement) andalso
+       is_atom(Slogan) andalso
        is_list(OtherPids) ->
     receive
         skip ->
