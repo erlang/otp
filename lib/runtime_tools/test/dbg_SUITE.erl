@@ -409,17 +409,18 @@ distributed(Config) when is_list(Config) ->
         {value, {matched, Node, 1}} = lists:keysearch(Node, 2, Z),
         dbg:cn(Node),
         dbg:tp(dbg,ln,[]),
-        ok = rpc:block_call(Node, dbg, ltp, []),
-        ok = rpc:block_call(Node, dbg, ln, []),
         ok = dbg:ln(),
+        [ok = rpc:block_call(Node, dbg, ltp, []) || _ <- lists:seq(1,100)],
+        ok = rpc:block_call(Node, dbg, ln, []),
         S = self(),
         {TraceSend, TraceCall} =
         lists:partition(fun ({trace,RP,send,_,_}) when RP =:= RexPid -> true;
                             (_) -> false end,
                         flush()),
         [_|_] = TraceSend,
-        [{trace,Pid,call,{dbg,ltp,[]}},
-         {trace,S,call,{dbg,ln,[]}}] = TraceCall,
+        [{trace,S,call,{dbg,ln,[]}} | RemoteCall] = TraceCall,
+        100 = length(RemoteCall),
+        [{trace,Pid,call,{dbg,ltp,[]}}] = lists:uniq(RemoteCall),
         Node = node(Pid),
         %%
         stop()
