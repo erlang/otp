@@ -42,6 +42,16 @@
 -define(INFO(),                       ?DUTIL:info()).
 -define(SCRAMBLE(SS),                 ?DUTIL:scramble(SS)).
 
--define(TS(),                         erlang:system_time(millisecond)).
+-define(UNIQUE_STRING(),              ?DUTIL:unique_string()).
+
+-define(PCALL(F), 
+        ?DUTIL:proxy_call((F), infinity, infinity, {error, timeout})).
+-define(PCALL(F, T, PT),
+        ?DUTIL:proxy_call((F), (T), (PT), {error, timeout})).
+-define(PCALL(F, T, PT, DRes),
+        ?DUTIL:proxy_call((F), (T), (PT), (DRes))).
+-define(TS(),          erlang:system_time(millisecond)).
+-define(MINS(M),       timer:minutes((M))).
+-define(SECS(S),       timer:seconds((S))).
 
 -endif.

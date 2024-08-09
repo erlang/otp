@@ -46,7 +46,7 @@
          have_sctp/0,
          eprof/1,
          log/4,
-         proxy_call/3
+         proxy_call/4
         ]).
 
 %% diameter-specific
@@ -191,46 +191,46 @@ down(Parent, Worker)
 down(ParentMRef, WorkerPid) ->
     ?UL("down -> await worker (~p) termination", [WorkerPid]),
     timer:send_after(1000, self(), check_worker_status),
-    await_down(ParentMRef, WorkerPid).
+    await_down(ParentMRef, WorkerPid, 1).
 
-await_down(ParentMRef, WorkerPid) ->
+await_down(ParentMRef, WorkerPid, N) ->
     receive
         check_worker_status ->
-            ?UL("await_down -> check worker process (~p) status: "
+            ?UL("await_down -> check worker process ~p status [~w]: "
                 "~n   Current Function:     ~p"
                 "~n   Message Queue Length: ~p"
                 "~n   Reductions:           ~p"
                 "~n   Status:               ~p",
-                [WorkerPid,
+                [WorkerPid, N,
                  pi(WorkerPid, current_function),
                  pi(WorkerPid, message_queue_len),
                  pi(WorkerPid, reductions),
                  pi(WorkerPid, status)]),
             timer:send_after(1000, self(), check_worker_status),
-            await_down(ParentMRef, WorkerPid);
+            await_down(ParentMRef, WorkerPid, N+1);
 
         {'EXIT', TCPid, {timetrap_timeout = R, TCTimeout, TCStack}} ->
-            ?UL("await_down -> test case timetrap timeout when"
+            ?UL("await_down -> test case timetrap timeout when (~w)"
                 "~n   (test case) Pid:     ~p"
                 "~n   (test case) Timeout: ~p"
-                "~n   (test case) Stack:   ~p", [TCPid, TCTimeout, TCStack]),
+                "~n   (test case) Stack:   ~p", [N, TCPid, TCTimeout, TCStack]),
             exit(WorkerPid, kill),
             %% So many wrapper levels, make sure we go with a bang
             exit({TCPid, R, TCStack});
 
         {'DOWN', ParentMRef, process, PPid, PReason} ->
-            ?UL("await_down -> parent process [~p] died: "
-                "~n   Reason: ~p", [PPid, PReason]),
+            ?UL("await_down -> parent process ~p died [~w]: "
+                "~n   Reason: ~p", [PPid, N, PReason]),
             exit(WorkerPid, kill);
 
         {'DOWN', _, process, WorkerPid, {skip, WSkipReason} = SKIP} ->
-            ?UL("await_down -> worker process [~p] died with skip: "
-                "~n   Skip Reason: ~p", [WorkerPid, WSkipReason]),
+            ?UL("await_down -> worker process ~p died with skip [~w]: "
+                "~n   Skip Reason: ~p", [WorkerPid, N, WSkipReason]),
             exit(SKIP);
 
         {'DOWN', _, process, WorkerPid, WReason} ->
-            ?UL("await_down -> worker process [~p] died: "
-                "~n   Reason: ~p", [WorkerPid, WReason]),
+            ?UL("await_down -> worker process ~p died [~w]: "
+                "~n   Reason: ~p", [WorkerPid, N, WReason]),
             ok
     end.
 
@@ -468,7 +468,7 @@ listen(SvcName, Prot, Opts) ->
         "~n   SvcName: ~p"
         "~n   Prot:    ~p"
         "~n   Opts:    ~p"
-        "~n  => verisfy service name", [?FUNCTION_NAME, SvcName, Prot, Opts]),
+        "~n  => verify service name", [?FUNCTION_NAME, SvcName, Prot, Opts]),
     SvcName = diameter:service_info(SvcName, name),  %% assert
     ?UL("~w -> add transport", [?FUNCTION_NAME]),
     Ref = add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}),
@@ -2590,7 +2590,7 @@ which_win_system_info() ->
                         []
                 end
         end,
-    proxy_call(F, timer:minutes(1), []).
+    proxy_call(F, timer:minutes(1), infinity, []).
 
 
 win_sys_info_lookup(Key, SysInfo) ->
@@ -2863,16 +2863,130 @@ os_cond_skip_check(OsName, OsNames) ->
 
 %% ---------------------------------------------------------------------------
 
-proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+%% Proxy call
+%% That is; create a proxy process that calls a fun.
+%% The point of this is to "supervise" the (proxy) process,
+%% and print various status info about the (proxy) process.
+%% Normally this process would terminate in (much) less than
+%% one second, so nothing "should" be printed...
+proxy_call(F, Timeout, PTimeout, Default)
+  when is_function(F, 0) andalso
+       is_integer(Timeout) andalso (Timeout > 0) andalso
+       is_integer(PTimeout) andalso (PTimeout > 0) andalso
+       (Timeout > PTimeout) ->
+    do_proxy_call(F, Timeout, PTimeout, Default);
+proxy_call(F, Timeout, PTimeout, Default)
+  when is_function(F, 0) andalso
+       (Timeout =:= infinity) andalso
+       ((PTimeout =:= infinity) orelse
+        (is_integer(PTimeout) andalso (PTimeout > 0))) ->
+    do_proxy_call(F, Timeout, PTimeout, Default);
+proxy_call(F, Timeout, PTimeout, Default)
+  when is_function(F, 0) andalso
+       ((Timeout =:= infinity) orelse
+        (is_integer(Timeout) andalso (Timeout > 0))) andalso
+       (PTimeout =:= infinity) ->
+    do_proxy_call(F, Timeout, PTimeout, Default).
+
+do_proxy_call(F, Timeout, PTimeout, Default) ->
+    {P, M} = erlang:spawn_monitor(
+               fun() ->
+                       exit(F())
+               end),
+    PTRef = pcall_start_poll_timer(PTimeout),
+    pcall_loop(P, M, Timeout, PTimeout, PTRef, Default).
+
+pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
     receive
-        {'DOWN', M, process, P, Reply} ->
-            Reply
+        {'EXIT', TCPid, {timetrap_timeout, TCTimeout, TCStack}} ->
+            ?UL("pcall_loop -> test case timetrap timeout when"
+                "~n   (test case) Pid:     ~p"
+                "~n   (test case) Timeout: ~p"
+                "~n   (test case) Stack:   ~p"
+                "~nwhen status for worker"
+                "~n   Current Function: ~p"
+                "~n   Status:           ~p"
+                "~n   Memory:           ~p"
+                "~n   Heap Size:        ~p"
+                "~n   Stack Size:       ~p"
+                "~n   Messages:         ~p"
+                "~n   Reductions:       ~p",
+               [TCPid, TCTimeout, TCStack,
+                pinfo(Pid, current_function),
+                pinfo(Pid, status),
+                pinfo(Pid, memory),
+                pinfo(Pid, heap_size),
+                pinfo(Pid, stack_size),
+                pinfo(Pid, messages),
+                pinfo(Pid, reductions)]),
+            pcall_cancel_poll_timer(TRef),
+            erlang:demonitor(MRef, [flush]),
+            exit(Pid, kill),
+            Default;
+
+        {'DOWN', MRef, process, Pid, Res} ->
+            ?UL("pcall_loop -> DOWN from supervised process (~p) with: "
+                "~n   ~p", [Pid, Res]),
+            pcall_cancel_poll_timer(TRef),
+            Res;
+
+        {?MODULE, status_poll} ->
+            ?UL("pcall_loop -> worker status timeout: "
+                "~n   Current Function: ~p"
+                "~n   Status:           ~p"
+                "~n   Memory:           ~p"
+                "~n   Heap Size:        ~p"
+                "~n   Stack Size:       ~p"
+                "~n   Messages:         ~p"
+                "~n   Reductions:       ~p",
+                [pinfo(Pid, current_function),
+                 pinfo(Pid, status),
+                 pinfo(Pid, memory),
+                 pinfo(Pid, heap_size),
+                 pinfo(Pid, stack_size),
+                 pinfo(Pid, messages),
+                 pinfo(Pid, reductions)]),
+            Timeout2 =
+                if
+                    (Timeout < PTimeout) ->
+                        0;
+                    true ->
+                        Timeout - PTimeout
+                end,
+            NewTRef  = pcall_start_poll_timer(PTimeout),
+            pcall_loop(Pid, MRef, Timeout2, PTimeout, NewTRef, Default)
+
     after Timeout ->
-            erlang:demonitor(M, [flush]),
-            exit(P, kill),
+            ?UL("pcall_loop -> timeout"),
+            pcall_cancel_poll_timer(TRef),
+            erlang:demonitor(MRef, [flush]),
+            exit(Pid, kill),
             Default
+    end.
+
+pcall_start_poll_timer(infinity = TRef) ->
+    TRef;
+pcall_start_poll_timer(Timeout) ->
+    erlang:send_after(Timeout, self(), {?MODULE, status_poll}).
+
+pcall_cancel_poll_timer(infinity = _TRef) ->
+    ok;
+pcall_cancel_poll_timer(TRef) when is_reference(TRef) ->
+    erlang:cancel_timer(TRef),
+    receive
+        {?MODULE, status_poll} ->
+            ok
+    after 0 ->
+            ok
+    end.
+
+    
+pinfo(P, Key) when is_pid(P) ->
+    case erlang:process_info(P, Key) of
+        {Key, Value} ->
+            Value;
+        _ ->
+            undefined
     end.
 
 
