@@ -20,23 +20,35 @@
 
 -module(wxBookCtrlBase).
 -moduledoc """
-Functions for wxBookCtrlBase class
+A book control is a convenient way of displaying multiple pages of information, displayed
+one page at a time.
 
-A book control is a convenient way of displaying multiple pages of information,
-displayed one page at a time. wxWidgets has five variants of this control:
+wxWidgets has five variants of this control:
 
-This abstract class is the parent of all these book controls, and provides their
-basic interface. This is a pure virtual class so you cannot allocate it
-directly.
+* `m:wxChoicebook`: controlled by a `m:wxChoice`
 
-See:
-[Overview bookctrl](https://docs.wxwidgets.org/3.1/overview_bookctrl.html#overview_bookctrl)
+* `m:wxListbook`: controlled by a `m:wxListCtrl`
 
-This class is derived (and can use functions) from: `m:wxControl` `m:wxWindow`
-`m:wxEvtHandler`
+* `m:wxNotebook`: uses a row of tabs
 
-wxWidgets docs:
-[wxBookCtrlBase](https://docs.wxwidgets.org/3.1/classwx_book_ctrl_base.html)
+* `m:wxTreebook`: controlled by a `m:wxTreeCtrl`
+
+* `m:wxToolbook`: controlled by a `m:wxToolBar`
+
+This abstract class is the parent of all these book controls, and provides their basic
+interface. This is a pure virtual class so you cannot allocate it directly.
+
+See: [Overview bookctrl](https://docs.wxwidgets.org/3.2/overview_bookctrl.html#overview_bookctrl)
+
+This class is derived, and can use functions, from:
+
+* `m:wxControl`
+
+* `m:wxWindow`
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxBookCtrlBase](https://docs.wxwidgets.org/3.2/classwx_book_ctrl_base.html)
 """.
 -include("wxe.hrl").
 -export([addPage/3,addPage/4,advanceSelection/1,advanceSelection/2,changeSelection/2,
@@ -86,14 +98,13 @@ wxWidgets docs:
 
 -type wxBookCtrlBase() :: wx:wx_object().
 -export_type([wxBookCtrlBase/0]).
-%% @hidden
 -doc false.
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv addPage(This,Page,Text, [])
+-doc(#{equiv => addPage(This,Page,Text, [])}).
 -spec addPage(This, Page, Text) -> boolean() when
 	This::wxBookCtrlBase(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -101,17 +112,15 @@ addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Text) ->
   addPage(This,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbaseaddpage">external documentation</a>.
 -doc """
 Adds a new page.
 
-The page must have the book control itself as the parent and must not have been
-added to this control previously.
+The page must have the book control itself as the parent and must not have been added to
+this control previously.
 
-The call to this function will generate the page changing and page changed
-events if `select` is true, but not when inserting the very first page (as there
-is no previous page selection to switch from in this case and so it wouldn't
-make sense to e.g. veto such event).
+The call to this function will generate the page changing and page changed events if `select`
+is true, but not when inserting the very first page (as there is no previous page
+selection to switch from in this case and so it wouldn't make sense to e.g. veto such event).
 
 Return: true if successful, false otherwise.
 
@@ -135,7 +144,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text, Options)
   wxe_util:queue_cmd(This,Page,Text_UC, Opts,?get_env(),?wxBookCtrlBase_AddPage),
   wxe_util:rec(?wxBookCtrlBase_AddPage).
 
-%% @equiv insertPage(This,Index,Page,Text, [])
+-doc(#{equiv => insertPage(This,Index,Page,Text, [])}).
 -spec insertPage(This, Index, Page, Text) -> boolean() when
 	This::wxBookCtrlBase(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
@@ -143,7 +152,6 @@ insertPage(This,Index,Page,Text)
  when is_record(This, wx_ref),is_integer(Index),is_record(Page, wx_ref),?is_chardata(Text) ->
   insertPage(This,Index,Page,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbaseinsertpage">external documentation</a>.
 -doc """
 Inserts a new page at the specified position.
 
@@ -169,15 +177,14 @@ insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text, Options
   wxe_util:queue_cmd(This,Index,Page,Text_UC, Opts,?get_env(),?wxBookCtrlBase_InsertPage),
   wxe_util:rec(?wxBookCtrlBase_InsertPage).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasedeletepage">external documentation</a>.
 -doc """
 Deletes the specified page, and the associated window.
 
-The call to this function generates the page changing events when deleting the
-currently selected page or a page preceding it in the index order, but it does
-`not` send any events when deleting the last page: while in this case the
-selection also changes, it becomes invalid and for compatibility reasons the
-control never generates events with the invalid selection index.
+The call to this function generates the page changing events when deleting the currently
+selected page or a page preceding it in the index order, but it does `not` send any events
+when deleting the last page: while in this case the selection also changes, it becomes
+invalid and for compatibility reasons the control never generates events with the invalid
+selection index.
 """.
 -spec deletePage(This, Page) -> boolean() when
 	This::wxBookCtrlBase(), Page::integer().
@@ -187,7 +194,6 @@ deletePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlBase_DeletePage),
   wxe_util:rec(?wxBookCtrlBase_DeletePage).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbaseremovepage">external documentation</a>.
 -doc """
 Deletes the specified page, without deleting the associated window.
 
@@ -201,7 +207,6 @@ removePage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlBase_RemovePage),
   wxe_util:rec(?wxBookCtrlBase_RemovePage).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasedeleteallpages">external documentation</a>.
 -doc "Deletes all pages.".
 -spec deleteAllPages(This) -> boolean() when
 	This::wxBookCtrlBase().
@@ -210,7 +215,6 @@ deleteAllPages(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlBase_DeleteAllPages),
   wxe_util:rec(?wxBookCtrlBase_DeleteAllPages).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasegetpage">external documentation</a>.
 -doc "Returns the window at the given page position.".
 -spec getPage(This, Page) -> wxWindow:wxWindow() when
 	This::wxBookCtrlBase(), Page::integer().
@@ -220,7 +224,6 @@ getPage(#wx_ref{type=ThisT}=This,Page)
   wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlBase_GetPage),
   wxe_util:rec(?wxBookCtrlBase_GetPage).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasegetpagecount">external documentation</a>.
 -doc "Returns the number of pages in the control.".
 -spec getPageCount(This) -> integer() when
 	This::wxBookCtrlBase().
@@ -229,7 +232,6 @@ getPageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlBase_GetPageCount),
   wxe_util:rec(?wxBookCtrlBase_GetPageCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasegetcurrentpage">external documentation</a>.
 -doc "Returns the currently selected page or NULL.".
 -spec getCurrentPage(This) -> wxWindow:wxWindow() when
 	This::wxBookCtrlBase().
@@ -238,7 +240,7 @@ getCurrentPage(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlBase_GetCurrentPage),
   wxe_util:rec(?wxBookCtrlBase_GetCurrentPage).
 
-%% @equiv advanceSelection(This, [])
+-doc(#{equiv => advanceSelection(This, [])}).
 -spec advanceSelection(This) -> 'ok' when
 	This::wxBookCtrlBase().
 
@@ -246,7 +248,6 @@ advanceSelection(This)
  when is_record(This, wx_ref) ->
   advanceSelection(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbaseadvanceselection">external documentation</a>.
 -doc """
 Cycles through the tabs.
 
@@ -263,12 +264,11 @@ advanceSelection(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxBookCtrlBase_AdvanceSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasesetselection">external documentation</a>.
 -doc """
 Sets the selection to the given page, returning the previous selection.
 
-Notice that the call to this function generates the page changing events, use
-the `changeSelection/2` function if you don't want these events to be generated.
+Notice that the call to this function generates the page changing events, use the `changeSelection/2`
+function if you don't want these events to be generated.
 
 See: `getSelection/1`
 """.
@@ -280,14 +280,12 @@ setSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlBase_SetSelection),
   wxe_util:rec(?wxBookCtrlBase_SetSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasegetselection">external documentation</a>.
 -doc """
-Returns the currently selected page, or `wxNOT_FOUND` if none was selected.
+Returns the currently selected page, or `wxNOT\_FOUND` if none was selected.
 
-Note that this method may return either the previously or newly selected page
-when called from the `EVT_BOOKCTRL_PAGE_CHANGED` handler depending on the
-platform and so `wxBookCtrlEvent:getSelection/1` should be used instead in this
-case.
+Note that this method may return either the previously or newly selected page when called
+from the `EVT_BOOKCTRL_PAGE_CHANGED` handler depending on the platform and so `wxBookCtrlEvent:getSelection/1` should be
+used instead in this case.
 """.
 -spec getSelection(This) -> integer() when
 	This::wxBookCtrlBase().
@@ -296,12 +294,10 @@ getSelection(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxBookCtrlBase_GetSelection),
   wxe_util:rec(?wxBookCtrlBase_GetSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasechangeselection">external documentation</a>.
 -doc """
 Changes the selection to the given page, returning the previous selection.
 
-This function behaves as `setSelection/2` but does `not` generate the page
-changing events.
+This function behaves as `setSelection/2` but does `not` generate the page changing events.
 
 See overview_events_prog for more information.
 """.
@@ -313,15 +309,13 @@ changeSelection(#wx_ref{type=ThisT}=This,Page)
   wxe_util:queue_cmd(This,Page,?get_env(),?wxBookCtrlBase_ChangeSelection),
   wxe_util:rec(?wxBookCtrlBase_ChangeSelection).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasehittest">external documentation</a>.
 -doc """
-Returns the index of the tab at the specified position or `wxNOT_FOUND` if none.
+Returns the index of the tab at the specified position or `wxNOT\_FOUND` if none.
 
-If `flags` parameter is non-NULL, the position of the point inside the tab is
-returned as well.
+If `flags` parameter is non-NULL, the position of the point inside the tab is returned as well.
 
-Return: Returns the zero-based tab index or `wxNOT_FOUND` if there is no tab at
-the specified position.
+Return: Returns the zero-based tab index or `wxNOT_FOUND` if there is no tab at the
+specified position.
 """.
 -spec hitTest(This, Pt) -> Result when
 	Result ::{Res ::integer(), Flags::integer()},
@@ -332,7 +326,6 @@ hitTest(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxBookCtrlBase_HitTest),
   wxe_util:rec(?wxBookCtrlBase_HitTest).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasegetpagetext">external documentation</a>.
 -doc "Returns the string for the given page.".
 -spec getPageText(This, NPage) -> unicode:charlist() when
 	This::wxBookCtrlBase(), NPage::integer().
@@ -342,7 +335,6 @@ getPageText(#wx_ref{type=ThisT}=This,NPage)
   wxe_util:queue_cmd(This,NPage,?get_env(),?wxBookCtrlBase_GetPageText),
   wxe_util:rec(?wxBookCtrlBase_GetPageText).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbookctrlbase.html#wxbookctrlbasesetpagetext">external documentation</a>.
 -doc "Sets the text for the given page.".
 -spec setPageText(This, Page, Text) -> boolean() when
 	This::wxBookCtrlBase(), Page::integer(), Text::unicode:chardata().
@@ -354,554 +346,371 @@ setPageText(#wx_ref{type=ThisT}=This,Page,Text)
   wxe_util:rec(?wxBookCtrlBase_SetPageText).
 
  %% From wxControl
-%% @hidden
 -doc false.
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
-%% @hidden
 -doc false.
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
-%% @hidden
 -doc false.
 getDPI(This) -> wxWindow:getDPI(This).
-%% @hidden
 -doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
-%% @hidden
 -doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
-%% @hidden
 -doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
-%% @hidden
 -doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
-%% @hidden
 -doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
-%% @hidden
 -doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
-%% @hidden
 -doc false.
 validate(This) -> wxWindow:validate(This).
-%% @hidden
 -doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
-%% @hidden
 -doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
-%% @hidden
 -doc false.
 update(This) -> wxWindow:update(This).
-%% @hidden
 -doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
-%% @hidden
 -doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
-%% @hidden
 -doc false.
 thaw(This) -> wxWindow:thaw(This).
-%% @hidden
 -doc false.
 show(This, Options) -> wxWindow:show(This, Options).
-%% @hidden
 -doc false.
 show(This) -> wxWindow:show(This).
-%% @hidden
 -doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
-%% @hidden
 -doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
-%% @hidden
 -doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
-%% @hidden
 -doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
-%% @hidden
 -doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
-%% @hidden
 -doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
-%% @hidden
 -doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
-%% @hidden
 -doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
-%% @hidden
 -doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
-%% @hidden
 -doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
-%% @hidden
 -doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
-%% @hidden
 -doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
-%% @hidden
 -doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
-%% @hidden
 -doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
-%% @hidden
 -doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
-%% @hidden
 -doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
-%% @hidden
 -doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
-%% @hidden
 -doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
-%% @hidden
 -doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
-%% @hidden
 -doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
-%% @hidden
 -doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
-%% @hidden
 -doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
-%% @hidden
 -doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
-%% @hidden
 -doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
-%% @hidden
 -doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
-%% @hidden
 -doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
-%% @hidden
 -doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
-%% @hidden
 -doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
-%% @hidden
 -doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
-%% @hidden
 -doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
-%% @hidden
 -doc false.
 setFocus(This) -> wxWindow:setFocus(This).
-%% @hidden
 -doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
-%% @hidden
 -doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
-%% @hidden
 -doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
-%% @hidden
 -doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
-%% @hidden
 -doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
-%% @hidden
 -doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
-%% @hidden
 -doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
-%% @hidden
 -doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
-%% @hidden
 -doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
-%% @hidden
 -doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
-%% @hidden
 -doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
-%% @hidden
 -doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
-%% @hidden
 -doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
-%% @hidden
 -doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
-%% @hidden
 -doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
-%% @hidden
 -doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
-%% @hidden
 -doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
-%% @hidden
 -doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
-%% @hidden
 -doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
-%% @hidden
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
-%% @hidden
 -doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
-%% @hidden
 -doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
-%% @hidden
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
-%% @hidden
 -doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
-%% @hidden
 -doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
-%% @hidden
 -doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
-%% @hidden
 -doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
-%% @hidden
 -doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
-%% @hidden
 -doc false.
 refresh(This) -> wxWindow:refresh(This).
-%% @hidden
 -doc false.
 raise(This) -> wxWindow:raise(This).
-%% @hidden
 -doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
-%% @hidden
 -doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
-%% @hidden
 -doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
-%% @hidden
 -doc false.
 pageUp(This) -> wxWindow:pageUp(This).
-%% @hidden
 -doc false.
 pageDown(This) -> wxWindow:pageDown(This).
-%% @hidden
 -doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
-%% @hidden
 -doc false.
 navigate(This) -> wxWindow:navigate(This).
-%% @hidden
 -doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
-%% @hidden
 -doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
-%% @hidden
 -doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
-%% @hidden
 -doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
-%% @hidden
 -doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
-%% @hidden
 -doc false.
 lower(This) -> wxWindow:lower(This).
-%% @hidden
 -doc false.
 lineUp(This) -> wxWindow:lineUp(This).
-%% @hidden
 -doc false.
 lineDown(This) -> wxWindow:lineDown(This).
-%% @hidden
 -doc false.
 layout(This) -> wxWindow:layout(This).
-%% @hidden
 -doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
-%% @hidden
 -doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
-%% @hidden
 -doc false.
 isShown(This) -> wxWindow:isShown(This).
-%% @hidden
 -doc false.
 isRetained(This) -> wxWindow:isRetained(This).
-%% @hidden
 -doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
-%% @hidden
 -doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
-%% @hidden
 -doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
-%% @hidden
 -doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
-%% @hidden
 -doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
-%% @hidden
 -doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
-%% @hidden
 -doc false.
 initDialog(This) -> wxWindow:initDialog(This).
-%% @hidden
 -doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
-%% @hidden
 -doc false.
 hide(This) -> wxWindow:hide(This).
-%% @hidden
 -doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
-%% @hidden
 -doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
-%% @hidden
 -doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
-%% @hidden
 -doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
-%% @hidden
 -doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
-%% @hidden
 -doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
-%% @hidden
 -doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
-%% @hidden
 -doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
-%% @hidden
 -doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
-%% @hidden
 -doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
-%% @hidden
 -doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
-%% @hidden
 -doc false.
 getSizer(This) -> wxWindow:getSizer(This).
-%% @hidden
 -doc false.
 getSize(This) -> wxWindow:getSize(This).
-%% @hidden
 -doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
-%% @hidden
 -doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
-%% @hidden
 -doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
-%% @hidden
 -doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
-%% @hidden
 -doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
-%% @hidden
 -doc false.
 getRect(This) -> wxWindow:getRect(This).
-%% @hidden
 -doc false.
 getPosition(This) -> wxWindow:getPosition(This).
-%% @hidden
 -doc false.
 getParent(This) -> wxWindow:getParent(This).
-%% @hidden
 -doc false.
 getName(This) -> wxWindow:getName(This).
-%% @hidden
 -doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
-%% @hidden
 -doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
-%% @hidden
 -doc false.
 getId(This) -> wxWindow:getId(This).
-%% @hidden
 -doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
-%% @hidden
 -doc false.
 getHandle(This) -> wxWindow:getHandle(This).
-%% @hidden
 -doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
-%% @hidden
 -doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
-%% @hidden
 -doc false.
 getFont(This) -> wxWindow:getFont(This).
-%% @hidden
 -doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
-%% @hidden
 -doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
-%% @hidden
 -doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
-%% @hidden
 -doc false.
 getCursor(This) -> wxWindow:getCursor(This).
-%% @hidden
 -doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
-%% @hidden
 -doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
-%% @hidden
 -doc false.
 getChildren(This) -> wxWindow:getChildren(This).
-%% @hidden
 -doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
-%% @hidden
 -doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
-%% @hidden
 -doc false.
 getCaret(This) -> wxWindow:getCaret(This).
-%% @hidden
 -doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
-%% @hidden
 -doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
-%% @hidden
 -doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
-%% @hidden
 -doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
-%% @hidden
 -doc false.
 freeze(This) -> wxWindow:freeze(This).
-%% @hidden
 -doc false.
 fitInside(This) -> wxWindow:fitInside(This).
-%% @hidden
 -doc false.
 fit(This) -> wxWindow:fit(This).
-%% @hidden
 -doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
-%% @hidden
 -doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
-%% @hidden
 -doc false.
 enable(This) -> wxWindow:enable(This).
-%% @hidden
 -doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
-%% @hidden
 -doc false.
 disable(This) -> wxWindow:disable(This).
-%% @hidden
 -doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
-%% @hidden
 -doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
-%% @hidden
 -doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
-%% @hidden
 -doc false.
 close(This, Options) -> wxWindow:close(This, Options).
-%% @hidden
 -doc false.
 close(This) -> wxWindow:close(This).
-%% @hidden
 -doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
-%% @hidden
 -doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
-%% @hidden
 -doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
-%% @hidden
 -doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
 -doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
 -doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
 -doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
-%% @hidden
 -doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
 -doc false.
 center(This, Options) -> wxWindow:center(This, Options).
-%% @hidden
 -doc false.
 centre(This) -> wxWindow:centre(This).
-%% @hidden
 -doc false.
 center(This) -> wxWindow:center(This).
-%% @hidden
 -doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
-%% @hidden
 -doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
-%% @hidden
 -doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
 -doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
 -doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
 -doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
 -doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

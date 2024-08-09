@@ -20,25 +20,26 @@
 
 -module(wxPalette).
 -moduledoc """
-Functions for wxPalette class
+A palette is a table that maps pixel values to RGB colours.
 
-A palette is a table that maps pixel values to RGB colours. It allows the
-colours of a low-depth bitmap, for example, to be mapped to the available
-colours in a display. The notion of palettes is becoming more and more obsolete
-nowadays and only the MSW port is still using a native palette. All other ports
-use generic code which is basically just an array of colours.
+It allows the colours of a low-depth bitmap, for example, to be mapped to the available
+colours in a display. The notion of palettes is becoming more and more obsolete nowadays
+and only the MSW port is still using a native palette. All other ports use generic code
+which is basically just an array of colours.
 
-It is likely that in the future the only use for palettes within wxWidgets will
-be for representing colour indices from images (such as GIF or PNG). The image
-handlers for these formats have been modified to create a palette if there is
-such information in the original image file (usually 256 or less colour images).
-See `m:wxImage` for more information.
+It is likely that in the future the only use for palettes within wxWidgets will be for
+representing colour indices from images (such as GIF or PNG). The image handlers for these
+formats have been modified to create a palette if there is such information in the
+original image file (usually 256 or less colour images). See `m:wxImage` for more information.
 
 Predefined objects (include wx.hrl): ?wxNullPalette
 
-See: `wxDC:setPalette/2`, `m:wxBitmap`
+See:
+* `wxDC:setPalette/2`
 
-wxWidgets docs: [wxPalette](https://docs.wxwidgets.org/3.1/classwx_palette.html)
+* `m:wxBitmap`
+
+wxWidgets docs: [wxPalette](https://docs.wxwidgets.org/3.2/classwx_palette.html)
 """.
 -include("wxe.hrl").
 -export([create/4,destroy/1,getColoursCount/1,getPixel/4,getRGB/2,isOk/1,new/0,
@@ -49,19 +50,16 @@ wxWidgets docs: [wxPalette](https://docs.wxwidgets.org/3.1/classwx_palette.html)
 
 -type wxPalette() :: wx:wx_object().
 -export_type([wxPalette/0]).
-%% @hidden
 -doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
 -doc "Default constructor.".
 -spec new() -> wxPalette().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxPalette_new_0),
   wxe_util:rec(?wxPalette_new_0).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
--doc "Copy constructor, uses overview_refcount.".
+-doc "Copy constructor, uses overview\_refcount.".
 -spec new(Palette) -> wxPalette() when
 	Palette::wxPalette().
 new(#wx_ref{type=PaletteT}=Palette) ->
@@ -69,10 +67,8 @@ new(#wx_ref{type=PaletteT}=Palette) ->
   wxe_util:queue_cmd(Palette,?get_env(),?wxPalette_new_1),
   wxe_util:rec(?wxPalette_new_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettewxpalette">external documentation</a>.
 -doc """
-Creates a palette from arrays of size `n`, one for each red, blue or green
-component.
+Creates a palette from arrays of size `n`, one for each red, blue or green component.
 
 See: `create/4`
 """.
@@ -83,10 +79,8 @@ new(Red,Green,Blue)
   wxe_util:queue_cmd(Red,Green,Blue,?get_env(),?wxPalette_new_4),
   wxe_util:rec(?wxPalette_new_4).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettecreate">external documentation</a>.
 -doc """
-Creates a palette from arrays of size `n`, one for each red, blue or green
-component.
+Creates a palette from arrays of size `n`, one for each red, blue or green component.
 
 Return: true if the creation was successful, false otherwise.
 
@@ -100,7 +94,6 @@ create(#wx_ref{type=ThisT}=This,Red,Green,Blue)
   wxe_util:queue_cmd(This,Red,Green,Blue,?get_env(),?wxPalette_Create),
   wxe_util:rec(?wxPalette_Create).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetcolourscount">external documentation</a>.
 -doc "Returns number of entries in palette.".
 -spec getColoursCount(This) -> integer() when
 	This::wxPalette().
@@ -109,7 +102,6 @@ getColoursCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPalette_GetColoursCount),
   wxe_util:rec(?wxPalette_GetColoursCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetpixel">external documentation</a>.
 -doc """
 Returns a pixel value (index into the palette) for the given RGB values.
 
@@ -125,7 +117,6 @@ getPixel(#wx_ref{type=ThisT}=This,Red,Green,Blue)
   wxe_util:queue_cmd(This,Red,Green,Blue,?get_env(),?wxPalette_GetPixel),
   wxe_util:rec(?wxPalette_GetPixel).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpalettegetrgb">external documentation</a>.
 -doc """
 Returns RGB values for a given palette index.
 
@@ -142,8 +133,7 @@ getRGB(#wx_ref{type=ThisT}=This,Pixel)
   wxe_util:queue_cmd(This,Pixel,?get_env(),?wxPalette_GetRGB),
   wxe_util:rec(?wxPalette_GetRGB).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpaletteisok">external documentation</a>.
--doc "See: `isOk/1`.".
+-doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
 	This::wxPalette().
 
@@ -151,7 +141,6 @@ ok(This)
  when is_record(This, wx_ref) ->
   isOk(This).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxpalette.html#wxpaletteisok">external documentation</a>.
 -doc "Returns true if palette data is present.".
 -spec isOk(This) -> boolean() when
 	This::wxPalette().
@@ -160,12 +149,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxPalette_IsOk),
   wxe_util:rec(?wxPalette_IsOk).
 
-%% @doc Destroys this object, do not use object again
--doc """
-Destructor.
-
-See: reference-counted object destruction
-""".
+-doc "Destroys the object".
 -spec destroy(This::wxPalette()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPalette),

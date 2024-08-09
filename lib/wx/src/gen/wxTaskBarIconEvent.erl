@@ -20,16 +20,16 @@
 
 -module(wxTaskBarIconEvent).
 -moduledoc """
-Functions for wxTaskBarIconEvent class
+The event class used by `m:wxTaskBarIcon`.
 
-The event class used by `m:wxTaskBarIcon`. For a list of the event macros meant
-to be used with `m:wxTaskBarIconEvent`, please look at `m:wxTaskBarIcon`
-description.
+For a list of the event macros meant to be used with `m:wxTaskBarIconEvent`, please look
+at `m:wxTaskBarIcon` description.
 
-This class is derived (and can use functions) from: `m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxTaskBarIconEvent](https://docs.wxwidgets.org/3.1/classwx_task_bar_icon_event.html)
+* `m:wxEvent`
+
+wxWidgets docs: [wxTaskBarIconEvent](https://docs.wxwidgets.org/3.2/classwx_task_bar_icon_event.html)
 """.
 -include("wxe.hrl").
 -export([]).
@@ -42,36 +42,26 @@ wxWidgets docs:
 -include("wx.hrl").
 -type wxTaskBarIconEventType() :: 'taskbar_move' | 'taskbar_left_down' | 'taskbar_left_up' | 'taskbar_right_down' | 'taskbar_right_up' | 'taskbar_left_dclick' | 'taskbar_right_dclick'.
 -export_type([wxTaskBarIconEvent/0, wxTaskBarIcon/0, wxTaskBarIconEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

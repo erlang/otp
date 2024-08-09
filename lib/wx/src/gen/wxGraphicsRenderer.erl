@@ -20,19 +20,15 @@
 
 -module(wxGraphicsRenderer).
 -moduledoc """
-Functions for wxGraphicsRenderer class
+A `m:wxGraphicsRenderer` is the instance corresponding to the rendering engine used.
 
-A `m:wxGraphicsRenderer` is the instance corresponding to the rendering engine
-used. There may be multiple instances on a system, if there are different
-rendering engines present, but there is always only one instance per engine.
-This instance is pointed back to by all objects created by it
-(`m:wxGraphicsContext`, `m:wxGraphicsPath` etc.) and can be retrieved through
-their `wxGraphicsObject:getRenderer/1` method. Therefore you can create an
-additional instance of a path etc. by calling `wxGraphicsObject:getRenderer/1`
-and then using the appropriate CreateXXX() function of that renderer.
+There may be multiple instances on a system, if there are different rendering engines
+present, but there is always only one instance per engine. This instance is pointed back
+to by all objects created by it (`m:wxGraphicsContext`, `m:wxGraphicsPath` etc.) and can
+be retrieved through their `wxGraphicsObject:getRenderer/1` method. Therefore you can create an additional instance of a
+path etc. by calling `wxGraphicsObject:getRenderer/1` and then using the appropriate CreateXXX() function of that renderer.
 
-wxWidgets docs:
-[wxGraphicsRenderer](https://docs.wxwidgets.org/3.1/classwx_graphics_renderer.html)
+wxWidgets docs: [wxGraphicsRenderer](https://docs.wxwidgets.org/3.2/classwx_graphics_renderer.html)
 """.
 -include("wxe.hrl").
 -export([createBrush/2,createContext/2,createFont/2,createFont/3,createFont/4,
@@ -44,23 +40,20 @@ wxWidgets docs:
 
 -type wxGraphicsRenderer() :: wx:wx_object().
 -export_type([wxGraphicsRenderer/0]).
-%% @hidden
 -doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderergetdefaultrenderer">external documentation</a>.
 -doc """
 Returns the default renderer on this platform.
 
-On macOS this is the Core Graphics (a.k.a. Quartz 2D) renderer, on MSW the
-GDIPlus renderer, and on GTK we currently default to the Cairo renderer.
+On macOS this is the Core Graphics (a.k.a. Quartz 2D) renderer, on MSW the GDIPlus
+renderer, and on GTK we currently default to the Cairo renderer.
 """.
 -spec getDefaultRenderer() -> wxGraphicsRenderer().
 getDefaultRenderer() ->
   wxe_util:queue_cmd(?get_env(), ?wxGraphicsRenderer_GetDefaultRenderer),
   wxe_util:rec(?wxGraphicsRenderer_GetDefaultRenderer).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatecontext">external documentation</a>.
 -doc "Creates a `m:wxGraphicsContext` from a `m:wxWindowDC`.".
 -spec createContext(This, WindowDC) -> wxGraphicsContext:wxGraphicsContext() when
 	This::wxGraphicsRenderer(), WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC().
@@ -78,7 +71,6 @@ createContext(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowDCT}=WindowDC) ->
   wxe_util:queue_cmd(This,wx:typeCast(WindowDC, WindowDCType),?get_env(),?wxGraphicsRenderer_CreateContext),
   wxe_util:rec(?wxGraphicsRenderer_CreateContext).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatebrush">external documentation</a>.
 -doc "Creates a native brush from a `m:wxBrush`.".
 -spec createBrush(This, Brush) -> wxGraphicsBrush:wxGraphicsBrush() when
 	This::wxGraphicsRenderer(), Brush::wxBrush:wxBrush().
@@ -88,12 +80,11 @@ createBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   wxe_util:queue_cmd(This,Brush,?get_env(),?wxGraphicsRenderer_CreateBrush),
   wxe_util:rec(?wxGraphicsRenderer_CreateBrush).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatelineargradientbrush">external documentation</a>.
 -doc """
 Creates a native brush with a linear gradient.
 
-Stops support is new since wxWidgets 2.9.1, previously only the start and end
-colours could be specified.
+Stops support is new since wxWidgets 2.9.1, previously only the start and end colours
+could be specified.
 
 The ability to apply a transformation matrix to the gradient was added in 3.1.3
 """.
@@ -106,12 +97,11 @@ createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=Stop
   wxe_util:queue_cmd(This,X1,Y1,X2,Y2,Stops,?get_env(),?wxGraphicsRenderer_CreateLinearGradientBrush),
   wxe_util:rec(?wxGraphicsRenderer_CreateLinearGradientBrush).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreateradialgradientbrush">external documentation</a>.
 -doc """
 Creates a native brush with a radial gradient.
 
-Stops support is new since wxWidgets 2.9.1, previously only the start and end
-colours could be specified.
+Stops support is new since wxWidgets 2.9.1, previously only the start and end colours
+could be specified.
 
 The ability to apply a transformation matrix to the gradient was added in 3.1.3
 """.
@@ -124,7 +114,7 @@ createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radiu
   wxe_util:queue_cmd(This,StartX,StartY,EndX,EndY,Radius,Stops,?get_env(),?wxGraphicsRenderer_CreateRadialGradientBrush),
   wxe_util:rec(?wxGraphicsRenderer_CreateRadialGradientBrush).
 
-%% @equiv createFont(This,Font, [])
+-doc(#{equiv => createFont(This,Font, [])}).
 -spec createFont(This, Font) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsRenderer(), Font::wxFont:wxFont().
 
@@ -132,12 +122,6 @@ createFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
   createFont(This,Font, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatefont">external documentation</a>.
-%% <br /> Also:<br />
-%% createFont(This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when<br />
-%% 	This::wxGraphicsRenderer(), Font::wxFont:wxFont(),<br />
-%% 	Option :: {'col', wx:wx_colour()}.<br />
-%% 
 -doc "Creates a native graphics font from a `m:wxFont` and a text colour.".
 -spec createFont(This, SizeInPixels, Facename) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsRenderer(), SizeInPixels::number(), Facename::unicode:chardata();
@@ -158,13 +142,11 @@ createFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font, Options)
   wxe_util:queue_cmd(This,Font, Opts,?get_env(),?wxGraphicsRenderer_CreateFont_2),
   wxe_util:rec(?wxGraphicsRenderer_CreateFont_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatefont">external documentation</a>.
 -doc """
 Creates a graphics font with the given characteristics.
 
-If possible, the `createFont/4` overload taking `m:wxFont` should be used
-instead. The main advantage of this overload is that it can be used without X
-server connection under Unix when using Cairo.
+If possible, the `createFont/4` overload taking `m:wxFont` should be used instead. The main advantage
+of this overload is that it can be used without X server connection under Unix when using Cairo.
 
 Since: 2.9.3
 """.
@@ -183,7 +165,7 @@ createFont(#wx_ref{type=ThisT}=This,SizeInPixels,Facename, Options)
   wxe_util:queue_cmd(This,SizeInPixels,Facename_UC, Opts,?get_env(),?wxGraphicsRenderer_CreateFont_3),
   wxe_util:rec(?wxGraphicsRenderer_CreateFont_3).
 
-%% @equiv createMatrix(This, [])
+-doc(#{equiv => createMatrix(This, [])}).
 -spec createMatrix(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
 	This::wxGraphicsRenderer().
 
@@ -191,7 +173,6 @@ createMatrix(This)
  when is_record(This, wx_ref) ->
   createMatrix(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatematrix">external documentation</a>.
 -doc """
 Creates a native affine transformation matrix from the passed in values.
 
@@ -219,7 +200,6 @@ createMatrix(#wx_ref{type=ThisT}=This, Options)
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxGraphicsRenderer_CreateMatrix),
   wxe_util:rec(?wxGraphicsRenderer_CreateMatrix).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatepath">external documentation</a>.
 -doc "Creates a native graphics path which is initially empty.".
 -spec createPath(This) -> wxGraphicsPath:wxGraphicsPath() when
 	This::wxGraphicsRenderer().

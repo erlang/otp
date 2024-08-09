@@ -20,34 +20,36 @@
 
 -module(wxMouseCaptureLostEvent).
 -moduledoc """
-Functions for wxMouseCaptureLostEvent class
+A mouse capture lost event is sent to a window that had obtained mouse capture, which was
+subsequently lost due to an "external" event (for example, when a dialog box is shown or
+if another application captures the mouse).
 
-A mouse capture lost event is sent to a window that had obtained mouse capture,
-which was subsequently lost due to an "external" event (for example, when a
-dialog box is shown or if another application captures the mouse).
-
-If this happens, this event is sent to all windows that are on the capture stack
-(i.e. called CaptureMouse, but didn't call ReleaseMouse yet). The event is not
-sent if the capture changes because of a call to CaptureMouse or ReleaseMouse.
+If this happens, this event is sent to all windows that are on the capture stack (i.e.
+called CaptureMouse, but didn't call ReleaseMouse yet). The event is not sent if the
+capture changes because of a call to CaptureMouse or ReleaseMouse.
 
 This event is currently emitted under Windows only.
 
-Only for:wxmsw
+See:
+* `m:wxMouseCaptureChangedEvent`
 
-See: `m:wxMouseCaptureChangedEvent`,
-[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events),
-`wxWindow:captureMouse/1`, `wxWindow:releaseMouse/1`, `wxWindow:getCapture/0`
+* [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
 
-This class is derived (and can use functions) from: `m:wxEvent`
+* `wxWindow:captureMouse/1`
 
-wxWidgets docs:
-[wxMouseCaptureLostEvent](https://docs.wxwidgets.org/3.1/classwx_mouse_capture_lost_event.html)
+* `wxWindow:releaseMouse/1`
+
+* `wxWindow:getCapture/0`
+
+This class is derived, and can use functions, from:
+
+* `m:wxEvent`
+
+wxWidgets docs: [wxMouseCaptureLostEvent](https://docs.wxwidgets.org/3.2/classwx_mouse_capture_lost_event.html)
 
 ## Events
 
-Use `wxEvtHandler:connect/3` with
-[`wxMouseCaptureLostEventType`](`t:wxMouseCaptureLostEventType/0`) to subscribe
-to events of this type.
+Use `wxEvtHandler:connect/3` with `wxMouseCaptureLostEventType` to subscribe to events of this type.
 """.
 -include("wxe.hrl").
 -export([]).
@@ -60,36 +62,26 @@ to events of this type.
 -include("wx.hrl").
 -type wxMouseCaptureLostEventType() :: 'mouse_capture_lost'.
 -export_type([wxMouseCaptureLostEvent/0, wxMouseCaptureLost/0, wxMouseCaptureLostEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

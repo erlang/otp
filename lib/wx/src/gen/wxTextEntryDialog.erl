@@ -20,19 +20,23 @@
 
 -module(wxTextEntryDialog).
 -moduledoc """
-Functions for wxTextEntryDialog class
+This class represents a dialog that requests a one-line text string from the user.
 
-This class represents a dialog that requests a one-line text string from the
-user. It is implemented as a generic wxWidgets dialog.
+It is implemented as a generic wxWidgets dialog.
 
-See:
-[Overview cmndlg](https://docs.wxwidgets.org/3.1/overview_cmndlg.html#overview_cmndlg_textentry)
+See: [Overview cmndlg](https://docs.wxwidgets.org/3.2/overview_cmndlg.html#overview_cmndlg_textentry)
 
-This class is derived (and can use functions) from: `m:wxDialog`
-`m:wxTopLevelWindow` `m:wxWindow` `m:wxEvtHandler`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxTextEntryDialog](https://docs.wxwidgets.org/3.1/classwx_text_entry_dialog.html)
+* `m:wxDialog`
+
+* `m:wxTopLevelWindow`
+
+* `m:wxWindow`
+
+* `m:wxEvtHandler`
+
+wxWidgets docs: [wxTextEntryDialog](https://docs.wxwidgets.org/3.2/classwx_text_entry_dialog.html)
 """.
 -include("wxe.hrl").
 -export([destroy/1,getValue/1,new/0,new/2,new/3,setValue/2]).
@@ -84,7 +88,6 @@ wxWidgets docs:
 
 -type wxTextEntryDialog() :: wx:wx_object().
 -export_type([wxTextEntryDialog/0]).
-%% @hidden
 -doc false.
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -92,7 +95,6 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
 -doc """
 Default constructor.
 
@@ -105,7 +107,7 @@ new() ->
   wxe_util:queue_cmd(?get_env(), ?wxTextEntryDialog_new_0),
   wxe_util:rec(?wxTextEntryDialog_new_0).
 
-%% @equiv new(Parent,Message, [])
+-doc(#{equiv => new(Parent,Message, [])}).
 -spec new(Parent, Message) -> wxTextEntryDialog() when
 	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
@@ -113,7 +115,6 @@ new(Parent,Message)
  when is_record(Parent, wx_ref),?is_chardata(Message) ->
   new(Parent,Message, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
 -doc """
 Constructor.
 
@@ -140,10 +141,9 @@ new(#wx_ref{type=ParentT}=Parent,Message, Options)
   wxe_util:queue_cmd(Parent,Message_UC, Opts,?get_env(),?wxTextEntryDialog_new_3),
   wxe_util:rec(?wxTextEntryDialog_new_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialoggetvalue">external documentation</a>.
 -doc """
-Returns the text that the user has entered if the user has pressed OK, or the
-original value if the user has pressed Cancel.
+Returns the text that the user has entered if the user has pressed OK, or the original
+value if the user has pressed Cancel.
 """.
 -spec getValue(This) -> unicode:charlist() when
 	This::wxTextEntryDialog().
@@ -152,7 +152,6 @@ getValue(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxTextEntryDialog_GetValue),
   wxe_util:rec(?wxTextEntryDialog_GetValue).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
 -doc "Sets the default text value.".
 -spec setValue(This, Value) -> 'ok' when
 	This::wxTextEntryDialog(), Value::unicode:chardata().
@@ -162,659 +161,443 @@ setValue(#wx_ref{type=ThisT}=This,Value)
   Value_UC = unicode:characters_to_binary(Value),
   wxe_util:queue_cmd(This,Value_UC,?get_env(),?wxTextEntryDialog_SetValue).
 
-%% @doc Destroys this object, do not use object again
--doc "Destructor.".
+-doc "Destroys the object".
 -spec destroy(This::wxTextEntryDialog()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextEntryDialog),
   wxe_util:queue_cmd(Obj, ?get_env(), ?DESTROY_OBJECT),
   ok.
  %% From wxDialog
-%% @hidden
 -doc false.
 showModal(This) -> wxDialog:showModal(This).
-%% @hidden
 -doc false.
 show(This, Options) -> wxDialog:show(This, Options).
-%% @hidden
 -doc false.
 show(This) -> wxDialog:show(This).
-%% @hidden
 -doc false.
 setReturnCode(This,RetCode) -> wxDialog:setReturnCode(This,RetCode).
-%% @hidden
 -doc false.
 setAffirmativeId(This,Id) -> wxDialog:setAffirmativeId(This,Id).
-%% @hidden
 -doc false.
 isModal(This) -> wxDialog:isModal(This).
-%% @hidden
 -doc false.
 getReturnCode(This) -> wxDialog:getReturnCode(This).
-%% @hidden
 -doc false.
 getAffirmativeId(This) -> wxDialog:getAffirmativeId(This).
-%% @hidden
 -doc false.
 endModal(This,RetCode) -> wxDialog:endModal(This,RetCode).
-%% @hidden
 -doc false.
 createStdDialogButtonSizer(This,Flags) -> wxDialog:createStdDialogButtonSizer(This,Flags).
-%% @hidden
 -doc false.
 createButtonSizer(This,Flags) -> wxDialog:createButtonSizer(This,Flags).
  %% From wxTopLevelWindow
-%% @hidden
 -doc false.
 showFullScreen(This,Show, Options) -> wxTopLevelWindow:showFullScreen(This,Show, Options).
-%% @hidden
 -doc false.
 showFullScreen(This,Show) -> wxTopLevelWindow:showFullScreen(This,Show).
-%% @hidden
 -doc false.
 setTitle(This,Title) -> wxTopLevelWindow:setTitle(This,Title).
-%% @hidden
 -doc false.
 setShape(This,Region) -> wxTopLevelWindow:setShape(This,Region).
-%% @hidden
 -doc false.
 centreOnScreen(This, Options) -> wxTopLevelWindow:centreOnScreen(This, Options).
-%% @hidden
 -doc false.
 centerOnScreen(This, Options) -> wxTopLevelWindow:centerOnScreen(This, Options).
-%% @hidden
 -doc false.
 centreOnScreen(This) -> wxTopLevelWindow:centreOnScreen(This).
-%% @hidden
 -doc false.
 centerOnScreen(This) -> wxTopLevelWindow:centerOnScreen(This).
-%% @hidden
 -doc false.
 setIcons(This,Icons) -> wxTopLevelWindow:setIcons(This,Icons).
-%% @hidden
 -doc false.
 setIcon(This,Icon) -> wxTopLevelWindow:setIcon(This,Icon).
-%% @hidden
 -doc false.
 requestUserAttention(This, Options) -> wxTopLevelWindow:requestUserAttention(This, Options).
-%% @hidden
 -doc false.
 requestUserAttention(This) -> wxTopLevelWindow:requestUserAttention(This).
-%% @hidden
 -doc false.
 maximize(This, Options) -> wxTopLevelWindow:maximize(This, Options).
-%% @hidden
 -doc false.
 maximize(This) -> wxTopLevelWindow:maximize(This).
-%% @hidden
 -doc false.
 isMaximized(This) -> wxTopLevelWindow:isMaximized(This).
-%% @hidden
 -doc false.
 isIconized(This) -> wxTopLevelWindow:isIconized(This).
-%% @hidden
 -doc false.
 isFullScreen(This) -> wxTopLevelWindow:isFullScreen(This).
-%% @hidden
 -doc false.
 iconize(This, Options) -> wxTopLevelWindow:iconize(This, Options).
-%% @hidden
 -doc false.
 iconize(This) -> wxTopLevelWindow:iconize(This).
-%% @hidden
 -doc false.
 isActive(This) -> wxTopLevelWindow:isActive(This).
-%% @hidden
 -doc false.
 getTitle(This) -> wxTopLevelWindow:getTitle(This).
-%% @hidden
 -doc false.
 getIcons(This) -> wxTopLevelWindow:getIcons(This).
-%% @hidden
 -doc false.
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
-%% @hidden
 -doc false.
 getDPI(This) -> wxWindow:getDPI(This).
-%% @hidden
 -doc false.
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
-%% @hidden
 -doc false.
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
-%% @hidden
 -doc false.
 isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
-%% @hidden
 -doc false.
 canSetTransparent(This) -> wxWindow:canSetTransparent(This).
-%% @hidden
 -doc false.
 setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
-%% @hidden
 -doc false.
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
-%% @hidden
 -doc false.
 validate(This) -> wxWindow:validate(This).
-%% @hidden
 -doc false.
 updateWindowUI(This, Options) -> wxWindow:updateWindowUI(This, Options).
-%% @hidden
 -doc false.
 updateWindowUI(This) -> wxWindow:updateWindowUI(This).
-%% @hidden
 -doc false.
 update(This) -> wxWindow:update(This).
-%% @hidden
 -doc false.
 transferDataToWindow(This) -> wxWindow:transferDataToWindow(This).
-%% @hidden
 -doc false.
 transferDataFromWindow(This) -> wxWindow:transferDataFromWindow(This).
-%% @hidden
 -doc false.
 thaw(This) -> wxWindow:thaw(This).
-%% @hidden
 -doc false.
 shouldInheritColours(This) -> wxWindow:shouldInheritColours(This).
-%% @hidden
 -doc false.
 setWindowVariant(This,Variant) -> wxWindow:setWindowVariant(This,Variant).
-%% @hidden
 -doc false.
 setWindowStyleFlag(This,Style) -> wxWindow:setWindowStyleFlag(This,Style).
-%% @hidden
 -doc false.
 setWindowStyle(This,Style) -> wxWindow:setWindowStyle(This,Style).
-%% @hidden
 -doc false.
 setVirtualSize(This,Width,Height) -> wxWindow:setVirtualSize(This,Width,Height).
-%% @hidden
 -doc false.
 setVirtualSize(This,Size) -> wxWindow:setVirtualSize(This,Size).
-%% @hidden
 -doc false.
 setToolTip(This,TipString) -> wxWindow:setToolTip(This,TipString).
-%% @hidden
 -doc false.
 setThemeEnabled(This,Enable) -> wxWindow:setThemeEnabled(This,Enable).
-%% @hidden
 -doc false.
 setSizerAndFit(This,Sizer, Options) -> wxWindow:setSizerAndFit(This,Sizer, Options).
-%% @hidden
 -doc false.
 setSizerAndFit(This,Sizer) -> wxWindow:setSizerAndFit(This,Sizer).
-%% @hidden
 -doc false.
 setSizer(This,Sizer, Options) -> wxWindow:setSizer(This,Sizer, Options).
-%% @hidden
 -doc false.
 setSizer(This,Sizer) -> wxWindow:setSizer(This,Sizer).
-%% @hidden
 -doc false.
 setSizeHints(This,MinW,MinH, Options) -> wxWindow:setSizeHints(This,MinW,MinH, Options).
-%% @hidden
 -doc false.
 setSizeHints(This,MinW,MinH) -> wxWindow:setSizeHints(This,MinW,MinH).
-%% @hidden
 -doc false.
 setSizeHints(This,MinSize) -> wxWindow:setSizeHints(This,MinSize).
-%% @hidden
 -doc false.
 setSize(This,X,Y,Width,Height, Options) -> wxWindow:setSize(This,X,Y,Width,Height, Options).
-%% @hidden
 -doc false.
 setSize(This,X,Y,Width,Height) -> wxWindow:setSize(This,X,Y,Width,Height).
-%% @hidden
 -doc false.
 setSize(This,Width,Height) -> wxWindow:setSize(This,Width,Height).
-%% @hidden
 -doc false.
 setSize(This,Rect) -> wxWindow:setSize(This,Rect).
-%% @hidden
 -doc false.
 setScrollPos(This,Orientation,Pos, Options) -> wxWindow:setScrollPos(This,Orientation,Pos, Options).
-%% @hidden
 -doc false.
 setScrollPos(This,Orientation,Pos) -> wxWindow:setScrollPos(This,Orientation,Pos).
-%% @hidden
 -doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range, Options) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range, Options).
-%% @hidden
 -doc false.
 setScrollbar(This,Orientation,Position,ThumbSize,Range) -> wxWindow:setScrollbar(This,Orientation,Position,ThumbSize,Range).
-%% @hidden
 -doc false.
 setPalette(This,Pal) -> wxWindow:setPalette(This,Pal).
-%% @hidden
 -doc false.
 setName(This,Name) -> wxWindow:setName(This,Name).
-%% @hidden
 -doc false.
 setLabel(This,Label) -> wxWindow:setLabel(This,Label).
-%% @hidden
 -doc false.
 setId(This,Winid) -> wxWindow:setId(This,Winid).
-%% @hidden
 -doc false.
 setHelpText(This,HelpText) -> wxWindow:setHelpText(This,HelpText).
-%% @hidden
 -doc false.
 setForegroundColour(This,Colour) -> wxWindow:setForegroundColour(This,Colour).
-%% @hidden
 -doc false.
 setFont(This,Font) -> wxWindow:setFont(This,Font).
-%% @hidden
 -doc false.
 setFocusFromKbd(This) -> wxWindow:setFocusFromKbd(This).
-%% @hidden
 -doc false.
 setFocus(This) -> wxWindow:setFocus(This).
-%% @hidden
 -doc false.
 setExtraStyle(This,ExStyle) -> wxWindow:setExtraStyle(This,ExStyle).
-%% @hidden
 -doc false.
 setDropTarget(This,Target) -> wxWindow:setDropTarget(This,Target).
-%% @hidden
 -doc false.
 setOwnForegroundColour(This,Colour) -> wxWindow:setOwnForegroundColour(This,Colour).
-%% @hidden
 -doc false.
 setOwnFont(This,Font) -> wxWindow:setOwnFont(This,Font).
-%% @hidden
 -doc false.
 setOwnBackgroundColour(This,Colour) -> wxWindow:setOwnBackgroundColour(This,Colour).
-%% @hidden
 -doc false.
 setMinSize(This,Size) -> wxWindow:setMinSize(This,Size).
-%% @hidden
 -doc false.
 setMaxSize(This,Size) -> wxWindow:setMaxSize(This,Size).
-%% @hidden
 -doc false.
 setCursor(This,Cursor) -> wxWindow:setCursor(This,Cursor).
-%% @hidden
 -doc false.
 setContainingSizer(This,Sizer) -> wxWindow:setContainingSizer(This,Sizer).
-%% @hidden
 -doc false.
 setClientSize(This,Width,Height) -> wxWindow:setClientSize(This,Width,Height).
-%% @hidden
 -doc false.
 setClientSize(This,Size) -> wxWindow:setClientSize(This,Size).
-%% @hidden
 -doc false.
 setCaret(This,Caret) -> wxWindow:setCaret(This,Caret).
-%% @hidden
 -doc false.
 setBackgroundStyle(This,Style) -> wxWindow:setBackgroundStyle(This,Style).
-%% @hidden
 -doc false.
 setBackgroundColour(This,Colour) -> wxWindow:setBackgroundColour(This,Colour).
-%% @hidden
 -doc false.
 setAutoLayout(This,AutoLayout) -> wxWindow:setAutoLayout(This,AutoLayout).
-%% @hidden
 -doc false.
 setAcceleratorTable(This,Accel) -> wxWindow:setAcceleratorTable(This,Accel).
-%% @hidden
 -doc false.
 scrollWindow(This,Dx,Dy, Options) -> wxWindow:scrollWindow(This,Dx,Dy, Options).
-%% @hidden
 -doc false.
 scrollWindow(This,Dx,Dy) -> wxWindow:scrollWindow(This,Dx,Dy).
-%% @hidden
 -doc false.
 scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
-%% @hidden
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
-%% @hidden
 -doc false.
 screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
-%% @hidden
 -doc false.
 screenToClient(This) -> wxWindow:screenToClient(This).
-%% @hidden
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
-%% @hidden
 -doc false.
 removeChild(This,Child) -> wxWindow:removeChild(This,Child).
-%% @hidden
 -doc false.
 releaseMouse(This) -> wxWindow:releaseMouse(This).
-%% @hidden
 -doc false.
 refreshRect(This,Rect, Options) -> wxWindow:refreshRect(This,Rect, Options).
-%% @hidden
 -doc false.
 refreshRect(This,Rect) -> wxWindow:refreshRect(This,Rect).
-%% @hidden
 -doc false.
 refresh(This, Options) -> wxWindow:refresh(This, Options).
-%% @hidden
 -doc false.
 refresh(This) -> wxWindow:refresh(This).
-%% @hidden
 -doc false.
 raise(This) -> wxWindow:raise(This).
-%% @hidden
 -doc false.
 popupMenu(This,Menu,X,Y) -> wxWindow:popupMenu(This,Menu,X,Y).
-%% @hidden
 -doc false.
 popupMenu(This,Menu, Options) -> wxWindow:popupMenu(This,Menu, Options).
-%% @hidden
 -doc false.
 popupMenu(This,Menu) -> wxWindow:popupMenu(This,Menu).
-%% @hidden
 -doc false.
 pageUp(This) -> wxWindow:pageUp(This).
-%% @hidden
 -doc false.
 pageDown(This) -> wxWindow:pageDown(This).
-%% @hidden
 -doc false.
 navigate(This, Options) -> wxWindow:navigate(This, Options).
-%% @hidden
 -doc false.
 navigate(This) -> wxWindow:navigate(This).
-%% @hidden
 -doc false.
 moveBeforeInTabOrder(This,Win) -> wxWindow:moveBeforeInTabOrder(This,Win).
-%% @hidden
 -doc false.
 moveAfterInTabOrder(This,Win) -> wxWindow:moveAfterInTabOrder(This,Win).
-%% @hidden
 -doc false.
 move(This,X,Y, Options) -> wxWindow:move(This,X,Y, Options).
-%% @hidden
 -doc false.
 move(This,X,Y) -> wxWindow:move(This,X,Y).
-%% @hidden
 -doc false.
 move(This,Pt) -> wxWindow:move(This,Pt).
-%% @hidden
 -doc false.
 lower(This) -> wxWindow:lower(This).
-%% @hidden
 -doc false.
 lineUp(This) -> wxWindow:lineUp(This).
-%% @hidden
 -doc false.
 lineDown(This) -> wxWindow:lineDown(This).
-%% @hidden
 -doc false.
 layout(This) -> wxWindow:layout(This).
-%% @hidden
 -doc false.
 isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
-%% @hidden
 -doc false.
 isTopLevel(This) -> wxWindow:isTopLevel(This).
-%% @hidden
 -doc false.
 isShown(This) -> wxWindow:isShown(This).
-%% @hidden
 -doc false.
 isRetained(This) -> wxWindow:isRetained(This).
-%% @hidden
 -doc false.
 isExposed(This,X,Y,W,H) -> wxWindow:isExposed(This,X,Y,W,H).
-%% @hidden
 -doc false.
 isExposed(This,X,Y) -> wxWindow:isExposed(This,X,Y).
-%% @hidden
 -doc false.
 isExposed(This,Pt) -> wxWindow:isExposed(This,Pt).
-%% @hidden
 -doc false.
 isEnabled(This) -> wxWindow:isEnabled(This).
-%% @hidden
 -doc false.
 isFrozen(This) -> wxWindow:isFrozen(This).
-%% @hidden
 -doc false.
 invalidateBestSize(This) -> wxWindow:invalidateBestSize(This).
-%% @hidden
 -doc false.
 initDialog(This) -> wxWindow:initDialog(This).
-%% @hidden
 -doc false.
 inheritAttributes(This) -> wxWindow:inheritAttributes(This).
-%% @hidden
 -doc false.
 hide(This) -> wxWindow:hide(This).
-%% @hidden
 -doc false.
 hasTransparentBackground(This) -> wxWindow:hasTransparentBackground(This).
-%% @hidden
 -doc false.
 hasScrollbar(This,Orient) -> wxWindow:hasScrollbar(This,Orient).
-%% @hidden
 -doc false.
 hasCapture(This) -> wxWindow:hasCapture(This).
-%% @hidden
 -doc false.
 getWindowVariant(This) -> wxWindow:getWindowVariant(This).
-%% @hidden
 -doc false.
 getWindowStyleFlag(This) -> wxWindow:getWindowStyleFlag(This).
-%% @hidden
 -doc false.
 getVirtualSize(This) -> wxWindow:getVirtualSize(This).
-%% @hidden
 -doc false.
 getUpdateRegion(This) -> wxWindow:getUpdateRegion(This).
-%% @hidden
 -doc false.
 getToolTip(This) -> wxWindow:getToolTip(This).
-%% @hidden
 -doc false.
 getThemeEnabled(This) -> wxWindow:getThemeEnabled(This).
-%% @hidden
 -doc false.
 getTextExtent(This,String, Options) -> wxWindow:getTextExtent(This,String, Options).
-%% @hidden
 -doc false.
 getTextExtent(This,String) -> wxWindow:getTextExtent(This,String).
-%% @hidden
 -doc false.
 getSizer(This) -> wxWindow:getSizer(This).
-%% @hidden
 -doc false.
 getSize(This) -> wxWindow:getSize(This).
-%% @hidden
 -doc false.
 getScrollThumb(This,Orientation) -> wxWindow:getScrollThumb(This,Orientation).
-%% @hidden
 -doc false.
 getScrollRange(This,Orientation) -> wxWindow:getScrollRange(This,Orientation).
-%% @hidden
 -doc false.
 getScrollPos(This,Orientation) -> wxWindow:getScrollPos(This,Orientation).
-%% @hidden
 -doc false.
 getScreenRect(This) -> wxWindow:getScreenRect(This).
-%% @hidden
 -doc false.
 getScreenPosition(This) -> wxWindow:getScreenPosition(This).
-%% @hidden
 -doc false.
 getRect(This) -> wxWindow:getRect(This).
-%% @hidden
 -doc false.
 getPosition(This) -> wxWindow:getPosition(This).
-%% @hidden
 -doc false.
 getParent(This) -> wxWindow:getParent(This).
-%% @hidden
 -doc false.
 getName(This) -> wxWindow:getName(This).
-%% @hidden
 -doc false.
 getMinSize(This) -> wxWindow:getMinSize(This).
-%% @hidden
 -doc false.
 getMaxSize(This) -> wxWindow:getMaxSize(This).
-%% @hidden
 -doc false.
 getLabel(This) -> wxWindow:getLabel(This).
-%% @hidden
 -doc false.
 getId(This) -> wxWindow:getId(This).
-%% @hidden
 -doc false.
 getHelpText(This) -> wxWindow:getHelpText(This).
-%% @hidden
 -doc false.
 getHandle(This) -> wxWindow:getHandle(This).
-%% @hidden
 -doc false.
 getGrandParent(This) -> wxWindow:getGrandParent(This).
-%% @hidden
 -doc false.
 getForegroundColour(This) -> wxWindow:getForegroundColour(This).
-%% @hidden
 -doc false.
 getFont(This) -> wxWindow:getFont(This).
-%% @hidden
 -doc false.
 getExtraStyle(This) -> wxWindow:getExtraStyle(This).
-%% @hidden
 -doc false.
 getDPIScaleFactor(This) -> wxWindow:getDPIScaleFactor(This).
-%% @hidden
 -doc false.
 getDropTarget(This) -> wxWindow:getDropTarget(This).
-%% @hidden
 -doc false.
 getCursor(This) -> wxWindow:getCursor(This).
-%% @hidden
 -doc false.
 getContainingSizer(This) -> wxWindow:getContainingSizer(This).
-%% @hidden
 -doc false.
 getClientSize(This) -> wxWindow:getClientSize(This).
-%% @hidden
 -doc false.
 getChildren(This) -> wxWindow:getChildren(This).
-%% @hidden
 -doc false.
 getCharWidth(This) -> wxWindow:getCharWidth(This).
-%% @hidden
 -doc false.
 getCharHeight(This) -> wxWindow:getCharHeight(This).
-%% @hidden
 -doc false.
 getCaret(This) -> wxWindow:getCaret(This).
-%% @hidden
 -doc false.
 getBestSize(This) -> wxWindow:getBestSize(This).
-%% @hidden
 -doc false.
 getBackgroundStyle(This) -> wxWindow:getBackgroundStyle(This).
-%% @hidden
 -doc false.
 getBackgroundColour(This) -> wxWindow:getBackgroundColour(This).
-%% @hidden
 -doc false.
 getAcceleratorTable(This) -> wxWindow:getAcceleratorTable(This).
-%% @hidden
 -doc false.
 freeze(This) -> wxWindow:freeze(This).
-%% @hidden
 -doc false.
 fitInside(This) -> wxWindow:fitInside(This).
-%% @hidden
 -doc false.
 fit(This) -> wxWindow:fit(This).
-%% @hidden
 -doc false.
 findWindow(This,Id) -> wxWindow:findWindow(This,Id).
-%% @hidden
 -doc false.
 enable(This, Options) -> wxWindow:enable(This, Options).
-%% @hidden
 -doc false.
 enable(This) -> wxWindow:enable(This).
-%% @hidden
 -doc false.
 dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
-%% @hidden
 -doc false.
 disable(This) -> wxWindow:disable(This).
-%% @hidden
 -doc false.
 destroyChildren(This) -> wxWindow:destroyChildren(This).
-%% @hidden
 -doc false.
 convertPixelsToDialog(This,Sz) -> wxWindow:convertPixelsToDialog(This,Sz).
-%% @hidden
 -doc false.
 convertDialogToPixels(This,Sz) -> wxWindow:convertDialogToPixels(This,Sz).
-%% @hidden
 -doc false.
 close(This, Options) -> wxWindow:close(This, Options).
-%% @hidden
 -doc false.
 close(This) -> wxWindow:close(This).
-%% @hidden
 -doc false.
 clientToScreen(This,X,Y) -> wxWindow:clientToScreen(This,X,Y).
-%% @hidden
 -doc false.
 clientToScreen(This,Pt) -> wxWindow:clientToScreen(This,Pt).
-%% @hidden
 -doc false.
 clearBackground(This) -> wxWindow:clearBackground(This).
-%% @hidden
 -doc false.
 centreOnParent(This, Options) -> wxWindow:centreOnParent(This, Options).
-%% @hidden
 -doc false.
 centerOnParent(This, Options) -> wxWindow:centerOnParent(This, Options).
-%% @hidden
 -doc false.
 centreOnParent(This) -> wxWindow:centreOnParent(This).
-%% @hidden
 -doc false.
 centerOnParent(This) -> wxWindow:centerOnParent(This).
-%% @hidden
 -doc false.
 centre(This, Options) -> wxWindow:centre(This, Options).
-%% @hidden
 -doc false.
 center(This, Options) -> wxWindow:center(This, Options).
-%% @hidden
 -doc false.
 centre(This) -> wxWindow:centre(This).
-%% @hidden
 -doc false.
 center(This) -> wxWindow:center(This).
-%% @hidden
 -doc false.
 captureMouse(This) -> wxWindow:captureMouse(This).
-%% @hidden
 -doc false.
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
  %% From wxEvtHandler
-%% @hidden
 -doc false.
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
-%% @hidden
 -doc false.
 disconnect(This,EventType) -> wxEvtHandler:disconnect(This,EventType).
-%% @hidden
 -doc false.
 disconnect(This) -> wxEvtHandler:disconnect(This).
-%% @hidden
 -doc false.
 connect(This,EventType, Options) -> wxEvtHandler:connect(This,EventType, Options).
-%% @hidden
 -doc false.
 connect(This,EventType) -> wxEvtHandler:connect(This,EventType).

@@ -77,7 +77,7 @@ close() ->
 			copyright -> %% We ignore copyright changes only
 			    ok = file:delete(File ++ ".temp");
 			_ ->
-			    io:format("Diff in ~s~n~.1000s ~n", [File, string:trim(Diff)]),
+			    io:format("Diff in ~s~n~.1000ts ~n", [File, string:trim(Diff)]),
 			    case file:rename(File ++ ".temp", File) of
 				ok -> ok;
 				_ ->  io:format("*****  Failed to save file ~p ~n",[File])
@@ -90,7 +90,7 @@ close() ->
 
 check_diff(Diff) ->
     try
-	[_,D1,_,D2|Tail] = re:split(Diff, "\n"),
+	[_,D1,_,D2|Tail] = re:split(Diff, "\n", [unicode]),
 	case Tail of
 	    [] -> ok;
 	    [<<>>] -> ok;

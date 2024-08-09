@@ -20,18 +20,17 @@
 
 -module(wxGraphicsMatrix).
 -moduledoc """
-Functions for wxGraphicsMatrix class
+A `m:wxGraphicsMatrix` is a native representation of an affine matrix.
 
-A `m:wxGraphicsMatrix` is a native representation of an affine matrix. The
-contents are specific and private to the respective renderer. Instances are ref
-counted and can therefore be assigned as usual. The only way to get a valid
-instance is via `wxGraphicsContext:createMatrix/2` or
-`wxGraphicsRenderer:createMatrix/2`.
+The contents are specific and private to the respective renderer. Instances are ref
+counted and can therefore be assigned as usual. The only way to get a valid instance is
+via `wxGraphicsContext:createMatrix/2` or `wxGraphicsRenderer:createMatrix/2`.
 
-This class is derived (and can use functions) from: `m:wxGraphicsObject`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxGraphicsMatrix](https://docs.wxwidgets.org/3.1/classwx_graphics_matrix.html)
+* `m:wxGraphicsObject`
+
+wxWidgets docs: [wxGraphicsMatrix](https://docs.wxwidgets.org/3.2/classwx_graphics_matrix.html)
 """.
 -include("wxe.hrl").
 -export([concat/2,get/1,invert/1,isEqual/2,isIdentity/1,rotate/2,scale/3,set/1,
@@ -42,18 +41,15 @@ wxWidgets docs:
 
 -type wxGraphicsMatrix() :: wx:wx_object().
 -export_type([wxGraphicsMatrix/0]).
-%% @hidden
 -doc false.
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixconcat">external documentation</a>.
 -doc """
 Concatenates the matrix passed with the current matrix.
 
-The effect of the resulting transformation is to first apply the transformation
-in `t` to the coordinates and then apply the transformation in the current
-matrix to the coordinates.
+The effect of the resulting transformation is to first apply the transformation in `t` to
+the coordinates and then apply the transformation in the current matrix to the coordinates.
 """.
 -spec concat(This, T) -> 'ok' when
 	This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
@@ -62,7 +58,6 @@ concat(#wx_ref{type=ThisT}=This,#wx_ref{type=TT}=T) ->
   ?CLASS(TT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,T,?get_env(),?wxGraphicsMatrix_Concat).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixget">external documentation</a>.
 -doc "Returns the component values of the matrix via the argument pointers.".
 -spec get(This) -> Result when
 	Result ::{A::number(), B::number(), C::number(), D::number(), Tx::number(), Ty::number()},
@@ -72,7 +67,6 @@ get(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_Get),
   wxe_util:rec(?wxGraphicsMatrix_Get).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixinvert">external documentation</a>.
 -doc "Inverts the matrix.".
 -spec invert(This) -> 'ok' when
 	This::wxGraphicsMatrix().
@@ -80,7 +74,6 @@ invert(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_Invert).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixisequal">external documentation</a>.
 -doc "Returns true if the elements of the transformation matrix are equal.".
 -spec isEqual(This, T) -> boolean() when
 	This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
@@ -90,7 +83,6 @@ isEqual(#wx_ref{type=ThisT}=This,#wx_ref{type=TT}=T) ->
   wxe_util:queue_cmd(This,T,?get_env(),?wxGraphicsMatrix_IsEqual),
   wxe_util:rec(?wxGraphicsMatrix_IsEqual).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixisidentity">external documentation</a>.
 -doc "Return true if this is the identity matrix.".
 -spec isIdentity(This) -> boolean() when
 	This::wxGraphicsMatrix().
@@ -99,7 +91,6 @@ isIdentity(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_IsIdentity),
   wxe_util:rec(?wxGraphicsMatrix_IsIdentity).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixrotate">external documentation</a>.
 -doc "Rotates this matrix clockwise (in radians).".
 -spec rotate(This, Angle) -> 'ok' when
 	This::wxGraphicsMatrix(), Angle::number().
@@ -108,7 +99,6 @@ rotate(#wx_ref{type=ThisT}=This,Angle)
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,Angle,?get_env(),?wxGraphicsMatrix_Rotate).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixscale">external documentation</a>.
 -doc "Scales this matrix.".
 -spec scale(This, XScale, YScale) -> 'ok' when
 	This::wxGraphicsMatrix(), XScale::number(), YScale::number().
@@ -117,7 +107,6 @@ scale(#wx_ref{type=ThisT}=This,XScale,YScale)
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,XScale,YScale,?get_env(),?wxGraphicsMatrix_Scale).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtranslate">external documentation</a>.
 -doc "Translates this matrix.".
 -spec translate(This, Dx, Dy) -> 'ok' when
 	This::wxGraphicsMatrix(), Dx::number(), Dy::number().
@@ -126,7 +115,7 @@ translate(#wx_ref{type=ThisT}=This,Dx,Dy)
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,Dx,Dy,?get_env(),?wxGraphicsMatrix_Translate).
 
-%% @equiv set(This, [])
+-doc(#{equiv => set(This, [])}).
 -spec set(This) -> 'ok' when
 	This::wxGraphicsMatrix().
 
@@ -134,11 +123,7 @@ set(This)
  when is_record(This, wx_ref) ->
   set(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixset">external documentation</a>.
--doc """
-Sets the matrix to the respective values (default values are the identity
-matrix).
-""".
+-doc "Sets the matrix to the respective values (default values are the identity matrix).".
 -spec set(This, [Option]) -> 'ok' when
 	This::wxGraphicsMatrix(),
 	Option :: {'a', number()}
@@ -160,7 +145,6 @@ set(#wx_ref{type=ThisT}=This, Options)
   Opts = lists:map(MOpts, Options),
   wxe_util:queue_cmd(This, Opts,?get_env(),?wxGraphicsMatrix_Set).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformpoint">external documentation</a>.
 -doc "Applies this matrix to a point.".
 -spec transformPoint(This) -> {X::number(), Y::number()} when
 	This::wxGraphicsMatrix().
@@ -169,7 +153,6 @@ transformPoint(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_TransformPoint),
   wxe_util:rec(?wxGraphicsMatrix_TransformPoint).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformdistance">external documentation</a>.
 -doc """
 Applies this matrix to a distance (ie.
 
@@ -183,9 +166,7 @@ transformDistance(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxGraphicsMatrix_TransformDistance).
 
  %% From wxGraphicsObject
-%% @hidden
 -doc false.
 isNull(This) -> wxGraphicsObject:isNull(This).
-%% @hidden
 -doc false.
 getRenderer(This) -> wxGraphicsObject:getRenderer(This).

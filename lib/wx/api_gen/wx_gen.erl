@@ -50,7 +50,7 @@ safe(What, QuitOnErr) ->
     catch Err:Reason:Stacktrace ->
 	    io:format("Error in ~p ~p~n", [get(current_class),get(current_func)]),
 	    %%erlang:display({Err,Reason,Stacktrace}),
-            io:format("~p:~p:~n ~p~n~n",[Err,Reason,Stacktrace]),
+            io:format("~p:~P:~n ~p~n~n",[Err,Reason, 30, Stacktrace]),
 	    catch gen_util:close(),
             timer:sleep(1500),
 	    QuitOnErr andalso gen_util:halt(1)
@@ -69,7 +69,7 @@ gen_code() ->
     Defs = translate_enums(Defs2),
     wx_gen_erl:gen(Defs),
     wx_gen_nif:gen(Defs),
-    wx_gen_doc:gen(Defs),
+    %% wx_gen_doc:gen(Defs),
     ok.
 
 -record(hs,{alias,skip,fs,fopt,ev,acc,info}).

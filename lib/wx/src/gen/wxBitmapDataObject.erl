@@ -20,26 +20,31 @@
 
 -module(wxBitmapDataObject).
 -moduledoc """
-Functions for wxBitmapDataObject class
-
 `m:wxBitmapDataObject` is a specialization of `m:wxDataObject` for bitmap data.
-It can be used without change to paste data into the `m:wxClipboard` or a
-`wxDropSource` (not implemented in wx). A user may wish to derive a new class
-from this class for providing a bitmap on-demand in order to minimize memory
-consumption when offering data in several formats, such as a bitmap and GIF.
 
-This class may be used as is, but `getBitmap/1` may be overridden to increase
-efficiency.
+It can be used without change to paste data into the `m:wxClipboard` or a `wxDropSource`
+(not implemented in wx). A user may wish to derive a new class from this class for
+providing a bitmap on-demand in order to minimize memory consumption when offering data in
+several formats, such as a bitmap and GIF.
+
+This class may be used as is, but `getBitmap/1` may be overridden to increase efficiency.
 
 See:
-[Overview dnd](https://docs.wxwidgets.org/3.1/overview_dnd.html#overview_dnd),
-`m:wxDataObject`, `wxDataObjectSimple` (not implemented in wx),
-`m:wxFileDataObject`, `m:wxTextDataObject`, `m:wxDataObject`
+* [Overview dnd](https://docs.wxwidgets.org/3.2/overview_dnd.html#overview_dnd)
 
-This class is derived (and can use functions) from: `m:wxDataObject`
+* `m:wxDataObject`
 
-wxWidgets docs:
-[wxBitmapDataObject](https://docs.wxwidgets.org/3.1/classwx_bitmap_data_object.html)
+* `m:wxFileDataObject`
+
+* `m:wxTextDataObject`
+
+* `m:wxDataObject`
+
+This class is derived, and can use functions, from:
+
+* `m:wxDataObject`
+
+wxWidgets docs: [wxBitmapDataObject](https://docs.wxwidgets.org/3.2/classwx_bitmap_data_object.html)
 """.
 -include("wxe.hrl").
 -export([destroy/1,getBitmap/1,new/0,new/1,setBitmap/2]).
@@ -49,22 +54,16 @@ wxWidgets docs:
 
 -type wxBitmapDataObject() :: wx:wx_object().
 -export_type([wxBitmapDataObject/0]).
-%% @hidden
 -doc false.
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @equiv new([])
+-doc(#{equiv => new([])}).
 -spec new() -> wxBitmapDataObject().
 
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
-%% <br /> Also:<br />
-%% new(Bitmap) -> wxBitmapDataObject() when<br />
-%% 	Bitmap::wxBitmap:wxBitmap().<br />
-%% 
 -doc "Constructor, optionally passing a bitmap (otherwise use `setBitmap/2` later).".
 -spec new([Option]) -> wxBitmapDataObject() when
 	Option :: {'bitmap', wxBitmap:wxBitmap()};
@@ -82,13 +81,11 @@ new(#wx_ref{type=BitmapT}=Bitmap) ->
   wxe_util:queue_cmd(Bitmap,?get_env(),?wxBitmapDataObject_new_1_1),
   wxe_util:rec(?wxBitmapDataObject_new_1_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectgetbitmap">external documentation</a>.
 -doc """
 Returns the bitmap associated with the data object.
 
-You may wish to override this method when offering data on-demand, but this is
-not required by wxWidgets' internals. Use this method to get data in bitmap form
-from the `m:wxClipboard`.
+You may wish to override this method when offering data on-demand, but this is not
+required by wxWidgets' internals. Use this method to get data in bitmap form from the `m:wxClipboard`.
 """.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
 	This::wxBitmapDataObject().
@@ -97,12 +94,11 @@ getBitmap(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxBitmapDataObject_GetBitmap),
   wxe_util:rec(?wxBitmapDataObject_GetBitmap).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
 -doc """
 Sets the bitmap associated with the data object.
 
-This method is called when the data object receives data. Usually there will be
-no reason to override this function.
+This method is called when the data object receives data. Usually there will be no reason
+to override this function.
 """.
 -spec setBitmap(This, Bitmap) -> 'ok' when
 	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
@@ -111,8 +107,7 @@ setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:queue_cmd(This,Bitmap,?get_env(),?wxBitmapDataObject_SetBitmap).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the object.".
+-doc "Destroys the object".
 -spec destroy(This::wxBitmapDataObject()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapDataObject),

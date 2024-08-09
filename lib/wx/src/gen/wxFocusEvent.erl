@@ -20,36 +20,31 @@
 
 -module(wxFocusEvent).
 -moduledoc """
-Functions for wxFocusEvent class
+A focus event is sent when a window's focus changes.
 
-A focus event is sent when a window's focus changes. The window losing focus
-receives a "kill focus" event while the window gaining it gets a "set focus"
-one.
+The window losing focus receives a "kill focus" event while the window gaining it gets a
+"set focus" one.
 
-Notice that the set focus event happens both when the user gives focus to the
-window (whether using the mouse or keyboard) and when it is done from the
-program itself using `wxWindow:setFocus/1`.
+Notice that the set focus event happens both when the user gives focus to the window
+(whether using the mouse or keyboard) and when it is done from the program itself using `wxWindow:setFocus/1`.
 
-The focus event handlers should almost invariably call `wxEvent:skip/2` on their
-event argument to allow the default handling to take place. Failure to do this
-may result in incorrect behaviour of the native controls. Also note that
-wxEVT_KILL_FOCUS handler must not call `wxWindow:setFocus/1` as this, again, is
-not supported by all native controls. If you need to do this, consider using the
-`Delayed Action Mechanism` (not implemented in wx) described in `m:wxIdleEvent`
-documentation.
+The focus event handlers should almost invariably call `wxEvent:skip/2` on their event argument to allow
+the default handling to take place. Failure to do this may result in incorrect behaviour
+of the native controls. Also note that wxEVT_KILL_FOCUS handler must not call `wxWindow:setFocus/1` as this,
+again, is not supported by all native controls. If you need to do this, consider using the `Delayed Action Mechanism`
+(not implemented in wx) described in `m:wxIdleEvent` documentation.
 
-See:
-[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+See: [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
 
-This class is derived (and can use functions) from: `m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxFocusEvent](https://docs.wxwidgets.org/3.1/classwx_focus_event.html)
+* `m:wxEvent`
+
+wxWidgets docs: [wxFocusEvent](https://docs.wxwidgets.org/3.2/classwx_focus_event.html)
 
 ## Events
 
-Use `wxEvtHandler:connect/3` with [`wxFocusEventType`](`t:wxFocusEventType/0`)
-to subscribe to events of this type.
+Use `wxEvtHandler:connect/3` with `wxFocusEventType` to subscribe to events of this type.
 """.
 -include("wxe.hrl").
 -export([getWindow/1]).
@@ -62,18 +57,16 @@ to subscribe to events of this type.
 -include("wx.hrl").
 -type wxFocusEventType() :: 'set_focus' | 'kill_focus'.
 -export_type([wxFocusEvent/0, wxFocus/0, wxFocusEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfocusevent.html#wxfocuseventgetwindow">external documentation</a>.
 -doc """
-Returns the window associated with this event, that is the window which had the
-focus before for the `wxEVT_SET_FOCUS` event and the window which is going to
-receive focus for the `wxEVT_KILL_FOCUS` one.
+Returns the window associated with this event, that is the window which had the focus
+before for the `wxEVT\_SET\_FOCUS` event and the window which is going to receive focus
+for the `wxEVT\_KILL\_FOCUS` one.
 
-Warning: the window pointer may be NULL\!
+Warning: the window pointer may be NULL!
 """.
 -spec getWindow(This) -> wxWindow:wxWindow() when
 	This::wxFocusEvent().
@@ -83,30 +76,21 @@ getWindow(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxFocusEvent_GetWindow).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).
