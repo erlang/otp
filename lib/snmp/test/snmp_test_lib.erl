@@ -52,6 +52,7 @@
 -export([eprint/2, wprint/2, nprint/2, iprint/2]).
 -export([explicit_inet_backend/0, test_inet_backends/0]).
 -export([which_host_ip/2]).
+-export([ftime/2]).
 
 %% Convenient exports...
 -export([analyze_and_print_host_info/0]).
@@ -1063,17 +1064,20 @@ do_linux_which_distro_os_release(Version, Label) ->
                     Info = linux_process_os_release(),
                     {value, {_, DistroStr}} = lists:keysearch(name, 1, Info),
                     {value, {_, VersionNo}} = lists:keysearch(version, 1, Info),
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   Distro Version:          ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, DistroStr, VersionNo, Label,
-                               linux_product_name()]),
+                    %% SLabel = simplify_label(Label),
+                    %% io:format("Linux: ~s"
+                    %%           "~n   Distro:                  ~s"
+                    %%           "~n   Distro Version:          ~s"
+                    %%           "~n   TS Extra Platform Label: ~s (~p)"
+                    %%           "~n   Product Name:            ~s"
+                    %%           "~n",
+                    %%           [Version, DistroStr, VersionNo, Label, SLabel,
+                    %%            linux_product_name()]),
+                    SLabel = linux_distro_release(Version,
+                                                  DistroStr, VersionNo, Label),
                     throw({distro,
                            {linux_distro_str_to_distro_id(DistroStr),
-                            simplify_label(Label)}})
+                            SLabel}})
                 end
             catch
                 throw:{distro, _} = DISTRO ->
@@ -1084,7 +1088,29 @@ do_linux_which_distro_os_release(Version, Label) ->
         _ ->
             retry
     end.
-	    
+
+
+linux_distro_release(Version, Distro, Label) ->
+    SLabel = simplify_label(Label),
+    io:format("Linux: ~s"
+              "~n   Distro:                  ~s"
+              "~n   TS Extra Platform Label: ~s (~p)"
+              "~n   Product Name:            ~s"
+              "~n",
+              [Version, Distro, Label, SLabel, linux_product_name()]),
+    SLabel.
+
+linux_distro_release(Version, Distro, DVersion, Label) ->
+    SLabel = simplify_label(Label),
+    io:format("Linux: ~s"
+              "~n   Distro:                  ~s"
+              "~n   Distro Version:          ~s"
+              "~n   TS Extra Platform Label: ~s (~p)"
+              "~n   Product Name:            ~s"
+              "~n",
+              [Version, Distro, DVersion, Label, SLabel, linux_product_name()]),
+    SLabel.
+
 
 linux_process_os_release() ->
     %% Read the "raw" file
@@ -1174,27 +1200,30 @@ do_linux_which_distro_fedora_release(Version, Label) ->
     %% Check if fedora
     case file:read_file_info("/etc/fedora-release") of
         {ok, _} ->
-            case [string:trim(S) ||
-                     S <- string:tokens(os:cmd("cat /etc/fedora-release"),
-                                        [$\n])] of
-                [DistroStr | _] ->
-                    io:format("Linux: ~s"
-                              "~n   Distro:                  ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, DistroStr, Label,
-                               linux_product_name()]);
-                _ ->
-                    io:format("Linux: ~s"
-                              "~n   Distro: ~s"
-                              "~n   TS Extra Platform Label: ~s"
-                              "~n   Product Name:            ~s"
-                              "~n",
-                              [Version, "Fedora", Label,
-                               linux_product_name()])
+            SLabel =
+                case [string:trim(S) ||
+                         S <- string:tokens(os:cmd("cat /etc/fedora-release"),
+                                            [$\n])] of
+                    [DistroStr | _] ->
+                        %% io:format("Linux: ~s"
+                        %%           "~n   Distro:                  ~s"
+                        %%           "~n   TS Extra Platform Label: ~s (~p)"
+                        %%           "~n   Product Name:            ~s"
+                        %%           "~n",
+                        %%           [Version, DistroStr, Label, SLabel,
+                        %%            linux_product_name()]);
+                        linux_distro_release(Version, DistroStr, Label);
+                    _ ->
+                        %% io:format("Linux: ~s"
+                        %%           "~n   Distro: ~s"
+                        %%           "~n   TS Extra Platform Label: ~s (~p)"
+                        %%           "~n   Product Name:            ~s"
+                        %%           "~n",
+                        %%           [Version, "Fedora", Label, SLabel
+                        %%            linux_product_name()])
+                        linux_distro_release(Version, "Fedora", Label)
             end,
-            throw({distro, {fedora, simplify_label(Label)}});
+            throw({distro, {fedora, SLabel}});
         _ ->
             throw({error, not_found})
     end.
@@ -1209,32 +1238,41 @@ do_linux_which_distro_suse_release(Version, Label) ->
                              S <- string:tokens(os:cmd("cat /etc/SuSE-release"),
                                                 [$\n])] of
                         ["SUSE Linux Enterprise Server" ++ _ = DistroStr | _] ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, {sles, simplify_label(Label)}});
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, DistroStr, Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr,
+                                                          Label),
+                            throw({distro, {sles, SLabel}});
                         [DistroStr | _] ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}});
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, DistroStr, Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr,
+                                                          Label),
+                            throw({distro, {suse, SLabel}});
                         _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, "SuSE", Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}})
+                            %% io:format("Linux: ~s"
+                            %%           "~n   Distro:                  ~s"
+                            %%           "~n   TS Extra Platform Label: ~s (~p)"
+                            %%           "~n   Product Name:            ~s"
+                            %%           "~n",
+                            %%           [Version, "SuSE", Label, SLabel,
+                            %%            linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          "SuSE",
+                                                          Label),
+                            throw({distro, {suse, SLabel}})
                     end;
                 _ ->
                     case string:tokens(os:cmd("cat /etc/SUSE-brand"), [$\n]) of
@@ -1242,70 +1280,90 @@ do_linux_which_distro_suse_release(Version, Label) ->
                             case [string:strip(S) ||
                                      S <- string:tokens(VERSION, [$=])] of
                                 ["VERSION", VersionNo] ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   Distro Version:          ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version,
-                                               DistroStr, VersionNo,
-                                               Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {sles, simplify_label(Label)}});
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   Distro Version:          ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version,
+                                    %%    DistroStr, VersionNo,
+                                    %%    Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  VersionNo,
+                                                                  Label),
+                                    throw({distro, {sles, SLabel}});
                                 _ ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version, DistroStr, Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {sles, simplify_label(Label)}})
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version, DistroStr, Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  Label),
+                                    throw({distro, {sles, SLabel}})
                             end;
                         ["openSUSE" = DistroStr, VERSION | _] ->
                             case [string:strip(S) ||
                                      S <- string:tokens(VERSION, [$=])] of
                                 ["VERSION", VersionNo] ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   Distro Version:          ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version,
-                                               DistroStr, VersionNo,
-                                               Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {suse, simplify_label(Label)}});
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   Distro Version:          ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version,
+                                    %%    DistroStr, VersionNo,
+                                    %%    Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  VersionNo,
+                                                                  Label),
+                                    throw({distro, {suse, SLabel}});
                                 _ ->
-                                    io:format("Linux: ~s"
-                                              "~n   Distro:                  ~s"
-                                              "~n   TS Extra Platform Label: ~s"
-                                              "~n   Product Name:            ~s"
-                                              "~n",
-                                              [Version, DistroStr, Label,
-                                               linux_product_name()]),
-                                    throw({distro,
-                                           {suse, simplify_label(Label)}})
+                                    %% io:format(
+                                    %%   "Linux: ~s"
+                                    %%   "~n   Distro:                  ~s"
+                                    %%   "~n   TS Extra Platform Label: ~s (~p)"
+                                    %%   "~n   Product Name:            ~s"
+                                    %%   "~n",
+                                    %%   [Version, DistroStr, Label, SLabel,
+                                    %%    linux_product_name()]),
+                                    SLabel = linux_distro_release(Version,
+                                                                  DistroStr,
+                                                                  Label),
+                                    throw({distro, {suse, SLabel}})
                             end;
                         _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, "Unknown SUSE", Label,
-                                       linux_product_name()]),
-                            throw({distro, {suse, simplify_label(Label)}})
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, "Unknown SUSE",
+                            %%    Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          "Unknown SUSE",
+                                                          Label),
+                            throw({distro, {suse, SLabel}})
                     end
             end;
         _ ->
             throw({error, not_found})
     end.
+
 
 do_linux_which_distro_issue(Version, Label) ->
     case file:read_file_info("/etc/issue") of
@@ -1315,65 +1373,77 @@ do_linux_which_distro_issue(Version, Label) ->
                 [DistroStr | _] ->
                     case DistroStr of
                         "Wind River Linux" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {wind_river, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {wind_river, SLabel}});
                         "MontaVista" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro, 
-                                   {montavista, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {montavista, SLabel}});
                         "Yellow Dog" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {yellow_dog, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {yellow_dog, SLabel}});
                         "Debian" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {debian, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {debian, SLabel}});
                         "Ubuntu" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {ubuntu, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {ubuntu, SLabel}});
                         "Linux Mint" ++ _ ->
-                            io:format("Linux: ~s"
-                                      "~n   Distro:                  ~s"
-                                      "~n   TS Extra Platform Label: ~s"
-                                      "~n   Product Name:            ~s"
-                                      "~n",
-                                      [Version, DistroStr, Label,
-                                       linux_product_name()]),
-                            throw({distro,
-                                   {linux_mint, simplify_label(Label)}});
+                            %% io:format(
+                            %%   "Linux: ~s"
+                            %%   "~n   Distro:                  ~s"
+                            %%   "~n   TS Extra Platform Label: ~s (~p)"
+                            %%   "~n   Product Name:            ~s"
+                            %%   "~n",
+                            %%   [Version, DistroStr, Label, SLabel,
+                            %%    linux_product_name()]),
+                            SLabel = linux_distro_release(Version,
+                                                          DistroStr, Label),
+                            throw({distro, {linux_mint, SLabel}});
                         _ ->
                             DistroStr
                     end;
@@ -3203,6 +3273,20 @@ timetrap_scale_factor() ->
 	    N
     end.
 
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (0 < Factor) andalso (Factor < 3) ->
+    BaseTime;
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (3 =< Factor) andalso (Factor =< 10) ->
+    BaseTime + (Factor-2) * (BaseTime div 4);
+ftime(BaseTime, Factor)
+  when is_integer(BaseTime) andalso (BaseTime > 0) andalso
+       is_integer(Factor) andalso (10 < Factor) ->
+    3*BaseTime + (Factor-10) * (BaseTime div 10).
+    
+    
     
 %% ----------------------------------------------------------------------
 %% file & dir functions

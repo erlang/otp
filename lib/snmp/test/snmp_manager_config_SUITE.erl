@@ -238,6 +238,10 @@ init_per_suite(Config0) when is_list(Config0) ->
             %% We need one on this node also
             snmp_test_sys_monitor:start(),
 
+            ?IPRINT("init_per_suite -> try ensure snmpm_config not running"),
+
+            config_ensure_not_running(),
+
             ?IPRINT("init_per_suite -> end when"
                     "~n   Config: ~p", [Config2]),
 
@@ -327,20 +331,44 @@ simple_start_and_stop(doc) ->
     "Start the snmp manager config process with the \n"
 	"minimum setof options (config dir).";
 simple_start_and_stop(Conf) when is_list(Conf) ->
-    put(tname, "SIME-START_AND_STOP"),
-    ?IPRINT("start"),
+    put(tname, "SIMPLE_START_AND_STOP"),
     process_flag(trap_exit, true),
-    ConfDir = ?config(manager_conf_dir, Conf),
-    DbDir = ?config(manager_db_dir, Conf),
+    Pre = fun() ->
+                  %% Since this is the first test case in this
+                  %% suite, we (possibly) need to do some cleanup...
+                  ?IPRINT("~w:pre -> ensure config not already running",
+                          [?FUNCTION_NAME]),
+                  config_ensure_not_running()
+          end,
+    TC  = fun(_) ->
+                  ?IPRINT("~w:tc -> begin", [?FUNCTION_NAME]),
+                  do_simple_start_and_stop(Conf)
+          end,
+    Post = fun(_) ->
+                   ?IPRINT("~w:post -> ensure config not still running",
+                           [?FUNCTION_NAME]),
+                   config_ensure_not_running()
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
+do_simple_start_and_stop(Conf) when is_list(Conf) ->
+    ConfDir = ?config(manager_conf_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    ?IPRINT("~w -> try write \"standard\" manager config to"
+            "~n   ~p", [?FUNCTION_NAME, ConfDir]),
     write_manager_conf(ConfDir),
 
     Opts = [{versions, [v1]}, 
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
+    ?IPRINT("~w -> try start with basic opts", [?FUNCTION_NAME]),
     {ok, _Pid} = snmpm_config:start_link(Opts),
+
+    ?IPRINT("~w -> try stop", [?FUNCTION_NAME]),
     ok = snmpm_config:stop(),
 
+    ?IPRINT("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
