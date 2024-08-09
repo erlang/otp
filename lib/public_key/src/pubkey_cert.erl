@@ -32,7 +32,8 @@
          validate_signature/6,
          verify_data/1,
          verify_fun/4,
-         prepare_for_next_cert/2]).
+         prepare_for_next_cert/2,
+         apply_fun/5]).
 
 %% Utility functions
 -export([normalize_general_name/1,
@@ -65,13 +66,13 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec init_validation_state(#'OTPCertificate'{}, integer(), list()) ->
+-spec init_validation_state(#cert{}, integer(), list()) ->
 				   #path_validation_state{}.
 %%
 %% Description: Creates initial version of path_validation_state for
 %% basic path validation of x509 certificates.
 %%--------------------------------------------------------------------
-init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen,
+init_validation_state(Cert, DefaultPathLen,
 		      Options) ->
     PolicyTree = pubkey_policy_tree:root(),
     MaxLen =  proplists:get_value(max_path_length, Options, DefaultPathLen),
@@ -96,33 +97,34 @@ init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen,
 				   verify_fun              = VerifyFun,
 				   user_state	           = UserState,
 				   cert_num                = 0},
-    prepare_for_next_cert(OtpCert, State).
+    prepare_for_next_cert(Cert, State).
 
 %%--------------------------------------------------------------------
--spec validate_extensions(#'OTPCertificate'{}, #path_validation_state{},
+-spec validate_extensions(#cert{}, #path_validation_state{},
 			  term(), fun())->
 				 {#path_validation_state{}, UserState :: term()}.
 %%
 %% Description: Check extensions included in basic path validation.
 %%--------------------------------------------------------------------
-validate_extensions(OtpCert, ValidationState0, UserState0, VerifyFun) ->
+validate_extensions(Cert, ValidationState0, UserState0, VerifyFun) ->
+    OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     case TBSCert#'OTPTBSCertificate'.version of
 	N when N >= 3 ->
 	    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
-            validate_extensions(OtpCert, Extensions,
+            validate_extensions(Cert, Extensions,
                                 ValidationState0, no_basic_constraint,
                                 is_self_signed(OtpCert), UserState0, VerifyFun);
         _ -> %% Extensions not present in versions 1 & 2
 	    {ValidationState0, UserState0}
     end.
 %%--------------------------------------------------------------------
--spec validate_policy_tree(#'OTPCertificate'{}, #path_validation_state{})->
+-spec validate_policy_tree(#cert{}, #path_validation_state{})->
           #path_validation_state{} | no_return().
 %%
 %% Description: Check policy tree requirements after handling of certificate extensions
 %%--------------------------------------------------------------------
-validate_policy_tree(OtpCert,
+validate_policy_tree(Cert,
                      #path_validation_state{explicit_policy = ExplicitPolicyConstraint,
                                             valid_policy_tree = Tree,
                                             user_state = UserState0,
@@ -133,9 +135,9 @@ validate_policy_tree(OtpCert,
             ValidationState;
         false ->
             UserState =
-                verify_fun(OtpCert, {bad_cert,
-                                     {policy_requirement_not_met,
-                                      {{explicit_policy, ExplicitPolicyConstraint},
+                verify_fun(Cert, {bad_cert,
+                                  {policy_requirement_not_met,
+                                   {{explicit_policy, ExplicitPolicyConstraint},
                                        {policy_set,
                                         pubkey_policy_tree:constrained_policy_node_set(Tree)}}}},
                            UserState0, VerifyFun),
@@ -143,21 +145,22 @@ validate_policy_tree(OtpCert,
     end.
 
 %%--------------------------------------------------------------------
--spec validate_time(#'OTPCertificate'{}, term(), fun()) -> term().
+-spec validate_time(#cert{}, term(), fun()) -> term().
 %%
 %% Description: Check that the certificate validity period includes the
 %% current time.
 %%--------------------------------------------------------------------
-validate_time(OtpCert, UserState, VerifyFun) ->
+validate_time(Cert, UserState, VerifyFun) ->
     % Parse and check validity of the certificate dates, and if it fails, invoke `verify_fun` to
     % hand over control to the caller in order to decide what to do.
+    OtpCert = otp_cert(Cert),
     case parse_and_check_validity_dates(OtpCert) of
         expired ->
             % Certificate has correctly formatted dates but it's expired
-            verify_fun(OtpCert, {bad_cert, cert_expired}, UserState, VerifyFun);
+            verify_fun(Cert, {bad_cert, cert_expired}, UserState, VerifyFun);
         error ->
             % Certificate has incorrectly formatted dates, attempt to delegate decision to app function
-            verify_fun(OtpCert, {bad_cert, invalid_validity_dates}, UserState, VerifyFun);
+            verify_fun(Cert, {bad_cert, invalid_validity_dates}, UserState, VerifyFun);
         % Validation succeded and certificate is not expired, no new state needed
         ok ->
             UserState
@@ -191,26 +194,28 @@ parse_and_check_validity_dates(OtpCert) ->
     end.
 
 %%--------------------------------------------------------------------
--spec validate_issuer(#'OTPCertificate'{}, term(), term(), fun()) -> term() | no_return().
+-spec validate_issuer(#cert{}, term(), term(), fun()) -> term() | no_return().
 %%
 %% Description: Check that the certificate issuer name is the working_issuer_name
 %% in path_validation_state.
 %%--------------------------------------------------------------------
-validate_issuer(OtpCert, Issuer, UserState, VerifyFun) ->
+validate_issuer(Cert, Issuer, UserState, VerifyFun) ->
+    OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     case is_issuer(Issuer, TBSCert#'OTPTBSCertificate'.issuer) of
 	true ->
 	    UserState;
 	_ ->
-	    verify_fun(OtpCert, {bad_cert, invalid_issuer}, UserState, VerifyFun)
+	    verify_fun(Cert, {bad_cert, invalid_issuer}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
--spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
+-spec validate_names(#cert{}, no_constraints | list(), list(),
 		     term(), term(), fun())-> term() | no_return().
 %%
 %% Description: Validate Subject Alternative Name.
 %%--------------------------------------------------------------------
-validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
+validate_names(Cert, Permit, Exclude, Last, UserState, VerifyFun) ->
+    OtpCert = otp_cert(Cert),
     case is_self_signed(OtpCert) andalso (not Last) of
 	true ->
 	    UserState;
@@ -239,13 +244,13 @@ validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
 		true ->
 		    UserState;
 		false ->
-		    verify_fun(OtpCert, {bad_cert, name_not_permitted},
+		    verify_fun(Cert, {bad_cert, name_not_permitted},
 			      UserState, VerifyFun)
 	    end
     end.
 
 %%--------------------------------------------------------------------
--spec validate_signature(#'OTPCertificate'{}, DER::binary(),
+-spec validate_signature(#cert{}, DER::binary(),
 			 term(),term(), term(), fun()) -> term() | no_return().
 
 %%
@@ -253,14 +258,14 @@ validate_names(OtpCert, Permit, Exclude, Last, UserState, VerifyFun) ->
 %% working_public_key_algorithm, the working_public_key, and
 %% the working_public_key_parameters in path_validation_state.
 %%--------------------------------------------------------------------
-validate_signature(OtpCert, DerCert, Key, KeyParams,
+validate_signature(Cert, DerCert, Key, KeyParams,
 		   UserState, VerifyFun) ->
-
+    OtpCert = otp_cert(Cert),
     case verify_signature(OtpCert, DerCert, Key, KeyParams) of
 	true ->
 	    UserState;
 	false ->
-	    verify_fun(OtpCert, {bad_cert, invalid_signature}, UserState, VerifyFun)
+	    verify_fun(Cert, {bad_cert, invalid_signature}, UserState, VerifyFun)
     end.
 
 %%--------------------------------------------------------------------
@@ -277,7 +282,7 @@ verify_data(DerCert) ->
     extract_verify_data(OtpCert, DerCert).
 
 %%--------------------------------------------------------------------
--spec verify_fun(#'OTPCertificate'{}, {bad_cert, public_key:bad_cert_reason()} |
+-spec verify_fun(#cert{}, {bad_cert, public_key:bad_cert_reason()} |
                  {extension, #'Extension'{}}|
 		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
@@ -285,9 +290,9 @@ verify_data(DerCert) ->
 %% validation errors and unknown extensions and optional do other
 %% things with a validated certificate.
 %% --------------------------------------------------------------------
-verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
-    case VerifyFun(Otpcert, Result, UserState0) of
-	{valid, UserState} ->
+verify_fun(#cert{der = DerCert, otp = OtpCert}, Result, UserState0, VerifyFun) ->
+    case apply_fun(VerifyFun, DerCert, OtpCert, Result, UserState0) of
+        {valid, UserState} ->
 	    UserState;
 	{valid_peer, UserState} ->
 	    UserState;
@@ -308,21 +313,21 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
     end.
 
 %%--------------------------------------------------------------------
--spec prepare_for_next_cert(#'OTPCertificate'{}, #path_validation_state{}) ->
+-spec prepare_for_next_cert(#cert{}, #path_validation_state{}) ->
 				   #path_validation_state{} | no_return().
 %%
 %% Description: Update path_validation_state for next iteration.
 %%--------------------------------------------------------------------
-prepare_for_next_cert(OtpCert, #path_validation_state{policy_mapping_ext = Ext} =
+prepare_for_next_cert(Cert, #path_validation_state{policy_mapping_ext = Ext} =
                           ValidationState0) when Ext =/= undefined ->
-    ValidationState1 = handle_policy_mappings(OtpCert, ValidationState0),
+    ValidationState1 = handle_policy_mappings(Cert, ValidationState0),
     ValidationState =
         ValidationState1#path_validation_state{policy_mapping_ext =
                                                    undefined,
                                                current_any_policy_qualifiers =
                                                    undefined},
-    prepare_for_next_cert(OtpCert, ValidationState);
-prepare_for_next_cert(OtpCert, #path_validation_state{
+    prepare_for_next_cert(Cert, ValidationState);
+prepare_for_next_cert(Cert, #path_validation_state{
                                   working_public_key_algorithm = PrevAlgo,
                                   working_public_key_parameters =
                                       PrevParams,
@@ -331,6 +336,7 @@ prepare_for_next_cert(OtpCert, #path_validation_state{
                                   inhibit_policy_mapping = PolicyMappingConstraint,
                                   inhibit_any_policy = AnyPolicyConstraint
                                  } = ValidationState0) ->
+    OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Issuer =  TBSCert#'OTPTBSCertificate'.subject,
 
@@ -372,7 +378,15 @@ prepare_for_next_cert(OtpCert, #path_validation_state{
          },
     ValidationState2 = handle_policy_constraints(ValidationState1),
     ValidationState = handle_inhibit_anypolicy(ValidationState2),
-    handle_last_cert(OtpCert, ValidationState).
+    handle_last_cert(Cert, ValidationState).
+
+apply_fun(Fun, DerCert, OtpCert, Result, UserState) ->
+    if is_function(Fun, 4) ->
+            Fun(OtpCert, DerCert, Result, UserState);
+       is_function(Fun, 3) ->
+            Fun(OtpCert, Result, UserState)
+    end.
+
 
 %%====================================================================
 %% Utility functions
@@ -682,15 +696,15 @@ root_cert(Name, Opts) ->
 %%--------------------------------------------------------------------
 
 %% No extensions present
-validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
+validate_extensions(Cert, asn1_NOVALUE, ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
+    validate_extensions(Cert, [], ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
 
 validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
 		    UserState, _) ->
     {ValidationState, UserState};
-validate_extensions(OtpCert, [], ValidationState =
+validate_extensions(Cert, [], ValidationState =
 			#path_validation_state{max_path_length = Len,
 					       last_cert = Last},
 		    no_basic_constraint, SelfSigned, UserState0, VerifyFun) ->
@@ -703,9 +717,9 @@ validate_extensions(OtpCert, [], ValidationState =
 	false ->
 	    %% basic_constraint must appear in certs used for digital sign
 	    %% see 4.2.1.10 in rfc 3280
-	    case is_digitally_sign_cert(OtpCert) of
+	    case is_digitally_sign_cert(Cert) of
 		true ->
-		    missing_basic_constraints(OtpCert, SelfSigned,
+		    missing_basic_constraints(Cert, SelfSigned,
 					      ValidationState, VerifyFun,
 					      UserState0, Len);
 		false -> %% Example CRL signer only
@@ -713,7 +727,7 @@ validate_extensions(OtpCert, [], ValidationState =
 	    end
     end;
 
-validate_extensions(OtpCert,
+validate_extensions(Cert,
 		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
 				  extnValue =
 				      #'BasicConstraints'{cA = true,
@@ -725,22 +739,22 @@ validate_extensions(OtpCert,
     Length = if SelfSigned -> erlang:min(N, Len);
 		true -> erlang:min(N, Len-1)
 	     end,
-    validate_extensions(OtpCert, Rest,
+    validate_extensions(Cert, Rest,
 			ValidationState#path_validation_state{max_path_length =
 								  Length},
 			basic_constraint, SelfSigned,
 			UserState, VerifyFun);
 %% The pathLenConstraint field is meaningful only if cA is set to
 %% TRUE.
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
 					   extnValue =
 					       #'BasicConstraints'{cA = false}} |
 			      Rest], ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
 
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-keyUsage',
 					   extnValue = KeyUse
 					  } | Rest],
 		    #path_validation_state{last_cert=Last} = ValidationState,
@@ -748,32 +762,32 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
 		    UserState0, VerifyFun) ->
     case Last orelse is_valid_key_usage(KeyUse, keyCertSign) of
 	true ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+	    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState0, VerifyFun);
 	false ->
-	    UserState = verify_fun(OtpCert, {bad_cert, invalid_key_usage},
+	    UserState = verify_fun(Cert, {bad_cert, invalid_key_usage},
 				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+	    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState, VerifyFun)
     end;
 
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
 					   extnValue = Names,
 					   critical = true} = Ext | Rest],
 		    ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun)  ->
     case validate_subject_alt_names(Names) of
 	true  ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+	    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState0, VerifyFun);
 	false ->
-	    UserState = verify_fun(OtpCert, {extension, Ext},
+	    UserState = verify_fun(Cert, {extension, Ext},
 				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+	    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState, VerifyFun)
     end;
 
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
 				  extnValue = NameConst} | Rest],
 		    ValidationState,
 		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
@@ -783,40 +797,40 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
     NewValidationState = add_name_constraints(Permitted, Excluded,
 					      ValidationState),
 
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+    validate_extensions(Cert, Rest, NewValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
 					   extnValue = Info}
 			      | Rest],
                     ValidationState,
 		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
     Tree = process_policy_tree(Info, SelfSigned, ValidationState),
-    validate_extensions(OtpCert, Rest,
+    validate_extensions(Cert, Rest,
 			ValidationState#path_validation_state{
                           policy_ext_present = true,
                           current_any_policy_qualifiers =
                               current_any_policy_qualifiers(Info),
 			  valid_policy_tree = Tree},
 			ExistBasicCon, SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints'} = Ext
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-policyConstraints'} = Ext
 			      | Rest], ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
     NewValidationState = ValidationState#path_validation_state{policy_constraint_ext = Ext},
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+    validate_extensions(Cert, Rest, NewValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyMappings'} = Ext
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-policyMappings'} = Ext
                              | Rest], ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
     NewValidationState = ValidationState#path_validation_state{policy_mapping_ext = Ext},
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+    validate_extensions(Cert, Rest, NewValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-inhibitAnyPolicy'} = Ext
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-inhibitAnyPolicy'} = Ext
 			      | Rest], ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
     NewValidationState = ValidationState#path_validation_state{policy_inhibitany_ext = Ext},
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+    validate_extensions(Cert, Rest, NewValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
                                            critical = true,
                                            extnValue = KeyUse} = Extension | Rest],
 		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
@@ -824,22 +838,23 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
     UserState =
         case ext_keyusage_includes_any(KeyUse) of
             true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
-                verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
+                verify_fun(Cert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
             false ->
-                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
+                verify_fun(Cert, {extension, Extension}, UserState0, VerifyFun)
         end,
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon, SelfSigned,
 			UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
+validate_extensions(Cert, [#'Extension'{} = Extension | Rest],
 		    ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun) ->
-    UserState = verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+    UserState = verify_fun(Cert, {extension, Extension}, UserState0, VerifyFun),
+    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon, SelfSigned,
 			UserState, VerifyFun).
 
-handle_last_cert(OtpCert, #path_validation_state{last_cert = true,
+handle_last_cert(Cert, #path_validation_state{last_cert = true,
                                                  user_initial_policy_set = PolicySet,
                                                  valid_policy_tree = Tree} = ValidationState0) ->
+    OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions =
         extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
@@ -854,7 +869,7 @@ handle_last_cert(OtpCert, #path_validation_state{last_cert = true,
                 ValidationState0
     end,
     ValidTree = policy_tree_intersection(PolicySet, Tree),
-    validate_policy_tree(OtpCert,
+    validate_policy_tree(Cert,
                          ValidationState#path_validation_state{valid_policy_tree = ValidTree});
 handle_last_cert(_, ValidationState) ->
     ValidationState.
@@ -1035,13 +1050,13 @@ any_ext_policy_children(#{expected_policy_set := ExpPolicySet}, Qualifiers, AllL
 %% Start Prepare Next Cert Policy Handling  RFC 5280 Section 6.1.4 -------------
 
 %% 6.1.4. b start:
-handle_policy_mappings(OtpCert,
+handle_policy_mappings(Cert,
                        #path_validation_state{valid_policy_tree = Tree0,
                                               policy_mapping_ext =
                                                   #'Extension'{extnID = ?'id-ce-policyMappings',
                                                                extnValue = PolicyMappings}}
                        = ValidationState) ->
-    case handle_policy_mappings(PolicyMappings, OtpCert, Tree0, ValidationState) of
+    case handle_policy_mappings(PolicyMappings, Cert, Tree0, ValidationState) of
         {tree, Tree} ->
             ValidationState#path_validation_state{valid_policy_tree = Tree};
         {user_state, UState} ->
@@ -1050,10 +1065,10 @@ handle_policy_mappings(OtpCert,
 
 handle_policy_mappings([], _, Tree, _) ->
     {tree, Tree};
-handle_policy_mappings([Mappings | Rest], OtpCert, Tree0, ValidationState) ->
-    case handle_policy_mapping(Mappings, OtpCert, Tree0, ValidationState) of
+handle_policy_mappings([Mappings | Rest], Cert, Tree0, ValidationState) ->
+    case handle_policy_mapping(Mappings, Cert, Tree0, ValidationState) of
         {tree, Tree} ->
-            handle_policy_mappings(Rest, OtpCert, Tree, ValidationState);
+            handle_policy_mappings(Rest, Cert, Tree, ValidationState);
         Other ->
             Other
     end.
@@ -1066,7 +1081,7 @@ handle_policy_mapping(#'PolicyMappings_SEQOF'{
                              IssuerPolicy,
                          subjectDomainPolicy =
                              SubjectPolicy} = Ext,
-                      OtpCert, Tree0,
+                      Cert, Tree0,
                       #path_validation_state{inhibit_policy_mapping =
                                                  PolicyMappingConstraint,
                                              current_any_policy_qualifiers =
@@ -1081,7 +1096,7 @@ handle_policy_mapping(#'PolicyMappings_SEQOF'{
                                              PolicyMappingConstraint, AnyQualifiers),
             {tree, Tree};
         false ->
-            UserState = verify_fun(OtpCert, {bad_cert, {invalid_policy_mapping, Ext}},
+            UserState = verify_fun(Cert, {bad_cert, {invalid_policy_mapping, Ext}},
                                    UserState, VerifyFun),
             {user_state, UserState}
     end.
@@ -1757,7 +1772,8 @@ is_dh(?'dhpublicnumber')->
 is_dh(_) ->
     false.
 
-is_digitally_sign_cert(OtpCert) ->
+is_digitally_sign_cert(Cert) ->
+    OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
     case pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions) of
@@ -1767,8 +1783,8 @@ is_digitally_sign_cert(OtpCert) ->
 	    lists:member(keyCertSign, KeyUse)
     end.
 
-missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
-    UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
+missing_basic_constraints(Cert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
+    UserState = verify_fun(Cert, {bad_cert, missing_basic_constraint},
 			   UserState0, VerifyFun),
     case SelfSigned of
 	true ->
@@ -2081,3 +2097,9 @@ ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
 ext_keyusage_includes_any(_) ->
     false.
 
+otp_cert(Der) when is_binary(Der) ->
+    public_key:pkix_decode_cert(Der, otp);
+otp_cert(#'OTPCertificate'{} = Cert) ->
+    Cert;
+otp_cert(#cert{otp = OtpCert}) ->
+    OtpCert.
