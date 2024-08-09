@@ -25667,11 +25667,11 @@ api_to_connect_tcp(InitState) ->
                            ?SEV_IPRINT("remote client ~p started", [Pid]),
                            {ok, State#{rclient => Pid}}
                    end},
-         #{desc => "monitor remote client",
-           cmd  => fun(#{rclient := Pid}) ->
-                           _MRef = erlang:monitor(process, Pid),
-                           ok
-                   end},
+         %% #{desc => "monitor remote client",
+         %%   cmd  => fun(#{rclient := Pid}) ->
+         %%                   _MRef = erlang:monitor(process, Pid),
+         %%                   ok
+         %%           end},
          #{desc => "order remote client to start",
            cmd  => fun(#{rclient   := Client,
                          server_sa := ServerSA}) ->
@@ -25717,14 +25717,22 @@ api_to_connect_tcp(InitState) ->
                            case ?SEV_AWAIT_READY(RClient, rclient, connect,
                                                  [{tester, Tester}]) of
                                {ok, ok = _Result} ->
+                                   ?SEV_IPRINT("ok => success"),
                                    {ok, maps:remove(connect_limit, State)};
                                {ok, {error, {connect_limit_reached,R,L}}} ->
+                                   ?SEV_IPRINT("limit reached - skip: "
+                                               "~n   R: ~p"
+                                               "~n   L: ~p", [R, L]),
                                    {skip,
                                     ?SLIB:f("Connect limit reached ~w: ~w",
                                            [L, R])};
                                {ok, Result} ->
+                                   ?SEV_IPRINT("result: "
+                                               "~n   ~p", [Result]),
                                    Result;
-                               {error, _} = ERROR ->
+                               {error, _Reason} = ERROR ->
+                                   ?SEV_IPRINT("error: "
+                                               "~n   ~p", [_Reason]),
                                    ERROR
                            end
                    end},
@@ -25912,9 +25920,21 @@ api_to_connect_tcp(InitState) ->
 
 
 api_toc_tcp_client_start(Node) ->
+    api_toc_tcp_client_start(Node, 5000).
+api_toc_tcp_client_start(Node, Timeout) ->
     Self = self(),
     Fun  = fun() -> api_toc_tcp_client(Self) end,
-    erlang:spawn(Node, Fun).
+    {Pid, MRef} = erlang:spawn_monitor(Node, Fun),
+    receive
+        {Pid, started} ->
+            Pid;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            {error, Reason};
+        {nodedown, Node} = NODEDOWN ->
+            {error, NODEDOWN}
+    after Timeout ->
+            {error, timeout}
+    end.
 
 api_toc_tcp_client(Parent) ->
     api_toc_tcp_client_init(Parent),
@@ -25923,7 +25943,7 @@ api_toc_tcp_client(Parent) ->
     api_toc_tcp_client_announce_ready(Parent, init),
     {To, ConLimit} = api_toc_tcp_client_await_continue(Parent, connect),
     Result = api_to_connect_tcp_await_timeout(To, ServerSA, Domain, ConLimit),
-    ?SEV_IPRINT("result: ~p", [Result]),
+    ?SEV_IPRINT("(client) connect result: ~p", [Result]),
     api_toc_tcp_client_announce_ready(Parent, connect, Result),
     Reason = api_toc_tcp_client_await_terminate(Parent),
     exit(Reason).
@@ -25932,6 +25952,7 @@ api_toc_tcp_client_init(Parent) ->
     put(sname, "rclient"),
     %% i("api_toc_tcp_client_init -> entry"),
     _MRef = erlang:monitor(process, Parent),
+    Parent ! {self(), started},
     ok.
 
 api_toc_tcp_client_await_start(Parent) ->
@@ -27732,9 +27753,18 @@ start_node(Name) ->
     start_node(Name, 5000).
 
 start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
-    try ?CT_PEER(#{name => Name, wait_boot => Timeout}) of
+    Pa   = filename:dirname(code:which(?MODULE)),
+    Args = ["-pa", Pa,
+            "-s", atom_to_list(?PROXY), "start", atom_to_list(node()),
+            "-s", "global", "sync"],
+    try ?CT_PEER(#{name      => Name,
+                   wait_boot => Timeout,
+                   args      => Args}) of
         {ok, Peer, Node} ->
-            ?SEV_IPRINT("Started node ~p", [Name]),
+            ?SEV_IPRINT("Started node ~p - now (global) sync", [Name]),
+            global:sync(), % Again, just in case...
+            ?SEV_IPRINT("ping proxy"),
+            pong = ?PPING(Node),
             {Peer, Node};
         {error, Reason} ->
             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"

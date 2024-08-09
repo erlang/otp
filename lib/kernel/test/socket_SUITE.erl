@@ -484,11 +484,57 @@ init_per_group(GroupName, Config)
         throw:{skip, _} = SKIP ->
             SKIP
     end;
+init_per_group(GroupName, Config)
+  when (GroupName =:= ioctl) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config:"
+              "~n      ~p"
+              "~nwhen"
+              "~n   Supported IOCtl Requests: "
+              "~n~s"
+              "~n   Supported IOCtl Flags: "
+              "~n~s"
+              "~n", [GroupName, Config,
+                     format_ioctls(socket:supports(ioctl_requests), 6),
+                     format_ioctls(socket:supports(ioctl_flags), 6)]),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+format_ioctls(Reqs, PrefixSz) ->
+    Max = format_ioctls_max(Reqs),
+    format_ioctls(Reqs, string:pad("", PrefixSz), Max).
+
+format_ioctls_max(Reqs) ->
+    format_ioctls_max(Reqs, 0).
+
+format_ioctls_max([], Max) ->
+    Max;
+format_ioctls_max([{Req, _}|Reqs], Max) when is_atom(Req) ->
+    ReqStr = atom_to_list(Req),
+    case length(ReqStr)+1 of
+        NewMax when (NewMax > Max) ->
+            format_ioctls_max(Reqs, NewMax);
+        _ ->
+            format_ioctls_max(Reqs, Max)
+    end.
+
+format_ioctls(IOCtls, Prefix, Max) ->
+    format_ioctls(IOCtls, Prefix, Max, []).
+
+format_ioctls([], _Prefix, _Max, Acc) ->
+    lists:flatten(lists:reverse(Acc));
+format_ioctls([{Key, Sup}|IOCtls], Prefix, Max, Acc) ->
+    format_ioctls(IOCtls, Prefix, Max,
+                  [format_ioctl(Key, Sup, Prefix, Max) | Acc]).
+
+format_ioctl(Key, Sup, Prefix, Max) ->
+    KeyStr  = io_lib:format("~w:", [Key]),
+    KeyStr2 = lists:flatten(string:pad(KeyStr, Max, trailing, " ")),
+    lists:flatten(io_lib:format("~s~s ~w~n", [Prefix, KeyStr2, Sup])).
 
 
 init_per_testcase(_TC, Config) ->
@@ -12625,9 +12671,18 @@ start_node(Name) ->
     start_node(Name, 5000).
 
 start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
-    try ?CT_PEER(#{name => Name, wait_boot => Timeout}) of
+    Pa   = filename:dirname(code:which(?MODULE)),
+    Args = ["-pa", Pa,
+            "-s", atom_to_list(?PROXY), "start", atom_to_list(node()),
+            "-s", "global", "sync"],
+    try ?CT_PEER(#{name      => Name,
+                   wait_boot => Timeout,
+                   args      => Args}) of
         {ok, Peer, Node} ->
-            ?SEV_IPRINT("Started node ~p", [Name]),
+            ?SEV_IPRINT("Started node ~p - now (global) sync", [Name]),
+            global:sync(), % Again, just in case...
+            ?SEV_IPRINT("ping proxy"),
+            pong = ?PPING(Node),
             {Peer, Node};
         {error, Reason} ->
             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"

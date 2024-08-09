@@ -7152,9 +7152,18 @@ start_node(Name) ->
     start_node(Name, 5000).
 
 start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
-    try ?CT_PEER(#{name => Name, wait_boot => Timeout}) of
+    Pa   = filename:dirname(code:which(?MODULE)),
+    Args = ["-pa", Pa,
+            "-s", atom_to_list(?PROXY), "start", atom_to_list(node()),
+            "-s", "global", "sync"],
+    try ?CT_PEER(#{name      => Name,
+                   wait_boot => Timeout,
+                   args      => Args}) of
         {ok, Peer, Node} ->
-            ?SEV_IPRINT("Started node ~p", [Name]),
+            ?SEV_IPRINT("Started node ~p - now (global) sync", [Name]),
+            global:sync(), % Again, just in case...
+            ?SEV_IPRINT("ping proxy"),
+            pong = ?PPING(Node),
             {Peer, Node};
         {error, Reason} ->
             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"
