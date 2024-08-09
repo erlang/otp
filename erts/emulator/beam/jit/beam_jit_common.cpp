@@ -1281,16 +1281,16 @@ Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity) {
     return res;
 }
 
-Export *beam_jit_handle_unloaded_fun(Process *c_p,
-                                     Eterm *reg,
-                                     int arity,
-                                     Eterm fun_thing) {
-    ErtsCodeIndex code_ix = erts_active_code_ix();
+const Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                           Eterm *reg,
+                                           int arity,
+                                           Eterm fun_thing) {
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    const ErlFunEntry *fe;
+    const Export *ep;
     Eterm module, args;
     ErlFunThing *funp;
-    ErlFunEntry *fe;
     Module *modp;
-    Export *ep;
 
     funp = (ErlFunThing *)fun_val(fun_thing);
     ASSERT(is_local_fun(funp));

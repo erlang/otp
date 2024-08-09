@@ -1388,12 +1388,12 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
     ERTS_ASSERT_TRACER_REFS(&p->common);
 }
 
-void save_calls(Process *p, Export *e)
+void save_calls(Process *p, const Export *e)
 {
     if (!ERTS_IS_PROC_SENSITIVE(p)) {
 	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
 	if (scb) {
-	    Export **ct = &scb->ct[0];
+	    const Export **ct = &scb->ct[0];
 	    int len = scb->len;
 
 	    ct[scb->cur] = e;

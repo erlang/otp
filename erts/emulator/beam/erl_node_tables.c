@@ -1570,7 +1570,6 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
             }
 	    break;
 	case BIN_REF_SUBTAG:
-	case FUN_REF_SUBTAG:
 	    break; /* No need to */
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));

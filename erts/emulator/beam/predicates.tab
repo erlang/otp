@@ -122,7 +122,7 @@ pred.mixed_types(Size, Rest) {
 // Test whether Bif is "heavy" and should always go through its export entry.
 pred.is_heavy_bif(Bif) {
     BeamFile_ImportEntry *import;
-    Export *export;
+    const Export *export;
 
     if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
         return 0;

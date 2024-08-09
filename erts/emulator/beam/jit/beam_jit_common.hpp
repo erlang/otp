@@ -645,10 +645,10 @@ void beam_jit_return_to_trace(Process *c_p,
 
 Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity);
 
-Export *beam_jit_handle_unloaded_fun(Process *c_p,
-                                     Eterm *reg,
-                                     int arity,
-                                     Eterm fun_thing);
+const Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                           Eterm *reg,
+                                           int arity,
+                                           Eterm fun_thing);
 
 bool beam_jit_is_list_of_immediates(Eterm term);
 bool beam_jit_is_shallow_boxed(Eterm term);

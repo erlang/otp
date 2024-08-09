@@ -191,7 +191,7 @@ void trace_sched(Process*, ErtsProcLocks, Eterm, Uint32 trace_flag);
 void trace_sched_session(Process*, ErtsProcLocks, Eterm what, ErtsTracerRef*);
 void trace_proc(Process*, ErtsProcLocks, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm what, Eterm pid, Eterm mod, Eterm func, Eterm args);
-void save_calls(Process *p, Export *);
+void save_calls(Process *p, const Export *);
 void trace_gc(Process *p, Eterm what, Uint size, Eterm msg);
 /* port tracing */
 void trace_virtual_sched(Process*, ErtsProcLocks, Eterm);

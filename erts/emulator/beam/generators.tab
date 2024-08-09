@@ -153,25 +153,17 @@ MakeLiteralFun(Op, Index, Arity, Dst) {
 
     /* If we haven't already done so, we need to create a placeholder for the
      * lambda. */
-    literal = S->fun_refs[$Index];
+    literal = S->lambda_literals[$Index];
     if (literal == ERTS_SWORD_MAX) {
-        Eterm tmp_hp[ERL_FUN_SIZE + ERL_FUN_REF_SIZE + 1];
+        Eterm tmp_hp[ERL_FUN_SIZE];
         ErlFunThing *funp;
-        FunRef *refp;
-
-        /* +1 to skip funp->env[0] */
-        refp = (FunRef*)&tmp_hp[ERL_FUN_SIZE + 1];
-        refp->thing_word = HEADER_FUN_REF;
-        refp->entry = NULL;
-        refp->next = NULL;
 
         funp = (ErlFunThing*)tmp_hp;
         funp->thing_word = MAKE_FUN_HEADER($Arity, 0, 0);
         funp->entry.exp = NULL;
-        funp->env[0] = make_boxed((Eterm*)refp);
 
         literal = beamfile_add_literal(&S->beam, make_fun((Eterm*)funp), 0);
-        S->fun_refs[$Index] = literal;
+        S->lambda_literals[$Index] = literal;
     }
 
     $BeamOpNameArity($Op, move, 2);
@@ -181,42 +173,20 @@ MakeLiteralFun(Op, Index, Arity, Dst) {
 }
 
 MakeFun(Op, Index, Arity, NumFree, Env, Dst) {
-    SWord literal;
-
     $BeamOpNameArity(op, i_make_fun3, 4);
-    $BeamOpArity(op, 5 + $NumFree);
+    $BeamOpArity(op, 4 + $NumFree);
 
-    op->a[0].type = TAG_u;
-    op->a[0].val = $Index;
-    op->a[1] = $Dst;
-    op->a[2].type = TAG_u;
-    op->a[2].val = $Arity - $NumFree;
-    op->a[3].type = TAG_u;
-    op->a[3].val = $NumFree;
+    ($Op)->a[0].type = TAG_u;
+    ($Op)->a[0].val = $Index;
+    ($Op)->a[1] = $Dst;
+    ($Op)->a[2].type = TAG_u;
+    ($Op)->a[2].val = $Arity - $NumFree;
+    ($Op)->a[3].type = TAG_u;
+    ($Op)->a[3].val = $NumFree;
 
     for (int i = 0; i < $NumFree; i++) {
-        op->a[4 + i] = $Env[i];
+        ($Op)->a[4 + i] = $Env[i];
     }
-
-    /* Create a FunRef if we haven't already done so (may be shared with other
-     * make_fun3 instructions). */
-    literal = S->fun_refs[$Index];
-    if (literal == ERTS_SWORD_MAX) {
-        Eterm tmp_hp[ERL_FUN_REF_SIZE];
-        FunRef *refp = (FunRef*)tmp_hp;
-
-        refp->thing_word = HEADER_FUN_REF;
-        refp->entry = NULL;
-        refp->next = NULL;
-
-        literal = beamfile_add_literal(&S->beam, make_boxed((Eterm*)refp), 0);
-        S->fun_refs[$Index] = literal;
-    }
-
-    /* Add the FunRef as part of the environment, just past the free
-     * variables. */
-    op->a[4 + $NumFree].type = TAG_q;
-    op->a[4 + $NumFree].val = literal;
 }
 
 gen.make_fun3(Idx, Dst, NumFree, Env) {

@@ -3950,7 +3950,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                 ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry* fe = funp->entry.fun;
+                    const ErlFunEntry *fe = funp->entry.fun;
                     int ei;
 
                     *ep++ = NEW_FUN_EXT;
@@ -3974,7 +3974,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                         WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
                     }
                 } else {
-                    Export *exp = funp->entry.exp;
+                    const Export *exp = funp->entry.exp;
 
                     *ep++ = EXPORT_EXT;
                     ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
@@ -5001,7 +5001,6 @@ dec_term_atom_common:
 	case NEW_FUN_EXT:
 	    {
 		ErlFunThing *funp;
-		FunRef *refp;
 		Uint arity;
 		Eterm module;
 		const byte* uniq;
@@ -5021,19 +5020,11 @@ dec_term_atom_common:
 		num_free = get_int32(ep);
 		ep += 4;
 
-                refp = (FunRef*)&hp[0];
-                funp = (ErlFunThing*)&hp[ERL_FUN_REF_SIZE];
-
-                refp->thing_word = HEADER_FUN_REF;
+                funp = (ErlFunThing*)hp;
                 funp->thing_word = MAKE_FUN_HEADER(arity, num_free, 0);
                 *objp = make_fun(funp);
 
-                hp += ERL_FUN_REF_SIZE + ERL_FUN_SIZE;
-
-                /* Fun references are stored just past the end of the free
-                 * variables. */
-                funp->env[num_free] = make_boxed((Eterm*)refp);
-                hp += num_free + 1;
+                hp += ERL_FUN_SIZE + num_free;
 
 		/* Module */
 		if ((ep = dec_atom(edep, ep, &module, 0)) == NULL) {
@@ -5067,16 +5058,12 @@ dec_term_atom_common:
                     goto error;
                 }
 
-                /* It is safe to link the fun into the fun list only when no
-                 * more validity tests can fail. */
-                refp->next = factory->off_heap->first;
-                factory->off_heap->first = (struct erl_off_heap_header*)refp;
-
-                funp->entry.fun = erts_put_fun_entry2(module, old_uniq,
-                                                      old_index, uniq,
-                                                      index, arity);
-                refp->entry = funp->entry.fun;
-
+                funp->entry.fun = erts_fun_entry_get_or_make_stub(module,
+                                                                  old_uniq,
+                                                                  old_index,
+                                                                  uniq,
+                                                                  index,
+                                                                  arity);
                 hp = factory->hp;
 
 		/* Environment */
@@ -5673,7 +5660,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                 ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry *fe = funp->entry.fun;
+                    const ErlFunEntry *fe = funp->entry.fun;
 
                     result += 1 /* tag */
                             + 4 /* length field (size of free variables) */
@@ -5696,7 +5683,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                         continue; /* big loop */
                     }
                 } else {
-                    Export* ep = funp->entry.exp;
+                    const Export *ep = funp->entry.exp;
 
                     result += 1;
                     result += encode_atom_size(acmp, ep->info.mfa.module, dflags);
@@ -6147,7 +6134,7 @@ init_done:
 		    goto error;
 		}
 		ADDTERMS(4 + num_free);
-		heap_size += ERL_FUN_REF_SIZE + ERL_FUN_SIZE + num_free + 1;
+		heap_size += ERL_FUN_SIZE + num_free;
 		break;
 	    }
 	case FUN_EXT:

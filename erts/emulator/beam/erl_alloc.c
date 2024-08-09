@@ -2493,6 +2493,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	size.code += export_table_sz();
 	size.code += export_entries_sz();
 	size.code += erts_fun_table_sz();
+	size.code += erts_fun_entries_sz();
 	size.code += erts_ranges_sz();
 	size.code += erts_total_code_size;
     }
@@ -2636,6 +2637,11 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     values[i].arity = 2;
     values[i].name = "fun_table";
     values[i].ui[0] = erts_fun_table_sz();
+    i++;
+
+    values[i].arity = 2;
+    values[i].name = "fun_list";
+    values[i].ui[0] = erts_fun_entries_sz();
     i++;
 
     values[i].arity = 2;

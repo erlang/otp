@@ -12538,6 +12538,7 @@ aa_mem_data(#memory{code = Code} = Mem,
 					  CodeData == export_table;
 					  CodeData == export_list;
 					  CodeData == fun_table;
+					  CodeData == fun_list;
 					  CodeData == module_refs;
 					  CodeData == loaded_code ->
     aa_mem_data(Mem#memory{code = Code+Sz},

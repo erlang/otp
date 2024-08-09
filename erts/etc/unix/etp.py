@@ -415,8 +415,6 @@ def boxed(valobj, depth = float('inf')):
         return '#Ref'
     if masked_hdr == c('FUN_SUBTAG'):
         return '#Fun'
-    if masked_hdr == c('FUN_REF_SUBTAG'):
-        return '#FunRef'
     if masked_hdr == c('HEAP_BITS_SUBTAG'):
         return '#HeapBits'
     if masked_hdr == c('SUB_BITS_SUBTAG'):

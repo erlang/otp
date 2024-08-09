@@ -1275,11 +1275,13 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-Export*
-call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
+const Export *call_error_handler(Process* p,
+                                 const ErtsCodeMFA *mfa,
+                                 Eterm* reg,
+                                 Eterm func)
 {
+    const Export* ep;
     Eterm* hp;
-    Export* ep;
     int arity;
     Eterm args;
     Uint sz;
@@ -1323,10 +1325,10 @@ call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
     return ep;
 }
 
-static Export*
+static const Export *
 apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, Eterm* reg)
 {
-    Export* ep;
+    const Export *ep;
 
     /*
      * Find the export table index for the error handler. Return NULL if
@@ -1364,7 +1366,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 }
 
 static ERTS_INLINE void
-apply_bif_error_adjustment(Process *p, Export *ep,
+apply_bif_error_adjustment(Process *p, const Export *ep,
                            Eterm *reg, Uint arity,
                            ErtsCodePtr I, Uint stack_offset)
 {
@@ -1452,11 +1454,11 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-Export*
+const Export *
 apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
 {
+    const Export *ep;
     int arity;
-    Export* ep;
     Eterm tmp;
     Eterm module = reg[0];
     Eterm function = reg[1];
@@ -1552,11 +1554,11 @@ apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
     return ep;
 }
 
-Export*
+const Export *
 fixed_apply(Process* p, Eterm* reg, Uint arity,
             ErtsCodePtr I, Uint stack_offset)
 {
-    Export* ep;
+    const Export *ep;
     Eterm module;
     Eterm function;
 
@@ -1733,12 +1735,7 @@ call_fun(Process* p,    /* Current process. */
 
     if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
                     fun_arity(funp) == arity)) {
-        /* Copy the free variables, skipping the FunRef in the environment.
-         *
-         * Note that we avoid using fun_num_free as it asserts that the
-         * argument is a local function, which we don't need to care about
-         * here. */
-        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
+        for (int i = 0; i < fun_num_free(funp); i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1783,10 +1780,10 @@ call_fun(Process* p,    /* Current process. */
             p->fvalue = TUPLE2(hp, fun, args);
             return NULL;
         } else {
-            ErlFunEntry *fe;
+            const ErlFunEntry *fe;
+            const Export *ep;
             Eterm module;
             Module *modp;
-            Export *ep;
 
             /* There is no module loaded that defines the fun, either because
              * the fun is newly created from the external representation (the
@@ -2468,8 +2465,8 @@ int catchlevel(Process *p)
 int
 erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 {
+    const Export *ep;
     Export e;
-    Export* ep;
 
     if (Mod == am_erlang) {
         /*

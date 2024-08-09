@@ -2169,9 +2169,9 @@ process_info_aux(Process *c_p,
 	     * so we must do a HRelease() to avoid creating holes.
 	     */
 	    Sint needed = scb->n*(2+4);
+            const Export *exp;
 	    Eterm term, list;
 	    int i, j;
-            Export *exp;
 
             reserve_size += needed;
 
@@ -3809,8 +3809,8 @@ fun_info_2(BIF_ALIST_2)
     Eterm what = BIF_ARG_2;
 
     const ErtsCodeMFA *mfa;
+    const ErlFunEntry *fe;
     ErlFunThing *funp;
-    ErlFunEntry *fe;
     Eterm* hp;
     Eterm val;
 
@@ -3876,7 +3876,7 @@ fun_info_2(BIF_ALIST_2)
         break;
     case am_refc:
         if (is_local_fun(funp)) {
-            val = erts_make_integer(erts_atomic_read_nob(&fe->refc), p);
+            val = make_small(1);
         } else {
             val = am_undefined;
         }
