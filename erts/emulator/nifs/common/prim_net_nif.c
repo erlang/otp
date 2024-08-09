@@ -2511,7 +2511,7 @@ static
 ERL_NIF_TERM encode_adapter_unicast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP, -1);
+    return encode_sockaddr(env, addrP);
 }
 #endif // __WIN32__
 
@@ -2716,7 +2716,7 @@ static
 ERL_NIF_TERM encode_adapter_anycast_addr_sockaddr(ErlNifEnv*       env,
                                                   struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP, -1);
+    return encode_sockaddr(env, addrP);
 }
 #endif // __WIN32__
 
@@ -2795,7 +2795,7 @@ static
 ERL_NIF_TERM encode_adapter_multicast_addr_sockaddr(ErlNifEnv*       env,
                                                     struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP, -1);
+    return encode_sockaddr(env, addrP);
 }
 #endif // __WIN32__
 
@@ -2859,7 +2859,7 @@ static
 ERL_NIF_TERM encode_adapter_dns_server_addr_sockaddr(ErlNifEnv*       env,
                                                      struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP, -1);
+    return encode_sockaddr(env, addrP);
 }
 #endif // __WIN32__
 
@@ -3003,7 +3003,7 @@ static
 ERL_NIF_TERM encode_adapter_prefix_sockaddr(ErlNifEnv*       env,
                                             struct sockaddr* addrP)
 {
-    return encode_sockaddr(env, addrP, -1);
+    return encode_sockaddr(env, addrP);
 }
 #endif // __WIN32__
 
