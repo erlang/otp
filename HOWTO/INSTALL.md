@@ -97,7 +97,11 @@ also find the utilities needed for building the documentation.
     but any version after that should work just as well.
 
     You can also use `./otp_build download_ex_doc` to download the correct version
-    from github.
+    from github. One of the following dependencies are needed to check the documentation:
+    
+    - sha256sum, or
+    - sha1sum, or
+    - shasum
 
 How to Build and Install Erlang/OTP
 -----------------------------------
