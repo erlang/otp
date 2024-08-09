@@ -3036,9 +3036,9 @@ case $host_os in
 esac
 
 dnl Checks for the Transparent Huge pages (THP) availability on Linux
-AS_CASE([$OPSYS],
-  [linux*],
   [      
+AS_CASE([$ARCH-$OPSYS],
+  [amd64-linux*],
     AC_CACHE_CHECK(
       [whether the Transparent Huge Pages interface is available],
       erts_cv_linux_thp,
