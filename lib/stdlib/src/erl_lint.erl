@@ -283,8 +283,12 @@ format_error_1({redefine_import,{{F,A},M}}) ->
     {~"function ~tw/~w already imported from ~w", [F,A,M]};
 format_error_1({bad_inline,{F,A}}) ->
     {~"inlined function ~tw/~w undefined", [F,A]};
+format_error_1({bad_inline,{F,A},GuessF}) ->
+    {~"inlined function ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1({undefined_nif,{F,A}}) ->
     {~"nif ~tw/~w undefined", [F,A]};
+format_error_1({undefined_nif,{F,A},GuessF}) ->
+    {~"nif ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1(no_load_nif) ->
     {~"nifs defined, but no call to erlang:load_nif/2", []};
 format_error_1({invalid_deprecated,D}) ->
@@ -301,6 +305,8 @@ format_error_1({bad_removed,{F,A}}) ->
     {~"removed function ~tw/~w is still exported", [F,A]};
 format_error_1({bad_nowarn_unused_function,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
+format_error_1({bad_nowarn_unused_function,{F,A},GuessF}) ->
+    {~"function ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1({bad_nowarn_bif_clash,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
 format_error_1(disallowed_nowarn_bif_clash) ->
@@ -319,6 +325,8 @@ format_error_1({Tag, duplicate_doc_attribute, Ann}) ->
      [Tag, Ann]};
 format_error_1({undefined_on_load,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
+format_error_1({undefined_on_load,{F,A},GuessF}) ->
+    {~"function ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1(nif_inline) ->
     ~"inlining is enabled - local calls to NIFs may call their Erlang implementation instead";
 
@@ -330,6 +338,8 @@ format_error_1({unused_import,{{F,A},M}}) ->
     {~"import ~w:~tw/~w is unused", [M,F,A]};
 format_error_1({undefined_function,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
+format_error_1({undefined_function,{F,A},GuessF}) ->
+    {~"function ~tw/~w undefined, did you mean ~ts/~w?", [F,A,GuessF,A]};
 format_error_1({redefine_function,{F,A}}) ->
     {~"function ~tw/~w already defined", [F,A]};
 format_error_1({define_import,{F,A}}) ->
@@ -413,6 +423,8 @@ format_error_1(illegal_map_construction) ->
 %% --- records ---
 format_error_1({undefined_record,T}) ->
     {~"record ~tw undefined", [T]};
+format_error_1({undefined_record,T,GuessT}) ->
+    {~"record ~tw undefined, did you mean ~ts?", [T,GuessT]};
 format_error_1({redefine_record,T}) ->
     {~"record ~tw already defined", [T]};
 format_error_1({redefine_field,T,F}) ->
@@ -421,6 +433,8 @@ format_error_1(bad_multi_field_init) ->
     {~"'_' initializes no omitted fields", []};
 format_error_1({undefined_field,T,F}) ->
     {~"field ~tw undefined in record ~tw", [F,T]};
+format_error_1({undefined_field,T,F,GuessF}) ->
+    {~"field ~tw undefined in record ~tw, did you mean ~ts?", [F,T,GuessF]};
 format_error_1(illegal_record_info) ->
     ~"illegal record info";
 format_error_1({field_name_is_variable,T,F}) ->
@@ -434,6 +448,8 @@ format_error_1({untyped_record,T}) ->
 %% --- variables ----
 format_error_1({unbound_var,V}) ->
     {~"variable ~w is unbound", [V]};
+format_error_1({unbound_var,V,GuessV}) ->
+    {~"variable ~w is unbound, did you mean '~s'?", [V,GuessV]};
 format_error_1({unsafe_var,V,{What,Where}}) ->
     {~"variable ~w unsafe in ~w ~s",
                   [V,What,format_where(Where)]};
@@ -1538,9 +1554,33 @@ check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
     Called = sofs:relation(Called0, [{func,location}]),
     Def = sofs:from_external(gb_sets:to_list(Def0), [func]),
     Undef = sofs:to_external(sofs:drestriction(Called, Def)),
+    FAList = sofs:to_external(Def),
     foldl(fun ({NA,Anno}, St) ->
-		  add_error(Anno, {undefined_function,NA}, St)
-	  end, St0, Undef).
+                  {Name, Arity} = NA,
+                  PossibleFs = [atom_to_list(F) || {F, A} <- FAList, A =:= Arity],
+                  case most_possible_string(Name, PossibleFs) of
+                      [] -> add_error(Anno, {undefined_function,NA}, St);
+                      GuessF -> add_error(Anno, {undefined_function,NA,GuessF}, St)
+                  end
+          end, St0, Undef).
+
+most_possible_string(Name, PossibleNames) ->
+    case PossibleNames of
+        [] -> [];
+        _ ->
+            %% kk and kl has a similarity of 0.66. Short names are common in 
+            %% Erlang programs, therefore we choose a relatively low threshold
+            %% here.
+            SufficientlySimilar = 0.66,
+            NameString = atom_to_list(Name),
+            Similarities = [{string:jaro_similarity(NameString, F), F} ||
+                               F <- PossibleNames],
+            {MaxSim, GuessName} = lists:last(lists:sort(Similarities)),
+            case MaxSim > SufficientlySimilar of
+                true -> GuessName;
+                false -> []
+            end
+    end.
 
 %% check_undefined_types(State0) -> State
 
@@ -1573,7 +1613,7 @@ check_option_functions(Forms, Tag0, Type, St0) ->
     DefFunctions = (gb_sets:to_list(St0#lint.defined) -- pseudolocals()) ++
 	[{F,A} || {{F,A},_} <- orddict:to_list(St0#lint.imports)],
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not member(FA, DefFunctions)],
-    func_location_error(Type, Bad, St0).
+    func_location_error(Type, Bad, St0, DefFunctions).
 
 check_nifs(Forms, St0) ->
     FAsAnno = [{FA,Anno} || {attribute, Anno, nifs, Args} <- Forms,
@@ -1586,7 +1626,8 @@ check_nifs(Forms, St0) ->
           end,
     DefFunctions = gb_sets:subtract(St1#lint.defined, gb_sets:from_list(pseudolocals())),
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not gb_sets:is_element(FA, DefFunctions)],
-    func_location_error(undefined_nif, Bad, St1).
+    DefFunctions1 = gb_sets:to_list(DefFunctions),
+    func_location_error(undefined_nif, Bad, St1, DefFunctions1).
 
 nowarn_function(Tag, Opts) ->
     ordsets:from_list([FA || {Tag1,FAs} <- Opts,
@@ -1596,8 +1637,15 @@ nowarn_function(Tag, Opts) ->
 func_location_warning(Type, Fs, St) ->
     foldl(fun ({F,Anno}, St0) -> add_warning(Anno, {Type,F}, St0) end, St, Fs).
 
-func_location_error(Type, Fs, St) ->
-    foldl(fun ({F,Anno}, St0) -> add_error(Anno, {Type,F}, St0) end, St, Fs).
+func_location_error(Type, Fs, St, FAList) ->
+    foldl(fun ({F,Anno}, St0) ->
+                  {Name, Arity} = F,
+                  PossibleFs = [atom_to_list(Func) || {Func, A} <- FAList, A =:= Arity],
+                  case most_possible_string(Name, PossibleFs) of
+                      [] -> add_error(Anno, {Type,F}, St0);
+                      GuessF -> add_error(Anno, {Type,F,GuessF}, St0)
+                  end
+          end, St, Fs).
 
 check_untyped_records(Forms, St0) ->
     case is_warn_enabled(untyped_record, St0) of
@@ -1828,8 +1876,15 @@ on_load(Anno, Val, St) ->
 check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
 		    on_load_anno=Anno}=St) ->
     case gb_sets:is_member(Fa, Defined) of
-	true -> St;
-	false -> add_error(Anno, {undefined_on_load,Fa}, St)
+        true -> St;
+        false ->
+            DefFunctions = gb_sets:to_list(Defined),
+            {Name, _} = Fa,
+            PossibleFs = [atom_to_list(F) || {F, 0} <- DefFunctions],
+            case most_possible_string(Name, PossibleFs) of
+                [] -> add_error(Anno, {undefined_on_load,Fa}, St);
+                GuessF -> add_error(Anno, {undefined_on_load,Fa,GuessF}, St)
+            end
     end;
 check_on_load(St) -> St.
 
@@ -1965,7 +2020,12 @@ pattern({record,Anno,Name,Pfs}, Vt, Old, St) ->
             St1 = used_record(Name, St),
             St2 = check_multi_field_init(Pfs, Anno, Fields, St1),
             pattern_fields(Pfs, Name, Fields, Vt, Old, St2);
-        error -> {[],[],add_error(Anno, {undefined_record,Name}, St)}
+        error ->
+            DefRecords = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
+            case most_possible_string(Name, DefRecords) of
+                [] -> {[],[],add_error(Anno, {undefined_record,Name}, St)};
+                GuessF -> {[],[],add_error(Anno, {undefined_record,Name,GuessF}, St)}
+            end
     end;
 pattern({bin,_,Fs}, Vt, Old, St) ->
     pattern_bin(Fs, Vt, Old, St);
@@ -2655,7 +2715,7 @@ expr({'fun',Anno,Body}, Vt, St) ->
             %% It is illegal to call record_info/2 with unknown arguments.
             {[],add_error(Anno, illegal_record_info, St)};
         {function,F,A} ->
-	    %% BifClash - Fun expression
+            %% BifClash - Fun expression
             %% N.B. Only allows BIFs here as well, NO IMPORTS!!
             case ((not is_local_function(St#lint.locals,{F,A})) andalso
 		  (erl_internal:bif(F, A) andalso
@@ -2860,7 +2920,7 @@ map_fields([{Tag,_,K,V}|Fs], Vt, St, F) when Tag =:= map_field_assoc;
     {Vts,St3} = map_fields(Fs, Vt, St2, F),
     {vtupdate(Pvt, Vts),St3};
 map_fields([], _, St, _) ->
-  {[],St}.
+    {[],St}.
 
 %% warn_invalid_record(Anno, Record, State0) -> State
 %% Adds warning if the record is invalid.
@@ -2977,7 +3037,12 @@ normalise_fields(Fs) ->
 exist_record(Anno, Name, St) ->
     case is_map_key(Name, St#lint.records) of
         true -> used_record(Name, St);
-        false -> add_error(Anno, {undefined_record,Name}, St)
+        false ->
+            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
+            case most_possible_string(Name, RecordNames) of
+                [] -> add_error(Anno, {undefined_record,Name}, St);
+                GuessF -> add_error(Anno, {undefined_record,Name,GuessF}, St)
+            end
     end.
 
 %% check_record(Anno, RecordName, State, CheckFun) ->
@@ -2994,7 +3059,12 @@ exist_record(Anno, Name, St) ->
 check_record(Anno, Name, St, CheckFun) ->
     case maps:find(Name, St#lint.records) of
         {ok,{_Anno,Fields}} -> CheckFun(Fields, used_record(Name, St));
-        error -> {[],add_error(Anno, {undefined_record,Name}, St)}
+        error ->
+            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
+            case most_possible_string(Name, RecordNames) of
+                [] -> {[],add_error(Anno, {undefined_record,Name}, St)};
+                GuessF -> {[],add_error(Anno, {undefined_record,Name,GuessF}, St)}
+            end
     end.
 
 used_record(Name, #lint{usage=Usage}=St) ->
@@ -3024,7 +3094,12 @@ check_field({record_field,Af,{atom,Aa,F},Val}, Name, Fields,
             {[F|Sfs],
              case find_field(F, Fields) of
                  {ok,_I} -> CheckFun(Val, Vt, St);
-                 error -> {[],add_error(Aa, {undefined_field,Name,F}, St)}
+                 error ->
+                     FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- Fields],
+                     case most_possible_string(F, FieldNames) of
+                         [] -> {[],add_error(Aa, {undefined_field,Name,F}, St)};
+                         GuessF -> {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St)}
+                     end
              end}
     end;
 check_field({record_field,_Af,{var,Aa,'_'=F},Val}, _Name, _Fields,
@@ -3044,7 +3119,12 @@ check_field({record_field,_Af,{var,Aa,V},_Val}, Name, _Fields,
 pattern_field({atom,Aa,F}, Name, Fields, St) ->
     case find_field(F, Fields) of
         {ok,_I} -> {[],St};
-        error -> {[],add_error(Aa, {undefined_field,Name,F}, St)}
+        error ->
+            FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- Fields],
+            case most_possible_string(F, FieldNames) of
+                [] -> {[],add_error(Aa, {undefined_field,Name,F}, St)};
+                GuessF -> {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St)}
+            end
     end.
 
 %% pattern_fields([PatField],RecordName,[RecDefField],
@@ -3075,7 +3155,12 @@ pattern_fields(Fs, Name, Fields, Vt0, Old, St0) ->
 record_field({atom,Aa,F}, Name, Fields, St) ->
     case find_field(F, Fields) of
         {ok,_I} -> {[],St};
-        error -> {[],add_error(Aa, {undefined_field,Name,F}, St)}
+        error ->
+            FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- Fields],
+            case most_possible_string(F, FieldNames) of
+                [] -> {[],add_error(Aa, {undefined_field,Name,F}, St)};
+                GuessF -> {[],add_error(Aa, {undefined_field,Name,F,GuessF}, St)}
+            end
     end.
 
 %% init_fields([InitField], InitAnno, RecordName, [DefField], VarTable, State) ->
@@ -3366,16 +3451,25 @@ check_record_types(Anno, Name, Fields, SeenVars, St) ->
 		    {SeenVars, add_error(Anno, {type_syntax, record}, St)}
 	    end;
         error ->
-	    {SeenVars, add_error(Anno, {undefined_record, Name}, St)}
+            RecordNames = [atom_to_list(R) || R <- maps:keys(St#lint.records)],
+            case most_possible_string(Name, RecordNames) of
+                [] -> {SeenVars, add_error(Anno, {undefined_record, Name}, St)};
+                GuessF -> {SeenVars, add_error(Anno, {undefined_record, Name, GuessF}, St)}
+            end
     end.
 
 check_record_types([{type, _, field_type, [{atom, Anno, FName}, Type]}|Left],
 		   Name, DefFields, SeenVars, St, SeenFields) ->
     %% Check that the field name is valid
     St1 = case exist_field(FName, DefFields) of
-	      true -> St;
-	      false -> add_error(Anno, {undefined_field, Name, FName}, St)
-	  end,
+              true -> St;
+              false ->
+                  FieldNames = [atom_to_list(R) || {record_field, _L, {_, _, R}, _} <- DefFields],
+                  case most_possible_string(FName, FieldNames) of
+                      [] -> add_error(Anno, {undefined_field,Name,FName}, St);
+                      GuessF -> add_error(Anno, {undefined_field,Name,FName,GuessF}, St)
+                  end
+          end,
     %% Check for duplicates
     St2 = case ordsets:is_element(FName, SeenFields) of
 	      true -> add_error(Anno, {redefine_field, Name, FName}, St1);
@@ -3689,7 +3783,12 @@ check_dialyzer_attribute(Forms, St0) ->
                           case lists:member(FA, DefFunctions) of
                               true -> St;
                               false ->
-                                  add_error(Anno, {undefined_function,FA}, St)
+                                  {Name, Arity} = FA,
+                                  PossibleFs = [atom_to_list(F) || {F, A} <- DefFunctions, A =:= Arity],
+                                  case most_possible_string(Name, PossibleFs) of
+                                      [] -> add_error(Anno, {undefined_function,FA}, St);
+                                      GuessF -> add_error(Anno, {undefined_function,FA,GuessF}, St)
+                                  end
                           end;
                       false ->
                           add_error(Anno, {bad_dialyzer_option,Option}, St)
@@ -4106,8 +4205,15 @@ pat_binsize_var(V, Anno, Vt, New, St) ->
                      %% probably safe.
                      exported_var(Anno, V, From, St)};
                 error ->
-                    {[{V,{bound,used,[Anno]}}],[],
-                     add_error(Anno, {unbound_var,V}, St)}
+                    PossibleVs = [atom_to_list(DefV) || {DefV, _A} <- Vt],
+                    case most_possible_string(V, PossibleVs) of
+                        [] ->
+                            {[{V,{bound,used,[Anno]}}],[],
+                             add_error(Anno, {unbound_var,V}, St)};
+                        GuessV ->
+                            {[{V,{bound,used,[Anno]}}],[],
+                             add_error(Anno, {unbound_var,V,GuessV}, St)}
+                    end
             end
     end.
 
@@ -4145,8 +4251,15 @@ do_expr_var(V, Anno, Vt, St) ->
             {[{V,{bound,used,As}}],
              add_error(Anno, {stacktrace_guard,V}, St)};
         error ->
-            {[{V,{bound,used,[Anno]}}],
-             add_error(Anno, {unbound_var,V}, St)}
+            PossibleVs = [atom_to_list(DefV) || {DefV, _A} <- Vt],
+            case most_possible_string(V, PossibleVs) of
+                [] ->
+                    {[{V,{bound,used,[Anno]}}],
+                     add_error(Anno, {unbound_var,V}, St)};
+                GuessV ->
+                    {[{V,{bound,used,[Anno]}}],
+                     add_error(Anno, {unbound_var,V,GuessV}, St)}
+            end
     end.
 
 exported_var(Anno, V, From, St) ->
