@@ -808,20 +808,43 @@ read_packets(Config) when is_list(Config) ->
 		       true ->
                            %% We have not (yet) implemented support for 
                            %% this option. We accept it but do not use it.
+                           ?P("~w:cond -> skip", [?FUNCTION_NAME]),
 			   {skip, "Not compliant with socket"};
 		       false ->
+                           ?P("~w:cond -> run", [?FUNCTION_NAME]),
 			   ok
 		   end
 	   end,
-    TC   = fun() ->
+    Pre  = fun() ->
+                   %% Try start/create a worker node
+                   NName = ?UNIQ_NODE_NAME,
+                   ?P("~w:pre -> try create node ~p", [?FUNCTION_NAME, NName]),
+                   case start_node(NName) of
+                       {ok, Node} ->
+                           ?P("~w:pre -> node ~p started",
+                              [?FUNCTION_NAME, Node]),
+                           #{node => Node,
+                             conf => Config};
+                       {error, Reason} ->
+                           ?P("~w:pre -> Failed start node ~p"
+                              "~n   ~p", [?FUNCTION_NAME, NName, Reason]),
+                           {skip, Reason}
+                   end
+           end,
+    TC   = fun(State) ->
                    ?P("~w:tc -> begin", [?FUNCTION_NAME]),
-                   Res = do_read_packets(Config),
+                   Res = do_read_packets(State),
                    ?P("~w:tc -> done", [?FUNCTION_NAME]),
                    Res
            end,
-    ?TC_TRY(?FUNCTION_NAME, Cond, TC).
+    Post = fun(#{node := Node}) ->
+                   ?P("~w:post -> stop node", [?FUNCTION_NAME]),
+                   stop_node(Node)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
-do_read_packets(Config) when is_list(Config) ->
+do_read_packets(#{node := Node,
+                  conf := Config}) when is_list(Config) ->
     N1   = 5,
     N2   = 1,
     Msgs = 30000,
@@ -833,8 +856,6 @@ do_read_packets(Config) when is_list(Config) ->
        "~n   Addr: ~p"
        "~n   Port: ~p", [RA, RP]),
 
-    ?P("create slave node"),
-    {ok,Peer,Node} = ?CT_PEER(),
     %%
     ?P("perform read-packets test"),
     {V1, Trace1} = read_packets_test(Config, R, RA, RP, Msgs, Node),
@@ -848,8 +869,6 @@ do_read_packets(Config) when is_list(Config) ->
     ?P("verify read-packets (to ~w)", [N2]),
     {ok, [{read_packets,N2}]} = inet:getopts(R, [read_packets]),
     %%
-    ?P("stop slave node"),
-    peer:stop(Peer),
     ?P("dump trace 1"),
     dump_terms(Config, "trace1.terms", Trace1),
     ?P("dump trace 2"),
@@ -3320,6 +3339,17 @@ pi(Item) ->
     {Item, Val} = process_info(self(), Item),
     Val.
     
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+start_node(Name) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    ?START_NODE(Name, "-pa " ++ Pa).
+
+
+stop_node(Node) ->
+    ?STOP_NODE(Node).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

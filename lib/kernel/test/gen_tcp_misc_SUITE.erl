@@ -418,10 +418,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
--define(UNIQ_NODE_NAME,
-  list_to_atom(?MODULE_STRING ++ "__" ++
-               atom_to_list(?FUNCTION_NAME) ++ "_" ++
-	       integer_to_list(erlang:unique_integer([positive])))).
 
 %% Tests kernel application variables inet_default_listen_options and
 %% inet_default_connect_options.
@@ -1808,6 +1804,8 @@ do_sort(Config, Addr, P, List0) ->
                 ?SKIPT(connect_failed_str(Reason))
         end,
     %% ok = inet:setopts(S, [{debug, true}]),
+    ?P("Send Lines: "
+       "~n   ~p", [List]),
     send_lines(S, List),
     ok = gen_tcp:shutdown(S, write),
     Lines = collect_lines(S, true),
@@ -1816,7 +1814,19 @@ do_sort(Config, Addr, P, List0) ->
     SortedLines = lists:sort(List),
     ?P("Sorted: "
        "~n   ~p", [SortedLines]),
-    Lines = SortedLines,
+    case SortedLines of
+        Lines ->
+            ok;
+        _ ->
+            LmSL = Lines -- SortedLines,
+            SLmL = SortedLines -- Lines,
+            ?P("Not identical after sorting:"
+               "~n   Lines -- SortedLines: "
+               "~n      ~p"
+               "~n   SortedLines -- Lines: "
+               "~n      ~p", [LmSL, SLmL]),
+            Lines = SortedLines
+    end,
     ok = gen_tcp:close(S).
 
 sort_server(Config, Addr, Active) ->
@@ -1831,6 +1841,7 @@ sort_server(Config, Addr, Active) ->
     {ok,Port} = inet:port(L),
     Port.
 
+%% Acceptor loop
 sort_server_1(L, Active) ->
     {ok,S} = gen_tcp:accept(L),
     Go = make_ref(),
@@ -1839,9 +1850,17 @@ sort_server_1(L, Active) ->
     Sorter ! Go,
     sort_server_1(L, Active).
 
+%% Sorter
 sorter(S, Active) ->
+    ?P("[sorter] try receive lines for sorting"),
     Lines = collect_lines(S, Active),
-    send_lines(S, lists:sort(Lines)),
+    SortedLines = lists:sort(Lines),
+    ?P("[sorter]"
+       "~n   received Lines: "
+       "~n      ~p"
+       "~n   (send) sorted Lines: "
+       "~n      ~p", [Lines, SortedLines]),
+    send_lines(S, SortedLines),
     gen_tcp:shutdown(S, write),
     gen_tcp:close(S).
 

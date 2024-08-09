@@ -26,6 +26,7 @@
              mref :: reference()}).
 
 -define(SEV,                              socket_test_evaluator).
+-define(PROXY,                            socket_test_ev_proxy).
 
 -define(SEV_START(N, S, IS),              ?SEV:start(N, S, IS)).
 -define(SEV_AWAIT_FINISH(Evs),            ?SEV:await_finish(Evs)).
@@ -63,6 +64,11 @@
                              cmd  => fun(_) ->
                                              {ok, normal}
                                      end}).
+
+-define(PPING(N),                         ?PROXY:ping((N))).
+-define(PEXEC(F),                         ?PROXY:exec((F))).
+-define(PPROCESS_INFO(P),                 ?PROXY:process_info((P))).
+-define(PPROCESS_INFO(P, I),              ?PROXY:process_info((P), (I))).
 
 -endif. % -ifdef(socket_test_evaluator).
 
