@@ -1316,8 +1316,10 @@ void erts_check_for_holes(Process* p);
 /* DIRTY_RUNNING_SYS - Process is executing dirty system
    tasks */    
 #define ERTS_PSFLG_DIRTY_RUNNING_SYS	ERTS_PSFLG_BIT(24)
+/* PAUSED_TIMER - Process has its timer paused */
+#define ERTS_PSFLG_PAUSED_TIMER         ERTS_PSFLG_BIT(25)
 
-#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 24)
+#define ERTS_PSFLG_MAX  (ERTS_PSFLGS_ZERO_BIT_OFFSET + 25)
 
 #define ERTS_PSFLGS_DIRTY_WORK		(ERTS_PSFLG_DIRTY_CPU_PROC	\
 					 | ERTS_PSFLG_DIRTY_IO_PROC	\
@@ -2125,7 +2127,7 @@ Eterm erts_sched_stat_term(Process *p, int total);
 
 void erts_free_proc(Process *);
 
-void erts_suspend(Process*, ErtsProcLocks, Port*);
+void erts_suspend(Process*, ErtsProcLocks, Port*, int);
 void erts_resume(Process*, ErtsProcLocks);
 int erts_resume_processes(ErtsProcList *);
 

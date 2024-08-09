@@ -780,7 +780,7 @@ erts_dist_pend_spawn_exit_parent_wait(Process *c_p,
         else {
             /* We need to suspend wait and wait for the result... */
             mdp->u.target.other.ptr = (void *) c_p;
-            erts_suspend(c_p, locks, NULL);
+            erts_suspend(c_p, locks, NULL, 0);
             res = -1;
         }
     }
@@ -3556,7 +3556,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
 
                     plp = erts_proclist_create(ctx->c_p);
 
-                    erts_suspend(ctx->c_p, ERTS_PROC_LOCK_MAIN, NULL);
+                    erts_suspend(ctx->c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
                     suspended = 1;
 
                     erts_mtx_lock(&dep->qlock);
@@ -5226,7 +5226,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
      ASSERT(!dep->suspended_nodeup);
      dep->suspended_nodeup = BIF_P;
      erts_proc_inc_refc(BIF_P);
-     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL, 0);
      ERTS_BIF_PREP_YIELD3(ret,
                           BIF_TRAP_EXPORT(BIF_erts_internal_create_dist_channel_3),
                           BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);

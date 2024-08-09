@@ -732,10 +732,11 @@ typedef struct ErtsMonitorSuspend__ ErtsMonitorSuspend;
 struct ErtsMonitorSuspend__ {
     ErtsMonitorData md; /* origin = suspender; target = suspendee */
     ErtsMonitorSuspend *next;
-    erts_atomic_t state;
+    erts_atomic64_t state;
 };
-#define ERTS_MSUSPEND_STATE_FLG_ACTIVE ((erts_aint_t) (((Uint) 1) << (sizeof(Uint)*8 - 1)))
-#define ERTS_MSUSPEND_STATE_COUNTER_MASK (~ERTS_MSUSPEND_STATE_FLG_ACTIVE)
+#define ERTS_MSUSPEND_STATE_FLG_ACTIVE ((erts_aint64_t) (((Uint64) 1) << 63))
+#define ERTS_MSUSPEND_STATE_FLG_PAUSE_TIMER ((erts_aint64_t) (((Uint64) 1) << 62))
+#define ERTS_MSUSPEND_STATE_COUNTER_MASK (((erts_aint64_t) (((Uint64) 1) << 62)) - 1)
 
 /* 
  * --- Monitor tree operations ---
