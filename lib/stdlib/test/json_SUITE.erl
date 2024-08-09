@@ -38,6 +38,9 @@
     test_encode_list/1,
     test_encode_proplist/1,
     test_encode_escape_all/1,
+    test_format_list/1,
+    test_format_map/1,
+    test_format_fun/1,
     test_decode_atoms/1,
     test_decode_numbers/1,
     test_decode_strings/1,
@@ -65,6 +68,7 @@ all() ->
     [
         {group, encode},
         {group, decode},
+        {group, format},
         test_json_test_suite,
         {group, properties},
         counterexamples
@@ -82,6 +86,12 @@ groups() ->
             test_encode_proplist,
             test_encode_escape_all
         ]},
+        {format, [parallel], [
+            test_format_list,
+            test_format_map,
+            test_format_fun
+        ]},
+
         {decode, [parallel], [
             test_decode_atoms,
             test_decode_numbers,
@@ -289,6 +299,198 @@ encode_proplist_checked(Term) ->
         (Other, Encode) -> json:encode_value(Other, Encode)
     end,
     iolist_to_binary(json:encode(Term, Encode)).
+
+%%
+%% Formatting tests
+%%
+
+format(Term) -> iolist_to_binary(json:format(Term)).
+format(Term, Arg) -> iolist_to_binary(json:format(Term, Arg)).
+
+test_format_list(_Config) ->
+    ?assertEqual(~"[]\n", format([])),
+
+    List10 = ~'[1,2,3,4,5,6,7,8,9,10]\n',
+    ?assertEqual(List10, format(lists:seq(1,10))),
+
+    ListWithLists = ~"""
+    [
+      [1,2],
+      [3,4]
+    ]
+
+    """,
+    ?assertEqual(ListWithLists, format([[1,2],[3,4]])),
+
+    ListWithListWithList = ~"""
+    [
+      [
+        []
+      ],
+      [
+        [3,4]
+      ]
+    ]
+
+    """,
+    ?assertEqual(ListWithListWithList, format([[[]],[[3,4]]])),
+
+    ListWithMap = ~"""
+    [
+      { "key": 1 }
+    ]
+
+    """,
+    ?assertEqual(ListWithMap, format([#{key => 1}])),
+
+    ListList10 = ~"""
+    [
+        [1,2,3,4,5,
+            6,7,8,9,
+            10]
+    ]
+
+    """,
+    ?assertEqual(ListList10, format([lists:seq(1,10)], #{indent => 4, max => 14})),
+
+    ListString = ~"""
+    [
+       "foo",
+       "bar",
+       "baz"
+    ]
+
+    """,
+    ?assertEqual(ListString, format([~"foo", ~"bar", ~"baz"], #{indent => 3})),
+    ok.
+
+test_format_map(_Config) ->
+    ?assertEqual(~'{}\n', format(#{})),
+    ?assertEqual(~'{ "key": "val" }\n', format(#{key => val})),
+    MapSingleMap = ~"""
+    {
+      "key1": { "key3": "val3" },
+      "key2": 42
+    }
+
+    """,
+    ?assertEqual(MapSingleMap, format(#{key1 => #{key3 => val3}, key2 => 42})),
+
+    MapNestedMap = ~"""
+    {
+      "key1": {
+        "key3": true,
+        "key4": {
+          "deep1": 4711,
+          "deep2": "string"
+        }
+      },
+      "key2": 42
+    }
+
+    """,
+    ?assertEqual(MapNestedMap, format(#{key1 => #{key3 => true,
+                                                  key4 => #{deep1 => 4711, deep2 => ~'string'}},
+                                        key2 => 42})),
+    MapIntList =  ~"""
+    {
+      "key1": [1,2,3,4,5],
+      "key2": 42
+    }
+
+    """,
+    ?assertEqual(MapIntList, format(#{key1 => lists:seq(1,5),
+                                      key2 => 42})),
+
+    MapObjList =  ~"""
+    {
+      "key1": [
+        {
+          "key3": true,
+          "key4": [1,2,3,4,5]
+        },
+        {
+          "key3": true,
+          "key4": [1,2,3,4,5]
+        }
+      ],
+      "key2": 42
+    }
+
+    """,
+    ?assertEqual(MapObjList, format(#{key1 =>
+                                          [#{key3 => true, key4 => lists:seq(1,5)},
+                                           #{key3 => true, key4 => lists:seq(1,5)}],
+                                      key2 => 42})),
+
+    MapObjList2 =  ~"""
+    {
+     "key1": [
+      {
+       "key3": true,
+       "key4": [1,2,
+        3,4,5,6,7,8,
+        9,10]
+      },
+      {
+       "key3": true,
+       "key_longer_name": [
+        1,
+        2,
+        3
+       ]
+      }
+     ],
+     "key2": 42
+    }
+
+    """,
+    ?assertEqual(MapObjList2, format(#{key1 =>
+                                          [#{key3 => true, key4 => lists:seq(1,10)},
+                                           #{key3 => true, key_longer_name => lists:seq(1,3)}],
+                                      key2 => 42},
+                                     #{indent => 1, max => 15}
+                                   )),
+    ok.
+
+
+-record(rec, {a,b,c}).
+
+test_format_fun(_Config) ->
+    All = #{types => [[], #{}, true, false, null, #{foo => ~"baz"}],
+            numbers => [1, -10, 0.0, -0.0, 2.0, -2.0],
+            strings => [~"three", ~"åäö", ~"mixed_Ω"],
+            user_data => #rec{a = 1, b = 2, c = 3}
+           },
+    Formatter = fun(#rec{a=A, b=B, c=C}, _Fun, _State) ->
+                        List = [{type, rec}, {a, A}, {b, B}, {c, C}],
+                        encode_proplist(List);
+                   (Other, Fun, State) ->
+                        json:format_value(Other, Fun, State)
+                end,
+    Formatted = ~"""
+    {
+      "numbers": [1,-10,0.0,-0.0,2.0,-2.0],
+      "strings": [
+        "three",
+        "åäö",
+        "mixed_Ω"
+      ],
+      "types": [
+        [],
+        {},
+        true,
+        false,
+        null,
+        { "foo": "baz" }
+      ],
+      "user_data": {"type":"rec","a":1,"b":2,"c":3}
+    }
+
+    """,
+    ?assertEqual(Formatted, format(All, Formatter)),
+    ok.
+
 
 %%
 %% Decoding tests
@@ -638,7 +840,8 @@ test_type("i_" ++ _) -> no.
 
 test_file(yes, File, Data) ->
     Parsed = decode(Data),
-    ?assertEqual(Parsed, decode(iolist_to_binary(encode(Parsed))), File);
+    ?assertEqual(Parsed, decode(iolist_to_binary(encode(Parsed))), File),
+    ?assertEqual(Parsed, decode(iolist_to_binary(json:format(Parsed))), File);
 test_file(no, File, Data) ->
     ?assertError(_, decode(Data), File).
 
