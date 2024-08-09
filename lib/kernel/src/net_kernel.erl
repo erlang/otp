@@ -2423,11 +2423,21 @@ protocol_childspecs([H|T]) ->
 
 -doc false.
 epmd_module() ->
-    case init:get_argument(epmd_module) of
-        {ok,[[Module | _] | _]} ->
-	    list_to_atom(Module);
-	_ ->
-	    erl_epmd
+    case application:get_env(kernel, epmd_module) of
+      {ok, Module} when is_atom(Module) ->
+          Module;
+      {ok, Invalid} ->
+          error({invalid_parameter_value, epmd_module, Invalid});
+      undefined ->
+          Module =
+              case init:get_argument(epmd_module) of
+                  {ok,[[Mod | _] | _]} ->
+                      list_to_atom(Mod);
+                  _ ->
+                      erl_epmd
+              end,
+          ok = application:set_env(kernel, epmd_module, Module, [{timeout, infinity}]),
+          Module
     end.
 
 %%
@@ -3011,4 +3021,3 @@ opts_node(Op, Node, Opts, From, #state{req_map = ReqMap0} = S0) ->
         _ ->
             async_reply({reply, {error, noconnection}, S0}, From)
     end.
-
