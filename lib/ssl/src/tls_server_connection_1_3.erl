@@ -505,7 +505,10 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         end
     catch
         {Ref, #alert{} = Alert} ->
-            Alert
+            Alert;
+        error:Reason:ST ->
+            ?SSL_LOG(debug, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
+            ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_in_client_hello)
     end.
 
 send_hello_flight({start_handshake, PSK0},
@@ -586,7 +589,8 @@ send_hello_flight({start_handshake, PSK0},
     catch
         {Ref, #alert{} = Alert} ->
             Alert;
-        error:badarg ->
+        error:Reason:ST ->
+            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
     end.
 
