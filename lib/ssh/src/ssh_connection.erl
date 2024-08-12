@@ -127,7 +127,7 @@ If not, the `t:reason/0` indicates what went wrong:
 
 -doc """
 The valid values are `0` ("normal") and `1` ("stderr"), see
-[RFC 4254, Section 5.2](https://tools.ietf.org/html/rfc4254#page/8).
+[RFC 4254, Section 5.2](https://tools.ietf.org/html/rfc4254#page-8).
 """.
 -type ssh_data_type_code() :: non_neg_integer(). % Only 0 and 1 are used
 

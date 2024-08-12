@@ -20,8 +20,6 @@
 
 -module(ct_rpc).
 -moduledoc """
-Common Test specific layer on Erlang/OTP rpc.
-
 `Common Test` specific layer on Erlang/OTP `rpc`.
 """.
 
