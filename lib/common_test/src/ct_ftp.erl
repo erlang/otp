@@ -20,8 +20,6 @@
 
 -module(ct_ftp).
 -moduledoc """
-FTP client module (based on the FTP application).
-
 FTP client module (based on the `ftp` application).
 """.
 
@@ -38,7 +36,7 @@ FTP client module (based on the `ftp` application).
 
 -define(DEFAULT_PORT,21).
 
--doc "For `target_name`, see module `m:ct`.".
+-doc "Reference to opened FTP connection associated to either a `handle` or `target_name`.".
 -type connection() :: handle() | ct:target_name().
 -doc "Handle for a specific FTP connection, see module `m:ct`.".
 -type handle() :: ct:handle().
@@ -51,8 +49,6 @@ FTP client module (based on the `ftp` application).
 Opens an FTP connection and sends a file to the remote host.
 
 `LocalFile` and `RemoteFile` must be absolute paths.
-
-For `target_name`, see module `m:ct`.
 
 If the target host is a "special" node, the FTP address must be specified in the
 configuration file as follows:
@@ -73,7 +69,7 @@ configuration file must also include the username and password (both strings):
 See also `ct:require/2`.
 """.
 -spec put(KeyOrName, LocalFile, RemoteFile) -> 'ok' | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    LocalFile :: file:filename(),
                    RemoteFile :: file:filename(),
                    Reason :: term().
@@ -88,12 +84,10 @@ Opens an FTP connection and fetches a file from the remote host.
 
 The configuration file must be as for [`ct_ftp:put/3`](`put/3`).
 
-For `target_name`, see module `m:ct`.
-
 See also `ct:require/2`.
 """.
 -spec get(KeyOrName, RemoteFile, LocalFile) -> 'ok' | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    RemoteFile :: file:filename(),
                    LocalFile :: file:filename(),
                    Reason :: term().
@@ -112,11 +106,9 @@ the target. A connection without an associated target name can only be closed
 with the handle value.
 
 For information on how to create a new `Name`, see `ct:require/2`.
-
-For `target_name`, see module `m:ct`.
 """.
 -spec open(KeyOrName) -> {'ok', Handle} | {'error', Reason}
-              when KeyOrName :: atom(),
+              when KeyOrName :: ct:key_or_name(),
                    Handle :: handle(),
                    Reason :: term().
 open(KeyOrName) ->
