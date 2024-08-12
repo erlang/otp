@@ -135,8 +135,7 @@
          select_own_cert/1,
          path_validation/10,
          validation_fun_and_state/4,
-         path_validation_options/2,
-         path_validation_alert/1]).
+         path_validation_options/2]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -399,7 +398,7 @@ certify(Certs, CertDbHandle, CertDbRef,
 	    {ok, {PublicKeyInfo, _}} ->
                 {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
-                path_validation_alert(Reason)
+                path_validation_alert(Reason, ServerName, PeerCert)
 	end
     catch
         error:OtherReason:ST ->
@@ -2157,28 +2156,31 @@ maybe_check_hostname(OtpCert, valid_peer, SslState, LogLevel) ->
 maybe_check_hostname(_, valid, _, _) ->
     valid.
 
-
-path_validation_alert({bad_cert, cert_expired}) ->
+path_validation_alert({bad_cert, cert_expired}, _, _) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
-path_validation_alert({bad_cert, invalid_issuer}) ->
+path_validation_alert({bad_cert, invalid_issuer}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_issuer);
-path_validation_alert({bad_cert, invalid_signature}) ->
+path_validation_alert({bad_cert, invalid_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, invalid_signature);
-path_validation_alert({bad_cert, unsupported_signature}) ->
+path_validation_alert({bad_cert, unsupported_signature}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unsupported_signature);
-path_validation_alert({bad_cert, name_not_permitted}) ->
+path_validation_alert({bad_cert, name_not_permitted}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, name_not_permitted);
-path_validation_alert({bad_cert, unknown_critical_extension}) ->
+path_validation_alert({bad_cert, unknown_critical_extension}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, unknown_critical_extension);
-path_validation_alert({bad_cert, {revoked, _}}) ->
+path_validation_alert({bad_cert, {revoked, _}}, _, _) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
-path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
+path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, Details);
-path_validation_alert({bad_cert, selfsigned_peer}) ->
+path_validation_alert({bad_cert, selfsigned_peer}, _, _) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, selfsigned_peer);
-path_validation_alert({bad_cert, unknown_ca}) ->
+path_validation_alert({bad_cert, unknown_ca}, _, _) ->
     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
-path_validation_alert(Reason) ->
+path_validation_alert({bad_cert, hostname_check_failed}, ServerName, #cert{otp = PeerCert}) ->
+    SubjAltNames = subject_altnames(PeerCert),
+    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,{bad_cert, {hostname_check_failed, {requested, ServerName}, 
+                                                                 {received, SubjAltNames}}});
+path_validation_alert(Reason, _, _) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
 digitally_signed(Version, Msg, HashAlgo, PrivateKey, SignAlgo) ->
@@ -3941,6 +3943,25 @@ supported_cert_signs([default|Signs]) ->
     Signs;
 supported_cert_signs(Signs) ->
     Signs.
+
+subject_altnames(#'OTPCertificate'{tbsCertificate = TBSCert} = OTPCert) ->
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    %% Fallback to CN-ids
+    {_, Names} = public_key:pkix_subject_id(OTPCert),
+    subject_altnames(Extensions, Names).
+    
+subject_altnames([], Names) ->
+    Names;
+subject_altnames([#'Extension'{extnID = ?'id-ce-subjectAltName',
+                              extnValue = Value} | _], _) ->
+    Value;
+subject_altnames([#'Extension'{} | Extensions], Names) ->
+    subject_altnames(Extensions, Names).
+
+extensions_list(asn1_NOVALUE) ->
+    [];
+extensions_list(Extensions) ->
+    Extensions.
 
 %%%################################################################
 %%%#
