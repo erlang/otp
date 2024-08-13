@@ -80,8 +80,8 @@ Typical `Reason`s:
 
 -export([on_load/0]).
 
--removed([{inflateChunk, 1, "use safeInflate/2 instead"},
-          {inflateChunk, 2, "use safeInflate/2 instead"},
+-removed([{inflateChunk, 1, "use zlib:safeInflate/2 instead"},
+          {inflateChunk, 2, "use zlib:safeInflate/2 instead"},
           {getBufSize, 1, "this function has been removed"},
           {setBufSize, 2, "this function has been removed"},
           {crc32, 1, "use erlang:crc32/1 on the uncompressed data instead"},
