@@ -17,8 +17,7 @@
 #
 # %CopyrightEnd%
 #
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
+include ../config.mk
 
 # ----------------------------------------------------
 # Application version
@@ -30,4 +29,12 @@ APPLICATION=wx
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
+
+## Don't build docs if driver is not built,
+## exdoc can't load the driver in gl.erl onload function.
+
+ifneq ($(CAN_BUILD_DRIVER), true)
+DOC_TARGETS=
+endif
+
 include $(ERL_TOP)/make/doc.mk
