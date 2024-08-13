@@ -105,13 +105,14 @@ while [ "${TAG_URL}" != "" ]; do
 
                 ## Check if we need to patch the body of the release
                 if ! echo "${RELEASE}" | jq -e 'select(.body != "")' > /dev/null; then
-                    UPDATE_BODY=("${UPDATE_BODY[@]}" "${name}")
+                    RELEASE_ID=$(echo "${RELEASE}" | jq '.id')
+                    UPDATE_BODY=("${UPDATE_BODY[@]}" "${name}:${RELEASE_ID}")
                     if [[ ${RELEASE_VSN} -gt 26 ]]; then
                         RM="${name}.README.md"
                     else
                         RM="${name}.README"
                     fi
-                    echo "Sync ${RM} for ${name} (for update of release body)"
+                    echo "Sync ${RM} for ${name} (for update of release body, release id = ${RELEASE_ID})"
                     RI=("${RM}" "${RI[@]}")
                 fi
 
@@ -198,7 +199,9 @@ for name in "${CREATE_RELEASE[@]}"; do
     _curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}"
 done
 
-for name in "${UPDATE_BODY[@]}"; do
+for name_id in "${UPDATE_BODY[@]}"; do
+    name=$(echo "${name_id}" | awk -F: '{print $1}')
+    RELEASE_ID=$(echo "${name_id}" | awk -F: '{print $2}')
     if [ -s downloads/"${name}.README.md" ]; then
         README=$(cat downloads/"${name}.README.md")
         README=$(_json_escape "${README}")
@@ -207,7 +210,7 @@ for name in "${UPDATE_BODY[@]}"; do
         README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
     fi
     echo "Update body of ${name}"
-    _curl_patch "${REPO}/releases/tags/${name}" -d "{\"body\":${README}}"
+    _curl_patch "${REPO}/releases/${RELEASE_ID}" -d "{\"body\":${README}}"
 done
 
 UPLOADED=false
