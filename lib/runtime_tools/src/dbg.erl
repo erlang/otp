@@ -2346,30 +2346,33 @@ relay(SessionName, Node,To) when Node /= node() ->
 -doc false.
 do_relay(SessionName, Parent,RelP) ->
     process_flag(trap_exit, true),
-    case RelP of
-	{Type,Data} -> 
-	    {ok,Tracer} = remote_tracer(Type,Data),
-	    Parent ! {started, Tracer, trace:session_create(SessionName, Tracer, [])},
-            ok;
-	Pid when is_pid(Pid) ->
-	    Parent ! {started, self(), trace:session_create(SessionName, self(), [])},
-            ok
-    end,
-    do_relay_1(RelP).
+    Tracer =
+        case RelP of
+            {Type, Data} ->
+                {ok, Started} = remote_tracer(Type,Data),
+                Started;
+            Pid when is_pid(Pid) ->
+                self()
+        end,
+    Session = trace:session_create(SessionName, Tracer, []),
+    Parent ! {started, Tracer, Session},
+    do_relay_1(RelP, Session).
 
-do_relay_1(RelP) ->
-    %% In the case of a port tracer, this process exists only so that
-    %% dbg know that the node is alive... should maybe use monitor instead?
+do_relay_1(RelP, Session) ->
+    %% This process exists to relay messages and keep trace session
+    %% alive - session is ref-counted locally, meaning just the main
+    %% node keeping a reference to the session won't prevent the session
+    %% from being garbage collected.
     receive
 	{'EXIT', _P, _} ->
 	    exit(normal);
 	TraceInfo when is_pid(RelP) ->  % Here is the normal case for trace i/o
-	    RelP ! TraceInfo, 
-	    do_relay_1(RelP);
+	    RelP ! TraceInfo,
+	    do_relay_1(RelP, Session);
 	Other ->
             Modifier = modifier(user),
 	    io:format(user,"** relay got garbage: ~"++Modifier++"p~n", [Other]),
-	    do_relay_1(RelP)
+	    do_relay_1(RelP, Session)
     end.
 
 -doc false.
