@@ -27,7 +27,7 @@ HDR=(-H "Authorization: ${TOKEN}")
 REPO="https://api.github.com/repos/${REPOSITORY}"
 
 _json_escape () {
-    printf '```\n%s\n```' "${1}" | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
+    echo "${1}" | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
 }
 
 _strip_name() {
@@ -43,9 +43,16 @@ _curl_post() {
          -H "Accept: application/vnd.github.v3+json" "${@}"
 }
 
+_curl_patch() {
+    curl -o /dev/null --silent --fail --show-error -X PATCH "${HDR[@]}" \
+         -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+        "${@}"
+}
+
 RI=()
 ALL_TAGS=()
 CREATE_RELEASE=()
+UPDATE_BODY=()
 TAG_URL="${REPO}/tags?per_page=100"
 
 ## This function is used to loop over the pagianated results from github tags
@@ -72,6 +79,7 @@ while [ "${TAG_URL}" != "" ]; do
         }
         name=$(_row '.name')
         stripped_name=$(_strip_name ${name})
+        RELEASE_VSN=$(echo "${stripped_name}" | awk -F. '{print $1}')
 
         if echo ${stripped_name} | grep -E "${RELEASE_FILTER}" > /dev/null; then
             RELEASE=$(_curl_get "${REPO}/releases/tags/${name}")
@@ -94,10 +102,33 @@ while [ "${TAG_URL}" != "" ]; do
                         RI=("${remotename[@]}" "${RI[@]}")
                     fi
                 }
+
+                ## Check if we need to patch the body of the release
+                if ! echo "${RELEASE}" | jq -e 'select(.body != "")' > /dev/null; then
+                    UPDATE_BODY=("${UPDATE_BODY[@]}" "${name}")
+                    if [[ ${RELEASE_VSN} -gt 26 ]]; then
+                        RM="${name}.README.md"
+                    else
+                        RM="${name}.README"
+                    fi
+                    echo "Sync ${RM} for ${name} (for update of release body)"
+                    RI=("${RM}" "${RI[@]}")
+                fi
+
                 _asset "${name}.README" "${name}.README" "otp_src_${stripped_name}.readme"
+                if [[ ${RELEASE_VSN} -gt 26 ]]; then
+                    _asset "${name}.README.md"
+                fi
                 _asset "otp_src_${stripped_name}.tar.gz"
                 _asset "otp_doc_html_${stripped_name}.tar.gz"
-                _asset "otp_doc_man_${stripped_name}.tar.gz"
+                case "${stripped_name}" in
+                    27.0**)
+                    ## There are no man pages for 27.0 release
+                    ;;
+                    *)
+                        _asset "otp_doc_man_${stripped_name}.tar.gz"
+                        ;;
+                esac
                 case "${stripped_name}" in
                     22.*.**|21.*.**)
                     ## No need to check for windows releases in 21 and 22 patches
@@ -142,28 +173,42 @@ done
 for name in "${CREATE_RELEASE[@]}"; do
     echo "Create release for ${name}"
     stripped_name=$(_strip_name ${name})
-    if [ -s "downloads/${name}.README" ]; then
-        README=`cat downloads/${name}.README`
+    if [ -s "downloads/${name}.README.md" ]; then
+        README=$(cat downloads/${name}.README.md)
+        README=$(_json_escape "${README}")
+    elif [ -s "downloads/${name}.README" ]; then
+        README=$(cat downloads/${name}.README)
+        if echo "${README}" | grep "HIGHLIGHTS" > /dev/null; then
+            ## We have highlights, so only use those as the body
+
+            ## This awk script is a hack.
+            ## It counts the number of lines that start with '---' and
+            ## then outputs any text after the first '---' until the 7th.
+            README=$(echo "${README}" | awk 'BEGIN{ echo=0 } { if ( $1 ~ /^---/ ) { echo++ } if ( echo > 0 && echo < 7 ) { print $0 } }')
+        fi
+        README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
     else
         README=""
     fi
-    if echo "${README}" | grep "HIGHLIGHTS" > /dev/null; then
-        ## We have highlights, so only use those as the body
-
-        ## This awk script is a hack.
-        ## It counts the number of lines that start with '---' and
-        ## then outputs any text after the first '---' until the 7th.
-        README=`echo "${README}" | awk 'BEGIN{ echo=0 } { if ( $1 ~ /^---/ ) { echo++ } if ( echo > 0 && echo < 7 ) { print $0 } }'`
-    fi
     if [ "${README}" != "" ]; then
-        RM=$(_json_escape "${README}")
         BODY=", \"body\":${RM}"
     else
         BODY=""
     fi
-    $(_curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}")
+    _curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}"
 done
 
+for name in "${UPDATE_BODY[@]}"; do
+    if [ -s downloads/"${name}.README.md" ]; then
+        README=$(cat downloads/"${name}.README.md")
+        README=$(_json_escape "${README}")
+    elif [ -s downloads/"${name}.README" ]; then
+        README=$(cat downloads/"${name}.README")
+        README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
+    fi
+    echo "Update body of ${name}"
+    _curl_patch "${REPO}/releases/tags/${name}" -d "{\"body\":${README}}"
+done
 
 UPLOADED=false
 
@@ -193,12 +238,13 @@ _upload_artifacts() {
         fi
     }
     _upload "${name}.README" "text"
+    _upload "${name}.README.md" "text"
     _upload "otp_src_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_doc_html_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_doc_man_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_win32_${stripped_name}.exe" "application/x-msdownload"
     _upload "otp_win64_${stripped_name}.exe" "application/x-msdownload"
-    }
+}
 
 ## Upload all assets for tags
 for name in "${ALL_TAGS[@]}"; do
@@ -215,7 +261,7 @@ if [ ${UPLOADED} = false ]; then
     for name in "${MISSING_PREBUILD[@]}"; do
         stripped_name=$(_strip_name "${name}")
         release=$(echo "${stripped_name}" | awk -F. '{print $1}')
-        if [[ $release < 24 ]]; then
+        if [[ $release -lt 24 ]]; then
             ## Releases before 24 are no longer supported and are a bit different
             ## from 24+ so I've removed support for them
             echo "Skipping old release ${name}"
@@ -233,7 +279,7 @@ if [ ${UPLOADED} = false ]; then
                -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
         docker run -v "$PWD":/github otp \
                "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-        .github/scripts/release-docs.sh $release
+        .github/scripts/release-docs.sh "${release}" "${stripped_name}"
         .github/scripts/create-artifacts.sh downloads "${name}"
 
         ## Delete any artifacts that we should not upload
