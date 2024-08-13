@@ -154,15 +154,15 @@ Special Erlang node configuration for the application can be found in
 -deprecated_type([{prf_random, 0,"Only used in deprecated function prf/5 and will no longer be needed."}]).
 
 -removed({ssl_accept, '_', 
-          "use ssl_handshake/1,2,3 instead"}).
+          "use ssl:handshake/1,2,3 instead"}).
 -removed({cipher_suites, 0, 
-          "use cipher_suites/2,3 instead"}).
+          "use ssl:cipher_suites/2,3 instead"}).
 -removed({cipher_suites, 1, 
-          "use cipher_suites/2,3 instead"}).
+          "use ssl:cipher_suites/2,3 instead"}).
 -removed([{negotiated_next_protocol,1,
            "use ssl:negotiated_protocol/1 instead"}]).
 -removed([{connection_info,1,
-           "use ssl:connection_information/[1,2] instead"}]).
+           "use ssl:connection_information/1,2 instead"}]).
 
 -export_type([active_msgs/0,
               cert_key_conf/0,

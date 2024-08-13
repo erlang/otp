@@ -204,8 +204,8 @@ end
 %% Old interface. Now implemented with the New interface.
 %% Removed in OTP-24.0 See OTP-16232 (deprecation) and OTP-16656 (removal)
 
--removed([{crypto_dyn_iv_init, 3, "not supported, use crypto_init/4"},
-          {crypto_dyn_iv_update, 3, "not supported, use crypto_update/2"},
+-removed([{crypto_dyn_iv_init, 3, "not supported, use crypto:crypto_init/4"},
+          {crypto_dyn_iv_update, 3, "not supported, use crypto:crypto_update/2"},
           {next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
           {hmac, 3, "use crypto:mac/4 instead"},
           {hmac, 4, "use crypto:macN/5 instead"},
