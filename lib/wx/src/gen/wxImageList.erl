@@ -20,19 +20,19 @@
 
 -module(wxImageList).
 -moduledoc """
-Functions for wxImageList class
+A `m:wxImageList` contains a list of images, which are stored in an unspecified form.
 
-A `m:wxImageList` contains a list of images, which are stored in an unspecified
-form. Images can have masks for transparent drawing, and can be made from a
-variety of sources including bitmaps and icons.
+Images can have masks for transparent drawing, and can be made from a variety of sources
+including bitmaps and icons.
 
-`m:wxImageList` is used principally in conjunction with `m:wxTreeCtrl` and
-`m:wxListCtrl` classes.
+`m:wxImageList` is used principally in conjunction with `m:wxTreeCtrl` and `m:wxListCtrl` classes.
 
-See: `m:wxTreeCtrl`, `m:wxListCtrl`
+See:
+* `m:wxTreeCtrl`
 
-wxWidgets docs:
-[wxImageList](https://docs.wxwidgets.org/3.1/classwx_image_list.html)
+* `m:wxListCtrl`
+
+wxWidgets docs: [wxImageList](https://docs.wxwidgets.org/3.2/classwx_image_list.html)
 """.
 -include("wxe.hrl").
 -export([add/2,add/3,create/3,create/4,destroy/1,draw/5,draw/6,getBitmap/2,getIcon/2,
@@ -44,18 +44,16 @@ wxWidgets docs:
 
 -type wxImageList() :: wx:wx_object().
 -export_type([wxImageList/0]).
-%% @hidden
 -doc false.
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -doc "Default ctor.".
 -spec new() -> wxImageList().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxImageList_new_0),
   wxe_util:rec(?wxImageList_new_0).
 
-%% @equiv new(Width,Height, [])
+-doc(#{equiv => new(Width,Height, [])}).
 -spec new(Width, Height) -> wxImageList() when
 	Width::integer(), Height::integer().
 
@@ -63,10 +61,9 @@ new(Width,Height)
  when is_integer(Width),is_integer(Height) ->
   new(Width,Height, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistwximagelist">external documentation</a>.
 -doc """
-Constructor specifying the image size, whether image masks should be created,
-and the initial size of the list.
+Constructor specifying the image size, whether image masks should be created, and the
+initial size of the list.
 
 See: `create/4`
 """.
@@ -83,17 +80,15 @@ new(Width,Height, Options)
   wxe_util:queue_cmd(Width,Height, Opts,?get_env(),?wxImageList_new_3),
   wxe_util:rec(?wxImageList_new_3).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistadd">external documentation</a>.
 -doc """
 Adds a new image using an icon.
 
 Return: The new zero-based image index.
 
-Remark: The original bitmap or icon is not affected by the `add/3` operation,
-and can be deleted afterwards. If the bitmap is wider than the images in the
-list, then the bitmap will automatically be split into smaller images, each
-matching the dimensions of the image list. This does not apply when adding
-icons.
+Remark: The original bitmap or icon is not affected by the `add/3` operation, and can be deleted
+afterwards. If the bitmap is wider than the images in the list, then the bitmap will
+automatically be split into smaller images, each matching the dimensions of the image
+list. This does not apply when adding icons.
 
 Only for:wxmsw,wxosx
 """.
@@ -111,21 +106,15 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   wxe_util:queue_cmd(This,wx:typeCast(Icon, IconType),?get_env(),?wxImageList_Add_1),
   wxe_util:rec(?wxImageList_Add_1).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistadd">external documentation</a>.
-%% <br /> Also:<br />
-%% add(This, Bitmap, MaskColour) -> integer() when<br />
-%% 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().<br />
-%% 
 -doc """
 Adds a new image or images using a bitmap and mask colour.
 
 Return: The new zero-based image index.
 
-Remark: The original bitmap or icon is not affected by the `add/3` operation,
-and can be deleted afterwards. If the bitmap is wider than the images in the
-list, then the bitmap will automatically be split into smaller images, each
-matching the dimensions of the image list. This does not apply when adding
-icons.
+Remark: The original bitmap or icon is not affected by the `add/3` operation, and can be deleted
+afterwards. If the bitmap is wider than the images in the list, then the bitmap will
+automatically be split into smaller images, each matching the dimensions of the image
+list. This does not apply when adding icons.
 """.
 -spec add(This, Bitmap, Mask) -> integer() when
 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap();
@@ -144,7 +133,7 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,MaskColour)
   wxe_util:queue_cmd(This,Bitmap,wxe_util:color(MaskColour),?get_env(),?wxImageList_Add_2_1),
   wxe_util:rec(?wxImageList_Add_2_1).
 
-%% @equiv create(This,Width,Height, [])
+-doc(#{equiv => create(This,Width,Height, [])}).
 -spec create(This, Width, Height) -> boolean() when
 	This::wxImageList(), Width::integer(), Height::integer().
 
@@ -152,7 +141,6 @@ create(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
   create(This,Width,Height, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistcreate">external documentation</a>.
 -doc """
 Initializes the list.
 
@@ -172,7 +160,7 @@ create(#wx_ref{type=ThisT}=This,Width,Height, Options)
   wxe_util:queue_cmd(This,Width,Height, Opts,?get_env(),?wxImageList_Create),
   wxe_util:rec(?wxImageList_Create).
 
-%% @equiv draw(This,Index,Dc,X,Y, [])
+-doc(#{equiv => draw(This,Index,Dc,X,Y, [])}).
 -spec draw(This, Index, Dc, X, Y) -> boolean() when
 	This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer().
 
@@ -180,7 +168,6 @@ draw(This,Index,Dc,X,Y)
  when is_record(This, wx_ref),is_integer(Index),is_record(Dc, wx_ref),is_integer(X),is_integer(Y) ->
   draw(This,Index,Dc,X,Y, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistdraw">external documentation</a>.
 -doc "Draws a specified image onto a device context.".
 -spec draw(This, Index, Dc, X, Y, [Option]) -> boolean() when
 	This::wxImageList(), Index::integer(), Dc::wxDC:wxDC(), X::integer(), Y::integer(),
@@ -197,7 +184,6 @@ draw(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=DcT}=Dc,X,Y, Options)
   wxe_util:queue_cmd(This,Index,Dc,X,Y, Opts,?get_env(),?wxImageList_Draw),
   wxe_util:rec(?wxImageList_Draw).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetbitmap">external documentation</a>.
 -doc "Returns the bitmap corresponding to the given index.".
 -spec getBitmap(This, Index) -> wxBitmap:wxBitmap() when
 	This::wxImageList(), Index::integer().
@@ -207,7 +193,6 @@ getBitmap(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxImageList_GetBitmap),
   wxe_util:rec(?wxImageList_GetBitmap).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgeticon">external documentation</a>.
 -doc "Returns the icon corresponding to the given index.".
 -spec getIcon(This, Index) -> wxIcon:wxIcon() when
 	This::wxImageList(), Index::integer().
@@ -217,7 +202,6 @@ getIcon(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxImageList_GetIcon),
   wxe_util:rec(?wxImageList_GetIcon).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetimagecount">external documentation</a>.
 -doc "Returns the number of images in the list.".
 -spec getImageCount(This) -> integer() when
 	This::wxImageList().
@@ -226,15 +210,13 @@ getImageCount(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxImageList_GetImageCount),
   wxe_util:rec(?wxImageList_GetImageCount).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistgetsize">external documentation</a>.
 -doc """
 Retrieves the size of the images in the list.
 
-Currently, the `index` parameter is ignored as all images in the list have the
-same size.
+Currently, the `index` parameter is ignored as all images in the list have the same size.
 
-Return: true if the function succeeded, false if it failed (for example, if the
-image list was not yet initialized).
+Return: true if the function succeeded, false if it failed (for example, if the image
+list was not yet initialized).
 """.
 -spec getSize(This, Index) -> Result when
 	Result ::{Res ::boolean(), Width::integer(), Height::integer()},
@@ -245,7 +227,6 @@ getSize(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxImageList_GetSize),
   wxe_util:rec(?wxImageList_GetSize).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistremove">external documentation</a>.
 -doc "Removes the image at the given position.".
 -spec remove(This, Index) -> boolean() when
 	This::wxImageList(), Index::integer().
@@ -255,7 +236,6 @@ remove(#wx_ref{type=ThisT}=This,Index)
   wxe_util:queue_cmd(This,Index,?get_env(),?wxImageList_Remove),
   wxe_util:rec(?wxImageList_Remove).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistremoveall">external documentation</a>.
 -doc "Removes all the images in the list.".
 -spec removeAll(This) -> boolean() when
 	This::wxImageList().
@@ -264,14 +244,12 @@ removeAll(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxImageList_RemoveAll),
   wxe_util:rec(?wxImageList_RemoveAll).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
 -doc """
 Replaces the existing image with the new image.
 
 Return: true if the replacement was successful, false otherwise.
 
-Remark: The original bitmap or icon is not affected by the `replace/4`
-operation, and can be deleted afterwards.
+Remark: The original bitmap or icon is not affected by the `replace/4` operation, and can be deleted afterwards.
 
 Only for:wxmsw,wxosx
 """.
@@ -290,7 +268,6 @@ replace(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=IconT}=Icon)
   wxe_util:queue_cmd(This,Index,wx:typeCast(Icon, IconType),?get_env(),?wxImageList_Replace_2),
   wxe_util:rec(?wxImageList_Replace_2).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wximagelist.html#wximagelistreplace">external documentation</a>.
 -doc """
 Replaces the existing image with the new image.
 
@@ -298,8 +275,8 @@ Windows only.
 
 Return: true if the replacement was successful, false otherwise.
 
-Remark: The original bitmap or icon is not affected by the `replace/4`
-operation, and can be deleted afterwards.
+Remark: The original bitmap or icon is not affected by the `replace/4` operation, and can be deleted
+afterwards.
 """.
 -spec replace(This, Index, Bitmap, Mask) -> boolean() when
 	This::wxImageList(), Index::integer(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap().
@@ -311,8 +288,7 @@ replace(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=BitmapT}=Bitmap,#wx_ref{type
   wxe_util:queue_cmd(This,Index,Bitmap,Mask,?get_env(),?wxImageList_Replace_3),
   wxe_util:rec(?wxImageList_Replace_3).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the object.".
+-doc "Destroys the object".
 -spec destroy(This::wxImageList()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImageList),

@@ -22,10 +22,11 @@
 -moduledoc """
 Functions for wxQueryNewPaletteEvent class
 
-This class is derived (and can use functions) from: `m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxQueryNewPaletteEvent](https://docs.wxwidgets.org/3.1/classwx_query_new_palette_event.html)
+* `m:wxEvent`
+
+wxWidgets docs: [wxQueryNewPaletteEvent](https://docs.wxwidgets.org/3.2/classwx_query_new_palette_event.html)
 """.
 -include("wxe.hrl").
 -export([getPaletteRealized/1,setPaletteRealized/2]).
@@ -38,12 +39,11 @@ wxWidgets docs:
 -include("wx.hrl").
 -type wxQueryNewPaletteEventType() :: 'query_new_palette'.
 -export_type([wxQueryNewPaletteEvent/0, wxQueryNewPalette/0, wxQueryNewPaletteEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventsetpaletterealized">external documentation</a>.
+-doc "".
 -spec setPaletteRealized(This, Realized) -> 'ok' when
 	This::wxQueryNewPaletteEvent(), Realized::boolean().
 setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
@@ -51,7 +51,7 @@ setPaletteRealized(#wx_ref{type=ThisT}=This,Realized)
   ?CLASS(ThisT,wxQueryNewPaletteEvent),
   wxe_util:queue_cmd(This,Realized,?get_env(),?wxQueryNewPaletteEvent_SetPaletteRealized).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxquerynewpaletteevent.html#wxquerynewpaletteeventgetpaletterealized">external documentation</a>.
+-doc "".
 -spec getPaletteRealized(This) -> boolean() when
 	This::wxQueryNewPaletteEvent().
 getPaletteRealized(#wx_ref{type=ThisT}=This) ->
@@ -60,30 +60,21 @@ getPaletteRealized(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxQueryNewPaletteEvent_GetPaletteRealized).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

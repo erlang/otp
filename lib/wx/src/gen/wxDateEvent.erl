@@ -20,16 +20,17 @@
 
 -module(wxDateEvent).
 -moduledoc """
-Functions for wxDateEvent class
+This event class holds information about a date change and is used together with `m:wxDatePickerCtrl`.
 
-This event class holds information about a date change and is used together with
-`m:wxDatePickerCtrl`. It also serves as a base class for `m:wxCalendarEvent`.
+It also serves as a base class for `m:wxCalendarEvent`.
 
-This class is derived (and can use functions) from: `m:wxCommandEvent`
-`m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxDateEvent](https://docs.wxwidgets.org/3.1/classwx_date_event.html)
+* `m:wxCommandEvent`
+
+* `m:wxEvent`
+
+wxWidgets docs: [wxDateEvent](https://docs.wxwidgets.org/3.2/classwx_date_event.html)
 """.
 -include("wxe.hrl").
 -export([getDate/1]).
@@ -44,13 +45,11 @@ wxWidgets docs:
 -include("wx.hrl").
 -type wxDateEventType() :: 'date_changed'.
 -export_type([wxDateEvent/0, wxDate/0, wxDateEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxdateevent.html#wxdateeventgetdate">external documentation</a>.
 -doc "Returns the date.".
 -spec getDate(This) -> wx:wx_datetime() when
 	This::wxDateEvent().
@@ -60,58 +59,40 @@ getDate(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxDateEvent_GetDate).
 
  %% From wxCommandEvent
-%% @hidden
 -doc false.
 setString(This,String) -> wxCommandEvent:setString(This,String).
-%% @hidden
 -doc false.
 setInt(This,IntCommand) -> wxCommandEvent:setInt(This,IntCommand).
-%% @hidden
 -doc false.
 isSelection(This) -> wxCommandEvent:isSelection(This).
-%% @hidden
 -doc false.
 isChecked(This) -> wxCommandEvent:isChecked(This).
-%% @hidden
 -doc false.
 getString(This) -> wxCommandEvent:getString(This).
-%% @hidden
 -doc false.
 getSelection(This) -> wxCommandEvent:getSelection(This).
-%% @hidden
 -doc false.
 getInt(This) -> wxCommandEvent:getInt(This).
-%% @hidden
 -doc false.
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
-%% @hidden
 -doc false.
 getClientData(This) -> wxCommandEvent:getClientData(This).
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

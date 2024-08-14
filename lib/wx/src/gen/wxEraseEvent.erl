@@ -20,33 +20,29 @@
 
 -module(wxEraseEvent).
 -moduledoc """
-Functions for wxEraseEvent class
-
 An erase event is sent when a window's background needs to be repainted.
 
-On some platforms, such as GTK+, this event is simulated (simply generated just
-before the paint event) and may cause flicker. It is therefore recommended that
-you set the text background colour explicitly in order to prevent flicker. The
-default background colour under GTK+ is grey.
+On some platforms, such as GTK+, this event is simulated (simply generated just before
+the paint event) and may cause flicker. It is therefore recommended that you set the text
+background colour explicitly in order to prevent flicker. The default background colour
+under GTK+ is grey.
 
-To intercept this event, use the EVT_ERASE_BACKGROUND macro in an event table
-definition.
+To intercept this event, use the EVT_ERASE_BACKGROUND macro in an event table definition.
 
-You must use the device context returned by `getDC/1` to draw on, don't create a
-`m:wxPaintDC` in the event handler.
+You must use the device context returned by `getDC/1` to draw on, don't create a `m:wxPaintDC` in
+the event handler.
 
-See:
-[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+See: [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
 
-This class is derived (and can use functions) from: `m:wxEvent`
+This class is derived, and can use functions, from:
 
-wxWidgets docs:
-[wxEraseEvent](https://docs.wxwidgets.org/3.1/classwx_erase_event.html)
+* `m:wxEvent`
+
+wxWidgets docs: [wxEraseEvent](https://docs.wxwidgets.org/3.2/classwx_erase_event.html)
 
 ## Events
 
-Use `wxEvtHandler:connect/3` with [`wxEraseEventType`](`t:wxEraseEventType/0`)
-to subscribe to events of this type.
+Use `wxEvtHandler:connect/3` with `wxEraseEventType` to subscribe to events of this type.
 """.
 -include("wxe.hrl").
 -export([getDC/1]).
@@ -59,12 +55,10 @@ to subscribe to events of this type.
 -include("wx.hrl").
 -type wxEraseEventType() :: 'erase_background'.
 -export_type([wxEraseEvent/0, wxErase/0, wxEraseEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxeraseevent.html#wxeraseeventgetdc">external documentation</a>.
 -doc """
 Returns the device context associated with the erase event to draw on.
 
@@ -78,30 +72,21 @@ getDC(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxEraseEvent_GetDC).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).
