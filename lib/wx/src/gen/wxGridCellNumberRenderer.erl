@@ -20,20 +20,24 @@
 
 -module(wxGridCellNumberRenderer).
 -moduledoc """
-Functions for wxGridCellNumberRenderer class
-
 This class may be used to format integer data in a cell.
 
-See: `m:wxGridCellRenderer`, `wxGridCellAutoWrapStringRenderer` (not implemented
-in wx), `m:wxGridCellBoolRenderer`, `wxGridCellDateTimeRenderer` (not
-implemented in wx), `wxGridCellEnumRenderer` (not implemented in wx),
-`m:wxGridCellFloatRenderer`, `m:wxGridCellStringRenderer`
+See:
+* `m:wxGridCellRenderer`
 
-This class is derived (and can use functions) from: `m:wxGridCellStringRenderer`
-`m:wxGridCellRenderer`
+* `m:wxGridCellBoolRenderer`
 
-wxWidgets docs:
-[wxGridCellNumberRenderer](https://docs.wxwidgets.org/3.1/classwx_grid_cell_number_renderer.html)
+* `m:wxGridCellFloatRenderer`
+
+* `m:wxGridCellStringRenderer`
+
+This class is derived, and can use functions, from:
+
+* `m:wxGridCellStringRenderer`
+
+* `m:wxGridCellRenderer`
+
+wxWidgets docs: [wxGridCellNumberRenderer](https://docs.wxwidgets.org/3.2/classwx_grid_cell_number_renderer.html)
 """.
 -include("wxe.hrl").
 -export([destroy/1,new/0]).
@@ -43,21 +47,18 @@ wxWidgets docs:
 
 -type wxGridCellNumberRenderer() :: wx:wx_object().
 -export_type([wxGridCellNumberRenderer/0]).
-%% @hidden
 -doc false.
 parent_class(wxGridCellStringRenderer) -> true;
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellnumberrenderer.html#wxgridcellnumberrendererwxgridcellnumberrenderer">external documentation</a>.
 -doc "Default constructor.".
 -spec new() -> wxGridCellNumberRenderer().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxGridCellNumberRenderer_new),
   wxe_util:rec(?wxGridCellNumberRenderer_new).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the object.".
+-doc "Destroys the object".
 -spec destroy(This::wxGridCellNumberRenderer()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellNumberRenderer),
@@ -65,9 +66,7 @@ destroy(Obj=#wx_ref{type=Type}) ->
   ok.
  %% From wxGridCellStringRenderer
  %% From wxGridCellRenderer
-%% @hidden
 -doc false.
 getBestSize(This,Grid,Attr,Dc,Row,Col) -> wxGridCellRenderer:getBestSize(This,Grid,Attr,Dc,Row,Col).
-%% @hidden
 -doc false.
 draw(This,Grid,Attr,Dc,Rect,Row,Col,IsSelected) -> wxGridCellRenderer:draw(This,Grid,Attr,Dc,Rect,Row,Col,IsSelected).
