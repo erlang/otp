@@ -29,18 +29,23 @@ Erlang.
 For current statement of standards compliance see the
 [User's Guide](standards_compliance.md).
 
-## DEPENDENCIES
+## Dependencies
 
-The SSL application uses the `public_key`, `asn1` and Crypto application to
+The SSL application uses the `Public_Key`, `Asn1` and `Crypto` application to
 handle public keys and encryption, hence these applications must be loaded for
 the SSL application to work. In an embedded environment this means they must be
-started with `application:start/[1,2]` before the SSL application is started.
+started with `application:start/1,2` before the SSL application is started.
 
-## CONFIGURATION
+## Configuration
 
 The application environment configuration parameters in this section are defined
 for the SSL application. For more information about configuration parameters,
 see the `m:application` manual page in Kernel.
+
+> #### Note {: .info }
+All parameters including the wording 'session_ticket' are TLS-1.3 only configuration
+and other session parameters are prior to TLS-1.3 only configuration. DTLS versions
+are based on TLS versions see [standard compliance](standards_compliance.md) for mapping.
 
 The environment parameters can be set on the command line, for example:
 
@@ -50,13 +55,13 @@ The environment parameters can be set on the command line, for example:
   `<optional>`** - Protocol supported by started clients and servers. If this
   option is not set, it defaults to all TLS protocols currently supported, more
   might be configurable, by the SSL application. This option can be overridden
-  by the version option to `ssl:connect/[2,3]` and `ssl:listen/2`.
+  by the version option to `ssl:connect/2,3` and `ssl:listen/2`.
 
 - **`dtls_protocol_version = ``t:ssl:dtls_version/0` | [`t:ssl:dtls_version/0`]
   `<optional>`** - Protocol supported by started clients and servers. If this
   option is not set, it defaults to all DTLS protocols currently supported, more
   might be configurable, by the SSL application. This option can be overridden
-  by the version option to `ssl:connect/[2,3]` and `ssl:listen/2`.
+  by the version option to `ssl:connect/2,3` and `ssl:listen/2`.
 
 - **`session_lifetime = integer() <optional>`** - Maximum lifetime of the
   session data in seconds. Defaults to 24 hours which is the maximum recommended
@@ -149,7 +154,7 @@ The environment parameters can be set on the command line, for example:
   maximum size of the client session ticket store. Defaults to 1000. Size limit
   is enforced by dropping old tickets.
 
-## ERROR LOGGER AND EVENT HANDLERS
+## Error Logger and Event Handlers
 
 The SSL application uses [OTP logger](`m:logger`). TLS/DTLS alerts are logged on
 notice level. Unexpected errors are logged on error level. These log entries
@@ -157,6 +162,6 @@ will by default end up in the default Erlang log. The option `log_level` may be
 used to in run-time to set the log level of a specific TLS connection, which is
 handy when you want to use level debug to inspect the TLS handshake setup.
 
-## SEE ALSO
+## See Also
 
 `m:application`

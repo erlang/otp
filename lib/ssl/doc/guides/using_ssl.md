@@ -23,7 +23,7 @@ To see relevant version information for ssl, call `ssl:versions/0` .
 
 To see all supported cipher suites, call
 [`ssl:cipher_suites(all, 'tlsv1.3')` ](`ssl:cipher_suites/2`). The available
-cipher suites for a connection depend on the TLS version and pre TLS-1.3 also on
+cipher suites for a connection depend on the TLS version and prior to TLS-1.3 also on
 the certificate. To see the default cipher suite list change `all` to `default`.
 Note that TLS 1.3 and previous versions do not have any cipher suites in common,
 for listing cipher suites for a specific version use
@@ -34,7 +34,7 @@ Default is to use the strongest available.
 
 > #### Warning {: .warning }
 >Enabling cipher suites using RSA as a key exchange algorithm is
->strongly discouraged (only available pre TLS-1.3). For some
+>strongly discouraged (only available prior to TLS-1.3). For some
 >configurations software preventions may exist, and can make them usable if they work,
 >but relying on them to work is risky and there are many more reliable
 >cipher suites that can be used instead.
@@ -55,7 +55,7 @@ except for the purpose of pattern matching.
 
 ```erlang
  1 > ssl:start(), ssl:connect("google.com", 443, [{verify, verify_peer},
-    {cacerts, public_key:cacerts_get()}]).
+                                                 {cacerts, public_key:cacerts_get()}]).
    {ok,{sslsocket, [...]}}
 ```
 
@@ -76,10 +76,10 @@ be used for TLS-1.2 as it does not support the EDDSA algorithm:
 2 server> {ok, ListenSocket} =
 ssl:listen(9999, [{certs_keys, [#{certfile => "eddsacert.pem",
                                   keyfile => "eddsakey.pem"},
-			        #{certfile => "rsacert.pem",
+                                #{certfile => "rsacert.pem",
                                   keyfile => "rsakey.pem",
-			          password => "foobar"}
-			       ]},{reuseaddr, true}]).
+                                  password => "foobar"}
+                               ]},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}
 ```
 
@@ -252,9 +252,9 @@ In OTP 20 it is desirable to remove all cipher suites that uses rsa key exchange
 ```erlang
 2> NoRSA =
     ssl:filter_cipher_suites(Default,
-                            [{key_exchange, fun(rsa) -> false;
-			                        (_) -> true
-			                    end}]).
+                             [{key_exchange, fun(rsa) -> false;
+                                                (_) -> true
+                                             end}]).
     [...]
 ```
 
@@ -262,17 +262,18 @@ Pick just a few suites
 
 ```erlang
  3> Suites =
-    ssl:filter_cipher_suites(Default,
-                            [{key_exchange, fun(ecdh_ecdsa) -> true;
-			                        (_) -> false
-			                    end},
-                             {cipher, fun(aes_128_cbc) -> true;
-			                  (_) ->false
-			              end}]).
-    [#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
-     mac => sha256,prf => sha256},
-     #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
-     prf => default_prf}]
+ ssl:filter_cipher_suites(Default,
+                             [{key_exchange, fun(ecdh_ecdsa) -> true;
+                                                (_) -> false
+                                             end},
+                              {cipher, fun(aes_128_cbc) -> true;
+                                          (_) ->false
+                                       end}]).
+
+[#{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,
+   mac => sha256,prf => sha256},
+ #{cipher => aes_128_cbc,key_exchange => ecdh_ecdsa,mac => sha,
+   prf => default_prf}]
 ```
 
 Make some particular suites the most preferred, or least preferred by changing
@@ -372,10 +373,11 @@ Use the map in the ssl key option:
 
 ```erlang
 4> {ok, SSLSocket} =
-ssl:connect("localhost", 9999,
-            [{cacertfile, "cacerts.pem"},
-	    {certs_keys, [#{certfile => "cert.pem", key => PrivKey}]}
-	    ], infinity).
+ ssl:connect("localhost", 9999,
+                [{cacertfile, "cacerts.pem"},
+                 {certs_keys, [#{certfile => "cert.pem", key => PrivKey}]}
+                ], infinity).
+
 ```
 
 See also [crypto documentation](`e:crypto:engine_load.md#engine_load`)
@@ -409,7 +411,7 @@ _Exporting the secrets_
       file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
 ```
 
-## Session Reuse pre TLS 1.3
+## Session Reuse Prior to TLS 1.3
 
 Clients can request to reuse a session established by a previous full handshake
 between that client and server by sending the id of the session in the initial
@@ -445,9 +447,9 @@ Step 1 - Automated Session Reuse
 1> ssl:start().
 ok
 
-2> {ok, C1} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-					      {versions, ['tlsv1.2']},
-					      {cacertfile, "cacerts.pem"}]).
+2>{ok, C1} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+                                           {versions, ['tlsv1.2']},
+                                           {cacertfile, "cacerts.pem"}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.7>,tls_connection,undefined}, ...}}
 
 3> ssl:connection_information(C1, [session_id]).
@@ -457,10 +459,10 @@ ok
 
 %% Reuse session if possible, note that if C2 is really fast the session
 %% data might not be available for reuse.
-4> {ok, C2} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-					      {versions, ['tlsv1.2']},
-					      {cacertfile, "cacerts.pem"},
-					      {reuse_sessions, true}]).
+4>{ok, C2} = ssl:connect("localhost", 9999, [{verify, verify_peer},
+                                           {versions, ['tlsv1.2']},
+                                           {cacertfile, "cacerts.pem"},
+                                           {reuse_sessions, true}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.8>,tls_connection,undefined}, ...]}}
 
 %% C2 got same session ID as client one, session was automatically reused.
@@ -476,9 +478,10 @@ Step 2- Using `save` Option
 %% We want save this particular session for
 %% reuse although it has the same basis as C1
 6> {ok, C3} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-					      {versions, ['tlsv1.2']},
-					      {cacertfile, "cacerts.pem"},
-					      {reuse_sessions, save}]).
+                                           {versions, ['tlsv1.2']},
+                                           {cacertfile, "cacerts.pem"},
+                                           {reuse_sessions, save}]).
+
 {ok,{sslsocket,{gen_tcp,#Port<0.9>,tls_connection,undefined}, ...]}}
 
 %% A full handshake is performed and we get a new session ID
@@ -489,9 +492,10 @@ Step 2- Using `save` Option
 
 %% Use automatic session reuse
 8> {ok, C4} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-					      {versions, ['tlsv1.2']},
-					      {cacertfile, "cacerts.pem"},
-					      {reuse_sessions, true}]).
+                                           {versions, ['tlsv1.2']},
+                                           {cacertfile, "cacerts.pem"},
+                                           {reuse_sessions, true}]).
+
 {ok,{sslsocket,{gen_tcp,#Port<0.10>,tls_connection,
                         undefined}, ...]}}
 
@@ -503,9 +507,9 @@ Step 2- Using `save` Option
 
 %% Make sure to reuse the "saved" session
 10> {ok, C5} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-					       {versions, ['tlsv1.2']},
-					       {cacertfile, "cacerts.pem"},
-					       {reuse_session, ID}]).
+                                           {versions, ['tlsv1.2']},
+                                           {cacertfile, "cacerts.pem"},
+                                           {reuse_session, ID}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.11>,tls_connection,
                         undefined}, ...]}}
 
@@ -521,15 +525,15 @@ Step 3 - Explicit Session Reuse
 %% Perform a full handshake and the session will not be saved for reuse
 12> {ok, C9} =
 ssl:connect("localhost", 9999, [{verify, verify_peer},
-				{versions, ['tlsv1.2']},
-		                {cacertfile, "cacerts.pem"},
-                                {reuse_sessions, false},
-	                        {server_name_indication, disable}]).
+                                    {versions, ['tlsv1.2']},
+                                    {cacertfile, "cacerts.pem"},
+                                    {reuse_sessions, false},
+                                    {server_name_indication, disable}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.14>,tls_connection, ...}}
 
 %% Fetch session ID and data for C9 connection
 12> {ok, [{session_id, ID1}, {session_data, SessData}]} =
-	ssl:connection_information(C9, [session_id, session_data]).
+        ssl:connection_information(C9, [session_id, session_data]).
 {ok,[{session_id,<<9,233,4,54,170,88,170,180,17,96,202,
                    85,85,99,119,47,9,68,195,50,120,52,
                    130,239,...>>},
@@ -538,9 +542,9 @@ ssl:connect("localhost", 9999, [{verify, verify_peer},
 
 %% Explicitly reuse the session from C9
 13> {ok, C10} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-						{versions, ['tlsv1.2']},
-						{cacertfile, "cacerts.pem"},
-						{reuse_session, {ID1, SessData}}]).
+                                    {versions, ['tlsv1.2']},
+                                    {cacertfile, "cacerts.pem"},
+                                    {reuse_session, {ID1, SessData}}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.15>,tls_connection,
                         undefined}, ...}}
 
@@ -554,10 +558,10 @@ Step 4 - Not Possible to Reuse Explicit Session by ID Only
 
 ```erlang
 %% Try to reuse the session from C9 using only the id
-15> {ok, E} = ssl:connect("localhost", 9999, [{verify, verify_peer},
-				              {versions, ['tlsv1.2']},
-				              {cacertfile, "cacerts.pem"},
-					      {reuse_session, ID1}]).
+15> {ok, E} =  ssl:connect("localhost", 9999, [{verify, verify_peer},
+                                    {versions, ['tlsv1.2']},
+                                    {cacertfile, "cacerts.pem"},
+                                    {reuse_session, ID1}]).
 {ok,{sslsocket,{gen_tcp,#Port<0.18>,tls_connection,
                         undefined}, ...}}
 
@@ -763,88 +767,89 @@ handling:
 _Server_
 
 ```erlang
-    early_data_server() ->
-        application:load(ssl),
-        {ok, _} = application:ensure_all_started(ssl),
-        Port = 11029,
-        LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
-        {reuseaddr, true},
-        {versions, ['tlsv1.2','tlsv1.3']},
-        {session_tickets, stateless},
-        {early_data, enabled},
-        ],
-        {ok, LSock} = ssl:listen(Port, LOpts),
-        %% Accept first connection
-        {ok, ASock0} = ssl:transport_accept(LSock),
-        {ok, CSock0} = ssl:handshake(ASock0),
-        %% Accept second connection
-        {ok, ASock1} = ssl:transport_accept(LSock),
-        {ok, CSock1} = ssl:handshake(ASock1),
-        Sock.
+early_data_server() ->
+    application:load(ssl),
+    {ok, _} = application:ensure_all_started(ssl),
+    Port = 11029,
+    LOpts = [{certs_keys, [#{certfile => "cert.pem", keyfile => "key.pem"}]},
+             {reuseaddr, true},
+             {versions, ['tlsv1.2','tlsv1.3']},
+             {session_tickets, stateless},
+             {early_data, enabled},
+            ],
+    {ok, LSock} = ssl:listen(Port, LOpts),
+    %% Accept first connection
+    {ok, ASock0} = ssl:transport_accept(LSock),
+    {ok, CSock0} = ssl:handshake(ASock0),
+    %% Accept second connection
+    {ok, ASock1} = ssl:transport_accept(LSock),
+    {ok, CSock1} = ssl:handshake(ASock1),
+    Sock.
 ```
 
 _Client (automatic ticket handling):_
 
 ```erlang
-    early_data_auto() ->
-        %% First handshake 1-RTT - get session tickets
-	application:load(ssl),
-	{ok, _} = application:ensure_all_started(ssl),
-	Port = 11029,
-	Data = <<"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n">>,
-	COpts0 = [{cacertfile, "cacerts.pem"},
-	          {versions, ['tlsv1.2', 'tlsv1.3']},
-	          {session_tickets, auto}],
-        {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
+early_data_auto() ->
+    %% First handshake 1-RTT - get session tickets
+    application:load(ssl),
+    {ok, _} = application:ensure_all_started(ssl),
+    Port = 11029,
+    Data = <<"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n">>,
+    COpts0 = [{cacertfile, "cacerts.pem"},
+              {versions, ['tlsv1.2', 'tlsv1.3']},
+              {session_tickets, auto}],
+    {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
 
-        %% Wait for session tickets
-	timer:sleep(500),
-	%% Close socket if server cannot handle multiple
-        %% connections e.g. openssl s_server
-	ssl:close(Sock0),
+    %% Wait for session tickets
+    timer:sleep(500),
+    %% Close socket if server cannot handle multiple
+    %% connections e.g. openssl s_server
+    ssl:close(Sock0),
 
-        %% Second handshake 0-RTT
-	COpts1 = [{cacertfile,  "cacerts.pem"},
-	          {versions, ['tlsv1.2', 'tlsv1.3']},
-		  {session_tickets, auto},
-		  {early_data, Data}],
-        {ok, Sock} = ssl:connect("localhost", Port, COpts1),
-	Sock.
+    %% Second handshake 0-RTT
+    COpts1 = [{cacertfile,  "cacerts.pem"},
+              {versions, ['tlsv1.2', 'tlsv1.3']},
+              {session_tickets, auto},
+              {early_data, Data}],
+    {ok, Sock} = ssl:connect("localhost", Port, COpts1),
+    Sock.
+
 ```
 
 _Client (manual ticket handling):_
 
 ```erlang
-    early_data_manual() ->
-        %% First handshake 1-RTT - get session tickets
-	application:load(ssl),
-	{ok, _} = application:ensure_all_started(ssl),
-	Port = 11029,
-	Data = <<"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n">>,
-	COpts0 = [{cacertfile, "cacerts.pem"},
-	          {versions, ['tlsv1.2', 'tlsv1.3']},
-	          {session_tickets, manual}],
-        {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
+early_data_manual() ->
+    %% First handshake 1-RTT - get session tickets
+    application:load(ssl),
+    {ok, _} = application:ensure_all_started(ssl),
+    Port = 11029,
+    Data = <<"HEAD / HTTP/1.1\r\nHost: \r\nConnection: close\r\n">>,
+    COpts0 = [{cacertfile, "cacerts.pem"},
+              {versions, ['tlsv1.2', 'tlsv1.3']},
+              {session_tickets, manual}],
+    {ok, Sock0} = ssl:connect("localhost", Port, COpts0),
 
-        %% Wait for session tickets
-	Ticket =
-	    receive
-	        {ssl, session_ticket, Ticket0} ->
-		    Ticket0
-            end,
+    %% Wait for session tickets
+    Ticket =
+        receive
+            {ssl, session_ticket, Ticket0} ->
+                Ticket0
+        end,
 
-       %% Close socket if server cannot handle multiple connections
-       %% e.g. openssl s_server
-       ssl:close(Sock0),
+    %% Close socket if server cannot handle multiple connections
+    %% e.g. openssl s_server
+    ssl:close(Sock0),
 
-       %% Second handshake 0-RTT
-       COpts1 = [{cacertfile, "cacerts.pem"},
-                 {versions, ['tlsv1.2', 'tlsv1.3']},
-		 {session_tickets, manual},
-		 {use_ticket, [Ticket]},
-		 {early_data, Data}],
-       {ok, Sock} = ssl:connect("localhost", Port, COpts1),
-       Sock.
+    %% Second handshake 0-RTT
+    COpts1 = [{cacertfile, "cacerts.pem"},
+              {versions, ['tlsv1.2', 'tlsv1.3']},
+              {session_tickets, manual},
+              {use_ticket, [Ticket]},
+              {early_data, Data}],
+    {ok, Sock} = ssl:connect("localhost", Port, COpts1),
+    Sock.
 ```
 
 ## Anti-Replay Protection in TLS 1.3
@@ -912,7 +917,10 @@ Using DTLS has basically the same API as TLS. You need to add the option
 \{protocol, dtls\} to the connect and listen functions. For example
 
 ```erlang
- client> {ok, Socket} = ssl:connect("localhost", 9999, [{protocol, dtls},
-{verify, verify_peer},{cacertfile, "cacerts.pem"}], infinity).
+ client>{ok, Socket} = ssl:connect("localhost", 9999, [{protocol, dtls},
+                                               {verify, verify_peer},
+                                               {cacertfile, "cacerts.pem"}],
+                           infinity).
 {ok,{sslsocket, [...]}}
+
 ```

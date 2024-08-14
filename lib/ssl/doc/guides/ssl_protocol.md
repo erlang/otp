@@ -108,7 +108,7 @@ server, if it requests a certificate, does however not accept any path
 validation errors. It is configurable if the server is to accept or reject an
 "empty" certificate as response to a certificate request.
 
-## TLS Sessions - PRE TLS-1.3
+## TLS Sessions - Prior to TLS-1.3
 
 From the TLS RFC: "A TLS session is an association between a client and a
 server. Sessions are created by the handshake protocol. Sessions define a set of
@@ -126,11 +126,11 @@ configured.
 
 By default the TLS/DTLS clients try to reuse an available session and by default
 the TLS/DTLS servers agree to reuse sessions when clients ask for it. See also
-[Session Reuse Pre TLS-1.3](using_ssl.md#session-reuse-pre-tls-1-3)
+[Session Reuse Prior to TLS-1.3](using_ssl.md#session-reuse-prior-to-tls-1-3)
 
 ## TLS-1.3 session tickets
 
 In TLS 1.3 the session reuse is replaced by a new session tickets mechanism
-based on the pre shared key concept. This mechanism also obsoletes the session
+based on the prior to shared key concept. This mechanism also obsoletes the session
 tickets from RFC5077, not implemented by this application. See also
 [Session Tickets and Session Resumption in TLS-1.3](using_ssl.md#session-tickets-and-session-resumption-in-tls-1-3)
