@@ -11402,9 +11402,15 @@ static void tcp_clear_output(tcp_descriptor* desc)
 /* Move data so that ptr_start point at buf->orig_bytes */
 static void tcp_restart_input(tcp_descriptor* desc)
 {
-    if (desc->i_ptr_start != desc->i_buf->orig_bytes) {
-	int n = desc->i_ptr - desc->i_ptr_start;
+    ASSERT( desc->i_buf != NULL );
 
+    if (desc->i_ptr_start != desc->i_buf->orig_bytes) {
+	int n;
+
+        ASSERT( (desc->i_ptr_start != NULL) &&
+                (desc->i_buf->orig_bytes != NULL) );
+
+        n = desc->i_ptr - desc->i_ptr_start;
 	DEBUGF(("tcp_restart_input: move %d bytes\r\n", n));
 	sys_memmove(desc->i_buf->orig_bytes, desc->i_ptr_start, n);
 	desc->i_ptr_start = desc->i_buf->orig_bytes;
@@ -12592,12 +12598,13 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
                     goto error;
             }
             DEBUGF((" => restart more=%d\r\n", nfill - n));
-            tcp_clear_input(desc); /* Move the data to buffer start */
+            tcp_restart_input(desc); /* Move the data to buffer start */
             /* Return the unused buffer space before desc->i_ptr_start */
             return nfill - n;
         }
         else {
             DEBUGF((" => more=%d \r\n", nsz));
+            tcp_restart_input(desc); /* Move the data to buffer start */
             return nsz; /* Remaining buffer space */
         }
     }
@@ -12609,7 +12616,7 @@ error:
 
 /*
 ** Deliver all packets ready 
-** if len == 0 then check start with a check for ready packet
+** if len == 0 then start with a check for ready packet
 */
 static int tcp_deliver(tcp_descriptor* desc, int len)
 {
@@ -12621,14 +12628,13 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	/* empty buffer or waiting for more input */
 	if ((desc->i_buf == NULL) || (desc->i_remain > 0))
 	    return 0;
-	if ((n = tcp_remain(desc, &len)) != 0) {
-	    if (n < 0) /* packet error */
-		return n;
-            /* Packet incomplete */
-	    if (len > 0)
-		desc->i_remain = n; /* This is what is missing */
-	    return 0;
-	}
+	if ((n = tcp_remain(desc, &len)) < 0) /* Packet error */
+            return n;
+        else if (0 < n) { /* Packet incomplete */
+            if (0 < len) /* We know n bytes are missing */
+                desc->i_remain = n;
+            return 0;
+        }
     }
 
     while (len > 0) {
@@ -12676,24 +12682,24 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	}
 
 	count++;
-	len = 0;
 
-	if (!desc->inet.active) {
+	if (! desc->inet.active) {
             cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_recv_timeout);
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
 	    if (desc->i_buf != NULL)
 		tcp_restart_input(desc);
+            len = 0;
 	}
-	else if (desc->i_buf != NULL) {
-	    if ((n = tcp_remain(desc, &len)) != 0) {
-		if (n < 0) /* packet error */
-		    return n;
-		tcp_restart_input(desc);
-		if (len > 0)
-		    desc->i_remain = n;
-		len = 0;
-	    }
-	}
+	else if (desc->i_buf == NULL) {
+            len = 0;
+        }
+        else if ((n = tcp_remain(desc, &len)) < 0) /* Packet error */
+            return n;
+        else if (0 < n) { /* Packet incomplete */
+            if (0 < len) /* We know n bytes are missing */
+                desc->i_remain = n;
+            len = 0;
+        }
     }
     return count;
 }
@@ -12718,8 +12724,7 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 	desc->i_ptr_start = desc->i_buf->orig_bytes;
 	desc->i_ptr = desc->i_ptr_start;
         if (request_len > 0) {
-            nread = sz; /* Read ahead */
-            desc->i_remain = request_len;
+	    nread = desc->i_remain = request_len;
         }
         else {
             nread = packet_header_length(desc);
@@ -12727,10 +12732,6 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
                 nread = sz; /* Read ahead */
 	    desc->i_remain = 0;
         }
-	if (request_len > 0)
-	    desc->i_remain = request_len;
-	else
-	    desc->i_remain = 0;
     }
     else if (request_len > 0) { /* we have data in buffer and a request */
         int n = desc->i_ptr - desc->i_ptr_start;
@@ -12744,12 +12745,12 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
     else if (desc->i_remain == 0) {  /* poll remain from buffer data */
         int len;
 
-	if ((nread = tcp_remain(desc, &len)) < 0)
+	if ((nread = tcp_remain(desc, &len)) < 0) /* Packet error */
 	    return tcp_recv_error(desc, EMSGSIZE);
-	else if (nread == 0)
-	    return tcp_deliver(desc, len);
-	else if (len > 0)
-	    desc->i_remain = nread;  /* set remain */
+        else if (nread == 0) /* We have a complete packet */
+            return tcp_deliver(desc, len);
+        else if (0 < len) /* We know nread bytes are missing */
+            desc->i_remain = nread;
     }
     else  /* remain already set use it */
 	nread = desc->i_remain;
@@ -12801,13 +12802,12 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
         else {
             int len;
 
-            nread = tcp_remain(desc, &len);
-            if (nread < 0)
+            if ((nread = tcp_remain(desc, &len)) < 0) /* Packet error */
                 return tcp_recv_error(desc, EMSGSIZE);
-            else if (nread == 0)
+            else if (nread == 0) /* We have a complete packet */
                 return tcp_deliver(desc, len);
-            else if (len > 0) /* nread > 0 */
-                desc->i_remain = nread;  /* What is missing for this packet */
+            else if (0 < len) /* We know nread bytes are missing */
+                desc->i_remain = nread;
         }
     } /* for (;;) */
 }
