@@ -341,10 +341,10 @@ syntax(Config) when is_list(Config) ->
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
             {error,[{_,[{{5,25},_,["syntax error before: ","bad"]}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
             ?assertEqual(L1, 38 + SzYeccPre),
             ?assertEqual(L2, 47 + SzYeccPre)
@@ -361,10 +361,10 @@ syntax(Config) when is_list(Config) ->
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
             {error,[{_,[{{5,24},_,{undefined,'F',1}}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              []} = compile:file(Parserfile1, [basic_validation,return]),
             ?assertEqual(L1, 38 + SzYeccPre),
             ?assertEqual(L2, 47 + SzYeccPre)
@@ -1691,10 +1691,10 @@ otp_7292(Config) when is_list(Config) ->
             SzYeccPre = yeccpre_size(),
             {error,
                    [{_,[{{5,32},_,["syntax error before: ","bad"]}]},
-                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1}}},
-                        {{_,_},_,{undefined_function,{yeccpars2_2_,1}}},
-                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1}}}]}],
+                    {_,[{{L1,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{L2,_},_,{bad_inline,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{undefined_function,{yeccpars2_2_,1},_}},
+                        {{_,_},_,{bad_nowarn_unused_function,{yeccpars2_2_,1},_}}]}],
              [{_,[{{16,20},_,{unused_function,{foo,0}}}]}]} =
                 compile:file(Parserfile1, [basic_validation, return]),
             ?assertEqual(L1, 48 + SzYeccPre),
