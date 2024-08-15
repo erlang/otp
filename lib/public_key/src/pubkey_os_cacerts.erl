@@ -61,6 +61,8 @@ load() ->
             load(bsd_paths(), undefined);
         {unix, freebsd} ->
             load(bsd_paths(), undefined);
+        {unix, dragonfly} ->
+            load(bsd_paths(), undefined);
         {unix, netbsd} ->
             load(bsd_paths(), undefined);
         {unix, sunos} ->
