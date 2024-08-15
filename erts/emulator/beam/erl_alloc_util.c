@@ -6583,7 +6583,7 @@ restart:
 	    goto restart;
 	}
 
-        if (pref_allctr->atags) {
+        if (pref_allctr->atags && res) {
             set_alloc_tag(pref_allctr, res, type);
         }
 
