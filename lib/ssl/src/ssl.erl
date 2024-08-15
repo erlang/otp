@@ -1567,7 +1567,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
   its session ID and associated data.
 
   See also
-  [SSL User's Guide, Session Reuse pre TLS 1.3.](using_ssl.md#session-reuse-pre-tls-1-3)
+  [SSL User's Guide, Session Reuse pre TLS 1.3.](using_ssl.md#session-reuse-prior-to-tls-1-3)
 
 - **`{reuse_sessions, Reuse}`** - Enables later session reuse
 
