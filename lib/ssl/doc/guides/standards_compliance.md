@@ -24,7 +24,7 @@ limitations under the License.
 This section describes the current state of standards compliance of the ssl
 application.
 
-## Common (pre TLS 1.3)
+## Common (prior to TLS 1.3)
 
 - For security reasons RSA key exchange cipher suites are no longer supported by
   default, but can be configured. (OTP 21)

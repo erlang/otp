@@ -169,18 +169,19 @@ itself. Other raw socket options such as `packet_size` may interfere severely,
 so beware\!
 
 For TLS to work, at least a public key and a certificate must be specified for
-the server side. In the following example, the PEM file
-`"/home/me/ssl/erlserver.pem"` contains both the server certificate and its
-private key.
+the server side and the client needs to specify CAs that it trusts (client certification
+is optional and requires more configuration).
+
+In the following example (to keep it simple), the PEM file `"/home/me/ssl/erlserver.pem"`
+contains both the server certificate and its private key .
 
 Create a file named for example `"/home/me/ssl/ssl_test@myhost.conf"`:
 
 ```erlang
 [{server,
-  [{certfile, "/home/me/ssl/erlserver.pem"},
-   {secure_renegotiate, true}]},
+  [{certfile, "/home/me/ssl/erlserver.pem"}]},
  {client,
-  [{secure_renegotiate, true}]}].
+  [{cacertfile, "/home/me/ssl/client_trusted.pem"}]}].
 ```
 
 And then start the node like this (line breaks in the command are for
@@ -213,7 +214,32 @@ present any certificate.
 A node started in this way is fully functional, using TLS as the distribution
 protocol.
 
+
+## Using TLS distribution over IPv6
+
+It is possible to use TLS distribution over IPv6 instead of IPv4. To do this,
+pass the option `-proto_dist inet6_tls` instead of `-proto_dist inet_tls` when
+starting Erlang, either on the command line or in the `ERL_FLAGS` environment
+variable.
+
+An example command line with this option would look like this:
+
+```text
+$ erl -boot /home/me/ssl/start_ssl -proto_dist inet6_tls
+  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
+  -sname ssl_test
+```
+
+A node started in this way will only be able to communicate with other nodes
+using TLS distribution over IPv6.
+
+
 ## Specifying TLS Options (Legacy)
+
+> #### Note {: .info }
+> The following section describes TLS Option handling prior to OTP 20.2
+> and can only handle a small subset of the actual available options.
+> It is here only for the sake of backwards compatibility .
 
 As in the previous section the PEM file `"/home/me/ssl/erlserver.pem"` contains
 both the server certificate and its private key.
@@ -270,7 +296,7 @@ Eshell V5.0  (abort with ^G)
 (ssl_test@myhost)1>
 ```
 
-## Setting up Environment to Always Use TLS (Legacy)
+### Setting up Environment to Always Use TLS
 
 A convenient way to specify arguments to Erlang is to use environment variable
 `ERL_FLAGS`. All the flags needed to use the TLS distribution can be specified
@@ -304,20 +330,3 @@ Eshell V5.0  (abort with ^G)
 The `init:get_arguments()` call verifies that the correct arguments are supplied
 to the emulator.
 
-## Using TLS distribution over IPv6
-
-It is possible to use TLS distribution over IPv6 instead of IPv4. To do this,
-pass the option `-proto_dist inet6_tls` instead of `-proto_dist inet_tls` when
-starting Erlang, either on the command line or in the `ERL_FLAGS` environment
-variable.
-
-An example command line with this option would look like this:
-
-```text
-$ erl -boot /home/me/ssl/start_ssl -proto_dist inet6_tls
-  -ssl_dist_optfile "/home/me/ssl/ssl_test@myhost.conf"
-  -sname ssl_test
-```
-
-A node started in this way will only be able to communicate with other nodes
-using TLS distribution over IPv6.
