@@ -50,7 +50,8 @@ format_code_error(get_coverage, [What,Module]) ->
               Error = case What of
                           function -> [];
                           line -> [];
-                          _ -> <<"must be one of: function or line">>
+                          cover_line_id -> [];
+                          _ -> coverage_level
                       end,
               case Error of
                   [] ->
@@ -367,6 +368,8 @@ expand_error(bad_tracer) ->
     <<"invalid tracer">>;
 expand_error(coverage_disabled) ->
     <<"not loaded with coverage enabled">>;
+expand_error(coverage_level) ->
+    <<"must be one of: function, line, or cover_line_id">>;
 expand_error(eq_in_list) ->
     <<"\"=\" characters is not allowed in environment variable names">>;
 expand_error(zero_in_list) ->
