@@ -504,7 +504,9 @@ is_map_iter(Iter) ->
       NI :: term().
 
 mc_refill([Path | Map]) ->
-    erts_internal:map_next(Path, Map, iterator).
+    erts_internal:map_next(Path, Map, iterator);
+mc_refill(NoRefillNeeded) when is_tuple(NoRefillNeeded) ->
+    NoRefillNeeded.
 
 -spec erts_internal:flush_monitor_messages(Ref, Multi, Res) -> term() when
       Ref :: reference(),
