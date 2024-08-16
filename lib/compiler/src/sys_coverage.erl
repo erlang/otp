@@ -573,6 +573,12 @@ munge_qs([{m_generate_strict,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, {m_generate_strict,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
+munge_qs([{zip,Anno,Gs0}|Qs], Vars0, MQs) ->
+    {Gs1, Vars1} = munge_qualifiers(Gs0, Vars0),
+    %% Get rid of dummy filters inserted by munge_qualifiers/2 --
+    %% they are not allowed in the zip construct.
+    Gs = [G || G <- Gs1, element(1, G) =/= block],
+    munge_qs1(Qs, Anno, {zip,Anno,Gs}, Vars0, Vars1, MQs);
 munge_qs([Expr|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MungedExpr, Vars1} = munge_expr(Expr, Vars0),

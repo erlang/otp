@@ -39,7 +39,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, maps/1,
+	 otp_7078/1, maps/1, zlc/1,
          side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -55,7 +55,7 @@ suite() ->
 all() -> 
     [attributes, expr, guard, init,
      pattern, strict, update, maps,
-     side_effects, {group, tickets}].
+     side_effects, zlc, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
@@ -454,6 +454,15 @@ maps(Config) when is_list(Config) ->
                      #{#rr{a=1,b=2,c=3} => R1}#{#rr{a=1,b=2,c=3} := R0},
                  ok.
 
+             id(X) -> X.
+            ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
+zlc(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a,b,c}).
+             t() -> R0 = id(#rr{a=[{X,Y}||X <- [1,2] && Y <- [a,b]]}),
+             ok.
              id(X) -> X.
             ">>],
     run(Config, Ts, [strict_record_tests]),

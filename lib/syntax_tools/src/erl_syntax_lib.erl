@@ -502,6 +502,8 @@ vann(Tree, Env) ->
             vann_map_generator(Tree, Env);
         strict_map_generator ->
             vann_strict_map_generator(Tree, Env);
+        zip_generator ->
+            vann_zip_generator(Tree, Env);
         block_expr ->
             vann_block_expr(Tree, Env);
         macro ->
@@ -646,6 +648,8 @@ vann_list_comp_body_join() ->
                                           vann_map_generator(T,Env);
                                       strict_map_generator ->
                                           vann_strict_map_generator(T,Env);
+                                      zip_generator ->
+                                          vann_zip_generator(T,Env);
                                       _ ->
                                           %% Bindings in filters are not
                                           %% exported to the rest of the
@@ -690,6 +694,8 @@ vann_binary_comp_body_join() ->
                                           vann_map_generator(T,Env);
                                       strict_map_generator ->
                                           vann_strict_map_generator(T,Env);
+                                      zip_generator ->
+                                          vann_zip_generator(T,Env);
                                       _ ->
                                           %% Bindings in filters are not
                                           %% exported to the rest of the
@@ -705,6 +711,25 @@ vann_binary_comp_body_join() ->
 
 vann_binary_comp_body(Ts, Env) ->
     F = vann_binary_comp_body_join(),
+    {Ts1, {_, Bound, Free}} = lists:mapfoldl(F, {Env, [], []}, Ts),
+    {Ts1, {Bound, Free}}.
+
+vann_zip_generator_body_join() ->
+    fun (T, {Env, Bound, Free}) ->
+            {T1, Bound1, Free1} = case erl_syntax:type(T) of
+                                      binary_generator ->
+                                          vann_binary_generator(T, Env);
+                                      generator ->
+                                          vann_generator(T, Env)
+                                  end,
+            Env1 = ordsets:union(Env, Bound1),
+            {T1, {Env1, ordsets:union(Bound, Bound1),
+                  ordsets:union(Free,
+                                ordsets:subtract(Free1, Bound))}}
+    end.
+
+vann_zip_generator_body(Ts, Env) ->
+    F = vann_zip_generator_body_join(),
     {Ts1, {_, Bound, Free}} = lists:mapfoldl(F, {Env, [], []}, Ts),
     {Ts1, {Bound, Free}}.
 
@@ -760,6 +785,13 @@ vann_strict_map_generator(Tree, Env) ->
     {E1, _, Free} = vann(E, Env),
     Tree1 = rewrite(Tree, erl_syntax:strict_map_generator(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_zip_generator(Tree, Env) ->
+    Es = erl_syntax:zip_generator_body(Tree),
+    {Es1, {Bound, Free}} = vann_zip_generator_body(Es, Env),
+    Env1 = ordsets:union(Env, Bound),
+    Tree1 = rewrite(Tree, erl_syntax:zip_generator(Es1)),
+    {ann_bindings(Tree1, Env1, Bound, Free), Bound, Free}.
 
 vann_block_expr(Tree, Env) ->
     Es = erl_syntax:block_expr_body(Tree),

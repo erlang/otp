@@ -856,6 +856,12 @@ lay_2(Node, Ctxt) ->
 	    D2 = lay(erl_syntax:strict_map_generator_body(Node), Ctxt1),
 	    par([D1, beside(text("<:- "), D2)], Ctxt1#ctxt.break_indent);
 
+	zip_generator ->
+	    Ctxt1 = reset_prec(Ctxt),
+	    par(seq(erl_syntax:zip_generator_body(Node),
+			 floating(text("&&")), Ctxt1,
+			 fun lay/2));
+
 	implicit_fun ->
 	    D = lay(erl_syntax:implicit_fun_name(Node),
 		    reset_prec(Ctxt)),

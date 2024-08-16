@@ -704,13 +704,31 @@ expr_comprehension({Tag,Anno,E0,Gs0}, St) ->
                   {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
               ({m_generate_strict,L,P0,Qs}) -> %OTP 26
                   {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({zip,L,Gens}) ->
+                  expr_comprehension({zip,L,Gens}, St);
               (Expr) ->
                   case is_guard_test(Expr, St) of
                       true -> {guard,guard([[Expr]], St)};
                       false -> expr(Expr, false, St)
                   end
           end || G <- Gs0],
-    {Tag,ln(Anno),expr(E0, false, St),Gs}.
+    {Tag,ln(Anno),expr(E0, false, St),Gs};
+expr_comprehension({zip,Anno,Gens}, St) ->
+    Gs = [case G of
+              ({generate,L,P0,Qs}) ->
+                  {generator,{generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({generate_strict,L,P0,Qs}) ->
+                  {generator,{generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({b_generate_strict,L,P0,Qs}) -> %R12.
+                  {generator,{b_generate_strict,L,pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate,L,mc_pattern(P0, St),expr(Qs, false, St)}};
+              ({m_generate_strict,L,P0,Qs}) -> %OTP 26
+                  {generator,{m_generate_strict,L,mc_pattern(P0, St),expr(Qs, false, St)}}
+          end || G <- Gens],
+    {zip,ln(Anno),Gs}.
 
 mc_pattern({map_field_exact,L,KeyP0,ValP0}, St) ->
     KeyP1 = pattern(KeyP0, St),

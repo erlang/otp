@@ -87,7 +87,8 @@
          match_float_zero/1,
          undefined_module/1,
          update_literal/1,
-         messages_with_jaro_suggestions/1]).
+         messages_with_jaro_suggestions/1,
+         illegal_zip_generator/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -123,7 +124,8 @@ all() ->
      match_float_zero,
      undefined_module,
      update_literal,
-     messages_with_jaro_suggestions].
+     messages_with_jaro_suggestions,
+     illegal_zip_generator].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -5448,6 +5450,24 @@ messages_with_jaro_suggestions(Config) ->
             [{{2,15},erl_lint,{unused_function,{gi,1}}}]}}
          ],
     [] = run(Config, Ts),
+
+    ok.
+
+illegal_zip_generator(Config) ->
+    Ts = [{not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X + Y || X <- [1,2,3,4] && Y <- [5,6,7] && X > 1].
+            ">>,
+           {[]},
+           {errors,[{{2,68},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{bar,0}]}).
+            bar() -> [X + Y || X <- [[1,2],[3,4]] && lists:sum(X) > 0 && Y <- [5,6,7]].
+            ">>,
+           {[]},
+           {errors,[{{2,67},erl_lint,illegal_zip_generator}],[]}}
+           ],
+    [] = run(Config,Ts),
 
     ok.
 
