@@ -271,7 +271,7 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf zip unzip
 
       - name: Install openssl
         shell: cmd
@@ -354,6 +354,17 @@ jobs:
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
+
+      - name: Build zip
+        run: |
+          rm -rf otp/release/win32/otp*.exe
+          (cd otp/release/win32 && zip -r ../../../otp_win.zip .)
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v4.3.3
+        with:
+          name: otp_win
+          path: otp_win.zip
 
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
@@ -599,6 +610,7 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: otp_prebuilt
+
       - name: Download html docs
         uses: actions/download-artifact@v4.1.7
         with:
@@ -614,7 +626,7 @@ jobs:
         run: |
           shopt -s nullglob
           cd artifacts
-          FILES=$(ls {*.tar.gz,*.txt})
+          FILES=$(ls {*.tar.gz,*.zip,*.txt})
           md5sum $FILES > MD5.txt
           sha256sum $FILES > SHA256.txt
 
@@ -624,6 +636,7 @@ jobs:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
             artifacts/*.tar.gz
+            artifacts/*.zip
             artifacts/*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
