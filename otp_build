@@ -1025,8 +1025,13 @@ do_download_ex_doc ()
             echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
             exit 1
         fi
+    elif command -v shasum > /dev/null; then
+        if ! (cd "$ERL_TOP/make" && shasum -a 1 --status -c "ex_doc.sha1sum"); then
+            echo "The shasum check of $ERL_TOP/bin/ex_doc failed!" >&2
+            exit 1
+        fi
     else
-        echo "Neither sha1sum nor sha256sum found to verify $ERL_TOP/bin/ex_doc" >&2
+        echo "Neither sha1sum nor sha256sum nor shasum found to verify $ERL_TOP/bin/ex_doc" >&2
         echo "Please check manually that the correct ex_doc was downloaded." >&2
         exit 1
     fi
