@@ -695,6 +695,18 @@ stop(_Config) ->
 	timeout
     end,
 
+    %% Ensure that if process stops with same reason just as stop is called,
+    %% stop does not throw an exception.
+    PidNormalStop = proc_lib:spawn(fun() -> timer:sleep(1000) end),
+    ok = proc_lib:stop(PidNormalStop,normal,2000),
+    false = erlang:is_process_alive(PidNormalStop),
+    PidDieStop = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    ok = proc_lib:stop(PidDieStop,die,2000),
+    false = erlang:is_process_alive(PidDieStop),
+    PidDieStopCrash = proc_lib:spawn(fun() -> timer:sleep(1000), exit(die) end),
+    {'EXIT', {die, _}} = catch (proc_lib:stop(PidDieStopCrash,normal,2000)),
+    false = erlang:is_process_alive(PidDieStopCrash),
+
     %% Success case with other reason than 'normal'
     Pid5 = proc_lib:spawn(SysMsgProc),
     ok = proc_lib:stop(Pid5,other_reason,infinity),
