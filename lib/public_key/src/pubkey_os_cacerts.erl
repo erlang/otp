@@ -54,19 +54,20 @@ get() ->
 %% (Re)Load default os cacerts and cache result.
 -spec load() ->  ok | {error, Reason::term()}.
 load() ->
+    DefError = {error, no_cacerts_found},
     case os:type() of
         {unix, linux} ->
-            load(linux_paths(), undefined);
+            load(linux_paths(), DefError);
         {unix, openbsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, freebsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, dragonfly} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, netbsd} ->
-            load(bsd_paths(), undefined);
+            load(bsd_paths(), DefError);
         {unix, sunos} ->
-            load(sunos_paths(), undefined);
+            load(sunos_paths(), DefError);
         {win32, _} ->
             load_win32();
 	{unix, darwin} ->
