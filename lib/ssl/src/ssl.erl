@@ -800,13 +800,13 @@ Common certificate related options to both client and server.
   Default option `verify_fun` in `verify_peer mode`:
 
   ```erlang
-  {fun(_,{bad_cert, _} = Reason, _) ->
+  {fun(_, _, {bad_cert, _} = Reason, _) ->
 	 {fail, Reason};
-      (_,{extension, _}, UserState) ->
+      (_, _, {extension, _}, UserState) ->
 	 {unknown, UserState};
-      (_, valid, UserState) ->
+      (_, _, valid, UserState) ->
 	 {valid, UserState};
-      (_, valid_peer, UserState) ->
+      (_, _, valid_peer, UserState) ->
          {valid, UserState}
    end, []}
   ```
@@ -814,15 +814,15 @@ Common certificate related options to both client and server.
   Default option `verify_fun` in mode `verify_none`:
 
   ```erlang
-   {fun(_,{bad_cert, _}, UserState) ->
+   {fun(_, _, {bad_cert, _}, UserState) ->
 	 {valid, UserState};
-      (_,{extension, #'Extension'{critical = true}}, UserState) ->
+      (_, _, {extension, #'Extension'{critical = true}}, UserState) ->
 	 {valid, UserState};
-      (_,{extension, _}, UserState) ->
+      (_, _, {extension, _}, UserState) ->
 	 {unknown, UserState};
-      (_, valid, UserState) ->
+      (_, _, valid, UserState) ->
 	 {valid, UserState};
-      (_, valid_peer, UserState) ->
+      (_, _, valid_peer, UserState) ->
          {valid, UserState}
    end, []}
   ```
