@@ -111,7 +111,7 @@ BOOL WINAPI ctrl_handler_replace_intr(DWORD dwCtrlType)
 }
 
 
-/* Don't use ctrl-c for break handler but let it be 
+/* Don't use Ctrl+C for break handler but let it be
    used by the shell instead (see user_drv.erl) */
 void erts_replace_intr(void) {
     HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);

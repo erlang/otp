@@ -22,7 +22,7 @@
 
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
          update_record0/0, fc/0, track_update_record/1,
-         gh8124_a/0, gh8124_b/0]).
+         gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0]).
 
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
@@ -236,3 +236,30 @@ gh8124_b() ->
     [R] = gh8124_b_inner(),
     R#r{a = <<"value 2">>}.
 
+
+%% Example which provides a get_tuple_element instruction with a tuple
+%% typed as a tuple set.
+tuple_set_a(Something) ->
+    case ex:f() of
+	a ->
+	    {ok,
+	     {key_a, Something}};
+	b ->
+	    {error, {override_include}}
+    end.
+
+tuple_set_b() ->
+%ssa% () when post_ssa_opt ->
+%ssa% _ = update_record(inplace, 2, _, ...).
+    case tuple_set_a(ex:f()) of
+	{ok, A} ->
+	    case e:f() of
+		{} ->
+		    case A of
+			{key_a, _} ->
+			    setelement(1, A, aa)
+		    end
+	    end;
+	{error,_} ->
+	    bad
+    end.

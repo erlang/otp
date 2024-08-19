@@ -58,6 +58,8 @@
          select_best_cert/1,
          select_sha1_cert/0,
          select_sha1_cert/1,
+         root_any_sign/0,
+         root_any_sign/1,
          connection_information/0,
          connection_information/1,
          secret_connection_info/0,
@@ -68,6 +70,8 @@
          versions/1,
          versions_option_based_on_sni/0,
          versions_option_based_on_sni/1,
+         ciphers_option_based_on_sni/0,
+         ciphers_option_based_on_sni/1,
          active_n/0,
          active_n/1,
          dh_params/0,
@@ -223,6 +227,7 @@
 	 log/2,
          get_connection_information/3,
          protocol_version_check/2,
+         suite_check/2,
          check_peercert/2,
          %%TODO Keep?
          run_error_server/1,
@@ -270,7 +275,9 @@ since_1_2() ->
     [
      conf_signature_algs,
      no_common_signature_algs,
-     versions_option_based_on_sni
+     versions_option_based_on_sni,
+     ciphers_option_based_on_sni,
+     root_any_sign
     ].
 
 pre_1_3() ->
@@ -377,8 +384,8 @@ tls13_group() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    ssl_test_lib:make_rsa_cert(Config0)
@@ -592,6 +599,54 @@ select_sha1_cert(Config) when is_list(Config) ->
                                           peer => [{digest, sha},
                                                    {key, {namedCurve, secp256r1}}]}}),
     test_sha1_cert_conf(Version, TestConfRSA, TestConfECDSA, Config).
+
+%%--------------------------------------------------------------------
+root_any_sign() ->
+    [{doc,"Use cert signed with unsupported signature for the root will succeed, "
+      "as it is not verified"}].
+
+root_any_sign(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    #{client_config := CSucess, server_config := SSucess} =
+        public_key:pkix_test_data(#{server_chain =>
+                                         #{root => [{digest, sha},
+                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                           intermediates => [[{digest, sha256},
+                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                           peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                          },
+                                     client_chain =>
+                                         #{root => [{digest, sha},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                           intermediates => [[{digest, sha256},
+                                                              {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                           peer => [{digest, sha256},
+                                                    {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+
+    #{client_config := CFail, server_config := SFail} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer =>  [{digest, sha256}, {key, ssl_test_lib:hardcode_rsa_key(3)}]
+                                         },
+                                    client_chain =>
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(3)}],
+                                          intermediates => [[{digest, sha},
+                                                             {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}]}}),
+
+    %% Makes sha1 disallowed for certificate signatures when set explicitly 
+    %% (default for signature_algs_cert was changed to allow them if signatures_algs is not set explicitly)
+    SigAlgs = ssl:signature_algs(default, Version), 
+    %% Root signatures are not validated, so its signature will not fail the connection                             
+    ssl_test_lib:basic_test(CSucess, [{verify, verify_peer}, {signature_algs, SigAlgs} | SSucess], Config),
+    %% Intermediate cert signatures are validated, so sha1 signatures will fail connection                             
+    ssl_test_lib:basic_alert(CFail, [{verify, verify_peer}, {signature_algs, SigAlgs} | SFail],
+                             Config, unsupported_certificate).
 
 %%--------------------------------------------------------------------
 connection_information() ->
@@ -1152,6 +1207,42 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{options, [{server_name_indication, SNI}, {versions, Versions},
                                                    {ciphers, Ciphers}
                                                   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+
+ciphers_option_based_on_sni() ->
+    [{doc,"Test that SNI versions option is selected over default ciphers option"}].
+
+ciphers_option_based_on_sni(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    TestVersion = ssl_test_lib:protocol_version(Config),
+    Suites = rsa_cipher_suites_not_default(TestVersion),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    SNI = net_adm:localhost(),
+    Fun = fun(ServerName) ->
+              case ServerName of
+                  SNI ->
+                      [{ciphers, Suites} | ServerOpts];
+                  _ ->
+                      ServerOpts
+              end
+          end,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, suite_check, [TestVersion]}},
+					{options, [{sni_fun, Fun} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {ssl_test_lib, no_result, []}},
+					{options, [{server_name_indication, SNI} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -3132,7 +3223,7 @@ options_sni(_Config) -> %% server_name_indication
     ok.
 
 options_sign_alg(_Config) ->  %% signature_algs[_cert]
-    ?OK(#{signature_algs := [_|_], signature_algs_cert := undefined},
+    ?OK(#{signature_algs := [_|_], signature_algs_cert := [_|_]},
         [], client),
     ?OK(#{signature_algs := [rsa_pss_rsae_sha512,{sha512,rsa}], signature_algs_cert := undefined},
         [{signature_algs, [rsa_pss_rsae_sha512,{sha512,rsa}]}], client),
@@ -4586,3 +4677,25 @@ run_sha1_cert_conf(_, #{client_config := ClientOpts, server_config := ServerOpts
     ssl_test_lib:basic_test([{verify, verify_peer} | ClientOpts] ++ SigOpts, ServerOpts, Config).
 
 
+rsa_cipher_suites_not_default('tlsv1.3'= Version) ->
+    [_ | Suites] = ssl:cipher_suites(default, Version),
+    Suites;
+rsa_cipher_suites_not_default(Version) ->
+    ssl_test_lib:test_ciphers(ecdhe_rsa, aes_128_gcm, Version).
+
+suite_check(Socket, 'tlsv1.3'= Version) ->
+    [_, Suite| _] = ssl:cipher_suites(default, Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end;
+suite_check(Socket, Version) ->
+    [Suite |_] = rsa_cipher_suites_not_default(Version),
+    case ssl:connection_information(Socket, [selected_cipher_suite]) of
+        {ok, [{selected_cipher_suite, Suite}]} ->
+            ok;
+        Other ->
+            ct:fail({expected, Suite, got, Other})
+    end.

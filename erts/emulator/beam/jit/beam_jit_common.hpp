@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2021-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2021-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -598,12 +598,6 @@ Uint beam_jit_get_map_elements(Eterm map,
 
 void beam_jit_bs_field_size_argument_error(Process *c_p, Eterm size);
 void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B);
-Eterm beam_jit_bs_init(Process *c_p,
-                       Eterm *reg,
-                       ERL_BITS_DECLARE_STATEP,
-                       Eterm num_bytes,
-                       Uint alloc,
-                       unsigned Live);
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
                             ERL_BITS_DECLARE_STATEP,
@@ -651,12 +645,16 @@ void beam_jit_return_to_trace(Process *c_p,
 
 Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity);
 
-Export *beam_jit_handle_unloaded_fun(Process *c_p,
-                                     Eterm *reg,
-                                     int arity,
-                                     Eterm fun_thing);
+const Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                           Eterm *reg,
+                                           int arity,
+                                           Eterm fun_thing);
 
 bool beam_jit_is_list_of_immediates(Eterm term);
 bool beam_jit_is_shallow_boxed(Eterm term);
+
+#ifdef DEBUG
+void beam_jit_invalid_heap_ptr(Process *p, Eterm term);
+#endif
 
 #endif

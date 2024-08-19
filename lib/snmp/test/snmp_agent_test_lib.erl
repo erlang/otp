@@ -1030,7 +1030,12 @@ await_stopped(Pid, Ref) ->
 %% --- start subagent supervisor ---
 
 start_sub_sup(Node, Dir) ->
-    rpc:call(Node, ?MODULE, start_sub_sup, [Dir]).
+    case rpc:call(Node, ?MODULE, start_sub_sup, [Dir]) of
+        {badrpc, _Reason} = BADRPC ->
+            ?SKIP(BADRPC);
+        Result ->
+            Result
+    end.
     
 start_sub_sup(Dir) ->
     ?DBG("start_sub -> entry",[]),
@@ -1056,6 +1061,8 @@ start_subagent(SaNode, RegTree, Mib) ->
     Func   = start_sub_agent,
     Args   = [MA, RegTree, [Mib1]], 
     case rpc:call(SaNode, Mod, Func, Args) of
+        {badrpc, _Reason} = BADRPC ->
+            ?SKIP(BADRPC);
 	{ok, SA} ->
 	    ?DBG("start_subagent -> SA: ~p", [SA]),
 	    {ok, SA};

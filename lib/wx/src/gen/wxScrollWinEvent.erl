@@ -20,26 +20,25 @@
 
 -module(wxScrollWinEvent).
 -moduledoc """
-Functions for wxScrollWinEvent class
-
 A scroll event holds information about events sent from scrolling windows.
 
-Note that you can use the EVT_SCROLLWIN\* macros for intercepting scroll window
-events from the receiving window.
+Note that you can use the EVT_SCROLLWIN* macros for intercepting scroll window events
+from the receiving window.
 
-See: `m:wxScrollEvent`,
-[Overview events](https://docs.wxwidgets.org/3.1/overview_events.html#overview_events)
+See:
+* `m:wxScrollEvent`
 
-This class is derived (and can use functions) from: `m:wxEvent`
+* [Overview events](https://docs.wxwidgets.org/3.2/overview_events.html#overview_events)
 
-wxWidgets docs:
-[wxScrollWinEvent](https://docs.wxwidgets.org/3.1/classwx_scroll_win_event.html)
+This class is derived, and can use functions, from:
+
+* `m:wxEvent`
+
+wxWidgets docs: [wxScrollWinEvent](https://docs.wxwidgets.org/3.2/classwx_scroll_win_event.html)
 
 ## Events
 
-Use `wxEvtHandler:connect/3` with
-[`wxScrollWinEventType`](`t:wxScrollWinEventType/0`) to subscribe to events of
-this type.
+Use `wxEvtHandler:connect/3` with `wxScrollWinEventType` to subscribe to events of this type.
 """.
 -include("wxe.hrl").
 -export([getOrientation/1,getPosition/1]).
@@ -52,16 +51,11 @@ this type.
 -include("wx.hrl").
 -type wxScrollWinEventType() :: 'scrollwin_top' | 'scrollwin_bottom' | 'scrollwin_lineup' | 'scrollwin_linedown' | 'scrollwin_pageup' | 'scrollwin_pagedown' | 'scrollwin_thumbtrack' | 'scrollwin_thumbrelease'.
 -export_type([wxScrollWinEvent/0, wxScrollWin/0, wxScrollWinEventType/0]).
-%% @hidden
 -doc false.
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollwinevent.html#wxscrollwineventgetorientation">external documentation</a>.
--doc """
-Returns wxHORIZONTAL or wxVERTICAL, depending on the orientation of the
-scrollbar.
-""".
+-doc "Returns wxHORIZONTAL or wxVERTICAL, depending on the orientation of the scrollbar.".
 -spec getOrientation(This) -> integer() when
 	This::wxScrollWinEvent().
 getOrientation(#wx_ref{type=ThisT}=This) ->
@@ -69,12 +63,11 @@ getOrientation(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxScrollWinEvent_GetOrientation),
   wxe_util:rec(?wxScrollWinEvent_GetOrientation).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxscrollwinevent.html#wxscrollwineventgetposition">external documentation</a>.
 -doc """
 Returns the position of the scrollbar for the thumb track and release events.
 
-Note that this field can't be used for the other events, you need to query the
-window itself for the current position in that case.
+Note that this field can't be used for the other events, you need to query the window
+itself for the current position in that case.
 """.
 -spec getPosition(This) -> integer() when
 	This::wxScrollWinEvent().
@@ -84,30 +77,21 @@ getPosition(#wx_ref{type=ThisT}=This) ->
   wxe_util:rec(?wxScrollWinEvent_GetPosition).
 
  %% From wxEvent
-%% @hidden
 -doc false.
 stopPropagation(This) -> wxEvent:stopPropagation(This).
-%% @hidden
 -doc false.
 skip(This, Options) -> wxEvent:skip(This, Options).
-%% @hidden
 -doc false.
 skip(This) -> wxEvent:skip(This).
-%% @hidden
 -doc false.
 shouldPropagate(This) -> wxEvent:shouldPropagate(This).
-%% @hidden
 -doc false.
 resumePropagation(This,PropagationLevel) -> wxEvent:resumePropagation(This,PropagationLevel).
-%% @hidden
 -doc false.
 isCommandEvent(This) -> wxEvent:isCommandEvent(This).
-%% @hidden
 -doc false.
 getTimestamp(This) -> wxEvent:getTimestamp(This).
-%% @hidden
 -doc false.
 getSkipped(This) -> wxEvent:getSkipped(This).
-%% @hidden
 -doc false.
 getId(This) -> wxEvent:getId(This).

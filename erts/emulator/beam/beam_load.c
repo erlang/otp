@@ -194,8 +194,13 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
          *
          * We know that because OTP 23/24/25/26 artifically set the
          * highest used op code to the op code for the `swap`
-         * instruction introduced in OTP 23. (OTP 27 artificially sets
-         * the highest op code to `make_fun3` introduced in OTP 24.)
+         * instruction introduced in OTP 23.
+         *
+         * OTP 27 artificially sets the highest op code to `make_fun3`
+         * introduced in OTP 24.
+         *
+         * OTP 28 artificially sets the highest op code to `bs_create_bin`
+         * introduced in OTP 25.
          *
          * Old BEAM files produced by OTP R12 and earlier may be
          * incompatible with the current runtime system. We used to
@@ -207,7 +212,7 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
                        "This BEAM file was compiled for an old version of "
                        "the runtime system.\n"
                        "  To fix this, please re-compile this module with "
-                       "Erlang/OTP 24 or later.\n");
+                       "Erlang/OTP 25 or later.\n");
     }
 
     if (!load_code(stp)) {
@@ -492,16 +497,28 @@ static int load_code(LoaderState* stp)
 	     * Use bit masks to quickly find the most specific of the
 	     * the possible specific instructions associated with this
 	     * specific instruction.
+             *
+             * Note that currently only instructions having no more
+             * than 6 operands are supported.
 	     */
             int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
-            arity = gen_opc[tmp_op->op].arity;
+            if (num_specific != 0) {
+                /* The `bs_append` instruction made obsolete in
+                 * Erlang/OTP 28 has 8 operands. Therefore, the if
+                 * statement preventing the loop that follows to be
+                 * entered is necessary to prevent writing beyond the
+                 * last entry of the mask array. */
+                arity = gen_opc[tmp_op->op].arity;
 
-            for (arg = 0; arg < arity; arg++) {
-                int type = tmp_op->a[arg].type;
+                ASSERT(2 * (sizeof(mask) / sizeof(mask[0])) >= arity);
 
-                mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                for (arg = 0; arg < arity; arg++) {
+                    int type = tmp_op->a[arg].type;
+
+                    mask[arg / 2] |= (1u << type) << ((arg % 2) << 4);
+                }
             }
 
             specific = gen_opc[tmp_op->op].specific;
@@ -567,7 +584,7 @@ static int load_code(LoaderState* stp)
                  * No specific operations and no transformations means that
                  * the instruction is obsolete.
                  */
-                if (num_specific == 0 && gen_opc[tmp_op->op].transform == -1) {
+                if (num_specific == 0 && gen_opc[tmp_op->op].transform == 0) {
                     BeamLoadError0(stp, PLEASE_RECOMPILE);
                 }
 
@@ -660,24 +677,6 @@ erts_release_literal_area(ErtsLiteralArea* literal_area)
             {
                 Binary *bin = ((BinRef*)oh)->val;
                 erts_bin_release(bin);
-                break;
-            }
-        case FUN_REF_SUBTAG:
-            {
-                ErlFunEntry* fe = ((FunRef*)oh)->entry;
-
-                /* All fun entries are NULL during module loading, before the
-                 * code is finalized, so we need to tolerate it to avoid
-                 * crashing in the prepared code destructor.
-                 *
-                 * Strictly speaking it would be nice to crash when we see this
-                 * outside of loading, but it's too complicated to keep track
-                 * of whether we are. */
-                if (fe != NULL) {
-                    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                        erts_erase_fun_entry(fe);
-                    }
-                }
                 break;
             }
         case REF_SUBTAG:

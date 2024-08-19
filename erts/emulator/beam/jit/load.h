@@ -90,13 +90,10 @@ struct LoaderState_ {
     unsigned int current_index;
     unsigned int *loc_index_to_cover_id;
 
-    /* Translates lambda indexes to the literal holding their FunRef.
-     *
-     * Lambdas that lack an environment are represented by an ErlFunThing that
-     * is immediately followed by an FunRef. */
-    SWord *fun_refs;
+    /* Translates lambda indexes to their canonical literal, if any. */
+    SWord *lambda_literals;
 
-    void *ba; /* Assembler used to create x86 assembly */
+    void *ba; /* Assembler used to create x86/AArch64 assembly */
 
     const void *executable_region; /* Native module after codegen */
     void *writable_region; /* Native module after codegen, writable mapping */

@@ -231,7 +231,7 @@ i_move_call_ext_last(CallDest, Deallocate, Src) {
 
 APPLY(I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = apply(c_p, reg, $I, $Deallocate);
@@ -278,7 +278,7 @@ i_apply_only() {
 
 FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
-    Export *ep;
+    const Export *ep;
 
     HEAVY_SWAPOUT;
     ep = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
@@ -546,10 +546,8 @@ i_make_fun3(FunP, Dst, Arity, NumFree) {
     ErlFunThing* funp;
     //| -no_next
 
-    /* We add one word to account for the `FunRef` keeping our fun entry
-     * alive, it's kept as part of the environment. */
     funp = (ErlFunThing*)HTOP;
-    HTOP += ERL_FUN_SIZE + num_free + 1;
+    HTOP += ERL_FUN_SIZE + num_free;
 
     funp->thing_word = MAKE_FUN_HEADER($Arity, num_free, 0);
     funp->entry.fun = fe;
@@ -568,7 +566,7 @@ i_make_fun3(FunP, Dst, Arity, NumFree) {
 
     I = $NEXT_INSTRUCTION;
 
-    for (i = 0; i < (num_free + 1); i++) {
+    for (i = 0; i < num_free; i++) {
         Eterm term = *I++;
         switch (loader_tag(term)) {
         case LOADER_X_REG:

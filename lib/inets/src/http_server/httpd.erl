@@ -53,7 +53,7 @@ follows:
 
 [](){: #props_file }
 
-_File Properties_
+### File Properties
 
 When the web server is started at application start time, the properties are to
 be fetched from a configuration file that can consist of a regular Erlang
@@ -62,7 +62,7 @@ property list, that is, `[{Option, Value}]`, where `Option = property() `and
 dynamically at runtime, a file can still be specified but also the complete
 property list.
 
-- **[](){: #prop_proplist_file } \{proplist_file, path()\}**  
+- [](){: #prop_proplist_file } **`{proplist_file, path()}`**  
   If this property is defined, `Inets` expects to find all other properties
   defined in this file. The file must include all properties listed under
   mandatory properties.
@@ -74,35 +74,35 @@ property list.
 
 [](){: #props_mand }
 
-_Mandatory Properties_
+### Mandatory Properties
 
-- **[](){: #prop_port } \{port, integer()\}**  
+- [](){: #prop_port } **`{port, integer()}`**  
   The port that the HTTP server listen to. If zero is specified as port, an
   arbitrary available port is picked and function `httpd:info/2` can be used to
   determine which port was picked.
 
-- **[](){: #prop_server_root } \{server_root, path()\}**  
+- [](){: #prop_server_root } **`{server_root, path()}`**  
   Defines the home directory of the server, where log files, and so on, can be
   stored. Relative paths specified in other properties refer to this directory.
 
-- **[](){: #prop_doc_root } \{document_root, path()\}**  
+- [](){: #prop_doc_root } **`{document_root, path()}`**  
   Defines the top directory for the documents that are available on the HTTP
   server.
 
 [](){: #props_comm }
 
-_Communication Properties_
+### Communication Properties
 
-- **[](){: #prop_bind_address } \{bind_address, ip_address() | hostname() |
-  any\}**  
+- [](){: #prop_bind_address } **`{bind_address, ip_address() | hostname() |
+  any}`**  
   Default is `any`
 
-- **[](){: #prop_server_name } \{server_name, string()\}**  
+- [](){: #prop_server_name } **`{server_name, string()}`**  
   The name of your server, normally a fully qualified domain name.
 
   If not given, this defaults to `net_adm:localhost()`.
 
-- **[](){: #profile } \{profile, atom()\}**  
+- [](){: #profile } **`{profile, atom()}`**  
   Used together with [`bind_address`](`m:httpd#prop_bind_address`) and
   [`port`](`m:httpd#prop_port`) to uniquely identify a HTTP server. This can be
   useful in a virtualized environment, where there can be more that one server
@@ -110,8 +110,7 @@ _Communication Properties_
   set, it is assumed that the [`bind_address`](`m:httpd#prop_bind_address`) and
   [`port`](`m:httpd#prop_port`) uniquely identifies the HTTP server.
 
-- **[](){: #prop_socket_type } \{socket_type, ip_comm | \{ip_comm,
-  Config::proplist()\} | \{ssl, Config::proplist()\}\}**  
+- [](){: #prop_socket_type } **`{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`**  
   For `ip_comm` configuration options, see `gen_tcp:listen/2`, some options that
   are used internally by httpd cannot be set.
 
@@ -126,12 +125,12 @@ _Communication Properties_
   > replacing it by
   > `{socket_type, ip_comm | {ip_comm, Config::proplist()} | {ssl, Config::proplist()}}`.
 
-- **[](){: #prop_ipfamily } \{ipfamily, inet | inet6\}**  
+- [](){: #prop_ipfamily } **`{ipfamily, inet | inet6}`**  
   Default is `inet`, legacy option `inet6fb4` no longer makes sense and will be
   translated to inet.
 
-- **[](){: #prop_minimum_bytes_per_second } \{minimum_bytes_per_second,
-  integer()\}**  
+- [](){: #prop_minimum_bytes_per_second } **`{minimum_bytes_per_second,
+  integer()}`**  
   If given, sets a minimum of bytes per second value for connections.
 
   If the value is unreached, the socket closes for that connection.
@@ -140,9 +139,9 @@ _Communication Properties_
 
 [](){: #props_api_modules }
 
-_Erlang Web Server API Modules_
+### Erlang Web Server API Modules
 
-- **[](){: #prop_modules } \{modules, \[atom()]\}**  
+- [](){: #prop_modules } **`{modules, [atom()]}`**  
   Defines which modules the HTTP server uses when handling requests. Default is
   `[mod_alias, mod_auth, mod_esi, mod_actions, mod_cgi, mod_dir, mod_get, mod_head, mod_log, mod_disk_log]`.
   Notice that some `mod`\-modules are dependent on others, so the order cannot
@@ -151,50 +150,50 @@ _Erlang Web Server API Modules_
 
 [](){: #props_limit }
 
-_Limit properties_
+### Limit properties
 
-- **[](){: #prop_customize } \{customize, atom()\}**  
+- [](){: #prop_customize } **`{customize, atom()}`**  
   A callback module to customize the inets HTTP servers behaviour see
   `m:httpd_custom_api`
 
-- **[](){: #prop_disable_chunked_encoding }
-  \{disable_chunked_transfer_encoding_send, boolean()\}**  
+- [](){: #prop_disable_chunked_encoding }
+  **`{disable_chunked_transfer_encoding_send, boolean()}`**  
   Allows you to disable chunked transfer-encoding when sending a response to an
   HTTP/1.1 client. Default is `false`.
 
-- **[](){: #prop_keep_alive } \{keep_alive, boolean()\}**  
+- [](){: #prop_keep_alive } **`{keep_alive, boolean()}`**  
   Instructs the server whether to use persistent connections when the client
   claims to be HTTP/1.1 compliant. Default is `true`.
 
-- **[](){: #prop_keep_alive_timeout } \{keep_alive_timeout, integer()\}**  
+- [](){: #prop_keep_alive_timeout } **`{keep_alive_timeout, integer()}`**  
   The number of seconds the server waits for a subsequent request from the
   client before closing the connection. Default is `150`.
 
-- **[](){: #prop_max_body_size } \{max_body_size, integer()\}**  
+- [](){: #prop_max_body_size } **`{max_body_size, integer()}`**  
   Limits the size of the message body of an HTTP request. Default is no limit.
 
-- **[](){: #prop_max_clients } \{max_clients, integer()\}**  
+- [](){: #prop_max_clients } **`{max_clients, integer()}`**  
   Limits the number of simultaneous requests that can be supported. Default is
   `150`.
 
-- **[](){: #prop_max_header_size } \{max_header_size, integer()\}**  
+- [](){: #prop_max_header_size } **`{max_header_size, integer()}`**  
   Limits the size of the message header of an HTTP request. Default is `10240`.
 
-- **[](){: #prop_max_content_length } \{max_content_length, integer()\}**  
+- [](){: #prop_max_content_length } **`{max_content_length, integer()}`**  
   Maximum content-length in an incoming request, in bytes. Requests with content
   larger than this are answered with status 413. Default is `100000000` (100
   MB).
 
-- **[](){: #prop_max_uri } \{max_uri_size, integer()\}**  
+- [](){: #prop_max_uri } **`{max_uri_size, integer()}`**  
   Limits the size of the HTTP request URI. Default is no limit.
 
-- **[](){: #prop_max_keep_alive_req } \{max_keep_alive_request, integer()\}**  
+- [](){: #prop_max_keep_alive_req } **`{max_keep_alive_request, integer()}`**  
   The number of requests that a client can do on one connection. When the server
   has responded to the number of requests defined by `max_keep_alive_requests`,
   the server closes the connection. The server closes it even if there are
   queued request. Default is no limit.
 
-- **[](){: #max_client_body_chunk } \{max_client_body_chunk, integer()\}**  
+- [](){: #max_client_body_chunk } **`{max_client_body_chunk, integer()}`**  
   Enforces chunking of a HTTP PUT or POST body data to be delivered to the
   mod_esi callback. Note this is not supported for mod_cgi. Default is no limit
   e.i the whole body is delivered as one entity, which could be very memory
@@ -202,10 +201,9 @@ _Limit properties_
 
 [](){: #props_admin }
 
-_Administrative Properties_
+### Administrative Properties
 
-- **[](){: #prop_mime_types } \{mime_types, \[\{MimeType, Extension\}] |
-  path()\}**  
+- [](){: #prop_mime_types } **`{mime_types, [{MimeType, Extension}] | path()}`**  
   `MimeType = string()` and `Extension = string()`. Files delivered to the
   client are MIME typed according to RFC 1590. File suffixes are mapped to MIME
   types before file delivery. The mapping between file suffixes and MIME types
@@ -218,16 +216,16 @@ _Administrative Properties_
   If unset, `conf/mime.types` under `server_root` will be used if it exists,
   otherwise, the default is `[{"html","text/html"},{"htm","text/html"}]`.
 
-- **[](){: #prop_mime_type } \{mime_type, string()\}**  
+- [](){: #prop_mime_type } **`{mime_type, string()}`**  
   When the server is asked to provide a document type that cannot be determined
   by the MIME Type Settings, the server uses this default type.
 
-- **[](){: #prop_server_admin } \{server_admin, string()\}**  
+- [](){: #prop_server_admin } **`{server_admin, string()}`**  
   Defines the email-address of the server administrator to be included in any
   error messages returned by the server.
 
-- **[](){: #prop_server_tokens } \{server_tokens,
-  none|prod|major|minor|minimal|os|full|\{private, string()\}\}**  
+- [](){: #prop_server_tokens } **`{server_tokens,
+  none|prod|major|minor|minimal|os|full|{private, string()}}`**  
   Defines the look of the value of the server header.
 
   Example: Assuming the version of `Inets` is 5.8.1, the server header string
@@ -251,7 +249,7 @@ _Administrative Properties_
 
   By default, the value is as before, that is, `minimal`.
 
-- **[](){: #prop_logger } \{logger, Options::list()\}**  
+- [](){: #prop_logger } **`{logger, Options::list()}`**  
   Currently only one option is supported:
 
   - **`{error, ServerID::atom()}`** - Produces
@@ -320,7 +318,7 @@ _Administrative Properties_
                                 [otp, inets, httpd, my_server, error]}}).
     ```
 
-- **[](){: #prop_log_format } \{log_format, common | combined\}**  
+- [](){: #prop_log_format } **`{log_format, common | combined}`**  
   Defines if access logs are to be written according to the `common` log format
   or the extended common log format. The `common` format is one line looking
   like this: `remotehost rfc931 authuser [date] "request" status bytes`.
@@ -358,7 +356,7 @@ _Administrative Properties_
 
   This affects the access logs written by `mod_log` and `mod_disk_log`.
 
-- **[](){: #prop_elog_format } \{error_log_format, pretty | compact\}**  
+- [](){: #prop_elog_format } **`{error_log_format, pretty | compact}`**  
   Default is `pretty`. If the error log is meant to be read directly by a human,
   `pretty` is the best option.
 
@@ -378,35 +376,35 @@ _Administrative Properties_
 
 [](){: #props_alias }
 
-_URL Aliasing Properties - Requires mod_alias_
+### URL Aliasing Properties - Requires mod_alias
 
-- **[](){: #prop_alias } \{alias, \{Alias, RealName\}\}**  
+- [](){: #prop_alias } **`{alias, {Alias, RealName}}`**  
   `Alias = string()` and `RealName = string()`. `alias` allows documents to be
   stored in the local file system instead of the `document_root` location. URLs
   with a path beginning with url-path is mapped to local files beginning with
   directory-filename, for example:
 
-  ```text
+  ```erlang
   {alias, {"/image", "/ftp/pub/image"}}
   ```
 
   Access to http://your.server.org/image/foo.gif would refer to the file
   /ftp/pub/image/foo.gif.
 
-- **[](){: #prop_re_write } \{re_write, \{Re, Replacement\}\}**  
+- [](){: #prop_re_write } **`{re_write, {Re, Replacement}}`**  
   `Re = string()` and `Replacement = string()`. `re_write` allows documents to
   be stored in the local file system instead of the `document_root` location.
   URLs are rewritten by `re:replace/3` to produce a path in the local
   file-system, for example:
 
-  ```text
+  ```erlang
   {re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}
   ```
 
   Access to http://your.server.org/~bob/foo.gif would refer to the file
   /home/bob/public/foo.gif.
 
-- **[](){: #prop_dir_idx } \{directory_index, \[string()]\}**  
+- [](){: #prop_dir_idx } **`{directory_index, [string()]}`**  
   `directory_index` specifies a list of resources to look for if a client
   requests a directory using a `/` at the end of the directory name. `file`
   depicts the name of a file in the directory. Several files can be given, in
@@ -422,9 +420,9 @@ _URL Aliasing Properties - Requires mod_alias_
 
 [](){: #props_cgi }
 
-_CGI Properties - Requires mod_cgi_
+### CGI Properties - Requires mod_cgi
 
-- **[](){: #prop_script_alias } \{script_alias, \{Alias, RealName\}\}**  
+- [](){: #prop_script_alias } **`{script_alias, {Alias, RealName}}`**  
   `Alias = string()` and `RealName = string()`. Have the same behavior as
   property `alias`, except that they also mark the target directory as
   containing CGI scripts. URLs with a path beginning with url-path are mapped to
@@ -437,7 +435,7 @@ _CGI Properties - Requires mod_cgi_
   Access to http://your.server.org/cgi-bin/foo would cause the server to run the
   script /web/cgi-bin/foo.
 
-- **[](){: #prop_script_re_write } \{script_re_write, \{Re, Replacement\}\}**  
+- [](){: #prop_script_re_write } **`{script_re_write, {Re, Replacement}}`**  
   `Re = string()` and `Replacement = string()`. Have the same behavior as
   property `re_write`, except that they also mark the target directory as
   containing CGI scripts. URLs with a path beginning with url-path are mapped to
@@ -450,18 +448,17 @@ _CGI Properties - Requires mod_cgi_
   Access to http://your.server.org/cgi-bin/17/foo would cause the server to run
   the script /web/17/cgi-bin/foo.
 
-- **[](){: #prop_script_nocache } \{script_nocache, boolean()\}**  
+- [](){: #prop_script_nocache } **`{script_nocache, boolean()}`**  
   If `script_nocache` is set to `true`, the HTTP server by default adds the
   header fields necessary to prevent proxies from caching the page. Generally
   this is preferred. Default to `false`.
 
-- **[](){: #prop_script_timeout } \{script_timeout, integer()\}**  
+- [](){: #prop_script_timeout } **`{script_timeout, integer()}`**  
   The time in seconds the web server waits between each chunk of data from the
   script. If the CGI script does not deliver any data before the timeout, the
   connection to the client is closed. Default is `15`.
 
-- **[](){: #prop_action } \{action, \{MimeType, CgiScript\}\} - requires
-  mod_action**  
+- [](){: #prop_action } **`{action, {MimeType, CgiScript}}`** - requires `mod_actions`  
   `MimeType = string()` and `CgiScript = string()`. `action` adds an action
   activating a CGI script whenever a file of a certain MIME type is requested.
   It propagates the URL and file path of the requested document using the
@@ -473,8 +470,7 @@ _CGI Properties - Requires mod_cgi_
   {action, {"text/plain", "/cgi-bin/log_and_deliver_text"}}
   ```
 
-- **[](){: #prop_script } \{script, \{Method, CgiScript\}\} - requires
-  mod_action**  
+- [](){: #prop_script } **`{script, {Method, CgiScript}}`** - requires `mod_actions`  
   `Method = string()` and `CgiScript = string()`. `script` adds an action
   activating a CGI script whenever a file is requested using a certain HTTP
   method. The method is either GET or POST, as defined in
@@ -484,21 +480,20 @@ _CGI Properties - Requires mod_cgi_
 
   Example:
 
-  ```text
+  ```erlang
   {script, {"PUT", "/cgi-bin/put"}}
   ```
 
 [](){: #props_esi }
 
-_ESI Properties - Requires mod_esi_
+### ESI Properties - Requires mod_esi
 
-- **[](){: #prop_esi_alias } \{erl_script_alias, \{URLPath,
-  \[AllowedModule]\}\}**  
+- [](){: #prop_esi_alias } **`{erl_script_alias, {URLPath, [AllowedModule]}}`**  
   `URLPath = string()` and `AllowedModule = atom()`. `erl_script_alias` marks
   all URLs matching url-path as erl scheme scripts. A matching URL is mapped
   into a specific module and function, for example:
 
-  ```text
+  ```erlang
   {erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
   ```
 
@@ -507,77 +502,74 @@ _ESI Properties - Requires mod_esi_
   httpd_example:yahoo/2 and http://your.server.org/cgi-bin/example/other:yahoo
   would not be allowed to execute.
 
-- **[](){: #prop_esi_nocache } \{erl_script_nocache, boolean()\}**  
+- [](){: #prop_esi_nocache } **`{erl_script_nocache, boolean()}`**  
   If `erl_script_nocache` is set to `true`, the server adds HTTP header fields
   preventing proxies from caching the page. This is generally a good idea for
   dynamic content, as the content often varies between each request. Default is
   `false`.
 
-- **[](){: #prop_esi_timeout } \{erl_script_timeout, integer()\}**  
+- [](){: #prop_esi_timeout } **`{erl_script_timeout, integer()}`**  
   If `erl_script_timeout` sets the time in seconds the server waits between each
   chunk of data to be delivered through `mod_esi:deliver/2`. Default is `15`.
   This is only relevant for scripts that use the erl scheme.
 
 [](){: #props_log }
 
-_Log Properties - Requires mod_log_
+### Log Properties - Requires mod_log
 
-- **[](){: #prop_elog } \{error_log, path()\}**  
+- [](){: #prop_elog } **`{error_log, path()}`**  
   Defines the filename of the error log file to be used to log server errors. If
   the filename does not begin with a slash (/), it is assumed to be relative to
   the `server_root`.
 
-- **[](){: #prop_slog } \{security_log, path()\}**  
+- [](){: #prop_slog } **`{security_log, path()}`**  
   Defines the filename of the access log file to be used to log security events.
   If the filename does not begin with a slash (/), it is assumed to be relative
   to the `server_root`.
 
-- **[](){: #prop_tlog } \{transfer_log, path()\}**  
+- [](){: #prop_tlog } **`{transfer_log, path()}`**  
   Defines the filename of the access log file to be used to log incoming
   requests. If the filename does not begin with a slash (/), it is assumed to be
   relative to the `server_root`.
 
 [](){: #props_dlog }
 
-_Disk Log Properties - Requires mod_disk_log_
+### Disk Log Properties - Requires mod_disk_log
 
-- **[](){: #prop_dlog_format } \{disk_log_format, internal | external\}**  
+- [](){: #prop_dlog_format } **`{disk_log_format, internal | external}`**  
   Defines the file format of the log files. See `disk_log` for details. If the
   internal file format is used, the log file is repaired after a crash. When a
   log file is repaired, data can disappear. When the external file format is
   used, `httpd` does not start if the log file is broken. Default is `external`.
 
-- **[](){: #prop_edlog } \{error_disk_log, path()\}**  
+- [](){: #prop_edlog } **`{error_disk_log, path()}`**  
   Defines the filename of the (`m:disk_log`) error log file to be used to log
   server errors. If the filename does not begin with a slash (/), it is assumed
   to be relative to the `server_root`.
 
-- **[](){: #prop_edlog_size } \{error_disk_log_size, \{MaxBytes,
-  MaxFiles\}\}**  
+- [](){: #prop_edlog_size } **`{error_disk_log_size, {MaxBytes, MaxFiles}}`**  
   `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
   the (`m:disk_log`) error log file. This file is of type wrap log and max bytes
   is written to each file and max files is used before the first file is
   truncated and reused.
 
-- **[](){: #prop_sdlog } \{security_disk_log, path()\}**  
+- [](){: #prop_sdlog } **`{security_disk_log, path()}`**  
   Defines the filename of the (`m:disk_log`) access log file logging incoming
   security events, that is, authenticated requests. If the filename does not
   begin with a slash (/), it is assumed to be relative to the `server_root`.
 
-- **[](){: #prop_sdlog_size } \{security_disk_log_size, \{MaxBytes,
-  MaxFiles\}\}**  
+- [](){: #prop_sdlog_size } **`{security_disk_log_size, {MaxBytes, MaxFiles}}`**  
   `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
   the `m:disk_log` access log file. This file is of type wrap log and max bytes
   is written to each file and max files is used before the first file is
   truncated and reused.
 
-- **[](){: #prop_tdlog } \{transfer_disk_log, path()\}**  
+- [](){: #prop_tdlog } **`{transfer_disk_log, path()}`**  
   Defines the filename of the (`m:disk_log`) access log file logging incoming
   requests. If the filename does not begin with a slash (/), it is assumed to be
   relative to the `server_root`.
 
-- **[](){: #prop_tdlog_size } \{transfer_disk_log_size, \{MaxBytes,
-  MaxFiles\}\}**  
+- [](){: #prop_tdlog_size } **`{transfer_disk_log_size, {MaxBytes, MaxFiles}}`**  
   `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
   the `m:disk_log` access log file. This file is of type wrap log and max bytes
   is written to each file and max files is used before the first file is
@@ -585,27 +577,29 @@ _Disk Log Properties - Requires mod_disk_log_
 
 [](){: #props_auth }
 
-_Authentication Properties - Requires mod_auth_
+### Authentication Properties - Requires mod_auth
 
 [](){: #prop_dri }
 
-_\{directory, \{path(), \[\{property(), term()\}]\}\}_
+```erlang
+{directory, {path(), [{property(), term()}]}}
+```
 
 [](){: #props_dir }
 
 The properties for directories are as follows:
 
-- **[](){: #prop_allow_from } \{allow_from, all | \[RegxpHostString]\}**  
+- [](){: #prop_allow_from } **`{allow_from, all | [RegxpHostString]}`**  
   Defines a set of hosts to be granted access to a given directory, for example:
 
-  ```text
+  ```erlang
   {allow_from, ["123.34.56.11", "150.100.23"]}
   ```
 
   The host `123.34.56.11` and all machines on the `150.100.23` subnet are
   allowed access.
 
-- **[](){: #prop_deny_from } \{deny_from, all | \[RegxpHostString]\}**  
+- [](){: #prop_deny_from } **`{deny_from, all | [RegxpHostString]}`**  
   Defines a set of hosts to be denied access to a given directory, for example:
 
   ```text
@@ -615,12 +609,12 @@ The properties for directories are as follows:
   The host `123.34.56.11` and all machines on the `150.100.23` subnet are not
   allowed access.
 
-- **[](){: #prop_auth_type } \{auth_type, plain | dets | mnesia\}**  
+- [](){: #prop_auth_type } **`{auth_type, plain | dets | mnesia}`**  
   Sets the type of authentication database that is used for the directory. The
   key difference between the different methods is that dynamic data can be saved
   when Mnesia and Dets are used.
 
-- **[](){: #prop_auth_user_file } \{auth_user_file, path()\}**  
+- [](){: #prop_auth_user_file } **`{auth_user_file, path()}`**  
   Sets the name of a file containing the list of users and passwords for user
   authentication. The filename can be either absolute or relative to the
   `server_root`. If using the plain storage method, this file is a plain text
@@ -631,8 +625,8 @@ The properties for directories are as follows:
   Example:
 
   ```text
-   ragnar:s7Xxv7
-   edward:wwjau8
+  ragnar:s7Xxv7
+  edward:wwjau8
   ```
 
   If the Dets storage method is used, the user database is maintained by Dets
@@ -642,7 +636,7 @@ The properties for directories are as follows:
   outside the document tree of the web server. If it is placed in the directory
   that it protects, clients can download it.
 
-- **[](){: #prop_auth_group_file } \{auth_group_file, path()\}**  
+- [](){: #prop_auth_group_file } **`{auth_group_file, path()}`**  
   Sets the name of a file containing the list of user groups for user
   authentication. The filename can be either absolute or relative to the
   `server_root`. If the plain storage method is used, the group file is a plain
@@ -662,57 +656,59 @@ The properties for directories are as follows:
   `auth_group_file` is stored outside the document tree of the web server. If it
   is placed in the directory that it protects, clients can download it.
 
-- **[](){: #prop_auth_name } \{auth_name, string()\}**  
+- [](){: #prop_auth_name } **`{auth_name, string()}`**  
   Sets the name of the authorization realm (auth-domain) for a directory. This
   string informs the client about which username and password to use.
 
-- **[](){: #prop_auth_access_passwd } \{auth_access_password, string()\}**  
-  If set to other than "NoPassword", the password is required for all API calls.
-  If the password is set to "DummyPassword", the password must be changed before
+- [](){: #prop_auth_access_passwd } **`{auth_access_password, string()}`**  
+  If set to other than `"NoPassword"`, the password is required for all API calls.
+  If the password is set to `"DummyPassword"`, the password must be changed before
   any other API calls. To secure the authenticating data, the password must be
   changed after the web server is started. Otherwise it is written in clear text
   in the configuration file.
 
-- **[](){: #prop_req_user } \{require_user, \[string()]\}**  
+- [](){: #prop_req_user } **`{require_user, [string()]}`**  
   Defines users to grant access to a given directory using a secret password.
 
-- **[](){: #prop_req_grp } \{require_group, \[string()]\}**  
+- [](){: #prop_req_grp } **`{require_group, [string()]}`**  
   Defines users to grant access to a given directory using a secret password.
 
 [](){: #props_sec }
 
-_Security Properties - Requires mod_security_
+### Security Properties - Requires mod_security
 
 [](){: #prop_sec_dir }
 
-_\{security_directory, \{path(), \[\{property(), term()\}]\}\}_
+```erlang
+{security_directory, {path(), [{property(), term()}]}}
+```
 
 [](){: #props_sdir }
 
 The properties for the security directories are as follows:
 
-- **[](){: #prop_data_file } \{data_file, path()\}**  
+- [](){: #prop_data_file } **`{data_file, path()}`**  
   Name of the security data file. The filename can either be absolute or
   relative to the `server_root`. This file is used to store persistent data for
   module `mod_security`.
 
-- **[](){: #prop_max_retries } \{max_retries, integer()\}**  
+- [](){: #prop_max_retries } **`{max_retries, integer()}`**  
   Specifies the maximum number of attempts to authenticate a user before the
   user is blocked out. If a user successfully authenticates while blocked, the
   user receives a 403 (Forbidden) response from the server. If the user makes a
   failed attempt while blocked, the server returns 401 (Unauthorized), for
   security reasons. Default is `3`. Can be set to infinity.
 
-- **[](){: #prop_block_time } \{block_time, integer()\}**  
+- [](){: #prop_block_time } **`{block_time, integer()}`**  
   Specifies the number of minutes a user is blocked. After this time has passed,
   the user automatically regains access. Default is `60`.
 
-- **[](){: #prop_fail_exp_time } \{fail_expire_time, integer()\}**  
+- [](){: #prop_fail_exp_time } **`{fail_expire_time, integer()}`**  
   Specifies the number of minutes a failed user authentication is remembered. If
   a user authenticates after this time has passed, the previous failed
   authentications are forgotten. Default is `30`.
 
-- **[](){: #prop_auth_timeout } \{auth_timeout, integer()\}**  
+- [](){: #prop_auth_timeout } **`{auth_timeout, integer()}`**  
   Specifies the number of seconds a successful user authentication is
   remembered. After this time has passed, the authentication is no longer
   reported. Default is `30`.
@@ -722,28 +718,28 @@ The properties for the security directories are as follows:
 The Erlang web server API data types are as follows:
 
 ```erlang
-      ModData = #mod{}
+ModData = #mod{}
 
-      -record(mod, {
-		data = [],
-		socket_type = ip_comm,
-		socket,
-		config_db,
-		method,
-		absolute_uri,
-		request_uri,
-		http_version,
-		request_line,
-		parsed_header = [],
-		entity_body,
-		connection
-	}).
+-record(mod, {
+    data = [],
+    socket_type = ip_comm,
+    socket,
+    config_db,
+    method,
+    absolute_uri,
+    request_uri,
+    http_version,
+    request_line,
+    parsed_header = [],
+    entity_body,
+    connection
+}).
 ```
 
 To access the record in your callback-module use:
 
 ```erlang
- -include_lib("inets/include/httpd.hrl").
+-include_lib("inets/include/httpd.hrl").
 ```
 
 The fields of record `mod` have the following meaning:
@@ -838,7 +834,6 @@ The fields of record `mod` have the following meaning:
 %%% Types
 %%%========================================================================
 -type property() :: atom().
--type ets_table() :: ets:tid().
 -type socket_type() :: ip_comm | ssl.
 
 %%%========================================================================
@@ -892,7 +887,7 @@ clean up resources created in the store function.
 """.
 -doc(#{title => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback remove(ConfigDB) -> ok | {error, Reason} when
-      ConfigDB :: ets_table(), Reason :: term().
+      ConfigDB :: ets:tid(), Reason :: term().
 
 -doc """
 Checks the validity of the configuration options before saving them in the

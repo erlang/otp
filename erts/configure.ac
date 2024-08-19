@@ -474,7 +474,6 @@ fi
 
 AC_CHECK_PROGS(EX_DOC, ex_doc)
 if test -z "$EX_DOC"; then
-  EX_DOC="$ERL_TOP/make/ex_doc_wrapper"
   AC_MSG_WARN([No 'ex_doc' command found: it will (optionally) be downloaded when building the HTML documentation ])
 fi
 
@@ -1440,6 +1439,15 @@ AC_CHECK_MEMBERS([struct ifreq.ifr_map],
 
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr],
         [AC_DEFINE(ESOCK_USE_HWADDR, [], [Interface hwaddr supported])],
+	[],
+	[#ifdef __WIN32__
+	 #else
+	 #include <net/if.h>
+	 #endif
+	])
+
+AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr],
+        [AC_DEFINE(ESOCK_USE_ENADDR, [], [Interface hwaddr supported])],
 	[],
 	[#ifdef __WIN32__
 	 #else
@@ -3071,6 +3079,7 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       ]
     )
     LDFLAGS="$saved_LDFLAGS"
+    EMU_LDFLAGS=""
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       AC_MSG_CHECKING([if we can add $flag to LDFLAGS])
@@ -3079,7 +3088,8 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       AC_LINK_IFELSE([AC_LANG_PROGRAM([[]],[[return 0;]])],
          [
            AC_MSG_RESULT([yes])
-           LDFLAGS="$saved_LDFLAGS $flag"
+           EMU_LDFLAGS="$flag"
+           LDFLAGS="$saved_LDFLAGS"
          ],
          [
            AC_MSG_RESULT([no])
@@ -3087,6 +3097,8 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
          ])
     done
   ])
+
+AC_SUBST(EMU_LDFLAGS)
 
 dnl ----------------------------------------------------------------------
 dnl Tests related to configurable options given on command line
@@ -3672,6 +3684,9 @@ AC_CONFIG_FILES([
 
 AC_CONFIG_FILES([../make/make_emakefile:../make/make_emakefile.in],
                 [chmod +x ../make/make_emakefile])
+
+AC_CONFIG_FILES([../make/ex_doc_wrapper:../make/ex_doc_wrapper.in],
+                [chmod +x ../make/ex_doc_wrapper])
 
 dnl
 dnl The ones below should be moved to their respective lib

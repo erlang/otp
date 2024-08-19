@@ -1335,6 +1335,8 @@ do_notify_started02(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
+    Factor  = ?config(snmp_factor,        Config),
+
     SCO     = ?config(socket_create_opts, Config),
     ConfDir = ?config(manager_conf_dir,   Config),
     DbDir   = ?config(manager_db_dir,     Config),
@@ -1359,7 +1361,7 @@ do_notify_started02(Config) ->
     ApproxStartTime =
         case ns02_client_await_approx_runtime(Pid1) of
             {ok, T} ->
-                T;
+                ?LIB:ftime(T, Factor);
             {error, Reason} ->
                 %% Attempt cleanup just in case
                 exit(Pid1, kill),
@@ -1385,13 +1387,14 @@ do_notify_started02(Config) ->
 	    ?FAIL({client, Reason1});
 	{'EXIT', Pid1, Reason1} ->
 	    ?FAIL({client, Reason1})
-    after ApproxStartTime + 10000 ->
+    after ApproxStartTime + 15000 ->
             exit(Pid1, kill),
             exit(Pid2, kill),
 	    ?FAIL(timeout)
     end,
-	
-    ?IPRINT("await snmpm starter process exit"),
+
+    Timeout2 = ?LIB:ftime(5000, Factor),
+    ?IPRINT("await (~w msec) snmpm starter process exit", [Timeout2]),
     receive 
 	{'EXIT', Pid2, normal} ->
 	    ok;
@@ -1400,7 +1403,7 @@ do_notify_started02(Config) ->
 	    ?SKIP(SkipReason2);
 	{'EXIT', Pid2, Reason2} ->
 	    ?FAIL({ctrl, Reason2})
-    after 5000 ->
+    after Timeout2 ->
             exit(Pid2, kill),
 	    ?FAIL(timeout)
     end,
@@ -1515,7 +1518,7 @@ ns02_ctrl_loop(Opts, N) ->
     end,
     ?SLEEP(2000),
     ?IPRINT("stop manager"),
-    ?SLEEP(100), % Give the verbosity to take effect...
+    ?SLEEP(100), % Give the verbosity time to take effect...
     TS3 = erlang:system_time(millisecond),
     case snmpm:stop(5000) of
         ok ->

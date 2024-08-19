@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
+## Edoc 1.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix broken makefile dependency when building HTML documentation.
+
+  Own Id: OTP-19116 Aux Id: [PR-8534]
+
+[PR-8534]: https://github.com/erlang/otp/pull/8534
+
 ## Edoc 1.3
 
 ### Fixed Bugs and Malfunctions
@@ -46,7 +56,7 @@ This document describes the changes made to the EDoc application.
 
   Own Id: OTP-18955 Aux Id: [PR-8026]
 
-- Added module `m:edoc_doclet_markdown` that can be used to convert EDoc style documentation to [Markdown documentation attributes](`e:system/documentation.md`).
+- Added module `m:edoc_doclet_markdown` that can be used to convert EDoc style documentation to [Markdown documentation attributes](`e:system:documentation.md`).
 
   Own Id: OTP-19052 Aux Id: [PR-8308]
 

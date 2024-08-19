@@ -31,7 +31,7 @@ version in lib/stdlib/uc_spec/gen_unicode_mod.escript
 4. Read the release notes by visiting https://www.unicode.org/versions/latest/
 and assess if additional changes are necessary in the Erlang code.
 
-5. Replace all ocurrences of previous version of Unicode with the new one in
+5. Replace all occurrences of the previous version of Unicode with the new one in
 this very same file (lib/stdlib/uc_spec/README-UPDATE.txt).
 Remember to update these instructions if a new file is added or any other change
 is required for future version updates.

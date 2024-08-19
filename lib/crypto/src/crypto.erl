@@ -156,7 +156,7 @@ end
                   {function,<<"Random API">>},
                   {function,<<"Utility Functions">>},
                   {function,<<"Engine API">>},
-                  {function,<<"Deprecated API">>},
+                  {function,<<"Legacy RSA Encryption API">>},
                   {type,<<"Ciphers">>},
                   {type,<<"Digests and hash">>},
                   {type,<<"Elliptic Curves">>},
@@ -193,19 +193,19 @@ end
 
 %%%----------------------------------------------------------------
 %% Deprecated functions
--deprecated([{private_encrypt, 4, "use public_key:sign/3 instead"},
-             {private_decrypt, 4, "do not use"},
-             {public_encrypt,  4,  "do not use"},
-             {public_decrypt,  4,  "use public_key:verify/4 instead"}
+-deprecated([{start, 0, "use application:start(crypto) instead"},
+             {stop,  0, "use application:stop(crypto) instead"},
+             {enable_fips_mode, 1, "use config parameter fips_mode"}
             ]).
+
 %%%----------------------------------------------------------------
 %% Removed functions.
 %%
 %% Old interface. Now implemented with the New interface.
 %% Removed in OTP-24.0 See OTP-16232 (deprecation) and OTP-16656 (removal)
 
--removed([{crypto_dyn_iv_init, 3, "not supported, use crypto_init/4"},
-          {crypto_dyn_iv_update, 3, "not supported, use crypto_update/2"},
+-removed([{crypto_dyn_iv_init, 3, "not supported, use crypto:crypto_init/4"},
+          {crypto_dyn_iv_update, 3, "not supported, use crypto:crypto_update/2"},
           {next_iv, '_', "see the 'New and Old API' chapter of the CRYPTO User's guide"},
           {hmac, 3, "use crypto:mac/4 instead"},
           {hmac, 4, "use crypto:macN/5 instead"},
@@ -793,14 +793,22 @@ format_error({Ex, {C_file,C_line}, Msg}, [{_M,_F,_Args,Opts} | _CallStack]) when
             end
     end.
 
--doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to [`application:start(crypto)`](`application:start/1`).".
+-doc(#{title => <<"Deprecated API">>}).
+-doc """
+Use [`application:start(crypto)`](`application:start/1`) instead.
+
+> #### Warning {: .warning }
+>
+> This function does not work if FIPS mode is to be enabled. FIPS mode will be
+> disabled even if configuration parameter `fips_mode` is set to `true`. Use
+> [`application:start(crypto)`](`application:start/1`) instead.
+""".
 -spec start() -> ok | {error, Reason::term()}.
 start() ->
     application:start(crypto).
 
--doc(#{title => <<"Utility Functions">>}).
--doc "Equivalent to [`application:stop(crypto)`](`application:stop/1`).".
+-doc(#{title => <<"Deprecated API">>}).
+-doc "Use [`application:stop(crypto)`](`application:stop/1`) instead.".
 -spec stop() -> ok | {error, Reason::term()}.
 stop() ->
     application:stop(crypto).
@@ -935,7 +943,8 @@ library. If crypto was built with FIPS support this can be either `enabled`
 (when running in FIPS mode) or `not_enabled`. For other builds
 this value is always `not_supported`.
 
-See `enable_fips_mode/1` about how to enable FIPS mode.
+See configuration parameter [fips_mode](`e:crypto:crypto_app.md#fips_mode`)
+about how to enable FIPS mode.
 
 > #### Warning {: .warning }
 >
@@ -960,7 +969,7 @@ option `--enable-fips`, and the underlying libcrypto must also support FIPS.
 
 See also `info_fips/0`.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{title => <<"Deprecated API">>,
        since => <<"OTP 21.1">>}).
 -spec enable_fips_mode(Enable) -> Result when Enable :: boolean(),
                                               Result :: boolean().
@@ -2564,7 +2573,6 @@ Options for public key encrypt/decrypt. Only RSA is supported.
 -doc(#{title => <<"Public Key Ciphers">>}).
 -type rsa_padding() :: rsa_pkcs1_padding
                      | rsa_pkcs1_oaep_padding
-                     | rsa_sslv23_padding
                      | rsa_x931_padding
                      | rsa_no_padding.
 
@@ -2589,11 +2597,10 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use together with rsa_pkcs1_padding.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_encrypt(Algorithm, PlainText, PublicKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2619,12 +2626,11 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 
 """.
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec private_decrypt(Algorithm, CipherText, PrivateKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -2651,13 +2657,13 @@ Public-key decryption using the private key. See also `crypto:private_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`sign/4`](`sign/4`) together
-> with [`verify/5`](`verify/5`) instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`sign/4`](`sign/4`) together
+> with [`verify/5`](`verify/5`) is the prefered solution.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
-       since => <<"OTP R16B01">>}).
+-doc(#{title => <<"Legacy RSA Encryption API">>,
+        since => <<"OTP R16B01">>}).
 -spec private_encrypt(Algorithm, PlainText, PrivateKey, Options) ->
                             CipherText when Algorithm :: pk_encrypt_decrypt_algs(),
                                             PlainText :: binary(),
@@ -2682,12 +2688,12 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`verify/5`](`verify/5`) together
-> with [`sign/4`](`sign/4`) instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`verify/5`](`verify/5`) together
+> with [`sign/4`](`sign/4`) is the prefered solution.
 
 """.
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use verify and sign instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R16B01">>}).
 -spec public_decrypt(Algorithm, CipherText, PublicKey, Options) ->
                              PlainText when Algorithm :: pk_encrypt_decrypt_algs(),
@@ -3466,7 +3472,15 @@ on_load() ->
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
     LibBin   = path2bin(Lib),
-    FipsMode = application:get_env(crypto, fips_mode, false) == true,
+    {FipsMode,AppLoaded} =
+        case application:get_env(crypto, fips_mode) of
+            {ok, true} -> {true, loaded};
+            {ok, _} -> {false, loaded};
+            undefined ->
+                %% We assume application crypto has a default value for fips_mode.
+                %% If undefined the application has not been loaded.
+                {false, unloaded}
+        end,
     Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,LibBin,FipsMode}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
@@ -3488,7 +3502,9 @@ on_load() ->
 		 Error1 -> Error1
 	     end,
     case Status of
-	ok -> ok;
+	ok ->
+            warn_app_not_loaded_maybe(AppLoaded),
+            ok;
 	{error, {E, Str}} ->
             Fmt = "Unable to load crypto library. Failed with error:~n\"~p, ~s\"~n~s",
             Extra = case E of
@@ -3498,6 +3514,19 @@ on_load() ->
                     end,
 	    error_logger:error_msg(Fmt, [E,Str,Extra]),
 	    Status
+    end.
+
+warn_app_not_loaded_maybe(loaded) ->
+    ok;
+warn_app_not_loaded_maybe(unloaded) ->
+    %% For backward compatible reasons we allow application crypto
+    %% not being loaded.
+    case info_fips() of
+        not_enabled ->
+            logger:warning("Module 'crypto' loaded without application 'crypto' being loaded.\n"
+                           "Without application config 'fips_mode' loaded, FIPS mode is disabled by default.");
+        _ ->
+            ok
     end.
 
 path2bin(Path) when is_list(Path) ->

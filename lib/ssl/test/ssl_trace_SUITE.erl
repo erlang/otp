@@ -60,8 +60,8 @@ all() -> [tc_basic, tc_no_trace, tc_api_profile, tc_rle_profile,
           tc_budget_option, tc_write, tc_file_option, tc_check_profiles].
 
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
             ssl_test_lib:make_rsa_cert(Config)

@@ -293,7 +293,7 @@ encode_key_value_list_checked(List, Encode) ->
     do_encode_checked(List, Encode).
 
 do_encode_checked(List, Encode) when is_function(Encode, 2) ->
-    do_encode_checked(List, Encode, #{}).
+    encode_object(do_encode_checked(List, Encode, #{})).
 
 do_encode_checked([{Key, Value} | Rest], Encode, Visited0) ->
     EncodedKey = iolist_to_binary(key(Key, Encode)),
@@ -302,7 +302,7 @@ do_encode_checked([{Key, Value} | Rest], Encode, Visited0) ->
             error({duplicate_key, Key});
         _ ->
             Visited = Visited0#{EncodedKey => true},
-            [$,, EncodedKey, $:, Encode(Value, Encode) | do_encode_checked(Rest, Encode, Visited)]
+            [[$,, EncodedKey, $: | Encode(Value, Encode)] | do_encode_checked(Rest, Encode, Visited)]
     end;
 do_encode_checked([], _, _) ->
     [].
@@ -608,7 +608,7 @@ Supports basic data mapping:
 
 * `error(unexpected_end)` if `Binary` contains incomplete JSON value
 * `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({invalid_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
 
 ## Example
 
@@ -662,7 +662,7 @@ implementations used by the `decode/1` function:
 ## Errors
 
 * `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({invalid_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
 * `error(unexpected_end)` if `Binary` contains incomplete JSON value
 
 ## Example
@@ -828,9 +828,11 @@ number_zero(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
 number_zero(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, <<"0">>);
 number_zero(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
-    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, 0});
+    Value = (Decode#decode.integer)(<<"0">>),
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Value});
 number_zero(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
-    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, 0).
+    Value = (Decode#decode.integer)(<<"0">>),
+    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Value).
 
 number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Num) ->
     number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);

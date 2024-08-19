@@ -517,21 +517,6 @@ do {									\
     }									\
 } while (0)
 
-#define ERTS_FOREACH_OP_RUNQ(RQVAR, DO)					\
-do {									\
-    ErtsRunQueue *RQVAR;						\
-    int ix__;								\
-    int online__ = (int) schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,	\
-						  ERTS_SCHED_NORMAL);	\
-    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&schdlr_sspnd.mtx));	\
-    for (ix__ = 0; ix__ < online__; ix__++) {				\
-	RQVAR = ERTS_RUNQ_IX(ix__);					\
-	erts_runq_lock(RQVAR);					\
-	{ DO; }								\
-	erts_runq_unlock(RQVAR);					\
-    }									\
-} while (0)
-
 #define ERTS_ATOMIC_FOREACH_RUNQ_X(RQVAR, NRQS, DO, DOX)		\
 do {									\
     ErtsRunQueue *RQVAR;						\
@@ -8024,7 +8009,10 @@ erts_schedulers_state(Uint *total,
 {
     if (active || online || dirty_cpu_online
 	|| dirty_cpu_active || dirty_io_active) {
-	erts_mtx_lock(&schdlr_sspnd.mtx);
+        const int lock = !ERTS_IS_CRASH_DUMPING;
+        if (lock) {
+            erts_mtx_lock(&schdlr_sspnd.mtx);
+        }
 	if (active)
 	    *active = schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
 					       ERTS_SCHED_NORMAL);
@@ -8040,7 +8028,9 @@ erts_schedulers_state(Uint *total,
 	if (dirty_io_active)
 	    *dirty_io_active = schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
 							ERTS_SCHED_DIRTY_IO);
-	erts_mtx_unlock(&schdlr_sspnd.mtx);
+        if (lock) {
+            erts_mtx_unlock(&schdlr_sspnd.mtx);
+        }
     }
 
     if (total)
@@ -12540,19 +12530,21 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     ERTS_P_ALL_TRACE_FLAGS(p) = 0;
     p->common.tracee.first_ref = NULL;
-    erts_rwmtx_rlock(&erts_trace_session_list_lock);
-    for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
-        Uint32 trace_flags;
-        ErtsTracer tracer;
-        // ToDo: Optimize
-        erts_get_on_spawn_tracing(s, &trace_flags, &tracer);
-        if (trace_flags) {
-            ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
-            ref->flags = trace_flags;
-            ref->tracer = tracer;
+
+    if (erts_refc_read(&erts_new_procs_trace_cnt, 0)) {
+        erts_rwmtx_rlock(&erts_trace_session_list_lock);
+        for(ErtsTraceSession *s = &erts_trace_session_0; s; s = s->next) {
+            Uint32 trace_flags;
+            ErtsTracer tracer;
+            erts_get_new_proc_tracing(s, &trace_flags, &tracer);
+            if (trace_flags) {
+                ErtsTracerRef *ref = new_tracer_ref(&p->common, s);
+                ref->flags = trace_flags;
+                ref->tracer = tracer;
+            }
         }
+        erts_rwmtx_runlock(&erts_trace_session_list_lock);
     }
-    erts_rwmtx_runlock(&erts_trace_session_list_lock);
 
     if (parent && ERTS_IS_P_TRACED(parent)) {
         if (ERTS_IS_P_TRACED_FL(parent, F_TRACE_SOS|F_TRACE_SOS1)

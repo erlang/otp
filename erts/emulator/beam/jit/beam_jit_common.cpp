@@ -39,7 +39,7 @@ extern "C"
 
 static std::string getAtom(Eterm atom) {
     Atom *ap = atom_tab(atom_val(atom));
-    return std::string((char *)ap->name, ap->len);
+    return std::string((char *)erts_atom_get_name(ap), ap->len);
 }
 
 BeamAssemblerCommon::BeamAssemblerCommon(BaseAssembler &assembler_)
@@ -1235,7 +1235,11 @@ void beam_jit_timeout_locked(Process *c_p) {
 void beam_jit_return_to_trace(Process *c_p,
                               Eterm session_weak_id,
                               Eterm *frame) {
-    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
+    ErtsTracerRef *ref =
+            get_tracer_ref_from_weak_id(&c_p->common, session_weak_id);
+
+    if (!ERTS_IS_PROC_SENSITIVE(c_p) && ref &&
+        IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
         ErtsCodePtr return_to_address;
         Uint *cpp;
 
@@ -1257,7 +1261,7 @@ void beam_jit_return_to_trace(Process *c_p,
         }
 
         ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
-        erts_trace_return_to(c_p, return_to_address, session_weak_id);
+        erts_trace_return_to(c_p, return_to_address, ref);
         ERTS_REQ_PROC_MAIN_LOCK(c_p);
     }
 }
@@ -1277,16 +1281,16 @@ Eterm beam_jit_build_argument_list(Process *c_p, const Eterm *regs, int arity) {
     return res;
 }
 
-Export *beam_jit_handle_unloaded_fun(Process *c_p,
-                                     Eterm *reg,
-                                     int arity,
-                                     Eterm fun_thing) {
-    ErtsCodeIndex code_ix = erts_active_code_ix();
+const Export *beam_jit_handle_unloaded_fun(Process *c_p,
+                                           Eterm *reg,
+                                           int arity,
+                                           Eterm fun_thing) {
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    const ErlFunEntry *fe;
+    const Export *ep;
     Eterm module, args;
     ErlFunThing *funp;
-    ErlFunEntry *fe;
     Module *modp;
-    Export *ep;
 
     funp = (ErlFunThing *)fun_val(fun_thing);
     ASSERT(is_local_fun(funp));
@@ -1365,3 +1369,29 @@ bool beam_jit_is_shallow_boxed(Eterm term) {
         return false;
     }
 }
+
+#ifdef DEBUG
+void beam_jit_invalid_heap_ptr(Process *p, Eterm term) {
+    ASSERT((void *)term <= (void *)p->heap || (void *)term >= (void *)p->hend);
+
+    erts_fprintf(stderr,
+                 "term:       %p\n"
+                 "c_p:        %p\n"
+                 "heap:       %p\n"
+                 "high_water: %p\n"
+                 "hend:       %p\n"
+                 "abandoned:  %p\n",
+                 (void *)term,
+                 p,
+                 p->heap,
+                 p->high_water,
+                 p->hend,
+                 p->abandoned_heap);
+    if (p->old_heap != NULL && p->old_hend != NULL &&
+        (void *)term < (void *)p->old_hend &&
+        (void *)term >= (void *)p->old_heap) {
+        erts_fprintf(stderr, "the term is on the old heap\n");
+    }
+    abort();
+}
+#endif

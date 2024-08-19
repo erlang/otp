@@ -60,13 +60,21 @@
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
 -define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).
 
+-define(UNIQ_NODE_NAME,
+  list_to_atom(?MODULE_STRING ++ "__" ++
+               atom_to_list(?FUNCTION_NAME) ++ "_" ++
+               integer_to_list(erlang:unique_integer([positive])))).
+
 -define(START_NODE(__N__, __A__),
         ?LIB:start_node(__N__, __A__)).
 -define(START_NODE(__N__, __A__, __O__),
         ?LIB:start_node(__N__, __A__, __O__)).
 
--define(STOP_NODE(__N__),        ?LIB:stop_node(__N__)).
-                         
+-define(STOP_NODE(__N__),        ?LIB:stop_node((__N__))).
+
+-define(MQ(),                    ?LIB:mq()).
+-define(MQ(P),                   ?LIB:mq((P))).
+               
 -define(F(FORMAT, ARGS),         ?LIB:f((FORMAT), (ARGS))).
 -define(P(F),                    ?LIB:print(F)).
 -define(P(F,A),                  ?LIB:print(F, A)).
@@ -77,5 +85,8 @@
 
 -define(SLEEP(T),                ct:sleep(T)).
 -define(TT(T),                   ct:timetrap(T)).
+
+-define(TS(),                    ?LIB:ts()).
+-define(TS(TU),                  ?LIB:ts((TU))).
 
 -endif. % -ifdef(kernel_test_lib_hrl).

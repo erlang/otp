@@ -57,7 +57,7 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    try crypto:start() of
+    try application:start(crypto) of
 	ok ->
 	    Config
     catch _:_  ->

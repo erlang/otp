@@ -608,7 +608,7 @@ do_break(void)
 	case '*': /* 
 		   * The asterisk is an read error on windows, 
 		   * where sys_get_key isn't that great in console mode.
-		   * The usual reason for a read error is Ctrl-C. Treat this as
+		   * The usual reason for a read error is Ctrl+C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
 	    erts_exit(0, "");
@@ -639,7 +639,7 @@ do_break(void)
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
 	    return;
 	case 'D':
-	    db_info(ERTS_PRINT_STDOUT, NULL, 1);
+	    db_info(ERTS_PRINT_STDOUT, NULL, true);
 	    return; 
 	case 'k':
 	    process_killer();
@@ -813,9 +813,6 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     FILE* fp = 0;
     LimitedWriterInfo lwi;
     static char* write_buffer;  /* 'static' to avoid a leak warning in valgrind */
-
-    if (ERTS_SOMEONE_IS_CRASH_DUMPING)
-	return;
 
     /* Order all managed threads to block, this has to be done
        first to guarantee that this is the only thread to generate
@@ -1033,7 +1030,7 @@ erl_crash_dump_v(char *file, int line, const char* fmt, va_list args)
     info(to, to_arg); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
 	process_info(to, to_arg); /* Info about each process and port */
-    db_info(to, to_arg, 0);
+    db_info(to, to_arg, false);
     erts_print_bif_timer_info(to, to_arg);
     distribution_info(to, to_arg);
     erts_cbprintf(to, to_arg, "=loaded_modules\n");

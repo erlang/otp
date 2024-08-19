@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -186,4 +186,6 @@ get_context(_Config) ->
     {term,[{integer,"2"}],{operation,"1 + 3"}} = edlin_context:get_context(lists:reverse("receive X -> 2, 1+3")),
     {term,[],{integer,"-1"}} = edlin_context:get_context(lists:reverse("-1")),
     {term,[],{float,"-1.2"}} = edlin_context:get_context(lists:reverse("-1.2")),
+    {term,[],{tuple, "{hej, svej}"}} = edlin_context:get_context(lists:reverse("begin {hej, svej}")),
+    {term,[],[]} = edlin_context:get_context(lists:reverse("begin {hej, svej} = {")),
     ok.

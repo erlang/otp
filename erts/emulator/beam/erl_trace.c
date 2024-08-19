@@ -476,9 +476,9 @@ erts_get_system_seq_tracer(void)
 }
 
 static ERTS_INLINE void
-get_on_spawn_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
-                    Uint32 *default_trace_flags,
-                    ErtsTracer *default_tracer)
+get_new_p_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
+                  Uint32 *default_trace_flags,
+                  ErtsTracer *default_tracer)
 {
     if (!(*default_trace_flags & TRACEE_FLAGS))
 	ERTS_TRACER_CLEAR(default_tracer);
@@ -522,10 +522,10 @@ get_on_spawn_tracing(Uint32 *flagsp, ErtsTracer *tracerp,
 }
 
 static void
-erts_change_on_spawn_tracing(int setflags, Uint32 flags,
-                            const ErtsTracer tracer,
-                            Uint32 *default_trace_flags,
-                            ErtsTracer *default_tracer)
+erts_change_new_p_tracing(int setflags, Uint32 flags,
+                          const ErtsTracer tracer,
+                          Uint32 *default_trace_flags,
+                          ErtsTracer *default_tracer)
 {
     if (setflags)
         *default_trace_flags |= flags;
@@ -534,58 +534,84 @@ erts_change_on_spawn_tracing(int setflags, Uint32 flags,
 
     erts_tracer_update(default_tracer, tracer);
 
-    get_on_spawn_tracing(NULL, NULL, default_trace_flags, default_tracer);
+    get_new_p_tracing(NULL, NULL, default_trace_flags, default_tracer);
 }
 
 void
-erts_change_default_proc_tracing(ErtsTraceSession* session,
-                                 int setflags, Uint32 flags,
-                                 const ErtsTracer tracer)
+erts_change_new_procs_tracing(ErtsTraceSession* session,
+                              int setflags, Uint32 flags,
+                              const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_on_spawn_tracing(
+    was_tracer = session->new_procs_tracer;
+
+    erts_change_new_p_tracing(
         setflags, flags, tracer,
-        &session->on_spawn_proc_trace_flags,
-        &session->on_spawn_proc_tracer);
+        &session->new_procs_trace_flags,
+        &session->new_procs_tracer);
+
+    if (session->new_procs_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_new_procs_trace_cnt, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->new_procs_tracer)) {
+            erts_refc_dec(&erts_new_procs_trace_cnt, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_change_default_port_tracing(ErtsTraceSession* session,
-                                 int setflags, Uint32 flags,
-                                 const ErtsTracer tracer)
+erts_change_new_ports_tracing(ErtsTraceSession* session,
+                              int setflags, Uint32 flags,
+                              const ErtsTracer tracer)
 {
+    Uint32 was_tracer;
+
     erts_rwmtx_rwlock(&sys_trace_rwmtx);
-    erts_change_on_spawn_tracing(
+    was_tracer = session->new_ports_tracer;
+
+    erts_change_new_p_tracing(
         setflags, flags, tracer,
-        &session->on_open_port_trace_flags,
-        &session->on_open_port_tracer);
+        &session->new_ports_trace_flags,
+        &session->new_ports_tracer);
+
+    if (session->new_ports_tracer != was_tracer) {
+        if (ERTS_TRACER_IS_NIL(was_tracer)) {
+            erts_refc_inc(&erts_new_ports_trace_cnt, 1);
+        }
+        else if (ERTS_TRACER_IS_NIL(session->new_ports_tracer)) {
+            erts_refc_dec(&erts_new_ports_trace_cnt, 0);
+        }
+    }
     erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_on_spawn_tracing(ErtsTraceSession* session,
+erts_get_new_proc_tracing(ErtsTraceSession* session,
                           Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_on_spawn_tracing(
+    get_new_p_tracing(
         flagsp, tracerp,
-        &session->on_spawn_proc_trace_flags,
-        &session->on_spawn_proc_tracer);
+        &session->new_procs_trace_flags,
+        &session->new_procs_tracer);
     erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
 void
-erts_get_on_open_port_tracing(ErtsTraceSession* session,
+erts_get_new_port_tracing(ErtsTraceSession* session,
                               Uint32 *flagsp, ErtsTracer *tracerp)
 {
     erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
-    get_on_spawn_tracing(
+    get_new_p_tracing(
         flagsp, tracerp,
-        &session->on_open_port_trace_flags,
-        &session->on_open_port_tracer);
+        &session->new_ports_trace_flags,
+        &session->new_ports_tracer);
     erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
@@ -991,15 +1017,10 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}
  */
 void 
-erts_trace_return_to(Process *p, ErtsCodePtr pc, Eterm session_weak_id)
+erts_trace_return_to(Process *p, ErtsCodePtr pc, ErtsTracerRef *ref)
 {
     const ErtsCodeMFA *cmfa;
     Eterm mfa;
-    ErtsTracerRef *ref;
-
-    ref = get_tracer_ref_from_weak_id(&p->common, session_weak_id);
-    if (!ref)
-        return;
 
     cmfa = erts_find_function_from_pc(pc);
 
@@ -1367,12 +1388,12 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
     ERTS_ASSERT_TRACER_REFS(&p->common);
 }
 
-void save_calls(Process *p, Export *e)
+void save_calls(Process *p, const Export *e)
 {
     if (!ERTS_IS_PROC_SENSITIVE(p)) {
 	struct saved_calls *scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
 	if (scb) {
-	    Export **ct = &scb->ct[0];
+	    const Export **ct = &scb->ct[0];
 	    int len = scb->len;
 
 	    ct[scb->cur] = e;
@@ -3326,7 +3347,12 @@ ErtsTracerRef* get_tracer_ref_from_weak_id(ErtsPTabElementCommon* t_p,
 {
     ErtsTracerRef* ref;
 
-    ASSERT(t_p->tracee.all_trace_flags == erts_sum_all_trace_flags(t_p));
+#ifdef DEBUG
+    {
+        Uint32 all = erts_sum_all_trace_flags(t_p) & ~F_TRACE_RETURN_TO_MARK;
+        ASSERT(all == t_p->tracee.all_trace_flags);
+    }
+#endif
 
     for (ref = t_p->tracee.first_ref; ref; ref = ref->next)
         if (ref->session->weak_id == weak_id)

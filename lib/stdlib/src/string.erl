@@ -1034,11 +1034,8 @@ find(String, SearchPattern, trailing) ->
 -doc """
 Returns a float between `+0.0` and `1.0` representing the
 [Jaro similarity](https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance)
-between the given strings. Strings with many letters in common relative to their
-lengths will score closer to `1.0`.
-
-The Jaro distance between two strings can be calculated with
-`JaroDistance = 1.0-JaroSimilarity`.
+between the given strings. Strings with a higher similarity will score closer
+to `1.0`, with `+0.0` meaning no similarity and `1.0` meaning an exact match.
 
 _Example:_
 
@@ -1052,6 +1049,9 @@ _Example:_
 4> string:jaro_similarity(<<"Édouard"/utf8>>, <<"Claude">>).
 0.5317460317460317
 ```
+
+The Jaro distance between two strings can be calculated with
+`JaroDistance = 1.0 - JaroSimilarity`.
 """.
 -doc(#{title => <<"Functions">>,since => <<"OTP 27.0">>}).
 -spec jaro_similarity(String1, String2) -> Similarity when

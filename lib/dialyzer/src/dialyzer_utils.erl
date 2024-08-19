@@ -562,7 +562,7 @@ core_to_attr_tuples(Core) ->
       %% Starting from Erlang/OTP 26, locally defining a type having
       %% the same name as a built-in type is allowed. Change the tag
       %% from `type` to `user_type` for all such redefinitions.
-      massage_forms(As, sets:new([{version, 2}]))
+      massage_forms(As, sets:new())
   end.
 
 get_core_location([L | _As]) when is_integer(L) -> L;

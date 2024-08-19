@@ -126,7 +126,7 @@ static BIF_RETTYPE db_bif_fail(Process* p, Uint freason,
  * "fixed_tabs": list of all fixed tables for a process
  */
 #ifdef DEBUG
-static int fixed_tabs_find(DbFixation* first, DbFixation* fix);
+static bool fixed_tabs_find(DbFixation* first, DbFixation* fix);
 #endif
 
 static void fixed_tabs_insert(Process* p, DbFixation* fix)
@@ -167,7 +167,7 @@ static void fixed_tabs_delete(Process *p, DbFixation* fix)
 }
 
 #ifdef DEBUG
-static int fixed_tabs_find(DbFixation* first, DbFixation* fix)
+static bool fixed_tabs_find(DbFixation* first, DbFixation* fix)
 {
     DbFixation* p;
 
@@ -193,7 +193,7 @@ static int fixed_tabs_find(DbFixation* first, DbFixation* fix)
 #define ERTS_RBT_PREFIX fixing_procs
 #define ERTS_RBT_T DbFixation
 #define ERTS_RBT_KEY_T Process*
-#define ERTS_RBT_FLAGS_T int
+#define ERTS_RBT_FLAGS_T bool
 #define ERTS_RBT_INIT_EMPTY_TNODE(T)                    \
     do {						\
 	(T)->procs.parent = NULL;			\
@@ -201,9 +201,9 @@ static int fixed_tabs_find(DbFixation* first, DbFixation* fix)
 	(T)->procs.left = NULL;				\
     } while (0)
 #define ERTS_RBT_IS_RED(T)        ((T)->procs.is_red)
-#define ERTS_RBT_SET_RED(T)       ((T)->procs.is_red = 1)
+#define ERTS_RBT_SET_RED(T)       ((T)->procs.is_red = true)
 #define ERTS_RBT_IS_BLACK(T)      (!(T)->procs.is_red)
-#define ERTS_RBT_SET_BLACK(T)     ((T)->procs.is_red = 0)
+#define ERTS_RBT_SET_BLACK(T)     ((T)->procs.is_red = false)
 #define ERTS_RBT_GET_FLAGS(T)     ((T)->procs.is_red)
 #define ERTS_RBT_SET_FLAGS(T, F)  ((T)->procs.is_red = (F))
 #define ERTS_RBT_GET_PARENT(T)    ((T)->procs.parent)
@@ -304,7 +304,7 @@ tid2tab(Eterm tid, Eterm *error_info_p)
     return tb;
 }
 
-static ERTS_INLINE int
+static ERTS_INLINE bool
 is_table_alive(DbTable *tb)
 {
     erts_atomic_t *tbref;
@@ -318,7 +318,7 @@ is_table_alive(DbTable *tb)
     return !!rtb;
 }
 
-static ERTS_INLINE int
+static ERTS_INLINE bool
 is_table_named(DbTable *tb)
 {
     return tb->common.type & DB_NAMED_TABLE;
@@ -413,8 +413,8 @@ extern DbTableMethod db_tree;
 extern DbTableMethod db_catree;
 
 int user_requested_db_max_tabs;
-int erts_ets_realloc_always_moves;
-int erts_ets_always_compress;
+bool erts_ets_realloc_always_moves;
+bool erts_ets_always_compress;
 static int db_max_tabs;
 
 /* 
@@ -429,7 +429,7 @@ static SWord free_fixations_locked(Process* p, DbTable *tb);
 
 static void delete_all_objects_continue(Process* p, DbTable* tb);
 static SWord free_table_continue(Process *p, DbTable *tb, SWord reds);
-static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb);
+static void print_table(fmtfn_t to, void *to_arg, bool show,  DbTable* tb);
 static BIF_RETTYPE ets_select_delete_trap_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
 static BIF_RETTYPE ets_select_replace_1(BIF_ALIST_1);
@@ -674,7 +674,7 @@ static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
     if (tb->common.type & DB_FINE_LOCKED) {
         if (kind == LCK_WRITE) {
             erts_rwmtx_rwlock(&tb->common.rwlock);
-            tb->common.is_thread_safe = 1;
+            tb->common.is_thread_safe = true;
         }
         else {
             erts_rwmtx_rlock(&tb->common.rwlock);
@@ -702,7 +702,7 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
     if (tb->common.type & DB_FINE_LOCKED) {
         if (kind == LCK_WRITE) {
             ASSERT(tb->common.is_thread_safe);
-            tb->common.is_thread_safe = 0;
+            tb->common.is_thread_safe = false;
             erts_rwmtx_rwunlock(&tb->common.rwlock);
         }
         else {
@@ -1782,7 +1782,7 @@ static int ets_insert_2_list_from_p_heap(DbTable* tb, Eterm list)
 
 /* This function is called both as is, and as YCF transformed. */
 static void ets_insert_2_list_destroy_copied_dbterms(DbTableMethod* meth,
-                                                     int compressed,
+                                                     bool compressed,
                                                      void* db_term_list)
 {
     void* lst = db_term_list;
@@ -1795,7 +1795,7 @@ static void ets_insert_2_list_destroy_copied_dbterms(DbTableMethod* meth,
 
 #ifdef YCF_FUNCTIONS
 static void* ets_insert_2_list_copy_term_list(DbTableMethod* meth,
-                                              int compress,
+                                              bool compress,
                                               int keypos,
                                               Eterm list)
 {
@@ -1946,7 +1946,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
     void* db_term_list = NULL;
     void* destroy_list = NULL;
     DbTableMethod* meth = tb->common.meth;
-    int compressed = tb->common.compress;
+    bool compressed = tb->common.compress;
     int keypos = tb->common.keypos;
     Uint32 tb_type = tb->common.type;
     Uint bif_ix = (is_insert_new ? BIF_ets_insert_new_2 : BIF_ets_insert_2);
@@ -2482,13 +2482,13 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     UWord heir_data;
     Uint32 status;
     Sint keypos;
-    int is_named, is_compressed;
-    int is_fine_locked, frequent_read;
-    int number_of_locks;
-    int is_decentralized_counters;
-    int is_decentralized_counters_option;
-    int is_explicit_lock_granularity;
-    int is_write_concurrency_auto;
+    bool is_named, is_compressed;
+    bool is_fine_locked, frequent_read;
+    UWord number_of_locks;
+    bool is_decentralized_counters;
+    int decentralized_counters_option;
+    bool is_explicit_lock_granularity;
+    bool is_write_concurrency_auto;
     int cret;
     DbTableMethod* meth;
 
@@ -2501,17 +2501,17 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 
     status = DB_SET | DB_PROTECTED;
     keypos = 1;
-    is_named = 0;
-    is_fine_locked = 0;
-    frequent_read = 0;
-    is_decentralized_counters = 0;
-    is_decentralized_counters_option = -1;
+    is_named = false;
+    is_fine_locked = false;
+    frequent_read = false;
+    is_decentralized_counters = false;
+    decentralized_counters_option = -1;
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
-    number_of_locks = -1;
-    is_explicit_lock_granularity = 0;
-    is_write_concurrency_auto = 0;
+    number_of_locks = 0;
+    is_explicit_lock_granularity = false;
+    is_write_concurrency_auto = false;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -2525,7 +2525,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status &= ~(DB_SET | DB_BAG | DB_ORDERED_SET | DB_CA_ORDERED_SET);
 	}
 	else if (val == am_ordered_set) {
-            is_decentralized_counters = 1;
+            is_decentralized_counters = true;
 	    status |= DB_ORDERED_SET;
 	    status &= ~(DB_SET | DB_BAG | DB_DUPLICATE_BAG | DB_CA_ORDERED_SET);
 	}
@@ -2538,49 +2538,49 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		}
 		else if (tp[1] == am_write_concurrency) {
                     if (tp[2] == am_auto) {
-                        is_decentralized_counters = 1;
-                        is_write_concurrency_auto = 1;
-                        is_fine_locked = 1;
-                        is_explicit_lock_granularity = 0;
-                        number_of_locks = -1;
+                        is_decentralized_counters = true;
+                        is_write_concurrency_auto = true;
+                        is_fine_locked = true;
+                        is_explicit_lock_granularity = false;
+                        number_of_locks = 0;
                     } else if (tp[2] == am_true) {
                         if (!(status & DB_ORDERED_SET)) {
-                            is_decentralized_counters = 0;
+                            is_decentralized_counters = false;
                         }
-                        is_fine_locked = 1;
-                        is_explicit_lock_granularity = 0;
-                        is_write_concurrency_auto = 0;
-                        number_of_locks = -1;
+                        is_fine_locked = true;
+                        is_explicit_lock_granularity = false;
+                        is_write_concurrency_auto = false;
+                        number_of_locks = 0;
                     } else if (tp[2] == am_false) {
-                        is_fine_locked = 0;
-                        is_explicit_lock_granularity = 0;
-                        is_write_concurrency_auto = 0;
-                        number_of_locks = -1;
+                        is_fine_locked = false;
+                        is_explicit_lock_granularity = false;
+                        is_write_concurrency_auto = false;
+                        number_of_locks = 0;
                     } else if (is_tuple(tp[2])) {
                         Eterm *stp = tuple_val(tp[2]);
-                        Sint number_of_locks_param;
+                        UWord number_of_locks_param;
                         if (arityval(stp[0]) == 2 &&
                             stp[1] == am_debug_hash_fixed_number_of_locks &&
-                            term_to_Sint(stp[2], &number_of_locks_param) &&
+                            term_to_UWord(stp[2], &number_of_locks_param) &&
                             number_of_locks_param >= DB_WRITE_CONCURRENCY_MIN_LOCKS &&
                             number_of_locks_param <= DB_WRITE_CONCURRENCY_MAX_LOCKS) {
 
-                            is_decentralized_counters = 1;
-                            is_fine_locked = 1;
-                            is_explicit_lock_granularity = 1;
-                            is_write_concurrency_auto = 0;
+                            is_decentralized_counters = true;
+                            is_fine_locked = true;
+                            is_explicit_lock_granularity = true;
+                            is_write_concurrency_auto = false;
                             number_of_locks = number_of_locks_param;
 
                         } else break;
                     } else break;
                     if (DB_LOCK_FREE(NULL))
-			is_fine_locked = 0;
+			is_fine_locked = false;
 		}
 		else if (tp[1] == am_read_concurrency) {
 		    if (tp[2] == am_true) {
-			frequent_read = 1;
+			frequent_read = true;
 		    } else if (tp[2] == am_false) {
-			frequent_read = 0;
+			frequent_read = false;
 		    } else break;
 		}
 		else if (tp[1] == am_heir && tp[2] == am_none) {
@@ -2589,9 +2589,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		}
                 else if (tp[1] == am_decentralized_counters) {
 		    if (tp[2] == am_true) {
-			is_decentralized_counters_option = 1;
+			decentralized_counters_option = 1;
 		    } else if (tp[2] == am_false) {
-			is_decentralized_counters_option = 0;
+			decentralized_counters_option = 0;
 		    } else break;
                 }
 		else break;
@@ -2612,11 +2612,11 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	    status &= ~(DB_PROTECTED|DB_PUBLIC);
 	}
 	else if (val == am_named_table) {
-	    is_named = 1;
+	    is_named = true;
             status |= DB_NAMED_TABLE;
 	}
 	else if (val == am_compressed) {
-	    is_compressed = 1;
+	    is_compressed = true;
 	}
 	else if (val == am_set || val == am_protected)
 	    ;
@@ -2627,8 +2627,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     if (is_not_nil(list)) { /* bad opt or not a well formed list */
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (-1 != is_decentralized_counters_option) {
-        is_decentralized_counters = is_decentralized_counters_option;
+    if (decentralized_counters_option != -1) {
+        is_decentralized_counters = decentralized_counters_option;
     }
     if (IS_TREE_TABLE(status) && is_fine_locked && !(status & DB_PRIVATE)) {
         meth = &db_catree;
@@ -2664,7 +2664,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
                 status |=  DB_FINE_LOCKED_AUTO;
             }
 	} else {
-            number_of_locks = -1;
+            number_of_locks = 0;
         }
     }
     else if (IS_TREE_TABLE(status)) {
@@ -4324,7 +4324,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     Sint size = -1;
     Sint memory = -1;
     Eterm table;
-    int is_ctrs_read_result_set = 0;
+    bool is_ctrs_read_result_set = false;
     /*Process* rp = NULL;*/
     /* If/when we implement lockless private tables:
     Eterm owner;
@@ -4338,7 +4338,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
                                                           ERTS_DB_TABLE_NITEMS_COUNTER_ID);
         memory = erts_flxctr_get_snapshot_result_after_trap(counter_read_result,
                                                             ERTS_DB_TABLE_MEM_COUNTER_ID);
-        is_ctrs_read_result_set = 1;
+        is_ctrs_read_result_set = true;
     } else {
         table = BIF_ARG_1;
     }
@@ -4393,7 +4393,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
         } else {
             size = res.result[ERTS_DB_TABLE_NITEMS_COUNTER_ID];
             memory = res.result[ERTS_DB_TABLE_MEM_COUNTER_ID];
-            is_ctrs_read_result_set = 1;
+            is_ctrs_read_result_set = true;
         }
     }
     for (i = 0; i < sizeof(fields)/sizeof(Eterm); i++) {
@@ -5423,7 +5423,7 @@ static Eterm table_info(ErtsHeapFactory *hf, DbTable* tb, Eterm What)
      * For debugging purposes
      */
     else if (What == am_data) {
-	print_table(ERTS_PRINT_STDOUT, NULL, 1, tb);
+	print_table(ERTS_PRINT_STDOUT, NULL, true, tb);
 	ret = am_true;
     } else if (ERTS_IS_ATOM_STR("fixed",What)) {
 	if (IS_FIXED(tb))
@@ -5527,7 +5527,7 @@ static Eterm table_info(ErtsHeapFactory *hf, DbTable* tb, Eterm What)
     return ret;
 }
 
-static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
+static void print_table(fmtfn_t to, void *to_arg, bool show,  DbTable* tb)
 {
     Eterm tid;
     ErtsHeapFactory hf;
@@ -5565,7 +5565,7 @@ static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 typedef struct {
     fmtfn_t to;
     void *to_arg;
-    int show;
+    bool show;
 } ErtsPrintDbInfo;
 
 static void
@@ -5577,7 +5577,7 @@ db_info_print(DbTable *tb, void *vpdbip)
     print_table(pdbip->to, pdbip->to_arg, pdbip->show, tb);
 }
 
-void db_info(fmtfn_t to, void *to_arg, int show)    /* Called by break handler */
+void db_info(fmtfn_t to, void *to_arg, bool show)    /* Called by break handler */
 {
     ErtsPrintDbInfo pdbi;
 
@@ -5585,7 +5585,7 @@ void db_info(fmtfn_t to, void *to_arg, int show)    /* Called by break handler *
     pdbi.to_arg = to_arg;
     pdbi.show = show;
 
-    erts_db_foreach_table(db_info_print, &pdbi, !0);
+    erts_db_foreach_table(db_info_print, &pdbi, true);
 }
 
 Uint
@@ -5598,7 +5598,7 @@ erts_get_ets_misc_mem_size(void)
 
 /* SMP Note: May only be used when system is locked */
 void
-erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg, int alive_only)
+erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg, bool alive_only)
 {
     int ix;
 

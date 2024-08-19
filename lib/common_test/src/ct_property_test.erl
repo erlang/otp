@@ -93,9 +93,17 @@ prop_ftp() ->
         ]).
 
 %% Type declarations
+-type arguments() :: [term()].
+-type function_name() :: atom().
+-type symbolic_var() :: {'var', pos_integer()}.
+-type symbolic_call() :: {'call', module(), function_name(), arguments()}.
+-type symbolic_state() :: term().
 -type dynamic_state()     :: term().
--type command()           :: term().
+-type set_command() :: {'set', symbolic_var(), symbolic_call()}.
+-type init_command() :: {'init', symbolic_state()}.
+-type command()           :: set_command() | init_command().
 -type command_list()      :: [command()].
+-type parallel_testcase() :: {command_list(), [command_list()]}.
 -type history()           :: [term()].
 -type statem_result()     :: 'ok' | term().
 
@@ -233,7 +241,7 @@ quickcheck(Property, Config) ->
 -doc(#{equiv => present_result(Module, Cmds, Triple, Config, []), since => <<"OTP 22.3">>}).
 -spec present_result(Module, Cmds, Triple, Config) -> boolean()
               when Module :: module(),
-                   Cmds :: command() | command_list(),
+                   Cmds :: command_list() | parallel_testcase(),
                    Triple :: {H, Sf, Result},
                    H :: history(),
                    Sf :: dynamic_state(),
@@ -315,7 +323,7 @@ The default `StatisticsSpec` is:
 -doc(#{since => <<"OTP 22.3">>}).
 -spec present_result(Module, Cmds, Triple, Config, Options0) -> boolean()
               when Module :: module(),
-                   Cmds :: command() | command_list(),
+                   Cmds :: command_list() | parallel_testcase(),
                    Triple :: {H, Sf, Result},
                    H :: history(),
                    Sf :: dynamic_state(),
@@ -361,6 +369,7 @@ print_frequency() ->
 print_frequency_ranges() ->
     print_frequency_ranges([{ngroups,10}]).
 
+-doc false.
 print_frequency_ranges(Options0) ->
     fun([]) ->
             io_lib:format('Empty list!~n',[]);
@@ -373,6 +382,45 @@ print_frequency_ranges(Options0) ->
                     ct:pal("~p:~p ~p:~p~n~p~n~p",[?MODULE,?LINE,C,E,S,L])
             end
     end.
+
+-doc """
+Returns a list of commands (function calls) generated in the `Cmnd` sequence,
+without Module, Arguments and other details.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP @OTP-19148@"}.
+-spec cmnd_names(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [function_name()].
+cmnd_names(Cs) -> traverse_commands(fun cmnd_name/1, Cs).
+cmnd_name(L) ->  [F || {set,_Var,{call,_Mod,F,_As}} <- L].
+    
+-doc """
+Returns number of command calls in a test case.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP @OTP-19148@"}.
+-spec num_calls(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [non_neg_integer()].
+num_calls(Cs) -> traverse_commands(fun num_call/1, Cs).
+num_call(L) -> [length(L)].
+    
+-doc """
+Returns a list with information about sequential and parallel parts.
+
+For more information see: `present_result/5`.
+""".
+-doc #{since => "OTP @OTP-19148@"}.
+-spec sequential_parallel(Cs) -> Result when
+    Cs :: command_list() | parallel_testcase(),
+    Result :: [atom()].
+sequential_parallel(Cs) ->
+    traverse_commands(fun(L) -> dup_module(L, sequential) end,
+		      fun(L) -> [dup_module(L1, mkmod("parallel",num(L1,L))) || L1<-L] end,
+		      Cs).
 
 %%%================================================================
 %%%
@@ -483,19 +531,6 @@ do_present_result(Module, Cmds, H, Sf, Result, _Config, Options) ->
     Result == ok. % Proper dislikes non-boolean results while eqc treats non-true as false.
 
 %%%================================================================
--doc false.
-cmnd_names(Cs) -> traverse_commands(fun cmnd_name/1, Cs).
-cmnd_name(L) ->  [F || {set,_Var,{call,_Mod,F,_As}} <- L].
-    
--doc false.
-num_calls(Cs) -> traverse_commands(fun num_call/1, Cs).
-num_call(L) -> [length(L)].
-    
--doc false.
-sequential_parallel(Cs) ->
-    traverse_commands(fun(L) -> dup_module(L, sequential) end,
-		      fun(L) -> [dup_module(L1, mkmod("parallel",num(L1,L))) || L1<-L] end,
-		      Cs).
 dup_module(L, ModName) -> lists:duplicate(length(L), ModName).
 mkmod(PfxStr,N) -> list_to_atom(PfxStr++"_"++integer_to_list(N)).
     

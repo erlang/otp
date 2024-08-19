@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2000-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -52,14 +52,12 @@ undefined representation. One difference is that while this module considers two
 elements as different if they do not match (`=:=`), `ordsets` considers two
 elements as different if and only if they do not compare equal (`==`).
 
-Erlang/OTP 24.0 introduced a new internal representation for sets which is more
-performant. Developers can use this new representation by passing the
-`{version, 2}` flag to `new/1` and `from_list/2`, such as
-`sets:new([{version, 2}])`. This new representation will become the default in
-future Erlang/OTP versions. Functions that work on two sets, such as `union/2`
-and similar, will work with sets of different versions. In such cases, there is
-no guarantee about the version of the returned set. Explicit conversion from the
-old version to the new one can be done with
+Erlang/OTP 24.0 introduced a new more performant representation for sets which
+has become the default in Erlang/OTP 28. Developers can use the old representation
+by passing the `{version, 1}` flag to `new/1` and `from_list/2`. Functions that
+work on two sets, such as `union/2`, will work with sets of different
+versions. In such cases, there is no guarantee about the version of the returned set.
+Explicit conversion from the old version to the new one can be done with
 `sets:from_list(sets:to_list(Old), [{version,2}])`.
 
 ## Compatibility
@@ -167,19 +165,19 @@ representations.
 %% new() -> Set
 -doc "Returns a new empty set.".
 -spec new() -> set(none()).
-new() ->
-    Empty = mk_seg(?seg_size),
-    #set{empty = Empty, segs = {Empty}}.
+new() -> #{}.
 
 -doc "Returns a new empty set at the given version.".
 -doc(#{since => <<"OTP 24.0">>}).
 -spec new([{version, 1..2}]) -> set(none()).
 new([{version, 2}]) ->
-    #{};
+    new();
 new(Opts) ->
-    case proplists:get_value(version, Opts, 1) of
-        1 -> new();
-        2 -> new([{version, 2}])
+    case proplists:get_value(version, Opts, 2) of
+        1 ->
+            Empty = mk_seg(?seg_size),
+            #set{empty = Empty, segs = {Empty}};
+        2 -> new()
     end.
 
 %% from_list([Elem]) -> Set.
@@ -189,7 +187,7 @@ new(Opts) ->
       List :: [Element],
       Set :: set(Element).
 from_list(Ls) ->
-    lists:foldl(fun (E, S) -> add_element(E, S) end, new(), Ls).
+    maps:from_keys(Ls, ?VALUE).
 
 -doc "Returns a set of the elements in `List` at the given version.".
 -doc(#{since => <<"OTP 24.0">>}).
@@ -197,11 +195,11 @@ from_list(Ls) ->
       List :: [Element],
       Set :: set(Element).
 from_list(Ls, [{version, 2}]) ->
-    maps:from_keys(Ls, ?VALUE);
+    from_list(Ls);
 from_list(Ls, Opts) ->
-    case proplists:get_value(version, Opts, 1) of
-        1 -> from_list(Ls);
-        2 -> from_list(Ls, [{version, 2}])
+    case proplists:get_value(version, Opts, 2) of
+        1 -> lists:foldl(fun (E, S) -> add_element(E, S) end, new([{version, 1}]), Ls);
+        2 -> from_list(Ls)
     end.
 
 %%------------------------------------------------------------------------------
@@ -259,7 +257,7 @@ is_equal(S1, S2) ->
     end.
 
 canonicalize_v2(S) ->
-    from_list(to_list(S), [{version, 2}]).
+    from_list(to_list(S)).
 
 %% to_list(Set) -> [Elem].
 %%  Return the elements in Set as a list.
@@ -626,7 +624,7 @@ map(F, #{}=D) when is_function(F, 1) ->
     maps:from_keys([F(K) || K := _ <- D], ?VALUE);
 map(F, #set{}=D) when is_function(F, 1) ->
     fold(fun(E, Acc) -> add_element(F(E), Acc) end,
-         sets:new([{version, 1}]),
+         new([{version, 1}]),
          D).
 
 %% filtermap(Fun, Set) -> Set.
@@ -647,7 +645,7 @@ filtermap(F, #set{}=D) when is_function(F, 1) ->
                  false -> Acc
              end
          end,
-         sets:new([{version, 1}]),
+         new([{version, 1}]),
          D).
 
 %% get_slot(Hashdb, Key) -> Slot.
@@ -815,7 +813,7 @@ expand_segs({B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11,B12,B13,B14,B15,B16}, Empty) ->
      Empty,Empty,Empty,Empty,Empty,Empty,Empty,Empty,
      Empty,Empty,Empty,Empty,Empty,Empty,Empty,Empty};
 expand_segs(Segs, Empty) ->
-    list_to_tuple(tuple_to_list(Segs) 
+    list_to_tuple(tuple_to_list(Segs)
     ++ lists:duplicate(tuple_size(Segs), Empty)).
 
 -spec contract_segs(segs(E)) -> segs(E).

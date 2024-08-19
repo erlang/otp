@@ -74,7 +74,7 @@ ERTS_GLB_INLINE Eterm* move_boxed(Eterm *ERTS_RESTRICT ptr, Eterm hdr, Eterm **h
         }
         break;
     case FUN_SUBTAG:
-        nelts += fun_env_size((ErlFunThing*)(ptr));
+        nelts += fun_num_free((ErlFunThing*)(ptr));
         break;
     }
 

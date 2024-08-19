@@ -99,7 +99,7 @@ int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
                         Eterm *ret, DbTreeStack* stack,
                         Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
-                       int key_clash_fail, DbTableTree *stack_container);
+                       bool key_clash_fail, DbTableTree *stack_container);
 int db_get_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
                        Eterm *ret, DbTableTree *stack_container);
 int db_get_element_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
@@ -168,19 +168,19 @@ void db_print_tree_common(fmtfn_t to, void *to_arg,
 void db_foreach_offheap_tree_common(TreeDbTerm *root,
                                     void (*func)(ErlOffHeap *, void *),
                                     void * arg);
-int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
+bool db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  Eterm key, Eterm obj, DbUpdateHandle* handle,
                                  DbTableTree *stack_container);
 void db_finalize_dbterm_tree_common(int cret,
                                     DbUpdateHandle *handle,
                                     TreeDbTerm **root,
                                     DbTableTree *stack_container);
-void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj);
+void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj);
 void* db_dbterm_list_append_tree_common(void* last_term, void* db_term);
 void* db_dbterm_list_remove_first_tree_common(void **list);
 int db_put_dbterm_tree_common(DbTableCommon *tb, TreeDbTerm **root, TreeDbTerm *value_to_insert,
-                              int key_clash_fail, DbTableTree *stack_container);
-void db_free_dbterm_tree_common(int compressed, void* obj);
+                              bool key_clash_fail, DbTableTree *stack_container);
+void db_free_dbterm_tree_common(bool compressed, void* obj);
 Eterm db_get_dbterm_key_tree_common(DbTable* tb, void* db_term);
 Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 

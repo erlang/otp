@@ -47,7 +47,9 @@ pred.independent_moves(Src1, Dst1, Src2, Dst2) {
 }
 
 pred.needs_nif_padding() {
-    Export *e = erts_active_export_entry(S->module, S->function, S->arity);
+    const Export *e = erts_active_export_entry(S->module,
+                                               S->function,
+                                               S->arity);
 
     if (e != NULL && e->bif_number != -1) {
         return 1;

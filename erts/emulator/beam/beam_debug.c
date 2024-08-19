@@ -346,10 +346,10 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	}
     } else if (is_tuple(addr)) {
 	ErtsCodeIndex code_ix;
+	const Export *ep;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
-	Export* ep;
 	Sint arity;
 	int n;
 
@@ -687,15 +687,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                     Uint bits = ap[-1];
                     Uint bytes = (bits+7)/8;
                     byte* str = (byte *) *ap;
-                    print_byte_string(to, to_arg, str, bytes);
-                }
-                break;
-	    case op_bs_put_string_WW:
-                if (ap - first_arg == 0) {
-                    erts_print(to, to_arg, "%d", *ap);
-                } else {
-                    Uint bytes = ap[-1];
-                    byte* str = (byte *) ap[0];
                     print_byte_string(to, to_arg, str, bytes);
                 }
                 break;

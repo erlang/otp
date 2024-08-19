@@ -23,7 +23,7 @@ Default formatter for Logger.
 
 Each Logger handler has a configured formatter specified as a module and a
 configuration term. The purpose of the formatter is to translate the log events
-to a final printable string ([`unicode:chardata()` ](`t:unicode:chardata/0`))
+to a final printable string ([`unicode:chardata()`](`t:unicode:chardata/0`))
 which can be written to the output device of the handler. See sections
 [Handlers](logger_chapter.md#handlers) and
 [Formatters](logger_chapter.md#formatters) in the Kernel User's Guide for more
@@ -279,7 +279,7 @@ The log event is processed as follows:
 
 - If the message is on report form, it is converted to `{Format,Args}` by
   calling the report callback. See section
-  [Log Message](logger_chapter.md#log_message) in the Kernel User's Guide for
+  [Log Message](logger_chapter.md#log-message) in the Kernel User's Guide for
   more information about report callbacks and valid forms of log messages.
 - The message size is limited according to the values of configuration
   parameters [`chars_limit`](`m:logger_formatter#chars_limit`) and

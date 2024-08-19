@@ -29,12 +29,12 @@ be added to Logger, and each instance prints logs to
 The handler has an overload protection mechanism that keeps the handler process
 and the Kernel application alive during high loads of log events. How overload
 protection works, and how to configure it, is described in the
-[`User's Guide` ](logger_chapter.md#overload_protection).
+[`User's Guide`](logger_chapter.md#overload_protection).
 
 To add a new instance of the standard handler, use
-[`logger:add_handler/3` ](`logger:add_handler/3`). The handler configuration
+[`logger:add_handler/3`](`logger:add_handler/3`). The handler configuration
 argument is a map which can contain general configuration parameters, as
-documented in the [`User's Guide` ](logger_chapter.md#handler_configuration),
+documented in the [`User's Guide`](logger_chapter.md#handler-configuration),
 and handler specific parameters. The specific data is stored in a sub map with
 the key `config`, and can contain the following parameters:
 
@@ -139,7 +139,7 @@ the key `config`, and can contain the following parameters:
 Other configuration parameters exist, to be used for customizing the overload
 protection behaviour. The same parameters are used both in the standard handler
 and the disk_log handler, and are documented in the
-[`User's Guide` ](logger_chapter.md#overload_protection).
+[`User's Guide`](logger_chapter.md#overload_protection).
 
 Notice that if changing the configuration of the handler in runtime, the `type`,
 `file`, or `modes` parameters must not be modified.

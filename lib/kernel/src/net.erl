@@ -29,14 +29,16 @@ This module provides an API for the network interface.
 %% Administrative and utility functions
 -export([
 	 info/0,
-         command/1
+         debug/1
         ]).
 
 -export([
          gethostname/0,
-         getnameinfo/1, getnameinfo/2,
-         getaddrinfo/1, getaddrinfo/2,
-         getifaddrs/0,  getifaddrs/1, getifaddrs/2,
+         getnameinfo/1,   getnameinfo/2,
+         getaddrinfo/1,   getaddrinfo/2,
+         getifaddrs/0,    getifaddrs/1, getifaddrs/2,
+         getservbyname/1, getservbyname/2,
+         getservbyport/1, getservbyport/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -111,10 +113,12 @@ Interface address filtering selector.
 
 - **default** - Interfaces with address family `inet` _or_ `inet6`
 
-- **inet | inet6 | packet** - Interfaces with _only_ the specified address
-  family
+- **inet | inet6 | packet | link** - Interfaces with _only_ the specified
+ address family
+- **hwaddr** - Interfaces with address family `packet` _or_ `link`
 """.
--type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
+-type ifaddrs_filter()     :: all | default | inet | inet6 |
+                              packet | link | hwaddr |
                               ifaddrs_filter_map() |
                               ifaddrs_filter_fun().
 
@@ -123,6 +127,10 @@ Interface address filtering selector map.
 
 The `family` field can only have the (above) specified values
 (and not all the values of socket:domain()).
+It can also be a list of values, to cover the situation when
+any of the specified families are accepted.
+For example, family can be set to `[inet,inet6]` if either `inet` or `inet6`
+is accepted.
 
 The use of the `flags` field is that any flag provided must exist for the
 interface.
@@ -131,8 +139,9 @@ For example, if `family` is set to `inet` and `flags` to
 `[broadcast, multicast]` only interfaces with address family `inet`
 and the flags `broadcast` and `multicast` will be listed.
 """.
--type ifaddrs_filter_map() :: #{family := default | local |
-                                inet | inet6 | packet | all,
+-type ifaddrs_filter_map() :: #{family := all | default |
+                                local | inet | inet6 | packet | link |
+                                [local | inet | inet6 | packet | link],
                                 flags  := any | [ifaddrs_flag()]}.
 
 -doc """
@@ -165,13 +174,13 @@ net:getifaddrs(
 %% The following (ext) flags has been removed
 %% (as they are deprecated by later version of gcc):
 %%    idn_allow_unassigned | idn_use_std3_ascii_rules.
--type name_info_flag_ext()      :: idn.
--type name_info()               :: #{host    := string(),
-                                     service := string()}.
--type address_info()            :: #{family   := socket:domain(),
-                                     socktype := socket:type(),
-                                     protocol := socket:protocol(),
-                                     address  := socket:sockaddr()}.
+-type name_info_flag_ext() :: idn.
+-type name_info()    :: #{host    := string(),
+                          service := string()}.
+-type address_info() :: #{family   := socket:domain(),
+                          socktype := any | socket:type() | integer(),
+                          protocol := socket:protocol(),
+                          address  := socket:sockaddr()}.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -220,10 +229,15 @@ sleep(T) -> receive after T -> ok end.
 info() ->
     prim_net:info().
 
+
 -doc false.
--spec command(Cmd :: term()) -> term().
-command(Cmd) ->
-    prim_net:command(Cmd).
+-spec debug(D :: boolean()) -> 'ok'.
+%%
+debug(D) when is_boolean(D) ->
+    prim_net:debug(D);
+debug(D) ->
+    erlang:error(badarg, [D]).
+
 
 %% ===========================================================================
 %%
@@ -320,6 +334,7 @@ getaddrinfo(Host, Service)
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
     prim_net:getaddrinfo(Host, Service).
 
+
 %% ===========================================================================
 %%
 %% getifaddrs - Get interface addresses
@@ -413,6 +428,10 @@ getifaddrs_filter_map(inet6) ->
     getifaddrs_filter_map_inet6();
 getifaddrs_filter_map(packet) ->
     getifaddrs_filter_map_packet();
+getifaddrs_filter_map(link) ->
+    getifaddrs_filter_map_link();
+getifaddrs_filter_map(hwaddr) ->
+    getifaddrs_filter_map_hwaddr();
 getifaddrs_filter_map(FilterMap) when is_map(FilterMap) ->
     maps:merge(getifaddrs_filter_map_default(), FilterMap).
 
@@ -431,29 +450,48 @@ getifaddrs_filter_map_inet6() ->
 getifaddrs_filter_map_packet() ->
     #{family => packet, flags => any}.
 
+getifaddrs_filter_map_link() ->
+    #{family => link, flags => any}.
+
+getifaddrs_filter_map_hwaddr() ->
+    #{family => [link,packet], flags => any}.
+
 -compile({nowarn_unused_function, getifaddrs_filter/2}).
 
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
   when (FFamily =:= default) andalso
-       ((Family =:= inet) orelse (Family =:= inet6)) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet) andalso (Family =:= inet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= inet6) andalso (Family =:= inet6) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{addr := #{family := Family}, flags := Flags} = _Entry)
-  when (FFamily =:= packet) andalso (Family =:= packet) ->
-    getifaddrs_filter_flags(FFlags, Flags);
-getifaddrs_filter(#{family := FFamily, flags := FFlags},
-                  #{flags := Flags} = _Entry)
+       ((EFamily =:= inet) orelse (EFamily =:= inet6)) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet) andalso (EFamily =:= inet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= inet6) andalso (EFamily =:= inet6) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= packet) andalso (EFamily =:= packet) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when (FFamily =:= link) andalso (EFamily =:= link) ->
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
+                  #{flags := EFlags} = _Entry)
   when (FFamily =:= all) ->
-    getifaddrs_filter_flags(FFlags, Flags);
+    getifaddrs_filter_flags(FFlags, EFlags);
+getifaddrs_filter(#{family := FFams, flags := FFlags} = _FilterMap,
+                  #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
+  when is_list(FFams) ->
+    case lists:member(EFamily, FFams) of
+    	 true ->
+    	      getifaddrs_filter_flags(FFlags, EFlags);
+	 false ->
+	       false
+     end;
 getifaddrs_filter(_Filter, _Entry) ->
     false.
 
@@ -893,6 +931,80 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
       addr   => {BA1, BA2, BA3, BA4},
       port   => 0}.    
 
+
+%% ===========================================================================
+%%
+%% getservbyname - Get service by name
+%%
+%% Get the port number for the named service.
+%%
+
+-doc(#{equiv => getservbyname(Name, any)}).
+-doc(#{since => <<"OTP @OTP-19101@">>}).
+-spec getservbyname(Name) ->
+          {ok, PortNumber} | {error, Reason} when
+      Name       :: atom() | string(),
+      PortNumber :: socket:port_number(),
+      Reason     :: term().
+getservbyname(Name) ->
+    getservbyname(Name, any).
+
+-doc """
+Get service by name.
+
+This function is used to get the port number of the specified protocol
+for the named service.
+""".
+-doc(#{since => <<"OTP @OTP-19101@">>}).
+-spec getservbyname(Name, Protocol) ->
+          {ok, PortNumber} | {error, Reason} when
+      Name       :: atom() | string(),
+      PortNumber :: socket:port_number(),
+      Protocol   :: any | socket:protocol(),
+      Reason     :: term().
+getservbyname(Name, Protocol)
+  when is_atom(Name) ->
+    getservbyname(atom_to_list(Name), Protocol);
+getservbyname(Name, Protocol)
+  when is_list(Name) andalso is_atom(Protocol) ->
+    prim_net:getservbyname(Name, atom_to_list(Protocol)).
+
+
+%% ===========================================================================
+%%
+%% getservbyport - Get service by name
+%%
+%% Get service name for the given port number.
+%%
+
+-doc(#{equiv => getservbyport(PortNumber, any)}).
+-doc(#{since => <<"OTP @OTP-19101@">>}).
+-spec getservbyport(PortNumber) ->
+          {ok, Name} | {error, Reason} when
+      PortNumber :: socket:port_number(),
+      Name       :: atom() | string(),
+      Reason     :: term().
+getservbyport(PortNumber) ->
+    getservbyport(PortNumber, any).
+
+-doc """
+Get service by name.
+
+This function is used to get the service name of the specified protocol
+for the given port number.
+""".
+-doc(#{since => <<"OTP @OTP-19101@">>}).
+-spec getservbyport(PortNumber, Protocol) ->
+          {ok, Name} | {error, Reason} when
+      PortNumber :: socket:port_number(),
+      Protocol   :: any | socket:protocol(),
+      Name       :: atom() | string(),
+      Reason     :: term().
+getservbyport(PortNumber, Protocol)
+  when is_integer(PortNumber) andalso is_atom(Protocol) ->
+    prim_net:getservbyport(PortNumber, atom_to_list(Protocol)).
+
+
 %% ===========================================================================
 %%
 %% if_name2index - Mappings between network interface names and indexes:
@@ -920,6 +1032,7 @@ if_name2index(Name) when is_list(Name) ->
                     erlang:raise(C, E, S)
             end
     end.
+
 
 %% ===========================================================================
 %%

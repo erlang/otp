@@ -21,6 +21,43 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Check  for TLS-1.3 support should check minimum requirements.
+
+  Own Id: OTP-19094 Aux Id: [GH-8489]
+
+- If both TLS-1.3 and TLS-1.2 is supported
+  and TLS-1.2 negotiated convert TLS-1.3 ECDSA schemes to TLS-1.2 hash and signature pairs for increased interoperability.
+
+  Own Id: OTP-19107 Aux Id: [GH-8376]
+
+- TLS-1.3 negotiation now uses SNI based options correctly instead of ignoring them.
+
+  Own Id: OTP-19140
+
+[GH-8489]: https://github.com/erlang/otp/issues/8489
+[GH-8376]: https://github.com/erlang/otp/issues/8376
+
+### Improvements and New Features
+
+- Make it easier to distinguish between a invalid signature and unsupported signature.
+
+  Own Id: OTP-19091
+
+- Enhance ALERT logs to help understand what causes the alert.
+
+  Own Id: OTP-19092 Aux Id: [GH-8482]
+
+- When the default value for signature_algs is used, default the signature_algs_cert to the default value + rsa_pkcs1_sha1 to allow this algorithms for certificates but not for the TLS protocol. This is for better interoperability.  If signature_algs is set explicitly signature_algs_cert must also be set explicitly if they should be different.
+
+  Own Id: OTP-19152 Aux Id: [GH-8588]
+
+[GH-8482]: https://github.com/erlang/otp/issues/8482
+[GH-8588]: https://github.com/erlang/otp/issues/8588
+
 ## SSL 11.2
 
 ### Fixed Bugs and Malfunctions
@@ -96,6 +133,37 @@ This document describes the changes made to the SSL application.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
+
+## SSL 11.1.4.2
+
+### Improvements and New Features
+
+* When the default value for signature_algs is used, default the signature_algs_cert to the default value + rsa_pkcs1_sha1 to allow this algorithms for certificates but not for the TLS protocol. This is for better interoperability. If signature_algs is set explicitly signature_algs_cert must also be set explicitly if they should be different.
+
+  Own Id: OTP-19152 Aux Id: GH-8588
+
+## SSL 11.1.4.1
+
+### Fixed Bugs and Malfunctions
+
+* Check for TLS-1.3 support should check minimum requirements.
+
+  Own Id: OTP-19094 Aux Id: GH-8489
+* If both TLS-1.3 and TLS-1.2 is supported and TLS-1.2 negotiated convert TLS-1.3 ECDSA schemes to TLS-1.2 hash and signature pairs for increased interoperability.
+
+  Own Id: OTP-19107 Aux Id: GH-8376
+* TLS-1.3 negotiation now uses SNI based options correctly instead of ignoring them.
+
+  Own Id: OTP-19140
+
+### Improvements and New Features
+
+* Make it easier to distinguish between a invalid signature and unsupported signature.
+
+  Own Id: OTP-19091
+* Enhance ALERT logs to help understand what causes the alert.
+
+  Own Id: OTP-19092 Aux Id: GH-8482
 
 ## SSL 11.1.4
 
@@ -405,6 +473,14 @@ This document describes the changes made to the SSL application.
   possible values. Also make sha224 a non default value.
 
   Own Id: OTP-18572
+
+## SSL 10.9.1.5
+
+### Fixed Bugs and Malfunctions
+
+* TLS-1.3 negotiation now uses SNI based options correctly instead of ignoring them.
+
+  Own Id: OTP-19140
 
 ## SSL 10.9.1.4
 

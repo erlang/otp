@@ -573,11 +573,13 @@ handle_error(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 static ErtsCodePtr
 next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
-    ErtsCodePtr return_to_trace_address = NULL;
+    ErtsCodePtr return_address = NULL;
     int have_return_to_trace = 0;
-    Eterm session_weak_id = NIL;
     Eterm *ptr, *prev;
     ErtsCodePtr handler;
+#ifdef DEBUG
+    ErtsCodePtr dbg_return_to_trace_address = NULL;
+#endif
 
     ptr = prev = c_p->stop;
     ASSERT(ptr < STACK_START(c_p));
@@ -592,7 +594,6 @@ next_catch(Process* c_p, Eterm *reg) {
 
             ptr++;
         } else if (is_CP(val)) {
-            ErtsCodePtr return_address;
             const Eterm *frame;
 
             prev = ptr;
@@ -614,45 +615,49 @@ next_catch(Process* c_p, Eterm *reg) {
             } else if (BeamIsReturnCallAccTrace(return_address)) {
                 ptr += CP_SIZE + BEAM_RETURN_CALL_ACC_TRACE_FRAME_SZ;
             } else if (BeamIsReturnToTrace(return_address)) {
-                have_return_to_trace = 1; /* Record next cp */
-                session_weak_id = frame[0];
-                return_to_trace_address = NULL;
-
+                ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
+                                                                 frame[0]);
+                if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
+                    ref->flags |= F_TRACE_RETURN_TO_MARK;
+                    have_return_to_trace = 1;
+                }
                 ptr += CP_SIZE + BEAM_RETURN_TO_TRACE_FRAME_SZ;
             } else {
-                /* This is an ordinary call frame: if the previous frame was a
-                 * return_to trace we should record this CP as a return_to
-                 * candidate. */
-                if (have_return_to_trace) {
-                    return_to_trace_address = return_address;
-                    have_return_to_trace = 0;
-                } else {
-                    return_to_trace_address = NULL;
-                }
-
+            #ifdef DEBUG
+                dbg_return_to_trace_address = return_address;
+            #endif
                 ptr += CP_SIZE;
             }
         } else {
             ptr++;
         }
     }
-
+    if (have_return_to_trace) {
+        ErtsTracerRef *ref;
+        for (ref = c_p->common.tracee.first_ref; ref; ref = ref->next) {
+            ref->flags &= ~F_TRACE_RETURN_TO_MARK;
+        }
+    }
     return NULL;
 
  found_catch:
     ASSERT(ptr < STACK_START(c_p));
     c_p->stop = prev;
 
-    if (return_to_trace_address) {
-        ErtsTracerRef *ref = get_tracer_ref_from_weak_id(&c_p->common,
-                                                         session_weak_id);
-        if (ref && IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO)) {
-            /* The stackframe closest to the catch contained an
-             * return_to_trace entry, so since the execution now
-             * continues after the catch, a return_to trace message
-             * would be appropriate.
-             */
-            erts_trace_return_to(c_p, return_to_trace_address, session_weak_id);
+    if (have_return_to_trace) {
+        ErtsTracerRef *ref;
+        /*
+         * Execution now continues after catching exception from
+         * return_to traced function(s).
+         */
+        ASSERT(return_address == dbg_return_to_trace_address);
+
+        for (ref = c_p->common.tracee.first_ref; ref; ref = ref->next) {
+            if (ref->flags & F_TRACE_RETURN_TO_MARK) {
+                ASSERT(IS_SESSION_TRACED_FL(ref, F_TRACE_RETURN_TO));
+                erts_trace_return_to(c_p, return_address, ref);
+                ref->flags &= ~F_TRACE_RETURN_TO_MARK;
+            }
         }
     }
 
@@ -1270,11 +1275,13 @@ build_stacktrace(Process* c_p, Eterm exc) {
     return res;
 }
 
-Export*
-call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
+const Export *call_error_handler(Process* p,
+                                 const ErtsCodeMFA *mfa,
+                                 Eterm* reg,
+                                 Eterm func)
 {
+    const Export* ep;
     Eterm* hp;
-    Export* ep;
     int arity;
     Eterm args;
     Uint sz;
@@ -1318,10 +1325,10 @@ call_error_handler(Process* p, const ErtsCodeMFA *mfa, Eterm* reg, Eterm func)
     return ep;
 }
 
-static Export*
+static const Export *
 apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, Eterm* reg)
 {
-    Export* ep;
+    const Export *ep;
 
     /*
      * Find the export table index for the error handler. Return NULL if
@@ -1359,7 +1366,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
 }
 
 static ERTS_INLINE void
-apply_bif_error_adjustment(Process *p, Export *ep,
+apply_bif_error_adjustment(Process *p, const Export *ep,
                            Eterm *reg, Uint arity,
                            ErtsCodePtr I, Uint stack_offset)
 {
@@ -1447,11 +1454,11 @@ apply_bif_error_adjustment(Process *p, Export *ep,
     }
 }
 
-Export*
+const Export *
 apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
 {
+    const Export *ep;
     int arity;
-    Export* ep;
     Eterm tmp;
     Eterm module = reg[0];
     Eterm function = reg[1];
@@ -1547,11 +1554,11 @@ apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint stack_offset)
     return ep;
 }
 
-Export*
+const Export *
 fixed_apply(Process* p, Eterm* reg, Uint arity,
             ErtsCodePtr I, Uint stack_offset)
 {
-    Export* ep;
+    const Export *ep;
     Eterm module;
     Eterm function;
 
@@ -1728,12 +1735,7 @@ call_fun(Process* p,    /* Current process. */
 
     if (ERTS_LIKELY(code_ptr != beam_unloaded_fun &&
                     fun_arity(funp) == arity)) {
-        /* Copy the free variables, skipping the FunRef in the environment.
-         *
-         * Note that we avoid using fun_num_free as it asserts that the
-         * argument is a local function, which we don't need to care about
-         * here. */
-        for (int i = 0, num_free = fun_env_size(funp) - 1; i < num_free; i++) {
+        for (int i = 0; i < fun_num_free(funp); i++) {
             reg[i + arity] = funp->env[i];
         }
 
@@ -1778,10 +1780,10 @@ call_fun(Process* p,    /* Current process. */
             p->fvalue = TUPLE2(hp, fun, args);
             return NULL;
         } else {
-            ErlFunEntry *fe;
+            const ErlFunEntry *fe;
+            const Export *ep;
             Eterm module;
             Module *modp;
-            Export *ep;
 
             /* There is no module loaded that defines the fun, either because
              * the fun is newly created from the external representation (the
@@ -2463,8 +2465,8 @@ int catchlevel(Process *p)
 int
 erts_is_builtin(Eterm Mod, Eterm Name, int arity)
 {
+    const Export *ep;
     Export e;
-    Export* ep;
 
     if (Mod == am_erlang) {
         /*

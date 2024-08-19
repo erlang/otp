@@ -409,7 +409,7 @@ get_call_order_po(StMap, FuncDb) when is_map(FuncDb) ->
 
 gco_po(FuncDb) ->
     All = sort(maps:keys(FuncDb)),
-    {RPO,_} = gco_rpo(All, FuncDb, sets:new([{version, 2}]), []),
+    {RPO,_} = gco_rpo(All, FuncDb, sets:new(), []),
     reverse(RPO).
 
 gco_rpo([Id|Ids], FuncDb, Seen0, Acc0) ->
@@ -1588,7 +1588,7 @@ ssa_opt_live({#opt_st{ssa=Linear0}=St, FuncDb}) ->
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
     Blk1 = beam_ssa_share:block(Blk0, Blocks),
     Successors = beam_ssa:successors(Blk1),
-    Live0 = live_opt_succ(Successors, L, LiveMap0, sets:new([{version, 2}])),
+    Live0 = live_opt_succ(Successors, L, LiveMap0, sets:new()),
     {Blk,Live} = live_opt_blk(Blk1, Live0),
     LiveMap = live_opt_phis(Blk#b_blk.is, L, Live, LiveMap0),
     live_opt(Bs, LiveMap, Blocks#{L:=Blk});
@@ -1718,7 +1718,7 @@ opt_try(Linear, Count0) when is_list(Linear) ->
 
     Reduced = reduce_try(Shrunk, []),
 
-    EmptySet = sets:new([{version, 2}]),
+    EmptySet = sets:new(),
     Trimmed = trim_try(Reduced, EmptySet, EmptySet, []),
 
     {Count, Trimmed}.
@@ -1824,7 +1824,7 @@ is_safe_sink_try(#b_set{op=Op}=I) ->
 reduce_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
                       last=Last}=Blk0} | Bs0], Acc) ->
     #b_br{succ=Succ,fail=Fail} = Last,
-    Ws = sets:from_list([Succ,Fail], [{version, 2}]),
+    Ws = sets:from_list([Succ,Fail]),
     try do_reduce_try(Bs0, Ws) of
         Bs ->
             Blk = Blk0#b_blk{is=[],
@@ -1989,7 +1989,7 @@ trim_try_is([], _Killed) ->
 
 ssa_opt_bsm({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     Extracted0 = bsm_extracted(Linear0),
-    Extracted = sets:from_list(Extracted0, [{version, 2}]),
+    Extracted = sets:from_list(Extracted0),
     Linear1 = bsm_skip(Linear0, Extracted),
     Linear = bsm_coalesce_skips(Linear1, #{}),
     {St#opt_st{ssa=Linear}, FuncDb}.
@@ -3623,7 +3623,7 @@ is_bs_match_blk(L, Blocks) ->
     Blk = map_get(L, Blocks),
     case Blk of
         #b_blk{is=Is,last=#b_br{bool=#b_var{}}=Last} ->
-            case is_bs_match_is(Is) of
+            case is_bs_match_is(Is, true) of
                 no ->
                     no;
                 {yes,CtxSizeUnit} ->
@@ -3634,20 +3634,33 @@ is_bs_match_blk(L, Blocks) ->
     end.
 
 is_bs_match_is([#b_set{op=bs_match,dst=Dst}=I,
-                #b_set{op={succeeded,guard},args=[Dst]}]) ->
-    case is_viable_match(I) of
-        no ->
+                #b_set{op={succeeded,guard},args=[Dst]}], Safe) ->
+    case Safe of
+        false ->
+            %% This `bs_match` (SSA) instruction was preceded by other
+            %% instructions (such as guard BIF calls) that would
+            %% prevent this match operation to be incorporated into
+            %% the commands list of a `bs_match` (BEAM) instruction.
             no;
-        {yes,{Ctx,Size,Unit}} when Size bsr 24 =:= 0 ->
-            %% Only include matches of reasonable size.
-            {yes,{{Ctx,Dst},Size,Unit}};
-        {yes,_} ->
-            %% Too large size.
-            no
+        true ->
+            case is_viable_match(I) of
+                no ->
+                    no;
+                {yes,{Ctx,Size,Unit}} when Size bsr 24 =:= 0 ->
+                    %% Only include matches of reasonable size.
+                    {yes,{{Ctx,Dst},Size,Unit}};
+                {yes,_} ->
+                    %% Too large size.
+                    no
+            end
     end;
-is_bs_match_is([_|Is]) ->
-    is_bs_match_is(Is);
-is_bs_match_is([]) -> no.
+is_bs_match_is([#b_set{op=bs_extract}|Is], Safe) ->
+    is_bs_match_is(Is, Safe);
+is_bs_match_is([#b_set{op=bs_start_match}|Is], _Safe) ->
+    is_bs_match_is(Is, true);
+is_bs_match_is([_|Is], _Safe) ->
+    is_bs_match_is(Is, false);
+is_bs_match_is([], _Safe) -> no.
 
 is_viable_match(#b_set{op=bs_match,args=Args}) ->
     case Args of
@@ -3707,7 +3720,7 @@ list_set_union([], Set) ->
 list_set_union([E], Set) ->
     sets:add_element(E, Set);
 list_set_union(List, Set) ->
-    sets:union(sets:from_list(List, [{version, 2}]), Set).
+    sets:union(sets:from_list(List), Set).
 
 non_guards(Linear) ->
     gb_sets:from_list(non_guards_1(Linear)).

@@ -239,6 +239,9 @@ test_encode_map(_Config) ->
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode(#{<<"foo">> => <<"bar">>})),
     ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode(#{foo => bar})),
     ?assertEqual(<<"{\"42\":\"bar\"}">>, encode(#{42 => bar})),
+    ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode_checked(#{<<"foo">> => <<"bar">>})),
+    ?assertEqual(<<"{\"foo\":\"bar\"}">>, encode_checked(#{foo => bar})),
+    ?assertEqual(<<"{\"42\":\"bar\"}">>, encode_checked(#{42 => bar})),
 
     MultiKeyMap = #{<<"foo">> => <<"foo1">>, foo => <<"foo2">>},
     ?assertError({duplicate_key, <<"foo">>}, encode_checked(MultiKeyMap)),
@@ -251,6 +254,7 @@ test_encode_list(_Config) ->
 test_encode_proplist(_Config) ->
     ?assertError({unsupported_type, {a, 1}}, encode([{a, 1}])),
     ?assertEqual(<<"{\"a\":1}">>, encode_proplist([{a, 1}])),
+    ?assertEqual(<<"{\"a\":1}">>, encode_proplist_checked([{a, 1}])),
 
     MultiKeyProplist = [{<<"foo">>, <<"foo1">>}, {foo, <<"foo2">>}],
     ?assertError({duplicate_key, foo}, encode_proplist_checked(MultiKeyProplist)),
@@ -478,10 +482,10 @@ test_decode_api(_Config) ->
         null => nil
     },
 
-    Data = <<"{\"a\": [[], {}, true, false, null, {\"foo\": \"baz\"}], \"b\": [1, 2.0, \"three\"]}">>,
+    Data = <<"{\"a\": [[], {}, true, false, null, {\"foo\": \"baz\"}], \"b\": [1, 2.0, \"three\", 0]}">>,
     {Decoded, Acc, <<>>} = json:decode(Data, {[], 0}, Decoders),
-    ?assertEqual({[], 24}, Acc),
-    Expected = #{a => [[], #{}, true, false, nil, #{foo => baz}], b => [1, 2.0, three]},
+    ?assertEqual({[], 25}, Acc),
+    Expected = #{a => [[], #{}, true, false, nil, #{foo => baz}], b => [1, 2.0, three, 0]},
     ?assertEqual(Expected, Decoded),
     ExpectedHistory =
         [
@@ -519,13 +523,15 @@ test_decode_api(_Config) ->
             {array_push, {2.0, {[1], 19}}, {[2.0, 1], 20}},
             {string, <<"three">>, three},
             {array_push, {three, {[2.0, 1], 20}}, {[three, 2.0, 1], 21}},
-            {array_finish, {{[three, 2.0, 1], 21}, {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 17}},
-                {[1, 2.0, three], {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 22}}},
-            {object_push, {b, [1, 2.0, three], {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 22}}, {
-                [{b, [1, 2.0, three]}, {a, [[], #{}, true, false, nil, #{foo => baz}]}], 23
+            {integer, <<"0">>, 0},
+            {array_push, {0, {[three, 2.0, 1], 21}}, {[0, three, 2.0, 1], 22}},
+            {array_finish, {{[0, three, 2.0, 1], 22}, {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 17}},
+                {[1, 2.0, three, 0], {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 23}}},
+            {object_push, {b, [1, 2.0, three, 0], {[{a, [[], #{}, true, false, nil, #{foo => baz}]}], 23}}, {
+                [{b, [1, 2.0, three, 0]}, {a, [[], #{}, true, false, nil, #{foo => baz}]}], 24
             }},
-            {object_finish, {{[{b, [1, 2.0, three]}, {a, [[], #{}, true, false, nil, #{foo => baz}]}], 23}, {[], 0}},
-                {#{a => [[], #{}, true, false, nil, #{foo => baz}], b => [1, 2.0, three]}, {[], 24}}}
+            {object_finish, {{[{b, [1, 2.0, three, 0]}, {a, [[], #{}, true, false, nil, #{foo => baz}]}], 24}, {[], 0}},
+                {#{a => [[], #{}, true, false, nil, #{foo => baz}], b => [1, 2.0, three, 0]}, {[], 25}}}
         ],
     ?assertEqual(ExpectedHistory, lists:reverse(get(history))).
 

@@ -58,6 +58,7 @@
 	 not_transformable3/1,
 	 not_transformable4/1,
 	 not_transformable5/1,
+	 not_transformable6/0,
 
          bad_get_status_by_type/0,
          stacktrace0/0,
@@ -635,6 +636,17 @@ not_transformable5b([H|T], Acc) ->
 not_transformable5b([], Acc) ->
     Acc.
 
+%% Check that anything extracted from a map is aliased. This is
+%% required as otherwise the destructive update pass could try to
+%% update a literal.
+not_transformable6() ->
+%ssa% () when post_ssa_opt ->
+%ssa% E = get_map_element(...),
+%ssa% _ = bs_create_bin(append, _, E, ...) { aliased => [E], first_fragment_dies => true }.
+    M = #{a=> <<>>},
+    #{a:=X} = M,
+    <<X/binary, 17:8>>.
+
 %% Reproducer for a bug in beam_ssa_alias:aa_get_status_by_type/2
 %% where it would return the wrong alias/uniqe status for certain
 %% combinations of returned types.
@@ -806,20 +818,21 @@ aliased_pair_tl_instr(Ls) ->
 aliasing_after_tuple_extract(N) ->
     aliasing_after_tuple_extract(N, {<<>>, dummy}).
 
-%% Check that both the tuple (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the Acc tuple is unique on entry, but that the elements
+%% are aliased.
 aliasing_after_tuple_extract(0, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tuple_element(Acc, 0) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_tuple_element(Acc, 0) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_tuple(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
     Acc;
 aliasing_after_tuple_extract(N, Acc) ->
     {X,_} = Acc,
     aliasing_after_tuple_extract(N - 1, {<<X/bitstring, 1>>, Acc}).
 
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_hd(N) ->
     alias_after_pair_hd(N, [<<>>|dummy]).
 
@@ -827,13 +840,14 @@ alias_after_pair_hd(0, Acc) ->
     Acc;
 alias_after_pair_hd(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_hd(Acc) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_hd(Acc) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_list(Bin, Acc) {aliased => [Bin], unique => [Acc]}.
     [X|_] = Acc,
     alias_after_pair_hd(N - 1, [<<X/bitstring, 1>>|Acc]).
 
-%% Check that both the pair (Acc) and the extracted element (X) are
-%% aliased.
+%% Check that the pair (Acc) is unique on entry but that its contents
+%% are alised.
 alias_after_pair_tl(N) ->
     alias_after_pair_tl(N, [dummy|<<>>]).
 
@@ -841,8 +855,9 @@ alias_after_pair_tl(0, Acc) ->
     Acc;
 alias_after_pair_tl(N, Acc) ->
 %ssa% (_,Acc) when post_ssa_opt ->
-%ssa% X = get_tl(Acc) {aliased => [Acc]},
-%ssa% _ = bs_create_bin(_,_,X,...) {aliased => [X]}.
+%ssa% X = get_tl(Acc) {unique => [Acc]},
+%ssa% Bin = bs_create_bin(_,_,X,...) {aliased => [X]},
+%ssa% Tuple = put_list(Acc, Bin) {aliased => [Bin], unique => [Acc]}.
     [_|X] = Acc,
     alias_after_pair_tl(N - 1, [Acc|<<X/bitstring, 1>>]).
 

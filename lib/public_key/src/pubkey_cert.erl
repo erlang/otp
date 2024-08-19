@@ -518,10 +518,21 @@ match_name(emailAddress, Name, [PermittedName | Rest]) ->
 
 match_name(dNSName, Name, [PermittedName | Rest]) ->
     Fun = fun(Domain, [$.|Domain]) -> true;
-	     (Name1,Name2) ->
-		  is_suffix(Name2, Name1)
+	     (Name1, [$. | _] = Name2) ->
+                  is_suffix(Name2, Name1);
+             (Name1, Name2) ->
+                  StrLen1 = string:len(Name1),
+                  StrLen2 = string:len(Name2),
+                  case StrLen1 > StrLen2 of
+                      true ->
+                          is_suffix([$. | Name2], Name1);
+                      false when StrLen1 == StrLen2 ->
+                          string:casefold(Name1) == string:casefold(Name2);
+                      false ->
+                          false
+                  end
           end,
-    match_name(Fun, Name, [$.|PermittedName], Rest);
+    match_name(Fun, Name, PermittedName, Rest);
 
 match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
     match_name(fun is_or_address/2, OrAddress, PermittedAddr, Rest);

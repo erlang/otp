@@ -589,10 +589,30 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_anno_types(#b_set{op=Op,args=Args}=I, Ts) ->
+%% opt_anno_types(Instruction0, Types) -> Instruction.
+%%  Maintain the invariant that the `arg_types` annotation only
+%%  contains type annotations for variable arguments whose types are
+%%  more specific than `any`. Literal arguments must not have any type
+%%  annotation.
+%%
+%%  Also, ensure that the `arg_types` annotation is only present
+%%  in instructions that can benefit from it.
+opt_anno_types(#b_set{anno=Anno0,op=Op,args=Args}=I, Ts) ->
     case benefits_from_type_anno(Op, Args) of
-        true -> opt_anno_types_1(I, Args, Ts, 0, #{});
-        false -> I
+        true ->
+            opt_anno_types_1(I, Args, Ts, 0, #{});
+        false ->
+            case Anno0 of
+                #{arg_types := _} ->
+                    %% Remove `arg_types` from operations that don't
+                    %% need them. This can happen, for example, when
+                    %% the operation has been changed from
+                    %% `{bif,is_list}` to `is_nonempty_list`.
+                    Anno = maps:remove(arg_types, Anno0),
+                    I#b_set{anno=Anno};
+                _  ->
+                    I
+            end
     end;
 opt_anno_types(#b_switch{anno=Anno0,arg=Arg}=I, Ts) ->
     case concrete_type(Arg, Ts) of
@@ -621,10 +641,6 @@ opt_anno_types_1(#b_set{anno=Anno0}=I, [], _Ts, _Index, Acc) ->
     case Anno0 of
         #{ arg_types := Acc } ->
             I;
-        #{ arg_types := _ } when Acc =:= #{} ->
-            %% One or more arguments have been simplified to literal values.
-            Anno = maps:remove(arg_types, Anno0),
-            I#b_set{anno=Anno};
         #{} ->
             Anno = Anno0#{ arg_types => Acc },
             I#b_set{anno=Anno}
@@ -1497,6 +1513,8 @@ will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts) ->
     yes;
+will_succeed_1(#b_set{op=put_map,args=[#b_literal{val=assoc}|_]}, _Src, _Ts) ->
+    yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts) ->
     yes;
 will_succeed_1(#b_set{op=update_tuple,args=[Tuple | Updates]}, _Src, Ts) ->
@@ -1671,6 +1689,16 @@ simplify_remote_call(erlang, throw, [Term], Ts, I) ->
     beam_ssa:add_anno(thrown_type, Type, I);
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _Ts, _I) ->
     Tl;
+simplify_remote_call(maps=Mod, put=Name, [Key,Val,Map], Ts, I) ->
+    case concrete_type(Map, Ts) of
+        #t_map{} ->
+            %% This call to maps:put/3 cannot fail. Replace with the
+            %% slightly more efficient `put_map` instruction.
+            Args = [#b_literal{val=assoc},Map,Key,Val],
+            I#b_set{op=put_map,args=Args};
+        _ ->
+            simplify_pure_call(Mod, Name, [Key,Val,Map], I)
+    end;
 simplify_remote_call(Mod, Name, Args, _Ts, I) ->
     case erl_bifs:is_pure(Mod, Name, length(Args)) of
         true ->

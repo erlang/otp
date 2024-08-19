@@ -29,23 +29,40 @@
          run/1]).
 
 %% common_test wrapping
--export([suite/0,
+-export([
+         %% Framework functions
+         suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
+         init_per_testcase/2,
+         end_per_testcase/2,
+        
+         %% The test cases
          format/1,
          replace/1,
          generate/1,
          flatten1/1,
-         flatten2/1]).
+         flatten2/1
+        ]).
 
 -export([dict/0]).  %% fake dictionary module
 
 %% dictionary callbacks for flatten2/1
 -export(['A1'/4, 'Unsigned32'/4]).
 
+-include("diameter_util.hrl").
+
+
+%% ===========================================================================
+
 -define(base, "base_rfc3588.dia").
--define(util, diameter_util).
 -define(S, atom_to_list).
 -define(L, integer_to_list).
+
+-define(CL(F),    ?CL(F, [])).
+-define(CL(F, A), ?LOG("DCOMP", F, A)).
+
 
 %% ===========================================================================
 
@@ -374,6 +391,40 @@ all() ->
      flatten1,
      flatten2].
 
+init_per_suite(Config) ->
+    ?CL("init_per_suite -> entry with"
+        "~n   Config: ~p", [Config]),
+    ?DUTIL:init_per_suite(Config).
+
+end_per_suite(Config) ->
+    ?CL("end_per_suite -> entry with"
+        "~n   Config: ~p", [Config]),
+    ?DUTIL:end_per_suite(Config).
+
+
+%% This test case can take a *long* time, so if the machine is too slow, skip
+init_per_testcase(generate = Case, Config) when is_list(Config) ->
+    ?CL("init_per_testcase(~w) -> check factor", [Case]),
+    Key = dia_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Factor}} when (Factor > 10) ->
+            ?CL("init_per_testcase(~w) -> Too slow (~w) => SKIP",
+                [Case, Factor]),
+            {skip, {machine_too_slow, Factor}};
+        _ ->
+            ?CL("init_per_testcase(~w) -> run test", [Case]),
+            Config
+    end;
+init_per_testcase(Case, Config) ->
+    ?CL("init_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?CL("end_per_testcase(~w) -> entry", [Case]),
+    Config.
+
+
 %% ===========================================================================
 
 %% run/0
@@ -385,7 +436,7 @@ run() ->
 
 run(List)
   when is_list(List) ->
-    Tmp = ?util:mktemp("diameter_compiler"),
+    Tmp = ?MKTEMP("diameter_compiler"),
     try
         run(List, Tmp)
     after
@@ -398,10 +449,11 @@ run(List, Dir)
   when is_list(List) ->
     Path = filename:join([code:lib_dir(diameter, src), "dict", ?base]),
     {ok, Bin} = file:read_file(Path),
-    ?util:run([{{?MODULE, F, [{Bin, Dir}]}, 180000} || F <- List]);
+    ?RUN([{{?MODULE, F, [{Bin, Dir}]}, 180000} || F <- List]);
 
 run(F, Config) ->
     run([F], proplists:get_value(priv_dir, Config)).
+
 
 %% ===========================================================================
 %% format/1
@@ -409,8 +461,8 @@ run(F, Config) ->
 %% Ensure that parse o format is the identity map.
 
 format({<<_/binary>> = Bin, _Dir}) ->
-    ?util:run([{?MODULE, format, [{M, Bin}]} || E <- ?REPLACE,
-                                                {ok, M} <- [norm(E)]]);
+    ?RUN([{?MODULE, format, [{M, Bin}]} || E <- ?REPLACE,
+                                           {ok, M} <- [norm(E)]]);
 
 format({Mods, Bin}) ->
     B = modify(Bin, Mods),
@@ -436,8 +488,8 @@ parse(File) ->
 %% dictionary.
 
 replace({<<_/binary>> = Bin, _Dir}) ->
-    ?util:run([{?MODULE, replace, [{N, Bin}]} || E <- ?REPLACE,
-                                                 N <- [norm(E)]]);
+    ?RUN([{?MODULE, replace, [{N, Bin}]} || E <- ?REPLACE,
+                                            N <- [norm(E)]]);
 
 replace({{E, Mods}, Bin}) ->
     B = modify(Bin, Mods),
@@ -454,6 +506,7 @@ replace(Config) ->
 re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
 
+
 %% ===========================================================================
 %% generate/1
 %%
@@ -461,10 +514,10 @@ re({RE, Repl}, Bin) ->
 
 generate({<<_/binary>> = Bin, Dir}) ->
     Rs  = lists:zip(?REPLACE, lists:seq(1, length(?REPLACE))),
-    ?util:run([{?MODULE, generate, [{M, Bin, N, T, Dir}]}
-               || {E,N} <- Rs,
-                  {ok, M} <- [norm(E)],
-                  T <- [erl, hrl, parse, forms]]);
+    ?RUN([{?MODULE, generate, [{M, Bin, N, T, Dir}]}
+          || {E,N} <- Rs,
+             {ok, M} <- [norm(E)],
+             T <- [erl, hrl, parse, forms]]);
 
 generate({Mods, Bin, N, Mode, Dir}) ->
     B = modify(Bin, Mods ++ [{"@name .*", "@name dict" ++ ?L(N)}]),
@@ -494,6 +547,7 @@ generate(parse, File, Dict) ->
 generate(hrl, _, _) ->
     ok.
 
+
 %% ===========================================================================
 %% flatten1/1
 
@@ -505,8 +559,9 @@ flatten1(_) ->
     [Vsn | BaseD] = diameter_gen_base_rfc6733:dict(),
     {ok, I} = parse("@inherits diameter_gen_base_rfc6733\n"),
     [Vsn | FlatD] = diameter_make:flatten(I),
-    ?util:run([{?MODULE, flatten1, [{K, BaseD, FlatD}]}
-               || K <- [avp_types, grouped, enum]]).
+    ?RUN([{?MODULE, flatten1, [{K, BaseD, FlatD}]}
+          || K <- [avp_types, grouped, enum]]).
+
 
 %% ===========================================================================
 %% flatten2/1

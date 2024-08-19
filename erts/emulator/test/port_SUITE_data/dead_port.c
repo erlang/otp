@@ -40,7 +40,7 @@
 #include "winbase.h"
 #endif
 
-#define MAIN(argc, argv) main(argc, argv)
+#define MAIN(argc, argv) int main(argc, argv)
 
 extern int errno;
 

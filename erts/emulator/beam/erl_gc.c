@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2024. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -243,7 +243,6 @@ erts_init_gc(void)
     ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ErlFunThing,thing_word));
     ERTS_CT_ASSERT(offsetof(BinRef,thing_word) == offsetof(ExternalThing,header));
     ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(struct erl_off_heap_header,next));
-    ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(FunRef,next));
     ERTS_CT_ASSERT(offsetof(BinRef,next) == offsetof(ExternalThing,next));
 
     erts_test_long_gc_sleep = 0;
@@ -559,6 +558,11 @@ delay_garbage_collection(Process *p, int need, int fcalls)
 	}
 	p->abandoned_heap = orig_heap;
         erts_adjust_memory_break(p, orig_htop - p->high_water);
+
+        /* Point at the end of the address range to ensure that
+         * test for the safe range in the new heap in the
+         * update_record_in_place instruction fails. */
+        p->high_water = (Eterm *) (Uint) -1;
     }
 
 #ifdef CHECK_FOR_HOLES
@@ -1312,12 +1316,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     ASSERT((refc_binary->intern.flags &
                            (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)) == 0);
                     erts_refc_inc(&refc_binary->intern.refc, 2);
-                    break;
-                }
-            case FUN_REF_SUBTAG:
-                {
-                    ErlFunEntry *fe = ((FunRef*)ptr)->entry;
-                    erts_refc_inc(&fe->refc, 2);
                     break;
                 }
             case REF_SUBTAG:
@@ -2520,7 +2518,6 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
 	    case EXTERNAL_REF_SUBTAG:
-            case FUN_REF_SUBTAG:
 		oh = (struct erl_off_heap_header*) (hp-1);
 		cpy_sz = thing_arityval(val);
 		goto cpy_words;
@@ -3041,14 +3038,6 @@ sweep_off_heap(Process *p, int fullsweep)
                     erts_bin_release(((BinRef*)ptr)->val);
 		    break;
 		}
-            case FUN_REF_SUBTAG:
-                {
-                    FunRef *refp = ((FunRef*)ptr);
-                    if (erts_refc_dectest(&(refp->entry)->refc, 0) == 0) {
-                        erts_erase_fun_entry(refp->entry);
-                    }
-                    break;
-                }
 	    case REF_SUBTAG:
 		{
 		    ErtsMagicBinary *bptr;
@@ -3091,8 +3080,7 @@ sweep_off_heap(Process *p, int fullsweep)
                     break;
                 }
             default:
-                ASSERT(ptr->thing_word == HEADER_FUN_REF ||
-                       is_external_header(ptr->thing_word) ||
+                ASSERT(is_external_header(ptr->thing_word) ||
                        is_magic_ref_thing(ptr));
                 break;
             }
@@ -3280,7 +3268,6 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      case EXTERNAL_PID_SUBTAG:
 	      case EXTERNAL_PORT_SUBTAG:
 	      case EXTERNAL_REF_SUBTAG:
-	      case FUN_REF_SUBTAG:
 		  {
 		      struct erl_off_heap_header* oh = (struct erl_off_heap_header*) hp;
 
@@ -3975,7 +3962,6 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
             case EXTERNAL_PID_SUBTAG:
             case EXTERNAL_PORT_SUBTAG:
             case EXTERNAL_REF_SUBTAG:
-            case FUN_REF_SUBTAG:
             off_heap_common:
                 {
                     int tari = thing_arityval(val);
@@ -4127,9 +4113,6 @@ repeat:
 	case EXTERNAL_REF_SUBTAG:
 	    refc = erts_refc_read(&u.ext->node->refc, 1);
 	    break;
-        case FUN_REF_SUBTAG:
-            refc = erts_refc_read(&(u.fref->entry)->refc, 1);
-            break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));
 	    refc = erts_refc_read(&u.mref->mb->intern.refc, 1);

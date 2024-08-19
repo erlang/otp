@@ -2265,15 +2265,14 @@ fmt_state(X) when is_atom(X) ->
 
 
 fmt_sockaddr(#{family := Fam,
-	       addr   := Addr,
-	       port   := Port}, Proto)
+	       addr   := Addr} = SockAddr, _Proto)
   when (Fam =:= inet) orelse (Fam =:= inet6) ->
     case Addr of
-	{0,0,0,0}         -> "*:" ++ fmt_port(Port, Proto);
-	{0,0,0,0,0,0,0,0} -> "*:" ++ fmt_port(Port, Proto);
-	{127,0,0,1}       -> "localhost:" ++ fmt_port(Port, Proto);
-	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_port(Port, Proto);
-	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_port(Port, Proto)
+	{0,0,0,0}         -> "*:" ++ fmt_service(SockAddr);
+	{0,0,0,0,0,0,0,0} -> "*:" ++ fmt_service(SockAddr);
+	{127,0,0,1}       -> "localhost:" ++ fmt_service(SockAddr);
+	{0,0,0,0,0,0,0,1} -> "localhost:" ++ fmt_service(SockAddr);
+	IP                -> inet_parse:ntoa(IP) ++ ":" ++ fmt_service(SockAddr)
     end;
 fmt_sockaddr(#{family := local,
 	       path   := Path}, _Proto) ->
@@ -2284,11 +2283,20 @@ fmt_sockaddr(#{family := local,
 		binary_to_list(Path)
 	end.
 
-
-fmt_port(N, Proto) ->
-    case inet:getservbyport(N, Proto) of
-	{ok, Name} -> f("~s (~w)", [Name, N]);
-	_ -> integer_to_list(N)
+fmt_service(#{port := Port} = SockAddr) ->
+    case net:getnameinfo(SockAddr) of
+	{ok, #{service := Service}} ->
+            %% Even if there is no actual service associated with 
+            %% this port number, we still get a value: The port number
+            try list_to_integer(Service) of
+                FOO when is_integer(FOO) -> % This should be equal to Port...
+                    integer_to_list(Port)
+            catch
+                _C:_E:_S -> %% This means that it's an actual service
+                    f("~s (~w)", [Service, Port])
+            end;
+	_ ->
+            integer_to_list(Port)
     end.
 
 
@@ -6131,11 +6139,12 @@ the `GetRequest` argument.
 
 > #### Note {: .info }
 >
+> Not all requests are supported by all platforms.
 > To see if a ioctl request is supported on the current platform:
 >
 > ```erlang
 > 	    Request = nread,
-> 	    {ok, true} = socket:is_supported(ioctl_requests, Request),
+> 	    true = socket:is_supported(ioctl_requests, Request),
 > 	    :
 > ```
 """.
@@ -6252,6 +6261,7 @@ This function retrieves a specific parameter, according to
 one of the following `GetRequest` arguments. The third argument is
 the (lookup) "key", identifying the interface, for most requests
 the name of the interface as a `t:string/0`.
+Also, see the note above.
 
 - **`gifname`** - Get the name of the interface with the specified index
   (`t:integer/0`).
@@ -6281,7 +6291,7 @@ the name of the interface as a `t:string/0`.
 
   Result; the network mask of the interface, `t:sockaddr/0`.
 
-- **`gifhwaddr`** - Get the hardware address for the interface with the
+- **`gifhwaddr` | `gifenaddr`** - Get the hardware address for the interface with the
   specified name.
 
   Result; the hardware address of the interface, `t:sockaddr/0`.
@@ -6362,7 +6372,7 @@ the `Value` for the request parameter *(since OTP 26.1)*.
       Socket      :: socket(),
       GetRequest  :: 'gifname' | 'gifindex' |
                      'gifaddr' | 'gifdstaddr' | 'gifbrdaddr' |
-                     'gifnetmask' | 'gifhwaddr' |
+                     'gifnetmask' | 'gifhwaddr' | 'gifhwaddr' |
                      'gifmtu' | 'giftxqlen' | 'gifflags' |
 		     'tcp_info',
       NameOrIndex :: string() | integer(),
@@ -6401,6 +6411,9 @@ ioctl(?socket(SockRef), gifmtu = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), gifhwaddr = GetRequest, Name)
+  when is_list(Name) ->
+    prim_socket:ioctl(SockRef, GetRequest, Name);
+ioctl(?socket(SockRef), gifenaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
@@ -6457,10 +6470,13 @@ These operations require elevated privileges.
   point-to-point interface with the specified name.
 
 - **`sifbrdaddr`** - Set the broadcast address, `t:sockaddr/0`,
-  of the interface with the specified name.
+of the interface with the specified name.
 
 - **`sifnetmask`** - Set the network mask, `t:sockaddr/0`, of the interface
   with the specified name.
+
+- **`sifhwaddr`** - Set the hardware address, `t:sockaddr/0`,
+of the interface with the specified name.
 
 - **`sifmtu`** - Set the MTU (Maximum Transfer Unit), `t:integer/0`,
   for the interface with the specified name.
@@ -6473,7 +6489,7 @@ These operations require elevated privileges.
       SetRequest :: 'sifflags' |
                     'sifaddr' | 'sifdstaddr' | 'sifbrdaddr' |
                     'sifnetmask' | 'sifhwaddr' |
-                    'gifmtu' | 'siftxqlen',
+                    'sifmtu' | 'siftxqlen',
       Name       :: string(),
       Value      :: term(),
       Reason     :: posix() | 'closed'.
@@ -6493,6 +6509,9 @@ ioctl(?socket(SockRef), sifbrdaddr = SetRequest, Name, BrdAddr)
 ioctl(?socket(SockRef), sifnetmask = SetRequest, Name, NetMask)
   when is_list(Name) andalso is_map(NetMask) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(NetMask));
+ioctl(?socket(SockRef), sifhwaddr = SetRequest, Name, HWAddr)
+  when is_list(Name) andalso is_map(HWAddr) ->
+    prim_socket:ioctl(SockRef, SetRequest, Name, prim_socket:enc_sockaddr(HWAddr));
 ioctl(?socket(SockRef), sifmtu = SetRequest, Name, MTU)
   when is_list(Name) andalso is_integer(MTU) ->
     prim_socket:ioctl(SockRef, SetRequest, Name, MTU);

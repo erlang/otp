@@ -36,16 +36,14 @@ obsolete(calendar, local_time_to_universal_time, 1) ->
     {deprecated, "use calendar:local_time_to_universal_time_dst/1 instead"};
 obsolete(code, lib_dir, 2) ->
     {deprecated, "this functionality will be removed in a future release"};
-obsolete(crypto, private_decrypt, 4) ->
-    {deprecated, "do not use"};
-obsolete(crypto, private_encrypt, 4) ->
-    {deprecated, "use public_key:sign/3 instead"};
-obsolete(crypto, public_decrypt, 4) ->
-    {deprecated, "use public_key:verify/4 instead"};
-obsolete(crypto, public_encrypt, 4) ->
-    {deprecated, "do not use"};
+obsolete(crypto, enable_fips_mode, 1) ->
+    {deprecated, "use config parameter fips_mode"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:uniform/1 instead"};
+obsolete(crypto, start, 0) ->
+    {deprecated, "use application:start(crypto) instead"};
+obsolete(crypto, stop, 0) ->
+    {deprecated, "use application:stop(crypto) instead"};
 obsolete(dbg, stop_clear, 0) ->
     {deprecated, "use dbg:stop/0 instead", "OTP 27"};
 obsolete(disk_log, inc_wrap_file, 1) ->
@@ -70,22 +68,6 @@ obsolete(net, ping, 1) ->
     {deprecated, "use net_adm:ping/1 instead"};
 obsolete(net, sleep, 1) ->
     {deprecated, "use 'receive after T -> ok end' instead"};
-obsolete(public_key, decrypt_private, 2) ->
-    {deprecated, "do not use"};
-obsolete(public_key, decrypt_private, 3) ->
-    {deprecated, "do not use"};
-obsolete(public_key, decrypt_public, 2) ->
-    {deprecated, "use public_key:verify/4 instead"};
-obsolete(public_key, decrypt_public, 3) ->
-    {deprecated, "use public_key:verify/5 instead"};
-obsolete(public_key, encrypt_private, 2) ->
-    {deprecated, "use public_key:sign/3 instead"};
-obsolete(public_key, encrypt_private, 3) ->
-    {deprecated, "use public_key:sign 4 instead"};
-obsolete(public_key, encrypt_public, 2) ->
-    {deprecated, "do not use"};
-obsolete(public_key, encrypt_public, 3) ->
-    {deprecated, "do not use"};
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(ssl, prf, 5) ->
@@ -330,5 +312,7 @@ obsolete_callback(gen_server, format_status, 2) ->
     {deprecated, "use format_status/1 instead"};
 obsolete_callback(gen_statem, format_status, 2) ->
     {deprecated, "use format_status/1 instead"};
+obsolete_callback(gen_fsm, _, _) ->
+    {deprecated, "use the 'gen_statem' module instead"};
 obsolete_callback(_,_,_) -> no.
 

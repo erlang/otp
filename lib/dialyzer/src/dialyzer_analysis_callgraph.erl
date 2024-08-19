@@ -134,7 +134,7 @@ analysis_start(Parent, Analysis, LegalWarnings) ->
   Plt1 = dialyzer_plt:insert_callbacks(Plt1_a, NewCServer),
   State1 = State#analysis_state{codeserver = NewCServer, plt = Plt1},
   Exports = dialyzer_codeserver:get_exports(NewCServer),
-  NonExports = sets:subtract(sets:from_list(AllNodes, [{version, 2}]), Exports),
+  NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
   State2 = analyze_callgraph(Callgraph, State1),
   ModTypeDeps = dict:from_list(maps:to_list(dialyzer_typegraph:module_type_deps(Analysis#analysis.use_contracts, CServer, Modules))),
@@ -385,7 +385,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
   {BadCalls1, RealExtCalls} =
     if ExtCalls1 =:= [] -> {[], []};
        true ->
-	ModuleSet = sets:from_list(Modules, [{version, 2}]),
+	ModuleSet = sets:from_list(Modules),
 	PltModuleSet = dialyzer_plt:all_modules(InitPlt),
 	AllModules = sets:union(ModuleSet, PltModuleSet),
 	Pred = fun({_From2, {M, _F, _A}}) -> sets:is_element(M, AllModules) end,
@@ -478,7 +478,7 @@ get_exported_types_from_core(Core) ->
                                     cerl:concrete(L1) =:= 'export_type'],
   ExpTypes2 = lists:flatten(ExpTypes1),
   M = cerl:atom_val(cerl:module_name(Core)),
-  sets:from_list([{M, F, A} || {F, A} <- ExpTypes2], [{version, 2}]).
+  sets:from_list([{M, F, A} || {F, A} <- ExpTypes2]).
 
 get_exports_from_core(Core) ->
   Tree = cerl:from_records(Core),

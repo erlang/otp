@@ -20,8 +20,6 @@
 
 -module(unix_telnet).
 -moduledoc """
-Callback module for ct_telnet, for connecting to a Telnet server on a UNIX host.
-
 Callback module for `m:ct_telnet`, for connecting to a Telnet server on a UNIX
 host.
 
@@ -79,11 +77,9 @@ Callback for `ct_telnet.erl`.
 
 Returns a suitable `regexp` string matching common prompts for users on Unix
 hosts.
-
-For `prompt_regexp()`, see `m:ct_telnet`.
 """.
 -spec get_prompt_regexp() -> Pattern
-              when Pattern :: string().
+              when Pattern :: ct_telnet:prompt_regexp().
 get_prompt_regexp() ->
     ?prx.
 
@@ -93,8 +89,6 @@ Callback for `ct_telnet.erl`.
 [](){: #connect-6 }
 
 Setup Telnet connection to a Unix host.
-
-For `target_name()`, see `m:ct`. For `handle()`, see `m:ct_telnet`.
 """.
 -doc(#{since => <<"OTP 18.3.3">>}).
 -spec connect(ConnName, Ip, Port, Timeout, KeepAlive, TCPNoDelay, Extra) ->
@@ -108,7 +102,7 @@ For `target_name()`, see `m:ct`. For `handle()`, see `m:ct_telnet`.
                    Extra :: {Username, Password} | KeyOrName,
                    Username :: iodata(),
                    Password :: iodata(),
-                   KeyOrName :: atom(),
+                   KeyOrName :: ct:key_or_name(),
                    Handle :: ct_telnet:handle(),
                    Reason :: term().
 connect(ConnName,Ip,Port,Timeout,KeepAlive,TCPNoDelay,Extra) ->

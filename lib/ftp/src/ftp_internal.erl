@@ -1135,9 +1135,9 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
                                          data = Data} = State0)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     ?DBG("Data channel close",[]),
-    State = activate_ctrl_connection(State0),
-    {noreply, State#state{dsock = undefined, data = <<>>,
-                          caller = {recv_bin, Data}}};
+    State = activate_ctrl_connection(State0#state{dsock = undefined, data = <<>>,
+                                                  caller = {recv_bin, Data}}),
+    {noreply, State};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, data = Data,
                                   caller = {handle_dir_result, Dir}}
@@ -1201,7 +1201,11 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 handle_info({Cls, Socket}, #state{csock = {Trpt, Socket}})
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     exit(normal); %% User will get error message from terminate/2
-
+%% Perhaps handle data left on the control channel
+handle_info({Cls, _NotCSock}, #state{dsock = undefined} = State0)
+  when Cls == tcp_closed; Cls == ssl_closed ->
+    State = activate_ctrl_connection(State0),
+    {noreply, State};
 handle_info({Err, Socket, Reason}, _) when Err==tcp_error ; Err==ssl_error ->
     Report =
         io_lib:format("~p on socket: ~p  for reason: ~p~n",
@@ -1210,7 +1214,6 @@ handle_info({Err, Socket, Reason}, _) when Err==tcp_error ; Err==ssl_error ->
     %% If tcp does not work the only option is to terminate,
     %% this is the expected behavior under these circumstances.
     exit(normal); %% User will get error message from terminate/2
-
 %% Monitor messages - if the process owning the ftp connection goes
 %% down there is no point in continuing.
 handle_info({'DOWN', _Ref, _Type, _Process, normal}, State) ->
@@ -1651,6 +1654,10 @@ handle_ctrl_result({pos_compl, _}, #state{caller = {recv_bin, Data},
     gen_server:reply(From, {ok, Data}),
     close_data_connection(State),
     {noreply, State#state{client = undefined, caller = undefined}};
+
+handle_ctrl_result({pos_compl, _}, #state{caller = recv_bin} = State0) ->
+    State = activate_data_connection(State0),
+    {noreply, State};
 
 handle_ctrl_result({Status, _}, #state{caller = recv_bin} = State) ->
     close_data_connection(State),

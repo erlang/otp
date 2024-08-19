@@ -20,21 +20,27 @@
 
 -module(wxFileDataObject).
 -moduledoc """
-Functions for wxFileDataObject class
+`m:wxFileDataObject` is a specialization of `m:wxDataObject` for file names.
 
-`m:wxFileDataObject` is a specialization of `m:wxDataObject` for file names. The
-program works with it just as if it were a list of absolute file names, but
-internally it uses the same format as Explorer and other compatible programs
-under Windows or GNOME/KDE file manager under Unix which makes it possible to
-receive files from them using this class.
+The program works with it just as if it were a list of absolute file names, but
+internally it uses the same format as Explorer and other compatible programs under Windows
+or GNOME/KDE file manager under Unix which makes it possible to receive files from them
+using this class.
 
-See: `m:wxDataObject`, `wxDataObjectSimple` (not implemented in wx),
-`m:wxTextDataObject`, `m:wxBitmapDataObject`, `m:wxDataObject`
+See:
+* `m:wxDataObject`
 
-This class is derived (and can use functions) from: `m:wxDataObject`
+* `m:wxTextDataObject`
 
-wxWidgets docs:
-[wxFileDataObject](https://docs.wxwidgets.org/3.1/classwx_file_data_object.html)
+* `m:wxBitmapDataObject`
+
+* `m:wxDataObject`
+
+This class is derived, and can use functions, from:
+
+* `m:wxDataObject`
+
+wxWidgets docs: [wxFileDataObject](https://docs.wxwidgets.org/3.2/classwx_file_data_object.html)
 """.
 -include("wxe.hrl").
 -export([addFile/2,destroy/1,getFilenames/1,new/0]).
@@ -44,19 +50,16 @@ wxWidgets docs:
 
 -type wxFileDataObject() :: wx:wx_object().
 -export_type([wxFileDataObject/0]).
-%% @hidden
 -doc false.
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectwxfiledataobject">external documentation</a>.
 -doc "Constructor.".
 -spec new() -> wxFileDataObject().
 new() ->
   wxe_util:queue_cmd(?get_env(), ?wxFileDataObject_new),
   wxe_util:rec(?wxFileDataObject_new).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectaddfile">external documentation</a>.
 -doc "Adds a file to the file list represented by this data object (Windows only).".
 -spec addFile(This, File) -> 'ok' when
 	This::wxFileDataObject(), File::unicode:chardata().
@@ -66,7 +69,6 @@ addFile(#wx_ref{type=ThisT}=This,File)
   File_UC = unicode:characters_to_binary(File),
   wxe_util:queue_cmd(This,File_UC,?get_env(),?wxFileDataObject_AddFile).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
 -doc "Returns the array of file names.".
 -spec getFilenames(This) -> [unicode:charlist()] when
 	This::wxFileDataObject().
@@ -75,8 +77,7 @@ getFilenames(#wx_ref{type=ThisT}=This) ->
   wxe_util:queue_cmd(This,?get_env(),?wxFileDataObject_GetFilenames),
   wxe_util:rec(?wxFileDataObject_GetFilenames).
 
-%% @doc Destroys this object, do not use object again
--doc "Destroys the object.".
+-doc "Destroys the object".
 -spec destroy(This::wxFileDataObject()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDataObject),

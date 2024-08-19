@@ -229,7 +229,7 @@ form({attribute,_,export,Es}, #imodule{exports=Exp0}=Module, _Opts) ->
 form({attribute,_,nifs,Ns}, #imodule{nifs=Nifs0}=Module, _Opts) ->
     Nifs1 = case Nifs0 of
                 none ->
-                    sets:new([{version, 2}]);
+                    sets:new();
                 _ ->
                     Nifs0
             end,
@@ -1135,7 +1135,7 @@ badmap_term(Map, #core{in_guard=false}) ->
     c_tuple([#c_literal{val=badmap},Map]).
 
 map_build_pairs(Map, Es0, Ann, St0) ->
-    {Es,Pre,_,St1} = map_build_pairs_1(Es0, sets:new([{version, 2}]), St0),
+    {Es,Pre,_,St1} = map_build_pairs_1(Es0, sets:new(), St0),
     {ann_c_map(Ann, Map, Es),Pre,St1}.
 
 map_build_pairs_1([{Op0,L,K0,V0}|Es], Used0, St0) ->

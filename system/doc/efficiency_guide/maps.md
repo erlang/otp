@@ -459,9 +459,51 @@ constructing an empty map.
 If the key is known to already exist in the map, `maps:update/3` is slightly
 more efficient than `maps:put/3`.
 
-If the keys are constants known at compile-time, using the map update syntax
-with the `=>` operator is more efficient than multiple calls to `maps:put/3`,
-especially for small maps.
+If the compiler can determine that the third argument is always a map, it
+will rewrite the call to `maps:put/3` to use the map syntax for updating the map.
+
+For example, consider the following function:
+
+```erlang
+add_to_known_map(Map0, A, B, C) when is_map(Map0) ->
+    Map1 = maps:put(a, A, Map0),
+    Map2 = maps:put(b, B, Map1),
+    maps:put(c, C, Map2).
+```
+
+The compiler first rewrites each call to `maps:put/3` to use the map
+syntax, and subsequently combines the three update operations to a
+single update operation:
+
+```erlang
+add_to_known_map(Map0, A, B, C) when is_map(Map0) ->
+    Map0#{a => A, b => B, c => C}.
+```
+
+If the compiler cannot determine that the third argument is always a
+map, it retains the `maps:put/3` call. For example, given this
+function:
+
+```erlang
+add_to_map(Map0, A, B, C) ->
+    Map1 = maps:put(a, A, Map0),
+    Map2 = maps:put(b, B, Map1),
+    maps:put(c, C, Map2).
+```
+
+the compiler keeps the first call to `maps:put/3`, but rewrites
+and combines the other two calls:
+
+```erlang
+add_to_map(Map0, A, B, C) ->
+    Map1 = maps:put(a, A, Map0),
+    Map1#{b => B, c => C}.
+```
+
+> #### Change {: .info }
+>
+> The rewriting of `maps:put/3` to the map syntax was introduced in
+> Erlang/OTP 28.
 
 ### maps:remove/2
 

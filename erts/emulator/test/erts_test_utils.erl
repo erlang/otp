@@ -25,7 +25,7 @@
 %% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
 %% support.
 -feature(maybe_expr, disable).
--compile(r24).
+-compile(r25).
 
 %%
 %% THIS MODULE IS ALSO USED BY *OTHER* APPLICATIONS TEST CODE

@@ -654,7 +654,7 @@ encrypted_abstr_1(Conf) ->
     do_encrypted_abstr(BeamFile, Key),
     do_encrypted_abstr(Binary, Key),
 
-    ok = crypto:stop(),			%To get rid of extra ets tables.
+    ok = application:stop(crypto),			%To get rid of extra ets tables.
     file:delete(BeamFile),
     file:delete(Source),
     NoOfTables = erlang:system_info(ets_count),
@@ -780,7 +780,7 @@ encrypted_abstr_file_1(Conf) ->
     do_encrypted_abstr_file(Binary, Key),
     ok = file:set_cwd(OldCwd),
 
-    ok = crypto:stop(),			%To get rid of extra ets tables.
+    ok = application:stop(crypto),			%To get rid of extra ets tables.
     file:delete(filename:join(PrivDir, ".erlang.crypt")),
     file:delete(BeamFile),
     file:delete(Source),
@@ -991,7 +991,7 @@ simple_file(File, Module, F) ->
     ok = file:write_file(File, B).
 
 run_if_crypto_works(Test) ->
-    try	begin crypto:start(), crypto:stop(), ok end of
+    try	begin application:start(crypto), application:stop(crypto), ok end of
 	ok ->
 	    Test()
     catch

@@ -116,7 +116,7 @@ fi
 
 CLPATH=`lookup_prog_in_path cl`
 if [ -z "$CLPATH" ]; then 
-    echo "Can not locate cl.exe and thus not vcredist - OK if using mingw" >&2
+    echo "Can not locate cl.exe and vcredist_x86/x64/arm64.exe - OK if using mingw" >&2
     exit 1
 fi
 

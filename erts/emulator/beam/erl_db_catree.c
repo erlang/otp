@@ -114,7 +114,7 @@ static int db_prev_catree(Process *p, DbTable *tbl,
 static int db_prev_lookup_catree(Process *p, DbTable *tbl,
                           Eterm key,
                           Eterm *ret);
-static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail,
+static int db_put_catree(DbTable *tbl, Eterm obj, bool key_clash_fail,
                          SWord *consumed_reds_p);
 static int db_get_catree(Process *p, DbTable *tbl,
                          Eterm key,  Eterm *ret);
@@ -154,7 +154,7 @@ static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
                                              enum DbIterSafety*);
 static int db_take_catree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_catree(fmtfn_t to, void *to_arg,
-                            int show, DbTable *tbl);
+                            bool show, DbTable *tbl);
 static int db_free_table_catree(DbTable *tbl);
 static SWord db_free_table_continue_catree(DbTable *tbl, SWord);
 static void db_foreach_offheap_catree(DbTable *,
@@ -166,14 +166,14 @@ static SWord db_delete_all_objects_catree(Process* p,
                                           Eterm* nitems_holder_wb);
 static Eterm db_delete_all_objects_get_nitems_from_holder_catree(Process* p,
                                                                  Eterm nitems_holder);
-static int
+static bool
 db_lookup_dbterm_catree(Process *, DbTable *, Eterm key, Eterm obj,
                         DbUpdateHandle*);
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_catree(Process*, DbTable*, Eterm key, Eterm *ret);
 static int db_put_dbterm_catree(DbTable* tbl,
                                 void* obj,
-                                int key_clash_fail,
+                                bool key_clash_fail,
                                 SWord *consumed_reds_p);
 
 static void split_catree(DbTableCATree *tb,
@@ -497,7 +497,7 @@ static ERTS_INLINE int compute_tree_hight(TreeDbTerm * root)
  * Used by the join_trees function
  */
 static ERTS_INLINE
-TreeDbTerm* linkout_min_or_max_tree_node(TreeDbTerm **root, int is_min)
+TreeDbTerm* linkout_min_or_max_tree_node(TreeDbTerm **root, bool is_min)
 {
     TreeDbTerm **tstack[STACK_NEED];
     int tpos = 0;
@@ -543,8 +543,8 @@ TreeDbTerm* linkout_min_or_max_tree_node(TreeDbTerm **root, int is_min)
     return q;
 }
 
-#define LINKOUT_MIN_TREE_NODE(root) linkout_min_or_max_tree_node(root, 1)
-#define LINKOUT_MAX_TREE_NODE(root) linkout_min_or_max_tree_node(root, 0)
+#define LINKOUT_MIN_TREE_NODE(root) linkout_min_or_max_tree_node(root, true)
+#define LINKOUT_MAX_TREE_NODE(root) linkout_min_or_max_tree_node(root, false)
 
 /*
  * Joins two AVL trees where all the keys in the left one are smaller
@@ -907,7 +907,7 @@ void destroy_route_key(DbRouteKey* key)
 
 static ERTS_INLINE
 void init_root_iterator(DbTableCATree* tb, CATreeRootIterator* iter,
-                        int read_only)
+                        bool read_only)
 {
     iter->tb = tb;
     iter->read_only = read_only;
@@ -1036,7 +1036,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
     p = erts_db_alloc(ERTS_ALC_T_DB_TABLE, (DbTable *) tb,
                       sizeof_base_node());
 
-    p->is_base_node = 1;
+    p->is_base_node = true;
     p->u.base.root = root;
     if (tb->common.type & DB_FREQ_READ)
         rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
@@ -1050,7 +1050,7 @@ static DbTableCATreeNode *create_base_node(DbTableCATree *tb,
     ERTS_DB_ALC_MEM_UPDATE_((DbTable *) tb, 0, erts_rwmtx_size(&p->u.base.lock));
     BASE_NODE_STAT_SET(p, ((tb->common.status & DB_CATREE_FORCE_SPLIT)
                            ? INT_MAX : 0));
-    p->u.base.is_valid = 1;
+    p->u.base.is_valid = true;
     return p;
 }
 
@@ -1074,8 +1074,8 @@ create_route_node(DbTableCATree *tb,
                                          sizeof_route_node(key_size));
 
     copy_route_key(&p->u.route.key, key, key_size);
-    p->is_base_node = 0;
-    p->u.route.is_valid = 1;
+    p->is_base_node = false;
+    p->u.route.is_valid = true;
     erts_atomic_init_nob(&p->u.route.left, (erts_aint_t)left);
     erts_atomic_init_nob(&p->u.route.right, (erts_aint_t)right);
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -1238,9 +1238,9 @@ static void join_catree(DbTableCATree *tb,
             return;
         } else {
             lock_route_node(parent);
-            parent->u.route.is_valid = 0;
-            neighbor->u.base.is_valid = 0;
-            thiz->u.base.is_valid = 0;
+            parent->u.route.is_valid = false;
+            neighbor->u.base.is_valid = false;
+            thiz->u.base.is_valid = false;
             gparent = NULL;
             do {
                 if (gparent != NULL) {
@@ -1288,9 +1288,9 @@ static void join_catree(DbTableCATree *tb,
             return;
         } else {
             lock_route_node(parent);
-            parent->u.route.is_valid = 0;
-            neighbor->u.base.is_valid = 0;
-            thiz->u.base.is_valid = 0;
+            parent->u.route.is_valid = false;
+            neighbor->u.base.is_valid = false;
+            thiz->u.base.is_valid = false;
             gparent = NULL;
             do {
                 if (gparent != NULL) {
@@ -1392,7 +1392,7 @@ static void split_catree(DbTableCATree *tb,
         } else {
             SET_RIGHT_RELB(parent, new_route);
         }
-        base->u.base.is_valid = 0;
+        base->u.base.is_valid = false;
         wunlock_base_node(base);
         erts_schedule_db_free(&tb->common,
                               do_free_base_node,
@@ -1418,7 +1418,7 @@ static SWord db_free_table_continue_catree(DbTable *tbl, SWord reds)
 
     if (!tb->deletion) {
         /* First call */
-        tb->deletion = 1;
+        tb->deletion = true;
         tb->nr_of_deleted_items = 0;
     }
 
@@ -1571,7 +1571,7 @@ int db_create_catree(Process *p, DbTable *tbl)
     DbTableCATreeNode *root;
 
     root = create_base_node(tb, NULL);
-    tb->deletion = 0;
+    tb->deletion = false;
     tb->nr_of_deleted_items = 0;
 #ifdef DEBUG
     tbl->common.status |= DB_CATREE_DEBUG_RANDOM_SPLIT_JOIN;
@@ -1586,7 +1586,7 @@ static int db_first_catree_common(Process *p, DbTable *tbl, Eterm *ret, Eterm (*
     CATreeRootIterator iter;
     int result;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     root = *catree_find_first_root(&iter);
     if (!root) {
         TreeDbTerm **pp = catree_find_next_root(&iter, NULL);
@@ -1617,7 +1617,7 @@ static int db_next_catree_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret
     CATreeRootIterator iter;
     int result;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     iter.next_route_key = key;
     rootp = catree_find_next_root(&iter, NULL);
 
@@ -1650,7 +1650,7 @@ static int db_last_catree_common(Process *p, DbTable *tbl, Eterm *ret, Eterm (*f
     CATreeRootIterator iter;
     int result;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     root = *catree_find_last_root(&iter);
     if (!root) {
         TreeDbTerm **pp = catree_find_prev_root(&iter, NULL);
@@ -1681,7 +1681,7 @@ static int db_prev_catree_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret
     CATreeRootIterator iter;
     int result;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     iter.next_route_key = key;
     rootp = catree_find_prev_root(&iter, NULL);
 
@@ -1710,7 +1710,7 @@ static int db_prev_lookup_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret
 
 static int db_put_dbterm_catree(DbTable* tbl,
                                 void* obj,
-                                int key_clash_fail,
+                                bool key_clash_fail,
                                 SWord *consumed_reds_p)
 {
     TreeDbTerm *value_to_insert = obj;
@@ -1727,7 +1727,7 @@ static int db_put_dbterm_catree(DbTable* tbl,
     return result;
 }
 
-static int db_put_catree(DbTable *tbl, Eterm obj, int key_clash_fail,
+static int db_put_catree(DbTable *tbl, Eterm obj, bool key_clash_fail,
                          SWord *consumed_reds_p)
 {
     DbTableCATree *tb = &tbl->catree;
@@ -2079,7 +2079,7 @@ static int db_slot_catree(Process *p, DbTable *tbl,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_slot_tree_common(p, tbl, *catree_find_first_root(&iter),
                                  slot_term, ret, NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2095,7 +2095,7 @@ static int db_select_continue_catree(Process *p,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_select_continue_tree_common(p, &tbl->common,
                                             continuation, ret, NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2109,7 +2109,7 @@ static int db_select_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_select_tree_common(p, tbl, tid, pattern, reverse, ret,
                                    NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2125,7 +2125,7 @@ static int db_select_count_continue_catree(Process *p,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_select_count_continue_tree_common(p, tbl,
                                                   continuation, ret, NULL,
                                                   &iter);
@@ -2140,7 +2140,7 @@ static int db_select_count_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_select_count_tree_common(p, tbl,
                                          tid, pattern, ret, NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2155,7 +2155,7 @@ static int db_select_chunk_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     result = db_select_chunk_tree_common(p, tbl,
                                          tid, pattern, chunk_size, reversed, ret,
                                          NULL, &iter);
@@ -2174,7 +2174,7 @@ static int db_select_delete_continue_catree(Process *p,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 0);
+    init_root_iterator(&tbl->catree, &iter, false);
     init_tree_stack(&stack, stack_array, 0);
     result = db_select_delete_continue_tree_common(p, tbl, continuation, ret,
                                                    &stack, &iter);
@@ -2191,7 +2191,7 @@ static int db_select_delete_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 0);
+    init_root_iterator(&tbl->catree, &iter, false);
     init_tree_stack(&stack, stack_array, 0);
     result = db_select_delete_tree_common(p, tbl,
                                           tid, pattern, ret, &stack,
@@ -2207,7 +2207,7 @@ static int db_select_replace_catree(Process *p, DbTable *tbl, Eterm tid,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 0);
+    init_root_iterator(&tbl->catree, &iter, false);
     result = db_select_replace_tree_common(p, tbl,
                                            tid, pattern, ret, NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2221,7 +2221,7 @@ static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
     int result;
     CATreeRootIterator iter;
 
-    init_root_iterator(&tbl->catree, &iter, 0);
+    init_root_iterator(&tbl->catree, &iter, false);
     result = db_select_replace_continue_tree_common(p, tbl, continuation, ret,
                                                     NULL, &iter);
     destroy_root_iterator(&iter);
@@ -2246,12 +2246,12 @@ static int db_take_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
 /* Display tree contents (for dump) */
 static void db_print_catree(fmtfn_t to, void *to_arg,
-                            int show, DbTable *tbl)
+                            bool show, DbTable *tbl)
 {
     CATreeRootIterator iter;
     TreeDbTerm** root;
 
-    init_root_iterator(&tbl->catree, &iter, 1);
+    init_root_iterator(&tbl->catree, &iter, true);
     root = catree_find_first_root(&iter);
     do {
         db_print_tree_common(to, to_arg, show, *root, tbl);
@@ -2352,7 +2352,7 @@ static void db_foreach_offheap_catree(DbTable *tbl,
         ASSERT(tb->common.status & DB_DELETE);
         return;
     }
-    init_root_iterator(tb, &iter, 1);
+    init_root_iterator(tb, &iter, true);
     root = catree_find_first_root(&iter);
     do {
         db_foreach_offheap_tree_common(*root, func, arg);
@@ -2363,15 +2363,15 @@ static void db_foreach_offheap_catree(DbTable *tbl,
     do_for_route_nodes(GET_ROOT(tb), func, arg);
 }
 
-static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
+static bool db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                                    DbUpdateHandle *handle)
 {
     DbTableCATree *tb = &tbl->catree;
     FindBaseNode fbn;
     DbTableCATreeNode* node = find_wlock_valid_base_node(tb, key, &fbn);
-    int res = db_lookup_dbterm_tree_common(p, tbl, &node->u.base.root, key,
+    bool res = db_lookup_dbterm_tree_common(p, tbl, &node->u.base.root, key,
                                            obj, handle, NULL);
-    if (res == 0) {
+    if (!res) {
         wunlock_adapt_base_node(tb, node, fbn.parent, fbn.current_level);
     } else {
         /* db_finalize_dbterm_catree will unlock */
@@ -2443,7 +2443,7 @@ void db_catree_force_split(DbTableCATree* tb, int on)
     CATreeRootIterator iter;
     TreeDbTerm** root;
 
-    init_root_iterator(tb, &iter, 1);
+    init_root_iterator(tb, &iter, true);
     root = catree_find_first_root(&iter);
     do {
         BASE_NODE_STAT_SET(iter.locked_bnode, (on ? INT_MAX : 0));

@@ -192,9 +192,6 @@ pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
     case BIN_REF_DEF:
         erts_print(to, to_arg, "#BinRef");
         break;
-    case FUN_REF_DEF:
-        erts_print(to, to_arg, "#FunRef");
-        break;
     default:
 	erts_print(to, to_arg, "unknown object %x", obj);
     }

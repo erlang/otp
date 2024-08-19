@@ -55,7 +55,7 @@ macros described here and in the User's Guide:
                   {function,<<"Certificate Revocation API">>},
                   {function,<<"ASN.1 Encoding API">>},
                   {function,<<"Test Data API">>},
-                  {function,<<"Deprecated API">>}
+                  {function,<<"Legacy RSA Encryption API">>}
                  ]}).
 
 -feature(maybe_expr,enable).
@@ -110,17 +110,6 @@ macros described here and in the User's Guide:
 
 %%----------------
 %% Moved to ssh
-
--deprecated([{encrypt_private, 2, "use public_key:sign/3 instead"},
-             {encrypt_private, 3, "use public_key:sign 4 instead"},
-             {decrypt_private, 2, "do not use"},
-             {decrypt_private, 3, "do not use"},
-             {encrypt_public, 2,  "do not use"},
-             {encrypt_public, 3,  "do not use"},
-             {decrypt_public, 2,  "use public_key:verify/4 instead"},
-             {decrypt_public, 3,  "use public_key:verify/5 instead"}
-            ]).
-
 -removed([{ssh_decode,2, "use ssh_file:decode/2 instead"},
           {ssh_encode,2, "use ssh_file:encode/2 instead"},
           {ssh_hostkey_fingerprint,1, "use ssh:hostkey_fingerprint/1 instead"},
@@ -620,19 +609,32 @@ der_priv_key_decode(#'OneAsymmetricKey'{
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
-der_priv_key_decode({'PrivateKeyInfo', v1,
-	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
-	der_decode('RSAPrivateKey', PrivKey);
-der_priv_key_decode({'PrivateKeyInfo', v1,
-                     {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
-                      {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
+                                      privateKey = PrivKey}) ->
+    der_decode('RSAPrivateKey', PrivKey);
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                                parameters = {asn1_OPENTYPE, Parameters}},
+                                      privateKey = PrivKey}) ->
     Key = der_decode('RSAPrivateKey', PrivKey),
     Params = der_decode('RSASSA-PSS-params', Parameters),
     {Key, Params};
 der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                                                                  parameters =
-                                                                                                      {asn1_OPENTYPE, Parameters}},
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                                parameters = asn1_NOVALUE},
+                                      privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
+    {Key, Params};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
+                                                                                parameters =
+                                                                                    {asn1_OPENTYPE, Parameters}},
                                       privateKey = PrivKey}) ->
     {params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
     X = der_decode('Prime-p', PrivKey),
@@ -668,10 +670,15 @@ der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
                                  privateKeyAlgorithm = Alg,
                                  privateKey = Key});
 der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
-    Params = der_encode('RSASSA-PSS-params', Parameters),
+    #'RSASSA-AlgorithmIdentifier'{parameters = DefaultParams} = ?'rSASSA-PSS-Default-Identifier',
+    Params = case Parameters of
+                 DefaultParams ->
+                     asn1_NOVALUE;
+                 _ ->
+                     {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}
+             end,
     Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                parameters =
-                                                    {asn1_OPENTYPE, Params}},
+                                                parameters = Params},
     Key = der_encode('RSAPrivateKey', PrivKey),
     der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
                                                    privateKeyAlgorithm = Alg,
@@ -807,8 +814,7 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_private(CipherText, Key, []),
-       deprecated => ~"Do not use",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_private(CipherText, Key) ->
                              PlainText when CipherText :: binary(),
@@ -817,15 +823,14 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the private key. See also `crypto:private_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 """.
 -spec decrypt_private(CipherText, Key, Options) ->
                              PlainText when CipherText :: binary(),
@@ -843,8 +848,7 @@ decrypt_private(CipherText,
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => decrypt_public(CipherText, Key, []),
-       deprecated => ~"Use sign and verify instead",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec decrypt_public(CipherText, Key) ->
 			    PlainText
@@ -854,17 +858,16 @@ decrypt_private(CipherText,
 decrypt_public(CipherText, Key) ->
     decrypt_public(CipherText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -doc """
 Public-key decryption using the public key. See also `crypto:public_decrypt/4`
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`verify/4`](`verify/4`) together
-> with [`sign/3`](`sign/3`) instead.
-.
+> This is a legacy function, for security reasons do not use  with rsa_pkcs1_padding.
+> For digital signatures the use of [`verify/4`](`verify/4`) together
+> with [`sign/3`](`sign/3`) is a prefered solution.
 """.
 -spec decrypt_public(CipherText, Key, Options) ->
 			    PlainText
@@ -880,8 +883,7 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_public(PlainText, Key, []),
-       deprecated => ~"Do not use",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_public(PlainText, Key) ->
 			     CipherText
@@ -891,15 +893,14 @@ decrypt_public(CipherText, #'RSAPublicKey'{modulus = N, publicExponent = E},
 encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Do not use",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the public key. See also `crypto:public_encrypt/4`.
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons do not use.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
 """.
 -spec encrypt_public(PlainText, Key, Options) ->
 			     CipherText
@@ -913,8 +914,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => encrypt_private(PlainText, Key, []),
-       deprecated => ~"Use sign and verify instead",
-       title => <<"Deprecated API">>,
+       title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP R14B">>}).
 -spec encrypt_private(PlainText, Key) ->
 			     CipherText
@@ -924,8 +924,7 @@ encrypt_public(PlainText, #'RSAPublicKey'{modulus=N,publicExponent=E},
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
--doc(#{title => <<"Deprecated API">>,
-       deprecated => ~"Use sign and verify instead",
+-doc(#{title => <<"Legacy RSA Encryption API">>,
        since => <<"OTP 21.1">>}).
 -doc """
 Public-key encryption using the private key.
@@ -938,7 +937,9 @@ or trusted platform modules (TPM).
 
 > #### Warning {: .warning }
 >
-> This is a legacy function, for security reasons use [`sign/3`](`sign/3`) together with [`verify/4`](`verify/4`)  instead.
+> This is a legacy function, for security reasons do not use with rsa_pkcs1_padding.
+> For digital signatures use of [`sign/3`](`sign/3`) together with [`verify/4`](`verify/4`)  is
+> the prefered solution.
 """.
 -spec encrypt_private(PlainText, Key, Options) ->
 			     CipherText
@@ -1722,11 +1723,12 @@ Available options:
    fun(_DP, CRL) -> CRL end
   ```
 
-- **\{issuer_fun, fun()\}** - The fun has the following type specification:
+- **\{issuer_fun, \{fun(), UserState::term()\}\}** - The fun has the following type
+  specification:
 
   ```erlang
   fun(#'DistributionPoint'{}, #'CertificateList'{},
-      {rdnSequence,[#'AttributeTypeAndValue'{}]}, term()) ->
+      {rdnSequence,[#'AttributeTypeAndValue'{}]}, UserState::term()) ->
   	{ok, #'OTPCertificate'{}, [der_encoded]}
   ```
 

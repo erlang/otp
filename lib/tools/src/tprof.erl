@@ -210,7 +210,7 @@ Which processes that are profiled depends on the profiling type.
 
 * `call_time` and `call_memory` limits the profiling to the processes
   spawned from the user-provided function (using the `set_on_spawn`
-  option for `erlang:trace/3`).
+  option for `trace:process/4`).
 
 `call_time` and `call_memory` can be restricted to profile a single process:
 
@@ -1037,6 +1037,7 @@ collect_trace(Session, Mod, FunList, Acc, Type) ->
 %% statistics won't be correct anyway. Hence the warning in the user
 %% guide, guarding against hot code reload while tracing.
 combine_trace({_, false}) -> fail;
+combine_trace({_, undefined}) -> skip; %% module unloaded after code:all_loaded()
 combine_trace({call_count, 0}) -> skip;
 combine_trace({call_count, Num}) -> [{all, Num, Num}];
 combine_trace({call_time, Times}) ->
@@ -1368,6 +1369,10 @@ collect_ad_hoc(Session, Pattern, Type) ->
                   not (Mod =:= erts_internal andalso Fun =:= trace andalso Arity =:= 4)
            ]}.
 
+foreach(S, all, Action, Type) ->
+    _ = trace:function(S, on_load, Action, [Type]),
+    _ = trace:function(S, {'_', '_', '_'}, Action, [Type]),
+    ok;
 foreach(S, Map, Action, Type) ->
     maps:foreach(
         fun (Mod, Funs) ->

@@ -1036,9 +1036,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r24, Os) ->
-    expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
-                             expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
      expand_opt(r26, Os)];
@@ -1905,7 +1902,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 -define(META_USED_FEATURES, enabled_features).
 -define(META_CHUNK_NAME, <<"Meta">>).
 
-metadata_add_features(Ftrs, #compile{extra_chunks = Extra} = St) ->
+metadata_add_features(Ftrs, #compile{options = CompOpts,
+                                     extra_chunks = Extra} = St) ->
     MetaData =
         case proplists:get_value(?META_CHUNK_NAME, Extra) of
             undefined ->
@@ -1918,10 +1916,20 @@ metadata_add_features(Ftrs, #compile{extra_chunks = Extra} = St) ->
     MetaData1 =
         proplists:from_map(maps:put(?META_USED_FEATURES, NewFtrs,
                                     proplists:to_map(MetaData))),
-    Extra1 = proplists:from_map(maps:put(?META_CHUNK_NAME,
-                                         erlang:term_to_binary(MetaData1),
-                                         proplists:to_map(Extra))),
+    Extra1 = proplists:from_map(
+               maps:put(?META_CHUNK_NAME,
+                        term_to_binary(MetaData1,
+                                       ensure_deterministic(CompOpts, [])),
+                        proplists:to_map(Extra))),
     St#compile{extra_chunks = Extra1}.
+
+ensure_deterministic(CompOpts, Opts) ->
+    case member(deterministic, CompOpts) of
+        true ->
+            [deterministic | Opts];
+        false ->
+            Opts
+    end.
 
 with_columns(Opts) ->
     case proplists:get_value(error_location, Opts, column) of
@@ -2337,6 +2345,9 @@ is_obsolete(r20) -> true;
 is_obsolete(r21) -> true;
 is_obsolete(r22) -> true;
 is_obsolete(r23) -> true;
+is_obsolete(r24) -> true;
+is_obsolete(no_badrecord) -> true;
+is_obsolete(no_bs_create_bin) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
 is_obsolete(no_put_tuple2) -> true;
@@ -2411,7 +2422,8 @@ beam_docs(Code, #compile{dir = Dir, options = Options,
     SourceName = deterministic_filename(St),
     case beam_doc:main(Dir, SourceName, Code, Options) of
         {ok, Docs, Ws} ->
-            MetaDocs = [{?META_DOC_CHUNK, term_to_binary(Docs)} | ExtraChunks],
+            Binary = term_to_binary(Docs, [deterministic, compressed]),
+            MetaDocs = [{?META_DOC_CHUNK, Binary} | ExtraChunks],
             {ok, Code, St#compile{extra_chunks = MetaDocs,
                                   warnings = St#compile.warnings ++ Ws}};
         {error, no_docs} ->
@@ -2466,8 +2478,8 @@ debug_info_chunk(#compile{mod_options=ModOpts0,
             false ->
                 {erl_abstract_code,{none,AbstOpts},ModOpts0}
         end,
-    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata},
-                                      [compressed]),
+    DebugInfo = term_to_binary({debug_info_v1,Backend,Metadata},
+                               ensure_deterministic(CompOpts, [compressed])),
     {DebugInfo, ModOpts}.
 
 encrypt_debug_info(DebugInfo, Key, Opts) ->
@@ -2511,7 +2523,7 @@ keep_compile_option(Option, _Deterministic) ->
     effects_code_generation(Option).
 
 start_crypto() ->
-    try crypto:start() of
+    try application:start(crypto) of
 	{error,{already_started,crypto}} -> ok;
 	ok -> ok
     catch

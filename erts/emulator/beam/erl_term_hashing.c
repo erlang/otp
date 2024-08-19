@@ -236,7 +236,7 @@ tail_recur:
 
             if (is_local_fun(funp)) {
 
-                ErlFunEntry* fe = funp->entry.fun;
+                const ErlFunEntry* fe = funp->entry.fun;
                 Uint num_free = fun_num_free(funp);
 
                 hash = hash * FUNNY_NUMBER10 + num_free;
@@ -1162,7 +1162,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 ErlFunThing* funp = (ErlFunThing *) fun_val(term);
 
                 if (is_local_fun(funp)) {
-                    ErlFunEntry* fe = funp->entry.fun;
+                    const ErlFunEntry* fe = funp->entry.fun;
                     ErtsMakeHash2Context_FUN_SUBTAG ctx = {
                         .num_free = fun_num_free(funp),
                         .bptr = NULL};
@@ -1185,7 +1185,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                         term = *ctx.bptr;
                     }
                 } else {
-                    Export *ep = funp->entry.exp;
+                    const Export *ep = funp->entry.exp;
 
                     UINT32_HASH_2
                         (ep->info.mfa.arity,

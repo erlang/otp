@@ -87,7 +87,8 @@ end_per_group(_GroupName, Config) ->
 alias_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(alias, Config),
     run_post_ssa_opt(alias_non_convergence, Config),
-    run_post_ssa_opt(alias_chain, Config).
+    run_post_ssa_opt(alias_chain, Config),
+    run_post_ssa_opt(ss_depth_limit, Config).
 
 annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(annotations, Config).
@@ -104,7 +105,9 @@ private_append_checks(Config) when is_list(Config) ->
 tuple_inplace_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(tuple_inplace_checks, Config),
     run_post_ssa_opt(tuple_inplace_abort0, Config),
-    run_post_ssa_opt(tuple_inplace_abort1, Config).
+    run_post_ssa_opt(tuple_inplace_abort1, Config),
+    run_post_ssa_opt(tuple_inplace_abort2, Config),
+    run_post_ssa_opt(tuple_inplace_abort3, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).

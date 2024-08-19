@@ -129,12 +129,13 @@ takeover(ConnPid, _, Socket, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
     case Callback:controlling_process(Socket, ConnPid) of
         ok ->
+            Ref = erlang:monitor(process, ConnPid),
             gen_statem:cast(ConnPid, socket_control),
             NegTimeout = ?GET_INTERNAL_OPT(negotiation_timeout,
                                            Options,
                                            ?GET_OPT(negotiation_timeout, Options)
                                           ),
-            handshake(ConnPid, erlang:monitor(process,ConnPid), NegTimeout);
+            handshake(ConnPid, Ref, NegTimeout);
         {error, Reason}	->
             {error, Reason}
     end.

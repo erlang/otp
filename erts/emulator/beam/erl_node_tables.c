@@ -1570,7 +1570,6 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
             }
 	    break;
 	case BIN_REF_SUBTAG:
-	case FUN_REF_SUBTAG:
 	    break; /* No need to */
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -2176,7 +2175,7 @@ setup_reference_table(void)
     }
 
     /* Insert all ets tables */
-    erts_db_foreach_table(insert_ets_table, NULL, 0);
+    erts_db_foreach_table(insert_ets_table, NULL, false);
     erts_db_foreach_thr_prgr_offheap(insert_ets_offheap_thr_prgr, NULL);
 
     /* Insert all bif timers */

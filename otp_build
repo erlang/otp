@@ -1049,8 +1049,13 @@ do_download_ex_doc ()
             echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
             exit 1
         fi
+    elif command -v shasum > /dev/null; then
+        if ! (cd "$ERL_TOP/make" && shasum -a 1 --status -c "ex_doc.sha1sum"); then
+            echo "The shasum check of $ERL_TOP/bin/ex_doc failed!" >&2
+            exit 1
+        fi
     else
-        echo "Neither sha1sum nor sha256sum found to verify $ERL_TOP/bin/ex_doc" >&2
+        echo "Neither sha1sum nor sha256sum nor shasum found to verify $ERL_TOP/bin/ex_doc" >&2
         echo "Please check manually that the correct ex_doc was downloaded." >&2
         exit 1
     fi
@@ -1064,7 +1069,7 @@ do_update_ex_doc ()
 
     OTP_VERSION=$(awk -F. '{ print $1 }' "$ERL_TOP/OTP_VERSION")
     EX_DOC_VSN=$(curl --silent -qI https://github.com/elixir-lang/ex_doc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
-    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null; then
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null || curl --silent -Li "https://github.com/elixir-lang/ex_doc/releases/download/${EX_DOC_VSN}/ex_doc_otp_${OTP_VERSION}" > /dev/null; then
         OTP_VERSION="$(($OTP_VERSION-1))"
     fi
     if command -v sha1sum > /dev/null && command -v sha256sum > /dev/null; then

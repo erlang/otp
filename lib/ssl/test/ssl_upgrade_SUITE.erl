@@ -62,8 +62,8 @@ all() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             ssl_test_lib:clean_start(),
             case ct_release_test:init(Config0) of
@@ -78,7 +78,7 @@ init_per_suite(Config0) ->
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
-    crypto:stop().
+    application:stop(crypto).
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
-%% @doc Doclet converting an edoc application to use EEP-59 and markdown.
+%% @doc Doclet converting an edoc application to use <a href="https://www.erlang.org/eeps/eep-0059">EEP-59</a> and Markdown.
 %%
 %% This doclet has to be used together with {@link edoc_layout_chunks}.
 %%
@@ -29,8 +29,8 @@
 %%      {layout, edoc_layout_chunks}]).
 %% '''
 %%
-%% It will convert the overview to markdown and any module documentation to use
-%% `-doc' attributes and markdown. Any XHTML tags in the edoc documentation that are
+%% It will convert the overview to Markdown and any module documentation to use
+%% `-doc' attributes and Markdown. Any XHTML tags in the edoc documentation that are
 %% not part of the tags supported by <a href="doc_storage.html#erlang-documentation-format">
 %% Erlang Documentation Format</a> will be added as HTML tags in the Markdown.
 %%
@@ -183,7 +183,7 @@ source({Module, Name, Path}, App, Env, OkSet, ErrorFlag, Options0) ->
                       string:split(Bin, "\n", all);
                   F -> F
               end),
-        
+
         NewFilesWithModuleDoc =
             NewFiles#{ ModuleAttrFilename =>
                            BeforeModule ++

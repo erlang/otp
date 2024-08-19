@@ -799,13 +799,13 @@ void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
 void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
                                             const ArgAtom &F,
                                             const ArgWord &A) {
-    BeamInstr func;
-    Export *e;
+    const Export *e;
+    UWord func;
 
     e = erts_active_export_entry(M.get(), F.get(), A.get());
     ASSERT(e != NULL && e->bif_number != -1);
 
-    func = (BeamInstr)bif_table[e->bif_number].f;
+    func = (UWord)bif_table[e->bif_number].f;
 
     a.adr(ARG3, current_label);
     a.sub(ARG2, ARG3, imm(sizeof(ErtsCodeMFA)));

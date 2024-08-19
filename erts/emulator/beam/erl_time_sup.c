@@ -352,7 +352,8 @@ calc_corrected_erl_mtime(ErtsMonotonicTime os_mtime,
 	diff += (cip->correction.drift*diff)/ERTS_MONOTONIC_TIME_UNIT;
     erl_mtime = cip->erl_mtime;
     erl_mtime += diff;
-    erl_mtime += cip->correction.error*(diff/ERTS_TCORR_ERR_UNIT);
+    erl_mtime += (cip->correction.error*diff)/ERTS_TCORR_ERR_UNIT;
+
     if (os_mdiff_p)
 	*os_mdiff_p = diff;
     return erl_mtime;

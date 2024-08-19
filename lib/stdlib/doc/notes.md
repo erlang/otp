@@ -21,6 +21,23 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix so that missing `-doc({file, File})` files only result in a warning and not an error.
+
+  Own Id: OTP-19099 Aux Id: [PR-8542]
+
+- Fixed `m:json` bugs, `json:encode_key_value_list/2` did not generate arrays and `json:decode/3` did not invoke the user callback for `0`.
+
+  Own Id: OTP-19106 Aux Id: [PR-8581] [GH-8580] [PR-8519]
+
+[PR-8542]: https://github.com/erlang/otp/pull/8542
+[PR-8581]: https://github.com/erlang/otp/pull/8581
+[GH-8580]: https://github.com/erlang/otp/issues/8580
+[PR-8519]: https://github.com/erlang/otp/pull/8519
+
 ## STDLIB 6.0
 
 ### Fixed Bugs and Malfunctions
@@ -373,6 +390,14 @@ This document describes the changes made to the STDLIB application.
 [PR-8164]: https://github.com/erlang/otp/pull/8164
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 [PR-8111]: https://github.com/erlang/otp/pull/8111
+
+## STDLIB 5.2.3.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug that caused the shell completion to crash when keyword and tuple appeared on the same line.
+
+  Own Id: OTP-19157 Aux Id: PR-8638
 
 ## STDLIB 5.2.3
 

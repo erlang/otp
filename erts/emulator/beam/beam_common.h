@@ -250,11 +250,11 @@ do {						\
 ErtsCodeMFA *ubif2mfa(void* uf);
 ErtsCodePtr handle_error(Process* c_p, ErtsCodePtr pc,
                          Eterm* reg, const ErtsCodeMFA* bif_mfa);
-Export* call_error_handler(Process* p, const ErtsCodeMFA* mfa,
+const Export *call_error_handler(Process* p, const ErtsCodeMFA* mfa,
                            Eterm* reg, Eterm func);
-Export* fixed_apply(Process* p, Eterm* reg, Uint arity,
+const Export *fixed_apply(Process* p, Eterm* reg, Uint arity,
                     ErtsCodePtr I, Uint offs);
-Export* apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
+const Export *apply(Process* p, Eterm* reg, ErtsCodePtr I, Uint offs);
 ErtsCodePtr call_fun(Process* p, int arity, Eterm* reg, Eterm args);
 ErtsCodePtr apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
 int is_function2(Eterm Term, Uint arity);

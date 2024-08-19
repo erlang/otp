@@ -7905,7 +7905,8 @@ maps_sum([L]) ->
 types(Config) when is_list(Config) ->
     init_externals(),
     repeat_for_opts(fun types_do/1, [repeat_for_opts_atom2list(set_types),
-                                     compressed]).
+                                     compressed,
+                                     [ordered_set, compressed]]).
 
 types_do(Opts) ->
     EtsMem = etsmem(),
@@ -9312,9 +9313,12 @@ test_terms(Test_Func, Mode) ->
     Bin2 = list_to_binary(lists:seq(0, ?heap_binary_size+1)),
     Test_Func(Bin2),
     Bin3 = list_to_binary(lists:seq(0, 255)),
+    %% Test an undersized refc binary. GH-8682
+    Bin4 = erts_debug:set_internal_state(binary, 61),
     garbage_collect(),
     Pib = process_info(self(),binary),
     Test_Func(Bin3),
+    Test_Func(Bin4),
     garbage_collect(),
     case Mode of
 	strict -> Pib = process_info(self(),binary);
@@ -9325,6 +9329,7 @@ test_terms(Test_Func, Mode) ->
     Test_Func(make_unaligned_sub_binary(Bin1)),
     Test_Func(make_unaligned_sub_binary(Bin2)),
     Test_Func(make_unaligned_sub_binary(Bin3)),
+    Test_Func(make_unaligned_sub_binary(Bin4)),
 
     Test_Func(make_sub_binary(lists:seq(42, 43))),
     Test_Func(make_sub_binary([42,43,44])),

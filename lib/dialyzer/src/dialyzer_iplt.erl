@@ -262,7 +262,7 @@ to_file_custom_vsn(
   Info = maps:from_list(dialyzer_utils:ets_tab2list(ETSInfo)),
   Types = dialyzer_utils:ets_tab2list(ETSTypes),
   Contracts = maps:from_list(dialyzer_utils:ets_tab2list(ETSContracts)),
-  ExpTypes = sets:from_list([E || {E} <- dialyzer_utils:ets_tab2list(ETSExpTypes)], [{version, 2}]),
+  ExpTypes = sets:from_list([E || {E} <- dialyzer_utils:ets_tab2list(ETSExpTypes)]),
   Record = #ifile_plt{version = Vsn,
                       module_md5_list = MD5,
                       info = term_to_binary(Info, [{compressed,9}]),

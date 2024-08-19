@@ -1097,8 +1097,6 @@ module.
 %% ---------------------------------------------------------------------------
 
 -doc """
-start() -> ok | {error, Reason}
-
 Start the diameter application.
 
 The diameter application must be started before starting a service. In a
@@ -1106,9 +1104,8 @@ production system this is typically accomplished by a boot file, not by calling
 `start/0` explicitly.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec start()
-   -> ok
-    | {error, term()}.
+-spec start() -> ok | {error, Reason} when
+      Reason :: term().
 
 start() ->
     application:start(?APPLICATION).
@@ -1119,14 +1116,11 @@ start() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-stop() -> ok | {error, Reason}
-
 Stop the diameter application.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec stop()
-   -> ok
-    | {error, term()}.
+-spec stop() -> ok | {error, Reason} when
+      Reason :: term().
 
 stop() ->
     application:stop(?APPLICATION).
@@ -1137,8 +1131,6 @@ stop() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-start_service(SvcName, Options) -> ok | {error, Reason}
-
 Start a diameter service.
 
 A service defines a locally-implemented Diameter node, specifying the
@@ -1152,9 +1144,10 @@ to a service using `add_transport/2`.
 > Origin-Host" is not necessarily the case.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec start_service(service_name(), [service_opt()])
-   -> ok
-    | {error, term()}.
+-spec start_service(SvcName, Opts) -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Opts    :: [service_opt()],
+      Reason  :: term().
 
 start_service(SvcName, Opts)
   when is_list(Opts) ->
@@ -1166,8 +1159,6 @@ start_service(SvcName, Opts)
 %% ---------------------------------------------------------------------------
 
 -doc """
-stop_service(SvcName) -> ok | {error, Reason}
-
 Stop a diameter service.
 
 Stopping a service causes all associated transport connections to be broken. A
@@ -1179,9 +1170,9 @@ DPR message will be sent as in the case of `remove_transport/2`.
 > `remove_transport/2` must be called to remove transport configuration.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec stop_service(service_name())
-   -> ok
-    | {error, term()}.
+-spec stop_service(SvcName) -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Reason  :: term().
 
 stop_service(SvcName) ->
     diameter_config:stop_service(SvcName).
@@ -1192,13 +1183,11 @@ stop_service(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-services() -> [SvcName]
-
 Return the list of started services.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec services()
-   -> [service_name()].
+-spec services() -> [SvcName] when
+      SvcName :: service_name().
 
 services() ->
     [Name || {Name, _} <- diameter_service:services()].
@@ -1209,8 +1198,6 @@ services() ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-service_info(SvcName, Info) -> term()
-
 Return information about a started service. Requesting info for an unknown
 service causes `undefined` to be returned. Requesting a list of items causes a
 tagged list to be returned.
@@ -1477,9 +1464,9 @@ tagged list to be returned.
   ```
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec service_info(service_name(), Item | [Item])
-   -> any()
- when Item :: atom() | peer_ref().
+-spec service_info(SvcName, Item | [Item]) -> term() when
+      SvcName :: service_name(),
+      Item    :: atom() | peer_ref().
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
@@ -1512,8 +1499,6 @@ peer_find(Pid) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-add_transport(SvcName, {connect|listen, [Opt]}) -> {ok, Ref} | {error, Reason}
-
 Add transport capability to a service.
 
 The service will start transport processes as required in order to establish a
@@ -1539,9 +1524,14 @@ established.
 > configured: a service can be started after configuring its transports.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec add_transport(service_name(), {listen|connect, [transport_opt()]})
-   -> {ok, transport_ref()}
-    | {error, term()}.
+-spec add_transport(SvcName, Transport)
+   -> {ok, TRef} | {error, Reason} when
+      SvcName   :: service_name(),
+      Transport :: {T, Opts},
+      T         :: listen | connect,
+      Opts      :: [transport_opt()],
+      TRef      :: transport_ref(),
+      Reason    :: term().
 
 add_transport(SvcName, {T, Opts} = Cfg)
   when is_list(Opts), (T == connect orelse T == listen) ->
@@ -1552,8 +1542,6 @@ add_transport(SvcName, {T, Opts} = Cfg)
 %% ---------------------------------------------------------------------------
 
 -doc """
-remove_transport(SvcName, Pred) -> ok | {error, Reason}
-
 Remove previously added transports.
 
 `Pred` determines which transports to remove. An arity-3-valued `Pred` removes
@@ -1577,8 +1565,11 @@ value of [disconnect_cb](`m:diameter#disconnect_cb`) configured on the
 transport.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec remove_transport(service_name(), transport_pred())
-   -> ok | {error, term()}.
+-spec remove_transport(SvcName, Pred)
+   -> ok | {error, Reason} when
+      SvcName :: service_name(),
+      Pred    :: transport_pred(),
+      Reason  :: term().
 
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
@@ -1707,8 +1698,6 @@ which_connections(SvcName) ->
 %% ---------------------------------------------------------------------------
 
 -doc """
-subscribe(SvcName) -> true
-
 Subscribe to [`service_event()`](`m:diameter#service_event`) messages from a
 service.
 
@@ -1717,35 +1706,33 @@ exist. Doing so before adding transports is required to guarantee the reception
 of all transport-related events.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec subscribe(service_name())
-   -> true.
+-spec subscribe(SvcName) -> true when
+      SvcName :: service_name().
 
 subscribe(SvcName) ->
     diameter_service:subscribe(SvcName).
+
 
 %% ---------------------------------------------------------------------------
 %% unsubscribe/1
 %% ---------------------------------------------------------------------------
 
 -doc """
-unsubscribe(SvcName) -> true
-
 Unsubscribe to event messages from a service.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec unsubscribe(service_name())
-   -> true.
+-spec unsubscribe(SvcName) -> true when
+      SvcName :: service_name().
 
 unsubscribe(SvcName) ->
     diameter_service:unsubscribe(SvcName).
+
 
 %% ---------------------------------------------------------------------------
 %% session_id/1
 %% ---------------------------------------------------------------------------
 
 -doc """
-session_id(Ident) -> OctetString()
-
 Return a value for a Session-Id AVP.
 
 The value has the form required by section 8.8 of RFC 6733. Ident should be the
@@ -1753,19 +1740,19 @@ Origin-Host of the peer from which the message containing the returned value
 will be sent.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec session_id('DiameterIdentity'())
-   -> 'OctetString'().
+-spec session_id(Ident) -> SessionId when
+      Ident     :: 'DiameterIdentity'(),
+      SessionId :: 'OctetString'().
 
 session_id(Ident) ->
     diameter_session:session_id(Ident).
+
 
 %% ---------------------------------------------------------------------------
 %% origin_state_id/0
 %% ---------------------------------------------------------------------------
 
 -doc """
-origin_state_id() -> Unsigned32()
-
 Return a reasonable value for use as Origin-State-Id in outgoing messages.
 
 The value returned is the number of seconds since 19680120T031408Z, the first
@@ -1773,19 +1760,17 @@ value that can be encoded as a Diameter [`Time()`](diameter_dict.md#DATA_TYPES),
 at the time the diameter application was started.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec origin_state_id()
-   -> 'Unsigned32'().
+-spec origin_state_id() -> 'Unsigned32'().
 
 origin_state_id() ->
     diameter_session:origin_state_id().
+
 
 %% ---------------------------------------------------------------------------
 %% call/3,4
 %% ---------------------------------------------------------------------------
 
 -doc """
-call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}
-
 Send a Diameter request message.
 
 `App` specifies the Diameter application in which the request is defined and
@@ -1838,8 +1823,15 @@ Note that `{error,encode}` is the only return value which guarantees that the
 request has _not_ been sent over the transport connection.
 """.
 -doc(#{since => <<"OTP R14B03">>}).
--spec call(service_name(), app_alias(), any(), [call_opt()])
-   -> any().
+-spec call(SvcName, App, Request, CallOpts)
+   -> Result when
+      SvcName  :: service_name(),
+      App      :: app_alias(),
+      Request  :: diameter_codec:message() | diameter_codec:packet(),
+      CallOpts :: [call_opt()],
+      Result   :: ok | {error, Reason} | Answer,
+      Answer   :: term(),
+      Reason   :: term().
 
 call(SvcName, App, Message, Options) ->
     diameter_traffic:send_request(SvcName, {alias, App}, Message, Options).

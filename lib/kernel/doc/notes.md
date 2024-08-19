@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.0.1
+
+### Improvements and New Features
+
+- Polish the `m:logger` documentation.
+
+  Own Id: OTP-19118 Aux Id: [PR-8534]
+
+[PR-8534]: https://github.com/erlang/otp/pull/8534
+
 ## Kernel 10.0
 
 ### Fixed Bugs and Malfunctions
@@ -220,6 +230,17 @@ This document describes the changes made to the Kernel application.
 [PR-8103]: https://github.com/erlang/otp/pull/8103
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
+
+## Kernel 9.2.4.1
+
+### Fixed Bugs and Malfunctions
+
+* A call to socket:\[recv|recvfrom|recvmsg]/* with Timeout = 0 on Windows could cause a (case clause) crash if data is immediately available.
+
+  Own Id: OTP-19063 Aux Id: OTP-18835
+* Open a `disk_log` file and combining `head_func` with `rotate` options did not work.
+
+  Own Id: OTP-19104 Aux Id: ERIERL-870
 
 ## Kernel 9.2.4
 

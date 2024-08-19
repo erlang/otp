@@ -646,7 +646,7 @@ common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, 
     end;
 common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared) 
   when ActualBlockNo =< ExpectedBlockNo, is_record(Prepared, prepared) ->
-    %% error_logger:error_msg("TFTP READ ~s: Expected block ~p but got block ~p - IGNORED\n",
+    %% logger:error("TFTP READ ~s: Expected block ~p but got block ~p - IGNORED\n",
     %%                     [Req#tftp_msg_req.filename, ExpectedBlockNo, ActualBlockNo]),
     case Prepared of
         #prepared{status = more, prev_data = Data} when is_binary(Data) ->
@@ -707,7 +707,7 @@ common_write(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo,
     common_ack(Config, Callback, Req, LocalAccess, ExpectedBlockNo - 1, Prepared);
 common_write(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Data, Prepared)
   when ActualBlockNo =< ExpectedBlockNo, is_binary(Data), is_record(Prepared, prepared) ->
-    %% error_logger:error_msg("TFTP WRITE ~s: Expected block ~p but got block ~p - IGNORED\n",
+    %% logger:error("TFTP WRITE ~s: Expected block ~p but got block ~p - IGNORED\n",
     %% [Req#tftp_msg_req.filename, ExpectedBlockNo, ActualBlockNo]),
     Reply = #tftp_msg_ack{block_no = ExpectedBlockNo},
     {Config2, Callback2, TransferRes} = 
