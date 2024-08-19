@@ -113,6 +113,8 @@ make/otp_doc_built
 # Used by applications that run javadoc (e.g. ic).
 JAVADOC-GENERATED
 
+*.1
+
 # Anchored from $ERL_TOP
 /bin
 /config.log
