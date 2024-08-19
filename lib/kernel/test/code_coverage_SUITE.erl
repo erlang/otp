@@ -270,6 +270,7 @@ error_info(_Config) ->
          {get_coverage, [line,42]},
          {get_coverage, [line,NotLoaded]},
          {get_coverage, [line,?MODULE]},
+         {get_coverage, [cover_line_id,NotLoaded]},
          {get_coverage, [whatever,?MODULE]},
 
          {reset_coverage, [42]},

@@ -22,7 +22,8 @@
 
 -export([do0a/0, do0b/2, different_sizes/2, ambiguous_inits/1,
          update_record0/0, fc/0, track_update_record/1,
-         gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0]).
+         gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0,
+         failure_to_patch_list/0]).
 
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
@@ -263,3 +264,26 @@ tuple_set_b() ->
 	{error,_} ->
 	    bad
     end.
+
+%% Check that the list of tuples is built on the heap.
+
+failure_to_patch_list() ->
+%ssa% () when post_ssa_opt ->
+%ssa% T0 = put_tuple(...),
+%ssa% L0 = put_list(T0, []),
+%ssa% T1 = put_tuple(...),
+%ssa% L1 = put_list(T1, L0),
+%ssa% _ = call(_, L1).
+    _ = [
+         ftpl(ClassDef) ||
+	    ClassDef <- [#r{a={}},
+			 #r{}
+			]
+        ],
+    ok.
+
+ftpl(Ts0) ->
+%ssa% (X) when post_ssa_opt ->
+%ssa% _ = update_record(inplace, 5, X,...).
+    A = erlang:timestamp(),
+    Ts0#r{a=A}.

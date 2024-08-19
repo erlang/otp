@@ -991,13 +991,28 @@ patch_literal_term(<<>>, {self,init_writable}, Cnt0) ->
     {V,Cnt} = new_var(Cnt0),
     I = #b_set{op=bs_init_writable,dst=V,args=[#b_literal{val=256}]},
     {V,[I],Cnt};
-patch_literal_term([H0|T0], {hd,Element,_}, Cnt0) ->
-    {H,Extra,Cnt1} = patch_literal_term(H0, Element, Cnt0),
-    {T,[],Cnt1} = patch_literal_term(T0, [], Cnt1),
-    {Dst,Cnt} = new_var(Cnt1),
+patch_literal_term(Lst, {hd,_,_}=E, Cnt0) ->
+    patch_literal_list(Lst, E, Cnt0);
+patch_literal_term(Lit, [], Cnt) ->
+    {#b_literal{val=Lit}, [], Cnt}.
+
+%%
+%% The initial value tracker is unable to easily follow list tails, to
+%% compensate for this a patch for the head of a literal list is
+%% applied to all elements of the list. Sometimes this is unnecessary,
+%% but as it appears to be infrequent and mostly harmless, this avoids
+%% extra complexity in the tracker.
+%%
+patch_literal_list([H0|T0], {hd,Element,_}=E, Cnt0) ->
+    {H,Extra2,Cnt1} = patch_literal_term(H0, Element, Cnt0),
+    {T,Extra1,Cnt2} = patch_literal_term(T0, E, Cnt1),
+    Extra = Extra2 ++ Extra1,
+    {Dst,Cnt} = new_var(Cnt2),
     I = #b_set{op=put_list,dst=Dst,args=[H,T]},
     {Dst, [I|Extra], Cnt};
-patch_literal_term(Lit, [], Cnt) ->
+patch_literal_list(Lit, {hd,_,_}, Cnt) ->
+    %% Lit is normally [], but if it is not, we know that it is not a
+    %% cons that needs to end up on the heap, so it can be left as is.
     {#b_literal{val=Lit}, [], Cnt}.
 
 patch_literal_tuple(Tuple, Elements0, Cnt) ->
