@@ -2070,7 +2070,7 @@ path_validate(TrustedAndPath, ServerName, Role, CertDbHandle, CertDbRef, CRLDbHa
                   Version, SslOptions, ExtInfo, InitialInvalidated, InitialPotentialError).
 
 validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
-    {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
+    {fun(OtpCert, DerCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
 					   SslState,
@@ -2078,32 +2078,32 @@ validation_fun_and_state({Fun, UserState0}, VerifyState, CertPath, LogLevel) ->
 		 {valid, NewSslState} ->
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
-		     apply_user_fun(Fun, OtpCert, Reason, UserState,
+		     apply_user_fun(Fun, OtpCert, DerCert, Reason, UserState,
                                     SslState, CertPath, LogLevel);
 		 {unknown, _} ->
-		     apply_user_fun(Fun, OtpCert,
-                                    Extension, UserState, SslState, CertPath,
-                                    LogLevel)
+		     apply_user_fun(Fun, OtpCert, DerCert,
+                                    Extension, UserState, SslState,
+                                    CertPath, LogLevel)
 	     end;
-	(OtpCert, VerifyResult, {SslState, UserState}) ->
-	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
+	(OtpCert, DerCert, VerifyResult, {SslState, UserState}) ->
+	     apply_user_fun(Fun, OtpCert, DerCert, VerifyResult, UserState,
 			    SslState, CertPath, LogLevel)
      end, {VerifyState, UserState0}};
 validation_fun_and_state(undefined, VerifyState, CertPath, LogLevel) ->
-    {fun(OtpCert, {extension, _} = Extension, SslState) ->
+    {fun(OtpCert, _DerCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
 				      SslState,
                                       LogLevel);
-	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
-                                               (VerifyResult == valid_peer) -> 
+	(OtpCert, _DerCert, VerifyResult, SslState) when (VerifyResult == valid) or
+                                                        (VerifyResult == valid_peer) ->
 	     case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		 valid ->
                      ssl_certificate:validate(OtpCert, VerifyResult, SslState, LogLevel);
 		 Reason ->
 		     {fail, Reason}
 	     end;
-	(OtpCert, VerifyResult, SslState) ->
+	(OtpCert, _DerCert, VerifyResult, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
 				      SslState, LogLevel)
@@ -2114,22 +2114,22 @@ path_validation_options(Opts, ValidationFunAndState) ->
     [{max_path_length, maps:get(depth, Opts, ?DEFAULT_DEPTH)},
      {verify_fun, ValidationFunAndState} | PolicyOpts].
 
-apply_user_fun(Fun, OtpCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
+apply_user_fun(Fun, OtpCert, DerCert, VerifyResult0, UserState0, SslState, CertPath, LogLevel) when
       (VerifyResult0 == valid) or (VerifyResult0 == valid_peer) ->
     VerifyResult = maybe_check_hostname(OtpCert, VerifyResult0, SslState, LogLevel),
-    case apply_fun(Fun, OtpCert, VerifyResult, UserState0, CertPath) of
+    case apply_fun(Fun, OtpCert, DerCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer) ->
 	    case cert_status_check(OtpCert, SslState, VerifyResult, CertPath, LogLevel) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState, CertPath, LogLevel)
+		    apply_user_fun(Fun, OtpCert, DerCert, Result, UserState, SslState, CertPath, LogLevel)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
     end;
-apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, CertPath, _LogLevel) ->
-    case apply_fun(Fun, OtpCert, ExtensionOrError, UserState0, CertPath) of
+apply_user_fun(Fun, OtpCert, DerCert, ExtensionOrError, UserState0, SslState, _, _) ->
+    case apply_fun(Fun, OtpCert, DerCert, ExtensionOrError, UserState0) of
 	{Valid, UserState} when (Valid == valid) orelse (Valid == valid_peer)->
 	    {Valid, {SslState, UserState}};
 	{fail, _} = Fail ->
@@ -2138,9 +2138,8 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, CertPath, _
 	    {unknown, {SslState, UserState}}
     end.
 
-apply_fun(Fun, OtpCert, ExtensionOrError, UserState, CertPath) ->
+apply_fun(Fun, OtpCert, DerCert, ExtensionOrError, UserState) ->
     if is_function(Fun, 4) ->
-            #cert{der=DerCert} = lists:keyfind(OtpCert, #cert.otp, CertPath),
             Fun(OtpCert, DerCert, ExtensionOrError, UserState);
        is_function(Fun, 3) ->
             Fun(OtpCert, ExtensionOrError, UserState)
