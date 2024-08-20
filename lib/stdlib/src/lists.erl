@@ -109,7 +109,7 @@ keyfind(_, _, _) ->
 
 %% Shadowed by erl_bif_types: lists:keymember/3
 -doc """
-Returns `true` if there is a tuple in `TupleList` whose `N`th element compares
+Returns `true` if there is a tuple in `List` whose `N`th element compares
 equal to `Key`, otherwise `false`.
 """.
 -spec keymember(Key, N, List) -> boolean() when
@@ -1077,7 +1077,7 @@ thing_to_list(X) when is_list(X)    -> X.	%Assumed to be a string
 
 -doc "Returns a flattened version of `DeepList`.".
 -spec flatten(DeepList) -> List when
-      DeepList :: [term() | DeepList],
+      DeepList :: [term()],
       List :: [term()].
 
 flatten(List) when is_list(List) ->
@@ -1085,7 +1085,7 @@ flatten(List) when is_list(List) ->
 
 -doc "Returns a flattened version of `DeepList` with tail `Tail` appended.".
 -spec flatten(DeepList, Tail) -> List when
-      DeepList :: [term() | DeepList],
+      DeepList :: [term()],
       Tail :: [term()],
       List :: [term()].
 
