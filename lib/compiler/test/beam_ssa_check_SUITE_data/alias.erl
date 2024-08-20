@@ -1071,7 +1071,7 @@ update_record0() ->
 
 update_record0([Val|Ls], Acc=#r0{not_aliased=N}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
+%ssa% _ = update_record(copy, 3, Rec, 3, A, 2, NA) {unique => [Rec, NA], aliased => [A]}.
     R = Acc#r0{not_aliased=N+1,aliased=Val},
     update_record0(Ls, R);
 update_record0([], Acc) ->
@@ -1084,7 +1084,7 @@ update_record1() ->
 
 update_record1([Val|Ls], Acc=#r1{not_aliased0=N0,not_aliased1=N1}) ->
 %ssa% (_, Rec) when post_ssa_opt ->
-%ssa% _ = update_record(reuse, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
+%ssa% _ = update_record(copy, 3, Rec, 3, NA0, 2, NA1) {unique => [Rec, NA1, NA0], source_dies => true}.
     R = Acc#r1{not_aliased0=N0+1,not_aliased1=[Val|N1]},
     update_record1(Ls, R);
 update_record1([], Acc) ->
