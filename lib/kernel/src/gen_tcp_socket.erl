@@ -1350,7 +1350,8 @@ server_read_opts() ->
         header => 0,
         deliver => term,
         start_opts => [], % Just to make it settable
-        line_delimiter => $\n},
+        line_delimiter => $\n,
+        read_ahead => false},
       server_read_write_opts()).
 -compile({inline, [server_write_opts/0]}).
 server_write_opts() ->
@@ -1955,16 +1956,23 @@ handle_event(Type, Content, #connect{} = State, P_D) ->
 
 %% State: #connect{}
 %% -------
-%% State: 'connected'
+%% State: 'connected' | #recv{}
 
 handle_event(
   {call, From}, {recv, Length, Timeout}, State, {P, D}) ->
     %% ?DBG([recv, {length, Length}, {timeout, Timeout}, {state, State}]),
     case State of
         'connected' ->
-            handle_recv(
-              P, D#{recv_length => Length, recv_from => From},
-              [{{timeout, recv}, Timeout, recv}]);
+            Packet = maps:get(packet, D),
+            if
+                Packet =/= raw, Packet =/= 0, 0 < Length ->
+                    %% Nonzero Length not allowed in packet mode (non-raw)
+                    {keep_state_and_data, [{reply, From, {error, einval}}]};
+                true ->
+                    handle_recv(
+                      P, D#{recv_length => Length, recv_from => From},
+                      [{{timeout, recv}, Timeout, recv}])
+            end;
         #recv{} ->
             case maps:get(active, D) of
                 false ->
@@ -1977,7 +1985,7 @@ handle_event(
             end
     end;
 
-%% State: 'connected'
+%% State: 'connected' | #recv{}
 %% -------
 %% State: #recv{}
 
@@ -2000,16 +2008,7 @@ handle_event(
   #recv{info = ?completion_info(CompletionRef)} = _State,
   {#params{socket = Socket} = P, D}) ->
     %% ?DBG(['completion msg', {socket, Socket}, {ref, CompletionRef}]),
-    case CompletionStatus of
-        {ok, <<Data/binary>>} ->
-            D_1 = D#{buffer := buffer(Data, maps:get(buffer, D))},
-            handle_recv(P, D_1, []);
-        {error, {Reason, <<Data/binary>>}} ->
-            D_1 = D#{buffer := buffer(Data, maps:get(buffer, D))},
-            handle_recv_error(P, D_1, [], Reason);
-        {error, Reason} ->
-            handle_recv_error(P, D, [], Reason)
-    end;
+    handle_recv(P, D, [], CompletionStatus);
 
 handle_event(
   info, ?socket_abort(Socket, CompletionRef, Reason),
@@ -2259,6 +2258,294 @@ handle_connected(P, D, ActionsR) ->
     end.
 
 
+handle_recv(P, D, ActionsR) ->
+    handle_recv(P, D, ActionsR, recv).
+
+handle_recv(
+  P, #{packet := Packet, recv_length := Length} = D, ActionsR, CS) ->
+    if
+        Packet =:= raw;
+        Packet =:= 0 ->
+            %% Length is 0 meaning "what's available"
+            %% or > 0 meaning exactly that many bytes
+            handle_recv_raw(P, D, ActionsR, Length, CS);
+        true ->
+            handle_recv_packet(P, D, ActionsR, CS)
+    end.
+
+handle_recv_raw(P, #{buffer := Buffer} = D, ActionsR, Length, CS) ->
+    handle_recv_raw(P, D, ActionsR, Length, Buffer, CS).
+
+handle_recv_raw(P, D, ActionsR, Length, Buffer, recv) ->
+    Size = iolist_size(Buffer),
+    if
+        0 < Length, Length =< Size ->
+            %% We have more buffered than requested
+            %%
+            {Data, NewBuffer} =
+                split_binary(condense_buffer(Buffer), Length),
+            handle_recv_deliver(P, D#{buffer := NewBuffer}, [], Data);
+
+        Length == 0, 0 < Size ->
+            %% We have some buffered and "what's available" requested
+            handle_recv_deliver(
+              P, D#{buffer := <<>>}, ActionsR, condense_buffer(Buffer));
+
+        true ->
+            %% Less buffered than requested
+            %% or empty buffer and "what's available" requested
+            %%
+            %% i.e Length == 0, Size == 0;
+            %%     0 < Length, Size < Length
+            %% In both cases this works:
+            N = Length - Size,
+            case socket_recv(P#params.socket, N) of
+                {ok, <<Data/binary>>} ->
+                    handle_recv_deliver(
+                      P, D#{buffer := <<>>}, ActionsR,
+                      condense_buffer(Data, Buffer));
+
+                {select, {?select_info(_) = SelectInfo, Data}} ->
+                    if
+                        0 < Length ->
+                            %% Need to wait for the rest of the data
+                            {next_state,
+                             #recv{info = SelectInfo},
+                             {P, D#{buffer := buffer(Data, Buffer)}},
+                             reverse(ActionsR)};
+                        true -> %% Length == 0, Size == 0
+                            %% We take what we just got
+                            %% and cancel the async recv
+                            Socket = P#params.socket,
+                            case socket:cancel(Socket, SelectInfo) of
+                                ok ->
+                                    handle_recv_deliver(
+                                      P, D, ActionsR, Data);
+                                {error, Reason} ->
+                                    handle_recv_error(
+                                      P, D, ActionsR, Reason, Data)
+                            end
+                    end;
+
+                {select, ?select_info(_) = SelectInfo} ->
+                    %% ?DBG(['recv select']),
+                    {next_state,
+                     #recv{info = SelectInfo}, {P, D}, reverse(ActionsR)};
+
+                {completion, ?completion_info(_) = CompletionInfo} ->
+                    %% ?DBG(['recv completion']),
+                    {next_state,
+                     #recv{info = CompletionInfo}, {P, D}, reverse(ActionsR)};
+
+                {error, {Reason, <<Data/binary>>}} ->
+                    %% ?DBG({'recv error', Reason, byte_size(Data)}),
+                    if
+                        0 < Length ->
+                            %% We didn't get all data we requested
+                            handle_recv_error(
+                              P, D#{buffer := buffer(Data, Buffer)},
+                              ActionsR, Reason);
+                        true ->
+                            %% Deliver what we got, then error
+                            handle_recv_error(P, D, ActionsR, Reason, Data)
+                    end;
+                {error, Reason} ->
+                    %% ?DBG({'recv error', Reason}),
+                    handle_recv_error(P, D, ActionsR, Reason)
+            end
+    end;
+handle_recv_raw(P, D, ActionsR, Length, Buffer, CompletionStatus) ->
+    case CompletionStatus of
+        {ok, <<Data/binary>>} ->
+            handle_recv_raw(
+              P, D, ActionsR, Length, buffer(Data, Buffer), recv);
+        {error, {Reason, <<Data/binary>>}} ->
+            if
+                0 < Length ->
+                    %% We didn't get all data we requested
+                    handle_recv_error(
+                      P, D#{buffer := buffer(Data, Buffer)},
+                      ActionsR, Reason);
+                true ->
+                    %% Deliver "what's available", then error
+                    handle_recv_error(P, D, ActionsR, Reason, Data)
+            end;
+        {error, Reason} ->
+            handle_recv_error(P, D#{buffer := Buffer}, [], Reason)
+    end.
+
+
+handle_recv_packet(
+  P, #{recv_length := Length, buffer := Buffer} = D, ActionsR, recv) ->
+    if
+        0 < Length ->
+            %% We know how much we need for a packet
+            handle_recv_more(P, D, ActionsR, Length, Buffer);
+        true ->
+            handle_recv_decode(P, D, ActionsR, condense_buffer(Buffer))
+    end;
+handle_recv_packet(P, #{buffer := Buffer} = D, ActionsR, CompletionStatus) ->
+    case CompletionStatus of
+        {ok, <<Data/binary>>} ->
+            handle_recv_decode(
+              P, D, ActionsR, condense_buffer(Data, Buffer));
+        {error, {Reason, <<Data/binary>>}} ->
+            handle_recv_error_decode(
+              P, D, ActionsR, Reason, condense_buffer(Data, Buffer));
+        {error, Reason} ->
+            handle_recv_error(P, D, ActionsR, Reason)
+    end.
+
+handle_recv_more(P, D, ActionsR, Length, Buffer) ->
+    Size = iolist_size(Buffer),
+    if
+        Length =< Size ->
+            %% We have more buffered than we need
+            %%
+            handle_recv_decode(P, D, ActionsR, condense_buffer(Buffer));
+        true ->
+            N = Length - Size,
+            case socket_recv(P#params.socket, N) of
+                {ok, <<Data/binary>>} ->
+                    handle_recv_decode(
+                      P, D, ActionsR, condense_buffer(Data, Buffer));
+
+                {select, {?select_info(_) = SelectInfo, Data}} ->
+                    %% Need to wait for the rest of the data
+                    {next_state,
+                     #recv{info = SelectInfo},
+                     {P, D#{buffer := buffer(Data, Buffer)}},
+                     reverse(ActionsR)};
+
+                {select, ?select_info(_) = SelectInfo} ->
+                    %% ?DBG(['recv select']),
+                    {next_state,
+                     #recv{info = SelectInfo},
+                     {P, D#{buffer := Buffer}},
+                     reverse(ActionsR)};
+
+                {completion, ?completion_info(_) = CompletionInfo} ->
+                    %% ?DBG(['recv completion']),
+                    {next_state,
+                     #recv{info = CompletionInfo},
+                     {P, D#{buffer := Buffer}},
+                     reverse(ActionsR)};
+
+                {error, {Reason, <<Data/binary>>}} ->
+                    %% ?DBG({'recv error', Reason, byte_size(Data)}),
+                    handle_recv_error_decode(
+                      P, D, ActionsR, Reason, condense_buffer(Data, Buffer));
+                {error, Reason} ->
+                    %% ?DBG({'recv error', Reason}),
+                    handle_recv_error(P, D, ActionsR, Reason)
+            end
+    end.
+
+handle_recv_decode(P, D, ActionsR, Data) ->
+    %% ?DBG({}),
+    case decode_packet(D, Data) of
+        {D_1, ok, Decoded} ->
+            handle_recv_deliver(P, D_1, ActionsR, Decoded);
+        {D_1, more, Length} ->
+            handle_recv_more(P, D_1, ActionsR, Length, Data);
+        {D_1, error, invalid} ->
+            handle_recv_error(P, D_1, ActionsR, emsgsize);
+        {D_1, error, Reason} ->
+            handle_recv_error(P, D_1, ActionsR, Reason)
+    end.
+
+handle_recv_error_decode(P, D, ActionsR, Reason, Data) ->
+    case decode_packet(D, Data) of
+        {D_1, ok, Decoded} ->
+            handle_recv_error(P, D_1, ActionsR, Reason, Decoded);
+        {D_1, error, invalid} ->
+            handle_recv_error(P, D_1, ActionsR, emsgsize);
+        {D_1, _, _} ->
+            handle_recv_error(P, D_1, ActionsR, Reason)
+    end.
+
+decode_packet(
+  #{packet         := (PacketType = line),
+    line_delimiter := LineDelimiter,
+    packet_size    := PacketSize} = D,
+  Data) ->
+    %%
+    decode_packet(
+      D, Data, PacketType,
+      [{packet_size,    PacketSize},
+       {line_delimiter, LineDelimiter},
+       {line_length,    PacketSize}]);
+decode_packet(
+  #{packet         := http,
+    recv_httph     := true,
+    packet_size    := PacketSize} = D,
+  Data) ->
+    %%
+    decode_packet(D, Data, httph, [{packet_size, PacketSize}]);
+decode_packet(
+  #{packet         := http_bin,
+    recv_httph     := true,
+    packet_size    := PacketSize} = D,
+  Data) ->
+    %%
+    decode_packet(D, Data, httph_bin, [{packet_size, PacketSize}]);
+decode_packet(
+  #{packet         := PacketType,
+    packet_size    := PacketSize} = D,
+  Data) ->
+    %%
+    decode_packet(D, Data, PacketType, [{packet_size, PacketSize}]).
+
+decode_packet(D, Data, PacketType, Options) ->
+    case
+        erlang:decode_packet(PacketType, Data, Options)
+    of
+        {ok, Decoded, Rest} ->
+            %% ?DBG({ok, PacketType, byte_size(Decoded)}),
+            {D#{buffer := Rest}, ok, Decoded};
+        Other ->
+            decode_packet_common(D, Data, PacketType, Other)
+    end.
+
+decode_packet_common(D, Data, PacketType, Other) ->
+    case Other of
+        {more, undefined} ->
+            Length = packet_header_length(PacketType, Data),
+            {D, more, Length};
+        {more, Length} ->
+            {D#{recv_length := Length}, more, Length};
+        {error, Reason} ->
+            {D, error, Reason}
+    end.
+
+packet_header_length(PacketType, Data) ->
+    case PacketType of
+        raw     -> error(badarg, [PacketType, Data]);
+        0       -> error(badarg, [PacketType, Data]);
+        1       -> 1;
+        2       -> 2;
+        4       -> 4;
+        cdr     -> 12;
+        sunrm   -> 4;
+        fcgi    -> 8;
+        tpkt    -> 4;
+        ssl     -> 5;
+        ssl_tls -> 5;
+        %% For these variable length headers/footers we guess one more
+        %% since this function is only called if Data is too short,
+        %% which can be very inefficient, but we consider it to be
+        %% misuse to combine read_ahead=false with such header types
+        asn1    ->
+            max(2, iolist_size(Data) + 1);
+        _       -> % http, line, etc
+            iolist_size(Data) + 1
+    end.
+
+
+
+
+
+-ifdef(undefined).
 handle_recv(
   P, #{packet := Packet, recv_length := Length, buffer := Buffer} = D,
   ActionsR)
@@ -2409,14 +2696,14 @@ decode_packet(D, Other) ->
         {error, Reason} ->
             {D, error, Reason}
     end.
+-endif.
+
+
 
 handle_recv_deliver(P, D, ActionsR, Data) ->
     handle_connected(P, recv_data_deliver(P, D, ActionsR, Data)).
 
 
-handle_recv_error(P, {D, ActionsR}, Reason) ->
-    handle_recv_error(P, D, ActionsR, Reason).
-%%
 handle_recv_error(P, D, ActionsR, Reason) ->
     handle_recv_error(P, D, ActionsR, Reason, undefined).
 %%
@@ -2545,8 +2832,18 @@ handle_active(P, D, State, ActionsR) ->
     case State of
         'connected' ->
             handle_connected(P, D, reverse(ActionsR));
+        #recv{info = Info} ->
+            case D of
+                #{active := false} ->
+                    %% Cancel recv in progress
+                    _ = socket_cancel(P#params.socket, Info),
+                    {next_state, 'connected',
+                     {P, D}, reverse(ActionsR)};
+                #{active := _} ->
+                    {keep_state, {P, D}, reverse(ActionsR)}
+            end;
         _ ->
-            {next_state, State, {P, D}, reverse(ActionsR)}
+            {keep_state, {P, D}, reverse(ActionsR)}
     end.
 
 %% -------------------------------------------------------------------------
@@ -2652,14 +2949,23 @@ next_packet(D, Packet, Data, Active) ->
 buffer(Data, <<>>) ->
     Data;
 buffer(Data, Buffer) ->
-    [Data | Buffer].
+    if
+        is_binary(Buffer) ->
+            [Data, Buffer];
+        is_list(Buffer) ->
+            [Data | Buffer]
+    end.
 
 %% Condense buffer into a Binary
 -compile({inline, [condense_buffer/1]}).
 condense_buffer(Bin) when is_binary(Bin) -> Bin;
 condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
-    iolist_to_binary(reverse_improper(Buffer, [])).
+    iolist_to_binary(reverse(Buffer)).
+
+condense_buffer(Data, Buffer) ->
+    condense_buffer(buffer(Data, Buffer)).
+
 
 deliver_data(Data, Mode, Header, Packet) ->
     if
@@ -3117,11 +3423,13 @@ reverse([A], L) -> [A | L];
 reverse([A, B], L) -> [B, A | L];
 reverse(L1, L2) -> lists:reverse(L1, L2).
 
+-ifdef(undefined).
 %% Reverse but allow improper list
 reverse_improper([H | T], Acc) ->
     reverse_improper(T, [H | Acc]);
 reverse_improper([], Acc) -> Acc;
 reverse_improper(T, Acc) -> [T | Acc].
+-endif.
 
 
 is_map_keys([], #{}) -> false;
