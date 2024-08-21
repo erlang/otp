@@ -24,7 +24,7 @@ Call/start a distributed Erlang node.
 ## Description
 
 `erl_call` makes it possible to start and/or communicate with a distributed
-Erlang node. It is built upon the `Erl_Interface` library as an example
+Erlang node. It is built on the `Erl_Interface` library as an example
 application. Its purpose is to use a Unix shell script to interact with a
 distributed Erlang node. It performs all communication with the Erlang _rex
 server_, using the standard Erlang RPC facility. It does not require any special
@@ -58,9 +58,9 @@ Each option flag is described below with its name, type, and meaning.
 
 - **`-address [Hostname:]Port`** - (One of `-n`, `-name`, `-sname` or `-address`
   is required.) `Hostname` is the hostname of the machine that is running the
-  peer node that `erl_call` shall communicate with. The default hostname is the
+  peer node that `erl_call` will communicate with. The default hostname is the
   hostname of the local machine. `Port` is the port number of the node that
-  `erl_call` shall communicate with. The `-address` flag cannot be combined with
+  `erl_call` will communicate with. The `-address` flag cannot be combined with
   any of the flags `-n`, `-name`, `-sname` or `-s`.
 
   The `-address` flag is typically useful when one wants to call a node that is
@@ -77,7 +77,7 @@ Each option flag is described below with its name, type, and meaning.
   Erlang node in question.
 
 - **`-e`** - (_Optional._) Reads a sequence of Erlang expressions, separated by
-  comma (,) and ended with a full stop (.), from `stdin` until EOF (Control-D).
+  comma (`,`) and ended with a full stop (`.`), from `stdin` until EOF (Control-D).
   Evaluates the expressions and returns the result from the last expression.
   Returns `{ok,Result}` on success.
 
@@ -91,9 +91,9 @@ Each option flag is described below with its name, type, and meaning.
 
   The printed data is UTF-8 encoded.
 
-  This option is only relevant together with the option `-a` or `-e`.
+  This option is only relevant combined with the `-a` or `-e` option.
 
-  See the documentation of [the I/O protocol](`e:stdlib:io_protocol.md`), for
+  See the documentation of [the I/O protocol](`e:stdlib:io_protocol.md`) for
   more information about the group leader concept.
 
   > #### Note {: .info }
