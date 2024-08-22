@@ -596,13 +596,15 @@ process_format(<<Char, Format, Char2, Rest/binary>>, [<<Format>>], Buffer)
 %% so no formatting of code should happen
 process_format(<<Char, Format, Char2, Rest/binary>>, Fs, Buffer)
   when ?VALID_FORMAT(Format) andalso
-       (Char  =/= Format andalso Char  =/= $\s andalso Char  =/= $\n andalso not ?VALID_FORMAT(Char)) andalso
+       (Char  =/= Format andalso Char  =/= $\s andalso Char  =/= $\n andalso not ?VALID_FORMAT(Char) andalso
+        not ?VALID_PUNCTUATION(Char)) andalso
        (Char2 =/= Format andalso Char2 =/= $\s andalso Char2 =/= $\n andalso not ?VALID_FORMAT(Char2) andalso
         not ?VALID_PUNCTUATION(Char2)) ->
     process_format(Rest, Fs, merge_buffers([<<Char, Format, Char2>>],  Buffer));
 process_format(<<Char, Format, Format, Char2, Rest/binary>>, Fs, Buffer)
   when ?VALID_FORMAT(Format) andalso
-       (Char  =/= Format andalso Char  =/= $\s andalso Char  =/= $\n andalso not ?VALID_FORMAT(Char)) andalso
+       (Char  =/= Format andalso Char  =/= $\s andalso Char  =/= $\n andalso not ?VALID_FORMAT(Char) andalso
+        not ?VALID_PUNCTUATION(Char)) andalso
        (Char2 =/= Format andalso Char2 =/= $\s andalso Char2 =/= $\n andalso not ?VALID_FORMAT(Char2) andalso
         not ?VALID_PUNCTUATION(Char2)) ->
     process_format(Rest, Fs, merge_buffers([<<Char, Format, Char2>>],  Buffer));

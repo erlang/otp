@@ -69,7 +69,7 @@
          list_format_with_italics_in_sentence/1, list_format_with_bold_in_sentence/1,
          new_lines_test/1, format_separator_test/1, list_with_format/1, multi_word_format_test/1,
          multiline_link/1, multiline_link_not_allowed/1, inline_mfa_link/1,
-         escaped_character/1]).
+         escaped_character/1, parens_with_italics/1]).
 
 %% Bullet lists
 -export([singleton_bullet_list/1, singleton_bullet_list_followed_new_paragraph/1, singleton_bullet_list_with_format/1,
@@ -234,7 +234,8 @@ format_tests() ->
       multiline_link,
       multiline_link_not_allowed,
       inline_mfa_link,
-      escaped_character
+      escaped_character,
+      parens_with_italics
     ].
 
 bullet_list_tests() ->
@@ -753,6 +754,25 @@ escaped_character(_Config) ->
   Result = p([~"Here *not bold* and `not code` and _means_nothing_ ",
               inline_code(~"`test`")]),
   compile_and_compare(Input, Result).
+
+parens_with_italics(_Config) ->
+  Input = ~"Test ( _Optional_). ( _Optional_ .) ( _Optional_ ). (_Optional_). (_Optional._)",
+  Result = p([~"Test ( ", it(~"Optional"), ~"). ( "
+                        , it(~"Optional"), ~" .) ( "
+                        , it(~"Optional"), ~" ). ("
+                        , it(~"Optional"), ~"). ("
+                        , it(~"Optional."), ~")"]),
+  compile_and_compare(Input, Result),
+
+  Input1 = ~"Test ( __Optional__). ( __Optional__ .) ",
+  Input2 = ~"( __Optional__ ). (__Optional__). (__Optional.__)",
+  InputEm = <<Input1/binary, Input2/binary>>,
+  ResultEm = p([~"Test ( ", em(~"Optional"), ~"). ( "
+                          , em(~"Optional"), ~" .) ( "
+                          , em(~"Optional"), ~" ). ("
+                          , em(~"Optional"), ~"). ("
+                          , em(~"Optional."), ~")"]),
+  compile_and_compare(InputEm, ResultEm).
 
 list_with_format(_Config) ->
   Input = ~"- **`--help` (or `-h`)** - Print this message and exit.",
