@@ -2261,256 +2261,168 @@ handle_connected(P, D, ActionsR) ->
 handle_recv(P, D, ActionsR) ->
     handle_recv(P, D, ActionsR, recv).
 
-handle_recv(
-  P, #{packet := Packet, recv_length := Length} = D, ActionsR, CS) ->
-    if
-        Packet =:= raw;
-        Packet =:= 0 ->
-            %% Length is 0 meaning "what's available"
-            %% or > 0 meaning exactly that many bytes
-            handle_recv_raw(P, D, ActionsR, Length, CS);
-        true ->
-            handle_recv_packet(P, D, ActionsR, CS)
-    end.
-
-handle_recv_raw(P, #{buffer := Buffer} = D, ActionsR, Length, CS) ->
-    handle_recv_raw(P, D, ActionsR, Length, Buffer, CS).
-
-handle_recv_raw(P, D, ActionsR, Length, Buffer, recv) ->
+%% CS is:
+%%     recv             -> no async recv in progress - either a new
+%%                         socket passive mode recv request, an
+%%                         active mode socket reached 'connected',
+%%                         or a select message was received
+%%                         so it is time for a retry
+%%     {recv, Reason}   -> a socket operation has failed, but we will handle
+%%                         the buffer content before returning the error
+%%     CompletionStatus -> the result of an async recv operation
+%%
+handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
     BufferSize = iolist_size(Buffer),
-    if
-        0 < Length, Length =< BufferSize ->
-            %% We have more buffered than requested
-            {Data, NewBuffer} =
-                split_binary(condense_buffer(Buffer), Length),
-            handle_recv_deliver(P, D#{buffer := NewBuffer}, [], Data);
+    case CS of
+        recv ->
+            handle_recv(P, D, ActionsR, Buffer, BufferSize, CS);
+        {recv, _} ->
+            handle_recv(P, D, ActionsR, Buffer, BufferSize, CS);
 
-        Length == 0, 0 < BufferSize ->
-            %% We have some buffered and "what's available" requested
-            handle_recv_deliver(
-              P, D#{buffer := <<>>}, ActionsR, condense_buffer(Buffer));
-
-        true ->
-            %% Less buffered than requested
-            %% or empty buffer and "what's available" requested
-            %%
-            %% i.e Length == 0, BufferSize == 0;
-            %%     0 < Length, BufferSize < Length
-            %% In both cases this works:
-            N = Length - BufferSize, % How much to recv
-            case socket_recv(P#params.socket, read_size(D, N)) of
-                {ok, <<Data/binary>>} ->
-                    handle_recv_raw(
-                      P, D, ActionsR, Length, buffer(Data, Buffer), recv);
-
-                {select, {?select_info(_) = SelectInfo, <<Data/binary>>}} ->
-                    if
-                        Length =< BufferSize + byte_size(Data) ->
-                            %% Enough data; cancel the async recv
-                            %% and use what we have
-                            Socket = P#params.socket,
-                            case socket:cancel(Socket, SelectInfo) of
-                                ok ->
-                                    handle_recv_raw(
-                                      P, D, ActionsR, Length,
-                                      buffer(Data, Buffer), recv);
-                                {error, Reason} ->
-                                    handle_recv_raw_error_deliver(
-                                      P, D, ActionsR, Length,
-                                      Reason, condense_buffer(Data, Buffer))
-                            end;
-                        true ->
-                            %% Need to wait for the rest of the data
-                            {next_state,
-                             #recv{info = SelectInfo},
-                             {P, D#{buffer := buffer(Data, Buffer)}},
-                             reverse(ActionsR)}
-                    end;
-
-                {select, ?select_info(_) = SelectInfo} ->
-                    %% ?DBG(['recv select']),
-                    {next_state,
-                     #recv{info = SelectInfo}, {P, D}, reverse(ActionsR)};
-
-                {completion, ?completion_info(_) = CompletionInfo} ->
-                    %% ?DBG(['recv completion']),
-                    {next_state,
-                     #recv{info = CompletionInfo}, {P, D}, reverse(ActionsR)};
-
-                {error, {Reason, <<Data/binary>>}} ->
-                    %% ?DBG({'recv error', Reason, byte_size(Data)}),
-                    if
-                        Length < BufferSize + byte_size(Data) ->
-                            %% Enough data
-                            handle_recv_raw_error_deliver(
-                              P, D, ActionsR, Length,
-                              Reason, condense_buffer(Data, Buffer));
-                        true ->
-                            handle_recv_error(
-                              P, D#{buffer := buffer(Data, Buffer)},
-                              ActionsR, Reason)
-                    end;
-
-                {error, Reason} ->
-                    %% ?DBG({'recv error', Reason}),
-                    handle_recv_error(P, D, ActionsR, Reason)
-            end
-    end;
-handle_recv_raw(P, D, ActionsR, Length, Buffer, CompletionStatus) ->
-    case CompletionStatus of
+        %% CompletionStatus
         {ok, <<Data/binary>>} ->
-            handle_recv_raw(
-              P, D, ActionsR, Length, buffer(Data, Buffer), recv);
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), recv);
         {error, {Reason, <<Data/binary>>}} ->
-            if
-                0 < Length ->
-                    %% We didn't get all data we requested
-                    handle_recv_error(
-                      P, D#{buffer := buffer(Data, Buffer)},
-                      ActionsR, Reason);
-                true ->
-                    %% Deliver "what's available", then error
-                    handle_recv_error(
-                      P, recv_data_deliver(P, D, ActionsR, Data), Reason)
-            end;
-        {error, Reason} ->
-            handle_recv_error(P, D#{buffer := Buffer}, [], Reason)
-    end.
-
-handle_recv_raw_error_deliver(P, D, ActionsR, Length, Reason, Data) ->
-    if
-        0 < Length -> % Request length
-            {NewData, NewBuffer} = split_binary(Data, Length),
-            handle_recv_error(
-              P,
-              recv_data_deliver(
-                P, D#{buffer := NewBuffer}, ActionsR, NewData),
-              Reason);
-        Data =/= <<>> -> % Length == 0
-            handle_recv_error(
-              P, recv_data_deliver(P, D#{buffer := <<>>}, ActionsR, Data),
-              Reason);
-        Data =:= <<>> -> % Length == 0
-            handle_recv_error(P, D#{buffer := Data}, ActionsR, Reason)
-    end.
-
-
-handle_recv_packet(
-  P, #{recv_length := Length, buffer := Buffer} = D, ActionsR, recv) ->
-    if
-        0 < Length ->
-            %% We know how much we need for a packet
-            handle_recv_packet_more(P, D, ActionsR, Length, Buffer);
-        true ->
-            handle_recv_packet_decode(P, D, ActionsR, condense_buffer(Buffer))
-    end;
-handle_recv_packet(P, #{buffer := Buffer} = D, ActionsR, CompletionStatus) ->
-    case CompletionStatus of
-        {ok, <<Data/binary>>} ->
-            handle_recv_packet_decode(
-              P, D, ActionsR, condense_buffer(Data, Buffer));
-        {error, {Reason, <<Data/binary>>}} ->
-            handle_recv_packet_error_decode(
-              P, D, ActionsR, Reason, condense_buffer(Data, Buffer));
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), {recv, Reason});
         {error, Reason} ->
             handle_recv_error(P, D, ActionsR, Reason)
     end.
 
-handle_recv_packet_more(P, D, ActionsR, Length, Buffer) ->
-    BufferSize = iolist_size(Buffer),
+handle_recv(
+  P, #{packet := Packet, recv_length := Length} = D,
+  ActionsR, Buffer, BufferSize, CS) ->
     if
-        Length =< BufferSize ->
-            %% We have more buffered than we need
-            %%
-            handle_recv_packet_decode(
-              P, D, ActionsR, condense_buffer(Buffer));
-        true ->
-            N = Length - BufferSize,
-            case socket_recv(P#params.socket, read_size(D, N)) of
-                {ok, <<Data/binary>>} ->
-                    handle_recv_packet_more(
-                      P, D, ActionsR, Length, buffer(Data, Buffer));
-
-                {select, {?select_info(_) = SelectInfo, Data}} ->
-                    if
-                        Length =< BufferSize + byte_size(Data) ->
-                            %% Enough data; cancel the async recv
-                            %% and use what we have
-                            Socket = P#params.socket,
-                            case socket:cancel(Socket, SelectInfo) of
-                                ok ->
-                                    handle_recv_packet_more(
-                                      P, D, ActionsR, Length,
-                                      buffer(Data, Buffer));
-                                {error, Reason} ->
-                                    handle_recv_packet_error_decode(
-                                      P, D, ActionsR, Reason,
-                                      condense_buffer(Data, Buffer))
-                            end;
-                        true ->
-                            %% Need to wait for the rest of the data
-                            {next_state,
-                             #recv{info = SelectInfo},
-                             {P, D#{buffer := buffer(Data, Buffer)}},
-                             reverse(ActionsR)}
-                    end;
-
-                {select, ?select_info(_) = SelectInfo} ->
-                    %% ?DBG(['recv select']),
-                    {next_state,
-                     #recv{info = SelectInfo},
-                     {P, D#{buffer := Buffer}},
-                     reverse(ActionsR)};
-
-                {completion, ?completion_info(_) = CompletionInfo} ->
-                    %% ?DBG(['recv completion']),
-                    {next_state,
-                     #recv{info = CompletionInfo},
-                     {P, D#{buffer := Buffer}},
-                     reverse(ActionsR)};
-
-                {error, {Reason, <<Data/binary>>}} ->
-                    %% ?DBG({'recv error', Reason, byte_size(Data)}),
-                    if
-                        Length < BufferSize + byte_size(Data) ->
-                            %% Enough data
-                            handle_recv_packet_error_decode(
-                              P, D, ActionsR, Reason,
-                              condense_buffer(Data, Buffer));
-                        true ->
-                            handle_recv_error(
-                              P, D#{buffer := buffer(Data, Buffer)},
-                              ActionsR, Reason)
-                    end;
-                {error, Reason} ->
-                    %% ?DBG({'recv error', Reason}),
+        BufferSize < Length;
+        Length == 0, BufferSize == 0 ->
+            case CS of
+                recv ->
+                    handle_recv_more(
+                      P, D, ActionsR, Buffer, BufferSize, Length);
+                {recv, Reason} ->
                     handle_recv_error(P, D, ActionsR, Reason)
-            end
+            end;
+
+        Packet =:= raw;
+        Packet =:= 0 ->
+            Data = condense_buffer(Buffer),
+            {Data_1, Buffer_1} =
+                if
+                    0 < Length -> %% Length =< BufferSize
+                        split_binary(Data, Length);
+                    true -> %% Length == 0, 0 < BufferSize
+                        {Data, <<>>}
+                end,
+            D_1 = D#{buffer := Buffer_1},
+            case CS of
+                recv ->
+                    handle_connected(
+                      P, recv_data_deliver(P, D_1, ActionsR, Data_1));
+                {recv, Reason} ->
+                    handle_recv_error(
+                      P, recv_data_deliver(P, D_1, ActionsR, Data_1), Reason)
+            end;
+
+        true ->
+            Data = condense_buffer(Buffer),
+            handle_recv_packet(P, D, ActionsR, Data, BufferSize, CS)
     end.
 
-handle_recv_packet_decode(P, D, ActionsR, Data) ->
-    %% ?DBG({}),
+handle_recv_packet(P, D, ActionsR, Data, Size, recv) ->
     case decode_packet(D, Data) of
         {D_1, ok, Decoded} ->
-            handle_recv_deliver(P, D_1, ActionsR, Decoded);
+            handle_connected(
+              P, recv_data_deliver(P, D_1, ActionsR, Decoded));
         {D_1, more, Length} ->
-            handle_recv_packet_more(P, D_1, ActionsR, Length, Data);
+            handle_recv_more(
+              P, D_1, ActionsR, Data, Size, Length);
         {D_1, error, invalid} ->
             handle_recv_error(P, D_1, ActionsR, emsgsize);
         {D_1, error, Reason} ->
             handle_recv_error(P, D_1, ActionsR, Reason)
-    end.
-
-handle_recv_packet_error_decode(P, D, ActionsR, Reason, Data) ->
+    end;
+handle_recv_packet(
+  P, D, ActionsR, Data, _Size, {recv, Reason}) ->
     case decode_packet(D, Data) of
         {D_1, ok, Decoded} ->
             handle_recv_error(
-              P, recv_data_deliver(P, D_1, ActionsR, Decoded), Reason);
-        {D_1, error, invalid} ->
-            handle_recv_error(P, D_1, ActionsR, emsgsize);
-        {D_1, _, _} ->
+              P, recv_data_deliver(P, D_1, ActionsR, Decoded),
+              Reason);
+        {D_1, more, _} ->
+            handle_recv_error(P, D_1, ActionsR, Reason);
+        {D_1, error, _} ->
             handle_recv_error(P, D_1, ActionsR, Reason)
     end.
+
+
+handle_recv_more(
+  P, D, ActionsR, Buffer, BufferSize, Length) ->
+    %% Less buffered than requested
+    %% or nothing buffered and "what's available"|unknown requested
+    %%
+    %% I.e 0 < BufferSize, BufferSize < Length;
+    %%         BufferSize == 0, Length == 0 ->
+    %% In both cases this works:
+    N = Length - BufferSize, % How much to recv
+    case socket_recv(P#params.socket, read_size(D, N)) of
+        {ok, <<Data/binary>>} ->
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), recv);
+
+        {select, {?select_info(_) = SelectInfo, <<Data/binary>>}} ->
+            Buffer_1 = buffer(Data, Buffer),
+            BufferSize_1 = BufferSize + byte_size(Data),
+            if
+                Length =< BufferSize_1 ->
+                    %% Enough data; cancel the async recv
+                    %% and use what we have
+                    Socket = P#params.socket,
+                    case socket:cancel(Socket, SelectInfo) of
+                        ok ->
+                            handle_recv(
+                              P, D, ActionsR, Buffer_1, BufferSize_1, recv);
+                        {error, Reason} ->
+                            handle_recv(
+                              P, D, ActionsR, Buffer_1, BufferSize_1,
+                              {recv, Reason})
+                    end;
+                true ->
+                    %% Need to wait for the rest of the data
+                    {next_state,
+                     #recv{info = SelectInfo},
+                     {P,D#{buffer := Buffer_1}},
+                     reverse(ActionsR)}
+            end;
+
+        {select, ?select_info(_) = SelectInfo} ->
+            %% ?DBG(['recv select']),
+            {next_state,
+             #recv{info = SelectInfo},
+             {P, D#{buffer := Buffer}},
+             reverse(ActionsR)};
+
+        {completion, ?completion_info(_) = CompletionInfo} ->
+            %% ?DBG(['recv completion']),
+            {next_state,
+             #recv{info = CompletionInfo},
+             {P, D#{buffer := Buffer}},
+             reverse(ActionsR)};
+
+        {error, {Reason, <<Data/binary>>}} ->
+            %% ?DBG({'recv error', Reason, byte_size(Data)}),
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), {recv, Reason});
+
+        {error, Reason} ->
+            %% ?DBG({'recv error', Reason}),
+            handle_recv_error(P, D, ActionsR, Reason)
+    end.
+
 
 decode_packet(
   #{packet         := (PacketType = line),
@@ -2595,167 +2507,6 @@ read_size(D, N) ->
         true  -> 0;
         false -> N
     end.
-
-
-
-
--ifdef(undefined).
-handle_recv(
-  P, #{packet := Packet, recv_length := Length, buffer := Buffer} = D,
-  ActionsR)
-  when Packet =:= raw;
-       Packet =:= 0 ->
-    Size = iolist_size(Buffer),
-    if
-        0 < Length, Length =< Size ->
-            %% Deliver part of buffered data
-            {Data, NewBuffer} =
-                split_binary(condense_buffer(Buffer), Length),
-            handle_recv_deliver(
-              P, D#{buffer := NewBuffer}, [], Data);
-        0 < Length ->
-            %% Need to receive more data
-            handle_recv_more(P, D, Size - Length, ActionsR);
-        0 < Size -> % Length == 0
-            %% Deliver all buffered data
-            Data = condense_buffer(Buffer),
-            handle_recv_deliver(P, D#{buffer := <<>>}, ActionsR, Data);
-        true -> % Length == 0, Size == 0
-            %% Need to receive more data
-            handle_recv_more(P, D, Length, ActionsR)
-    end;
-handle_recv(P, D, ActionsR) ->
-    handle_recv_packet(P, D, ActionsR).
-
-handle_recv_more(P, #{buffer := Buffer} = D, Length, ActionsR) ->
-    Size = maps:get({otp,rcvbuf}, D, ?RECV_BUFFER_SIZE_DEFAULT),
-    case
-        socket_recv(
-          P#params.socket,
-          if
-              Size < Length -> Length;
-              true          -> 0
-          end)
-    of
-        {ok, <<Data/binary>>} ->
-            %% ?DBG({socket_recv, Length, byte_size(Data)}),
-            handle_recv(P, D#{buffer := [Data | Buffer]}, ActionsR);
-        {select, {?select_info(_) = SelectInfo, <<Data/binary>>}} ->
-            %% ?DBG({socket_recv, Length,
-            %%       {select_info, SelectInfo, byte_size(Data)}}),
-            {next_state,
-             #recv{info = SelectInfo},
-             {P, D#{buffer := [Data | Buffer]}},
-             reverse(ActionsR)};
-        {select, ?select_info(_) = SelectInfo} ->
-            %% ?DBG({socket_recv, Length, {select_info, SelectInfo}}),
-            {next_state,
-             #recv{info = SelectInfo},
-             {P, D},
-             reverse(ActionsR)};
-        {completion, ?completion_info(_) = CompletionInfo} ->
-            %% ?DBG({socket_recv, Length, {completion_info, CompletionInfo}}),
-            {next_state,
-             #recv{info = CompletionInfo},
-             {P, D},
-             reverse(ActionsR)};
-        {error, {Reason, <<Data/binary>>}} ->
-            %% ?DBG({socket_recv, Length, {error, Reason, byte_size(Data)}}),
-            handle_recv_error_packet(
-              P, D#{buffer := [Data | Buffer]}, ActionsR, Reason);
-        {error, Reason} ->
-            %% ?DBG({socket_recv, Length, {error, Reason}}),
-            handle_recv_error(P, D, ActionsR, Reason)
-    end.
-
-handle_recv_packet(P, D, ActionsR) ->
-    %% ?DBG({}),
-    case decode_packet(D) of
-        {D_1, ok, Decoded} ->
-            handle_recv_deliver(P, D_1, ActionsR, Decoded);
-        {D_1, more, Missing} ->
-            handle_recv_more(P, D_1, Missing, ActionsR);
-        {D_1, error, invalid} ->
-            handle_recv_error(P, D_1, ActionsR, emsgsize);
-        {D_1, error, Reason} ->
-            handle_recv_error(P, D_1, ActionsR, Reason)
-    end.
-
-handle_recv_error_packet(P, D, ActionsR, Reason) ->
-    case decode_packet(D) of
-        {D_1, ok, Decoded} ->
-            handle_recv_error(
-              P, recv_data_deliver(P, D_1, ActionsR, Decoded),
-              Reason);
-        {D_1, error, invalid} ->
-            handle_recv_error(P, D_1, ActionsR, emsgsize);
-        {D_1, _, _} ->
-            handle_recv_error(P, D_1, ActionsR, Reason)
-    end.
-
-decode_packet(
-  #{packet         := (PacketType = line),
-    line_delimiter := LineDelimiter,
-    packet_size    := PacketSize,
-    buffer         := Buffer} = D) ->
-    %%
-    decode_packet(
-      D, PacketType, Buffer,
-      [{packet_size,    PacketSize},
-       {line_delimiter, LineDelimiter},
-       {line_length,    PacketSize}]);
-decode_packet(
-  #{packet         := http,
-    recv_httph     := true,
-    packet_size    := PacketSize,
-    buffer         := Buffer} = D) ->
-    %%
-    decode_packet(D, httph, Buffer, [{packet_size, PacketSize}]);
-decode_packet(
-  #{packet         := http_bin,
-    recv_httph     := true,
-    packet_size    := PacketSize,
-    buffer         := Buffer} = D) ->
-    %%
-    decode_packet(D, httph_bin, Buffer, [{packet_size, PacketSize}]);
-decode_packet(
-  #{packet         := PacketType,
-    packet_size    := PacketSize,
-    buffer         := Buffer} = D) ->
-    %%
-    decode_packet(D, PacketType, Buffer, [{packet_size, PacketSize}]).
-%%
-decode_packet(D, PacketType, Buffer, Options) ->
-    CondensedBuffer = condense_buffer(Buffer),
-    case
-        erlang:decode_packet(PacketType, CondensedBuffer, Options)
-    of
-        {ok, Decoded, Rest} ->
-            %% ?DBG({ok, PacketType, byte_size(Decoded)}),
-            {D#{buffer := Rest}, ok, Decoded};
-        Other when is_binary(Buffer) ->
-            %% ?DBG({Other, PacketType, byte_size(CondensedBuffer)}),
-            decode_packet(D, Other);
-        Other when is_list(Buffer) ->
-            %% ?DBG({Other, PacketType, byte_size(CondensedBuffer)}),
-            decode_packet(D#{buffer := CondensedBuffer}, Other)
-    end.
-%%
-decode_packet(D, Other) ->
-    case Other of
-        {more, undefined} ->
-            {D, more, 0};
-        {more, Length} ->
-            {D, more, Length - byte_size(maps:get(buffer, D))};
-        {error, Reason} ->
-            {D, error, Reason}
-    end.
--endif.
-
-
-
-handle_recv_deliver(P, D, ActionsR, Data) ->
-    handle_connected(P, recv_data_deliver(P, D, ActionsR, Data)).
 
 
 handle_recv_error(P, {D, ActionsR}, Reason) ->
@@ -3020,9 +2771,10 @@ condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
     iolist_to_binary(reverse(Buffer)).
 
+-ifdef(undefined).
 condense_buffer(Data, Buffer) ->
     condense_buffer(buffer(Data, Buffer)).
-
+-endif.
 
 deliver_data(Data, Mode, Header, Packet) ->
     if
