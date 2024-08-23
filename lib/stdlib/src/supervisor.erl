@@ -456,11 +456,14 @@ see more details [above](`m:supervisor#sup_flags`).
 		intensity = 1          :: non_neg_integer(),
 		period    = 5          :: pos_integer(),
 		restarts = [],
+                nrestarts = 0,
 		dynamic_restarts = 0   :: non_neg_integer(),
 		auto_shutdown = never  :: auto_shutdown(),
 	        module,
 	        args}).
 -type state() :: #state{}.
+
+-define(DIRTY_RESTART_LIMIT, 1000).
 
 -define(is_simple(State), State#state.strategy =:= simple_one_for_one).
 -define(is_temporary(_Child_), _Child_#child.restart_type=:=temporary).
@@ -2072,27 +2075,39 @@ child_to_spec(#child{id = Id,
 %%% Returns: {ok, State'} | {terminate, State'}
 %%% ------------------------------------------------------
 
-add_restart(State) ->  
-    I = State#state.intensity,
-    P = State#state.period,
-    R = State#state.restarts,
-    Now = erlang:monotonic_time(1),
-    R1 = add_restart(R, Now, P),
-    State1 = State#state{restarts = R1},
-    case length(R1) of
-	CurI when CurI  =< I ->
-	    {ok, State1};
-	_ ->
-	    {terminate, State1}
+%% shortcut: if the intensity limit is 0, no restarts are allowed;
+%% it is safe to disallow the restart flat out
+add_restart(State=#state{intensity=0}) -> 
+    {terminate, State};
+%% shortcut: if the number of restarts is below the intensity
+%% limit, it is safe to allow the restart, add the restart to
+%% the list and not care about expired restarts; to prevent
+%% accumulating a large list of expired restarts over time,
+%% this shortcut is limited to ?DIRTY_RESTART_LIMIT restarts
+add_restart(State=#state{intensity=I, restarts=R, nrestarts=NR})
+  when NR < min(I, ?DIRTY_RESTART_LIMIT) ->
+    {ok, State#state{restarts=[erlang:monotonic_time(second)|R], nrestarts=NR + 1}};
+%% calculate the real number of restarts within the period
+%% and remove expired restarts; based on the calculated number
+%% of restarts, allow or disallow the restart
+add_restart(State=#state{intensity=I, period=P, restarts=R}) ->  
+    Now = erlang:monotonic_time(second),
+    Treshold = Now - P,
+    case can_restart(I - 1, Treshold, R, [], 0) of
+        {true, NR1, R1} ->
+            {ok, State#state{restarts = [Now|R1], nrestarts = NR1 + 1}};
+        {false, NR1, R1} ->
+            {terminate, State#state{restarts = R1, nrestarts = NR1}}
     end.
 
-add_restart(Restarts0, Now, Period) ->
-    Threshold = Now - Period,
-    Restarts1 = lists:takewhile(
-                  fun (R) -> R >= Threshold end,
-                  Restarts0
-                 ),
-    [Now | Restarts1].
+can_restart(_, _, [], Acc, NR) ->
+    {true, NR, lists:reverse(Acc)};
+can_restart(_, Treshold, [Restart|_], Acc, NR) when Restart < Treshold ->
+    {true, NR, lists:reverse(Acc)};
+can_restart(0, _, [_|_], Acc, NR) ->
+    {false, NR, lists:reverse(Acc)};
+can_restart(N, Treshold, [Restart|Restarts], Acc, NR) ->
+    can_restart(N - 1, Treshold, Restarts, [Restart|Acc], NR + 1).
 
 %%% ------------------------------------------------------
 %%% Error and progress reporting.
