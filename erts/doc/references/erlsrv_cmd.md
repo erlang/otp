@@ -29,7 +29,7 @@ embedded systems to start without any user needing to log on. The emulator
 started in this way can be manipulated through the Windows services applet in a
 manner similar to other services.
 
-Notice that `erlsrv` is not a general service utility for Windows, but designed
+Note that `erlsrv` is not a general service utility for Windows, but designed
 for embedded Erlang systems.
 
 `erlsrv` also provides a command-line interface for registering, changing,
@@ -102,7 +102,7 @@ The following parameters can be specified for each Erlang service:
   - **`low`** - Can be used if interactive performance is not to be affected by
     the emulator process.
 
-  - **`default` (the default>**
+  - **`default`** - The default priority.
 
 - **`SName or Name`** - Specifies the short or long node name of the Erlang
   emulator. The Erlang services are always distributed. Default is to use the
@@ -348,7 +348,7 @@ Although the options are described in a Unix-like format, the case of the
 options or commands is not relevant, and both character "/" and "-" can be used
 for options.
 
-Notice that the program resides in the emulator's `bin` directory, not in the
+Note that the program resides in the emulator's `bin` directory, not in the
 `bin` directory directly under the Erlang root. The reasons for this are the
 subtle problem of upgrading the emulator on a running system, where a new
 version of the runtime system should not need to overwrite existing (and

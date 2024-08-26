@@ -90,8 +90,8 @@ The following flags are supported:
   special feature `all` can be used to disable all non permanent features.
 
 - **`-list-features`** - [](){: #list-features } List short descriptions of the
-  current configurable [features](`e:system:features.md#features`). Non
-  configurable features, i.e., those with a status of `rejected` or `permanent`
+  current configurable [features](`e:system:features.md#features`).
+  Non-configurable features (those with status `rejected` or `permanent`)
   will not be shown.
 
 - **`-describe-feature <feature>`** - [](){: #describe-feature } Show long

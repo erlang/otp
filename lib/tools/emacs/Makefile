@@ -76,5 +76,6 @@ release_spec: opt
 
 release_html_spec:
 release_chunks_spec:
+release_man_spec:
 
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)

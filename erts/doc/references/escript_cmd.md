@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # escript
 
+Run a script written in Erlang.
+
+## Synopsis
+
+```
+script-name [arg1 arg2...]
+```
+
+## Description
+
 `escript` provides support for running short Erlang programs without having to
 compile them first, and an easy way to retrieve the command-line arguments.
 `escript`s are created by either writing them by hand or using `escript:create/2`.
@@ -26,7 +36,7 @@ compile them first, and an easy way to retrieve the command-line arguments.
 escripts are run by directly invoking them (does not work on Windows):
 
 ```text
-script-name.escript [arg1 arg2...]
+script-name [arg1 arg2...]
 ```
 
 or by calling the `escript` program (works on all platforms):
@@ -188,7 +198,7 @@ application to be available.
 
 > #### Change {: .info }
 >
-> Before the Erlang/OTP 27 the script would be interpreted by default.
+> Before Erlang/OTP 27 the script would be interpreted by default.
 
 ## Precompiled escripts
 
