@@ -945,7 +945,7 @@ inet_set_ktls(
             inet:setopts(
               Socket,
               [list, {packet, Packet}, {packet_size, PacketSize},
-               {header, Header}, {active, Active}])
+               {header, Header}, {read_ahead, true}, {active, Active}])
         of
             ok ->
                 ok;

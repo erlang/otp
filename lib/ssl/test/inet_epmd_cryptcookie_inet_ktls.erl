@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2023. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ listen_open(_NetAddress, Options) ->
      inet_epmd_dist:merge_options(
        Options,
        [{active, false}, {mode, binary}, {packet, 0},
-        inet_epmd_dist:nodelay()],
+        {read_ahead, false}, inet_epmd_dist:nodelay()],
        [])}.
 
 %% ------------------------------------------------------------
@@ -111,7 +111,7 @@ connect(NetAddress, _Timer, Options) ->
         inet_epmd_dist:merge_options(
           Options,
           [{active, false}, {mode, binary}, {packet, 0},
-           inet_epmd_dist:nodelay()],
+           {read_ahead, false}, inet_epmd_dist:nodelay()],
           []),
     #net_address{ address = {Ip, Port} } = NetAddress,
     maybe
