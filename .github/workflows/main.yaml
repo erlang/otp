@@ -421,16 +421,17 @@ jobs:
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
-        run: |
-          docker run -v $PWD/:/github otp \
-            "make release_docs DOC_TARGETS='html' RELEASE_ROOT=/github/docs"
-            sudo chown -R `whoami` docs
-            cd docs && tar czf ../otp_doc_html.tar.gz *
+        run: .github/scripts/release-docs.sh
       - name: Upload html documentation archive
         uses: actions/upload-artifact@v4.3.3
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
+      - name: Upload man documentation archive
+        uses: actions/upload-artifact@v4.3.0
+        with:
+          name: otp_doc_man
+          path: otp_doc_man.tar.gz
       - name: Trigger rebuild of erlang.org/docs/
         if: github.ref_name == 'master' && github.repository == 'erlang/otp'
         env:
@@ -603,6 +604,10 @@ jobs:
         uses: actions/download-artifact@v4.1.7
         with:
           name: otp_doc_html
+      - name: Download man docs
+        uses: actions/download-artifact@v4.1.1
+        with:
+          name: otp_doc_man
 
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
