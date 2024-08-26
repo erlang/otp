@@ -18,11 +18,6 @@ cd wxWidgets
   --prefix=$PWD/release \
   --with-cocoa \
   --with-macosx-version-min=10.15 \
-  --with-libjpeg=builtin \
-  --with-libtiff=builtin \
-  --with-libpng=builtin \
-  --with-liblzma=builtin \
-  --with-zlib=builtin \
-  --with-expat=builtin
+  --disable-sys-libs
 make
 make install

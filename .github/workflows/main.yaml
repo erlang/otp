@@ -193,7 +193,7 @@ jobs:
         uses: actions/cache@v4.0.2
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-12
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh')}}-12
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
