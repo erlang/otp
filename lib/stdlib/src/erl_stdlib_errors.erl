@@ -269,6 +269,9 @@ format_maps_error(take, _Args) ->
     [[], not_map];
 format_maps_error(to_list, _Args) ->
     [not_map_or_iterator];
+format_maps_error(update, [Key, _Value, Map]) when is_map(Map) ->
+    false = is_map_key(Key, Map),               %Assertion.
+    [<<"not present in map">>, [], []];
 format_maps_error(update, _Args) ->
     [[], [], not_map];
 format_maps_error(update_with, [_Key, Fun, Map]) ->
