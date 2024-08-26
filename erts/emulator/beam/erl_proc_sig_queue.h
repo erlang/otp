@@ -1847,10 +1847,16 @@ void erts_proc_sig_fetch__(Process *proc,
 ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_on(Process *proc);
 ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_off(Process *proc);
 ERTS_GLB_INLINE int erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2);
-ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save__(Process *c_p,
-				 ErtsRecvMarkerBlock *blkp,
-				 ErtsRecvMarker *markp,
-				 int ix);
+ERTS_GLB_INLINE ErtsMessage **
+erts_msgq_recv_marker_pending_set_save__(Process *c_p,
+                                         ErtsRecvMarkerBlock *blkp,
+                                         ErtsRecvMarker *markp,
+                                         int ix);
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_set_save__(Process *c_p,
+                                 ErtsRecvMarkerBlock *blkp,
+                                 ErtsRecvMarker *markp,
+                                 int ix);
 Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
 void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
 ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
@@ -1859,6 +1865,19 @@ void erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p);
 
 #define ERTS_RECV_MARKER_IX__(BLKP, MRKP) \
     ((int) ((MRKP) - &(BLKP)->marker[0]))
+
+#define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
+    do {								\
+	if ((BLKP)->pending_set_save_ix >= 0) {				\
+	    int clr_ix__ = (BLKP)->pending_set_save_ix;			\
+	    ErtsRecvMarker *clr_markp__ = &(BLKP)->marker[clr_ix__];	\
+	    ASSERT(!clr_markp__->in_msgq);				\
+	    ASSERT(clr_markp__->in_sigq);				\
+	    ASSERT(clr_markp__->set_save);				\
+	    clr_markp__->set_save = 0;					\
+	    (BLKP)->pending_set_save_ix = -1;				\
+	}								\
+    } while (0)
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2046,21 +2065,6 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
     }
 }
 
-
-#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
-#define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
-    do {								\
-	if ((BLKP)->pending_set_save_ix >= 0) {				\
-	    int clr_ix__ = (BLKP)->pending_set_save_ix;			\
-	    ErtsRecvMarker *clr_markp__ = &(BLKP)->marker[clr_ix__];	\
-	    ASSERT(!clr_markp__->in_msgq);				\
-	    ASSERT(clr_markp__->in_sigq);				\
-	    ASSERT(clr_markp__->set_save);				\
-	    clr_markp__->set_save = 0;					\
-	    (BLKP)->pending_set_save_ix = -1;				\
-	}								\
-    } while (0)
-
 ERTS_GLB_INLINE int
 erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
 {
@@ -2092,6 +2096,34 @@ erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
     return !0;
 }
 
+ERTS_GLB_INLINE ErtsMessage **
+erts_msgq_recv_marker_pending_set_save__(Process *c_p,
+                                         ErtsRecvMarkerBlock *blkp,
+                                         ErtsRecvMarker *markp,
+                                         int ix)
+{
+    /*
+     * Marker is in the middle queue of signals not
+     * processed yet. Trigger handling of signals in loop_rec
+     * by setting save pointer to the end of message queue
+     * (inner queue). This in order to get the recv marker
+     * into the message queue.
+     */
+    c_p->sig_qs.save = c_p->sig_qs.last;
+    ASSERT(!(*c_p->sig_qs.save));
+    /* save past the prio queue */
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+    /*
+     * Set save pointer when marker enters message queue...
+     */
+    markp->set_save = !0;
+    ASSERT(blkp->pending_set_save_ix == -1);
+    ASSERT(ix == ERTS_RECV_MARKER_IX__(blkp, markp));
+    blkp->pending_set_save_ix = ix;
+
+    return c_p->sig_qs.last;
+}
+
 ERTS_GLB_INLINE void
 erts_msgq_recv_marker_set_save__(Process *c_p,
 				 ErtsRecvMarkerBlock *blkp,
@@ -2104,30 +2136,41 @@ erts_msgq_recv_marker_set_save__(Process *c_p,
     ASSERT(!markp->set_save);
     ASSERT(markp->in_sigq);
 
-    if (markp->in_msgq) {
-        ErtsMessage **sigpp = &markp->sig.common.next;
-	if (*sigpp && ERTS_SIG_IS_RECV_MARKER(*sigpp))
+    if (!markp->in_msgq) {
+        (void) erts_msgq_recv_marker_pending_set_save__(c_p, blkp,
+                                                        markp, ix);
+    }
+    else {
+        ErtsMessage **sigpp, *sigp;
+
+        if (!markp->in_prioq) {
+            sigpp = &markp->sig.common.next;
+            sigp = *sigpp;
+
+            /* all recv-markers are outside of prio queue */
+            c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+        }
+        else {
+            /*
+             * Messages containing the corresponding reference has been
+             * seen in the prio queue, so we need to scan the prio
+             * first...
+             */
+            sigpp = &c_p->sig_qs.first;
+            sigp = *sigpp;
+            ASSERT(sigp
+                   && ERTS_SIG_IS_RECV_MARKER(sigp)
+                   && (((ErtsRecvMarker *) sigp)->mark_type
+                       == ERTS_RECV_MARKER_TYPE_PRIO_Q_START));
+            c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+        }
+	if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp))
 	    sigpp = erts_msgq_pass_recv_markers(c_p, sigpp);
         c_p->sig_qs.save = sigpp;
     }
-    else {
-        /*
-         * Marker is in the middle queue of signals not
-         * processed yet. Trigger handling of signals in loop_rec
-         * by setting save pointer to the end of message queue
-         * (inner queue). This in order to get the recv marker
-         * into the message queue.
-         */
-        c_p->sig_qs.save = c_p->sig_qs.last;
-        ASSERT(!(*c_p->sig_qs.save));
-        /*
-         * Set save pointer when marker enters message queue...
-         */
-        markp->set_save = !0;
-        ASSERT(blkp->pending_set_save_ix == -1);
-	ASSERT(ix == ERTS_RECV_MARKER_IX__(blkp, markp));
-        blkp->pending_set_save_ix = ix;
-    }
+
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_RCVM);
+    blkp->set_save_ix = ix;
 }
 
 ERTS_GLB_INLINE void
@@ -2212,6 +2255,9 @@ ERTS_GLB_INLINE void
 erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 {
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
+    /* Previous receive should have prepared by setting save ptr to first msg */
+    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST);
+
     if (is_internal_ref(id)) {
 	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 
@@ -2225,7 +2271,6 @@ erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 		}
 	    }
 	}
-
     }
 }
 
@@ -2265,7 +2310,7 @@ erts_msgq_set_save_first(Process *c_p)
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (blkp) {
 	ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
-    }    
+    }
 
     /*
      * Remove any receive markers at the front of the
@@ -2274,8 +2319,17 @@ erts_msgq_set_save_first(Process *c_p)
      */
     if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
 	erts_msgq_remove_leading_recv_markers_set_save_first(c_p);
-    else
+    else {
+        ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_FIRST);
         c_p->sig_qs.save = &c_p->sig_qs.first;
+    }
+
+    /*
+     * We are leaving a receive expression in one way or the other. We should
+     * have prepared for the next receive expression by setting the save ptr
+     * to the first message...
+     */
+    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST);
 }
 
 ERTS_GLB_INLINE void
@@ -2319,8 +2373,13 @@ erts_msgq_set_save_end(Process *c_p)
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
-    if (!c_p->sig_qs.cont)
+    /* Previous receive should have prepared by setting save ptr to first msg */
+    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST);
+
+    if (!c_p->sig_qs.cont) {
         c_p->sig_qs.save = c_p->sig_qs.last;
+        c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+    }
     else {
         /*
          * Unhandled signals in middle queue; we need to
@@ -2328,9 +2387,9 @@ erts_msgq_set_save_end(Process *c_p)
          */
 	erts_msgq_recv_marker_create_insert_set_save(c_p, NIL);
     }
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_LAST);
 }
 
-#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
 #undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
 
 ERTS_GLB_INLINE erts_aint32_t
