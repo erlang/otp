@@ -126,11 +126,14 @@ The value can be:
 """.
 -type timeout_time() :: 0..?MAX_INT_TIMEOUT | 'infinity' | {abs, integer()}.
 
+-type call_options() :: #{'timeout' => timeout_time(),
+			  'always_spawn' => boolean()}.
+
 %%------------------------------------------------------------------------
 %% Exported API
 %%------------------------------------------------------------------------
 
--doc(#{equiv => call(Node, Fun, infinity)}).
+-doc(#{equiv => call(Node, Fun, #{timeout => infinity})}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Fun) -> Result when
       Node :: node(),
@@ -138,28 +141,28 @@ The value can be:
       Result :: term().
 
 call(N, Fun) ->
-    call(N, Fun, infinity).
+    call(N, Fun, #{timeout => infinity}).
 
 -doc """
 Equivalent to
-[`erpc:call(Node, erlang, apply, [Fun,[]], Timeout)`](`call/5`).
+[`erpc:call(Node, erlang, apply, [Fun,[]], #{timeout => Timeout})`](`call/5`).
 
 May raise all the same exceptions as [`call/5`](`call/5`) plus an `{erpc, badarg}`
 `error` exception if `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec call(Node, Fun, Timeout) -> Result when
+-spec call(Node, Fun, TimeoutOrOptions) -> Result when
       Node :: node(),
       Fun :: function(),
-      Timeout :: timeout_time(),
+      TimeoutOrOptions :: timeout_time() | call_options(),
       Result :: term().
 
-call(N, Fun, Timeout) when is_function(Fun, 0) ->
-    call(N, erlang, apply, [Fun, []], Timeout);
+call(N, Fun, TimeoutOrOptions) when is_function(Fun, 0) ->
+    call(N, erlang, apply, [Fun, []], TimeoutOrOptions);
 call(_N, _Fun, _Timeout) ->
     error({?MODULE, badarg}).
 
--doc(#{equiv => call(Node, Module, Function, Args, infinity)}).
+-doc(#{equiv => call(Node, Module, Function, Args, #{timeout => infinity})}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec call(Node, Module, Function, Args) -> Result when
       Node :: node(),
@@ -169,7 +172,7 @@ call(_N, _Fun, _Timeout) ->
       Result :: term().
 
 call(N, M, F, A) ->
-    call(N, M, F, A, infinity).
+    call(N, M, F, A, #{timeout => infinity}).
 
 -dialyzer([{nowarn_function, call/5}, no_return]).
 
@@ -244,18 +247,19 @@ communication may, of course, reach the calling process.
 > spawned process.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec call(Node, Module, Function, Args, Timeout) -> Result when
+-spec call(Node, Module, Function, Args, TimeoutOrOptions) -> Result when
       Node :: node(),
       Module :: atom(),
       Function :: atom(),
       Args :: [term()],
-      Timeout :: timeout_time(),
+      TimeoutOrOptions :: timeout_time() | call_options(),
       Result :: term().
 
-call(N, M, F, A, infinity) when node() =:= N,  %% Optimize local call
-                                is_atom(M),
-                                is_atom(F),
-                                is_list(A) ->
+call(N, M, F, A, #{timeout := infinity,
+		   always_spawn := false}) when node() =:= N,  %% Optimize local call
+                                                is_atom(M),
+                                                is_atom(F),
+                                                is_list(A) ->
     try
         {return, Return} = execute_call(M,F,A),
         Return
@@ -271,10 +275,12 @@ call(N, M, F, A, infinity) when node() =:= N,  %% Optimize local call
                     error({exception, Reason, ErpcStack})
             end
     end;
-call(N, M, F, A, T) when is_atom(N),
-                         is_atom(M),
-                         is_atom(F),
-                         is_list(A) ->
+call(N, M, F, A, #{timeout := T,
+		   always_spawn := AlwaysSpawn}) when is_atom(N),
+                                                      is_atom(M),
+                                                      is_atom(F),
+                                                      is_list(A),
+                                                      is_boolean(AlwaysSpawn) ->
     Timeout = timeout_value(T),
     Res = make_ref(),
     ReqId = spawn_request(N, ?MODULE, execute_call, [Res, M, F, A],
@@ -287,8 +293,15 @@ call(N, M, F, A, T) when is_atom(N),
     after Timeout ->
             result(timeout, ReqId, Res, undefined)
     end;
-call(_N, _M, _F, _A, _T) ->
-    error({?MODULE, badarg}).
+call(_N, _M, _F, _A, #{timeout := _T,
+		       always_spawn := _AlwaysSpawn} = _Opts) ->
+    error({?MODULE, badarg});
+call(N, M, F, A, #{} = Opts) ->
+    call(N, M, F, A, maps:merge(#{timeout => infinity,
+				  always_spawn => false}, Opts));
+call(N, M, F, A, T) ->
+    call(N, M, F, A, #{timeout => T,
+		       always_spawn => false}).
 
 %% Asynchronous call
 
@@ -992,7 +1005,7 @@ reqids_to_list(_) ->
       | {error, {?MODULE, Reason :: term()}}.
 
 
--doc(#{equiv => multicall(Nodes, Fun, infinity)}).
+-doc(#{equiv => multicall(Nodes, Fun, #{timeout => infinity})}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicall(Nodes, Fun) -> Result when
       Nodes :: [atom()],
@@ -1000,28 +1013,28 @@ reqids_to_list(_) ->
       Result :: term().
 
 multicall(Ns, Fun) ->
-    multicall(Ns, Fun, infinity).
+    multicall(Ns, Fun, #{timeout => infinity}).
 
 -doc """
 Equivalent to
-[`erpc:multicall(Nodes, erlang, apply, [Fun,[]], Timeout)`](`multicall/5`).
+[`erpc:multicall(Nodes, erlang, apply, [Fun,[]], #{timeout => Timeout})`](`multicall/5`).
 
 May raise all the same exceptions as [`multicall/5`](`multicall/5`) plus an
 `{erpc, badarg}` `error` exception if `Fun` is not a fun of zero arity.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec multicall(Nodes, Fun, Timeout) -> Result when
+-spec multicall(Nodes, Fun, TimeoutOrOptions) -> Result when
       Nodes :: [atom()],
       Fun :: function(),
-      Timeout :: timeout_time(),
+      TimeoutOrOptions :: timeout_time() | call_options(),
       Result :: term().
 
-multicall(Ns, Fun, Timeout) when is_function(Fun, 0) ->
-    multicall(Ns, erlang, apply, [Fun, []], Timeout);
-multicall(_Ns, _Fun, _Timeout) ->
+multicall(Ns, Fun, TimeoutOrOptions) when is_function(Fun, 0) ->
+    multicall(Ns, erlang, apply, [Fun, []], TimeoutOrOptions);
+multicall(_Ns, _Fun, _TimeoutOrOptions) ->
     error({?MODULE, badarg}).
 
--doc(#{equiv => multicall(Nodes, Module, Function, Args, infinity)}).
+-doc(#{equiv => multicall(Nodes, Module, Function, Args, #{timeout => infinity})}).
 -doc(#{since => <<"OTP 23.0">>}).
 -spec multicall(Nodes, Module, Function, Args) -> Result when
       Nodes :: [atom()],
@@ -1031,7 +1044,7 @@ multicall(_Ns, _Fun, _Timeout) ->
       Result :: [{ok, ReturnValue :: term()} | caught_call_exception()].
 
 multicall(Ns, M, F, A) ->
-    multicall(Ns, M, F, A, infinity).
+    multicall(Ns, M, F, A, #{timeout => infinity}).
 
 -doc """
 Performs multiple `call` operations in parallel on multiple nodes.
@@ -1099,27 +1112,33 @@ calling process, such communication may, of course, reach the calling process.
 > spawned process.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--spec multicall(Nodes, Module, Function, Args, Timeout) -> Result when
+-spec multicall(Nodes, Module, Function, Args, TimeoutOrOptions) -> Result when
       Nodes :: [atom()],
       Module :: atom(),
       Function :: atom(),
       Args :: [term()],
-      Timeout :: timeout_time(),
+      TimeoutOrOptions :: timeout_time() | call_options(),
       Result :: [{ok, ReturnValue :: term()} | caught_call_exception()].
 
-multicall(Ns, M, F, A, T) ->
+multicall(Ns, M, F, A, #{} = Opts) ->
     try
         true = is_atom(M),
         true = is_atom(F),
         true = is_list(A),
         Tag = make_ref(),
-        Timeout = timeout_value(T),
-        SendState = mcall_send_requests(Tag, Ns, M, F, A, Timeout),
+        Timeout = timeout_value(maps:get(timeout, Opts, infinity)),
+	LocalCall = case maps:get(always_spawn, Opts, false) of
+			true -> always_spawn;
+			false -> allow_local_call
+		    end,
+        SendState = mcall_send_requests(Tag, Ns, M, F, A, LocalCall, Timeout),
         mcall_receive_replies(Tag, SendState)
     catch
         error:NotIErr when NotIErr /= internal_error ->
             error({?MODULE, badarg})
-    end.
+    end;
+multicall(Ns, M, F, A, T) ->
+    multicall(Ns, M, F, A, #{timeout => T}).
 
 -doc """
 Equivalent to
@@ -1515,9 +1534,9 @@ mcall_send_request(T, N, M, F, A) when is_reference(T),
                    {reply_tag, T},
                    {monitor, [{tag, T}]}]).
 
-mcall_send_requests(Tag, Ns, M, F, A, Tmo) ->
+mcall_send_requests(Tag, Ns, M, F, A, LC, Tmo) ->
     DL = deadline(Tmo),
-    mcall_send_requests(Tag, Ns, M, F, A, [], DL, undefined, 0).
+    mcall_send_requests(Tag, Ns, M, F, A, [], DL, LC, 0).
 
 mcall_send_requests(_Tag, [], M, F, A, RIDs, DL, local_call, NRs) ->
     %% Timeout infinity and call on local node wanted;
@@ -1527,7 +1546,7 @@ mcall_send_requests(_Tag, [], M, F, A, RIDs, DL, local_call, NRs) ->
 mcall_send_requests(_Tag, [], _M, _F, _A, RIDs, DL, _LC, NRs) ->
     {ok, RIDs, #{}, NRs, DL};
 mcall_send_requests(Tag, [N|Ns], M, F, A, RIDs,
-                    infinity, undefined, NRs) when N == node() ->
+                    infinity, allow_local_call, NRs) when N == node() ->
     mcall_send_requests(Tag, Ns, M, F, A, [local_call|RIDs],
                         infinity, local_call, NRs);
 mcall_send_requests(Tag, [N|Ns], M, F, A, RIDs, DL, LC, NRs) ->
