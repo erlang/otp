@@ -19,7 +19,7 @@ limitations under the License.
 -->
 # typer
 
-TypEr is a **TYP**e annotator for **ER**lang programs.
+Type annotator for Erlang programs.
 
 ## Description
 

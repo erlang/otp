@@ -26,6 +26,8 @@ RELSYSDIR ?= $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 ## The "system" applications set this to something else
 RELSYS_HTMLDIR ?= $(RELSYSDIR)/doc/html
 
+RELSYS_MANDIR ?= $(RELEASE_PATH)/man
+
 # ----------------------------------------------------
 # Application directory structure
 # ----------------------------------------------------
@@ -71,6 +73,17 @@ $(TYPES):
 clean clean_docs: clean_html
 	rm -rf $(EXTRA_FILES)
 
+MAN1_DEPS?=$(wildcard */*_cmd.md)
+
+MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
+
+man: $(MAN1_PAGES)
+
+MARKDOWN_TO_MAN=$(ERL_TOP)/make/markdown_to_man.escript
+
+man1/%.1: references/%_cmd.md $(MARKDOWN_TO_MAN)
+	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN1DIR) $<
+
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
@@ -93,7 +106,14 @@ ifneq ($(STANDARDS),)
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"
 endif
 
+release_man_spec: man
+ifneq ($(wildcard man1/*.1),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man1"
+	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
+endif
+
 release_spec:
 
 .PHONY: clean clean_html $(TYPES) docs images html chunks \
-	release_docs_spec release_html_spec release_chunks_spec release_spec
+	release_docs_spec release_html_spec release_chunks_spec release_spec \
+	release_man_spec man

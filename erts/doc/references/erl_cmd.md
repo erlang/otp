@@ -19,16 +19,21 @@ limitations under the License.
 -->
 # erl
 
+Start the Erlang runtime system.
+
+## Description
+
 The `erl` program starts an Erlang runtime system. The exact details (for
 example, whether `erl` is a script or a program and which other programs it
 calls) are system-dependent.
 
 > #### Note {: .info }
 >
-> If you are running Erlang/OTP 25 or earlier on Windows to start an Erlang
-> system with full shell support you should use `werl.exe`. See the
-> [Erlang/OTP 25 documentation](https://www.erlang.org/docs/25/man/werl) for
-> details on how to do that.
+> If you are using Erlang/OTP 25 or earlier on Windows and want to
+> start an Erlang system with full shell support, you should use
+> `werl.exe`.  See the [Erlang/OTP 25
+> documentation](https://www.erlang.org/docs/25/man/werl) for details
+> on how to do that.
 
 ## erl <arguments>
 
@@ -420,7 +425,8 @@ described in the corresponding application documentation.
   >
   > The connecting node needs to have a proper shell with terminal emulation.
   > This means that UNIX users must use an Erlang compiled with terminal
-  > capabilities and Windows users must use [`werl(1)`](werl_cmd.md).
+  > capabilities and before Erlang/OTP 25 Windows users must use
+  > [`werl`](werl_cmd.md).
 
 - **`-rsh Program`** - Specifies an alternative to `ssh` for starting a slave
   node on a remote host; see `m:slave`.
@@ -512,10 +518,10 @@ the following flags:
 
 - **`+A size`{: #async_thread_pool_size }** - Sets the number of threads in
   async thread pool. Valid range is 1-1024. The async thread pool is used by
-  linked-in drivers to handle work that may take a very long time. Since OTP 21
-  there are very few linked-in drivers in the default Erlang/OTP distribution
-  that uses the async thread pool. Most of them have been migrated to dirty IO
-  schedulers. Defaults to 1.
+  linked-in drivers to handle work that may take a very long time.
+  Since OTP 21, the default Erlang/OTP distribution includes few
+  linked-in drivers that use the async thread pool. Most of them have
+  been migrated to dirty IO schedulers. Defaults to 1.
 
 - **`+B [c | d | i]`** - Option `c` makes `Ctrl-C` interrupt the current shell
   instead of invoking the emulator break handler. Option `d` (same as specifying
@@ -524,10 +530,6 @@ the following flags:
 
   If option `c` is used with `oldshell` on Unix, `Ctrl-C` will restart the shell
   process rather than interrupt it.
-
-  Notice that on Windows, this flag is only applicable for `werl`, not `erl`
-  (`oldshell`). Notice also that `Ctrl-Break` is used instead of `Ctrl-C` on
-  Windows.
 
 - **`+c true | false`{: #+c }** - Enables or disables
   [time correction](time_correction.md#time-correction):
@@ -576,7 +578,7 @@ the following flags:
   operations and performance for read operations. Each group consumes 64 bytes
   in each counter.
 
-  Notice that a runtime system using decentralized counter groups benefits from
+  Note that a runtime system using decentralized counter groups benefits from
   [binding schedulers to logical processors](erl_cmd.md#%2Bsbt), as the groups
   are distributed better between schedulers with this option.
 
@@ -797,7 +799,7 @@ the following flags:
   The value used in runtime can be inspected by calling
   [`erlang:system_info(async_dist)`](`m:erlang#system_info_async_dist`).
 
-- **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }**  
+- **[](){: #%2Bpc } `+pc Range`{: #printable_character_range }** -
   Sets the range of characters that the system considers printable in heuristic
   detection of strings. This typically affects the shell, debugger, and
   `io:format` functions (when `~tp` is used in the format string).
@@ -816,28 +818,34 @@ the following flags:
 
   See also `io:printable_range/0` in STDLIB.
 
-- **[](){: #%2BP } `+P Number`{: #max_processes }**  
+- **[](){: #%2BP } `+P Number`{: #max_processes }** -
   Sets the maximum number of simultaneously existing processes for this system
   if a `Number` is passed as value. Valid range for `Number` is
-  `[1024-134217727]`
+  `[1024-134217727]`.
 
-  _NOTE_: The actual maximum chosen may be much larger than the `Number` passed.
-  Currently the runtime system often, but not always, chooses a value that is a
-  power of 2. This might, however, be changed in the future. The actual value
-  chosen can be checked by calling
-  [erlang:system_info(process_limit)](`m:erlang#system_info_process_limit`).
+  > #### Note {: .info }
+  >
+  > The actual maximum chosen may be much larger than the `Number`
+  > passed. Currently the runtime system often, but not always,
+  > chooses a value that is a power of 2. This might, however, be
+  > changed in the future. The actual value chosen can be checked by
+  > calling
+  > [erlang:system_info(process_limit)](`m:erlang#system_info_process_limit`).
 
   The default value is `1048576`
 
-- **[](){: #%2BQ } `+Q Number`{: #max_ports }**  
+- **[](){: #%2BQ } `+Q Number`{: #max_ports }** -
   Sets the maximum number of simultaneously existing ports for this system if a
-  Number is passed as value. Valid range for `Number` is `[1024-134217727]`
+  Number is passed as value. Valid range for `Number` is `[1024-134217727]`.
 
-  _NOTE_: The actual maximum chosen may be much larger than the actual `Number`
-  passed. Currently the runtime system often, but not always, chooses a value
-  that is a power of 2. This might, however, be changed in the future. The
-  actual value chosen can be checked by calling
-  [erlang:system_info(port_limit)](`m:erlang#system_info_port_limit`).
+  > #### Note {: .info }
+  >
+  > The actual maximum chosen may be much larger than the actual
+  > `Number` passed. Currently the runtime system often, but not
+  > always, chooses a value that is a power of 2. This might, however,
+  > be changed in the future. The actual value chosen can be checked
+  > by calling
+  > [`erlang:system_info(port_limit)`](`m:erlang#system_info_port_limit`).
 
   The default value used is normally `65536`. However, if the runtime system is
   able to determine maximum amount of file descriptors that it is allowed to
@@ -853,9 +861,9 @@ the following flags:
   The distribution mechanism is not backward compatible by default. This flag
   sets the emulator in compatibility mode with an earlier Erlang/OTP release
   `ReleaseNumber`. The release number must be in the range
-  `<current release>-2..<current release>`. This limits the emulator, making it
-  possible for it to communicate with Erlang nodes (as well as C- and Java
-  nodes) running that earlier release.
+  `<current release>-2` through `<current release>`. This limits the emulator,
+  making it possible for it to communicate with Erlang nodes (as well as C
+  and Java nodes) running that earlier release.
 
   > #### Note {: .info }
   >
@@ -863,7 +871,7 @@ the following flags:
   > system is of the same Erlang/OTP release, or from two different Erlang/OTP
   > releases X and Y, where _all_ Y nodes have compatibility mode X.
 
-- **`+r`** - Forces ETS memory block to be moved on realloc.
+- **`+r`** - Forces ETS memory blocks to be moved on reallocation.
 
 - **`+rg ReaderGroupsLimit`{: #+rg }** - Limits the number of reader groups used
   by read/write locks optimized for read operations in the Erlang runtime
@@ -929,7 +937,7 @@ the following flags:
   - The number of dirty CPU scheduler threads online cannot exceed the number of
     normal scheduler threads online.
 
-  For details, see the [`+S`](erl_cmd.md#%2BS) and [`+SP`](erl_cmd.md#%2BSP). By
+  For details, see [`+S`](erl_cmd.md#%2BS) and [`+SP`](erl_cmd.md#%2BSP). By
   default, the number of dirty CPU scheduler threads created equals the number
   of normal scheduler threads created, and the number of dirty CPU scheduler
   threads online equals the number of normal scheduler threads online.
@@ -1110,23 +1118,25 @@ the following flags:
     `+scl false` is similar to [`+sub true`](erl_cmd.md#%2Bsub), but `+sub true`
     also balances scheduler utilization between schedulers.
 
-  - **`+sct CpuTopology`{: #+sct }** - \*
-    `<Id> = integer(); when 0 =< <Id> =< 65535`
-
-    - `<IdRange> = <Id>-<Id>`
-    - `<IdOrIdRange> = <Id> | <IdRange>`
-    - `<IdList> = <IdOrIdRange>,<IdOrIdRange> | <IdOrIdRange>`
-    - `<LogicalIds> = L<IdList>`
-    - `<ThreadIds> = T<IdList> | t<IdList>`
-    - `<CoreIds> = C<IdList> | c<IdList>`
-    - `<ProcessorIds> = P<IdList> | p<IdList>`
-    - `<NodeIds> = N<IdList> | n<IdList>`
-    - `<IdDefs> = <LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds> | <LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>`
-    - `CpuTopology = <IdDefs>:<IdDefs> | <IdDefs>`
-
-    Sets a user-defined CPU topology. The user-defined CPU topology overrides
+  - **`+sct CpuTopology`{: #+sct }** - Sets a user-defined CPU topology.
+    The user-defined CPU topology overrides
     any automatically detected CPU topology. The CPU topology is used when
     [binding schedulers to logical processors](erl_cmd.md#%2Bsbt).
+
+    ```
+    <Id> = integer(); when 0 =< <Id> =< 65535
+    <IdRange> = <Id>-<Id>
+    <IdOrIdRange> = <Id> | <IdRange>
+    <IdList> = <IdOrIdRange>,<IdOrIdRange> | <IdOrIdRange>
+    <LogicalIds> = L<IdList>
+    <ThreadIds> = T<IdList> | t<IdList>
+    <CoreIds> = C<IdList> | c<IdList>
+    <ProcessorIds> = P<IdList> | p<IdList>
+    <NodeIds> = N<IdList> | n<IdList>
+    <IdDefs> = <LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds> |
+               <LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>
+    CpuTopology = <IdDefs>:<IdDefs> | <IdDefs>
+    ```
 
     Uppercase letters signify real identifiers and lowercase letters signify
     fake identifiers only used for description of the topology. Identifiers
@@ -1226,7 +1236,7 @@ the following flags:
     > #### Note {: .info }
     >
     > Reading CPU topology slows down startup when starting many parallel
-    > instances of ERTS on systems with large amount of cores, using this flag
+    > instances of ERTS on systems with large amount of cores; using this flag
     > might speed up execution in such scenarios.
 
   - **`+sfwi Interval`{: #+sfwi }** - Sets scheduler-forced wakeup interval. All

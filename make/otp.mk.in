@@ -214,6 +214,7 @@ EX_DOC = @EX_DOC@
 
 DOCDIR=.
 HTMLDIR = $(DOCDIR)/html
+MAN1DIR = $(DOCDIR)/man1
 CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(HTMLLOGO),)
@@ -222,3 +223,6 @@ endif
 
 CP = @CP@
 MKDIR = @MKDIR@
+
+EXEEXT = @EXEEXT@
+

@@ -19,7 +19,13 @@ limitations under the License.
 -->
 # diameterc
 
-diameterc \[<options>] <file>
+Compile a diameter dictionary to Erlang source.
+
+## Synopsis
+
+```
+diameterc [<options>] <file>
+```
 
 ## Description
 
@@ -30,52 +36,52 @@ messages and AVPs.
 
 The module `m:diameter_make` provides an alternate compilation interface.
 
-## USAGE
+# USAGE
 
-- **diameterc \[<options>] <file>** - Compile a single dictionary file to Erlang
-  source. Valid options are as follows.
+Compile a single dictionary file to Erlang
+source. Valid options are as follows.
 
-  - **\-i <dir>** - Prepend the specified directory to the code path. Use to
-    point at beam files compiled from inherited dictionaries,
-    `[@inherits](diameter_dict.md#inherits)` in a dictionary file creating a
-    beam dependency, not an erl/hrl dependency.
+- **\-i <dir>** - Prepend the specified directory to the code path. Use to
+  point at beam files compiled from inherited dictionaries,
+  `[@inherits](diameter_dict.md#inherits)` in a dictionary file creating a
+  beam dependency, not an erl/hrl dependency.
 
-    Multiple `-i` options can be specified.
+  Multiple `-i` options can be specified.
 
-  - **\-o <dir>** - Write generated source to the specified directory. Defaults
-    to the current working directory.
+- **\-o <dir>** - Write generated source to the specified directory. Defaults
+  to the current working directory.
 
-  - **\-E**
+- **\-E** - Suppress `.erl` file generation.
 
-  - **\-H** - Suppress erl and hrl generation, respectively.
+- **\-H** - Suppress `.hrl` file generation.
 
-  - **\--name <name>**
+- **\--name <name>** - Name the output module.
 
-  - **\--prefix <prefix>** - Transform the input dictionary before compilation,
-    setting `[@name](diameter_dict.md#name)` or
-    `[@prefix](diameter_dict.md#prefix)` to the specified string.
+- **\--prefix <prefix>** - Transform the input dictionary before compilation,
+  setting `[@name](diameter_dict.md#name)` or
+  `[@prefix](diameter_dict.md#prefix)` to the specified string.
 
-  - **\--inherits <arg>** - Transform the input dictionary before compilation,
-    appending `[@inherits](diameter_dict.md#inherits)` of the specified string.
+- **\--inherits <arg>** - Transform the input dictionary before compilation,
+  appending `[@inherits](diameter_dict.md#inherits)` of the specified string.
 
-    Two forms of `--inherits` have special meaning:
+  Two forms of `--inherits` have special meaning:
 
-    ```text
-    --inherits -
-    --inherits Prev/Mod
-    ```
+  ```text
+  --inherits -
+  --inherits Prev/Mod
+  ```
 
-    The first has the effect of clearing any previous inherits, the second of
-    replacing a previous inherits of `Prev` to one of `Mod`. This allows the
-    semantics of the input dictionary to be changed without modifying the file
-    itself.
+  The first has the effect of clearing any previous inherits, the second of
+  replacing a previous inherits of `Prev` to one of `Mod`. This allows the
+  semantics of the input dictionary to be changed without modifying the file
+  itself.
 
-    Multiple `--inherits` options can be specified.
+  Multiple `--inherits` options can be specified.
 
-## EXIT STATUS
+# EXIT STATUS
 
 Returns 0 on success, non-zero on failure.
 
-## SEE ALSO
+# SEE ALSO
 
 `m:diameter_make`, [diameter_dict(4)](diameter_dict.md)
