@@ -43,6 +43,8 @@
 #include "erl_bif_unique.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_check_io.h"
+#include "erl_global_literals.h"
+#include "erl_map.h"
 #include "dtrace-wrapper.h"
 
 #define ERTS_SIG_REDS_CNT_FACTOR 4
@@ -230,6 +232,19 @@ typedef struct {
     ErtsMessage **last;
 } ErtsSavedNMSignals;
 
+#define ERTS_PRIO_Q_MARK_END            0
+#define ERTS_PRIO_Q_MARK_CONT           1
+
+#define ERTS_PRIO_Q_MARK_IX_MIN         ERTS_PRIO_Q_MARK_END
+#define ERTS_PRIO_Q_MARK_IX_MAX         ERTS_PRIO_Q_MARK_CONT
+
+typedef struct {
+    Uint32 saved_save_info;
+    ErtsRecvMarker marker[ERTS_PRIO_Q_MARK_IX_MAX
+                          - ERTS_PRIO_Q_MARK_IX_MIN
+                          + 1];
+} ErtsPrioQInfo;
+
 static void wake_handle_signals(Process *proc);
 
 static int handle_msg_tracing(Process *c_p,
@@ -275,6 +290,27 @@ static void proc_sig_queue_flush_buffers(Process *proc,
                                          ErtsSignalInQueueBufferArray *buffers);
 static void proc_sig_queue_lock_buffer(ErtsSignalInQueueBuffer* slot);
 static void proc_sig_queue_unlock_buffer(ErtsSignalInQueueBuffer* slot);
+static void handle_message_enqueued_tracing(Process *c_p,
+                                            ErtsSigRecvTracing *tracing,
+                                            ErtsMessage *msg);
+static void
+insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
+                         ErtsMessage *sig, Eterm message, Eterm token,
+                         ErtsMessage ***next_nm_sig);
+static void
+insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
+                                  ErtsMessage *sig, void *attached,
+                                  Eterm message, Eterm token,
+                                  ErtsMessage ***next_nm_sig);
+
+static ERTS_INLINE ErtsPrioQInfo *
+get_prio_queue_info(Process *c_p)
+{
+    ErtsPrioQInfo *pq_info = ERTS_PROC_GET_PRIO_Q_INFO(c_p);
+    ASSERT(pq_info);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+    return pq_info;
+}
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -1239,6 +1275,8 @@ maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
         res = -1;
         if (prio >= 0)
             min_prio = prio;
+        else if (!c_p)
+            return res;
         else {
             /* inherit from caller... */
             state = erts_atomic32_read_nob(&c_p->state);
@@ -3266,8 +3304,8 @@ erts_proc_sig_send_rpc_request_prio(Process *c_p,
         erts_msgq_set_save_end(c_p);
     }
 
-    if (proc_queue_signal(&c_p->common, c_p->common.id, to, (ErtsSignal *)sig,
-                          0, ERTS_SIG_Q_OP_RPC)) {
+    if (proc_queue_signal(c_p ? &c_p->common : NULL, c_p->common.id, to,
+                          (ErtsSignal *)sig, 0, ERTS_SIG_Q_OP_RPC)) {
         (void) maybe_elevate_sig_handling_prio(c_p, prio, to);
     } else {
         erts_free(ERTS_ALC_T_SIG_DATA, sig);
@@ -3846,7 +3884,7 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
     int ix, nix;
 
-    ASSERT(!markp->is_yield_mark);
+    ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
     
     ASSERT(blkp);
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
@@ -3892,7 +3930,7 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
 {
     ErtsMessage *sigp;
 
-    ASSERT(!markp->is_yield_mark);
+    ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
     ASSERT(markp->proc == c_p);
 
     if (markp->in_sigq <= 0) {
@@ -3913,7 +3951,7 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
     }
     else {
         remove_innerq_sig(c_p, sigp, markp->prev_next);
-        markp->in_sigq = markp->in_msgq = 0;
+        markp->in_prioq = markp->in_msgq = markp->in_sigq = 0;
 	ASSERT(!markp->set_save);
 #ifdef DEBUG
         markp->prev_next = NULL;
@@ -3958,7 +3996,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     /* Allocate marker for 'uniqp' in index zero... */    
     *ixp = 0;
     blkp->ref[0] = recv_marker_uniq(c_p, uniqp);
-    blkp->marker[0].is_yield_mark = 0;
+    blkp->marker[0].mark_type = ERTS_RECV_MARKER_TYPE_RECV;
     markp = &blkp->marker[0];
     markp->next_ix = markp->prev_ix = 0;
     blkp->used_ix = 0;
@@ -3967,7 +4005,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     blkp->free_ix = 1;
     for (ix = 1; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	blkp->ref[ix] = am_free;
-        blkp->marker[ix].is_yield_mark = 0;
+        blkp->marker[ix].mark_type = ERTS_RECV_MARKER_TYPE_RECV;
 	if (ix == ERTS_RECV_MARKER_BLOCK_SIZE - 1)
 	    blkp->marker[ix].next_ix = -1; /* End of list */
 	else
@@ -3976,7 +4014,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 
     blkp->unused = 0;
     blkp->pending_set_save_ix = -1;
-    
+
 #ifdef DEBUG
     for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	blkp->marker[ix].used = ix == 0 ? !0 : 0;
@@ -4074,7 +4112,7 @@ recv_marker_reuse(Process *c_p, int *ixp)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
 
     remove_innerq_sig(c_p, sigp, markp->prev_next);
-    markp->in_sigq = markp->in_msgq = 0;
+    markp->in_prioq = markp->in_msgq = markp->in_sigq = 0;
 #ifdef DEBUG
     markp->prev_next = NULL;
 #endif
@@ -4143,6 +4181,7 @@ recv_marker_insert(Process *c_p, ErtsRecvMarker *markp, int setting)
     markp->pass = 0;
     markp->set_save = 0;
     markp->in_sigq = 1;
+    markp->in_prioq = 0;
     if (!c_p->sig_qs.cont) {
         /* Insert in message queue... */
         markp->in_msgq = !0;
@@ -4231,55 +4270,211 @@ erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
     }
 }
 
-void
-erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p)
+static ERTS_INLINE void
+remove_prio_q_marker(Process *c_p, ErtsRecvMarker *markp)
 {
-    ErtsMessage **save;
-    /*
-     * Receive markers in the front of the queue does not
-     * add any value, so we just remove them. We need to
-     * keep and pass yield markers though...
-     */
-    ASSERT(c_p->sig_qs.first
-	   && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first));
-    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
-    save = &c_p->sig_qs.first;
-    do {
-	ErtsRecvMarker *markp = (ErtsRecvMarker *) *save;
-        if (markp->is_yield_mark)
-            save = &markp->sig.common.next;
-        else
-            recv_marker_dequeue(c_p, markp);
-    } while (*save && ERTS_SIG_IS_RECV_MARKER(*save));
-
-    c_p->sig_qs.save = save;
-
-    ASSERT(!*save || ERTS_SIG_IS_MSG(*save));
-    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+    remove_innerq_sig(c_p, (ErtsMessage *) markp, markp->prev_next);
+    markp->in_msgq = markp->in_sigq = 0;
 }
 
-ErtsMessage **
-erts_msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp)
+static ErtsMessage **
+msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **markpp);
+
+static ERTS_INLINE ErtsMessage **
+msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp, int leading)
 {
     ErtsMessage **sigpp = markpp;
     ErtsMessage *sigp = *sigpp;
     ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
     do {
 	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
-	if (!markp->is_yield_mark
-            && ++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
-	    recv_marker_dequeue(c_p, markp);
-	    sigp = *sigpp;
-	}
-	else {
-	    sigpp = &markp->sig.common.next;
-	    sigp = markp->sig.common.next;
-	}
+        switch (markp->mark_type) {
+        case ERTS_RECV_MARKER_TYPE_RECV:
+            if (leading || ++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
+                recv_marker_dequeue(c_p, markp);
+                break;
+            }
+            /* Fall through... */
+        case ERTS_RECV_MARKER_TYPE_YIELD:
+        pass_it:
+            sigpp = &markp->sig.common.next;
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_END:
+            ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+            if (leading
+                && ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST) {
+                /* empty prio queue; remove end marker */
+                sigpp = markp->prev_next;
+                remove_prio_q_marker(c_p, markp);
+                c_p->sig_qs.flags &= ~(FS_PRIO_MQ_SAVE|FS_PRIO_MQ_END_MARK);
+            }
+            else {
+                c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+                if (ERTS_MQ_GET_SAVE_INFO(c_p) != FS_SET_SAVE_INFO_FIRST)
+                    return msgq_pass_recv_markers_prioq_end(c_p, sigpp);
+                goto pass_it;
+            }
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
+            /* remove it */
+            sigpp = markp->prev_next;
+            remove_prio_q_marker(c_p, markp);
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid recv marker");
+            break;
+        }
+        sigp = *sigpp;
     } while (sigp && ERTS_SIG_IS_RECV_MARKER(sigp));
 
     return sigpp;
 }
 
+static ErtsMessage **
+msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **pq_endpp)
+{
+    /*
+     * We've reached the end of the prio queue and may need to move
+     * the save pointer to some place else than the next message...
+     */
+    ErtsMessage **sigpp = pq_endpp;
+    ErtsMessage *sigp = *sigpp;
+
+    ASSERT(ERTS_SIG_IS_RECV_MARKER((ErtsRecvMarker *) sigp));
+    ASSERT(((ErtsRecvMarker *) sigp)->mark_type
+           == ERTS_RECV_MARKER_TYPE_PRIO_Q_END);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+    ASSERT(get_prio_queue_info(c_p));
+
+    switch (ERTS_MQ_GET_SAVE_INFO(c_p)) {
+
+    case FS_SET_SAVE_INFO_FIRST:
+        sigpp = &sigp->next;
+        break;
+
+    case FS_SET_SAVE_INFO_LAST:
+        /* 
+         * The save pointer should always point past the end of the prio
+         * queue when these are set.
+         */
+        ERTS_INTERNAL_ERROR("Invalid message queue state");
+        break;
+
+    case FS_SET_SAVE_INFO_MARK: {
+        /* Continue at previously marked place... */
+        ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+        ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
+
+        ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+        ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
+        ASSERT(pq_cont->in_msgq);
+
+        ERTS_MQ_SET_SAVE_INFO(c_p, pq_info->saved_save_info);
+
+        sigpp = pq_cont->prev_next;
+        remove_prio_q_marker(c_p, pq_cont);
+        break;
+    }
+
+    case FS_SET_SAVE_INFO_RCVM: {
+        /* Continue at identified recv-marker... */
+        ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+        ErtsRecvMarker *markp;
+        int ix = blkp->set_save_ix;
+
+        ASSERT(blkp);
+
+        if (ix < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= ix)
+            ERTS_INTERNAL_ERROR("Invalid message queue state");
+
+        markp = &blkp->marker[ix];
+
+        ASSERT(markp->in_sigq);
+
+        sigpp = (markp->in_msgq
+                 ? &markp->sig.common.next
+                 : erts_msgq_recv_marker_pending_set_save__(c_p, blkp,
+                                                            markp, ix));
+        break;
+    }
+
+    default:
+        ERTS_INTERNAL_ERROR("Non-existing message queue state");
+        break;
+    }
+
+    sigp = *sigpp;
+
+    /* Pass possible receive markers... */
+
+    while (sigp && ERTS_SIG_IS_RECV_MARKER(sigp)) {
+	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
+        switch (markp->mark_type) {
+        case ERTS_RECV_MARKER_TYPE_RECV:
+            if (++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
+                recv_marker_dequeue(c_p, markp);
+                break;
+            }
+            /* Fall through... */
+        case ERTS_RECV_MARKER_TYPE_YIELD:
+            sigpp = &markp->sig.common.next;
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_END:
+            ERTS_INTERNAL_ERROR("Unexpected prio msgq end marker");
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
+            /* remove it */
+            sigpp = markp->prev_next;
+            remove_prio_q_marker(c_p, markp);
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid recv marker");
+            break;
+        }
+        sigp = *sigpp;
+    }
+
+    return sigpp;
+
+}
+
+void
+erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p)
+{
+    /*
+     * Receive markers in the front of the queue does not
+     * add any value, so we just remove them. We need to
+     * keep and pass non-recv markers though...
+     */
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
+        c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+    }
+    else {
+        ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    }
+
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_FIRST);
+    c_p->sig_qs.save = msgq_pass_recv_markers(c_p, &c_p->sig_qs.first, !0);
+
+    ASSERT(!*c_p->sig_qs.save || ERTS_SIG_IS_MSG(*c_p->sig_qs.save));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+ErtsMessage **
+erts_msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp)
+{
+    ErtsMessage **sigpp;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    sigpp = msgq_pass_recv_markers(c_p, markpp, 0);
+
+    ASSERT(!*sigpp || ERTS_SIG_IS_MSG(*sigpp));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    return sigpp;
+}
 
 /*
  * Handle signals...
@@ -6329,7 +6524,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         case ERTS_SIG_Q_OP_RECV_MARK: {
             ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
             ASSERT(markp->in_sigq);
-            ASSERT(!markp->is_yield_mark);
+            ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
 
             if (markp->in_sigq < 0) {
                 /* Marked for removal... */
@@ -6339,14 +6534,22 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
+                    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_LAST
+                           /* mark due to erts_msgq_set_save_end() */);
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
 		    save_in_msgq = 0;
+                    /* all recv-markers are outside of prio queue */
+                    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
                 }
-                markp->in_msgq = markp->in_sigq = markp->set_save = 0;
+                markp->in_prioq = markp->in_msgq = markp->in_sigq = markp->set_save = 0;
                 remove_nm_sig(c_p, sig, next_nm_sig);
 		recv_marker_deallocate(c_p, markp);
             }
             else {
+                ASSERT(!markp->in_prioq); /* It is not possible that a reference
+                                             corresponding to this marker have
+                                             been seen in a message in the prio
+                                             queue... */
                 markp->prev_next = *next_nm_sig;
                 ASSERT(*markp->prev_next == sig);
                 *next_nm_sig = ((ErtsSignal *) sig)->common.specific.next;
@@ -6361,8 +6564,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
+                    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_RCVM);
+                    ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
+                           == c_p->sig_qs.recv_mrk_blk->set_save_ix);
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
 		    save_in_msgq = 0;
+                    /* all recv-markers are outside of prio queue */
+                    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
                 }
             }
 
@@ -6674,6 +6882,9 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
     return !0;
 }
 
+static void destroy_prio_q_info(Process *c_p,
+                                ErtsPrioQInfo *pq_info,
+                                int terminating);
 
 int
 erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
@@ -6686,6 +6897,11 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
+
+    if (c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_PENDING_RM)) {
+        ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+        destroy_prio_q_info(c_p, pq_info, !0);
+    }
 
     limit = *redsp;
     limit *= ERTS_SIG_REDS_CNT_FACTOR;
@@ -6864,7 +7080,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
 
         case ERTS_SIG_Q_OP_RECV_MARK: {
             ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
-            ASSERT(!markp->is_yield_mark);
+            ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
             markp->in_msgq = markp->in_sigq = markp->set_save = 0;
             recv_marker_deallocate(c_p, markp);
             break;
@@ -7286,11 +7502,12 @@ static void
 init_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 {
     mrkp->prev_next = NULL;
-    mrkp->is_yield_mark = (char) !0;
+    mrkp->mark_type = (char) ERTS_RECV_MARKER_TYPE_YIELD;
     mrkp->pass = (char) 100;
     mrkp->set_save = (char) 0;
     mrkp->in_sigq = (char) 0;
     mrkp->in_msgq = (char) 0;
+    mrkp->in_prioq = (char) 0;
     mrkp->prev_ix = (char) -100;
     mrkp->next_ix = (char) -100;
 #ifdef DEBUG
@@ -7306,11 +7523,12 @@ static void
 remove_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 {
     ASSERT(mrkp);
-    ASSERT(mrkp->is_yield_mark);
+    ASSERT(mrkp->mark_type == ERTS_RECV_MARKER_TYPE_YIELD);
     ASSERT(mrkp->in_msgq);
     remove_innerq_sig(c_p, (ErtsMessage *) mrkp, mrkp->prev_next);
     mrkp->in_msgq = 0;
     mrkp->in_sigq = 0;
+    mrkp->in_prioq = 0;
     mrkp->prev_next = NULL;
     mrkp->sig.common.next = NULL;
 }
@@ -7996,7 +8214,7 @@ linking(Process *c_p, Eterm to)
                am_link, to);
 }
 
-static ERTS_INLINE void
+static void
 handle_message_enqueued_tracing(Process *c_p,
                                 ErtsSigRecvTracing *tracing,
                                 ErtsMessage *msg)
@@ -8097,11 +8315,11 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
                 continue;
             }
         }
-        handle_message_enqueued_tracing(c_p, tracing, sig);
-        cnt++;
 
         c_p->sig_qs.mq_len++;
         erts_chk_sys_mon_long_msgq_on(c_p);
+        handle_message_enqueued_tracing(c_p, tracing, sig);
+        cnt++;
         next_sig = &(*next_sig)->next;
         sig = *next_sig;
     }
@@ -8363,6 +8581,584 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
     }
 }
 
+/*
+ * Priority message queue...
+ */
+
+static ERTS_INLINE void
+insert_prio_q_marker(Process *c_p, ErtsRecvMarker *mark, ErtsMessage **next)
+{
+    if (c_p->sig_qs.last == next)
+        c_p->sig_qs.last = &mark->sig.common.next;
+    if (c_p->sig_qs.save == next)
+        c_p->sig_qs.save = &mark->sig.common.next;
+    if (*next && ERTS_SIG_IS_RECV_MARKER(*next))
+        ((ErtsRecvMarker *) *next)->prev_next = &mark->sig.common.next;
+    mark->prev_next = next;
+    mark->sig.common.next = *next;
+    *next = (ErtsMessage *) mark;
+
+    mark->in_sigq = mark->in_msgq = !0;
+}
+
+static void
+create_prio_q_info(Process *c_p)
+{
+    ErtsPrioQInfo *pq_info, *prev_pq_info;
+    int i;
+
+    pq_info = erts_alloc(ERTS_ALC_T_PRIO_Q_INFO, sizeof(ErtsPrioQInfo));
+
+    pq_info->saved_save_info = 0;
+
+    for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
+
+        pq_info->marker[i].sig.common.next = NULL;
+        pq_info->marker[i].sig.common.specific.attachment = NULL;
+        pq_info->marker[i].sig.common.tag = ERTS_RECV_MARKER_TAG;
+        pq_info->marker[i].prev_next = NULL;
+        pq_info->marker[i].in_sigq = 0;
+        pq_info->marker[i].in_msgq = 0;
+        pq_info->marker[i].in_prioq = 0;
+
+        /* not used... */
+
+        pq_info->marker[i].next_ix = -100;
+        pq_info->marker[i].pass = (char) 100;
+        pq_info->marker[i].set_save = (char) 0;
+        pq_info->marker[i].prev_ix = (char) -100;
+
+        /* specific for the different markers... */
+        switch (i) {
+        case ERTS_PRIO_Q_MARK_END:
+            pq_info->marker[i].mark_type = ERTS_RECV_MARKER_TYPE_PRIO_Q_END;
+            break;
+        case ERTS_PRIO_Q_MARK_CONT:
+            pq_info->marker[i].mark_type = ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unknown prio queue marker");
+            break;
+        }
+
+#ifdef DEBUG
+        pq_info->marker[i].used = (char) !0;
+        pq_info->marker[i].proc = c_p;
+#endif
+
+    }
+
+    prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, pq_info);
+
+    ASSERT(!prev_pq_info); (void) prev_pq_info;
+}
+
+static void
+destroy_prio_q_info(Process *c_p, ErtsPrioQInfo *pq_info, int terminating)
+{
+    ErtsPrioQInfo *prev_pq_info;
+    int i;
+
+    ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
+
+    for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
+        ErtsRecvMarker *mark = &pq_info->marker[i];
+        if (mark->in_msgq)
+            remove_prio_q_marker(c_p, mark);
+    }
+
+    prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, NULL);
+    ASSERT(prev_pq_info == pq_info); (void) prev_pq_info;
+
+    erts_free(ERTS_ALC_T_PRIO_Q_INFO, (void *) pq_info);
+
+    if (c_p->sig_qs.recv_mrk_blk) {
+        ErtsRecvMarkerBlock *blk = c_p->sig_qs.recv_mrk_blk;
+        int i;
+        for (i = 0; i < ERTS_RECV_MARKER_BLOCK_SIZE; i++) {
+            blk->marker[i].in_prioq = 0;
+        }
+    }
+}
+
+static ERTS_INLINE int
+is_same_internal_ref(Eterm x, Eterm y)
+{
+    int i;
+    Uint xlen, ylen;
+    Uint32 *xnum, *ynum;
+
+    ERTS_CT_ASSERT(ERTS_REF_NUMBERS == 3 && ERTS_PID_REF_NUMBERS >= 3);
+
+    ASSERT(is_internal_ref(x) && is_internal_ref(y));
+
+    ASSERT(internal_ref_no_numbers(x) >= 3);
+    ASSERT(internal_ref_no_numbers(y) >= 3);
+
+    xnum = internal_ref_numbers(x);
+    ynum = internal_ref_numbers(y);
+
+    if (xnum[0] != ynum[0] || xnum[1] != ynum[1] || xnum[2] != ynum[2])
+        return 0;
+
+    xlen = internal_ref_no_numbers(x);
+    ylen = internal_ref_no_numbers(y);
+
+    if (xlen != ylen)
+        return 0;
+
+    for (i = 3; i < xlen; i++) {
+        if (xnum[i] != ynum[i])
+            return 0;
+    }
+
+    return !0;
+}
+
+static void
+prio_queue_check_recv_marks(Eterm obj, Eterm *ref,
+                            int *pq, int *n_pqp,
+                            int *not_pq, int *n_not_pqp)
+{
+    Eterm *ptr;
+    int arity, n_pq, n_not_pq;
+    DECLARE_ESTACK(s);
+
+    n_pq = *n_pqp;
+    n_not_pq = *n_not_pqp;
+
+    ASSERT(n_not_pq != 0);
+
+    while (!0) {
+
+	switch (primary_tag(obj)) {
+	case TAG_PRIMARY_LIST:
+	    ptr = list_val(obj);
+	    obj = *ptr++;
+	    if (!IS_CONST(obj)) {
+		ESTACK_PUSH(s, obj);
+	    }
+	    obj = *ptr;
+	    break;
+	case TAG_PRIMARY_BOXED:
+	    {
+		Eterm hdr;
+                ptr = boxed_val(obj);
+                hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch (hdr & _TAG_HEADER_MASK) {
+		case ARITYVAL_SUBTAG:
+		    arity = header_arity(hdr);
+		    if (arity == 0) {
+                        ASSERT(obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+			goto pop_next;
+		    }
+                    ptr = tuple_val(obj);
+		    while (arity-- > 1) {
+			obj = *++ptr;
+			if (!IS_CONST(obj)) {
+			    ESTACK_PUSH(s, obj);
+			}
+		    }
+		    obj = *++ptr;
+		    break;
+                case FUN_SUBTAG:
+                    {
+                        const ErlFunThing* funp = (ErlFunThing*)fun_val(obj);
+
+                        ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+
+                        for (int i = 1; i < fun_num_free(funp); i++) {
+                            obj = funp->env[i];
+                            if (!IS_CONST(obj)) {
+                                ESTACK_PUSH(s, obj);
+                            }
+                        }
+
+                        if (fun_num_free(funp) > 0) {
+                            obj = funp->env[0];
+                            break;
+                        }
+
+                        goto pop_next;
+		    }
+		case MAP_SUBTAG:
+		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_FLATMAP_HEAD :
+                            {
+                                Uint n;
+                                flatmap_t *mp;
+                                mp  = (flatmap_t*)flatmap_val(obj);
+                                ptr = (Eterm *)mp;
+                                n   = flatmap_get_size(mp) + 1;
+                                ASSERT(flatmap_get_size(mp)
+                                       <= MAP_SMALL_MAP_LIMIT);
+                                ptr += 2; /* hdr + size words */
+                                while (n--) {
+                                    obj = *ptr++;
+                                    if (!IS_CONST(obj)) {
+                                        ESTACK_PUSH(s, obj);
+                                    }
+                                }
+                                goto pop_next;
+                            }
+			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			    {
+				Eterm *head;
+				Uint sz;
+				head  = hashmap_val(obj);
+				sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+				head += 1 + header_arity(hdr);
+
+				if (sz == 0) {
+				    goto pop_next;
+				}
+				while(sz-- > 1) {
+				    obj = head[sz];
+				    if (!IS_CONST(obj)) {
+					ESTACK_PUSH(s, obj);
+				    }
+				}
+				obj = head[0];
+			    }
+			    break;
+			default:
+			    erts_exit(ERTS_ABORT_EXIT,
+                                      "prio_queue_check_recv_marks(): "
+                                      "bad hashmap type %d\n",
+                                      MAP_HEADER_TYPE(hdr));
+		    }
+		    break;
+                case REF_SUBTAG: {
+                    int i = 0;
+                    while (i < n_not_pq) {
+                        int r = not_pq[i];
+                        ASSERT(0 <= r && r < ERTS_RECV_MARKER_BLOCK_SIZE);
+                        if (is_same_internal_ref(obj, ref[r])) {
+                            /* this recv marker needs to be pq... */
+                            pq[n_pq++] = not_pq[i];
+                            n_not_pq--;
+                            if (i < n_not_pq) {
+                                not_pq[i] = not_pq[n_not_pq];
+                                continue;
+                            }
+                            break;
+                        }
+                        i++;
+                    }
+                    if (n_not_pq == 0)
+                        goto done;
+                }
+		default:
+		    goto pop_next;
+		}
+	    }
+	    break;
+	case TAG_PRIMARY_IMMED1:
+	pop_next:
+	    if (ESTACK_ISEMPTY(s)) {
+            done:
+		DESTROY_ESTACK(s);
+
+                *n_pqp = n_pq;
+                *n_not_pqp = n_not_pq;
+		return;
+	    }
+	    obj = ESTACK_POP(s);
+	    break;
+	default:
+	    erts_exit(ERTS_ABORT_EXIT,
+                      "prio_queue_check_recv_marks(): bad tag for %#x\n",
+                      obj);
+	}
+    }
+}
+
+static void
+insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
+                                  ErtsMessage *sig, void *data_attached,
+                                  Eterm message, Eterm token,
+                                  ErtsMessage ***next_nm_sig)
+{
+    int i, empty_prio_q = !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+    ErtsRecvMarkerBlock *blk = c_p->sig_qs.recv_mrk_blk;
+    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+    ErtsRecvMarker *pq_end = &pq_info->marker[ERTS_PRIO_Q_MARK_END];
+
+    ASSERT(pq_end->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_END);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+    if (blk) {
+        int n_pq = 0, n_not_pq = 0;
+        int pq[ERTS_RECV_MARKER_BLOCK_SIZE], not_pq[ERTS_RECV_MARKER_BLOCK_SIZE];
+
+        /*
+         * Check if references corresponding to receive markers not already
+         * seen in the prio queue can be found in this prio message.
+         */
+
+        for (i = 0; i < ERTS_RECV_MARKER_BLOCK_SIZE; i++) {
+            if (empty_prio_q)
+                blk->marker[i].in_prioq = 0;
+            if (blk->marker[i].in_sigq
+                && !blk->marker[i].in_prioq
+                && is_internal_ref(blk->ref[i])) {
+                not_pq[n_not_pq++] = i;
+            }
+        }
+
+        if (n_not_pq) {
+
+            /* inspect message */
+            prio_queue_check_recv_marks(message, &blk->ref[0],
+                                        &pq[0], &n_pq,
+                                        &not_pq[0], &n_not_pq);
+
+            for (i = 0; i < n_pq; i++) {
+                int mix;
+                ErtsRecvMarker *mark;
+
+                mix = pq[i];
+
+                ASSERT(0 <= mix && mix < ERTS_RECV_MARKER_BLOCK_SIZE);
+
+                mark = &blk->marker[mix];
+
+                ASSERT(!mark->in_prioq);
+
+                /* Note that this ref has been seen in the prio queue... */
+                mark->in_prioq = !0;
+            }
+        }
+    }
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_SAVE) {
+        /*
+         * Save pointer points into the prio queue, we know that it points to
+         * a point before where we insert this prio message. We also know that
+         * we already have determined where to continue when we reach the end of
+         * the prio queue, so nothing more to do than inserting the message...
+         */
+        ASSERT(!empty_prio_q);
+        ASSERT(pq_end->in_msgq);
+    }
+    else {
+        /* Save pointer *do not* point into the prio queue. */
+
+        int set_save = !0;
+
+        switch (ERTS_MQ_GET_SAVE_INFO(c_p)) {
+
+        case FS_SET_SAVE_INFO_FIRST:
+            /*
+             * We must set the save pointer otherwise we might miss to match
+             * out this prio message.
+             */
+            break;
+
+        case FS_SET_SAVE_INFO_LAST:
+            /*
+             * This process is waiting for a message sent from the emulator
+             * containing a reference, but we don't know which reference that
+             * is. However, messages containing such references are never sent
+             * as priority messages, so we can safely leave the save marker
+             * where it is.
+             */
+            set_save = 0;
+            break;
+
+        case FS_SET_SAVE_INFO_MARK:
+            /*
+             * The save mark should *only* be set while save pointer points
+             * into the prio queue...
+             */
+            ERTS_INTERNAL_ERROR("Invalid message queue state");
+            break;
+
+        case FS_SET_SAVE_INFO_RCVM:
+
+            i = blk->set_save_ix;
+
+            if (i < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= i)
+                ERTS_INTERNAL_ERROR("Invalid message queue state");
+
+            if (blk && !blk->marker[i].in_prioq) {
+                /*
+                 * We know that the reference of the receive marker we are
+                 * waiting for has not been seen in the prio queue, so we
+                 * can safely continue where we are...
+                 */
+                set_save = 0;
+            }
+            break;
+
+        default:
+
+            ERTS_INTERNAL_ERROR("Non-existing message queue state");
+            break;
+        }
+
+        if (empty_prio_q) {
+            /* end marker not in queue; insert it */
+            ASSERT(!pq_end->in_msgq);
+            insert_prio_q_marker(c_p, pq_end, &c_p->sig_qs.first);
+            c_p->sig_qs.flags |= FS_PRIO_MQ_END_MARK;
+        }
+
+        if (set_save) {
+            ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
+            ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
+            if (c_p->sig_qs.save == *next_nm_sig) {
+                /*
+                 * We do *not* want to handle the continuation marker we are
+                 * about to insert as next non-msg signal; adjust
+                 * '*next_nm_sig'...
+                 */
+                *next_nm_sig = &pq_cont->sig.common.next;
+            }
+            /*
+             * Save a marker where save pointer points now, so we know where to
+             * continue when we reach the end of the prio queue.
+             */
+            if (pq_cont->in_msgq)
+                remove_prio_q_marker(c_p, pq_cont);
+            insert_prio_q_marker(c_p, pq_cont, c_p->sig_qs.save);
+            pq_info->saved_save_info = ERTS_MQ_GET_SAVE_INFO(c_p);
+            ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_MARK);
+
+            /*
+             * Set save pointer to the end of the prio queue, so it will precede
+             * the prio message that we are about to insert.
+             */
+            c_p->sig_qs.save = pq_end->prev_next;
+            c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+            ASSERT(*c_p->sig_qs.save == (ErtsMessage *) pq_end);
+        }
+    }
+
+    /* Append the actual prio message to the prio queue... */
+    sig->data.attached = data_attached;
+
+    ERL_MESSAGE_TERM(sig) = message;
+    ERL_MESSAGE_TOKEN(sig) = token;
+
+    *pq_end->prev_next = sig;
+    pq_end->prev_next = &sig->next;
+    sig->next = (ErtsMessage *) pq_end;
+
+    c_p->sig_qs.mq_len++;
+    erts_chk_sys_mon_long_msgq_on(c_p);
+
+    if (tracing->messages.active)
+        handle_message_enqueued_tracing(c_p, tracing, sig);
+
+}
+
+static void
+insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
+                         ErtsMessage *sig, Eterm message, Eterm token,
+                         ErtsMessage ***next_nm_sig)
+{
+    insert_prepared_prio_msg_attached(c_p, tracing, sig,
+                                      ERTS_MSG_COMBINED_HFRAG,
+                                      message, token,
+                                      next_nm_sig);
+}
+
+static void
+send_try_destroy_prio_q_info(void *vpid);
+
+static Eterm
+try_destroy_prio_q_info(Process *c_p, void *arg, int *redsp, ErlHeapFragment **hpp)
+{
+    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+
+    ASSERT(pq_info);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM);
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ) {
+        /* Prio messages have been enabled again; do not remove info... */
+        c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
+        return THE_NON_VALUE;
+    }
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
+        /* Cannot remove until prio queue is empty; try again in 5 minutes... */
+        erts_start_timer_callback(5*60*1000, send_try_destroy_prio_q_info,
+                                  (void *) c_p->common.id);
+        return THE_NON_VALUE;
+    }
+
+    destroy_prio_q_info(c_p, pq_info, 0);
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
+
+    return THE_NON_VALUE;
+}
+
+static void
+send_try_destroy_prio_q_info(void *vpid)
+{
+    ASSERT(is_internal_pid((Eterm) vpid));
+    (void) erts_proc_sig_send_rpc_request(NULL, (Eterm) vpid, 0,
+                                          try_destroy_prio_q_info,
+                                          NULL);
+
+}
+
+static void
+install_prio_msg_queue(Process *c_p)
+{
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ));
+
+    c_p->sig_qs.flags |= FS_PRIO_MQ;
+
+    /*
+     * If FS_PRIO_MQ_PENDING_RM is set, the prio q info is already there
+     * and we just aborted the operation. We leave the flag and let the
+     * scheduled job remove the flag. If we remove it here, we might end
+     * up with multiple remove jobs...
+     */
+    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM))
+        create_prio_q_info(c_p);
+
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
+    ASSERT(!!get_prio_queue_info(c_p));
+}
+
+static void
+uninstall_prio_msg_queue(Process *c_p, ErtsPrioQInfo *pq_info)
+{
+    ASSERT(pq_info == get_prio_queue_info(c_p));
+
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ;
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM) {
+        /* removal already ongoing... */
+        return;
+    }
+
+    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)) {
+        /* Prio queue empty so we can safely remove it at once... */
+        destroy_prio_q_info(c_p, pq_info, 0);
+    }
+    else {
+        /*
+         * Prio queue not empty so we cannot remove it now, set a timer
+         * and try again in 10 seconds...
+         */
+        c_p->sig_qs.flags |= FS_PRIO_MQ_PENDING_RM;
+        (void) erts_start_timer_callback(10*1000,
+                                         send_try_destroy_prio_q_info,
+                                         (void *) c_p->common.id);
+    }
+}
+
 /* Cleanup */
 
 void
@@ -8381,7 +9177,7 @@ erts_proc_sig_cleanup_queues(Process *c_p)
 	    sig = sig->next;
 	    if (ERTS_SIG_IS_RECV_MARKER(free_sig)) {
                 ErtsRecvMarker *recv_mark = (ErtsRecvMarker *) free_sig;
-                ASSERT(!recv_mark->is_yield_mark);
+                ASSERT(recv_mark->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
                 recv_marker_deallocate(c_p, recv_mark);
             }
 	    else {

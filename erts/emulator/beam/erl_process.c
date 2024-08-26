@@ -736,6 +736,11 @@ erts_pre_init_process(void)
     erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].set_locks
         = ERTS_PSD_DIST_ENTRY_SET_LOCKS;
 
+    erts_psd_required_locks[ERTS_PSD_PRIO_Q_INFO].get_locks
+        = ERTS_PSD_PRIO_Q_INFO_GET_LOCKS;
+    erts_psd_required_locks[ERTS_PSD_PRIO_Q_INFO].set_locks
+        = ERTS_PSD_PRIO_Q_INFO_SET_LOCKS;
+
     erts_psd_required_locks[ERTS_PSD_PENDING_SUSPEND].get_locks
         = ERTS_PSD_PENDING_SUSPEND_GET_LOCKS;
     erts_psd_required_locks[ERTS_PSD_PENDING_SUSPEND].set_locks
