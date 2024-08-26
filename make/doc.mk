@@ -46,13 +46,23 @@ EX_DOC_FORMATS=
 endif
 
 # ----------------------------------------------------
+# Man dependencies
+# ----------------------------------------------------
+MAN1_DEPS?=$(wildcard */*_cmd.md)
+
+MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
+
+# ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+DEFAULT_DOC_TARGETS=html
 ifneq ($(CHUNK_FILES),)
-DOC_TARGETS?=html chunks
-else
-DOC_TARGETS?=html
+DEFAULT_DOC_TARGETS+=chunks
 endif
+ifneq ($(MAN1_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
 
 EX_DOC_WARNINGS_AS_ERRORS?=true
 
@@ -72,10 +82,6 @@ $(TYPES):
 
 clean clean_docs: clean_html
 	rm -rf $(EXTRA_FILES)
-
-MAN1_DEPS?=$(wildcard */*_cmd.md)
-
-MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
 
 man: $(MAN1_PAGES)
 
