@@ -4546,7 +4546,7 @@ IOCTL_GET_FUNCS2
 /* *** essio_ioctl_gifenaddr *** */
 #if defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
 #define IOCTL_GIFENADDR_FUNC3_DECL					\
-    IOCTL_GET_REQUEST3_DECL(gifenaddr, SIOCGENENADDR, hwaddr, &ifreq.ifr_enaddr)
+    IOCTL_GET_REQUEST3_DECL(gifenaddr, SIOCGENADDR, hwaddr, &ifreq.ifr_enaddr)
 #else
 #define IOCTL_GIFENADDR_FUNC3_DECL
 #endif
