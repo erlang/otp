@@ -442,7 +442,7 @@ run_df(Path, {unix, linux}, Port) ->
 run_df(Path, {unix, posix}, Port) ->
     my_cmd("df -k -P " ++ Path, Port);
 run_df(Path, {unix, dragonfly}, Port) ->
-    my_cmd("/bin/df -k -t ufs,hammer " ++ Path, Port);
+    my_cmd("/bin/df -k -t ufs,hammer,hammer2 " ++ Path, Port);
 run_df(Path, {unix, freebsd}, Port) ->
     my_cmd("/bin/df -k -l " ++ Path, Port);
 run_df(Path, {unix, openbsd}, Port) ->
