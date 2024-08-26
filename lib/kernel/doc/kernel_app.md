@@ -417,6 +417,11 @@ For more information about configuration parameters, see file
 
   Defaults to `false`.
 
+- **`shell_docs_ansi = boolean()`{: #shell_docs_ansi }** - Specifies whether
+  the documentation rendered in the shell should use ANSI escape codes.
+
+  See also `t:shell_docs:config/0`.
+
 - **`shell_history = enabled | disabled | module()`{: #shell_history }** -
   Specifies whether shell history should be logged to disk between usages of
   `erl` (`enabled`), not logged at all (`disabled`), or a user-specified module
