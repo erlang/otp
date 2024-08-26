@@ -131,7 +131,7 @@ For more information about configuration parameters, see file
     `m:net_kernel`.
 
 - **`epmd_module = module()`{: #epmd_module }** - Configures the module
-  responsible for communication with [epmd](`e:erts:erl_cmd.md`). If this parameter
+  responsible for communication with [epmd](`e:erts:epmd_cmd.md`). If this parameter
   is undefined, it defaults to `erl_epmd`.
 
   The now deprecated command line argument
