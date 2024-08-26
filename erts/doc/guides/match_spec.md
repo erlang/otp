@@ -204,49 +204,64 @@ The functions allowed only for tracing work as follows:
   process as a binary. Takes no arguments and is only allowed in the `MatchBody`
   part when tracing.
 
-- **`enable_trace`** - With one parameter this function turns on tracing like
-  the Erlang call `erlang:trace(self(), true, [P2])`, where `P2` is the
-  parameter to `enable_trace`.
+- **`enable_trace`** - Enable a trace flag for a process.
+
+  With one parameter this function turns on tracing like
+  the Erlang call [`trace:process(S, self(), true, [P2])`](`trace:process/4`),
+  where `S` is the current trace session and `P2` is the parameter to
+  `enable_trace`.
 
   With two parameters, the first parameter is to be either a process identifier
   or the registered name of a process. In this case tracing is turned on for the
   designated process in the same way as in the Erlang call
-  `erlang:trace(P1, true, [P2])`, where `P1` is the first and `P2` is the second
-  argument. The process `P1` gets its trace messages sent to the same tracer as
-  the process executing the statement uses. `P1` _cannot_ be one of the atoms
+  [`trace:process(S, P1, true, [P2])`](`trace:process/4`), where `P1` is the
+  first and `P2` is the second argument. `P1` _cannot_ be one of the atoms
   `all`, `new` or `existing` (unless they are registered names). `P2` _cannot_
   be `cpu_timestamp` or `tracer`.
 
   Returns `true` and can only be used in the `MatchBody` part when tracing.
 
-- **`disable_trace`** - With one parameter this function disables tracing like
-  the Erlang call `erlang:trace(self(), false, [P2])`, where `P2` is the
-  parameter to `disable_trace`.
+  If used by the legacy function `erlang:trace_pattern/3`, the process `P1` gets
+  its trace messages sent to the same tracer as the process executing the
+  statement uses.
+
+- **`disable_trace`** - Disable a trace flag for a process.
+
+  With one parameter this function disables tracing like
+  the Erlang call [`trace:process(S, self(), false, [P2])`](`trace:process/4`),
+  where `S` is the current trace session and `P2` is the parameter to
+  `disable_trace`.
 
   With two parameters this function works as the Erlang call
-  `erlang:trace(P1, false, [P2])`, where `P1` can be either a process identifier
-  or a registered name and is specified as the first argument to the match
-  specification function. `P2` _cannot_ be `cpu_timestamp` or `tracer`.
+  [`trace:process(S, P1, false, [P2])`](`trace:process/4`), where `P1` can be
+  either a process identifier or a registered name and is specified as the first
+  argument to the match specification function. `P2` _cannot_ be `cpu_timestamp`
+  or `tracer`.
 
   Returns `true` and can only be used in the `MatchBody` part when tracing.
 
-- **`trace`** - With two parameters this function takes a list of trace flags to
+- **`trace`** - Enable and/or disable trace flags for a process.
+
+  With two parameters this function takes a list of trace flags to
   disable as first parameter and a list of trace flags to enable as second
   parameter. Logically, the disable list is applied first, but effectively all
   changes are applied atomically. The trace flags are the same as for
-  `erlang:trace/3`, not including `cpu_timestamp`, but including `tracer`.
-
-  If a tracer is specified in both lists, the tracer in the enable list takes
-  precedence. If no tracer is specified, the same tracer as the process
-  executing the match specification is used (not the meta tracer). If that
-  process doesn't have tracer either, then trace flags are ignored.
-
-  When using a [tracer module](`m:erl_tracer`), the module must be loaded before
-  the match specification is executed. If it is not loaded, the match fails.
+  `trace:process/4`, not including `cpu_timestamp`.
 
   With three parameters to this function, the first is either a process
   identifier or the registered name of a process to set trace flags on, the
   second is the disable list, and the third is the enable list.
+
+  When used via the new `m:trace` API, trace flag `tracer` is not allowed and the
+  receiving tracer is always the tracer of the current session.
+
+  When used via the legacy function `erlang:trace_pattern/3`, trace flag `tracer`
+  is allowed. If no tracer is specified, the same tracer as the process
+  executing the match specification is used (not the meta tracer). If that
+  process doesn't have a tracer either, then trace flags are ignored.
+
+  When using a [tracer module](`m:erl_tracer`), the module must be loaded before
+  the match specification is executed. If it is not loaded, the match fails.
 
   Returns `true` if any trace property was changed for the trace target process,
   otherwise `false`. Can only be used in the `MatchBody` part when tracing.

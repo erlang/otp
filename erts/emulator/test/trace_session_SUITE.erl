@@ -32,6 +32,7 @@
          basic/1,
          call/1,
          meta/1,
+         ms_enable_flags/1,
          return_to/1,
          destroy/1,
          negative/1,
@@ -59,6 +60,7 @@ all() ->
      basic,
      call,
      meta,
+     ms_enable_flags,
      on_load,
      trace_info_on_load,
      procs,
@@ -1199,6 +1201,77 @@ meta_do(S1, Tracer1, S2, Tracer2) ->
     timeout = receive_nothing(),
 
     ok.
+
+%% Test that enable trace flags with match spec on untraced process
+%% uses session tracer and not tracer of current process.
+ms_enable_flags(_Config) ->
+    Tester = self(),
+    Dummy = spawn_link(fun() -> receive die -> ok end end),
+    Tracer1 = spawn_link(fun() -> tracer("Tracer1",Tester) end),
+    S1 = trace:session_create(session1, Tracer1, []),
+
+    %% Test enable trace flag on current process
+    Fun = fun(EnableSend, DisableSend) ->
+                  trace:function(S1, {?MODULE,foo,0},
+                                 [{'_', [], [EnableSend]}],
+                                 [meta]),
+
+                  foo(),
+                  {Tracer1, {trace_ts, Tester, call, {?MODULE,foo,[]}, {_,_,_}}}
+                      = receive_any(),
+
+                  {flags, [send]} = trace:info(S1, Tester, flags),
+                  Dummy ! message,
+                  {Tracer1, {trace, Tester, send, message, Dummy}} = receive_any(),
+
+                  trace:function(S1, {?MODULE,foo,0},
+                                 [{'_', [], [DisableSend]}],
+                                 [meta]),
+                  Dummy ! message,
+                  {Tracer1, {trace, Tester, send, message, Dummy}} = receive_any(),
+                  foo(),
+                  {Tracer1, {trace_ts, Tester, call, {?MODULE,foo,[]}, {_,_,_}}}
+                      = receive_any(),
+                  {flags, []} = trace:info(S1, Tester, flags),
+                  timeout = receive_nothing(),
+                  ok
+          end,
+    Fun({trace, [], [send]}, {trace, [send], []}),
+    Fun({enable_trace, send}, {disable_trace, send}),
+
+    %% Test enable trace flag on other process
+    Other = spawn_link(fun() -> receive die -> ok end end),
+    Fun2 = fun(EnableRecv, DisableRecv) ->
+                   trace:function(S1, {?MODULE,foo,0},
+                                  [{'_', [], [EnableRecv]}],
+                                  [meta]),
+
+                  foo(),
+                  {Tracer1, {trace_ts, Tester, call, {?MODULE,foo,[]}, {_,_,_}}}
+                       = receive_any(),
+
+                  {flags, ['receive']} = trace:info(S1, Other, flags),
+                  Other ! message,
+                  {Tracer1, {trace, Other, 'receive', message}} = receive_any(),
+
+                  trace:function(S1, {?MODULE,foo,0},
+                                 [{'_', [], [DisableRecv]}],
+                                 [meta]),
+                  Other ! message,
+                  {Tracer1, {trace, Other, 'receive', message}} = receive_any(),
+                  foo(),
+                  {Tracer1, {trace_ts, Tester, call, {?MODULE,foo,[]}, {_,_,_}}}
+                       = receive_any(),
+                  {flags, []} = trace:info(S1, Other, flags),
+                  timeout = receive_nothing(),
+
+                  ok
+          end,
+    Fun2({trace, Other, [], ['receive']}, {trace, Other, ['receive'], []}),
+    Fun2({enable_trace, Other, 'receive'}, {disable_trace, Other, 'receive'}),
+
+    ok.
+
 
 return_to(_Config) ->
     %%put(display, true),  %% To get some usable debug printouts

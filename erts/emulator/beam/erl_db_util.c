@@ -219,8 +219,12 @@ set_tracee_flags(Process *tracee_p, ErtsTracer tracer,
 }
 
 static ErtsTracer get_proc_tracer(Process* p, ErtsTraceSession* session) {
-    ErtsTracerRef *ref = get_tracer_ref(&p->common, session);
-    return ref ? ref->tracer : erts_tracer_nil;
+    if (!ERTS_TRACER_IS_NIL(session->tracer)) {
+        return session->tracer;
+    } else {
+        ErtsTracerRef *ref = get_tracer_ref(&p->common, session);
+        return ref ? ref->tracer : erts_tracer_nil;
+    }
 }
 
 static void
@@ -2788,7 +2792,6 @@ restart:
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
 		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
-		    /* Always take over the tracer of the current process */
                     ErtsTracer tracer = get_proc_tracer(c_p, prog->trace_session);
                     set_tracee_flags(tmpp, tracer, prog->trace_session, 0, n);
                     if (tmpp == c_p)
@@ -2816,7 +2819,6 @@ restart:
 	    esp[-1] = FAIL_TERM;
 	    if (n) {
 		if ( (tmpp = get_proc(c_p, ERTS_PROC_LOCK_MAIN, esp[0], ERTS_PROC_LOCKS_ALL))) {
-		    /* Always take over the tracer of the current process */
                     ErtsTracer tracer = get_proc_tracer(c_p, prog->trace_session);
 		    set_tracee_flags(tmpp, tracer, prog->trace_session, n, 0);
                     if (tmpp == c_p)
