@@ -1057,7 +1057,15 @@ struct process {
 
     Eterm* heap;                /* Heap start */
     Eterm* hend;                /* Heap end */
+
+    /* If abandoned_heap is not a NULL pointer, it points to the heap
+     * that was active when delay_garbage_collection() in erl_gc.c was
+     * called. The high water mark that was active at that time is
+     * saved in p->hend[0].
+     */
+
     Eterm* abandoned_heap;
+
     Uint heap_sz;               /* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
