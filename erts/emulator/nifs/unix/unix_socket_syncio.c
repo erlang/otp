@@ -5093,7 +5093,7 @@ ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 
 
 #if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)) ||    \
-    (defined(SIOCGIFENADDR) && defined(ESOCK_USE_ENADDR))
+    (defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR))
 static
 ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
