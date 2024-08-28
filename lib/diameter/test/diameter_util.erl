@@ -2904,15 +2904,17 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
                 "~n   (test case) Timeout: ~p"
                 "~n   (test case) Stack:   ~p"
                 "~nwhen status for worker"
-                "~n   Current Function: ~p"
-                "~n   Status:           ~p"
-                "~n   Memory:           ~p"
-                "~n   Heap Size:        ~p"
-                "~n   Stack Size:       ~p"
-                "~n   Messages:         ~p"
-                "~n   Reductions:       ~p",
+                "~n   Current Function:   ~p"
+                "~n   Current StackTrace: ~p"
+                "~n   Status:             ~p"
+                "~n   Memory:             ~p"
+                "~n   Heap Size:          ~p"
+                "~n   Stack Size:         ~p"
+                "~n   Messages:           ~p"
+                "~n   Reductions:         ~p",
                [TCPid, TCTimeout, TCStack,
                 pinfo(Pid, current_function),
+                pinfo(Pid, current_stacktrace),
                 pinfo(Pid, status),
                 pinfo(Pid, memory),
                 pinfo(Pid, heap_size),
@@ -2931,15 +2933,17 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
             Res;
 
         {?MODULE, status_poll} ->
-            ?UL("pcall_loop -> worker status timeout: "
-                "~n   Current Function: ~p"
-                "~n   Status:           ~p"
-                "~n   Memory:           ~p"
-                "~n   Heap Size:        ~p"
-                "~n   Stack Size:       ~p"
-                "~n   Messages:         ~p"
-                "~n   Reductions:       ~p",
+            ?UL("pcall_loop -> worker status (poll-) timeout: "
+                "~n   Current Function:   ~p"
+                "~n   Current StackTrace: ~p"
+                "~n   Status:             ~p"
+                "~n   Memory:             ~p"
+                "~n   Heap Size:          ~p"
+                "~n   Stack Size:         ~p"
+                "~n   Messages:           ~p"
+                "~n   Reductions:         ~p",
                 [pinfo(Pid, current_function),
+                 pinfo(Pid, current_stacktrace),
                  pinfo(Pid, status),
                  pinfo(Pid, memory),
                  pinfo(Pid, heap_size),
