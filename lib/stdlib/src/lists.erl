@@ -2113,7 +2113,12 @@ flatmap(F, List) when is_function(F, 1) ->
     flatmap_1(F, List).
 
 flatmap_1(F, [Hd | Tail]) ->
-    F(Hd) ++ flatmap_1(F, Tail);
+    case F(Hd) of
+        %% The two first clauses are an optimization.
+        [] -> flatmap_1(F, Tail);
+        [Elem] -> [Elem | flatmap_1(F, Tail)];
+        List -> List ++ flatmap_1(F, Tail)
+    end;
 flatmap_1(_F, []) ->
     [].
 
