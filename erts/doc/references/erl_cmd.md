@@ -114,7 +114,7 @@ described in the corresponding application documentation.
 
   The file `FileName` is to be a plain text file and can contain comments and
   command-line arguments. A comment begins with a `#` character and continues
-  until the next end of line character. Backslash (\\\\) is used as quoting
+  until the next end of line character. Backslash (\\) is used as quoting
   character. All command-line arguments accepted by `erl` are allowed, also flag
   `-args_file FileName`. Be careful not to cause circular dependencies between
   files containing flag `-args_file`, though.

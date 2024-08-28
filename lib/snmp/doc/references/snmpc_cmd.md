@@ -21,18 +21,22 @@ limitations under the License.
 
 SNMP MIB compiler frontend
 
+## Synopsis
+
+```
+snmpc [options] file.mib | file.bin
+```
+
 ## Description
 
 The `snmpc` program provides a way to run the SNMP MIB compiler of the Erlang
 system.
 
-## snmpc \[options] file.mib | file.bin
+`snmpc` compiles an SNMP MIB file. See [compile/1,2](`snmpc:compile/1`) for more
+information.
 
-`snmpc` compile a SNMP MIB file, see [compile/1,2](`snmpc:compile/1`) for more
-info.
-
-It can also be used to generate a header file (.hrl) with definitions of Erlang
-constants for the objects in the MIB, see [mib_to_hrl/1](`snmpc:mib_to_hrl/1`).
+It can also be used to generate a header file (`.hrl`) with definitions of Erlang
+constants for the objects in the MIB. See [mib_to_hrl/1](`snmpc:mib_to_hrl/1`).
 
 [](){: #options }
 
