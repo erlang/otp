@@ -9669,7 +9669,7 @@ the `CpuTopology` type to change.
 
 -doc "A list with the system wide garbage collection defaults.".
 -type garbage_collection_defaults() :: [{max_heap_size, non_neg_integer()} |
-                                        {min_bin_heap_size, non_neg_integer()} |
+                                        {min_bin_vheap_size, non_neg_integer()} |
                                         {min_heap_size, non_neg_integer()} |
                                         {fullsweep_after, non_neg_integer()}].
 
