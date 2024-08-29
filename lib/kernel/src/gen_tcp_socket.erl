@@ -887,9 +887,13 @@ socket_send_error(Result) ->
     end.
 
 
--compile({inline, [socket_recv/2]}).
+-compile({inline, [socket_recv/2, socket_recv_peek/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, [], nowait),
+    %% ?DBG({Socket, Length, Result}),
+    Result.
+socket_recv_peek(Socket, Length) ->
+    Result = socket:recv(Socket, Length, [peek], 0),
     %% ?DBG({Socket, Length, Result}),
     Result.
 
@@ -2273,6 +2277,7 @@ handle_recv(P, D, ActionsR) ->
 %%
 handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
     BufferSize = iolist_size(Buffer),
+    %% ?DBG(CS),
     case CS of
         recv ->
             handle_recv(P, D, ActionsR, Buffer, BufferSize, CS);
@@ -2293,8 +2298,9 @@ handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
     end.
 
 handle_recv(
-  P, #{packet := Packet, recv_length := Length} = D,
+  P, #{packet := PacketType, recv_length := Length} = D,
   ActionsR, Buffer, BufferSize, CS) ->
+    %% ?DBG({D, Buffer, BufferSize, CS}),
     if
         BufferSize < Length;
         Length == 0, BufferSize == 0 ->
@@ -2306,8 +2312,8 @@ handle_recv(
                     handle_recv_error(P, D, ActionsR, Reason)
             end;
 
-        Packet =:= raw;
-        Packet =:= 0 ->
+        PacketType =:= raw;
+        PacketType =:= 0 ->
             Data = condense_buffer(Buffer),
             {Data_1, Buffer_1} =
                 if
@@ -2327,39 +2333,96 @@ handle_recv(
             end;
 
         true ->
-            Data = condense_buffer(Buffer),
-            handle_recv_packet(P, D, ActionsR, Data, BufferSize, CS)
+            MinHdrLen = packet_header_length(PacketType),
+            if
+                BufferSize < MinHdrLen ->
+                    handle_recv_packet_peek(
+                      P, D, ActionsR, Buffer, BufferSize, MinHdrLen, CS);
+                true ->
+                    handle_recv_packet(
+                      P, D, ActionsR, Buffer, BufferSize, CS)
+            end
     end.
 
-handle_recv_packet(P, D, ActionsR, Data, Size, recv) ->
+handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, recv = _CS) ->
+    %% ?DBG({Buffer, BufferSize, _CS}),
+    Data = condense_buffer(Buffer),
     case decode_packet(D, Data) of
-        {D_1, ok, Decoded} ->
+        {ok, Decoded, Rest} ->
+            D_1 = D#{buffer := Rest},
             handle_connected(
               P, recv_data_deliver(P, D_1, ActionsR, Decoded));
-        {D_1, more, Length} ->
+        {more, undefined} ->
+            %% Odd bad case - try one byte more
+            %%
+            %% Can be very inefficient, but the only way to not read ahead
+            %% for example for packet=line, so to combine such packet types
+            %% with read_ahead=false would be considered as misuse
             handle_recv_more(
-              P, D_1, ActionsR, Data, Size, Length);
-        {D_1, error, invalid} ->
-            handle_recv_error(P, D_1, ActionsR, emsgsize);
-        {D_1, error, Reason} ->
-            handle_recv_error(P, D_1, ActionsR, Reason)
+              P, D, ActionsR, Data, BufferSize, BufferSize + 1);
+        {more, Length} ->
+            handle_recv_more(
+              P, D, ActionsR, Data, BufferSize, Length);
+        {error, invalid} ->
+            handle_recv_error(P, D, ActionsR, emsgsize);
+        {error, Reason} ->
+            handle_recv_error(P, D, ActionsR, Reason)
     end;
 handle_recv_packet(
-  P, D, ActionsR, Data, _Size, {recv, Reason}) ->
+  P, D, ActionsR, Buffer, _BufferSize, {recv, Reason} = _CS) ->
+    %% ?DBG({Buffer, _BufferSize, _CS}),
+    Data = condense_buffer(Buffer),
     case decode_packet(D, Data) of
-        {D_1, ok, Decoded} ->
+        {ok, Decoded, Rest} ->
+            D_1 = D#{buffer := Rest},
             handle_recv_error(
               P, recv_data_deliver(P, D_1, ActionsR, Decoded),
               Reason);
-        {D_1, more, _} ->
-            handle_recv_error(P, D_1, ActionsR, Reason);
-        {D_1, error, _} ->
-            handle_recv_error(P, D_1, ActionsR, Reason)
+        {more, _} ->
+            handle_recv_error(P, D, ActionsR, Reason);
+        {error, _} ->
+            handle_recv_error(P, D, ActionsR, Reason)
     end.
 
+handle_recv_packet_peek(
+  P, D, ActionsR, Buffer, BufferSize, MinHdrLen, recv = _CS) ->
+    %% ?DBG({Buffer, BufferSize, MinHdrLen, _CS}),
+    case socket_recv_peek(P#params.socket, MinHdrLen-BufferSize) of
+        {ok, <<Data/binary>>} ->
+            Header = condense_buffer(Data, Buffer),
+            case decode_packet(D, Header) of
+                {more, undefined} ->
+                    %% Odd bad case - try one byte more, see above
+                    handle_recv_more(
+                      P, D, ActionsR, Buffer, BufferSize, MinHdrLen + 1);
+                {more, PacketLength} ->
+                    handle_recv_more(
+                      P, D, ActionsR, Buffer, BufferSize, PacketLength);
+                _ ->
+                    %% Fall back to generic path
+                    handle_recv_packet(
+                      P, D, ActionsR, Buffer, BufferSize, recv)
+            end;
+
+        %% Fallbacks when not enough data could be peeked
+        {error, {timeout, _}} ->
+            handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, recv);
+        {error, timeout} ->
+            handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, recv);
+
+        {error, {Reason, _}} ->
+            handle_recv_error(P, D, ActionsR, Reason);
+        {error, Reason} ->
+            handle_recv_error(P, D, ActionsR, Reason)
+    end;
+handle_recv_packet_peek(
+  P, D, ActionsR, Buffer, BufferSize, _MinHdrLen, {recv, _} = CS) ->
+    %% ?DBG({Buffer, BufferSize, _MinHdrLen, CS}),
+    handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, CS).
 
 handle_recv_more(
   P, D, ActionsR, Buffer, BufferSize, Length) ->
+    %% ?DBG({Buffer, BufferSize, Length}),
     %% Less buffered than requested
     %% or nothing buffered and "what's available"|unknown requested
     %%
@@ -2427,35 +2490,36 @@ handle_recv_more(
 decode_packet(
   #{packet         := (PacketType = line),
     line_delimiter := LineDelimiter,
-    packet_size    := PacketSize} = D,
+    packet_size    := PacketSize},
   Data) ->
     %%
-    decode_packet(
-      D, Data, PacketType,
+    erlang:decode_packet(
+      PacketType, Data,
       [{packet_size,    PacketSize},
        {line_delimiter, LineDelimiter},
        {line_length,    PacketSize}]);
 decode_packet(
   #{packet         := http,
     recv_httph     := true,
-    packet_size    := PacketSize} = D,
+    packet_size    := PacketSize},
   Data) ->
     %%
-    decode_packet(D, Data, httph, [{packet_size, PacketSize}]);
+    erlang:decode_packet(httph, Data, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := http_bin,
     recv_httph     := true,
-    packet_size    := PacketSize} = D,
+    packet_size    := PacketSize},
   Data) ->
     %%
-    decode_packet(D, Data, httph_bin, [{packet_size, PacketSize}]);
+    erlang:decode_packet(httph_bin, Data, [{packet_size, PacketSize}]);
 decode_packet(
   #{packet         := PacketType,
-    packet_size    := PacketSize} = D,
+    packet_size    := PacketSize},
   Data) ->
     %%
-    decode_packet(D, Data, PacketType, [{packet_size, PacketSize}]).
+    erlang:decode_packet(PacketType, Data, [{packet_size, PacketSize}]).
 
+-ifdef(undefined).
 decode_packet(D, Data, PacketType, Options) ->
     case erlang:decode_packet(PacketType, Data, Options) of
         {ok, Decoded, Rest} ->
@@ -2469,11 +2533,13 @@ decode_packet(D, Data, PacketType, Options) ->
         {error, Reason} ->
             {D, error, Reason}
     end.
+-endif.
 
-packet_header_length(PacketType, Data) ->
+-compile({inline, [packet_header_length/1]}).
+packet_header_length(PacketType) ->
     case PacketType of
-        raw     -> error(badarg, [PacketType, Data]);
-        0       -> error(badarg, [PacketType, Data]);
+        raw     -> error(badarg, [PacketType]);
+        0       -> error(badarg, [PacketType]);
         1       -> 1;
         2       -> 2;
         4       -> 4;
@@ -2483,14 +2549,8 @@ packet_header_length(PacketType, Data) ->
         tpkt    -> 4;
         ssl     -> 5;
         ssl_tls -> 5;
-        %% For these variable length headers/footers we guess one more
-        %% since this function is only called if Data is too short,
-        %% which can be very inefficient, but we consider it to be
-        %% misuse to combine read_ahead=false with such header types
-        asn1    ->
-            max(2, iolist_size(Data) + 1);
-        _       -> % http, line, etc
-            iolist_size(Data) + 1
+        asn1    -> 2;
+        _       -> 1
     end.
 
 
@@ -2671,6 +2731,7 @@ recv_data_deliver(
   #{mode := Mode, header := Header, deliver := Deliver,
     packet := Packet} = D,
   ActionsR, Data) ->
+    %% ?DBG(Data),
     %%
     %% ?DBG([{owner, Owner},
     %% 	  {mode, Mode},
@@ -2771,10 +2832,8 @@ condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
     iolist_to_binary(reverse(Buffer)).
 
--ifdef(undefined).
 condense_buffer(Data, Buffer) ->
     condense_buffer(buffer(Data, Buffer)).
--endif.
 
 deliver_data(Data, Mode, Header, Packet) ->
     if
