@@ -18,6 +18,15 @@
 %% %CopyrightEnd%
 %%
 
+%%
+%% This is a "simple" proxy process that should run in every 
+%% new node.
+%%
+%% It can be used to issue commands "on" the node.
+%% It is also used for supervision of the parent (owner) process
+%% and (parent) node (if it dies the proxy will issue a 'halt').
+%%
+
 -module(socket_test_ev_proxy).
 
 -include("socket_test_evaluator.hrl").
@@ -33,8 +42,7 @@
          process_info/1, process_info/2, process_info/3
         ]).
 
-%% This is a "simple" proxy process that should run in every 
-%% new node.
+
 
 %% This is the command line version of the start function
 
@@ -60,7 +68,7 @@ start([Node]) ->
     end.
 
 
-%% This function is when the procxy is started "manually"
+%% This function is used when the proxy is started "manually"
 
 start_monitor(Node) ->
     Self = self(),
