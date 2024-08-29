@@ -492,7 +492,9 @@ do {                                                    \
 #if defined(FIPS_SUPPORT) && \
     defined(HAS_3_0_API)
 # define FIPS_mode() EVP_default_properties_is_fips_enabled(NULL)
-# define FIPS_mode_set(enable) EVP_default_properties_enable_fips(NULL, enable)
+# define FIPS_mode_set(enable) \
+    ((!enable || OSSL_PROVIDER_available(NULL, "fips"))            \
+     && EVP_default_properties_enable_fips(NULL, enable))
 #endif
 
 

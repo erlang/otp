@@ -234,11 +234,23 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         ret = __LINE__; goto done;
     }
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) && !defined(HAS_LIBRESSL)
+    enif_set_option(env, ERL_NIF_OPT_ON_UNLOAD_THREAD, unload_thread);
+#endif
+
+    if (library_initialized) {
+        /* Repeated loading of this library (module upgrade).
+         * Atoms and callbacks are already set, we are done.
+         */
+        ret = 0;
+        goto done;
+    }
+
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "fips"))) {
-        ret = __LINE__; goto done;
+    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "fips"))) {
+        prov_cnt++;
     }
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
@@ -252,18 +264,6 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         prov_cnt++;
     }
 #endif
-
-#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(1,1,0) && !defined(HAS_LIBRESSL)
-    enif_set_option(env, ERL_NIF_OPT_ON_UNLOAD_THREAD, unload_thread);
-#endif
-
-    if (library_initialized) {
-	/* Repeated loading of this library (module upgrade).
-	 * Atoms and callbacks are already set, we are done.
-	 */
-        ret = 0;
-        goto done;
-    }
 
     if (!init_atoms(env)) {
         ret = __LINE__; goto done;
@@ -384,12 +384,12 @@ static void unload(ErlNifEnv* env, void* priv_data)
     if (--library_refc == 0) {
         destroy_curve_mutex();
         destroy_engine_mutex(env);
-    }
 
 #ifdef HAS_3_0_API
-    while (prov_cnt>0)
-        OSSL_PROVIDER_unload(prov[--prov_cnt]);
+        while (prov_cnt > 0) {
+            OSSL_PROVIDER_unload(prov[--prov_cnt]);
+        }
 #endif
-
+    }
 }
 

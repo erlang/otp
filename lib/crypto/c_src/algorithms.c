@@ -277,15 +277,16 @@ void init_curve_types(ErlNifEnv* env) {
     if (FIPS_MODE()) {
         // FIPS enabled
         get_curve_cnt(env, 1);
-        FIPS_mode_set(0); // disable
+        (void) FIPS_mode_set(0); // disable
         get_curve_cnt(env, 0);
-        FIPS_mode_set(1); // re-enable
+        (void) FIPS_mode_set(1); // re-enable
     } else {
         // FIPS disabled but available
         get_curve_cnt(env, 0);
-        FIPS_mode_set(1); // enable
-        get_curve_cnt(env, 1);
-        FIPS_mode_set(0); // re-disable
+        if (FIPS_mode_set(1)) { // enable
+            get_curve_cnt(env, 1);
+            (void) FIPS_mode_set(0); // re-disable
+        }
     }
 #else
     // FIPS mode is not available
