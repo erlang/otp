@@ -2093,10 +2093,11 @@ stop() ->
        since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
           {ok, sslsocket()} |
-          {error, reason()} |
-          {option_not_a_key_value_tuple, any()} when
+          {error, Reason} when
       TCPSocket :: socket(),
-      TLSOptions :: [tls_client_option()].
+      TLSOptions :: [tls_client_option()],
+      Reason:: closed | {options, any()} |
+      error_alert() | reason().
 
 connect(Socket, SslOptions)
   when is_list(SslOptions) ->
@@ -2128,11 +2129,12 @@ connect(Host, Port, TLSOptions, infinity).
 -spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
           {ok, sslsocket(), Ext :: protocol_extensions()} |
-          {error, reason()} |
-          {option_not_a_key_value_tuple, any()} when
+          {error, Reason} when
       TCPSocketOrHost :: socket() | host(),
       TLSOptionsOrPort :: [tls_client_option()] | inet:port_number(),
-      TimeoutOrTLSOptions :: [tls_client_option()] | timeout().
+      TimeoutOrTLSOptions :: [tls_client_option()] | timeout(),
+      Reason :: closed | timeout | {options, any()} |
+                error_alert() | reason().
 
 connect(TCPSocket, TLSOptions0, Timeout)
   when is_list(TLSOptions0), ?IS_TIMEOUT(Timeout) ->
@@ -2187,12 +2189,14 @@ owning the SSL socket will receive messages of type
 -spec connect(Host, Port, TLSOptions, Timeout) ->
           {ok, sslsocket()} |
           {ok, sslsocket(),Ext :: protocol_extensions()} |
-          {error, reason()} |
-          {option_not_a_key_value_tuple, any()} when
+          {error, Reason} when
       Host :: host(),
       Port :: inet:port_number(),
       TLSOptions :: [tls_client_option()],
-      Timeout :: timeout().
+      Timeout :: timeout(),
+      Reason :: closed | timeout | {options, any()} |
+                error_alert() | reason().
+
 %%--------------------------------------------------------------------
 connect(Host, Port, Options, Timeout)
   when is_integer(Port), is_list(Options), ?IS_TIMEOUT(Timeout) ->
@@ -2212,10 +2216,12 @@ connect(Host, Port, Options, Timeout)
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Server API">>}).
 -doc "Creates an SSL listen socket.".
--spec listen(Port, Options) -> {ok, ListenSocket} | {error, reason()} when
+-spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
       Port::inet:port_number(),
       Options::[tls_server_option()],
-      ListenSocket :: sslsocket().
+      ListenSocket :: sslsocket(),
+      Reason :: {options, any()} | reason().
+
 %%--------------------------------------------------------------------
 listen(_Port, []) ->
     {error, nooptions};
@@ -2233,9 +2239,10 @@ listen(Port, Options0)
 -doc(#{title => <<"Server API">>,
        equiv => transport_accept(ListenSocket, infinity)}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
-          {error, reason()} when
+          {error, Reason} when
       ListenSocket :: sslsocket(),
-      SslSocket :: sslsocket().
+      SslSocket :: sslsocket(),
+      Reason :: reason().
 
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
@@ -2260,10 +2267,11 @@ The default value for `Timeout` is `infinity`. If `Timeout` is specified and no
 connection is accepted within the given time, `{error, timeout}` is returned.
 """.
 -spec transport_accept(ListenSocket, Timeout) -> {ok, SslSocket} |
-          {error, reason()} when
+          {error, Reason} when
       ListenSocket :: sslsocket(),
       Timeout :: timeout(),
-      SslSocket :: sslsocket().
+      SslSocket :: sslsocket(),
+      Reason :: reason().
 
 transport_accept(#sslsocket{pid = {ListenSocket,
 				   #config{connection_cb = ConnectionCb} = Config}}, Timeout)
