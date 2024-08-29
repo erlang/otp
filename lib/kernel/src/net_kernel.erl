@@ -2423,21 +2423,27 @@ protocol_childspecs([H|T]) ->
 
 -doc false.
 epmd_module() ->
-    case application:get_env(kernel, epmd_module) of
-      {ok, Module} when is_atom(Module) ->
-          Module;
-      {ok, Invalid} ->
-          error({invalid_parameter_value, epmd_module, Invalid});
-      undefined ->
-          Module =
-              case init:get_argument(epmd_module) of
-                  {ok,[[Mod | _] | _]} ->
-                      list_to_atom(Mod);
-                  _ ->
-                      erl_epmd
-              end,
-          ok = application:set_env(kernel, epmd_module, Module, [{timeout, infinity}]),
-          Module
+    ModuleParameterResult =
+        case application:get_env(kernel, epmd_module) of
+            {ok, Module} when is_atom(Module) ->
+                {ok, Module};
+            {ok, Invalid} ->
+                error({invalid_parameter_value, epmd_module, Invalid});
+            undefined ->
+                undefined
+        end,
+    ModuleArgumentResult =
+        case init:get_argument(epmd_module) of
+            {ok,[[Mod | _] | _]} ->
+                {ok, list_to_atom(Mod)};
+            _ ->
+                undefined
+        end,
+    case {ModuleParameterResult, ModuleArgumentResult} of
+        {undefined, undefined} -> erl_epmd;
+        {{ok, ModuleParameter}, undefined} -> ModuleParameter;
+        {undefined, {ok, ModuleArgument}} -> ModuleArgument;
+        _ -> error({invalid_configuration, "either -epmd_module or kernel epmd_module should be specified, not both"})
     end.
 
 %%

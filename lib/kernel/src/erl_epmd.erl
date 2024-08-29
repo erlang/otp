@@ -375,20 +375,28 @@ get_epmd_port() ->
     end.
 
 erl_epmd_node_listen_port() ->
-    case application:get_env(kernel, erl_epmd_node_listen_port) of
-        {ok, Port} when is_integer(Port), Port >= 0 ->
-            {ok, Port};
-        {ok, Invalid} ->
-            error({invalid_parameter_value, erl_epmd_node_listen_port, Invalid});
-        undefined ->
-            try
-                {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
-                Port = list_to_integer(StringPort),
-                ok = application:set_env(kernel, erl_epmd_node_listen_port, Port, [{timeout, infinity}]),
-                {ok, Port}
-            catch error:_ ->
+    PortParameterResult =
+        case application:get_env(kernel, erl_epmd_node_listen_port) of
+            {ok, Port} when is_integer(Port), Port >= 0 ->
+                {ok, Port};
+            {ok, Invalid} ->
+                error({invalid_parameter_value, erl_epmd_node_listen_port, Invalid});
+            undefined ->
                 undefined
-            end
+        end,
+    PortArgumentResult =
+        try
+            {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+            IntPort = list_to_integer(StringPort),
+            {ok, IntPort}
+        catch error:_ ->
+            undefined
+        end,
+    case {PortParameterResult, PortArgumentResult} of
+        {undefined, undefined} -> undefined;
+        {_, undefined} -> PortParameterResult;
+        {undefined, _} -> PortArgumentResult;
+        _ -> error({invalid_configuration, "either -erl_epmd_port or kernel erl_epmd_node_listen_port should be specified, not both"})
     end.
 
 %%
