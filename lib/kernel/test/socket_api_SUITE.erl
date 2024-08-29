@@ -762,6 +762,9 @@ init_per_group(sendfile = GroupName, Config) ->
         false ->
             Config
     end;
+init_per_group(from_fd = _GroupName, Config) ->
+    has_multi_scheds(),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -4317,7 +4320,9 @@ api_sendfile_verify_block(S, Data, M, Block, N) ->
 api_ffd_open_wod_and_info_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_wod_and_info_udp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => dgram,
@@ -4337,7 +4342,9 @@ api_ffd_open_wod_and_info_udp4(_Config) when is_list(_Config) ->
 api_ffd_open_wod_and_info_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_wod_and_info_udp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   has_support_ipv6()
+           end,
            fun() ->
                    InitState = #{domain   => inet6,
                                  type     => dgram,
@@ -4397,7 +4404,9 @@ api_ffd_open_wd_and_info_udp6(_Config) when is_list(_Config) ->
 api_ffd_open_wod_and_info_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_wod_and_info_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -4437,7 +4446,9 @@ api_ffd_open_wod_and_info_tcp6(_Config) when is_list(_Config) ->
 api_ffd_open_wd_and_info_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_wd_and_info_tcp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -4698,7 +4709,9 @@ api_ffd_open_and_info(InitState) ->
 api_ffd_open_and_open_wod_and_send_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_and_open_wod_and_send_udp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => dgram,
@@ -4730,7 +4743,9 @@ api_ffd_open_and_open_wod_and_send_udp4(_Config) when is_list(_Config) ->
 api_ffd_open_and_open_wod_and_send_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_and_open_wod_and_send_udp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   has_support_ipv6()
+           end,
            fun() ->
                    InitState = #{domain   => inet6,
                                  type     => dgram,
@@ -4753,7 +4768,9 @@ api_ffd_open_and_open_wod_and_send_udp6(_Config) when is_list(_Config) ->
 api_ffd_open_and_open_wd_and_send_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_and_open_wd_and_send_udp4,
-           fun() -> has_support_ipv4() end,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => dgram,
@@ -5421,7 +5438,10 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
 %%
 api_ffd_open_connect_and_open_wod_and_send_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_ffd_open_connect_and_open_wod_and_send_tcp4,
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   has_support_ipv4()
+           end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -5453,7 +5473,9 @@ api_ffd_open_connect_and_open_wod_and_send_tcp4(_Config) when is_list(_Config) -
 api_ffd_open_connect_and_open_wod_and_send_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_connect_and_open_wod_and_send_tcp6,
-           fun() -> has_support_ipv6() end,
+           fun() ->
+                   has_support_ipv6()
+           end,
            fun() ->
                    InitState = #{domain   => inet6,
                                  type     => stream,
@@ -27687,6 +27709,14 @@ has_support_sendfile() ->
     catch
         error : notsup ->
             skip("Not supported: socket")
+    end.
+
+has_multi_scheds() ->
+    case erlang:system_info(schedulers) of
+        N when (N > 1) ->
+            ok;
+        _ ->
+            skip("Num schedulers *not* > 1")
     end.
 
 
