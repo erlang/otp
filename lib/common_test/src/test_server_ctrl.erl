@@ -3951,6 +3951,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
         {_,failed} ->
             DiedTime = case Time of
                            died -> case RetVal of
+                                       {timetrap_timeout, T} -> T/1000;
                                        {_,T} when is_number(T) -> T;
                                        _ -> 0
                                    end;
