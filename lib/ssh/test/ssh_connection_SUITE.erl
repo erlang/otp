@@ -890,7 +890,7 @@ start_shell_exec(Config) when is_list(Config) ->
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
 					     {password, "morot"},
-					     {exec, {?MODULE,ssh_exec_echo,[]}} ]),
+					     {exec, {?MODULE,ssh_exec_echo,["foo"]}} ]),
 
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 						      {user, "foo"},
@@ -1153,8 +1153,8 @@ start_exec_direct_fun1_read_write_advanced(Config) ->
     after 5000 -> go_on
     end,
     receive
-        X -> ct:fail("remaining messages"),
-             ct:log("remaining message: ~p",[X])
+        X -> ct:log("remaining message: ~p",[X]),
+        ct:fail("remaining messages")
     after 0 -> go_on
     end,
     ssh:stop_daemon(Pid).
