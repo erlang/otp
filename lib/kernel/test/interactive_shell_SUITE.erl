@@ -1550,7 +1550,7 @@ shell_suspend(Config) ->
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_full_queue(Config) ->
 
-    [throw({skip,"Need unbuffered to run"}) || os:find_executable("unbuffered") =:= false],
+    [throw({skip,"Need unbuffer (apt install expect) to run"}) || os:find_executable("unbuffer") =:= false],
 
     %% In order to fill the read buffer of the terminal we need to get a
     %% bit creative. We first need to start erl in bash in order to be
@@ -1617,7 +1617,7 @@ shell_full_queue(Config) ->
         send_tty(Term, "fg"),
         send_tty(Term, "Enter"),
         Pid ! stop,
-        check_content(Term,"b$"),
+        check_content(Term,"b\\([^)]*\\)2>$"),
 
         send_tty(Term, "."),
         send_tty(Term, "Enter"),
