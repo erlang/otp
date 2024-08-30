@@ -887,13 +887,9 @@ socket_send_error(Result) ->
     end.
 
 
--compile({inline, [socket_recv/2, socket_recv_peek/2]}).
+-compile({inline, [socket_recv/2]}).
 socket_recv(Socket, Length) ->
     Result = socket:recv(Socket, Length, [], nowait),
-    %% ?DBG({Socket, Length, Result}),
-    Result.
-socket_recv_peek(Socket, Length) ->
-    Result = socket:recv(Socket, Length, [peek], 0),
     %% ?DBG({Socket, Length, Result}),
     Result.
 
@@ -2336,8 +2332,8 @@ handle_recv(
             MinHdrLen = packet_header_length(PacketType),
             if
                 BufferSize < MinHdrLen ->
-                    handle_recv_packet_peek(
-                      P, D, ActionsR, Buffer, BufferSize, MinHdrLen, CS);
+                    handle_recv_more(
+                      P, D, ActionsR, Buffer, BufferSize, MinHdrLen);
                 true ->
                     handle_recv_packet(
                       P, D, ActionsR, Buffer, BufferSize, CS)
@@ -2383,42 +2379,6 @@ handle_recv_packet(
         {error, _} ->
             handle_recv_error(P, D, ActionsR, Reason)
     end.
-
-handle_recv_packet_peek(
-  P, D, ActionsR, Buffer, BufferSize, MinHdrLen, recv = _CS) ->
-    %% ?DBG({Buffer, BufferSize, MinHdrLen, _CS}),
-    case socket_recv_peek(P#params.socket, MinHdrLen-BufferSize) of
-        {ok, <<Data/binary>>} ->
-            Header = condense_buffer(Data, Buffer),
-            case decode_packet(D, Header) of
-                {more, undefined} ->
-                    %% Odd bad case - try one byte more, see above
-                    handle_recv_more(
-                      P, D, ActionsR, Buffer, BufferSize, MinHdrLen + 1);
-                {more, PacketLength} ->
-                    handle_recv_more(
-                      P, D, ActionsR, Buffer, BufferSize, PacketLength);
-                _ ->
-                    %% Fall back to generic path
-                    handle_recv_packet(
-                      P, D, ActionsR, Buffer, BufferSize, recv)
-            end;
-
-        %% Fallbacks when not enough data could be peeked
-        {error, {timeout, _}} ->
-            handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, recv);
-        {error, timeout} ->
-            handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, recv);
-
-        {error, {Reason, _}} ->
-            handle_recv_error(P, D, ActionsR, Reason);
-        {error, Reason} ->
-            handle_recv_error(P, D, ActionsR, Reason)
-    end;
-handle_recv_packet_peek(
-  P, D, ActionsR, Buffer, BufferSize, _MinHdrLen, {recv, _} = CS) ->
-    %% ?DBG({Buffer, BufferSize, _MinHdrLen, CS}),
-    handle_recv_packet(P, D, ActionsR, Buffer, BufferSize, CS).
 
 handle_recv_more(
   P, D, ActionsR, Buffer, BufferSize, Length) ->
@@ -2832,8 +2792,10 @@ condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
     iolist_to_binary(reverse(Buffer)).
 
+-ifdef(undefined).
 condense_buffer(Data, Buffer) ->
     condense_buffer(buffer(Data, Buffer)).
+-endif.
 
 deliver_data(Data, Mode, Header, Packet) ->
     if
