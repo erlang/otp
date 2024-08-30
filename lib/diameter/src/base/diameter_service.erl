@@ -35,7 +35,9 @@
          unsubscribe/1,
          services/0,
          peer_info/1,
-         info/2]).
+         info/2,
+
+         await_service_cleanup/1]).
 
 %% towards diameter_config
 -export([start/1,
@@ -205,6 +207,27 @@ stop(ok, Pid) ->
     receive {'DOWN', MRef, process, _, _} -> ok end;
 stop(No, _) ->
     No.
+
+
+%% This one assumes stop/1 has already been called.
+%% So, technically, the service is already stopped,
+%% but the cleanup may not have completed...
+%% This is a simple race, so we should not have to wait long...
+await_service_cleanup(SvcName) ->
+    do_await_service_cleanup(SvcName, 10).
+
+do_await_service_cleanup(_SvcName, N) when (N =< 0) ->
+    {error, service_cleanup_timeout};
+do_await_service_cleanup(SvcName, N) ->
+    case whois(SvcName) of
+        undefined ->
+            %% We are done!
+            ok;
+        _Pid ->
+            receive after 100 -> ok end,
+            do_await_service_cleanup(SvcName, N-1)
+    end.
+                             
 
 %% ---------------------------------------------------------------------------
 %% # start_transport/3
@@ -608,7 +631,7 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S};
 %% The server currently isn't guaranteed to be dead when the caller
 %% gets the reply. We deal with this in the call to the server,
-%% stating a monitor that waits for DOWN before returning.
+%% starting a monitor that waits for DOWN before returning.
 
 handle_call(Req, From, S) ->
     unexpected(handle_call, [Req, From], S),
@@ -859,7 +882,9 @@ cs(Pid, Req)
     try
         gen_server:call(Pid, Req, infinity)
     catch
-        E: Reason when E == exit ->
+        E: {noproc, _} when E =:= exit ->
+            {error, no_service};
+        E: Reason when E =:= exit ->
             {error, {E, Reason}}
     end;
 

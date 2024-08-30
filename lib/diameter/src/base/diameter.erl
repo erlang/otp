@@ -1033,6 +1033,7 @@ module.
 
 %% Information.
 -export([services/0,
+         is_service/1,
          peer_info/1,
          peer_find/1,
          service_info/2]).
@@ -1084,12 +1085,6 @@ module.
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
-
-%% Enable debug logging by set(ing) level to debug.
-%% For example: logger:set_primary_config(level, debug),
-%% -define(DBG(F,A),
-%%         logger:debug("~w:~w(~w) -> " ++ F ++ "~n",
-%%                      [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
 
 
 %% ---------------------------------------------------------------------------
@@ -1174,8 +1169,59 @@ DPR message will be sent as in the case of `remove_transport/2`.
       SvcName :: service_name(),
       Reason  :: term().
 
+%% To handle possible race conditions we check whois and then wait...
+%% This should be simple, but just in case the function is called
+%% when there is no service actually running...
 stop_service(SvcName) ->
-    diameter_config:stop_service(SvcName).
+    case diameter_service:whois(SvcName) of
+        undefined ->
+            %% Nothing, so we just call stop to perform possible cleanup...
+            diameter_config:stop_service(SvcName);
+        _ ->
+            %% Note that the service may die/be killed just after we checked...
+            subscribe(SvcName),
+            Result = do_stop_service(SvcName),
+            unsubscribe(SvcName),
+            Result
+    end.
+
+do_stop_service(SvcName) ->
+    case diameter_config:stop_service(SvcName) of
+        ok ->
+            %% Now wait for the stop event
+            await_service_stop_event(SvcName),
+            %% And finally wait for the registry to be "flushed" (ugh!)...
+            diameter_service:await_service_cleanup(SvcName);
+        {error, _} = ERROR ->
+            ERROR
+    end.
+    
+await_service_stop_event(SvcName) ->
+    receive
+        #diameter_event{service = SvcName,
+                        info    = stop} ->
+            ok
+    after 1000 ->
+            case diameter_service:whois(SvcName) of
+                undefined ->
+                    ok;
+                _Pid ->
+                    await_service_stop_event(SvcName)
+            end
+    end.
+
+
+%% ---------------------------------------------------------------------------
+%% is_service/1
+%% ---------------------------------------------------------------------------
+
+%% -doc false.
+-spec is_service(service_name())
+                -> boolean().
+
+is_service(SvcName) ->
+    (undefined =/= diameter_service:whois(SvcName)).
+
 
 
 %% ---------------------------------------------------------------------------
@@ -2035,3 +2081,4 @@ call(SvcName, App, Message) ->
          Mins      :: 0..59,
          Secs      :: 0..59,
          MicroSecs :: 0..999999}.
+
