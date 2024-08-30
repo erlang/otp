@@ -6226,6 +6226,12 @@ ioctl(Socket, GetRequest) ->
 %%       Name       :: string(),
 %%       HWAddr     :: sockaddr(),
 %%       Reason     :: posix() | 'closed';
+%%            (Socket, GetRequest, Name) -> {'ok', GenAddr} | {'error', Reason} when
+%%       Socket     :: socket(),
+%%       GetRequest :: 'genaddr',
+%%       Name       :: string(),
+%%       GenAddr    :: binary(),
+%%       Reason     :: posix() | 'closed';
 %%            (Socket, GetRequest, Name) -> {'ok', MTU} | {'error', Reason} when
 %%       Socket     :: socket(),
 %%       GetRequest :: 'gifmtu',
@@ -6291,10 +6297,10 @@ Also, see the note above.
 
   Result; the network mask of the interface, `t:sockaddr/0`.
 
-- **`gifhwaddr` | `gifenaddr`** - Get the hardware address for the interface with the
+- **`gifhwaddr` | `genaddr`** - Get the hardware address for the interface with the
   specified name.
 
-  Result; the hardware address of the interface, `t:sockaddr/0`.
+  Result; the hardware address of the interface, `t:sockaddr/0` | `t:binary/0`.
   The family field contains the 'ARPHRD' device type (or an integer).
 
 - **`gifmtu`** - Get the MTU (Maximum Transfer Unit) for the interface with the
@@ -6372,7 +6378,7 @@ the `Value` for the request parameter *(since OTP 26.1)*.
       Socket      :: socket(),
       GetRequest  :: 'gifname' | 'gifindex' |
                      'gifaddr' | 'gifdstaddr' | 'gifbrdaddr' |
-                     'gifnetmask' | 'gifhwaddr' | 'gifhwaddr' |
+                     'gifnetmask' | 'gifhwaddr' | 'genaddr' |
                      'gifmtu' | 'giftxqlen' | 'gifflags' |
 		     'tcp_info',
       NameOrIndex :: string() | integer(),
@@ -6413,7 +6419,7 @@ ioctl(?socket(SockRef), gifmtu = GetRequest, Name)
 ioctl(?socket(SockRef), gifhwaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
-ioctl(?socket(SockRef), gifenaddr = GetRequest, Name)
+ioctl(?socket(SockRef), genaddr = GetRequest, Name)
   when is_list(Name) ->
     prim_socket:ioctl(SockRef, GetRequest, Name);
 ioctl(?socket(SockRef), giftxqlen = GetRequest, Name)
