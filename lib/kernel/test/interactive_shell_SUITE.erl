@@ -1339,7 +1339,7 @@ shell_get_password(_Config) ->
     rtnode:run(
       [{putline,"io:get_password()."},
        {putline,"secret\r"},
-       {expect, "\r\n\r\n\"secret\""}]),
+       {expect, "\r\n\"secret\""}]),
 
     %% io:get_password only works when run in "newshell"
     rtnode:run(
