@@ -728,6 +728,8 @@ shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     shell_rep(Eval, Bs, RT, FT, Ds).
 
 shell_rep(Ev, Bs0, RT, FT, Ds0) ->
+    shell_rep(Ev, Bs0, RT, FT, Ds0, 5000).
+shell_rep(Ev, Bs0, RT, FT, Ds0, Timeout) ->
     receive
         {shell_rep,Ev,{value,V,Bs,Ds}} ->
             {V,Ev,Bs,Ds};
@@ -774,6 +776,9 @@ shell_rep(Ev, Bs0, RT, FT, Ds0) ->
         _Other ->                               % Ignore everything else
             io:format("Throwing ~p~n", [_Other]),
             shell_rep(Ev, Bs0, RT, FT, Ds0)
+        after Timeout ->
+            io:format("Command is taking a long time, type Ctrl+G, then enter 'i' to interrupt~n"),
+            shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
     end.
 
 nocatch(throw, {Term,Stack}) ->
@@ -1981,8 +1986,6 @@ results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
 -doc """
-catch_exception(Bool) -> boolean()
-
 Sets the exception handling of the evaluator process. The previous exception
 handling is returned. The default (`false`) is to kill the evaluator process
 when an exception occurs, which causes the shell to create a new evaluator
