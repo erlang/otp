@@ -60,7 +60,7 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
-         shell_format/1,
+         shell_format/1, shell_help/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -117,7 +117,8 @@ groups() ->
        shell_full_queue,
        external_editor,
        external_editor_visual,
-       shell_ignore_pager_commands
+       shell_ignore_pager_commands,
+       shell_help
       ]},
      {tty_unicode,[parallel],
       [{group,tty_tests},
@@ -1292,12 +1293,13 @@ shell_expand_location_above(Config) ->
 shell_help(Config) ->
     Term = start_tty(Config),
     try
-        send_stdin(Term, "lists"),
-        send_stdin(Term, "\^[h"),
+        send_tty(Term, "application:put_env(kernel, shell_docs_ansi, false).\n"),
+        send_tty(Term, "lists"),
+        send_tty(Term, "\^[h"),
         check_content(Term, "List processing functions."),
-        send_stdin(Term, ":all"),
-        send_stdin(Term, "\^[h"),
-        check_content(Term, "-spec all(Pred, List) -> boolean()"),
+        send_tty(Term, ":all"),
+        send_tty(Term, "\^[h"),
+        check_content(Term, ~S"all\(Pred, List\)"),
         ok
     after
         stop_tty(Term),
