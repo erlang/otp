@@ -44,6 +44,7 @@
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
          shell_history_custom/1, shell_history_custom_errors/1,
+         shell_history_toggle/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          shell_get_password/1,
@@ -97,6 +98,7 @@ groups() ->
        shell_history_repair,
        shell_history_repair_corrupt,
        shell_history_corrupt,
+       shell_history_toggle,
        {group, sh_custom}
       ]},
      {sh_custom, [],
@@ -2342,6 +2344,52 @@ shell_history_custom_errors(_Config) ->
                   "-pz",filename:dirname(code:which(?MODULE))]),
 
     ok.
+
+shell_history_toggle(_Config) ->
+
+    %% Check that we can start with a node with an undefined
+    %% provider module.
+    rtnode:run(
+      [
+       {putline, "io:setopts(user, [{line_history, true}])."},
+       {expect, "{error,enotsup}\r\n"},
+
+       %% Test that io:get_line does not save into history buffer
+       {putline, ~s'io:get_line("").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does save into history buffer when enabled
+       {putline, "io:setopts([{line_history, true}])."},
+       {expect, "ok\r\n"},
+       {putline, ~s'io:get_line("> ").'},
+       {putline, ~s'hello again'},
+       {expect, ~s'\\Q"hello again\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'hello again'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("> ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'hello again'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does not save into history buffer when disabled
+       {putline, "io:setopts([{line_history, false}])."},
+       {putline, ~s'io:get_line("| ").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("| ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'}
+      ], [], [], ["-pz",filename:dirname(code:which(?MODULE))]),
+
+        ok.
 
 load() ->
     case application:get_env(kernel,provider_load) of
