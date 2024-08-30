@@ -373,7 +373,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
     const BeamInstr* p;
     Uint alloc = $Alloc;
     Eterm new_binary;
-    ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
+    ErlBitsState* EBS = ERL_BITS_EBS_FROM_REG(reg);
 
     /* We count the total number of bits in an unsigned integer. To avoid
      * having to check for overflow when adding to `num_bits`, we ensure that
@@ -546,7 +546,6 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
     }
 
     /* Allocate binary. */
-    ERL_BITS_RELOAD_STATEP(c_p);
     p = p_start;
     if (p[0] == BSC_APPEND) {
         Uint live = $Live;
@@ -565,15 +564,13 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         }
         p_start += BSC_NUM_ARGS;
     } else if (p[0] == BSC_PRIVATE_APPEND) {
-        Uint unit;
         Eterm Src;
 
         $test_heap(alloc, $Live);
 
-        $BS_LOAD_UNIT(p, unit);
         $BS_LOAD_SRC(p, Src);
 
-        new_binary = erts_bs_private_append_checked(c_p, Src, num_bits, unit);
+        new_binary = erts_bs_private_append_checked(EBS, c_p, Src, num_bits);
 
         if (is_non_value(new_binary)) {
             $BS_FAIL_INFO($Fail, c_p->freason, c_p->fvalue, Src);
@@ -589,7 +586,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         /* num_bits = Number of bits to build
          * alloc = Total number of words to allocate on heap
          */
-        erts_bin_offset = 0;
+        EBS->erts_bin_offset = 0;
         if (num_bits <= ERL_ONHEAP_BITS_LIMIT) {
             ErlHeapBits *hb;
 
@@ -598,7 +595,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             HTOP += heap_bits_size(num_bits);
             hb->thing_word = header_heap_bits(num_bits);
             hb->size = num_bits;
-            erts_current_bin = (byte *) hb->data;
+            EBS->erts_current_bin = (byte *) hb->data;
             new_binary = make_bitstring(hb);
         } else {
             Binary* bptr;
@@ -608,7 +605,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
                             $Live);
 
             bptr = erts_bin_nrml_alloc(NBYTES(num_bits));
-            erts_current_bin = (byte *)bptr->orig_bytes;
+            EBS->erts_current_bin = (byte *)bptr->orig_bytes;
 
             LIGHT_SWAPOUT;
 
@@ -616,7 +613,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
                                                   &MSO(c_p).overhead,
                                                   &HEAP_TOP(c_p),
                                                   bptr,
-                                                  erts_current_bin,
+                                                  EBS->erts_current_bin,
                                                   0,
                                                   num_bits);
 
@@ -640,7 +637,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             byte* string;
             $BS_LOAD_STRING_SRC(p, string);
             $BS_LOAD_FIXED_SIZE(p, Size);
-            erts_new_bs_put_string(ERL_BITS_ARGS_2(string, Size));
+            erts_bs_put_string(EBS, string, Size);
             continue;
         }
 
@@ -649,7 +646,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         switch (p[0]) {
         case BSC_BINARY_ALL:
             $BS_LOAD_UNIT(p, unit);
-            if (!erts_new_bs_put_binary_all(c_p, Src, unit)) {
+            if (!erts_bs_put_binary_all(EBS, c_p, Src, unit)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_unit, Src);
             }
             break;
@@ -658,14 +655,14 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SIZE(p, Size);
             $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-            if (!erts_new_bs_put_binary(c_p, Src, _size)) {
+            if (!erts_bs_put_binary(EBS, c_p, Src, _size)) {
                 Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
             break;
         case BSC_BINARY_FIXED_SIZE:
             $BS_LOAD_FIXED_SIZE(p, Size);
-            if (!erts_new_bs_put_binary(c_p, Src, Size)) {
+            if (!erts_bs_put_binary(EBS, c_p, Src, Size)) {
                 Eterm reason = is_bitstring(Src) ? am_short : am_type;
                 $BS_FAIL_INFO($Fail, BADARG, reason, Src);
             }
@@ -675,7 +672,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SIZE(p, Size);
             $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-            Src = erts_new_bs_put_float(c_p, Src, _size, flags);
+            Src = erts_bs_put_float(EBS, c_p, Src, _size, flags);
             if (is_value(Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
             }
@@ -683,7 +680,7 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         case BSC_FLOAT_FIXED_SIZE:
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_FIXED_SIZE(p, Size);
-            Src = erts_new_bs_put_float(c_p, Src, Size, flags);
+            Src = erts_bs_put_float(EBS, c_p, Src, Size, flags);
             if (is_value(Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, c_p->fvalue, Src);
             }
@@ -691,33 +688,48 @@ i_bs_create_bin(Fail, Alloc, Live, Dst, N) {
         case BSC_INTEGER:
             {
                 Sint _size;
+                int result;
 
                 $BS_LOAD_UNIT(p, unit);
                 $BS_LOAD_FLAGS(p, flags);
                 $BS_LOAD_SIZE(p, Size);
                 $BS_GET_UNCHECKED_FIELD_SIZE(Size, unit, $BADARG($Fail), _size);
-                if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, _size, flags))) {
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, _size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, _size);
+                }
+                if (!result) {
                     $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
                 }
             }
             break;
         case BSC_INTEGER_FIXED_SIZE:
         case BSC_UTF32:
-            $BS_LOAD_FLAGS(p, flags);
-            $BS_LOAD_FIXED_SIZE(p, Size);
-            if (!erts_new_bs_put_integer(ERL_BITS_ARGS_3(Src, Size, flags))) {
-                $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+            {
+                int result;
+
+                $BS_LOAD_FLAGS(p, flags);
+                $BS_LOAD_FIXED_SIZE(p, Size);
+                if (flags & BSF_LITTLE) {
+                    result = erts_bs_put_integer_le(EBS, Src, Size);
+                } else {
+                    result = erts_bs_put_integer_be(EBS, Src, Size);
+                }
+                if (!result) {
+                    $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
+                }
             }
             break;
         case BSC_UTF8:
-            if (!erts_bs_put_utf8(ERL_BITS_ARGS_1(Src))) {
+            if (!erts_bs_put_utf8(EBS, Src)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
             }
             break;
         case BSC_UTF16:
             $BS_LOAD_FLAGS(p, flags);
             $BS_LOAD_SRC(p, Src);
-            if (!erts_bs_put_utf16(ERL_BITS_ARGS_2(Src, flags))) {
+            if (!erts_bs_put_utf16(EBS, Src, flags)) {
                 $BS_FAIL_INFO($Fail, BADARG, am_type, Src);
             }
             break;

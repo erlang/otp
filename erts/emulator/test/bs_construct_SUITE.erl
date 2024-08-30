@@ -30,7 +30,7 @@
 	 otp_7422/1, zero_width/1, bad_append/1, bs_append_overflow/1,
          bs_append_offheap/1,
          reductions/1, fp16/1, zero_init/1, error_info/1, little/1,
-         heap_binary_unit/1
+         heap_binary_unit/1, floats/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -46,7 +46,7 @@ all() ->
      copy_writable_binary, kostis, dynamic, otp_7422, zero_width,
      bad_append, bs_append_overflow, bs_append_offheap,
      reductions, fp16, zero_init,
-     error_info, little, heap_binary_unit].
+     error_info, little, heap_binary_unit, floats].
 
 init_per_suite(Config) ->
     Config.
@@ -1633,6 +1633,254 @@ heap_binary_unit_2(Variant, Rest) ->
         Bin2 ->
             {error2, Bin2}
     end.
+
+floats(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    %% Random floats.
+    _ = [do_float(rand:uniform() * math:pow(10.0, rand:uniform(20))) ||
+            _ <- lists:seq(1, 20)],
+
+    %% Random floats with powers of 10 near the upper limit representable
+    %% as a 64-bit float.
+    _ = [do_float(rand:uniform() * math:pow(10.0, 300 + rand:uniform(7))) ||
+            _ <- lists:seq(1, 10)],
+
+    %% Random small integers.
+    _ = [do_float(rand:uniform(1_000_000)) || _ <- lists:seq(1, 10)],
+
+    %% Random big integers.
+    _ = [do_float(rand:uniform(1_000_000) bsl 64) || _ <- lists:seq(1, 10)],
+
+    do_float(-0.0),
+    do_float(+0.0),
+
+    ok.
+
+do_float(F) ->
+    do_float(F, 0).
+
+do_float(_F, 32) ->
+    ok;
+do_float(F, N) ->
+    Pad = rand:uniform(1 bsl N) - 1,
+    true = is_integer(Pad),
+
+    do_float_be_16(F, N, Pad),
+    do_float_be_32(F, N, Pad),
+    do_float_be_64(F, N, Pad),
+
+    do_float_le_16(F, N, Pad),
+    do_float_le_32(F, N, Pad),
+    do_float_le_64(F, N, Pad),
+
+    do_float(F, N + 1).
+
+do_float_be_16(F, N, Pad) ->
+    FloatBin = id(<<F:16/big-float>>),
+    Bin = id(<<Pad:N, F:16/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):16/big-float>>),
+    Bin = <<Pad:N, F:(id(16))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(16))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:16/big-float>>),
+            Bin = <<Pad:N, F:(id(16))/big-float>>,
+            Bin = case N of
+                      15 -> <<Pad:N, F:16/big-float>>;
+                      21 -> <<Pad:N, F:16/big-float>>;
+                      _ -> <<Pad:N, F:16/big-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:16/big-float>>),
+            Bin = <<Pad:N, F:(id(16))/big-float>>,
+            Bin = case N of
+                      1 -> <<Pad:N, F:16/big-float>>;
+                      19 -> <<Pad:N, F:16/big-float>>;
+                      _ -> <<Pad:N, F:16/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_be_32(F, N, Pad) ->
+    FloatBin = id(<<F:32/big-float>>),
+    Bin = id(<<Pad:N, F:32/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):32/big-float>>),
+    Bin = <<Pad:N, F:(id(32))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(32))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:32/big-float>>),
+            Bin = <<Pad:N, F:(id(32))/big-float>>,
+            Bin = case N of
+                      1 -> <<Pad:N, F:32/big-float>>;
+                      6 -> <<Pad:N, F:32/big-float>>;
+                      _ -> <<Pad:N, F:32/big-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:32/big-float>>),
+            Bin = <<Pad:N, F:(id(32))/big-float>>,
+            Bin = case N of
+                      8 -> <<Pad:N, F:32/big-float>>;
+                      12 -> <<Pad:N, F:32/big-float>>;
+                      _ -> <<Pad:N, F:32/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_be_64(F, N, Pad) ->
+    FloatBin = id(<<F:64/big-float>>),
+    Bin = id(<<Pad:N, F:64/big-float>>),
+    Bin = id(<<Pad:N, (id(F)):64/big-float>>),
+    Bin = <<Pad:N, F:(id(64))/big-float>>,
+    Bin = <<Pad:N, (id(F)):(id(64))/big-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:64/big-float>>),
+            Bin = <<Pad:N, F:(id(64))/big-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/big-float>>;
+                      13 -> <<Pad:N, F:64/big-float>>;
+                      _ -> <<Pad:N, F:64/big-float>>
+                  end,
+
+            %% Match out the original float.
+            <<Pad:N, F:64/big-float>> = Bin;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:64/big-float>>),
+            Bin = <<Pad:N, F:(id(64))/big-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/big-float>>;
+                      13 -> <<Pad:N, F:64/big-float>>;
+                      _ -> <<Pad:N, F:64/big-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_16(F, N, Pad) ->
+    FloatBin = id(<<F:16/little-float>>),
+    Bin = id(<<Pad:N, F:16/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):16/little-float>>),
+    Bin = <<Pad:N, F:(id(16))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(16))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:16/little-float>>),
+            Bin = <<Pad:N, F:(id(16))/little-float>>,
+            Bin = case N of
+                      11 -> <<Pad:N, F:16/little-float>>;
+                      27 -> <<Pad:N, F:16/little-float>>;
+                      _ -> <<Pad:N, F:16/little-float>>
+                  end;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:16/little-float>>),
+            Bin = <<Pad:N, F:(id(16))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:16/little-float>>;
+                      13 -> <<Pad:N, F:16/little-float>>;
+                      _ -> <<Pad:N, F:16/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_32(F, N, Pad) ->
+    FloatBin = id(<<F:32/little-float>>),
+    Bin = id(<<Pad:N, F:32/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):32/little-float>>),
+    Bin = <<Pad:N, F:(id(32))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(32))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:32/little-float>>),
+            Bin = <<Pad:N, F:(id(32))/little-float>>,
+            Bin = case N of
+                      9 -> <<Pad:N, F:32/little-float>>;
+                      29 -> <<Pad:N, F:32/little-float>>;
+                      _ -> <<Pad:N, F:32/little-float>>
+                  end;
+       is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:32/little-float>>),
+            Bin = <<Pad:N, F:(id(32))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:32/little-float>>;
+                      13 -> <<Pad:N, F:32/little-float>>;
+                      _ -> <<Pad:N, F:32/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
+do_float_le_64(F, N, Pad) ->
+    FloatBin = id(<<F:64/little-float>>),
+    Bin = id(<<Pad:N, F:64/little-float>>),
+    Bin = id(<<Pad:N, (id(F)):64/little-float>>),
+    Bin = <<Pad:N, F:(id(64))/little-float>>,
+    Bin = <<Pad:N, (id(F)):(id(64))/little-float>>,
+    <<Pad:N, FloatBin/binary>> = Bin,
+
+    if
+        is_float(F) ->
+            %% Construct float segment of a known float.
+            FloatBin = id(<<F:64/little-float>>),
+            Bin = <<Pad:N, F:(id(64))/little-float>>,
+            Bin = case N of
+                      9 -> <<Pad:N, F:64/little-float>>;
+                      29 -> <<Pad:N, F:64/little-float>>;
+                      _ -> <<Pad:N, F:64/little-float>>
+                  end,
+
+            %% Match out the original float.
+            <<Pad:N, F:64/little-float>> = Bin;
+        is_integer(F) ->
+            %% Construct float segment of a known integer.
+            FloatBin = id(<<F:64/little-float>>),
+            Bin = <<Pad:N, F:(id(64))/little-float>>,
+            Bin = case N of
+                      7 -> <<Pad:N, F:64/little-float>>;
+                      13 -> <<Pad:N, F:64/little-float>>;
+                      _ -> <<Pad:N, F:64/little-float>>
+                  end;
+        true ->
+            ok
+    end,
+
+    ok.
+
 
 %%%
 %%% Common utilities.

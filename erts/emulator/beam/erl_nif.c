@@ -1352,7 +1352,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
                 env->tmp_obj_list = tmp_obj;
 
                 bin->data = (byte*)&tmp_obj[1];
-                erts_copy_bits(base, offset, 1, bin->data, 0, 1, size);
+                erts_copy_bits_fwd(base, offset, bin->data, 0, size);
             } else {
                 bin->data = &base[BYTE_OFFSET(offset)];
             }

@@ -1276,8 +1276,8 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                     byte *buf = erts_alloc(ERTS_ALC_T_TMP, nr_of_bytes);
                     Uint nr_of_bits_to_copy = ctx.sz*BYTE_BITS+ctx.bitsize;
                     if (can_trap) iterations_until_trap -= iters_for_bin;
-                    erts_copy_bits(ctx.bptr,
-                                   ctx.bitoffs, 1, buf, 0, 1, nr_of_bits_to_copy);
+                    erts_copy_bits_fwd(ctx.bptr, ctx.bitoffs,
+                                       buf, 0, nr_of_bits_to_copy);
                     hash = block_hash(buf, ctx.sz, con);
                     if (ctx.bitsize > 0) {
                         UINT32_HASH_2(ctx.bitsize,
@@ -1312,9 +1312,9 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                         Uint nr_of_bits_to_copy =
                             MIN(nr_of_bits_left, BINARY_BUF_SIZE_BITS);
                         ctx.done = nr_of_bits_left == nr_of_bits_to_copy;
-                        erts_copy_bits(ctx.bptr + ctx.no_bytes_processed,
-                                       ctx.bitoffs, 1, ctx.buf, 0, 1,
-                                       nr_of_bits_to_copy);
+                        erts_copy_bits_fwd(ctx.bptr + ctx.no_bytes_processed,
+                                           ctx.bitoffs, ctx.buf, 0,
+                                           nr_of_bits_to_copy);
                         block_hash_buffer(ctx.buf,
                                           bytes_to_process,
                                           block_hash_ctx);
@@ -1948,7 +1948,7 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                     if (BIT_OFFSET(offset) != 0) {
                         byte *tmp = (byte*)erts_alloc(ERTS_ALC_T_TMP,
                                                       NBYTES(size));
-                        erts_copy_bits(data, offset, 1, tmp, 0, 1, size);
+                        erts_copy_bits_fwd(data, offset, tmp, 0, size);
                         bytes = tmp;
                     } else {
                         bytes = &data[BYTE_OFFSET(offset)];

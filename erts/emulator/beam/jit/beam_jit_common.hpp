@@ -600,7 +600,7 @@ void beam_jit_bs_field_size_argument_error(Process *c_p, Eterm size);
 void beam_jit_bs_add_argument_error(Process *c_p, Eterm A, Eterm B);
 Eterm beam_jit_bs_init_bits(Process *c_p,
                             Eterm *reg,
-                            ERL_BITS_DECLARE_STATEP,
+                            ErlBitsState *EBS,
                             Uint num_bits,
                             Uint alloc,
                             unsigned Live);
