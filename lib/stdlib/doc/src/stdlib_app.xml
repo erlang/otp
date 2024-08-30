@@ -62,6 +62,13 @@
           <p>Sets where the tab expansion text should appear in the shell.
             The default is <c>below</c>.</p>
       </item>
+      <tag><marker id="shell_redraw_prompt_on_output"/><c>shell_redraw_prompt_on_output = boolean()</c></tag>
+      <item>
+          <p>Sets whether the shell should redraw the prompt when it receives output from other processes.
+            This setting can be useful if you use <c>run_erl</c> to for logging as redrawing the prompt will
+            emit a lot of ANSI escape characters that you normally do not want in a log.
+            The default is <c>true</c>.</p>
+      </item>
       <tag><marker id="shell_history_length"/><c>shell_history_length = integer() >= 0</c></tag>
       <item>
         <p>Can be used to determine how many commands are saved by the Erlang
