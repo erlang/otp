@@ -1666,7 +1666,7 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
     /* If stdin is a tty then we need to restore its settings when we exit.
        So we send the tty mode to erl_child_setup so that it can cleanup
        in case the emulator is terminated with SIGKILL. */
-    if (isatty(0)) {
+    if (isatty(0) && isatty(1)) {
         ssize_t res, pos = 0;
         size_t size = sizeof(struct termios);
         byte *buff = (byte *)&erl_sys_initial_tty_mode;
