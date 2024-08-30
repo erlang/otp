@@ -136,11 +136,12 @@ format_one({ul,_,Ul}) ->
     format_ul(Ul).
 
 format_p(Is0) ->
-    Is = [format_p_item(I) || I <- Is0],
-    [~".PP\n",Is,$\n].
+    Text0 = iolist_to_binary([format_p_item(I) || I <- Is0]),
+    Text = string:trim(Text0, leading),
+    [~".PP\n",Text,$\n].
 
 format_p_item({code,_,Text}) ->
-    [~B"\fI",Text,~B"\fR"];
+    [~B"\fI",format_p_item(Text),~B"\fR"];
 format_p_item({em,_,Text}) ->
     [~B"\fB",format_p_item(Text),~B"\fR"];
 format_p_item({i,_,Text}) ->
@@ -150,14 +151,14 @@ format_p_item([H|T]) ->
 format_p_item([]) ->
     [];
 format_p_item(Text) when is_binary(Text) ->
-    Text.
+    escape_backslashes(Text).
 
 format_pre(Ps0) ->
     Ps = [format_pre_item(P) || P <- Ps0],
     [~".IP\n.nf\n",Ps,$\n,~".fi\n"].
 
 format_pre_item({code,_,Text}) ->
-    Text.
+    escape_backslashes(Text).
 
 format_ul(UL) ->
     [format_ul_item(I) || I <- UL].
@@ -200,3 +201,8 @@ strip_formatting(<<".",_/binary>> = Bin) ->
     [~B"\&",Bin];
 strip_formatting(Bin) when is_binary(Bin) ->
     Bin.
+
+escape_backslashes(Text) when is_list(Text) ->
+    escape_backslashes(iolist_to_binary(Text));
+escape_backslashes(Text) when is_binary(Text) ->
+    binary:replace(Text, ~B"\", ~B"\\", [global]).
