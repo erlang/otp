@@ -23,7 +23,8 @@ runs:
       ## with a stale cache when kerl och apt-get upgrade updates things
       - name: Get current Erlang releases
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        shell: bash
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Cache BASE image
         uses: actions/cache@v4.0.2
