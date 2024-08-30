@@ -676,6 +676,16 @@ switch_loop(info, {Requester, get_terminal_state}, _State) ->
                                                 stdout => prim_tty:isatty(stdout),
                                                 stderr => prim_tty:isatty(stderr) } },
     keep_state_and_data;
+switch_loop(info, {Requester, tty_geometry}, {_Cont, #state{ tty = TTYState }}) ->
+    case prim_tty:window_size(TTYState) of
+        {ok, Geometry} ->
+            Requester ! {self(), tty_geometry, Geometry},
+            ok;
+        Error ->
+            Requester ! {self(), tty_geometry, Error},
+            ok
+    end,
+    keep_state_and_data;
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
      {next_event, info, {State#state.read,{data,[]}}}};
