@@ -182,7 +182,7 @@ void sys_tty_reset(int exit_code)
   if (using_oldshell && !replace_intr) {
     SET_BLOCKING(0);
   }
-  else if (isatty(0)) {
+  else if (isatty(0) && isatty(1)) {
     tcsetattr(0,TCSANOW,&erl_sys_initial_tty_mode);
   }
 }
