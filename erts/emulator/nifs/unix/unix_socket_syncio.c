@@ -650,12 +650,18 @@ static ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct ifmap*    mapP);
 #endif
-#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)) || \
-    (defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR))
+#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR))
 static ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 					ESockDescriptor* descP,
 					struct sockaddr* addrP);
 #endif
+/*
+#if (defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR))
+static ERL_NIF_TERM encode_ioctl_enaddr(ErlNifEnv*       env,
+					ESockDescriptor* descP,
+					char*            addrP);
+#endif
+*/
 static ERL_NIF_TERM encode_ioctl_ifraddr(ErlNifEnv*       env,
 					 ESockDescriptor* descP,
 					 struct sockaddr* addrP);
@@ -4110,6 +4116,7 @@ ERL_NIF_TERM essio_ioctl2(ErlNifEnv*       env,
  * gifnetmask  name      string
  * gifmtu      name      string
  * gifhwaddr   name      string
+ * genaddr     name      string
  * gifmap      name      string
  * giftxqlen   name      string
  */
@@ -4177,11 +4184,13 @@ ERL_NIF_TERM essio_ioctl3(ErlNifEnv*       env,
       break;
 #endif
 
-#if defined(SIOCGENHWADDR) && defined(ESOCK_USE_ENADDR)
-  case SIOCGIFENADDR:
-      return essio_ioctl_gifenaddr(env, descP, arg);
+      /*
+#if defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
+  case SIOCGENADDR:
+      return essio_ioctl_genaddr(env, descP, arg);
       break;
 #endif
+      */
 
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
   case SIOCGIFMAP:
@@ -4543,13 +4552,15 @@ IOCTL_GET_FUNCS2
 #define IOCTL_GIFHWADDR_FUNC3_DECL
 #endif
 
-/* *** essio_ioctl_gifenaddr *** */
+/* *** essio_ioctl_genaddr *** */
+/*
 #if defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR)
-#define IOCTL_GIFENADDR_FUNC3_DECL					\
-    IOCTL_GET_REQUEST3_DECL(gifenaddr, SIOCGENADDR, hwaddr, &ifreq.ifr_enaddr)
+#define IOCTL_GENADDR_FUNC3_DECL					\
+    IOCTL_GET_REQUEST3_DECL(genaddr, SIOCGENADDR, enaddr, ifreq.ifr_enaddr)
 #else
-#define IOCTL_GIFENADDR_FUNC3_DECL
+#define IOCTL_GENADDR_FUNC3_DECL
 #endif
+*/
 
 /* *** essio_ioctl_gifmap *** */
 #if defined(SIOCGIFMAP) && defined(ESOCK_USE_IFMAP)
@@ -4576,7 +4587,6 @@ IOCTL_GET_FUNCS2
   IOCTL_GIFNETMASK_FUNC3_DECL			\
   IOCTL_GIFMTU_FUNC3_DECL			\
   IOCTL_GIFHWADDR_FUNC3_DECL			\
-  IOCTL_GIFENADDR_FUNC3_DECL			\
   IOCTL_GIFMAP_FUNC3_DECL			\
   IOCTL_GIFTXQLEN_FUNC3_DECL
 
@@ -5092,8 +5102,7 @@ ERL_NIF_TERM encode_ioctl_ifrmap(ErlNifEnv*       env,
 #endif
 
 
-#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR)) ||    \
-    (defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR))
+#if (defined(SIOCGIFHWADDR) && defined(ESOCK_USE_HWADDR))
 static
 ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
 				 ESockDescriptor* descP,
@@ -5111,6 +5120,28 @@ ERL_NIF_TERM encode_ioctl_hwaddr(ErlNifEnv*       env,
     return esock_make_ok2(env, eaddr);;
 }
 #endif
+
+
+/*
+#if (defined(SIOCGENADDR) && defined(ESOCK_USE_ENADDR))
+static
+ERL_NIF_TERM encode_ioctl_enaddr(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 char*            enaddr)
+{
+    ERL_NIF_TERM eenaddr;
+    // SOCKLEN_T    len = sizeof(struct ifreq.ifr_enaddr);
+
+    eenaddr = esock_make_new_binary(env, enaddr, 6);
+
+    SSDBG( descP, ("UNIX-ESSIO", "encode_ioctl_enaddr -> done with"
+                   "\r\n    Gen Addr: %T"
+                   "\r\n", eenaddr) );
+
+    return esock_make_ok2(env, eenaddr);;
+}
+#endif
+*/
 
 
 static
