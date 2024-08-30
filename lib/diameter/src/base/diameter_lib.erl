@@ -28,6 +28,7 @@
          now/0,
          timestamp/0,
          timestamp/1,
+         formated_timestamp/0,
          now_diff/1,
          micro_diff/1,
          micro_diff/2,
@@ -41,6 +42,7 @@
          fold_n/3,
          for_n/2,
          log/4]).
+
 
 %% ---------------------------------------------------------------------------
 %% # stacktrace/1
@@ -129,6 +131,35 @@ timestamp(MonoT) ->  %% monotonic time
 
 monotonic_to_microseconds(MonoT) ->
     erlang:convert_time_unit(MonoT, native, micro_seconds).
+
+
+%% ---------------------------------------------------------------------------
+%% # formated_timestamp/0
+%% ---------------------------------------------------------------------------
+
+-spec formated_timestamp()
+   -> string().
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp(Now) ->
+    N2T = fun(N) -> calendar:now_to_local_time(N) end,
+    format_timestamp(Now, N2T).
+
+format_timestamp({_N1, _N2, N3} = Now, N2T)
+  when is_tuple(Now) andalso is_function(N2T) ->
+    {Date, Time} = N2T(Now),
+    do_format_timestamp(Date, Time, N3).
+
+do_format_timestamp(Date, Time, N3) ->
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate = 
+        io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                      [YYYY, MM, DD, Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatDate).
+
 
 %% ---------------------------------------------------------------------------
 %% # now_diff/1
