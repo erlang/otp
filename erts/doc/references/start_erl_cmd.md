@@ -28,8 +28,8 @@ Windows). Although there are programs with the same name on other platforms,
 their functionality is different.
 
 This program is distributed both in compiled form (under
-`<Erlang root>\\erts-<version>\\bin`) and in source form (under
-`<Erlang root>\\erts-<version>\\src`). The purpose of the source code is to
+`<Erlang root>\erts-<version>\bin`) and in source form (under
+`<Erlang root>\erts-<version>\src`). The purpose of the source code is to
 ease customization of the program for local needs, such as cyclic restart
 detection. There is also a "make"-file, written for the `nmake` program
 distributed with Microsoft Visual C++. This program can, however, be compiled
@@ -55,10 +55,10 @@ The `start_erl` program in its original form recognizes the following options:
 - **`-reldir <release root>`** - Mandatory if environment variable `RELDIR` is
   not specified and no `-rootdir` option is specified. Tells `start_erl` where
   the root of the release tree is located in the file system (typically
-  `<Erlang root>\\releases`). The `start_erl.data` file is expected to be
+  `<Erlang root>\releases`). The `start_erl.data` file is expected to be
   located in this directory (unless otherwise specified). If only option
   `-rootdir` is specified, the directory is assumed to be
-  `<Erlang root>\\releases`.
+  `<Erlang root>\releases`.
 
 - **`-rootdir <Erlang root directory>`** - Mandatory if `-reldir` is not
   specified and no `RELDIR` exists in the environment. This specifies the Erlang

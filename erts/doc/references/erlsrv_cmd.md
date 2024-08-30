@@ -161,7 +161,7 @@ The following parameters can be specified for each Erlang service:
   shows up as the service description in the Windows service manager.
 
 [](){: #001 } The naming of the service in a system that uses release handling
-must follow the convention _NodeName_\__Release_, where _NodeName_ is the first
+must follow the convention *NodeName_Release*, where _NodeName_ is the first
 part of the Erlang node name (up to, but not including the "@") and _Release_ is
 the current release of the application.
 
