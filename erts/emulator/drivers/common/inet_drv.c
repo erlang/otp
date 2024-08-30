@@ -11408,6 +11408,7 @@ static void tcp_restart_input(tcp_descriptor* desc)
 	int n;
 
         ASSERT( (desc->i_ptr_start != NULL) &&
+                (desc->i_buf != NULL) &&
                 (desc->i_buf->orig_bytes != NULL) );
 
         n = desc->i_ptr - desc->i_ptr_start;
@@ -12580,8 +12581,10 @@ static int tcp_remain(tcp_descriptor* desc, int* len)
 
         *len = 0;
         nread = packet_header_length(desc);
-        if (nread != 0)
+        if (nread != 0) {
+            tcp_restart_input(desc); /* Move the data to buffer start */
             return nread;
+        }
 
         if (nsz == 0) { /* No remaining space - buffer is full */
             if (nfill == n) {   /* The current packet itself fills the buffer */
