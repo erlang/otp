@@ -1095,7 +1095,7 @@ shell_support_ansi_input(Config) ->
     ClearText = "\e[0m",
 
     try
-        send_stdin(Term,["{",BoldText,"a😀b",ClearText,"}"]),
+        send_tty(Term,["{",BoldText,"a😀b",ClearText,"}"]),
         timer:sleep(1000),
         try check_location(Term, {0, width("{1ma😀bm}")}) of
             _ ->
@@ -1150,15 +1150,15 @@ shell_expand_location_below(Config) ->
         Cols = 80,
 
         %% First check that basic completion works
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "escript:"),
+        send_tty(Term, "\t"),
         %% Cursor at correct place
         check_location(Term, {-3, width("escript:")}),
         %% Nothing after the start( completion
         check_content(Term, "start\\($"),
 
         %% Check that completion is cleared when we type
-        send_stdin(Term, "s"),
+        send_tty(Term, "s"),
         check_location(Term, {-3, width("escript:s")}),
         check_content(Term, "escript:s$"),
 
@@ -1168,7 +1168,7 @@ shell_expand_location_below(Config) ->
         send_tty(Term, "End"),
         send_tty(Term, ", test_after]"),
         [send_tty(Term, "Left") || _ <- ", test_after]"],
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_location(Term, {-3, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "C-K"),
@@ -1176,11 +1176,11 @@ shell_expand_location_below(Config) ->
         %% Check that completion works when in the middle of a long term
         send_tty(Term, ", "++ lists:duplicate(80*2, $a)++"]"),
         [send_tty(Term, "Left") || _ <- ", "++ lists:duplicate(80*2, $a)++"]"],
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_location(Term, {-4, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "End"),
-        send_stdin(Term, ".\n"),
+        send_tty(Term, ".\n"),
 
         %% Check that we behave as we should with very long completions
         rpc(Term, fun() ->
@@ -1191,14 +1191,14 @@ shell_expand_location_below(Config) ->
         timer:sleep(1000), %% Sleep to make sure window has resized
         Result = 61,
         Rows1 = 48,
-        send_stdin(Term, "long_module:" ++ FunctionName),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "long_module:" ++ FunctionName),
+        send_tty(Term, "\t"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name0\\("),
 
         %% Check that correct text is printed below expansion
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
                                           [1, 7, Result])),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
             [1, Rows1, Result])),
         send_tty(Term, "Down"),
@@ -1274,13 +1274,13 @@ shell_expand_location_above(Config) ->
 
     try
         tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "escript:"),
+        send_tty(Term, "\t"),
         check_location(Term, {0, width("escript:")}),
         check_content(Term, "start\\(\n"),
         check_content(Term, "escript:$"),
-        send_stdin(Term, "s"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "s"),
+        send_tty(Term, "\t"),
         check_location(Term, {0, width("escript:s")}),
         check_content(Term, "\nscript_name\\([ ]+start\\(\n"),
         check_content(Term, "escript:s$"),
