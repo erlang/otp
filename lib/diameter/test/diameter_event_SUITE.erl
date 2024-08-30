@@ -301,6 +301,8 @@ flooding_which_event({watchdog, _, _, {initial, okay}, _}) ->
     wd_init_okay;
 flooding_which_event({watchdog, _, _, {okay, down}, _}) ->
     wd_okay_down;
+flooding_which_event({reconnect, _, _}) ->
+    reconnect;
 flooding_which_event(Unknown) ->
     ?P("Unknown event: "
        "~n   ~p", [Unknown]),
