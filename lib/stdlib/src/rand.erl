@@ -201,14 +201,14 @@ R1 = rand:uniform(),
 Use a specified algorithm:
 
 ```erlang
-_ = rand:seed(exs928ss),
+_ = rand:seed(exro928ss),
 R2 = rand:uniform(),
 ```
 
 Use a specified algorithm with a fixed seed:
 
 ```erlang
-_ = rand:seed(exs928ss, {123, 123534, 345345}),
+_ = rand:seed(exro928ss, {123, 123534, 345345}),
 R3 = rand:uniform(),
 ```
 
