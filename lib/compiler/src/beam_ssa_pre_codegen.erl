@@ -1453,7 +1453,8 @@ split_rm_blocks([L|Ls], Blocks0, Count0, Acc) ->
                         Op =:= remove_message
                 end,
             Next = Count0,
-            {Blocks,Count} = beam_ssa:split_blocks([L], P, Blocks0, Count0),
+            {Blocks,Count} = beam_ssa:split_blocks_before([L], P,
+                                                          Blocks0, Count0),
             true = Count0 =/= Count,            %Assertion.
             split_rm_blocks(Ls, Blocks, Count, [Next|Acc])
     end;
