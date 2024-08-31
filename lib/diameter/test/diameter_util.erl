@@ -197,11 +197,13 @@ await_down(ParentMRef, WorkerPid, N) ->
     receive
         check_worker_status ->
             ?UL("await_down -> check worker process ~p status [~w]: "
+                "~n   Initial Call:         ~p"
                 "~n   Current Function:     ~p"
                 "~n   Message Queue Length: ~p"
                 "~n   Reductions:           ~p"
                 "~n   Status:               ~p",
                 [WorkerPid, N,
+                 pi(WorkerPid, initial_call),
                  pi(WorkerPid, current_function),
                  pi(WorkerPid, message_queue_len),
                  pi(WorkerPid, reductions),
