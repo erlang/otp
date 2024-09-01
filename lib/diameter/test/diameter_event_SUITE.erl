@@ -299,8 +299,21 @@ flooding_which_event({down = Event, _, _, _}) ->
     Event;
 flooding_which_event({watchdog, _, _, {initial, okay}, _}) ->
     wd_init_okay;
+flooding_which_event({watchdog, _, _, {initial, reopen}, _}) ->
+    wd_init_reopen;
 flooding_which_event({watchdog, _, _, {okay, down}, _}) ->
     wd_okay_down;
+flooding_which_event({watchdog, _, _, {From, To}, _}) ->
+    ?P("Unknown watchdog event: "
+       "~n   From: ~p"
+       "~n   To:   ~p", [From, To]),
+    wd;
+flooding_which_event({reconnect = Event, _, _}) ->
+    Event;
+flooding_which_event(Event) when is_tuple(Event) ->
+    ?P("Unknown event: "
+       "~n   ~p", [Event]),
+    element(1, Event);
 flooding_which_event(Unknown) ->
     ?P("Unknown event: "
        "~n   ~p", [Unknown]),
