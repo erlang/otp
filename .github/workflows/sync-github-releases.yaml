@@ -19,7 +19,7 @@ jobs:
     concurrency: sync-github-releases
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.7
       ## We need to login to the package registry in order to pull
       ## the base debian image.
       - name: Docker login
