@@ -1300,6 +1300,27 @@ The following options are available:
 
 - **`{raw, Protocol, OptionNum, ValueBin}`** - See below.
 
+- **`{read_ahead, Boolean}`** [](){: #option-read_ahead } -
+  If set to `false` avoids reading ahead from the OS socket layer.
+  The default for this option is `true` which speeds up packet header parsing.
+  Setting `false` has a performance penalty because the packet header
+  has to be read first, to know exactly how many bytes to read for the body,
+  which roughly doubles the number of read operations.
+
+  The use of this option is essential for example before switching to kTLS
+  which activates OS socket layer encryption and decryption by setting
+  special (raw) socket options.  So if the Erlang socket layer has read ahead,
+  it has read bytes that was for the OS socket layer to decrypt,
+  which makes packet decryption derail for the connection.
+
+  > #### Warning {: .warning }
+  >
+  > For packet modes that doesn't have the packet length at a fixed location
+  > in a packet header, such as `line` or `asn1`, not reading ahead
+  > can become very inefficient since sometimes the only way to accomplish
+  > this is to read one byte at the time until the length
+  > or packet end is found.
+
 - **`{read_packets, Integer}` (UDP sockets)** [](){: #option-read_packets } -
   Sets the maximum number of UDP packets to read without intervention
   from the socket when data is available.  When this many packets
