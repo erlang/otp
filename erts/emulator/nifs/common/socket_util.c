@@ -44,6 +44,10 @@
 #include <net/if_arp.h>
 #endif
 
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+#include <net/if_types.h>
+#endif
+
 #include "socket_int.h"
 #include "sys.h"
 #include "socket_util.h"
@@ -144,6 +148,11 @@ static void make_sockaddr_dl(ErlNifEnv*    env,
 #endif
 #ifdef HAS_AF_LOCAL
 static SOCKLEN_T sa_local_length(int l, struct sockaddr_un* sa);
+#endif
+
+#if defined(HAVE_NET_IF_DL_H) && defined(AF_LINK)
+static ERL_NIF_TERM esock_encode_if_type(ErlNifEnv*   env,
+                                         unsigned int ifType);
 #endif
 
 
@@ -1321,7 +1330,7 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
         /* type -  interface type */
         UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> type: %d"
                "\r\n", sockAddrP->sdl_type) );
-        etype = MKUI(env, sockAddrP->sdl_type);
+        etype = esock_encode_if_type(env, sockAddrP->sdl_type);
 
         /* nlen - interface name length, no trailing 0 reqd. */
         UDBG( ("SUTIL", "esock_encode_sockaddr_dl -> nlen: %d"
@@ -1354,6 +1363,114 @@ void esock_encode_sockaddr_dl(ErlNifEnv*          env,
                                      addrLen, esock_atom_link, eSockAddr);
     }
 }
+
+
+static
+ERL_NIF_TERM esock_encode_if_type(ErlNifEnv*   env,
+                                  unsigned int ifType)
+{
+    ERL_NIF_TERM eIfType;
+
+    switch (ifType) {
+#if defined(IFT_OTHER)
+    case IFT_OTHER:
+        eIfType = esock_atom_other;
+        break;
+#endif
+
+#if defined(IFT_HDH1822)
+    case IFT_HDH1822:
+        eIfType = esock_atom_hdh1822;
+        break;
+#endif
+
+#if defined(IFT_X25DDN)
+    case IFT_X25DDN:
+        eIfType = esock_atom_x25ddn;
+        break;
+#endif
+
+#if defined(IFT_X25)
+    case IFT_X25:
+        eIfType = esock_atom_x25;
+        break;
+#endif
+
+#if defined(IFT_ETHER)
+    case IFT_ETHER:
+        eIfType = esock_atom_ether;
+        break;
+#endif
+
+#if defined(IFT_PPP)
+    case IFT_PPP:
+        eIfType = esock_atom_ppp;
+        break;
+#endif
+
+#if defined(IFT_LOOP)
+    case IFT_LOOP:
+        eIfType = esock_atom_loop;
+        break;
+#endif
+
+#if defined(IFT_IPV4)
+    case IFT_IPV4:
+        eIfType = esock_atom_ipv4;
+        break;
+#endif
+
+#if defined(IFT_IPV6)
+    case IFT_IPV6:
+        eIfType = esock_atom_ipv6;
+        break;
+#endif
+
+#if defined(IFT_6TO4)
+    case IFT_6TO4:
+        eIfType = esock_atom_6to4;
+        break;
+#endif
+
+#if defined(IFT_GIF)
+    case IFT_GIF:
+        eIfType = esock_atom_gif;
+        break;
+#endif
+
+#if defined(IFT_FAITH)
+    case IFT_FAITH:
+        eIfType = esock_atom_faith;
+        break;
+#endif
+
+#if defined(IFT_STF)
+    case IFT_STF:
+        eIfType = esock_atom_stf;
+        break;
+#endif
+
+#if defined(IFT_BRIDGE)
+    case IFT_BRIDGE:
+        eIfType = esock_atom_bridge;
+        break;
+#endif
+
+#if defined(IFT_CELLULAR)
+    case IFT_CELLULAR:
+        eIfType = esock_atom_cellular;
+        break;
+#endif
+
+    default:
+        eIfType = MKUI(env, ifType);
+        break;
+    }
+
+    return eIfType;
+}
+
+
 #endif
 
 

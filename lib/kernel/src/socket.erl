@@ -319,6 +319,7 @@ server(Addr, Port) ->
               sockaddr_unspec/0,
               sockaddr_native/0,
 
+              interface_type/0,
               msg_flag/0,
 
               level/0,
@@ -755,6 +756,15 @@ C: `struct sockaddr_ll`
           addr     := binary()}.
 
 -doc """
+The interface type (of the datalink). We only translate a few values to atoms,
+the rest are left as (unsigned) integer values.
+""".
+-type interface_type() :: 'other' | 'hdh1822' | 'x25ddh' | 'x25' | 'ether' |
+                          'ppp' | 'loop' | 'ipv4' | 'ipv6' | '6to4' |
+                          'gif' | 'faith' | 'stf' | 'bridge' | 'cellular' |
+                          non_neg_integer().
+
+-doc """
 C: `struct sockaddr_dl`
 
 Link level address (PF_LINK) on BSD:s.
@@ -762,7 +772,7 @@ Link level address (PF_LINK) on BSD:s.
 -type sockaddr_dl() ::
         #{family   := 'link',
           index    := non_neg_integer(),
-          type     := non_neg_integer(),
+          type     := interface_type(),
           nlen     := non_neg_integer(),
           alen     := non_neg_integer(),
           slen     := non_neg_integer(),

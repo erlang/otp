@@ -1610,6 +1610,8 @@ void encode_ifaddrs(ErlNifEnv*      env,
     ERL_NIF_TERM eifAddrs;
     BOOLEAN_T    extraAddr; // This is just for debugging...
 
+    NDBG( ("NET", "encode_ifaddrs -> entry\r\n") );
+
     ename     = encode_ifaddrs_name(env,  ifap->ifa_name);
     NDBG( ("NET", "encode_ifaddrs -> name: %T\r\n", ename) );
     eflags    = encode_ifaddrs_flags(env, ifap->ifa_flags);
@@ -1618,6 +1620,7 @@ void encode_ifaddrs(ErlNifEnv*      env,
     NDBG( ("NET", "encode_ifaddrs -> addr: "
            "\r\n   %T"
            "\r\n", eaddr) );
+
     /* This is an ugly (OpenBSD?) hack... 
      * "For some reason" the netmask family is set to 'AF_UNSPEC'
      * (when the addr family is AF_INET) on OpenBSD,
@@ -1625,6 +1628,7 @@ void encode_ifaddrs(ErlNifEnv*      env,
      * So force the family to AF_INET in this case to allow encoding
      * the netmask...
      */
+
     if ((ifap->ifa_addr != NULL) &&
         (((ESockAddress*)ifap->ifa_addr)->sa.sa_family == AF_INET)) {
         if ((ifap->ifa_netmask != NULL) &&
@@ -1637,18 +1641,41 @@ void encode_ifaddrs(ErlNifEnv*      env,
            "\r\n   %T"
            "\r\n", enetmask) );
     if (ifap->ifa_dstaddr && (ifap->ifa_flags & IFF_POINTOPOINT)) {
+
+        NDBG( ("NET", "encode_ifaddrs -> try encode dest addr\r\n") );
+
+        /* What the eff is this fakery? */
+        if (((ESockAddress*)ifap->ifa_dstaddr)->sa.sa_family == AF_UNSPEC)
+            ((ESockAddress*)ifap->ifa_dstaddr)->sa.sa_family = AF_INET;
+
         extraAddr  = TRUE;
         eifu_key   = atom_dstaddr;
         eifu_value = encode_ifaddrs_addr(env, ifap->ifa_dstaddr);
+
+        NDBG( ("NET", "encode_ifaddrs -> dest addr: "
+               "\r\n   %T"
+               "\r\n", eifu_value) );
+
     } else if (ifap->ifa_broadaddr && (ifap->ifa_flags & IFF_BROADCAST)) {
+
+        NDBG( ("NET", "encode_ifaddrs -> try encode broad addr\r\n") );
+
         extraAddr  = TRUE;
         eifu_key   = atom_broadaddr;
         eifu_value = encode_ifaddrs_addr(env, ifap->ifa_broadaddr);
+
+        NDBG( ("NET", "encode_ifaddrs -> broad addr: "
+               "\r\n   %T"
+               "\r\n", eifu_value) );
+
     } else {
+
         extraAddr  = FALSE;
         eifu_key   = esock_atom_undefined;
         eifu_value = esock_atom_undefined;
+
     }
+
     if (extraAddr) {
         NDBG( ("NET", "encode_ifaddrs -> ifu: "
                "\r\n   key: %T"
