@@ -7128,20 +7128,17 @@ follows:
   `{spawn_executable, FileName}`. The external program starts using `Dir` as its
   working directory. `Dir` must be a string.
 
-- **`{env, Env}`** - Types:  
-    `Name = ``t:os:env_var_name/0`  
-    `Val = ``t:os:env_var_value/0`` | false`  
-    `Env = [{Name, Val}]`
-
-  Only valid for `{spawn, Command}`, and `{spawn_executable, FileName}`. The
-  environment of the started process is extended using the environment
+- **`{env, Env}`** - Only valid for `{spawn, Command}`, and `{spawn_executable, FileName}`.
+  The environment of the started process is extended using the environment
   specifications in `Env`.
 
-  `Env` is to be a list of tuples `{Name, Val}`, where `Name` is the name of an
-  environment variable, and `Val` is the value it is to have in the spawned port
-  process. Both `Name` and `Val` must be strings. The one exception is `Val`
-  being the atom `false` (in analogy with `os:getenv/1`), which removes the
-  environment variable.
+  `Env` is to be a list of tuples `{Name, Val}`, where `Name` is a `t:os:env_var_name/0`
+  representing the name of an environment variable, and `Val` is a `t:os:env_var_name/0`
+  representing the value it is to have in the spawned port process. Both `Name` and `Val` must
+  be strings.
+
+  If `Val` is set to the atom `false` or the empty string (that is `""` or `[]`), open_port
+  will consider those variables unset just as if `os:unsetenv/1` had been called.
 
   For information about encoding requirements, see documentation of the types
   for `Name` and `Val`.
@@ -7327,7 +7324,7 @@ by passing command-line flag [`+Q`](erl_cmd.md#max_ports) to [erl](erl_cmd.md).
            | stream
            | {line, L :: non_neg_integer()}
            | {cd, Dir :: string() | binary()}
-           | {env, Env :: [{Name :: os:env_var_name(), Val :: os:env_var_value() | false}]}
+           | {env, Env :: [{Name :: os:env_var_name(), Val :: os:env_var_value() | [] | false}]}
            | {args, [string() | binary()]}
            | {arg0, string() | binary()}
            | exit_status
