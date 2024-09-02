@@ -276,13 +276,22 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(tty, Options) of
             true ->
-                case tty_init(TTY, stdout, Options) of
-		     ok -> ok;
-		     {error, enotsup} -> error(enotsup)
-		end,
-                NewState = init(State, os:type()),
-                ok = tty_set(TTY),
-                NewState;
+                %% If a reader has been started already, we disable it to avoid race conditions when
+                %% upgrading the terminal
+                [disable_reader(State) || State#state.reader =/= undefined],
+
+                try
+                    case tty_init(TTY, stdout, Options) of
+                        ok -> ok;
+                        {error, enotsup} -> error(enotsup)
+                    end,
+                    NewState = init(State, os:type()),
+                    ok = tty_set(TTY),
+
+                    NewState
+                after
+                    [enable_reader(State) || State#state.reader =/= undefined]
+                end;
             false ->
                 State
         end,
