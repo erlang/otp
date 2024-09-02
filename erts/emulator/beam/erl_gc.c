@@ -90,7 +90,7 @@ do {									\
     ASSERT((p)->abandoned_heap || (P)->heap_sz == (P)->hend - (P)->heap); \
     ASSERT((P)->heap <= (P)->htop && (P)->htop <= (P)->hend);		\
     ASSERT((P)->heap <= (P)->stop && (P)->stop <= (P)->hend);		\
-    ASSERT((p)->abandoned_heap || ((P)->heap <= (P)->high_water && (P)->high_water <= (P)->hend)); \
+    ASSERT(((P)->heap <= (P)->high_water && (P)->high_water <= (P)->hend)); \
     OverRunCheck((P));							\
 } while (0)
 #else
@@ -524,12 +524,28 @@ delay_garbage_collection(Process *p, int need, int fcalls)
     ssz = orig_hend - orig_stop;
     hsz = ssz + need + ERTS_DELAY_GC_EXTRA_FREE + S_RESERVED;
 
-    hfrag = new_message_buffer(hsz);
+    /* Allocate one extra word at the end to save the high water mark. */
+    hfrag = new_message_buffer(hsz + 1);
 
     copy_erlang_stack(p, &hfrag->mem[0], hsz);
 
     p->heap = p->htop = &hfrag->mem[0];
-    p->hend = hend = &hfrag->mem[hsz];
+    hend = &hfrag->mem[hsz];
+
+    /* Save the original high water mark at the end of the current
+     * heap to make it possible to do a minor GC later. */
+    if (p->abandoned_heap) {
+        *hend = (Eterm) (p->hend[0]);
+    } else {
+        *hend = (Eterm) p->high_water;
+    }
+
+    p->hend = hend;
+
+    /* Keep the high water mark pointing into the current heap to ensure
+     * that the test for the safe range in the update_record_in_place (JIT)
+     * stays honest. */
+    p->high_water = p->heap;
 
     if (p->abandoned_heap) {
 	/*
@@ -542,7 +558,7 @@ delay_garbage_collection(Process *p, int need, int fcalls)
         Uint used = orig_htop - orig_heap;
         hfrag->used_size = used;
         p->mbuf_sz += used;
-        ASSERT(hfrag->used_size <= hfrag->alloc_size);
+        ASSERT(hfrag->used_size <= hfrag->alloc_size-1);
         ASSERT(!hfrag->off_heap.first && !hfrag->off_heap.overhead);
         hfrag->next = p->mbuf;
         p->mbuf = hfrag;
@@ -558,11 +574,6 @@ delay_garbage_collection(Process *p, int need, int fcalls)
 	}
 	p->abandoned_heap = orig_heap;
         erts_adjust_memory_break(p, orig_htop - p->high_water);
-
-        /* Point at the end of the address range to ensure that
-         * test for the safe range in the new heap in the
-         * update_record_in_place instruction fails. */
-        p->high_water = (Eterm *) (Uint) -1;
     }
 
 #ifdef CHECK_FOR_HOLES
@@ -636,21 +647,39 @@ young_gen_usage(Process *p, Uint *ext_msg_usage)
     return hsz;
 }
 
-#define ERTS_GET_ORIG_HEAP(Proc, Heap, HTop)			\
-    do {							\
-	Eterm *aheap__ = (Proc)->abandoned_heap;		\
-	if (!aheap__) {						\
-	    (Heap) = (Proc)->heap;				\
-	    (HTop) = (Proc)->htop;				\
-	}							\
-	else {							\
-	    (Heap) = aheap__;					\
-	    if ((Proc)->flags & F_ABANDONED_HEAP_USE)		\
-		(HTop) = aheap__ + aheap__[(Proc)->heap_sz-1];	\
-	    else						\
-		(HTop) = aheap__ + (Proc)->heap_sz;		\
-	}							\
-    } while (0)
+static Eterm*
+get_orig_heap(Process *p, Eterm **p_htop, Eterm **p_high_water) {
+    Eterm *aheap = p->abandoned_heap;
+    Eterm *htop;
+
+    /* See delay_garbage_collection(). */
+
+    ASSERT(aheap != NULL);
+
+    if (p->flags & F_ABANDONED_HEAP_USE) {
+        htop = aheap + aheap[p->heap_sz-1];
+    } else {
+        htop = aheap + p->heap_sz;
+    }
+
+    *p_htop = htop;
+
+    if (p_high_water) {
+        Eterm *high_water;
+
+        high_water = (Eterm *)(p->hend[0]);
+
+        ASSERT(aheap <= high_water);
+        ASSERT(high_water <= htop);
+
+        /* The high water pointer must be aligned to a word boundary. */
+        ASSERT(((UWord) high_water) % sizeof(UWord) == 0);
+
+        *p_high_water = high_water;
+    }
+
+    return aheap;
+}
 
 static ERTS_INLINE void
 check_for_possibly_long_gc(Process *p, Uint ygen_usage)
@@ -1376,11 +1405,31 @@ minor_collection(Process* p, ErlHeapFragment *live_hf_end,
 		 Uint ygen_usage, Uint *recl)
 {
     Eterm *mature = p->abandoned_heap ? p->abandoned_heap : p->heap;
-    Uint mature_size = p->high_water - mature;
+    Eterm *high_water;
+    Uint mature_size;
     Uint size_before = ygen_usage;
 #ifdef DEBUG
     Uint debug_tmp = 0;
 #endif
+
+    if (p->abandoned_heap) {
+        /* See delay_garbage_collection(). */
+        high_water = (Eterm *)(p->hend[0]);
+    } else {
+        high_water = p->high_water;
+    }
+
+#ifdef DEBUG
+    if (p->abandoned_heap) {
+        ASSERT(p->abandoned_heap <= high_water);
+        ASSERT(high_water - p->abandoned_heap <= size_before);
+
+        /* The high water pointer must be aligned to a word boundary. */
+        ASSERT(((UWord) high_water) % sizeof(UWord) == 0);
+    }
+#endif
+
+    mature_size = high_water - mature;
 
     need += S_RESERVED;
 
@@ -3641,9 +3690,11 @@ erts_process_gc_info(Process *p, Uint *sizep, Eterm **hpp,
     ERTS_CT_ASSERT(sizeof(values)/sizeof(*values) == ERTS_PROCESS_GC_INFO_MAX_TERMS);
 
     if (p->abandoned_heap) {
-        Eterm *htop, *heap;
-        ERTS_GET_ORIG_HEAP(p, heap, htop);
-        values[3] = HIGH_WATER(p) - heap;
+        Eterm *htop, *heap, *high_water;
+
+        heap = get_orig_heap(p, &htop, &high_water);
+
+        values[3] = high_water - heap;
         values[6] = htop - heap;
     }
 
@@ -3888,7 +3939,7 @@ erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm *real_htop)
     Eterm *htop, *heap;
 
     if (p->abandoned_heap) {
-	ERTS_GET_ORIG_HEAP(p, heap, htop);
+        heap = get_orig_heap(p, &htop, NULL);
 	if (heap <= ptr && ptr < htop)
 	    return 1;
     }
@@ -3998,7 +4049,7 @@ erts_dbg_check_heap_terms(int (*check_eterm)(Eterm),
     Eterm *htop, *heap;
 
     if (p->abandoned_heap) {
-	ERTS_GET_ORIG_HEAP(p, heap, htop);
+        heap = get_orig_heap(p, &htop, NULL);
 	if (!check_all_heap_terms_in_range(check_eterm,
                                            heap, htop))
 	    return 0;

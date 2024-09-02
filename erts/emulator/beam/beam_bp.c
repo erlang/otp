@@ -927,8 +927,6 @@ static void restore_cp_after_trace(Process *c_p, const Eterm cp_save[2]) {
 }
 
 static ERTS_INLINE Uint get_allocated_words(Process *c_p, Sint allocated) {
-    if (c_p->abandoned_heap)
-        return allocated + c_p->htop - c_p->heap + c_p->mbuf_sz;
     return allocated + c_p->htop - c_p->high_water + c_p->mbuf_sz;
 }
 
