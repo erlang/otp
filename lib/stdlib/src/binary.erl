@@ -750,7 +750,7 @@ _Examples:_
       OnePos :: non_neg_integer(),
       Result :: binary().
 
-replace(Haystack,Needles,Replacement,Options) ->
+replace(Subject,Pattern,Replacement,Options) ->
     try
 	true = is_binary(Replacement) orelse is_function(Replacement, 1), % Make badarg instead of function clause
 	{Part,Global,Insert} = get_opts_replace(Options,{no,false,[]}),
@@ -762,9 +762,9 @@ replace(Haystack,Needles,Replacement,Options) ->
 		   end,
 	MList = if
 		    Global ->
-			binary:matches(Haystack,Needles,Moptlist);
+			binary:matches(Subject,Pattern,Moptlist);
 		    true ->
-			case binary:match(Haystack,Needles,Moptlist) of
+			case binary:match(Subject,Pattern,Moptlist) of
 			    nomatch -> [];
 			    Match -> [Match]
 			end
@@ -781,12 +781,12 @@ replace(Haystack,Needles,Replacement,Options) ->
 			   Splits = splitat(Replacement,0,lists:sort(Li)),
 			   fun(M) -> lists:join(M, Splits) end
 		   end,
-	erlang:iolist_to_binary(do_replace(Haystack,MList,ReplList,0))
+	erlang:iolist_to_binary(do_replace(Subject,MList,ReplList,0))
    catch
        throw:badopt ->
-           badarg_with_cause([Haystack,Needles,Replacement,Options], badopt);
+           badarg_with_cause([Subject,Pattern,Replacement,Options], badopt);
        _:_ ->
-           badarg_with_info([Haystack,Needles,Replacement,Options])
+           badarg_with_info([Subject,Pattern,Replacement,Options])
    end.
 
 
