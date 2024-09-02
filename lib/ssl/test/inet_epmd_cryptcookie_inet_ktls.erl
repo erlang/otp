@@ -56,7 +56,7 @@ listen_open(_NetAddress, Options) ->
      inet_epmd_dist:merge_options(
        Options,
        [{active, false}, {mode, binary}, {packet, 0},
-        inet_epmd_dist:nodelay()],
+        {read_ahead, false}, inet_epmd_dist:nodelay()],
        [])}.
 
 %% ------------------------------------------------------------
@@ -111,7 +111,7 @@ connect(NetAddress, _Timer, Options) ->
         inet_epmd_dist:merge_options(
           Options,
           [{active, false}, {mode, binary}, {packet, 0},
-           inet_epmd_dist:nodelay()],
+           {read_ahead, false}, inet_epmd_dist:nodelay()],
           []),
     #net_address{ address = {Ip, Port} } = NetAddress,
     maybe
