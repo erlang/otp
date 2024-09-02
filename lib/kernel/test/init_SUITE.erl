@@ -27,7 +27,7 @@
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
 	 many_restarts/0, many_restarts/1, restart_with_mode/1,
-	 get_plain_arguments/1,
+	 get_plain_arguments/1, init_group_history_deadlock/1,
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
          dot_erlang/1, unknown_module/1, dash_S/1, dash_extra/1,
          dash_run/1, dash_s/1,
@@ -51,7 +51,8 @@ suite() ->
 all() -> 
     [get_arguments, get_argument, boot_var,
      many_restarts, restart_with_mode,
-     get_plain_arguments, restart, stop_status, get_status, script_id,
+     get_plain_arguments, init_group_history_deadlock,
+     restart, stop_status, get_status, script_id,
      dot_erlang, unknown_module, {group, boot},
      dash_S, dash_extra, dash_run, dash_s].
 
@@ -227,6 +228,17 @@ get_plain_arguments(Config) when is_list(Config) ->
 
     ok.
 
+
+init_group_history_deadlock(_Config) ->
+    Output = os:cmd(ct:get_progname() ++ " -noshell -eval \"logger:warning(\\\"testing\\\")\" "
+            "-inets services crashme -eval \"application:start(inets, permanent).\" "),
+
+    io:format("Got output: ~ts~n",[Output]),
+
+    case string:find(Output, "removed_failing_handler") of
+        nomatch -> ok;
+        _ -> ct:fail("Found unexpected printout in log")
+    end.
 
 %% ------------------------------------------------
 %% Use -boot_var flag to set $TEST_VAR in boot script.

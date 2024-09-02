@@ -47,7 +47,6 @@ server(Ancestors, Drv, Shell, Options) ->
     process_flag(trap_exit, true),
     _ = [put('$ancestors', Ancestors) || Shell =/= {}],
     edlin:init(),
-    put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
 
@@ -65,6 +64,16 @@ server(Ancestors, Drv, Shell, Options) ->
 
     %% expand_below can be set by user_drv and ssh_cli
     put(expand_below, proplists:get_value(expand_below, Options, true)),
+
+    DefaultGroupHistory =
+        case not get(echo) of
+            true ->
+                [];
+            false ->
+                group_history:load()
+        end,
+
+    put(line_buffer, proplists:get_value(line_buffer, Options, DefaultGroupHistory)),
 
     server_loop(Drv, start_shell(Shell), []).
 
