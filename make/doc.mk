@@ -46,13 +46,23 @@ EX_DOC_FORMATS=
 endif
 
 # ----------------------------------------------------
+# Man dependencies
+# ----------------------------------------------------
+MAN1_DEPS?=$(wildcard */*_cmd.md)
+
+MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
+
+# ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+DEFAULT_DOC_TARGETS=html
 ifneq ($(CHUNK_FILES),)
-DOC_TARGETS?=html chunks
-else
-DOC_TARGETS?=html
+DEFAULT_DOC_TARGETS+=chunks
 endif
+ifneq ($(MAN1_DEPS),)
+DEFAULT_DOC_TARGETS+=man
+endif
+DOC_TARGETS?=$(DEFAULT_DOC_TARGETS)
 
 EX_DOC_WARNINGS_AS_ERRORS?=true
 
@@ -68,21 +78,17 @@ $(HTMLDIR)/index.html: $(HTML_DEPS) docs.exs $(ERL_TOP)/make/ex_doc.exs
 
 html: $(HTMLDIR)/index.html
 
-$(TYPES):
-
-clean clean_docs: clean_html
-	rm -rf $(EXTRA_FILES)
-
-MAN1_DEPS?=$(wildcard */*_cmd.md)
-
-MAN1_PAGES=$(MAN1_DEPS:references/%_cmd.md=$(MAN1DIR)/%.1)
-
 man: $(MAN1_PAGES)
 
 MARKDOWN_TO_MAN=$(ERL_TOP)/make/markdown_to_man.escript
 
 man1/%.1: references/%_cmd.md $(MARKDOWN_TO_MAN)
 	escript$(EXEEXT) $(MARKDOWN_TO_MAN) -o $(MAN1DIR) $<
+
+$(TYPES):
+
+clean clean_docs: clean_html
+	rm -rf $(EXTRA_FILES)
 
 # ----------------------------------------------------
 # Release Target
@@ -100,17 +106,18 @@ ifneq ($(CHUNK_FILES),)
 	$(INSTALL_DATA) $(CHUNK_FILES) "$(RELSYSDIR)/doc/chunks"
 endif
 
+release_man_spec: man
+ifneq ($(MAN1_DEPS),)
+	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man1"
+	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
+endif
+
 release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"
 endif
 
-release_man_spec: man
-ifneq ($(wildcard man1/*.1),)
-	$(INSTALL_DIR) "$(RELSYS_MANDIR)/man1"
-	$(INSTALL_DIR_DATA) "$(MAN1DIR)" "$(RELSYS_MANDIR)/man1"
-endif
 
 release_spec:
 
