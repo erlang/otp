@@ -2908,12 +2908,10 @@ new_seq_trace_token(Process* p, int ensure_new_heap)
 				    make_small(p->seq_trace_lastcnt));
     }
     else if (ensure_new_heap) {
-        Eterm *mature = p->abandoned_heap ? p->abandoned_heap : p->heap;
-        Uint mature_size = p->high_water - mature;
         Eterm* tpl = tuple_val(SEQ_TRACE_TOKEN(p));
         ASSERT(arityval(tpl[0]) == 5);
-        if (ErtsInBetween(tpl, OLD_HEAP(p), OLD_HEND(p)) ||
-            ErtsInArea(tpl, mature, mature_size*sizeof(Eterm))) {
+
+        if (!ErtsInBetween(tpl, p->high_water, p->hend)) {
             hp = HAlloc(p, 6);
             sys_memcpy(hp, tpl, 6*sizeof(Eterm));
             SEQ_TRACE_TOKEN(p) = make_tuple(hp);
