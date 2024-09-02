@@ -30,7 +30,7 @@
 
 %% Internal export
 -export([init/1, terminate_all_children/1,
-         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1]).
+         middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1, log/2]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -51,13 +51,12 @@
 	  extra_return/1, sup_flags/1]).
 
 %% Tests concept permanent, transient and temporary 
--export([ permanent_normal/1, transient_normal/1,
-	  temporary_normal/1,
-	  permanent_shutdown/1, transient_shutdown/1,
-	  temporary_shutdown/1,
-          faulty_application_shutdown/1,
-	  permanent_abnormal/1, transient_abnormal/1,
-	  temporary_abnormal/1, temporary_bystander/1]).
+-export([external_start_no_progress_log/1, 
+         permanent_normal/1, transient_normal/1, temporary_normal/1,
+         permanent_shutdown/1, transient_shutdown/1, temporary_shutdown/1,
+         faulty_application_shutdown/1,
+         permanent_abnormal/1, transient_abnormal/1,
+         temporary_abnormal/1, temporary_bystander/1]).
 
 %% Restart strategy tests 
 -export([ multiple_restarts/1,
@@ -96,7 +95,7 @@
 %%-------------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]},
+    [%{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
 all() -> 
@@ -140,7 +139,7 @@ groups() ->
        sup_stop_brutal_kill, sup_stop_brutal_kill_dynamic,
        sup_stop_race, sup_stop_non_shutdown_exit_dynamic]},
      {normal_termination, [],
-      [permanent_normal, transient_normal, temporary_normal]},
+      [external_start_no_progress_log, permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
       [permanent_shutdown, transient_shutdown, temporary_shutdown,
        faulty_application_shutdown]},
@@ -1048,16 +1047,28 @@ sup_flags(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
+external_start_no_progress_log(Config) when is_list(Config) ->
+    ok = logger:add_handler(?MODULE, ?MODULE, #{test_case_pid => self()}),
+    Filter = {fun logger_filters:domain/2,{log,sub,[otp,sasl]}},
+    logger:add_handler_filter(?MODULE, filter_non_sasl, Filter),
+    logger:set_module_level([supervisor], info),
+    permanent_normal(Config),
+    receive
+        ok ->
+            ok = logger:remove_handler(?MODULE);
+        {fail, Msg} ->
+            ok = logger:remove_handler(?MODULE),
+            ct:fail({"unexpected progress report", Msg})
+    end.
+
+%%-------------------------------------------------------------------------
 %% A permanent child should always be restarted.
 permanent_normal(Config) when is_list(Config) ->
     {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
-
     {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-
     terminate(SupPid, CPid1, child1, normal),
-
     [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
     case is_pid(Pid) of
 	true ->
@@ -3819,3 +3830,11 @@ ensure_supervisor_is_stopped() ->
         Pid ->
             terminate(Pid, shutdown)
     end.
+
+%%-----------------------------------------------------------------
+%% The Logger handler used.
+%%-----------------------------------------------------------------
+log(#{meta := #{mfa := {supervisor,do_restart,3}}}, #{test_case_pid := Pid}) ->
+    Pid ! ok;
+log(#{level := info, msg := Msg}, #{test_case_pid := Pid}) ->
+    Pid ! {fail, Msg}.

@@ -929,7 +929,7 @@ init_dynamic(_State, StartSpec) ->
 start_children(Children, SupName) ->
     Start =
         fun(Id,Child) ->
-                case do_start_child(SupName, Child) of
+                case do_start_child(SupName, Child, info_report) of
                     {ok, undefined} when ?is_temporary(Child) ->
                         remove;
                     {ok, Pid} ->
@@ -943,16 +943,16 @@ start_children(Children, SupName) ->
         end,
     children_map(Start,Children).
 
-do_start_child(SupName, Child) ->
+do_start_child(SupName, Child, Report) ->
     #child{mfargs = {M, F, Args}} = Child,
     case do_start_child_i(M, F, Args) of
 	{ok, Pid} when is_pid(Pid) ->
 	    NChild = Child#child{pid = Pid},
-	    report_progress(NChild, SupName),
+	    report_progress(NChild, SupName, Report),
 	    {ok, Pid};
 	{ok, Pid, Extra} when is_pid(Pid) ->
 	    NChild = Child#child{pid = Pid},
-	    report_progress(NChild, SupName),
+	    report_progress(NChild, SupName, Report),
 	    {ok, Pid, Extra};
         Other ->
             Other
@@ -1028,7 +1028,7 @@ handle_call({restart_child, _Id}, _From, State) when ?is_simple(State) ->
 handle_call({restart_child, Id}, _From, State) ->
     case find_child(Id, State) of
 	{ok, Child} when Child#child.pid =:= undefined ->
-	    case do_start_child(State#state.name, Child) of
+	    case do_start_child(State#state.name, Child, debug_report) of
 		{ok, Pid} ->
 		    NState = set_pid(Pid, Id, State),
 		    {reply, {ok, Pid}, NState};
@@ -1256,7 +1256,7 @@ update_chsp(#child{id=Id}=OldChild, NewDb) ->
 handle_start_child(Child, State) ->
     case find_child(Child#child.id, State) of
 	error ->
-	    case do_start_child(State#state.name, Child) of
+	    case do_start_child(State#state.name, Child, debug_report) of
 		{ok, undefined} when ?is_temporary(Child) ->
 		    {{ok, undefined}, State};
 		{ok, Pid} ->
@@ -1390,7 +1390,7 @@ restart(simple_one_for_one, Child, State0) ->
     end;
 restart(one_for_one, #child{id=Id} = Child, State) ->
     OldPid = Child#child.pid,
-    case do_start_child(State#state.name, Child) of
+    case do_start_child(State#state.name, Child, info_report) of
 	{ok, Pid} ->
 	    NState = set_pid(Pid, Id, State),
 	    {ok, NState};
@@ -2129,7 +2129,7 @@ extract_child(Child) ->
      {shutdown, Child#child.shutdown},
      {child_type, Child#child.child_type}].
 
-report_progress(Child, SupName) ->
+report_progress(Child, SupName, info_report) ->
     ?LOG_INFO(#{label=>{supervisor,progress},
                 report=>[{supervisor,SupName},
                          {started,extract_child(Child)}]},
@@ -2138,7 +2138,17 @@ report_progress(Child, SupName) ->
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
                 error_logger=>#{tag=>info_report,
                                 type=>progress,
-                                report_cb=>fun supervisor:format_log/1}}).
+                                report_cb=>fun supervisor:format_log/1}});
+report_progress(Child, SupName, debug_report) ->
+    ?LOG_DEBUG(#{label=>{supervisor,progress},
+                 report=>[{supervisor,SupName},
+                          {started,extract_child(Child)}]},
+               #{domain=>[otp,sasl],
+                 report_cb=>fun supervisor:format_log/2,
+                logger_formatter=>#{title=>"PROGRESS REPORT"},
+                 error_logger=>#{tag=>info_report,
+                                 type=>progress,
+                                 report_cb=>fun supervisor:format_log/1}}).
 
 %% format_log/1 is the report callback used by Logger handler
 %% error_logger only. It is kept for backwards compatibility with
