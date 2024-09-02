@@ -233,7 +233,8 @@ listen(Name, Host) ->
 
 fam_listen(Family, Name, Host) ->
     ForcedOptions =
-        [Family, {active, false}, {packet, 4}, {nodelay, true}],
+        [Family, {active, false}, {packet, 4},
+         {read_ahead, false}, {nodelay, true}],
     ListenFun =
         fun (First, Last, ListenOptions) ->
                 listen_loop(
@@ -640,7 +641,8 @@ do_setup(
           inet_tcp_dist:merge_options(
             ConnectOptions,
             get_ssl_options(client)),
-          [Family, binary, {active, false}, {packet, 4}, {nodelay, true}],
+          [Family, binary, {active, false}, {packet, 4},
+           {read_ahead, false}, {nodelay, true}],
           [{server_name_indication, Host}]),
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
@@ -943,7 +945,7 @@ inet_set_ktls(
             inet:setopts(
               Socket,
               [list, {packet, Packet}, {packet_size, PacketSize},
-               {header, Header}, {active, Active}])
+               {header, Header}, {read_ahead, true}, {active, Active}])
         of
             ok ->
                 ok;
