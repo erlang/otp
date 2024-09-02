@@ -152,11 +152,11 @@ handle_event(#event{name = test_done},
     print(D,
           "# CONF TOTALS ~p ok, ~p failed, ~pU/~pA skipped~n" ++
           "# TEST TOTALS ~p ok, ~p failed, ~pU/~pA skipped~n" ++
-              "# TIME ELAPSED " ++
-              get_nice_time(get_seconds() - StartTime) ++ "~n",
+              "# TIME ELAPSED ~s~n",
           [GetCount(ok), GetCount(failed), GetCount(skipped),
            GetCount(auto_skipped)] ++
-          [Ok, Failed, UserSkip, AutoSkip]),
+          [Ok, Failed, UserSkip, AutoSkip,
+           get_nice_time(get_seconds() - StartTime)]),
     print_line(D),
     print(D, "~n"),
     {ok,State};
