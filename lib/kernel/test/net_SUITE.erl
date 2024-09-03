@@ -423,8 +423,10 @@ api_b_getservbyname() ->
                                    wrong_port("snmp", tcp, WrongPort, 161);
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, openbsd} 
-                                         when (Reason =:= einval) ->
+                                       {unix, Flavor}
+                                         when ((Flavor =:= openbsd) orelse
+                                               (Flavor =:= solaris)) andalso
+                                              (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
@@ -583,7 +585,12 @@ api_b_getservbyport() ->
                                    end
                            end
                    end),
-    {ok, "snmp"} = net:getservbyport(161,  udp),
+    case net:getservbyport(161,  udp) of
+        {ok, "snmp"} ->
+            ok;
+        {ok, "snmpd"} -> %% Solaris
+            ok
+    end,
     not_on_windows(fun() ->
                            case net:getservbyport(161, tcp) of
                                {ok, "snmp"} ->
@@ -593,8 +600,10 @@ api_b_getservbyport() ->
                                                  WrongService, "snmp");
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, openbsd} 
-                                         when (Reason =:= einval) ->
+                                       {unix, Flavor}
+                                         when ((Flavor =:= openbsd) orelse
+                                               (Flavor =:= solaris)) andalso
+                                              (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
