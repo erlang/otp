@@ -111,6 +111,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom auto
 atom auto_connect
 atom await_exit
 atom await_microstate_accounting_modifications
@@ -217,6 +218,7 @@ atom debug_flags
 atom decentralized_counters
 atom decimals
 atom default
+atom debug_hash_fixed_number_of_locks
 atom delay_trap
 atom demonitor
 atom deterministic
@@ -260,6 +262,7 @@ atom emulator
 atom enable_trace
 atom enabled
 atom endian
+atom entry
 atom env
 atom ensure_at_least ensure_exactly
 atom eof
@@ -486,6 +489,7 @@ atom new_processes
 atom new_ports
 atom new_uniq
 atom newline
+atom nifs
 atom no
 atom nomatch
 atom none
@@ -768,10 +772,9 @@ atom warning
 atom warning_msg
 atom wordsize
 atom write_concurrency
+atom x
 atom xor
 atom x86
+atom y
 atom yes
 atom yield
-atom nifs
-atom auto
-atom debug_hash_fixed_number_of_locks

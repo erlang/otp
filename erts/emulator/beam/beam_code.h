@@ -48,6 +48,7 @@
 #define MD5_SIZE MD5_DIGEST_LENGTH
 
 typedef struct BeamCodeLineTab_ BeamCodeLineTab;
+typedef struct BeamDebugTab_ BeamDebugTab;
 
 /*
  * Header of code chunks which contains additional information
@@ -99,6 +100,11 @@ typedef struct beam_code_header {
     Uint32 *loc_index_to_cover_id;
     Uint line_coverage_len;
 
+    /*
+     * Debug information. debug->items are indexed directly by
+     * the index in each `debug_line` instruction.
+     */
+    const BeamDebugTab *debug;
 #endif
 
     /*
@@ -135,6 +141,21 @@ struct BeamCodeLineTab_ {
         Uint32* p4;
     } loc_tab;
     const void** func_tab[1];
+};
+
+/*
+ * Layout of the debug information.
+ */
+typedef struct {
+    Uint32 location_index;
+    Sint16 frame_size;
+    Uint16 num_vars;
+    Eterm *first;
+} BeamDebugItem;
+
+struct BeamDebugTab_ {
+    Uint32 item_count;
+    BeamDebugItem *items;
 };
 
 /* Total code size in bytes */

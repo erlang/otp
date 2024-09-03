@@ -706,6 +706,20 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
         }
         break;
     }
+    case op_debug_line_IIt: {
+        BeamFile_DebugItem *items = stp->beam.debug.items;
+        Uint location_index = tmp_op->a[0].val;
+        Sint index = tmp_op->a[1].val - 1;
+
+        if (add_line_entry(stp, location_index, 1)) {
+            goto load_error;
+        }
+
+        ASSERT(items[index].location_index == -1);
+        items[index].location_index = stp->current_li - 1;
+
+        break;
+    }
     case op_int_code_end:
         /* End of code found. */
         if (stp->function_number != stp->beam.code.function_count) {
@@ -859,6 +873,58 @@ static const BeamCodeLineTab *finish_line_table(LoaderState *stp,
     return line_tab_ro;
 }
 
+static const BeamDebugTab *finish_debug_table(LoaderState *stp,
+                                              char *module_base,
+                                              size_t module_size) {
+    BeamFile_DebugTable *debug = &stp->beam.debug;
+    const BeamDebugTab *debug_tab_ro;
+    byte *debug_tab_rw_base;
+    BeamDebugTab *debug_tab_top;
+    Eterm *debug_tab_terms;
+    BeamDebugItem *debug_tab_items;
+    Uint item_count = debug->item_count;
+    Uint term_count = debug->term_count;
+    Uint i;
+
+    if (item_count == 0) {
+        return NULL;
+    }
+
+    debug_tab_ro = (const BeamDebugTab *)beamasm_get_rodata(stp->ba, "debug");
+    debug_tab_rw_base = get_writable_ptr(stp->executable_region,
+                                         stp->writable_region,
+                                         debug_tab_ro);
+    debug_tab_top = (BeamDebugTab *)debug_tab_rw_base;
+    debug_tab_terms = (Eterm *)&debug_tab_top[1];
+    debug_tab_items = (BeamDebugItem *)&debug_tab_terms[term_count];
+
+    debug_tab_top->item_count = debug->item_count;
+    debug_tab_top->items = debug_tab_items;
+
+    for (i = 0; i < term_count; i++) {
+        if (debug->is_literal[i]) {
+            ASSERT(debug->is_literal[i] == 1);
+            debug_tab_terms[i] =
+                    beamfile_get_literal(&stp->beam, debug->terms[i]);
+        } else {
+            ASSERT(debug->is_literal[i] == 0);
+            debug_tab_terms[i] = debug->terms[i];
+        }
+    }
+
+    for (i = 0; i < item_count; i++) {
+        Uint num_vars = debug->items[i].num_vars;
+
+        debug_tab_items[i].location_index = debug->items[i].location_index;
+        debug_tab_items[i].frame_size = debug->items[i].frame_size;
+        debug_tab_items[i].num_vars = num_vars;
+        debug_tab_items[i].first = debug_tab_terms;
+        debug_tab_terms += 2 * num_vars;
+    }
+
+    return debug_tab_ro;
+}
+
 int beam_load_finish_emit(LoaderState *stp) {
     const BeamCodeHeader *code_hdr_ro = NULL;
     BeamCodeHeader *code_hdr_rw = NULL;
@@ -886,6 +952,17 @@ int beam_load_finish_emit(LoaderState *stp) {
         line_size += (stp->current_li + 1) * stp->beam.lines.location_size;
 
         beamasm_embed_bss(stp->ba, "line", line_size);
+    }
+
+    /* Calculate size of the load BEAM debug information. */
+    if (stp->beam.debug.item_count > 0) {
+        BeamFile_DebugTable *debug = &stp->beam.debug;
+        Uint debug_size;
+
+        debug_size = sizeof(BeamDebugTab);
+        debug_size += (Uint)debug->item_count * sizeof(BeamFile_DebugItem);
+        debug_size += (Uint)debug->term_count * sizeof(Eterm);
+        beamasm_embed_bss(stp->ba, "debug", debug_size);
     }
 
     /* Place the string table and, optionally, attributes here. */
@@ -977,6 +1054,10 @@ int beam_load_finish_emit(LoaderState *stp) {
     /* Line information must be added after moving literals, since source file
      * names are literal lists. */
     code_hdr_rw->line_table = finish_line_table(stp, module_base, module_size);
+
+    /* Debug information must be added after moving literals, since literals
+     * are used extensively. */
+    code_hdr_rw->debug = finish_debug_table(stp, module_base, module_size);
 
     if (stp->beam.attributes.size) {
         const byte *attr = beamasm_get_rodata(stp->ba, "attr");

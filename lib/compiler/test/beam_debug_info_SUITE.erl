@@ -65,6 +65,8 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 smoke(_Config) ->
+    {ok, Peer, Node} = ?CT_PEER(#{}),
+
     TestBeams0 = get_unique_beam_files(),
     TestBeams = compiler_beams() ++ TestBeams0,
 
@@ -81,12 +83,21 @@ smoke(_Config) ->
          """,
     io:put_chars(S),
 
-    test_lib:p_run(fun do_smoke/1, TestBeams).
+    HasDbgSupport = erlang:system_info(emu_flavor) =:= jit,
+
+    test_lib:p_run(fun(Beam) ->
+                           do_smoke(Beam, Node, HasDbgSupport)
+                   end, TestBeams),
+
+    peer:stop(Peer),
+
+    ok.
+
 
 compiler_beams() ->
     filelib:wildcard(filename:join([code:lib_dir(compiler), "ebin", "*.beam"])).
 
-do_smoke(Beam) ->
+do_smoke(Beam, Node, HasDbgSupport) ->
     try
 	{ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr0}}]}} =
 	    beam_lib:chunks(Beam, [abstract_code]),
@@ -100,7 +111,38 @@ do_smoke(Beam) ->
                                      [beam_debug_info,dexp,binary,report_errors]),
         SrcVars = source_variables(Abstr),
         IndexToFunctionMap = abstr_debug_lines(Abstr),
-        DebugInfo = get_debug_info(Mod, Code),
+
+        %% Retrieve the debug information in two different ways.
+        {DebugInfo,CookedDebugInfo} = get_debug_info(Mod, Code),
+        CookedDebugInfoSorted = lists:sort(CookedDebugInfo),
+        DebugInfoBif = case HasDbgSupport of
+                           true ->
+                               lists:sort(load_get_debug_info(Node, Mod, Code));
+                           false ->
+                               %% No runtime support for debug info.
+                               CookedDebugInfoSorted
+                       end,
+        if
+            CookedDebugInfoSorted =:= DebugInfoBif ->
+                ok;
+            true ->
+                Z0 = lists:zip(CookedDebugInfoSorted, DebugInfoBif,
+                               {pad, {short,short}}),
+                Z = lists:dropwhile(fun({A,B}) -> A =:= B end, Z0),
+                io:format("~p\n", [Z]),
+                io:format("~p\n", [CookedDebugInfoSorted]),
+                io:format("~p\n", [DebugInfoBif]),
+
+                error(inconsistent_debug_info)
+        end,
+
+        case Mod of
+            ?MODULE when HasDbgSupport ->
+                %% This module has been compiled with `beam_debug_info`.
+                CookedDebugInfoSorted = lists:sort(code:get_debug_info(Mod));
+            _ ->
+                ok
+        end,
 
         {DbgVars,DbgLiterals} = debug_info_vars(DebugInfo, IndexToFunctionMap),
 
@@ -206,6 +248,27 @@ family_difference(F0, F1) ->
     SpecFun = fun(S) -> sofs:no_elements(S) =/= 0 end,
     S3 = sofs:family_specification(SpecFun, S2),
     sofs:to_external(S3).
+
+%% Load a module on a remote node and retrieve debug information.
+load_get_debug_info(Node, Mod, Beam) ->
+    erpc:call(Node,
+              fun() ->
+                      {module,Mod} = code:load_binary(Mod, "", Beam),
+                      DebugInfo = code:get_debug_info(Mod),
+
+                      case Mod of
+                          ?MODULE ->
+                              %% Don't purge the module that this fun
+                              %% is located in.
+                              ok;
+                          _ ->
+                              %% Smoke test of purging a module with
+                              %% debug information.
+                              _ = code:delete(Mod),
+                              _ = code:purge(Mod)
+                      end,
+                      DebugInfo
+              end).
 
 %%
 %% Extract variables mentioned in the source code. Try to remove
@@ -456,7 +519,8 @@ abstr_extract_debug_lines(_, Acc) -> Acc.
 %%%
 get_debug_info(Mod, Beam) ->
     {ok,{Mod,[{"DbgB",DebugInfo0},
-              {atoms,Atoms0}]}} = beam_lib:chunks(Beam, ["DbgB",atoms]),
+              {atoms,Atoms0},
+              {"Line",Lines0}]}} = beam_lib:chunks(Beam, ["DbgB",atoms,"Line"]),
     Atoms = maps:from_list(Atoms0),
     Literals = case beam_lib:chunks(Beam, ["LitT"]) of
                    {ok,{Mod,[{"LitT",Literals0}]}} ->
@@ -470,8 +534,39 @@ get_debug_info(Mod, Beam) ->
       _NumVars:32,
       DebugInfo1/binary>> = DebugInfo0,
     0 = Version,
-    DebugInfo = decode_debug_info(DebugInfo1, Literals, Atoms, Op),
-    lists:zip(lists:seq(1, length(DebugInfo)), DebugInfo).
+    RawDebugInfo0 = decode_debug_info(DebugInfo1, Literals, Atoms, Op),
+    RawDebugInfo = lists:zip(lists:seq(1, length(RawDebugInfo0)), RawDebugInfo0),
+
+    %% The cooked debug info has line numbers instead of indices.
+    Lines = decode_line_table(Lines0, Literals, Atoms),
+    {beam_file,Mod,_Exp,_Attr,_Opts,Fs} = beam_disasm:file(Beam),
+    DebugMap = #{Index => LocationIndex ||
+                   {function,_Name,_Arity,_Entry,Is} <:- Fs,
+                   {debug_line,LocationIndex,Index,_Live} <- Is},
+    CookedDebugInfo =
+        [{map_get(map_get(Index, DebugMap), Lines),Info} ||
+            {Index,Info} <:- RawDebugInfo,
+            is_map_key(Index, DebugMap)],
+
+    {RawDebugInfo,CookedDebugInfo}.
+
+decode_line_table(<<0:32,_Bits:32,_NumIs:32,NumLines:32,
+                    _NumFnames:32, Lines0/binary>>,
+                  Literals, Atoms) ->
+    Lines = decode_line_tab_1(Lines0, Literals, Atoms, NumLines),
+    #{K => V || {K,V} <:- lists:zip(lists:seq(1, length(Lines)), Lines)}.
+
+decode_line_tab_1(_Lines, _Literals, _Atoms, 0) ->
+    [];
+decode_line_tab_1(Lines0, Literals, Atoms, N) ->
+    case decode_arg(Lines0, Literals, Atoms) of
+        {{atom,_},Lines1} ->
+            decode_line_tab_1(Lines1, Literals, Atoms, N);
+        {{integer,Line},Lines1} ->
+            [Line|decode_line_tab_1(Lines1, Literals, Atoms, N - 1)];
+        {nil,Lines1} ->
+            decode_line_tab_1(Lines1, Literals, Atoms, N)
+    end.
 
 decode_literal_table(<<0:32,N:32,Tab/binary>>) ->
     #{Index => binary_to_term(Literal) ||

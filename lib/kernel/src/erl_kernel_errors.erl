@@ -81,6 +81,18 @@ format_code_error(get_coverage_mode, [Module]) ->
                        end
                end]
       end);
+format_code_error(get_debug_info, [Module]) ->
+    [if
+         not is_atom(Module) ->
+             not_atom;
+         true ->
+             case erlang:module_loaded(Module) of
+                 false ->
+                     module_not_loaded;
+                 true ->
+                     ~"this runtime system does not support the native debug API"
+             end
+     end];
 format_code_error(reset_coverage, [Module]) ->
     coverage(
       fun () ->

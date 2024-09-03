@@ -803,8 +803,10 @@ bif erts_trace_cleaner:check/0
 bif erts_trace_cleaner:send_trace_clean_signal/1
 
 #
-# New in 28
+# New in 28.
 #
 bif erts_internal:system_monitor/1
 bif erts_internal:system_monitor/3
 bif erts_internal:processes_next/1
+bif code:get_debug_info/1
+
