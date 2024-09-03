@@ -32,6 +32,9 @@
 
 -export([server_loop/3]).
 
+%% Logger report format fun
+-export([format_io_request_log/1]).
+
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
@@ -56,6 +59,8 @@ server(Ancestors, Drv, Shell, Options) ->
     Dumb = proplists:get_value(dumb, Options, false),
     put(dumb, Dumb),
     put(expand_below, proplists:get_value(expand_below, Options, true)),
+
+    put(log, false),
 
     server_loop(Drv, start_shell(Shell), []).
 
@@ -158,8 +163,8 @@ server_loop(Drv, Shell, Buf0) ->
 
 exit_shell(Reason) ->
     case get(shell) of
-	undefined -> true;
-	Pid -> exit(Pid, Reason)
+	undefined -> ok;
+	Pid -> exit(Pid, Reason), ok
     end.
 
 get_tty_geometry(Drv) ->
@@ -201,6 +206,10 @@ get_terminal_state(Drv) ->
     end.
 
 io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
+    [?LOG_INFO(#{ request => {io_request, From, ReplyAs, Req}, server => self(),
+                  server_name => server_name() },
+               #{ report_cb => fun format_io_request_log/1,
+                  domain => [otp, kernel, io, output]}) || get(log)],
     case io_request(Req, Drv, Shell, {From,ReplyAs}, Buf0) of
 	{ok,Reply,Buf} ->
 	    io_reply(From, ReplyAs, Reply),
@@ -402,6 +411,8 @@ check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
     check_valid_opts(T);
 check_valid_opts([{echo,Flag}|T]) when is_boolean(Flag) ->
     check_valid_opts(T);
+check_valid_opts([{log,Flag}|T]) when is_boolean(Flag) ->
+    check_valid_opts(T);
 check_valid_opts([{expand_fun,Fun}|T]) when is_function(Fun, 1);
                                             is_function(Fun, 2) ->
     check_valid_opts(T);
@@ -411,6 +422,7 @@ check_valid_opts(_) ->
 do_setopts(Opts, Drv, Buf) ->
     put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
+    put(log, proplists:get_value(log, Opts, get(log))),
     case proplists:get_value(encoding, Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
            set_unicode_state(Drv,true);
@@ -419,6 +431,7 @@ do_setopts(Opts, Drv, Buf) ->
 	undefined ->
 	    ok
     end,
+
     case proplists:get_value(binary, Opts, case get(read_mode) of
 					      binary -> true;
 					      _ -> false
@@ -450,6 +463,12 @@ getopts(Drv,Buf) ->
 		     _ ->
 			 false
 		  end},
+    Log = {log, case get(log) of
+		     LogBool when LogBool =:= true; LogBool =:= false ->
+                        LogBool;
+		     _ ->
+			 false
+		  end},
     Bin = {binary, case get(read_mode) of
 		       binary ->
 			   true;
@@ -461,7 +480,7 @@ getopts(Drv,Buf) ->
 			_ -> latin1
 		     end},
     Tty = {terminal, get_terminal_state(Drv)},
-    {ok,[Exp,Echo,Bin,Uni,Tty],Buf}.
+    {ok,[Exp,Echo,Bin,Uni,Tty,Log],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function
@@ -1125,3 +1144,50 @@ is_latin1([]) ->
     true;
 is_latin1(_) ->
     false.
+
+server_name() ->
+    case erlang:process_info(self(), registered_name) of
+        [] ->
+            undefined;
+        {registered_name, Name} ->
+            Name
+    end.
+
+format_io_request_log(#{ request := {io_request, From, ReplyAs, Request},
+                         server := Server,
+                         server_name := Name }) ->
+    {"Request: ~p\n"
+     "  From: ~p\n"
+     "  ReplyAs: ~p\n"
+     "Server: ~p\n"
+     "Name: ~p\n"
+     ,[normalize_request(Request), From, ReplyAs, Server, Name]}.
+
+normalize_request({put_chars, Chars}) ->
+    normalize_request({put_chars, latin1, Chars});
+normalize_request({put_chars, Mod, Func, Args}) ->
+    normalize_request({put_chars, latin1, Mod, Func, Args});
+normalize_request({put_chars, Enc, Mod, Func, Args} = Req) ->
+    case catch apply(Mod, Func, Args) of
+        Data when is_list(Data); is_binary(Data) ->
+            {put_chars, Enc, unicode:characters_to_list(Data, Enc)};
+        _ -> Req
+    end;
+normalize_request({requests, Reqs}) ->
+    case lists:foldr(
+           fun(Req, []) ->
+                   [normalize_request(Req)];
+              (Req, [{put_chars, Enc, Data} | Acc] = NormReqs) ->
+                   case normalize_request(Req) of
+                       {put_chars, Enc, NewData} ->
+                           [{put_chars, Enc, unicode:characters_to_list([NewData, Data], Enc)} | Acc];
+                       NormReq ->
+                           [NormReq | NormReqs]
+                   end;
+              (Req, Acc) ->
+                   [normalize_request(Req) | Acc]
+           end, [], Reqs) of
+        [Req] -> Req;
+        NormReqs -> {requests, NormReqs}
+    end;
+normalize_request(Req) -> Req.

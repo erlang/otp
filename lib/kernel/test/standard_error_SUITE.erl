@@ -20,14 +20,16 @@
 
 -module(standard_error_SUITE).
 
+-include_lib("stdlib/include/assert.hrl").
+
 -export([all/0,suite/0]).
--export([badarg/1,getopts/1,output/1]).
+-export([badarg/1,getopts/1,output/1,logging/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [badarg,getopts,output].
+all() ->
+    [badarg,getopts,output,logging].
 
 badarg(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch io:put_chars(standard_error, [oops])),
@@ -65,4 +67,52 @@ output(Config) when is_list(Config) ->
     after
         500 ->
             ok
+    end.
+
+logging(Config) when is_list(Config) ->
+
+    #{ level := Level } = logger:get_primary_config(),
+
+    try
+        Parent = self(),
+
+        Device = spawn(fun F() ->
+                               receive
+                                   {io_request, From, ReplyAs, M} ->
+                                       From ! {io_reply, ReplyAs, ok},
+                                       Parent ! M,
+                                       F()
+                               end
+                       end),
+
+        logger:add_handler(stderr, logger_std_h, #{ filter_default => stop,
+                                                    config => #{ type => {device, Device} } } ),
+
+        io:setopts(standard_error, [{log, true}]),
+
+        logger:set_primary_config(level, all),
+
+        io:put_chars(standard_error, "hello"),
+
+        receive
+            M1 -> ct:fail({unexpected, M1})
+        after 5000 -> ok
+        end,
+
+        logger:add_handler_filter(stderr,domain,{fun logger_filters:domain/2, {log, sub, [otp, kernel, io, output]}}),
+
+        io:put_chars(standard_error, "world"),
+
+        receive
+            {put_chars,unicode, Msg} ->
+                true = string:find(Msg, "world") =/= nomatch;
+            M2 ->
+                ct:fail({unexpected, M2})
+        after 5000 -> ct:fail(timeout)
+        end
+
+    after
+        logger:set_primary_config(level, Level),
+        logger:remove_handler(stderr),
+        io:setopts(standard_error, [{log, false}])
     end.

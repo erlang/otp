@@ -1266,6 +1266,29 @@ fun("") -> {yes, "quit", []};
             <p>This option is only supported by the standard shell
               (<c>group.erl</c>).</p>
           </item>
+          <tag><c>{log, true | false}</c></tag>
+          <item>
+            <p>Tells the I/O server that it should log each I/O request. Requests will
+              be logged at <c>info</c> level with the following report:</p>
+
+            <code type="erl">
+            #{ request := IoRequest, server := pid(), server_name => term() }.
+            </code>
+
+            <p>Not all I/O servers support this option. Use <seemfa marker="#getopts/1">io:getopts/1</seemfa>
+              to check if it is available.</p>
+
+            <note>
+              <p>The I/O servers in Erlang/OTP will set the <seemfa marker="kernel:logger_filters#domain/2">logger domain</seemfa>
+                to <c>[otp, kernel, io, input | output]</c>. By default <seeerl marker="kernel:logger">logger</seeerl>
+                will not print this domain, so you need to enable it. This can be done by adding a new filter like this:</p>
+
+              <code type="erl">
+              logger:add_handler_filter(default, io_domain,
+                {fun logger_filters:domain/2, {log,sub,[otp,kernel,io]}}).
+              </code>
+            </note>
+          </item>
           <tag><c>{encoding, latin1 | unicode}</c></tag>
           <item>
             <p>Specifies how characters are input or output from or to the I/O
