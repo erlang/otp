@@ -2459,7 +2459,7 @@ socknames_tcp(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_socknames_tcp0(_Config, Addr) ->
-    %% Begin with a the plain old boring (= port) socket(s)
+    %% Begin with the plain old boring (= port) socket(s)
     ?P("Test socknames for 'old' socket (=port)"),
     do_socknames_tcp1([], Addr),
 
