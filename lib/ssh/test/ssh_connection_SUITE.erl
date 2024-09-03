@@ -252,9 +252,9 @@ verify_events(gracefull_invalid_long_start, 1, _) -> ok;
 verify_events(gracefull_invalid_long_start_no_nl, 1, _) -> ok;
 verify_events(kex_error, 2, _) -> ok;
 verify_events(stop_listener, 1, _) -> ok;
-verify_events(no_sensitive_leak, 14, _) -> ok;
-verify_events(start_subsystem_on_closed_channel, 12, _) -> ok;
-verify_events(max_channels_option, 20, _) -> ok;
+verify_events(no_sensitive_leak, 10, _) -> ok;
+verify_events(start_subsystem_on_closed_channel, 8, _) -> ok;
+verify_events(max_channels_option, 11, _) -> ok;
 verify_events(_TestCase, EventNumber, Events) when EventNumber > 0->
     ct:log("~nEvent number: ~p~nEvents:~n~p", [EventNumber, Events]),
     {fail, lists:flatten(
