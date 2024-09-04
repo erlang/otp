@@ -827,11 +827,29 @@ const ESockFlag esock_ioctl_flags[] = {
     // FreeBSD, ...
     {
 #ifdef IFF_NOGROUP
-      IFF_NOGROUP,
+        IFF_NOGROUP,
 #else
-      0,
+        0,
 #endif
-      &esock_atom_nogroup}
+        &esock_atom_nogroup},
+
+    // Solaris, ...
+    {
+#ifdef IFF_DHCPRUNNING
+        IFF_DHCPRUNNING,
+#else
+        0,
+#endif
+        &esock_atom_dhcprunning},
+
+    // Solaris, ...
+    {
+#ifdef IFF_PRIVATE
+        IFF_PRIVATE,
+#else
+        0,
+#endif
+        &esock_atom_private}
 };
 const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 
@@ -2007,6 +2025,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(default_send_params);             \
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
+    GLOBAL_ATOM_DECL(dhcprunning);                     \
     GLOBAL_ATOM_DECL(disable_fragments);               \
     GLOBAL_ATOM_DECL(dlci);                            \
     GLOBAL_ATOM_DECL(dma);                             \
@@ -2182,6 +2201,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(primary_addr);                    \
     GLOBAL_ATOM_DECL(prim_file);                       \
     GLOBAL_ATOM_DECL(priority);                        \
+    GLOBAL_ATOM_DECL(private);                         \
     GLOBAL_ATOM_DECL(promisc);                         \
     GLOBAL_ATOM_DECL(pronet);                          \
     GLOBAL_ATOM_DECL(protocol);                        \
@@ -2361,7 +2381,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
-    LOCAL_ATOM_DECL(genhwaddr);        \
+    LOCAL_ATOM_DECL(genaddr);          \
     LOCAL_ATOM_DECL(gifaddr);          \
     LOCAL_ATOM_DECL(gifbrdaddr);       \
     LOCAL_ATOM_DECL(gifconf);          \
@@ -4880,6 +4900,7 @@ ERL_NIF_TERM esock_supports_ioctl_requests(ErlNifEnv* env)
   ERL_NIF_TERM requests;
 
   requests = MKEL(env);
+
 
   /* --- GET REQUESTS --- */
 #if defined(SIOCGIFCONF)
