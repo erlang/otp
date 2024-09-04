@@ -4183,7 +4183,8 @@ traffic_ping_pong_large_send_and_recv_sctp4(Config) when is_list(Config) ->
                    has_support_ipv4(),
                    has_support_sctp(),
                    is_old_fedora16(),
-                   is_slow_ubuntu(Config)
+                   is_slow_ubuntu(Config),
+                   traffic_ping_pong_large_host_cond()
            end,
            fun() ->
                    InitState = #{domain => inet,
@@ -7037,6 +7038,14 @@ is_slow_ubuntu(Config) ->
 	    ok
     end.
 
+
+is_not_solaris() ->
+    case os:type() of
+        {unix, solaris} ->
+            skip("Solaris");
+        _ ->
+            ok
+    end.
 
 is_not_windows() ->
     case os:type() of
