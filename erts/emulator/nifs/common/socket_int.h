@@ -281,6 +281,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(default_send_params);      \
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
+    GLOBAL_ATOM_DEF(dhcprunning);              \
     GLOBAL_ATOM_DEF(disable_fragments);        \
     GLOBAL_ATOM_DEF(dlci);                     \
     GLOBAL_ATOM_DEF(dma);                      \
@@ -454,8 +455,9 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(portrange);                \
     GLOBAL_ATOM_DEF(portsel);                  \
     GLOBAL_ATOM_DEF(primary_addr);             \
-    GLOBAL_ATOM_DEF(priority);                 \
     GLOBAL_ATOM_DEF(prim_file);                \
+    GLOBAL_ATOM_DEF(priority);                 \
+    GLOBAL_ATOM_DEF(private);                  \
     GLOBAL_ATOM_DEF(promisc);                  \
     GLOBAL_ATOM_DEF(pronet);                   \
     GLOBAL_ATOM_DEF(protocol);                 \
