@@ -393,19 +393,32 @@ der_priv_key_decode(#'OneAsymmetricKey'{
     #'ECPrivateKey'{version = 2, parameters = {namedCurve, CurveOId}, privateKey = PrivKey,
                     attributes = Attr,
                     publicKey = PubKey};
-der_priv_key_decode({'PrivateKeyInfo', v1,
-	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
-	der_decode('RSAPrivateKey', PrivKey);
-der_priv_key_decode({'PrivateKeyInfo', v1,
-                     {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
-                      {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'rsaEncryption'},
+                                      privateKey = PrivKey}) ->
+    der_decode('RSAPrivateKey', PrivKey);
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                                parameters = {asn1_OPENTYPE, Parameters}},
+                                      privateKey = PrivKey}) ->
     Key = der_decode('RSAPrivateKey', PrivKey),
     Params = der_decode('RSASSA-PSS-params', Parameters),
     {Key, Params};
 der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
-                                      privateKeyAlgorithm = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
-                                                                                                  parameters =
-                                                                                                      {asn1_OPENTYPE, Parameters}},
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                                parameters = asn1_NOVALUE},
+                                      privateKey = PrivKey}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    #'RSASSA-AlgorithmIdentifier'{parameters = Params} = ?'rSASSA-PSS-Default-Identifier',
+    {Key, Params};
+der_priv_key_decode(#'PrivateKeyInfo'{version = v1,
+                                      privateKeyAlgorithm =
+                                          #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa',
+                                                                                parameters =
+                                                                                    {asn1_OPENTYPE, Parameters}},
                                       privateKey = PrivKey}) ->
     {params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
     X = der_decode('Prime-p', PrivKey),
@@ -440,10 +453,15 @@ der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
                                  privateKeyAlgorithm = Alg,
                                  privateKey = Key});
 der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
-    Params = der_encode('RSASSA-PSS-params', Parameters),
+    #'RSASSA-AlgorithmIdentifier'{parameters = DefaultParams} = ?'rSASSA-PSS-Default-Identifier',
+    Params = case Parameters of
+                 DefaultParams ->
+                     asn1_NOVALUE;
+                 _ ->
+                     {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}
+             end,
     Alg = #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
-                                                parameters =
-                                                    {asn1_OPENTYPE, Params}},
+                                                parameters = Params},
     Key = der_encode('RSAPrivateKey', PrivKey),
     der_encode('PrivateKeyInfo', #'PrivateKeyInfo'{version = v1,
                                                    privateKeyAlgorithm = Alg,
