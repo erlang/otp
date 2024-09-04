@@ -185,17 +185,10 @@ get_results([{Lbl,#b_blk{last=#b_ret{arg=#b_literal{val=Lit}}}}|Rest],
     %% appendable binary, it can happen that we encounter literals
     %% which do not match the type of the element. We can safely stop
     %% the tracking in that case.
-    Continue = case Element of
-                   {tuple_element,_,_} ->
-                       is_tuple(Lit);
-                   self ->
-                       is_bitstring(Lit);
-                   {hd,_} ->
-                       is_list(Lit) andalso (Lit =/= [])
-               end,
-    DefSt = if Continue ->
+    DefSt = case is_lit_compatible_with_element(Lit, Element) of
+                true ->
                     add_literal(Fun, {ret,Lbl,Element}, DefSt0);
-               true ->
+                false ->
                     DefSt0
             end,
     get_results(Rest, Acc, Element, Fun, DefSt);
@@ -203,6 +196,16 @@ get_results([_|Rest], Acc, Element, Fun, DefSt) ->
     get_results(Rest, Acc, Element, Fun, DefSt);
 get_results([], Acc, _, _Fun, DefSt) ->
     {Acc, DefSt}.
+
+is_lit_compatible_with_element(Lit, Element) ->
+    case Element of
+        {tuple_element,_,_} ->
+            is_tuple(Lit);
+        self ->
+            is_bitstring(Lit);
+        {hd,_} ->
+            is_list(Lit) andalso (Lit =/= [])
+    end.
 
 track_value_in_fun([{#b_var{}=V,Element}|Rest], Fun, Work,
                    Defs, ValuesInFun, DefSt0)
@@ -378,15 +381,17 @@ gca(Args, Element, Idx, Fun, Dst, DefSt) ->
 gca([#b_var{}=V|_], I, Element, I, _Fun, _Dst, DefSt) ->
     %% This is the argument we are tracking.
     {[{V,Element}], DefSt};
-gca([#b_literal{val=Lit}|_], I, self, I, _Fun, _Dst, DefSt)
-  when not is_bitstring(Lit)->
+gca([#b_literal{val=Lit}|_], I, Element, I, Fun, Dst, DefSt) ->
     %% As value tracking is done without type information, we can
     %% follow def chains which don't terminate in a bitstring. This is
     %% harmless, but we should ignore them and not, later on, try to
     %% patch them to a bs_writable_binary.
-    {[], DefSt};
-gca([#b_literal{val=Lit}|_], I, Element, I, Fun, Dst, DefSt) ->
-    {[], add_literal(Fun, {opargs,Dst,I+1,Lit,Element}, DefSt)};
+    case is_lit_compatible_with_element(Lit, Element) of
+        true ->
+            {[], add_literal(Fun, {opargs,Dst,I+1,Lit,Element}, DefSt)};
+        false ->
+            {[], DefSt}
+    end;
 gca([_|Args], I, Element, Idx, Fun, Dst, DefSt) ->
     gca(Args, I + 1, Element, Idx, Fun, Dst, DefSt).
 
