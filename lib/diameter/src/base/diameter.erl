@@ -1186,15 +1186,11 @@ stop_service(SvcName) ->
     end.
 
 do_stop_service(SvcName) ->
-    case diameter_config:stop_service(SvcName) of
-        ok ->
-            %% Now wait for the stop event
-            await_service_stop_event(SvcName),
-            %% And finally wait for the registry to be "flushed" (ugh!)...
-            diameter_service:await_service_cleanup(SvcName);
-        {error, _} = ERROR ->
-            ERROR
-    end.
+    ok = diameter_config:stop_service(SvcName),
+    %% Now wait for the stop event
+    await_service_stop_event(SvcName),
+    %% And finally wait for the registry to be "flushed" (ugh!)...
+    diameter_service:await_service_cleanup(SvcName).
     
 await_service_stop_event(SvcName) ->
     receive
