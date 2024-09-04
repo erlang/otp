@@ -31,6 +31,42 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race in the kTLS flavour of SSL distribution has been
+	    fixed so inet_drv.c doesn't read ahead too much data
+	    which could cause the kTLS encryption to be activated too
+	    late when some encrypted data had already been read into
+	    the inet_drv.c buffer as unencrypted.</p>
+          <p>
+	    Own Id: OTP-19175 Aux Id: GH-8561, PR-8690 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a deadlock when an application crashes during startup
+	    and log messages were sent to standard out. Logger would
+	    fail to print the messages to standard out and instead
+	    print them to standard error.</p>
+          <p>
+	    Own Id: OTP-19205 </p>
+        </item>
+        <item>
+	    <p> Add the stdlib application parameters
+	    <c>shell_redraw_prompt_on_output</c> which when set to
+	    <c>false</c> disables redrawing of the shell prompt if
+	    any other output is done. </p>
+          <p>
+	    Own Id: OTP-19213 Aux Id: PR-8763 ERIERL-1108 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

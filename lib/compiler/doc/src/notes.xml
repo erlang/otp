@@ -32,6 +32,29 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a crash in an optimization pass relating to
+	    appending binaries.</p>
+          <p>
+	    Own Id: OTP-19168 Aux Id: GH-8630 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug in the compiler's alias analysis pass that
+	    could make it emit unsafe code.</p>
+          <p>
+	    Own Id: OTP-19178 Aux Id: PR-8686 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

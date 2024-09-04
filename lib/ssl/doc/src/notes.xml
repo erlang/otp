@@ -27,6 +27,45 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race in the kTLS flavour of SSL distribution has been
+	    fixed so inet_drv.c doesn't read ahead too much data
+	    which could cause the kTLS encryption to be activated too
+	    late when some encrypted data had already been read into
+	    the inet_drv.c buffer as unencrypted.</p>
+          <p>
+	    Own Id: OTP-19175 Aux Id: GH-8561, PR-8690 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make sure all TLS-1.3 terminations are graceful (previous
+	    TLS version terminations already are).</p>
+          <p>
+	    Own Id: OTP-17848 </p>
+        </item>
+        <item>
+          <p>
+	    Include more information in logging of SNI (Server Name
+	    Indication) mismatch error.</p>
+          <p>
+	    Own Id: OTP-19187 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.4.2</title>
 
     <section><title>Improvements and New Features</title>

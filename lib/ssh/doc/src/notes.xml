@@ -30,6 +30,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, ssh daemon started with TCP port number
+	    argument will re-try to obtain listen socket before
+	    returning error to user.</p>
+          <p>
+	    Own Id: OTP-19170 Aux Id: GH-7746 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, robustness is improved by monitoring
+	    connection handler process before casting socket control
+	    notification.</p>
+          <p>
+	    Own Id: OTP-19173 Aux Id: PR-8310 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

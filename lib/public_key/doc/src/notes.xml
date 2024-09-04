@@ -35,6 +35,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.15.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For completeness handle rsa_pss implicit default value,
+	    although this will probably not be commonly used as it
+	    provides very weak security.</p>
+          <p>
+	    Own Id: OTP-19179 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.15.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
