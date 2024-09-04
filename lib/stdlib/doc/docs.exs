@@ -71,6 +71,8 @@
   extras: [
     "guides/introduction.md",
     "guides/io_protocol.md",
+    "guides/custom_shell.md",
+    "guides/terminal_interface.md",
     "guides/unicode_usage.md",
     "guides/uri_string_usage.md",
     "references/assert_hrl.md",
