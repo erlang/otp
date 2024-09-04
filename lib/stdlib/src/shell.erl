@@ -85,11 +85,13 @@ allowed:
   data.
 
 - **[mfa()](`t:erlang:mfa/0`)** - Starts the interactive shell using
-  [`mfa()`](`t:erlang:mfa/0`) as the default shell.
+  [`mfa()`](`t:erlang:mfa/0`) as the default shell. The `t:mfa/0` should
+  return the `t:pid/0` of the created shell process.
 
 - **\{[node()](`t:erlang:node/0`), [mfa()](`t:erlang:mfa/0`)\}** - Starts the
   interactive shell using [`mfa()`](`t:erlang:mfa/0`) on
-  [`node()`](`t:erlang:node/0`) as the default shell.
+  [`node()`](`t:erlang:node/0`) as the default shell. The `t:mfa/0` should
+  return the `t:pid/0` of the created shell process.
 
 - **\{remote, [`string()`](`t:erlang:string/0`)\}** - Starts the interactive
   shell using as if [`-remsh`](`e:erts:erl_cmd.md#remsh`) was given to
