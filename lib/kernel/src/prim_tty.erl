@@ -137,6 +137,7 @@
                 reader :: {pid(), reference()} | undefined,
                 writer :: {pid(), reference()} | undefined,
                 options,
+                redraw_prompt_on_output = true,
                 unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
@@ -236,8 +237,11 @@ init(UserOptions) when is_map(UserOptions) ->
                      IOEncoding =:= unicode -> true;
                      true -> UnicodeSupported
                   end,
+    RedrawPrompt = application:get_env(stdlib, shell_redraw_prompt_on_output, true),
     {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
-    init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
+    init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options,
+                      ansi_regexp = ANSI_RE_MP,
+                      redraw_prompt_on_output = RedrawPrompt }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
         case maps:get(tty, Options) of
@@ -631,15 +635,19 @@ handle_request(State, {expand_with_trim, Binary}) ->
     handle_request(State, 
                    {expand, iolist_to_binary(["\r\n",string:trim(Binary, both)])});
 %% putc prints Binary and overwrites any existing characters
-handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
+handle_request(State = #state{ redraw_prompt_on_output = RedrawOnOutput,
+                               unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
     %% print above the prompt if we have a prompt.
     %% otherwise print on the current line.
-    case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
-        {[],{[],[]},[]} ->
+    if State#state.lines_before =:= [] andalso
+       State#state.buffer_before =:= [] andalso
+       State#state.buffer_after =:= [] andalso
+       State#state.lines_after =:= [];
+       not RedrawOnOutput ->
             {PutBuffer, _} = insert_buf(State, Binary),
             {[encode(PutBuffer, U)], State};
-        _ ->
+       true ->
             {Delete, DeletedState} = handle_request(State, delete_line),
             {PutBuffer, _} = insert_buf(DeletedState, Binary),
             {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
