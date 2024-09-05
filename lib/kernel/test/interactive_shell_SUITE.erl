@@ -40,6 +40,7 @@
          init_per_testcase/2, end_per_testcase/2,
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
 	 job_control_remote/1,stop_during_init/1,wrap/1,
+         noshell_raw/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
@@ -67,6 +68,8 @@
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
 
+-export([get_until/2]).
+
 -export([test_invalid_keymap/1, test_valid_keymap/1]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
@@ -91,6 +94,7 @@ groups() ->
        ctrl_keys, stop_during_init, wrap,
        shell_invalid_ansi,
        shell_get_password,
+       noshell_raw,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -2185,6 +2189,142 @@ wrap(Config) when is_list(Config) ->
             ok
     end,
     ok.
+
+noshell_raw(Config) ->
+
+    case proplists:get_value(default_shell, Config) of
+        new ->
+
+            TCGl = group_leader(),
+            TC = self(),
+
+            TestcaseFun = fun() ->
+                                  link(TC),
+                                  group_leader(whereis(user), self()),
+
+                                  try
+                                    %% Make sure we are in unicode encoding
+                                    unicode = proplists:get_value(encoding, io:getopts()),
+
+                                    "\fhello\n" = io:get_line("1> "),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ok = shell:start_interactive({noshell, raw}),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we can receive 1 char when N is 100
+                                    [$\^p] = io:get_chars("2> ", 100),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we only receive 1 char when N is 1
+                                    "a" = io:get_chars("3> ", 1),
+                                    "bc" = io:get_chars("", 2),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_chars counts characters not bytes
+                                    ok = io:setopts([binary]),
+                                    ~b"å" = io:get_chars("4> ", 1),
+                                    ~b"äö" = io:get_chars("", 2),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that echo works
+                                    ok = io:setopts([{echo, true}]),
+                                    ~b"åäö" = io:get_chars("5> ", 100),
+                                    ok = io:setopts([{echo, false}]),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_line works
+                                    ~b"a\n" = io:get_line("6> "),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that get_until works
+                                    ok = io:setopts([{echo, true}]),
+                                    ~b"a,b,c" = io:request({get_until, unicode, "7> ", ?MODULE, get_until, []}),
+                                    ok = io:setopts([{echo, false}]),
+
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+
+                                    %% Test that we can go back to cooked mode
+                                    ok = shell:start_interactive({noshell, cooked}),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ~b"abc" = io:get_chars(user, "8> ", 3),
+                                    io:format(TCGl, "TC Line: ~p~n", [?LINE]),
+                                    ~b"\n" = io:get_chars(user, "", 1),
+
+                                    io:format("exit")
+                                  catch E:R:ST ->
+                                    io:format(TCGl, "~p", [{E, R, ST}])
+                                  end
+                          end,
+
+            rtnode:run(
+              [
+               {eval, fun() -> spawn(TestcaseFun), ok end},
+
+               %% Test io:get_line in cookec mode
+               {expect, "1> $"},
+               {putline, "hello"},
+
+               %% Test io:get_chars 100 in  raw mode
+               {expect, "2> $"},
+               {putdata, [$\^p]},
+
+               %% Test io:get_chars 1 in raw mode
+               {expect, "3> $"},
+               {putdata, "abc"},
+
+               %% Test io:get_chars unicode
+               {expect, "4> $"},
+               {putdata, ~b"åäö"},
+
+               %% Test that raw + echo works
+               {expect, "5> $"},
+               {putdata, ~b"åäö"},
+               {expect, "åäö$"},
+
+               %% Test io:get_line in raw mode
+               {expect, "6> $"},
+               {putdata, "a\r"}, %% When in raw mode, \r is newline.
+
+               %% Test io:get_until in raw mode
+               {expect, "7> $"},
+               {putline, "a"},
+               {expect, "a\n7> $"},
+               {putline, "b"},
+               {expect, "b\n7> $"},
+               {putdata, "c."},
+               {expect, "c.$"},
+
+               %% Test io:get_line in cooked mode
+               {expect, "8> $"},
+               {putdata, "a"},
+               {expect, "a"},
+               {putdata, "b"},
+               {expect, "b"},
+               {putline, "c"},
+               {expect, "c\r\n$"},
+
+               {expect, "exit$"}
+              ], [], [],
+              ["-noshell","-pz",filename:dirname(code:which(?MODULE))]);
+        _ -> ok
+    end,
+    ok.
+
+get_until(start, NewChars) ->
+    get_until([], NewChars);
+get_until(State, NewChars) ->
+    Chars = State ++ NewChars,
+    case string:split(Chars, ".") of
+        [Chars] -> {more, Chars ++ ","};
+        [Before, After] -> {done, [C || C <- Before, C =/= $\n], After}
+    end.
+
 
 %% This testcase tests that shell_history works as it should.
 %% We use Ctrl + P = Cp=[$\^p] in order to navigate up

@@ -86,7 +86,7 @@ used for flattening deep lists.
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters mostly used by group
--export([collect_chars/3, collect_chars/4,
+-export([collect_chars/3, collect_chars/4, collect_chars_eager/4,
 	 collect_line/3, collect_line/4, collect_line_no_eol/4,
 	 get_until/3, get_until/4]).
 
@@ -1134,6 +1134,20 @@ collect_chars_list(Stack, N, []) ->
     {list,Stack,N};
 collect_chars_list(Stack,N, [H|T]) ->
     collect_chars_list([H|Stack], N-1, T).
+
+%% A special collect_chars that never returns more_chars,
+%% instead it eagerly stops collecting if it has received
+%% any characters at all.
+-doc false.
+collect_chars_eager(State, Chars, Encoding, N) ->
+    case collect_chars(State, Chars, Encoding, N) of
+        {list, Stack, _} when Stack =/= [] ->
+            {stop, lists:reverse(Stack), []};
+        {binary, Stack, _} when Stack =/= [<<>>] ->
+            {stop, binrev(Stack), []};
+        Else ->
+            Else
+    end.
 
 %% collect_line(State, Data, _). New in R9C.
 %%  Returns:
