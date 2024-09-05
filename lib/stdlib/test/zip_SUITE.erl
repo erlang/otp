@@ -125,15 +125,21 @@ cleanup_priv_dir(Config) ->
 init_per_group(zip64_group, Config) ->
     PrivDir = get_value(priv_dir, Config),
 
-    case {erlang:system_info(wordsize), disc_free(PrivDir), memsize()} of
-        {4, _, _} ->
+    SkipZip64 = string:find(os:getenv("TS_EXTRA_PLATFORM_LABEL",""), "Docker") =/= nomatch,
+    WordSize = erlang:system_info(wordsize),
+    DiskFreeKB = disc_free(PrivDir),
+    MemFreeB = memsize(),
+
+    if SkipZip64 ->
+            {skip, "Zip64 tests unstable on docker, do not run"};
+       WordSize =:= 4 ->
             {skip, "Zip64 tests only work on 64-bit systems"};
-        {8, error, _} ->
+       DiskFreeKB =:= error ->
             {skip, "Failed to query disk space for priv_dir. "
              "Is it on a remote file system?~n"};
-        {8, N,M} when N >= 16 * (1 bsl 20), M >= ?EMZIP64_MEM_USAGE ->
-            ct:log("Free disk: ~w KByte~n", [N]),
-            ct:log("Free memory: ~w MByte~n", [M div (1 bsl 20)]),
+       DiskFreeKB >= 16 * (1 bsl 20), MemFreeB >= ?EMZIP64_MEM_USAGE ->
+            ct:log("Free disk: ~w KByte~n", [DiskFreeKB]),
+            ct:log("Free memory: ~w MByte~n", [MemFreeB div (1 bsl 20)]),
             OneMB = <<0:(8 bsl 20)>>,
             Large4GB = filename:join(PrivDir, "large.txt"),
             ok = file:write_file(Large4GB, lists:duplicate(4 bsl 10, OneMB)),
@@ -141,9 +147,9 @@ init_per_group(zip64_group, Config) ->
             ok = file:write_file(Medium4MB, lists:duplicate(4, OneMB)),
 
             [{large, Large4GB},{medium,Medium4MB}|Config];
-        {8,N,M} ->
-            ct:log("Free disk: ~w KByte~n", [N]),
-            ct:log("Free memory: ~w MByte~n", [M div (1 bsl 20)]),
+        true ->
+            ct:log("Free disk: ~w KByte~n", [DiskFreeKB]),
+            ct:log("Free memory: ~w MByte~n", [MemFreeB div (1 bsl 20)]),
             {skip,"Less than 16 GByte free disk or less then 8 GB free mem"}
     end;
 init_per_group(Group, Config) ->
