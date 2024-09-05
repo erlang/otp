@@ -134,6 +134,23 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.3
+
+### Fixed Bugs and Malfunctions
+
+* A race in the kTLS flavour of SSL distribution has been fixed so inet_drv.c doesn't read ahead too much data which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the inet_drv.c buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: GH-8561, PR-8690
+
+### Improvements and New Features
+
+* Make sure all TLS-1.3 terminations are graceful (previous TLS version terminations already are).
+
+  Own Id: OTP-17848
+* Include more information in logging of SNI (Server Name Indication) mismatch error.
+
+  Own Id: OTP-19187
+
 ## SSL 11.1.4.2
 
 ### Improvements and New Features

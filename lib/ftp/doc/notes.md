@@ -35,6 +35,14 @@ limitations under the License.
 
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ftp 1.2.1.1
+
+### Fixed Bugs and Malfunctions
+
+* Fix race condition that sometimes resulted in ftp:recv_bin/2 returning ok instead of \{ok, Data\}.
+
+  Own Id: OTP-19119 Aux Id: GH-8454 ,PR-8543
+
 ## Ftp 1.2.1
 
 ### Fixed Bugs and Malfunctions

@@ -281,6 +281,17 @@ This document describes the changes made to the Compiler application.
 [PR-8090]: https://github.com/erlang/otp/pull/8090
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 
+## Compiler 8.4.3.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a crash in an optimization pass relating to appending binaries.
+
+  Own Id: OTP-19168 Aux Id: GH-8630
+* Fixed a bug in the compiler's alias analysis pass that could make it emit unsafe code.
+
+  Own Id: OTP-19178 Aux Id: PR-8686
+
 ## Compiler 8.4.3
 
 ### Fixed Bugs and Malfunctions

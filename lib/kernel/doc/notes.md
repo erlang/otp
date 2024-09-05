@@ -231,6 +231,20 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.2
+
+### Fixed Bugs and Malfunctions
+
+* A race in the kTLS flavour of SSL distribution has been fixed so inet_drv.c doesn't read ahead too much data which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the inet_drv.c buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: GH-8561, PR-8690
+* Fix a deadlock when an application crashes during startup and log messages were sent to standard out. Logger would fail to print the messages to standard out and instead print them to standard error.
+
+  Own Id: OTP-19205
+* Add the stdlib application parameters `shell_redraw_prompt_on_output` which when set to `false` disables redrawing of the shell prompt if any other output is done.
+
+  Own Id: OTP-19213 Aux Id: PR-8763 ERIERL-1108
+
 ## Kernel 9.2.4.1
 
 ### Fixed Bugs and Malfunctions
