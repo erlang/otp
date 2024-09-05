@@ -62,6 +62,17 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.2
+
+### Fixed Bugs and Malfunctions
+
+* With this change, ssh daemon started with TCP port number argument will re-try to obtain listen socket before returning error to user.
+
+  Own Id: OTP-19170 Aux Id: GH-7746
+* With this change, robustness is improved by monitoring connection handler process before casting socket control notification.
+
+  Own Id: OTP-19173 Aux Id: PR-8310
+
 ## Ssh 5.1.4.1
 
 ### Fixed Bugs and Malfunctions

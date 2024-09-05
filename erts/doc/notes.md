@@ -288,6 +288,14 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.3
+
+### Fixed Bugs and Malfunctions
+
+* A race in the kTLS flavour of SSL distribution has been fixed so inet_drv.c doesn't read ahead too much data which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the inet_drv.c buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: GH-8561, PR-8690
+
 ## Erts 14.2.5.2
 
 ### Fixed Bugs and Malfunctions

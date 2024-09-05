@@ -80,6 +80,14 @@ limitations under the License.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Public_Key 1.15.1.2
+
+### Fixed Bugs and Malfunctions
+
+* For completeness handle rsa_pss implicit default value, although this will probably not be commonly used as it provides very weak security.
+
+  Own Id: OTP-19179
+
 ## Public_Key 1.15.1.1
 
 ### Fixed Bugs and Malfunctions
