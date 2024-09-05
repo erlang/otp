@@ -909,14 +909,14 @@ do_primary_git ()
     else
 	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
     fi
-    if [ $do_commit = true ]; then
-	git add -A bootstrap/lib/kernel \
+    git add -A bootstrap/lib/kernel \
             bootstrap/lib/stdlib \
 	    bootstrap/lib/compiler \
 	    bootstrap/bin
-	find bootstrap -name egen -o -name '*.script' -o \
-	    -name '*.app' -o -name '*.appup' |
+    find bootstrap -name egen -o -name '*.script' -o \
+        -name '*.app' -o -name '*.appup' |
         xargs git reset HEAD
+    if [ $do_commit = true ]; then
 	git commit --no-verify -m 'Update primary bootstrap'
         git checkout HEAD -- bootstrap
 	echo "Primary bootstrap updated and commited."
@@ -924,7 +924,7 @@ do_primary_git ()
 	echo ""
 	echo "Primary bootstrap rebuilt."
 	if [ $version_controller = git ]; then
-	    echo "Use \"git add bootstrap/...\" to stage changed files."
+	    echo "Use \"git reset bootstrap/...\" to stage changed files."
 	fi
 	echo ""
     fi

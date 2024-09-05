@@ -115,7 +115,7 @@ On error this function will return:
   description of the error reasons.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start_interactive(noshell | {module(), atom(), [term()]}) ->
+-spec start_interactive(noshell | {noshell, raw | cooked} | {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
@@ -123,6 +123,10 @@ On error this function will return:
           ok | {error, already_started | noconnection | badfile | nofile | on_load_failure}.
 start_interactive({Node, {M, F, A}}) ->
     user_drv:start_shell(#{ initial_shell => {Node, M, F ,A} });
+start_interactive(noshell) ->
+    start_interactive({noshell, cooked});
+start_interactive({noshell, Type}) when Type =:= raw; Type =:= cooked ->
+    user_drv:start_shell(#{ initial_shell => noshell, input => Type });
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
 

@@ -111,7 +111,7 @@
          ansi_regexp/0, ansi_color/2]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
 
--nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
+-nifs([isatty/1, tty_create/0, tty_init/2, setlocale/1,
        tty_select/2, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
@@ -138,7 +138,7 @@
 -record(state, {tty :: tty() | undefined,
                 reader :: {pid(), reference()} | undefined,
                 writer :: {pid(), reference()} | undefined,
-                options,
+                options = #{ input => cooked, output => cooked } :: options(),
                 unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
@@ -166,12 +166,8 @@
                 ansi_regexp
                }).
 
--type options() :: #{ tty => boolean(),
-                      input => boolean(),
-                      canon => boolean(),
-                      echo => boolean(),
-                      sig => boolean()
-                    }.
+-type options() :: #{ input := cooked | raw | disabled,
+                      output := raw | cooked }.
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
@@ -241,7 +237,7 @@ on_load(Extra) ->
 -spec window_size(state()) -> {ok, {non_neg_integer(), non_neg_integer()}} | {error, term()}.
 window_size(State = #state{ tty = TTY }) ->
     case tty_window_size(TTY) of
-        {error, enotsup} when map_get(tty, State#state.options) ->
+        {error, enotsup} when map_get(input, State#state.options) =:= raw ->
             %% When the TTY is enabled, we should return a "dummy" row and column
             %% when we cannot find the proper size.
             {ok, {State#state.cols, State#state.rows}};
@@ -275,27 +271,24 @@ init(UserOptions) when is_map(UserOptions) ->
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
-        case maps:get(tty, Options) of
-            true ->
-                %% If a reader has been started already, we disable it to avoid race conditions when
-                %% upgrading the terminal
-                [disable_reader(State) || State#state.reader =/= undefined],
-
-                try
-                    case tty_init(TTY, stdout, Options) of
-                        ok -> ok;
-                        {error, enotsup} -> error(enotsup)
-                    end,
-                    NewState = init(State, os:type()),
-                    ok = tty_set(TTY),
-
-                    NewState
-                after
-                    [enable_reader(State) || State#state.reader =/= undefined]
-                end;
-            false ->
+        case maps:get(input, Options) of
+            raw ->
+                init(State, os:type());
+            Else when Else =:= cooked; Else =:= disabled ->
                 State
         end,
+
+    try
+        [disable_reader(State) || State#state.reader =/= undefined],
+
+        case tty_init(TTY, Options) of
+            ok -> ok;
+            {error, enotsup} -> error(enotsup)
+        end
+
+    after
+        [enable_reader(State) || State#state.reader =/= undefined]
+    end,
 
     WriterState =
         if TTYState#state.writer =:= undefined ->
@@ -305,7 +298,7 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 TTYState
         end,
     ReaderState =
-        case {maps:get(input, Options), TTYState#state.reader} of
+        case {maps:get(input, Options) =/= disabled, TTYState#state.reader} of
             {true, undefined} ->
                 DefaultReaderEncoding = if State#state.unicode -> utf8;
                                            not State#state.unicode -> latin1
@@ -352,18 +345,18 @@ init_ssh(UserOptions, {Cols, Rows}, IOEncoding) ->
 
 
 -spec reinit(state(), options()) -> state().
-reinit(State, UserOptions) ->
-    init_term(State#state{ options = options(UserOptions) }).
+reinit(State = #state{ options = OldOptions }, UserOptions) ->
+    case options(UserOptions) of
+        OldOptions -> State;
+        _ ->
+            init_term(State#state{ options = options(UserOptions) })
+    end.
 
 options(UserOptions) ->
-    maps:merge(
-      #{ input => true,
-         tty => true,
-         canon => false,
-         echo => false }, UserOptions).
+    maps:merge(#{ input => raw, output => cooked }, UserOptions).
+
 init(State, ssh) ->
     State#state{ xn = true };
-
 init(State, {unix,_}) ->
 
     case os:getenv("TERM") of
@@ -506,7 +499,7 @@ handle_signal(State, sigwinch) ->
 handle_signal(State, resize) ->
     update_geometry(State);
 handle_signal(State, sigcont) ->
-    tty_set(State#state.tty),
+    tty_init(State#state.tty, State#state.options),
     State.
 
 -spec disable_reader(state()) -> ok.
@@ -562,10 +555,10 @@ reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc) ->
                     Parent ! {ReaderRef, eof},
                     ok;
                 {error, aborted} ->
-                    %% The read operation was aborted. This only happens on
-                    %% Windows when we change from "noshell" to "newshell".
-                    %% When it happens we need to re-read the tty_encoding as
-                    %% it has changed.
+                    %% The read operation was aborted. This happens on
+                    %% Windows when we change from "{noshell, cooked}" to "{noshell, raw}"
+                    %% or "newshell".
+                    %% When it happens we need to re-read the tty_encoding as it has changed.
                     reader_loop(TTY, Parent, ReaderRef, tty_encoding(TTY), Acc);
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
@@ -646,7 +639,7 @@ writer_loop(TTY, WriterRef) ->
     end.
 
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
-handle_request(State = #state{ options = #{ tty := false } }, Request) ->
+handle_request(State = #state{ options = #{ output := raw } }, Request) ->
     case Request of
         {putc_raw, Binary} ->
             {Binary, State};
@@ -1428,9 +1421,7 @@ isatty(_Fd) ->
 -spec tty_create() -> {ok, tty()}.
 tty_create() ->
     erlang:nif_error(undef).
-tty_init(_TTY, _Fd, _Options) ->
-    erlang:nif_error(undef).
-tty_set(_TTY) ->
+tty_init(_TTY, _Options) ->
     erlang:nif_error(undef).
 setlocale(_TTY) ->
     erlang:nif_error(undef).
