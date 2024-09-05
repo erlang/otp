@@ -137,6 +137,8 @@ while [ "${TAG_URL}" != "" ]; do
                     *)
                         _asset "otp_win32_${stripped_name}.exe"
                         _asset "otp_win64_${stripped_name}.exe"
+                        _asset "otp_win32_${stripped_name}.zip"
+                        _asset "otp_win64_${stripped_name}.zip"
                         ;;
                 esac
             fi
@@ -218,6 +220,9 @@ UPLOADED=false
 ## Array of all tags that do not have a pre-build
 MISSING_PREBUILD=()
 
+## Array of zip files that have been triggered this sync
+MISSING_WIN_ZIP=()
+
 _upload_artifacts() {
     local name=${1};
     local stripped_name=""
@@ -235,6 +240,14 @@ _upload_artifacts() {
                        "${UPLOAD_URL}?name=${1}" \
                        --data-binary "@downloads/${1}"
         else
+            ## See if we need to trigger any .exe to .zip convertions
+            if echo "${RI[@]}" | grep "otp_${2}_${stripped_name}.zip" > /dev/null; then
+                if [ ${#MISSING_WIN_ZIP[@]} -lt 20 ]; then
+                    MISSING_WIN_ZIP=("${MISSING_WIN_ZIP[@]}" "${stripped_name}")
+                    _curl_post "${REPO}/actions/workflows/upload-windows-zip.yaml/dispatches" -d '{"version":"'"${stripped_name}"'", "target":"'"${2}"'"}'
+                fi
+            fi
+            ## See if we need to re-build any prebuilds
             if echo "${RI[@]}" | grep "${stripped_name}.tar.gz" > /dev/null; then
                 MISSING_PREBUILD=("${MISSING_PREBUILD[@]}" "${name}")
             fi
@@ -247,6 +260,8 @@ _upload_artifacts() {
     _upload "otp_doc_man_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_win32_${stripped_name}.exe" "application/x-msdownload"
     _upload "otp_win64_${stripped_name}.exe" "application/x-msdownload"
+    _upload "otp_win32_${stripped_name}.zip" "win32"
+    _upload "otp_win64_${stripped_name}.zip" "win64"
 }
 
 ## Upload all assets for tags
