@@ -421,8 +421,9 @@ jobs:
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
-        run: docker run -v $PWD/:/github otp \
-            "make release_docs DOC_TARGETS='html man' RELEASE_ROOT=/github/docs"
+        run: |
+            docker run -v $PWD/:/github otp \
+              "make release_docs DOC_TARGETS='html man' RELEASE_ROOT=/github/docs"
             sudo chown -R `whoami` docs
             cd docs
             tar czf ../otp_doc_man.tar.gz man
