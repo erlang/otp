@@ -25692,8 +25692,8 @@ printf "%s\n" "no" >&6; }
 	;;
 esac
 
-case $OPSYS in #(
-  linux*) :
+case $ARCH-$OPSYS in #(
+  amd64-linux*) :
 
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether the Transparent Huge Pages interface is available" >&5
 printf %s "checking whether the Transparent Huge Pages interface is available... " >&6; }
