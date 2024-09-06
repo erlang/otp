@@ -1005,6 +1005,8 @@ id(#sctp_adaptation_event{assoc_id = Id}) ->
 
 peeloff(LSock, Id, TPid) ->
     {ok, Sock} = gen_sctp:peeloff(LSock, Id),
+    {ok, ToSTC} = inet:getopts(LSock, [tos, tclass]),
+    ok = inet:setopts(Sock, ToSTC),
     ok = gen_sctp:controlling_process(Sock, TPid),
     Sock.
 
