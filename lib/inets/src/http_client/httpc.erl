@@ -806,7 +806,8 @@ handle_request(Method, Url,
 			       request_options       = Options},
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
-		    handle_answer(RequestId, Sync, Options);
+		    handle_answer(RequestId, Receiver, Sync, Options,
+                                 element(#http_options.timeout, HTTPOptions));
 		{error, Reason} ->
 		    {error, Reason}
 	    end
@@ -862,20 +863,41 @@ mk_chunkify_fun(ProcessBody) ->
     end.
 
 
-handle_answer(RequestId, false, _) ->
+handle_answer(RequestId, _, false, _, _) ->
     {ok, RequestId};
-handle_answer(RequestId, true, Options) ->
+handle_answer(RequestId, ClientAlias, true, Options, Timeout) ->
     receive
         {http, {RequestId, {ok, saved_to_file}}} ->
+            unalias(ClientAlias),
             {ok, saved_to_file};
         {http, {RequestId, {error, Reason}}} ->
+            unalias(ClientAlias),
             {error, Reason};
         {http, {RequestId, {ok, {StatusLine,Headers,BinBody}}}} ->
+            unalias(ClientAlias),
             Body = maybe_format_body(BinBody, Options),
             {ok, {StatusLine, Headers, Body}};
         {http, {RequestId, {ok, {StatusCode,BinBody}}}} ->
+            unalias(ClientAlias),
             Body = maybe_format_body(BinBody, Options),
             {ok, {StatusCode, Body}}
+    after Timeout ->
+        cancel_request(RequestId),
+        unalias(ClientAlias),
+        receive
+            {http, {RequestId, {ok, saved_to_file}}} ->
+                {ok, saved_to_file};
+            {http, {RequestId, {error, Reason}}} ->
+                {error, Reason};
+            {http, {RequestId, {ok, {StatusLine,Headers,BinBody}}}} ->
+                Body = maybe_format_body(BinBody, Options),
+                {ok, {StatusLine, Headers, Body}};
+            {http, {RequestId, {ok, {StatusCode,BinBody}}}} ->
+                Body = maybe_format_body(BinBody, Options),
+                {ok, {StatusCode, Body}}
+        after 0 ->
+            {error, timeout}
+        end
     end.
 
 maybe_format_body(BinBody, Options) ->
@@ -1064,6 +1086,8 @@ request_options_defaults() ->
 		ok;
 	   (Value) when is_function(Value, 1) ->
 		ok;
+       (Value) when is_reference(Value) ->
+        ok;
 	   (_) ->
 		error
 	end,
@@ -1085,7 +1109,7 @@ request_options_defaults() ->
      {body_format,             string,    VerifyBodyFormat},
      {full_result,             true,      VerifyFullResult},
      {headers_as_is,           false,     VerifyHeaderAsIs},
-     {receiver,                self(),    VerifyReceiver},
+     {receiver,                alias(),    VerifyReceiver},
      {socket_opts,             undefined, VerifySocketOpts},
      {ipv6_host_with_brackets, false,     VerifyBrackets}
     ]. 
@@ -1139,6 +1163,7 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
       BodyFormat  :: string() | binary() | atom(),
       SocketOpt :: term(),
       Receiver :: pid()
+                  | reference()
                   | fun((term()) -> term())
                   | { ReceiverModule::atom()
                     , ReceiverFunction::atom()
@@ -1149,6 +1174,8 @@ request_options_sanity_check(Opts) ->
 	    case proplists:get_value(receiver, Opts) of
 		Pid when is_pid(Pid) andalso (Pid =:= self()) ->
 		    ok;
+        Reference when is_reference(Reference) ->
+            ok;
 		BadReceiver ->
 		    throw({error, {bad_options_combo, 
 				   [{sync, true}, {receiver, BadReceiver}]}})

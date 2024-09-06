@@ -519,7 +519,6 @@ do_handle_info({Proto, _Socket, Data},
   when (Proto =:= tcp) orelse 
        (Proto =:= ssl) orelse 
        (Proto =:= httpc_handler) ->
-
     try Module:Function([Data | Args]) of
 	{ok, Result} ->
 	    handle_http_msg(Result, State); 
@@ -1738,10 +1737,10 @@ format_address({[$[|T], Port}) ->
 format_address(HostPort) ->
     HostPort.
 
-format_answer(Res0, Options) ->
+format_answer(Res, Options) ->
     FullResult = proplists:get_value(full_result, Options, true),
     Sync = proplists:get_value(sync, Options, true),
-    do_format_answer(Res0, FullResult, Sync).
+    do_format_answer(Res, FullResult, Sync).
 do_format_answer({Ref, StatusLine}, _, Sync) when is_atom(StatusLine) ->
     case Sync of
         true ->
@@ -1773,18 +1772,3 @@ do_format_answer({Ref, {StatusLine, _, BinBody}}, false, Sync) ->
     end;
 do_format_answer({Ref, {error, _Reason} = Error}, _, _) ->
     {Ref, Error}.
-
-
-clobber_and_retry(#state{session = #session{id = Id,
-                                            type = Type},
-                         profile_name = ProfileName,
-                         pipeline = Pipeline,
-                         keep_alive = KeepAlive} = State) ->
-    %% Clobber session
-    (catch httpc_manager:delete_session(Id, ProfileName)),
-    case Type of
-        pipeline ->
-            maybe_retry_queue(Pipeline, State);
-        _ ->
-            maybe_retry_queue(KeepAlive, State)
-    end.

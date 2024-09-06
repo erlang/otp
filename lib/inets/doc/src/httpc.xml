@@ -379,6 +379,12 @@
 	              ReplyInfo}</c>.</p>
 	            </item>
 
+              <tag><c>alias()</c></tag>
+              <item>
+                  <p>Messages are sent to this special reference in the same format
+                   as <c>pid()</c>.</p>
+                </item>
+
               <tag><c>function/1</c></tag>
               <item>
 	              <p>Information is delivered to the receiver through calls to the
