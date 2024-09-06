@@ -96,13 +96,13 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 
 %% Shadowed by erl_bif_types: lists:keyfind/3
 -doc """
-Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
-equal to `Key`. Returns `Tuple` if such a tuple is found, otherwise `false`.
+Searches the list `List` for a tuple whose `N`th element compares
+equal to `Key`. Returns `Elem` if such a tuple is found, otherwise `false`.
 """.
--spec keyfind(Key, N, TupleList) -> Tuple | false when
+-spec keyfind(Key, N, List) -> Elem | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList :: [Tuple].
+      List :: [Elem].
 
 keyfind(_, _, _) ->
     erlang:nif_error(undef).
@@ -122,8 +122,8 @@ keymember(_, _, _) ->
 
 %% Shadowed by erl_bif_types: lists:keysearch/3
 -doc """
-Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
-equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
+Searches the list `List` for a tuple whose `N`th element compares
+equal to `Key`. Returns `{value, Elem}` if such a tuple is found, otherwise
 `false`.
 
 > #### Note {: .info }
@@ -131,10 +131,10 @@ equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
 > This function is retained for backward compatibility. Function `keyfind/3` is
 > usually more convenient.
 """.
--spec keysearch(Key, N, TupleList) -> {value, Tuple} | false when
+-spec keysearch(Key, N, List) -> {value, Elem} | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList :: [Tuple].
+      List :: [Elem].
 
 keysearch(_, _, _) ->
     erlang:nif_error(undef).
@@ -1147,14 +1147,14 @@ flatlength([], L) -> L.
 %keysearch3(Key, N, []) -> false.
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a tuple whose `N`th
+Returns a copy of `List1` where the first occurrence of a tuple whose `N`th
 element compares equal to `Key` is deleted, if there is such a tuple.
 """.
--spec keydelete(Key, N, TupleList1) -> TupleList2 when
+-spec keydelete(Key, N, List1) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple].
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 keydelete(K, N, L) when is_integer(N), N > 0 ->
     keydelete3(K, N, L).
@@ -1165,16 +1165,16 @@ keydelete3(Key, N, [H|T]) ->
 keydelete3(_, _, []) -> [].
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a `T` tuple whose
+Returns a copy of `List1` where the first occurrence of a `T` tuple whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
 such a tuple `T`.
 """.
--spec keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2 when
+-spec keyreplace(Key, N, List1, NewTuple) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple],
-      NewTuple :: Tuple.
+      List1 :: [Elem],
+      List2 :: [Elem | NewTuple],
+      NewTuple :: tuple().
 
 keyreplace(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keyreplace3(K, N, L, New).
@@ -1186,16 +1186,16 @@ keyreplace3(Key, Pos, [H|T], New) ->
 keyreplace3(_, _, [], _) -> [].
 
 -doc """
-Searches the list of tuples `TupleList1` for a tuple whose `N`th element
-compares equal to `Key`. Returns `{value, Tuple, TupleList2}` if such a tuple is
-found, otherwise `false`. `TupleList2` is a copy of `TupleList1` where the first
-occurrence of `Tuple` has been removed.
+Searches the list `List1` for a tuple whose `N`th element
+compares equal to `Key`. Returns `{value, Elem, List2}` if such a tuple `Elem` is
+found, otherwise `false`. `List2` is a copy of `List1` where the first
+occurrence of `Elem` has been removed.
 """.
--spec keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} | false when
+-spec keytake(Key, N, List1) -> {value, Elem, List2} | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple].
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 keytake(Key, N, L) when is_integer(N), N > 0 ->
     keytake(Key, N, L, []).
@@ -1207,17 +1207,17 @@ keytake(Key, N, [H|T], L) ->
 keytake(_K, _N, [], _L) -> false.
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a tuple `T` whose
+Returns a copy of `List1` where the first occurrence of a tuple `T` whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
-such a tuple `T`. If there is no such tuple `T`, a copy of `TupleList1` where
+such a tuple `T`. If there is no such tuple `T`, a copy of `List1` where
 [`NewTuple`] has been appended to the end is returned.
 """.
--spec keystore(Key, N, TupleList1, NewTuple) -> TupleList2 when
+-spec keystore(Key, N, List1, NewTuple) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple, ...],
-      NewTuple :: Tuple.
+      List1 :: [Tuple],
+      List2 :: [Tuple | NewTuple, ...],
+      NewTuple :: tuple().
 
 keystore(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keystore2(K, N, L, New).
@@ -1236,7 +1236,8 @@ performed on the `N`th element of the tuples. The sort is stable.
 -spec keysort(N, TupleList1) -> TupleList2 when
       N :: pos_integer(),
       TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple].
+      TupleList2 :: [Tuple],
+      Tuple :: tuple().
 
 keysort(I, L) when is_integer(I), I > 0 ->
     case L of
@@ -1303,9 +1304,10 @@ compare equal, the tuple from `TupleList1` is picked before the tuple from
 """.
 -spec keymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
-      TupleList1 :: [Tuple1],
-      TupleList2 :: [Tuple2],
-      TupleList3 :: [(Tuple1 | Tuple2)].
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      TupleList3 :: [Tuple],
+      Tuple :: tuple().
 
 keymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     keymerge_1(Index, L1, L2).
@@ -1326,9 +1328,10 @@ keymerge_1(_Index, [], []) ->
 -doc false.
 -spec rkeymerge(N, TupleList1, TupleList2) -> TupleList3 when
     N :: pos_integer(),
-    TupleList1 :: [Tuple1],
-    TupleList2 :: [Tuple2],
-    TupleList3 :: [(Tuple1 | Tuple2)].
+    TupleList1 :: [Tuple],
+    TupleList2 :: [Tuple],
+    TupleList3 :: [Tuple],
+    Tuple :: tuple().
 
 rkeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rkeymerge_1(Index, L1, L2).
@@ -1352,7 +1355,8 @@ is performed on the `N`th element of the tuples.
 -spec ukeysort(N, TupleList1) -> TupleList2 when
       N :: pos_integer(),
       TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple].
+      TupleList2 :: [Tuple],
+      Tuple :: tuple().
 
 ukeysort(I, L) when is_integer(I), I > 0 ->
     case L of
@@ -1428,9 +1432,10 @@ and the one from `TupleList2` is deleted.
 """.
 -spec ukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
-      TupleList1 :: [Tuple1],
-      TupleList2 :: [Tuple2],
-      TupleList3 :: [(Tuple1 | Tuple2)].
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      TupleList3 :: [Tuple],
+      Tuple :: tuple().
 
 ukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     ukeymerge_1(Index, L1, L2).
@@ -1451,9 +1456,10 @@ ukeymerge_1(_Index, [], []) ->
 -doc false.
 -spec rukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
     N :: pos_integer(),
-    TupleList1 :: [Tuple1],
-    TupleList2 :: [Tuple2],
-    TupleList3 :: [(Tuple1 | Tuple2)].
+    TupleList1 :: [Tuple],
+    TupleList2 :: [Tuple],
+    TupleList3 :: [Tuple],
+    Tuple :: tuple().
 
 rukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rukeymerge_1(Index, L1, L2).
