@@ -256,6 +256,7 @@ pi(Pid, Key) ->
 
 fold(Fun, Acc0, L)
   when is_list(L) ->
+    timer:send_after(1000, self(), check_worker_status),
     fold(Fun, Acc0, lists:foldl(fun(F,A) ->
                                         {P,M} = spawn_eval(F),
                                         A#{M => P}
@@ -269,11 +270,44 @@ fold(_, Acc, Map)
 
 fold(Fun, Acc, #{} = Map) ->
     receive
+        check_worker_status ->
+            fold_display_workers_status(Map),
+            timer:send_after(1000, self(), check_worker_status),
+            fold(Fun, Acc, Map);
+
         {'DOWN', MRef, process, Pid, Info} when is_map_key(MRef, Map) ->
             ?UL("fold -> process ~p terminated:"
-                "~n   ~p", [Pid, Info]),
+                "~n   Info:   ~p"
+                "~nwhen"
+                "~n   Map Sz: ~p", [Pid, Info, maps:size(Map)]),
             fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
     end.
+
+fold_display_workers_status(Map) ->
+    Workers = [P || {_M, P} <- maps:to_list(Map)],
+    fold_display_workers_status2(Workers).
+
+fold_display_workers_status2([]) ->
+    ok;
+fold_display_workers_status2([W|Ws]) ->
+    fold_display_worker_status(W),
+    fold_display_workers_status2(Ws).
+
+fold_display_worker_status(W) ->
+    ?UL("check fold worker process status: "
+        "~n   Worker: ~p"
+        "~n      Initial Call:         ~p"
+        "~n      Current Function:     ~p"
+        "~n      Message Queue Length: ~p"
+        "~n      Reductions:           ~p"
+        "~n      Status:               ~p",
+        [W,
+         pi(W, initial_call),
+         pi(W, current_function),
+         pi(W, message_queue_len),
+         pi(W, reductions),
+         pi(W, status)]),
+    ok.
 
 %% spawn_eval/1
 
