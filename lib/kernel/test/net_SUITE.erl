@@ -425,7 +425,8 @@ api_b_getservbyname() ->
                                    case os:type() of
                                        {unix, Flavor}
                                          when ((Flavor =:= openbsd) orelse
-                                               (Flavor =:= solaris)) andalso
+                                               (Flavor =:= solaris) orelse
+                                               (Flavor =:= sunos)) andalso
                                               (Reason =:= einval) ->
                                            ok;
                                        _ ->
@@ -588,7 +589,7 @@ api_b_getservbyport() ->
     case net:getservbyport(161,  udp) of
         {ok, "snmp"} ->
             ok;
-        {ok, "snmpd"} -> %% Solaris
+        {ok, "snmpd"} -> %% Solaris/Sunos
             ok
     end,
     not_on_windows(fun() ->
@@ -602,7 +603,8 @@ api_b_getservbyport() ->
                                    case os:type() of
                                        {unix, Flavor}
                                          when ((Flavor =:= openbsd) orelse
-                                               (Flavor =:= solaris)) andalso
+                                               (Flavor =:= solaris) orelse
+                                               (Flavor =:= sunos)) andalso
                                               (Reason =:= einval) ->
                                            ok;
                                        _ ->
