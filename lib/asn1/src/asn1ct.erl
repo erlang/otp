@@ -1382,7 +1382,7 @@ is_asn1_flag(no_ok_wrapper) -> true;
 is_asn1_flag(optimize) -> true;
 is_asn1_flag(per) -> true;
 is_asn1_flag({record_name_prefix,_}) -> true;
-is_asn1_flag(undec_rec) -> true;
+is_asn1_flag(undec_rest) -> true;
 is_asn1_flag(uper) -> true;
 is_asn1_flag(verbose) -> true;
 %% 'warnings_as_errors' is intentionally passed through to the compiler.
