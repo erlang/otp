@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
          inet_backend_opts/1,
          explicit_inet_backend/0,
          test_inet_backends/0,
-         which_inet_backend/1]).
+         which_inet_backend/1,
+         config_inet_backend/2]).
 -export([start_node/2, start_node/3,
          stop_node/1]).
 -export([f/2,
@@ -2630,16 +2631,16 @@ open(Config, Port, Opts) ->
 
 
 inet_backend_opts(Config) when is_list(Config) ->
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, InetBackendOpts}} ->
+    case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, InetBackendOpts} ->
             InetBackendOpts;
         false ->
             []
     end.
 
 is_socket_backend(Config) when is_list(Config) ->
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, [{inet_backend, socket}]}} ->
+    case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, [{inet_backend, socket}]} ->
             true;
         _ ->
             false
@@ -2649,8 +2650,8 @@ is_socket_backend(Config) when is_list(Config) ->
 explicit_inet_backend() ->
     case application:get_all_env(kernel) of
         Env when is_list(Env) ->
-            case lists:keysearch(inet_backend, 1, Env) of
-                {value, {inet_backend, _}} ->
+            case lists:keyfind(inet_backend, 1, Env) of
+                {_, _} ->
                     true;
                 _ ->
                     false
@@ -2663,8 +2664,8 @@ explicit_inet_backend() ->
 test_inet_backends() ->
     case application:get_all_env(kernel) of
         Env when is_list(Env) ->
-            case lists:keysearch(test_inet_backends, 1, Env) of
-                {value, {test_inet_backends, true}} ->
+            case lists:keyfind(test_inet_backends, 1, Env) of
+                {_, true} ->
                     true;
                 _ ->
                     false
@@ -2674,13 +2675,21 @@ test_inet_backends() ->
     end.
 
 which_inet_backend(Config) ->
-    case lists:keysearch(socket_create_opts, 1, Config) of
-        {value, {socket_create_opts, [{inet_backend, Backend}]}} ->
+    case lists:keyfind(socket_create_opts, 1, Config) of
+        {_, [{inet_backend, Backend}]} ->
             Backend;
         _ ->
             default
     end.
-    
+
+config_inet_backend(Config, Backend) ->
+    if
+        Backend =:= default ->
+            [];
+        Backend =:= socket;
+        Backend =:= inet ->
+            [{socket_create_opts, [{inet_backend, Backend}]}]
+    end ++ lists:keydelete(socket_create_opts, 1, Config).
 
 
 proxy_call(F, Timeout, Default)
