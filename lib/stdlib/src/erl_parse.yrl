@@ -34,7 +34,7 @@ list_comprehension lc_expr lc_exprs
 map_comprehension
 binary_comprehension
 tuple
-record_expr record_tuple record_field record_fields res_rec
+record_expr record_tuple record_field record_fields reserved_word
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
@@ -81,7 +81,7 @@ char integer float atom sigil_prefix string sigil_suffix var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
-'maybe' 'else'
+'maybe' 'else' 'cond' 'let'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -192,9 +192,9 @@ type -> '{' top_types '}'                 : {type, ?anno('$1'), tuple, '$2'}.
 type -> '#' atom '{' '}'                  : {type, ?anno('$1'), record, ['$2']}.
 type -> '#' atom '{' field_types '}'      : {type, ?anno('$1'),
                                              record, ['$2'|'$4']}.
-type -> '#' res_rec '{' '}'               : {type, ?anno('$1'),
+type -> '#' reserved_word '{' '}'               : {type, ?anno('$1'),
                                              record, [build_atom('$2')]}.
-type -> '#' res_rec '{' field_types '}'   : {type, ?anno('$1'),
+type -> '#' reserved_word '{' field_types '}'   : {type, ?anno('$1'),
                                              record, [build_atom('$2')|'$4']}.
 
 type -> binary_type                       : '$1'.
@@ -320,9 +320,9 @@ record_pat_expr -> '#' atom '.' atom :
 	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
 record_pat_expr -> '#' atom record_tuple :
 	{record,?anno('$1'),element(3, '$2'),'$3'}.
-record_pat_expr -> '#' res_rec'.' atom :
+record_pat_expr -> '#' reserved_word '.' atom :
 	{record_index,?anno('$1'),element(1, '$2'),'$4'}.
-record_pat_expr -> '#' res_rec record_tuple :
+record_pat_expr -> '#' reserved_word record_tuple :
 	{record,?anno('$1'),element(1, '$2'),'$3'}.
 
 list -> '[' ']' : {nil,?anno('$1')}.
@@ -422,17 +422,17 @@ record_expr -> record_expr '#' atom '.' atom :
 record_expr -> record_expr '#' atom record_tuple :
 	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
 
-record_expr -> '#' res_rec '.' atom :
+record_expr -> '#' reserved_word '.' atom :
 	{record_index,?anno('$1'),element(1, '$2'),'$4'}.
-record_expr -> '#' res_rec record_tuple :
+record_expr -> '#' reserved_word record_tuple :
 	{record, ?anno('$1'), element(1, '$2'), '$3'}.
-record_expr -> expr_max '#' res_rec '.' atom :
+record_expr -> expr_max '#' reserved_word '.' atom :
 	{record_field,?anno('$2'),'$1',element(1, '$3'),'$5'}.
-record_expr -> expr_max '#' res_rec record_tuple :
+record_expr -> expr_max '#' reserved_word record_tuple :
 	{record,?anno('$2'),'$1',element(1, '$3'),'$4'}.
-record_expr -> record_expr '#' res_rec '.' atom :
+record_expr -> record_expr '#' reserved_word '.' atom :
 	{record_field,?anno('$2'),'$1',element(1, '$3'),'$5'}.
-record_expr -> record_expr '#' res_rec record_tuple :
+record_expr -> record_expr '#' reserved_word record_tuple :
 	{record,?anno('$2'),'$1',element(1, '$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
@@ -609,33 +609,35 @@ comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
 
-res_rec -> 'after' : '$1'.
-res_rec -> 'begin' : '$1'.
-res_rec -> 'case' : '$1'.
-res_rec -> 'try' : '$1'.
-res_rec -> 'catch' : '$1'.
-res_rec -> 'end' : '$1'.
-res_rec -> 'fun' : '$1'.
-res_rec -> 'if' : '$1'.
-res_rec -> 'of' : '$1'.
-res_rec -> 'receive' : '$1'.
-res_rec -> 'when' : '$1'.
-res_rec -> 'maybe' : '$1'.
-res_rec -> 'else' : '$1'.
-res_rec -> 'andalso' : '$1'.
-res_rec -> 'orelse' : '$1'.
-res_rec -> 'bnot' : '$1'.
-res_rec -> 'not' : '$1'.
-res_rec -> 'div' : '$1'.
-res_rec -> 'rem' : '$1'.
-res_rec -> 'band' : '$1'.
-res_rec -> 'and' : '$1'.
-res_rec -> 'bor' : '$1'.
-res_rec -> 'bxor' : '$1'.
-res_rec -> 'bsl' : '$1'.
-res_rec -> 'bsr' : '$1'.
-res_rec -> 'or' : '$1'.
-res_rec -> 'xor' : '$1'.
+reserved_word -> 'after' : '$1'.
+reserved_word -> 'and' : '$1'.
+reserved_word -> 'andalso' : '$1'.
+reserved_word -> 'band' : '$1'.
+reserved_word -> 'begin' : '$1'.
+reserved_word -> 'bnot' : '$1'.
+reserved_word -> 'bor' : '$1'.
+reserved_word -> 'bsl' : '$1'.
+reserved_word -> 'bsr' : '$1'.
+reserved_word -> 'bxor' : '$1'.
+reserved_word -> 'case' : '$1'.
+reserved_word -> 'catch' : '$1'.
+reserved_word -> 'cond' : '$1'.
+reserved_word -> 'div' : '$1'.
+reserved_word -> 'else' : '$1'.
+reserved_word -> 'end' : '$1'.
+reserved_word -> 'fun' : '$1'.
+reserved_word -> 'if' : '$1'.
+reserved_word -> 'let' : '$1'.
+reserved_word -> 'maybe' : '$1'.
+reserved_word -> 'not' : '$1'.
+reserved_word -> 'of' : '$1'.
+reserved_word -> 'or' : '$1'.
+reserved_word -> 'orelse' : '$1'.
+reserved_word -> 'receive' : '$1'.
+reserved_word -> 'rem' : '$1'.
+reserved_word -> 'try' : '$1'.
+reserved_word -> 'when' : '$1'.
+reserved_word -> 'xor' : '$1'.
 
 ssa_check_when_clauses -> ssa_check_when_clause : ['$1'].
 ssa_check_when_clauses -> ssa_check_when_clause ssa_check_when_clauses :
