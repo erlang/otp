@@ -576,14 +576,14 @@ async(Config) when is_list(Config) ->
     HttpcPid = proplists:get_value(httpc_pid, Config),
 
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{sync, false}]),
+        httpc:request(get, Request, [], [{sync, false}]),
     Body =
-	receive
-	    {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
-		BinBody;
-	    {http, Msg} ->
-		ct:fail(Msg)
-	end,
+        receive
+            {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
+                BinBody;
+            {http, Msg} ->
+                ct:fail(Msg)
+        end,
     inets_test_lib:check_body(binary_to_list(Body)),
 
     %% Check full result false option for async request

@@ -1761,9 +1761,9 @@ do_format_answer({Ref, {StatusLine, Headers, BinBody}}, true, Sync) ->
             {Ref, {ok, {StatusLine, Headers, BinBody}}};
         _ ->
             {Ref, {StatusLine, Headers, BinBody}}
-        end;
+    end;
 do_format_answer({Ref, {StatusLine, _, BinBody}}, false, Sync) ->
-        {_, Status, _} = StatusLine,
+    {_, Status, _} = StatusLine,
     case Sync of
         true ->
             {Ref, {ok, {Status, BinBody}}};

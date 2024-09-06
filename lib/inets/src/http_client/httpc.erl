@@ -803,15 +803,15 @@ handle_request(Method, Url,
 			       started       = Started,
 			       unix_socket   = UnixSocket,
 			       ipv6_host_with_brackets = BracketedHost,
-			       request_options       = Options},
-	    case httpc_manager:request(Request, profile_name(Profile)) of
-		{ok, RequestId} ->
-		    handle_answer(RequestId, Receiver, Sync, Options,
-                                 element(#http_options.timeout, HTTPOptions));
-		{error, Reason} ->
-		    {error, Reason}
-	    end
-	end
+			       request_options         = Options},
+            case httpc_manager:request(Request, profile_name(Profile)) of
+                {ok, RequestId} ->
+                    handle_answer(RequestId, Receiver, Sync, Options,
+                                  element(#http_options.timeout, HTTPOptions));
+                {error, Reason} ->
+                    {error, Reason}
+            end
+        end
     catch
 	error:{noproc, _} ->
 	    {error, {not_started, Profile}};
@@ -868,36 +868,36 @@ handle_answer(RequestId, _, false, _, _) ->
 handle_answer(RequestId, ClientAlias, true, Options, Timeout) ->
     receive
         {http, {RequestId, {ok, saved_to_file}}} ->
-            unalias(ClientAlias),
+            true = unalias(ClientAlias),
             {ok, saved_to_file};
         {http, {RequestId, {error, Reason}}} ->
-            unalias(ClientAlias),
+            true = unalias(ClientAlias),
             {error, Reason};
-        {http, {RequestId, {ok, {StatusLine,Headers,BinBody}}}} ->
-            unalias(ClientAlias),
+        {http, {RequestId, {ok, {StatusLine, Headers, BinBody}}}} ->
+            true = unalias(ClientAlias),
             Body = maybe_format_body(BinBody, Options),
             {ok, {StatusLine, Headers, Body}};
-        {http, {RequestId, {ok, {StatusCode,BinBody}}}} ->
-            unalias(ClientAlias),
+        {http, {RequestId, {ok, {StatusCode, BinBody}}}} ->
+            true = unalias(ClientAlias),
             Body = maybe_format_body(BinBody, Options),
             {ok, {StatusCode, Body}}
     after Timeout ->
-        cancel_request(RequestId),
-        unalias(ClientAlias),
-        receive
-            {http, {RequestId, {ok, saved_to_file}}} ->
-                {ok, saved_to_file};
-            {http, {RequestId, {error, Reason}}} ->
-                {error, Reason};
-            {http, {RequestId, {ok, {StatusLine,Headers,BinBody}}}} ->
-                Body = maybe_format_body(BinBody, Options),
-                {ok, {StatusLine, Headers, Body}};
-            {http, {RequestId, {ok, {StatusCode,BinBody}}}} ->
-                Body = maybe_format_body(BinBody, Options),
-                {ok, {StatusCode, Body}}
-        after 0 ->
-            {error, timeout}
-        end
+            cancel_request(RequestId),
+            true = unalias(ClientAlias),
+            receive
+                {http, {RequestId, {ok, saved_to_file}}} ->
+                    {ok, saved_to_file};
+                {http, {RequestId, {error, Reason}}} ->
+                    {error, Reason};
+                {http, {RequestId, {ok, {StatusLine, Headers, BinBody}}}} ->
+                    Body = maybe_format_body(BinBody, Options),
+                    {ok, {StatusLine, Headers, Body}};
+                {http, {RequestId, {ok, {StatusCode, BinBody}}}} ->
+                    Body = maybe_format_body(BinBody, Options),
+                    {ok, {StatusCode, Body}}
+            after 0 ->
+                    {error, timeout}
+            end
     end.
 
 maybe_format_body(BinBody, Options) ->
@@ -1086,8 +1086,8 @@ request_options_defaults() ->
 		ok;
 	   (Value) when is_function(Value, 1) ->
 		ok;
-       (Value) when is_reference(Value) ->
-        ok;
+           (Value) when is_reference(Value) ->
+                ok;
 	   (_) ->
 		error
 	end,
@@ -1174,8 +1174,8 @@ request_options_sanity_check(Opts) ->
 	    case proplists:get_value(receiver, Opts) of
 		Pid when is_pid(Pid) andalso (Pid =:= self()) ->
 		    ok;
-        Reference when is_reference(Reference) ->
-            ok;
+                Reference when is_reference(Reference) ->
+                    ok;
 		BadReceiver ->
 		    throw({error, {bad_options_combo, 
 				   [{sync, true}, {receiver, BadReceiver}]}})
