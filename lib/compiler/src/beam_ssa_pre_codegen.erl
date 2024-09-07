@@ -2582,16 +2582,17 @@ reserve_zregs(RPO, Blocks, Intervals, Res) ->
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
-             Last, ShortLived, A) ->
+             Last, ShortLived, A0) ->
     case {Val,Last} of
         {#b_literal{val=Arity},#b_br{bool=Bool}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
-            reserve_test_zreg(Dst, ShortLived, A);
+            A1 = reserve_test_zreg(Dst, ShortLived, A0),
+            reserve_test_zreg(Bool, ShortLived, A1);
         {_,_} ->
             %% Either the arity is too big, or the boolean value is not
             %% used in a conditional branch.
-            A
+            A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
              #b_switch{arg=Dst}, ShortLived, A) ->
@@ -2616,6 +2617,7 @@ use_zreg(bs_set_position) -> yes;
 use_zreg(executable_line) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
+use_zreg(nif_start) -> yes;
 use_zreg(recv_marker_bind) -> yes;
 use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;
