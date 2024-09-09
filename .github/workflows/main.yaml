@@ -435,7 +435,7 @@ jobs:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -606,7 +606,7 @@ jobs:
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@v4.1.1
+        uses: actions/download-artifact@v4.1.8
         with:
           name: otp_doc_man
 
