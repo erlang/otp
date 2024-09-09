@@ -8458,12 +8458,22 @@ otp16649_mgr_reg_agent(Node, IPFam, TDomain, Target, PortNo) ->
             "~n      Target:  ~p"
             "~n      PortNo:  ~p",
             [Node, IPFam, TDomain, Target, PortNo]),
-    Localhost  = ?LOCALHOST(IPFam),
+    Localhost = ?LOCALHOST(IPFam),
+    Version   = v1,
+    EngineId  = "agentEngine",
+    ?IPRINT("otp16649_mgr_reg_agent -> register agent:"
+            "~n      Target:   ~p"
+            "~n      Address:  ~p"
+            "~n      Port:     ~p"
+            "~n      Version:  ~p"
+            "~n      TDomain:  ~p"
+            "~n      EngineId: ~p",
+            [Target, Localhost, PortNo, Version, TDomain, EngineId]),    
     Config     = [{address,   Localhost},
                   {port,      PortNo},
-                  {version,   v1},
+                  {version,   Version},
                   {tdomain,   TDomain},
-                  {engine_id, "agentEngine"}],
+                  {engine_id, EngineId}],
     rpc:call(Node, snmpm, register_agent,
               [otp16649, Target, Config]).
 
