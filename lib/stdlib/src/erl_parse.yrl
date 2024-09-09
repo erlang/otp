@@ -23,6 +23,7 @@
 
 Nonterminals
 form
+reserved_word
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
@@ -34,7 +35,7 @@ list_comprehension lc_expr lc_exprs
 map_comprehension
 binary_comprehension
 tuple
-record_expr record_tuple record_field record_fields reserved_word
+record_expr record_tuple record_field record_fields record_name
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
@@ -189,13 +190,12 @@ type -> '#' '{' '}'                       : {type, ?anno('$1'), map, []}.
 type -> '#' '{' map_pair_types '}'        : {type, ?anno('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?anno('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?anno('$1'), tuple, '$2'}.
-type -> '#' atom '{' '}'                  : {type, ?anno('$1'), record, ['$2']}.
-type -> '#' atom '{' field_types '}'      : {type, ?anno('$1'),
-                                             record, ['$2'|'$4']}.
-type -> '#' reserved_word '{' '}'               : {type, ?anno('$1'),
-                                             record, [build_atom('$2')]}.
-type -> '#' reserved_word '{' field_types '}'   : {type, ?anno('$1'),
-                                             record, [build_atom('$2')|'$4']}.
+type -> '#' record_name '{' '}'           : {type, ?anno('$1'),
+                                             record,
+                                             [build_atom('$2')]}.
+type -> '#' record_name '{' field_types '}' : {type, ?anno('$1'),
+                                             record,
+                                             [build_atom('$2')|'$4']}.
 
 type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
@@ -316,14 +316,10 @@ pat_expr_max -> '(' pat_expr ')' : '$2'.
 map_pat_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
 
-record_pat_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
-record_pat_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
-record_pat_expr -> '#' reserved_word '.' atom :
-	{record_index,?anno('$1'),element(1, '$2'),'$4'}.
-record_pat_expr -> '#' reserved_word record_tuple :
-	{record,?anno('$1'),element(1, '$2'),'$3'}.
+record_pat_expr -> '#' record_name '.' atom :
+	{record_index,?anno('$1'),record_name('$2'),'$4'}.
+record_pat_expr -> '#' record_name record_tuple :
+	{record,?anno('$1'),record_name('$2'),'$3'}.
 
 list -> '[' ']' : {nil,?anno('$1')}.
 list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
@@ -409,31 +405,18 @@ map_key -> expr : '$1'.
 %% N.B. Field names are returned as the complete object, even if they are
 %% always atoms for the moment, this might change in the future.
 
-record_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
-record_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
-record_expr -> expr_max '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> expr_max '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
-record_expr -> record_expr '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> record_expr '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
-
-record_expr -> '#' reserved_word '.' atom :
-	{record_index,?anno('$1'),element(1, '$2'),'$4'}.
-record_expr -> '#' reserved_word record_tuple :
-	{record, ?anno('$1'), element(1, '$2'), '$3'}.
-record_expr -> expr_max '#' reserved_word '.' atom :
-	{record_field,?anno('$2'),'$1',element(1, '$3'),'$5'}.
-record_expr -> expr_max '#' reserved_word record_tuple :
-	{record,?anno('$2'),'$1',element(1, '$3'),'$4'}.
-record_expr -> record_expr '#' reserved_word '.' atom :
-	{record_field,?anno('$2'),'$1',element(1, '$3'),'$5'}.
-record_expr -> record_expr '#' reserved_word record_tuple :
-	{record,?anno('$2'),'$1',element(1, '$3'),'$4'}.
+record_expr -> '#' record_name '.' atom :
+	{record_index,?anno('$1'),record_name('$2'),'$4'}.
+record_expr -> '#' record_name record_tuple :
+	{record,?anno('$1'),record_name('$2'),'$3'}.
+record_expr -> expr_max '#' record_name '.' atom :
+	{record_field,?anno('$2'),'$1',record_name('$3'),'$5'}.
+record_expr -> expr_max '#' record_name record_tuple :
+	{record,?anno('$2'),'$1',record_name('$3'),'$4'}.
+record_expr -> record_expr '#' record_name '.' atom :
+	{record_field,?anno('$2'),'$1',record_name('$3'),'$5'}.
+record_expr -> record_expr '#' record_name record_tuple :
+	{record,?anno('$2'),'$1',record_name('$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
 record_tuple -> '{' record_fields '}' : '$2'.
@@ -608,6 +591,10 @@ comp_op -> '>=' : '$1'.
 comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
+
+record_name -> atom : '$1'.
+record_name -> var : '$1'.
+record_name -> reserved_word : '$1'.
 
 reserved_word -> 'after' : '$1'.
 reserved_word -> 'and' : '$1'.
@@ -1497,8 +1484,16 @@ build_bin_type([], Int) ->
 build_bin_type([{var, Aa, _}|_], _) ->
     ret_err(Aa, "Bad binary type").
 
-build_atom({Atom, Aa}) ->
-    {atom, Aa, Atom}.
+build_atom({atom, _Aa, _Name} = Atom) -> Atom;
+build_atom({ReservedWord, Aa}) -> {atom, Aa, ReservedWord};
+build_atom({var, Aa, Name}) -> {atom, Aa, Name}.
+
+record_name(RecordName) ->
+    case RecordName of
+        {atom, _Aa, Name}   -> Name;
+        {var, _Aa, Name}    -> Name;
+        {ReservedWord, _Aa} -> ReservedWord
+    end.
 
 %print(X) ->
 %    io:format("Details: ~p~n",[X]),

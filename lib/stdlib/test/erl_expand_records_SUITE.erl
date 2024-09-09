@@ -758,40 +758,49 @@ otp_7078(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
-%% PR-7873. Reserved words as record names.
+%% PR-7873. Reserved words and variable names as record names
 pr_7873(Config) when is_list(Config) ->
     Words = [
+             <<"Abc">>,
              <<"after">>,
+             <<"and">>,
+             <<"andalso">>,
+             <<"band">>,
              <<"begin">>,
+             <<"bnot">>,
+             <<"bor">>,
+             <<"bsl">>,
+             <<"bsr">>,
+             <<"bxor">>,
              <<"case">>,
-             <<"try">>,
              <<"catch">>,
+             <<"cond">>,
+             <<"div">>,
+             <<"else">>,
              <<"end">>,
              <<"fun">>,
              <<"if">>,
-             <<"of">>,
-             <<"receive">>,
-             <<"when">>,
+             <<"let">>,
              <<"maybe">>,
-             <<"else">>,
-             <<"andalso">>,
-             <<"orelse">>,
-             <<"bnot">>,
              <<"not">>,
-             <<"div">>,
-             <<"rem">>,
-             <<"band">>,
-             <<"and">>,
-             <<"bor">>,
-             <<"bxor">>,
-             <<"bsl">>,
-             <<"bsr">>,
+             <<"of">>,
              <<"or">>,
+             <<"orelse">>,
+             <<"receive">>,
+             <<"rem">>,
+             <<"try">>,
+             <<"when">>,
              <<"xor">>
           ],
 
-    Code = <<"
-         -record('WORD', {a = 1}).
+    Declarations =
+        [~"-record('WORD', {a = 1}).",
+         ~"-record('WORD', {a = 1 :: integer()}).",
+         ~"-record 'WORD', {a = 1}.",
+         ~"-record 'WORD', {a = 1 :: integer()}."],
+
+    Code =
+        ~"""
 
          -type x() :: #WORD{}.
 
@@ -799,6 +808,9 @@ pr_7873(Config) when is_list(Config) ->
             'WORD' = element(1, #WORD{}),
             2 = #WORD.a,
             A = #WORD{},
+            A = # WORD{},
+            A = #WORD {},
+            A = # WORD {},
             _ = #WORD{a=5},
             1 = A#WORD.a,
             _ = A#WORD{},
@@ -820,11 +832,14 @@ pr_7873(Config) when is_list(Config) ->
          match2(Rec, V) when Rec#WORD.a == V -> ok.
 
          match3(#WORD{a=#WORD{}}) -> ok.
-      ">>,
-    F = fun(Word) ->
-                binary:replace(Code, <<"WORD">>, Word, [global])
-        end,
-    Ts = lists:map(F, Words),
+
+         """,
+    Ts =
+        [binary:replace(
+           <<Hdr/binary, Code/binary>>, <<"WORD">>, Word, [global])
+         || Hdr  <- Declarations,
+            Word <- Words],
+
     run(Config, Ts, [strict_record_tests]),
     ok.
 
