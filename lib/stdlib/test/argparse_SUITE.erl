@@ -751,6 +751,8 @@ usage(Config) when is_list(Config) ->
         "      [-t <t>] ---maybe-req -y <y> --yyy <y> [-u <u>] [-c <choice>] [-q <fc>]\n"
         "      [-w <ac>] [--unsafe <au>] [--safe <as>] [-foobar <long>] <server> [<optpos>]\n"
         "\n"
+        "verifies configuration and starts server\n"
+        "\n"
         "Subcommands:\n"
         "  crawler      controls crawler behaviour\n"
         "  doze         dozes a bit\n\n"
@@ -799,6 +801,8 @@ usage(Config) when is_list(Config) ->
         #{progname => erl}))),
     CrawlerStatus = "Usage:\n  erl status crawler [-rfv] [--force] [-i <interval>] [--req <weird>]\n"
         "      [--float <float>] [---extra <extra>]\n\n"
+        "crawler status\n"
+        "\n"
         "Optional arguments:\n"
         "  -r          recursive\n"
         "  -f, --force force\n"
