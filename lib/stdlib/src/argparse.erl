@@ -1628,7 +1628,7 @@ format_help({ProgName, Root}, Format) ->
     %% usage line has hardcoded format for now
     Usage = [ProgName, ShortCmd, FlagsForm, Opts, Args],
     %% format usage according to help template
-    Template0 = maps:get(help, Root, ""),
+    Template0 = get_help(Root, Nested),
     %% when there is no help defined for the command, or help is a string,
     %% use the default format (original argparse behaviour)
     Template =
@@ -1658,6 +1658,14 @@ collect_options(CmdName, Command, [Cmd|Tail], Args) ->
     Sub = maps:get(commands, Command),
     SubCmd = maps:get(Cmd, Sub),
     collect_options(CmdName ++ " " ++ Cmd, SubCmd, Tail, Args ++ maps:get(arguments, Command, [])).
+
+%% gets help for sub-command
+get_help(Command, []) ->
+    maps:get(help, Command, "");
+get_help(Command, [Cmd|Tail]) ->
+    Sub = maps:get(commands, Command),
+    SubCmd = maps:get(Cmd, Sub),
+    get_help(SubCmd, Tail).
 
 %% conditionally adds text and empty lines
 maybe_add(_ToAdd, [], _Element, Template) ->
