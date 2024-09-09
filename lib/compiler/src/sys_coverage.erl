@@ -193,7 +193,7 @@ bool_switch(E, T, F, AllVars, AuxVarN) ->
          [{tuple,Anno,[{atom,Anno,badarg},AuxVar]}]}]}]}.
 
 aux_var(Vars, N) ->
-    Name = list_to_atom(lists:concat(['_', N])),
+    Name = list_to_atom(lists:concat(["cov", N])),
     case sets:is_element(Name, Vars) of
         true -> aux_var(Vars, N + 1);
         false -> Name
