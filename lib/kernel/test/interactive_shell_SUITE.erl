@@ -504,6 +504,7 @@ shell_format(Config) ->
         %% Note, emacs-format puts 8 spaces before X
         check_content(Term1, "fun\\(X\\) ->\\s*..         X\\s*.. end."),
         send_tty(Term1, "Down"),
+        check_content(Term1, ">$"),
         send_stdin(Term1, "shell:format_shell_func({bad,format}).\n"),
         send_tty(Term1, "Up"),
         send_tty(Term1, "Up"),
