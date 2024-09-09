@@ -1470,7 +1470,7 @@ different semantics for the client and server.
 -type client_option_cert() :: {verify, Verify ::verify_peer | verify_none} |
                               {cacerts,  CACerts::[public_key:der_encoded()] | [public_key:combined_cert()]} |
                               {cacertfile, CACertFile::file:filename()} |
-                              {server_name_indication, SNI::inet:hostname() | disabled} |
+                              {server_name_indication, SNI::inet:hostname() | disable} |
                               {customize_hostname_check, HostNameCheckOpts::list()} |
                               {certificate_authorities, boolean()} |
                               {stapling, Stapling:: staple | no_staple | map()}.
