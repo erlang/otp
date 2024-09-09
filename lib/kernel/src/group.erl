@@ -465,10 +465,10 @@ handle_info(_State, {'EXIT', Drv, interrupt}, #state{ driver = Drv }  = Data) ->
     io_reply(Data, {error, interrupted}),
     pop_state(Data#state{ buf = [] });
 
-handle_info(_State, {'EXIT',Drv,R}, #state{ driver = Drv } = Data) ->
+handle_info(_State, {'EXIT',Drv,_R}, #state{ driver = Drv } = Data) ->
     [ exit(Data#state.shell, kill)
       || is_pid(Data#state.shell) andalso Data#state.input =/= undefined],
-    {stop, R};
+    {stop, normal};
 handle_info(_State, {'EXIT',Shell,R}, #state{ shell = Shell, driver = Drv }) ->
     %% We propagate the error reason from the shell to the driver, but we don't
     %% want to exit ourselves with that reason as it will generate crash report
