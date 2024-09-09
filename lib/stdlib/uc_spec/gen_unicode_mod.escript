@@ -85,16 +85,25 @@ file_open(File) ->
 
 parse_unicode_data(Line0, Acc) ->
     Line = string:chomp(Line0),
-    [CodePoint,Name,Cat,Class,_BiDi,Decomp,
+    [CodePoint,Name0,Cat,Class,_BiDi,Decomp,
      _N1,_N2,_N3,_BDMirror,_Uni1,_Iso|Case] = tokens(Line, ";"),
     {Dec,Comp} = case to_decomp(Decomp) of
                      {_, _} = Compabil -> {[], Compabil};
                      Canon -> {Canon, []}
                  end,
-    [{hex_to_int(CodePoint),
-      #cp{name=list_to_binary(Name),class=to_class(Class),
-          dec=Dec, comp=Comp, cs=to_case(Case), cat=Cat}}
-     |Acc].
+    {Range, Name} = pick_range(Name0),
+    case Range of
+        last ->
+            CP = #cp{name=list_to_binary(Name),class=to_class(Class),
+                     dec=Dec, comp=Comp, cs=to_case(Case), cat=Cat},
+            fill_range(Acc, CP, hex_to_int(CodePoint));
+        _ ->
+            [{hex_to_int(CodePoint),
+              #cp{name=list_to_binary(Name),class=to_class(Class),
+                  dec=Dec, comp=Comp, cs=to_case(Case), cat=Cat}}
+            |Acc]
+    end.
+
 
 to_class(String) ->
     list_to_integer(string:trim(String, both)).
@@ -110,6 +119,26 @@ to_decomp(CodePoints) ->
 to_case(["","",""]) -> [];
 to_case([Upper,Lower,Title]) ->
     {hex_to_int(Upper),hex_to_int(Lower),hex_to_int(Title),[]}.
+
+pick_range([$<|Rest]) ->
+    range_1(tokens(Rest, ","));
+pick_range(Name) ->
+    {false, Name}.
+
+range_1([Name, " First>"]) ->
+    {first, Name};
+range_1([Name, " Last>"]) ->
+    {last, Name};
+range_1(Name) ->
+    {false, lists:droplast(Name)}.
+
+fill_range([{Start, CP}|_]=Acc, CP, Last) ->
+    fill_range_1(Start+1, Last, CP, Acc).
+
+fill_range_1(Start, Last, CP, Acc) when Start =< Last ->
+    fill_range_1(Start+1, Last, CP, [{Start,CP}|Acc]);
+fill_range_1(_Start, _Last, _CP, Acc) ->
+    Acc.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1026,12 +1055,12 @@ gen_category(Fd, [{CP, {_, _, _, NextCat}}|Rest], Cat, Start, End, All, Acc)
        true ->
             case Cat of
                 letter ->
-                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w-> subcat_letter(CP);~n",
+                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> subcat_letter(CP);~n",
                               [Start, End]),
                     gen_category(Fd, Rest, NextCat, CP, CP, All,
                                  lists:reverse(lists:seq(Start, End)) ++ Acc);
                 _ ->
-                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w-> ~w;~n", [Start, End, Cat]),
+                    io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> ~w;~n", [Start, End, Cat]),
                     gen_category(Fd, Rest, NextCat, CP, CP, All, Acc)
             end
     end;
@@ -1044,7 +1073,7 @@ gen_category(Fd, [{CP, {_, _, _, NewCat}}|Rest]=Cont, Cat, Start, End, All, Acc)
                true ->
                     case Cat of
                         letter ->
-                            io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w-> subcat_letter(CP);~n",
+                            io:format(Fd, "lookup_category(CP) when ~w =< CP, CP =< ~w -> subcat_letter(CP);~n",
                                       [Start, End]),
                             gen_category(Fd, Rest, NewCat, CP, CP, All,
                                          lists:reverse(lists:seq(Start, End)) ++ Acc);
