@@ -85,9 +85,9 @@ used for flattening deep lists.
 	 deep_char_list/1, deep_latin1_char_list/1,
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
-%% Utilities for collecting characters.
+%% Utilities for collecting characters mostly used by group
 -export([collect_chars/3, collect_chars/4,
-	 collect_line/3, collect_line/4,
+	 collect_line/3, collect_line/4, collect_line_no_eol/4,
 	 get_until/3, get_until/4]).
 
 %% The following functions were used by Yecc's include-file.
@@ -1143,6 +1143,16 @@ collect_chars_list(Stack,N, [H|T]) ->
 -doc false.
 collect_line(Tag, Data, Any) -> 
     collect_line(Tag, Data, latin1, Any).
+
+%% A special variant of collect line that trims the last newline
+%% used by io:get_password/0,1
+-doc false.
+collect_line_no_eol(Tag, Data, Encoding, Any) ->
+    case collect_line(Tag, Data, Encoding, Any) of
+        {stop, Line, Rest} when Line =/= eof ->
+            {stop, string:trim(Line), Rest};
+        Else -> Else
+    end.
 
 %% Now we are aware of encoding...    
 -doc false.

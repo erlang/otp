@@ -305,7 +305,7 @@ init_remote_shell(State, Node, {M, F, A}) ->
                         end,
 
                     Group = group:start(self(), RShell,
-                                        [{echo,State#state.shell_started =:= new}] ++
+                                        [{dumb, State#state.shell_started =/= new}] ++
                                             group_opts(RemoteNode)),
 
                     Gr = gr_add_cur(State#state.groups, Group, RShell),
@@ -329,7 +329,7 @@ init_local_shell(State, InitialShell) ->
 
     Gr = gr_add_cur(State#state.groups,
                     group:start(self(), InitialShell,
-                                group_opts() ++ [{echo,State#state.shell_started =:= new}]),
+                                group_opts() ++ [{dumb,State#state.shell_started =/= new}]),
                     InitialShell),
 
     init_shell(State#state{ groups = Gr }, [Slogan,$\n]).
@@ -351,10 +351,7 @@ init_shell(State, Slogan) ->
 start_user() ->
     case whereis(user) of
 	undefined ->
-	    User = group:start(self(), {}, [{echo,false},
-                                            {noshell,true}]),
-	    register(user, User),
-	    User;
+	    group:start(self(), noshell, [{name, user}]);
 	User ->
 	    User
     end.
@@ -625,7 +622,7 @@ switch_loop(internal, line, State) ->
 switch_loop(internal, {line, Line}, State) ->
     case erl_scan:string(Line) of
         {ok, Tokens, _} ->
-            case switch_cmd(Tokens, State#state.groups) of
+            case switch_cmd(Tokens, State#state.groups, State#state.shell_started =/= new) of
                 {ok, Groups} ->
                     Curr = gr_cur_pid(Groups),
                     put(current_group, Curr),
@@ -676,30 +673,40 @@ switch_loop(info, {Requester, get_terminal_state}, _State) ->
                                                 stdout => prim_tty:isatty(stdout),
                                                 stderr => prim_tty:isatty(stderr) } },
     keep_state_and_data;
+switch_loop(info, {Requester, tty_geometry}, {_Cont, #state{ tty = TTYState }}) ->
+    case prim_tty:window_size(TTYState) of
+        {ok, Geometry} ->
+            Requester ! {self(), tty_geometry, Geometry},
+            ok;
+        Error ->
+            Requester ! {self(), tty_geometry, Error},
+            ok
+    end,
+    keep_state_and_data;
 switch_loop(timeout, _, {_Cont, State}) ->
     {keep_state_and_data,
      {next_event, info, {State#state.read,{data,[]}}}};
 switch_loop(info, _Unknown, _State) ->
     {keep_state_and_data, postpone}.
 
-switch_cmd([{atom,_,Key},{Type,_,Value}], Gr)
+switch_cmd([{atom,_,Key},{Type,_,Value}], Gr, Dumb)
   when Type =:= atom; Type =:= integer ->
-    switch_cmd({Key, Value}, Gr);
-switch_cmd([{atom,_,Key},{atom,_,V1},{atom,_,V2}], Gr) ->
-    switch_cmd({Key, V1, V2}, Gr);
-switch_cmd([{atom,_,Key}], Gr) ->
-    switch_cmd(Key, Gr);
-switch_cmd([{'?',_}], Gr) ->
-    switch_cmd(h, Gr);
+    switch_cmd({Key, Value}, Gr, Dumb);
+switch_cmd([{atom,_,Key},{atom,_,V1},{atom,_,V2}], Gr, Dumb) ->
+    switch_cmd({Key, V1, V2}, Gr, Dumb);
+switch_cmd([{atom,_,Key}], Gr, Dumb) ->
+    switch_cmd(Key, Gr, Dumb);
+switch_cmd([{'?',_}], Gr, Dumb) ->
+    switch_cmd(h, Gr, Dumb);
 
-switch_cmd(Cmd, Gr) when Cmd =:= c; Cmd =:= i; Cmd =:= k ->
-    switch_cmd({Cmd, gr_cur_index(Gr)}, Gr);
-switch_cmd({c, I}, Gr0) ->
+switch_cmd(Cmd, Gr, Dumb) when Cmd =:= c; Cmd =:= i; Cmd =:= k ->
+    switch_cmd({Cmd, gr_cur_index(Gr)}, Gr, Dumb);
+switch_cmd({c, I}, Gr0, _Dumb) ->
     case gr_set_cur(Gr0, I) of
 	{ok,Gr} -> {ok, Gr};
 	undefined -> unknown_group()
     end;
-switch_cmd({i, I}, Gr) ->
+switch_cmd({i, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of
 	{pid,Pid} ->
 	    exit(Pid, interrupt),
@@ -707,7 +714,7 @@ switch_cmd({i, I}, Gr) ->
 	undefined ->
 	    unknown_group()
     end;
-switch_cmd({k, I}, Gr) ->
+switch_cmd({k, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of
 	{pid,Pid} ->
 	    exit(Pid, die),
@@ -724,15 +731,15 @@ switch_cmd({k, I}, Gr) ->
 	undefined ->
 	    unknown_group()
     end;
-switch_cmd(j, Gr) ->
+switch_cmd(j, Gr, _Dumb) ->
     {retry, gr_list(Gr)};
-switch_cmd({s, Shell}, Gr0) when is_atom(Shell) ->
-    Pid = group:start(self(), {Shell,start,[]}),
+switch_cmd({s, Shell}, Gr0, Dumb) when is_atom(Shell) ->
+    Pid = group:start(self(), {Shell,start,[]}, [{dumb, Dumb} | group_opts()]),
     Gr = gr_add_cur(Gr0, Pid, {Shell,start,[]}),
     {retry, [], Gr};
-switch_cmd(s, Gr) ->
-    switch_cmd({s, shell}, Gr);
-switch_cmd(r, Gr0) ->
+switch_cmd(s, Gr, Dumb) ->
+    switch_cmd({s, shell}, Gr, Dumb);
+switch_cmd(r, Gr0, _Dumb) ->
     case is_alive() of
 	true ->
 	    Node = pool:get_node(),
@@ -742,30 +749,35 @@ switch_cmd(r, Gr0) ->
 	false ->
 	    {retry, [{put_chars,unicode,<<"Node is not alive\n">>}]}
     end;
-switch_cmd({r, Node}, Gr) when is_atom(Node)->
-    switch_cmd({r, Node, shell}, Gr);
-switch_cmd({r,Node,Shell}, Gr0) when is_atom(Node), is_atom(Shell) ->
+switch_cmd({r, Node}, Gr, Dumb) when is_atom(Node)->
+    switch_cmd({r, Node, shell}, Gr, Dumb);
+switch_cmd({r,Node,Shell}, Gr0, Dumb) when is_atom(Node), is_atom(Shell) ->
     case is_alive() of
 	true ->
-            Pid = group:start(self(), {Node,Shell,start,[]}, group_opts(Node)),
-            Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
-            {retry, [], Gr};
+            case net_kernel:connect_node(Node) of
+                true ->
+                    Pid = group:start(self(), {Node,Shell,start,[]}, [{dumb, Dumb} | group_opts(Node)]),
+                    Gr = gr_add_cur(Gr0, Pid, {Node,Shell,start,[]}),
+                    {retry, [], Gr};
+                false ->
+                    {retry, [{put_chars,unicode,<<"Could not connect to node\n">>}]}
+            end;
         false ->
             {retry, [{put_chars,unicode,"Node is not alive\n"}]}
     end;
 
-switch_cmd(q, _Gr) ->
+switch_cmd(q, _Gr, _Dumb) ->
     case erlang:system_info(break_ignored) of
 	true ->					% noop
 	    {retry, [{put_chars,unicode,<<"Unknown command\n">>}]};
 	false ->
 	    halt()
     end;
-switch_cmd(h, _Gr) ->
+switch_cmd(h, _Gr, _Dumb) ->
     {retry, list_commands()};
-switch_cmd([], _Gr) ->
+switch_cmd([], _Gr, _Dumb) ->
     {retry,[]};
-switch_cmd(_Ts, _Gr) ->
+switch_cmd(_Ts, _Gr, _Dumb) ->
     {retry, [{put_chars,unicode,<<"Unknown command\n">>}]}.
 
 unknown_group() ->

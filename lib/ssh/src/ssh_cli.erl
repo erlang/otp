@@ -740,7 +740,8 @@ start_shell(ConnectionHandler, State) ->
                 Shell
         end,
     State#state{group = group:start(self(), ShellSpawner,
-                                    [{dumb, get_dumb(State#state.pty)},{expand_below, false},
+                                    [{dumb, get_dumb(State#state.pty)},
+                                     {expand_below, false},
                                      {echo, get_echo(State#state.pty)}]),
                 buf = empty_buf()}.
 
@@ -763,7 +764,7 @@ start_exec_shell(ConnectionHandler, Cmd, State) ->
                 {M, F, A++[Cmd]}
         end,
     State#state{group = group:start(self(), ExecShellSpawner, [{expand_below, false},
-                                                               {echo,false}]),
+                                                               {dumb, true}]),
                 buf = empty_buf()}.
 
 %%--------------------------------------------------------------------
@@ -848,7 +849,7 @@ exec_in_self_group(ConnectionHandler, ChannelId, WantReply, State, Fun) ->
                   end)
         end,
     {ok, State#state{group = group:start(self(), Exec, [{expand_below, false},
-                                                        {echo,false}]),
+                                                        {dumb, true}]),
                      buf = empty_buf()}}.
     
 

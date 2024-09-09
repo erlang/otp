@@ -363,8 +363,6 @@ enter_loop(State) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 -doc """
-init(Options) -> {ok, State} | {ok, State, Timeout} | {stop, Reason}
-
 The following options must be present:
 
 - **`{channel_cb, atom()}`** - The module that implements the channel behaviour.
