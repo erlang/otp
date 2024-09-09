@@ -252,8 +252,10 @@ Export normal XML content directly, without further context.
 -spec export_content(Content, Callbacks) -> _ when
 	Content   :: [element()],
 	Callbacks :: [module()].
-export_content([#xmlText{value = Text} | Es], Callbacks) ->
+export_content([#xmlText{value = Text, type = text} | Es], Callbacks) ->
     [apply_text_cb(Callbacks, Text) | export_content(Es, Callbacks)];
+export_content([#xmlText{value = Text, type = cdata} | Es], Callbacks) ->
+    [apply_cdata_cb(Callbacks, Text) | export_content(Es, Callbacks)];
 export_content([#xmlPI{} | Es], Callbacks) ->
     export_content(Es, Callbacks);
 export_content([#xmlComment{} | Es], Callbacks) ->
@@ -283,8 +285,10 @@ export_simple_element(Element, Callbacks) when is_list(Callbacks) ->
       Callback :: callback().
 export_element(E, CB) when is_atom(CB) ->
     export_element(E, callbacks(CB));
-export_element(#xmlText{value = Text}, CBs) ->
+export_element(#xmlText{value = Text, type = text}, CBs) ->
     apply_text_cb(CBs, Text);
+export_element(#xmlText{value = Text, type = cdata}, CBs) ->
+    apply_cdata_cb(CBs, Text);
 export_element(E = #xmlElement{name = Tag,
 			       pos = Pos,
 			       attributes = Attributes,
@@ -312,9 +316,11 @@ For on-the-fly exporting during parsing (SAX style) of the XML document.
       ExportedFormat :: term().
 export_element(E, CallbackModule, CallbackState) when is_atom(CallbackModule) ->
     export_element(E, callbacks(CallbackModule), CallbackState);
-export_element(#xmlText{value = Text},CallbackModule,_CallbackState) ->
+export_element(#xmlText{value = Text, type = text},CallbackModule,_CallbackState) ->
 %%    apply_cb(CallbackModule, '#text#', '#text#', [Text,CallbackState]);
     apply_text_cb(CallbackModule,Text);
+export_element(#xmlText{value = Text, type = cdata},CallbackModule,_CallbackState) ->
+    apply_cdata_cb(CallbackModule,Text);
 export_element(E=#xmlElement{name = Tag,
 			   pos = Pos,
 			   parents = Parents,
@@ -373,6 +379,9 @@ check_inheritance(M, Visited) ->
 
 apply_text_cb(Ms, Text) ->
     apply_cb(Ms, '#text#', '#text#', [Text]).
+
+apply_cdata_cb(Ms, Text) ->
+    apply_cb(Ms, '#cdata#', '#cdata#', [Text]).
 
 apply_tag_cb(Ms, F, Args) ->
     apply_cb(Ms, F, '#element#', Args).

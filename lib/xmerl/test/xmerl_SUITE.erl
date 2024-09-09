@@ -55,6 +55,7 @@ groups() ->
      {misc, [],
       [latin1_alias, syntax_bug1, syntax_bug2, syntax_bug3,
        pe_ref1, copyright, testXSEIF, export_simple1, export,
+       export_cdata,
        default_attrs_bug, xml_ns, scan_splits_string_bug,
        allow_entities_test]},
      {eventp_tests, [], [sax_parse_and_export]},
@@ -306,6 +307,20 @@ export(Config) ->
     Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
     B = list_to_binary(Exported++"\n"),
     {ok, B} = file:read_file(TestFile),
+    ok.
+
+export_cdata(Config) ->
+    InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<doc>
+   <a>Test...</a>
+   <b><![CDATA[
+<c>Test</c>
+]]></b>
+</doc>">>,
+    Prolog = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"],
+    {E,_} = xmerl_scan:string(binary:bin_to_list(InData)),
+    Exported = xmerl:export([E],xmerl_xml,[{prolog,Prolog}]),
+    InData = list_to_binary(Exported),
     ok.
 
 %%----------------------------------------------------------------------
