@@ -758,7 +758,8 @@ otp_7078(Config) when is_list(Config) ->
     run(Config, Ts, [strict_record_tests]),
     ok.
 
-%% PR-7873. Reserved words and variable names as record names
+%% PR-7873. Reserved words and variable names as record names,
+%%          and record style record declarations
 pr_7873(Config) when is_list(Config) ->
     Words = [
              <<"Abc">>,
@@ -797,7 +798,15 @@ pr_7873(Config) when is_list(Config) ->
         [~"-record('WORD', {a = 1}).",
          ~"-record('WORD', {a = 1 :: integer()}).",
          ~"-record 'WORD', {a = 1}.",
-         ~"-record 'WORD', {a = 1 :: integer()}."],
+         ~"-record 'WORD', {a = 1 :: integer()}.",
+         ~"-record(#WORD{a = 1}).",
+         ~"-record(#WORD{a = 1 :: integer()}).",
+         ~"-record #WORD{a = 1}.",
+         ~"-record #WORD{a = 1 :: integer()}.",
+         ~"-record # WORD{a = 1}.",
+         ~"-record #WORD {a = 1}.",
+         ~"-record # WORD {a = 1}.",
+         ~"-record #'WORD'{a = 1}."],
 
     Code =
         ~"""

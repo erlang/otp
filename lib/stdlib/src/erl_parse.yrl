@@ -35,7 +35,7 @@ list_comprehension lc_expr lc_exprs
 map_comprehension
 binary_comprehension
 tuple
-record_expr record_tuple record_field record_fields record_name
+record_expr record_tuple record_field record_fields record_name record_spec
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
@@ -48,7 +48,8 @@ binary bin_elements bin_element bit_expr sigil
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type binary_type
-type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+type_spec spec_fun typed_exprs
+typed_record_spec typed_record_fields field_types field_type
 map_pair_types map_pair_type
 bin_base_type bin_unit_type
 maybe_expr maybe_match_exprs maybe_match
@@ -92,7 +93,8 @@ char integer float atom sigil_prefix string sigil_suffix var
 '<<' '>>'
 '!' '=' '::' '..' '...'
 '?='
-'spec' 'callback' % helper
+%% helper: special handling in parse_form like reserved word
+'spec' 'callback' 'record'
 dot
 '%ssa%'.
 
@@ -128,6 +130,9 @@ form -> function dot : '$1'.
 attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
 attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
+attribute -> '-' 'record' record_spec        : build_attribute(build_atom('$2'), '$3').
+attribute -> '-' 'record' typed_record_spec  : build_typed_attribute(build_atom('$2'), '$3').
+attribute -> '-' 'record' '(' typed_record_spec ')' : build_typed_attribute(build_atom('$2'), '$4').
 attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
 attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
 
@@ -139,6 +144,19 @@ spec_fun ->                  atom ':' atom : {'$1', '$3'}.
 
 typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
 typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
+
+%% Pretty much like attr_val, but record name must be an atom,
+%% to not allow variable names as record names when there is no leading '#'
+record_spec -> atom : ['$1'].
+record_spec -> atom ',' exprs: ['$1' | '$3'].
+record_spec -> '(' atom ',' exprs ')': ['$2' | '$4'].
+%% More record like record declararion that allows record_name
+record_spec -> '#' record_name : ['$2'].
+record_spec -> '#' record_name exprs: ['$2' | '$3'].
+record_spec -> '(' '#' record_name exprs ')': ['$3' | '$4'].
+
+typed_record_spec -> atom ',' typed_record_fields : {typed_record, '$1', '$3'}.
+typed_record_spec -> '#' record_name typed_record_fields : {typed_record, '$2', '$3'}.
 
 typed_record_fields -> '{' typed_exprs '}' : {tuple, ?anno('$1'), '$2'}.
 
@@ -1342,6 +1360,10 @@ parse_form([{'-',A1},{atom,A2,callback}|Tokens]) ->
     NewTokens = [{'-',A1},{'callback',A2}|Tokens],
     ?ANNO_CHECK(NewTokens),
     parse(NewTokens);
+parse_form([{'-',A1},{atom,A2,record}|Tokens]) ->
+    NewTokens = [{'-',A1},{'record',A2}|Tokens],
+    ?ANNO_CHECK(NewTokens),
+    parse(NewTokens);
 parse_form(Tokens) ->
     ?ANNO_CHECK(Tokens),
     parse(Tokens).
@@ -1404,6 +1426,12 @@ parse_term(Tokens) ->
 build_typed_attribute({atom,Aa,record},
 		      {typed_record, {atom,_An,RecordName}, RecTuple}) ->
     {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
+build_typed_attribute({atom,Aa,record},
+		      {typed_record, {var,_An,RecordName}, RecTuple}) ->
+    {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
+build_typed_attribute({atom,Aa,record},
+		      {typed_record, {ReservedWord,_An}, RecTuple}) ->
+    {attribute,Aa,record,{ReservedWord,record_tuple(RecTuple)}};
 build_typed_attribute({atom,Aa,Attr},
                       {type_def, {call,_,{atom,_,TypeName},Args}, Type})
   when Attr =:= 'type' ; Attr =:= 'opaque' ->
@@ -1415,7 +1443,7 @@ build_typed_attribute({atom,Aa,Attr},
                                                     "bad type variable")
                    end, Args),
     {attribute,Aa,Attr,{TypeName,Type,Args}};
-build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
+build_typed_attribute({atom,Aa,Attr}=Abstr,_What) ->
     case Attr of
         record -> error_bad_decl(Abstr, record);
         type   -> error_bad_decl(Abstr, type);
@@ -1544,6 +1572,10 @@ build_attribute({atom,Aa,import}, Val) ->
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
 	[{atom,_An,Record},RecTuple] ->
+	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
+	[{var,_An,Record},RecTuple] ->
+	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
+	[{Record,_An},RecTuple] ->
 	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
         [Other|_] -> error_bad_decl(Other, record)
     end;
