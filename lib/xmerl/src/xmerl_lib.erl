@@ -27,7 +27,7 @@
 -export([normalize_content/1, normalize_content/3, expand_content/1,
 	 expand_content/3, normalize_element/1, normalize_element/3,
 	 expand_element/1, expand_element/3, expand_attributes/1,
-	 expand_attributes/3, export_text/1, flatten_text/1,
+	 expand_attributes/3, export_text/1, flatten_text/1, export_cdata/1,
 	 export_attribute/1, markup/2, markup/3, simplify_element/1,
 	 simplify_content/1, start_tag/1, start_tag/2, end_tag/1,
 	 empty_tag/1, empty_tag/2,is_empty_data/1, find_attribute/2,
@@ -85,6 +85,22 @@ flatten_text([], []) ->
     [];
 flatten_text(Bin, Cont) ->
     flatten_text(binary_to_list(Bin), Cont).
+
+%% Export CDATA
+export_cdata(T) ->
+    R = "<![CDATA[" ++ export_cdata(T, []),
+    R ++ "]]>".
+
+export_cdata([C | T], Cont) when is_integer(C) ->
+    [C | export_cdata(T, Cont)];
+export_cdata([T | T1], Cont) ->
+    export_cdata(T, [T1 | Cont]);
+export_cdata([], [T | Cont]) ->
+    export_cdata(T, Cont);
+export_cdata([], []) ->
+    [];
+export_cdata(Bin, Cont) ->
+    export_cdata(binary_to_list(Bin), Cont).
 
 %% Convert attribute value to a flat string, escaping characters `"',
 %% `<' and `&'. (Note that single-quote characters are not escaped; the

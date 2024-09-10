@@ -28,7 +28,8 @@
 
 -export(['#root#'/4,
 	 '#element#'/5,
-	 '#text#'/1]).
+	 '#text#'/1,
+	 '#cdata#'/1]).
 
 -include("xmerl.hrl").
 
@@ -36,10 +37,12 @@
 '#xml-inheritance#'() -> [].
 
 
-%% The '#text#' function is called for every text segment.
-
+%% The '#text#' function is called for every text segment of type text.
 '#text#'(Text) -> Text.
 
+%% The '#cdata#' function is called for every text segment of type cdata.
+%% Handled the same as text.
+'#cdata#'(Text) -> Text.
 
 %% The '#root#' tag is called when the entire structure has been
 %% exported. It does not appear in the structure itself.
