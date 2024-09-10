@@ -261,7 +261,7 @@ ok
                       #'Button'{number = 7,on = false}],
         enabled = false,
         actions = {possibleActions,[#'Action'{number = 16,
-                                              handle = #'Button'{number = 17,on = true}}]}}}
+                                              handle = #'Button'{number = 17,on = true}}]}}}.
 9> WindowBytes = 'GUI':encode('Window', WindowMsg).
 <<161,65,128,1,35,161,40,48,6,128,1,3,129,1,255,48,6,128,
   1,4,129,1,0,48,6,128,1,5,129,...>>
