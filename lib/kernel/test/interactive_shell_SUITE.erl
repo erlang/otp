@@ -76,7 +76,7 @@
 %% For custom prompt testing
 -export([prompt/1]).
 -export([output_to_stdout_slowly/1]).
--record(tmux, {peer, node, name, orig_location }).
+-record(tmux, {peer, node, name, ssh_server_name, orig_location }).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
@@ -1921,11 +1921,11 @@ setup_tty(Config) ->
             check_content(Tmux,"Enter password for \"foo\""),
             "" = tmux("send -t " ++ ClientName ++ " bar Enter"),
             timer:sleep(1000),
-            check_content(Tmux,"\\d+>");
+            check_content(Tmux,"\\d+\n?>"),
+            Tmux#tmux{ ssh_server_name = Name };
         true ->
-            ok
-    end,
-    Tmux.
+            Tmux
+    end.
 
 get_top_parent_test_group(Config) ->
     maybe
@@ -1983,6 +1983,8 @@ prompt(L) ->
 stop_tty(Term) ->
     catch peer:stop(Term#tmux.peer),
     ct:log("~ts",[get_content(Term, "-e")]),
+    [ct:log("~ts",[get_content(Term#tmux{ name = Term#tmux.ssh_server_name }, "-e")])
+      || Term#tmux.ssh_server_name =/= undefined],
 %    "" = tmux("kill-window -t " ++ Term#tmux.name),
     ok.
 

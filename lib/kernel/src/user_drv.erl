@@ -342,6 +342,10 @@ init_local_shell(State, InitialShell) ->
 init_shell(State, Slogan) ->
 
     init_standard_error(State#state.tty, State#state.terminal_mode =:= raw),
+
+    %% Tell the reader to read greedily if there is a shell
+    [prim_tty:read(State#state.tty) || State#state.shell_started =/= false],
+
     Curr = gr_cur_pid(State#state.groups),
     put(current_group, Curr),
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
@@ -465,6 +469,17 @@ server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
     {keep_state, State#state{ read = undefined }};
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
+
+server(info, {Requester, read, N}, State = #state{ tty = TTYState })
+  when Requester =:= State#state.current_group ->
+    %% Only allowed when current_group == user
+    true = State#state.current_group =:= State#state.user,
+    ok = prim_tty:read(TTYState, N),
+    keep_state_and_data;
+
+server(info, {Requester, read, _N}, _State) ->
+    Requester ! {self(), {error, enotsup}},
+    keep_state_and_data;
 
 server(info, {Requester, tty_geometry}, #state{ tty = TTYState }) ->
     case prim_tty:window_size(TTYState) of

@@ -65,6 +65,9 @@ non_local_allowed(_,_,State) ->
 Starts the interactive shell if it has not already been started. It can be used
 to programatically start the shell from an escript or when erl is started with
 the -noinput or -noshell flags.
+
+Calling this function will start a remote shell if `-remsh` is given on the
+command line or a local shell if not.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
 -spec start_interactive() -> ok | {error, already_started}.
@@ -78,11 +81,21 @@ or when [`erl`](`e:erts:erl_cmd.md`) is started with the
 [`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
 allowed:
 
-- **noshell** - Starts the interactive shell as if
-  [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
-  [`erl`](`e:erts:erl_cmd.md`). This is only useful when erl is started with
-  [`-noinput`](`e:erts:erl_cmd.md#noinput`) and the system want to read input
-  data.
+- **noshell | {noshell, Mode}** - Starts the interactive shell
+  as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
+  [`erl`](`e:erts:erl_cmd.md`).
+
+  It is possible to give a `Mode` indicating if the input should be set
+  in `cooked` or `raw` mode. `Mode` only has en effect if `t:io:user/0` is a tty.
+  If no `Mode` is given, it defaults is `cooked`.
+
+  When in `raw` mode all key presses are passed to `t:io:user/0` as they are
+  typed when they are typed and the characters are not echoed to the terminal.
+  It is possible to set the `echo` to `true` using `io:setopts/2` to enabling
+  echoing again.
+
+  When in `cooked` mode the OS will handle the line editing and all data is
+  passed to `t:io:user/0` when a newline is entered.
 
 - **[mfa()](`t:erlang:mfa/0`)** - Starts the interactive shell using
   [`mfa()`](`t:erlang:mfa/0`) as the default shell. The `t:mfa/0` should

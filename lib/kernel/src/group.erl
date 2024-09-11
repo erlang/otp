@@ -307,9 +307,11 @@ dumb(data, Buf, Data = #state{ input = #input_state{ prompt_bytes = Pbs, encodin
                     io_reply(Data, {error,err_func(io_lib, CollectF, CollectAs)}),
                     pop_state(Data#state{ buf = [] });
                 NewState ->
+                    [Data#state.driver ! {self(), read, io_lib:CollectF(NewState)} || Data#state.shell =:= noshell],
                     dumb(data, RemainBuf, Data#state{ input = InputState#input_state{ cont = undefined, io_lib_state = NewState } })
             end;
         {more_chars, NewCont} ->
+            [Data#state.driver ! {self(), read, 0} || Data#state.shell =:= noshell],
             {keep_state, Data#state{ input = InputState#input_state{ cont = NewCont } } }
     end;
 
@@ -409,7 +411,7 @@ xterm(data, Buf, Data = #state{ input = #input_state{
                 {'EXIT',_} ->
                     io_reply(Data, {error,err_func(io_lib, CollectF, CollectAs)}),
                     pop_state(Data#state{ buf = [] });
-                _M ->
+                _NewState ->
                     xterm(data, RemainBuf, Data#state{ input = InputState#input_state{ cont = undefined, lines = NewLines} })
             end;
         {blink, NewCont} ->
@@ -443,6 +445,9 @@ handle_info(State, {Drv, eof}, Data = #state{ driver = Drv }) ->
     ?MODULE:State(data, eof, Data);
 handle_info(_State, {Drv, echo, Bool}, Data = #state{ driver = Drv }) ->
     {keep_state, Data#state{ echo = Bool } };
+handle_info(_State, {Drv, {error, _} = Error}, Data = #state{ driver = Drv }) ->
+    io_reply(Data, Error),
+    pop_state(Data#state{ buf = [] });
 handle_info(_State, {Drv, terminal_mode, Mode}, Data = #state{ driver = Drv }) ->
     noshell = Data#state.shell,
     true = lists:member(Mode, [raw, cooked, disabled]),
