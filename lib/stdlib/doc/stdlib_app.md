@@ -40,6 +40,11 @@ For more information about configuration parameters, see the
 - **`shell_catch_exception = boolean()`{: #shell_catch_exception }** - Can be
   used to set the exception handling of the evaluator process of Erlang shell.
 
+- **`shell_docs_columns = pos_integer()`{: #shell_docs_columns }** -
+  Configures how wide the documentation should be rendered in the shell.
+
+  See also `t:shell_docs:config/0`.
+
 - **`shell_expand_location = above | below`{: #shell_expand_location }** - Sets
   where the tab expansion text should appear in the shell. The default is
   `below`. This will open a pager below the cursor that is scrollable one line
