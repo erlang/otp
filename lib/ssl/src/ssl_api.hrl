@@ -21,7 +21,14 @@
 -ifndef(ssl_api).
 -define(ssl_api, true).
 
-%% Looks like it does for backwards compatibility reasons
--record(sslsocket, {fd = nil, pid = nil}).
+%% Opaque to the user of ssl application, but
+%% is allowed to be matched for equality
+-record(sslsocket, {socket_handle,     %% Depends on transport module
+                    connection_handler,%% pid()
+                    payload_sender,    %% pid()
+                    transport_cb,      %% ssl:transport_option()
+                    connection_cb,     %% :: tls_gen_connection | dtls_gen_connection
+                    listener_config    %% :: #config{} (listen socket) | [pid()] list of trackers
+                 }).
 
 -endif. % -ifdef(ssl_api).

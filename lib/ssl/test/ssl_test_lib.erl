@@ -28,6 +28,7 @@
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
+-include_lib("ssl/src/ssl_api.hrl").
 
 -export([clean_start/0,
          clean_start/1,
@@ -233,7 +234,6 @@
          ktls_set_ulp/2,
          ktls_set_cipher/4]).
 
--record(sslsocket, { fd = nil, pid = nil}).
 -define(SLEEP, 1000).
 -define(DEFAULT_CURVE, secp256r1).
 -define(PRINT_DEPTH, 100).
@@ -705,7 +705,7 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
     end.
 
 %%% To enable to test with s_client -reconnect
-connect(#sslsocket{} = ListenSocket, Opts) ->
+connect(ListenSocket, Opts) when element(1, ListenSocket) == sslsocket->
     Node = proplists:get_value(node, Opts),
     ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
     Timeout = proplists:get_value(timeout, Opts, infinity),
@@ -2695,7 +2695,9 @@ trigger_renegotiate(Socket, ErlData, N, Id) ->
     ssl:send(Socket, ErlData),
     trigger_renegotiate(Socket, ErlData, N-1, Id).				   
     
-
+send_selected_port(Pid, 0, {sslsocket, nil, {Socket, _}}) -> %% Suport downgrade test
+    {ok, {_, NewPort}} = inet:sockname(Socket),
+    Pid ! {self(), {port, NewPort}};
 send_selected_port(Pid, 0, #sslsocket{} = Socket) ->
     {ok, {_, NewPort}} = ssl:sockname(Socket),	 
     Pid ! {self(), {port, NewPort}};

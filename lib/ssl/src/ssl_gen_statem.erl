@@ -311,7 +311,7 @@ handshake(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
 %%
 %% Description: Starts ssl handshake.
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
+handshake(#sslsocket{connection_handler = Pid} = Socket, Timeout) ->
     case call(Pid, {start, Timeout}) of
 	connected ->
 	    {ok, Socket};
@@ -327,7 +327,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, Timeout) ->
 %%
 %% Description: Starts ssl handshake with some new options
 %%--------------------------------------------------------------------
-handshake(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
+handshake(#sslsocket{connection_handler = Pid} = Socket, SslOptions, Timeout) ->
     case call(Pid, {start, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
@@ -341,7 +341,7 @@ handshake(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
 %%
 %% Description: Continues handshake with new options
 %%--------------------------------------------------------------------
-handshake_continue(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
+handshake_continue(#sslsocket{connection_handler = Pid} = Socket, SslOptions, Timeout) ->
     case call(Pid, {handshake_continue, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
@@ -353,7 +353,7 @@ handshake_continue(#sslsocket{pid = [Pid|_]} = Socket, SslOptions, Timeout) ->
 %%
 %% Description: Cancels connection
 %%--------------------------------------------------------------------
-handshake_cancel(#sslsocket{pid = [Pid|_]}) ->
+handshake_cancel(#sslsocket{connection_handler = Pid}) ->
     case call(Pid, cancel) of
 	closed ->
             ok;
