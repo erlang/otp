@@ -645,7 +645,7 @@ Options common to both client and server side.
 
   Defaults to `tls`.
 
-- **`{handshake_completion, Completion}`** - Possibly pause handshake at hello stage.
+- **`{handshake, Completion}`** - Possibly pause handshake at hello stage.
 
   Defaults to `full`. If `hello` is specified the handshake will pause
   after the hello message, allowing the user to make decisions based
@@ -661,7 +661,7 @@ Options common to both client and server side.
 
   Added in OTP 23.2.
 
-- **`{handshake_size, HandshakeSize}`** - Limit the acceptable handshake packet size.
+- **`{max_handshake_size, HandshakeSize}`** - Limit the acceptable handshake packet size.
 
   Used to limit the size of valid TLS handshake packets to avoid DoS
   attacks.
