@@ -25,6 +25,9 @@
 
 -define(LOG(F, A),                    ?LOG(atom_to_list(?MODULE), F, A)).
 -define(LOG(MS, F, A),                ?DUTIL:log(MS, ?LINE, F, A)).
+
+-define(DEL_START(N, S),              ?DUTIL:diameter_event_logger_start(N, S)).
+-define(DEL_STOP(L),                  ?DUTIL:diameter_event_logger_stop(L)).
 		                 
 -define(HAVE_SCTP(),                  ?DUTIL:have_sctp()).
 -define(MKTEMP(S),                    ?DUTIL:mktemp(S)).

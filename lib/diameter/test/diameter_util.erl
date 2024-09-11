@@ -55,11 +55,13 @@
          listen/2, listen/3,
          connect/3, connect/4,
          disconnect/4,
-         info/0
+         info/0,
+         diameter_event_logger_start/2, diameter_event_logger_stop/1
         ]).
 
 -export([analyze_and_print_host_info/0]).
 
+-include("diameter.hrl").
 -include("diameter_util.hrl").
 
 
@@ -538,11 +540,13 @@ connect(Client, ProtOpts, LRef, Opts) ->
             ?UL("no name: "
                 "~n   Services:             ~p"
                 "~n   Service:              ~p"
+                "~n   Events:               ~p"
                 "~n   'all' Service Info:   ~p"
                 "~n   'info' Service Info:  ~p"
                 "~n   'stats' Service Info: ~p",
                 [diameter:services(),
                  Client,
+                 diameter_events(Client),
                  diameter:service_info(Client, all),
                  diameter:service_info(Client, info),
                  diameter:service_info(Client, statistics)]),
@@ -573,6 +577,18 @@ connect(Client, ProtOpts, LRef, Opts) ->
                        proplists:get_value(pool_size, Opts, 1)),
     ?UL("~w -> done", [?FUNCTION_NAME]),
     Ref.
+
+diameter_events(Svc) ->
+    diameter_events(Svc, []).
+
+diameter_events(Svc, Acc) ->
+    receive
+        #diameter_event{service = Svc} = Event ->
+            diameter_events(Svc, [Event | Acc])
+    after 100 ->
+            lists:reverse(Acc)
+    end.
+        
 
 head([T|_]) ->
     T;
@@ -3029,6 +3045,75 @@ pinfo(P, Key) when is_pid(P) ->
             undefined
     end.
 
+
+%% ---------------------------------------------------------------------------
+
+diameter_event_logger_start(Name, SvcName) ->
+    Self = self(),
+    Logger = {Pid, _MRef} =
+        spawn_monitor(fun() ->
+                              diameter_event_logger_init(Name, SvcName, Self)
+                      end),
+    receive
+        {?MODULE, del, Pid, started} ->
+            Logger
+    end.
+
+diameter_event_logger_stop({Pid, MRef} = _Logger) ->
+    Pid ! {?MODULE, del, self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ok
+    end.
+    
+diameter_event_logger_init(Name, SvcName, Parent) ->
+    MRef = erlang:monitor(process, Parent),
+    diameter:subscribe(SvcName),
+    Parent ! {?MODULE, del, self(), started},
+    diameter_event_logger_loop(Name, SvcName, Parent, MRef).
+
+diameter_event_logger_loop(Name, SvcName, Parent, MRef) ->
+    receive
+        {'DOWN', MRef, process, Parent, Reason} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received DOWN regarding parent: "
+                               "~n   Reason: ~p",
+                               [Reason]),
+            diameter:unsubscribe(SvcName),
+            exit({parent_died, Reason});
+
+        {?MODULE, del, Parent, stop} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received 'stop' from parent", []),
+            diameter:unsubscribe(SvcName),
+            erlang:demonitor(MRef, [flush]),
+            exit(normal);
+
+        #diameter_event{service = SvcName, info = Info} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received event: "
+                               "~n   Info: ~p", [Info]),
+            diameter_event_logger_loop(Name, SvcName, Parent, MRef)
+    end.
+
+diameter_event_msg(Name, SvcName, F, A) ->
+    io:format("==== DIAMETER EVENT ==== ~s ====~n"
+              "[~s, ~p] " ++ F ++ "~n",
+              [formated_timestamp(), Name, SvcName | A]).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+   
 
 %% ---------------------------------------------------------------------------
 
