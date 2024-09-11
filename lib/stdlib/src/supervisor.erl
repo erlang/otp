@@ -968,16 +968,25 @@ shutdown(#child{pid=Pid, shutdown=Time} = Child) ->
         end
     end.
 
-unlink_flush(Pid, DefaultReason) ->
-    %% We call unlink in order to guarantee that the 'EXIT' has arrived
-    %% from the dead process. See the unlink docs for details.
+unlink_flush(Pid, noproc) ->
+    {links, Ls} = process_info(self(),links),
+    Timeout = case lists:member(Pid, Ls) of
+                  true -> infinity;
+                  false -> 0
+              end,
+    receive
+        {'EXIT', Pid, ExitReason} ->
+            ExitReason
+    after Timeout ->
+            naughty_child
+    end;
+unlink_flush(Pid, ExitReason) ->
     unlink(Pid),
     receive
-        {'EXIT', Pid, Reason} ->
-            Reason
-    after 0 ->
-        DefaultReason
-    end.
+        {'EXIT', Pid, _} -> ok
+    after 0 -> ok
+    end,
+    ExitReason.
 
 %%-----------------------------------------------------------------
 %% Func: terminate_dynamic_children/1
