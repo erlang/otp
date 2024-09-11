@@ -613,7 +613,7 @@ do_break(void)
 		   */
 	    erts_exit(0, "");
 	case 'A':		/* Halt generating crash dump */
-	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user");
+	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user\n");
 	case 'c':
 	    return;
 	case 'p':
