@@ -69,9 +69,9 @@ listen(Port, #config{inet_ssl = SockOpts,
             Error
     end.
 
-accept(dtls, #config{transport_info = {Transport,_,_,_,_},
-                     connection_cb = ConnectionCb,
-                     dtls_handler = {Listener, _}}, _Timeout) -> 
+accept({Listener,_}, #config{transport_info = Info,
+                     connection_cb = ConnectionCb}, _Timeout) ->
+    Transport = element(1, Info),
     case dtls_packet_demux:accept(Listener, self()) of
 	{ok, Pid, Socket} ->
 	    {ok, socket([Pid], Transport, {Listener, Socket}, ConnectionCb)};
@@ -172,16 +172,6 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {dtls, #config{dtls_handl
 getopts(_, #sslsocket{pid = {dtls, #config{dtls_handler = {ListenPid, _}}}}, Options) ->
     SplitOpts = tls_socket:split_options(Options),
     dtls_packet_demux:get_sock_opts(ListenPid, SplitOpts);
-getopts(gen_udp,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
-    {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
-    EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
-    SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
-    {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(_Transport,  #sslsocket{pid = {Socket, #config{emulated = EmOpts}}}, Options) ->
-    {SockOptNames, EmulatedOptNames} = tls_socket:split_options(Options),
-    EmulatedOpts = get_emulated_opts(EmOpts, EmulatedOptNames),
-    SocketOpts = tls_socket:get_socket_opts(Socket, SockOptNames, inet),
-    {ok, EmulatedOpts ++ SocketOpts}; 
 %%% Following clauses will not be called for emulated options, they are  handled in the connection process
 getopts(gen_udp, {_,{{_, _},Socket}}, Options) ->
     inet:getopts(Socket, Options);
@@ -234,11 +224,6 @@ default_inet_values() ->
 
 default_cb_info() ->
     {gen_udp, udp, udp_closed, udp_error, udp_passive}.
-
-get_emulated_opts(EmOpts, EmOptNames) -> 
-    lists:map(fun(Name) -> {value, Value} = lists:keysearch(Name, 1, EmOpts),
-			   Value end,
-	      EmOptNames).
 
 emulated_socket_options(InetValues, #socket_options{
 				       mode   = Mode,
