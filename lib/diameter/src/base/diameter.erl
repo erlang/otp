@@ -1211,7 +1211,7 @@ await_service_stop_event(SvcName) ->
 %% is_service/1
 %% ---------------------------------------------------------------------------
 
-%% -doc false.
+-doc false.
 -spec is_service(service_name())
                 -> boolean().
 
