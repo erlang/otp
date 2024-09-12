@@ -1160,26 +1160,24 @@ maps:groups_from_list(EvenOdd, [1, 2, 3]).
     Group :: [Elem],
     Elem :: term().
 
-groups_from_list(Fun, List0) when is_function(Fun, 1) ->
-    try lists:reverse(List0) of
-        List ->
-            groups_from_list_1(Fun, List, #{})
-    catch
-        error:_ ->
-            badarg_with_info([Fun, List0])
-    end;
-groups_from_list(Fun, List) ->
-    badarg_with_info([Fun, List]).
-
-groups_from_list_1(Fun, [H | Tail], Acc) ->
-    K = Fun(H),
-    NewAcc = case Acc of
-                 #{K := Vs} -> Acc#{K := [H | Vs]};
-                 #{} -> Acc#{K => [H]}
-             end,
-    groups_from_list_1(Fun, Tail, NewAcc);
-groups_from_list_1(_Fun, [], Acc) ->
-    Acc.
+groups_from_list(KeyFun, List) when is_function(KeyFun, 1),
+				    is_list(List) ->
+    lists:foldl(fun(E, Acc) ->
+		    K = KeyFun(E),
+		    case Acc of
+			#{K := Old} -> Acc#{K := [E|Old]};
+			#{} -> Acc#{K => [E]}
+		    end
+		end,
+		#{},
+		try
+		    lists:reverse(List)
+		catch
+		    error:_ ->
+			badarg_with_info([KeyFun, List])
+		end);
+groups_from_list(KeyFun, List) ->
+    badarg_with_info([KeyFun, List]).
 
 -doc """
 Partitions the given `List` into a map of groups.
@@ -1216,28 +1214,26 @@ _Examples:_
     Group :: [Value],
     Elem :: term().
 
-groups_from_list(Fun, ValueFun, List0) when is_function(Fun, 1),
-                                            is_function(ValueFun, 1) ->
-    try lists:reverse(List0) of
-        List ->
-            groups_from_list_2(Fun, ValueFun, List, #{})
-    catch
-        error:_ ->
-            badarg_with_info([Fun, ValueFun, List0])
-    end;
-groups_from_list(Fun, ValueFun, List) ->
-    badarg_with_info([Fun, ValueFun, List]).
-
-groups_from_list_2(Fun, ValueFun, [H | Tail], Acc) ->
-    K = Fun(H),
-    V = ValueFun(H),
-    NewAcc = case Acc of
-                 #{K := Vs} -> Acc#{K := [V | Vs]};
-                 #{} -> Acc#{K => [V]}
-             end,
-    groups_from_list_2(Fun, ValueFun, Tail, NewAcc);
-groups_from_list_2(_Fun, _ValueFun, [], Acc) ->
-    Acc.
+groups_from_list(KeyFun, ValueFun, List) when is_function(KeyFun, 1),
+					      is_function(ValueFun, 1),
+					      is_list(List) ->
+    lists:foldl(fun(E, Acc) ->
+		    K = KeyFun(E),
+		    V = ValueFun(E),
+		    case Acc of
+			#{K := Old} -> Acc#{K := [V|Old]};
+			#{} -> Acc#{K => [V]}
+		    end
+		end,
+		#{},
+		try
+		    lists:reverse(List)
+		catch
+		    error:_ ->
+			badarg_with_info([KeyFun, ValueFun, List])
+		end);
+groups_from_list(KeyFun, ValueFun, List) ->
+    badarg_with_info([KeyFun, ValueFun, List]).
 
 error_type(M) when is_map(M) -> badarg;
 error_type(V) -> {badmap, V}.
