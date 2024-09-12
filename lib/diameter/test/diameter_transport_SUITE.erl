@@ -530,9 +530,45 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin);
+    case gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin) of
+        ok ->
+            ok;
+        {error, Reason} = ERROR ->
+            Info = try inet:info(Sock) of
+                       I ->
+                           I
+                   catch
+                       C:E:S ->
+                           [{class,  C},
+                            {error,  E},
+                            {stack,  S}]
+                   end,
+            ?TL("Failed (sctp) sending message: "
+                "~n   Reason:        ~p"
+                "~n   Socket:        ~p"
+                "~n   (Socket) Info: ~p", [Reason, Sock, Info]),
+            ERROR
+    end;
 gen_send(tcp, Sock, Bin) ->
-    gen_tcp:send(Sock, Bin).
+    case gen_tcp:send(Sock, Bin) of
+        ok ->
+            ok;
+        {error, Reason} = ERROR ->
+            Info = try inet:info(Sock) of
+                       I ->
+                           I
+                   catch
+                       C:E:S ->
+                           [{class,  C},
+                            {error,  E},
+                            {stack,  S}]
+                   end,
+            ?TL("Failed (tcp) sending message: "
+                "~n   Reason:        ~p"
+                "~n   Socket:        ~p"
+                "~n   (Socket) Info: ~p", [Reason, Sock, Info]),
+            ERROR
+    end.
 
 %% gen_recv/2
 

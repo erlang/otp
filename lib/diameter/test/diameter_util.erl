@@ -46,7 +46,8 @@
          have_sctp/0,
          eprof/1,
          log/4,
-         proxy_call/4
+         proxy_call/4,
+         f/2
         ]).
 
 %% diameter-specific
@@ -279,9 +280,9 @@ fold(Fun, Acc, #{} = Map) ->
 
         {'DOWN', MRef, process, Pid, Info} when is_map_key(MRef, Map) ->
             ?UL("fold -> process ~p terminated:"
-                "~n   Info:   ~p"
+                "~n   Info: ~p"
                 "~nwhen"
-                "~n   Map Sz: ~p", [Pid, Info, maps:size(Map)]),
+                "~n   Map:  ~p", [Pid, Info, Map]),
             fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
     end.
 
@@ -601,8 +602,18 @@ up(Client, Ref, Prot, PortNr) ->
             ?UL("~w -> received 'up' event regarding ~p for service ~p",
                 [?FUNCTION_NAME, Ref, Client]),
             ok
+        
     after 10000 ->
-            {Client, Prot, PortNr, process_info(self(), messages)}
+            receive
+                {diameter_event, Client, {closed, Ref, Reason, _}} ->
+                    ?UL("~w -> received unexpected 'closed' event "
+                        "regarding ~p for service ~p: "
+                        "~n   Reason: ~p",
+                        [?FUNCTION_NAME, Ref, Client, Reason]),
+                    {error, {closed, Ref, Reason}}
+            after 0 ->
+                    {Client, Prot, PortNr, process_info(self(), messages)}
+            end
     end.
 
 transport(SvcName, Ref) ->
@@ -3095,7 +3106,8 @@ diameter_event_logger_loop(Name, SvcName, Parent, MRef) ->
             diameter_event_msg(Name, SvcName,
                                "(diameter) event logger "
                                "received event: "
-                               "~n   Info: ~p", [Info]),
+                               "~n~s",
+                               [format_diameter_event_info("   ", Info)]),
             diameter_event_logger_loop(Name, SvcName, Parent, MRef)
     end.
 
@@ -3103,6 +3115,62 @@ diameter_event_msg(Name, SvcName, F, A) ->
     io:format("==== DIAMETER EVENT ==== ~s ====~n"
               "[~s, ~p] " ++ F ++ "~n",
               [formated_timestamp(), Name, SvcName | A]).
+
+
+format_diameter_event_info(Indent, Event)
+  when (Event =:= start) orelse (Event =:= stop) ->
+    ?F("~s~w", [Indent, Event]);
+format_diameter_event_info(Indent,
+                           {up, Ref, Peer, _Config, _Pkt}) ->
+    ?F("~sup: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {up, Ref, Peer, _Config}) ->
+    ?F("~sup: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {down, Ref, Peer, _Config}) ->
+    ?F("~sdown: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {reconnect, Ref, _Opts}) ->
+    ?F("~sreconnect: "
+       "~n~s   Ref: ~p",
+       [Indent,
+        Indent, Ref]);
+format_diameter_event_info(Indent,
+                           {closed, Ref, Reason, _Config}) ->
+    ?F("~sclosed: "
+       "~n~s   Ref:    ~p"
+       "~n~s   Reason: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Reason]);
+format_diameter_event_info(Indent,
+                           {watchdog, Ref, PeerRef, {From, To}, _Config}) ->
+    ?F("~swatchdog: ~w -> ~w"
+       "~n~s   Ref:     ~p"
+       "~n~s   PeerRef: ~p",
+       [Indent, From, To,
+        Indent, Ref,
+        Indent, PeerRef]);
+format_diameter_event_info(Indent, Event) ->
+    ?F("~s~p", [Indent, Event]).
+
+    
+
 
 formated_timestamp() ->
     format_timestamp(os:timestamp()).
