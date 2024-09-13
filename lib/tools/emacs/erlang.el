@@ -1196,7 +1196,8 @@ behaviour.")
 
 (defvar erlang-font-lock-keywords-attr
   (list
-   (list (concat "^\\(-" erlang-atom-regexp "\\)\\(\\s-\\|\\.\\|(\\|#\\)")
+    (list (concat "\\(?:^\\s-*\\|\\.\\s-+\\)"
+            "\\(-" erlang-atom-regexp "\\)\\(\\s-\\|\\.\\|(\\|#\\)")
          1 (if (boundp 'font-lock-preprocessor-face)
                'font-lock-preprocessor-face
              'font-lock-constant-face)))
@@ -1251,8 +1252,9 @@ This must be placed in front of `erlang-font-lock-keywords-vars'.")
              "\\_<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)"
               "\\<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)")
          1 nil t)
-   (list (concat "^-record\\s-*\\(?:(\\|\\s-+\\)\\s-*" erlang-atom-regexp)
-         1 'font-lock-type-face))
+    (list (concat "\\(?:^\\s-*\\|\\.\\s-*\\)"
+            "-record\\s-*\\(?:(\\|\\s-+\\)\\s-*" erlang-atom-regexp)
+      1 'font-lock-type-face))
   "Font lock keyword highlighting Erlang records.
 This must be placed in front of `erlang-font-lock-keywords-vars'.")
 
