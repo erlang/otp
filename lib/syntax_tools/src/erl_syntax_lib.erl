@@ -474,6 +474,8 @@ vann(Tree, Env) ->
             vann_maybe_match_expr(Tree, Env);
         case_expr ->
             vann_case_expr(Tree, Env);
+        else_expr ->
+            vann_else_expr(Tree, Env);
         if_expr ->
             vann_if_expr(Tree, Env);
         receive_expr ->
@@ -576,6 +578,12 @@ vann_case_expr(Tree, Env) ->
     Bound = ordsets:union(Bound1, Bound2),
     Free = ordsets:union(Free1, Free2),
     Tree1 = rewrite(Tree, erl_syntax:case_expr(E1, Cs1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_else_expr(Tree, Env) ->
+    Cs = erl_syntax:else_expr_clauses(Tree),
+    {Cs1, {Bound, Free}} = vann_clauses(Cs, Env),
+    Tree1 = rewrite(Tree, erl_syntax:else_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_if_expr(Tree, Env) ->
