@@ -1619,7 +1619,7 @@ shell_full_queue(Config) ->
         send_tty(Term, "fg"),
         send_tty(Term, "Enter"),
         Pid ! stop,
-        check_content(Term,"b\\([^)]*\\)2>$"),
+        check_content(Term,"b\\s+\\([^)]*\\)2>$"),
 
         send_tty(Term, "."),
         send_tty(Term, "Enter"),
