@@ -1393,8 +1393,11 @@ continue(<<Rest/bits>>, Original, Skip, Acc, Stack0, Decode, Value) ->
     end.
 
 terminate(<<Byte, Rest/bits>>, Original, Skip, Acc, Value) when ?is_ws(Byte) ->
-    terminate(Rest, Original, Skip + 1, Acc, Value);
-terminate(<<Rest/bits>>, _Original, _Skip, Acc, Value) ->
+    terminate(Rest, Original, Skip, Acc, Value);
+terminate(<<>>, _, _Skip, Acc, Value) ->
+    {Value, Acc, <<>>};
+terminate(<<_/bits>>, Original, Skip, Acc, Value) ->
+    <<_:Skip/binary, Rest/binary>> = Original,
     {Value, Acc, Rest}.
 
 -spec unexpected_utf8(binary(), non_neg_integer()) -> no_return().
