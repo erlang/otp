@@ -244,7 +244,8 @@ _upload_artifacts() {
             if echo "${RI[@]}" | grep "otp_${2}_${stripped_name}.zip" > /dev/null; then
                 if [ ${#MISSING_WIN_ZIP[@]} -lt 20 ]; then
                     MISSING_WIN_ZIP=("${MISSING_WIN_ZIP[@]}" "${stripped_name}")
-                    _curl_post "${REPO}/actions/workflows/upload-windows-zip.yaml/dispatches" -d '{"version":"'"${stripped_name}"'", "target":"'"${2}"'"}'
+                    _curl_post "${REPO}/actions/workflows/upload-windows-zip.yaml/dispatches" \
+                        -d '{"ref":"master", "inputs":{"version":"'"${stripped_name}"'", "target":"'"${2}"'"}}'
                 fi
             fi
             ## See if we need to re-build any prebuilds
