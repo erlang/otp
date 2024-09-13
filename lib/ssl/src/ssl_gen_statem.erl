@@ -584,11 +584,10 @@ config_error(_Type, _Event, _State) ->
 			gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 connection({call, RecvFrom}, {recv, N, Timeout},
-	   #state{static_env = #static_env{protocol_cb = Connection},
-                  socket_options =
+	   #state{socket_options =
                       #socket_options{active = false}} = State0) ->
     passive_receive(State0#state{bytes_to_read = N,
-                                 start_or_recv_from = RecvFrom}, ?FUNCTION_NAME, Connection,
+                                 start_or_recv_from = RecvFrom}, ?FUNCTION_NAME,
                     [{{timeout, recv}, Timeout, timeout}]);
 connection({call, From}, peer_certificate,
 	   #state{session = #session{peer_certificate = Cert}} = State) ->
@@ -613,6 +612,18 @@ connection({call, From}, negotiated_protocol,
                                                  negotiated_protocol = undefined}} = State) ->
     hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
+connection({call, From},
+           {close,{_NewController, _Timeout}},
+           #state{static_env = #static_env{role = Role,
+                                           socket = Socket,
+                                           trackers = Trackers,
+                                           transport_cb = Transport,
+                                           protocol_cb = Connection},
+                  connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}
+                 } = State) ->
+    Pids = Connection:pids(State),
+    alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, connection, Connection),
+    {stop, {shutdown, normal}, State};
 connection({call, From}, 
            {close,{NewController, Timeout}},
            #state{connection_states = ConnectionStates,
@@ -663,9 +674,8 @@ connection(cast, {dist_handshake_complete, DHandle},
     Connection:next_event(connection, Record, State);
 connection(info, Msg, #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:handle_info(Msg, ?FUNCTION_NAME, State);
-connection(internal, {recv, RecvFrom}, #state{start_or_recv_from = RecvFrom,
-                                              static_env = #static_env{protocol_cb = Connection}} = State) ->
-    passive_receive(State, ?FUNCTION_NAME, Connection, []);
+connection(internal, {recv, RecvFrom}, #state{start_or_recv_from = RecvFrom} = State) ->
+    passive_receive(State, ?FUNCTION_NAME, []);
 connection(Type, Msg, State) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -844,7 +854,7 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers,Socket,
+    alert_user(Pids, Transport, Trackers, Socket,
                StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
@@ -925,10 +935,23 @@ read_application_data(Data,
                        user_data_buffer = {Front,BufferSize,Rear}}}
             end
     end.
+
+passive_receive(#state{static_env = #static_env{role = Role,
+                                                socket = Socket,
+                                                trackers = Trackers,
+                                                transport_cb = Transport,
+                                                protocol_cb = Connection},
+                       start_or_recv_from = RecvFrom,
+                       connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}} = State,
+                StateName, _) ->
+    Pids = Connection:pids(State),
+    alert_user(Pids, Transport, Trackers, Socket, RecvFrom, Alert, Role, StateName, Connection),
+    {stop, {shutdown, normal}, State};
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
                        %% Assert! Erl distribution uses active sockets
+                       static_env = #static_env{protocol_cb = Connection},
                        connection_env = #connection_env{erl_dist_handle = undefined}}
-                = State0, StateName, Connection, StartTimerAction) ->
+                = State0, StateName, StartTimerAction) ->
     case BufferSize of
 	0 ->
 	    Connection:next_event(StateName, no_record, State0, StartTimerAction);
@@ -1396,14 +1419,27 @@ no_records(Extensions) ->
 handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
 
-handle_active_option(_, connection = StateName, To, Reply, #state{static_env = #static_env{role = Role},
-                                                                  connection_env = #connection_env{socket_tls_closed = true},
-                                                                  user_data_buffer = {_,0,_}} = State) ->
+handle_active_option(_, connection = StateName, To, Reply,
+                     #state{static_env = #static_env{role = Role},
+                            connection_env = #connection_env{socket_tls_closed = true},
+                            user_data_buffer = {_,0,_}} = State) ->
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_delivered),
     handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
     {stop_and_reply,{shutdown, peer_close}, [{reply, To, Reply}]};
-handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = #static_env{protocol_cb = Connection},
-                                                                   user_data_buffer = {_,0,_}} = State0) ->
+handle_active_option(_, connection = StateName, To, _Reply,
+                     #state{static_env = #static_env{role = Role,
+                                                     socket = Socket,
+                                                     trackers = Trackers,
+                                                     transport_cb = Transport,
+                                                     protocol_cb = Connection},
+                            connection_env = #connection_env{socket_tls_closed = Alert = #alert{}},
+                            user_data_buffer = {_,0,_}} = State) ->
+    Pids = Connection:pids(State),
+    alert_user(Pids, Transport, Trackers, Socket, To, Alert, Role, StateName, Connection),
+    {stop, {shutdown, normal}, State};
+handle_active_option(_, connection = StateName0, To, Reply,
+                     #state{static_env = #static_env{protocol_cb = Connection},
+                            user_data_buffer = {_,0,_}} = State0) ->
     case Connection:next_event(StateName0, no_record, State0) of
 	{next_state, StateName, State} ->
 	    hibernate_after(StateName, State, [{reply, To, Reply}]);
