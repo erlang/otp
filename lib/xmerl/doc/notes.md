@@ -21,6 +21,24 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1
+
+### Fixed Bugs and Malfunctions
+
+- Corrected export functions from internal structure to XML so xmlText items of type
+  cdata are handled correctly. They were just exported as normal text instead of
+  output in a CDATA section.
+
+  Own Id: OTP-19217 Aux Id: ERIERL-1104
+
+### Improvements and New Features
+
+- The type spec for `xmerl_sax_parser:file/2` has been corrected to indicate that it can return an `{error, _}` tuple.
+
+  Own Id: OTP-19129 Aux Id: [PR-8583]
+
+[PR-8583]: https://github.com/erlang/otp/pull/8583
+
 ## Xmerl 2.0
 
 ### Fixed Bugs and Malfunctions

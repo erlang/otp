@@ -21,6 +21,153 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.1
+
+### Fixed Bugs and Malfunctions
+
+- The `erl -man example` has been corrected to not consider values set in `ERL_ZFLAGS` and stop parsing arguments when a `--` is encountered.
+
+  Own Id: OTP-19098 Aux Id: [PR-8478] [GH-8477]
+
+- Compiler warnings for  Windows I/O back-end have been silenced.
+
+  Own Id: OTP-19113
+
+- Bugs related to `return_to` trace have been fixed. It did not work for more than once trace session and it did sometimes not trigger for exceptions.
+
+  Own Id: OTP-19122
+
+- Potential deadlocks while writing a crash dump have been eliminated.
+
+  Own Id: OTP-19133 Aux Id: [PR-8521], [GH-8498]
+
+- When loading a damaged or too old BEAM file, the runtime system could crash.
+
+  Own Id: OTP-19153 Aux Id: [PR-8623]
+
+- A scheduler thread could get stuck when deleting a memory allocator carrier when adjacent carriers were deleted and/or inserted simultaneously by other schedulers. This in turn could cause the other schedulers to get stuck as well.
+
+  Own Id: OTP-19154 Aux Id: [GH-8613], [PR-8627]
+
+- Statistics for number of carriers in a shared pool after calling `instrument:allocations` or `instrument:carriers` are now correct. Also, a potential bug in carrier block scanning was eliminated.
+
+  Own Id: OTP-19166 Aux Id: [PR-8636]
+
+- A race in the kTLS flavour of SSL distribution has been fixed so that `inet_drv.c` doesn't read ahead too much data, which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the `inet_drv.c` buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: [GH-8561], [PR-8690]
+
+- Fixed an emulator crash relating to compressed ETS tables.
+
+  Own Id: OTP-19176 Aux Id: [PR-8683]
+
+- A function (encode_sockaddr) was called with superfluous argument, on Windows, in the net nif.
+
+  Own Id: OTP-19181
+
+- Fixed a crash that could happen on reallocation failure.
+
+  Own Id: OTP-19192
+
+- Man pages are now available for `erl`, `erlc`, `dialyzer`, and all other programs that are included in Erlang/OTP.
+
+  Own Id: OTP-19201 Aux Id: [PR-8740]
+
+- A previous correction in the Erlang/OTP 27.0.1 emergency patch had the unfortunate side effect of sometimes causing an unnecessary fullsweep (major) garbage collection instead of a  generation (minor) garbage collection. This has been corrected.
+
+  Own Id: OTP-19209 Aux Id: [PR-8751], [PR-8539]
+
+- Fixed trace matchspec functions `trace` and `enable_trace` to use the session tracer when enabling trace flags on untraced processes.
+
+  Own Id: OTP-19211 Aux Id: [GH-8657]
+
+- Fixed a typo in the type spec for `t:erlang:garbage_collection_defaults/0`.
+
+  Own Id: OTP-19215 Aux Id: [PR-8757]
+
+- Corrected socket:ioctl for genaddr (SIOCGENADDR).
+
+  Own Id: OTP-19216
+
+- The support for Transparent Huge Pages has been disabled on non-amd64 Linux systems.
+
+  Own Id: OTP-19219 Aux Id: [PR-8702]
+
+- Fixed a race condition on Windows when upgrading from `-noshell` to a shell that would cause Erlang to crash with the error:
+  
+  ```
+  {'GetOverlappedResult',
+    'The I/O operation has been aborted because of either a thread exit or an application request.'}.
+  ```
+
+  Own Id: OTP-19220 Aux Id: [PR-8774] [GH-7621]
+
+[PR-8478]: https://github.com/erlang/otp/pull/8478
+[GH-8477]: https://github.com/erlang/otp/issues/8477
+[PR-8521]: https://github.com/erlang/otp/pull/8521
+[GH-8498]: https://github.com/erlang/otp/issues/8498
+[PR-8623]: https://github.com/erlang/otp/pull/8623
+[GH-8613]: https://github.com/erlang/otp/issues/8613
+[PR-8627]: https://github.com/erlang/otp/pull/8627
+[PR-8636]: https://github.com/erlang/otp/pull/8636
+[GH-8561]: https://github.com/erlang/otp/issues/8561
+[PR-8690]: https://github.com/erlang/otp/pull/8690
+[PR-8683]: https://github.com/erlang/otp/pull/8683
+[PR-8740]: https://github.com/erlang/otp/pull/8740
+[PR-8751]: https://github.com/erlang/otp/pull/8751
+[PR-8539]: https://github.com/erlang/otp/pull/8539
+[GH-8657]: https://github.com/erlang/otp/issues/8657
+[PR-8757]: https://github.com/erlang/otp/pull/8757
+[PR-8702]: https://github.com/erlang/otp/pull/8702
+[PR-8774]: https://github.com/erlang/otp/pull/8774
+[GH-7621]: https://github.com/erlang/otp/issues/7621
+
+### Improvements and New Features
+
+- Added functions `getservbyname` and `getservbyport` to the `net` module.
+
+  Own Id: OTP-19101 Aux Id: OTP-18835
+
+- Introduced enet | esock variants of `m:inet` functions, either when called with sockets,
+  with explicit inet_backend config or with the e inet_backend kernel config option.
+
+  Own Id: OTP-19132 Aux Id: OTP-19101
+
+- Optimize process and port creation when such tracing is not enabled by any trace session.
+
+  Own Id: OTP-19167 Aux Id: [PR-8655]
+
+- Compiler warnings for some removed functions have been corrected to point out the correct replacement functions.
+
+  Own Id: OTP-19186 Aux Id: [PR-8709]
+
+- A boolean option `read_ahead` has been implemented for `gen_tcp`, default `true`, to facilitate not reading past (caching data) the end of a packet.  In particular, for kTLS, caching data could read in data that was supposed to be decrypted by the platform's network stack, before crypto parameters could be activated.
+
+  Own Id: OTP-19199 Aux Id: OTP-19175, [GH-8561], [GH-8690], [GH-8785]
+
+- The `m:zip` module has been updated with support for:
+  
+  * zip64 archives - Archives larger than 4GB or with more than 2^32 entries.
+  * extended timestamps - Higher resolution and in UTC.
+  * UID/GID - Save and extract the original UID/GID.
+  * Fixes so that permission mode attributes are correctly read and set for files in archives.
+  * `zip:list_dir/2` now also returns directories, not only files. (You can disable this behaviour by using the option `skip_directories`).
+  
+  Various bugs in the original implementation have also been fixed, such as:
+  
+  * Correctly encode and decode the DOS timestamps for entries within an archive (that is the non-extended timestamp).
+  * Fix DOS timestamps to be set to localtime instead of UTC (use extended timestamps for UTC timestamps).
+  * Use the unix file attributes read from disk when creating archives instead of setting everything to 644.
+
+  Own Id: OTP-19214 Aux Id: [PR-8765]
+
+[PR-8655]: https://github.com/erlang/otp/pull/8655
+[PR-8709]: https://github.com/erlang/otp/pull/8709
+[GH-8561]: https://github.com/erlang/otp/issues/8561
+[GH-8690]: https://github.com/erlang/otp/issues/8690
+[GH-8785]: https://github.com/erlang/otp/issues/8785
+[PR-8765]: https://github.com/erlang/otp/pull/8765
+
 ## Erts 15.0.1
 
 ### Fixed Bugs and Malfunctions

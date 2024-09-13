@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3
+
+### Improvements and New Features
+
+- The documentation for the `m:httpd` module has been improved, along with correction of headings and types.
+
+  Own Id: OTP-19171 Aux Id: [PR-8578]
+
+- Userinfo is now properly percent-decoded before usage in headers.
+
+  Own Id: OTP-19172 Aux Id: [PR-8575]
+
+[PR-8578]: https://github.com/erlang/otp/pull/8578
+[PR-8575]: https://github.com/erlang/otp/pull/8575
+
 ## Inets 9.2
 
 ### Improvements and New Features

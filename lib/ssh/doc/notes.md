@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.2
+
+### Fixed Bugs and Malfunctions
+
+- The SSh daemon started with a TCP port number argument will now re-try obtaining a listen socket before returning an error to the user.
+
+  Own Id: OTP-19170 Aux Id: [GH-7746]
+
+- Robustness has been improved by monitoring the connection handler process before casting the socket control notification.
+
+  Own Id: OTP-19173 Aux Id: [PR-8310]
+
+[GH-7746]: https://github.com/erlang/otp/issues/7746
+[PR-8310]: https://github.com/erlang/otp/pull/8310
+
 ## Ssh 5.2.1
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,67 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.1
+
+### Fixed Bugs and Malfunctions
+
+- A faulty assertion was corrected in the `prim_tty` module. This assertion could trigger when invalid UTF-8 was read from stdin just as the mode was changed from unicode to latin1.
+
+  Own Id: OTP-19097 Aux Id: [PR-8503]
+
+- Opening a `disk_log` file and combining `head_func` with `rotate` options did not work.
+
+  Own Id: OTP-19104 Aux Id: ERIERL-870
+
+- Fixed an error info printout for `erlang:is_process_alive/1` on non-local pids.
+
+  Own Id: OTP-19134 Aux Id: [PR-8560]
+
+- A race in the kTLS flavour of SSL distribution has been fixed so that `inet_drv.c` doesn't read ahead too much data, which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the `inet_drv.c` buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: [GH-8561], [PR-8690]
+
+- Fixed a deadlock when an application crashes during startup and log messages were sent to standard out. Logger would fail to print the messages to standard out and instead print them to standard error.
+
+  Own Id: OTP-19205
+
+- The `-proto_dist` init parameter will no longer be ignored when specified multiple times. It will now log a warning and use the first specified value.
+
+  Own Id: OTP-19208 Aux Id: [PR-8672]
+
+- Corrected socket:ioctl for genaddr (SIOCGENADDR).
+
+  Own Id: OTP-19216
+
+[PR-8503]: https://github.com/erlang/otp/pull/8503
+[PR-8560]: https://github.com/erlang/otp/pull/8560
+[GH-8561]: https://github.com/erlang/otp/issues/8561
+[PR-8690]: https://github.com/erlang/otp/pull/8690
+[PR-8672]: https://github.com/erlang/otp/pull/8672
+
+### Improvements and New Features
+
+- Added functions `getservbyname` and `getservbyport` to the `net` module.
+
+  Own Id: OTP-19101 Aux Id: OTP-18835
+
+- Introduced enet | esock variants of `m:inet` functions, either when called with sockets,
+  with explicit inet_backend config or with the e inet_backend kernel config option.
+
+  Own Id: OTP-19132 Aux Id: OTP-19101
+
+- The function `socket:i/0` now uses the `m:net` module (instead of the `m:inet` module) for service translation.
+
+  Own Id: OTP-19138 Aux Id: OTP-19101
+
+- A boolean option `read_ahead` has been implemented for `gen_tcp`, default `true`, to facilitate not reading past (caching data) the end of a packet.  In particular, for kTLS, caching data could read in data that was supposed to be decrypted by the platform's network stack, before crypto parameters could be activated.
+
+  Own Id: OTP-19199 Aux Id: OTP-19175, [GH-8561], [GH-8690], [GH-8785]
+
+[GH-8561]: https://github.com/erlang/otp/issues/8561
+[GH-8690]: https://github.com/erlang/otp/issues/8690
+[GH-8785]: https://github.com/erlang/otp/issues/8785
+
 ## Kernel 10.0.1
 
 ### Improvements and New Features

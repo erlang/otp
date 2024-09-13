@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
+## Syntax_Tools 3.2.1
+
+### Fixed Bugs and Malfunctions
+
+- The documentation for `syntax_tools` has been polished after the migration to the new documentation system.
+
+  Own Id: OTP-19102 Aux Id: [PR-8515]
+
+[PR-8515]: https://github.com/erlang/otp/pull/8515
+
 ## Syntax_Tools 3.2
 
 ### Fixed Bugs and Malfunctions

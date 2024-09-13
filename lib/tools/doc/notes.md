@@ -21,6 +21,32 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.1
+
+### Fixed Bugs and Malfunctions
+
+- `m:tprof` no longer crashes when using pause/restart/continue when profiling all modules.
+
+  Own Id: OTP-19136 Aux Id: [GH-8472] [PR-8472] [PR-8541]
+
+- On systems supporting native coverage, calls to `m:cover` could hang or crash if cover-compiled module had been reloaded from outside `cover`. This has been corrected so that `cover` now recovers from the error and and sends a report to the logger about the failure to retrieve coverage information.
+
+  Own Id: OTP-19203 Aux Id: [GH-8661], [PR-8742]
+
+[GH-8472]: https://github.com/erlang/otp/issues/8472
+[PR-8472]: https://github.com/erlang/otp/pull/8472
+[PR-8541]: https://github.com/erlang/otp/pull/8541
+[GH-8661]: https://github.com/erlang/otp/issues/8661
+[PR-8742]: https://github.com/erlang/otp/pull/8742
+
+### Improvements and New Features
+
+- Figures in the documentation have been improved.
+
+  Own Id: OTP-19130 Aux Id: [PR-7226]
+
+[PR-7226]: https://github.com/erlang/otp/pull/7226
+
 ## Tools 4.0
 
 ### Fixed Bugs and Malfunctions
