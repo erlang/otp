@@ -16,6 +16,7 @@ MODULES= \
 	binref \
 	c_SUITE \
 	calendar_SUITE \
+	calendar_prop_SUITE \
 	dets_SUITE \
 	dict_SUITE \
 	dict_test_lib \
