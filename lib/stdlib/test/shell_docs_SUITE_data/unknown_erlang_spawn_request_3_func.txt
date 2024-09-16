@@ -14,24 +14,8 @@
   [;1m                           ReplyTag :: term(),[0m
   [;1m                           Reply :: yes | no | error_only | success_only,[0m
   [;1m                           OtherOption :: term(),[0m
-  [;1m                           ReqId :: reference().[0m
-
-[;;4mSince[0m:
-  OTP 23.0
-
-  The same as [;;4mspawn_request(Node,erlang,apply,[Fun,[]],Options)[0m.
-  That is, a spawn request using the fun [;;4mFun[0m of arity zero as
-  entry point.
-
-  This function will fail with a [;;4mbadarg[0m exception if:
-
-   • [;;4mNode[0m is not an atom.
-
-   • [;;4mFun[0m is not a fun of arity zero.
-
-   • [;;4mOptions[0m is not a proper list of terms.
-
-  [;1m-spec spawn_request(Module, Function, Args) -> ReqId[0m
+  [;1m                           ReqId :: reference();[0m
+  [;1m                   (Module, Function, Args) -> ReqId[0m
   [;1m                       when[0m
   [;1m                           Module :: module(),[0m
   [;1m                           Function :: atom(),[0m
@@ -41,6 +25,22 @@
 [;;4mSince[0m:
   OTP 23.0
 
-  The same as the call [;;4m[0m
-  [;;4mspawn_request(node(),Module,Function,Args,[])[0m. That is, a spawn
-  request on the local node with no options.
+  Equivalent to [;;4mspawn_request(Node,erlang,apply,[Fun,[]],Options)[0m
+  ]([;;4mspawn_request/5[0m) or [[;;4m[0m
+  [;;4mspawn_request(node(),Module,Function,Args,[])[0m depending on the
+  arguments.
+
+  That is either:
+
+   • spawn request using the fun [;;4mFun[0m of arity zero as entry
+     point
+
+   • spawn request on the local node with no options.
+
+  This function will fail with a [;;4mbadarg[0m exception if:
+
+   • [;;4mNode[0m is not an atom.
+
+   • [;;4mFun[0m is not a fun of arity zero.
+
+   • [;;4mOptions[0m is not a proper list of terms.

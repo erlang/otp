@@ -109,16 +109,18 @@
 
      If R is a relation in X, and if S is defined so that x S y
      if x R y and not x = y, then S is the strict relation
-     corresponding to R. Conversely, if S is a relation in X, and
-     if R is defined so that x R y if x S y or x = y, then R is
-     the weak relation corresponding to S.
+     corresponding to
+
+      ￮ Conversely, if S is a relation in X, and if R is
+        defined so that x R y if x S y or x = y, then R is the 
+        weak relation corresponding to S.
 
      A relation R in X is reflexive if x R x for every element
      x of X, it is symmetric if x R y implies that y R x, and
      it is transitive if x R y and y R z imply that x R z.
 
-   • A function F is a relation, a subset of X × Y, such that
-     the domain of F is equal to X and such that for every x in X
+   • function F is a relation, a subset of X × Y, such that the
+     domain of F is equal to X and such that for every x in X
      there is a unique element y in Y with (x, y) in F. The
      latter condition can be formulated as follows: if x F y and
      x F z, then y = z. In this module, it is not required that
@@ -163,9 +165,9 @@
      families of subsets of some set X; in the following, the
      word "family" is used for such families of subsets.
 
-   • A partition of a set X is a collection S of non-empty
-     subsets of X whose union is X and whose elements are
-     pairwise disjoint.
+   • partition of a set X is a collection S of non-empty subsets
+     of X whose union is X and whose elements are pairwise
+     disjoint.
 
      A relation in a set is an equivalence relation if it is
      reflexive, symmetric, and transitive.
@@ -187,7 +189,7 @@
      from now on referred to as binary relations.
 
      We call a set of ordered sets (x[1], ..., x[n]) an (n-ary)
-     relation, and say that the relation is a subset of the 
+     relation, and say that the relation is a subset of the
      Cartesian product X[1] × ... × X[n], where x[i] is an
      element of X[i], 1 <= i <= n.
 
@@ -282,10 +284,12 @@
   from X to Y, where X is defined as all sets Set(x) for some
   element x in Sets the type of which is A, and similarly for Y. In
   the same way Arg2 is interpreted as representing a binary relation
-  from W to Z. Finally it is checked that B matches C, which is
-  sufficient to ensure that W is equal to Y. The untyped empty set
-  is handled separately: its type, ['_'], matches the type of any
-  unordered set.
+  from W to
+
+   • Finally it is checked that B matches C, which is sufficient
+     to ensure that W is equal to Y. The untyped empty set is
+     handled separately: its type, ['_'], matches the type of any
+     unordered set.
 
   A few functions of this module ([;;4mdrestriction/3[0m, [;;4m[0m
   [;;4mfamily_projection/2[0m, [;;4mpartition/2[0m, [;;4mpartition_family/2[0m, [;;4m[0m
@@ -348,4 +352,4 @@
 
 [;1mSee Also[0m
 
-  [;;4mdict(3)[0m, [;;4mdigraph(3)[0m, [;;4morddict(3)[0m, [;;4mordsets(3)[0m, [;;4msets(3)[0m
+  [;;4mdict[0m, [;;4mdigraph[0m, [;;4morddict[0m, [;;4mordsets[0m, [;;4msets[0m

@@ -1,0 +1,5 @@
+
+  [;1m-type bool() :: boolean().[0m
+
+  The documentation for bool/0 is hidden. This probably means that
+  it is internal and not to be used by other applications.

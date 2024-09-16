@@ -3,7 +3,9 @@
   [;1m                     when Item :: iolist() | binary().[0m
 
   Returns an integer, that is the size in bytes, of the binary that
-  would be the result of [;;4miolist_to_binary(Item)[0m, for example:
+  would be the result of [;;4miolist_to_binary(Item)[0m.
+
+  For example:
 
     > iolist_size([1,2|<<3,4>>]).
     4

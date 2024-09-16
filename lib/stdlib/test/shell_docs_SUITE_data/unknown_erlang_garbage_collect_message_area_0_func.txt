@@ -1,5 +1,5 @@
 
-[;1m  garbage_collect_message_area/0[0m
+  [;1m-spec garbage_collect_message_area() -> boolean().[0m
 
   The documentation for garbage_collect_message_area/0 is hidden.
   This probably means that it is internal and not to be used by

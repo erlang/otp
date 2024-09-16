@@ -6,7 +6,9 @@
   [;1m          (RegName :: atom()) |[0m
   [;1m          {RegName :: atom(), Node :: node()}.[0m
 
-  The destination for a send operation, can be a remote or local
-  process identifier, a (local) port, a reference denoting a process
-  alias, a locally registered name, or a tuple [;;4m{RegName, Node}[0m for
-  a registered name at another node.
+  The destination for a send operation.
+
+  This can be a remote or local process identifier, a (local) port,
+  a reference denoting a process alias, a locally registered name,
+  or a tuple [;;4m{RegName, Node}[0m for a registered name at another
+  node.

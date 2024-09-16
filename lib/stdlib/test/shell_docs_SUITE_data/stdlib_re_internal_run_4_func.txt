@@ -1,5 +1,47 @@
 
-[;1m  internal_run/4[0m
+  [;1m-spec internal_run(Subject, RE, Options, FirstCall) ->[0m
+  [;1m                      {match, Captured} |[0m
+  [;1m                      match | nomatch |[0m
+  [;1m                      {error, ErrType}[0m
+  [;1m                      when[0m
+  [;1m                          Subject :: iodata() | unicode:charlist(),[0m
+  [;1m                          RE :: mp() | iodata() | unicode:charlist(),[0m
+  [;1m                          Options :: [Option],[0m
+  [;1m                          Option ::[0m
+  [;1m                              anchored | global | notbol | noteol |[0m
+  [;1m                              notempty | notempty_atstart |[0m
+  [;1m                              report_errors |[0m
+  [;1m                              {offset, non_neg_integer()} |[0m
+  [;1m                              {match_limit, non_neg_integer()} |[0m
+  [;1m                              {match_limit_recursion, non_neg_integer()} |[0m
+  [;1m                              {newline, NLSpec :: nl_spec()} |[0m
+  [;1m                              bsr_anycrlf | bsr_unicode |[0m
+  [;1m                              {capture, ValueSpec} |[0m
+  [;1m                              {capture, ValueSpec, Type} |[0m
+  [;1m                              CompileOpt,[0m
+  [;1m                          Type :: index | list | binary,[0m
+  [;1m                          ValueSpec ::[0m
+  [;1m                              all | all_but_first | all_names | first |[0m
+  [;1m                              none | ValueList,[0m
+  [;1m                          ValueList :: [ValueID],[0m
+  [;1m                          ValueID :: integer() | string() | atom(),[0m
+  [;1m                          CompileOpt :: compile_option(),[0m
+  [;1m                          Captured :: [CaptureData] | [[CaptureData]],[0m
+  [;1m                          CaptureData ::[0m
+  [;1m                              {integer(), integer()} |[0m
+  [;1m                              ListConversionData |[0m
+  [;1m                              binary(),[0m
+  [;1m                          ListConversionData ::[0m
+  [;1m                              string() |[0m
+  [;1m                              {error, string(), binary()} |[0m
+  [;1m                              {incomplete, string(), binary()},[0m
+  [;1m                          ErrType ::[0m
+  [;1m                              match_limit | match_limit_recursion |[0m
+  [;1m                              {compile, CompileErr},[0m
+  [;1m                          CompileErr ::[0m
+  [;1m                              {ErrString :: string(),[0m
+  [;1m                               Position :: non_neg_integer()},[0m
+  [;1m                          FirstCall :: boolean().[0m
 
   The documentation for internal_run/4 is hidden. This probably
   means that it is internal and not to be used by other

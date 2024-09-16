@@ -13,8 +13,7 @@
 
   Copies [;;4mByteCount[0m bytes from [;;4mSource[0m to [;;4mDestination[0m. [;;4mSource[0m
   and [;;4mDestination[0m refer to either filenames or IO devices from,
-  for example, [;;4mopen/2[0m. [;;4mByteCount[0m defaults to [;;4minfinity[0m,
-  denoting an infinite number of bytes.
+  for example, [;;4mopen/2[0m.
 
   Argument [;;4mModes[0m is a list of possible modes, see [;;4mopen/2[0m, and
   defaults to [;;4m[][0m.

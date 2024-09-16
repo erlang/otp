@@ -3,7 +3,9 @@
 
   Returns a list of keys that are associated with the value [;;4mVal[0m in
   the process dictionary. The items in the returned list can be in
-  any order. Example:
+  any order.
+
+  For example:
 
     > put(mary, {1, 2}),
     put(had, {1, 2}),

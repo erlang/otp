@@ -15,22 +15,23 @@
   [;;4mdemonitor(MonitorRef, [flush])[0m can be used instead of [;;4m[0m
   [;;4mdemonitor(MonitorRef)[0m if this cleanup is wanted.
 
-  Note:
+  [;;4mNote[0m
+
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.
 
-  Change:
+  [;;4mChange[0m
+
     Before Erlang/OTP R11B (ERTS 5.5) [;;4mdemonitor/1[0m behaved
     completely asynchronously, that is, the monitor was active
     until the "demonitor signal" reached the monitored entity.
     This had one undesirable effect. You could never know when you
     were guaranteed not to receive a [;;4mDOWN[0m message because of
-    the monitor.
-
-    The current behavior can be viewed as two combined operations:
-    asynchronously send a "demonitor signal" to the monitored
-    entity and ignore any future results of the monitor.
+    the monitor. The current behavior can be viewed as two
+    combined operations: asynchronously send a "demonitor signal"
+    to the monitored entity and ignore any future results of the
+    monitor.
 
   Failure: It is an error if [;;4mMonitorRef[0m refers to a monitoring
   started by another process. Not all such cases are cheap to check.

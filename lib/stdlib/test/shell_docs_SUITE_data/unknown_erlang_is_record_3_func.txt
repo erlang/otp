@@ -13,6 +13,7 @@
   Allowed in guard tests if [;;4mRecordTag[0m is a literal atom and [;;4mSize[0m
   is a literal integer.
 
-  Note:
+  [;;4mNote[0m
+
     This BIF is documented for completeness. Usually [;;4mis_record/2[0m
     is to be used.

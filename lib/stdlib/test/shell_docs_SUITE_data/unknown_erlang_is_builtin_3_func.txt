@@ -1,9 +1,9 @@
 
-  [;1m-spec erlang:is_builtin(Module, Function, Arity) -> boolean()[0m
-  [;1m                           when[0m
-  [;1m                               Module :: module(),[0m
-  [;1m                               Function :: atom(),[0m
-  [;1m                               Arity :: arity().[0m
+  [;1m-spec is_builtin(Module, Function, Arity) -> boolean()[0m
+  [;1m                    when[0m
+  [;1m                        Module :: module(),[0m
+  [;1m                        Function :: atom(),[0m
+  [;1m                        Arity :: arity().[0m
 
   This BIF is useful for builders of cross-reference tools.
 

@@ -1,4 +1,6 @@
 
-  [;1m-type filename_all() :: string() | binary().[0m
+  [;1m-type filename_all() :: string() | (RawFilename :: binary()).[0m
 
-  See also the documentation of the [;;4mname_all()[0m type.
+  A file name as returned from [;;4mfile[0m API functions.
+
+  See the documentation of the [;;4mname_all/0[0m type.

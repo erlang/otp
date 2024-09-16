@@ -39,13 +39,11 @@
 
   Failures:
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If [;;4mPort[0m is not an identifier of an open port, or the
-    registered name of an open port. If the calling process was
-    previously linked to the closed port, identified by [;;4mPort[0m,
-    the exit signal from the port is guaranteed to be delivered
-    before this [;;4mbadarg[0m exception occurs.
+   • [;;4mbadarg[0m - If [;;4mPort[0m is not an identifier of an open port, or
+     the registered name of an open port. If the calling process
+     was previously linked to the closed port, identified by [;;4m[0m
+     [;;4mPort[0m, the exit signal from the port is guaranteed to be
+     delivered before this [;;4mbadarg[0m exception occurs.
 
-  [;;4m[;;4mbadarg[0m[0m:
-    If the process identified by [;;4mPid[0m is not an existing local
-    process.
+   • [;;4mbadarg[0m - If the process identified by [;;4mPid[0m is not an
+     existing local process.

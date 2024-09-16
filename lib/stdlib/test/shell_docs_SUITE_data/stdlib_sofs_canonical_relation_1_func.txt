@@ -5,8 +5,9 @@
   [;1m                                SetOfSets :: set_of_sets().[0m
 
   Returns the binary relation containing the elements (E, Set) such
-  that Set belongs to [;;4mSetOfSets[0m and E belongs to Set. If [;;4m[0m
-  [;;4mSetOfSets[0m is a partition of a set X and R is the equivalence
+  that Set belongs to [;;4mSetOfSets[0m and E belongs to Set.
+
+  If [;;4mSetOfSets[0m is a partition of a set X and R is the equivalence
   relation in X induced by [;;4mSetOfSets[0m, then the returned relation
   is the canonical map from X onto the equivalence classes with
   respect to R.

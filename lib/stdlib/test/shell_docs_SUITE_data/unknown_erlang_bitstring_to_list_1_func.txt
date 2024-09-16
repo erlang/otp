@@ -3,9 +3,13 @@
   [;1m                           when Bitstring :: bitstring().[0m
 
   Returns a list of integers corresponding to the bytes of [;;4m[0m
-  [;;4mBitstring[0m. If the number of bits in the binary is not divisible
-  by 8, the last element of the list is a bitstring containing the
-  remaining 1-7 bits. Examples:
+  [;;4mBitstring[0m.
+
+  If the number of bits in the binary is not divisible by 8, the
+  last element of the list is a bitstring containing the remaining
+  1-7 bits.
+
+  For example:
 
     > bitstring_to_list(<<433:16>>).
     [1,177]

@@ -1,4 +1,4 @@
 
   [;1m-type nonempty_list() :: [any(), ...].[0m
 
-  A list() that contains some items.
+  A [;;4mlist/0[0m that contains some items.

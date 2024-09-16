@@ -1,4 +1,4 @@
 
   [;1m-type nonempty_string() :: [char(), ...].[0m
 
-  A string() that contains some characters.
+  A [;;4mstring/0[0m that contains some characters.

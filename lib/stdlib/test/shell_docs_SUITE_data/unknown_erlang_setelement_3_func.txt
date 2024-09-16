@@ -8,8 +8,9 @@
 
   Returns a tuple that is a copy of argument [;;4mTuple1[0m with the
   element specified by integer argument [;;4mIndex[0m (the first element
-  is the element with index 1) replaced by argument [;;4mValue[0m, for
-  example:
+  is the element with index 1) replaced by argument [;;4mValue[0m.
+
+  For example:
 
     > setelement(2, {10, green, bottles}, red).
     {10,red,bottles}

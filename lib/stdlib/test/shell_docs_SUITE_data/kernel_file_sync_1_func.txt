@@ -10,5 +10,4 @@
 
   A typical error reason is:
 
-  [;;4m[;;4menospc[0m[0m:
-    Not enough space left to write the file.
+   • [;;4menospc[0m - Not enough space left to write the file.

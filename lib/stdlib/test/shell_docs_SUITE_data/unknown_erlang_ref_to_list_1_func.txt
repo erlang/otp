@@ -3,6 +3,7 @@
 
   Returns a string corresponding to the text representation of [;;4mRef[0m.
 
-  Warning:
+  [;;4mWarning[0m
+
     This BIF is intended for debugging and is not to be used in
     application programs.

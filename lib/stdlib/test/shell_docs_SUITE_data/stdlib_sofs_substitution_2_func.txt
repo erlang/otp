@@ -26,7 +26,7 @@
     [{a,a},{b,b},{c,c}]
 
   Let [;;4mSetOfSets[0m be a set of sets and [;;4mBinRel[0m a binary relation.
-  The function that maps each element [;;4mSet[0m of [;;4mSetOfSets[0m onto the 
+  The function that maps each element [;;4mSet[0m of [;;4mSetOfSets[0m onto the
   image of [;;4mSet[0m under [;;4mBinRel[0m is returned by the following
   function:
 

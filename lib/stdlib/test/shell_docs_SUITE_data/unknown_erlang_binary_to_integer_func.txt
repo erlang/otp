@@ -4,8 +4,9 @@
 [;;4mSince[0m:
   OTP R16B
 
-  Returns an integer whose text representation is [;;4mBinary[0m, for
-  example:
+  Returns an integer whose text representation is [;;4mBinary[0m.
+
+  For example:
 
     > binary_to_integer(<<"123">>).
     123
@@ -23,7 +24,9 @@
   OTP R16B
 
   Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
-  [;;4mBinary[0m, for example:
+  [;;4mBinary[0m.
+
+  For example:
 
     > binary_to_integer(<<"3FF">>, 16).
     1023

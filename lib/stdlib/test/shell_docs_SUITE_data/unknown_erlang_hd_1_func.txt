@@ -14,6 +14,4 @@
     > hd([first, second, third, so_on | improper_end]).
     first
 
-  Allowed in guard tests.
-
   Failure: [;;4mbadarg[0m if [;;4mList[0m is an empty list [;;4m[][0m.
