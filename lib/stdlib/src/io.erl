@@ -453,7 +453,7 @@ to control what the terminal inputs or outputs.
 
 `terminal` is an alias for `stdout`.
 
-See `setopts/1` for a description of the other options.
+See `setopts/2` for a description of the other options.
 """.
 -spec getopts(IoDevice) -> [getopt()] | {'error', Reason} when
       IoDevice :: device(),
@@ -521,6 +521,11 @@ The options and values supported by the OTP I/O devices are as follows:
   fun("") -> {yes, "quit", []};
      (_) -> {no, "", ["quit"]} end
   ```
+
+  This option is only supported by the standard shell (`group.erl`).
+
+- **`{line_history, true | false}`** - Specifies if `get_line` and `get_until`
+  I/O requests should be saved in the `m:shell` history buffer.
 
   This option is only supported by the standard shell (`group.erl`).
 

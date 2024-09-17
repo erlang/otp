@@ -59,6 +59,7 @@
 
          %% Used by xterm state
          lines = [], %% Previously entered lines that have not yet been consumed
+         save_history = true, %% Whether this input request should save history
 
          %% used by dumb state
          get_fun,
@@ -74,6 +75,7 @@
 
           %% Only used by xterm
           line_history :: [string()] | undefined,
+          save_history :: boolean(), %% Whether get_line and get_until should save history
           expand_fun :: function() | undefined,
           expand_below :: boolean() | undefined,
 
@@ -129,6 +131,7 @@ init([Drv, Shell, Options]) ->
                driver = Drv,
                read_mode = list,
                dumb = Dumb,
+               save_history = not Dumb,
 
                %% echo is normally false for dumb and true for non-dumb, but when group is used by
                %% ssh, it can also be set to true when dumb is true.
@@ -330,6 +333,7 @@ xterm(input_request, {CollectF, CollectAs, Prompt, Encoding},
     InputState = OrigInputState#input_state{
                    prompt_bytes = prompt_bytes(Prompt, Encoding),
                    collect = {CollectF, CollectAs},
+                   save_history = Data#state.save_history,
                    encoding = Encoding },
 
     xterm(data, Data#state.buf, Data#state{ input = InputState, buf = [] });
@@ -351,6 +355,7 @@ xterm(internal, restore_input_request,
 xterm(data, Buf, Data = #state{ input = #input_state{
                                            prompt_bytes = Pbs, encoding = Encoding,
                                            lines = Lines, cont = Cont,
+                                           save_history = SaveHistory,
                                            collect = {CollectF, CollectAs} } = InputState }) ->
 
     %% Get a single line using edlin
@@ -374,9 +379,8 @@ xterm(data, Buf, Data = #state{ input = #input_state{
                     send_drv_reqs(Data#state.driver, [{redraw_prompt, Pbs, MultiLinePrompt, LineCont1},new_prompt]),
 
                     NewHistory =
-                        %% TODO: Change to allow client to set whether to save commands
-                        %%  using io:setopts instead.
-                        if CollectF =:= get_until ->
+
+                        if SaveHistory ->
                                 %% Save into history buffer if issued from shell process
                                 save_line_buffer(string:trim(FormattedLine, both)++"\n",
                                                  Data#state.line_history);
@@ -680,26 +684,28 @@ setopts(Opts0,Data) ->
              proplists:substitute_negations(
                [{list,binary}],
                expand_encoding(Opts0))),
-    case check_valid_opts(Opts) of
+    case check_valid_opts(Opts, Data#state.shell =/= noshell) of
         true ->
             do_setopts(Opts,Data);
         false ->
             {{error,enotsup},Data}
     end.
-check_valid_opts([]) ->
+check_valid_opts([], _) ->
     true;
-check_valid_opts([{binary,Flag}|T]) when is_boolean(Flag) ->
-    check_valid_opts(T);
-check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
-                                            Valid =:= utf8;
-                                            Valid =:= latin1 ->
-    check_valid_opts(T);
-check_valid_opts([{echo,Flag}|T]) when is_boolean(Flag) ->
-    check_valid_opts(T);
-check_valid_opts([{expand_fun,Fun}|T]) when is_function(Fun, 1);
-                                            is_function(Fun, 2) ->
-    check_valid_opts(T);
-check_valid_opts(_) ->
+check_valid_opts([{binary,Flag}|T], HasShell) when is_boolean(Flag) ->
+    check_valid_opts(T, HasShell);
+check_valid_opts([{encoding,Valid}|T], HasShell) when Valid =:= unicode;
+                                                      Valid =:= utf8;
+                                                      Valid =:= latin1 ->
+    check_valid_opts(T, HasShell);
+check_valid_opts([{echo,Flag}|T], HasShell) when is_boolean(Flag) ->
+    check_valid_opts(T, HasShell);
+check_valid_opts([{line_history,Flag}|T], HasShell = true) when is_boolean(Flag) ->
+    check_valid_opts(T, HasShell);
+check_valid_opts([{expand_fun,Fun}|T], HasShell = true) when is_function(Fun, 1);
+                                                             is_function(Fun, 2) ->
+    check_valid_opts(T, HasShell);
+check_valid_opts(_, _HasShell) ->
     false.
 
 do_setopts(Opts, Data) ->
@@ -724,7 +730,9 @@ do_setopts(Opts, Data) ->
             false ->
                 list
         end,
-    {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_mode = ReadMode}}.
+    LineHistory = proplists:get_value(line_history, Opts, true),
+    {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_mode = ReadMode,
+                     save_history = LineHistory }}.
 
 normalize_expand_fun(Options, Default) ->
     case proplists:get_value(expand_fun, Options, Default) of
@@ -745,6 +753,13 @@ getopts(Data) ->
                       _ ->
                           false
                   end},
+    LineHistory = {line_history,
+                   case Data#state.save_history of
+                       HistBool when HistBool =:= true; HistBool =:= false ->
+                           HistBool;
+                       _ ->
+                           false
+                   end},
     Bin = {binary, case Data#state.read_mode of
                        binary ->
                            true;
@@ -757,7 +772,7 @@ getopts(Data) ->
                      end},
     Terminal = get_terminal_state(Data#state.driver),
     Tty = {terminal, maps:get(stdout, Terminal)},
-    [Exp,Echo,Bin,Uni,Tty|maps:to_list(Terminal)].
+    [Exp,Echo,LineHistory,Bin,Uni,Tty|maps:to_list(Terminal)].
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
