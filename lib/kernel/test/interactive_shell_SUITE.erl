@@ -1403,11 +1403,24 @@ shell_invalid_ansi(_Config) ->
 shell_get_password(_Config) ->
    
     rtnode:run(
-      [{putline,"io:get_password()."},
+      [{putline,"io:get_password(group_leader())."},
        {putline,"secret\r"},
        {expect, "\r\n\"secret\""}]),
 
-    %% io:get_password only works when run in "newshell"
+    rtnode:run(
+        [{eval,fun() -> shell:start_interactive({noshell, raw}) end},
+        {eval,
+            fun() ->
+                io:format(user, "Enter password: ", []),
+                spawn(fun() -> io:format(user, "~nPassword was: ~ts~n",[io:get_password(user)]) end),
+                ok
+            end},
+        {expect, "Enter password: "},
+        {putline,"secret"},
+        {expect, "^\nPassword was: secret\n"}],
+        "", "", ["-noshell"]),
+
+    %% io:get_password only works when run in "newshell", or "noshell/raw"
     rtnode:run(
       [{putline,"io:get_password()."},
        {expect, "\\Q{error,enotsup}\\E"}],
