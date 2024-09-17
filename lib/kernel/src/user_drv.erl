@@ -608,7 +608,7 @@ switch_loop(internal, init, State) ->
                           groups = gr_add_cur(Gr1, NewGroup, {shell,start,[]})}};
 	jcl ->
             NewTTYState =
-                io_requests([{insert_chars,unicode,<<"\nUser switch command (type h for help)\n">>}],
+                io_requests([{insert_chars,unicode,<<"\nUser switch command (enter 'h' for help)\n">>}],
                             State#state.tty),
 	    %% init edlin used by switch command and have it copy the
 	    %% text buffer from current group process
@@ -708,11 +708,14 @@ switch_cmd({c, I}, Gr0, _Dumb) ->
     end;
 switch_cmd({i, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of
-	{pid,Pid} ->
-	    exit(Pid, interrupt),
-	    {retry, []};
-	undefined ->
-	    unknown_group()
+        {pid,Pid} ->
+            exit(Pid, interrupt),
+
+            {retry, [{put_chars, unicode,
+                      unicode:characters_to_binary(
+                        io_lib:format("Interrupted job ~p, enter 'c' to resume.~n",[I]))}]};
+        undefined ->
+            unknown_group()
     end;
 switch_cmd({k, I}, Gr, _Dumb) ->
     case gr_get_num(Gr, I) of

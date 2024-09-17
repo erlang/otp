@@ -2437,6 +2437,8 @@ job_control_local(Config) when is_list(Config) ->
                {expect,  "\r\n35\r\n"},
                {expect,  "2> $"},
                {putline, "receive M -> M end.\r\n"},
+               {sleep, 6000},
+               {expect, "Command is taking a long time"},
                {putline, "\^g"},
                {expect,  "--> $"},
                {putline, "i 3"},
