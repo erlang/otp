@@ -137,8 +137,12 @@ while [ "${TAG_URL}" != "" ]; do
                     *)
                         _asset "otp_win32_${stripped_name}.exe"
                         _asset "otp_win64_${stripped_name}.exe"
-                        _asset "otp_win32_${stripped_name}.zip"
-                        _asset "otp_win64_${stripped_name}.zip"
+                        if echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"otp_win32_${stripped_name}.exe\")" > /dev/null; then
+                            _asset "otp_win32_${stripped_name}.zip"
+                        fi
+                        if echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"otp_win64_${stripped_name}.exe\")" > /dev/null; then
+                            _asset "otp_win64_${stripped_name}.zip"
+                        fi
                         ;;
                 esac
             fi
