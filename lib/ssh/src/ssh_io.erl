@@ -46,7 +46,7 @@ yes_no(Prompt, Opts) ->
 
 read_password(Prompt, Opts) ->
     format("~s", [listify(Prompt)]),
-    case trim(io:get_password()) of
+    case trim(io:get_password(group_leader())) of
         "" ->
             read_password(Prompt, Opts);
         Pwd ->

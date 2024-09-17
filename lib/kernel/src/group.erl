@@ -259,6 +259,16 @@ dumb(internal, {get_line, Encoding, Prompt}, Data) ->
 dumb(internal, {get_until, Encoding, Prompt, M, F, As}, Data) ->
     dumb(input_request, {get_until, {M, F, As}, Prompt, Encoding, fun get_line_dumb/5}, Data);
 
+dumb(internal, {get_password, Encoding}, Data = #state{ terminal_mode = raw }) ->
+
+    %% When getting the password we force echo to be off for the time of
+    %% the get password and set a shell in order to use edit_line_dumb instead
+    %% of edit_line_noshell.
+    GetLine = fun(Buf, Pbs, Cont, LineEncoding, LineData) ->
+                      get_line_dumb(Buf, Pbs, Cont, LineEncoding,
+                                    LineData#state{ echo = false, shell = self() })
+              end,
+    dumb(input_request, {collect_line_no_eol, [], "", Encoding, GetLine}, Data);
 dumb(internal, {get_password, _Encoding}, Data) ->
     %% TODO: Implement for noshell by disabling characters echo if isatty(stdin)
     io_reply(Data, {error, enotsup}),
