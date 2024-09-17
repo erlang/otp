@@ -1405,7 +1405,7 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     ct:sleep(SleepAmount), %% Schedule out
     {current_function, {erlang, hibernate, 3}} =
         process_info(ReceiverPid, current_function),
-     IsTls = ssl_test_lib:is_tls_version(Version),
+    IsTls = ssl_test_lib:is_tls_version(Version),
     case IsTls of
         true ->
             SenderPid = PotentialSenderPid,
