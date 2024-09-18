@@ -3318,7 +3318,8 @@ whereis(_Config) ->
 
     %% Test that shell:whereis() works with JCL in newshell
     rtnode:run(
-      [{expect,"1> $"},
+      [{putline, ""},
+       {expect,"1> $"},
        {putline,"shell:whereis()."},
        {expect,"2> $"},
        {eval,fun() ->
