@@ -221,22 +221,27 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!create_curve_mutex())
         return __LINE__;
 
+    if (library_initialized) {
+        /* Repeated loading of this library (module upgrade).
+         * Atoms and callbacks are already set, we are done.
+         */
+        return 0;
+    }
+
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "fips"))) return __LINE__;
-#endif
-    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) return __LINE__;
-    if ((prov_cnt<MAX_NUM_PROVIDERS) && !(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) return __LINE__;
-    if (prov_cnt<MAX_NUM_PROVIDERS) {prov_cnt++; OSSL_PROVIDER_load(NULL, "legacy");}
-#endif
-
-    if (library_initialized) {
-	/* Repeated loading of this library (module upgrade).
-	 * Atoms and callbacks are already set, we are done.
-	 */
-	return 0;
+    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "fips"))) {
+        prov_cnt++;
     }
+# endif
+    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) return __LINE__;
+    if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "base"))) return __LINE__;
+    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "legacy"))) {
+        /* Don't fail loading if the legacy provider is missing */
+        prov_cnt++;
+    }
+#endif
 
     if (!init_atoms(env)) {
         return __LINE__;
@@ -337,12 +342,12 @@ static void unload(ErlNifEnv* env, void* priv_data)
     if (--library_refc == 0) {
         destroy_curve_mutex();
         destroy_engine_mutex(env);
-    }
 
 #ifdef HAS_3_0_API
-    while (prov_cnt>0)
-        OSSL_PROVIDER_unload(prov[--prov_cnt]);
+        while (prov_cnt > 0) {
+            OSSL_PROVIDER_unload(prov[--prov_cnt]);
+        }
 #endif
-
+    }
 }
 
