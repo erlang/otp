@@ -43,6 +43,21 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    `diameter:stop_service/1` has been made more synchronous.</p>
+          <p>
+	    Own Id: OTP-19206 Aux Id: ERIERL-1102 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

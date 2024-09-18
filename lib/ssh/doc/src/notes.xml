@@ -30,6 +30,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.15.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The SSh daemon started with a TCP port number argument
+	    will now re-try obtaining a listen socket before
+	    returning an error to the user.</p>
+          <p>
+	    Own Id: OTP-19170 Aux Id: GH-7746 </p>
+        </item>
+        <item>
+          <p>
+	    Robustness has been improved by monitoring the connection
+	    handler process before casting the socket control
+	    notification.</p>
+          <p>
+	    Own Id: OTP-19173 Aux Id: PR-8310 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.15.3.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
