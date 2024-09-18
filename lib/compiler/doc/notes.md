@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in an optimization pass relating to appending binaries.
+
+  Own Id: OTP-19168 Aux Id: [GH-8630]
+
+- Fixed a bug in the compiler's alias analysis pass that could make it emit unsafe code.
+
+  Own Id: OTP-19178 Aux Id: [PR-8686]
+
+[GH-8630]: https://github.com/erlang/otp/issues/8630
+[PR-8686]: https://github.com/erlang/otp/pull/8686
+
 ## Compiler 8.5.1
 
 ### Fixed Bugs and Malfunctions

@@ -940,7 +940,7 @@ iat_broadaddr({A1, A2, A3, A4}, {M1, M2, M3, M4}) ->
 %%
 
 -doc(#{equiv => getservbyname(Name, any)}).
--doc(#{since => <<"OTP @OTP-19101@">>}).
+-doc(#{since => <<"OTP 27.1">>}).
 -spec getservbyname(Name) ->
           {ok, PortNumber} | {error, Reason} when
       Name       :: atom() | string(),
@@ -955,7 +955,7 @@ Get service by name.
 This function is used to get the port number of the specified protocol
 for the named service.
 """.
--doc(#{since => <<"OTP @OTP-19101@">>}).
+-doc(#{since => <<"OTP 27.1">>}).
 -spec getservbyname(Name, Protocol) ->
           {ok, PortNumber} | {error, Reason} when
       Name       :: atom() | string(),
@@ -978,7 +978,7 @@ getservbyname(Name, Protocol)
 %%
 
 -doc(#{equiv => getservbyport(PortNumber, any)}).
--doc(#{since => <<"OTP @OTP-19101@">>}).
+-doc(#{since => <<"OTP 27.1">>}).
 -spec getservbyport(PortNumber) ->
           {ok, Name} | {error, Reason} when
       PortNumber :: socket:port_number(),
@@ -993,7 +993,7 @@ Get service by name.
 This function is used to get the service name of the specified protocol
 for the given port number.
 """.
--doc(#{since => <<"OTP @OTP-19101@">>}).
+-doc(#{since => <<"OTP 27.1">>}).
 -spec getservbyport(PortNumber, Protocol) ->
           {ok, Name} | {error, Reason} when
       PortNumber :: socket:port_number(),

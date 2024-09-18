@@ -19,6 +19,14 @@ limitations under the License.
 -->
 # TFTP Release Notes
 
+## Tftp 1.2.1
+
+### Improvements and New Features
+
+- The legacy dependency to `m:error_logger` has been removed. `m:logger` is now used.
+
+  Own Id: OTP-19114
+
 ## Tftp 1.2
 
 ### Improvements and New Features

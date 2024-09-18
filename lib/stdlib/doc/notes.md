@@ -21,6 +21,100 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.1
+
+### Fixed Bugs and Malfunctions
+
+- The help printout for incorrect `t:io:format/0` strings now handles the `k` modifier correctly.
+
+  Own Id: OTP-19146 Aux Id: [PR-8611] [GH-8568]
+
+- Fixed a bug that caused the shell completion to crash when keyword and tuple appeared on the same line.
+
+  Own Id: OTP-19157 Aux Id: [PR-8638]
+
+- Due to PR-7419/OTP-18671, the cached internal value of the `callback_mode` started leaking out to `logger` reports, which could cause `logger` handlers to crash.  This has now been fixed to show the value that was set, as before caching.
+
+  Own Id: OTP-19164 Aux Id: [GH-8605], [PR-7419], OTP-18671
+
+- Fixed an emulator crash relating to compressed ETS tables.
+
+  Own Id: OTP-19176 Aux Id: [PR-8683]
+
+- The error description for `maps:update/3` will no longer insist that the third argument is not a map when a key could not be found
+
+  Own Id: OTP-19189
+
+- Multiple issues have been corrected in the markdown parser that creates documentation for the shell. 
+  
+  The parser was incorrectly parsing formatted markdown (either bold or italics) within parenthesis. This used to not be shown correctly in the shell documentation `(_Option._)`, which was displayed verbatim. This fix makes `Option.` to appear in italics.
+  
+  The markdown parser is also used in the creation of other documentation formats, so this was a bug that affected other generated documentation formats.
+
+  Own Id: OTP-19200 Aux Id: [GH-8738], [PR-8739]
+
+- Fixed category for some codepoint ranges in `unicode_util`.
+
+  Own Id: OTP-19210 Aux Id: [GH-8748]
+
+- Fixed `m:argparse` to print sub-commands help when available.
+
+  Own Id: OTP-19222 Aux Id: [PR-8777]
+
+[PR-8611]: https://github.com/erlang/otp/pull/8611
+[GH-8568]: https://github.com/erlang/otp/issues/8568
+[PR-8638]: https://github.com/erlang/otp/pull/8638
+[GH-8605]: https://github.com/erlang/otp/issues/8605
+[PR-7419]: https://github.com/erlang/otp/pull/7419
+[PR-8683]: https://github.com/erlang/otp/pull/8683
+[GH-8738]: https://github.com/erlang/otp/issues/8738
+[PR-8739]: https://github.com/erlang/otp/pull/8739
+[GH-8748]: https://github.com/erlang/otp/issues/8748
+[PR-8777]: https://github.com/erlang/otp/pull/8777
+
+### Improvements and New Features
+
+- Class annotation to HTML from fenced blocks have been added.
+
+  Own Id: OTP-19105 Aux Id: [PR-8499]
+
+- Added JSON formatting functions for indented output.
+
+  Own Id: OTP-19112
+
+- Improved illegal pattern error for accidental map associations.
+
+  Own Id: OTP-19128 Aux Id: [PR-8555]
+
+- Progress reports for a dynamically started supervisor will now be logged at debug level.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19202 Aux Id: [PR-8261], [GH-8715], [PR-8741]
+
+- The `m:zip` module has been updated with support for:
+  
+  * zip64 archives - Archives larger than 4GB or with more than 2^32 entries.
+  * extended timestamps - Higher resolution and in UTC.
+  * UID/GID - Save and extract the original UID/GID.
+  * Fixes so that permission mode attributes are correctly read and set for files in archives.
+  * `zip:list_dir/2` now also returns directories, not only files. (You can disable this behaviour by using the option `skip_directories`).
+  
+  Various bugs in the original implementation have also been fixed, such as:
+  
+  * Correctly encode and decode the DOS timestamps for entries within an archive (that is the non-extended timestamp).
+  * Fix DOS timestamps to be set to localtime instead of UTC (use extended timestamps for UTC timestamps).
+  * Use the unix file attributes read from disk when creating archives instead of setting everything to 644.
+
+  Own Id: OTP-19214 Aux Id: [PR-8765]
+
+[PR-8499]: https://github.com/erlang/otp/pull/8499
+[PR-8555]: https://github.com/erlang/otp/pull/8555
+[PR-8261]: https://github.com/erlang/otp/pull/8261
+[GH-8715]: https://github.com/erlang/otp/issues/8715
+[PR-8741]: https://github.com/erlang/otp/pull/8741
+[PR-8765]: https://github.com/erlang/otp/pull/8765
+
 ## STDLIB 6.0.1
 
 ### Fixed Bugs and Malfunctions

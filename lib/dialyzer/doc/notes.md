@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Man pages are now available for `erl`, `erlc`, `dialyzer`, and all other programs that are included in Erlang/OTP.
+
+  Own Id: OTP-19201 Aux Id: [PR-8740]
+
+[PR-8740]: https://github.com/erlang/otp/pull/8740
+
 ## Dialyzer 5.2
 
 ### Improvements and New Features

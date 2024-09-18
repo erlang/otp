@@ -21,6 +21,14 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.4.3
+
+### Fixed Bugs and Malfunctions
+
+- Documentation has been improved.
+
+  Own Id: OTP-19190
+
 ## Wx 2.4.2
 
 ### Improvements and New Features

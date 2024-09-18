@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # FTP Release Notes
 
+## Ftp 1.2.3
+
+### Fixed Bugs and Malfunctions
+
+- Eliminated a race condition that sometimes resulted in `ftp:recv_bin/2` returning `ok` instead of `{ok, Data}`.
+
+  Own Id: OTP-19119 Aux Id: [GH-8454] ,[PR-8543]
+
+[GH-8454]: https://github.com/erlang/otp/issues/8454
+[PR-8543]: https://github.com/erlang/otp/pull/8543
+
 ## Ftp 1.2.2
 
 ### Fixed Bugs and Malfunctions

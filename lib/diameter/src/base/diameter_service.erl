@@ -24,7 +24,7 @@
 
 -module(diameter_service).
 %% -moduledoc false.
--moduledoc(#{since => "OTP @OTP-19126@"}).
+-moduledoc(#{since => "OTP 27.1"}).
 -behaviour(gen_server).
 
 %% towards diameter_service_sup
@@ -90,7 +90,7 @@
 -define(WD_REOPEN,  reopen).
 
 -doc "State of the watchdog".
--doc(#{since => <<"OTP @OTP-19126@">>}).
+-doc(#{since => <<"OTP 27.1">>}).
 -type wd_state() :: ?WD_INITIAL
                   | ?WD_OKAY
                   | ?WD_SUSPECT

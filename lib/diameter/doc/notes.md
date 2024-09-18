@@ -21,6 +21,25 @@ limitations under the License.
 
 Releases are listed in reverse chronological order, most recent first.
 
+## diameter 2.4.1
+
+### Fixed Bugs and Malfunctions
+
+- Function specs for the main API module has been updated.
+
+  Own Id: OTP-19126 Aux Id: [#8399]
+
+- Man pages are now available for `erl`, `erlc`, `dialyzer`, and all other programs that are included in Erlang/OTP.
+
+  Own Id: OTP-19201 Aux Id: [PR-8740]
+
+- `diameter:stop_service/1` has been made more synchronous.
+
+  Own Id: OTP-19206 Aux Id: ERIERL-1102
+
+[#8399]: https://github.com/erlang/otp/issues/8399
+[PR-8740]: https://github.com/erlang/otp/pull/8740
+
 ## diameter 2.4
 
 ### Improvements and New Features

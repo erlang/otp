@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the EDoc application.
 
+## Edoc 1.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Broken links in release notes have been mended.
+
+  Own Id: OTP-19139 Aux Id: [PR-8584]
+
+[PR-8584]: https://github.com/erlang/otp/pull/8584
+
 ## Edoc 1.3.1
 
 ### Fixed Bugs and Malfunctions

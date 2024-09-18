@@ -19,6 +19,43 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.16.2
+
+### Fixed Bugs and Malfunctions
+
+- For completeness handle rsa_pss implicit default value, although this will probably not be commonly used as it provides very weak security.
+
+  Own Id: OTP-19179
+
+- The `public_key:cacerts_load()` function could in some error cases return `undefined` instead of `{error, Reason}`.
+
+  Own Id: OTP-19183 Aux Id: [GH-8604]
+
+- Added support for DragonFly.
+
+  Own Id: OTP-19191 Aux Id: [PR-8703]
+
+[GH-8604]: https://github.com/erlang/otp/issues/8604
+[PR-8703]: https://github.com/erlang/otp/pull/8703
+
+### Improvements and New Features
+
+- Deprecation of RSA encryption functions has been reverted, as there still exists legitimate use cases with other padding modes than PKCS-1.
+  
+  While use PCKS-1 padding with some versions of cryptolib could be considered secure, we still recommend using other algorithms that are less sensitive to oracle attacks.
+
+  Own Id: OTP-19163
+
+- It is now possible to use a verification fun of arity 4, giving the user fun access to both encoded and decoded versions of the certificate. This is desirable as a workaround for encoding errors preventing re-encoding from being reliable. This also saves some work load if the encoded version is needed.
+  
+  Note that calling `public_key:pkix_path_validation/3` with only decoded certs is not recommended, due to the decoding workarounds, although it will work as long as the workarounds are not needed.
+  
+  If the decoded version is needed before thecall to `m:public_key` it is recommend to use the combined_cert- type to avoid double decoding.  Note that the path validation algorithm itself always needs both the encoded and decoded versions of the certs.
+  
+  The ssl implementation will now benefit from using this function instead of emulating the verify_fun/4.
+
+  Own Id: OTP-19169
+
 ## Public_Key 1.16.1
 
 ### Fixed Bugs and Malfunctions

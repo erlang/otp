@@ -21,6 +21,43 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.2
+
+### Fixed Bugs and Malfunctions
+
+- A race in the kTLS flavour of SSL distribution has been fixed so that `inet_drv.c` doesn't read ahead too much data, which could cause the kTLS encryption to be activated too late when some encrypted data had already been read into the `inet_drv.c` buffer as unencrypted.
+
+  Own Id: OTP-19175 Aux Id: [GH-8561], [PR-8690]
+
+[GH-8561]: https://github.com/erlang/otp/issues/8561
+[PR-8690]: https://github.com/erlang/otp/pull/8690
+
+### Improvements and New Features
+
+- All TLS-1.3 terminations are now graceful (previous TLS version terminations already were).
+
+  Own Id: OTP-17848
+
+- It is now possible to use a verification fun of arity 4, giving the user fun access to both encoded and decoded versions of the certificate. This is desirable as a workaround for encoding errors preventing re-encoding from being reliable. This also saves some work load if the encoded version is needed.
+  
+  Note that calling `public_key:pkix_path_validation/3` with only decoded certs is not recommended, due to the decoding workarounds, although it will work as long as the workarounds are not needed.
+  
+  If the decoded version is needed before thecall to `m:public_key` it is recommend to use the combined_cert- type to avoid double decoding.  Note that the path validation algorithm itself always needs both the encoded and decoded versions of the certs.
+  
+  The ssl implementation will now benefit from using this function instead of emulating the verify_fun/4.
+
+  Own Id: OTP-19169
+
+- Compiler warnings for some removed functions have been corrected to point out the correct replacement functions.
+
+  Own Id: OTP-19186 Aux Id: [PR-8709]
+
+- Include more information in logging of SNI (Server Name Indication) mismatch error.
+
+  Own Id: OTP-19187
+
+[PR-8709]: https://github.com/erlang/otp/pull/8709
+
 ## SSL 11.2.1
 
 ### Fixed Bugs and Malfunctions

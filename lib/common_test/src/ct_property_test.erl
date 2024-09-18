@@ -389,7 +389,7 @@ without Module, Arguments and other details.
 
 For more information see: `present_result/5`.
 """.
--doc #{since => "OTP @OTP-19148@"}.
+-doc #{since => "OTP 27.1"}.
 -spec cmnd_names(Cs) -> Result when
     Cs :: command_list() | parallel_testcase(),
     Result :: [function_name()].
@@ -401,7 +401,7 @@ Returns number of command calls in a test case.
 
 For more information see: `present_result/5`.
 """.
--doc #{since => "OTP @OTP-19148@"}.
+-doc #{since => "OTP 27.1"}.
 -spec num_calls(Cs) -> Result when
     Cs :: command_list() | parallel_testcase(),
     Result :: [non_neg_integer()].
@@ -413,7 +413,7 @@ Returns a list with information about sequential and parallel parts.
 
 For more information see: `present_result/5`.
 """.
--doc #{since => "OTP @OTP-19148@"}.
+-doc #{since => "OTP 27.1"}.
 -spec sequential_parallel(Cs) -> Result when
     Cs :: command_list() | parallel_testcase(),
     Result :: [atom()].
@@ -702,4 +702,3 @@ median(L = [{_Value,_Weight}|_]) ->
     median( lists:append([lists:duplicate(W,V) || {V,W} <- L]) );
 median(_) ->
     undefined.
-

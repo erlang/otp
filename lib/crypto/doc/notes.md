@@ -21,6 +21,34 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.5.1
+
+### Fixed Bugs and Malfunctions
+
+- crypto built with `--enable-fips` will now accept an OpenSSL 3 lib without fips provider as long as fips mode is not enabled.
+
+  Own Id: OTP-19212 Aux Id: [GH-8562]
+
+[GH-8562]: https://github.com/erlang/otp/issues/8562
+
+### Improvements and New Features
+
+- Added a warning in the documentation to avoid calling `crypto:start/0` as it does not work for FIPS mode. Use `application:start(crypto)` instead.
+
+  Own Id: OTP-19143
+
+- Deprecation of RSA encryption functions has been reverted, as there still exists legitimate use cases with other padding modes than PKCS-1.
+  
+  While use PCKS-1 padding with some versions of cryptolib could be considered secure, we still recommend using other algorithms that are less sensitive to oracle attacks.
+
+  Own Id: OTP-19163
+
+- Compiler warnings for some removed functions have been corrected to point out the correct replacement functions.
+
+  Own Id: OTP-19186 Aux Id: [PR-8709]
+
+[PR-8709]: https://github.com/erlang/otp/pull/8709
+
 ## Crypto 5.5
 
 ### Improvements and New Features

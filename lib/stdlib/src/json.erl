@@ -562,7 +562,7 @@ ok
 ```
 """.
 
--doc(#{since => ~"OTP @OTP-19112@"}).
+-doc(#{since => ~"OTP 27.1"}).
 -spec format(Term :: encode_value()) -> iodata().
 format(Term) ->
     Enc = fun format_value/3,
@@ -573,7 +573,7 @@ Generates formatted JSON corresponding to `Term`.
 
 Equivalent to `format(Term, fun json:format_value/3, Options)` or `format(Term, Encoder, #{})`
 """.
--doc(#{since => ~"OTP @OTP-19112@"}).
+-doc(#{since => ~"OTP 27.1"}).
 
 -spec format(Term :: encode_value(), Opts :: map()) -> iodata();
             (Term :: dynamic(), Encoder::formatter()) -> iodata().
@@ -615,7 +615,7 @@ to help in constructing such callbacks.
 ok
 ```
 """.
--doc(#{since => ~"OTP @OTP-19112@"}).
+-doc(#{since => ~"OTP 27.1"}).
 
 -spec format(Term :: encode_value(), Encoder::formatter(), Options :: map()) -> iodata().
 format(Term, Encoder, Options) when is_function(Encoder, 3) ->
@@ -632,7 +632,7 @@ Default format function used by `json:format/1`.
 Recursively calls `Encode` on all the values in `Value`,
 and indents objects and lists.
 """.
--doc(#{since => ~"OTP @OTP-19112@"}).
+-doc(#{since => ~"OTP 27.1"}).
 
 -spec format_value(Value::dynamic(), Encode::formatter(), State::map()) -> iodata().
 format_value(Atom, UserEnc, State) when is_atom(Atom) ->

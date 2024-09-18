@@ -19,6 +19,27 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27.1
+
+### Fixed Bugs and Malfunctions
+
+- Groups with empty list specifying groups and test cases no longer crash execution.
+
+  Own Id: OTP-19032 Aux Id: [PR-7919], [GH-4362]
+
+- The Common_Test documentation and type specs have been polished.
+
+  Own Id: OTP-19148 Aux Id: [PR-8516]
+
+- Man pages are now available for `erl`, `erlc`, `dialyzer`, and all other programs that are included in Erlang/OTP.
+
+  Own Id: OTP-19201 Aux Id: [PR-8740]
+
+[PR-7919]: https://github.com/erlang/otp/pull/7919
+[GH-4362]: https://github.com/erlang/otp/issues/4362
+[PR-8516]: https://github.com/erlang/otp/pull/8516
+[PR-8740]: https://github.com/erlang/otp/pull/8740
+
 ## Common_Test 1.27
 
 ### Improvements and New Features

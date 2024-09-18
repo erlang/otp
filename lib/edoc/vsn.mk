@@ -1,1 +1,1 @@
-EDOC_VSN = 1.3.1
+EDOC_VSN = 1.3.2

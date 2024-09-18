@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a cosmetic but harmless issue with the ASN.1 compiler passing on the `undec_rest` option to the Erlang compiler.
+
+  Own Id: OTP-19218 Aux Id: [GH-8779], [PR-8781]
+
+[GH-8779]: https://github.com/erlang/otp/issues/8779
+[PR-8781]: https://github.com/erlang/otp/pull/8781
+
 ## Asn1 5.3
 
 ### Fixed Bugs and Malfunctions

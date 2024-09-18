@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.15
+
+### Improvements and New Features
+
+- Figures in the documentation have been improved.
+
+  Own Id: OTP-19130 Aux Id: [PR-7226]
+
+[PR-7226]: https://github.com/erlang/otp/pull/7226
+
 ## ODBC 2.14.3
 
 ### Fixed Bugs and Malfunctions

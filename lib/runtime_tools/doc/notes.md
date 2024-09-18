@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Runtime_Tools application.
 
+## Runtime_Tools 2.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where dbg sessions on remote nodes were terminated prematurely.
+
+  Own Id: OTP-19188 Aux Id: [PR-8692]
+
+[PR-8692]: https://github.com/erlang/otp/pull/8692
+
 ## Runtime_Tools 2.1
 
 ### Improvements and New Features

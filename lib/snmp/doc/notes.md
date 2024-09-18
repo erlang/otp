@@ -19,6 +19,24 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.17
+
+### Fixed Bugs and Malfunctions
+
+- Man pages are now available for `erl`, `erlc`, `dialyzer`, and all other programs that are included in Erlang/OTP.
+
+  Own Id: OTP-19201 Aux Id: [PR-8740]
+
+[PR-8740]: https://github.com/erlang/otp/pull/8740
+
+### Improvements and New Features
+
+- Figures in the documentation have been improved.
+
+  Own Id: OTP-19130 Aux Id: [PR-7226]
+
+[PR-7226]: https://github.com/erlang/otp/pull/7226
+
 ## SNMP 5.16
 
 ### Improvements and New Features
