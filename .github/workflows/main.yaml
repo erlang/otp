@@ -418,6 +418,8 @@ jobs:
           FROM otp
           ENV BASE_URL=$BASE_URL
           RUN ./otp_build download_ex_doc
+          ## Use default jdk for javadocs to get correct anchors
+          RUN apt-get install -y default-jdk
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
