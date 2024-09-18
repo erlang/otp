@@ -613,6 +613,7 @@ insert_op(Tid, _, {op, change_table_copy_type, N, FromS, ToS, TabDef}, InPlace, 
 				    Cs#cstruct.type],
 			    mnesia_monitor:mktab(Tab, Args),
 			    ok = load_from_logfile(ToS, Tab, Logtmp),
+			    ok = mnesia_log:ets2dcd(Tab),
 			    file:delete(Logtmp);
 			disc_only_copies ->
 			    %% ok = ensure_rename(Dmp, Dat),
