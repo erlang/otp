@@ -438,23 +438,24 @@ elif [ "x$GDB" = "xgdb" ]; then
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"}`
-	    gdbcmd="--args $EMU_NAME $beam_args"
+	    beam_args=`$EXEC -emu_args_exit $xargs ${1+"$@"} | sed 's/"/\\\\"/g' | tr '\n' ' '`
+	    gdbcmd="set args $beam_args"
 	    ;;
 	x/*)
-	    gdbcmd="$EMU_NAME ${core}"
+	    gdbcmd="core ${core}"
 	    GDBBP=
 	    ;;
 	*)
-	    dir=`pwd`
-	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    gdbcmd="core `pwd`/${core}"
 	    GDBBP=
 	    ;;
     esac
+    # Fire up gdb
     cmdfile="/tmp/.cerlgdb.$$"
-    echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
-    # Fire up gdb in emacs...
-    exec gdb $GDBBP -x $cmdfile $gdbcmd
+    echo "file $BINDIR/$EMU_NAME" > $cmdfile
+    echo "$gdbcmd" >> $cmdfile
+    echo "source $ROOTDIR/erts/etc/unix/etp-commands" >> $cmdfile
+    exec gdb $GDBBP -x $cmdfile
 elif [ "x$GDB" = "xlldb" ]; then
     case "x$core" in
         x)
@@ -481,11 +482,11 @@ elif [ "x$GDB" = "xegdb" ]; then
 	    gdbcmd="set args $beam_args"
 	    ;;
 	x/*)
-	    gdbcmd="core $core"
+	    gdbcmd="core ${core}"
 	    GDBBP=
 	    ;;
 	*)
-	    gdbcmd="core `pwd`/$core"
+	    gdbcmd="core `pwd`/${core}"
 	    GDBBP=
 	    ;;
     esac
