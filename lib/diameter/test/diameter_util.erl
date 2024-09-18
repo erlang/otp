@@ -422,6 +422,8 @@ have_sctp() ->
 
 have_sctp("sparc-sun-solaris2.10") ->
     false;
+have_sctp("x86_64-pc-solaris2.11") ->
+    false;
 
 have_sctp(_) ->
     case gen_sctp:open() of
