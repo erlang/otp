@@ -269,6 +269,8 @@ fold(Fun, Acc0, L)
 
 fold(_, Acc, Map)
   when 0 == map_size(Map) ->
+    ?UL("fold -> done when"
+        "~n   Acc: ~p", [Acc]),
     Acc;
 
 fold(Fun, Acc, #{} = Map) ->
