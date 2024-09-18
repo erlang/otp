@@ -14708,7 +14708,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
     char   ancd[ANC_BUFF_SIZE];      /* Ancillary Data		   */
 #endif
 #ifdef HAVE_SCTP
-    int short_recv = 0;
+    int have_fragment = FALSE; /* Have fragment in udesc->i_buf */
 #endif
 
     while(packet_count--) {
@@ -14727,12 +14727,12 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		release_buffer(udesc->i_buf);
 		udesc->i_buf = NULL;
 		return packet_error(udesc, ENOMEM);
-	    } else {
-		udesc->i_ptr =
-		    tmp->orig_bytes + (udesc->i_ptr - udesc->i_buf->orig_bytes);
-		udesc->i_buf = tmp;
-		udesc->i_bufsz = bufsz;
 	    }
+            udesc->i_ptr =
+                tmp->orig_bytes + (udesc->i_ptr - udesc->i_buf->orig_bytes);
+            udesc->i_buf = tmp;
+            udesc->i_bufsz = bufsz;
+            have_fragment = TRUE;
 	} else
 #endif
         {
@@ -14799,7 +14799,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		/* real error */
 		release_buffer(udesc->i_buf);
 		udesc->i_buf = NULL;
-		if (!desc->active) {
+		if (! desc->active) {
 		    async_error(desc, err);
                     driver_cancel_timer(desc->port);
 		    sock_select(desc,FD_READ,0);
@@ -14811,15 +14811,15 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 		return count;
 	    }
 	    /* would block error - try again */
-	    if (!desc->active
+	    if ((! desc->active)
 #ifdef HAVE_SCTP
-		|| short_recv
+		|| have_fragment
 #endif
 		) {
 		sock_select(desc,FD_READ,1);
 	    }
 #ifdef HAVE_SCTP
-            if (!short_recv) {
+            if (! have_fragment) {
 #endif
                 release_buffer(udesc->i_buf);
                 udesc->i_buf = NULL;
@@ -14830,7 +14830,8 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	}
 
 #ifdef HAVE_SCTP
-	if (IS_SCTP(desc) && (short_recv = !(mhdr.msg_flags & MSG_EOR))) {
+	if (IS_SCTP(desc) &&
+            (have_fragment = (! (mhdr.msg_flags & MSG_EOR)))) {
 	    /* SCTP non-final message fragment */
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
@@ -14889,7 +14890,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    if (code < 0)
 		return count;
 	    count++;
-	    if (!desc->active) {
+	    if (! desc->active) {
                 driver_cancel_timer(desc->port);
 		sock_select(desc,FD_READ,0);
 		return count;  /* passive mode (read one packet only) */
@@ -14902,7 +14903,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
      * many message fragments but still not the final
      */
 #ifdef HAVE_SCTP
-    if (short_recv) {
+    if (have_fragment) {
 	sock_select(desc, FD_READ, 1);
     }
 #endif
