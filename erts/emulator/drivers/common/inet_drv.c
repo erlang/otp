@@ -14456,12 +14456,10 @@ static void packet_inet_timeout(ErlDrvData e)
           "packet_inet_timeout -> entry\r\n",
           __LINE__, desc->s, desc->port) );
 
-    if (!(desc->active)) {
-	sock_select(desc, FD_READ, 0);
-        async_error_am (desc, am_timeout);
-    } else {
-        (void)packet_inet_input(udesc, (HANDLE) desc->s);
-    }
+    ASSERT(! desc->active);
+
+    sock_select(desc, FD_READ, 0);
+    async_error_am (desc, am_timeout);
 }
 
 
@@ -14903,19 +14901,10 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
      * many message fragments but still not the final
      */
 #ifdef HAVE_SCTP
-    if (have_fragment) {
+    if ((! desc->active) && have_fragment) {
 	sock_select(desc, FD_READ, 1);
     }
 #endif
-
-    /* We set a timer on the port to trigger now.
-       This emulates a "yield" operation as that is
-       what we want to do here. We do *NOT* do a deselect
-       as that is expensive, instead we check if the
-       socket it still active when the timeout triggers
-       and if it is not, then we just ignore the timeout */
-    driver_set_timer(desc->port, 0);
-
     return count;
 }
 
