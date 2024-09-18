@@ -257,22 +257,25 @@ jobs:
           path: otp/liberlang.xcframework
 
   build-windows:
+    name: Build Erlang/OTP (Windows)
+    needs: pack
+    if: needs.pack.outputs.c-code-changes
+    runs-on: windows-2022
     defaults:
       run:
         shell: wsl-bash {0}
     env:
       WXWIDGETS_VERSION: 3.1.4
-    name: Build Erlang/OTP (Windows)
-    runs-on: windows-2022
-    needs: pack
-    if: needs.pack.outputs.c-code-changes
+    outputs:
+        installer_name: ${{ steps.compile-erlang.outputs.installer_name }}
+    
     steps:
       - uses: Vampire/setup-wsl@v3.1.3
         with:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
 
       - name: Install openssl
         shell: cmd
@@ -328,6 +331,9 @@ jobs:
           name: otp_prebuilt
 
       - name: Compile Erlang
+        id: compile-erlang
+        env:
+          WSLENV: GITHUB_OUTPUT/p
         run: |
           mkdir -p /mnt/c/opt/local64/pgm/
           cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
@@ -349,12 +355,21 @@ jobs:
           ./otp_build release -a
           cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
           ./otp_build installer_win32
+          echo "installer_name=$(ls release/win32/otp*.exe | xargs basename)" >> $GITHUB_OUTPUT
+          make release_tests
+          zip -r tests.zip release/tests
 
       - name: Upload installer
         uses: actions/upload-artifact@v4.4.3
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
+
+      - name: Upload tests
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: otp_tests
+          path: otp/tests.zip
 
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
@@ -467,6 +482,166 @@ jobs:
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
 
+  test-windows:
+    name: Test Win64 Erlang/OTP
+    needs: [pack, build-windows]
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    runs-on: windows-2022
+    if: needs.pack.outputs.changes != '[]'
+    strategy:
+      matrix:
+        # type: ${{ fromJson(needs.pack.outputs.all) }}
+        type: ${{ fromJson(needs.pack.outputs.changes) }}
+        # type: ["os_mon","sasl"]
+      fail-fast: false
+    steps:
+      - uses: Vampire/setup-wsl@v3.1.1
+        with:
+          distribution: Ubuntu-18.04
+      - name: Install WSL dependencies
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
+      - name: Download installer
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_win32_installer
+      - name: Download tests
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_tests
+
+      - name: Install OTP
+        shell: cmd
+        run: |
+            echo %cd%
+            start "" /WAIT ${{ needs.build-windows.outputs.installer_name }} /S /D=%CD%\release\win32\
+            dir %cd%
+            dir %cd%\release\win32\
+
+      - name: Download source archive
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_prebuilt
+
+      - name: Run tests
+        id: run-tests
+        run: |
+          set -x
+          unzip -q tests.zip
+
+          tar -xzf ./otp_src.tar.gz
+
+          export ERL_TOP="$(pwd)/otp"
+          export MAKEFLAGS=-j$(($(nproc) + 2))
+
+          eval `./otp/otp_build env_win32 x64`
+
+          export PATH=`pwd`/release/win32/bin/:$PATH
+
+          APP="${{ matrix.type }}"
+          TYPE=opt
+          ## Need to specialize for epmd, emulator and debug
+          case "${APP}" in
+            debug)
+               echo "No debug tests on windows"
+               ;;
+            *)
+               (cd release/tests/test_server && erl.exe -emu_type $TYPE -noshell -eval "ts:install()" -eval "ts:run($APP,[batch])" -s init stop)
+               if grep "^=result[ ]*failed:" release/tests/test_server/ct_run.*/tests.${APP}_test.logs/run*/suite.log; then
+                  exit 1
+               fi
+               ;;
+          esac
+
+      - name: Cleanup tests
+        if: ${{ !cancelled() && matrix.type != 'debug' }}
+        run: tar czf ${{ matrix.type }}_win32_test_results.tar.gz release/tests/test_server
+      - name: Upload test results
+        uses: actions/upload-artifact@v4.4.0
+        if: ${{ !cancelled() && matrix.type != 'debug' }}
+        with:
+          name: ${{ matrix.type }}_win32_test_results
+          path: ${{ matrix.type }}_win32_test_results.tar.gz
+
+  system-test-windows:
+    name: Test Win64 Erlang/OTP (system)
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    runs-on: windows-2022
+    if: ${{ !cancelled() }} # Run even if the need has failed
+    needs: [test-windows, build-windows]
+    steps:
+      - uses: Vampire/setup-wsl@v3.1.1
+        with:
+          distribution: Ubuntu-18.04
+      - name: Install WSL dependencies
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
+      - name: Download installer
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_win32_installer
+      - name: Download tests
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_tests
+
+      - name: Install OTP
+        shell: cmd
+        run: |
+            echo %cd%
+            start "" /WAIT ${{ needs.build-windows.outputs.installer_name }} /S /D=%CD%\release\win32\
+            dir %cd%
+            dir %cd%\release\win32\
+
+      - name: Download source archive
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_prebuilt
+
+      - name: Download test results
+        uses: actions/download-artifact@v4.1.8
+      - name: Merge test results
+        run: |
+          shopt -s nullglob
+          for file in *_win32_test_results/*.tar.gz; do
+            tar xvzf $file
+          done
+          export PATH=`pwd`/release/win32/bin/:$PATH
+          cd release/tests/test_server && ct_run.exe -noshell -refresh_logs $(wslpath -w `pwd`)
+
+      - name: Run system tests
+        run: |
+          set -x
+          unzip -q -o tests.zip
+
+          tar -xzf ./otp_src.tar.gz
+
+          export ERL_TOP="$(pwd)/otp"
+          export MAKEFLAGS=-j$(($(nproc) + 2))
+
+          eval `./otp/otp_build env_win32 x64`
+
+          export PATH=`pwd`/release/win32/bin/:$PATH
+
+          (cd release/tests/test_server && erl.exe -noshell -eval "ts:install()" -eval "ts:run(system,[batch])" -s init stop)
+          if grep "^=result[ ]*failed:" release/tests/test_server/ct_run.*/tests.system_test.logs/run*/suite.log; then
+               exit 1
+          fi
+
+      - name: Cleanup tests
+        if: ${{ !cancelled() }}
+        run: |
+          tar czf test_results_win32.tar.gz release/tests/test_server
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v4.4.0
+        if: ${{ !cancelled() }}
+        with:
+          name: test_results_win32
+          path: test_results_win32.tar.gz
+
   test:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
@@ -514,13 +689,13 @@ jobs:
         run: |
           rm -rf make_test_dir/otp || true
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
-          tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
+          tar czf ${{ matrix.type }}_ubuntu_test_results.tar.gz make_test_dir
       - name: Upload test results
         uses: actions/upload-artifact@v4.4.3
         if: ${{ !cancelled() }}
         with:
-          name: ${{ matrix.type }}_test_results
-          path: ${{ matrix.type }}_test_results.tar.gz
+          name: ${{ matrix.type }}_ubuntu_test_results
+          path: ${{ matrix.type }}_ubuntu_test_results.tar.gz
 
   system-test:
     name: Test Erlang/OTP (system)
@@ -538,7 +713,7 @@ jobs:
         run: |
           shopt -s nullglob
           mkdir -p make_test_dir
-          for file in *_test_results/*.tar.gz; do
+          for file in *_ubuntu_test_results/*.tar.gz; do
             tar xzf $file
           done
           docker run -v $PWD/make_test_dir:/buildroot/otp/erts/make_test_dir otp \
