@@ -54,6 +54,10 @@ MODULES= \
 	z_SUITE \
 	test_lib
 
+NO_BOOL_OPT= \
+	guard \
+	andor
+
 NO_OPT= \
 	andor \
 	apply \
@@ -132,6 +136,8 @@ NO_SSA_OPT = $(NO_OPT)
 
 NO_TYPE_OPT = $(NO_OPT)
 
+NO_BOOL_OPT_MODULES= $(NO_BOOL_OPT:%=%_no_bool_opt_SUITE)
+NO_BOOL_OPT_ERL_FILES= $(NO_BOOL_OPT_MODULES:%=%.erl)
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
 POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
@@ -185,12 +191,16 @@ EBIN = .
 
 DISABLE_SSA_OPT = +no_bool_opt +no_share_opt +no_bsm_opt +no_fun_opt +no_ssa_opt +no_recv_opt
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES) \
-  $(NO_CORE_OPT_ERL_FILES) $(NO_CORE_SSA_OPT_ERL_FILES) \
-  $(INLINE_ERL_FILES) $(NO_MOD_OPT_ERL_FILES) $(NO_TYPE_OPT_ERL_FILES) \
-  $(DIALYZER_ERL_FILES) $(COVER_ERL_FILES) $(R25_ERL_FILES)
+make_emakefile: $(NO_BOOL_OPT_ERL_FILES) $(NO_OPT_ERL_FILES) \
+                $(POST_OPT_ERL_FILES) $(NO_SSA_OPT_ERL_FILES) \
+                $(NO_CORE_OPT_ERL_FILES) $(NO_CORE_SSA_OPT_ERL_FILES) \
+                $(INLINE_ERL_FILES) $(NO_MOD_OPT_ERL_FILES) \
+                $(NO_TYPE_OPT_ERL_FILES) $(DIALYZER_ERL_FILES) \
+                $(COVER_ERL_FILES) $(R25_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	  > $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +no_bool_opt $(ERL_COMPILE_FLAGS) \
+	  -o$(EBIN) $(NO_BOOL_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(DISABLE_SSA_OPT) +no_postopt \
 	  $(ERL_COMPILE_FLAGS) -o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile $(DISABLE_SSA_OPT) $(ERL_COMPILE_FLAGS) \
@@ -229,6 +239,9 @@ docs:
 # ----------------------------------------------------
 # Special targets
 # ----------------------------------------------------
+
+%_no_bool_opt_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
@@ -274,7 +287,10 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) compiler.spec compiler.cover \
 		$(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
+	$(INSTALL_DATA) \
+		$(NO_BOOL_OPT_ERL_FILES) \
+		$(NO_OPT_ERL_FILES) \
+		$(POST_OPT_ERL_FILES) \
 		$(INLINE_ERL_FILES) \
 	        $(R25_ERL_FILES) \
 		$(NO_CORE_OPT_ERL_FILES) \
