@@ -4806,6 +4806,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_sctp4(Config)
     tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp(),
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
@@ -4837,6 +4838,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_sctp6(Config)
     tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp(),
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
@@ -7039,13 +7041,13 @@ is_slow_ubuntu(Config) ->
     end.
 
 
-is_not_solaris() ->
-    case os:type() of
-        {unix, solaris} ->
-            skip("Solaris");
-        _ ->
-            ok
-    end.
+%% is_not_solaris() ->
+%%     case os:type() of
+%%         {unix, solaris} ->
+%%             skip("Solaris");
+%%         _ ->
+%%             ok
+%%     end.
 
 is_not_windows() ->
     case os:type() of
@@ -7054,6 +7056,17 @@ is_not_windows() ->
         _ ->
             ok
     end.
+
+is_not_flakey_os() ->
+    is_not_flakey_os(erlang:system_info(system_architecture)).
+
+is_not_flakey_os("sparc-sun-solaris2.10") ->
+    skip(flakey);
+is_not_flakey_os("x86_64-pc-solaris2.11") ->
+    skip(flakey);
+is_not_flakey_os(_) ->
+    ok.
+
 
 has_support_unix_domain_socket() ->
     case socket:is_supported(local) of
