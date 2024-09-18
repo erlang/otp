@@ -234,18 +234,48 @@ static int tty_get_fd(ErlNifEnv *env, ERL_NIF_TERM atom, int *fd) {
     return 1;
 }
 
-static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+#ifdef __WIN32__
+static HANDLE tty_get_handle(ErlNifEnv *env, ERL_NIF_TERM atom) {
+    HANDLE handle = INVALID_HANDLE_VALUE;
     int fd;
+    if (tty_get_fd(env, atom, &fd)) {
+    
+        switch (fd) {
+            case 0: handle = GetStdHandle(STD_INPUT_HANDLE); break;
+            case 1: handle = GetStdHandle(STD_OUTPUT_HANDLE); break;
+            case 2: handle = GetStdHandle(STD_ERROR_HANDLE); break;
+        }
+    }
+    return handle;
+}
+#endif
 
+static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+#ifdef __WIN32__
+    HANDLE handle = tty_get_handle(env, argv[0]);
+
+    if (handle == INVALID_HANDLE_VALUE)
+        return atom_ebadf;
+    
+    switch (GetFileType(handle)) {
+        case FILE_TYPE_CHAR: return atom_true;
+        case FILE_TYPE_PIPE:
+        case FILE_TYPE_DISK: return atom_false;
+        default: return atom_ebadf;
+    }
+#else
+    int fd;
     if (tty_get_fd(env, argv[0], &fd)) {
         if (isatty(fd)) {
             return atom_true;
         } else if (errno == EINVAL || errno == ENOTTY) {
             return atom_false;
-        } else {
+        }
+        else {
             return atom_ebadf;
         }
     }
+#endif
 
     return enif_make_badarg(env);
 }
@@ -643,22 +673,21 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 /* Poll if stdin/stdout/stderr are still open. */
 static ERL_NIF_TERM tty_is_open(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
+#ifdef __WIN32__
+    HANDLE handle;
+#else
     int fd;
+#endif
 
     if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
         return enif_make_badarg(env);
 
-    if (tty_get_fd(env, argv[1], &fd)) {
+#ifdef __WIN32__
 
-#ifdef WIN32
-        HANDLE handle;
+    handle = tty_get_handle(env, argv[1]);
+
+    if (handle != INVALID_HANDLE_VALUE) {
         DWORD bytesAvailable = 0;
-
-        switch (fd) {
-            case 0: handle = GetStdHandle(STD_INPUT_HANDLE); break;
-            case 1: handle = GetStdHandle(STD_OUTPUT_HANDLE); break;
-            case 2: handle = GetStdHandle(STD_ERROR_HANDLE); break;
-        }
 
         switch (GetFileType(handle))  {
             case FILE_TYPE_CHAR: {
@@ -688,9 +717,9 @@ static ERL_NIF_TERM tty_is_open(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
                 return atom_true;
             }
         }
-
+    }
 #else
-
+    if (tty_get_fd(env, argv[1], &fd)) {
         struct pollfd fds[1];
         int ret;
         
@@ -706,8 +735,8 @@ static ERL_NIF_TERM tty_is_open(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         } else if (ret == 1 && fds[0].revents & POLLHUP) {
             return atom_false;
         }
-#endif
     }
+#endif
     return enif_make_badarg(env);
 }
 
