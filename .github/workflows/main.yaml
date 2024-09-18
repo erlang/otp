@@ -418,6 +418,8 @@ jobs:
           FROM otp
           ENV BASE_URL=$BASE_URL
           RUN ./otp_build download_ex_doc
+          ## Need later jdk to create correct anchors in html docs
+          RUN sudo update-java-alternatives -s java-1.11.0-openjdk-amd64
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
