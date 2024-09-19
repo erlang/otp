@@ -392,8 +392,7 @@ daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
 
                 %% throws error:Error if no usable hostkey is found
                 ssh_connection_handler:available_hkey_algorithms(server, Options1),
-                ssh_system_sup:start_system(server,
-                                            #address{address = Host,
+                ssh_system_sup:start_system(#address{address = Host,
                                                      port = Port,
                                                      profile = ?GET_OPT(profile,Options1)},
                                             Options1)
@@ -540,8 +539,7 @@ stop_listener(Address, Port, Profile) ->
     lists:foreach(fun({Sup,_Addr}) ->
                           stop_listener(Sup)
                   end,
-                  ssh_system_sup:addresses(server,
-                                           #address{address=Address,
+                  ssh_system_sup:addresses(#address{address=Address,
                                                     port=Port,
                                                     profile=Profile})).
 
@@ -552,7 +550,7 @@ stop_listener(Address, Port, Profile) ->
 -spec stop_daemon(DaemonRef::daemon_ref()) -> ok.
 
 stop_daemon(SysSup) ->
-    ssh_system_sup:stop_system(server, SysSup).
+    ssh_system_sup:stop_system(SysSup).
 
 
 -spec stop_daemon(inet:ip_address(), inet:port_number()) -> ok.
@@ -567,8 +565,7 @@ stop_daemon(Address, Port, Profile) ->
     lists:foreach(fun({Sup,_Addr}) ->
                           stop_daemon(Sup)
                   end,
-                  ssh_system_sup:addresses(server,
-                                           #address{address=Address,
+                  ssh_system_sup:addresses(#address{address=Address,
                                                     port=Port,
                                                     profile=Profile})).
 
