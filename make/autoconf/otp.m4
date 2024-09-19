@@ -35,6 +35,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AC_CANONICAL_HOST
     # Adjust for local legacy windows hack...
     AS_CASE([$host],
+            [local-aarch64-*-windows],
+            [
+                host=win32
+                host_os=win32
+                host_vendor=
+                host_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 host=win32
@@ -46,6 +53,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AC_CANONICAL_BUILD
     # Adjust for local legacy windows hack...
     AS_CASE([$build],
+            [local-aarch64-*-windows],
+            [
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 build=win32
@@ -57,6 +71,13 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AC_CANONICAL_TARGET
     # Adjust for local legacy windows hack...
     AS_CASE([$target],
+            [local-aarch64-*-windows],
+            [
+                build=win32
+                build_os=win32
+                build_vendor=
+                build_cpu=aarch64
+            ],
             [local-*-windows],
             [
                 target=win32
@@ -65,17 +86,18 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
                 target_cpu=
             ])
 
-    AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host"],
+    AS_IF([test "$cross_compiling" = "yes" -a "$build" = "$host"  -a "$build_cpu" = "$host_cpu"],
           [AC_MSG_ERROR([
-           Cross compiling with the same canonicalized 'host' value
-           as the canonicalized 'build' value.
+           Cross compiling with the same canonicalized 'host' and 'host_cpu'
+           values as the canonicalized 'build' and 'build_cpu' values
 
            We are cross compiling since the '--host=$host_alias'
            and the '--build=$build_alias' arguments differ. When
            cross compiling Erlang/OTP, also the canonicalized values of
            the '--build' and the '--host' arguments *must* differ. The
            canonicalized values of these arguments however both equals:
-           $host
+           host = build = $host,
+           host_cpu = build_cpu = $host_cpu
 
            You can check the canonical value by passing a value as
            argument to the 'make/autoconf/config.sub' script.
