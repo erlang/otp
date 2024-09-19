@@ -528,7 +528,7 @@ main(int argc, char *argv[])
 
     SET_CLOEXEC(uds_fd);
 
-    if (isatty(0)) {
+    if (isatty(0) && isatty(1)) {
         ssize_t res = read_all(uds_fd, (char*)&initial_tty_mode, sizeof(struct termios));
         if (res <= 0) {
             ABORT("Failed to read initial_tty_mode: %d (%d)", res, errno);
@@ -560,7 +560,7 @@ main(int argc, char *argv[])
                                     pipes, 3, MSG_DONTWAIT)) < 0) {
                 if (errno == EINTR)
                     continue;
-                if (isatty(0)) {
+                if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
@@ -569,7 +569,7 @@ main(int argc, char *argv[])
 
             if (res == 0) {
                 DEBUG_PRINT("uds was closed!");
-                if (isatty(0)) {
+                if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 _exit(0);
