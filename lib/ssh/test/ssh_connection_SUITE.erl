@@ -659,6 +659,15 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
+%%- small_interrupted_send is interrupted by ssh_echo_server which is
+%%  done with transferring data towards client and terminates the
+%%  channel (this results with {error, closed} return value from
+%%  ssh_connection:send on the client side)
+%%- interrupted_send used to be interrupted when ssh_echo_server ran
+%%  out of data window and closed channel
+%%- but with automatic window adjustment, above condition is not taking
+%%  place, so ssh_echo_server continues sending data until it is done
+%%- so ssh_connection:send returns 'ok'
 small_interrupted_send(Config) ->
     K = 1024,
     SendSize = 10 * K * K,
