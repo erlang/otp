@@ -29,7 +29,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/5,
+-export([start_link/4,
          start_channel/8,
          tcpip_fwd_supervisor/1
 	]).
@@ -40,8 +40,8 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Role, Address=#address{}, Id, Socket, Options) ->
-    case supervisor:start_link(?MODULE, [Role, Address, Id, Socket, Options]) of
+start_link(Role, Id, Socket, Options) ->
+    case supervisor:start_link(?MODULE, [Role, Id, Socket, Options]) of
         {error, {shutdown, {failed_to_start_child, _, Error}}} ->
             {error,Error};
         Other ->
@@ -59,7 +59,7 @@ tcpip_fwd_supervisor(SubSysSup) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Role, Address, Id, Socket, Options]) ->
+init([Role, Id, Socket, Options]) ->
     ssh_lib:set_label(Role, {subsystem_sup, Socket}),
     SubSysSup = self(),
     SupFlags = #{strategy      => one_for_all,
@@ -73,7 +73,7 @@ init([Role, Address, Id, Socket, Options]) ->
                     significant => true,
                     start       => {ssh_connection_handler,
                                     start_link,
-                                    [Role, Address, Id, Socket,
+                                    [Role, Id, Socket,
                                      ?PUT_INTERNAL_OPT([
                                                         {subsystem_sup, SubSysSup}
                                                        ], Options)
