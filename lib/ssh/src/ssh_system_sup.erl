@@ -35,7 +35,7 @@
          stop_listener/1,
 	 stop_system/1,
          start_system/2,
-         start_subsystem/4,
+         start_connection/4,
 	 get_daemon_listen_address/1,
          addresses/1,
          get_options/2,
@@ -93,25 +93,25 @@ get_daemon_listen_address(SystemSup) ->
     end.
 
 %%%----------------------------------------------------------------
-%%% Start the subsystem child. It is a significant child of the system
+%%% Start the connection child. It is a significant child of the system
 %%% supervisor (callback = this module) for server and non-significant
 %%% child of sshc_sup for client
-start_subsystem(Role = client, _, Socket, Options) ->
-    do_start_subsystem(Role, sup(client), false, Socket, Options);
-start_subsystem(Role = server, Address=#address{}, Socket, Options) ->
+start_connection(Role = client, _, Socket, Options) ->
+    do_start_connection(Role, sup(client), false, Socket, Options);
+start_connection(Role = server, Address=#address{}, Socket, Options) ->
     case get_system_sup(Address, Options) of
         {ok, SysPid} ->
-            do_start_subsystem(Role, SysPid, true, Socket, Options);
+            do_start_connection(Role, SysPid, true, Socket, Options);
         Others ->
             Others
     end.
 
-do_start_subsystem(Role, SupPid, Significant, Socket, Options0) ->
+do_start_connection(Role, SupPid, Significant, Socket, Options0) ->
     Id = make_ref(),
     Options = ?PUT_INTERNAL_OPT([{user_pid, self()}], Options0),
     case supervisor:start_child(SupPid,
                                 #{id          => Id,
-                                  start       => {ssh_subsystem_sup, start_link,
+                                  start       => {ssh_connection_sup, start_link,
                                                   [Role,Id,Socket,Options]
                                                  },
                                   restart     => temporary,
@@ -119,7 +119,7 @@ do_start_subsystem(Role, SupPid, Significant, Socket, Options0) ->
                                   type        => supervisor
                                  })
     of
-        {ok,_SubSysPid} ->
+        {ok,_ConnectionSupPid} ->
             try
                 receive
                     {new_connection_ref, Id, ConnPid} ->

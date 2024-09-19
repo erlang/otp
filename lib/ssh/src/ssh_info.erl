@@ -132,7 +132,7 @@ format_sup(server, {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_su
      io_lib:nl() % Separate system supervisors by an empty line
     ];
 format_sup(client,
-           {{Ref,SubSysSup,supervisor,[ssh_subsystem_sup]}, _SubSysSpec,
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
             [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
              | Children]
            },
@@ -142,7 +142,7 @@ format_sup(client,
                    "~sConnectionRef=~s, subsys_sup=~s~n",
                    [indent(Indent), local_addr(ConnPid),
                     indent(Indent), peer_addr(ConnPid), peer_version(client,ConnPid),
-                    indent(Indent), print_pid(ConnPid), print_pid(SubSysSup)
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
                    ]),
      walk_tree(client,
                [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
@@ -150,15 +150,15 @@ format_sup(client,
      io_lib:nl() % Separate sub system supervisors by an empty line
     ];
 format_sup(server,
-           {{Ref,SubSysSup,supervisor,[ssh_subsystem_sup]}, _SubSysSpec,
-            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec} 
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
+            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
              | Children]
            },
            Indent) when is_reference(Ref) ->
     [io_lib:format("~sRemote: ~s (Version: ~s)~n"
                    "~sConnectionRef=~s, subsys_sup=~s~n",
                    [indent(Indent), peer_addr(ConnPid), peer_version(server,ConnPid),
-                    indent(Indent), print_pid(ConnPid), print_pid(SubSysSup)
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
                    ]),
      walk_tree(server,
                [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
