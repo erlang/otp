@@ -214,6 +214,17 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.6
+
+### Fixed Bugs and Malfunctions
+
+* The SSh daemon started with a TCP port number argument will now re-try obtaining a listen socket before returning an error to the user.
+
+  Own Id: OTP-19170 Aux Id: GH-7746
+* Robustness has been improved by monitoring the connection handler process before casting the socket control notification.
+
+  Own Id: OTP-19173 Aux Id: PR-8310
+
 ## Ssh 4.15.3.5
 
 ### Fixed Bugs and Malfunctions

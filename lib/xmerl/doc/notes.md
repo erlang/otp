@@ -127,6 +127,14 @@ This document describes the changes made to the Xmerl application.
 
   Own Id: OTP-18595 Aux Id: ERIERL-944
 
+## Xmerl 1.3.31.2
+
+### Fixed Bugs and Malfunctions
+
+* Corrected export functions from internal structure to XML so xmlText items of type cdata are handled correctly. They were just exported as normal text instead of output in a CDATA section.
+
+  Own Id: OTP-19217 Aux Id: ERIERL-1104
+
 ## Xmerl 1.3.31.1
 
 ### Fixed Bugs and Malfunctions
