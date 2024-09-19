@@ -197,6 +197,14 @@ limitations under the License.
 
   Own Id: OTP-18447
 
+## Public_Key 1.13.3.3
+
+### Fixed Bugs and Malfunctions
+
+* For completeness handle rsa_pss implicit default value, although this will probably not be commonly used as it provides very weak security.
+
+  Own Id: OTP-19179
+
 ## Public_Key 1.13.3.2
 
 ### Fixed Bugs and Malfunctions

@@ -131,6 +131,14 @@ Releases are listed in reverse chronological order, most recent first.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## diameter 2.2.7.2
+
+### Fixed Bugs and Malfunctions
+
+* \`diameter:stop_service/1\` has been made more synchronous.
+
+  Own Id: OTP-19206 Aux Id: ERIERL-1102
+
 ## diameter 2.2.7.1
 
 ### Fixed Bugs and Malfunctions
