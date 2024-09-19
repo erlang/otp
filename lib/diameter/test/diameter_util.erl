@@ -3019,6 +3019,8 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
                  pinfo(Pid, reductions)]),
             Timeout2 =
                 if
+                    (Timeout =:= infinity) ->
+                        Timeout;
                     (Timeout < PTimeout) ->
                         0;
                     true ->
