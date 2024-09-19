@@ -19,10 +19,10 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The ssh subsystem supervisor 
+%% Purpose: The ssh connection supervisor
 %%----------------------------------------------------------------------
 
--module(ssh_subsystem_sup).
+-module(ssh_connection_sup).
 
 -behaviour(supervisor).
 
@@ -51,51 +51,46 @@ start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
     ChannelSup = channel_supervisor(SupPid),
     ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts).
 
-tcpip_fwd_supervisor(SubSysSup) ->
-    find_child(tcpip_forward_acceptor_sup, SubSysSup).
+tcpip_fwd_supervisor(ConnectionSup) ->
+    find_child(tcpip_forward_acceptor_sup, ConnectionSup).
 
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init([Role, Id, Socket, Options]) ->
-    SubSysSup = self(),
+    ConnectionSup = self(),
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
                  intensity     =>    0,
-                 period        => 3600
-                },
-    ChildSpecs = [#{id          => connection,
-                    restart     => temporary,
-                    type        => worker,
-                    significant => true,
-                    start       => {ssh_connection_handler,
-                                    start_link,
-                                    [Role, Id, Socket,
-                                     ?PUT_INTERNAL_OPT([
-                                                        {subsystem_sup, SubSysSup}
-                                                       ], Options)
-                                    ]
-                                   }
-                   },
-                  #{id      => channel_sup,
-                    restart => temporary,
-                    type    => supervisor,
-                    start   => {ssh_channel_sup, start_link, [Options]}
-                   },
+                 period        => 3600},
+    ChildSpecs =
+        [#{id          => connection,
+           restart     => temporary,
+           type        => worker,
+           significant => true,
+           start       => {ssh_connection_handler,
+                           start_link,
+                           [Role, Id, Socket,
+                            ?PUT_INTERNAL_OPT([{connection_sup, ConnectionSup}], Options)]}
+          },
+         #{id      => channel_sup,
+           restart => temporary,
+           type    => supervisor,
+           start   => {ssh_channel_sup, start_link, [Options]}
+          },
 
-                 #{id      => tcpip_forward_acceptor_sup,
-                   restart => temporary,
-                   type    => supervisor,
-                   start   => {ssh_tcpip_forward_acceptor_sup, start_link, []}
-                  }
-                 ],
+         #{id      => tcpip_forward_acceptor_sup,
+           restart => temporary,
+           type    => supervisor,
+           start   => {ssh_tcpip_forward_acceptor_sup, start_link, []}
+          }],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-channel_supervisor(SubSysSup) -> find_child(channel_sup, SubSysSup).
+channel_supervisor(ConnectionSup) -> find_child(channel_sup, ConnectionSup).
 
 find_child(Id, Sup) when is_pid(Sup) ->
     try
