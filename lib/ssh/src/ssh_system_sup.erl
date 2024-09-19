@@ -103,7 +103,7 @@ start_subsystem(Role, Address=#address{}, Socket, Options0) ->
             case supervisor:start_child(SysPid,
                                         #{id          => Id,
                                           start       => {ssh_subsystem_sup, start_link,
-                                                          [Role,Address,Id,Socket,Options]
+                                                          [Role,Id,Socket,Options]
                                                          },
                                           restart     => temporary,
                                           significant => true,
