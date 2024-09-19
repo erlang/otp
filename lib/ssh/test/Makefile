@@ -80,7 +80,8 @@ TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 SPEC_FILES = \
 	ssh.spec \
-	ssh_bench.spec
+	ssh_bench.spec \
+	ssh_sup.spec
 
 COVER_FILE = ssh.cover
 
