@@ -42,7 +42,7 @@
 %%====================================================================
 
 %%% Start and stop
--export([start_link/4, start_link/5,
+-export([start_link/3, start_link/4,
          takeover/4,
 	 stop/1
 	]).
@@ -98,10 +98,10 @@
 %% Start / stop
 %%====================================================================
 
-start_link(Role, Address, Socket, Options) ->
-    start_link(Role, Address, undefined, Socket, Options).
+start_link(Role, Socket, Options) ->
+    start_link(Role, undefined, Socket, Options).
 
-start_link(Role, _Address=#address{}, Id, Socket, Options) ->
+start_link(Role, Id, Socket, Options) ->
     case gen_statem:start_link(?MODULE,
                                [Role, Socket, Options],
                                [{spawn_opt, [{message_queue_data,off_heap}]}]) of
