@@ -1259,7 +1259,7 @@ find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
     {Parents,Handshakers} = lists:unzip(ParentHandshakers),
     find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
 
-find_handshake_parent([{_Ref,PidS,supervisor,[ssh_subsystem_sup]}|T], Port, {AccP,AccC,AccH}) ->
+find_handshake_parent([{_Ref,PidS,supervisor,[ssh_connection_sup]}|T], Port, {AccP,AccC,AccH}) ->
     Connections =
         [Pid || {connection,Pid,worker,[ssh_connection_handler]} <- supervisor:which_children(PidS)],
     find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});

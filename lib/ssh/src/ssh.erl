@@ -414,7 +414,7 @@ continue_connect(Socket, Options0, NegTimeout) ->
                        port = SockPort,
                        profile = ?GET_OPT(profile,Options)
                       },
-    ssh_system_sup:start_subsystem(client, Address, Socket, Options).
+    ssh_system_sup:start_connection(client, Address, Socket, Options).
 
 %%--------------------------------------------------------------------
 -doc "Closes an SSH connection.".
@@ -532,7 +532,7 @@ daemon(Socket, UserOptions) ->
                                            profile = ?GET_OPT(profile,Options0)
                                           },
                         Options = ?PUT_INTERNAL_OPT({connected_socket, Socket}, Options0),
-                        case ssh_system_sup:start_subsystem(server, Address, Socket, Options) of
+                        case ssh_system_sup:start_connection(server, Address, Socket, Options) of
                             {ok,Pid} ->
                                 {ok,Pid};
                             {error, {already_started, _}} ->
