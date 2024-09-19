@@ -45,7 +45,8 @@
          t_from_keys_check_trapping/1,
          t_keys_trapping/1,
          t_values_trapping/1,
-         t_groups_from_list/1]).
+         t_groups_from_list/1,
+         t_groups_from_list_2/1]).
 
 -define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
 -define(badkey(K,F,Args), {'EXIT', {{badkey,K}, [{maps,F,Args,_}|_]}}).
@@ -74,7 +75,8 @@ all() ->
      t_from_keys_check_trapping,
      t_keys_trapping,
      t_values_trapping,
-     t_groups_from_list].
+     t_groups_from_list,
+     t_groups_from_list_2].
 
 t_from_list_kill_process(Config) when is_list(Config) ->
     Killer = self(),
@@ -932,6 +934,7 @@ t_size_1(Config) when is_list(Config) ->
 
 t_groups_from_list(_Config) ->
     #{} = maps:groups_from_list(fun erlang:length/1, []),
+    #{} = maps:groups_from_list(fun erlang:length/1, fun lists:reverse/1, []),
     #{3 := ["tna","tac"], 5 := ["ognid"], 7 := ["olaffub"]} =
         maps:groups_from_list(
           fun erlang:length/1,
@@ -939,6 +942,57 @@ t_groups_from_list(_Config) ->
           ["ant", "buffalo", "cat", "dingo"]
          ),
     #{0 := [2], 1 := [1, 3]} = maps:groups_from_list(fun(X) -> X rem 2 end, [1, 2, 3]).
+
+t_groups_from_list_2(Config) when is_list(Config) ->
+	Rem2 = fun(X) -> X rem 2 end,
+	Rem3 = fun(X) -> X rem 3 end,
+	Sq = fun(X) -> X * X end,
+	List = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+	[] = maps:groups_from_list([], []),
+	#{} = maps:groups_from_list([Rem2], []),
+	#{} = maps:groups_from_list([Rem3], []),
+	#{} = maps:groups_from_list([Rem2, Rem3], []),
+	[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = maps:groups_from_list([], List),
+	#{0 := [0, 2, 4, 6, 8, 10],
+	  1 := [1, 3, 5, 7, 9]} = maps:groups_from_list([Rem2], List),
+	#{0 := [0, 3, 6, 9],
+	  1 := [1, 4, 7, 10],
+	  2 := [2, 5, 8]} = maps:groups_from_list([Rem3], List),
+	#{0 := #{0 := [0, 6],
+		 1 := [4, 10],
+		 2 := [2, 8]},
+	  1 := #{0 := [3, 9],
+		 1 := [1, 7],
+		 2 := [5]}} = maps:groups_from_list([Rem2, Rem3], List),
+	#{0 := #{0 := [0, 6],
+		 1 := [3, 9]},
+	  1 := #{0 := [4, 10],
+		 1 := [1, 7]},
+	  2 := #{0 := [2, 8],
+		 1 := [5]}} = maps:groups_from_list([Rem3, Rem2], List),
+	[] = maps:groups_from_list([], Sq, []),
+	#{} = maps:groups_from_list([Rem2], Sq, []),
+	#{} = maps:groups_from_list([Rem3], Sq, []),
+	#{} = maps:groups_from_list([Rem2, Rem3], Sq, []),
+	[0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100] = maps:groups_from_list([], Sq, List),
+	#{0 := [0, 4, 16, 36, 64, 100],
+	  1 := [1, 9, 25, 49, 81]} = maps:groups_from_list([Rem2], Sq, List),
+	#{0 := [0, 9, 36, 81],
+	  1 := [1, 16, 49, 100],
+	  2 := [4, 25, 64]} = maps:groups_from_list([Rem3], Sq, List),
+	#{0 := #{0 := [0, 36],
+		 1 := [16, 100],
+		 2 := [4, 64]},
+	  1 := #{0 := [9, 81],
+		 1 := [1, 49],
+		 2 := [25]}} = maps:groups_from_list([Rem2, Rem3], Sq, List),
+	#{0 := #{0 := [0, 36],
+		 1 := [9, 81]},
+	  1 := #{0 := [16, 100],
+		 1 := [1, 49]},
+	  2 := #{0 := [4, 64],
+		 1 := [25]}} = maps:groups_from_list([Rem3, Rem2], Sq, List),
+	ok.
 
 error_info(_Config) ->
     BadIterator = [-1|#{}],
@@ -986,11 +1040,14 @@ error_info(_Config) ->
          {get, [key, {no,map}, default]},
 
          {groups_from_list, [not_a_fun, []]},
-         {groups_from_list, [fun hd/1, not_a_list]},
+         {groups_from_list, [fun hd/1, not_a_list], [allow_rename]},
+         {groups_from_list, [[fun hd/1], not_a_list]},
 
          {groups_from_list, [not_a_fun, fun(_) -> ok end, []]},
-         {groups_from_list, [fun(_) -> ok end, not_a_fun, []]},
-         {groups_from_list, [fun(_) -> ok end, fun(_) -> ok end, not_a_list]},
+         {groups_from_list, [fun(_) -> ok end, not_a_fun, []], [allow_rename]},
+         {groups_from_list, [[fun(_) -> ok end], not_a_fun, []]},
+         {groups_from_list, [fun(_) -> ok end, fun(_) -> ok end, not_a_list], [allow_rename]},
+         {groups_from_list, [[fun(_) -> ok end], fun(_) -> ok end, not_a_list]},
 
          {intersect, [#{a => b}, y]},
          {intersect, [x, #{a => b}]},
