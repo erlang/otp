@@ -801,6 +801,7 @@ Operating system
 * Ubuntu 10.04 - 22.04
 * Windows 11, Windows 10, Windows Server 2019
 
+
 [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
 [Building in Git]: #advanced-configuration-and-build-of-erlang-otp_Building_Within-Git
 [Advanced Configure]: #advanced-configuration-and-build-of-erlang-otp_Configuring
