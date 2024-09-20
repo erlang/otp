@@ -47,7 +47,7 @@ start_link(SystemSup, Address, Options) ->
 %%%----------------------------------------------------------------
 listen(Port, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
-    SockOpts = [{active, false}, {reuseaddr,true} | ?GET_OPT(socket_options, Options)],
+    SockOpts = ?GET_OPT(socket_options, Options) ++ [{active, false}, {reuseaddr,true}],
     case Callback:listen(Port, SockOpts) of
 	{error, nxdomain} ->
 	    Callback:listen(Port, lists:delete(inet6, SockOpts));
