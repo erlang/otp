@@ -701,9 +701,20 @@ validate_extensions(Cert, asn1_NOVALUE, ValidationState, ExistBasicCon,
     validate_extensions(Cert, [], ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
 
-validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
-		    UserState, _) ->
-    {ValidationState, UserState};
+validate_extensions(#cert{otp = OtpCert} = Cert,[], ValidationState, basic_constraint, _SelfSigned,
+		    UserState0, VerifyFun) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    KeyUseExt = pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions),
+    ExtKeyUseExt =  pubkey_cert:select_extension(?'id-ce-extKeyUsage', Extensions),
+    case compatible_ext_key_usage(KeyUseExt, ExtKeyUseExt) of
+        true ->
+            {ValidationState, UserState0};
+        false ->
+            UserState = verify_fun(Cert, {bad_cert, {key_usage_mismatch, {KeyUseExt, ExtKeyUseExt}}},
+                                   UserState0, VerifyFun),
+            {ValidationState, UserState}
+    end;
 validate_extensions(Cert, [], ValidationState =
 			#path_validation_state{max_path_length = Len,
 					       last_cert = Last},
@@ -832,15 +843,20 @@ validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-inhibitAnyPolicy'} = Ex
 			SelfSigned, UserState, VerifyFun);
 validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
                                            critical = true,
-                                           extnValue = KeyUse} = Extension | Rest],
+                                           extnValue = ExtKeyUse} = Extension | Rest],
 		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun) ->
     UserState =
-        case ext_keyusage_includes_any(KeyUse) of
+        case ext_keyusage_includes_any(ExtKeyUse) of
             true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
                 verify_fun(Cert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
             false ->
-                verify_fun(Cert, {extension, Extension}, UserState0, VerifyFun)
+                case ca_known_extend_key_use(ExtKeyUse) of
+                    true ->
+                        UserState0;
+                    false ->
+                        verify_fun(Cert, {extension, Extension}, UserState0, VerifyFun)
+                end
         end,
     validate_extensions(Cert, Rest, ValidationState, ExistBasicCon, SelfSigned,
 			UserState, VerifyFun);
@@ -1783,8 +1799,57 @@ is_digitally_sign_cert(Cert) ->
 	    lists:member(keyCertSign, KeyUse)
     end.
 
-missing_basic_constraints(Cert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
-    UserState = verify_fun(Cert, {bad_cert, missing_basic_constraint},
+compatible_ext_key_usage(_, undefined) ->
+    true;
+compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}) ->
+    case ext_keyusage_includes_any(Purposes) of
+        true ->
+            true;
+        false ->
+            is_compatible_purposes(KeyUse, Purposes)
+    end.
+
+is_compatible_purposes(_, []) ->
+    true;
+is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(keyAgreement, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse)
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest]) ->
+    lists:member(digitalSignature, KeyUse) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest]) ->
+    ((lists:member(digitalSignature, KeyUse) orelse
+      lists:member(nonRepudiation, KeyUse))
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [Id| Rest]) when Id == ?'id-kp-timeStamping';
+                                                Id == ?'id-kp-OCSPSigning'->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(nonRepudiation, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [_| Rest]) -> %% Unknown purposes are for user verify_fun to care about
+    is_compatible_purposes(KeyUse, Rest).
+
+ca_known_extend_key_use(ExtKeyUse) ->
+    CAExtSet = ca_known_ext_key_usage(),
+    Intersertion = sets:intersection(CAExtSet, sets:from_list(ExtKeyUse)),
+    not sets:is_empty(Intersertion).
+
+ca_known_ext_key_usage() ->
+    %% Following extended key usages are known
+    sets:from_list([?'id-kp-serverAuth', ?'id-kp-clientAuth',
+                    ?'id-kp-codeSigning', ?'id-kp-emailProtection',
+                    ?'id-kp-timeStamping', ?'id-kp-OCSPSigning']).
+
+missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
+    UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
 			   UserState0, VerifyFun),
     case SelfSigned of
 	true ->
