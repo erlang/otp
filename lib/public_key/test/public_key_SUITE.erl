@@ -924,15 +924,15 @@ pkix_path_validation(Config) when is_list(Config) ->
     {error, {bad_cert,missing_basic_constraint}} =
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], []),
 
-    VerifyFunAndState0  = {fun(_,{bad_cert, missing_basic_constraint}, UserState) ->
+    VerifyFunAndState0  = {fun(#'OTPCertificate'{},{bad_cert, missing_basic_constraint}, UserState) ->
 				   {valid, UserState};
-			      (_,{bad_cert, _} = Reason, _) ->
+			      (#'OTPCertificate'{},{bad_cert, _} = Reason, _) ->
 				   {fail, Reason};
-			      (_,{extension, _}, UserState) ->
+			      (#'OTPCertificate'{},{extension, _}, UserState) ->
 				   {unknown, UserState};
-			      (_, valid, UserState) ->
+			      (#'OTPCertificate'{}, valid, UserState) ->
 				   {valid, UserState};
-			      (_, valid_peer, UserState) ->
+			      (#'OTPCertificate'{}, valid_peer, UserState) ->
 				   {valid, UserState}
 			   end, []},
     {ok, _} =
@@ -942,14 +942,15 @@ pkix_path_validation(Config) when is_list(Config) ->
     {error, {bad_cert, unknown_ca}} =
 	public_key:pkix_path_validation(unknown_ca, [Cert1, Cert3, Cert4], []),
 
+    %% Verify verify_fun/4
     VerifyFunAndState1 =
-	{fun(_,{bad_cert, unknown_ca}, UserState) ->
+	{fun(#'OTPCertificate'{}, Der, {bad_cert, unknown_ca}, UserState) when is_binary(Der) ->
 		 {valid, UserState};
-	    (_,{bad_cert, _} = Reason, _) ->
+	    (#'OTPCertificate'{}, Der, {bad_cert, _} = Reason, _) when is_binary(Der) ->
 		 {fail, Reason};
-	    (_,{extension, _}, UserState) ->
+	    (#'OTPCertificate'{}, Der, {extension, _}, UserState) when is_binary(Der) ->
 		 {unknown, UserState};
-	    (_, valid, UserState) ->
+	    (#'OTPCertificate'{}, Der, valid, UserState) when is_binary(Der) ->
 		 {valid, UserState}
 	 end, []},
 
