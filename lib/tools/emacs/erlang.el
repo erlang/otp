@@ -4400,7 +4400,8 @@ non-whitespace characters following the point on the current line."
                  (cl-incf count))
                (= count 3))
              (eq (char-after) last-command-event))
-    (save-excursion (insert (make-string 2 last-command-event)))))
+    (insert ?\n)
+    (save-excursion (insert "\n\"\""))))
 
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
