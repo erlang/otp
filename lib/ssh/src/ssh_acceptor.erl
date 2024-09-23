@@ -191,7 +191,7 @@ handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessi
 handle_connection(Address, Port, Options0, Socket) ->
     Options = ?PUT_INTERNAL_OPT([{user_pid, self()}
                                 ], Options0),
-    ssh_system_sup:start_subsystem(server,
+    ssh_system_sup:start_connection(server,
                                    #address{address = Address,
                                             port = Port,
                                             profile = ?GET_OPT(profile,Options)
@@ -247,7 +247,7 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
 
 %%%----------------------------------------------------------------
 number_of_connections(SysSupPid) ->
-    lists:foldl(fun({_Ref,_Pid,supervisor,[ssh_subsystem_sup]}, N) -> N+1;
+    lists:foldl(fun({_Ref,_Pid,supervisor,[ssh_connection_sup]}, N) -> N+1;
                    (_, N) -> N
                 end, 0, supervisor:which_children(SysSupPid)).
 

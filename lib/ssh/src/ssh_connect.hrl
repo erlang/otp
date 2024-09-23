@@ -269,5 +269,5 @@
           suggest_window_size,
           suggest_packet_size,
 	  exec,
-	  sub_system_supervisor
+	  connection_supervisor
 	 }).

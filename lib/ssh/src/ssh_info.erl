@@ -132,24 +132,36 @@ format_sup(server, {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_su
      walk_tree(server, Children, ?inc(Indent)),
      io_lib:nl() % Separate system supervisors by an empty line
     ];
-format_sup(client, {{{ssh_system_sup,LocalAddress},Pid,supervisor,[ssh_system_sup]}, _Spec, Children}, Indent) ->
-    [indent(Indent),
-     io_lib:format("Local:  ~s sys_sup=~s~n", [format_address(LocalAddress), print_pid(Pid)]),
-     walk_tree(client, Children, ?inc(Indent)),
-     io_lib:nl() % Separate system supervisors by an empty line
+format_sup(client,
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
+            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
+             | Children]
+           },
+           Indent) when is_reference(Ref) ->
+    [io_lib:format("~sLocal: ~s~n"
+                   "~sRemote: ~s (Version: ~s)~n"
+                   "~sConnectionRef=~s, subsys_sup=~s~n",
+                   [indent(Indent), local_addr(ConnPid),
+                    indent(Indent), peer_addr(ConnPid), peer_version(client,ConnPid),
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
+                   ]),
+     walk_tree(client,
+               [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
+               ?inc(Indent)),
+     io_lib:nl() % Separate sub system supervisors by an empty line
     ];
-format_sup(Role,
-           {{Ref,SubSysSup,supervisor,[ssh_subsystem_sup]}, _SubSysSpec,
-            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec} 
+format_sup(server,
+           {{Ref,ConnSup,supervisor,[ssh_connection_sup]}, _ConnSupSpec,
+            [{{connection,ConnPid,worker,[ssh_connection_handler]}, _ConnSpec}
              | Children]
            },
            Indent) when is_reference(Ref) ->
     [io_lib:format("~sRemote: ~s (Version: ~s)~n"
                    "~sConnectionRef=~s, subsys_sup=~s~n",
-                   [indent(Indent), peer_addr(ConnPid), peer_version(Role,ConnPid),
-                    indent(Indent), print_pid(ConnPid), print_pid(SubSysSup)
+                   [indent(Indent), peer_addr(ConnPid), peer_version(server,ConnPid),
+                    indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
                    ]),
-     walk_tree(Role,
+     walk_tree(server,
                [{H,{connref,ConnPid},Cs} || {H,_,Cs} <- Children],
                ?inc(Indent)),
      io_lib:nl() % Separate sub system supervisors by an empty line
@@ -251,7 +263,17 @@ peer_addr(Pid) ->
     catch
         _:_ -> "?"
     end.
-    
+
+local_addr(Pid) ->
+    try
+        [{socket,Socket}] =
+            ssh_connection_handler:connection_info(Pid, [socket]),
+        {ok, AddrPort} = inet:sockname(Socket),
+        ssh_lib:format_address_port(AddrPort)
+    catch
+        _:_ -> "?"
+    end.
+
 
 format_address(#address{address=Addr, port=Port, profile=Prof}) ->
     io_lib:format("~s (profile ~p)", [ssh_lib:format_address_port({Addr,Port}),Prof]);
