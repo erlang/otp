@@ -458,6 +458,9 @@ typedef struct __ESAIOOperation {
  *                                                                     *
  * =================================================================== */
 
+static
+BOOLEAN_T init_dummy_socket(int* savedErrno);
+
 static ERL_NIF_TERM esaio_connect_stream(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
                                          ERL_NIF_TERM     sockRef,
@@ -1186,9 +1189,7 @@ int esaio_init(unsigned int     numThreads,
      * extract the AcceptEx and ConnectEx functions.
      */
     SGDBG( ("WIN-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
-    ctrl.dummy = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (ctrl.dummy == INVALID_SOCKET) {
-        save_errno = sock_errno();
+    if ( !init_dummy_socket(&save_errno) ) {
 
         esock_error_msg("Failed create 'dummy' socket: "
                         "\r\n   %s (%d)"
@@ -1375,6 +1376,44 @@ int esaio_init(unsigned int     numThreads,
     return ESAIO_OK;
 }
 
+
+static
+BOOLEAN_T init_dummy_socket(int* savedErrno)
+{
+    SOCKET sock;
+    int    save_errno = 0;
+
+    sock = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        save_errno = sock_errno();
+
+        /* This *could* be because we are on a 'IPv6 only' machine
+         * => So try with that (AF_INET6) domain also.
+         */
+
+        if (save_errno == WSAEAFNOSUPPORT) { 
+            sock = sock_open(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+            if (sock == INVALID_SOCKET) {
+                /* Ouch, still failing, so we will keep the original error */
+                ctrl.dummy  = sock;
+                *savedErrno = save_errno;
+                return FALSE;
+            } else {
+                ctrl.dummy  = sock;
+                *savedErrno = 0;
+                return TRUE;
+            }
+        } else {
+            ctrl.dummy  = sock;
+            *savedErrno = save_errno;
+            return FALSE;            
+        }
+    } else {
+        ctrl.dummy  = sock;
+        *savedErrno = 0;
+        return TRUE;
+    }
+}
 
 
 /* *******************************************************************
