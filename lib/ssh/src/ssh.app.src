@@ -36,7 +36,7 @@
 	     ssh_sftpd,
 	     ssh_sftpd_file,
 	     ssh_sftpd_file_api,
-	     ssh_subsystem_sup,
+	     ssh_connection_sup,
              ssh_tcpip_forward_client,
              ssh_tcpip_forward_srv,
              ssh_tcpip_forward_acceptor_sup,
@@ -51,7 +51,7 @@
                            ssh_acceptor,
                            ssh_channel_sup,
                            ssh_connection_handler,
-                           ssh_subsystem_sup,
+                           ssh_connection_sup,
                            ssh_system_sup
                           ]},
          {default_filter, rm} %% rm | filter
