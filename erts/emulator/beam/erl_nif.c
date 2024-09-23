@@ -5046,8 +5046,10 @@ static void patch_call_nif_early(ErlNifEntry* entry,
                  * Function traced, patch the original instruction word
                  * Code write permission protects against racing breakpoint writes.
                  */
-                GenericBp* g = ci_rw->gen_bp;
-                g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
+                for (GenericBp* g = ci_rw->gen_bp; g; g = g->next) {
+                    ASSERT(!g->to_insert);
+                    g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
+                }
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
             } else {
@@ -5190,10 +5192,11 @@ static void load_nif_2nd_finisher(void* vlib)
                     /*
                     * Function traced, patch the original instruction word
                     */
-                    GenericBp* g = ci_rw->gen_bp;
-                    ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
-                    g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
-
+                    for (GenericBp* g = ci_rw->gen_bp; g; g = g->next) {
+                        ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
+                        ASSERT(!g->to_insert);
+                        g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
+                    }
                     if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint)) {
                         continue;
                     }
