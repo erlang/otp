@@ -1,0 +1,75 @@
+## Runs the Google OSV-scanner utility to detect known vulnerabilities.
+## The scan is run on each PR/push and also periodically on each maintained branch
+name: Open Source Vulnerabilities Scanner
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * *
+
+permissions:
+  # Required to upload SARIF file to CodeQL.
+  # See: https://github.com/github/codeql-action/issues/2117
+  actions: read
+  # Require writing security events to upload SARIF file to security tab
+  security-events: write
+  # Only need to read contents
+  contents: read
+
+jobs:
+  schedule-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.repository == 'erlang/otp'
+    # if: github.event_name != 'workflow_dispatch' # used for testing
+    outputs:
+       versions: ${{ steps.get-versions.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - id: get-versions
+        name: Fetch latest 3 OTP versions
+        run: |
+          VSNs=$(grep -E 'OTP-[^.]+[.]0 :' otp_versions.table | awk '{ print $1 '} | head -3 | sed 's/[-.]/ /g' | awk '{print $2}')
+          versions='["maint", "master"'
+          for vsn in $VSNs; do
+            versions="${versions}, \"maint-$vsn\""
+          done
+          versions="${versions}]"
+          echo "versions=${versions}" >> "$GITHUB_OUTPUT"
+
+  run-scheduled-scan:
+    # Fan out and create requests to run OSV on multiple branches.
+    # It always succeed: either it sends requests to branches that
+    # can run 'scan-pr' (if the repo/branch contains this file) or
+    # skips sending the request.
+    needs: schedule-scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: ${{ fromJson(needs.schedule-scan.outputs.versions) }}
+      fail-fast: false
+    permissions:
+      actions: write
+    steps:
+      - uses: actions/checkout@v4.1.7
+        with:
+          ref: ${{ matrix.type }}
+
+      - name: Trigger Vulnerability Scanning
+        env:
+          GH_TOKEN: ${{ github.token }}
+        if: ${{ hashFiles('.github/workflows/osv-scanner-scheduled.yml') != '' }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/actions/workflows/osv-scanner-scheduled.yml/dispatches \
+            -f "ref=${{ matrix.type }}"
+
+  scan-pr:
+    # run-scheduled-scan triggers this job
+    # PRs and pushes trigger this job
+    if: github.event_name != 'schedule'
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.8.5"
