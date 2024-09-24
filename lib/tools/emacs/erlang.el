@@ -1606,7 +1606,9 @@ Other commands:
   (put 'bitsyntax-close-outer 'syntax-table '(5 . ?<))
   (put 'bitsyntax-close-outer 'rear-nonsticky '(category))
   (make-local-variable 'parse-sexp-lookup-properties)
-  (setq parse-sexp-lookup-properties 't))
+  (setq parse-sexp-lookup-properties 't)
+  (add-hook 'post-self-insert-hook
+    #'erlang-electric-pair-string-delimiter 'append t))
 
 
 (defun erlang-mode-variables ()
@@ -4388,6 +4390,18 @@ non-whitespace characters following the point on the current line."
           (remove-text-properties (point) (1+ (point))
                                   '(category nil))
           (forward-char 1))))))
+
+(defun erlang-electric-pair-string-delimiter ()
+  "Check if a third double-quote was just inserted, and if so, insert three more."
+  (when (and electric-pair-mode
+             (eq last-command-event ?\")
+             (let ((count 0))
+               (while (eq (char-before (- (point) count)) last-command-event)
+                 (cl-incf count))
+               (= count 3))
+             (eq (char-after) last-command-event))
+    (insert ?\n)
+    (save-excursion (insert "\n\"\""))))
 
 (defun erlang-after-bitsyntax-close ()
   "Return t if point is immediately after a bit-syntax close parenthesis (`>>')."
