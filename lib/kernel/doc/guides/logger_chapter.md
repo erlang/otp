@@ -1095,6 +1095,10 @@ period of time - can potentially cause problems, such as:
 - Circular logs wrap too quickly so that important data is overwritten.
 - Write buffers grow large, which slows down file sync operations.
 
+Note that these examples apply to file-based logging. If you're logging to
+the console the protections discussed below should be safe to disable or
+tweak, as long as your system can handle the load of them.
+
 For this reason, both built-in handlers offer the possibility to specify the
 maximum number of events to be handled within a certain time frame. With this
 burst control feature enabled, the handler can avoid choking the log with
