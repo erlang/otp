@@ -1026,6 +1026,8 @@ actions, exist:
   message queue is reduced to a level below the threshold, synchronous or
   asynchronous mode is resumed. Notice that when the handler activates or
   deactivates drop mode, information about it is printed in the log.
+  The emitted log message looks something like this:
+  `[notice] Handler :default switched from :sync to :drop mode`
 
   Defaults to `200` messages.
 
