@@ -973,10 +973,23 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
 
 ## Protecting the Handler from Overload
 
-The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature an
-overload protection mechanism, which makes it possible for the handlers to
-survive, and stay responsive, during periods of high load (when huge numbers of
-incoming log requests must be handled). The mechanism works as follows:
+The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature
+multiple overload protection mechanisms, which make it possible for the
+handlers to survive, and stay responsive, during periods of high load
+(when huge numbers of incoming log requests must be handled).
+
+The mechanisms are as follows:
+* [**message queue length**](#message-queue-length): the handler process tracks
+its message queue length and takes actions depending on its size, from turning
+on a sync mode to dropping messages.
+* [**limit the number of logs emitted**](#controlling-bursts-of-log-requests):
+the handlers will handle a maximum number of log events per time unit,
+defaulting to 500 per second.
+* [**terminate an overloaded handler**](#terminating-an-overloaded-handler):
+a handler can be terminated and restarted automatically if it exceeds message
+queue length or memory thresholds - this is disabled by default.
+
+These mechanisms are described in more detail in the following sections.
 
 ### Message Queue Length
 
