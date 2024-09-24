@@ -737,9 +737,8 @@ ways:
   originating from within OTP, except the former so called "SASL reports", look
   the same as before.
 
-- **[](){: #sasl_reports } SASL Reports**  
-  By SASL reports we mean supervisor reports, crash reports and progress
-  reports.
+- **[](){: #sasl_reports } SASL Reports** - By SASL reports we mean supervisor
+  reports, crash reports and progress reports.
 
   Prior to Erlang/OTP 21.0, these reports were only logged when the SASL
   application was running, and they were printed through SASL's own event
@@ -777,8 +776,8 @@ ways:
   See section [SASL User's Guide](`e:sasl:error_logging.md`) for more
   information about the old SASL error logging functionality.
 
-- **[](){: #legacy_event_handlers } Legacy Event Handlers**  
-  To use event handlers written for `error_logger`, just add your event handler
+- **[](){: #legacy_event_handlers } Legacy Event Handlers** - To use event
+  handlers written for `error_logger`, just add your event handler
   with
 
   ```text
