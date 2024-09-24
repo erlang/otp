@@ -1416,7 +1416,7 @@ void esaio_finish()
         /* We should actually check that the alloc was successful
          * and if not ... 
          * Note that this function is only called when we are terminating
-         * the VM. So, is there actuall any pointy in "doing" something?
+         * the VM. So, is there actually any point in "doing" something?
          * Or should we solve this another way? Instead of allocating
          * a memory block; Send in a constant, ESAIO_OP_TERMINATE,
          * *instead of* the overlapped pointer!
@@ -1472,9 +1472,12 @@ void esaio_finish()
         }
     }
 
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> cleanup\r\n") );
+    WSACleanup();
+
     /* This is overkill,
      * since this function, esaio_finish, is called when the VM is halt'ing...
-     * ...but just to be a nice citizen...
+     * ...but just to be a good citizen...
      */
     SGDBG( ("WIN-ESAIO", "esaio_finish -> free the thread pool data\r\n") );
     FREE( ctrl.threads );
@@ -1984,8 +1987,6 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
             sock_close(descP->sock);
             descP->writeState = ESOCK_STATE_CLOSED;
 
-            WSACleanup();
-
             eres = esock_make_error_t2r(env, tag, reason);
         }
 
@@ -2026,7 +2027,6 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
 
             sock_close(descP->sock);
             descP->writeState = ESOCK_STATE_CLOSED;
-            WSACleanup();
 
             eres = esock_make_error(env, ereason);
         }
@@ -2177,7 +2177,6 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
         esock_clear_env("esaio_accept - invalid accept socket", opP->env);
         esock_free_env("esaio_accept - invalid accept socket", opP->env);
         FREE( opP );
-        WSACleanup();
 
         SSDBG( descP,
                ("WIN-ESAIO",
@@ -2360,7 +2359,6 @@ ERL_NIF_TERM accept_check_fail(ErlNifEnv*       env,
     FREE( opP );
 
     sock_close(accSock);
-    WSACleanup();
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_acc_fails, &descP->accFails, 1);
@@ -6709,8 +6707,6 @@ void esaio_completion_connect_completed(ErlNifEnv*          env,
 
         sock_close(descP->sock);
 
-        WSACleanup();
-
         completionStatus = esock_make_error_t2r(descP->connector.env,
                                                 tag, reason);
 
@@ -7206,8 +7202,6 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
 
         sock_close(descP->sock);
         descP->writeState = ESOCK_STATE_CLOSED;
-
-        WSACleanup();
 
         completionStatus = esock_make_error_t2r(opEnv, tag, reason);
 
