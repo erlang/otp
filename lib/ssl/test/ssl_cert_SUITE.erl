@@ -396,11 +396,17 @@ do_init_per_group(dsa = Alg, Config0) ->
             Config = ssl_test_lib:make_dsa_cert(Config0),
             COpts = proplists:get_value(client_dsa_opts, Config),
             SOpts = proplists:get_value(server_dsa_opts, Config),
+            ShaDSA = case Version of
+                         {3, 3} ->
+                             [{signature_algs, [{sha, dsa}]}];
+                         _  ->
+                             []
+                     end,
             [{cert_key_alg, dsa},
              {extra_client, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}]},
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA},
              {extra_server, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}]} |
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
              lists:delete(cert_key_alg,
                           [{client_cert_opts, COpts},
                            {server_cert_opts, SOpts} |
@@ -1216,7 +1222,7 @@ unsupported_sign_algo_cert_client_auth(Config) ->
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
         _  ->
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security)
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unsupported_certificate)
     end.
 
 %%--------------------------------------------------------------------
