@@ -446,6 +446,8 @@ typedef enum {
     ERTS_PSTT_FTMQ,     /* Flush trace msg queue */
     ERTS_PSTT_ETS_FREE_FIXATION,
     ERTS_PSTT_PRIO_SIG,  /* Elevate prio on signal management */
+    ERTS_PSTT_TIMER_PAUSE,   /* Pause the proc timer */
+    ERTS_PSTT_TIMER_UNPAUSE, /* Unpause the proc timer */
     ERTS_PSTT_TEST
 } ErtsProcSysTaskType;
 
@@ -473,6 +475,11 @@ struct ErtsProcSysTaskQs_ {
     int ncount;
     ErtsProcSysTask *q[ERTS_NO_PROC_PRIO_LEVELS];
 };
+
+static int
+schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
+                          int prio, Eterm arg0, Eterm arg1,
+                          ErtsProcLocks locks);
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(proc_sys_task_queues,
 				 ErtsProcSysTaskQs,
@@ -2483,7 +2490,7 @@ erts_debug_wait_completed(Process *c_p, int flags)
 				      count,
 				      0)) {
 	debug_wait_completed_flags = flags;
-	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0 /* no pause timer */);
 	erts_proc_inc_refc(c_p);
 
         /* First flush later-ops on all scheduler threads */
@@ -6902,7 +6909,8 @@ erts_schedule_process(Process *p, erts_aint32_t state, ErtsProcLocks locks)
 static ERTS_INLINE erts_aint32_t
 active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
                    erts_aint32_t task_prio, erts_aint32_t enable_flags,
-                   erts_aint32_t state, erts_aint32_t *fail_state_p)
+                   erts_aint32_t state, erts_aint32_t *fail_state_p,
+                   ErtsProcLocks locks)
 {
     int runnable_procs = erts_system_profile_flags.runnable_procs;
     erts_aint32_t n, a, enq_prio, fail_state;
@@ -6917,7 +6925,6 @@ active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
     enq_prio = -1;
     a = state;
 
-    ERTS_LC_ASSERT(!(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p)));
     ASSERT(fail_state & (ERTS_PSFLG_EXITING | ERTS_PSFLG_FREE));
     ASSERT(!(fail_state & enable_flags));
     ASSERT(!(state & ERTS_PSFLG_PROXY));
@@ -6929,8 +6936,11 @@ active_sys_enqueue(Process *p, ErtsProcSysTask *sys_task,
      * Otherwise, we only need to take it when we're enqueuing a task and can
      * safely release it before add2runq. */
     if (sys_task || runnable_procs) {
-        erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-        status_locked = 1;
+        if (!(locks & ERTS_PROC_LOCK_STATUS)) {
+            ERTS_LC_ASSERT(!(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p)));
+            erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+            status_locked = 1;
+        }
     }
 
     while (1) {
@@ -7037,7 +7047,7 @@ erts_proc_sys_schedule(Process *p, erts_aint32_t state, erts_aint32_t enable_fla
 {
     erts_aint32_t fail_state = ERTS_PSFLG_FREE;
 
-    return active_sys_enqueue(p, NULL, 0, enable_flag, state, &fail_state);
+    return active_sys_enqueue(p, NULL, 0, enable_flag, state, &fail_state, 0);
 }
 
 int
@@ -7094,7 +7104,7 @@ done:
 
 static int
 schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
-			  erts_aint32_t *fail_state_p)
+			  erts_aint32_t *fail_state_p, ErtsProcLocks locks)
 {
     erts_aint32_t fail_state = *fail_state_p;
     erts_aint32_t state = erts_atomic32_read_acqb(&p->state);
@@ -7103,15 +7113,47 @@ schedule_process_sys_task(Process *p, erts_aint32_t prio, ErtsProcSysTask *st,
         return 0;
     }
     return !(active_sys_enqueue(p, st, prio, ERTS_PSFLG_SYS_TASKS,
-                                state, fail_state_p) & fail_state);
+                                state, fail_state_p, locks) & fail_state);
+}
+
+static void
+schedule_pause_proc_timer(Process *p, ErtsProcLocks locks) {
+    erts_aint32_t state;
+
+    ASSERT(locks & ERTS_PROC_LOCK_STATUS);
+
+    state = erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_PAUSED_TIMER);
+    if (state & ERTS_PSFLG_PAUSED_TIMER) {
+        if (erts_try_reuse_paused_proc_timer(p)) {
+            return;
+        }
+    }
+
+    schedule_generic_sys_task(p->common.id,
+                              ERTS_PSTT_TIMER_PAUSE,
+                              PRIORITY_HIGH,
+                              NIL,
+                              NIL,
+                              locks);
+}
+
+static void
+schedule_unpause_proc_timer(Eterm pid, ErtsProcLocks locks) {
+    schedule_generic_sys_task(pid,
+                              ERTS_PSTT_TIMER_UNPAUSE,
+                              PRIORITY_HIGH,
+                              NIL,
+                              NIL,
+                              locks);
 }
 
 static ERTS_INLINE int
-suspend_process(Process *c_p, Process *p)
+suspend_process(Process *c_p, Process *p, int pause_proc_timer)
 {
     erts_aint32_t state;
     int suspended = 0;
-    ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
+    ErtsProcLocks locks = ERTS_PROC_LOCK_STATUS;
+    ERTS_LC_ASSERT(locks & erts_proc_lc_my_proc_locks(p));
 
     state = erts_atomic32_read_acqb(&p->state);
 
@@ -7172,6 +7214,10 @@ suspend_process(Process *c_p, Process *p)
 	}
 
 	p->rcount++;  /* count number of suspend */
+
+        if (pause_proc_timer) {
+            schedule_pause_proc_timer(p, locks);
+        }
     }
 
     return suspended;
@@ -7191,15 +7237,18 @@ resume_process(Process *p, ErtsProcLocks locks)
 	return;
 
     state = erts_atomic32_read_nob(&p->state);
+    if (state & ERTS_PSFLG_PAUSED_TIMER) {
+        schedule_unpause_proc_timer(p->common.id, locks);
+    }
+
     enqueue = change_proc_schedule_state(p,
-					 ERTS_PSFLG_SUSPENDED,
-					 0,
-					 &state,
-					 &enq_prio,
-					 locks);
+                                         ERTS_PSFLG_SUSPENDED,
+                                         0,
+                                         &state,
+                                         &enq_prio,
+                                         locks);
     add2runq(enqueue, enq_prio, p, state, NULL);
 }
-
 
 static ERTS_INLINE void
 sched_resume_wake__(ErtsSchedulerSleepInfo *ssi)
@@ -8131,7 +8180,7 @@ erts_set_schedulers_online(Process *p,
 	 */
 	if (!(plocks & ERTS_PROC_LOCK_STATUS))
 	    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-	suspend_process(p, p);
+	suspend_process(p, p, 0 /* no pause timer */);
 	if (!(plocks & ERTS_PROC_LOCK_STATUS))
 	    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     }
@@ -8389,7 +8438,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
 	resume_proc = 1;
 	if (!(plocks & ERTS_PROC_LOCK_STATUS))
 	    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-	suspend_process(p, p);
+	suspend_process(p, p, 0 /* no pause timer */);
 	if (!(plocks & ERTS_PROC_LOCK_STATUS))
 	    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     }
@@ -8894,7 +8943,9 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
     int sync = 0;
     int async = 0;
     int unless_suspending = 0;
-    erts_aint_t mstate;
+    int pause_proc_timer = 0;
+    int proc_timer_already_paused = 0;
+    erts_aint64_t mstate;
     ErtsMonitorSuspend *msp;
     ErtsMonitorData *mdp;
 
@@ -8918,6 +8969,9 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 	    case am_asynchronous:
 		async = 1;
 		break;
+            case am_pause_proc_timer:
+                pause_proc_timer = 1;
+                break;
 	    default: {
                 if (is_tuple_arity(arg, 2)) {
                     Eterm *tp = tuple_val(arg);
@@ -8948,7 +9002,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         mdp = erts_monitor_to_data(mon);
         msp = (ErtsMonitorSuspend *) mdp;
 
-        mstate = erts_atomic_inc_read_relb(&msp->state);
+        mstate = erts_atomic64_inc_read_relb(&msp->state);
         ASSERT(suspend || (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 1);
         sync = !async & !suspend & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
         suspend = !!suspend; /* ensure 0|1 */
@@ -8962,7 +9016,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
             mdp = erts_monitor_to_data(mon);
             msp = (ErtsMonitorSuspend *) mdp;
-            mstate = erts_atomic_read_nob(&msp->state);
+            mstate = erts_atomic64_read_nob(&msp->state);
             ASSERT((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 0);
             mdp = NULL;
             sync = !async & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
@@ -8976,11 +9030,18 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
             mon = &mdp->origin;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P), mon);
             msp = (ErtsMonitorSuspend *) mdp;
-            mstate = erts_atomic_inc_read_relb(&msp->state);
+            mstate = erts_atomic64_inc_read_relb(&msp->state);
             ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE));
             suspend = !0;
             res = am_true;
         }
+    }
+
+    if (pause_proc_timer) {
+        erts_aint64_t already_paused_flags = ERTS_MSUSPEND_STATE_FLG_PAUSE_TIMER
+                                            | ERTS_MSUSPEND_STATE_FLG_ACTIVE;
+        mstate = erts_atomic64_read_bor_nob(&msp->state, ERTS_MSUSPEND_STATE_FLG_PAUSE_TIMER);
+        proc_timer_already_paused = (mstate & already_paused_flags) == already_paused_flags;
     }
 
     if (suspend) {
@@ -9003,11 +9064,11 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         if (rp == ERTS_PROC_LOCK_BUSY)
             send_sig = !0;
         else {
-            send_sig = !suspend_process(BIF_P, rp);
+            send_sig = !suspend_process(BIF_P, rp, pause_proc_timer);
             if (!send_sig) {
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
-                erts_atomic_read_bor_relb(&msp->state,
-                                          ERTS_MSUSPEND_STATE_FLG_ACTIVE);
+                erts_atomic64_read_bor_relb(&msp->state,
+                                            ERTS_MSUSPEND_STATE_FLG_ACTIVE);
             }
             erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
         }
@@ -9024,6 +9085,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
                     res = am_badarg;
             }
         }
+    } else if (pause_proc_timer && !proc_timer_already_paused) {
+        Process *rp = erts_proc_lookup(BIF_ARG_1);
+        erts_proc_lock(rp, ERTS_PROC_LOCK_STATUS);
+
+        schedule_pause_proc_timer(rp, ERTS_PROC_LOCK_STATUS);
+
+        erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
     }
 
     if (sync) {
@@ -9048,8 +9116,8 @@ resume_process_1(BIF_ALIST_1)
 {
     ErtsMonitor *mon;
     ErtsMonitorSuspend *msp;
-    erts_aint_t mstate;
- 
+    erts_aint64_t mstate;
+
     if (BIF_P->common.id == BIF_ARG_1)
 	BIF_ERROR(BIF_P, BADARG);
 
@@ -9066,7 +9134,7 @@ resume_process_1(BIF_ALIST_1)
     ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
     msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
 
-    mstate = erts_atomic_dec_read_relb(&msp->state);
+    mstate = erts_atomic64_dec_read_relb(&msp->state);
 
     ASSERT((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) >= 0);
 
@@ -9226,13 +9294,13 @@ erts_process_status(Process *rp, Eterm rpid)
 }
 
 /*
-** Suspend a currently executing process 
+** Suspend a currently executing process
 ** If we are to suspend on a port the busy_port is the thing
 ** otherwise busy_port is NIL
 */
 
 void
-erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
+erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port, int pause_proc_timer)
 {
     int suspend;
 #ifdef DEBUG
@@ -9252,7 +9320,7 @@ erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
 	suspend = 1;
 
     if (suspend) {
-	int res = suspend_process(c_p, c_p);
+	int res = suspend_process(c_p, c_p, pause_proc_timer);
 	ASSERT(res); (void)res;
     }
 
@@ -10835,7 +10903,8 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 
             fail_state = ERTS_PSFLG_EXITING;
 
-            if (schedule_process_sys_task(c_p, st_prio, st, &fail_state)) {
+            if (schedule_process_sys_task(c_p, st_prio, st, &fail_state,
+                                          ERTS_PROC_LOCK_MAIN)) {
                 /* Successfully rescheduled task... */
                 st = NULL;
             }
@@ -10846,6 +10915,17 @@ execute_sys_tasks(Process *c_p, erts_aint32_t *statep, int in_reds)
 
             break;
         }
+        case ERTS_PSTT_TIMER_PAUSE:
+            erts_pause_proc_timer(c_p);
+            st = NULL;
+            break;
+        case ERTS_PSTT_TIMER_UNPAUSE:
+            if (erts_resume_paused_proc_timer(c_p)) {
+                erts_atomic32_read_band_acqb(&c_p->state,
+                                             ~ERTS_PSFLG_PAUSED_TIMER);
+            };
+            st = NULL;
+            break;
         case ERTS_PSTT_TEST:
             st_res = am_true;
             break;
@@ -11355,7 +11435,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	 * signal order...
 	 */
     }
-    if (!schedule_process_sys_task(rp, prio, st, &fail_state)) {
+    if (!schedule_process_sys_task(rp, prio, st, &fail_state, 0)) {
 	if (fail_state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE)) {
 	noproc:
 	    notify_sys_task_executed(c_p, st, noproc_res, 1);
@@ -11414,7 +11494,7 @@ sched_sig_sys_task(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp)
 	ERTS_INTERNAL_ERROR("system task not supported as signal");
 	break;
     }
-    if (!schedule_process_sys_task(c_p, prio, st, &fail_state)) {
+    if (!schedule_process_sys_task(c_p, prio, st, &fail_state, 0)) {
 	if (fail_state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE))
 	    notify_sys_task_executed(c_p, st, am_false, 1);
 	else if (fail_state & ERTS_PSFLG_DIRTY_RUNNING) {
@@ -11496,7 +11576,7 @@ erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check)
     state = erts_atomic32_read_nob(&rp->state);
     st_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
 
-    if (!schedule_process_sys_task(rp, st_prio, st, &fail_state)) {
+    if (!schedule_process_sys_task(rp, st_prio, st, &fail_state, 0)) {
     noproc:
         (void) notify_sys_task_executed(c_p, st, am_ok, 1);
     }
@@ -11504,7 +11584,8 @@ erts_schedule_cla_gc(Process *c_p, Eterm to, Eterm req_id, int check)
 
 static int
 schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
-                          int prio, Eterm arg0, Eterm arg1)
+                          int prio, Eterm arg0, Eterm arg1,
+                          ErtsProcLocks locks)
 {
     int res = 0;
     Process *rp = erts_proc_lookup_raw(pid);
@@ -11532,7 +11613,7 @@ schedule_generic_sys_task(Eterm pid, ErtsProcSysTaskType type,
             st_prio = ERTS_PSFLGS_GET_USR_PRIO(state);
             fail_state = ERTS_PSFLG_EXITING;
         }
-        res = schedule_process_sys_task(rp, st_prio, st, &fail_state);
+        res = schedule_process_sys_task(rp, st_prio, st, &fail_state, locks);
 	if (!res)
 	    erts_free(ERTS_ALC_T_PROC_SYS_TSK, st);
     }
@@ -11543,14 +11624,14 @@ void
 erts_schedule_ets_free_fixation(Eterm pid, DbFixation* fix)
 {
     schedule_generic_sys_task(pid, ERTS_PSTT_ETS_FREE_FIXATION,
-                              -1, (Eterm) fix, NIL);
+                              -1, (Eterm) fix, NIL, 0);
 }
 
 int
 erts_sig_prio(Eterm pid, int prio)
 {
     return schedule_generic_sys_task(pid, ERTS_PSTT_PRIO_SIG,
-                                     prio, am_false, NIL);
+                                     prio, am_false, NIL, 0);
 }
 
 static void
@@ -11591,7 +11672,7 @@ erts_schedule_flush_trace_messages(Process *proc, int force_on_proc)
 
     dhndl = erts_thr_progress_unmanaged_delay();
 
-    schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ, -1, NIL, NIL);
+    schedule_generic_sys_task(pid, ERTS_PSTT_FTMQ, -1, NIL, NIL, 0);
 
     erts_thr_progress_unmanaged_continue(dhndl);
 

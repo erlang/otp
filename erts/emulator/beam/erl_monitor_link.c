@@ -1046,7 +1046,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         mdp->u.target.type = type;
 
         msp->next = NULL;
-        erts_atomic_init_relb(&msp->state, 0);
+        erts_atomic64_init_relb(&msp->state, 0);
         erts_atomic32_init_nob(&mdp->refc, 2);
         break;
     }

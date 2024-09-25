@@ -5845,6 +5845,10 @@ Options (`Opt`s):
   Apart from the reply message, the `{asynchronous, ReplyTag}` option behaves
   exactly the same as the `asynchronous` option without reply tag.
 
+- **`pause_proc_timer`** - If `Suspendee` is waiting on a message, pause the timer
+  associated with the `after` clause. The timer will be resumed when the process
+  is unsuspended.
+
 - **`unless_suspending`** - The process identified by `Suspendee` is suspended
   unless the calling process already is suspending `Suspendee`. If
   `unless_suspending` is combined with option `asynchronous`, a suspend request
@@ -5891,7 +5895,8 @@ Failures:
 -spec suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
       OptList :: [Opt],
-      Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
+      Opt :: unless_suspending | pause_proc_timer
+           | asynchronous | {asynchronous, term()}.
 suspend_process(Suspendee, OptList) ->
     case case erts_internal:suspend_process(Suspendee, OptList) of
 	     Ref when erlang:is_reference(Ref) ->
