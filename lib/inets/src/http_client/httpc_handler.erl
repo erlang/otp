@@ -482,7 +482,6 @@ do_handle_info({Proto, _Socket, Data},
   when (Proto =:= tcp) orelse 
        (Proto =:= ssl) orelse 
        (Proto =:= httpc_handler) ->
-
     try Module:Function([Data | Args]) of
 	{ok, Result} ->
 	    handle_http_msg(Result, State); 
@@ -1319,11 +1318,12 @@ handle_server_closing(State = #state{headers = Headers}) ->
         false -> State
     end.
 
-answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{session      = Session, 
-		      timers       = Timers, 
-		      profile_name = ProfileName} = State) -> 
-    httpc_response:send(From, Msg),
+answer_request(#request{id = RequestId, from = From, request_options = Options} = Request, Msg,
+               #state{session      = Session,
+                      timers       = Timers,
+                  profile_name = ProfileName} = State) ->
+    Answer = format_answer(Msg, Options),
+    httpc_response:send(From, Answer),
     RequestTimers = Timers#timers.request_timers,
     TimerRef =
 	proplists:get_value(RequestId, RequestTimers, undefined),
@@ -1716,6 +1716,42 @@ format_address({[$[|T], Port}) ->
     {Address, Port};
 format_address(HostPort) ->
     HostPort.
+
+format_answer(Res, Options) ->
+    FullResult = proplists:get_value(full_result, Options, true),
+    Sync = proplists:get_value(sync, Options, true),
+    do_format_answer(Res, FullResult, Sync).
+do_format_answer({Ref, StatusLine}, _, Sync) when is_atom(StatusLine) ->
+    case Sync of
+        true ->
+            {Ref, {ok, StatusLine}};
+        _ ->
+            {Ref, StatusLine}
+    end;
+do_format_answer({Ref, StatusLine, Headers}, _, Sync) when is_atom(StatusLine) ->
+    case Sync of
+        true ->
+            {Ref, {ok, {StatusLine, Headers}}};
+        _ ->
+            {Ref, StatusLine, Headers}
+    end;
+do_format_answer({Ref, {StatusLine, Headers, BinBody}}, true, Sync) ->
+    case Sync of
+        true ->
+            {Ref, {ok, {StatusLine, Headers, BinBody}}};
+        _ ->
+            {Ref, {StatusLine, Headers, BinBody}}
+    end;
+do_format_answer({Ref, {StatusLine, _, BinBody}}, false, Sync) ->
+    {_, Status, _} = StatusLine,
+    case Sync of
+        true ->
+            {Ref, {ok, {Status, BinBody}}};
+        _ ->
+            {Ref, {Status, BinBody}}
+    end;
+do_format_answer({Ref, {error, _Reason} = Error}, _, _) ->
+    {Ref, Error}.
 
 clobber_and_retry(#state{session = #session{id = Id,
                                             type = Type},
