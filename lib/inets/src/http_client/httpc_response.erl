@@ -151,7 +151,7 @@ result(Response = {{_,Code,_}, _, _}, Request) when (Code div 100) =:= 5 ->
 result(Response, Request) -> 
     transparent(Response, Request).
 
-send(Receiver, Msg) when is_pid(Receiver) ->
+send(Receiver, Msg) when is_pid(Receiver); is_reference(Receiver) ->
     Receiver ! {http, Msg};
 send(Receiver, Msg) when is_function(Receiver) ->
     (catch Receiver(Msg));
