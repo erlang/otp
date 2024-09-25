@@ -1918,7 +1918,7 @@ client_signature_schemes(ClientHashSigns, undefined) ->
     ClientHashSigns;
 client_signature_schemes(_, #signature_algorithms_cert{
                                signature_scheme_list = ClientSignatureSchemes}) ->
-    ClientSignatureSchemes.
+    ssl_cipher:signature_schemes_1_2(ClientSignatureSchemes).
 
 
 %%--------------------------------------------------------------------
