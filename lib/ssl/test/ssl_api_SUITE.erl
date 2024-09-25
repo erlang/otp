@@ -1384,12 +1384,14 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     AllClientOpts = StartClientOpts ++
         [{port, Port},
          {options, [{hibernate_after, ClientHibernateAfter} | ClientOpts0]}],
-    {Client, #sslsocket{pid = [ClientReceiverPid | ClientPotentialSenderPid]}} =
+    {Client, #sslsocket{connection_handler = ClientReceiverPid,
+                        payload_sender = ClientPotentialSenderPid}} =
         ssl_test_lib:start_client(AllClientOpts),
     Results = ssl_test_lib:get_result([Client, Server]),
     {ok, ServerAcceptSocket} = proplists:get_value(Server, Results),
     ok = proplists:get_value(Client, Results),
-    #sslsocket{pid = [ServerReceiverPid | ServerPotentialSenderPid]} =
+    #sslsocket{connection_handler = ServerReceiverPid,
+               payload_sender = ServerPotentialSenderPid} =
         ServerAcceptSocket,
     {ReceiverPid, PotentialSenderPid, HibernateAfter} =
         case CheckServer of
@@ -1402,11 +1404,11 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     ?CT_LOG("HibernateAfter = ~w SleepAmount = ~w", [HibernateAfter, SleepAmount]),
     ct:sleep(SleepAmount), %% Schedule out
     {current_function, {erlang, hibernate, 3}} =
-	process_info(ReceiverPid, current_function),
+        process_info(ReceiverPid, current_function),
     IsTls = ssl_test_lib:is_tls_version(Version),
     case IsTls of
         true ->
-            [SenderPid] = PotentialSenderPid,
+            SenderPid = PotentialSenderPid,
             {current_function, {erlang, hibernate, 3}} =
                 process_info(SenderPid, current_function);
         _ -> %% DTLS (no sender process)

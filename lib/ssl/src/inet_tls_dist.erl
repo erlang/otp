@@ -100,7 +100,7 @@ hs_data_inet_tcp(Driver, Socket) ->
                     }
           end}.
 
-hs_data_ssl(Family, #sslsocket{pid = [_, DistCtrl|_]} = SslSocket) ->
+hs_data_ssl(Family, #sslsocket{payload_sender = DistCtrl} = SslSocket) ->
     {ok, Address} =
         maybe
             {error, einval} ?= ssl:peername(SslSocket),
@@ -347,7 +347,7 @@ accept_one(Family, Socket, NetKernel) ->
           net_kernel:connecttime())
     of
         {ok, SslSocket} ->
-            Receiver = hd(SslSocket#sslsocket.pid),
+            Receiver = SslSocket#sslsocket.connection_handler,
             case KTLS of
                 true ->
                     {ok, KtlsInfo} = ssl_gen_statem:ktls_handover(Receiver),
@@ -512,7 +512,7 @@ do_accept(
             Timer = dist_util:start_timer(SetupTime),
             {HSData0, NewAllowed} =
                 case DistSocket of
-                    SslSocket = #sslsocket{pid = [_Receiver, Sender| _]} ->
+                    SslSocket = #sslsocket{payload_sender = Sender} ->
                         link(Sender),
                         {hs_data_ssl(Family, SslSocket),
                          allowed_nodes(SslSocket, Allowed)};
@@ -647,7 +647,7 @@ do_setup(
     KTLS = proplists:get_value(ktls, Opts, false),
     dist_util:reset_timer(Timer),
     maybe
-        {ok, #sslsocket{pid = [Receiver, Sender| _]} = SslSocket} ?=
+        {ok, #sslsocket{connection_handler = Receiver, payload_sender = Sender} = SslSocket} ?=
             ssl:connect(Ip, PortNum, Opts, net_kernel:connecttime()),
         HSData =
             case KTLS of

@@ -60,6 +60,7 @@
 
 -include("ssl_test_lib.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_api.hrl").
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -430,7 +431,8 @@ client_restarts(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
+                       connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
@@ -514,24 +516,23 @@ client_restarts_multiple_acceptors(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun({sslsocket, {gen_udp,_,dtls_gen_connection}, [Pid]} = Socket, ssl) ->
+        fun(#sslsocket{connection_cb = dtls_gen_connection,
+                       connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
                 ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
-
                 {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
                              ssl = SslOpts0}} =
                     ssl:handle_options(ClientOpts, client, Address),
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
-
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
                 {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
                                                          SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
         end,
-
+ 
     Client0 ! {apply, self(), ReConnect},
     receive
         {apply_res, {replace, Res}} ->

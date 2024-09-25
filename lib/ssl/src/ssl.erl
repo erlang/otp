@@ -205,7 +205,6 @@ Special Erlang node configuration for the application can be found in
 
 -doc(#{title => <<"Socket">>}).
 -doc """
-
 A socket that can be used to perform a so-called "START-TLS", which
 means using an already connected socket previously used for plain TCP
 traffic and upgrading it to use TLS.
@@ -1168,7 +1167,7 @@ There are two implementations available:
   automatically fetched through HTTP if the following argument is
   specified:
 
-  - **`{http, timeout()}`**
+- **`{http, timeout()}`**
 
     Enables fetching of CRLs specified as http URIs in [X.509 certificate
     extensions](`e:public_key:public_key_records.md`). Requires the
@@ -2080,7 +2079,10 @@ start(Type) ->
 	    Other
     end.
 %%--------------------------------------------------------------------
--doc "Stops the SSL application.".
+-doc """
+Stops the SSL application.
+""".
+
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec stop() -> ok.
@@ -2186,6 +2188,7 @@ If the `active` option is set to `once`, `true`, or an integer value, the proces
 owning the SSL socket will receive messages of type
 [`active_msgs()`](`t:active_msgs/0`).
 """.
+
 -spec connect(Host, Port, TLSOptions, Timeout) ->
           {ok, sslsocket()} |
           {ok, sslsocket(),Ext :: protocol_extensions()} |
@@ -2273,8 +2276,8 @@ connection is accepted within the given time, `{error, timeout}` is returned.
       SslSocket :: sslsocket(),
       Reason :: reason().
 
-transport_accept(#sslsocket{pid = {ListenSocket,
-				   #config{connection_cb = ConnectionCb} = Config}}, Timeout)
+transport_accept(#sslsocket{socket_handle = ListenSocket,
+                            listener_config = #config{connection_cb = ConnectionCb} = Config}, Timeout)
   when ?IS_TIMEOUT(Timeout) ->
     case ConnectionCb of
 	tls_gen_connection ->
@@ -2333,8 +2336,8 @@ handshake(HsSocket, Options, infinity).
       Ext :: protocol_extensions(),
       Reason :: closed | timeout | error_alert().
 
-handshake(#sslsocket{} = Socket, Timeout)
-  when ?IS_TIMEOUT(Timeout) ->
+handshake(#sslsocket{connection_handler = Controller} = Socket, Timeout)
+  when ?IS_TIMEOUT(Timeout), is_pid(Controller) ->
     ssl_gen_statem:handshake(Socket, Timeout);
 
 handshake(ListenSocket, SslOptions) ->
@@ -2389,8 +2392,9 @@ owning the [`sslsocket()`](`t:sslsocket/0`) will receive messages of type
 handshake(#sslsocket{} = Socket, [], Timeout)
   when ?IS_TIMEOUT(Timeout) ->
     handshake(Socket, Timeout);
-handshake(#sslsocket{fd = {_, _, _, Trackers}} = Socket, SslOpts, Timeout)
-  when is_list(SslOpts), ?IS_TIMEOUT(Timeout) ->
+handshake(#sslsocket{connection_cb = tls_gen_connection,
+                     listener_config = Trackers} = Socket, SslOpts, Timeout)
+  when is_list(SslOpts), is_list(Trackers), ?IS_TIMEOUT(Timeout) ->
     try
         Tracker = proplists:get_value(option_tracker, Trackers),
 	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
@@ -2399,10 +2403,10 @@ handshake(#sslsocket{fd = {_, _, _, Trackers}} = Socket, SslOpts, Timeout)
     catch
 	Error = {error, _Reason} -> Error
     end;
-handshake(#sslsocket{pid = [Pid|_], fd = {_, _, _}} = Socket, SslOpts, Timeout)
+handshake(#sslsocket{socket_handle = {Controller,_}, connection_cb = dtls_gen_connection} = Socket, SslOpts, Timeout)
   when is_list(SslOpts), ?IS_TIMEOUT(Timeout) ->
     try
-        {ok, EmOpts, _} = dtls_packet_demux:get_all_opts(Pid),
+        {ok, EmOpts, _} = dtls_packet_demux:get_all_opts(Controller),
 	ssl_gen_statem:handshake(Socket, {SslOpts,
                                           tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
     catch
@@ -2474,12 +2478,15 @@ handshake_cancel(Socket) ->
       SslSocket :: sslsocket(),
       Reason :: any().
 %%--------------------------------------------------------------------
-close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
-    ssl_gen_statem:close(Pid, {close, ?DEFAULT_TIMEOUT});
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen) ->
+close(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}} = DTLSListen) ->
     dtls_socket:close_listen(DTLSListen, ?DEFAULT_TIMEOUT);
-close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
-    Transport:close(ListenSocket).
+close(#sslsocket{socket_handle = ListenSocket,
+                 listener_config = #config{connection_cb = tls_gen_connection,
+                                           transport_info = Info}}) ->
+    Transport = element(1, Info),
+    Transport:close(ListenSocket);
+close(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
+    ssl_gen_statem:close(Controller, {close, ?DEFAULT_TIMEOUT}).
 
 %%--------------------------------------------------------------------
 -doc """
@@ -2503,22 +2510,25 @@ connection.
       Reason :: any().
 
 %%--------------------------------------------------------------------
-close(#sslsocket{pid = [TLSPid|_]}, {Pid, Timeout} = DownGrade)
-  when is_pid(TLSPid), is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
-    case ssl_gen_statem:close(TLSPid, {close, DownGrade}) of
+close(#sslsocket{connection_handler = Controller}, {Pid, Timeout} = DownGrade)
+  when is_pid(Controller), is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
+    case ssl_gen_statem:close(Controller, {close, DownGrade}) of
         ok -> %% In normal close {error, closed} is regarded as ok, as it is not interesting which side
             %% that got to do the actual close. But in the downgrade case only {ok, Port} is a success.
             {error, closed};
         Other ->
             Other
     end;
-close(#sslsocket{pid = [TLSPid|_]}, Timeout)
-  when is_pid(TLSPid), ?IS_TIMEOUT(Timeout) ->
-    ssl_gen_statem:close(TLSPid, {close, Timeout});
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen, Timeout)
+close(#sslsocket{connection_handler = Controller}, Timeout)
+  when is_pid(Controller), ?IS_TIMEOUT(Timeout) ->
+    ssl_gen_statem:close(Controller, {close, Timeout});
+close(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}} = DTLSListen, Timeout)
   when ?IS_TIMEOUT(Timeout) ->
     dtls_socket:close_listen(DTLSListen, Timeout);
-close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
+close(#sslsocket{socket_handle = ListenSocket, 
+                 listener_config = #config{connection_cb = tls_gen_connection,
+                                           transport_info = Info}}, _) ->
+    Transport = element(1, Info),
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
@@ -2533,15 +2543,16 @@ A notable return value is `{error, closed}` indicating that the socket is
 closed.
 """.
 %%--------------------------------------------------------------------
-send(#sslsocket{pid = [Pid]}, Data) when is_pid(Pid) ->
-    ssl_gen_statem:send(Pid, Data);
-send(#sslsocket{pid = [_, Pid]}, Data) when is_pid(Pid) ->
-    tls_sender:send_data(Pid,  erlang:iolist_to_iovec(Data));
-send(#sslsocket{pid = {_, #config{transport_info={_, udp, _, _}}}}, _) ->
+send(#sslsocket{payload_sender = Sender,
+                connection_cb = dtls_gen_connection}, Data) when is_pid(Sender) ->
+    ssl_gen_statem:send(Sender, Data);
+send(#sslsocket{payload_sender = Sender,
+                connection_cb = tls_gen_connection}, Data) when is_pid(Sender) ->
+    tls_sender:send_data(Sender,  erlang:iolist_to_iovec(Data));
+send(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
-send(#sslsocket{pid = {dtls,_}}, _) ->
-    {error,enotconn};  %% Emulate connection behaviour
-send(#sslsocket{pid = {ListenSocket, #config{transport_info = Info}}}, Data) ->
+send(#sslsocket{socket_handle = ListenSocket, 
+                listener_config = #config{transport_info = Info}}, Data) ->
     Transport = element(1, Info),
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
@@ -2580,13 +2591,13 @@ Optional argument `Timeout` specifies a time-out in milliseconds. The default
 value is `infinity`.
 """.
 
-recv(#sslsocket{pid = [Pid|_]}, Length, Timeout)
-  when is_pid(Pid), (is_integer(Length) andalso Length >= 0), ?IS_TIMEOUT(Timeout) ->
-    ssl_gen_statem:recv(Pid, Length, Timeout);
-recv(#sslsocket{pid = {dtls,_}}, _, _) ->
+recv(#sslsocket{connection_handler = Controller}, Length, Timeout)
+  when is_pid(Controller), (is_integer(Length) andalso Length >= 0), ?IS_TIMEOUT(Timeout) ->
+    ssl_gen_statem:recv(Controller, Length, Timeout);
+recv(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}}, _, _) ->
     {error,enotconn};
-recv(#sslsocket{pid = {Listen,
-		       #config{transport_info = Info}}},_,_) ->
+recv(#sslsocket{socket_handle = Listen,
+                listener_config = #config{transport_info = Info}},_,_) ->
     Transport = element(1, Info),
     Transport:recv(Listen, 0). %% {error,enotconn}
 
@@ -2598,26 +2609,27 @@ Assigns a new controlling process to the SSL socket.
 A controlling process is the owner of an SSL socket and receives all
 messages from the socket.
 """.
--spec controlling_process(SslSocket, NewOwner) -> ok | {error, Reason} when
+-spec controlling_process(SslSocket, NewController) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
-      NewOwner :: pid(),
+      NewController :: pid(),
       Reason :: any().
 %%
 %% Description: Changes process that receives the messages when active = true
 %% or once.
 %%--------------------------------------------------------------------
-controlling_process(#sslsocket{pid = [Pid|_]}, NewOwner)
-  when is_pid(Pid), is_pid(NewOwner) ->
-    ssl_gen_statem:new_user(Pid, NewOwner);
-controlling_process(#sslsocket{pid = {dtls, _}}, NewOwner)
-  when is_pid(NewOwner) ->
+controlling_process(#sslsocket{connection_handler = Controller}, NewController)
+  when is_pid(Controller), is_pid(NewController) ->
+    ssl_gen_statem:new_user(Controller, NewController);
+controlling_process(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}}, NewController)
+  when is_pid(NewController) ->
     ok; %% Meaningless but let it be allowed to conform with TLS 
-controlling_process(#sslsocket{pid = {Listen,
-				      #config{transport_info = {Transport,_,_,_,_}}}},
-		    NewOwner)
-  when is_pid(NewOwner) ->
+controlling_process(#sslsocket{socket_handle = Listen,
+                               listener_config = #config{transport_info = Info}},
+		    NewController)
+  when is_pid(NewController) ->
+    Transport = element(1, Info),
     %% Meaningless but let it be allowed to conform with normal sockets
-    Transport:controlling_process(Listen, NewOwner).
+    Transport:controlling_process(Listen, NewController).
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>}).
@@ -2640,14 +2652,14 @@ that affect the security of the connection will be returned.
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
-connection_information(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) -> 
-    case ssl_gen_statem:connection_information(Pid, false) of
+connection_information(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
+    case ssl_gen_statem:connection_information(Controller, false) of
 	{ok, Info} ->
 	    {ok, [Item || Item = {_Key, Value} <- Info,  Value =/= undefined]};
 	Error ->
             Error
     end;
-connection_information(#sslsocket{pid = {_Listen, #config{}}}) ->
+connection_information(#sslsocket{listener_config = #config{}}) ->
     {error, enotconn}.
 %%--------------------------------------------------------------------
 -doc """
@@ -2674,9 +2686,9 @@ set to `true`.
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
-connection_information(#sslsocket{pid = [Pid|_]}, Items)
-  when is_pid(Pid), is_list(Items) ->
-    case ssl_gen_statem:connection_information(Pid, include_security_info(Items)) of
+connection_information(#sslsocket{connection_handler = Controller}, Items)
+  when is_pid(Controller), is_list(Items) ->
+    case ssl_gen_statem:connection_information(Controller, include_security_info(Items)) of
         {ok, Info} ->
             {ok, [Item || Item = {Key, Value} <- Info,  lists:member(Key, Items),
 			  Value =/= undefined]};
@@ -2695,16 +2707,23 @@ connection_information(#sslsocket{pid = [Pid|_]}, Items)
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
-peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_}}) when is_pid(Pid)->
+peername(#sslsocket{connection_handler = Controller, connection_cb = dtls_gen_connection,
+                    transport_cb = Transport,
+                    socket_handle = Socket}) when is_pid(Controller)->
     dtls_socket:peername(Transport, Socket);
-peername(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_,_}}) when is_pid(Pid)->
+peername(#sslsocket{connection_handler = Controller, connection_cb = tls_gen_connection,
+                    transport_cb = Transport,
+                    socket_handle = Socket}) when is_pid(Controller)->
     tls_socket:peername(Transport, Socket);
-peername(#sslsocket{pid = {dtls, #config{dtls_handler = {_Pid,_}}}}) ->
-    dtls_socket:peername(dtls, undefined);
-peername(#sslsocket{pid = {ListenSocket,  #config{transport_info = {Transport,_,_,_,_}}}}) ->
-    tls_socket:peername(Transport, ListenSocket); %% Will return {error, enotconn}
-peername(#sslsocket{pid = {dtls,_}}) ->
-    {error,enotconn}.
+peername(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
+                                              transport_info = Info}}) ->
+    Transport = element(1, Info),
+    dtls_socket:peername(Transport, undefined);  %% Will return {error, enotconn}
+peername(#sslsocket{socket_handle = ListenSocket,  
+                    listener_config = #config{connection_cb = tls_gen_connection,
+                                             transport_info = Info}}) ->
+    Transport = element(1, Info),
+    tls_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>}).
@@ -2722,16 +2741,14 @@ and [SSL User's Guide](standards_compliance.md).
 %%
 %% Description: Returns the peercert.
 %%--------------------------------------------------------------------
-peercert(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
-    case ssl_gen_statem:peer_certificate(Pid) of
+peercert(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
+    case ssl_gen_statem:peer_certificate(Controller) of
 	{ok, undefined} ->
 	    {error, no_peercert};
         Result ->
 	    Result
     end;
-peercert(#sslsocket{pid = {dtls, _}}) ->
-    {error, enotconn};
-peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
+peercert(#sslsocket{listener_config = #config{}}) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -2746,8 +2763,8 @@ peercert(#sslsocket{pid = {_Listen, #config{}}}) ->
 %% Description: Returns the protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, protocol_not_negotiated}
 %%--------------------------------------------------------------------
-negotiated_protocol(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
-    ssl_gen_statem:negotiated_protocol(Pid).
+negotiated_protocol(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
+    ssl_gen_statem:negotiated_protocol(Controller).
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>,
@@ -3061,17 +3078,21 @@ groups(default) ->
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>}).
--doc "Gets the values of the specified socket options.".
+-doc """
+Gets the values of the specified socket options.
+""".
 -spec getopts(SslSocket, OptionNames) ->
           {ok, [gen_tcp:option()]} | {error, reason()} when
       SslSocket :: sslsocket(),
       OptionNames :: [gen_tcp:option_name()].
 %%--------------------------------------------------------------------
-getopts(#sslsocket{pid = [Pid|_]}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
-    ssl_gen_statem:get_opts(Pid, OptionTags);
-getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket,
+getopts(#sslsocket{connection_handler = Controller}, OptionTags) when is_pid(Controller), is_list(OptionTags) ->
+    ssl_gen_statem:get_opts(Controller, OptionTags);
+getopts(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
+                                             transport_info = Info}} = ListenSocket,
         OptionTags)
   when is_list(OptionTags) ->
+    Transport = element(1, Info),
     try dtls_socket:getopts(Transport, ListenSocket, OptionTags) of
         {ok, _} = Result ->
             Result;
@@ -3081,8 +3102,10 @@ getopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} 
 	_:Error ->
 	    {error, {options, {socket_options, OptionTags, Error}}}
     end;
-getopts(#sslsocket{pid = {_,  #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket,
+getopts(#sslsocket{listener_config = #config{connection_cb = tls_gen_connection,
+                                             transport_info = Info}} = ListenSocket,
 	OptionTags) when is_list(OptionTags) ->
+    Transport = element(1, Info),
     try tls_socket:getopts(Transport, ListenSocket, OptionTags) of
 	{ok, _} = Result ->
 	    Result;
@@ -3102,19 +3125,20 @@ getopts(#sslsocket{}, OptionTags) ->
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
 %%--------------------------------------------------------------------
-setopts(#sslsocket{pid = [Pid|_]}, [{active, _}] = Active) when is_pid(Pid) ->
-    ssl_gen_statem:set_opts(Pid, Active);
-setopts(#sslsocket{pid = [Pid, Sender]}, Options0) when is_pid(Pid), is_list(Options0)  ->
+setopts(#sslsocket{connection_handler = Controller}, [{active, _}] = Active) when is_pid(Controller) ->
+    ssl_gen_statem:set_opts(Controller, Active);
+setopts(#sslsocket{connection_handler = Controller, payload_sender = Sender,
+                   connection_cb = tls_gen_connection}, Options0) when is_pid(Controller), is_list(Options0)  ->
     try proplists:expand([{binary, [{mode, binary}]},
 			  {list, [{mode, list}]}], Options0) of
         Options ->
             case proplists:get_value(packet, Options, undefined) of
                 undefined ->
-                    ssl_gen_statem:set_opts(Pid, Options);
+                    ssl_gen_statem:set_opts(Controller, Options);
                 PacketOpt ->
                     case tls_sender:setopts(Sender, [{packet, PacketOpt}]) of
                         ok ->
-                            ssl_gen_statem:set_opts(Pid, Options);
+                            ssl_gen_statem:set_opts(Controller, Options);
                         Error ->
                             Error
                     end
@@ -3123,18 +3147,20 @@ setopts(#sslsocket{pid = [Pid, Sender]}, Options0) when is_pid(Pid), is_list(Opt
         _:_ ->
             {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{pid = [Pid|_]}, Options0) when is_pid(Pid), is_list(Options0)  ->
+setopts(#sslsocket{connection_handler = Controller}, Options0) when is_pid(Controller), is_list(Options0)  ->
     try proplists:expand([{binary, [{mode, binary}]},
 			  {list, [{mode, list}]}], Options0) of
 	Options ->
-	    ssl_gen_statem:set_opts(Pid, Options)
+	    ssl_gen_statem:set_opts(Controller, Options)
     catch
 	_:_ ->
 	    {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket,
+setopts(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
+                                             transport_info = Info}} = ListenSocket,
         Options)
   when is_list(Options) ->
+    Transport = element(1, Info),
     try dtls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -3144,8 +3170,10 @@ setopts(#sslsocket{pid = {dtls, #config{transport_info = {Transport,_,_,_,_}}}} 
 	_:Error ->
 	    {error, {options, {socket_options, Options, Error}}}
     end;
-setopts(#sslsocket{pid = {_, #config{transport_info = {Transport,_,_,_,_}}}} = ListenSocket, Options)
+setopts(#sslsocket{listener_config = #config{connection_cb = tls_gen_connection,
+                                             transport_info = Info}} = ListenSocket, Options)
   when is_list(Options) ->
+    Transport = element(1, Info),
     try tls_socket:setopts(Transport, ListenSocket, Options) of
 	ok ->
 	    ok;
@@ -3186,20 +3214,27 @@ See `inet:getstat/2` for further details.
       Options :: [inet:stat_option()],
       OptionValues :: [{inet:stat_option(), integer()}].
 %%--------------------------------------------------------------------
-getstat(#sslsocket{pid = {dtls, #config{transport_info = Info,
-                                        dtls_handler = {Listener, _}}}},
+getstat(#sslsocket{socket_handle = {Listener, _},
+                   listener_config = #config{transport_info = Info}},
         Options) when is_list(Options) ->
     Transport = element(1, Info),
     dtls_socket:getstat(Transport, Listener, Options);
-getstat(#sslsocket{pid = {Listen,  #config{transport_info = Info}}},
+getstat(#sslsocket{socket_handle = Listen, 
+                   listener_config = #config{transport_info = Info}},
         Options) when is_list(Options) ->
     Transport = element(1, Info),
     tls_socket:getstat(Transport, Listen, Options);
-getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}},
-        Options) when is_pid(Pid), is_list(Options) ->
+getstat(#sslsocket{connection_handler = Controller,
+                   connection_cb = tls_gen_connection,
+                   socket_handle = Socket,
+                   transport_cb = Transport},
+        Options) when is_pid(Controller), is_list(Options) ->
     tls_socket:getstat(Transport, Socket, Options);
-getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
-        Options) when is_pid(Pid), is_list(Options) ->
+getstat(#sslsocket{connection_handler = Controller,
+                   connection_cb = dtls_gen_connection,
+                   socket_handle = Socket,
+                   transport_cb = Transport},
+        Options) when is_pid(Controller), is_list(Options) ->
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
@@ -3218,7 +3253,8 @@ To handle siutations where the peer has performed a shutdown on the
 write side, option `{exit_on_close, false}` is useful.
 """.
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {dtls, #config{transport_info = Info}}}, _) ->
+shutdown(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
+                                              transport_info = Info}}, _) ->
     Transport = element(1, Info),
     %% enotconn is what gen_tcp:shutdown on a listen socket will result with.
     %% shutdown really is handling TCP functionality not present
@@ -3233,11 +3269,13 @@ shutdown(#sslsocket{pid = {dtls, #config{transport_info = Info}}}, _) ->
         _  ->
             {error, enotconn}
     end;
-shutdown(#sslsocket{pid = {Listen, #config{transport_info = Info}}}, How) ->
+shutdown(#sslsocket{socket_handle = Listen, 
+                    listener_config = #config{connection_cb = tls_gen_connection,
+                                              transport_info = Info}}, How) ->
     Transport = element(1, Info),
     Transport:shutdown(Listen, How);    
-shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
-    ssl_gen_statem:shutdown(Pid, How).
+shutdown(#sslsocket{connection_handler = Controller}, How) when is_pid(Controller) ->
+    ssl_gen_statem:shutdown(Controller, How).
 
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Utility Functions">>}).
@@ -3248,14 +3286,23 @@ shutdown(#sslsocket{pid = [Pid|_]}, How) when is_pid(Pid) ->
       Address :: inet:ip_address(),
       Port :: inet:port_number().
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
-    dtls_packet_demux:sockname(Pid);
-sockname(#sslsocket{pid = {Listen,  #config{transport_info = Info}}}) ->
+sockname(#sslsocket{socket_handle = {Controller, _},
+                    listener_config = #config{connection_cb = dtls_gen_connection}}) ->
+    dtls_packet_demux:sockname(Controller);
+sockname(#sslsocket{socket_handle = Listen,  
+                    listener_config = #config{connection_cb = tls_gen_connection,
+                                              transport_info = Info}}) ->
     Transport = element(1, Info),
     tls_socket:sockname(Transport, Listen);
-sockname(#sslsocket{pid = [Pid|_], fd = {Transport, Socket,_}}) when is_pid(Pid) ->
+sockname(#sslsocket{connection_handler = Controller,
+                    connection_cb = dtls_gen_connection,
+                    transport_cb = Transport,
+                    socket_handle = Socket}) when is_pid(Controller) ->
     dtls_socket:sockname(Transport, Socket);
-sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(Pid) ->
+sockname(#sslsocket{connection_handler = Controller,
+                    connection_cb = tls_gen_connection,
+                    transport_cb = Transport,
+                    socket_handle = Socket}) when is_pid(Controller) ->
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
@@ -3343,24 +3390,25 @@ plaintext limit and can be configured using the `key_update_at` option
 in `t:common_option_tls13/0`.
 """.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = [Pid, Sender |_]} = Socket) when is_pid(Pid),
-                                                              is_pid(Sender) ->
+renegotiate(#sslsocket{connection_handler = Controller,
+                       payload_sender = Sender,
+                       connection_cb = tls_gen_connection} = Socket) when is_pid(Controller),
+                                                                          is_pid(Sender) ->
     case ssl:connection_information(Socket, [protocol]) of
         {ok, [{protocol, 'tlsv1.3'}]} ->
             {error, notsup};
         _ ->
             case tls_sender:renegotiate(Sender) of
                 {ok, Write} ->
-                    tls_dtls_gen_connection:renegotiation(Pid, Write);
+                    tls_dtls_gen_connection:renegotiation(Controller, Write);
                 Error ->
                     Error
             end
     end;
-renegotiate(#sslsocket{pid = [Pid |_]}) when is_pid(Pid) ->
-    tls_dtls_gen_connection:renegotiation(Pid);
-renegotiate(#sslsocket{pid = {dtls,_}}) ->
-    {error, enotconn};
-renegotiate(#sslsocket{pid = {_Listen, #config{}}}) ->
+renegotiate(#sslsocket{connection_handler = Controller,
+                       connection_cb = dtls_gen_connection}) when is_pid(Controller) ->
+    tls_dtls_gen_connection:renegotiation(Controller);
+renegotiate(#sslsocket{listener_config = #config{}}) ->
     {error, enotconn}.
 
 %%---------------------------------------------------------------
@@ -3385,10 +3433,12 @@ reading and writing keys are updated.
 %%
 %% Description: Initiate a key update.
 %%--------------------------------------------------------------------
-update_keys(#sslsocket{pid = [Pid, Sender |_]}, Type0) when is_pid(Pid) andalso
-                                                            is_pid(Sender) andalso
-                                                            (Type0 =:= write orelse
-                                                             Type0 =:= read_write) ->
+update_keys(#sslsocket{connection_handler = Controller,
+                       payload_sender = Sender,
+                       connection_cb = tls_gen_connection}, Type0) when is_pid(Controller) andalso
+                                                                        is_pid(Sender) andalso
+                                                                        (Type0 =:= write orelse
+                                                                         Type0 =:= read_write) ->
     Type = case Type0 of
                write ->
                    update_not_requested;
@@ -3412,9 +3462,9 @@ update_keys(_, Type) ->
       WantedLengths :: [non_neg_integer()],
       ExportKeyMaterials :: [binary()].
 %%--------------------------------------------------------------------
-export_key_materials(#sslsocket{pid = [Pid|_]}, Labels, Contexts, WantedLengths) when is_pid(Pid) ->
-    ssl_gen_statem:call(Pid, {export_key_materials, Labels, Contexts, WantedLengths, true});
-export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
+export_key_materials(#sslsocket{connection_handler = Controller}, Labels, Contexts, WantedLengths) when is_pid(Controller) ->
+    ssl_gen_statem:call(Controller, {export_key_materials, Labels, Contexts, WantedLengths, true});
+export_key_materials(#sslsocket{listener_config = #config{}}, _,_,_) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -3428,7 +3478,8 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_) ->
       WantedLengths :: [non_neg_integer()],
       ConsumeSecret :: boolean(),
       ExportKeyMaterials :: [binary()].
--doc """
+-doc
+"""
 Uses a Pseudo-Random Function (PRF prior to TLS-1.3) or a Key
 Derivation Function (HKDF in TLS-1.3) for a TLS connection to
 generate and export keying materials.
@@ -3442,11 +3493,12 @@ TLS-1.3 `exporter_master_secret` to be consumed, thereby making it
 unavailable and increasing security. Further attempts to call this
 function will fail.
 """.
+
 %%--------------------------------------------------------------------
-export_key_materials(#sslsocket{pid = [Pid|_]}, Labels, Contexts, WantedLengths, ConsumeSecret)
-  when is_pid(Pid) ->
-    ssl_gen_statem:call(Pid, {export_key_materials, Labels, Contexts, WantedLengths, ConsumeSecret});
-export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
+export_key_materials(#sslsocket{connection_handler = Controller}, Labels, Contexts, WantedLengths, ConsumeSecret)
+  when is_pid(Controller) ->
+    ssl_gen_statem:call(Controller, {export_key_materials, Labels, Contexts, WantedLengths, ConsumeSecret});
+export_key_materials(#sslsocket{socket_handle ={_Listen, #config{}}}, _,_,_, _) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
@@ -3460,7 +3512,8 @@ export_key_materials(#sslsocket{pid = {_Listen, #config{}}}, _,_,_, _) ->
       Seed :: [binary() | prf_random()],
       WantedLength :: non_neg_integer().
 %%
--doc """
+-doc
+"""
 Uses the Pseudo-Random Function (PRF) of a TLS session to generate extra key
 material.
 
@@ -3481,16 +3534,16 @@ called in a TLS-1.3 context it will now behave as
 """.
 
 %%--------------------------------------------------------------------
-prf(#sslsocket{pid = [Pid|_]} = Socket,
-    master_secret, Label, [client_random, server_random], WantedLength) when is_pid(Pid) ->
+prf(#sslsocket{connection_handler = Controller} = Socket,
+    master_secret, Label, [client_random, server_random], WantedLength) when is_pid(Controller) ->
     case export_key_materials(Socket, [Label], [no_context], [WantedLength], true) of
         {ok, [KeyMaterial]} ->
             {ok, KeyMaterial};
         Error ->
             Error
     end;
-prf(#sslsocket{pid = [Pid|_]} = Socket,
-    master_secret, Label, [client_random, server_random, Context], WantedLength) when is_pid(Pid),
+prf(#sslsocket{connection_handler = Controller} = Socket,
+    master_secret, Label, [client_random, server_random, Context], WantedLength) when is_pid(Controller),
                                                                                       is_binary(Context) ->
     case export_key_materials(Socket, [Label], [Context], [WantedLength], true) of
         {ok, [KeyMaterial]} ->
@@ -3498,7 +3551,7 @@ prf(#sslsocket{pid = [Pid|_]} = Socket,
         Error ->
             Error
     end;
-prf(#sslsocket{pid = {_Listen, #config{}}}, _,_,_,_) ->
+prf(#sslsocket{listener_config = #config{}}, _,_,_,_) ->
     {error, enotconn};
 %% Legacy backwards compatible clause. This makes no sense, was probably added for
 %% testing purposes by contributor, but these tests does not really test the correct thing.
@@ -3631,7 +3684,8 @@ supported_suites(exclusive_anonymous, Version) when ?TLS_1_X(Version) ->
 supported_suites(exclusive_anonymous, Version) when ?DTLS_1_X(Version) ->
     dtls_v1:exclusive_anonymous_suites(Version).
 
-do_listen(Port, #config{transport_info = {Transport, _, _, _,_}} = Config, tls_gen_connection) ->
+do_listen(Port, #config{transport_info = Info} = Config, tls_gen_connection) ->
+    Transport = element(1, Info),
     tls_socket:listen(Transport, Port, Config);
 
 do_listen(Port,  Config, dtls_gen_connection) ->

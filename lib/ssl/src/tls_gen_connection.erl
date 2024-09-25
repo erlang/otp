@@ -254,7 +254,7 @@ empty_connection_state(ConnectionEnd) ->
 %%====================================================================	     
 
 socket(Pids,  Transport, Socket, Trackers) ->
-    tls_socket:socket(Pids, Transport, Socket, tls_connection, Trackers).
+    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Trackers).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).
