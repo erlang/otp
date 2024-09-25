@@ -69,7 +69,7 @@ check on newline and when there are no changes)."
 (defun erlang-flymake-init ()
   (let* ((temp-file
           (cl-letf (((symbol-function 'flymake-get-temp-dir) #'erlang-flymake-temp-dir))
-            (flymake-init-create-temp-buffer-copy
+            (flymake-proc-init-create-temp-buffer-copy
              'flymake-create-temp-with-folder-structure)))
          (code-dir-opts
           (erlang-flymake-flatten
