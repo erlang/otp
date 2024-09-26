@@ -1523,6 +1523,13 @@ shutdown(#child{pid=Pid, shutdown=Time} = Child) ->
 
 unlink_flush(Pid, noproc) ->
     {links, Ls} = process_info(self(),links),
+    %% We know that the process has terminated. If we still have a link, we are
+    %% guaranteed to eventually receive the 'EXIT' message containing the
+    %% actual exit reason (or a 'noconnection' exit reason if the connection is
+    %% lost). If we do not have a link, the 'EXIT' message is already present
+    %% in the message queue unless the child process behaved badly (unlinked
+    %% itself from us). If it behaved badly, we may or may not receive an 'EXIT'
+    %% message.
     Timeout = case lists:member(Pid, Ls) of
                   true -> infinity;
                   false -> 0
@@ -1531,9 +1538,10 @@ unlink_flush(Pid, noproc) ->
         {'EXIT', Pid, ExitReason} ->
             ExitReason
     after Timeout ->
-            naughty_child
+            child_process_unlinked
     end;
 unlink_flush(Pid, ExitReason) ->
+    %% Leave no 'EXIT' message from this process in the message queue.
     unlink(Pid),
     receive
         {'EXIT', Pid, _} -> ok
