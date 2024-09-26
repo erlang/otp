@@ -354,9 +354,6 @@ init_per_testcase(Case, Config) when Case == post;
 				     Case == post_stream ->
     ct:timetrap({seconds, 30}),
     Config;
-init_per_testcase(async, Config) ->
-    {ok,Pid} = inets:start(httpc, [{profile, async}], stand_alone),
-    [{httpc_pid, Pid} | Config];
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -364,9 +361,6 @@ end_per_testcase(pipeline, _Config) ->
     inets:stop(httpc, pipeline);
 end_per_testcase(persistent_connection, _Config) ->
     inets:stop(httpc, persistent);
-end_per_testcase(async, Config) ->
-    Pid = proplists:get_value(httpc_pid, Config),
-    inets:stop(httpc, Pid);
 end_per_testcase(Case, Config)
   when Case == server_closing_connection_on_first_response;
        Case == server_closing_connection_on_second_response ->
@@ -573,7 +567,6 @@ async() ->
     [{doc, "Test an asynchrony http request."}].
 async(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    HttpcPid = proplists:get_value(httpc_pid, Config),
 
     {ok, RequestId} =
         httpc:request(get, Request, [], [{sync, false}]),
@@ -599,18 +592,6 @@ async(Config) when is_list(Config) ->
         end,
     inets_test_lib:check_body(binary_to_list(Body2)),
 
-    %% Check receiver alias() option for async request with stand_alone httpc
-    {ok, RequestId3} =
-        httpc:request(get, Request, [], [{sync, false},
-                                         {receiver, alias()}], HttpcPid),
-    Body3 =
-        receive
-            {http, {RequestId3, {{_, 200, _}, _, BinBody3}}} ->
-                BinBody3;
-            {http, Msg3} ->
-                ct:fail(Msg3)
-        end,
-    inets_test_lib:check_body(binary_to_list(Body3)),
     {ok, NewRequestId} =
 	httpc:request(get, Request, [], [{sync, false}]),
     ok = httpc:cancel_request(NewRequestId).
