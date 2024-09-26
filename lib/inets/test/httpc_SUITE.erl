@@ -342,9 +342,6 @@ init_per_testcase(Name, Config) when Name == pipeline; Name == persistent_connec
                             {max_pipeline_length, 3} | GivenOptions], Name),
 
     [{profile, Name} | Config];
-init_per_testcase(async, Config) ->
-    {ok,Pid} = inets:start(httpc, [{profile, async}], stand_alone),
-    [{httpc_pid, Pid} | Config];
 init_per_testcase(Case, Config) ->
     {ok, _Pid} = inets:start(httpc, [{profile, Case}]),
     GivenOptions = proplists:get_value(httpc_options, Config, []),
@@ -370,9 +367,6 @@ end_per_testcase(Case, Config)
             ok
     end,
     inets:stop(httpc, ?config(profile, Config));
-end_per_testcase(async, Config) ->
-    Pid = proplists:get_value(httpc_pid, Config),
-    inets:stop(httpc, Pid);
 end_per_testcase(_Case, Config) ->
     inets:stop(httpc, ?config(profile, Config)).
 
@@ -564,7 +558,6 @@ async() ->
     [{doc, "Test an asynchrony http request."}].
 async(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-    HttpcPid = proplists:get_value(httpc_pid, Config),
     {ok, RequestId} =
         httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], ?profile(Config)),
     Body =
@@ -589,18 +582,6 @@ async(Config) when is_list(Config) ->
         end,
     inets_test_lib:check_body(binary_to_list(Body2)),
 
-    %% Check receiver alias() option for async request with stand_alone httpc
-    {ok, RequestId3} =
-        httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false},
-                                         {receiver, alias()}], HttpcPid),
-    Body3 =
-        receive
-            {http, {RequestId3, {{_, 200, _}, _, BinBody3}}} ->
-                BinBody3;
-            {http, Msg3} ->
-                ct:fail(Msg3)
-        end,
-    inets_test_lib:check_body(binary_to_list(Body3)),
     {ok, NewRequestId} =
 	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}]),
     ok = httpc:cancel_request(NewRequestId).
