@@ -391,6 +391,12 @@ static ERL_NIF_TERM monitor_process(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 }
 #endif
 
+static ERL_NIF_TERM trace_me(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ADD_CALL("lib_version");
+    return enif_make_int(env, NIF_LIB_VER);
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -407,6 +413,7 @@ static ErlNifFunc nif_funcs[] =
 #if NIF_LIB_VER == 5
     {"make_new_resource", 2, get_resource}, /* error: duplicate */
 #endif
+    {"trace_me", 1, trace_me},
 
     /* Keep lib_version_check last to maximize the loading "patch distance"
        between it and lib_version */

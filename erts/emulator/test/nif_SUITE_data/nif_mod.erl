@@ -23,7 +23,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([load_nif_lib/2, load_nif_lib/3, start/0,
-         lib_version/0, lib_version_check/0,
+         lib_version/0, lib_version_check/0, trace_me/1,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2,
          monitor_process/3]).
 
@@ -32,7 +32,7 @@
 -define(nif_stub,nif_stub_error(?LINE)).
 
 -ifdef(USE_NIFS_ATTRIB).
--nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0]).
+-nifs([lib_version/0, nif_api_version/0, get_priv_data_ptr/0, trace_me/1]).
 -if(?USE_NIFS_ATTRIB > 1).
 -nifs([make_new_resource/2, get_resource/2, monitor_process/3]).
 -if(?USE_NIFS_ATTRIB > 2).
@@ -103,6 +103,9 @@ get_priv_data_ptr() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
 monitor_process(_,_,_) -> ?nif_stub.
+
+trace_me(_) ->  % NIF
+    undefined.
 
 lib_version_check() ->
     %% Do a recursive call to test that we are able to return

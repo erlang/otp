@@ -786,37 +786,80 @@ load_traced_nif(Config) when is_list(Config) ->
     {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     {module,nif_mod} = erlang:load_module(nif_mod,Bin),
 
-    Tracee = spawn_link(fun Loop() -> receive {lib_version,ExpRet} ->
-                                              ExpRet = nif_mod:lib_version()
-                                      end,
-                                      Loop()
+    Tester = self(),
+    Tracee = spawn_link(fun Loop() ->
+                                {call_trace_me, Arg} = receive_any(),
+                                Ret = nif_mod:trace_me(Arg),
+                                Tester ! {returned, Ret},
+                                Loop()
                         end),
-    1 = erlang:trace_pattern({nif_mod,lib_version,0}, true, [local]),
-    1 = erlang:trace(Tracee, true, [call]),
+    CallTraceMe = fun(Arg) ->
+                          Tracee ! {call_trace_me, Arg},
+                          receive {returned, Ret} -> Ret end
+                  end,
+    ?line S1 = trace:session_create(load_traced_nif, self(), []),
+    ?line S2 = trace:session_create(load_traced_nif, self(), []),
+    ?line 1 = trace:process(S1, Tracee, true, [call]),
+    ?line 1 = trace:process(S2, Tracee, true, [call]),
 
-    Tracee ! {lib_version, undefined},
-    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+    %% Add first breakpoint
+    ?line 1 = trace:function(S1, {nif_mod,trace_me,1}, true, [local]),
 
-    ok = nif_mod:load_nif_lib(Config, 1),
+    ?line undefined = CallTraceMe(11),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[11]}} = receive_any(1000),
 
-    Tracee ! {lib_version, 1},
-    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+    ?line ok = nif_mod:load_nif_lib(Config, 1),
+
+    %% Add second breakpoint while NIF is still loading
+    %% (and 'orig_instr' in breakpoint is 'call_nif_early')
+    ?line 1 = trace:function(S2, {nif_mod,trace_me,1}, true, [local]),
+
+    ?line 1 = CallTraceMe(22),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[22]}} = receive_any(1000),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[22]}} = receive_any(1000),
 
     %% Wait for NIF loading to finish and write final call_nif instruction
     timer:sleep(500),
 
-    Tracee ! {lib_version, 1},
-    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+    ?line 1 = CallTraceMe(33),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[33]}} = receive_any(1000),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[33]}} = receive_any(1000),
 
-    true = erlang:delete_module(nif_mod),
-    true = erlang:purge_module(nif_mod),
+    %% Remove second added breakpoint
+    ?line trace:function(S2, {nif_mod,trace_me,1}, false, [local]),
+    ?line 1 = CallTraceMe(44),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[44]}} = receive_any(1000),
 
-    unlink(Tracee),
-    exit(Tracee, kill),
+    ?line timer:sleep(500), %% Wait for breakpoint to be unlinked
+    ?line 1 = CallTraceMe(55),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[55]}} = receive_any(1000),
+
+    %% Re-add second breakpoint
+    ?line trace:function(S2, {nif_mod,trace_me,1}, true, [local]),
+    ?line 1 = CallTraceMe(66),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[66]}} = receive_any(1000),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[66]}} = receive_any(1000),
+
+    %% Remove first added breakpoint
+    ?line trace:function(S1, {nif_mod,trace_me,1}, false, [local]),
+    ?line 1 = CallTraceMe(77),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[77]}} = receive_any(1000),
+
+    ?line timer:sleep(500), %% Wait for breakpoint to be unlinked
+    ?line 1 = CallTraceMe(88),
+    ?line {trace, Tracee, call, {nif_mod,trace_me,[88]}} = receive_any(1000),
+
+    ?line true = erlang:delete_module(nif_mod),
+    ?line true = erlang:purge_module(nif_mod),
+
+    ?line trace:session_destroy(S1),
+    ?line trace:session_destroy(S2),
+
+    ?line unlink(Tracee),
+    ?line exit(Tracee, kill),
 
     verify_tmpmem(TmpMem),
     ok.
-
 
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).
