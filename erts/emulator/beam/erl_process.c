@@ -4463,7 +4463,7 @@ typedef struct ErtsStolenProcess_ {
 } ErtsStolenProcess;
 
 static int
-try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq, Uint32 flags, Process **result_proc)
+try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Process **result_proc)
 {
     Uint32 procs_qmask = flags & ERTS_RUNQ_FLGS_PROCS_QMASK;
     int max_prio_bit;
@@ -4471,11 +4471,6 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq,
     ErtsRunPrioQueue *rpq;
 #define PSTACK_TYPE ErtsStolenProcess
     PSTACK_DECLARE(stolen_processes, 16);
-
-    if (*rq_lockedp) {
-	erts_runq_unlock(rq);
-	*rq_lockedp = 0;
-    }
 
     ERTS_LC_ASSERT(!erts_lc_runq_is_locked(rq));
 
@@ -4547,7 +4542,6 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq,
             ++sp;
 
             erts_runq_lock(rq);
-            *rq_lockedp = 1;
             // We're not using a loop of PSTACK_POP to keep the right (LIFO) order of elements
             // "<=" rather than "<" because of the insanity that is PSTACK (offs = 0 means that there is one element)
             for (;(byte *) sp <= stolen_processes.pstart + stolen_processes.offs; ++sp) {
@@ -4577,7 +4571,6 @@ no_procs:
 	prt_rq = erts_port_runq(prt);
         if (prt_rq != rq)
             ERTS_INTERNAL_ERROR("Unexpected run-queue");
-        *rq_lockedp = 1;
         erts_enqueue_port(rq, prt);
         return !0;
     }
@@ -4587,14 +4580,15 @@ no_procs:
     return 0;
 }
 
-
+// Expects rq to be unlocked
+// rq is locked on return iff the return value is non-zero
 static ERTS_INLINE int
-check_possible_steal_victim(ErtsRunQueue *rq, int *rq_lockedp, int vix, Process **result_proc)
+check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc)
 {
     ErtsRunQueue *vrq = ERTS_RUNQ_IX(vix);
     Uint32 flags = ERTS_RUNQ_FLGS_GET(vrq);
     if (runq_got_work_to_execute_flags(flags))
-	return try_steal_task_from_victim(rq, rq_lockedp, vrq, flags, result_proc);
+	return try_steal_task_from_victim(rq, vrq, flags, result_proc);
     else
 	return 0;
 }
@@ -4611,9 +4605,10 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	return 0; /* go suspend instead... */
 
     res = 0;
-    rq_locked = 1;
 
     ERTS_LC_CHK_RUNQ_LOCK(rq, rq_locked);
+    erts_runq_unlock(rq);
+    rq_locked = 0;
 
     get_no_runqs(&active_rqs, &blnc_rqs);
 
@@ -4627,9 +4622,11 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	    int no = blnc_rqs - active_rqs;
 	    int stop_ix = vix = active_rqs + rq->ix % no;
 	    while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
-		res = check_possible_steal_victim(rq, &rq_locked, vix, result_proc);
-		if (res)
+		res = check_possible_steal_victim(rq, vix, result_proc);
+		if (res) {
+                    rq_locked = 1;
 		    goto done;
+                }
 		vix++;
 		if (vix >= blnc_rqs)
 		    vix = active_rqs;
@@ -4648,9 +4645,11 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	    if (vix == rq->ix)
 		break;
 
-	    res = check_possible_steal_victim(rq, &rq_locked, vix, result_proc);
-	    if (res)
+	    res = check_possible_steal_victim(rq, vix, result_proc);
+	    if (res) {
+                rq_locked = 1;
 		goto done;
+            }
 	}
 
     }
