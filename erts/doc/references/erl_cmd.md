@@ -257,14 +257,13 @@ described in the corresponding application documentation.
   In this example, an Erlang runtime system is started with environment variable
   `DISPLAY` set to `gin:0`.
 
-- **`-epmd_module Module` (init flag)** - Configures the module responsible to
-  communicate to [epmd](epmd_cmd.md). Defaults to `erl_epmd`.
+- **`-epmd_module Module`{: #epmd_module }** - This flag is deprecated and has
+  been replaced by the `kernel` application parameter
+  [`epmd_module`](`e:kernel:kernel_app.md#epmd_module`).
 
-- **`-erl_epmd_port Port` (init flag)** - Configures the port used by `erl_epmd`
-  to listen for connection and connect to other nodes. If this flag is set,
-  the Erlang VM will boot in distributed mode even if EPMD is not available.
-  If not set, a port is chosen automatically (equivalent to port `0`). 
-  See `m:erl_epmd` for more details.
+- **`-erl_epmd_port Port`{: #erl_epmd_port }** - This flag is deprecated and
+  has been replaced by the `kernel` application parameter
+  [`erl_epmd_node_listen_port`](`e:kernel:kernel_app.md#erl_epmd_node_listen_port`).
 
 - **`-eval Expr` (init flag)** - Makes `init` evaluate the expression `Expr`;
   see `m:init`.

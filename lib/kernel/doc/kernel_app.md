@@ -130,6 +130,26 @@ For more information about configuration parameters, see file
     node. If a node goes down, it must thereafter be explicitly connected. See
     `m:net_kernel`.
 
+- **`epmd_module = module()`{: #epmd_module }** - Configures the module
+  responsible for communication with [epmd](`e:erts:epmd_cmd.md`). If this parameter
+  is undefined, it defaults to `erl_epmd`.
+
+  The now deprecated command line argument
+  [`-epmd_module <module>`](`e:erts:erl_cmd.md#epmd_module`) has the same
+  effect as the `epmd_module` configuration parameter. If this configuration
+  parameter is defined, it will override the command line argument.
+
+- **`erl_epmd_node_listen_port = integer()`{: #erl_epmd_node_listen_port }** - Configures the port used by `m:erl_epmd`
+  to listen for connection and connect to other nodes. If this flag is set, the
+  Erlang VM will boot in distributed mode even if EPMD is not available. If not
+  set, a port is chosen automatically (equivalent to port `0`). See `m:erl_epmd`
+  for more details.
+
+  The now deprecated command line argument
+  [`erl_epmd_port <module>`](`e:erts:erl_cmd.md#erl_epmd_port`) has the same
+  effect as the `erl_epmd_node_listen_port` configuration parameter. If this
+  configuration parameter is defined, it will override the command line argument.
+
 - **`permissions = [Perm]`{: #permissions }** - Specifies the default permission
   for applications when they are started. In this parameter:
 
