@@ -239,8 +239,8 @@ hello(#client_hello{client_version = _ClientVersion,
                     extensions = #{client_hello_versions :=
                                        #client_hello_versions{versions = ClientVersions}
                                   }} = Hello,
-      #{versions := Versions} = SslOpts,
-      Info, Renegotiation) ->
+      #{versions := Versions = [ {3, Minor} |_]} = SslOpts,
+      Info, Renegotiation) when Minor >= 3 ->
     try
         Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
         do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
