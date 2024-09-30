@@ -1193,8 +1193,8 @@ handle_call({spawn_opt,M,F,A,O,L,Gleader},{From,Tag},State) when is_pid(From) ->
 handle_call({allow, Nodes}, From, State) ->
     case all_atoms(Nodes) of
 	true ->
-	    Allowed = State#state.allowed,
-            async_reply({reply,ok,State#state{allowed = Allowed ++ Nodes}},
+	    Allowed = lists:uniq(State#state.allowed ++ Nodes),
+            async_reply({reply,ok,State#state{allowed = Allowed}},
                         From);
 	false ->
 	    async_reply({reply,error,State}, From)
