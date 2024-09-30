@@ -63,7 +63,11 @@
          middle_box_client_tls_v2_session_reused/0,
          middle_box_client_tls_v2_session_reused/1,
          renegotiate_error/0,
-         renegotiate_error/1
+         renegotiate_error/1,
+         client_cert_fail_alert_active/0,
+         client_cert_fail_alert_active/1,
+         client_cert_fail_alert_passive/0,
+         client_cert_fail_alert_passive/1
         ]).
 
 
@@ -99,7 +103,9 @@ tls_1_3_1_2_tests() ->
      middle_box_tls13_client,
      middle_box_tls12_enabled_client,
      middle_box_client_tls_v2_session_reused,
-     renegotiate_error
+     renegotiate_error,
+     client_cert_fail_alert_active,
+     client_cert_fail_alert_passive   
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -402,6 +408,59 @@ renegotiate_error(Config) when is_list(Config) ->
             ct:fail(Reason)
     end.
 
+client_cert_fail_alert_active() ->
+    [{doc, "Check that we receive alert message"}].
+client_cert_fail_alert_active(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    NewClientCertFile = filename:join(PrivDir, "clinet_invalid_cert.pem"),
+    create_bad_client_certfile(NewClientCertFile, ClientOpts0),
+
+    ClientOpts = [{active, true},
+                  {verify, verify_peer},
+                  {certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts0)],
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}| ServerOpts0],
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket} = ssl:connect(Hostname, Port, ClientOpts),
+    receive
+        {Server, {error, {tls_alert, {unknown_ca, _}}}} ->
+            receive
+                {ssl_error, Socket, {tls_alert, {unknown_ca, _}}} ->
+                    ok
+            after 500 ->
+                    ct:fail(no_acticv_msg)
+            end
+    end.
+
+client_cert_fail_alert_passive() ->
+    [{doc, "Check that recv or setopts return alert"}].
+client_cert_fail_alert_passive(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    NewClientCertFile = filename:join(PrivDir, "client_invalid_cert.pem"),
+    create_bad_client_certfile(NewClientCertFile, ClientOpts0),
+
+    ClientOpts = [{active, false},
+                  {verify, verify_peer},
+                  {certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts0)],
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}| ServerOpts0],
+    alert_passive(ServerOpts, ClientOpts, recv,
+                  ServerNode, Hostname),
+    alert_passive(ServerOpts, ClientOpts, setopts,
+                  ServerNode, Hostname).
+ 
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
@@ -432,4 +491,30 @@ check_session_id(Socket, Expected) ->
             {nok, {{expected, Expected}, {got, SessionId}}}
     end.
 
+alert_passive(ServerOpts, ClientOpts, Function,
+              ServerNode, Hostname) ->
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket} = ssl:connect(Hostname, Port, ClientOpts),
+    ct:sleep(500),
+    case Function of
+        recv ->
+            {error, {tls_alert, {unknown_ca,_}}} = ssl:recv(Socket, 0);
+        setopts ->
+            {error, {tls_alert, {unknown_ca,_}}} = ssl:setopts(Socket, [{active, once}])
+    end.
 
+create_bad_client_certfile(NewClientCertFile, ClientOpts) ->
+    KeyFile =  proplists:get_value(keyfile, ClientOpts),
+    [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
+    Key = ssl_test_lib:public_key(public_key:pem_entry_decode(KeyEntry)),
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+
+    [{'Certificate', ClientDerCert, _}] = ssl_test_lib:pem_to_der(ClientCertFile),
+    ClientOTPCert = public_key:pkix_decode_cert(ClientDerCert, otp),
+    ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
+    NewClientDerCert = public_key:pkix_sign(ClientOTPTbsCert, Key),
+    ssl_test_lib:der_to_pem(NewClientCertFile, [{'Certificate', NewClientDerCert, not_encrypted}]).
