@@ -14696,8 +14696,17 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
             ASSERT(IS_SCTP(desc));
             bufsz = udesc->i_ptr - udesc->i_buf->orig_bytes;
             if (udesc->i_bufsz - bufsz < desc->bufsz) { /* Headroom */
-                bufsz = udesc->i_bufsz + desc->bufsz;
-                if ((tmp = realloc_buffer(udesc->i_buf, bufsz)) == NULL) {
+                int new_bufsz;
+                new_bufsz = INT_MAX - desc->bufsz; /* Headroom for +       */
+                if (new_bufsz < udesc->i_bufsz)    /* Would overflow?      */
+                    if (new_bufsz < bufsz)         /* Would also overflow? */
+                        goto bufsz_overflow;
+                    else
+                        new_bufsz = desc->bufsz + bufsz;
+                else
+                    new_bufsz = desc->bufsz + udesc->i_bufsz;
+                if ((tmp = realloc_buffer(udesc->i_buf, new_bufsz)) == NULL) {
+                bufsz_overflow:
                     release_buffer(udesc->i_buf);
                     udesc->i_buf = NULL;
                     return packet_error(udesc, ENOMEM);
@@ -14706,7 +14715,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
                     tmp->orig_bytes +
                     (udesc->i_ptr - udesc->i_buf->orig_bytes);
                 udesc->i_buf = tmp;
-                udesc->i_bufsz = bufsz;
+                udesc->i_bufsz = new_bufsz;
             }
             have_fragment = TRUE;
 	} else
