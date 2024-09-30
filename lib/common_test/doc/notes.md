@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27.2
+
+### Fixed Bugs and Malfunctions
+
+- With this change, HTML reports include jQuery version 3.7.1.
+
+  Own Id: OTP-19252 Aux Id: [PR-8858]
+
+[PR-8858]: https://github.com/erlang/otp/pull/8858
+
 ## Common_Test 1.27.1
 
 ### Fixed Bugs and Malfunctions
