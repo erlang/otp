@@ -476,6 +476,10 @@ split_autogen(Config) when is_list(Config) ->
 
 %% Test special options to split.
 split_options(Config) when is_list(Config) ->
+    ok = splittest("", "", [trim], []),
+    ok = splittest("", " ", [trim], []),
+    ok = splittest("", "()", [group, trim], []),
+    ok = splittest("", "( )", [group, trim], []),
     ok = splittest("a b c ","( )",[group,trim],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
     ok = splittest("a b c ","( )",[group,{parts,0}],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>]]),
     ok = splittest("a b c ","( )",[{parts,infinity},group],[[<<"a">>,<<" ">>],[<<"b">>,<<" ">>],[<<"c">>,<<" ">>],[<<>>]]),
