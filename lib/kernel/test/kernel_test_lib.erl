@@ -49,6 +49,8 @@
 -export([
          proxy_call/3,
 
+         ensure_not_dog_slow/2,
+
          %% Generic 'has support' test function(s)
          is_socket_supported/0,
          has_support_ipv4/0,
@@ -2705,6 +2707,16 @@ proxy_call(F, Timeout, Default)
     end.
 
 
+
+ensure_not_dog_slow(Config, Limit) ->
+    Key = kernel_factor,
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} when (Value > Limit) ->
+            skip({factor_limit, Value, Limit});
+        _ ->
+            ok
+    end.
+            
 
 %% This is an extremely simple check...
 has_support_ipv4() ->
