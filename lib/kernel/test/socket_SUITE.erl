@@ -160,7 +160,8 @@
          otp18240_accept_mon_leak_tcp4/1,
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
-         otp19063/1
+         otp19063/1,
+         otp19251/1
         ]).
 
 
@@ -375,7 +376,8 @@ tickets_cases() ->
      {group, otp16359},
      {group, otp18240},
      otp18635,
-     otp19063
+     otp19063,
+     otp19251
     ].
 
 otp16359_cases() ->
@@ -12055,7 +12057,7 @@ do_otp18635(_) ->
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
-    % show handle returned from nowait accept
+                                                % show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -12096,7 +12098,7 @@ do_otp18635(_) ->
                   ?P("[connector] try create socket"),
                   {ok, CSock} = socket:open(inet, stream),
                   ?P("[connector] try connect: "
-                       "~n   (server) ~p", [SA]),
+                     "~n   (server) ~p", [SA]),
                   ok = socket:connect(CSock, SA),
                   ?P("[connector] connected - inform parent"),
                   Parent ! {self(), connected},
@@ -12107,7 +12109,7 @@ do_otp18635(_) ->
                           (catch socket:close(CSock)),
                           exit(normal)
                   end
-              end),
+          end),
 
     ?P("await (connection-) confirmation from connector (~p)", [Connector]),
     receive
@@ -12335,6 +12337,100 @@ do_otp19063(_) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+otp19251(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_windows(),
+                   has_support_unix_domain_socket()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_otp19251(InitState)
+           end).
+
+
+do_otp19251(_) ->
+
+    %% Just be on the safe side
+    ?P("pre cleanup"),
+    file:delete("sock1"),
+    file:delete("sock2"),
+
+    %% Create first socket
+    ?P("create (and bind) first socket"),
+    {ok, Sock1} = socket:open(local, stream),
+    ok          = socket:bind(Sock1,
+                              #{family => local,
+                                path   => <<"sock1">>}),
+
+    %% Attempt first invalid connect
+    ?P("try first invalid connect - expect failure"),
+    case socket:connect(Sock1, #{family => local, path => <<"none">>}) of
+        {error, econnrefused} ->
+            ?P("expected failure"),
+            ok;
+        %% {error, enoent} ->
+        %%     ?P("expected failure"),
+        %%     ok;
+        {error, #{info := econnrefused}} ->
+            ?P("expected failure"),
+            ok;
+        {error, #{info := Reason1} = EEI1} ->
+            ?P("unexpected failure reason: "
+               "~n   ~p", [EEI1]),
+            ?FAIL({unexpected_failure_reason, Reason1});
+        ok ->
+            ?FAIL(unexpected_success)
+    end,
+
+
+    %% Create second socket
+    ?P("create (and bind) second socket"),
+    {ok, Sock2} = socket:open(local, stream),
+    ok          = socket:bind(Sock2,
+                              #{family => local,
+                                path   => <<"sock2">>}),
+
+    %% Attempt second invalid connect
+    ?P("try first invalid connect - expect failure"),
+    case socket:connect(Sock2, #{family => local, path => <<"none">>}) of
+        {error, econnrefused} ->
+            ?P("expected failure"),
+            ok;
+        %% {error, enoent} ->
+        %%     ?P("expected failure"),
+        %%     ok;
+        {error, #{info := econnrefused}} ->
+            ?P("expected failure"),
+            ok;
+        {error, #{info := Reason2} = EEI2} ->
+            ?P("unexpected failure reason: "
+               "~n   ~p", [EEI2]),
+            ?FAIL({unexpected_failure_reason, Reason2});
+        ok ->
+            ?FAIL(unexpected_success)
+    end,
+
+    %% And verify that we can still create more sockets:
+    ?P("create more sockets - expect success"),
+    {ok, Sock3} = socket:open(local, stream),
+    {ok, Sock4} = socket:open(local, stream),
+
+    %% Cleanup
+    ?P("cleanup"),
+    _ = socket:close(Sock4),
+    _ = socket:close(Sock3),
+    _ = socket:close(Sock2),
+    _ = socket:close(Sock1),
+
+    ?P("done"),
+
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 sock_open(Domain, Type, Proto) ->
     try socket:open(Domain, Type, Proto) of
         {ok, Socket} ->
@@ -12484,6 +12580,14 @@ is_not_windows() ->
             skip("This does not work on Windows");
         _ ->
             ok
+    end.
+
+is_windows() ->
+    case os:type() of
+        {win32, nt} ->
+            ok;
+        _ ->
+            skip("Only test on Windows")
     end.
 
 
