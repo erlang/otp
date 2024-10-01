@@ -2238,7 +2238,17 @@ cacerts_get() ->
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
--doc "Loads the OS supplied trusted CA certificates.".
+-doc """
+Loads the OS supplied trusted CA certificates.
+
+This can be overridden by setting the `cacerts_path`
+environment key of the `public_key` application with
+the location of an alternative OS supplied certificate.
+You can set it via the command line as:
+
+    erl -public_key cacerts_path '"/path/to/certs.pem"'
+
+""".
 
 -spec cacerts_load() -> ok | {error, Reason::term()}.
 %%--------------------------------------------------------------------
