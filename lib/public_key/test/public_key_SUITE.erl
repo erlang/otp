@@ -1607,6 +1607,12 @@ cacerts_load(Config) ->
             ok
     end,
 
+    %% Load from application environment
+    application:set_env(public_key, cacerts_path, filename:join(Datadir, "cacerts.pem")),
+    2 = length(public_key:cacerts_get()),
+    application:unset_env(public_key, cacerts_path),
+    true = public_key:cacerts_clear(),
+
     %% Load default OS certs
     %%    there is no default installed OS certs on netbsd
     %%    can be installed with 'pkgin install mozilla-rootcerts'
@@ -1624,7 +1630,7 @@ cacerts_load(Config) ->
     ok = public_key:cacerts_load(filename:join(Datadir, "cacerts.pem")),
     [_TestCert1, _TestCert2] = public_key:cacerts_get(),
 
-    %% Re-Load default OS certs
+    %% Reload default OS certs
     try
         process_flag(trap_exit, true),
         flush(),
