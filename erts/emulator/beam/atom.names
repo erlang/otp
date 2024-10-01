@@ -675,6 +675,7 @@ atom sigsegv
 atom sigtstp
 atom sigquit
 atom sigwinch
+atom siginfo
 atom silent
 atom size
 atom skip

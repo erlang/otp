@@ -688,6 +688,7 @@ static RETSIGTYPE suspend_signal(int signum)
  !SIGTTIN    Stop     Terminal input for background process
  !SIGTTOU    Stop     Terminal output for background process
   SIGWINCH   Ign      Window size change
+  SIGINFO    Ign      Status request from keyboard
 */
 
 
@@ -709,6 +710,9 @@ signalterm_to_signum(Eterm signal)
     case am_sigstop: return SIGSTOP;
     case am_sigtstp: return SIGTSTP;
     case am_sigwinch: return SIGWINCH;
+#ifdef SIGINFO
+    case am_siginfo: return SIGINFO;
+#endif /* defined(SIGINFO) */
     default:         return 0;
     }
 }
@@ -731,6 +735,9 @@ signum_to_signalterm(int signum)
     case SIGSTOP: return am_sigstop;
     case SIGTSTP: return am_sigtstp;   /* ^z */
     case SIGWINCH: return am_sigwinch;
+#ifdef SIGINFO
+    case SIGINFO: return am_siginfo;  /* ^t */
+#endif /* defined(SIGINFO) */
     default:      return am_error;
     }
 }

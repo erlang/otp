@@ -88,6 +88,10 @@ Any event handler added to `erl_signal_server` must handle the following events.
 
 - **`sigwinch`** - Window size change
 
+- **`siginfo`** - Status request from keyboard. Note several operating systems
+  (Linux in particular) do not support this signal. `os:set_signal/2` will thow
+  a `badarg` exception if support is missing.
+
 Setting OS signals are described in `os:set_signal/2`.
 
 ## Configuration

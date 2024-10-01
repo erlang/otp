@@ -42,7 +42,8 @@
          t_sigalrm/1,
          t_sigchld/1,
          t_sigchld_fork/1,
-         t_sigwinch/1]).
+         t_sigwinch/1,
+         t_siginfo/1]).
 
 -define(signal_server, erl_signal_server).
 
@@ -61,6 +62,7 @@ all() ->
               t_sigchld,
               t_sigchld_fork,
               t_sigwinch,
+              t_siginfo,
               set_unset]
     end.
 
@@ -327,6 +329,47 @@ t_sigwinch(_Config) ->
     [] = Msgs2,
     %% reset to ignore (it's the default)
     os:set_signal(sigwinch, ignore),
+    ok.
+
+t_siginfo(_Config) ->
+    SiginfoSupported = try
+                           os:set_signal(siginfo, default),
+                           true
+                       catch
+                           error:badarg ->
+                               false
+                       end,
+    case SiginfoSupported of
+        true ->
+            Pid1 = setup_service(),
+            OsPid = os:getpid(),
+            os:set_signal(siginfo, handle),
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            Msgs1 = fetch_msgs(Pid1),
+            io:format("Msgs1: ~p~n", [Msgs1]),
+            [{notify,siginfo},
+             {notify,siginfo},
+             {notify,siginfo}] = Msgs1,
+            %% no proc
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            %% ignore
+            Pid2 = setup_service(),
+            os:set_signal(siginfo, ignore),
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            ok = kill("INFO", OsPid),
+            Msgs2 = fetch_msgs(Pid2),
+            io:format("Msgs2: ~p~n", [Msgs2]),
+            [] = Msgs2,
+            %% reset to ignore (it's the default)
+            os:set_signal(siginfo, ignore);
+        false ->
+            ok
+    end,
     ok.
 
 
