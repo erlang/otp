@@ -67,9 +67,11 @@
 %% Description: Initiates the CLI
 %%--------------------------------------------------------------------
 init([Shell, Exec]) ->
-    {ok, #state{shell = Shell, exec = Exec}};
+    TTY = prim_tty:init_ssh(#{input => false}, {80, 24}, utf8),
+    {ok, #state{shell = Shell, exec = Exec, tty = TTY}};
 init([Shell]) ->
-    {ok, #state{shell = Shell}}.
+    TTY = prim_tty:init_ssh(#{input => false}, {80, 24}, utf8),
+    {ok, #state{shell = Shell, tty = TTY}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_ssh_msg(Args) -> {ok, State} | {stop, ChannelId, State}
@@ -95,7 +97,7 @@ handle_ssh_msg({ssh_cm, ConnectionHandler,
 				  pixel_width = PixWidth,
 				  pixel_height = PixHeight,
                   modes = Modes}},
-    TTY = prim_tty:init_ssh(#{input => false, output => false}, {not_zero(Width, 80), not_zero(Height, 24)}, State#state.encoding),
+    TTY = prim_tty:init_ssh(#{input => false}, {not_zero(Width, 80), not_zero(Height, 24)}, State#state.encoding),
     set_echo(State),
     ssh_connection:reply_request(ConnectionHandler, WantReply,
 				 success, ChannelId),
@@ -432,7 +434,7 @@ replace_escapes(Data) ->
 %%% We are *not* really unicode aware yet, we just filter away characters 
 %%% beyond the latin1 range. We however handle the unicode binaries...
 %%% 
--spec io_request(term(), prim_tty:state(), term()) -> {list(), prim_tty:state()}.
+%%-spec io_request(term(), prim_tty:state(), state()) -> {list(), prim_tty:state()}.
 io_request({requests,Rs}, TTY, State) ->
     io_requests(Rs, TTY, State, []);
 io_request(redraw_prompt, TTY, _State) ->
