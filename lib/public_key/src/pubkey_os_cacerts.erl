@@ -37,7 +37,12 @@
 get() ->
     case persistent_term:get(?MODULE, not_loaded) of
         not_loaded ->
-            case load() of
+            Result =
+                case os:getenv("ERL_CACERTS_PATH") of
+                    false -> load();
+                    EnvVar -> load([EnvVar])
+                end,
+            case Result of
                 ok ->
                     persistent_term:get(?MODULE);
                 {error, Reason} ->

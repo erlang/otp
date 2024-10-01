@@ -2238,7 +2238,12 @@ cacerts_get() ->
 %%--------------------------------------------------------------------
 -doc(#{title => <<"Certificate API">>,
        since => <<"OTP 25.0">>}).
--doc "Loads the OS supplied trusted CA certificates.".
+-doc """
+Loads the OS supplied trusted CA certificates.
+
+If the ERL_CACERTS_PATH environment variable is set,
+it overrides the location of the OS supplied certificate.
+""".
 
 -spec cacerts_load() -> ok | {error, Reason::term()}.
 %%--------------------------------------------------------------------
