@@ -32,7 +32,13 @@
 -export([
          skip_old_solaris/1,
          basic/1,
-         api_open_close/1,api_listen/1,api_connect_init/1,api_connectx_init/1,api_opts/1,
+
+         api_open_close/1,
+         api_listen/1,
+         api_connect_init/1,
+         api_connectx_init/1,
+         api_opts/1,
+
          xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
          open_multihoming_ipv4_socket/1,
          open_unihoming_ipv6_socket/1,
@@ -49,7 +55,9 @@
          t_simple_link_local_sockaddr_in_send_recv/1,
          t_simple_local_sockaddr_in6_send_recv/1,
          t_simple_link_local_sockaddr_in6_send_recv/1,
-         t_simple_local_sockaddr_in_connectx_init/1
+         t_simple_local_sockaddr_in_connectx_init/1,
+
+         non_block_send/1
         ]).
 
 suite() ->
@@ -64,7 +72,9 @@ all() ->
     [
      {group, smoke},
      {group, G},
-     {group, sockaddr}].
+     {group, sockaddr},
+     {group, misc}
+    ].
 
 groups() -> 
     [
@@ -72,7 +82,9 @@ groups() ->
      {old_solaris, [], old_solaris_cases()},
      {extensive,   [], extensive_cases()},
 
-     {sockaddr,    [], sockaddr_cases()}
+     {sockaddr,    [], sockaddr_cases()},
+
+     {misc,        [], misc_cases()}
     ].
 
 smoke_cases() ->
@@ -109,6 +121,12 @@ sockaddr_cases() ->
      t_simple_link_local_sockaddr_in6_send_recv,
      t_simple_local_sockaddr_in_connectx_init
     ].
+
+misc_cases() ->
+    [
+     non_block_send
+    ].
+
 
 
 %% This (Config) was ignored before, why?
@@ -2430,7 +2448,135 @@ t_simple_local_sockaddr_in_connectx_init(Config) when is_list(Config) ->
     ok.
 
 
-%%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+non_block_send(Config) when is_list(Config) ->
+    Cond = fun() -> ok end,
+    Pre  = fun() -> case ?WHICH_LOCAL_ADDR(inet) of
+                        {ok, Addr} ->
+                            Addr;
+                        {error, Reason} ->
+                            throw({skip, Reason})
+                    end
+           end,
+    TC   = fun(Addr) -> do_non_block_send(Config, Addr) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+do_non_block_send(_Config, Addr) ->
+    {Server, Port} = nbs_server_start(Addr),
+    Client         = nbs_client_start(Addr, Port),
+    case nbs_await_client_done(Client) of
+        ok ->
+            nbs_server_stop(Server),
+            ok;
+        {error, Reason} ->
+            nbs_server_stop(Server),
+            exit(Reason)
+    end.
+
+nbs_await_client_done(Client) ->
+    receive
+        {'EXIT', Client, normal} ->
+            ok;
+        {'EXIT', Client, Reason} ->
+            {error, Reason}
+    end.
+            
+
+nbs_server_start(Addr) ->
+    Self = self(),
+    Pid  = spawn_link(fun() -> nbs_server_init(Self, Addr) end),
+    receive
+        {?MODULE, Pid, {ok, Port}} when is_integer(Port) ->
+            {Pid, Port}
+    end.
+
+nbs_server_stop(Server) ->
+    Server ! {?MODULE, self(), stop},
+    receive
+        {'EXIT', Server, normal} ->
+            ok;
+        {'EXIT', Server, Reason} ->
+            {error, Reason}
+    end.
+
+nbs_server_init(Parent, Addr) ->
+    ?P("[server] Try create socket"),
+    case gen_sctp:open(0, [{recbuf,16416}, {ip, Addr}] ) of
+        {ok, S} ->
+            {ok, Port} = inet:port(S),
+            ?P("[server] Try make listen"),
+            ok = gen_sctp:listen(S, true),
+            Parent ! {?MODULE, self(), {ok, Port}},
+            nbs_server_loop(Parent, S);
+        {error, Reason} ->
+            exit({server, Reason})
+    end.
+
+nbs_server_loop(Parent, Sock) ->
+    receive
+        {?MODULE, Parent, stop} ->
+            gen_sctp:close(Sock)
+    end.
+
+nbs_client_start(Addr, Port) ->
+    Self = self(),
+    Pid  = spawn_link(fun() -> nbs_client_init(Self, Addr, Port) end),
+    receive
+        {?MODULE, Pid, ok} ->
+            Pid
+    end.
+
+nbs_client_init(Parent, Addr, Port) ->
+    OOpts = [{recbuf, 16416}, {ip, Addr}, {non_block_send, true}],
+    ?P("[client] Try create socket"),
+    case gen_sctp:open(0, OOpts) of
+        {ok, S} ->
+            COpts = [{sctp_initmsg, #sctp_initmsg{num_ostreams = 5}}],
+            ?P("[client] Try connect to server"),
+            case gen_sctp:connect(S, Addr, Port, COpts) of
+                {ok, Assoc} ->
+                    ?P("[client] assoc created"),
+                    inet:setopts(S, [{debug, true}]),
+                    Parent ! {?MODULE, self(), ok},
+                    Data =
+                        list_to_binary(
+                          lists:flatten(
+                            lists:duplicate(1024, "HejHoppDuGlade"))),
+                    nbs_client_loop(Parent, S, Assoc, 0, 0, Data);
+                {error, CReason} ->
+                    gen_sctp:close(S),
+                    exit({client_connect, CReason})
+            end;
+        {error, OReason} ->
+            exit({client_open, OReason})
+    end.
+
+nbs_client_loop(Parent, S, Assoc, NumWrites, NumBytes, Data) ->
+    ?P("[client] try send when"
+       "~n   Num Writes: ~p"
+       "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
+    %% Should we use all the streams?
+    case gen_sctp:send(S, Assoc, 0, Data) of
+        ok ->
+            nbs_client_loop(Parent, S, Assoc,
+                            NumWrites+1,
+                            NumBytes + byte_size(Data),
+                            Data);
+        {error, eagain} ->
+            ?P("[client] send blocked when"
+               "~n   Num Writes: ~p"
+               "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
+            gen_sctp:close(S),
+            exit(normal);
+        {error, Reason} ->
+            exit({send_failed, Reason})
+    end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 socket_pair_open(Addr, StartTime, Timeout) ->
     S1 = socket_open([{ip,Addr}], Timeout),
@@ -2718,6 +2864,7 @@ match_unless_solaris(A, B) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 is_net_supported() ->
     try net:info() of
