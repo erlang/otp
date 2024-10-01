@@ -140,7 +140,7 @@ call_size_func(#b_set{op=call,args=[Name|Args],dst=Dst}, Bs) ->
     StMap = map_get(st_map, Bs),
     case StMap of
         #{Name := #opt_st{ssa=Linear,args=Params}} ->
-            NewBs0 = setup_call_bs(Params, Args, Bs, #{}),
+            NewBs0 = setup_call_bs(Params, Args, Bs),
             case any(fun({writable,_}) -> true;
                         (_) -> false
                      end, maps:values(NewBs0)) of
@@ -206,15 +206,16 @@ capture_generator_1(Dst, [_|T], Bs) ->
 capture_generator_1(_, [], Bs) ->
     Bs.
 
-setup_call_bs([V|Vs], [A0|As], OldBs, NewBs) ->
-    A = case get_value(A0, OldBs) of
-            #b_literal{}=Lit -> {arg,Lit};
-            {writable,#b_literal{val=0}}=Wr -> Wr;
-            {arg,_}=Arg -> Arg;
-            _ -> any
-        end,
-    setup_call_bs(Vs, As, OldBs, NewBs#{V => A});
-setup_call_bs([], [], #{}, NewBs) -> NewBs.
+setup_call_bs(Vs, As, Bs) ->
+    #{V => setup_call_binding(A, Bs) || V <- Vs && A <- As}.
+
+setup_call_binding(A, Bs) ->
+    case get_value(A, Bs) of
+        #b_literal{}=Lit -> {arg,Lit};
+        {writable,#b_literal{val=0}}=Wr -> Wr;
+        {arg,_}=Arg -> Arg;
+        _ -> any
+    end.
 
 calc_size([{L,#b_blk{is=Is,last=Last}}|Blks], Map0) ->
     case maps:take(L, Map0) of

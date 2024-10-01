@@ -92,7 +92,7 @@ opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0, MetaCache) ->
         #{ Id := ArgTypes } ->
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
-            Ts = maps:from_list(zip(Args, ArgTypes)),
+            Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
             {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0, MetaCache),
 
             St = St0#opt_st{ssa=Linear},
@@ -202,7 +202,7 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     #opt_st{ssa=Linear,args=Args} = map_get(Id, StMap),
 
     {ArgTypes, State1} = sig_commit_args(Id, State0),
-    Ts = maps:from_list(zip(Args, ArgTypes)),
+    Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
 
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
@@ -427,7 +427,7 @@ opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
             %% This is a local function and we're guaranteed to have visited
             %% every call site at least once, so we know that the parameter
             %% types are at least as narrow as the join of all argument types.
-            Ts = join_arg_types(Args, ArgTypes, #{}),
+            Ts = join_arg_types(Args, ArgTypes),
             opt_function(Linear0, Args, Id, Ts, FuncDb);
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
@@ -443,11 +443,9 @@ opt_continue(Linear0, Args, Anno, _FuncDb) ->
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
 
-join_arg_types([Arg | Args], [TypeMap | TMs], Ts) ->
-    Type = beam_types:join(maps:values(TypeMap)),
-    join_arg_types(Args, TMs, Ts#{ Arg => Type });
-join_arg_types([], [], Ts) ->
-    Ts.
+join_arg_types(Args, TypeMaps) ->
+    #{Arg => beam_types:join(maps:values(TypeMap)) ||
+        Arg <- Args && TypeMap <- TypeMaps}.
 
 %%
 %% Optimizes a function based on the type information inferred by signatures/2
@@ -2992,10 +2990,8 @@ subtract_types([{#b_var{}=V, T0}|Vs], Ts) ->
 subtract_types([], Ts) ->
     Ts.
 
-parallel_join([A | As], [B | Bs]) ->
-    [beam_types:join(A, B) | parallel_join(As, Bs)];
-parallel_join([], []) ->
-    [].
+parallel_join(As, Bs) ->
+    [beam_types:join(A, B) || A <- As && B <- Bs].
 
 gcd(A, B) ->
     case A rem B of
