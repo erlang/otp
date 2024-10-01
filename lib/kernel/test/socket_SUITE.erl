@@ -12687,7 +12687,7 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             case ?PPING(Node) of
                 {error, Reason} ->
                     skip({ping_failed, Reason});
-                pong_ ->
+                pong ->
                     {Peer, Node}
             end;
         {error, Reason} ->
