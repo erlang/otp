@@ -69,10 +69,26 @@ listen(S, Flag) ->
 
 peeloff(S, AssocId) ->
     case prim_inet:peeloff(S, AssocId) of
-	{ok, NewS}=Result ->
+	{ok, NewS} ->
 	    inet_db:register_socket(NewS, ?MODULE),
-	    Result;
+	    peeloff_opts(S, NewS);
 	Error -> Error
+    end.
+
+peeloff_opts(S, NewS) ->
+    InheritOpts =
+        [active, sctp_nodelay, priority, linger, reuseaddr,
+         tos, ttl, recvtos, recvttl],
+    case prim_inet:getopts(S, InheritOpts) of
+        {ok, Opts} ->
+            case prim_inet:setopts(NewS, Opts) of
+                ok ->
+                    {ok, NewS};
+                Error1 ->
+                    close(NewS), Error1
+            end;
+        Error2 ->
+            close(NewS), Error2
     end.
 
 

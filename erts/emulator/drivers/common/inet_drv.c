@@ -8154,6 +8154,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.ival);
 	    break;
 #else
+            curr += 4;
             continue;
 #endif
 
@@ -8164,6 +8165,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
                   "sctp_set_opts -> REUSEPORT_LB\r\n",
                   __LINE__, desc->s, driver_caller(desc->port)) );
 #if defined(__WIN32__)
+            curr += 4;
             continue;
 #elif defined(SO_REUSEPORT_LB) || (defined(__linux__) && defined(SO_REUSEPORT))
 	    arg.ival= get_int32 (curr);	  curr += 4;
@@ -8178,6 +8180,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.ival);
 	    break;
 #else
+            curr += 4;
             continue;
 #endif
 	}
@@ -8198,6 +8201,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.ival);
 	    break;
 #else
+            curr += 4;
             continue;
 #endif
 	}
@@ -8229,8 +8233,10 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
                 }
                 new_ra = (compat & ra_bits) == ra_bits;
                 desc->bsd_compat = compat;
-                if (old_ra == new_ra)
+                if (old_ra == new_ra) {
+                    curr += 4;
                     continue;
+                }
             }
 #endif
 	    arg.ival= get_int32 (curr);	  curr += 4;
@@ -8277,7 +8283,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #	else
         /* inet_fill_opts always returns a value for this option,
          * so we need to ignore it if not implemented, just in case */
-	    continue;
+            curr += 4;
+            continue;
 #	endif
 
 	case INET_OPT_TOS:
@@ -8299,7 +8306,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #	else
         /* inet_fill_opts always returns a value for this option,
          * so we need to ignore it if not implemented, just in case */
-	    continue;
+            curr += 4;
+            continue;
 #	endif
 
 #       if defined(IPV6_TCLASS) && defined(IPPROTO_IPV6)
@@ -8430,7 +8438,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #       elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
 #           error Here is a fix for Win IPv6 SCTP missing
 #       else
-	    continue; /* Option not supported -- ignore it */
+	    curr += 4;
+            continue; /* Option not supported -- ignore it */
 #       endif
 
 #ifdef SO_BINDTODEVICE
