@@ -41,7 +41,8 @@
          t_sigterm/1,
          t_sigalrm/1,
          t_sigchld/1,
-         t_sigchld_fork/1]).
+         t_sigchld_fork/1,
+         t_sigwinch/1]).
 
 -define(signal_server, erl_signal_server).
 
@@ -59,6 +60,7 @@ all() ->
               t_sigalrm,
               t_sigchld,
               t_sigchld_fork,
+              t_sigwinch,
               set_unset]
     end.
 
@@ -296,6 +298,35 @@ sigchld_fork() ->
     42 = Status,
     %% reset to ignore (it's the default)
     os:set_signal(sigchld, ignore),
+    ok.
+
+t_sigwinch(_Config) ->
+    Pid1 = setup_service(),
+    OsPid = os:getpid(),
+    os:set_signal(sigwinch, handle),
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    Msgs1 = fetch_msgs(Pid1),
+    io:format("Msgs1: ~p~n", [Msgs1]),
+    [{notify,sigwinch},
+     {notify,sigwinch},
+     {notify,sigwinch}] = Msgs1,
+    %% no proc
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    %% ignore
+    Pid2 = setup_service(),
+    os:set_signal(sigwinch, ignore),
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    ok = kill("WINCH", OsPid),
+    Msgs2 = fetch_msgs(Pid2),
+    io:format("Msgs2: ~p~n", [Msgs2]),
+    [] = Msgs2,
+    %% reset to ignore (it's the default)
+    os:set_signal(sigwinch, ignore),
     ok.
 
 
