@@ -1576,6 +1576,7 @@ enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
 enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
+enc_opt(non_block_send)  -> ?INET_OPT_NON_BLOCK_SEND;
 enc_opt(debug)           -> ?INET_OPT_DEBUG;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
@@ -1647,6 +1648,7 @@ dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
 dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
+dec_opt(?INET_OPT_NON_BLOCK_SEND) -> non_block_send;
 dec_opt(?INET_OPT_DEBUG)          -> debug;
 dec_opt(I) when is_integer(I)     -> undefined.
 
@@ -1759,6 +1761,7 @@ type_opt_1(read_packets)    -> uint;
 type_opt_1(netns)           -> binary;
 type_opt_1(show_econnreset) -> bool;
 type_opt_1(bind_to_device)  -> binary;
+type_opt_1(non_block_send)  -> bool;
 type_opt_1(debug)           -> bool;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding
@@ -2070,7 +2073,7 @@ type_value_2(binary_or_uint,Int)
 %% Type-checking of SCTP options
 type_value_2(sctp_assoc_id, X)
   when X band 16#ffffffff =:= X                     -> true;
-type_value_2(_, _)         -> false.
+type_value_2(_T, _V)                                -> false.
 
 
 
