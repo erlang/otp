@@ -116,36 +116,21 @@ groups() ->
      {ssh, [],
         [{group,ssh_unicode},
          {group,ssh_latin1},
-         %test_invalid_keymap, Cant see if the keymap is invalid from ssh_client
-         test_valid_keymap,
-         %shell_suspend,
-         %shell_full_queue,
-         %external_editor,
-         %external_editor_visual,
          shell_ignore_pager_commands
         ]},
        {ssh_unicode,[],
-        [{group,ssh_tests}
-         %shell_invalid_unicode, % needs another method to send invalid unicode through ssh_client
-         %external_editor_unicode
-         %% unicode wrapping does not work right yet
-         %% shell_unicode_wrap,
-         %% shell_delete_unicode_wrap,
-         %% shell_delete_unicode_not_at_cursor_wrap,
-         %% shell_update_window_unicode_wrap
-        ]},
+        [{group,ssh_tests}]},
        {ssh_latin1,[],[{group,ssh_tests}]},
        {ssh_tests, [],
         [shell_navigation, shell_multiline_navigation,
          shell_multiline_prompt_ssh,
-         shell_xnfix, shell_delete, %shell_format,
+         shell_xnfix, shell_delete,
          shell_transpose, shell_search, shell_insert,
          shell_update_window,
          shell_small_window_multiline_navigation,
          shell_huge_input,
          shell_support_ansi_input,
          shell_receive_standard_out,
-         %shell_standard_error_nlcr,
          shell_expand_location_above,
          shell_expand_location_below,
          shell_clear]},

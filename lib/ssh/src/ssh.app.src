@@ -60,7 +60,7 @@
   {runtime_dependencies, [
 			  "crypto-5.0",
 			  "erts-14.0",
-			  "kernel-9.0",
+			  "kernel-@OTP-19226@",
 			  "public_key-1.6.1",
                           "stdlib-6.0","stdlib-5.0",
                           "runtime_tools-1.15.1"
