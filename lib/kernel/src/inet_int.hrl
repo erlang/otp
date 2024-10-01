@@ -167,6 +167,7 @@
 -define(INET_OPT_TTL,             46).
 -define(INET_OPT_RECVTTL,         47).
 -define(TCP_OPT_NOPUSH,           48).
+-define(INET_OPT_NON_BLOCK_SEND,  50).
 -define(INET_OPT_DEBUG,           99).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).

@@ -896,6 +896,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_TTL                46  /* IP_TTL */
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
+#define INET_LOPT_NON_BLOCK_SEND    50  /* Non-blocking send, only SCTP */
 #define INET_LOPT_DEBUG             99  /* Enable/disable DEBUG for a socket */
 
 /* SCTP options: a separate range, from 100: */
@@ -1254,6 +1255,11 @@ typedef struct {
 #endif
     int recv_cmsgflags;         /* Which ancillary data to expect */
     int debug;                  /* debug enabled or not */
+
+    int nonBlockSend;           /* ONLY for SCTP.
+                                 * Set by the option: INET_LOPT_NON_BLOCK_SEND
+                                 * FALSE by default.
+                                 */
 } inet_descriptor;
 
 
@@ -7685,6 +7691,37 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    break;
 #endif
 
+	case INET_LOPT_NON_BLOCK_SEND:
+#ifdef HAVE_SCTP
+            if (IS_SCTP(desc)) {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> %s\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port), B2S(ival)) );
+                if (ival) {
+                    desc->nonBlockSend = TRUE;
+                } else {
+                    desc->nonBlockSend = FALSE;
+                }
+            } else {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+#else
+            {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+#endif
+            continue; /* take care of next option */
+
 	case INET_LOPT_DEBUG:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
@@ -8706,6 +8743,33 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 #endif
 
+	case INET_LOPT_NON_BLOCK_SEND:
+            if (IS_SCTP(desc))
+                {
+                    int ival = get_int32(curr); curr += 4;
+
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "sctp_set_opts(non-block-send) -> %s\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          B2S(ival)) );
+                    if (ival) {
+                        desc->nonBlockSend = TRUE;
+                    } else {
+                        desc->nonBlockSend = FALSE;
+                    }
+
+                    res = 0;
+                }
+            else {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "sctp_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+            continue; /* take care of next option */
+
 	case INET_LOPT_DEBUG:
             {
                 int ival = get_int32(curr); curr += 4;
@@ -9398,6 +9462,12 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
             continue;
         }
 #endif /* #ifdef __WIN32__ */
+
+	case INET_LOPT_NON_BLOCK_SEND:
+            *ptr++ = opt;
+            ival = desc->nonBlockSend;
+            put_int32(ival, ptr);
+            continue;
 
 	case INET_LOPT_DEBUG:
             *ptr++ = opt;
@@ -10616,6 +10686,8 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->recv_cmsgflags = 0;
 
     desc->debug = DDBG_DEFAULT;
+
+    desc->nonBlockSend = FALSE;
 
     return (ErlDrvData)desc;
 }
@@ -14627,11 +14699,45 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 #endif
     if (IS_SOCKET_ERROR(code)) {
         int err = sock_errno();
+
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "packet_inet_command -> send failed"
+              "\r\n   error:       %d (%T)"
+              "\r\n   ERRNO_BLOCK: %d (%T)"
+              "\r\n   EINTR:       %d (%T)"
+              "\r\n",
+              __LINE__,
+              desc->s, driver_caller(desc->port),
+              err,         error_atom(err),
+              ERRNO_BLOCK, error_atom(ERRNO_BLOCK),
+              EINTR,       error_atom(EINTR)) );
+        
         if ((err != ERRNO_BLOCK) && (err != EINTR)) {
             inet_reply_error(desc, err);
             return;
         }
+        else if (desc->nonBlockSend) {
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "packet_inet_command -> block|intr when non-block send"
+                  "\r\n",
+                  __LINE__,
+                  desc->s, driver_caller(desc->port)) );
+        
+            inet_reply_error(desc, err);
+            return;
+        }
         else {
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "packet_inet_command -> block|intr send"
+                  "\r\n",
+                  __LINE__,
+                  desc->s, driver_caller(desc->port)) );
+
             /* XXX if(! INET_IGNORED(INETP(desc))) */
             sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
             set_busy_port(desc->port, 1);
