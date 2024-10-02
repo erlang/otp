@@ -2598,6 +2598,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 break;
             }
         }
+
+        check_pending_stubs();
     }
 
     /* Allocate the binary. */
@@ -3243,6 +3245,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         } else if (std::gcd(seg.unit, 8) != 8) {
             is_byte_aligned = false;
         }
+
+        check_pending_stubs();
     }
 
     comment("done");
