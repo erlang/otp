@@ -51,7 +51,9 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
 
 -export([
          format/1, format/2, format/3,
-         format_value/3
+         format_value/3,
+         format_key_value_list/3,
+         format_key_value_list_checked/3
         ]).
 -export_type([formatter/0]).
 
@@ -694,17 +696,67 @@ format_tail([Head|Tail], Enc, State, IndentAll, IndentRow) ->
 format_tail([], _, _, _, _) ->
     [].
 
+-doc """
+Format function for lists of key-value pairs as JSON objects.
+
+Accepts lists with atom, binary, integer, or float keys.
+""".
+-doc(#{since => <<"OTP 27.2">>}).
+
+-spec format_key_value_list([{term(), term()}], Encode::formatter(), State::map()) -> iodata().
 format_key_value_list(KVList, UserEnc, #{level := Level} = State) ->
     {_,Indent} = indent(State),
     NextState = State#{level := Level+1},
     {KISize, KeyIndent} = indent(NextState),
     EncKeyFun = fun(KeyVal, _Fun) -> UserEnc(KeyVal, UserEnc, NextState) end,
-    Entry = fun(Key, Value) ->
-                    EncKey = key(Key, EncKeyFun),
-                    ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
-                    [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
-            end,
-    format_object([Entry(Key,Value) || {Key, Value} <- KVList], Indent).
+    EntryFun = fun({Key, Value}) ->
+                       EncKey = key(Key, EncKeyFun),
+                       ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
+                       [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
+               end,
+    format_object(lists:map(EntryFun, KVList), Indent).
+
+-doc """
+Format function for lists of key-value pairs as JSON objects.
+
+Accepts lists with atom, binary, integer, or float keys.
+Verifies that no duplicate keys will be produced in the
+resulting JSON object.
+
+## Errors
+
+Raises `error({duplicate_key, Key})` if there are duplicates.
+""".
+-doc(#{since => <<"OTP 27.2">>}).
+
+-spec format_key_value_list_checked([{term(), term()}], Encoder::formatter(), State::map()) -> iodata().
+format_key_value_list_checked(KVList, UserEnc, State) when is_function(UserEnc, 3) ->
+    {_,Indent} = indent(State),
+    format_object(do_format_checked(KVList, UserEnc, State), Indent).
+
+do_format_checked([], _, _) ->
+    [];
+
+do_format_checked(KVList, UserEnc,  #{level := Level} = State) ->
+    NextState = State#{level := Level + 1},
+    {KISize, KeyIndent} = indent(NextState),
+    EncKeyFun = fun(KeyVal, _Fun) -> UserEnc(KeyVal, UserEnc, NextState) end,
+    EncListFun =
+        fun({Key, Value}, {Acc, Visited0}) ->
+                EncKey = iolist_to_binary(key(Key, EncKeyFun)),
+                case is_map_key(EncKey, Visited0) of
+                    true ->
+                        error({duplicate_key, Key});
+                    false ->
+                        Visited1 = Visited0#{EncKey => true},
+                        ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
+                        EncEntry = [$, , KeyIndent, EncKey, ": "
+                                   | UserEnc(Value, UserEnc, ValState)],
+                        {[EncEntry | Acc], Visited1}
+                end
+        end,
+    {EncKVList, _} = lists:foldl(EncListFun, {[], #{}}, KVList),
+    lists:reverse(EncKVList).
 
 format_object([], _) -> <<"{}">>;
 format_object([[_Comma,KeyIndent|Entry]], Indent) ->
