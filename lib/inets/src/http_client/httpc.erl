@@ -382,7 +382,9 @@ set_options(Options) ->
       DomainDesc :: string(),
       HostName :: uri_string:uri_string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
-    case validate_options(Options) of
+    IpFamily = httpc_manager:get_option(ipfamily, Profile),
+    UnixSock = httpc_manager:get_option(unix_socket, Profile),
+    case validate_options(Options, IpFamily, UnixSock) of
 	{ok, Opts} ->
 	    httpc_manager:set_options(Opts, profile_name(Profile));
 	{error, Reason} ->
@@ -1170,28 +1172,24 @@ request_options_sanity_check(Opts) ->
     end,
     ok.
 
-validate_ipfamily_unix_socket(Options0) ->
-    IpFamily = proplists:get_value(ipfamily, Options0, inet),
-    UnixSocket = proplists:get_value(unix_socket, Options0, undefined),
-    Options1 = proplists:delete(ipfamily, Options0),
-    Options2 = proplists:delete(ipfamily, Options1),
-    validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options2,
-                                  [{ipfamily, IpFamily}, {unix_socket, UnixSocket}]).
-%%
-validate_ipfamily_unix_socket(local, undefined, _Options, _Acc) ->
-    bad_option(unix_socket, undefined);
-validate_ipfamily_unix_socket(IpFamily, UnixSocket, _Options, _Acc)
-  when IpFamily =/= local, UnixSocket =/= undefined ->
-    bad_option(ipfamily, IpFamily);
-validate_ipfamily_unix_socket(IpFamily, UnixSocket, Options, Acc) ->
-    validate_ipfamily(IpFamily),
-    validate_unix_socket(UnixSocket),
-    {Options, Acc}.
+validate_ipfamily_unix_socket(Options0, CurrIpFamily, CurrUnixSock) ->
+    IpFamily = proplists:get_value(ipfamily, Options0, CurrIpFamily),
+    UnixSocket = proplists:get_value(unix_socket, Options0, CurrUnixSock),
+    validate_ipfamily_unix_socket(IpFamily, UnixSocket).
 
-validate_options(Options0) ->
+validate_ipfamily_unix_socket(local, undefined) ->
+    throw({error, {bad_ipfamily_unix_socket_combination, local, undefined}});
+validate_ipfamily_unix_socket(IpFamily, UnixSocket)
+  when IpFamily =/= local, UnixSocket =/= undefined ->
+    throw({error, {bad_ipfamily_unix_socket_combination, IpFamily, UnixSocket}});
+validate_ipfamily_unix_socket(IpFamily, UnixSocket) ->
+    validate_ipfamily(IpFamily),
+    validate_unix_socket(UnixSocket).
+
+validate_options(Options0, CurrIpFamily, CurrUnixSock) ->
     try
-        {Options, Acc} = validate_ipfamily_unix_socket(Options0),
-        validate_options(Options, Acc)
+        validate_ipfamily_unix_socket(Options0, CurrIpFamily, CurrUnixSock),
+        validate_options(Options0, [])
     catch
         error:Reason ->
             {error, Reason}
