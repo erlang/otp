@@ -1090,18 +1090,18 @@ cse_successors_1([L|Ls], Es0, M) ->
     end;
 cse_successors_1([], _, M) -> M.
 
-cse_successor_fail(Fail, Src, Es0, M) ->
+cse_successor_fail(Fail, Src, LHS0, M) ->
     case M of
-        #{Fail := Es1} when map_size(Es1) =:= 0 ->
+        #{Fail := RHS} when map_size(RHS) =:= 0 ->
             M;
-        #{Fail := Es1} ->
-            Es = #{Var => Val || Var := Val <- Es0,
-                                 is_map_key(Var, Es1),
-                                 Val =/= Src},
-            M#{Fail := Es};
+        #{Fail := RHS} ->
+            LHS = #{Var => Val || Var := Val <- LHS0,
+                                  is_map_key(Var, RHS),
+                                  Val =/= Src},
+            M#{Fail := cse_intersection(LHS, RHS)};
         #{} ->
-            Es = #{Var => Val || Var := Val <- Es0, Val =/= Src},
-            M#{Fail => Es}
+            LHS = #{Var => Val || Var := Val <- LHS0, Val =/= Src},
+            M#{Fail => LHS}
     end.
 
 %% Calculate the intersection of the two maps. Both keys and values
