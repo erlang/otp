@@ -39,6 +39,7 @@
     test_encode_proplist/1,
     test_encode_escape_all/1,
     test_format_list/1,
+    test_format_proplist/1,
     test_format_map/1,
     test_format_fun/1,
     test_decode_atoms/1,
@@ -91,6 +92,7 @@ groups() ->
         ]},
         {format, [parallel], [
             test_format_list,
+            test_format_proplist,
             test_format_map,
             test_format_fun
         ]},
@@ -365,6 +367,37 @@ test_format_list(_Config) ->
 
     """,
     ?assertEqual(ListString, format([~"foo", ~"bar", ~"baz"], #{indent => 3})),
+    ok.
+
+test_format_proplist(_Config) ->
+    Formatter = fun({kvlist, KVList}, Fun, State) ->
+                        json:format_key_value_list(KVList, Fun, State);
+                   ({kvlist_checked, KVList}, Fun, State) ->
+                        json:format_key_value_list_checked(KVList, Fun, State);
+                   (Other, Fun, State) ->
+                        json:format_value(Other, Fun, State)
+                end,
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": "str"
+                  }
+
+                  """, format({kvlist, [{a, 1}, {b, ~"str"}]}, Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": "str"
+                  }
+
+                  """, format({kvlist_checked, [{a, 1}, {b, ~"str"}]}, Formatter)),
+
+
+    ?assertError({duplicate_key, a},
+                 format({kvlist_checked, [{a, 1}, {b, ~"str"}, {a, 2}]}, Formatter)),
+
     ok.
 
 test_format_map(_Config) ->
