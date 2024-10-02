@@ -2021,7 +2021,6 @@ invalid_ipfamily_unix_socket(Config) when is_list(Config) ->
     ok = httpc:set_options([{unix_socket, undefined}, {ipfamily, inet}], Profile),
     ?assertMatch({error, _}, httpc:set_option(unix_socket, ?UNIX_SOCKET, Profile)).
 
-
 %%-------------------------------------------------------------------------
 delete_no_body() ->
     [{doc, "Test that a DELETE request without Body does not send a Content-Type header - Solves ERL-536"}].
