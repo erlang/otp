@@ -2466,6 +2466,11 @@ non_block_send(Config) when is_list(Config) ->
 do_non_block_send(_Config, Addr) ->
     {Server, Port} = nbs_server_start(Addr),
     Client         = nbs_client_start(Addr, Port),
+    ok = nbs_await_client_blocked(Client),
+    nbs_command_continue("server", Server),
+    ok = nbs_await_server_recv(Server),
+    nbs_command_continue("client", Client),
+    nbs_command_continue("server", Server),
     case nbs_await_client_done(Client) of
         ok ->
             nbs_server_stop(Server),
@@ -2475,14 +2480,38 @@ do_non_block_send(_Config, Addr) ->
             exit(Reason)
     end.
 
+nbs_command_continue(Who, Pid) ->
+    ?P("[ctrl] command ~s continue", [Who]),
+    Pid ! {?MODULE, self(), continue}.
+    
+nbs_await_server_recv(Server) ->
+    ?P("[ctrl] await server recv"),
+    receive
+        {?MODULE, Server, recv} ->
+            ?P("[ctrl] server recv"),
+            ok
+    end.
+    
+nbs_await_client_blocked(Client) ->
+    ?P("[ctrl] await client blocked"),
+    receive
+        {?MODULE, Client, blocked} ->
+            ?P("[ctrl] client blocked"),
+            ok
+    end.
+
 nbs_await_client_done(Client) ->
+    ?P("[ctrl] await client done"),
     receive
         {'EXIT', Client, normal} ->
+            ?P("[ctrl] client done"),
             ok;
         {'EXIT', Client, Reason} ->
+            ?P("[ctrl] client failed: "
+               "~n   ~p", [Reason]),
             {error, Reason}
     end.
-            
+
 
 nbs_server_start(Addr) ->
     Self = self(),
@@ -2493,32 +2522,82 @@ nbs_server_start(Addr) ->
     end.
 
 nbs_server_stop(Server) ->
+    ?P("[ctrl] command server stop"),
     Server ! {?MODULE, self(), stop},
+    ?P("[ctrl] await server stopped"),
     receive
         {'EXIT', Server, normal} ->
+            ?P("[ctrl] server stopped"),
             ok;
         {'EXIT', Server, Reason} ->
+            ?P("[ctrl] server failed: "
+               "~n   ~p", [Reason]),
             {error, Reason}
     end.
 
 nbs_server_init(Parent, Addr) ->
     ?P("[server] Try create socket"),
-    case gen_sctp:open(0, [{recbuf,16416}, {ip, Addr}] ) of
+    case gen_sctp:open(0, [{recbuf, 16384}, {ip, Addr}] ) of
         {ok, S} ->
             {ok, Port} = inet:port(S),
             ?P("[server] Try make listen"),
             ok = gen_sctp:listen(S, true),
             Parent ! {?MODULE, self(), {ok, Port}},
-            nbs_server_loop(Parent, S);
+            nbs_server_main(Parent, S);
         {error, Reason} ->
             exit({server, Reason})
     end.
 
-nbs_server_loop(Parent, Sock) ->
+nbs_server_main(Parent, Sock) ->
+    ?P("[server] await controller continue command"),
+    receive
+        {?MODULE, Parent, continue} ->
+            ?P("[server] received controller continue command"),
+            ok
+    end,
+    nbs_server_loop(Parent, Sock, true),
+    ?P("[server] await controller stop command"),
     receive
         {?MODULE, Parent, stop} ->
+            ?P("[server] received controller stop command"),
             gen_sctp:close(Sock)
     end.
+
+nbs_server_loop(Parent, Sock, Retry) ->
+    case gen_sctp:recv(Sock, 5000) of
+        {ok, {FromIP, FromPort, AncData, Data}} when is_binary(Data) ->
+            ?P("[server] received data: "
+               "~n   From IP:   ~p"
+               "~n   From Port: ~p"
+               "~n   Anc Data:  ~p"
+               "~n   sz(Data):  ~p",
+               [FromIP, FromPort, AncData, byte_size(Data)]),
+            nbs_server_loop(Parent, Sock, Retry);
+        {ok, {FromIP, FromPort, AncData, Data}} ->
+            ?P("[server] received data: "
+               "~n   From IP:   ~p"
+               "~n   From Port: ~p"
+               "~n   Anc Data:  ~p"
+               "~n   Data:      ~p",
+               [FromIP, FromPort, AncData, Data]),
+            nbs_server_loop(Parent, Sock, Retry);
+        {error, timeout} when (Retry =:= true) ->
+            ?P("[server] receive timeout"),
+            Parent ! {?MODULE, self(), recv},
+            ?P("[server] await controller contue command"),
+            receive
+                {?MODULE, Parent, continue} ->
+                    ?P("[server] received continue command from controller"),
+                    ok
+            end,
+            nbs_server_loop(Parent, Sock, false);
+        {error, timeout} ->
+            ?P("[server] receive timeout => done"),
+            ok;
+        {error, Reason} ->
+            exit({server_recv, Reason})
+    end.
+            
 
 nbs_client_start(Addr, Port) ->
     Self = self(),
@@ -2529,7 +2608,7 @@ nbs_client_start(Addr, Port) ->
     end.
 
 nbs_client_init(Parent, Addr, Port) ->
-    OOpts = [{recbuf, 16416}, {ip, Addr}, {non_block_send, true}],
+    OOpts = [{ip, Addr}, {non_block_send, true}],
     ?P("[client] Try create socket"),
     case gen_sctp:open(0, OOpts) of
         {ok, S} ->
@@ -2546,15 +2625,22 @@ nbs_client_init(Parent, Addr, Port) ->
                             lists:duplicate(1024, "HejHoppDuGlade"))),
                     nbs_client_loop(Parent, S, Assoc, 0, 0, Data);
                 {error, CReason} ->
+                    ?P("[client] failed connect: "
+                       "~n   Reason: ~p", [CReason]),
                     gen_sctp:close(S),
                     exit({client_connect, CReason})
             end;
         {error, OReason} ->
+            ?P("[client] failed create socket: "
+               "~n   Reason: ~p", [OReason]),
             exit({client_open, OReason})
     end.
 
 nbs_client_loop(Parent, S, Assoc, NumWrites, NumBytes, Data) ->
-    ?P("[client] try send when"
+    nbs_client_loop(Parent, S, Assoc, NumWrites, NumBytes, Data, true).
+
+nbs_client_loop(Parent, S, Assoc, NumWrites, NumBytes, Data, true) ->
+    ?P("[client,true] try send when"
        "~n   Num Writes: ~p"
        "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
     %% Should we use all the streams?
@@ -2563,14 +2649,41 @@ nbs_client_loop(Parent, S, Assoc, NumWrites, NumBytes, Data) ->
             nbs_client_loop(Parent, S, Assoc,
                             NumWrites+1,
                             NumBytes + byte_size(Data),
-                            Data);
+                            Data, true);
         {error, eagain} ->
             ?P("[client] send blocked when"
                "~n   Num Writes: ~p"
                "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
+            Parent ! {?MODULE, self(), blocked},
+            ?P("[client] await continue command from controller"),
+            receive
+                {?MODULE, Parent, continue} ->
+                    ?P("[client] received continue command from controller"),
+                    ok
+            end,
+            nbs_client_loop(Parent, S, Assoc,
+                            NumWrites,
+                            NumBytes,
+                            Data, false);
+        {error, Reason} ->
+            ?P("[client] failed sending message: "
+               "~n   Reason: ~p", [Reason]),
+            gen_sctp:close(S),
+            exit({send_failed, Reason})
+    end;
+nbs_client_loop(_Parent, S, Assoc, NumWrites, NumBytes, Data, false) ->
+    ?P("[client,false] try send when"
+       "~n   Num Writes: ~p"
+       "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
+    case gen_sctp:send(S, Assoc, 0, Data) of
+        ok ->
+            ?P("[client] sent last message - done"),
             gen_sctp:close(S),
             exit(normal);
         {error, Reason} ->
+            ?P("[client] failed sending last message: "
+               "~n   Reason: ~p", [Reason]),
+            gen_sctp:close(S),
             exit({send_failed, Reason})
     end.
 
