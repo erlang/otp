@@ -14703,15 +14703,11 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
         DDBG(desc,
              ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
               "packet_inet_command -> send failed"
-              "\r\n   error:       %d (%T)"
-              "\r\n   ERRNO_BLOCK: %d (%T)"
-              "\r\n   EINTR:       %d (%T)"
+              "\r\n   error: %d (%T)"
               "\r\n",
               __LINE__,
               desc->s, driver_caller(desc->port),
-              err,         error_atom(err),
-              ERRNO_BLOCK, error_atom(ERRNO_BLOCK),
-              EINTR,       error_atom(EINTR)) );
+              err, error_atom(err)) );
         
         if ((err != ERRNO_BLOCK) && (err != EINTR)) {
             inet_reply_error(desc, err);
