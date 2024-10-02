@@ -696,7 +696,6 @@ format_tail([Head|Tail], Enc, State, IndentAll, IndentRow) ->
 format_tail([], _, _, _, _) ->
     [].
 
-
 -doc """
 Format function for lists of key-value pairs as JSON objects.
 
@@ -716,7 +715,6 @@ format_key_value_list(KVList, UserEnc, #{level := Level} = State) ->
                     [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
             end,
     format_object([Entry(Key,Value) || {Key, Value} <- KVList], Indent).
-
 
 -doc """
 Format function for lists of key-value pairs as JSON objects.
@@ -740,7 +738,7 @@ do_format_checked([], _, _) ->
     [];
 
 do_format_checked(KVList, UserEnc,  #{level := Level} = State) ->
-    NextState = State#{level := Level+1},
+    NextState = State#{level := Level + 1},
     {KISize, KeyIndent} = indent(NextState),
     EncKeyFun = fun(KeyVal, _Fun) -> UserEnc(KeyVal, UserEnc, NextState) end,
     EncListFun =
@@ -759,7 +757,6 @@ do_format_checked(KVList, UserEnc,  #{level := Level} = State) ->
         end,
     {EncKVList, _} = lists:foldl(EncListFun, {[], #{}}, KVList),
     lists:reverse(EncKVList).
-
 
 format_object([], _) -> <<"{}">>;
 format_object([[_Comma,KeyIndent|Entry]], Indent) ->
