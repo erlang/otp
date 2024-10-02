@@ -1191,7 +1191,7 @@ validate_options(Options0, CurrIpFamily, CurrUnixSock) ->
         validate_ipfamily_unix_socket(Options0, CurrIpFamily, CurrUnixSock),
         validate_options(Options0, [])
     catch
-        error:Reason ->
+        throw:Reason ->
             {error, Reason}
     end.
 %%
