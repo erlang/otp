@@ -942,6 +942,8 @@ grab_bag(_Config) ->
     {reply,{ok,foo_bar},#{page_title := foo_bar}} =
         grab_bag_23(id(#{page_title => unset})),
 
+    ok = grab_bag_24(),
+
     ok.
 
 grab_bag_1() ->
@@ -1242,6 +1244,26 @@ grab_bag_23(#{page_title := unset} = State1) ->
           _ -> lists:flatten([State2])
       end},
      State2}.
+
+
+-record(test, {a,b,c}).
+-record(test_a, {a}).
+
+%% GH-8818: The CSE pass in beam_ssa_opt failed to intersect candidates on
+%% the failure path, crashing the type optimization pass.
+grab_bag_24() ->
+    {'EXIT', _} = catch do_grab_bag_24(id(0), id(0), id(0), id(0)),
+    ok.
+
+do_grab_bag_24(A, B, C, D) ->
+    A#test.a,
+    {E, F} = ext:ernal(D#test_a.a),
+    if
+        D#test_a.a == 0 andalso (B < E * A#test.a) orelse (B > F * A#test.a) ->
+            false;
+        (C =:= A#test.b) orelse (C =:= A#test.a) ->
+            true
+    end.
 
 redundant_br(_Config) ->
     {false,{x,y,z}} = redundant_br_1(id({x,y,z})),
