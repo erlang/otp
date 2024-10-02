@@ -498,7 +498,7 @@ if test -n "$JAVAC"; then
   :
 fi
 
-AC_CHECK_PROGS([make_command], [make gmake], [false])
+AC_CHECK_PROGS([make_command], [gmake make], [false])
 AC_SUBST(make_command)
 
 if test "$GCC" = yes; then

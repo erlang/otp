@@ -24,7 +24,7 @@ APPLICATION ?= $(basename $(notdir $(PWD)))
 
 ifndef NO_TEST_TARGET
 test:
-	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) \
+	TEST_NEEDS_RELEASE=$(TEST_NEEDS_RELEASE) TYPE=$(TYPE) MAKE="$(MAKE)" \
 	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 endif
 
