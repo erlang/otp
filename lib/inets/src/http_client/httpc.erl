@@ -700,8 +700,8 @@ Sets options to be used for subsequent requests.
       DomainDesc :: string(),
       HostName :: uri_string:uri_string().
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
-    IpFamily = httpc_manager:get_option(ipfamily, Profile),
-    UnixSock = httpc_manager:get_option(unix_socket, Profile),
+    {ok, IpFamily} = get_option(ipfamily, Profile),
+    {ok, UnixSock} = get_option(unix_socket, Profile),
     case validate_options(Options, IpFamily, UnixSock) of
 	{ok, Opts} ->
 	    httpc_manager:set_options(Opts, profile_name(Profile));
