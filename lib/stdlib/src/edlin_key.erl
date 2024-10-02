@@ -188,6 +188,7 @@ key_map() -> #{
             "\^[[B" => move_expand_down,
             "\^[[6~" => scroll_expand_down,
             "\^[[5~" => scroll_expand_up,
+            "\^[h" => help_full,
             default => tab_expand_quit %% go to normal mode and evaluate key input again
         }
     }.
