@@ -1081,6 +1081,8 @@ split(Subject,RE,Options) ->
     case compile_split(RE,NewOpt) of
 	{error,_Err} ->
 	    throw(badre);
+	{_PreCompiled, _NumSub, _RunOpt} when FlatSubject =:= <<>> ->
+	    [];
 	{PreCompiled, NumSub, RunOpt} ->
 	    %% OK, lets run
 	    case re:run(FlatSubject,PreCompiled,RunOpt ++ [global]) of
