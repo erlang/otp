@@ -700,8 +700,13 @@ get_line1({search,Cs,Cont,Rs}, Drv, Shell, Ls, Encoding) ->
     {more_chars,Ncont,_Nrs} = edlin:start(Pbs, {search,none}),
     put(search, new_search),
     get_line1(edlin:edit_line1(Cs, Ncont), Drv, Shell, Ls, Encoding);
-get_line1({help, Before, Cs0, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
+get_line1({Help, Before, Cs0, Cont, Rs}, Drv, Shell, Ls0, Encoding)
+    when Help =:= help; Help =:= help_full ->
     send_drv_reqs(Drv, Rs),
+    NLines = case Help of
+        help -> 7;
+        help_full -> 0
+    end,
     {_,Word,_} = edlin:over_word(Before, [], 0),
     {R,Docs} = case edlin_context:get_context(Before) of
         {function, Mod} when Word =/= [] -> try
@@ -727,13 +732,13 @@ get_line1({help, Before, Cs0, Cont, Rs}, Drv, Shell, Ls0, Encoding) ->
     case {R, Docs} of
         {_, {error, _}} -> send_drv(Drv, beep);
         {module, _} ->
-                Docs1 = "  "++string:trim(lists:nthtail(3, Docs),both),
-                send_drv(Drv, {put_expand, unicode,
-                    [unicode:characters_to_binary(Docs1)], 7});
+            Docs1 = "  "++string:trim(lists:nthtail(3, Docs),both),
+            send_drv(Drv, {put_expand, unicode,
+                           [unicode:characters_to_binary(Docs1)], NLines});
         {function, _} ->
-                Docs1 = "  "++string:trim(Docs,both),
-                send_drv(Drv, {put_expand, unicode,
-                    [unicode:characters_to_binary(Docs1)], 7})
+            Docs1 = "  "++string:trim(Docs,both),
+            send_drv(Drv, {put_expand, unicode,
+                           [unicode:characters_to_binary(Docs1)], NLines})
     end,
     get_line1(edlin:edit_line(Cs0, Cont), Drv, Shell, Ls0, Encoding);
 get_line1({Expand, Before, Cs0, Cont,Rs}, Drv, Shell, Ls0, Encoding)

@@ -109,6 +109,9 @@ supports multiple lines.
 - **`help`** - Display help for the module or function closest on the left of
   the cursor.
 
+- **`help_full`** - Display the whole help text for the module or function closest on the left of
+  the cursor.
+
 - **`history_down`** - Move to the next item in the history.
 
 - **`history_up`** - Move to the previous item in the history.
@@ -260,7 +263,7 @@ keymap() ->
           {done, continuation(), Rest :: unicode:chardata(), [user_drv:request()]} |
           {open_editor | format_expression | history_up | history_down | search,
            Cs :: unicode:chardata(), continuation(), [user_drv:request()]} |
-          {help | expand | expand_full,
+          {help | help_full | expand | expand_full,
            Before :: unicode:chardata(),
            Cs :: unicode:chardata(), continuation(),
            [user_drv:request()]} |
@@ -381,6 +384,9 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
                     edit(Cs, P, MultiLine, {NextMode, none}, Rs);
                 help ->
                     {help, chars_before(MultiLine), Cs,{line, P, MultiLine, {help, none}},
+                    reverse(Rs0)};
+                help_full ->
+                    {help_full, chars_before(MultiLine), Cs,{line, P, MultiLine, {help, none}},
                     reverse(Rs0)};
                 tab_expand ->
                     {expand, chars_before(MultiLine), Cs,
