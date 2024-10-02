@@ -38,7 +38,8 @@ The module is provided according to Erlang Enhancement Proposal (EEP) 31.
 %%
 %% Implemented in this module:
 -export([replace/3, replace/4,
-         encode_hex/1, encode_hex/2, decode_hex/1]).
+         encode_hex/1, encode_hex/2, decode_hex/1,
+         join/2]).
 
 -export_type([cp/0]).
 
@@ -957,6 +958,34 @@ unhex(X) ->
              no, no, no, no, no, no, no, no, no, no, no, no, no, no, no, no, %80
              no, 10, 11, 12, 13, 14, 15, no, no, no, no, no, no, no, no, no  %96
             }).
+
+-doc """
+Joins a list of binaries together by a specified `Separator`.
+
+Equivalent to `iolist_to_binary(lists:join(Separator, Binaries))` with `binary:join/2` being the faster of the two.
+
+_Example:_
+
+```erlang
+1> binary:join([<<"a">>, <<"b">>, <<"c">>], <<", ">>).
+<<"a, b, c">>
+```
+""".
+-doc(#{since => <<"OTP 27.0">>}).
+-spec join([binary()], binary()) -> binary().
+join([], _Separator) -> <<>>;
+join([H], Separator) when is_binary(H), is_binary(Separator) -> H;
+join([H | T], Separator) when is_binary(Separator) ->
+    %% Starting with an empty binary convinces the compiler to use the new "private append" optimisation
+    Acc = <<>>,
+    join(T, Separator, <<Acc/binary, H/binary>>);
+join(Arg, Separator) ->
+    badarg_with_info([Arg, Separator]).
+
+-spec join([binary()], binary(), binary()) -> binary().
+join([], _Separator, Acc) -> Acc;
+join([H | T], Separator, Acc) ->
+    join(T, Separator, <<Acc/binary, Separator/binary, H/binary>>).
 
 badarg_with_cause(Args, Cause) ->
     erlang:error(badarg, Args, [{error_info, #{module => erl_stdlib_errors,
