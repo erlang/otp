@@ -40,8 +40,8 @@ typedef struct {
 
 typedef struct bp_data_time {     /* Call time */
     Uint n;
-    bp_time_hash_t *hash;
     erts_refc_t refc;
+    bp_time_hash_t hash[1];
 } BpDataTime;
 
 typedef struct {
