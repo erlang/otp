@@ -1446,13 +1446,10 @@ select(_) ->
 
 -doc """
 Matches the objects in table `Table` using a
-[match specification](`m:ets#match_spec`). If the match specification returns
-`true` for an object, that object considered a match and is counted. For any
-other result from the match specification the object is not considered a match
-and is therefore not counted.
-
-This function can be described as a `select_delete/2` function that does not
-delete any elements, but only counts them.
+[match specification](`m:ets#match_spec`). If and only if the match specification
+returns `true` for an object, that object is considered a match and is counted.
+For any other result from the match specification the object is not considered a
+match and is therefore not counted.
 
 The function returns the number of objects matched.
 """.
@@ -1466,10 +1463,10 @@ select_count(_, _) ->
 
 -doc """
 Matches the objects in table `Table` using a
-[match specification](`m:ets#match_spec`). If the match specification returns
-`true` for an object, that object is removed from the table. For any other
-result from the match specification the object is retained. This is a more
-general call than the `match_delete/2` call.
+[match specification](`m:ets#match_spec`). If and only if the match
+specification returns `true` for an object, that object is removed from the
+table. For any other result from the match specification the object is
+retained. This is a more general function than `match_delete/2`.
 
 The function returns the number of objects deleted from the table.
 
