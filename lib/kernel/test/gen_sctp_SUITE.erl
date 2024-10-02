@@ -2537,8 +2537,9 @@ nbs_server_stop(Server) ->
 
 nbs_server_init(Parent, Addr) ->
     ?P("[server] Try create socket"),
-    case gen_sctp:open(0, [{recbuf, 16384}, {ip, Addr}] ) of
+    case gen_sctp:open(0, [{recbuf, 16384}, {ip, Addr}, {debug, true}] ) of
         {ok, S} ->
+            {ok, [false]} = inet:getopts(S, [non_block_send]),
             {ok, Port} = inet:port(S),
             ?P("[server] Try make listen"),
             ok = gen_sctp:listen(S, true),
@@ -2612,6 +2613,7 @@ nbs_client_init(Parent, Addr, Port) ->
     ?P("[client] Try create socket"),
     case gen_sctp:open(0, OOpts) of
         {ok, S} ->
+            {ok, [true]} = inet:getopts(S, [non_block_send]),
             COpts = [{sctp_initmsg, #sctp_initmsg{num_ostreams = 5}}],
             ?P("[client] Try connect to server"),
             case gen_sctp:connect(S, Addr, Port, COpts) of
@@ -2677,8 +2679,13 @@ nbs_client_loop(_Parent, S, Assoc, NumWrites, NumBytes, Data, false) ->
        "~n   Num Bytes:  ~p", [NumWrites, NumBytes]),
     case gen_sctp:send(S, Assoc, 0, Data) of
         ok ->
-            ?P("[client] sent last message - done"),
+            ?P("[client] sent final message - final option verification"),
+            {ok, [true]} = inet:getopts(S, [non_block_send]),
+            ok = inet:setopts(S, [{non_block_send, false}]),
+            {ok, [false]} = inet:getopts(S, [non_block_send]),            
+            ?P("[client] close socket"),
             gen_sctp:close(S),
+            ?P("[client] done"),
             exit(normal);
         {error, Reason} ->
             ?P("[client] failed sending last message: "
