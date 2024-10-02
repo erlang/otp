@@ -683,6 +683,7 @@ future associations".
 -type elementary_option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
+        {non_block_send, boolean()} |
         {debug, boolean()} |
         {dontroute, boolean()} |
         {exclusiveaddruse, boolean()} |
@@ -713,6 +714,7 @@ future associations".
 -type elementary_option_name() ::
         active |
         buffer |
+        non_block_send |
         debug |
         dontroute |
         exclusiveaddruse |
