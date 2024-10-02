@@ -2760,6 +2760,10 @@ guard_cg(#cg_seq{arg=Arg,body=Body}, Fail, St0) ->
     {ArgIs,St1} = guard_cg(Arg, Fail, St0),
     {BodyIs,St} = guard_cg(Body, Fail, St1),
     {ArgIs++BodyIs,St};
+guard_cg(#cg_succeeded{set=Set0}, Fail, St0) ->
+    {[#b_set{dst=Dst}=Set],St1} = cg(Set0, St0),
+    {Is,St} = make_succeeded(Dst, {guard, Fail}, St1),
+    {[Set|Is],St};
 guard_cg(G, _Fail, St) ->
     cg(G, St).
 
