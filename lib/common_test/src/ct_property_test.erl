@@ -702,4 +702,3 @@ median(L = [{_Value,_Weight}|_]) ->
     median( lists:append([lists:duplicate(W,V) || {V,W} <- L]) );
 median(_) ->
     undefined.
-

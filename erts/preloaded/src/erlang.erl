@@ -3308,7 +3308,7 @@ Puts the calling process into a wait state where its memory allocation has been
 reduced as much as possible. This is useful if the process does not expect to
 receive any messages soon.
 
-The process is awaken when a message is sent to it, and control resumes in
+The process is awakened when a message is sent to it, and control resumes in
 `Module:Function` with the arguments specified by `Args` with the call stack
 emptied, meaning that the process terminates when that function returns. Thus
 `erlang:hibernate/3` never returns to its caller. The resume function
@@ -12535,6 +12535,7 @@ aa_mem_data(#memory{code = Code} = Mem,
 					  CodeData == export_table;
 					  CodeData == export_list;
 					  CodeData == fun_table;
+					  CodeData == fun_list;
 					  CodeData == module_refs;
 					  CodeData == loaded_code ->
     aa_mem_data(Mem#memory{code = Code+Sz},

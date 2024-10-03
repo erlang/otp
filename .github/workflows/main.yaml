@@ -212,7 +212,7 @@ jobs:
           cd otp/release
           ./Install -sasl $PWD
           ./bin/erl -noshell -eval 'io:format("~s", [erlang:system_info(system_version)]), halt().'
-          ./bin/erl -noshell -eval 'ok = crypto:start(), io:format("crypto ok~n"), halt().'
+          ./bin/erl -noshell -eval 'ok = application:start(crypto), io:format("crypto ok~n"), halt().'
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
@@ -421,7 +421,14 @@ jobs:
           RUN make release docs release_docs && sudo make install-docs
           EOF
       - name: Release docs to publish
-        run: .github/scripts/release-docs.sh
+        run: |
+            docker run -v $PWD/:/github otp \
+              "make release_docs DOC_TARGETS='html man' RELEASE_ROOT=/github/docs"
+            sudo chown -R `whoami` docs
+            cd docs
+            tar czf ../otp_doc_man.tar.gz man
+            rm -rf man
+            tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
         uses: actions/upload-artifact@v4.4.0
         with:
@@ -450,12 +457,6 @@ jobs:
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
-      - name: Install clang-format
-        run: |
-          docker build -t otp - <<EOF
-          FROM otp
-          RUN sudo apt-get install -y clang-format
-          EOF
         ## Check formatting of cpp code
       - name: Check format
         run: docker run otp "make format-check"

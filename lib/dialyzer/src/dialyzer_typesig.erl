@@ -182,7 +182,7 @@ analyze_scc(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes, Solvers0) ->
   Solvers = solvers(Solvers0),
   State1 = new_state(SCC, NextLabel, CallGraph, CServer, Plt, PropTypes,
                      Solvers),
-  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new([{version, 2}])),
+  DefSet = add_def_list(maps:values(State1#state.name_map), sets:new()),
   State2 = traverse_scc(SCC, CServer, DefSet, State1),
   State3 = state__finalize(State2),
   Funs = state__scc(State3),

@@ -224,6 +224,7 @@ JAVADOC-GENERATED
 /lib/compiler/src/beam_opcodes.hrl
 /lib/compiler/src/core_parse.erl
 
+/lib/compiler/test/*_no_bool_opt_SUITE.erl
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_no_copt_SUITE.erl
 /lib/compiler/test/*_no_copt_ssa_SUITE.erl

@@ -291,7 +291,7 @@ verify_data(DerCert) ->
 %% things with a validated certificate.
 %% --------------------------------------------------------------------
 verify_fun(#cert{der = DerCert, otp = OtpCert}, Result, UserState0, VerifyFun) ->
-    case apply_fun(VerifyFun, DerCert, OtpCert, Result, UserState0) of
+    case apply_fun(VerifyFun, OtpCert, DerCert, Result, UserState0) of
         {valid, UserState} ->
 	    UserState;
 	{valid_peer, UserState} ->
@@ -380,7 +380,7 @@ prepare_for_next_cert(Cert, #path_validation_state{
     ValidationState = handle_inhibit_anypolicy(ValidationState2),
     handle_last_cert(Cert, ValidationState).
 
-apply_fun(Fun, DerCert, OtpCert, Result, UserState) ->
+apply_fun(Fun, OtpCert, DerCert, Result, UserState) ->
     if is_function(Fun, 4) ->
             Fun(OtpCert, DerCert, Result, UserState);
        is_function(Fun, 3) ->

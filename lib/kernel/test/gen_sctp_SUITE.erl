@@ -1513,6 +1513,11 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     Addr = {127,0,0,1},
     Stream = 0,
     Timeout = 333,
+    InheritOpts = [{priority, 3}, {sctp_nodelay, true}, {linger, {true, 7}}],
+    %% Verify the last inherit option to make sure no earlier
+    %% option does a silent bailout
+    SurelyInheritedOpt = lists:last(InheritOpts),
+    InheritOptnames = [Opt || {Opt,_} <- InheritOpts],
     StartTime = timestamp(),
     {{S1,P1,S1Ai}, {S2,P2,S2Ai}} =
         socket_pair_open(Addr, StartTime, Timeout),
@@ -1533,12 +1538,16 @@ peeloff(Config, SockOpts) when is_list(Config) ->
     after Timeout ->
 	    socket_bailout([S1,S2], StartTime)
     end,
+    socket_call(S1, {setopts, InheritOpts}),
+    InheritedOpts = socket_call(S1, {getopts, InheritOptnames}),
+    SurelyInheritedOpt = lists:last(InheritedOpts),
     %%
     S3 = socket_peeloff(Socket1, S1Ai, SockOpts, Timeout),
     ?LOGVAR(S3),
     P3_X = socket_call(S3, get_port),
     ?LOGVAR(P3_X),
     P3 = case P3_X of 0 -> P1; _ -> P3_X end,
+    InheritedOpts = socket_call(S3, {getopts, InheritOptnames}),
     [{_,#sctp_paddrinfo{assoc_id=S3Ai,state=active}}] =
 	socket_call(S3,
 		    {getopts,[{sctp_get_peer_addr_info,

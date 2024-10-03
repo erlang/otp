@@ -174,7 +174,7 @@ before using it.
 -type datetime1970()   :: {{year1970(),month(),day()},time()}.
 -type yearweeknum()    :: {year(),weeknum()}.
 
--type rfc3339_string() :: [byte(), ...].
+-type rfc3339_string() :: [byte(), ...] | binary().
 -doc """
 The time unit used by the rfc3339 conversion functions.
 
@@ -527,6 +527,9 @@ Valid option:
 2> calendar:rfc3339_to_system_time("2018-02-01 15:18:02.088Z",
    [{unit, nanosecond}]).
 1517498282088000000
+3> calendar:rfc3339_to_system_time(<<"2018-02-01 15:18:02.088Z">>,
+   [{unit, nanosecond}]).
+1517498282088000000
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -535,23 +538,43 @@ Valid option:
       Options :: [Option],
       Option :: {'unit', rfc3339_time_unit()}.
 
-rfc3339_to_system_time(DateTimeString, Options) ->
-    Unit = proplists:get_value(unit, Options, second),
-    %% _T is the character separating the date and the time:
+rfc3339_to_system_time(Bin, Options) when is_binary(Bin) ->
+    rfc3339_to_system_time_bin(Bin, Options);
+rfc3339_to_system_time(List, Options) when is_list(List) ->
+    rfc3339_to_system_time_list(List, Options).
+
+%% _T is the character separating the date and the time:
+rfc3339_to_system_time_bin(
+    <<Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
+      Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
+    Hour = binary_to_integer(Hour0),
+    Min = binary_to_integer(Min0),
+    Sec = binary_to_integer(Sec0),
+    Year = binary_to_integer(Year0),
+    Month = binary_to_integer(Month0),
+    Day = binary_to_integer(Day0),
+    rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, binary_to_list(TimeStr)).
+
+%% _T is the character separating the date and the time:
+rfc3339_to_system_time_list(
     [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
-     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString,
+     H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
     Hour = list_to_integer([H1, H2]),
     Min = list_to_integer([Min1, Min2]),
     Sec = list_to_integer([S1, S2]),
     Year = list_to_integer([Y1, Y2, Y3, Y4]),
     Month = list_to_integer([Mon1, Mon2]),
     Day = list_to_integer([D1, D2]),
+    rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, TimeStr).
+
+rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, Hour, Min, Sec, TimeStr) ->
+    Unit = proplists:get_value(unit, Options, second),
     DateTime = {{Year, Month, Day}, {Hour, Min, Sec}},
     IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
     {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr),
     Time = datetime_to_system_time(DateTime),
     Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
-    check(DateTimeString, Options, Secs),
+    check(DateTimeIn, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
     ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
 
@@ -651,6 +674,9 @@ Valid options:
   For `native` three fractional digits are included. Notice that trailing zeros
   are not removed from the fraction.
 
+- **`{return, Return}`** - The desired encoding type for the output,
+  whether a string or a binary is desired. Defaults to string.
+
 ```erlang
 1> calendar:system_time_to_rfc3339(erlang:system_time(second)).
 "2018-04-23T14:56:28+02:00"
@@ -663,6 +689,9 @@ Valid options:
 4> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
    [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}]).
 "2018-04-23 12:57:20.482Z"
+5> calendar:system_time_to_rfc3339(erlang:system_time(millisecond),
+   [{unit, millisecond}, {time_designator, $\s}, {offset, "Z"}, {return, binary}]).
+<<"2018-04-23 12:57:20.482Z">>
 ```
 [RFC 3339]: https://www.ietf.org/rfc/rfc3339.txt
 """.
@@ -672,7 +701,8 @@ Valid options:
       Options :: [Option],
       Option :: {'offset', offset()}
               | {'time_designator', byte()}
-              | {'unit', rfc3339_time_unit()},
+              | {'unit', rfc3339_time_unit()}
+              | {'return', 'string' | 'binary'},
       DateTimeString :: rfc3339_string().
 
 system_time_to_rfc3339(Time, Options) ->
@@ -682,10 +712,10 @@ system_time_to_rfc3339(Time, Options) ->
         native ->
             TimeMS = erlang:convert_time_unit(Time, native, millisecond),
             OffsetOpt1 =
-                if is_integer(OffsetOpt0) ->
-                        erlang:convert_time_unit(OffsetOpt0, native,
-                                                 millisecond);
-                   true ->
+                case is_integer(OffsetOpt0) of
+                    true ->
+                        erlang:convert_time_unit(OffsetOpt0, native, millisecond);
+                    false ->
                         OffsetOpt0
                 end,
             system_time_to_rfc3339_do(TimeMS, Options, millisecond, OffsetOpt1);
@@ -707,7 +737,12 @@ system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     FractionStr = fraction_str(Factor, AdjustedTime),
     L = [pad4(Year), "-", pad2(Month), "-", pad2(Day), [T],
          pad2(Hour), ":", pad2(Min), ":", pad2(Sec), FractionStr, Offset],
-    lists:append(L).
+    case proplists:get_value(return, Options, string) of
+        string ->
+            lists:append(L);
+        binary ->
+            iolist_to_binary(L)
+    end.
 
 %% time_difference(T1, T2) = Tdiff
 %%

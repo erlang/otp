@@ -146,7 +146,7 @@ maybe_start_crypto_and_ssl(Config) ->
 						 (SocketType =:= ossl) orelse
 						 (SocketType =:= essl)) ->
 	    ?LOG("maybe start crypto and ssl", []),
-	    (catch crypto:start()), 
+	    (catch application:start(crypto)),
 	    ssl:start();
 	_ ->
 	    ok

@@ -32,6 +32,7 @@
          annotation_checks/1,
          appendable_checks/1,
          bs_size_unit_checks/1,
+         no_reuse_hint_checks/1,
          private_append_checks/1,
          ret_annotation_checks/1,
          sanity_checks/1,
@@ -47,6 +48,7 @@ groups() ->
       [alias_checks,
        annotation_checks,
        appendable_checks,
+       no_reuse_hint_checks,
        private_append_checks,
        ret_annotation_checks,
        sanity_checks,
@@ -99,13 +101,18 @@ appendable_checks(Config) when is_list(Config) ->
 bs_size_unit_checks(Config) when is_list(Config) ->
     gen_and_run_post_ssa_opt(bs_size_unit_checks, Config).
 
+no_reuse_hint_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(no_reuse_hint, Config).
+
 private_append_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(private_append, Config).
 
 tuple_inplace_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(tuple_inplace_checks, Config),
     run_post_ssa_opt(tuple_inplace_abort0, Config),
-    run_post_ssa_opt(tuple_inplace_abort1, Config).
+    run_post_ssa_opt(tuple_inplace_abort1, Config),
+    run_post_ssa_opt(tuple_inplace_abort2, Config),
+    run_post_ssa_opt(tuple_inplace_abort3, Config).
 
 ret_annotation_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(ret_annotation, Config).

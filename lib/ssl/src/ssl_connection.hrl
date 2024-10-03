@@ -31,6 +31,7 @@
 -include("ssl_handshake.hrl").
 -include("ssl_srp.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_alert.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -record(static_env, {
@@ -108,7 +109,7 @@
                           user_application      :: {Monitor::reference(), User::pid()},
                           downgrade             :: {NewController::pid(), From::gen_statem:from()} | 'undefined',
                           socket_terminated = false                          ::boolean(),
-                          socket_tls_closed = false                          ::boolean(),
+                          socket_tls_closed = false                          ::boolean() | #alert{},
                           negotiated_version    :: ssl_record:ssl_version() | 'undefined',
                           erl_dist_handle = undefined :: erlang:dist_handle() | 'undefined',
                           cert_key_alts  = undefined ::  #{eddsa => list(),

@@ -1037,6 +1037,7 @@ collect_trace(Session, Mod, FunList, Acc, Type) ->
 %% statistics won't be correct anyway. Hence the warning in the user
 %% guide, guarding against hot code reload while tracing.
 combine_trace({_, false}) -> fail;
+combine_trace({_, undefined}) -> skip; %% module unloaded after code:all_loaded()
 combine_trace({call_count, 0}) -> skip;
 combine_trace({call_count, Num}) -> [{all, Num, Num}];
 combine_trace({call_time, Times}) ->

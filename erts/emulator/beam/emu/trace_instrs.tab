@@ -162,7 +162,7 @@ i_perf_counter() {
 }
 
 i_debug_breakpoint() {
-    Export *breakpoint_handler;
+    const Export *breakpoint_handler;
 
     HEAVY_SWAPOUT;
     breakpoint_handler = call_error_handler(c_p, erts_code_to_codemfa(I),

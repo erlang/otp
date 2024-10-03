@@ -30,7 +30,7 @@
 -export([read_and_add_records/5]).
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
 -export([prompt_width/1, prompt_width/2]).
--export([whereis/0]).
+-export([help/0,whereis/0]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -232,6 +232,11 @@ server(StartSync) ->
                     init:wait_until_started()
             end
     end,
+
+    %% We disable line history for all commands. We will explicitly enable
+    %% it only for the commands that we want.
+    _ = io:setopts([{line_history, false}]),
+
     %% Our spawner has fixed the process groups.
     Bs = erl_eval:new_bindings(),
 
@@ -360,11 +365,13 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
     Parse =
         fun() ->
                 put('$ancestors', Ancestors),
+                PreviousHistory = proplists:get_value(line_history, io:getopts()),
+                [ok = io:setopts([{line_history, true}]) || PreviousHistory =/= undefined],
+                Res = io:scan_erl_exprs(group_leader(), Prompt, {1,1},
+                                        [text,{reserved_word_fun,ResWordFun}]),
+                _ = [io:setopts([{line_history, PreviousHistory}]) || PreviousHistory =/= undefined],
                 exit(
-                  case
-                      io:scan_erl_exprs(group_leader(), Prompt, {1,1},
-                                        [text,{reserved_word_fun,ResWordFun}])
-                  of
+                  case Res of
                       {ok,Toks,_EndPos} ->
                           %% NOTE: we can handle function definitions, records and type declarations
                           %% but this cannot be handled by the function which only expects erl_parse:abstract_expressions()
@@ -728,6 +735,8 @@ shell_cmd(Es, Eval, Bs, RT, FT, Ds, W) ->
     shell_rep(Eval, Bs, RT, FT, Ds).
 
 shell_rep(Ev, Bs0, RT, FT, Ds0) ->
+    shell_rep(Ev, Bs0, RT, FT, Ds0, 5000).
+shell_rep(Ev, Bs0, RT, FT, Ds0, Timeout) ->
     receive
         {shell_rep,Ev,{value,V,Bs,Ds}} ->
             {V,Ev,Bs,Ds};
@@ -774,6 +783,9 @@ shell_rep(Ev, Bs0, RT, FT, Ds0) ->
         _Other ->                               % Ignore everything else
             io:format("Throwing ~p~n", [_Other]),
             shell_rep(Ev, Bs0, RT, FT, Ds0)
+        after Timeout ->
+            io:format("Command is taking a long time, type Ctrl+G, then enter 'i' to interrupt~n"),
+            shell_rep(Ev, Bs0, RT, FT, Ds0, infinity)
     end.
 
 nocatch(throw, {Term,Stack}) ->
@@ -1165,6 +1177,49 @@ init_dict([{K,V}|Ds]) ->
     put(K, V),
     init_dict(Ds);
 init_dict([]) -> true.
+
+
+-doc "Print the help for all shell internal commands.".
+-spec help() -> true.
+help() ->
+    S = ~"""
+         ** shell internal commands **
+         b()        -- display all variable bindings
+         e(N)       -- repeat the expression in query <N>
+         exit()     -- terminate the shell instance
+         f()        -- forget all variable bindings
+         f(X)       -- forget the binding of variable X
+         ff()       -- forget all locally defined functions
+         ff(F,A)    -- forget locally defined function named as atom F and arity A
+         fl()       -- forget all locally defined functions, types and records
+         h()        -- history
+         h(Mod)     -- help about module
+         h(Mod,Func) -- help about function in module
+         h(Mod,Func,Arity) -- help about function with arity in module
+         lf()       -- list locally defined functions
+         lr()       -- list locally defined records
+         lt()       -- list locally defined types
+         rd(R,D)    -- define a record
+         rf()       -- remove all record information
+         rf(R)      -- remove record information about R
+         rl()       -- display all record information
+         rl(R)      -- display record information about R
+         rp(Term)   -- display Term using the shell's record information
+         rr(File)   -- read record information from File (wildcards allowed)
+         rr(F,R)    -- read selected record information from file(s)
+         rr(F,R,O)  -- read selected record information with options
+         tf()       -- forget all locally defined types
+         tf(T)      -- forget locally defined type named as atom T
+         v(N)       -- use the value of query <N>
+         catch_exception(B) -- how exceptions are handled
+         history(N) -- set how many previous commands to keep
+         results(N) -- set how many previous command results to keep
+         save_module(FilePath) -- save all locally defined functions, types and records to a file
+         """,
+    io:put_chars(S),
+    io:nl(),
+    true.
+
 
 %% local_func(Function, Args, Bindings, Shell, RecordTable,
 %%            LocalFuncHandler, ExternalFuncHandler) -> {value,Val,Bs}
@@ -1938,8 +1993,6 @@ results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
 -doc """
-catch_exception(Bool) -> boolean()
-
 Sets the exception handling of the evaluator process. The previous exception
 handling is returned. The default (`false`) is to kill the evaluator process
 when an exception occurs, which causes the shell to create a new evaluator
@@ -1981,7 +2034,7 @@ multiline_prompt_func(PromptFunc) ->
 Can be used to set the formatting of the Erlang shell output.
 
 This has an effect on commands that have been submitted, and how it is saved in history.
-Or if the formatting hotkey is pressed while editing an expression (Alt-r by default). You
+Or if the formatting hotkey is pressed while editing an expression (Alt+R by default). You
 can specify a `Mod:Func/1` that expects the whole expression as a string and
 returns a formatted expressions as a string. See
 [`stdlib app config`](stdlib_app.md#format_shell_func) for how to set it before

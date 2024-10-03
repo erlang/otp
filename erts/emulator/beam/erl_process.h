@@ -95,7 +95,7 @@ struct saved_calls {
    int len;
    int n;
    int cur;
-   Export *ct[1];
+   const Export *ct[1];
 };
 
 extern Export exp_send, exp_receive, exp_timeout;

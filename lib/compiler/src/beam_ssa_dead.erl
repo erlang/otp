@@ -184,7 +184,7 @@ shortcut(L, _From, Bs, #st{test=none,target=one_way}) when map_size(Bs) =:= 0 ->
     %% block has a two-way `br` terminator.
     #b_br{bool=#b_literal{val=true},succ=L,fail=L};
 shortcut(L, From, Bs, St) ->
-    shortcut_1(L, From, Bs, sets:new([{version, 2}]), St).
+    shortcut_1(L, From, Bs, sets:new(), St).
 
 shortcut_1(L, From, Bs0, UnsetVars0, St) ->
     case shortcut_2(L, From, Bs0, UnsetVars0, St) of
@@ -1415,7 +1415,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Successors = beam_ssa:successors(Blk),
-    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new([{version, 2}])),
+    Used0 = used_vars_succ(Successors, L, UsedVars0, sets:new()),
     Used = used_vars_blk(Blk, Used0),
     UsedVars = used_vars_phis(Is, L, Used, UsedVars0),
 
@@ -1426,7 +1426,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% shortcut_opt/1.
 
     Defined0 = [Def || #b_set{dst=Def} <- Is],
-    Defined = sets:from_list(Defined0, [{version, 2}]),
+    Defined = sets:from_list(Defined0),
     MaySkip = sets:is_disjoint(Defined, Used0),
     case MaySkip of
         true ->
@@ -1497,7 +1497,7 @@ list_set_union([], Set) ->
 list_set_union([E], Set) ->
     sets:add_element(E, Set);
 list_set_union(List, Set) ->
-    sets:union(sets:from_list(List, [{version, 2}]), Set).
+    sets:union(sets:from_list(List), Set).
 
 sub(#b_set{args=Args}=I, Sub) when map_size(Sub) =/= 0 ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};

@@ -213,7 +213,7 @@ release_handler does.
 ## See Also
 
 [OTP Design Principles](`e:system:index.html`),
-[`config)`](`e:kernel:config.md`), [`rel`](rel.md), [`relup`](relup.md),
+[`config`](`e:kernel:config.md`), [`rel`](rel.md), [`relup`](relup.md),
 [`script`](script.md), `m:sys`, `m:systools`
 """.
 -moduledoc(#{titles => [{function,<<"Application Upgrade/Downgrade">>}]}).

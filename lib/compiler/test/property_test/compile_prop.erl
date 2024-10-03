@@ -82,7 +82,6 @@ spawn_compile(Forms, Options) ->
 compiler_variants() ->
     [
      [ssalint,clint0,clint],
-     [r24,ssalint],
      [r25,ssalint],
      [r26,ssalint],
      [no_type_opt,ssalint],

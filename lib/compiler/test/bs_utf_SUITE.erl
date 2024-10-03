@@ -55,14 +55,6 @@ end_per_group(_GroupName, Config) ->
 
 verify_highest_opcode(_Config) ->
     case ?MODULE of
-        bs_construct_r24_SUITE ->
-            {ok,Beam} = file:read_file(code:which(?MODULE)),
-            case test_lib:highest_opcode(Beam) of
-                Highest when Highest =< 176 ->
-                    ok;
-                TooHigh ->
-                    ct:fail({too_high_opcode,TooHigh})
-            end;
         bs_construct_r25_SUITE ->
             {ok,Beam} = file:read_file(code:which(?MODULE)),
             case test_lib:highest_opcode(Beam) of

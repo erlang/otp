@@ -19,17 +19,17 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The ssh subsystem supervisor 
+%% Purpose: The ssh connection supervisor
 %%----------------------------------------------------------------------
 
--module(ssh_subsystem_sup).
+-module(ssh_connection_sup).
 -moduledoc false.
 
 -behaviour(supervisor).
 
 -include("ssh.hrl").
 
--export([start_link/5,
+-export([start_link/4,
          start_channel/8,
          tcpip_fwd_supervisor/1
 	]).
@@ -40,8 +40,8 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Role, Address=#address{}, Id, Socket, Options) ->
-    case supervisor:start_link(?MODULE, [Role, Address, Id, Socket, Options]) of
+start_link(Role, Id, Socket, Options) ->
+    case supervisor:start_link(?MODULE, [Role, Id, Socket, Options]) of
         {error, {shutdown, {failed_to_start_child, _, Error}}} ->
             {error,Error};
         Other ->
@@ -52,52 +52,47 @@ start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
     ChannelSup = channel_supervisor(SupPid),
     ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts).
 
-tcpip_fwd_supervisor(SubSysSup) ->
-    find_child(tcpip_forward_acceptor_sup, SubSysSup).
+tcpip_fwd_supervisor(ConnectionSup) ->
+    find_child(tcpip_forward_acceptor_sup, ConnectionSup).
 
 
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Role, Address, Id, Socket, Options]) ->
-    ssh_lib:set_label(Role, {subsystem_sup, Socket}),
-    SubSysSup = self(),
+init([Role, Id, Socket, Options]) ->
+    ssh_lib:set_label(Role, {connection_sup, Socket}),
+    ConnectionSup = self(),
     SupFlags = #{strategy      => one_for_all,
                  auto_shutdown => any_significant,
                  intensity     =>    0,
-                 period        => 3600
-                },
-    ChildSpecs = [#{id          => connection,
-                    restart     => temporary,
-                    type        => worker,
-                    significant => true,
-                    start       => {ssh_connection_handler,
-                                    start_link,
-                                    [Role, Address, Id, Socket,
-                                     ?PUT_INTERNAL_OPT([
-                                                        {subsystem_sup, SubSysSup}
-                                                       ], Options)
-                                    ]
-                                   }
-                   },
-                  #{id      => channel_sup,
-                    restart => temporary,
-                    type    => supervisor,
-                    start   => {ssh_channel_sup, start_link, [Options]}
-                   },
+                 period        => 3600},
+    ChildSpecs =
+        [#{id          => connection,
+           restart     => temporary,
+           type        => worker,
+           significant => true,
+           start       => {ssh_connection_handler,
+                           start_link,
+                           [Role, Id, Socket,
+                            ?PUT_INTERNAL_OPT([{connection_sup, ConnectionSup}], Options)]}
+          },
+         #{id      => channel_sup,
+           restart => temporary,
+           type    => supervisor,
+           start   => {ssh_channel_sup, start_link, [Options]}
+          },
 
-                 #{id      => tcpip_forward_acceptor_sup,
-                   restart => temporary,
-                   type    => supervisor,
-                   start   => {ssh_tcpip_forward_acceptor_sup, start_link, []}
-                  }
-                 ],
+         #{id      => tcpip_forward_acceptor_sup,
+           restart => temporary,
+           type    => supervisor,
+           start   => {ssh_tcpip_forward_acceptor_sup, start_link, []}
+          }],
     {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-channel_supervisor(SubSysSup) -> find_child(channel_sup, SubSysSup).
+channel_supervisor(ConnectionSup) -> find_child(channel_sup, ConnectionSup).
 
 find_child(Id, Sup) when is_pid(Sup) ->
     try

@@ -418,9 +418,9 @@ create_menus(Parent) ->
     MenuEntries =
 	[{"View",
 	  [#create_menu{id = ?ID_SOCKET_INFO_SELECTED,
-			text = "Socket info for selected sockets\tCtrl-I"},
+			text = "Socket info for selected sockets\tCtrl+I"},
 	   separator,
-	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
+	   #create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl+R"},
 	   #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh Interval..."}
 	  ]}%% ,
 	 %% {"Debug",

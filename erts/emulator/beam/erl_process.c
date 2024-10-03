@@ -111,9 +111,6 @@
 #define ERTS_EMPTY_RUNQ(RQ) \
     ERTS_IS_RUNQ_EMPTY_FLGS(ERTS_RUNQ_FLGS_GET_NOB((RQ)))
 
-#define ERTS_EMPTY_RUNQ_PORTS(RQ) \
-    ERTS_IS_RUNQ_EMPTY_FLGS(ERTS_RUNQ_FLGS_GET_NOB((RQ)))
-
 static ERTS_INLINE int
 runq_got_work_to_execute_flags(Uint32 flags)
 {
@@ -510,21 +507,6 @@ do {									\
     ErtsRunQueue *RQVAR;						\
     int ix__;								\
     for (ix__ = 0; ix__ < erts_no_run_queues; ix__++) {			\
-	RQVAR = ERTS_RUNQ_IX(ix__);					\
-	erts_runq_lock(RQVAR);					\
-	{ DO; }								\
-	erts_runq_unlock(RQVAR);					\
-    }									\
-} while (0)
-
-#define ERTS_FOREACH_OP_RUNQ(RQVAR, DO)					\
-do {									\
-    ErtsRunQueue *RQVAR;						\
-    int ix__;								\
-    int online__ = (int) schdlr_sspnd_get_nscheds(&schdlr_sspnd.online,	\
-						  ERTS_SCHED_NORMAL);	\
-    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&schdlr_sspnd.mtx));	\
-    for (ix__ = 0; ix__ < online__; ix__++) {				\
 	RQVAR = ERTS_RUNQ_IX(ix__);					\
 	erts_runq_lock(RQVAR);					\
 	{ DO; }								\

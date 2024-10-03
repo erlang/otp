@@ -32,19 +32,35 @@
 #include <sys/mman.h>
 #endif
 
-int erts_mem_guard(void *p, UWord size) {
+int erts_mem_guard(void *p, UWord size, int readable, int writable) {
+    
 #if defined(WIN32)
     DWORD oldProtect;
+    DWORD newProtect = PAGE_NOACCESS;
     BOOL success;
-
+    if (readable && writable) {
+        newProtect = PAGE_READWRITE;
+    } else if (readable) {
+        newProtect = PAGE_READONLY;
+    } else {
+        ERTS_INTERNAL_ERROR(!"mem_guard invalid page permissions");
+    }
     success = VirtualProtect((LPVOID*)p,
                              size,
-                             PAGE_NOACCESS,
+                             newProtect,
                              &oldProtect);
 
     return success ? 0 : -1;
 #elif defined(HAVE_SYS_MMAN_H)
-    return mprotect(p, size, PROT_NONE);
+    int flags = 0;
+    
+    if (writable) {
+        flags |= PROT_WRITE;
+    }
+    if (readable) {
+        flags |= PROT_READ;
+    }
+    return mprotect(p, size, flags);
 #else
     errno = ENOTSUP;
     return -1;

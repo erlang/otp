@@ -3104,7 +3104,7 @@ is_snmp_running() ->
     is_app_running(snmp).
 
 crypto_start() ->
-    try crypto:start() of
+    try application:start(crypto) of
         ok ->
             ok;
         {error, {already_started,crypto}} ->

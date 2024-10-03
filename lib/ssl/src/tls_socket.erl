@@ -91,7 +91,8 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
             {ok, SessionIdHandle} = session_id_tracker(ListenSocket, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
                          {session_id_tracker, SessionIdHandle}],
-            Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
+            Socket = #sslsocket{socket_handle = ListenSocket, 
+                                listener_config = Config#config{trackers = Trackers}},
             check_active_n(EmOpts, Socket),
 	    {ok, Socket};
 	Err = {error, _} ->
@@ -148,18 +149,24 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-socket(Pids, Transport, Socket, ConnectionCb, Trackers) ->
-    #sslsocket{pid = Pids, 
-	       %% "The name "fd" is kept for backwards compatibility
-	       fd = {Transport, Socket, ConnectionCb, Trackers}}.
-setopts(gen_tcp, Socket = #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+socket([Receiver, Sender], Transport, Socket, ConnectionCb, Trackers) ->
+    #sslsocket{socket_handle = Socket,
+               connection_handler = Receiver,
+               payload_sender = Sender,
+               transport_cb = Transport,
+               connection_cb = ConnectionCb,
+               listener_config = Trackers}.
+setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
+                                     listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
     check_active_n(EmulatedOpts, Socket),
     inet:setopts(ListenSocket, SockOpts);
-setopts(_, Socket = #sslsocket{pid = {ListenSocket, #config{transport_info = {Transport,_,_,_,_},
-                                                            trackers = Trackers}}}, Options) ->
+setopts(_, Socket = #sslsocket{socket_handle = ListenSocket, 
+                               listener_config = #config{transport_info = Info,
+                                                         trackers = Trackers}}, Options) ->
+    Transport = element(1, Info),
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOpts, EmulatedOpts} = split_options(Options),
     ok = set_emulated_opts(Tracker, EmulatedOpts),
@@ -171,7 +178,7 @@ setopts(gen_tcp, Socket, Options) ->
 setopts(Transport, Socket, Options) ->
     Transport:setopts(Socket, Options).
 
-check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {_, #config{trackers = Trackers}}}) ->
+check_active_n(EmulatedOpts, Socket = #sslsocket{listener_config = #config{trackers = Trackers}}) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     %% We check the resulting options to send an ssl_passive message if necessary.
     case proplists:lookup(active, EmulatedOpts) of
@@ -197,13 +204,15 @@ check_active_n(EmulatedOpts, Socket = #sslsocket{pid = {_, #config{trackers = Tr
             ok
     end.
 
-getopts(gen_tcp,  #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+getopts(gen_tcp,  #sslsocket{socket_handle = ListenSocket, 
+                             listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),
     SocketOpts = get_socket_opts(ListenSocket, SockOptNames, inet),
     {ok, EmulatedOpts ++ SocketOpts}; 
-getopts(Transport,  #sslsocket{pid = {ListenSocket, #config{trackers = Trackers}}}, Options) ->
+getopts(Transport,  #sslsocket{socket_handle = ListenSocket, 
+                               listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
     {SockOptNames, EmulatedOptNames} = split_options(Options),
     EmulatedOpts = get_emulated_opts(Tracker, EmulatedOptNames),

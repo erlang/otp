@@ -1787,8 +1787,8 @@ static int function_is_traced(Process *p,
                               Eterm      *call_memory)     /* out */
 {
     const ErtsCodeInfo *ci;
+    const Export *ep;
     Export e;
-    Export* ep;
 
     /* First look for an export entry */
     e.info.mfa = *mfa;
@@ -1831,8 +1831,8 @@ static int function_is_traced(Process *p,
 static Eterm function_traced_by_sessions(Process *p, const ErtsCodeMFA *mfa)
 {
     const ErtsCodeInfo *ci;
+    const Export *ep;
     Export e;
-    Export* ep;
     ErtsHeapFactory factory;
     Eterm list = NIL;
 

@@ -737,9 +737,8 @@ ways:
   originating from within OTP, except the former so called "SASL reports", look
   the same as before.
 
-- **[](){: #sasl_reports } SASL Reports**  
-  By SASL reports we mean supervisor reports, crash reports and progress
-  reports.
+- **[](){: #sasl_reports } SASL Reports** - By SASL reports we mean supervisor
+  reports, crash reports and progress reports.
 
   Prior to Erlang/OTP 21.0, these reports were only logged when the SASL
   application was running, and they were printed through SASL's own event
@@ -777,8 +776,8 @@ ways:
   See section [SASL User's Guide](`e:sasl:error_logging.md`) for more
   information about the old SASL error logging functionality.
 
-- **[](){: #legacy_event_handlers } Legacy Event Handlers**  
-  To use event handlers written for `error_logger`, just add your event handler
+- **[](){: #legacy_event_handlers } Legacy Event Handlers** - To use event
+  handlers written for `error_logger`, just add your event handler
   with
 
   ```text
@@ -973,10 +972,23 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
 
 ## Protecting the Handler from Overload
 
-The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature an
-overload protection mechanism, which makes it possible for the handlers to
-survive, and stay responsive, during periods of high load (when huge numbers of
-incoming log requests must be handled). The mechanism works as follows:
+The default handlers, `m:logger_std_h` and `m:logger_disk_log_h`, feature
+multiple overload protection mechanisms, which make it possible for the
+handlers to survive, and stay responsive, during periods of high load
+(when huge numbers of incoming log requests must be handled).
+
+The mechanisms are as follows:
+* [**message queue length**](#message-queue-length): the handler process tracks
+its message queue length and takes actions depending on its size, from turning
+on a sync mode to dropping messages.
+* [**limit the number of logs emitted**](#controlling-bursts-of-log-requests):
+the handlers will handle a maximum number of log events per time unit,
+defaulting to 500 per second.
+* [**terminate an overloaded handler**](#terminating-an-overloaded-handler):
+a handler can be terminated and restarted automatically if it exceeds message
+queue length or memory thresholds - this is disabled by default.
+
+These mechanisms are described in more detail in the following sections.
 
 ### Message Queue Length
 
@@ -1013,6 +1025,8 @@ actions, exist:
   message queue is reduced to a level below the threshold, synchronous or
   asynchronous mode is resumed. Notice that when the handler activates or
   deactivates drop mode, information about it is printed in the log.
+  The emitted log message looks something like this:
+  `[notice] Handler :default switched from :sync to :drop mode`
 
   Defaults to `200` messages.
 
@@ -1081,6 +1095,10 @@ period of time - can potentially cause problems, such as:
 - Log files grow very large, very quickly.
 - Circular logs wrap too quickly so that important data is overwritten.
 - Write buffers grow large, which slows down file sync operations.
+
+Note that these examples apply to file-based logging. If you're logging to
+the console the protections discussed below should be safe to disable or
+tweak, as long as your system can handle the load of them.
 
 For this reason, both built-in handlers offer the possibility to specify the
 maximum number of events to be handled within a certain time frame. With this

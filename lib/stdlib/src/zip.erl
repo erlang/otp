@@ -1947,7 +1947,9 @@ update_zip64(FH, <<LocalHeaderOffset:64/little, Rest/binary>>) when element(#cd_
     update_zip64(setelement(#cd_file_header.local_header_offset, FH, LocalHeaderOffset), Rest);
 update_zip64(FH, <<DiskNumStart:32/little, Rest/binary>>) when element(#cd_file_header.disk_num_start, FH) == ?MAX_INT32 ->
     update_zip64(setelement(#cd_file_header.disk_num_start, FH, DiskNumStart), Rest);
-update_zip64(FH, <<>>) ->
+update_zip64(FH, _) ->
+    %% Some zip files (I'm looking at you Excel) places data here even if it is not used...
+    %%  so we have to skip any non-used data instead of mathing on <<>>
     FH.
 
 update_extended_timestamp(FileHeader, <<_:5,HasCre:1,HasAcc:1,HasMod:1,Data/binary>> ) ->

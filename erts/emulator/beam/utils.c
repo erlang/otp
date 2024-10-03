@@ -1207,26 +1207,16 @@ tailrecur_ne:
              * a module literal area), we'll add a conservative implementation
              * to cover direct equality checks of non-term heap objects.
              *
-             * Note that we only need this to handle `eq(FunRef, FunRef)` and
-             * the like: we do not visit the FunRef or BinRef of any term we
-             * see while testing equality, so we should never land here under
-             * under normal circumstances. */
+             * Note that we only need this to handle `eq(BinRef, BinRef)` and
+             * the like: we do not visit the BinRef of any term we see while
+             * testing equality, so we should never land here under normal
+             * normal circumstances. */
             case BIN_REF_SUBTAG:
                 if (is_bin_ref(b)) {
                     BinRef *r1 = (BinRef*)boxed_val(a);
                     BinRef *r2 = (BinRef*)boxed_val(b);
 
                     if (r1->val == r2->val) {
-                        goto pop_next;
-                    }
-                }
-                break; /* not equal */
-            case FUN_REF_SUBTAG:
-                if (is_fun_ref(b)) {
-                    FunRef *r1 = (FunRef*)boxed_val(a);
-                    FunRef *r2 = (FunRef*)boxed_val(b);
-
-                    if (r1->entry == r2->entry) {
                         goto pop_next;
                     }
                 }
@@ -2068,8 +2058,8 @@ tailrecur_ne:
                     ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
 
                     if (is_local_fun(f1) && is_local_fun(f2)) {
-                        ErlFunEntry* fe1 = f1->entry.fun;
-                        ErlFunEntry* fe2 = f2->entry.fun;
+                        const ErlFunEntry *fe1 = f1->entry.fun;
+                        const ErlFunEntry *fe2 = f2->entry.fun;
 
                         Sint diff;
 
@@ -2103,8 +2093,8 @@ tailrecur_ne:
                         bb = f2->env;
                         goto term_array;
                     } else if (is_external_fun(f1) && is_external_fun(f2)) {
-                        Export* a_exp = f1->entry.exp;
-                        Export* b_exp = f2->entry.exp;
+                        const Export *a_exp = f1->entry.exp;
+                        const Export *b_exp = f2->entry.exp;
 
                         if ((j = erts_cmp_atoms(a_exp->info.mfa.module,
                                                 b_exp->info.mfa.module)) != 0) {

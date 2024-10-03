@@ -24,7 +24,7 @@
 %% don't use it. Therefore, we explicitly disable it until OTP 25 is out of
 %% support.
 -feature(maybe_expr, disable).
--compile(r24). % many_nodes()
+-compile(r25). % many_nodes()
 
 -export([all/0, suite/0, groups/0, 
 	 init_per_suite/1, end_per_suite/1,

@@ -22,7 +22,7 @@
  * @description Basic type representation for BEAM instruction operands.
  * @file beam_types.h
  * 
- * While the compiler is good eliminating redundant type tests and simplifying
+ * While the compiler is good at eliminating redundant type tests and simplifying
  * instructions, we're limited by the available instructions and it's not
  * always worthwhile to add new variants.
  * 

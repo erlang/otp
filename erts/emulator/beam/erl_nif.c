@@ -1352,7 +1352,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
                 env->tmp_obj_list = tmp_obj;
 
                 bin->data = (byte*)&tmp_obj[1];
-                erts_copy_bits(base, offset, 1, bin->data, 0, 1, size);
+                erts_copy_bits_fwd(base, offset, bin->data, 0, size);
             } else {
                 bin->data = &base[BYTE_OFFSET(offset)];
             }
@@ -1799,9 +1799,9 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
             return 0;
         }
         if (ap->latin1_chars == ap->len) {
-            sys_memcpy(buf, ap->name, ap->len);
+            sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
         } else {
-            int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
+            int dlen = erts_utf8_to_latin1((byte*)buf, erts_atom_get_name(ap), ap->len);
             ASSERT(dlen == ap->latin1_chars); (void)dlen;
         }
         buf[ap->latin1_chars] = '\0';
@@ -1810,7 +1810,7 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
         if (ap->len >= len) {
             return 0;
         }
-        sys_memcpy(buf, ap->name, ap->len);
+        sys_memcpy(buf, erts_atom_get_name(ap), ap->len);
         buf[ap->len] = '\0';
         return ap->len + 1;
     }
@@ -4480,8 +4480,8 @@ void erts_print_nif_taints(fmtfn_t to, void* to_arg)
 
     t = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
     for ( ; t; t = t->next) {
-	const Atom* atom = atom_tab(atom_val(t->module_atom));
-	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
+	Atom* atom = atom_tab(atom_val(t->module_atom));
+	erts_cbprintf(to,to_arg,"%s%.*s", delim, atom->len, erts_atom_get_name(atom));
 	delim = ",";
     }
     erts_cbprintf(to,to_arg,"\n");
@@ -5046,8 +5046,10 @@ static void patch_call_nif_early(ErlNifEntry* entry,
                  * Function traced, patch the original instruction word
                  * Code write permission protects against racing breakpoint writes.
                  */
-                GenericBp* g = ci_rw->gen_bp;
-                g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
+                for (GenericBp* g = ci_rw->gen_bp; g; g = g->next) {
+                    ASSERT(!g->to_insert);
+                    g->orig_instr = BeamSetCodeAddr(g->orig_instr, call_nif_early);
+                }
                 if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint))
                     continue;
             } else {
@@ -5190,10 +5192,11 @@ static void load_nif_2nd_finisher(void* vlib)
                     /*
                     * Function traced, patch the original instruction word
                     */
-                    GenericBp* g = ci_rw->gen_bp;
-                    ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
-                    g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
-
+                    for (GenericBp* g = ci_rw->gen_bp; g; g = g->next) {
+                        ASSERT(BeamIsOpCode(g->orig_instr, op_call_nif_early));
+                        ASSERT(!g->to_insert);
+                        g->orig_instr = BeamOpCodeAddr(op_call_nif_WWW);
+                    }
                     if (BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint)) {
                         continue;
                     }

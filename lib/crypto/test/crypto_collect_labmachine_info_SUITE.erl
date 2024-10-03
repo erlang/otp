@@ -65,7 +65,7 @@ init_per_suite(Config) ->
     Root = ct:get_config(collect_host_info),
     RemoteFile = filename:join([Root, "crypto_info", hostname()++".data"]),
     CryptoStarted =
-        try crypto:start() of
+        try application:start(crypto) of
             ok -> true;
             {error, already_started} -> true;
             _ -> false

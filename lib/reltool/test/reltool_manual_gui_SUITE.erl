@@ -172,7 +172,7 @@ config(Config) ->
     {ok,ServerPid} = reltool:get_server(SysPid),
     unlink(SysPid),
     break("the system window is still alive",
-	  "terminate reltool by hitting 'Ctrl-q' (linux) or clicking the "
+	  "terminate reltool by hitting 'Ctrl+Q' (linux) or clicking the "
 	  "close box on the top fram when system window is active"),
     false = erlang:is_process_alive(SysPid),
     false = erlang:is_process_alive(ServerPid),

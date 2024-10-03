@@ -143,7 +143,7 @@ init_per_suite(Config) ->
     try
         [] == (catch make_certs(dir(Config2)))
             orelse throw({?MODULE, no_certs}),
-        ok == crypto:start() orelse throw({?MODULE, no_crypto}),
+        ok == application:start(crypto) orelse throw({?MODULE, no_crypto}),
         ok == ssl:start() orelse throw({?MODULE, no_ssl}),
         Config2
     catch
@@ -155,7 +155,7 @@ end_per_suite(Config) ->
     ?TL("end_per_suite -> entry with"
         "~n   Config: ~p", [Config]),
     ssl:stop(),
-    crypto:stop(),
+    application:stop(crypto),
     ?DUTIL:end_per_suite(Config).
 
 %% This test case can take a *long* time, so if the machine is too slow, skip
@@ -208,7 +208,7 @@ run() ->
 
 run(Dir, B) ->
     ?TL("run -> start crypto"),
-    crypto:start(),
+    application:start(crypto),
     ?TL("run -> start ssl"),
     ssl:start(),
     try
@@ -220,7 +220,7 @@ run(Dir, B) ->
         ?TL("run(after) -> stop ssl"),
         ssl:stop(),
         ?TL("run(after) -> stop crypto"),
-        crypto:stop(),
+        application:stop(crypto),
         ?TL("run(after) -> done"),
         ok
     end.

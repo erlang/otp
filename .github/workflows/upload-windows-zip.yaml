@@ -1,0 +1,71 @@
+name: Upload windows .zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+      target:
+        required: true
+
+## Needed to upload assets to releases
+permissions:
+  contents: write
+
+jobs:
+  upload-windows-zip:
+    runs-on: windows-2022
+    env:
+      basename: otp_${{ inputs.target }}_${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4.1.7
+
+      - name: Install OTP
+        shell: cmd
+        run: |
+          curl.exe --fail -Lo otp.exe https://github.com/erlang/otp/releases/download/OTP-${{ inputs.version }}/${{ env.basename }}.exe
+          otp.exe /S /D=%CD%\${{ env.basename }}
+
+      - name: Download vc_redist.exe
+        shell: bash
+        run: |
+          case "${{ inputs.target }}" in
+            win32)
+              vc_redist_target=x86
+              ;;
+            win64)
+              vc_redist_target=x64
+              ;;
+            *)
+              echo "invalid target $target"
+              exit 1
+              ;;
+          esac
+          curl --fail -Lo vc_redist.exe "https://aka.ms/vs/17/release/vc_redist.$vc_redist_target.exe"
+
+      - name: Create .zip
+        shell: pwsh
+        run: |
+          $root = Get-Location
+
+          cd ${{ env.basename }}
+          rm bin\erl.ini
+          rm Install.exe
+          rm Install.ini
+          rm Uninstall.exe
+          $sha256 = Get-FileHash $root\otp.exe -Algorithm SHA256
+          $sha256.Hash.ToLower() | Out-File -FilePath installer.sha256
+          cp $root/vc_redist.exe .
+          cp $root/erts/etc/win32/INSTALL.txt .
+          Compress-Archive -Path * -DestinationPath $root\${{ env.basename }}.zip
+
+          cd $root
+          Expand-Archive -Path ${{ env.basename }}.zip -DestinationPath .\otp_test
+          .\otp_test\bin\erl.exe +V
+
+      - name: Upload
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload -R $env:GITHUB_REPOSITORY --clobber OTP-${{ inputs.version }} ${{ env.basename }}.zip

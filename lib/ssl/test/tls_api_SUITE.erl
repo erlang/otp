@@ -189,8 +189,8 @@ api_tests() ->
     ].
 
 init_per_suite(Config0) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    ssl_test_lib:clean_start(),
 	    Config1 = ssl_test_lib:make_rsa_cert_with_protected_keyfile(Config0,
@@ -780,7 +780,7 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
 					 {mfa, {ssl_test_lib, no_result, []}},
 					 {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=[Pid|_]} = SslSocket} = ssl_test_lib:start_client([return_socket,
+    {Client, #sslsocket{connection_handler = Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
                                                                                {node, ClientNode}, {port, Port},
                                                                                {host, Hostname},
                                                                                {from, self()},

@@ -1036,9 +1036,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r24, Os) ->
-    expand_opt(no_type_opt, [no_badrecord, no_bs_create_bin, no_ssa_opt_ranges |
-                             expand_opt(r25, Os)]);
 expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
      expand_opt(r26, Os)];
@@ -2348,6 +2345,9 @@ is_obsolete(r20) -> true;
 is_obsolete(r21) -> true;
 is_obsolete(r22) -> true;
 is_obsolete(r23) -> true;
+is_obsolete(r24) -> true;
+is_obsolete(no_badrecord) -> true;
+is_obsolete(no_bs_create_bin) -> true;
 is_obsolete(no_bsm3) -> true;
 is_obsolete(no_get_hd_tl) -> true;
 is_obsolete(no_put_tuple2) -> true;
@@ -2422,10 +2422,8 @@ beam_docs(Code, #compile{dir = Dir, options = Options,
     SourceName = deterministic_filename(St),
     case beam_doc:main(Dir, SourceName, Code, Options) of
         {ok, Docs, Ws} ->
-            MetaDocs = [{?META_DOC_CHUNK,
-                         term_to_binary(
-                           Docs,
-                           ensure_deterministic(Options, []))} | ExtraChunks],
+            Binary = term_to_binary(Docs, [deterministic, compressed]),
+            MetaDocs = [{?META_DOC_CHUNK, Binary} | ExtraChunks],
             {ok, Code, St#compile{extra_chunks = MetaDocs,
                                   warnings = St#compile.warnings ++ Ws}};
         {error, no_docs} ->
@@ -2525,7 +2523,7 @@ keep_compile_option(Option, _Deterministic) ->
     effects_code_generation(Option).
 
 start_crypto() ->
-    try crypto:start() of
+    try application:start(crypto) of
 	{error,{already_started,crypto}} -> ok;
 	ok -> ok
     catch

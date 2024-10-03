@@ -24,7 +24,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
-	 uninit/1,unsafe_catch/1,
+	 uninit/1,
 	 dead_code/1,
 	 overwrite_catchtag/1,overwrite_trytag/1,accessing_tags/1,bad_catch_try/1,
 	 cons_guard/1,
@@ -65,7 +65,7 @@ groups() ->
     [{p,test_lib:parallel(),
       [compiler_bug,stupid_but_valid,xrange,
        yrange,stack,call_last,merge_undefined,uninit,
-       unsafe_catch,dead_code,
+       dead_code,
        overwrite_catchtag,overwrite_trytag,accessing_tags,
        bad_catch_try,cons_guard,freg_range,freg_uninit,
        bad_bin_match,bad_dsetel,
@@ -206,15 +206,6 @@ uninit(Config) when is_list(Config) ->
      {{t,sum_3,2},
       {{bif,'+',{f,0},[{x,0},{y,0}],{x,0}},
        7,
-       {unassigned,{y,0}}}}] = Errors,
-    ok.
-
-unsafe_catch(Config) when is_list(Config) ->
-    Errors = do_val(unsafe_catch, Config),
-    [{{t,small,2},
-      {{bs_put_integer,{f,0},{integer,16},1,
-        {field_flags,[unsigned,big]},{y,0}},
-       21,
        {unassigned,{y,0}}}}] = Errors,
     ok.
 

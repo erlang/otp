@@ -65,8 +65,8 @@ all() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
             Config
     catch _:_ ->

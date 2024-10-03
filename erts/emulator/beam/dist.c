@@ -838,7 +838,7 @@ int is_node_name_atom(Eterm a)
 	return 0;
     i = atom_val(a);
     ASSERT((i > 0) && (i < atom_table_size()) &&  (atom_tab(i) != NULL));
-    return is_node_name((char*)atom_tab(i)->name, atom_tab(i)->len);
+    return is_node_name((char*)erts_atom_get_name(atom_tab(i)), atom_tab(i)->len);
 }
 
 static void
@@ -1146,6 +1146,7 @@ void init_dist(void)
         Eterm *hp_start, *hp, **hpp = NULL, tuple;
         Uint sz = 0, *szp = &sz;
         while (1) {
+            struct erl_off_heap_header **ohp;
             /*
              * Sync with dist_util.erl:
              *
@@ -1162,10 +1163,11 @@ void init_dist(void)
             if (hpp) {
                 ASSERT(is_value(tuple));
                 ASSERT(hp == hp_start + sz);
-                erts_register_global_literal(ERTS_LIT_DFLAGS_RECORD, tuple);
+                erts_global_literal_register(&tuple, hp, sz);
+                ERTS_GLOBAL_LIT_DFLAGS_RECORD = tuple;
                 break;
             }
-            hp = hp_start = erts_alloc_global_literal(ERTS_LIT_DFLAGS_RECORD, sz);
+            hp = hp_start = erts_global_literal_allocate(sz, &ohp);
             hpp = &hp;
             szp = NULL;
         }
@@ -5423,7 +5425,7 @@ BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
             szp = NULL;
         }
     }
-    return erts_get_global_literal(ERTS_LIT_DFLAGS_RECORD);
+    return ERTS_GLOBAL_LIT_DFLAGS_RECORD;
 }
 
 BIF_RETTYPE erts_internal_get_creation_0(BIF_ALIST_0)

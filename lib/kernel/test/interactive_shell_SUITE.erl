@@ -44,6 +44,7 @@
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
          shell_history_custom/1, shell_history_custom_errors/1,
+         shell_history_toggle/1,
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          shell_get_password/1,
@@ -60,7 +61,7 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
-         shell_format/1,
+         shell_format/1, shell_help/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -97,6 +98,7 @@ groups() ->
        shell_history_repair,
        shell_history_repair_corrupt,
        shell_history_corrupt,
+       shell_history_toggle,
        {group, sh_custom}
       ]},
      {sh_custom, [],
@@ -117,7 +119,8 @@ groups() ->
        shell_full_queue,
        external_editor,
        external_editor_visual,
-       shell_ignore_pager_commands
+       shell_ignore_pager_commands,
+       shell_help
       ]},
      {tty_unicode,[parallel],
       [{group,tty_tests},
@@ -1094,7 +1097,7 @@ shell_support_ansi_input(Config) ->
     ClearText = "\e[0m",
 
     try
-        send_stdin(Term,["{",BoldText,"a😀b",ClearText,"}"]),
+        send_tty(Term,["{",BoldText,"a😀b",ClearText,"}"]),
         timer:sleep(1000),
         try check_location(Term, {0, width("{1ma😀bm}")}) of
             _ ->
@@ -1149,15 +1152,15 @@ shell_expand_location_below(Config) ->
         Cols = 80,
 
         %% First check that basic completion works
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "escript:"),
+        send_tty(Term, "\t"),
         %% Cursor at correct place
         check_location(Term, {-3, width("escript:")}),
         %% Nothing after the start( completion
         check_content(Term, "start\\($"),
 
         %% Check that completion is cleared when we type
-        send_stdin(Term, "s"),
+        send_tty(Term, "s"),
         check_location(Term, {-3, width("escript:s")}),
         check_content(Term, "escript:s$"),
 
@@ -1167,7 +1170,7 @@ shell_expand_location_below(Config) ->
         send_tty(Term, "End"),
         send_tty(Term, ", test_after]"),
         [send_tty(Term, "Left") || _ <- ", test_after]"],
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_location(Term, {-3, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "C-K"),
@@ -1175,11 +1178,11 @@ shell_expand_location_below(Config) ->
         %% Check that completion works when in the middle of a long term
         send_tty(Term, ", "++ lists:duplicate(80*2, $a)++"]"),
         [send_tty(Term, "Left") || _ <- ", "++ lists:duplicate(80*2, $a)++"]"],
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_location(Term, {-4, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "End"),
-        send_stdin(Term, ".\n"),
+        send_tty(Term, ".\n"),
 
         %% Check that we behave as we should with very long completions
         rpc(Term, fun() ->
@@ -1190,14 +1193,14 @@ shell_expand_location_below(Config) ->
         timer:sleep(1000), %% Sleep to make sure window has resized
         Result = 61,
         Rows1 = 48,
-        send_stdin(Term, "long_module:" ++ FunctionName),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "long_module:" ++ FunctionName),
+        send_tty(Term, "\t"),
         check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name0\\("),
 
         %% Check that correct text is printed below expansion
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
                                           [1, 7, Result])),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "\t"),
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
             [1, Rows1, Result])),
         send_tty(Term, "Down"),
@@ -1273,13 +1276,13 @@ shell_expand_location_above(Config) ->
 
     try
         tmux(["resize-window -t ",tty_name(Term)," -x 80"]),
-        send_stdin(Term, "escript:"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "escript:"),
+        send_tty(Term, "\t"),
         check_location(Term, {0, width("escript:")}),
         check_content(Term, "start\\(\n"),
         check_content(Term, "escript:$"),
-        send_stdin(Term, "s"),
-        send_stdin(Term, "\t"),
+        send_tty(Term, "s"),
+        send_tty(Term, "\t"),
         check_location(Term, {0, width("escript:s")}),
         check_content(Term, "\nscript_name\\([ ]+start\\(\n"),
         check_content(Term, "escript:s$"),
@@ -1292,12 +1295,13 @@ shell_expand_location_above(Config) ->
 shell_help(Config) ->
     Term = start_tty(Config),
     try
-        send_stdin(Term, "lists"),
-        send_stdin(Term, "\^[h"),
+        send_tty(Term, "application:put_env(kernel, shell_docs_ansi, false).\n"),
+        send_tty(Term, "lists"),
+        send_tty(Term, "\^[h"),
         check_content(Term, "List processing functions."),
-        send_stdin(Term, ":all"),
-        send_stdin(Term, "\^[h"),
-        check_content(Term, "-spec all(Pred, List) -> boolean()"),
+        send_tty(Term, ":all"),
+        send_tty(Term, "\^[h"),
+        check_content(Term, ~S"all\(Pred, List\)"),
         ok
     after
         stop_tty(Term),
@@ -1337,7 +1341,7 @@ shell_get_password(_Config) ->
     rtnode:run(
       [{putline,"io:get_password()."},
        {putline,"secret\r"},
-       {expect, "\r\n\r\n\"secret\""}]),
+       {expect, "\r\n\"secret\""}]),
 
     %% io:get_password only works when run in "newshell"
     rtnode:run(
@@ -1548,7 +1552,7 @@ shell_suspend(Config) ->
 %% We test that suspending of `erl` and then resuming restores the shell
 shell_full_queue(Config) ->
 
-    [throw({skip,"Need unbuffered to run"}) || os:find_executable("unbuffered") =:= false],
+    [throw({skip,"Need unbuffer (apt install expect) to run"}) || os:find_executable("unbuffer") =:= false],
 
     %% In order to fill the read buffer of the terminal we need to get a
     %% bit creative. We first need to start erl in bash in order to be
@@ -1615,7 +1619,7 @@ shell_full_queue(Config) ->
         send_tty(Term, "fg"),
         send_tty(Term, "Enter"),
         Pid ! stop,
-        check_content(Term,"b$"),
+        check_content(Term,"b\\([^)]*\\)2>$"),
 
         send_tty(Term, "."),
         send_tty(Term, "Enter"),
@@ -2341,6 +2345,52 @@ shell_history_custom_errors(_Config) ->
 
     ok.
 
+shell_history_toggle(_Config) ->
+
+    %% Check that we can start with a node with an undefined
+    %% provider module.
+    rtnode:run(
+      [
+       {putline, "io:setopts(user, [{line_history, true}])."},
+       {expect, "{error,enotsup}\r\n"},
+
+       %% Test that io:get_line does not save into history buffer
+       {putline, ~s'io:get_line("").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does save into history buffer when enabled
+       {putline, "io:setopts([{line_history, true}])."},
+       {expect, "ok\r\n"},
+       {putline, ~s'io:get_line("> ").'},
+       {putline, ~s'hello again'},
+       {expect, ~s'\\Q"hello again\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'hello again'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("> ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'hello again'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'},
+
+       %% Test that io:get_line does not save into history buffer when disabled
+       {putline, "io:setopts([{line_history, false}])."},
+       {putline, ~s'io:get_line("| ").'},
+       {putline, ~s'hello'},
+       {expect, ~s'\\Q"hello\\n"\r\n\\E'},
+       {putdata, [$\^p]}, %% Up key
+       {expect, ~s'\\Qio:get_line("| ").\\E'},
+       {putdata, [$\^n]},  %% Down key
+       {expect, ~s'> $'}
+      ], [], [], ["-pz",filename:dirname(code:which(?MODULE))]),
+
+        ok.
+
 load() ->
     case application:get_env(kernel,provider_load) of
         {ok, crash} ->
@@ -2387,6 +2437,8 @@ job_control_local(Config) when is_list(Config) ->
                {expect,  "\r\n35\r\n"},
                {expect,  "2> $"},
                {putline, "receive M -> M end.\r\n"},
+               {sleep, 6000},
+               {expect, "Command is taking a long time"},
                {putline, "\^g"},
                {expect,  "--> $"},
                {putline, "i 3"},

@@ -323,7 +323,7 @@ dump_element(fmtfn_t to, void *to_arg, Eterm x)
 	erts_print(to, to_arg, "H" PTR_FMT, boxed_val(x));
     } else if (is_immed(x)) {
 	if (is_atom(x)) {
-	    unsigned char* s = atom_tab(atom_val(x))->name;
+	    const byte* s = erts_atom_get_name(atom_tab(atom_val(x)));
 	    int len = atom_tab(atom_val(x))->len;
 	    int i;
 
@@ -630,10 +630,6 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
                 } else if (hdr == HEADER_BIN_REF) {
                     dump_bin_ref(to, to_arg, (BinRef*)ptr);
                     *ptr = OUR_NIL;
-                } else if (hdr == HEADER_FUN_REF) {
-                    const FunRef *fref = (FunRef*)ptr;
-                    erts_print(to, to_arg, "Rf" PTR_FMT "\n", fref->entry);
-                    *ptr = OUR_NIL;
 		} else if (is_external_pid_header(hdr)) {
 		    erts_print(to, to_arg, "P%T\n", x);
 		    *ptr = OUR_NIL;
@@ -762,7 +758,7 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 	 * The crashdump_viewer does not allow inspection of them anyway.
 	 */
 	ErlFunThing* funp = (ErlFunThing *) fun_val(term);
-	Uint env_size = fun_env_size(funp);
+	Uint env_size = fun_num_free(funp);
 	Uint i;
 
 	for (i = 0; i < env_size; i++) {
@@ -888,8 +884,9 @@ dump_literals(fmtfn_t to, void *to_arg)
 
     erts_print(to, to_arg, "=literals\n");
 
-    for (i = 0; i < ERTS_NUM_GLOBAL_LITERALS; i++) {
-        ErtsLiteralArea* area = erts_get_global_literal_area(i);
+    for (ErtsLiteralArea *area = erts_global_literal_iterate_area(NULL);
+         area != NULL;
+         area = erts_global_literal_iterate_area(area)) {
         dump_module_literals(to, to_arg, area);
     }
 
@@ -905,11 +902,6 @@ dump_literals(fmtfn_t to, void *to_arg)
         dump_module_literals(to, to_arg, erts_persistent_areas[idx]);
     }
 
-    for (ErtsLiteralArea *lambda_area = erts_get_next_lambda_lit_area(NULL);
-         lambda_area != NULL;
-         lambda_area = erts_get_next_lambda_lit_area(lambda_area)) {
-        dump_module_literals(to, to_arg, lambda_area);
-    }
 }
 
 static void
@@ -986,9 +978,6 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                 }
             } else if (w == HEADER_BIN_REF) {
                 dump_bin_ref(to, to_arg, (BinRef*)htop);
-            } else if (w == HEADER_FUN_REF) {
-                const FunRef *fref = (FunRef*)htop;
-                erts_print(to, to_arg, "Rf" PTR_FMT "\n", fref->entry);
             } else if (is_map_header(w)) {
                 if (is_flatmap_header(w)) {
                     flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
@@ -1048,7 +1037,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             case FUN_SUBTAG:
                 {
                     const ErlFunThing *funp = (ErlFunThing*)htop;
-                    size += fun_env_size(funp);
+                    size += fun_num_free(funp);
                 }
                 break;
             case MAP_SUBTAG:

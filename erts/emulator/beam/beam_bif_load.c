@@ -1762,8 +1762,9 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
     purge_state.funs[purge_state.fe_count++] = fe;
 }
 
-Export *
-erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
+const Export *
+erts_suspend_process_on_pending_purge_lambda(Process *c_p,
+                                             const ErlFunEntry* fe)
 {
     erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {

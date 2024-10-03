@@ -27,7 +27,7 @@ HDR=(-H "Authorization: ${TOKEN}")
 REPO="https://api.github.com/repos/${REPOSITORY}"
 
 _json_escape () {
-    printf '```\n%s\n```' "${1}" | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
+    echo "${1}" | python -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
 }
 
 _strip_name() {
@@ -43,9 +43,16 @@ _curl_post() {
          -H "Accept: application/vnd.github.v3+json" "${@}"
 }
 
+_curl_patch() {
+    curl -o /dev/null --silent --fail --show-error -X PATCH "${HDR[@]}" \
+         -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+        "${@}"
+}
+
 RI=()
 ALL_TAGS=()
 CREATE_RELEASE=()
+UPDATE_BODY=()
 TAG_URL="${REPO}/tags?per_page=100"
 
 ## This function is used to loop over the pagianated results from github tags
@@ -72,6 +79,7 @@ while [ "${TAG_URL}" != "" ]; do
         }
         name=$(_row '.name')
         stripped_name=$(_strip_name ${name})
+        RELEASE_VSN=$(echo "${stripped_name}" | awk -F. '{print $1}')
 
         if echo ${stripped_name} | grep -E "${RELEASE_FILTER}" > /dev/null; then
             RELEASE=$(_curl_get "${REPO}/releases/tags/${name}")
@@ -94,10 +102,34 @@ while [ "${TAG_URL}" != "" ]; do
                         RI=("${remotename[@]}" "${RI[@]}")
                     fi
                 }
+
+                ## Check if we need to patch the body of the release
+                if ! echo "${RELEASE}" | jq -e 'select(.body != "")' > /dev/null; then
+                    RELEASE_ID=$(echo "${RELEASE}" | jq '.id')
+                    UPDATE_BODY=("${UPDATE_BODY[@]}" "${name}:${RELEASE_ID}")
+                    if [[ ${RELEASE_VSN} -gt 26 ]]; then
+                        RM="${name}.README.md"
+                    else
+                        RM="${name}.README"
+                    fi
+                    echo "Sync ${RM} for ${name} (for update of release body, release id = ${RELEASE_ID})"
+                    RI=("${RM}" "${RI[@]}")
+                fi
+
                 _asset "${name}.README" "${name}.README" "otp_src_${stripped_name}.readme"
+                if [[ ${RELEASE_VSN} -gt 26 ]]; then
+                    _asset "${name}.README.md"
+                fi
                 _asset "otp_src_${stripped_name}.tar.gz"
                 _asset "otp_doc_html_${stripped_name}.tar.gz"
-                _asset "otp_doc_man_${stripped_name}.tar.gz"
+                case "${stripped_name}" in
+                    27.0**)
+                    ## There are no man pages for 27.0 release
+                    ;;
+                    *)
+                        _asset "otp_doc_man_${stripped_name}.tar.gz"
+                        ;;
+                esac
                 case "${stripped_name}" in
                     22.*.**|21.*.**)
                     ## No need to check for windows releases in 21 and 22 patches
@@ -105,6 +137,12 @@ while [ "${TAG_URL}" != "" ]; do
                     *)
                         _asset "otp_win32_${stripped_name}.exe"
                         _asset "otp_win64_${stripped_name}.exe"
+                        if echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"otp_win32_${stripped_name}.exe\")" > /dev/null; then
+                            _asset "otp_win32_${stripped_name}.zip"
+                        fi
+                        if echo "${RELEASE}" | jq -er ".assets[] | select(.name == \"otp_win64_${stripped_name}.exe\")" > /dev/null; then
+                            _asset "otp_win64_${stripped_name}.zip"
+                        fi
                         ;;
                 esac
             fi
@@ -142,33 +180,52 @@ done
 for name in "${CREATE_RELEASE[@]}"; do
     echo "Create release for ${name}"
     stripped_name=$(_strip_name ${name})
-    if [ -s "downloads/${name}.README" ]; then
-        README=`cat downloads/${name}.README`
+    if [ -s "downloads/${name}.README.md" ]; then
+        README=$(cat downloads/${name}.README.md)
+        README=$(_json_escape "${README}")
+    elif [ -s "downloads/${name}.README" ]; then
+        README=$(cat downloads/${name}.README)
+        if echo "${README}" | grep "HIGHLIGHTS" > /dev/null; then
+            ## We have highlights, so only use those as the body
+
+            ## This awk script is a hack.
+            ## It counts the number of lines that start with '---' and
+            ## then outputs any text after the first '---' until the 7th.
+            README=$(echo "${README}" | awk 'BEGIN{ echo=0 } { if ( $1 ~ /^---/ ) { echo++ } if ( echo > 0 && echo < 7 ) { print $0 } }')
+        fi
+        README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
     else
         README=""
     fi
-    if echo "${README}" | grep "HIGHLIGHTS" > /dev/null; then
-        ## We have highlights, so only use those as the body
-
-        ## This awk script is a hack.
-        ## It counts the number of lines that start with '---' and
-        ## then outputs any text after the first '---' until the 7th.
-        README=`echo "${README}" | awk 'BEGIN{ echo=0 } { if ( $1 ~ /^---/ ) { echo++ } if ( echo > 0 && echo < 7 ) { print $0 } }'`
-    fi
     if [ "${README}" != "" ]; then
-        RM=$(_json_escape "${README}")
         BODY=", \"body\":${RM}"
     else
         BODY=""
     fi
-    $(_curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}")
+    _curl_post "${REPO}/releases" -d '{"tag_name":"'"${name}"'", "name":"OTP '"${stripped_name}\"${BODY}}"
 done
 
+for name_id in "${UPDATE_BODY[@]}"; do
+    name=$(echo "${name_id}" | awk -F: '{print $1}')
+    RELEASE_ID=$(echo "${name_id}" | awk -F: '{print $2}')
+    if [ -s downloads/"${name}.README.md" ]; then
+        README=$(cat downloads/"${name}.README.md")
+        README=$(_json_escape "${README}")
+    elif [ -s downloads/"${name}.README" ]; then
+        README=$(cat downloads/"${name}.README")
+        README=$(_json_escape "$(printf '```\n%s\n```' "${README}")")
+    fi
+    echo "Update body of ${name}"
+    _curl_patch "${REPO}/releases/${RELEASE_ID}" -d "{\"body\":${README}}"
+done
 
 UPLOADED=false
 
 ## Array of all tags that do not have a pre-build
 MISSING_PREBUILD=()
+
+## Array of zip files that have been triggered this sync
+MISSING_WIN_ZIP=()
 
 _upload_artifacts() {
     local name=${1};
@@ -187,18 +244,30 @@ _upload_artifacts() {
                        "${UPLOAD_URL}?name=${1}" \
                        --data-binary "@downloads/${1}"
         else
+            ## See if we need to trigger any .exe to .zip convertions
+            if echo "${RI[@]}" | grep "otp_${2}_${stripped_name}.zip" > /dev/null; then
+                if [ ${#MISSING_WIN_ZIP[@]} -lt 20 ]; then
+                    MISSING_WIN_ZIP=("${MISSING_WIN_ZIP[@]}" "${stripped_name}")
+                    _curl_post "${REPO}/actions/workflows/upload-windows-zip.yaml/dispatches" \
+                        -d '{"ref":"master", "inputs":{"version":"'"${stripped_name}"'", "target":"'"${2}"'"}}'
+                fi
+            fi
+            ## See if we need to re-build any prebuilds
             if echo "${RI[@]}" | grep "${stripped_name}.tar.gz" > /dev/null; then
                 MISSING_PREBUILD=("${MISSING_PREBUILD[@]}" "${name}")
             fi
         fi
     }
     _upload "${name}.README" "text"
+    _upload "${name}.README.md" "text"
     _upload "otp_src_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_doc_html_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_doc_man_${stripped_name}.tar.gz" "application/gzip"
     _upload "otp_win32_${stripped_name}.exe" "application/x-msdownload"
     _upload "otp_win64_${stripped_name}.exe" "application/x-msdownload"
-    }
+    _upload "otp_win32_${stripped_name}.zip" "win32"
+    _upload "otp_win64_${stripped_name}.zip" "win64"
+}
 
 ## Upload all assets for tags
 for name in "${ALL_TAGS[@]}"; do
@@ -215,7 +284,7 @@ if [ ${UPLOADED} = false ]; then
     for name in "${MISSING_PREBUILD[@]}"; do
         stripped_name=$(_strip_name "${name}")
         release=$(echo "${stripped_name}" | awk -F. '{print $1}')
-        if [[ $release < 24 ]]; then
+        if [[ $release -lt 24 ]]; then
             ## Releases before 24 are no longer supported and are a bit different
             ## from 24+ so I've removed support for them
             echo "Skipping old release ${name}"
@@ -233,13 +302,13 @@ if [ ${UPLOADED} = false ]; then
                -f otp_src/.github/dockerfiles/Dockerfile.64-bit .
         docker run -v "$PWD":/github otp \
                "/github/scripts/build-otp-tar -o /github/otp_clean_src.tar.gz /github/otp_src.tar.gz -b /buildroot/otp/ /buildroot/otp.tar.gz"
-        .github/scripts/release-docs.sh
+        .github/scripts/release-docs.sh "${release}" "${stripped_name}"
         .github/scripts/create-artifacts.sh downloads "${name}"
 
         ## Delete any artifacts that we should not upload
         for artifact in dowloads/*; do
-            if ! echo "${RI[@]}" | grep "${artifact}" 2> /dev/null > /dev/null; then
-                rm -f "downloads/${artifact}"
+            if ! echo "${RI[@]}" | grep "${artifact#downloads/}" 2> /dev/null > /dev/null; then
+                rm -f "${artifact}"
             fi
         done
         _upload_artifacts "${name}"

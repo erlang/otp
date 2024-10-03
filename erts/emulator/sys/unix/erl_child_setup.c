@@ -434,7 +434,7 @@ static int system_properties_fd(void)
 #endif /* __ANDROID__ */
 
 /*
-  If beam is terminated using kill -9 or Ctrl-C when +B is set it may not
+  If beam is terminated using kill -9 or Ctrl+C when +B is set it may not
   cleanup the terminal properly. So to clean it up we save the initial state in
   erl_child_setup and then reset the terminal if we detect that beam terminated.
 

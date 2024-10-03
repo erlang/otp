@@ -5,7 +5,7 @@ A super carrier is large memory area, allocated at VM start, which can
 be used during runtime to allocate normal carriers from.
 
 The super carrier feature was introduced in OTP R16B03. It is
-enabled with command line option +MMscs &lt;size in Mb&gt;
+enabled with command line option `+MMscs <size in Mb>`
 and can be configured with other options.
 
 Problem

@@ -122,19 +122,6 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
     }
 }
 
-void BeamModuleAssembler::emit_i_bs_init_heap(const ArgWord &Size,
-                                              const ArgWord &Heap,
-                                              const ArgWord &Live,
-                                              const ArgRegister &Dst) {
-    mov_arg(ARG4, ArgWord(Size.get() * 8));
-    mov_arg(ARG5, Heap);
-    mov_arg(ARG6, Live);
-
-    fragment_call(ga->get_bs_init_bits_legacy_shared());
-
-    mov_arg(Dst, RET);
-}
-
 /* Set the error reason when a size check has failed. */
 void BeamGlobalAssembler::emit_bs_size_check_shared() {
     emit_enter_runtime();
@@ -142,390 +129,6 @@ void BeamGlobalAssembler::emit_bs_size_check_shared() {
     runtime_call<2>(beam_jit_bs_field_size_argument_error);
     emit_leave_runtime();
     a.ret();
-}
-
-void BeamModuleAssembler::emit_i_bs_init_fail_heap(const ArgSource &Size,
-                                                   const ArgWord &Heap,
-                                                   const ArgLabel &Fail,
-                                                   const ArgWord &Live,
-                                                   const ArgRegister &Dst) {
-    Label fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-    }
-
-    /* Clobbers RET + ARG3 */
-    if (emit_bs_get_field_size(Size, 1, fail, ARG4) >= 0) {
-        a.shl(ARG4, imm(3));
-        mov_arg(ARG5, Heap);
-        mov_arg(ARG6, Live);
-        fragment_call(ga->get_bs_init_bits_legacy_shared());
-        mov_arg(Dst, RET);
-    }
-
-    if (Fail.get() == 0) {
-        Label next = a.newLabel();
-        a.short_().jmp(next);
-
-        a.bind(fail);
-        {
-            mov_arg(ARG2, Size);
-            safe_fragment_call(ga->get_bs_size_check_shared());
-            emit_raise_exception();
-        }
-
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_i_bs_init(const ArgWord &Size,
-                                         const ArgWord &Live,
-                                         const ArgRegister &Dst) {
-    const ArgVal Heap(ArgVal::Word, 0);
-
-    emit_i_bs_init_bits_heap(ArgWord(Size.get() * 8), Heap, Live, Dst);
-}
-
-void BeamModuleAssembler::emit_i_bs_init_fail(const ArgRegister &Size,
-                                              const ArgLabel &Fail,
-                                              const ArgWord &Live,
-                                              const ArgRegister &Dst) {
-    const ArgVal Heap(ArgVal::Word, 0);
-
-    emit_i_bs_init_fail_heap(Size, Heap, Fail, Live, Dst);
-}
-
-void BeamModuleAssembler::emit_i_bs_init_bits(const ArgWord &NumBits,
-                                              const ArgWord &Live,
-                                              const ArgRegister &Dst) {
-    const ArgVal heap(ArgVal::Word, 0);
-    emit_i_bs_init_bits_heap(NumBits, heap, Live, Dst);
-}
-
-void BeamModuleAssembler::emit_i_bs_init_bits_heap(const ArgWord &NumBits,
-                                                   const ArgWord &Alloc,
-                                                   const ArgWord &Live,
-                                                   const ArgRegister &Dst) {
-    mov_arg(ARG4, NumBits);
-    mov_arg(ARG5, Alloc);
-    mov_arg(ARG6, Live);
-
-    fragment_call(ga->get_bs_init_bits_legacy_shared());
-
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_i_bs_init_bits_fail(const ArgRegister &NumBits,
-                                                   const ArgLabel &Fail,
-                                                   const ArgWord &Live,
-                                                   const ArgRegister &Dst) {
-    const ArgVal Heap(ArgVal::Word, 0);
-
-    emit_i_bs_init_bits_fail_heap(NumBits, Heap, Fail, Live, Dst);
-}
-
-void BeamModuleAssembler::emit_i_bs_init_bits_fail_heap(
-        const ArgSource &NumBits,
-        const ArgWord &Alloc,
-        const ArgLabel &Fail,
-        const ArgWord &Live,
-        const ArgRegister &Dst) {
-    Label fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-    }
-
-    /* Clobbers RET + ARG3 */
-    if (emit_bs_get_field_size(NumBits, 1, fail, ARG4) >= 0) {
-        mov_arg(ARG5, Alloc);
-        mov_arg(ARG6, Live);
-
-        fragment_call(ga->get_bs_init_bits_legacy_shared());
-
-        mov_arg(Dst, RET);
-    }
-
-    if (Fail.get() == 0) {
-        Label next = a.newLabel();
-        a.short_().jmp(next);
-
-        a.bind(fail);
-        {
-            mov_arg(ARG2, NumBits);
-            safe_fragment_call(ga->get_bs_size_check_shared());
-            emit_raise_exception();
-        }
-
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_bs_put_string(const ArgWord &Size,
-                                             const ArgBytePtr &Ptr) {
-    mov_arg(ARG3, Size);
-
-    emit_enter_runtime();
-
-    mov_arg(ARG2, Ptr);
-    load_erl_bits_state(ARG1);
-    runtime_call<3>(erts_new_bs_put_string);
-
-    emit_leave_runtime();
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_integer_imm(const ArgSource &Src,
-                                                        const ArgLabel &Fail,
-                                                        const ArgWord &Sz,
-                                                        const ArgWord &Flags) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-    mov_arg(ARG3, Sz);
-    mov_arg(ARG4, Flags);
-
-    emit_enter_runtime();
-
-    load_erl_bits_state(ARG1);
-    runtime_call<4>(erts_new_bs_put_integer);
-
-    emit_leave_runtime();
-
-    a.test(RET, RET);
-
-    if (Fail.get() != 0) {
-        a.je(resolve_beam_label(Fail));
-    } else {
-        a.short_().jne(next);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_integer(const ArgLabel &Fail,
-                                                    const ArgRegister &Sz,
-                                                    const ArgWord &Flags,
-                                                    const ArgSource &Src) {
-    int unit = Flags.get() >> 3;
-    Label next, fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-        next = a.newLabel();
-    }
-
-    /* Clobbers RET + ARG3 */
-    if (emit_bs_get_field_size(Sz, unit, fail, ARG3) >= 0) {
-        mov_arg(ARG2, Src);
-        mov_arg(ARG4, Flags);
-
-        emit_enter_runtime();
-
-        load_erl_bits_state(ARG1);
-        runtime_call<4>(erts_new_bs_put_integer);
-
-        emit_leave_runtime();
-
-        a.test(RET, RET);
-
-        if (Fail.get() != 0) {
-            a.je(fail);
-        } else {
-            a.short_().jne(next);
-        }
-    }
-
-    if (Fail.get() == 0) {
-        a.bind(fail);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_binary(const ArgLabel &Fail,
-                                                   const ArgSource &Sz,
-                                                   const ArgWord &Flags,
-                                                   const ArgSource &Src) {
-    int unit = Flags.get() >> 3;
-    Label next, fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-        next = a.newLabel();
-    }
-
-    /* Clobbers RET + ARG3 */
-    if (emit_bs_get_field_size(Sz, unit, fail, ARG3) >= 0) {
-        mov_arg(ARG2, Src);
-
-        emit_enter_runtime<Update::eReductions>();
-
-        a.mov(ARG1, c_p);
-        runtime_call<3>(erts_new_bs_put_binary);
-
-        emit_leave_runtime<Update::eReductions>();
-
-        a.test(RET, RET);
-
-        if (Fail.get() != 0) {
-            a.je(fail);
-        } else {
-            a.short_().jne(next);
-        }
-    }
-
-    if (Fail.get() == 0) {
-        a.bind(fail);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_binary_all(const ArgSource &Src,
-                                                       const ArgLabel &Fail,
-                                                       const ArgWord &Unit) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-    mov_arg(ARG3, Unit);
-
-    emit_enter_runtime<Update::eReductions>();
-
-    a.mov(ARG1, c_p);
-    runtime_call<3>(erts_new_bs_put_binary_all);
-
-    emit_leave_runtime<Update::eReductions>();
-
-    a.test(RET, RET);
-
-    if (Fail.get() == 0) {
-        a.jne(next);
-        emit_error(BADARG);
-        a.bind(next);
-    } else {
-        a.je(resolve_beam_label(Fail));
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_binary_imm(const ArgLabel &Fail,
-                                                       const ArgWord &Sz,
-                                                       const ArgSource &Src) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-    mov_arg(ARG3, Sz);
-
-    emit_enter_runtime<Update::eReductions>();
-
-    a.mov(ARG1, c_p);
-    runtime_call<3>(erts_new_bs_put_binary);
-
-    emit_leave_runtime<Update::eReductions>();
-
-    a.test(RET, RET);
-
-    if (Fail.get() == 0) {
-        a.short_().jne(next);
-        emit_error(BADARG);
-        a.bind(next);
-    } else {
-        a.je(resolve_beam_label(Fail));
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_float(const ArgLabel &Fail,
-                                                  const ArgRegister &Sz,
-                                                  const ArgWord &Flags,
-                                                  const ArgSource &Src) {
-    int unit = Flags.get() >> 3;
-    Label next, fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-        next = a.newLabel();
-    }
-
-    /* Clobbers RET + ARG3 */
-    if (emit_bs_get_field_size(Sz, unit, fail, ARG3) >= 0) {
-        mov_arg(ARG2, Src);
-        mov_arg(ARG4, Flags);
-
-        emit_enter_runtime();
-
-        a.mov(ARG1, c_p);
-        runtime_call<4>(erts_new_bs_put_float);
-
-        emit_leave_runtime();
-
-        emit_test_the_non_value(RET);
-
-        if (Fail.get() != 0) {
-            a.jne(fail);
-        } else {
-            a.short_().je(next);
-        }
-    }
-
-    if (Fail.get() == 0) {
-        a.bind(fail);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
-void BeamModuleAssembler::emit_i_new_bs_put_float_imm(const ArgLabel &Fail,
-                                                      const ArgWord &Sz,
-                                                      const ArgWord &Flags,
-                                                      const ArgSource &Src) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-    mov_arg(ARG3, Sz);
-    mov_arg(ARG4, Flags);
-
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<4>(erts_new_bs_put_float);
-
-    emit_leave_runtime();
-
-    emit_test_the_non_value(RET);
-
-    if (Fail.get() != 0) {
-        a.jne(resolve_beam_label(Fail));
-    } else {
-        a.short_().je(next);
-        emit_error(BADARG);
-        a.bind(next);
-    }
 }
 
 void BeamModuleAssembler::emit_i_bs_start_match3(const ArgRegister &Src,
@@ -960,55 +563,6 @@ void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
     }
 }
 
-void BeamModuleAssembler::emit_i_bs_utf8_size(const ArgSource &Src,
-                                              const ArgXRegister &Dst) {
-    Label next = a.newLabel();
-
-    mov_arg(ARG1, Src);
-
-    mov_imm(RET, make_small(1));
-    a.cmp(ARG1, imm(make_small(0x80UL)));
-    a.short_().jl(next);
-    mov_imm(RET, make_small(2));
-    a.cmp(ARG1, imm(make_small(0x800UL)));
-    a.short_().jl(next);
-    mov_imm(RET, make_small(3));
-    a.cmp(ARG1, imm(make_small(0x10000UL)));
-    a.short_().jl(next);
-    mov_imm(RET, make_small(4));
-
-    a.bind(next);
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_i_bs_put_utf8(const ArgLabel &Fail,
-                                             const ArgSource &Src) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-
-    emit_enter_runtime();
-
-    load_erl_bits_state(ARG1);
-    runtime_call<2>(erts_bs_put_utf8);
-
-    emit_leave_runtime();
-
-    a.test(RET, RET);
-
-    if (Fail.get() != 0) {
-        a.je(resolve_beam_label(Fail));
-    } else {
-        a.short_().jne(next);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
 /*
  * ARG1 = pointer to match state
  * ARG2 = position in binary in bits
@@ -1403,49 +957,6 @@ void BeamModuleAssembler::emit_i_bs_skip_utf8(const ArgRegister &Ctx,
     emit_bs_get_utf8(Ctx, Fail);
 }
 
-void BeamModuleAssembler::emit_i_bs_utf16_size(const ArgSource &Src,
-                                               const ArgXRegister &Dst) {
-    mov_arg(ARG1, Src);
-
-    mov_imm(RET, make_small(2));
-    mov_imm(ARG2, make_small(4));
-    a.cmp(ARG1, imm(make_small(0x10000UL)));
-    a.cmovae(RET, ARG2);
-
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_i_bs_put_utf16(const ArgLabel &Fail,
-                                              const ArgWord &Flags,
-                                              const ArgSource &Src) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    /* mov_arg may clobber ARG1 */
-    mov_arg(ARG3, Flags);
-    mov_arg(ARG2, Src);
-
-    emit_enter_runtime();
-
-    load_erl_bits_state(ARG1);
-    runtime_call<3>(erts_bs_put_utf16);
-
-    emit_leave_runtime();
-
-    a.test(RET, RET);
-
-    if (Fail.get() != 0) {
-        a.je(resolve_beam_label(Fail));
-    } else {
-        a.short_().jne(next);
-        emit_error(BADARG);
-        a.bind(next);
-    }
-}
-
 void BeamModuleAssembler::emit_bs_get_utf16(const ArgRegister &Ctx,
                                             const ArgLabel &Fail,
                                             const ArgWord &Flags) {
@@ -1495,27 +1006,6 @@ void BeamModuleAssembler::emit_validate_unicode(Label next,
     a.jmp(next);
 }
 
-void BeamModuleAssembler::emit_i_bs_validate_unicode(const ArgLabel &Fail,
-                                                     const ArgSource &Src) {
-    Label fail, next = a.newLabel();
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-    }
-
-    mov_arg(ARG1, Src);
-    emit_validate_unicode(next, fail, ARG1);
-
-    if (Fail.get() == 0) {
-        a.bind(fail);
-        emit_error(BADARG);
-    }
-
-    a.bind(next);
-}
-
 void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(
         const ArgLabel &Fail,
         const ArgSource &Src,
@@ -1563,185 +1053,6 @@ void BeamModuleAssembler::emit_bs_test_unit(const ArgLabel &Fail,
     }
 
     a.jnz(resolve_beam_label(Fail));
-}
-
-/* Set the error reason when bs_add has failed. */
-void BeamGlobalAssembler::emit_bs_add_shared() {
-    emit_enter_runtime();
-    a.mov(ARG1, c_p);
-    runtime_call<3>(beam_jit_bs_add_argument_error);
-    emit_leave_runtime();
-    a.ret();
-}
-
-void BeamModuleAssembler::emit_bs_add(const ArgLabel &Fail,
-                                      const ArgSource &Src1,
-                                      const ArgSource &Src2,
-                                      const ArgWord &Unit,
-                                      const ArgXRegister &Dst) {
-    Label fail;
-
-    if (Fail.get() != 0) {
-        fail = resolve_beam_label(Fail);
-    } else {
-        fail = a.newLabel();
-    }
-
-    /* Both arguments must be immediates on x64. */
-    mov_arg(ARG1, Src1);
-
-    if (Src2.isImmed()) {
-        a.mov(RETd, ARG1d);
-    } else {
-        mov_arg(ARG2, Src2);
-        a.mov(RETd, ARG2d);
-        if (Src1.isImmed()) {
-            a.and_(RETd, ARG1d);
-        }
-    }
-
-    a.and_(RETb, imm(_TAG_IMMED1_MASK));
-    a.cmp(RETb, imm(_TAG_IMMED1_SMALL));
-    a.jne(fail);
-
-    /* Verify that ARG2 >= 0 and multiply ARG2 by the unit. The
-     * result will be untagged but not shifted and stored in RET. */
-    if (Src2.isSmall()) {
-        Uint val = Src2.as<ArgSmall>().getUnsigned();
-
-        if ((val >> (sizeof(Eterm) - 1) * 8) != 0) {
-            /* Protect against negative or huge literal size. */
-            a.jmp(fail);
-            return;
-        } else {
-            val = (Unit.get() * val) << _TAG_IMMED1_SIZE;
-            mov_imm(RET, val);
-        }
-    } else {
-        a.and_(ARG2, imm(~_TAG_IMMED1_MASK));
-        a.js(fail);
-        /* Multiply ARG2 by unit. */
-        if (Unit.get() == 1) {
-            a.mov(RET, ARG2);
-        } else {
-            mov_imm(RET, Unit.get());
-            a.mul(ARG2); /* CLOBBERS RDX = ARG3! */
-            a.jo(fail);
-        }
-    }
-
-    /* Verify that ARG1 >= 0. */
-    a.test(ARG1, ARG1);
-    a.js(fail);
-
-    /* RET is untagged but shifted, so adding ARG1 tags it and sets the overflow
-     * flag when the result won't fit an immediate. */
-    a.add(RET, ARG1);
-
-    if (Fail.get() != 0) {
-        a.jo(fail);
-    } else {
-        Label next = a.newLabel();
-
-        a.short_().jno(next);
-
-        a.bind(fail);
-        {
-            mov_arg(ARG2, Src1);
-            mov_arg(ARG3, Src2);
-            safe_fragment_call(ga->get_bs_add_shared());
-            emit_raise_exception();
-        }
-
-        a.bind(next);
-    }
-
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_i_bs_append(const ArgLabel &Fail,
-                                           const ArgWord &ExtraHeap,
-                                           const ArgWord &Live,
-                                           const ArgWord &Unit,
-                                           const ArgSource &Size,
-                                           const ArgSource &Bin,
-                                           const ArgRegister &Dst) {
-    Label next = a.newLabel();
-
-    mov_arg(ARG3, Live);
-    mov_arg(ARG4, Size);
-    mov_arg(ARG5, ExtraHeap);
-    mov_arg(ARG6, Unit);
-
-    mov_arg(ArgXRegister(Live.get()), Bin);
-
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
-
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    runtime_call<6>(erts_bs_append);
-
-    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
-
-    emit_test_the_non_value(RET);
-    a.short_().jne(next);
-
-#ifdef WIN32
-    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
-#else
-    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.counter)));
-#endif
-    a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
-
-    if (Fail.get() != 0) {
-        a.je(resolve_beam_label(Fail));
-
-        a.jmp(resolve_fragment(ga->get_do_schedule()));
-    } else {
-        a.jne(resolve_fragment(ga->get_do_schedule()));
-
-        /* The error has been prepared in `erts_bs_append` */
-        emit_raise_exception();
-    }
-
-    a.bind(next);
-    mov_arg(Dst, RET);
-}
-
-void BeamModuleAssembler::emit_i_bs_private_append(const ArgLabel &Fail,
-                                                   const ArgWord &Unit,
-                                                   const ArgSource &Size,
-                                                   const ArgRegister &Src,
-                                                   const ArgXRegister &Dst) {
-    Label next;
-
-    if (Fail.get() == 0) {
-        next = a.newLabel();
-    }
-
-    mov_arg(ARG2, Src);
-    mov_arg(ARG3, Size);
-    mov_arg(ARG4, Unit);
-
-    emit_enter_runtime();
-
-    a.mov(ARG1, c_p);
-    runtime_call<4>(erts_bs_private_append);
-
-    emit_leave_runtime();
-
-    emit_test_the_non_value(RET);
-
-    if (Fail.get() != 0) {
-        a.je(resolve_beam_label(Fail));
-    } else {
-        a.short_().jne(next);
-        /* The error has been prepared in `erts_bs_private_append` */
-        emit_raise_exception();
-        a.bind(next);
-    }
-
-    mov_arg(Dst, RET);
 }
 
 void BeamModuleAssembler::emit_bs_init_writable() {
@@ -1951,10 +1262,10 @@ void BeamModuleAssembler::update_bin_state(x86::Gp bin_offset,
     const int x_reg_offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
     const int cur_bin_base =
             offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_current_bin_);
+            offsetof(struct erl_bits_state, erts_current_bin);
     const int cur_bin_offset =
             offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_bin_offset_);
+            offsetof(struct erl_bits_state, erts_bin_offset);
 
     x86::Mem mem_bin_base =
             x86::Mem(registers, cur_bin_base - x_reg_offset, sizeof(UWord));
@@ -2330,45 +1641,6 @@ void BeamModuleAssembler::bs_maybe_leave_runtime(bool entered) {
  *   RET = Allocated binary object.
  */
 
-void BeamGlobalAssembler::emit_bs_init_bits_legacy_shared() {
-    Label exiting = a.newLabel();
-
-    emit_enter_frame();
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
-
-    load_erl_bits_state(ARG3);
-    load_x_reg_array(ARG2);
-    a.mov(ARG1, c_p);
-
-    runtime_call<6>(beam_jit_bs_init_bits);
-
-    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
-    emit_leave_frame();
-
-#ifdef WIN32
-    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.value)));
-#else
-    a.mov(ARG1d, x86::dword_ptr(c_p, offsetof(Process, state.counter)));
-#endif
-    a.test(ARG1d, imm(ERTS_PSFLG_EXITING));
-    a.short_().jne(exiting);
-
-    a.ret();
-
-    a.bind(exiting);
-    a.jmp(labels[do_schedule]);
-}
-
-/*
- * In:
- *   ARG4 = Size of binary in bits.
- *   ARG5 = Extra words to allocate.
- *   ARG6 = Number of live X registers.
- *
- * Out:
- *   RET = Allocated binary object.
- */
-
 void BeamGlobalAssembler::emit_bs_init_bits_shared() {
     Label exiting = a.newLabel();
 
@@ -2550,10 +1822,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 offsetof(ErtsSchedulerRegisters, x_reg_array.d);
         const int cur_bin_base =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_current_bin_);
+                offsetof(struct erl_bits_state, erts_current_bin);
         const int cur_bin_offset =
                 offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_bin_offset_);
+                offsetof(struct erl_bits_state, erts_bin_offset);
         x86::Mem mem_bin_base =
                 x86::qword_ptr(registers, cur_bin_base - x_reg_offset);
         x86::Mem mem_bin_offset =
@@ -2923,14 +2195,14 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         runtime_entered = bs_maybe_enter_runtime(runtime_entered);
         comment("private append to binary");
         ASSERT(Alloc.get() == 0);
-        mov_arg(ARG2, seg.src);
+        mov_arg(ARG3, seg.src);
         if (sizeReg.isValid()) {
-            a.mov(ARG3, sizeReg);
+            a.mov(ARG4, sizeReg);
         } else {
-            mov_imm(ARG3, num_bits);
+            mov_imm(ARG4, num_bits);
         }
-        a.mov(ARG4, seg.unit);
-        a.mov(ARG1, c_p);
+        a.mov(ARG2, c_p);
+        load_erl_bits_state(ARG1);
         runtime_call<4>(erts_bs_private_append_checked);
         /* There is no way the call can fail on a 64-bit architecture. */
         a.mov(TMP_MEM1q, RET);
@@ -2979,10 +2251,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             comment("construct a binary segment");
             if (seg.effectiveSize >= 0) {
                 /* The segment has a literal size. */
-                mov_imm(ARG3, seg.effectiveSize);
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary);
+                mov_imm(ARG4, seg.effectiveSize);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -2991,10 +2264,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                        seg.size.as<ArgAtom>().get() == am_all) {
                 /* Include the entire binary/bitstring in the
                  * resulting binary. */
-                a.mov(ARG3, seg.unit);
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary_all);
+                mov_imm(ARG4, seg.unit);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary_all);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
@@ -3010,16 +2284,17 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                  * the value is a non-negative small in the
                  * appropriate range. Multiply the size with the
                  * unit. */
-                mov_arg(ARG3, seg.size);
-                a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_arg(ARG4, seg.size);
+                a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(RET, seg.unit);
-                    a.mul(ARG3); /* CLOBBERS RDX = ARG3! */
-                    a.mov(ARG3, RET);
+                    a.mul(ARG4); /* CLOBBERS RDX = ARG3! */
+                    a.mov(ARG4, RET);
                 }
-                mov_arg(ARG2, seg.src);
-                a.mov(ARG1, c_p);
-                runtime_call<3>(erts_new_bs_put_binary);
+                mov_arg(ARG3, seg.src);
+                a.mov(ARG2, c_p);
+                load_erl_bits_state(ARG1);
+                runtime_call<4>(erts_bs_put_binary);
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_DEPENDS,
@@ -3039,20 +2314,21 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             comment("construct float segment");
             if (seg.effectiveSize >= 0) {
-                mov_imm(ARG3, seg.effectiveSize);
+                mov_imm(ARG4, seg.effectiveSize);
             } else {
-                mov_arg(ARG3, seg.size);
-                a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
+                mov_arg(ARG4, seg.size);
+                a.sar(ARG4, imm(_TAG_IMMED1_SIZE));
                 if (seg.unit != 1) {
                     mov_imm(RET, seg.unit);
-                    a.mul(ARG3); /* CLOBBERS RDX = ARG3! */
-                    a.mov(ARG3, RET);
+                    a.mul(ARG4); /* CLOBBERS RDX = ARG3! */
+                    a.mov(ARG4, RET);
                 }
             }
-            mov_arg(ARG2, seg.src);
-            mov_imm(ARG4, seg.flags);
-            a.mov(ARG1, c_p);
-            runtime_call<4>(erts_new_bs_put_float);
+            mov_arg(ARG3, seg.src);
+            mov_imm(ARG5, seg.flags);
+            a.mov(ARG2, c_p);
+            load_erl_bits_state(ARG1);
+            runtime_call<5>(erts_bs_put_float);
             if (Fail.get() == 0) {
                 mov_imm(ARG4,
                         beam_jit_update_bsc_reason_info(seg.error_info,
@@ -3323,9 +2599,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                      * integer into the binary. */
                     runtime_entered = bs_maybe_enter_runtime(runtime_entered);
                     mov_arg(ARG2, seg.src);
-                    mov_imm(ARG4, seg.flags);
                     load_erl_bits_state(ARG1);
-                    runtime_call<4>(erts_new_bs_put_integer);
+                    if (seg.flags & BSF_LITTLE) {
+                        runtime_call<3>(erts_bs_put_integer_le);
+                    } else {
+                        runtime_call<3>(erts_bs_put_integer_be);
+                    }
                     if (exact_type<BeamTypeId::Integer>(seg.src)) {
                         comment("skipped test for success because construction "
                                 "can't fail");
@@ -3356,7 +2635,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             mov_imm(ARG3, seg.effectiveSize / 8);
             mov_arg(ARG2, string_ptr);
             load_erl_bits_state(ARG1);
-            runtime_call<3>(erts_new_bs_put_string);
+            runtime_call<3>(erts_bs_put_string);
         } break;
         case am_utf8: {
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
@@ -3384,9 +2663,12 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             mov_arg(ARG2, seg.src);
             mov_imm(ARG3, 4 * 8);
-            a.mov(ARG4, seg.flags);
             load_erl_bits_state(ARG1);
-            runtime_call<4>(erts_new_bs_put_integer);
+            if (seg.flags & BSF_LITTLE) {
+                runtime_call<3>(erts_bs_put_integer_le);
+            } else {
+                runtime_call<3>(erts_bs_put_integer_be);
+            }
             if (Fail.get() == 0) {
                 mov_arg(ARG1, seg.src);
                 mov_imm(ARG4,

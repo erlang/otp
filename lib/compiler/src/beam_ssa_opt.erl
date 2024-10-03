@@ -295,7 +295,8 @@ epilogue_module_passes(Opts) ->
 early_epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
-          ?PASS(ssa_opt_sw)],
+          ?PASS(ssa_opt_sw),
+          ?PASS(ssa_opt_no_reuse)],
     passes_1(Ps, Opts).
 
 late_epilogue_passes(Opts) ->
@@ -409,7 +410,7 @@ get_call_order_po(StMap, FuncDb) when is_map(FuncDb) ->
 
 gco_po(FuncDb) ->
     All = sort(maps:keys(FuncDb)),
-    {RPO,_} = gco_rpo(All, FuncDb, sets:new([{version, 2}]), []),
+    {RPO,_} = gco_rpo(All, FuncDb, sets:new(), []),
     reverse(RPO).
 
 gco_rpo([Id|Ids], FuncDb, Seen0, Acc0) ->
@@ -1089,18 +1090,18 @@ cse_successors_1([L|Ls], Es0, M) ->
     end;
 cse_successors_1([], _, M) -> M.
 
-cse_successor_fail(Fail, Src, Es0, M) ->
+cse_successor_fail(Fail, Src, LHS0, M) ->
     case M of
-        #{Fail := Es1} when map_size(Es1) =:= 0 ->
+        #{Fail := RHS} when map_size(RHS) =:= 0 ->
             M;
-        #{Fail := Es1} ->
-            Es = #{Var => Val || Var := Val <- Es0,
-                                 is_map_key(Var, Es1),
-                                 Val =/= Src},
-            M#{Fail := Es};
+        #{Fail := RHS} ->
+            LHS = #{Var => Val || Var := Val <- LHS0,
+                                  is_map_key(Var, RHS),
+                                  Val =/= Src},
+            M#{Fail := cse_intersection(LHS, RHS)};
         #{} ->
-            Es = #{Var => Val || Var := Val <- Es0, Val =/= Src},
-            M#{Fail => Es}
+            LHS = #{Var => Val || Var := Val <- LHS0, Val =/= Src},
+            M#{Fail => LHS}
     end.
 
 %% Calculate the intersection of the two maps. Both keys and values
@@ -1588,7 +1589,7 @@ ssa_opt_live({#opt_st{ssa=Linear0}=St, FuncDb}) ->
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
     Blk1 = beam_ssa_share:block(Blk0, Blocks),
     Successors = beam_ssa:successors(Blk1),
-    Live0 = live_opt_succ(Successors, L, LiveMap0, sets:new([{version, 2}])),
+    Live0 = live_opt_succ(Successors, L, LiveMap0, sets:new()),
     {Blk,Live} = live_opt_blk(Blk1, Live0),
     LiveMap = live_opt_phis(Blk#b_blk.is, L, Live, LiveMap0),
     live_opt(Bs, LiveMap, Blocks#{L:=Blk});
@@ -1718,7 +1719,7 @@ opt_try(Linear, Count0) when is_list(Linear) ->
 
     Reduced = reduce_try(Shrunk, []),
 
-    EmptySet = sets:new([{version, 2}]),
+    EmptySet = sets:new(),
     Trimmed = trim_try(Reduced, EmptySet, EmptySet, []),
 
     {Count, Trimmed}.
@@ -1824,7 +1825,7 @@ is_safe_sink_try(#b_set{op=Op}=I) ->
 reduce_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
                       last=Last}=Blk0} | Bs0], Acc) ->
     #b_br{succ=Succ,fail=Fail} = Last,
-    Ws = sets:from_list([Succ,Fail], [{version, 2}]),
+    Ws = sets:from_list([Succ,Fail]),
     try do_reduce_try(Bs0, Ws) of
         Bs ->
             Blk = Blk0#b_blk{is=[],
@@ -1989,7 +1990,7 @@ trim_try_is([], _Killed) ->
 
 ssa_opt_bsm({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     Extracted0 = bsm_extracted(Linear0),
-    Extracted = sets:from_list(Extracted0, [{version, 2}]),
+    Extracted = sets:from_list(Extracted0),
     Linear1 = bsm_skip(Linear0, Extracted),
     Linear = bsm_coalesce_skips(Linear1, #{}),
     {St#opt_st{ssa=Linear}, FuncDb}.
@@ -3623,7 +3624,7 @@ is_bs_match_blk(L, Blocks) ->
     Blk = map_get(L, Blocks),
     case Blk of
         #b_blk{is=Is,last=#b_br{bool=#b_var{}}=Last} ->
-            case is_bs_match_is(Is) of
+            case is_bs_match_is(Is, true) of
                 no ->
                     no;
                 {yes,CtxSizeUnit} ->
@@ -3634,20 +3635,33 @@ is_bs_match_blk(L, Blocks) ->
     end.
 
 is_bs_match_is([#b_set{op=bs_match,dst=Dst}=I,
-                #b_set{op={succeeded,guard},args=[Dst]}]) ->
-    case is_viable_match(I) of
-        no ->
+                #b_set{op={succeeded,guard},args=[Dst]}], Safe) ->
+    case Safe of
+        false ->
+            %% This `bs_match` (SSA) instruction was preceded by other
+            %% instructions (such as guard BIF calls) that would
+            %% prevent this match operation to be incorporated into
+            %% the commands list of a `bs_match` (BEAM) instruction.
             no;
-        {yes,{Ctx,Size,Unit}} when Size bsr 24 =:= 0 ->
-            %% Only include matches of reasonable size.
-            {yes,{{Ctx,Dst},Size,Unit}};
-        {yes,_} ->
-            %% Too large size.
-            no
+        true ->
+            case is_viable_match(I) of
+                no ->
+                    no;
+                {yes,{Ctx,Size,Unit}} when Size bsr 24 =:= 0 ->
+                    %% Only include matches of reasonable size.
+                    {yes,{{Ctx,Dst},Size,Unit}};
+                {yes,_} ->
+                    %% Too large size.
+                    no
+            end
     end;
-is_bs_match_is([_|Is]) ->
-    is_bs_match_is(Is);
-is_bs_match_is([]) -> no.
+is_bs_match_is([#b_set{op=bs_extract}|Is], Safe) ->
+    is_bs_match_is(Is, Safe);
+is_bs_match_is([#b_set{op=bs_start_match}|Is], _Safe) ->
+    is_bs_match_is(Is, true);
+is_bs_match_is([_|Is], _Safe) ->
+    is_bs_match_is(Is, false);
+is_bs_match_is([], _Safe) -> no.
 
 is_viable_match(#b_set{op=bs_match,args=Args}) ->
     case Args of
@@ -3699,6 +3713,89 @@ build_bs_ensure_match(L, {_,Size,Unit}, Count0, Blocks0) ->
     {Blocks,Count}.
 
 %%%
+%%% Change the `reuse` hint to `copy` when it is highly probable that
+%%% reuse will not happen.
+%%%
+
+ssa_opt_no_reuse({#opt_st{ssa=Linear0}=St, FuncDb}) when is_list(Linear0) ->
+    New = sets:new([{version,2}]),
+    Linear = ssa_opt_no_reuse_blks(Linear0, New),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+ssa_opt_no_reuse_blks([{L,#b_blk{is=Is0}=Blk0}|Bs], New0) ->
+    {Is,New} = ssa_opt_no_reuse_is(Is0, New0, []),
+    Blk = Blk0#b_blk{is=Is},
+    [{L,Blk}|ssa_opt_no_reuse_blks(Bs, New)];
+ssa_opt_no_reuse_blks([], _) ->
+    [].
+
+ssa_opt_no_reuse_is([#b_set{op=update_record,args=Args}=I0|Is], New, Acc) ->
+    [_,_,_|Updates] = Args,
+    case cannot_reuse(Updates, New) of
+        true ->
+            I = I0#b_set{args=[#b_literal{val=copy}|tl(Args)]},
+            ssa_opt_no_reuse_is(Is, New, [I|Acc]);
+        false ->
+            ssa_opt_no_reuse_is(Is, New, [I0|Acc])
+    end;
+ssa_opt_no_reuse_is([#b_set{dst=Dst}=I|Is], New0, Acc) ->
+    case inhibits_reuse(I, New0) of
+        true ->
+            New = sets:add_element(Dst, New0),
+            ssa_opt_no_reuse_is(Is, New, [I|Acc]);
+        false ->
+            ssa_opt_no_reuse_is(Is, New0, [I|Acc])
+    end;
+ssa_opt_no_reuse_is([], New, Acc) ->
+    {reverse(Acc),New}.
+
+inhibits_reuse(#b_set{op=phi,args=Args}, New) ->
+    all(fun({Value,_}) ->
+                   sets:is_element(Value, New)
+           end, Args);
+inhibits_reuse(#b_set{op=put_map,args=[_|Args]}, New) ->
+    cannot_reuse(Args, New);
+inhibits_reuse(#b_set{op=call,
+                      args=[#b_remote{mod=#b_literal{val=erlang},
+                                      name=#b_literal{val=Name}}|_]},
+               _New) ->
+    case Name of
+        '++' -> true;
+        '--' -> true;
+        atom_to_list -> true;
+        atom_to_binary -> true;
+        list_to_tuple -> true;
+        make_ref -> true;
+        monitor -> true;
+        setelement -> true;
+        send_after -> true;
+        spawn -> true;
+        spawn_link -> true;
+        spawn_monitor -> true;
+        tuple_to_list -> true;
+        _ -> false
+    end;
+inhibits_reuse(#b_set{op={bif,Arith},args=[#b_var{},#b_literal{}]}, _New)
+  when Arith =:= '+'; Arith =:= '-' ->
+    %% This is probably a counter in a record being updated. (Heuristic,
+    %% but with a high probability of being correct).
+    true;
+inhibits_reuse(#b_set{op=Op}, _New) ->
+    case Op of
+        bs_create_bin -> true;
+        bs_get_tail -> true;
+        make_fun -> true;
+        put_list -> true;
+        put_tuple -> true;
+        _ -> false
+    end.
+
+cannot_reuse([V|Values], New) ->
+    sets:is_element(V, New) orelse cannot_reuse(Values, New);
+cannot_reuse([], _New) ->
+    false.
+
+%%%
 %%% Common utilities.
 %%%
 
@@ -3707,7 +3804,7 @@ list_set_union([], Set) ->
 list_set_union([E], Set) ->
     sets:add_element(E, Set);
 list_set_union(List, Set) ->
-    sets:union(sets:from_list(List, [{version, 2}]), Set).
+    sets:union(sets:from_list(List), Set).
 
 non_guards(Linear) ->
     gb_sets:from_list(non_guards_1(Linear)).

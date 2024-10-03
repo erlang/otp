@@ -254,7 +254,7 @@ empty_connection_state(ConnectionEnd) ->
 %%====================================================================	     
 
 socket(Pids,  Transport, Socket, Trackers) ->
-    tls_socket:socket(Pids, Transport, Socket, tls_connection, Trackers).
+    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Trackers).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).
@@ -908,12 +908,17 @@ handle_alerts([], Result) ->
 handle_alerts(_, {stop, _, _} = Stop) ->
     Stop;
 handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts], 
-              {next_state, connection = StateName,
-               #state{connection_env = CEnv,
-                      socket_options = #socket_options{active = false},
-                      recv = #recv{from = From}} = State}) when From == undefined ->
-    {next_state, StateName,
-     State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
+              {next_state, connection = StateName, #state{connection_env = CEnv, 
+                                                          socket_options = #socket_options{active = false},
+                                                          recv =  #recv{from = From}} = State}) when From == undefined ->
+    %% Linger to allow recv and setopts to possibly fetch data not yet delivered to user to be fetched
+    {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
+handle_alerts([#alert{level = ?FATAL} = Alert | _Alerts], 
+              {next_state, connection = StateName, #state{connection_env = CEnv, 
+                                                          socket_options = #socket_options{active = false},
+                                                          recv = #recv{from = From}} = State}) when From == undefined ->
+    %% Linger to allow recv and setopts to retrieve alert reason 
+    {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = Alert}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
     handle_alerts(Alerts, ssl_gen_statem:handle_alert(Alert, StateName, State));
 handle_alerts([Alert | Alerts], {next_state, StateName, State, _Actions}) ->

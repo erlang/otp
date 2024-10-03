@@ -522,7 +522,7 @@ static int parse_line_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         Eterm name, suffix;
         Eterm *hp;
 
-        suffix = erts_get_global_literal(ERTS_LIT_ERL_FILE_SUFFIX);
+        suffix = ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX;
 
         hp = name_heap;
         name = erts_atom_to_string(&hp, beam->module, suffix);
@@ -1312,11 +1312,13 @@ int iff_read_chunk(IFF_File *iff, Uint id, IFF_Chunk *chunk)
 void beamfile_init(void) {
     Eterm suffix;
     Eterm *hp;
+    struct erl_off_heap_header **ohp;
 
-    hp = erts_alloc_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, 8);
+    hp = erts_global_literal_allocate(8, &ohp);
     suffix = erts_bin_bytes_to_list(NIL, hp, (byte*)".erl", 4, 0);
 
-    erts_register_global_literal(ERTS_LIT_ERL_FILE_SUFFIX, suffix);
+    erts_global_literal_register(&suffix, hp, 8);
+    ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX = suffix;
 }
 
 /* * * * * * * */
@@ -1511,11 +1513,8 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
             sum += FLOAT_SIZE_OBJECT * number;
             break;
         case 2:
-            LoadAssert(sum <= (ERTS_SINT32_MAX - (ERL_FUN_SIZE + 1) * number));
-
-            /* This is always a local fun, so we need to add one word to
-             * reserve space for its `FunRef`. */
-            sum += (ERL_FUN_SIZE + 1) * number;
+            LoadAssert(sum <= (ERTS_SINT32_MAX - ERL_FUN_SIZE * number));
+            sum += ERL_FUN_SIZE * number;
             break;
         default:
             LoadError("Invalid allocation tag");

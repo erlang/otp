@@ -250,8 +250,8 @@ init_per_group(misc = Group, Config) ->
     [{httpc_options, [{ipfamily, Inet}]} | Config];
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https;
                                     Group =:= sim_mixed ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
         ok ->
             start_apps(Group),
             HttpcOptions = [{keep_alive_timeout, 50000}, {max_keep_alive_length, 5}],
@@ -367,7 +367,6 @@ end_per_testcase(Case, Config)
             ok
     end,
     inets:stop(httpc, ?config(profile, Config));
-
 end_per_testcase(_Case, Config) ->
     inets:stop(httpc, ?config(profile, Config)).
 
@@ -559,17 +558,29 @@ async() ->
     [{doc, "Test an asynchrony http request."}].
 async(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
-
     {ok, RequestId} =
-	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], ?profile(Config)),
+        httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}], ?profile(Config)),
     Body =
-	receive
-	    {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
-		BinBody;
-	    {http, Msg} ->
-		ct:fail(Msg)
-	end,
+        receive
+            {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
+                BinBody;
+            {http, Msg} ->
+                ct:fail(Msg)
+        end,
     inets_test_lib:check_body(binary_to_list(Body)),
+
+    %% Check full result false option for async request
+    {ok, RequestId2} =
+        httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false},
+                                         {full_result, false}]),
+    Body2 =
+        receive
+            {http, {RequestId2, {200, BinBody2}}} ->
+                BinBody2;
+            {http, Msg2} ->
+                ct:fail(Msg2)
+        end,
+    inets_test_lib:check_body(binary_to_list(Body2)),
 
     {ok, NewRequestId} =
 	httpc:request(get, Request, [?SSL_NO_VERIFY], [{sync, false}]),
@@ -1692,19 +1703,30 @@ timeout_memory_leak(Config) when is_list(Config) ->
     {ok, Host} = inet:gethostname(),
     Request = {?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ "/dummy.html", []},
     Profile = ?config(profile, Config),
+    WaitForCancelRequestToFinish =
+        fun F(Handlers = [_ | _]) when is_list(Handlers) -> ct:fail({unexpected_handlers, Handlers});
+            F(Handlers) when is_list(Handlers) -> ok;
+            F(N) when is_integer(N) ->
+                Info = httpc:info(Profile),
+                ct:log("Info: ~p", [Info]),
+                {value, {handlers, Handlers}} =
+                    lists:keysearch(handlers, 1, Info),
+                case Handlers of
+                    [] ->
+                        ok;
+                    _ ->
+                        ct:sleep(1)
+                end,
+                case N of
+                    0 ->
+                        F(Handlers);
+                    _ ->
+                        F(N-1)
+                end
+        end,
     case httpc:request(get, Request, [{connect_timeout, 500}, {timeout, 1}], [{sync, true}], Profile) of
 	{error, timeout} ->
-	    %% And now we check the size of the handler db
-	    Info = httpc:info(Profile),
-	    ct:log("Info: ~p", [Info]),
-	    {value, {handlers, Handlers}} =
-		lists:keysearch(handlers, 1, Info),
-	    case Handlers of
-		[] ->
-		    ok;
-		_ ->
-		    ct:fail({unexpected_handlers, Handlers})
-	    end;
+       WaitForCancelRequestToFinish(5);
 	Unexpected ->
 	    ct:fail({unexpected, Unexpected})
     end.

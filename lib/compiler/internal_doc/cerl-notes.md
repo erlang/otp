@@ -53,7 +53,7 @@ Thus, after inlining the function `t/0` will look like this:
         V.
 
 The problem here is that the inliner assumed that the bindings from
-the first and second call to `cer_clauses:match/3` would be the same.
+the first and second call to `cerl_clauses:match/3` would be the same.
 It used the empty bindings from the first call for the body.
 
 The correct way would be to add the bindings from the second call:

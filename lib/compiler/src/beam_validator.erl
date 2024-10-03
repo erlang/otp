@@ -182,7 +182,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% A set of all registers containing "fragile" terms. That is, terms
          %% that don't exist on our process heap and would be destroyed by a
          %% GC.
-         fragile=sets:new([{version, 2}]) :: sets:set(),
+         fragile=sets:new() :: sets:set(),
          %% Number of Y registers.
          %%
          %% Note that this may be 0 if there's a frame without saved values,
@@ -229,7 +229,7 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs], Module, Level, Ft) ->
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=sets:new([{version, 2}])    :: sets:set(),
+         labels=sets:new()    :: sets:set(),
          %% Information of other functions in the module
          ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
@@ -302,7 +302,7 @@ init_vst({_, _, Arity}, Level, Ft) ->
     Vst = #vst{branched=#{},
                current=#st{},
                ft=Ft,
-               labels=sets:new([{version, 2}]),
+               labels=sets:new(),
                level=Level},
     init_function_args(Arity - 1, Vst).
 
@@ -1090,113 +1090,6 @@ vi({bs_create_bin,{f,Fail},Heap,Live,Unit,Dst,{list,List0}}, Vst0) ->
                    create_term(#t_bitstring{size_unit=Unit}, bs_create_bin, [], Dst,
                                SuccVst)
            end);
-vi({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
-                               SuccVst, SuccVst0)
-           end);
-vi({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    if
-        is_integer(Sz) -> ok;
-        true -> assert_term(Sz, Vst0)
-    end,
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{}, bs_init_bits, [], Dst, SuccVst)
-           end);
-vi({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
-    assert_term(A, Vst),
-    assert_term(B, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_add, [A, B], Dst, SuccVst)
-           end);
-vi({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf8_size, [A], Dst, SuccVst)
-           end);
-vi({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
-    assert_term(A, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_integer{}, bs_utf16_size, [A], Dst, SuccVst)
-           end);
-vi({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    assert_term(Bits, Vst0),
-    assert_term(Bin, Vst0),
-    Vst = heap_alloc(Heap, Vst0),
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
-                               [Bin], Dst, SuccVst, SuccVst0)
-           end);
-vi({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
-    assert_term(Bits, Vst),
-    assert_term(Bin, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
-                               [Bin], Dst, SuccVst)
-           end);
-vi({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
-    Vst;
-vi({bs_put_binary,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_bitstring{}, Src, SuccVst)
-           end);
-vi({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
-           end);
-vi({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
-    assert_term(Sz, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf8,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf16,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
-vi({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
-    assert_term(Src, Vst),
-    branch(Fail, Vst,
-           fun(SuccVst) ->
-                   update_type(fun meet/2, #t_integer{}, Src, SuccVst)
-           end);
 
 vi(_, _) ->
     error(unknown_instruction).
@@ -1439,7 +1332,7 @@ extract_map_keys([], _Vst) ->
 
 
 extract_map_vals(List, Src, SuccVst) ->
-    Seen = sets:new([{version, 2}]),
+    Seen = sets:new(),
     extract_map_vals(List, Src, Seen, SuccVst, SuccVst).
 
 extract_map_vals([Key0, Dst | Vs], Map, Seen0, Vst0, Vsti0) ->
@@ -2206,7 +2099,7 @@ assert_unique_map_keys([_,_|_]=Ls) ->
               assert_literal(L),
               L
           end || L <- Ls],
-    case length(Vs) =:= sets:size(sets:from_list(Vs, [{version, 2}])) of
+    case length(Vs) =:= sets:size(sets:from_list(Vs)) of
         true -> ok;
         false -> error(keys_not_unique)
     end.
@@ -3372,7 +3265,7 @@ mark_fragile(Reg, Vst) ->
 propagate_fragility(Reg, Args, #vst{current=St0}=Vst) ->
     #st{fragile=Fragile0} = St0,
 
-    Sources = sets:from_list(Args, [{version, 2}]),
+    Sources = sets:from_list(Args),
     Fragile = case sets:is_disjoint(Sources, Fragile0) of
                   true -> sets:del_element(Reg, Fragile0);
                   false -> sets:add_element(Reg, Fragile0)
@@ -3396,7 +3289,7 @@ remove_fragility(Reg, Vst) ->
 
 %% Marks all registers as durable.
 remove_fragility(#vst{current=St0}=Vst) ->
-    St = St0#st{fragile=sets:new([{version, 2}])},
+    St = St0#st{fragile=sets:new()},
     Vst#vst{current=St}.
 
 assert_durable_term(Src, Vst) ->

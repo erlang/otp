@@ -154,7 +154,7 @@ init_per_suite(Config) ->
 
         {_,OS, Res} ->
             ct:log("crypto:info_lib() -> ~p\nos:type() -> ~p", [Res,OS]),
-            try crypto:start() of
+            try application:start(crypto) of
                 ok ->
                     Config;
                 {error,{already_started,crypto}} ->

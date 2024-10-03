@@ -31,6 +31,6 @@ f() ->
 g([A]) ->
     g(A);
 g(#rec{} = A) ->
-%ssa% xfail (_) when post_ssa_opt ->
+%ssa% (_) when post_ssa_opt ->
 %ssa% _ = update_record(inplace, 3, ...).
     A#rec{ a = a }.

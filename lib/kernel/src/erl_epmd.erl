@@ -164,14 +164,9 @@ to when accepting new distribution requests.
       Host :: atom() | string() | inet:ip_address(),
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
-    try
-        %% Should come up with a new name for this as ERL_EPMD_PORT describes what
-        %% port epmd runs on which could easily be confused with this.
-        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
-        Port = list_to_integer(StringPort),
-        {ok, Port}
-    catch error:_ ->
-            {ok, 0}
+    case erl_epmd_node_listen_port() of
+        {ok, Port} -> {ok, Port};
+        undefined -> {ok, 0}
     end.
 
 -doc false.
@@ -291,26 +286,26 @@ init(_) ->
 
 handle_call({register, Name, PortNo, Family}, _From, State) ->
     case State#state.socket of
-	P when P < 0 ->
-	    case do_register_node(Name, PortNo, Family) of
-		{alive, Socket, Creation} ->
-		    S = State#state{socket = Socket,
-				    port_no = PortNo,
-				    name = Name,
-				    family = Family},
-		    {reply, {ok, Creation}, S};
+        P when P < 0 ->
+            case do_register_node(Name, PortNo, Family) of
+                {alive, Socket, Creation} ->
+                    S = State#state{socket = Socket,
+		                    port_no = PortNo,
+		                    name = Name,
+		                    family = Family},
+                    {reply, {ok, Creation}, S};
                 Error ->
-                    case init:get_argument(erl_epmd_port) of
+                    case erl_epmd_node_listen_port() of
                         {ok, _} ->
                             {reply, {ok, -1}, State#state{ socket = -1,
                                                            port_no = PortNo,
                                                            name = Name} };
-                        error ->
+                        undefined ->
                             {reply, Error, State}
                     end
-	    end;
-	_ ->
-	    {reply, {error, already_registered}, State}
+            end;
+        _ ->
+            {reply, {error, already_registered}, State}
     end;
 
 handle_call(client_info_req, _From, State) ->
@@ -378,7 +373,32 @@ get_epmd_port() ->
 	error ->
 	    ?erlang_daemon_port
     end.
-	    
+
+erl_epmd_node_listen_port() ->
+    PortParameterResult =
+        case application:get_env(kernel, erl_epmd_node_listen_port) of
+            {ok, Port} when is_integer(Port), Port >= 0 ->
+                {ok, Port};
+            {ok, Invalid} ->
+                error({invalid_parameter_value, erl_epmd_node_listen_port, Invalid});
+            undefined ->
+                undefined
+        end,
+    PortArgumentResult =
+        try
+            {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+            IntPort = list_to_integer(StringPort),
+            {ok, IntPort}
+        catch error:_ ->
+            undefined
+        end,
+    case {PortParameterResult, PortArgumentResult} of
+        {undefined, undefined} -> undefined;
+        {_, undefined} -> PortParameterResult;
+        {undefined, _} -> PortArgumentResult;
+        _ -> error({invalid_configuration, "either -erl_epmd_port or kernel erl_epmd_node_listen_port should be specified, not both"})
+    end.
+
 %%
 %% Epmd socket
 %%

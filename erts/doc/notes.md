@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.1.1
+
+### Fixed Bugs and Malfunctions
+
+- On Windows, successive failed socket calls caused socket to become "uninitialized".
+
+  Own Id: OTP-19251 Aux Id: [#8853]
+
+- The socket framework fails to start on a IPv6-only Windows machine.
+
+  Own Id: OTP-19254 Aux Id: [#8848]
+
+[#8853]: https://github.com/erlang/otp/issues/8853
+[#8848]: https://github.com/erlang/otp/issues/8848
+
 ## Erts 15.1
 
 ### Fixed Bugs and Malfunctions

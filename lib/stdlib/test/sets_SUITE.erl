@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2004-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -23,7 +23,7 @@
 
 -module(sets_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
@@ -45,13 +45,13 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,5}}].
 
-all() -> 
+all() ->
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter, map,
      filtermap, take_smallest, take_largest, iterate, is_empty,
      is_disjoint, is_equal].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -121,7 +121,7 @@ add_element_del([], M, S, Del, _) ->
 del_element(Config) when is_list(Config) ->
     test_all([{0,132},{253,258},{510,514},{1022,1026}], fun del_element_1/2).
 
-del_element_1(List, M) ->    
+del_element_1(List, M) ->
     S0 = M(from_list, List),
     Empty = foldl(fun(El, Set) -> M(del_element, {El,Set}) end, S0, List),
     true = M(is_equal, {Empty,M(empty, [])}),
@@ -564,13 +564,13 @@ sets_mods() ->
 mixed_new() ->
     case erlang:erase(sets_type) of
         undefined -> erlang:put(sets_type, deprecated), sets:new([{version,2}]);
-        deprecated -> sets:new()
+        deprecated -> sets:new([{version, 1}])
     end.
 
 mixed_from_list(L) ->
     case erlang:erase(sets_type) of
         undefined -> erlang:put(sets_type, deprecated), sets:from_list(L, [{version,2}]);
-        deprecated -> sets:from_list(L)
+        deprecated -> sets:from_list(L, [{version, 1}])
     end.
 
 test_all(Tester) ->
@@ -604,7 +604,7 @@ all_same_1([], _) -> ok.
 
 rnd_list(Sz) ->
     rnd_list_1(Sz, []).
-    
+
 atomic_rnd_term() ->
     case rand:uniform(3) of
 	1 -> list_to_atom(integer_to_list($\s+rand:uniform(94))++"rnd");
@@ -617,7 +617,7 @@ rnd_list_1(N, Acc) -> rnd_list_1(N-1, [atomic_rnd_term()|Acc]).
 
 mutate_some(List) ->
     mutate_some(List, []).
-    
+
 mutate_some([X,Y,Z|T], Acc) ->
     %% Intentionally change order. (Order should not matter.)
     mutate_some(T, [{X},Z,Y|Acc]);
