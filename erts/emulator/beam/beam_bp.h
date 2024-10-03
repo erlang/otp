@@ -80,8 +80,6 @@ typedef struct GenericBpData {
     BpDataCallTrace* memory;	/* For memory trace */
 } GenericBpData;
 
-#define ERTS_NUM_BP_IX 2
-
 typedef struct GenericBp {
     BeamInstr orig_instr;
     GenericBpData data[ERTS_NUM_BP_IX];
@@ -107,8 +105,6 @@ enum erts_break_op{
     ERTS_BREAK_RESTART,
     ERTS_BREAK_PAUSE
 };
-
-typedef Uint32 ErtsBpIndex;
 
 typedef struct {
     const ErtsCodeInfo *code_info;
@@ -194,9 +190,6 @@ Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
 const ErtsCodeInfo *erts_find_local_func(const ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-extern erts_atomic32_t erts_active_bp_index;
-extern erts_atomic32_t erts_staging_bp_index;
 
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 {

@@ -421,13 +421,25 @@ static ErtsAlignedBlockPollThreadData *ERTS_WRITE_UNLIKELY(block_poll_thread_dat
 
 static Uint last_reductions;
 static Uint last_exact_reductions;
-Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
-Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
+
+/* 
+ * Cached lowest limits for fast check if any trace sessions are interested
+ * in a particular system_monitor limit. Zero means limit disabled.
+ */
+Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
-Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
-Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
+Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+
+/* The highest msgq_off threshold of any trace session, -1 if disabled */
 Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
-struct erts_system_monitor_flags_t erts_system_monitor_flags;
+
+/*
+ * The number of trace sessions that are interested in a particular
+ * system_monitor event.
+ */
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_port_cnt);
+Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_dist_port_cnt);
 
 /* system performance monitor */
 Eterm erts_system_profile;
@@ -9259,8 +9271,9 @@ erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
 	erts_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
 
-    if (suspend && busy_port && erts_system_monitor_flags.busy_port)
-	monitor_generic(c_p, am_busy_port, busy_port->common.id);
+    if (suspend && busy_port && erts_system_monitor_busy_port_cnt) {
+	monitor_busy_port(c_p, busy_port->common.id);
+    }
 }
 
 void
@@ -9570,7 +9583,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	state = erts_atomic32_read_nob(&p->state);
 
         if ((state & ERTS_PSFLG_MSG_SIG_IN_Q)
-            && ((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+            && ((p->sig_qs.flags & (FS_MON_MSGQ_LEN_HIGH | FS_MON_MSGQ_LEN_LOW))
                 || ERTS_MSG_RECV_TRACED(p))
             && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
             if (!(state & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_ACTIVE_SYS))) {
@@ -10027,7 +10040,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
                             erts_runq_unlock(rq);
                             erts_proc_lock(p, (ERTS_PROC_LOCK_MAIN
                                                | ERTS_PROC_LOCK_MSGQ));
-                            if (((p->sig_qs.flags & FS_MON_MSGQ_LEN)
+                            if (((p->sig_qs.flags & (FS_MON_MSGQ_LEN_HIGH|FS_MON_MSGQ_LEN_LOW))
                                  || ERTS_MSG_RECV_TRACED(p))
                                 && !(p->sig_qs.flags & FS_FLUSHING_SIGS)) {
                                 erts_proc_sig_fetch(p);
@@ -10066,13 +10079,15 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 
-        if (erts_system_monitor_long_msgq_off < 0) {
-            if (p->sig_qs.flags & FS_MON_MSGQ_LEN)
-                p->sig_qs.flags &= ~(FS_MON_MSGQ_LEN|FS_MON_MSGQ_LEN_LONG);
+        if (!erts_system_monitor_long_msgq_on) {
+            erts_clear_all_msgq_low_sessions(p);
+            p->sig_qs.flags &= ~FS_MON_MSGQ_LEN_HIGH;
         }
         else {
-            if (!(p->sig_qs.flags & FS_MON_MSGQ_LEN))
-                p->sig_qs.flags |= FS_MON_MSGQ_LEN;
+            if (p->sig_qs.flags & FS_MON_MSGQ_LEN_LOW) {
+                erts_consolidate_all_msgq_low_sessions(p);
+            }
+            p->sig_qs.flags |= FS_MON_MSGQ_LEN_HIGH;
         }
 
         state = erts_atomic32_read_nob(&p->state);
@@ -13257,36 +13272,39 @@ delete_process(Process* p)
     /* free all pending messages */
     erts_proc_sig_cleanup_queues(p);
 
-    scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
-
-    if (scb) {
-#ifndef BEAMASM
-	p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
-#endif
-
-        erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
-    }
-
-    pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
-    while (pbt) {
-        process_breakpoint_trace_t *next = pbt->next;
-        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-        pbt = next;
-    }
-    pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
-    while (pbt) {
-        process_breakpoint_trace_t *next = pbt->next;
-        erts_free(ERTS_ALC_T_BPD, (void *) pbt);
-        pbt = next;
-    }
-
-    erts_destroy_nfunc(p);
-
     /* Cleanup psd */
 
     psd = (ErtsPSD *) erts_atomic_read_nob(&p->psd);
-
     if (psd) {
+        scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+
+        if (scb) {
+#ifndef BEAMASM
+            p->fcalls += CONTEXT_REDS; /* Reduction counting depends on this... */
+#endif
+
+            erts_free(ERTS_ALC_T_CALLS_BUF, (void *) scb);
+        }
+
+        pbt = ERTS_PROC_SET_CALL_TIME(p, NULL);
+        while (pbt) {
+            process_breakpoint_trace_t *next = pbt->next;
+            erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+            pbt = next;
+        }
+        pbt = ERTS_PROC_SET_CALL_MEMORY(p, NULL);
+        while (pbt) {
+            process_breakpoint_trace_t *next = pbt->next;
+            erts_free(ERTS_ALC_T_BPD, (void *) pbt);
+            pbt = next;
+        }
+
+        erts_destroy_nfunc(p);
+
+        if (psd->data[ERTS_PSD_SYSMON_MSGQ_LEN_LOW]) {
+            erts_clear_all_msgq_low_sessions(p);
+        }
+
 	erts_atomic_set_nob(&p->psd, (erts_aint_t) NULL); /* Reduction counting depends on this... */
 	erts_free(ERTS_ALC_T_PSD, psd);
     }

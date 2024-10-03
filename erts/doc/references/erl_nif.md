@@ -617,13 +617,8 @@ calling NIF API functions. Functions exist for the following functionality:
     scheduler thread.
 
     If the dirty NIF is expected to be CPU-bound, its `flags` field is to be set
-    to `ERL_NIF_DIRTY_JOB_CPU_BOUND` or `ERL_NIF_DIRTY_JOB_IO_BOUND`.
-
-    > #### Note {: .info }
-    >
-    > If one of the `ERL_NIF_DIRTY_JOB_*_BOUND` flags is set, and the runtime
-    > system has no support for dirty schedulers, the runtime system refuses to
-    > load the NIF library.
+    to `ERL_NIF_DIRTY_JOB_CPU_BOUND`. If it's expected to be I/O-bound set
+    `flags` to `ERL_NIF_DIRTY_JOB_IO_BOUND`.
 
 - **`ErlNifBinary`**{: #ErlNifBinary }
 
@@ -3227,12 +3222,9 @@ long-running work into multiple regular NIF calls or to schedule a
   If it cannot be converted to an atom, `enif_schedule_nif` returns a `badarg`
   exception.
 
-- **`flags`** - Must be set to `0` for a regular NIF. If the emulator was built
-  with dirty scheduler support enabled, `flags` can be set to either
+- **`flags`** - Must be set to `0` for a regular NIF,
   `ERL_NIF_DIRTY_JOB_CPU_BOUND` if the job is expected to be CPU-bound, or
-  `ERL_NIF_DIRTY_JOB_IO_BOUND` for jobs that will be I/O-bound. If dirty
-  scheduler threads are not available in the emulator, an attempt to schedule
-  such a job results in a `notsup` exception.
+  `ERL_NIF_DIRTY_JOB_IO_BOUND` for jobs that will be I/O-bound.
 
 - **`argc` and `argv`** - Can either be the originals passed into the calling
   NIF, or can be values created by the calling NIF.

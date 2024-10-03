@@ -262,10 +262,6 @@ bif erlang:make_tuple/3
 
 bif erlang:system_flag/2
 bif erlang:system_info/1
-# New in R9C
-bif erlang:system_monitor/0
-bif erlang:system_monitor/1
-bif erlang:system_monitor/2
 # Added 2006-11-07
 bif erlang:system_profile/2
 # End Added 2006-11-07
@@ -805,3 +801,9 @@ bif erts_internal:trace_pattern/4
 bif erts_internal:trace_info/3
 bif erts_trace_cleaner:check/0
 bif erts_trace_cleaner:send_trace_clean_signal/1
+
+#
+# New in 28
+#
+bif erts_internal:system_monitor/1
+bif erts_internal:system_monitor/3

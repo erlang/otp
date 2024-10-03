@@ -132,6 +132,7 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
          port/4,
          info/3,
          delivered/2,
+         system/3,
          session_create/3,
          session_destroy/1,
          session_info/1]).
@@ -195,8 +196,7 @@ being destroyed when the last strong handle is garbage collected.
 
 -type trace_pattern_flag() ::
       global | local |
-      meta | {meta, Pid :: pid()} |
-      {meta, TracerModule :: module(), TracerState :: term()} |
+      meta |
       call_count |
       call_time |
       call_memory.
@@ -211,13 +211,37 @@ being destroyed when the last strong handle is garbage collected.
        {call_time | call_memory, [{pid(), non_neg_integer(),
 		     non_neg_integer(), non_neg_integer()}] | boolean() | undefined}.
 
+-type trace_info_system_item() ::
+      'busy_port' |
+      'busy_dist_port' |
+      {'long_gc', non_neg_integer()} |
+      {'long_message_queue', {Disable :: non_neg_integer(),
+                              Enable :: pos_integer()}} |
+      {'long_schedule', non_neg_integer()} |
+      {'large_heap', non_neg_integer()}.
+
 -type trace_info_return() ::
       undefined |
       {flags, [trace_info_flag()]} |
       {tracer, pid() | port() | []} |
       {tracer, module(), term()} |
       trace_info_item_result() |
-      {all, [ trace_info_item_result() ] | false | undefined}.
+      {all, [ trace_info_item_result() ] | false | undefined} |
+      {system, [trace_info_system_item()]}.
+
+
+-type system_event() ::
+      busy_port |
+      busy_dist_port |
+      long_gc |
+      long_message_queue |
+      long_schedule |
+      large_heap.
+
+-type system_value() ::
+        true | false |
+        non_neg_integer() |
+        {Disable :: non_neg_integer(), Enable :: pos_integer()}.
 
 
 %% process/4
@@ -771,7 +795,7 @@ Must be combined with `process/4` to set the `call` trace flag for one or more
 processes.
 
 Conceptually, call tracing works as follows. In each trace session, a
-set of processes and a set of functions haven been marked for
+set of processes and a set of functions have been marked for
 tracing. If a traced process calls a traced function, the trace action
 is taken. Otherwise, nothing happens.
 
@@ -1196,6 +1220,14 @@ One valid `Item` for events exists:
 - **`match_spec`** - Returns the match specification for this event, if it has
   one, or `true` if no match specification has been set.
 
+**To get information about monitored system events**, `PidPortFuncEvent` is to
+  be the atom `system`.
+
+Only valid `Item` for `system` is
+
+- **`all`** - Returns a list of all monitored system events enabled by
+    `system/3`.
+
 The return value is `{Item, Value}`, where `Value` is the requested information
 as described earlier. If a pid for a dead process was specified, or the name of
 a non-existing function, `Value` is `undefined`.
@@ -1204,7 +1236,7 @@ a non-existing function, `Value` is `undefined`.
 -spec info(Session, PidPortFuncEvent, Item) -> Res when
       Session :: session(),
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
-                     | MFA | on_load | send | 'receive',
+                     | MFA | on_load | send | 'receive' | system,
       MFA :: {module(), atom(), arity()},
       Item :: flags | tracer | traced | match_spec
             | meta | meta_match_spec | call_count | call_time | call_memory
@@ -1224,6 +1256,140 @@ except that it is run within the given `t:session/0`.
 -spec delivered(Session :: session(), Tracee :: pid() | all) -> reference().
 delivered(_Session , Tracee) ->
     erlang:trace_delivered(Tracee).
+
+
+%% system/3
+-doc """
+Enable/disable monitoring of system events.
+
+Argument `Session` is the trace session to operate on as returned by
+`session_create/3`.
+
+Argument `Event` is an atom describing the kind of system event to
+monitor. To enable monitoring argument `Value` is, depending on event, either a
+limit of that event or the atom `true`. To disable monitoring pass `Value` as the
+atom `false`.
+
+When a monitored system event happens, a message is sent to the session
+tracer. The session tracer must be a process otherwise the function call will
+fail.
+
+The following `Event`s with `Value`s can be monitored:
+
+- **`long_gc, Time`** - If a garbage collection in the system takes at least
+  `Time` wall clock milliseconds, a message `{monitor, GcPid, long_gc, Info}` is
+  sent. `GcPid` is the pid that was garbage collected. `Info` is a list of
+  two-element tuples describing the result of the garbage collection.
+
+  One of the tuples is `{timeout, GcTime}`, where `GcTime` is the time for the
+  garbage collection in milliseconds. The other tuples are tagged with
+  `heap_size`, `heap_block_size`, `stack_size`, `mbuf_size`, `old_heap_size`,
+  and `old_heap_block_size`. These tuples are explained in the description of
+  trace message [`gc_minor_start`](`m:trace#gc_minor_start`) (see
+  `trace:process/4`). New tuples can be added, and the order of the tuples in
+  the `Info` list can be changed at any time without prior notice.
+
+- **`long_message_queue, {Disable, Enable}`** - If the number of messages in the
+  message queue of a process reach `Enable`, a message `{monitor, Pid,
+  long_message_queue, Long}` is sent. `Pid` is the process identifier of the
+  process that got a long message queue and `Long` will equal `true` indicating
+  that it is in a _long message queue_ state. No more `long_message_queue`
+  monitor messages will be sent due to the process identified by `Pid` until its
+  message queue length falls down to a length of `Disable` length. When this
+  happens, a `long_message_queue` monitor message with `Long` equal to `false`
+  will be sent indicating that the process is no longer in a _long message
+  queue_ state. As of this, if the message queue length should again reach
+  `Enable` length, a new `long_message_queue` monitor message with `Long` set to
+  `true` will again be sent. That is, a `long_message_queue` monitor message is
+  sent when a process enters or leaves a _long message queue_ state where these
+  state changes are defined by the `Enable` and `Disable` parameters.
+
+  `Enable` must be an integer larger than zero. `Disable` must be an integer
+  larger than or equal to zero and smaller than `Enable`. If the above is not
+  satisfied the operation will fail with a `badarg` error exception. You are
+  recommended to use a much smaller value for `Disable` length than `Enable`
+  length in order not to be flooded with `long_message_queue` monitor messages.
+
+- **`long_schedule, Time`** - If a process or port in the system runs
+  uninterrupted for at least `Time` wall clock milliseconds, a message
+  `{monitor, PidOrPort, long_schedule, Info}` is sent.
+  `PidOrPort` is the process or port that was running. `Info` is a list of
+  two-element tuples describing the event.
+
+  If a `t:pid/0`, the tuples `{timeout, Millis}`, `{in, Location}`, and
+  `{out, Location}` are present, where `Location` is either an MFA
+  (`{Module, Function, Arity}`) describing the function where the process was
+  scheduled in/out, or the atom `undefined`.
+
+  If a `t:port/0`, the tuples `{timeout, Millis}` and `{port_op,Op}` are
+  present. `Op` is one of `proc_sig`, `timeout`, `input`, `output`, `event`, or
+  `dist_cmd`, depending on which driver callback was executing.
+
+  `proc_sig` is an internal operation and is never to appear, while the others
+  represent the corresponding driver callbacks `timeout`, `ready_input`,
+  `ready_output`, `event`, and `outputv` (when the port is used by
+  distribution). Value `Millis` in tuple `timeout` informs about the
+  uninterrupted execution time of the process or port, which always is equal to
+  or higher than the `Time` value supplied when starting the trace. New tuples
+  can be added to the `Info` list in a future release. The order of the tuples
+  in the list can be changed at any time without prior notice.
+
+  This can be used to detect problems with NIFs or drivers that take too long to
+  execute. 1 ms is considered a good maximum time for a driver callback or a
+  NIF. However, a time-sharing system is usually to consider everything < 100 ms
+  as "possible" and fairly "normal". However, longer schedule times can indicate
+  swapping or a misbehaving NIF/driver. Misbehaving NIFs and drivers can cause
+  bad resource utilization and bad overall system performance.
+
+- **`large_heap, Size`** - If a garbage collection in the system results in
+  the allocated size of a heap being at least `Size` words, a message
+  `{monitor, GcPid, large_heap, Info}` is sent. `GcPid` and `Info` are the same
+  as for `long_gc` described above, except that the tuple tagged with `timeout`
+  is not present.
+
+  The monitor message is sent if the sum of the sizes of all memory blocks
+  allocated for all heap generations after a garbage collection is equal to or
+  higher than `Size`.
+
+  When a process is killed by
+  [`max_heap_size`](`e:erts:erlang#process_flag_max_heap_size`), it is killed before
+  the garbage collection is complete and thus no large heap message is sent.
+
+- **`busy_port, true`** - If a process in the system gets suspended because it sends
+  to a busy port, a message `{monitor, SusPid, busy_port, Port}` is
+  sent. `SusPid` is the pid that got suspended when sending to `Port`.
+
+- **`busy_dist_port, true`[](){: #busy_dist_port } **
+  If a process in the system gets suspended because it sends to a process on a remote
+  node whose inter-node communication was handled by a busy port, a message
+  `{monitor, SusPid, busy_dist_port, Port}` is sent. `SusPid` is the pid that
+  got suspended when sending through the inter-node communication port `Port`.
+
+To disable system monitoring of a event pass the value as `false`. There are no
+other special values (like zero) to disable monitoring of an event. Some of the
+events have an unspecified minimum value. Lower values will be adjusted to the
+minimum value. For example, it is currently not possible to monitor all garbage
+collections with `{long_gc, 0}`.
+
+> #### Note {: .info }
+>
+> If the session tracer process gets so large that it itself starts to cause
+> system monitor messages when garbage collecting, the messages enlarge the
+> process message queue and probably make the problem worse.
+>
+> Keep the tracer process neat and do not set the system monitor limits too
+> tight.
+
+Failures:
+
+- **`badarg`** - If the session tracer is not a local process.
+""".
+-spec system(Session :: session(),
+             Event :: system_event(),
+             Value :: system_value()) -> ok.
+system(Session, Event, Value) ->
+    erts_internal:system_monitor(Session, session, [{Event,Value}]).
+
 
 
 %% session_create/3

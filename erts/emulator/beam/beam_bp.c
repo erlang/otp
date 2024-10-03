@@ -63,8 +63,6 @@
 
 #define ERTS_BPF_ALL              0x3FF
 
-erts_atomic32_t erts_active_bp_index;
-erts_atomic32_t erts_staging_bp_index;
 erts_mtx_t erts_dirty_bp_ix_mtx;
 
 ErtsTraceSession* erts_staging_trace_session;

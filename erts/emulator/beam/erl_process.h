@@ -879,9 +879,10 @@ erts_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_DIST_ENTRY	                8
 #define ERTS_PSD_CALL_MEMORY_BP	                9
 #define ERTS_PSD_TS_EVENT                       10
-#define ERTS_PSD_PENDING_SUSPEND                11 /* keep last... */
+#define ERTS_PSD_SYSMON_MSGQ_LEN_LOW            11
+#define ERTS_PSD_PENDING_SUSPEND                12 /* keep last... */
 
-#define ERTS_PSD_SIZE				12
+#define ERTS_PSD_SIZE				13
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -1575,21 +1576,18 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 
 extern erts_rwmtx_t erts_cpu_bind_rwmtx;
-/* If any of the erts_system_monitor_* variables are set (enabled),
-** erts_system_monitor must be != NIL, to allow testing on just
-** the erts_system_monitor_* variables.
-*/
-extern Eterm ERTS_WRITE_UNLIKELY(erts_system_monitor);
+
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_gc);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_schedule);
 extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_large_heap);
-extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
+extern Uint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_on);
 extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_long_msgq_off);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_port_cnt);
+extern Sint ERTS_WRITE_UNLIKELY(erts_system_monitor_busy_dist_port_cnt);
 struct erts_system_monitor_flags_t {
-	 unsigned int busy_port : 1;
-    unsigned int busy_dist_port : 1;
+    bool busy_port;
+    bool busy_dist_port;
 };
-extern struct erts_system_monitor_flags_t erts_system_monitor_flags;
 
 /* system_profile, same rules as for system_monitor.
 	erts_profile must be != NIL when 
@@ -1647,8 +1645,8 @@ extern int erts_system_profile_ts_type;
 #define FS_NON_FETCH_CNT1      (1 << 9) /* First bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT2      (1 << 10)/* Second bit of non-fetch signals counter */
 #define FS_NON_FETCH_CNT4      (1 << 11)/* Third bit of non-fetch signals counter */
-#define FS_MON_MSGQ_LEN        (1 << 12) /* Monitor of msgq len enabled */
-#define FS_MON_MSGQ_LEN_LONG   (1 << 13)/* --"-- and it is currently long */
+#define FS_MON_MSGQ_LEN_HIGH   (1 << 12)/* Monitor of msgq high limit for some session(s) */
+#define FS_MON_MSGQ_LEN_LOW    (1 << 13)/* Monitor of msgq low limit for some session(s) */
 
 #define FS_NON_FETCH_CNT_MASK \
     (FS_NON_FETCH_CNT1|FS_NON_FETCH_CNT2|FS_NON_FETCH_CNT4)

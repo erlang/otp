@@ -5941,7 +5941,7 @@ The order of the options can be different from the one that was set.
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ].
 system_monitor() ->
-    erlang:nif_error(undefined).
+    erts_internal:system_monitor(legacy).
 
 %% system_monitor/1
 -doc """
@@ -5960,115 +5960,46 @@ Returns the previous system monitor settings just like
       MonSettings :: undefined | { MonitorPid, Options },
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ].
-system_monitor(_Arg) ->
-    erlang:nif_error(undefined).
+system_monitor(undefined) ->
+    erts_internal:system_monitor(legacy, undefined, []);
+system_monitor({MonitorPid, Options}=Arg) ->
+    try
+        erts_internal:system_monitor(legacy, MonitorPid, Options)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [Arg])
+    end;
+system_monitor(Arg) ->
+    badarg_with_info([Arg]).
+
 
 %% system_monitor/2
 -doc """
-Sets the system performance monitoring options. `MonitorPid` is a local process
+Sets the system event monitoring options. `MonitorPid` is a local process
 identifier (pid) receiving system monitor messages.
 
-The second argument is a list of monitoring options:
+  > #### Change {: .info }
+  >
+  > This function is superseded by `trace:system/3` that operate on
+  > dynamic trace sessions.
 
-- **`{long_gc, Time}`** - If a garbage collection in the system takes at least
-  `Time` wall clock milliseconds, a message `{monitor, GcPid, long_gc, Info}` is
-  sent to `MonitorPid`. `GcPid` is the pid that was garbage collected. `Info` is
-  a list of two-element tuples describing the result of the garbage collection.
+The second argument is a list of monitoring options to enable:
 
-  One of the tuples is `{timeout, GcTime}`, where `GcTime` is the time for the
-  garbage collection in milliseconds. The other tuples are tagged with
-  `heap_size`, `heap_block_size`, `stack_size`, `mbuf_size`, `old_heap_size`,
-  and `old_heap_block_size`. These tuples are explained in the description of
-  trace message [`gc_minor_start`](`m:trace#gc_minor_start`) (see
-  `trace:process/4`). New tuples can be added, and the order of the
-  tuples in the `Info` list can be changed at any time without prior notice.
+- **`{long_gc, Time}`**
+- **`{long_message_queue, {Disable, Enable}}`**
+- **`{long_schedule, Time}`**
+- **`{large_heap, Size}`**
+- **`busy_port`**
+- **`busy_dist_port`**
 
-- **`{long_message_queue, {Disable, Enable}}`** - If the message queue length of
-  a process in the system reach `Enable` length, a `long_message_queue` monitor
-  message is sent to the process identified by `MonitorPid`. The monitor message
-  will be on the form `{monitor, Pid, long_message_queue, Long}`, where `Pid` is
-  the process identifier of the process that got a long message queue and `Long`
-  will equal `true` indicating that it is in a _long message queue_ state. No
-  more `long_message_queue` monitor messages will be sent due to the process
-  identified by `Pid` until its message queue length falls down to a length of
-  `Disable` length. When this happens, a `long_message_queue` monitor message
-  with `Long` equal to `false` will be sent to the process identified by
-  `MonitorPid` indicating that the process is no longer in a _long message
-  queue_ state. As of this, if the message queue length should again reach
-  `Enable` length, a new `long_message_queue` monitor message with `Long` set to
-  `true` will again be sent. That is, a `long_message_queue` monitor message is
-  sent when a process enters or leaves a _long message queue_ state where these
-  state changes are defined by the `Enable` and `Disable` parameters.
+For more detailed descriptions about the monitoring options, see
+`trace:system/3`.
 
-  `Enable` length must be an integer larger than zero and `Disable` length must
-  be an integer larger than or equal to zero. `Disable` length must also be
-  smaller than `Enable` length. If the above is not satisfied the operation will
-  fail with a `badarg` error exception. You are recommended to use a much
-  smaller value for `Disable` length than `Enable` length in order not to be
-  flooded with `long_message_queue` monitor messages.
-
-- **`{long_schedule, Time}`** - If a process or port in the system runs
-  uninterrupted for at least `Time` wall clock milliseconds, a message
-  `{monitor, PidOrPort, long_schedule, Info}` is sent to `MonitorPid`.
-  `PidOrPort` is the process or port that was running. `Info` is a list of
-  two-element tuples describing the event.
-
-  If a `t:pid/0`, the tuples `{timeout, Millis}`, `{in, Location}`, and
-  `{out, Location}` are present, where `Location` is either an MFA
-  (`{Module, Function, Arity}`) describing the function where the process was
-  scheduled in/out, or the atom `undefined`.
-
-  If a `t:port/0`, the tuples `{timeout, Millis}` and `{port_op,Op}` are
-  present. `Op` is one of `proc_sig`, `timeout`, `input`, `output`, `event`, or
-  `dist_cmd`, depending on which driver callback was executing.
-
-  `proc_sig` is an internal operation and is never to appear, while the others
-  represent the corresponding driver callbacks `timeout`, `ready_input`,
-  `ready_output`, `event`, and `outputv` (when the port is used by
-  distribution). Value `Millis` in tuple `timeout` informs about the
-  uninterrupted execution time of the process or port, which always is equal to
-  or higher than the `Time` value supplied when starting the trace. New tuples
-  can be added to the `Info` list in a future release. The order of the tuples
-  in the list can be changed at any time without prior notice.
-
-  This can be used to detect problems with NIFs or drivers that take too long to
-  execute. 1 ms is considered a good maximum time for a driver callback or a
-  NIF. However, a time-sharing system is usually to consider everything < 100 ms
-  as "possible" and fairly "normal". However, longer schedule times can indicate
-  swapping or a misbehaving NIF/driver. Misbehaving NIFs and drivers can cause
-  bad resource utilization and bad overall system performance.
-
-- **`{large_heap, Size}`** - If a garbage collection in the system results in
-  the allocated size of a heap being at least `Size` words, a message
-  `{monitor, GcPid, large_heap, Info}` is sent to `MonitorPid`. `GcPid` and
-  `Info` are the same as for `long_gc` earlier, except that the tuple tagged
-  with `timeout` is not present.
-
-  The monitor message is sent if the sum of the sizes of all memory blocks
-  allocated for all heap generations after a garbage collection is equal to or
-  higher than `Size`.
-
-  When a process is killed by
-  [`max_heap_size`](#process_flag_max_heap_size), it is killed before
-  the garbage collection is complete and thus no large heap message is sent.
-
-- **`busy_port`** - If a process in the system gets suspended because it sends
-  to a busy port, a message `{monitor, SusPid, busy_port, Port}` is sent to
-  `MonitorPid`. `SusPid` is the pid that got suspended when sending to `Port`.
-
-- **`busy_dist_port`[](){: #busy_dist_port } **  
-   If a process in the system gets suspended because it sends to a process on a remote
-  node whose inter-node communication was handled by a busy port, a message `{monitor, SusPid, busy_dist_port, Port}`
-  is sent to `MonitorPid`. `SusPid` is the pid that got suspended when sending through
-  the inter-node communication port `Port`.
-
-Returns the previous system monitor settings just like
-[`erlang:system_monitor/0`](`system_monitor/0`).
-
-The arguments to [`system_monitor/2`](`system_monitor/2`) specifies how all
-system monitoring on the node should be done, not how it should be changed. This
-means only one process at a time (`MonitorPid`) can be the receiver of system
-monitor messages. Also, the way to clear a specific monitor option is to not
+Unlink `trace:system/3`, the arguments to
+[`system_monitor/2`](`system_monitor/2`) specifies how all system monitoring
+should be set, not how it should be changed. This means only one process
+at a time (`MonitorPid`) can be the receiver of messages from system monitoring set
+with this function. Also, the way to clear a specific monitor option is to not
 include it in the list `Options`. All system monitoring will, however, be
 cleared if the process identified by `MonitorPid` terminates.
 
@@ -6076,6 +6007,9 @@ There are no special option values (like zero) to clear an option. Some of the
 options have a unspecified minimum value. Lower values will be adjusted to the
 minimum value. For example, it is currently not possible to monitor all garbage
 collections with `{long_gc, 0}`.
+
+Returns the previous system monitor settings just like
+[`erlang:system_monitor/0`](`system_monitor/0`).
 
 > #### Note {: .info }
 >
@@ -6099,8 +6033,13 @@ Failures:
       MonSettings :: undefined | { OldMonitorPid, OldOptions },
       OldMonitorPid :: pid(),
       OldOptions :: [ system_monitor_option() ].
-system_monitor(_MonitorPid, _Options) ->
-    erlang:nif_error(undefined).
+system_monitor(MonitorPid, Options) ->
+    try
+        erts_internal:system_monitor(legacy, MonitorPid, Options)
+    catch
+        error:Reason ->
+            error_with_info(Reason, [MonitorPid, Options])
+    end.
 
 %% system_profile/0
 -doc """
@@ -7399,8 +7338,8 @@ of the flag.
   > condition.
   
   Blocking due to disabled `async_dist` can be monitored by
-  [`erlang:system_monitor()`](`system_monitor/2`) using the
-  [`busy_dist_port`](#busy_dist_port) option. Only data buffered by
+  [`trace:system()`](`trace:system/3`) using the
+  [`busy_dist_port`](`m:trace#busy_dist_port`) option. Only data buffered by
   processes which (at the time of sending a signal) have disabled `async_dist`
   will be counted when determining whether or not an operation should block the
   caller.
