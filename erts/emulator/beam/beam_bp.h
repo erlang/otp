@@ -47,8 +47,8 @@ typedef struct {
 
 typedef struct bp_data_time {     /* Call time, Memory trace */
     Uint n;
-    bp_trace_hash_t *hash;
     erts_refc_t refc;
+    bp_trace_hash_t hash[1];
 } BpDataCallTrace;
 
 typedef struct process_breakpoint_trace_t {
