@@ -56,7 +56,7 @@ init_per_suite(Config) ->
     erlang:trace_pattern({'_','_','_'}, false, []),
     purge(),
 
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).

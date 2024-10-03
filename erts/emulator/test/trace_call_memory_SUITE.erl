@@ -58,7 +58,7 @@ testcases() ->
     spawn_memory_lambda, conflict_traces, big_words].
 
 init_per_suite(Config) ->
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).
@@ -316,12 +316,13 @@ parallel_map(Config) when is_list(Config) ->
     end.
 
 do_parallel() ->
-    Allocs = [spawn_link(fun() -> alloc_2tup(), receive_message() end) || _ <- lists:seq(1, 3)],
-    Grand = [spawn_link(fun() -> receive_message() end) || _ <- lists:seq(1, 3)],
+    Allocs = [spawn_monitor(fun() -> alloc_2tup(), receive_message() end) || _ <- lists:seq(1, 3)],
+    Grand = [spawn_monitor(fun() -> receive_message() end) || _ <- lists:seq(1, 3)],
     pre_stop = receive_message(),
-    [P ! {atom, <<"1234">>} || P <- Grand], %% 6 words on the heap: 3 for binary, 3 for tuple
+    [P ! {atom, <<"1234">>} || {P,_} <- Grand], %% 3 words on the heap for tuple (binary is literal)
     {stop, 1} = receive_message(),
-    [exit(P, normal) || P <- Allocs].
+    [P ! atom || {P,_} <- Allocs], %% no words on the heap for atom
+    [receive {'DOWN', MRef, process, P, normal} -> ok end || {P,MRef} <- Allocs++Grand].
 
 trace_all() ->
     [{doc, "Enables memory tracing for all processes, mainly ensuring there are no core dumps"}].

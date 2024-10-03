@@ -84,7 +84,7 @@ testcases() ->
     [basic, on_and_off, info, pause_and_restart, combo].
 
 init_per_suite(Config) ->
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).

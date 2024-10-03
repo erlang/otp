@@ -93,7 +93,7 @@ testcases() ->
      combo, nosilent].
 
 init_per_suite(Config) ->
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).
@@ -395,9 +395,9 @@ tracer_test() ->
 	?erlang_trace_info({erlang,phash2,2}, meta_match_spec),
     %% Initiate trace messages that will fail
     Ref2 = make_ref(),
-    apply_slave_async(?MODULE, receiver, [Ref2]),
     Slave ! Ref2,
-    receive_no_next(100),
+    apply_slave(?MODULE, receiver, [Ref2]),
+    receive_no_next(0),
     {meta,[]} =
 	?erlang_trace_info({?MODULE,receiver,1}, meta),
     {meta_match_spec, MatchSpec} = 

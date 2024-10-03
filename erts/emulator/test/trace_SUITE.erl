@@ -84,7 +84,7 @@ testcases() ->
      ms_excessive_nesting].
 
 init_per_suite(Config) ->
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).

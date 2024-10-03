@@ -384,7 +384,7 @@ set_on_spawn2(S1, Tracer1, Opts1, S2, Tracer2, Opts2) ->
         {Tracer1, {trace, GrandChild, exit, die}}],
 
        [{Tracer2, {trace, GrandChild, spawned, Child, '_'}},
-        {Tracer2,{trace, '_', exit, die}}]
+        {Tracer2, {trace, GrandChild, exit, die}}]
       }),
 
     1 = erlang_trace(S1, self(), false, [procs, set_on_spawn | Opts1]),

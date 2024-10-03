@@ -60,7 +60,7 @@ testcases() ->
      default_tracer, tracer_port_crash].
 
 init_per_suite(Config) ->
-    trace_sessions:init_per_suite(Config).
+    trace_sessions:init_per_suite(Config, ?MODULE).
 
 end_per_suite(Config) ->
     trace_sessions:end_per_suite(Config).
@@ -227,13 +227,14 @@ receive_trace_non_scheduler(Config) when is_list(Config) ->
                  fun() ->
                          receive
                              go ->
-                                 Ref = S ! erlang:trace_delivered(all),
+                                 Ref = erlang:trace_delivered(all),
+                                 S ! {sync,Ref},
                                  receive {trace_delivered, Ref, all} -> ok end
                          end
                  end),
     trac(Receiver, true, ['receive']),
     Receiver ! go,
-    Ref = receive R -> R end,
+    Ref = receive {sync,R} -> R end,
     expect({trace,Receiver,'receive',go}),
     expect({trace,Receiver,'receive',{trace_delivered, all, Ref}}),
 

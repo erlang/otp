@@ -28,7 +28,7 @@
 %%
 
 -export([all/0, groups/1,
-         init_per_suite/1, end_per_suite/1, suite_controller/2,
+         init_per_suite/2, end_per_suite/1, suite_controller/2,
          init_per_group/2, end_per_group/2,
          init_per_testcase/1, end_per_testcase/1,
          erlang_trace/3,
@@ -55,10 +55,13 @@ all() ->
 groups(Testcases) ->
     [{Group, [], Testcases} || Group <- group_list()].
 
-init_per_suite(Config) ->
+init_per_suite(Config, SuiteModule) ->
     SessionsBefore = trace:session_info(all),
     Pid = spawn(?MODULE, suite_controller, [start, []]),
-    [{suite_controller, Pid}, {sessions_before, SessionsBefore} | Config].
+    [{suite_controller, Pid},
+     {sessions_before, SessionsBefore},
+     {suite_module, SuiteModule}
+    | Config].
 
 end_per_suite(Config) ->
     SessionsBefore = proplists:get_value(sessions_before, Config),
@@ -228,17 +231,14 @@ init_group([pre_session|Tail], Config) ->
     %% Set a dummy call_count on all (local) functions.
     trace:function(S, {'_','_','_'}, true, [local]),
 
-    %% Re-set a dummy global call trace on all exported functions.
-    [[trace:function(S, {Module, Func, Arity}, true, [global])
-      || {Func,Arity} <- Module:module_info(exports)]
-     || Module <- erlang:loaded(),
-        erlang:function_exported(Module, module_info, 1)],
+    %% Re-set a dummy global call trace on exported functions.
+    set_dummy_global_trace(S, Config),
 
     %% Set a dummy send trace on all processes and ports
     %% but disable send trace to not get any messages.
+    1 = trace:send(S, false, []),
     trace:process(S, all, true, [send]),
     trace:port(S, all, true, [send]),
-    1 = trace:send(S, false, []),
 
     ets:insert(?MODULE, {pre_session, S, Tracer}),
     init_group(Tail, Config);
@@ -287,3 +287,28 @@ init_per_testcase(Config) ->
 
 end_per_testcase(Config) ->
     suite_controller_check(Config).
+
+
+
+set_dummy_global_trace(S, Config) ->
+    %% Modules = [M || M <- erlang:loaded(),
+    %%                 erlang:function_exported(M, module_info, 1)],
+    %% Calling trace_pattern on all loaded modules takes too long time
+    %% on some machines. Do it on a subset of modules instead.
+
+    %% Set a dummy global call trace on some exported functions.
+    SuiteModule = proplists:get_value(suite_module, Config),
+    Modules = [erlang, ets, lists, maps, SuiteModule],
+    io:format("~w modules to trace...\n", [length(Modules)]),
+
+    [begin
+         {Micros, 1} = timer:tc(fun() ->
+                                        trace:function(S, {Mod, Func, Arity},
+                                                       true, [global])
+                                end),
+         io:format("~10w: ~w:~w/~w", [Micros, Mod, Func, Arity])
+     end
+     || Mod <- Modules,
+        {Func, Arity} <- Mod:module_info(exports)],
+
+    ok.
