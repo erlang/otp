@@ -2555,7 +2555,7 @@ sub tr_parse_op {
 
     # Get the variable name if any.
 
-    if (/^([A-Z]\w*)(.*)/) {
+    if (/^(_?[A-Z]\w*)(.*)/) {
 	$var = $1;
 	$_ = $2;
 	error("garbage after variable")
@@ -3039,6 +3039,7 @@ END
 sub tr_gen_from {
     my($line,@tr) = @_;
     my(%var) = ();
+    my(%unused) = ();
     my(%var_type);
     my($var_num) = 0;
     my(@code);
@@ -3076,6 +3077,7 @@ sub tr_gen_from {
                 }
 		error($where, "'$var' unbound")
 		    unless defined $var{$var};
+                delete $unused{$var};
                 push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "v$var{$var}");
@@ -3167,6 +3169,8 @@ sub tr_gen_from {
 		    $var_num++;
 		    push(@code, make_op($var, 'set_var', $var{$var}));
 		}
+
+                $unused{$var} = 1;
 	    }
             push(@code, make_op('', 'next_arg'));
 	}
@@ -3184,13 +3188,14 @@ sub tr_gen_from {
 
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
-    [\%var, \%var_type, \@instrs, \@code];
+    [\%var, \%unused, \%var_type, \@instrs, \@code];
 }
 
 sub tr_gen_to {
     my($line, $orig_transform, $so_far, @tr) = @_;
-    my($var_ref, $var_type_ref, $instrs_ref, $code_ref) = @$so_far;
+    my($var_ref, $unused_ref, $var_type_ref, $instrs_ref, $code_ref) = @$so_far;
     my(%var) = %$var_ref;
+    my(%unused) = %$unused_ref;
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
@@ -3216,6 +3221,8 @@ sub tr_gen_to {
 	    foreach $var (@ops) {
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
+                delete $unused{$var};
+
 		if ($var_type{$var} eq 'scalar') {
 		    push @args, "v$var{$var}";
                     push @param_types, 'BeamOpArg';
@@ -3255,6 +3262,9 @@ sub tr_gen_to {
 	    if ($type eq '*') {
 		push(@code, make_op($var, 'store_rest_args'));
 	    } elsif ($var ne '') {
+                error($where, "using explicitly unused variable '$var'. " .
+                      "Remove the '_' prefix if this is intentional.")
+                    unless !($var =~ /^_/);
 		error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
 		my $op = make_op($var, 'store_var', $var{$var});
@@ -3268,8 +3278,18 @@ sub tr_gen_to {
                 my $next_arg = make_op('', 'next_arg');
                 push @code, $store_val, $next_arg;
 	    }
+
+            delete $unused{$var};
 	}
+
 	pop(@code) if is_instr($code[$#code], 'next_arg');
+    }
+
+    foreach my $unused (keys %unused) {
+        error($where,
+              "variable '$unused' is unused. Prefix with '_' if this is " .
+              "intentional")
+            unless $unused =~ /^_/;
     }
 
     push(@code, make_op('', 'end'));
