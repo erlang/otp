@@ -461,7 +461,10 @@ getifaddrs_filter_map_hwaddr() ->
 getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
                   #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
   when (FFamily =:= default) andalso
-       ((EFamily =:= inet) orelse (EFamily =:= inet6)) ->
+       ((EFamily =:= inet) orelse
+        (EFamily =:= inet6) orelse
+        (EFamily =:= link) orelse
+        (EFamily =:= packet)) ->
     getifaddrs_filter_flags(FFlags, EFlags);
 getifaddrs_filter(#{family := FFamily, flags := FFlags} = _FilterMap,
                   #{addr := #{family := EFamily}, flags := EFlags} = _Entry)
