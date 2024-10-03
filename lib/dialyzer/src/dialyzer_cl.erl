@@ -705,10 +705,16 @@ set_location(Location, _EOpt) ->
 
 print_ext_calls(#cl_state{report_mode = quiet}) ->
   ok;
-print_ext_calls(#cl_state{output = Output,
-			  external_calls = Calls,
-			  stored_warnings = Warnings,
-			  output_format = Format}) ->
+print_ext_calls(#cl_state{legal_warnings = LegalWarnings}=State) ->
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true -> print_ext_calls_1(State);
+    false -> ok
+  end.
+
+print_ext_calls_1(#cl_state{output = Output,
+			    external_calls = Calls,
+			    stored_warnings = Warnings,
+			    output_format = Format}) ->
   case Calls =:= [] of
     true -> ok;
     false ->
@@ -736,11 +742,17 @@ do_print_ext_calls(_, [], _) ->
 
 print_ext_types(#cl_state{report_mode = quiet}) ->
   ok;
-print_ext_types(#cl_state{output = Output,
-                          external_calls = Calls,
-                          external_types = Types,
-                          stored_warnings = Warnings,
-                          output_format = Format}) ->
+print_ext_types(#cl_state{legal_warnings = LegalWarnings}=State) ->
+  case ordsets:is_element(?WARN_UNKNOWN, LegalWarnings) of
+    true -> print_ext_types_1(State);
+    false -> ok
+  end.
+
+print_ext_types_1(#cl_state{output = Output,
+                            external_calls = Calls,
+                            external_types = Types,
+                            stored_warnings = Warnings,
+                            output_format = Format}) ->
   case Types =:= [] of
     true -> ok;
     false ->
