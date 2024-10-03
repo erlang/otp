@@ -1378,7 +1378,7 @@ cg_block([#cg_set{op=update_record,dst=Dst0,args=Args0,anno=Anno}|T], Context, S
     Args = typed_args(Args0, Anno, St0),
     Dst = beam_arg(Dst0, St0),
     [Hint,{integer,Size},Src|Ss0] = Args,
-    Ss = cg_update_record_list(Ss0, []),
+    Ss = cg_update_record_list(Ss0),
     I = {update_record,Hint,Size,Src,Dst,{list,Ss}},
     {Is1,St} = cg_block(T, Context, St0),
     {[I|Is1],St};
@@ -1916,12 +1916,15 @@ cg_test(raw_raise, _Fail, Args, Dst, _I) ->
 cg_test(resume, _Fail, [_,_]=Args, Dst, _I) ->
     cg_instr(resume, Args, Dst).
 
-cg_update_record_list([{integer, Index}, Value], []) ->
+cg_update_record_list([{integer, Index}, Value]) ->
     [Index, Value];
-cg_update_record_list([{integer, Index}, Value | Updates], Acc) ->
-    cg_update_record_list(Updates, [{Index, Value} | Acc]);
-cg_update_record_list([], Acc) ->
-    append([[Index, Value] || {Index, Value} <- sort(Acc)]).
+cg_update_record_list([_,_|_]=Updates) ->
+    cg_update_record_list_1(Updates, #{}).
+
+cg_update_record_list_1([{integer, Index}, Value | Updates], Acc) ->
+    cg_update_record_list_1(Updates, Acc#{ Index => Value });
+cg_update_record_list_1([], Acc) ->
+    append([[Index, Value] || Index := Value <- maps:iterator(Acc, ordered)]).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=Args,anno=Anno}=Set, St) ->
     [{atom,Type}|Ss0] = typed_args(Args, Anno, St),
