@@ -976,7 +976,8 @@ bootstrap_clean:
 .PHONY: test dialyzer
 
 test: all release release_tests
-	$(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
+	MAKE="$(MAKE)" \
+	  $(ERL_TOP)/make/test_target_script.sh $(ERL_TOP)
 
 ifeq ($(TYPE),)
 dialyzer: all

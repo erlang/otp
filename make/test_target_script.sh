@@ -112,7 +112,7 @@ EOM
 
 release_erlang () {
     local RELEASE_ROOT="${1}"
-    if ! (cd $ERL_TOP && make release TYPE= release_docs DOC_TARGETS=chunks RELEASE_ROOT="${RELEASE_ROOT}"); then
+    if ! (cd $ERL_TOP && ${MAKE:-make} release TYPE= release_docs DOC_TARGETS=chunks RELEASE_ROOT="${RELEASE_ROOT}"); then
         return 1
     fi
     if ! (cd "$RELEASE_ROOT" && ./Install -minimal "`pwd`"); then
@@ -120,7 +120,7 @@ release_erlang () {
     fi
     ## Need to release both TYPE= and TYPE=$TYPE for tests to work
     if [ "$TYPE" != "" ]; then
-        if ! (cd $ERL_TOP && make release TYPE=$TYPE RELEASE_ROOT="${RELEASE_ROOT}"); then
+        if ! (cd $ERL_TOP && ${MAKE:-make} release TYPE=$TYPE RELEASE_ROOT="${RELEASE_ROOT}"); then
             return 1
         fi
     fi
@@ -231,7 +231,7 @@ then
     fi
 fi
 
-make RELEASE_PATH=$MAKE_TEST_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
+${MAKE:-make} RELEASE_PATH=$MAKE_TEST_DIR release_tests_spec > $RELEASE_TEST_SPEC_LOG 2>&1
 
 if [ $? != 0 ]
 then
@@ -271,7 +271,7 @@ fi
 # Compile test server and configure
 if [ ! -f "$ERL_TOP/lib/common_test/test_server/variables" ]; then
     cd "$ERL_TOP/lib/common_test/test_server"
-    ( make && erl -noshell -eval "ts:install()." -s init stop )  > "$INSTALL_TEST_LOG" 2>&1
+    ( ${MAKE:-make} && erl -noshell -eval "ts:install()." -s init stop )  > "$INSTALL_TEST_LOG" 2>&1
     if [ $? != 0 ]
     then
         cat "$INSTALL_TEST_LOG"
