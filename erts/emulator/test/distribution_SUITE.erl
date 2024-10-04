@@ -42,6 +42,7 @@
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
          ping/1, bulk_send_small/1,
+         bulk_multi_send/1,
          group_leader/1, nodes2/1,
          optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
@@ -90,7 +91,7 @@
          creation_selection_test/1]).
 
 %% Internal exports.
--export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
+-export([accumulator/3, sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
          group_leader_1/1,
          optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1,
@@ -124,7 +125,7 @@ all() ->
      {group, async_dist}, creation_selection].
 
 groups() ->
-    [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
+    [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig, bulk_multi_send]},
      {local_send, [],
       [local_send_small, local_send_big, local_send_legal]},
      {trap_bif, [], [trap_bif_1, trap_bif_2, trap_bif_3]},
@@ -571,6 +572,40 @@ optimistic_dflags_do(EchoNode, Term) ->
 receive_one() ->
     receive M -> M after 1000 -> timeout end.
 
+bulk_multi_send(Config) when is_list(Config) ->
+    Terms = 64,
+    BinSize = 1,
+    ProcCount = 10,
+    NodeCount = 2,
+    ct:timetrap({seconds, 60}),
+
+    io:format("Sending ~w binaries, each of size ~w K", [Terms, BinSize]),
+    Work = [ begin
+                 {ok, Peer, Node} = ?CT_PEER(),
+                 Pids = [spawn(Node, erlang, apply, [fun receiver/2, [0, 0]])
+                         || _ <- lists:seq(1, ProcCount)],
+                 {Peer, Node, Pids}
+             end || _ <- lists:seq(1, NodeCount) ],
+    Recvs = lists:flatten(element(3, lists:unzip3(Work))),
+
+    Bin = binary:copy(<<253>>, BinSize*1024),
+    ExpectedTerms = Terms * ProcCount * NodeCount,
+    Size = ExpectedTerms * byte_size(Bin),
+    {Elapsed, {ExpectedTerms, Size}}
+        = test_server:timecall(?MODULE, accumulator, [Recvs, Bin, Terms]),
+
+    [ peer_stop(Peer, Node) || {Peer, Node, _} <- Work ],
+
+    {comment, integer_to_list(round(Size/1024/max(1,Elapsed))) ++ " K/s"}.
+
+accumulator(Recvs, _Bin, 0) when is_list(Recvs) ->
+    Recvs ! {done, self()},
+    Received = [ receive Any -> Any end || _ <- Recvs ],
+    {Terms, Sizes} = lists:unzip(Received),
+    {lists:sum(Terms), lists:sum(Sizes)};
+accumulator(Recvs, Bin, Left) ->
+    Recvs ! {term, Bin},
+    accumulator(Recvs, Bin, Left-1).
 
 bulk_send_small(Config) when is_list(Config) ->
     bulk_send(64, 32).

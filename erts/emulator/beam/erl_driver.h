@@ -333,6 +333,7 @@ EXTERN int driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on);
 EXTERN int driver_output(ErlDrvPort port, char *buf, ErlDrvSizeT len);
 EXTERN int driver_output2(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
 			  char *buf, ErlDrvSizeT len);
+EXTERN int driver_continue(ErlDrvPort port);
 EXTERN int driver_output_binary(ErlDrvPort port, char *hbuf, ErlDrvSizeT hlen,
 				ErlDrvBinary* bin,
 				ErlDrvSizeT offset, ErlDrvSizeT len);
