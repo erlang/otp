@@ -221,9 +221,7 @@ is specified, this path is appended to the current path. Wildcard `*` is
 expanded to all matching directories. Example: `"lib/*/ebin"`.
 
 If the `{extra_files, ExtraFiles}` option is given then the `ExtraFiles` are
-added to the tarball after everything else to be included has been added. The
-`ExtraFiles` list is a list of files or directories in the same format as the
-`add_type()` tuple for [erl_tar:add/3,4](`erl_tar:add/3`)
+added to the tarball after everything else to be included has been added.
 
 Option `variables` can be used to specify an installation directory other than
 `lib` for some of the applications. If variable `{VarName,Prefix}` is specified
@@ -293,7 +291,7 @@ described for [`make_script`](`make_script/1`).
       App :: atom(),
       Result :: ok | error | {ok, Module :: module(), Warnings :: term()} |
                 {error, Module :: module(), Error :: term()},
-      ExtraFiles :: [{NameInArchive, file:filename_all()}],
+      ExtraFiles :: [{file:filename_all(), NameInArchive}],
       NameInArchive :: string().
 make_tar(RelName, Opt) ->
     systools_make:make_tar(RelName, Opt).
