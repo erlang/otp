@@ -12521,7 +12521,8 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	inet_input_count(INETP(desc), len);
 
 	/* deliver binary? */
-	if (len*4 >= desc->i_buf->orig_size*3) { /* >=75% */
+	if (len >= /* >= 75% of buffer */
+            (desc->i_buf->orig_size - (desc->i_buf->orig_size >> 2))) {
 	    code = tcp_reply_binary_data(desc, desc->i_buf,
 					 (desc->i_ptr_start -
 					  desc->i_buf->orig_bytes),
