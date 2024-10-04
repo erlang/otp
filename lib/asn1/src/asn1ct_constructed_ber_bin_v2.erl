@@ -171,9 +171,9 @@ enc_match_input(#gen{pack=record}, ValName, CompList) ->
 enc_match_input(#gen{pack=map}, ValName, CompList) ->
     Len = length(CompList),
     Vars = [lists:concat(["Cindex",N]) || N <- lists:seq(1, Len)],
-    Zipped = lists:zip(CompList, Vars),
     M = [[{asis,Name},":=",Var] ||
-            {#'ComponentType'{prop=mandatory,name=Name},Var} <- Zipped],
+            #'ComponentType'{prop=mandatory,name=Name} <- CompList &&
+                Var <- Vars],
     case M of
         [] ->
             ok;
@@ -181,7 +181,8 @@ enc_match_input(#gen{pack=map}, ValName, CompList) ->
             emit(["#{",lists:join(",", M),"} = ",ValName,com,nl])
     end,
     Os0 = [{Name,Var} ||
-              {#'ComponentType'{prop=Prop,name=Name},Var} <- Zipped,
+              #'ComponentType'{prop=Prop,name=Name} <- CompList &&
+                  Var <- Vars,
               Prop =/= mandatory],
     F = fun({Name,Var}) ->
                 [Var," = case ",ValName," of\n"
@@ -316,8 +317,8 @@ dec_external(#gen{pack=map}, _RecordName) ->
     Vars = asn1ct_name:all(term),
     Names = ['direct-reference','indirect-reference',
              'data-value-descriptor',encoding],
-    Zipped = lists:zip(Names, Vars),
-    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] || {N,V} <- Zipped]),
+    MapInit = lists:join(",", [["'",N,"'=>",{var,V}] ||
+                                  N <- Names && V <- Vars]),
     emit(["OldFormat = #{",MapInit,"}",com,nl,
           "ASN11994Format =",nl,
           {call,ext,transform_to_EXTERNAL1994_maps,
