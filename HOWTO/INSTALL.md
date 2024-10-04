@@ -569,6 +569,12 @@ suffix.
 If you have Xcode 4.3, or later, you will also need to download
 "Command Line Tools" via the Downloads preference pane in Xcode.
 
+The default number for file descriptors may not be sufficient when
+using Xcode 16 or later. If the limit is lower than 1024, it can be
+raised like this:
+
+    ulimit -n 1024
+
 [](){: #advanced-configuration-and-build-of-erlang-otp_Building_Building-with-Wx }
 
 #### Building with Wx ####
