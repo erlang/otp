@@ -140,7 +140,7 @@ format_sup(client,
            Indent) when is_reference(Ref) ->
     [io_lib:format("~sLocal: ~s~n"
                    "~sRemote: ~s (Version: ~s)~n"
-                   "~sConnectionRef=~s, subsys_sup=~s~n",
+                   "~sConnectionRef=~s, connection_sup=~s~n",
                    [indent(Indent), local_addr(ConnPid),
                     indent(Indent), peer_addr(ConnPid), peer_version(client,ConnPid),
                     indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
@@ -157,7 +157,7 @@ format_sup(server,
            },
            Indent) when is_reference(Ref) ->
     [io_lib:format("~sRemote: ~s (Version: ~s)~n"
-                   "~sConnectionRef=~s, subsys_sup=~s~n",
+                   "~sConnectionRef=~s, connection_sup=~s~n",
                    [indent(Indent), peer_addr(ConnPid), peer_version(server,ConnPid),
                     indent(Indent), print_pid(ConnPid), print_pid(ConnSup)
                    ]),

@@ -120,12 +120,13 @@ start_link(Role, Id, Socket, Options) ->
             Others
     end.
 
-
-takeover(ConnPid, client, Socket, Options) ->
-    group_leader(group_leader(), ConnPid),
-    takeover(ConnPid, common, Socket, Options);
-
-takeover(ConnPid, _, Socket, Options) ->
+takeover(ConnPid, Role, Socket, Options) ->
+    case Role of
+        client ->
+            group_leader(group_leader(), ConnPid);
+        _ ->
+            ok
+    end,
     {_, Callback, _} = ?GET_OPT(transport, Options),
     case Callback:controlling_process(Socket, ConnPid) of
         ok ->
@@ -135,7 +136,7 @@ takeover(ConnPid, _, Socket, Options) ->
                                            Options,
                                            ?GET_OPT(negotiation_timeout, Options)
                                           ),
-            handshake(ConnPid, Ref, NegTimeout);
+            handshake(ConnPid, Role, Ref, NegTimeout);
         {error, Reason}	->
             {error, Reason}
     end.
@@ -490,25 +491,41 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 		  }
     end.
 
-
-handshake(Pid, Ref, Timeout) ->
+handshake(ConnPid, server, Ref, Timeout) ->
     receive
-	{Pid, ssh_connected} ->
+	{ConnPid, ssh_connected} ->
 	    erlang:demonitor(Ref, [flush]),
-	    {ok, Pid};
-	{Pid, {not_connected, Reason}} ->
+	    {ok, ConnPid};
+	{ConnPid, {not_connected, Reason}} ->
 	    erlang:demonitor(Ref, [flush]),
 	    {error, Reason};
-	{'DOWN', Ref, process, Pid, {shutdown, Reason}} ->
+	{'DOWN', Ref, process, ConnPid, {shutdown, Reason}} ->
 	    {error, Reason};
-	{'DOWN', Ref, process, Pid, Reason} ->
+	{'DOWN', Ref, process, ConnPid, Reason} ->
 	    {error, Reason};
         {'EXIT',_,Reason} ->
-            stop(Pid),
+            stop(ConnPid),
             {error, {exit,Reason}}
     after Timeout ->
 	    erlang:demonitor(Ref, [flush]),
-	    ssh_connection_handler:stop(Pid),
+	    ssh_connection_handler:stop(ConnPid),
+	    {error, timeout}
+    end;
+handshake(ConnPid, client, Ref, Timeout) ->
+    receive
+	{ConnPid, ssh_connected} ->
+	    erlang:demonitor(Ref, [flush]),
+	    {ok, ConnPid};
+	{ConnPid, {not_connected, Reason}} ->
+	    erlang:demonitor(Ref, [flush]),
+	    {error, Reason};
+	{'DOWN', Ref, process, ConnPid, {shutdown, Reason}} ->
+	    {error, Reason};
+	{'DOWN', Ref, process, ConnPid, Reason} ->
+	    {error, Reason}
+    after Timeout ->
+	    erlang:demonitor(Ref, [flush]),
+	    ssh_connection_handler:stop(ConnPid),
 	    {error, timeout}
     end.
 

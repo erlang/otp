@@ -355,7 +355,7 @@ connect(Host0, Port, UserOptions, NegotiationTimeout)
             {error, Reason};
 
         Options ->
-            SocketOpts = [{active,false} | ?GET_OPT(socket_options,Options)],
+            SocketOpts = ?GET_OPT(socket_options,Options) ++ [{active,false}],
             Host = mangle_connect_address(Host0, Options),
             try
                 transport_connect(Host, Port, SocketOpts, Options)
