@@ -107,6 +107,8 @@
          start_shell_sock_exec_fun/1,
          start_subsystem_on_closed_channel/1,
          stop_listener/1,
+         trap_exit_connect/1,
+         trap_exit_daemon/1,
          ssh_exec_echo/2 % called as an MFA
         ]).
 
@@ -134,6 +136,8 @@ all() ->
      start_shell,
      new_shell_dumb_term,
      new_shell_xterm_term,
+     trap_exit_connect,
+     trap_exit_daemon,
      start_shell_pty,
      start_shell_exec,
      start_shell_exec_fun,
@@ -1330,6 +1334,59 @@ do_start_shell_exec_fun(Fun, Command, Expect, ExpectType, ReceiveFun, Config) ->
     ReceiveFun(ConnectionRef, ChannelId, Expect, ExpectType),
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Issue GH-8223
+trap_exit_connect(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey),
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"}]),
+    %% Fake an EXIT message
+    ExitMsg = {'EXIT', self(), make_ref()},
+    self() ! ExitMsg,
+
+    {ok, ConnectionRef} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                                   {save_accepted_host, false},
+                                                   {user, "foo"},
+                                                   {password, "morot"},
+                                                   {user_interaction, true},
+                                                   {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid),
+
+    %% Ensure the EXIT message is still there
+    receive
+        ExitMsg -> ok
+    after 0 ->
+        ct:fail("No EXIT message")
+    end.
+
+%%--------------------------------------------------------------------
+%% Issue GH-8223
+trap_exit_daemon(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey),
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    %% Fake an EXIT message
+    ExitMsg = {'EXIT', self(), make_ref()},
+    self() ! ExitMsg,
+
+    {ok, DaemonRef} = ssh:daemon(0, [{system_dir, SysDir},
+                                     {user_dir, UserDir}]),
+    ssh:stop_daemon(DaemonRef),
+
+    %% Ensure the EXIT message is still there
+    receive
+        ExitMsg -> ok
+    after 0 ->
+        ct:fail("No EXIT message")
+    end.
 
 %%--------------------------------------------------------------------
 start_shell_sock_exec_fun(Config) when is_list(Config) ->
