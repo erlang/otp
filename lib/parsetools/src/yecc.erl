@@ -2339,9 +2339,10 @@ find_identical_shift_states(StateActions) ->
 %% states so that they can be used from other states. Some space is
 %% saved.
 find_partial_shift_states(StateActionsL, StateReprs) ->
-    L = [{State, Actions} || {{State,Actions}, {State,State}} <-
-                                 lists:zip(StateActionsL, StateReprs),
-                             shift_actions_only(Actions)],
+    L = [{State, Actions} ||
+            {State,Actions} <- StateActionsL &&
+                {State,State} <- StateReprs,
+            shift_actions_only(Actions)],
     StateActions = sofs:family(L, [{state,[action]}]),
     StateAction = sofs:family_to_relation(StateActions),
 
@@ -2366,10 +2367,9 @@ find_partial_shift_states(StateActionsL, StateReprs) ->
     PartDataL = [#part_data{name = Nm, eq_state = EqS, actions = P, 
                             n_actions = length(P), 
                             states = ordsets:from_list(S)} || 
-                    {{Nm,P}, {Nm,S}, {Nm,EqS}} <- 
-                        lists:zip3(PartNameL, 
-                                   sofs:to_external(PartInStates),
-                                   sofs:to_external(PartStates))],
+                    {Nm,P} <- PartNameL &&
+                        {Nm,S} <- sofs:to_external(PartInStates) &&
+                        {Nm,EqS} <- sofs:to_external(PartStates)],
     true = length(PartDataL) =:= length(PartNameL),
     Ps = select_parts(PartDataL),
 
@@ -2392,9 +2392,9 @@ find_partial_shift_states(StateActionsL, StateReprs) ->
     R = 
         [{S, {Actions,jump_none}} || {S,Actions} <- sofs:to_external(NJS)]
         ++
-        [{S, {Actions--Part, {Tag,ToS,Part}}} || 
-            {{S,Actions}, {S,Part,{Tag,ToS}}} <- 
-                lists:zip(sofs:to_external(JS), J)],
+        [{S, {Actions--Part, {Tag,ToS,Part}}} ||
+            {S,Actions} <- sofs:to_external(JS) &&
+                {S,Part,{Tag,ToS}} <- J],
     true = length(StateActionsL) =:= length(R),
     lists:keysort(1, R).
 
@@ -2450,8 +2450,8 @@ collect_some_state_info(StateActions, StateReprs) ->
                       true <- [RO], Repr =/= State],
               #state_info{reduce_only = RO, state_repr = Repr, comment = C}
           end} ||
-            {{State, LaActions}, {State, Repr}} <-
-                lists:zip(StateActions, StateReprs)],
+            {State, LaActions} <- StateActions &&
+                {State, Repr} <- StateReprs],
     list_to_tuple(L).
 
 conflict_error(Conflict, St0) ->
@@ -2731,9 +2731,9 @@ output_actions(St0, StateJumps, StateInfo) ->
     Sel = [{S,true} || S <- ordsets:to_list(Y2CS)] ++
           [{S,false} || S <- ordsets:to_list(NY2CS)],
 
-    SelS = [{State,Called} || 
-               {{State,_JActions}, {State,Called}} <- 
-                   lists:zip(StateJumps, lists:keysort(1, Sel))],
+    SelS = [{State,Called} ||
+               {State,_JActions} <- StateJumps &&
+                   {State,Called} <- lists:keysort(1, Sel)],
     St05 = output_nowarn(St0, yeccpars2, '', 7),
     St10 = foldl(fun({State, Called}, St_0) ->
                          {State, #state_info{state_repr = IState}} = 
