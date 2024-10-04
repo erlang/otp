@@ -29,7 +29,7 @@
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
 	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1,
-         record_updates/1]).
+         record_updates/1, duplicate_update_record/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -49,7 +49,7 @@ groups() ->
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
        missing_test_heap,nested_access,coverage,grab_bag,
-       slow_compilation,record_updates]}].
+       slow_compilation,record_updates, duplicate_update_record]}].
 
 
 init_per_suite(Config) ->
@@ -844,6 +844,20 @@ record_updates(_Config) ->
     #foo{a=atom,b=7,c=3,d=undefined} = F3(id(#foo{}), 7),
 
     ok.
+
+%% GH-8783: Duplicate indexes in update_record crashed the emulator.
+duplicate_update_record(Config) when is_list(Config) ->
+    DuplicateUR0 = id({id(left), id(right)}),
+    {_, _} = DuplicateUR0,
+
+    DuplicateUR1 = erlang:setelement(2, DuplicateUR0, false),
+    DuplicateUR = erlang:setelement(2, DuplicateUR1, false),
+    {'EXIT', _} = catch duplicate_update_record_1(DuplicateUR),
+
+    ok.
+
+duplicate_update_record_1(_) ->
+    erlang:error(crash).
 
 %%%
 %%% Common utilities.
