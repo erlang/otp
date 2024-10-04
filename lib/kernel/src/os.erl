@@ -302,7 +302,7 @@ Each signal my be set to one of the following options:
 -spec set_signal(Signal, Option) -> 'ok' when
       Signal :: 'sighup'  | 'sigquit' | 'sigabrt' | 'sigalrm' |
                 'sigterm' | 'sigusr1' | 'sigusr2' | 'sigchld' |
-                'sigstop' | 'sigtstp',
+                'sigstop' | 'sigtstp' | 'sigwinch' | 'siginfo',
       Option :: 'default' | 'handle' | 'ignore'.
 
 set_signal(_Signal, _Option) ->
