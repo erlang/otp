@@ -150,7 +150,7 @@ Please see the function `tempo-define-template'.")
   "*The skeleton template to generate a version control attribute.
 The default is to insert nothing.  Example of usage:
 
-    (setq erlang-skel-vc '(& \"-rcs(\\\"$\Id: $ \\\").\") n)
+    (setq erlang-skel-vc \\='(& \"-rcs(\\\"$\Id: $ \\\").\") n)
 
 Please see the function `tempo-define-template'.")
 
@@ -179,7 +179,7 @@ Look in the module `time-stamp' for a battery of functions.")
 (defvar erlang-skel-copyright-comment '()
   "*The template for a copyright line in the header, normally empty.
 This variable should be bound to a `tempo' template, for example:
-  '(& \"%%% Copyright (C) 2000, Yoyodyne, Inc.\" n)
+  \\='(& \"%%% Copyright (C) 2000, Yoyodyne, Inc.\" n)
 
 Please see the function `tempo-define-template'.")
 

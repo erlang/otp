@@ -79,6 +79,7 @@
 (require 'align)
 (require 'comint)
 (require 'tempo)
+(require 'cl-lib)
 
 ;;; `caddr' is builtin since Emacs 26.
 (eval-and-compile
@@ -91,7 +92,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.4"
+(defconst erlang-version "2.8.5"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -108,7 +109,7 @@ Emacs command `M-x erlang-man-download-ask RET' (the download URL
 can be customized with the Emacs variable
 erlang-man-download-url):
 
-    (require 'erlang)
+    (require \='erlang)
     (erlang-man-download)
 
 "
@@ -180,7 +181,7 @@ is an expression which is evaluated every time the menu is displayed.
 Should the expression evaluate to nil the menu item is ghosted.
 
 Example:
-    '((\"Func1\" function-one)
+    \='((\"Func1\" function-one)
       (\"SubItem\"
        ((\"Yellow\" function-yellow)
         (\"Blue\" function-blue)))
@@ -252,15 +253,15 @@ containing all functions defined in the current buffer.
 
 To use the example, copy the following lines to your `~/.emacs' file:
 
-    (add-hook 'erlang-mode-hook 'my-erlang-mode-hook)
+    (add-hook \='erlang-mode-hook \='my-erlang-mode-hook)
 
     (defun my-erlang-mode-hook ()
-      (local-set-key \"\\C-c\\C-c\" 'erlang-compile)
+      (local-set-key \"\\C-c\\C-c\" \='erlang-compile)
       (if window-system
           (progn
             (setq font-lock-maximum-decoration t)
             (font-lock-mode 1)))
-      (if (and window-system (fboundp 'imenu-add-to-menubar))
+      (if (and window-system (fboundp \='imenu-add-to-menubar))
           (imenu-add-to-menubar \"Imenu\")))")
 
 (defvar erlang-load-hook nil
@@ -285,7 +286,7 @@ The following example sets the variable `erlang-root-dir' so that the
 manual pages can be retrieved (note that you must set the value of
 `erlang-root-dir' to match the location of Erlang on your system):
 
-    (add-hook 'erlang-load-hook 'my-erlang-load-hook)
+    (add-hook \='erlang-load-hook \='my-erlang-load-hook)
 
     (defun my-erlang-load-hook ()
        (setq erlang-root-dir \"/usr/local/erlang\"))")
@@ -302,8 +303,10 @@ A useful function is `tempo-template-erlang-normal-header'.
 If the value of this variable is the symbol `ask', the user is
 prompted.  If the value is t the source is silently changed."
   :group 'erlang
-  :type '(choice (const :tag "Check on save" 'ask)
-                 (const :tag "Don't check on save" t)))
+  :type '(choice
+           (const :tag "Prompt" ask)
+           (const :tag "Silently change" t)
+           (const :tag "Don't check on save" nil)))
 
 (defvar erlang-electric-commands
   '(erlang-electric-comma
@@ -366,7 +369,7 @@ is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
 
   nil             -- no determination made, continue checking
-  'stop           -- do not create prototype for next line
+  \='stop           -- do not create prototype for next line
   (anything else) -- insert prototype, and stop checking
 
 If every function in the list is called with no determination made,
@@ -387,7 +390,7 @@ is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
 
   nil             -- no determination made, continue checking
-  'stop           -- do not create prototype for next line
+  \='stop           -- do not create prototype for next line
   (anything else) -- insert prototype, and stop checking
 
 If every function in the list is called with no determination made,
@@ -405,7 +408,7 @@ is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
 
   nil             -- no determination made, continue checking
-  'stop           -- do not create prototype for next line
+  \='stop           -- do not create prototype for next line
   (anything else) -- insert prototype, and stop checking
 
 If every function in the list is called with no determination made,
@@ -426,7 +429,7 @@ is typed.  Each function in the list is called with no arguments,
 and should return one of the following values:
 
   nil             -- no determination made, continue checking
-  'stop           -- do not create prototype for next line
+  \='stop           -- do not create prototype for next line
   (anything else) -- trigger the electric command.
 
 If every function in the list is called with no determination made,
@@ -560,7 +563,7 @@ This is an elisp list of options. Each option can be either:
 - an atom
 - a dotted pair
 - a string
-Example: '(bin_opt_info (i . \"/path1/include\") (i . \"/path2/include\"))")
+Example: \='(bin_opt_info (i . \"/path1/include\") (i . \"/path2/include\"))")
 
 (defvar erlang-compile-command-function-alist
   '((".erl\\'" . inferior-erlang-compute-erl-compile-command)
@@ -1767,9 +1770,9 @@ This could be used when defining your own special font-lock setup, e.g:
       (append erlang-font-lock-keywords-function-header
               erlang-font-lock-keywords-dollar
               (erlang-font-lock-set-face
-               erlang-font-lock-keywords-macros 'my-neon-green-face)
+               erlang-font-lock-keywords-macros \='my-neon-green-face)
               (erlang-font-lock-set-face
-               erlang-font-lock-keywords-lc 'my-deep-red 'my-light-red)
+               erlang-font-lock-keywords-lc \='my-deep-red \='my-light-red)
               erlang-font-lock-keywords-attr))
 
 For a more elaborate example, please see the beginning of the file
@@ -1948,8 +1951,8 @@ menu is left unchanged.
 
 The equality test is performed by `eq'.
 
-Example:  (erlang-menu-add-above 'my-erlang-menu-items
-                                 'erlang-menu-man-items)"
+Example:  (erlang-menu-add-above \='my-erlang-menu-items
+                                 \='erlang-menu-man-items)"
   (erlang-menu-add-below entry above items t))
 
 
@@ -1967,8 +1970,8 @@ The equality test is performed by `eq'.
 Example:
 
 \(setq erlang-menu-items
-      (erlang-menu-add-below 'my-erlang-menu-items
-                             'erlang-menu-base-items
+      (erlang-menu-add-below \='my-erlang-menu-items
+                             \='erlang-menu-base-items
                              erlang-menu-items))"
   (if (memq entry items)
       items                             ; Return the original menu.
@@ -2425,7 +2428,6 @@ the search for the buffer more accurate."
   (let ((buffer (or buf
                     (progn
                       ; find buffer containing man page
-                      (require 'cl-lib)
                       (car (cl-remove-if-not (lambda (buf)
                                                (string-match
                                                 (or module-name "")
@@ -2591,7 +2593,7 @@ package not be present, this function does nothing."
 
 Example of use, assuming that `erlang-skel-func' is defined:
 
- (defvar foo-skeleton '(\"%%% New function:\"
+ (defvar foo-skeleton \='(\"%%% New function:\"
                         (erlang-skel-include erlang-skel-func)))
 
 Technically, this function returns the `tempo' attribute`(l ...)' which
@@ -5779,7 +5781,7 @@ The following special commands are available:
 \\{erlang-shell-mode-map}"
   (erlang-mode-variables)
   ;; Needed when compiling directly from the Erlang shell.
-  (setq compilation-last-buffer (current-buffer))
+  (setq next-error-last-buffer (current-buffer))
   (setq comint-prompt-regexp "^[^>=]*> *")
   (make-local-variable 'comint-prompt-read-only)
   (setq comint-prompt-read-only erlang-shell-prompt-read-only)
@@ -5837,7 +5839,7 @@ Selects Comint or Compilation mode command as appropriate."
 
 (defvar inferior-erlang-display-buffer-any-frame nil
   "When nil, `inferior-erlang-display-buffer' use only selected frame.
-When t, all frames are searched.  When 'raise, the frame is raised.")
+When t, all frames are searched.  When \='raise, the frame is raised.")
 
 (defvar inferior-erlang-shell-type 'newshell
   "The type of Erlang shell to use.
@@ -5952,7 +5954,7 @@ The window is returned.
 Should `inferior-erlang-display-buffer-any-frame' be nil the buffer is
 displayed in the current frame.  Should it be non-nil, and the buffer
 already is visible in any other frame, no new window will be created.
-Should it be the atom 'raise, the frame containing the window will
+Should it be the atom \='raise, the frame containing the window will
 be raised.
 
 Should the optional argument SELECT be non-nil, the window is
@@ -6150,9 +6152,10 @@ There exists two workarounds for this bug:
     (sit-for 0)
     (inferior-erlang-wait-prompt)
     (with-current-buffer inferior-erlang-buffer
-      (setq compilation-error-list nil)
-      (set-marker compilation-parsing-end end))
-    (setq compilation-last-buffer inferior-erlang-buffer)))
+      (when (and (boundp 'compilation-error-list) (boundp 'compilation-parsing-end))
+        (setq compilation-error-list nil)
+        (set-marker compilation-parsing-end end)))
+    (setq next-error-last-buffer inferior-erlang-buffer)))
 
 (defun inferior-erlang-prepare-for-input (&optional no-display)
   "Create an inferior erlang buffer if needed and ready it for input.
