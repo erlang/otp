@@ -747,7 +747,7 @@ do_format_checked(KVList, UserEnc,  #{level := Level} = State) ->
                 case is_map_key(EncKey, Visited0) of
                     true ->
                         error({duplicate_key, Key});
-                    _ ->
+                    false ->
                         Visited1 = Visited0#{EncKey => true},
                         ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
                         EncEntry = [$, , KeyIndent, EncKey, ": "
