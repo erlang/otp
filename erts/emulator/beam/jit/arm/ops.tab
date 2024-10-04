@@ -210,11 +210,11 @@ current_tuple/1
 current_tuple/2
 
 is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
-  equal(Fail, Fail2) | equal(Src, Src) =>
+  equal(Fail, Fail2) | equal(Src, Src2) =>
     i_is_tuple_of_arity Fail Src Arity | current_tuple Src
 
 is_tuple Fail1=f Src | test_arity Fail2 Src2 Arity |
-  equal(Src, Src) =>
+  equal(Src, Src2) =>
     i_is_tuple_of_arity_ff Fail1 Fail2 Src Arity | current_tuple Src
 
 test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src

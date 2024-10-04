@@ -27,7 +27,8 @@
 	 t_append_element/1, t_append_element_upper_boundry/1,
          build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
          get_two_tuple_elements/1,
-         record_update/1]).
+         record_update/1,
+         bad_tuple_match/1]).
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -51,7 +52,8 @@ all() ->
      t_insert_element, t_delete_element,
      tuple_with_case, tuple_in_guard,
      get_two_tuple_elements,
-     record_update].
+     record_update,
+     bad_tuple_match].
 
 groups() -> 
     [].
@@ -701,6 +703,38 @@ do_record_update_3(L, N, R0) ->
             R
     end.
 
+%% GH-8875
+bad_tuple_match(_Config) ->
+    ContentName = id(~"content-name"),
+    Content = id(#{ContentName => value}),
+
+    Find = case maps:find(ContentName, Content) of
+               {ok, _} -> {ok1, aa};
+               error -> ok
+           end,
+
+    Details = try id(good) of
+                  good ->
+                      {ok2, bb, cc}
+              catch
+                  _:_ ->
+                      {error, some_reason}
+              end,
+
+    %% Compiler optimizations will turn the following two lines into:
+    %%
+    %%    {test,is_tuple,Fail1,[{y,0}]}
+    %%    {test,test_arity,Fail2,[{x,0},3]}.
+    %%
+    %% The JIT would rewrite that to:
+    %%
+    %%    {i_is_tuple_of_arity_ff,Fail1,Fail2,{y,0},3}
+    %%
+    %% That is unsafe because the source tuples are distinct.
+    {ok1, _} = Find,
+    {ok2, _, _} = Details,
+
+    ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.
