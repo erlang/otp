@@ -59,6 +59,7 @@ all() ->
      test_undecoded_rest,
      specialized_decodes,
      special_decode_performance,
+     exclusive_decode_rest,
 
      testMegaco,
      testConstraints,
@@ -966,6 +967,13 @@ special_decode_performance(Config, Rule, Opts) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
     asn1_test_lib:compile_all(Files, Config, [Rule, asn1config|Opts]),
     test_special_decode_performance:go(all).
+
+exclusive_decode_rest(Config) ->
+    test(Config, fun exclusive_decode_rest/3, [ber]).
+exclusive_decode_rest(Config, Rule, Opts) ->
+    asn1_test_lib:compile("SwCDR.py", Config,
+                          [Rule, undec_rest, asn1config|Opts]),
+    test_exclusive_decode_rest:test().
 
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
