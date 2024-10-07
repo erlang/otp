@@ -7257,15 +7257,18 @@ manpage(Config) when is_list(Config) ->
     [2,3,4] = qlc:eval(QH),
 
     %% ets(3)
-    MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} end),
+    MS = ets:fun2ms(fun({X,Y}) when (X > 1) and (X < 5) -> {Y} end),
     ETs = [
         [<<"true = ets:insert(Tab = ets:new(t, []),[{1,a},{2,b},{3,c},{4,d}]),
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = ets:table(Tab, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- ets:table(Tab), (X > 1) and (X < 5)]),
 
-            true = qlc:info(QH1) =:= qlc:info(QH2),
+            case (qlc:info(QH1) =:= qlc:info(QH2)) of
+              true -> ok;
+              false -> error({\"QH1 =/= QH2\", {qh1, QH1}, {qh2, QH2}})
+            end,
             true = ets:delete(Tab)">>]],
     run(Config, ETs),
 
@@ -7276,9 +7279,12 @@ manpage(Config) when is_list(Config) ->
             MS = ">>, io_lib:format("~w", [MS]), <<",
             QH1 = dets:table(T, [{traverse, {select, MS}}]),
 
-            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) or (X < 5)]),
+            QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), (X > 1) and (X < 5)]),
 
-            true = qlc:info(QH1) =:= qlc:info(QH2),
+            case (qlc:info(QH1) =:= qlc:info(QH2)) of
+              true -> ok;
+              false -> error({\"QH1 =/= QH2\", {qh1, QH1}, {qh2, QH2}})
+            end,
             ok = dets:close(T)">>]],
     run(Config, DTs),
 
@@ -7872,7 +7878,7 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
 
     R = case catch Mod:function() of
             {'EXIT', _Reason} = Error ->
-                io:format("failed, got ~p~n", [Error]),
+                io:format(standard_error, "failed, got ~p~n", [Error]),
                 fail(SourceFile);
             Reply ->
                 Reply

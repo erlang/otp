@@ -2023,8 +2023,11 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
     %% Check that this is really a shell fun...
     case erl_eval:fun_data(ShellFun) of
         {fun_data,ImportList,Clauses} ->
+            {module, FunModule} = erlang:fun_info(ShellFun,module),
+            CompilationOptions = FunModule:module_info(compile),
+            ShouldOptimise = not proplists:get_bool(no_optimise_fun2ms, CompilationOptions),
             case ms_transform:transform_from_shell(
-                   ?MODULE,Clauses,ImportList) of
+                   ?MODULE,Clauses,ImportList, ShouldOptimise) of
                 {error,[{_,[{_,_,Code}|_]}|_],_} ->
                     io:format("Error: ~ts~n",
                               [ms_transform:format_error(Code)]),

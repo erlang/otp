@@ -848,7 +848,7 @@ usually not a binary) is returned instead of a binary.
 
 forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts++env_default_opts()]);
-forms(Forms, Opt) when is_atom(Opt) ->
+forms(Forms, Opt) when is_atom(Opt) orelse is_tuple(Opt) ->
     forms(Forms, [Opt|?DEFAULT_OPTIONS]).
 
 %% Given a list of compilation options, returns true if compile:file/2
