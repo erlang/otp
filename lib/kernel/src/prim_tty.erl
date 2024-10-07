@@ -147,6 +147,7 @@
                 buffer_expand,       %% Characters in expand buffer
                 buffer_expand_row = 1,
                 buffer_expand_limit = 0 :: non_neg_integer(),
+                putc_buffer = <<>>,    %% Buffer for putc containing the last row of characters
                 cols = 80,
                 rows = 24,
                 xn = false,
@@ -742,17 +743,48 @@ handle_request(State, {expand, Expand, N}) ->
 %% putc prints Binary and overwrites any existing characters
 handle_request(State = #state{ unicode = U }, {putc, Binary}) ->
     %% Todo should handle invalid unicode?
-    %% print above the prompt if we have a prompt.
-    %% otherwise print on the current line.
+    %% print above the prompt
+    %% if it does not contain a new line we have to print an artificial one
+    SubString = lists:last(binary:split(Binary, [<<"\n">>], [global])),
+    NewPutcBuffer = if SubString =:= Binary ->
+            %% No new line in Binary, keep putc_buffer and add the new binary
+            <<(State#state.putc_buffer)/binary, Binary/binary>>;
+        true ->
+            %% New line in Binary, add the new binary and putc_buffer
+            SubString
+    end,
+    PutcBufferState = State#state{putc_buffer = NewPutcBuffer},
     case {State#state.lines_before,{State#state.buffer_before, State#state.buffer_after}, State#state.lines_after} of
         {[],{[],[]},[]} ->
             {PutBuffer, _} = insert_buf(State, Binary),
-            {[encode(PutBuffer, U)], State};
+            {[encode(PutBuffer, U)], PutcBufferState};
         _ ->
-            {Delete, DeletedState} = handle_request(State, delete_line),
-            {PutBuffer, _} = insert_buf(DeletedState, Binary),
+            %% Clear the prompt (will be redrawn later
+            {Delete, _} = handle_request(State, delete_line),
+            if State#state.putc_buffer =:= <<>> ->
+                    %% No artificial newline has been printed
+                    %% so we are already on the correct position to output
+                    Moves = [];
+               true ->
+                    WidthPutcBuffer = shell:prompt_width(State#state.putc_buffer),
+                    Remainder = (WidthPutcBuffer rem State#state.cols),
+                    ToCol =if Remainder =:= 0 ->
+                            State#state.cols;
+                       true ->
+                            Remainder
+                    end,
+                    Moves = move_cursor(State, State#state.cols, ToCol)
+            end,
+            Binary1 = if PutcBufferState#state.putc_buffer =:= <<>> ->
+                    %% Binary has a real new line at the end
+                    Binary;
+                true ->
+                    %% Binary does not have a real new line, add artificial one
+                    <<Binary/binary, 13,10>>
+            end,
+            {PutBuffer, _} = insert_buf(PutcBufferState, Binary1),
             {Redraw, _} = handle_request(State, redraw_prompt_pre_deleted),
-            {[Delete, encode(PutBuffer, U), Redraw], State}
+            {[Delete, Moves, encode(PutBuffer, U), Redraw], PutcBufferState}
     end;
 handle_request(State = #state{}, delete_after_cursor) ->
     {[State#state.delete_after_cursor],

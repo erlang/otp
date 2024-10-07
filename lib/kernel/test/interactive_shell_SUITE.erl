@@ -1575,17 +1575,16 @@ shell_full_queue(Config) ->
 
 
     Term = start_tty([{peer, Peer}|Config]),
-
     UnbufferedPid = os:cmd("ps -o ppid= -p " ++ rpc(Term,os,getpid,[])),
 
     WriteUntilStopped =
-        fun F(Char) ->
+        fun F(Char, Term) ->
                 rpc(Term,io,format,[user,[Char],[]]),
                 put(bytes,get(bytes,0)+1),
                 receive
                     stop ->
                         rpc(Term,io,format,[user,[Char+1],[]])
-                after 0 -> F(Char)
+                after 0 -> F(Char, Term)
                 end
         end,
 
@@ -1614,37 +1613,53 @@ shell_full_queue(Config) ->
         %% First test that we can suspend and then resume
         os:cmd("kill -TSTP " ++ UnbufferedPid),
         check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
-        {Pid, Ref} = spawn_monitor(fun() -> WriteUntilStopped($a) end),
+        {Pid, Ref} = spawn_monitor(fun() -> WriteUntilStopped($a, Term) end),
         WaitUntilBlocked(Pid, Ref),
         send_tty(Term, "fg"),
         send_tty(Term, "Enter"),
         Pid ! stop,
-        check_content(Term,"b\\([^)]*\\)2>$"),
+        check_content(Term,"b\\s+\\([^)]*\\)2>$")
+    after
+        stop_tty(Term),
+        ok
+    end,
+    Name2 = peer:random_name(proplists:get_value(tc_path,Config))++"_2",
+    os:cmd("tmux new-window -n " ++ Name2 ++ " -d -- bash --norc"),
 
-        send_tty(Term, "."),
-        send_tty(Term, "Enter"),
+    Peer2 = #{ name => Name2,
+              post_process_args =>
+                        fun(["new-window","-n",_,"-d","--"|CmdAndArgs]) ->
+                                FlatCmdAndArgs = ["unbuffer -p "] ++
+                                      lists:join(
+                                        " ",[[$',A,$'] || A <- CmdAndArgs]),
+                                ["send","-t",Name2,lists:flatten(FlatCmdAndArgs),"Enter"]
+                        end
+            },
 
+    Term1 = setup_tty([{peer, Peer2},{args, ["-noshell"]}|Config]),
+    UnbufferedPid1 = os:cmd("ps -o ppid= -p " ++ rpc(Term1,os,getpid,[])),
+    try
         %% Then we test that all characters are written when system
         %% is terminated just after writing
-        {ok,Cols} = rpc(Term,io,columns,[user]),
-        send_tty(Term, "Enter"),
-        os:cmd("kill -TSTP " ++ UnbufferedPid),
-        check_content(Term,"\\Q[1]+\\E\\s*Stopped"),
-        {Pid2, Ref2} = spawn_monitor(fun() -> WriteUntilStopped($c) end),
+        {ok,Cols} = rpc(Term1,io,columns,[user]),
+        send_tty(Term1, "Enter"),
+        os:cmd("kill -TSTP " ++ UnbufferedPid1),
+        check_content(Term1,"\\Q[1]+\\E\\s*Stopped"),
+        {Pid2, Ref2} = spawn_monitor(fun() -> WriteUntilStopped($c, Term1) end),
         Bytes = WaitUntilBlocked(Pid2, Ref2) - 1,
-        stop_tty(Term),
-        send_tty(Term, "fg"),
-        send_tty(Term, "Enter"),
+        stop_tty(Term1),
+        send_tty(Term1, "fg"),
+        send_tty(Term1, "Enter"),
         check_content(
           fun() ->
-                  tmux(["capture-pane -p -S - -E - -t ",tty_name(Term)])
+                  tmux(["capture-pane -p -S - -E - -t ",tty_name(Term1)])
           end, lists:flatten([lists:duplicate(Cols,$c) ++ "\n" ||
                                  _ <- lists:seq(1,(Bytes) div Cols)]
                              ++ [lists:duplicate((Bytes) rem Cols,$c)])),
         ct:log("~ts",[tmux(["capture-pane -p -S - -E - -t ",tty_name(Term)])]),
         ok
     after
-        stop_tty(Term),
+        stop_tty(Term1),
         ok
     end.
 

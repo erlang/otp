@@ -405,11 +405,9 @@ xterm(data, Buf, Data = #state{ input = #input_state{
     end;
 
 xterm(info, {io_request,From,ReplyAs,Req},
-      Data = #state{ driver = Drv, input = #input_state{ cont = {EdlinCont, _} } })
+      #state{ driver = Drv})
   when ?IS_PUTC_REQ(Req) ->
-    send_drv_reqs(Drv, edlin:erase_line()),
-    putc_request(Req, From, ReplyAs, Data#state.driver),
-    send_drv_reqs(Drv, edlin:redraw_line(EdlinCont)),
+    putc_request(Req, From, ReplyAs, Drv),
     keep_state_and_data;
 
 xterm(info, {Drv, activate},
