@@ -3123,7 +3123,6 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
 	i = LOAD_TUPLE(spec, i, 2);
 	i = LOAD_TUPLE(spec, i, 4);
 	ASSERT(i == 15);
-	/* desc->caller = am_undefined; XXX */
 	return erl_drv_send_term(desc->dport, caller, spec, i);
     }
     else {
@@ -3137,7 +3136,6 @@ static int inet_async_data(inet_descriptor* desc, const char* buf, int len)
 	i = LOAD_TUPLE(spec, i, 2);
 	i = LOAD_TUPLE(spec, i, 4);
 	ASSERT(i <= 20);
-	/* desc->caller = am_undefined; XXX */
 	code = erl_drv_send_term(desc->dport, caller, spec, i);
 	return code;
     }
@@ -3897,8 +3895,6 @@ inet_async_binary_data
     i = LOAD_TUPLE(spec, i, 4);
 
     ASSERT(i <= PACKET_ERL_DRV_TERM_DATA_LEN);
-    desc->caller = am_undefined;
-    end_caller_ref(&desc->caller_ref);
     return erl_drv_send_term(desc->dport, caller, spec, i);
 }
 
@@ -12638,7 +12634,8 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	inet_input_count(INETP(desc), len);
 
 	/* deliver binary? */
-	if (len*4 >= desc->i_buf->orig_size*3) { /* >=75% */
+	if (len >= /* >= 75% of buffer */
+            (desc->i_buf->orig_size - (desc->i_buf->orig_size >> 2))) {
 	    code = tcp_reply_binary_data(desc, desc->i_buf,
 					 (desc->i_ptr_start -
 					  desc->i_buf->orig_bytes),
