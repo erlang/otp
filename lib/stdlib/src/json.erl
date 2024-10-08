@@ -709,12 +709,12 @@ format_key_value_list(KVList, UserEnc, #{level := Level} = State) ->
     NextState = State#{level := Level+1},
     {KISize, KeyIndent} = indent(NextState),
     EncKeyFun = fun(KeyVal, _Fun) -> UserEnc(KeyVal, UserEnc, NextState) end,
-    Entry = fun(Key, Value) ->
-                    EncKey = key(Key, EncKeyFun),
-                    ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
-                    [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
-            end,
-    format_object([Entry(Key,Value) || {Key, Value} <- KVList], Indent).
+    EntryFun = fun({Key, Value}) ->
+                       EncKey = key(Key, EncKeyFun),
+                       ValState = NextState#{col := KISize + 2 + erlang:iolist_size(EncKey)},
+                       [$, , KeyIndent, EncKey, ": " | UserEnc(Value, UserEnc, ValState)]
+               end,
+    format_object(lists:map(EntryFun, KVList), Indent).
 
 -doc """
 Format function for lists of key-value pairs as JSON objects.
