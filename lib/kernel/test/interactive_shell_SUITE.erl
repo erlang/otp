@@ -1298,7 +1298,13 @@ shell_help(Config) ->
         send_tty(Term, "application:put_env(kernel, shell_docs_ansi, false).\n"),
         send_tty(Term, "lists"),
         send_tty(Term, "\^[h"),
+        %% Check we can see the first line
         check_content(Term, "List processing functions."),
+        check_not_in_content(Term, "less than or equal to"),
+        %% Expand the help area to take up the whole buffer.
+        send_tty(Term, "\^[h"),
+        %% Check that we can see the last line (lists help should fit in the window)
+        check_content(Term, "less than or equal to"),
         send_tty(Term, ":all"),
         send_tty(Term, "\^[h"),
         check_content(Term, ~S"all\(Pred, List\)"),
