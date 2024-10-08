@@ -758,6 +758,9 @@ improved_system_memory_data(Config) when is_list(Config) ->
                 _ ->
                     {comment, "No available_memory present in result"}
             end;
+        {unix,darwin} ->
+            true = AvailableMemoryPresent,
+            {comment, "available_memory present in result"};
         _ ->
             ok
     end.
