@@ -1435,11 +1435,11 @@ finished_verify_data(_Config) ->
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
-hexstr2int(S) ->
-    B = hexstr2bin(S),
-    Bits = byte_size(B) * 8,
-    <<Integer:Bits/integer>> = B,
-    Integer.
+%% hexstr2int(S) ->
+%%     B = hexstr2bin(S),
+%%     Bits = byte_size(B) * 8,
+%%     <<Integer:Bits/integer>> = B,
+%%     Integer.
 
 hexstr2bin(S) when is_binary(S) ->
     hexstr2bin(S, <<>>);

@@ -414,8 +414,8 @@ eccs() ->
     [{doc, "Test API functions eccs/0 and eccs/1"}].
 
 eccs(Config) when is_list(Config) ->
-    [_|_] = All = ssl:eccs(),
-    [_|_] = Tls = ssl:eccs(tlsv1),
+    [_|_] = _All = ssl:eccs(),
+    [_|_] = _Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),
     [_|_] = Tls1 = ssl:eccs('dtlsv1'),
