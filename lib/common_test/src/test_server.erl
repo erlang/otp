@@ -983,7 +983,7 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
                             {died, NewReturn, [{Mod,Func}]};
                         NewReturn ->
                             T = case Error of
-                                    {timetrap_timeout,TT} -> TT;
+                                    {timetrap_timeout,TT} -> TT/1000;
                                     _ -> 0
                                 end,
                             {T, NewReturn, Loc}

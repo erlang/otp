@@ -1175,7 +1175,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     TotalTestTime = get(test_server_total_time),
     print(html,"\n</tbody>\n<tfoot>\n"
           "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
-          "<td>~.3fs<br></td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w<br>"
+          "<td>~.fs<br></td><td><b>~ts</b></td><td>~w Ok, ~w Failed~ts of ~w<br>"
           "Elapsed Time: ~.3fs</td></tr>\n"
           "</tfoot>\n",
           [TotalTestTime,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN,
@@ -3705,12 +3705,16 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
                 failed ->
                     ReturnTime = case RetVal of
                                      {_, T} when is_number(T) -> T;
+                                     {died, {timetrap_timeout, T}, _} -> T/1000;
+                                     {T, _ , _} when is_number(T) -> T;
                                      _ -> 0
                                  end,
                     put(test_server_total_time, get(test_server_total_time) + ReturnTime),
                     put(test_server_failed, get(test_server_failed)+1),
                     ReturnTime;
                 skipped ->
+                    {ReturnTime, _, _} = RetVal,
+                    put(test_server_total_time, get(test_server_total_time) + ReturnTime),
                     SkipCounters =
                     update_skip_counters(RetVal, get(test_server_skipped)),
                     put(test_server_skipped, SkipCounters)
@@ -3866,13 +3870,19 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
-			    RunInit, TimetrapData),
+    run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
+                        RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
-	case Result of
-	    Normal={_Time,_RetVal,_Loc,_Opts,_Comment} -> Normal;
-	    {died,DReason,DLoc,DCmt} -> {died,DReason,DLoc,[],DCmt}
-	end,
+    case Result of
+        {died,DReason,DLoc,DCmt} -> {died,DReason,DLoc,[],DCmt};
+        Died={died,{timetrap_timeout,TimetrapTime},_DLoc,_DOpts,_Comment} when is_number(TimetrapTime) ->
+            put(test_server_total_time, TimetrapTime/1000 + get(test_server_total_time)),
+            Died;
+        Died={died,_,_,_,_}-> Died;
+        Normal={Time1,_RetVal,_Loc,_Opts,_Comment} when is_number(Time1) ->
+            put(test_server_total_time, Time1 + get(test_server_total_time)),
+            Normal
+    end,
 
     print(minor, "<a name=\"end\"></a>", [], internal_raw),
     print(minor, "\n", [], internal_raw),
@@ -3942,21 +3952,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
         {skip_init,_} ->			% conf doesn't count
             ok;
         {_,ok} ->
-            case Loc of
-                [{Module, _}] when Module =/= ct_framework ->
-                    put(test_server_total_time, get(test_server_total_time) + Time);
-                _ -> not_a_test_fun
-            end,
             put(test_server_ok, get(test_server_ok)+1);
         {_,failed} ->
-            DiedTime = case Time of
-                           died -> case RetVal of
-                                       {_,T} when is_number(T) -> T;
-                                       _ -> 0
-                                   end;
-                           T when is_number(T) -> T
-                       end,
-            put(test_server_total_time, get(test_server_total_time) + DiedTime),
             put(test_server_failed, get(test_server_failed)+1);
         {_,skip} ->
             {US,AS} = get(test_server_skipped),
@@ -3971,7 +3968,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	Main ->
 	    case test_server_sup:framework_call(warn, [processes], true) of
 		true ->
-		    if ProcsBefore < ProcsAfter ->
+                    if ProcsBefore < ProcsAfter ->
 			    print(minor,
 				  "WARNING: ~w more processes in system after test case",
 				  [ProcsAfter-ProcsBefore]);
@@ -4008,11 +4005,6 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
     %% if the test case was executed sequentially, this updates the execution
     %% time count on the main process (adding execution time of parallel test
     %% case groups is done in run_test_cases_loop/4)
-    if is_number(Time) ->
-            put(test_server_total_time, get(test_server_total_time)+Time);
-       true ->
-            ok
-    end,
     test_server_sup:check_new_crash_dumps(),
 
     %% if io is being buffered, send finished message
@@ -4050,20 +4042,20 @@ num2str(N) -> integer_to_list(N).
 %% Note: Strings that are to be written to the minor log must
 %% be prefixed with "=== " here, or the indentation will be wrong.
 
-progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 	 Comment, {St0,St1}) ->
     {Reason1,{Color,Ret,ReportTag}} = 
 	if_auto_skip(Reason,
 		     fun() -> {?auto_skip_color,auto_skip,auto_skipped} end,
 		     fun() -> {?user_skip_color,skip,skipped} end),
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(major, "=result        ~w: ~tp", [ReportTag,Reason1]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** SKIPPED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {ReportTag,Reason1}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     ReasonStr = escape_chars(reason_to_string(Reason1)),
     ReasonStr1 = lists:flatten([string:trim(S,leading,"\s") ||
 				S <- string:lexemes(ReasonStr,[$\n])]),
@@ -4090,7 +4082,9 @@ progress(skip, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	 Comment0, {St0,St1}) ->
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(major, "=result        failed: timeout, ~tp", [Loc]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
@@ -4108,15 +4102,17 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, timetrap_timeout, T,
 	  "<td>" ++ St0 ++ "~.3fs" ++ St1 ++ "</td>"
 	  "<td><font color=\"red\">FAILED</font></td>"
 	  "<td>~ts</td></tr>\n",
-	  [T/1000,Comment]),
+	  [Time/1000,Comment]),
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor, "=== Reason: timetrap timeout", []),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
 	 Comment0, {St0,St1}) ->
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(major, "=result        failed: testcase_aborted, ~tp", [Loc]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report,
@@ -4143,16 +4139,16 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, _T,
 				     [Reason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, T,
 	 Comment0, {St0,St1}) ->
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(major, "=result        failed: ~tp, ~w", [Reason,unknown_location]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     ErrorReason = escape_chars(lists:flatten(io_lib:format("~tp", [Reason]))),
     ErrorReason1 = lists:flatten([string:trim(S,leading,"\s") ||
 				  S <- string:lexemes(ErrorReason,[$\n])]),
@@ -4182,7 +4178,7 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, Time,
 	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
     failed;
 
-progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
+progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 	 Comment0, {St0,St1}) ->
     {LocMaj,LocMin} = if Func == error_in_suite ->
 			      case get_fw_mod(undefined) of
@@ -4191,14 +4187,14 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
 			      end;
 			 true -> {Loc,Loc}
 		       end,
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(major, "=result        failed: ~tp, ~tp", [Reason,LocMaj]),
+    print(major, "=elapsed       ~.6fs", [Time]),
     print(1, "*** FAILED ~ts ***",
 	  [get_info_str(Mod,Func, CaseNum, get(test_server_cases))]),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},
 						     {failed,Reason}}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     Comment =
 	case Comment0 of
 	    "" -> "";
@@ -4218,13 +4214,12 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, Time,
            escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
-progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
+progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, T,
 	 Comment0, {St0,St1}) ->
+    Time = if is_number(T) -> float(T); true -> 0.0 end,
     print(minor, "successfully completed test case", []),
     test_server_sup:framework_call(report, [tc_done,{Mod,{Func,GrName},ok}]),
-    TimeStr = io_lib:format(if is_float(Time) -> "~.3fs";
-			       true -> "~w"
-			    end, [Time]),
+    TimeStr = io_lib:format("~.fs", [Time]),
     Comment =
 	case RetVal of
 	    {comment,RetComment} ->
@@ -4241,7 +4236,7 @@ progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, Time,
 		    _ -> "<td>" ++ to_string(Comment0) ++ "</td>"
 		end
 	end,
-    print(major, "=elapsed       ~p", [Time]),
+    print(major, "=elapsed       ~ts", [TimeStr]),
     print(html,
 	  "<td>" ++ St0 ++ "~ts" ++ St1 ++ "</td>"
 	  "<td><font color=\"green\">Ok</font></td>"
