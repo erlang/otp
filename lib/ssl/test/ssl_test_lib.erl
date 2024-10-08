@@ -182,6 +182,7 @@
          make_rsa_1024_cert/1,
          make_rsa_pss_pem/4,
          make_rsa_sni_configs/0,
+         pss_params/1,
          gen_conf/4,
          make_mix_cert/1,
          default_cert_chain_conf/0,

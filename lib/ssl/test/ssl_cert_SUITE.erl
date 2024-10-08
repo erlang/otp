@@ -399,11 +399,17 @@ do_init_per_group(dsa = Alg, Config0) ->
             Config = ssl_test_lib:make_dsa_cert(Config0),
             COpts = proplists:get_value(client_dsa_opts, Config),
             SOpts = proplists:get_value(server_dsa_opts, Config),
+            ShaDSA = case Version of
+                         {3, 3} ->
+                             [{signature_algs, [{sha, dsa}]}];
+                         _  ->
+                             []
+                     end,
             [{cert_key_alg, dsa},
              {extra_client, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}]},
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA},
              {extra_server, ssl_test_lib:sig_algs(Alg, Version) ++
-                  [{ciphers, ssl_test_lib:dsa_suites(Version)}]} |
+                  [{ciphers, ssl_test_lib:dsa_suites(Version)}] ++ ShaDSA} |
              lists:delete(cert_key_alg,
                           [{client_cert_opts, COpts},
                            {server_cert_opts, SOpts} |
@@ -1209,13 +1215,15 @@ custom_groups(Config) ->
 %% of CertificateRequest does not contain the algorithm of the client certificate).
 %% ssl client sends an empty certificate.
 unsupported_sign_algo_cert_client_auth() ->
-     [{doc,"TLS 1.3 (backported to TLS-1.2) : Test client authentication with unsupported signature_algorithm_cert"}].
+     [{doc,"TLS 1.3 (backported to TLS-1.2) : Test client authentication with unsupported "
+       "signature_algorithm_cert"}].
 
 unsupported_sign_algo_cert_client_auth(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     ServerOpts = [{verify, verify_peer},
-                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256, rsa_pss_pss_sha256]},
+                  {signature_algs,
+                   [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256, rsa_pss_pss_sha256]},
                   %% Skip rsa_pkcs1_sha256!
                   {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
@@ -1224,7 +1232,7 @@ unsupported_sign_algo_cert_client_auth(Config) ->
         'tlsv1.3' ->
             ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required);
         _  ->
-            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security)
+            ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, unsupported_certificate)
     end.
 
 %%--------------------------------------------------------------------
