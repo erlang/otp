@@ -552,15 +552,6 @@ send_sync_alert(
 
 %% User closes or recursive call!
 close({close, Timeout}, Socket, Transport = gen_tcp, _) ->
-    tls_socket:setopts(Transport, Socket, [{active, false}]),
-    Transport:shutdown(Socket, write),
-    _ = Transport:recv(Socket, 0, Timeout),
-    ok;
-%% Peer closed socket
-close({shutdown, transport_closed}, Socket, Transport = gen_tcp, ConnectionStates) ->
-    close({close, 0}, Socket, Transport, ConnectionStates);
-%% We generate fatal alert
-close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates) ->
     %% Standard trick to try to make sure all
     %% data sent to the tcp port is really delivered to the
     %% peer application before tcp port is closed so that the peer will
@@ -569,7 +560,13 @@ close({shutdown, own_alert}, Socket, Transport = gen_tcp, ConnectionStates) ->
     %% e.g. we do not want to hang if something goes wrong
     %% with the network but we want to maximise the odds that
     %% peer application gets all data sent on the tcp connection.
-    close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
+    tls_socket:setopts(Transport, Socket, [{active, false}]),
+    Transport:shutdown(Socket, write),
+    _ = Transport:recv(Socket, 0, Timeout),
+    ok;
+%% Peer closed socket
+close({shutdown, transport_closed}, Socket, Transport = gen_tcp, ConnectionStates) ->
+    close({close, 0}, Socket, Transport, ConnectionStates);
 %% Other
 close(_, Socket, Transport, _) ->
     tls_socket:close(Transport, Socket).
