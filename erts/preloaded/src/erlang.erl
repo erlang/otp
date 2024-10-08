@@ -4262,7 +4262,7 @@ earlier, and:
   > Now, such a call to `monitor` will instead succeed and a monitor is created.
   > But the monitor will only supervise the connection. That is, a
   > `{'DOWN', _, process, _, noconnection}` is the only message that may be
-  > received, as the primitive node have no way of reporting the status of the
+  > received, as the primitive node has no way of reporting the status of the
   > monitored process.
 
 - **Monitoring a `port`{: #monitor_port }** - Creates monitor between the
