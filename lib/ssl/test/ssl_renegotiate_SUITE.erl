@@ -323,7 +323,7 @@ client_no_wrap_sequence_number() ->
     [{doc,"Test that erlang client will renegotiate session when",
      "max sequence number celing is about to be reached. Although"
      "in the testcase we use the test option renegotiate_at"
-     " to lower treashold substantially."}].
+     " to lower threshold substantially."}].
 
 client_no_wrap_sequence_number(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -347,7 +347,7 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib,
-					       trigger_renegotiate, [[ErlData, treashold(N, Version)]]}},
+					       trigger_renegotiate, [[ErlData, threshold(N, Version)]]}},
 					{options, [{reuse_sessions, false},
 						   {renegotiate_at, N} | ClientOpts]}]),
 
@@ -360,7 +360,7 @@ server_no_wrap_sequence_number() ->
     [{doc, "Test that erlang server will renegotiate session when",
      "max sequence number celing is about to be reached. Although"
      "in the testcase we use the test option renegotiate_at"
-     " to lower treashold substantially."}].
+     " to lower threshold substantially."}].
 
 server_no_wrap_sequence_number(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
@@ -477,7 +477,7 @@ active_error_disallowed_client_renegotiate(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -536,9 +536,9 @@ renegotiate_rejected(Socket) ->
     ok.
 
 %% First two clauses handles 1/n-1 splitting countermeasure Rizzo/Duong-Beast
-treashold(N, ?TLS_1_0) ->
+threshold(N, ?TLS_1_0) ->
     (N div 2) + 1;
-treashold(N, _) ->
+threshold(N, _) ->
     N + 1.
 
 erlang_ssl_receive(Socket, Data) ->

@@ -1027,8 +1027,7 @@ key_auth_ext_sign_only(Config) when is_list(Config) ->
 cert_auth_in_first_ca() ->
     [{doc,"Test cert auth will be available in first ca in chain, make it happen by only having one"}].
 cert_auth_in_first_ca(Config) when is_list(Config) ->
-    #{server_config := ServerOpts0,
-      client_config := ClientOpts0} =
+    #{} =
         public_key:pkix_test_data(#{server_chain => #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
                                                       intermediates => [[]],
                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(5)}]},
