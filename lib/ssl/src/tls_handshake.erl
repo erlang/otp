@@ -245,8 +245,8 @@ hello(#client_hello{client_version = _ClientVersion,
       #{versions := Versions = [Version |_]} = SslOpts,
       Info, Renegotiation) when ?TLS_GTE(Version, ?TLS_1_2)->
     try
-        Version = ssl_handshake:select_supported_version(ClientVersions, Versions),
-        do_hello(Version, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
+        SelectedVersion = ssl_handshake:select_supported_version(ClientVersions, Versions),
+        do_hello(SelectedVersion, Versions, CipherSuites, Hello, SslOpts, Info, Renegotiation)
     catch
 	error:Reason:ST ->
             ?SSL_LOG(info, handshake_error, [{reason,Reason}, {stacktrace, ST}]),
