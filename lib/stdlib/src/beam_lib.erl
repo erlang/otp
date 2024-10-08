@@ -977,8 +977,7 @@ scan_beam(FD, Pos, What, Mod, Data) ->
 get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, Encoding) ->
     NewCs = del_chunk(Id, Cs),
     {NFD, Chunk} = get_chunk(Id, Pos, Size, FD),
-    <<_Num:32, Chunk2/binary>> = Chunk,
-    {Module, _} = extract_atom(Chunk2, Encoding),
+    Module = extract_module(Chunk, Encoding),
     C = case Cs of
 	    info -> 
 		{Id, Pos, Size};
@@ -1202,6 +1201,15 @@ ensure_atoms({empty, AT}, Cs) ->
 ensure_atoms(AT, _Cs) ->
     AT.
 
+extract_module(<<Num:32/signed-integer, B/binary>>, utf8) when Num < 0 ->
+    {Module, _} = extract_long_atom(B),
+    Module;
+extract_module(<<_Num:32/signed-integer, B/binary>>, Encoding) ->
+    {Module, _} = extract_atom(B, Encoding),
+    Module.
+
+extract_atoms(<<Num:32/signed-integer, B/binary>>, AT, utf8) when Num < 0 ->
+    extract_long_atoms(B, 1, AT);
 extract_atoms(<<_Num:32, B/binary>>, AT, Encoding) ->
     extract_atoms(B, 1, AT, Encoding).
 
@@ -1215,6 +1223,27 @@ extract_atoms(B, I, AT, Encoding) ->
 extract_atom(<<Len, B/binary>>, Encoding) ->
     <<SB:Len/binary, Tail/binary>> = B,
     {binary_to_atom(SB, Encoding), Tail}.
+
+extract_long_atoms(<<>>, _I, _AT) ->
+    true;
+extract_long_atoms(B, I, AT) ->
+    {Atom, B1} = extract_long_atom(B),
+    true = ets:insert(AT, {I, Atom}),
+    extract_long_atoms(B1, I+1, AT).
+
+extract_long_atom(B0) ->
+    {Len, B} = decode_arg_val(B0),
+    <<SB:Len/binary, Tail/binary>> = B,
+    {binary_to_atom(SB, utf8), Tail}.
+
+%% Extract the value from variable-sized tagged argument. Only support
+%% values from 0 through 2047, which is sufficient to handle the
+%% length of atoms in the atom table.
+decode_arg_val(<<N:4,0:1, _Tag:3, Code/binary>>) ->
+    {N, Code};
+decode_arg_val(<<High:3,0:1,1:1, _Tag:3, Low, Code0/binary>>) ->
+    N = (High bsl 8) bor Low,
+    {N, Code0}.
 
 %%% Utils.
 

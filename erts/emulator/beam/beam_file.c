@@ -241,6 +241,7 @@ static int parse_atom_chunk(BeamFile *beam,
     BeamReader reader;
     Sint32 count;
     int i;
+    bool long_counts = false;
 
     ASSERT(beam->atoms.entries == NULL);
     atoms = &beam->atoms;
@@ -248,6 +249,10 @@ static int parse_atom_chunk(BeamFile *beam,
     beamreader_init(chunk->data, chunk->size, &reader);
 
     LoadAssert(beamreader_read_i32(&reader, &count));
+    if (count < 0) {
+        long_counts = true;
+        count = -count;
+    }
     LoadAssert(CHECK_ITEM_COUNT(count, 1, sizeof(atoms->entries[0])));
 
     /* Reserve a slot for the empty list, which is encoded as atom 0 as we
@@ -264,12 +269,21 @@ static int parse_atom_chunk(BeamFile *beam,
 
     for (i = 1; i < count; i++) {
         const byte *string;
-        byte length;
         Eterm atom;
+        Uint length;
 
-        LoadAssert(beamreader_read_u8(&reader, &length));
+        if (long_counts) {
+            TaggedNumber len;
+            LoadAssert(beamreader_read_tagged(&reader, &len));
+            LoadAssert(len.size == 0);
+            length = (Uint) len.word_value;
+        } else {
+            byte len;
+            LoadAssert(beamreader_read_u8(&reader, &len));
+            length = len;
+        }
+
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
-
         atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
         LoadAssert(atom != THE_NON_VALUE);
 

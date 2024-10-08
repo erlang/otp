@@ -137,8 +137,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, Com
 		      Code),
 
     %% Create the atom table chunk.
-    {NumAtoms, AtomTab} = beam_dict:atom_table(Dict),
-    AtomChunk = chunk(<<"AtU8">>, <<NumAtoms:32>>, AtomTab),
+    AtomChunk = build_atom_table(CompilerOpts, Dict),
 
     %% Create the import table chunk.
 
@@ -286,6 +285,19 @@ build_attributes(Attr, Compile, MD5) ->
     AttrBinary = term_to_binary(set_vsn_attribute(Attr, MD5)),
     CompileBinary = term_to_binary([{version,?COMPILER_VSN}|Compile]),
     {AttrBinary,CompileBinary}.
+
+build_atom_table(Options, Dict) ->
+    {NumAtoms, AtomTab0} = beam_dict:atom_table(Dict),
+    case member(no_long_atoms, Options) of
+        false ->
+            %% Build an atom table for Erlang/OTP 28 and later.
+            AtomTab = [[encode(?tag_u, Len),Text] || [Len,Text] <- AtomTab0],
+            chunk(<<"AtU8">>, <<-NumAtoms:32>>, AtomTab);
+        true ->
+            %% Build an atom table compatible with Erlang/OTP 27
+            %% and earlier.
+            chunk(<<"AtU8">>, <<NumAtoms:32>>, AtomTab0)
+    end.
 
 build_line_table(Dict, Options) ->
     {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0,ExecLine} =
