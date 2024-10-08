@@ -467,7 +467,12 @@ class JitPerfMap {
 public:
     bool init() {
         char name[MAXPATHLEN];
-        snprintf(name, sizeof(name), "/tmp/perf-%i.map", getpid());
+        size_t namesz = sizeof(name);
+
+        if (erts_sys_explicit_host_getenv("ERL_SYM_MAP_FILE", name, &namesz) !=
+            1) {
+            snprintf(name, sizeof(name), "/tmp/perf-%i.map", getpid());
+        }
         file = fopen(name, "w");
         if (!file) {
             int saved_errno = errno;

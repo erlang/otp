@@ -87,7 +87,7 @@ int erts_sys_explicit_8bit_getenv(char *key, char *value, size_t *size) {
     return result;
 }
 
-int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size) {
+int erts_sys_explicit_host_getenv(const char *key, char *value, size_t *size) {
     char *orig_value;
     size_t length;
     
