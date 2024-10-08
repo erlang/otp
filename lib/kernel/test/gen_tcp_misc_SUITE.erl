@@ -9436,11 +9436,9 @@ fill_send_buffers(Payload, Sa, Sb, Timeout, N) ->
     end.
 
 recv_data(_Payload, Sa, Ref, Ref2, M, N) when M < N ->
-    receive Msg ->
-            {send_result, Ref, ok} = Msg,
+    receive {send_result, Ref, ok} ->
             io:format("[~w] Send finished ~w~n", [self(), Ref]),
-            receive Msg2 ->
-                    {send_result, Ref2, ok} = Msg2,
+            receive {send_result, Ref2, ok} ->
                     io:format("[~w] Send finished ~w~n", [self(), Ref2]),
                     gen_tcp:shutdown(Sa, write),
                     {error, closed} = gen_tcp:recv(Sa, 0),
