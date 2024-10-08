@@ -139,6 +139,7 @@ static GenericBpData* check_break(ErtsTraceSession *session,
 
 static void bp_meta_unref(BpMetaTracer *bmt);
 static void bp_count_unref(BpCount *bcp);
+static BpDataCallTrace* bp_calltrace_alloc(void);
 static void bp_calltrace_unref(BpDataCallTrace *bdt);
 static void consolidate_bp_data(struct erl_module_instance *mi,
                                 ErtsCodeInfo *ci, int local);
@@ -487,12 +488,10 @@ consolidate_bp_data_session(GenericBp* g)
     if (flags & ERTS_BPF_TIME_TRACE) {
 	dst->time = src->time;
 	erts_refc_inc(&dst->time->refc, 1);
-	ASSERT(dst->time->hash);
     }
     if (flags & ERTS_BPF_MEM_TRACE) {
 	dst->memory = src->memory;
 	erts_refc_inc(&dst->memory->refc, 1);
-	ASSERT(dst->memory->hash);
     }
 }
 
@@ -1618,12 +1617,9 @@ static void bp_hash_delete(bp_trace_hash_t *hash) {
     hash->item = NULL;
 }
 
-static void bp_hash_reset(BpDataCallTrace* bdt) {
-    Uint i;
-    for (i = 0; i < bdt->n; i++) {
-        bp_hash_delete(&(bdt->hash[i]));
-        bp_hash_init(&(bdt->hash[i]), 32);
-    }
+static void bp_hash_reset(BpDataCallTrace** bdt_p) {
+    bp_calltrace_unref(*bdt_p);
+    *bdt_p = bp_calltrace_alloc();
 }
 
 void erts_schedule_time_break(Process *p, Uint schedule) {
@@ -1858,7 +1854,7 @@ set_function_break(ErtsCodeInfo *ci,
 	    bp->flags &= ~ERTS_BPF_TIME_TRACE_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_TIME_TRACE_ACTIVE;
-	    bp_hash_reset(bp->time);
+	    bp_hash_reset(&bp->time);
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
@@ -1867,7 +1863,7 @@ set_function_break(ErtsCodeInfo *ci,
 	    bp->flags &= ~ERTS_BPF_MEM_TRACE_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_MEM_TRACE_ACTIVE;
-	    bp_hash_reset(bp->memory);
+	    bp_hash_reset(&bp->memory);
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
@@ -1900,17 +1896,12 @@ set_function_break(ErtsCodeInfo *ci,
 	bp->count = bcp;
     } else if (break_flags & (ERTS_BPF_TIME_TRACE | ERTS_BPF_MEM_TRACE)) {
 	BpDataCallTrace* bdt;
-	Uint i;
 
 	ASSERT((break_flags & bp->flags & ERTS_BPF_TIME_TRACE) == 0);
         ASSERT((break_flags & bp->flags & ERTS_BPF_MEM_TRACE) == 0);
-	bdt = Alloc(sizeof(BpDataCallTrace));
-	erts_refc_init(&bdt->refc, 1);
-	bdt->n = erts_no_schedulers + 1;
-	bdt->hash = Alloc(sizeof(bp_trace_hash_t)*(bdt->n));
-	for (i = 0; i < bdt->n; i++) {
-	    bp_hash_init(&(bdt->hash[i]), 32);
-	}
+
+        bdt = bp_calltrace_alloc();
+
         if (break_flags & ERTS_BPF_TIME_TRACE)
             bp->time = bdt;
         else
@@ -2009,6 +2000,19 @@ bp_count_unref(BpCount* bcp)
     }
 }
 
+static BpDataCallTrace* bp_calltrace_alloc(void)
+{
+    const Uint n = erts_no_schedulers + 1;
+    BpDataCallTrace *bdt = Alloc(offsetof(BpDataCallTrace,hash) +
+                                 sizeof(bp_trace_hash_t)*n);
+    bdt->n = n;
+    erts_refc_init(&bdt->refc, 1);
+    for (Uint i = 0; i < n; i++) {
+        bp_hash_init(&(bdt->hash[i]), 32);
+    }
+    return bdt;
+}
+
 static void
 bp_calltrace_unref(BpDataCallTrace* bdt)
 {
@@ -2018,7 +2022,6 @@ bp_calltrace_unref(BpDataCallTrace* bdt)
 	for (i = 0; i < bdt->n; ++i) {
 	    bp_hash_delete(&(bdt->hash[i]));
 	}
-	Free(bdt->hash);
 	Free(bdt);
     }
 }
