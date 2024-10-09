@@ -238,6 +238,7 @@ typedef struct {
 
     SOCKET          dummy; // Used for extracting AcceptEx and ConnectEx
 
+    /* Extension functions */
     LPFN_ACCEPTEX   accept;
     LPFN_CONNECTEX  connect;
     LPFN_WSASENDMSG sendmsg;
@@ -411,14 +412,14 @@ typedef struct __ESAIOOperation {
 
     unsigned int          tag;    /* The 'tag' of the operation */
 
-    ErlNifPid             caller; /* Almost every request (not connect)
+    ErlNifPid             caller; /* *Almost* every request (not connect)
                                    * operations require a caller */
-    ErlNifEnv*            env;    /* Almost every request
+    ErlNifEnv*            env;    /* *Almost* every request
                                    * needs an environment */
 
     /* Generic "data" field.
      * This is different for each 'operation'!
-     * Also, not all opererations have this!
+     * Also; not all opererations have this!
      */
 
     union {
@@ -1251,6 +1252,7 @@ int esaio_init(unsigned int     numThreads,
         ctrl.accept = NULL;
 
         WSACleanup();
+
         return ESAIO_ERR_IOCTL_CONNECT_GET;
     }
     
@@ -1275,6 +1277,7 @@ int esaio_init(unsigned int     numThreads,
         ctrl.connect = NULL;
 
         WSACleanup();
+
         return ESAIO_ERR_IOCTL_SENDMSG_GET;
     }
     
@@ -1300,6 +1303,7 @@ int esaio_init(unsigned int     numThreads,
         ctrl.sendmsg = NULL;
 
         WSACleanup();
+
         return ESAIO_ERR_IOCTL_RECVMSG_GET;
     }
     
@@ -1336,7 +1340,8 @@ int esaio_init(unsigned int     numThreads,
         sprintf(buf, "esaio-opts[%d]", i);
         ctrl.threads[i].optsP      = TOCREATE(buf);
         if (ctrl.threads[i].optsP == NULL) {
-            esock_error_msg("Failed create thread opts %d\r\n");
+
+            esock_error_msg("Failed create thread opts %d\r\n", i);
 
             ctrl.threads[i].data.error = ESAIO_THREAD_ERROR_TOCREATE;
 
@@ -1345,6 +1350,9 @@ int esaio_init(unsigned int     numThreads,
                         "esaio_init -> destroy thread opts %d\r\n", j) );
                 TODESTROY(ctrl.threads[j].optsP);
             }
+
+            WSACleanup();
+
             return ESAIO_ERR_THREAD_OPTS_CREATE;
         }
 
@@ -1357,6 +1365,8 @@ int esaio_init(unsigned int     numThreads,
                          (void*) &ctrl.threads[i].data, 
                          ctrl.threads[i].optsP)) {
 
+            esock_error_msg("Failed create thread %d\r\n", i);
+
             ctrl.threads[i].data.error = ESAIO_THREAD_ERROR_TCREATE;
 
             for (j = 0; j <= i; j++) {
@@ -1364,6 +1374,9 @@ int esaio_init(unsigned int     numThreads,
                         "esaio_init -> destroy thread opts %d\r\n", j) );
                 TODESTROY(ctrl.threads[j].optsP);
             }
+
+            WSACleanup();
+
             return ESAIO_ERR_THREAD_CREATE;
         }
 
@@ -1379,9 +1392,9 @@ int esaio_init(unsigned int     numThreads,
 
 /* *******************************************************************
  * Finish, terminate, the ESock Async I/O backend.
- * This means principally to terminate (threads of) the thread pool.
+ * This means principally to terminate the threads of the thread pool.
  * Issue a "message" via PostQueuedCompletionStatus
- * instructing all (completion) threads to terminate.
+ * instructing every thread (of the pool) to terminate.
  */
 extern
 void esaio_finish()
@@ -1416,7 +1429,7 @@ void esaio_finish()
         /* We should actually check that the alloc was successful
          * and if not ... 
          * Note that this function is only called when we are terminating
-         * the VM. So, is there actuall any pointy in "doing" something?
+         * the VM. So, is there actually any point in "doing" something?
          * Or should we solve this another way? Instead of allocating
          * a memory block; Send in a constant, ESAIO_OP_TERMINATE,
          * *instead of* the overlapped pointer!
@@ -1430,6 +1443,10 @@ void esaio_finish()
             sys_memzero((char *) opP, sizeof(ESAIOOperation));
 
             opP->tag = ESAIO_OP_TERMINATE;
+            /* This should never be accessed for this command, *
+             * but just to be on the safe side...              */
+            enif_set_pid_undefined(&opP->caller);
+            opP->env = NULL;
 
             SGDBG( ("WIN-ESAIO",
                     "esaio_finish -> "
@@ -1472,16 +1489,22 @@ void esaio_finish()
         }
     }
 
+    SGDBG( ("WIN-ESAIO", "esaio_finish -> cleanup\r\n") );
+    WSACleanup();
+
     /* This is overkill,
      * since this function, esaio_finish, is called when the VM is halt'ing...
-     * ...but just to be a nice citizen...
+     * ...but just to be a good citizen...
      */
     SGDBG( ("WIN-ESAIO", "esaio_finish -> free the thread pool data\r\n") );
     FREE( ctrl.threads );
 
-    SGDBG( ("WIN-ESAIO", "esaio_finish -> invalidate functions\r\n") );
+    SGDBG( ("WIN-ESAIO",
+            "esaio_finish -> invalidate (extension) functions\r\n") );
     ctrl.accept  = NULL;
     ctrl.connect = NULL;
+    ctrl.sendmsg = NULL;
+    ctrl.recvmsg = NULL;
     
     SGDBG( ("WIN-ESAIO", "esaio_finish -> done\r\n") );
 
@@ -1984,8 +2007,6 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
             sock_close(descP->sock);
             descP->writeState = ESOCK_STATE_CLOSED;
 
-            WSACleanup();
-
             eres = esock_make_error_t2r(env, tag, reason);
         }
 
@@ -2026,7 +2047,6 @@ ERL_NIF_TERM connect_stream_check_result(ErlNifEnv*       env,
 
             sock_close(descP->sock);
             descP->writeState = ESOCK_STATE_CLOSED;
-            WSACleanup();
 
             eres = esock_make_error(env, ereason);
         }
@@ -2177,7 +2197,6 @@ ERL_NIF_TERM esaio_accept(ErlNifEnv*       env,
         esock_clear_env("esaio_accept - invalid accept socket", opP->env);
         esock_free_env("esaio_accept - invalid accept socket", opP->env);
         FREE( opP );
-        WSACleanup();
 
         SSDBG( descP,
                ("WIN-ESAIO",
@@ -2360,7 +2379,6 @@ ERL_NIF_TERM accept_check_fail(ErlNifEnv*       env,
     FREE( opP );
 
     sock_close(accSock);
-    WSACleanup();
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_acc_fails, &descP->accFails, 1);
@@ -6709,8 +6727,6 @@ void esaio_completion_connect_completed(ErlNifEnv*          env,
 
         sock_close(descP->sock);
 
-        WSACleanup();
-
         completionStatus = esock_make_error_t2r(descP->connector.env,
                                                 tag, reason);
 
@@ -7206,8 +7222,6 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
 
         sock_close(descP->sock);
         descP->writeState = ESOCK_STATE_CLOSED;
-
-        WSACleanup();
 
         completionStatus = esock_make_error_t2r(opEnv, tag, reason);
 
