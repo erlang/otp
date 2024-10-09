@@ -102,6 +102,7 @@ MODULES= \
 	testDER \
 	test_selective_decode \
 	test_special_decode_performance \
+	test_exclusive_decode_rest \
 	testTCAP \
 	testSSLspecs \
 	testSelectionTypes \

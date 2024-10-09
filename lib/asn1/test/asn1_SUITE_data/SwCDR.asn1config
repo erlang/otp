@@ -1,0 +1,6 @@
+{exclusive_decode,
+      {'SwCDR',
+            [{decode_cdr,
+                  ['SwCDR',
+                        [{origSvcCallRecord, undecoded},
+                        {termSvcCallRecord, undecoded}]]}]}}.
