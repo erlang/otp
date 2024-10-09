@@ -14,7 +14,8 @@
   in [;;4mBinary[0m. The positions in the binary are numbered starting
   from 1.
 
-  Note:
+  [;;4mNote[0m
+
     The one-based indexing for binaries used by this function is
     deprecated. New code is to use [;;4mbinary:bin_to_list/3[0m in
     STDLIB instead. All functions in module [;;4mbinary[0m consistently

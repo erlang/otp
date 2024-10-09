@@ -1,9 +1,10 @@
 
-  [;1m-spec erlang:localtime() -> DateTime[0m
-  [;1m                          when DateTime :: calendar:datetime().[0m
+  [;1m-spec localtime() -> DateTime when DateTime :: calendar:datetime().[0m
 
   Returns the current local date and time, [;;4m{{Year, Month, Day},[0m
-  [;;4m{Hour, Minute, Second}}[0m, for example:
+  [;;4m{Hour, Minute, Second}}[0m.
+
+  For example:
 
     > erlang:localtime().
     {{1996,11,6},{14,45,17}}

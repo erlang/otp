@@ -10,9 +10,7 @@
   (a, b[i]) for 1 <= i <= n are added to a newly created directed
   graph.
 
-  If no graph type is specified, [;;4mdigraph:new/0[0m is used for
-  creating the directed graph, otherwise argument [;;4mGraphType[0m is
-  passed on as second argument to [;;4mdigraph:new/1[0m.
+  [;;4mGraphType[0m is passed on to [;;4mdigraph:new/1[0m.
 
   It F is a family, it holds that F is a subset of [;;4m[0m
   [;;4mdigraph_to_family(family_to_digraph(F), type(F))[0m. Equality holds

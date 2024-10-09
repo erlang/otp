@@ -1,4 +1,4 @@
 
   [;1m-type nil() :: [].[0m
 
-  The empty list().
+  The empty [;;4mlist/0[0m.

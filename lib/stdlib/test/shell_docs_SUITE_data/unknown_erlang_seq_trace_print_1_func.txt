@@ -1,5 +1,5 @@
 
-[;1m  seq_trace_print/1[0m
+  [;1m-spec seq_trace_print(P1) -> boolean() when P1 :: term().[0m
 
   The documentation for seq_trace_print/1 is hidden. This probably
   means that it is internal and not to be used by other

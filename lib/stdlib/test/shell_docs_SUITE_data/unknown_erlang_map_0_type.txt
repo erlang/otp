@@ -1,5 +1,4 @@
 
   [;1m-type map() :: #{any() => any()}.[0m
 
-  An Erlang map containing any number of key and value
-  associations.
+  An Erlang map containing any number of key and value associations.

@@ -1,0 +1,4 @@
+
+  [;1m-type dynamic() :: dynamic().[0m
+
+  The dynamic type.

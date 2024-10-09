@@ -2,8 +2,8 @@
   [;1m-spec family_domain(Family1) -> Family2[0m
   [;1m                       when Family1 :: family(), Family2 :: family().[0m
 
-  If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a binary relation
-  for every i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the
+  If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a binary relation for
+  every i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the
   family with the same index set as [;;4mFamily1[0m such that [;;4mFamily2[0m[i]
   is the domain of [;;4mFamily1[i][0m.
 

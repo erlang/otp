@@ -15,9 +15,7 @@
 
   Typical error reasons:
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing search or write permissions for [;;4mDir[0m or one of its
-    parent directories.
+   • [;;4meacces[0m - Missing search or write permissions for [;;4mDir[0m or
+     one of its parent directories.
 
-  [;;4m[;;4menoent[0m[0m:
-    The directory does not exist.
+   • [;;4menoent[0m - The directory does not exist.

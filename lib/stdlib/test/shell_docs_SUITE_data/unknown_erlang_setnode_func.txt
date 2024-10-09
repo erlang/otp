@@ -1,10 +1,14 @@
 
-[;1m  setnode/2[0m
+  [;1m-spec setnode(P1, P2) -> true when P1 :: atom(), P2 :: integer().[0m
 
   The documentation for setnode/2 is hidden. This probably means
   that it is internal and not to be used by other applications.
 
-[;1m  setnode/3[0m
+  [;1m-spec setnode(Node, DistCtrlr, Opts) -> dist_handle()[0m
+  [;1m                 when[0m
+  [;1m                     Node :: atom(),[0m
+  [;1m                     DistCtrlr :: port() | pid(),[0m
+  [;1m                     Opts :: {integer(), pos_integer()}.[0m
 
   The documentation for setnode/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

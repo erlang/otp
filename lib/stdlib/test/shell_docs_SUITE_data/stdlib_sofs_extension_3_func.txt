@@ -6,9 +6,9 @@
   [;1m                       BinRel2 :: binary_relation(),[0m
   [;1m                       Set :: a_set().[0m
 
-  Returns the extension of [;;4mBinRel1[0m such that for each element E
-  in [;;4mSet[0m that does not belong to the domain of [;;4mBinRel1[0m, [;;4m[0m
-  [;;4mBinRel2[0m contains the pair (E, [;;4mAnySet[0m).
+  Returns the extension of [;;4mBinRel1[0m such that for each element E in [;;4m[0m
+  [;;4mSet[0m that does not belong to the domain of [;;4mBinRel1[0m, [;;4mBinRel2[0m
+  contains the pair (E, [;;4mAnySet[0m).
 
     1> S = sofs:set([b,c]),
     A = sofs:empty_set(),

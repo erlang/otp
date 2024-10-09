@@ -5,8 +5,8 @@
   Returns the smallest of [;;4mTerm1[0m and [;;4mTerm2[0m. If the terms compare
   equal with the [;;4m==[0m operator, [;;4mTerm1[0m is returned.
 
-  The Expressions section contains descriptions of the [;;4m==[0m
-  operator and how terms are ordered.
+  The Expressions section contains descriptions of the [;;4m==[0m operator
+  and how terms are ordered.
 
   Examples:
 
@@ -22,7 +22,6 @@
     > min("abc", "b").
     "abc"
 
-  Allowed in guard tests.
+  [;;4mChange[0m
 
-  Change:
     Allowed in guards tests from Erlang/OTP 26.

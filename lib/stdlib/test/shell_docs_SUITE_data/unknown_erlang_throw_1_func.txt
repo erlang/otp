@@ -5,13 +5,17 @@
   non-local returns from functions.
 
   If evaluated within a catch expression, the catch expression
-  returns value [;;4mAny[0m. Example:
+  returns value [;;4mAny[0m.
+
+  For example:
 
     > catch throw({hello, there}).
             {hello,there}
 
   If evaluated within a [;;4mtry[0m-block of a try expression, the value [;;4m[0m
-  [;;4mAny[0m can be caught within the catch block. Example:
+  [;;4mAny[0m can be caught within the catch block.
+
+  For example:
 
     try
         throw({my_exception, "Something happened"})

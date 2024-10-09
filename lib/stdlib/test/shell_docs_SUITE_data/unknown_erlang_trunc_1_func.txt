@@ -1,7 +1,9 @@
 
   [;1m-spec trunc(Number) -> integer() when Number :: number().[0m
 
-  Truncates the decimals of [;;4mNumber[0m, for example:
+  Truncates the decimals of [;;4mNumber[0m.
+
+  For example:
 
     > trunc(5.7).
     5
@@ -22,5 +24,3 @@
   [;;4m36028797018963968.0[0m, which is the closest number that can be
   represented exactly as a float value. See Representation of
   Floating Point Numbers for additional information.
-
-  Allowed in guard tests.

@@ -1,7 +1,9 @@
 
   [;1m-spec erase() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
 
-  Returns the process dictionary and deletes it, for example:
+  Returns the process dictionary and deletes it.
+
+  For example:
 
     > put(key1, {1, 2, 3}),
     put(key2, [a, b, c]),
@@ -12,10 +14,13 @@
 
   Returns the value [;;4mVal[0m associated with [;;4mKey[0m and deletes it from
   the process dictionary. Returns [;;4mundefined[0m if no value is
-  associated with [;;4mKey[0m. The average time complexity for the current
-  implementation of this function is O([;;4m1[0m) and the worst case time
-  complexity is O([;;4mN[0m), where [;;4mN[0m is the number of items in the
-  process dictionary. Example:
+  associated with [;;4mKey[0m.
+
+  The average time complexity for the current implementation of this
+  function is O([;;4m1[0m) and the worst case time complexity is O([;;4mN[0m),
+  where [;;4mN[0m is the number of items in the process dictionary.
+
+  For example:
 
     > put(key1, {merry, lambs, are, playing}),
     X = erase(key1),

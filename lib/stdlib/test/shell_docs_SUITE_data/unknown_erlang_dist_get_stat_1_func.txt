@@ -1,5 +1,13 @@
 
-[;1m  dist_get_stat/1[0m
+  [;1m-spec dist_get_stat(DHandle) -> Res[0m
+  [;1m                       when[0m
+  [;1m                           DHandle :: dist_handle(),[0m
+  [;1m                           InputPackets :: non_neg_integer(),[0m
+  [;1m                           OutputPackets :: non_neg_integer(),[0m
+  [;1m                           PendingOutputPackets :: non_neg_integer(),[0m
+  [;1m                           Res ::[0m
+  [;1m                               {ok, InputPackets, OutputPackets,[0m
+  [;1m                                PendingOutputPackets}.[0m
 
   The documentation for dist_get_stat/1 is hidden. This probably
   means that it is internal and not to be used by other

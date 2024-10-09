@@ -1,5 +1,9 @@
 
-[;1m  get_module_info/2[0m
+  [;1m-spec get_module_info(Module, Item) -> ModuleInfo[0m
+  [;1m                         when[0m
+  [;1m                             Module :: atom(),[0m
+  [;1m                             Item :: module_info_key(),[0m
+  [;1m                             ModuleInfo :: term().[0m
 
   The documentation for get_module_info/2 is hidden. This probably
   means that it is internal and not to be used by other

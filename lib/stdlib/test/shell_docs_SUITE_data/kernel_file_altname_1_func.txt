@@ -1,5 +1,5 @@
 
-[;1m  altname/1[0m
+  [;1m-spec altname(Name :: name_all()) -> any().[0m
 
   The documentation for altname/1 is hidden. This probably means
   that it is internal and not to be used by other applications.

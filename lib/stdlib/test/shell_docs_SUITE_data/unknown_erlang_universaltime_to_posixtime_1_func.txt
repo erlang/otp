@@ -1,5 +1,9 @@
 
-[;1m  universaltime_to_posixtime/1[0m
+  [;1m-spec universaltime_to_posixtime(P1) -> integer()[0m
+  [;1m                                    when[0m
+  [;1m                                        P1 ::[0m
+  [;1m                                            {calendar:date(),[0m
+  [;1m                                             calendar:time()}.[0m
 
   The documentation for universaltime_to_posixtime/1 is hidden.
   This probably means that it is internal and not to be used by

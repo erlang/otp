@@ -18,5 +18,3 @@
     true
     > is_map_key(value,Map).
     false
-
-  Allowed in guard tests.

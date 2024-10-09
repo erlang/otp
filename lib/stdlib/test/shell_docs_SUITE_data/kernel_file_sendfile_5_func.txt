@@ -16,10 +16,6 @@
 [;;4mSince[0m:
   OTP R15B
 
-  Types:
-    -type sendfile_option() ::
-          {chunk_size, non_neg_integer()} | {use_threads, boolean()}.
-
   Sends [;;4mBytes[0m from the file referenced by [;;4mRawFile[0m beginning at [;;4m[0m
   [;;4mOffset[0m to [;;4mSocket[0m. Returns [;;4m{ok, BytesSent}[0m if successful,
   otherwise [;;4m{error, Reason}[0m. If [;;4mBytes[0m is set to [;;4m0[0m all data
@@ -35,7 +31,6 @@
 
   The option list can contain the following options:
 
-  [;;4m[;;4mchunk_size[0m[0m:
-    The chunk size used by the Erlang fallback to send data. If
-    using the fallback, set this to a value that comfortably fits
-    in the systems memory. Default is 20 MB.
+   • [;;4mchunk_size[0m - The chunk size used by the Erlang fallback to
+     send data. If using the fallback, set this to a value that
+     comfortably fits in the systems memory. Default is 20 MB.

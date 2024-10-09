@@ -1,13 +1,13 @@
 
-  [;1m-spec erlang:external_size(Term) -> non_neg_integer()[0m
-  [;1m                              when Term :: term().[0m
+  [;1m-spec external_size(Term) -> non_neg_integer() when Term :: term().[0m
 
 [;;4mSince[0m:
   OTP R14B04
 
   Calculates, without doing the encoding, the maximum byte size for
-  a term encoded in the Erlang external term format. The following
-  condition applies always:
+  a term encoded in the Erlang external term format.
+
+  The following condition applies always:
 
     > Size1 = byte_size(term_to_binary(Term)),
     > Size2 = erlang:external_size(Term),
