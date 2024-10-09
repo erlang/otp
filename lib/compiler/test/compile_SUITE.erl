@@ -41,7 +41,8 @@
          deterministic_docs/1,
          compile_attribute/1, message_printing/1, other_options/1,
          transforms/1, erl_compile_api/1, types_pp/1, bs_init_writable/1,
-         annotations_pp/1, option_order/1
+         annotations_pp/1, option_order/1,
+         sys_coverage/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -64,7 +65,7 @@ all() ->
      deterministic_docs,
      compile_attribute, message_printing, other_options, transforms,
      erl_compile_api, types_pp, bs_init_writable, annotations_pp,
-     option_order].
+     option_order, sys_coverage].
 
 groups() -> 
     [].
@@ -2307,6 +2308,22 @@ option_order(Config) ->
 
          ],
     run(Config, Ts),
+    ok.
+
+%% Make sure that the `line_coverage` option will not change
+%% line numbers in exceptions.
+sys_coverage(Config) ->
+    Mod = exceptions,
+    DataDir = proplists:get_value(data_dir, Config),
+    Source = filename:join(DataDir, "exceptions"),
+    {ok,Mod,Code} = compile:file(Source, [line_coverage,binary,report]),
+    {module,Mod} = code:load_binary(Mod, "", Code),
+
+    Mod:Mod(Config),
+
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+
     ok.
 
 %%%

@@ -123,6 +123,8 @@ undo_rename(I) -> I.
 remove_redundant_lines(Is) ->
     remove_redundant_lines_1(Is, none).
 
+remove_redundant_lines_1([{executable_line,_,_}=I|Is], _PrevLoc) ->
+    [I|remove_redundant_lines_1(Is, none)];
 remove_redundant_lines_1([{line,Loc}=I|Is], PrevLoc) ->
     if
         Loc =:= PrevLoc ->
