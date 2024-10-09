@@ -31,6 +31,28 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.4.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>crypto built with <c>--enable-fips</c> will now accept
+	    an OpenSSL 3 lib without fips provider as long as fips
+	    mode is not enabled.</p>
+          <p>
+	    Own Id: OTP-19212 Aux Id: GH-8562, PR-8762 </p>
+        </item>
+        <item>
+	    <p><c>crypto:strong_rand_bytes/2</c> fixed to work on
+	    Ubuntu pro with installed FIPS support.</p>
+          <p>
+	    Own Id: OTP-19223 Aux Id: PR-8800, GH-8769 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.4.2.1</title>
 
     <section><title>Improvements and New Features</title>

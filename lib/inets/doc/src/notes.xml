@@ -33,7 +33,34 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 9.1</title>
+  <section><title>Inets 9.1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, HTTP client, when returning an
+	    asynchronous request, now correctly takes into account
+	    `OptionRequest - full_result`</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-19158 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, synchronous httpc:request now timeouts
+	    after `Timeout` specified in `HttpOption {timeout,
+	    Timeout}`</p>
+          <p>
+	    Own Id: OTP-19221 Aux Id: ERIERL-1091, PR-8788, PR-8801 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

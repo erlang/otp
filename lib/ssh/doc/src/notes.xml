@@ -30,6 +30,37 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, a race condition is removed from ssh
+	    client connection setup procedure.</p>
+          <p>
+	    Own Id: OTP-19124 Aux Id: GH-7550, PR-8766 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, ssh:connect is not affected by presence
+	    of EXIT message in queue.</p>
+          <p>
+	    Own Id: OTP-19246 Aux Id: GH-8223, PR-8854 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, ssh appends {active, false} option
+	    after socket options received from user - so that false
+	    value is always used.</p>
+          <p>
+	    Own Id: OTP-19247 Aux Id: PR-8226 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

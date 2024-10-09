@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 8.4.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug where bogus code was generated for
+	    consecutive calls to erlang:setelement/2, potentially
+	    crashing the emulator.</p>
+          <p>
+	    Own Id: OTP-19270 Aux Id: GH-8783 PR-8898 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 8.4.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
