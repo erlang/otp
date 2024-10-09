@@ -92,6 +92,19 @@ limitations under the License.
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Inets 9.1.0.1
+
+### Fixed Bugs and Malfunctions
+
+* With this change, HTTP client, when returning an asynchronous request, now correctly takes into account \`OptionRequest - full_result\`
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19158
+* With this change, synchronous httpc:request now timeouts after \`Timeout\` specified in \`HttpOption \{timeout, Timeout\}\`
+
+  Own Id: OTP-19221 Aux Id: ERIERL-1091, PR-8788, PR-8801
+
 ## Inets 9.1
 
 ### Fixed Bugs and Malfunctions

@@ -185,6 +185,23 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.4
+
+### Fixed Bugs and Malfunctions
+
+* Starting from TLS-1.3 some server handshake alerts might arrive after ssl:connection/2,3,4 has returned. If the socket is in active mode the controlling process will get the alert message, but passive sockets would only get \{error, closed\} on next call to ssl:recv/2,3 or ssl/setopts/2. Passive sockets calls will now return \{error, error_alert()\} instead.
+
+  Own Id: OTP-19236 Aux Id: PR-8261
+* Refactor trying to also make some optimizations introduced a bug in signature algorithms checks in OTP-26.2.1. This could manifest itself in not being able to negotiate connections using certificates needing to use some TLS-1.2 compatibility legacy signature schemes.
+
+  Own Id: OTP-19249 Aux Id: ERIERL-1137, PR-8866
+* Servers configured to support only version (pre TLS-1.2) should ignore hello version extension, as it is an unknown extension to them, this will result in that new clients that do not support the old server version will get an insufficient security alert from the server and not a protocol version alert, this is consistent with how old servers not able to support higher protocol versions work.
+
+  Own Id: OTP-19257 Aux Id: ERIERL-1131
+* Correct timeout handling for termination code run for own alerts, so that intended timeout is used instead of falling back to OS TCP-stack timeout that is unreasonably long on some platforms.
+
+  Own Id: OTP-19274 Aux Id: PR-8901
+
 ## SSL 11.1.4.3
 
 ### Fixed Bugs and Malfunctions

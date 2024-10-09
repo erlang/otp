@@ -131,6 +131,14 @@ limitations under the License.
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Public_Key 1.15.1.3
+
+### Improvements and New Features
+
+* Do not hide crypto badarg reason, this error handling enhancement facilitates debugging. These kind of runtime errors are not documented and should never be relied on for matching, they are intended for catching input errors early.
+
+  Own Id: OTP-19238 Aux Id: PR-8831
+
 ## Public_Key 1.15.1.2
 
 ### Fixed Bugs and Malfunctions

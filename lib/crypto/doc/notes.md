@@ -99,6 +99,17 @@ This document describes the changes made to the Crypto application.
 [PR-8168]: https://github.com/erlang/otp/pull/8168
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Crypto 5.4.2.2
+
+### Fixed Bugs and Malfunctions
+
+* crypto built with `--enable-fips` will now accept an OpenSSL 3 lib without fips provider as long as fips mode is not enabled.
+
+  Own Id: OTP-19212 Aux Id: GH-8562, PR-8762
+* `crypto:strong_rand_bytes/2` fixed to work on Ubuntu pro with installed FIPS support.
+
+  Own Id: OTP-19223 Aux Id: PR-8800, GH-8769
+
 ## Crypto 5.4.2.1
 
 ### Improvements and New Features
