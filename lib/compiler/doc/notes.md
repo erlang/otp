@@ -296,6 +296,14 @@ This document describes the changes made to the Compiler application.
 [PR-8090]: https://github.com/erlang/otp/pull/8090
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 
+## Compiler 8.4.3.2
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where bogus code was generated for consecutive calls to erlang:setelement/2, potentially crashing the emulator.
+
+  Own Id: OTP-19270 Aux Id: GH-8783 PR-8898
+
 ## Compiler 8.4.3.1
 
 ### Fixed Bugs and Malfunctions

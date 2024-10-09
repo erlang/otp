@@ -292,6 +292,21 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.3
+
+### Fixed Bugs and Malfunctions
+
+* A bug has been fixed where receiving an SCTP message with \`gen_sctp\` could waste the first fragments of a message and only deliver the last fragment.
+
+  This happened with low probability when the OS signaled that the socket was ready for reading in combination with an internal time-out retry.
+
+  A bug has been fixed with a lingering time-out from after an SCTP connect that could stop the flow of incoming messages on an active \`gen_tcp\` socket.
+
+  Own Id: OTP-19235 Aux Id: ERIERL-1133, PR-8837
+* An boolean option \`non_block_send\` for SCTP, has ben added to be able to achieve the old behaviour to avoid blocking send operations by passing the OS network stack error message (\`\{error,eagain\}\` through.
+
+  Own Id: OTP-19258 Aux Id: OTP-19061, ERIERL-1134
+
 ## Kernel 9.2.4.2
 
 ### Fixed Bugs and Malfunctions

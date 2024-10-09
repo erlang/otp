@@ -76,6 +76,14 @@ This document describes the changes made to the Xmerl application.
 [PR-7942]: https://github.com/erlang/otp/pull/7942
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Xmerl 1.3.34.1
+
+### Fixed Bugs and Malfunctions
+
+* Corrected export functions from internal structure to XML so xmlText items of type cdata are handled correctly. They were just exported as normal text instead of output in a CDATA section.
+
+  Own Id: OTP-19217 Aux Id: ERIERL-1104
+
 ## Xmerl 1.3.34
 
 ### Fixed Bugs and Malfunctions

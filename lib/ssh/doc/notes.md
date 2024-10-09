@@ -77,6 +77,20 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, a race condition is removed from ssh client connection setup procedure.
+
+  Own Id: OTP-19124 Aux Id: GH-7550, PR-8766
+* With this change, ssh:connect is not affected by presence of EXIT message in queue.
+
+  Own Id: OTP-19246 Aux Id: GH-8223, PR-8854
+* With this change, ssh appends \{active, false\} option after socket options received from user - so that false value is always used.
+
+  Own Id: OTP-19247 Aux Id: PR-8226
+
 ## Ssh 5.1.4.2
 
 ### Fixed Bugs and Malfunctions

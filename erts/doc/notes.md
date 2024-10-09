@@ -450,6 +450,39 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.4
+
+### Fixed Bugs and Malfunctions
+
+* A bug has been fixed where receiving an SCTP message with \`gen_sctp\` could waste the first fragments of a message and only deliver the last fragment.
+
+  This happened with low probability when the OS signaled that the socket was ready for reading in combination with an internal time-out retry.
+
+  A bug has been fixed with a lingering time-out from after an SCTP connect that could stop the flow of incoming messages on an active \`gen_tcp\` socket.
+
+  Own Id: OTP-19235 Aux Id: ERIERL-1133, PR-8837
+* On Windows, successive failed socket calls caused socket to become "uninitialized".
+
+  Own Id: OTP-19251 Aux Id: GH-8853
+* The socket framework fails to start on a IPv6-only Windows machine.
+
+  Own Id: OTP-19254 Aux Id: GH-8848
+* An boolean option \`non_block_send\` for SCTP, has ben added to be able to achieve the old behaviour to avoid blocking send operations by passing the OS network stack error message (\`\{error,eagain\}\` through.
+
+  Own Id: OTP-19258 Aux Id: OTP-19061, ERIERL-1134
+* The call \`gen_tcp:send/2\` could hang indefinitely despite having set the \`send_timeout\` option for the following unfortunate combination of circumstances:
+
+  \* The socket has to be in passive mode. * All output buffers had to be filled util the \`high_watermark\` was hit, causing the \`gen_tcp:send/2\` operation to block. * While the send operation was blocked, a \`gen_tcp:recv/2,3\` call had to be done from a different process. It had to block, waiting for data for a while before completing the operation, and the received packet had to fill at least 75% of the receive buffer.
+
+  Under these circumstances he information that a send operation was waiting got lost, so the send operation that blocked in the first placed would never return. The data it had would be sent, though, and send operations from other processes, still work.
+
+  This bug has been fixed.
+
+  Own Id: OTP-19267 Aux Id: GH-6455, OTP-18520, ERIERL-1138, PR-8892
+* Fixed beam crash that could happen if resetting `call_time` or `call_memory` trace counters of a function while it is called. Bug exists since OTP R16.
+
+  Own Id: OTP-19269 Aux Id: GH-8835, PR-8897
+
 ## Erts 14.2.5.3
 
 ### Fixed Bugs and Malfunctions
