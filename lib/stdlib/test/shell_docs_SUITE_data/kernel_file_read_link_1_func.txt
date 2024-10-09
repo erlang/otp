@@ -12,13 +12,11 @@
 
   Typical error reasons:
 
-  [;;4m[;;4meinval[0m[0m:
-    [;;4mName[0m does not refer to a symbolic link or the name of the
-    file that it refers to does not conform to the expected
-    encoding.
+   • [;;4meinval[0m - [;;4mName[0m does not refer to a symbolic link or the
+     name of the file that it refers to does not conform to the
+     expected encoding.
 
-  [;;4m[;;4menoent[0m[0m:
-    The file does not exist.
+   • [;;4menoent[0m - The file does not exist.
 
-  [;;4m[;;4menotsup[0m[0m:
-    Symbolic links are not supported on this platform.
+   • [;;4menotsup[0m - Symbolic links are not supported on this
+     platform.

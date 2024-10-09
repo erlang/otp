@@ -13,19 +13,14 @@
 
   Typical error reasons:
 
-  [;;4m[;;4menoent[0m[0m:
-    A component of the filename does not exist.
+   • [;;4menoent[0m - A component of the filename does not exist.
 
-  [;;4m[;;4menotdir[0m[0m:
-    A component of the filename is not a directory. On some
-    platforms, [;;4menoent[0m is returned instead.
+   • [;;4menotdir[0m - A component of the filename is not a directory.
+     On some platforms, [;;4menoent[0m is returned instead.
 
-  [;;4m[;;4menospc[0m[0m:
-    No space is left on the device.
+   • [;;4menospc[0m - No space is left on the device.
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing permission for writing the file or searching one of
-    the parent directories.
+   • [;;4meacces[0m - Missing permission for writing the file or
+     searching one of the parent directories.
 
-  [;;4m[;;4meisdir[0m[0m:
-    The named file is a directory.
+   • [;;4meisdir[0m - The named file is a directory.

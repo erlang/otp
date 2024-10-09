@@ -4,10 +4,9 @@
 [;;4mSince[0m:
   OTP 17.0
 
-  Returns an integer, which is the number of key-value pairs in [;;4mMap[0m,
-  for example:
+  Returns an integer, which is the number of key-value pairs in [;;4mMap[0m.
+
+  For example:
 
     > map_size(#{a=>1, b=>2, c=>3}).
     3
-
-  Allowed in guard tests.

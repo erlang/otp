@@ -5,7 +5,9 @@
   OTP R16B
 
   Returns a binary corresponding to the text representation of [;;4m[0m
-  [;;4mInteger[0m, for example:
+  [;;4mInteger[0m.
+
+  For example:
 
     > integer_to_binary(77).
     <<"77">>

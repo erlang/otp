@@ -16,13 +16,11 @@
 
   Returns one of the following:
 
-  [;;4m[;;4m{ok, IoDevice, FullName}[0m[0m:
-    The file is opened in the requested mode. [;;4mIoDevice[0m is a
-    reference to the file and [;;4mFullName[0m is the full name of the
-    file.
+   • [;;4m{ok, IoDevice, FullName}[0m - The file is opened in the
+     requested mode. [;;4mIoDevice[0m is a reference to the file and [;;4m[0m
+     [;;4mFullName[0m is the full name of the file.
 
-  [;;4m[;;4m{error, enoent}[0m[0m:
-    The file cannot be found in any of the directories in [;;4mPath[0m.
+   • [;;4m{error, enoent}[0m - The file cannot be found in any of the
+     directories in [;;4mPath[0m.
 
-  [;;4m[;;4m{error, atom()}[0m[0m:
-    The file cannot be opened.
+   • [;;4m{error, atom()}[0m - The file cannot be opened.

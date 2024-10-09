@@ -9,15 +9,8 @@
   [;1m                           ReplyTag :: term(),[0m
   [;1m                           Reply :: yes | no | error_only | success_only,[0m
   [;1m                           Options :: [Option],[0m
-  [;1m                           ReqId :: reference().[0m
-
-[;;4mSince[0m:
-  OTP 23.0
-
-  The same as the call [;;4mspawn_request(node(),Fun,Options)[0m. That is,
-  a spawn request on the local node.
-
-  [;1m-spec spawn_request(Node, Fun) -> ReqId[0m
+  [;1m                           ReqId :: reference();[0m
+  [;1m                   (Node, Fun) -> ReqId[0m
   [;1m                       when[0m
   [;1m                           Node :: node(),[0m
   [;1m                           Fun :: function(),[0m
@@ -26,5 +19,11 @@
 [;;4mSince[0m:
   OTP 23.0
 
-  The same as the call [;;4mspawn_request(Node,Fun,[])[0m. That is, a
-  spawn request with no options.
+  Equivalent to [;;4mspawn_request(node(),Fun,Options)[0m or [;;4m[0m
+  [;;4mspawn_request(Node,Fun,[])[0m depending on the arguments.
+
+  That is either:
+
+   • spawn request on the local node.
+
+   • spawn request with no options.

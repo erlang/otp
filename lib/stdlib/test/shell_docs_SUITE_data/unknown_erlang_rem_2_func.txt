@@ -1,5 +1,5 @@
 
-[;1m  'rem'/2[0m
+  [;1m-spec 'rem'(integer(), integer()) -> integer().[0m
 
   The documentation for 'rem'/2 is hidden. This probably means
   that it is internal and not to be used by other applications.

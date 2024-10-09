@@ -1,5 +1,8 @@
 
-[;1m  display_string/2[0m
+  [;1m-spec display_string(Device, P1) -> true[0m
+  [;1m                        when[0m
+  [;1m                            Device :: stdin | stdout | stderr,[0m
+  [;1m                            P1 :: string().[0m
 
   The documentation for display_string/2 is hidden. This probably
   means that it is internal and not to be used by other

@@ -37,13 +37,13 @@
   processes is their application master.
 
   Setting the group leader follows the signal ordering guarantees
-  described in the Processes Chapter in the Erlang Reference
-  Manual.
+  described in the Processes Chapter in the Erlang Reference Manual.
 
   See also [;;4mgroup_leader/0[0m and OTP design principles related to
   starting and stopping applications.
 
-  Note:
+  [;;4mNote[0m
+
     For some important information about distributed signals, see
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.

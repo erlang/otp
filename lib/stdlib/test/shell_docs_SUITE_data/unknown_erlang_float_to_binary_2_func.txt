@@ -12,8 +12,11 @@
   OTP R16B
 
   Returns a binary corresponding to the text representation of [;;4m[0m
-  [;;4mFloat[0m using fixed decimal point formatting. [;;4mOptions[0m behaves in
-  the same way as [;;4mfloat_to_list/2[0m. Examples:
+  [;;4mFloat[0m using fixed decimal point formatting.
+
+  [;;4mOptions[0m behaves in the same way as [;;4mfloat_to_list/2[0m.
+
+  For example:
 
     > float_to_binary(7.12, [{decimals, 4}]).
     <<"7.1200">>

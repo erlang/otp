@@ -1,4 +1,6 @@
 
 [;1m	shell_docs_SUITE[0m
 
-  There is no documentation for shell_docs_SUITE
+  The documentation for shell_docs_SUITE is hidden. This probably
+  means that it is internal and not to be used by other
+  applications.

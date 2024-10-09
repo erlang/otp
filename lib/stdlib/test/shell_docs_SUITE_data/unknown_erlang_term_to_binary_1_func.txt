@@ -16,6 +16,7 @@
 
   See also [;;4mbinary_to_term/1[0m.
 
-  Note:
+  [;;4mNote[0m
+
     There is no guarantee that this function will return the same
     encoded representation for the same term.

@@ -5,7 +5,8 @@
 
   The time zone and Daylight Saving Time correction depend on the
   underlying OS. The return value is based on the OS System Time.
-  Example:
+
+  For example:
 
     > time().
     {9,42,44}

@@ -10,7 +10,8 @@
     > hello = binary_to_term(Bin).
     hello
 
-  Warning:
+  [;;4mWarning[0m
+
     When decoding binaries from untrusted sources, the untrusted
     source may submit data in a way to create resources, such as
     atoms and remote references, that cannot be garbage collected

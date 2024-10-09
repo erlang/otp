@@ -3,7 +3,9 @@
   [;1m                          when IoListOrBinary :: iolist() | binary().[0m
 
   Returns a binary that is made from the integers and binaries in [;;4m[0m
-  [;;4mIoListOrBinary[0m, for example:
+  [;;4mIoListOrBinary[0m.
+
+  For example:
 
     > Bin1 = <<1,2,3>>.
     <<1,2,3>>

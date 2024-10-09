@@ -12,12 +12,9 @@
 
   Typical error reasons:
 
-  [;;4m[;;4meacces[0m[0m:
-    Missing read or write permissions for the parent directories
-    of [;;4mExisting[0m or [;;4mNew[0m.
+   • [;;4meacces[0m - Missing read or write permissions for the parent
+     directories of [;;4mExisting[0m or [;;4mNew[0m.
 
-  [;;4m[;;4meexist[0m[0m:
-    [;;4mNew[0m already exists.
+   • [;;4meexist[0m - [;;4mNew[0m already exists.
 
-  [;;4m[;;4menotsup[0m[0m:
-    Hard links are not supported on this platform.
+   • [;;4menotsup[0m - Hard links are not supported on this platform.

@@ -1,14 +1,15 @@
 
-  [;1m-spec erlang:crc32_combine(FirstCrc, SecondCrc, SecondSize) ->[0m
-  [;1m                              non_neg_integer()[0m
-  [;1m                              when[0m
-  [;1m                                  FirstCrc :: non_neg_integer(),[0m
-  [;1m                                  SecondCrc :: non_neg_integer(),[0m
-  [;1m                                  SecondSize :: non_neg_integer().[0m
+  [;1m-spec crc32_combine(FirstCrc, SecondCrc, SecondSize) ->[0m
+  [;1m                       non_neg_integer()[0m
+  [;1m                       when[0m
+  [;1m                           FirstCrc :: non_neg_integer(),[0m
+  [;1m                           SecondCrc :: non_neg_integer(),[0m
+  [;1m                           SecondSize :: non_neg_integer().[0m
 
-  Combines two previously computed crc32 checksums. This computation
-  requires the size of the data object for the second checksum to be
-  known.
+  Combines two previously computed crc32 checksums.
+
+  This computation requires the size of the data object for the
+  second checksum to be known.
 
   The following code:
 

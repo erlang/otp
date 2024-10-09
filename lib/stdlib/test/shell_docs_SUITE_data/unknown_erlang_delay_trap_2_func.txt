@@ -1,5 +1,5 @@
 
-[;1m  delay_trap/2[0m
+  [;1m-spec delay_trap(Result, timeout()) -> Result.[0m
 
   The documentation for delay_trap/2 is hidden. This probably
   means that it is internal and not to be used by other

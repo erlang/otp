@@ -1,5 +1,5 @@
 
-  [;1m-spec erlang:nif_error(Reason) -> no_return() when Reason :: term().[0m
+  [;1m-spec nif_error(Reason) -> no_return() when Reason :: term().[0m
 
 [;;4mSince[0m:
   OTP R14B

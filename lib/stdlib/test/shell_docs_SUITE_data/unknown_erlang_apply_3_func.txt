@@ -7,7 +7,9 @@
 
   Returns the result of applying [;;4mFunction[0m in [;;4mModule[0m to [;;4mArgs[0m.
   The applied function must be exported from [;;4mModule[0m. The arity of
-  the function is the length of [;;4mArgs[0m. Example:
+  the function is the length of [;;4mArgs[0m.
+
+  For example:
 
     > apply(lists, reverse, [[a, b, c]]).
     [c,b,a]

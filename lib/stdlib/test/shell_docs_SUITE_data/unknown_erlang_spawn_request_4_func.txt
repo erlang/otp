@@ -5,15 +5,8 @@
   [;1m                           Module :: module(),[0m
   [;1m                           Function :: atom(),[0m
   [;1m                           Args :: [term()],[0m
-  [;1m                           ReqId :: reference().[0m
-
-[;;4mSince[0m:
-  OTP 23.0
-
-  The same as the call [;;4mspawn_request(Node,Module,Function,Args,[])[0m.
-  That is, a spawn request with no options.
-
-  [;1m-spec spawn_request(Module, Function, Args, Options) -> ReqId[0m
+  [;1m                           ReqId :: reference();[0m
+  [;1m                   (Module, Function, Args, Options) -> ReqId[0m
   [;1m                       when[0m
   [;1m                           Module :: module(),[0m
   [;1m                           Function :: atom(),[0m
@@ -30,6 +23,12 @@
 [;;4mSince[0m:
   OTP 23.0
 
-  The same as the call [;;4m[0m
-  [;;4mspawn_request(node(),Module,Function,Args,Options)[0m. That is, a
-  spawn request on the local node.
+  Equivalent to [;;4mspawn_request(Node,Module,Function,Args,[])[0m or [;;4m[0m
+  [;;4mspawn_request(node(),Module,Function,Args,Options)[0m depending on
+  the arguments.
+
+  That is either:
+
+   • spawn request with no options.
+
+   • spawn request on the local node.

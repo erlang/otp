@@ -2,129 +2,16 @@
 
 These types are documented in this module:
 
-  [;1m-type any() :: any().[0m
+  [;1m-type memory_type() ::[0m
+  [;1m          total | processes | processes_used | system | atom |[0m
+  [;1m          atom_used | binary | code | ets.[0m
 
-  [;1m-type arity() :: arity().[0m
-
-  [;1m-type atom() :: atom().[0m
-
-  [;1m-type binary() :: <<_:_*8>>.[0m
-
-  [;1m-type bitstring() :: <<_:_*1>>.[0m
-
-  [;1m-type boolean() :: true | false.[0m
-
-  [;1m-type byte() :: 0..255.[0m
-
-  [;1m-type char() :: 0..1114111.[0m
-
-  [;1m-type float() :: float().[0m
-
-  [;1m-type function() :: fun().[0m
-
-  [;1m-type identifier() :: pid() | port() | reference().[0m
-
-  [;1m-type integer() :: integer().[0m
-
-  [;1m-type iodata() :: iolist() | binary().[0m
-
-  [;1m-type iolist() ::[0m
-  [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
-  [;1m                              binary() | []).[0m
-
-  [;1m-type list() :: [any()].[0m
-
-  [;1m-type list(ContentType) :: [ContentType].[0m
-
-  [;1m-type map() :: #{any() => any()}.[0m
-
-  [;1m-type maybe_improper_list() :: maybe_improper_list(any(), any()).[0m
-
-  [;1m-type maybe_improper_list(ContentType, TerminationType) ::[0m
-  [;1m          maybe_improper_list(ContentType, TerminationType).[0m
-
-  [;1m-type mfa() :: {module(), atom(), arity()}.[0m
-
-  [;1m-type module() :: atom().[0m
-
-  [;1m-type neg_integer() :: neg_integer().[0m
-
-  [;1m-type nil() :: [].[0m
-
-  [;1m-type no_return() :: none().[0m
-
-  [;1m-type node() :: atom().[0m
-
-  [;1m-type non_neg_integer() :: non_neg_integer().[0m
-
-  [;1m-type none() :: none().[0m
-
-  [;1m-type nonempty_binary() :: <<_:8, _:_*8>>.[0m
-
-  [;1m-type nonempty_bitstring() :: <<_:1, _:_*1>>.[0m
-
-  [;1m-type nonempty_improper_list(ContentType, TerminationType) ::[0m
-  [;1m          nonempty_improper_list(ContentType, TerminationType).[0m
-
-  [;1m-type nonempty_list() :: [any(), ...].[0m
-
-  [;1m-type nonempty_list(ContentType) :: [ContentType, ...].[0m
-
-  [;1m-type nonempty_maybe_improper_list() ::[0m
-  [;1m          nonempty_maybe_improper_list(any(), any()).[0m
-
-  [;1m-type nonempty_maybe_improper_list(ContentType, TerminationType) ::[0m
-  [;1m          nonempty_maybe_improper_list(ContentType, TerminationType).[0m
-
-  [;1m-type nonempty_string() :: [char(), ...].[0m
-
-  [;1m-type number() :: integer() | float().[0m
-
-  [;1m-type pid() :: pid().[0m
-
-  [;1m-type port() :: port().[0m
-
-  [;1m-type pos_integer() :: pos_integer().[0m
-
-  [;1m-type reference() :: reference().[0m
-
-  [;1m-type string() :: [char()].[0m
-
-  [;1m-type term() :: any().[0m
-
-  [;1m-type timeout() :: infinity | non_neg_integer().[0m
-
-  [;1m-type tuple() :: tuple().[0m
-
-  [;1m-type ext_binary() :: binary().[0m
-
-  [;1m-type ext_iovec() :: iovec().[0m
-
-  [;1m-type iovec() :: [binary()].[0m
-
-  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
-
-  [;1m-type monitor_option() ::[0m
-  [;1m          {alias, explicit_unalias | demonitor | reply_demonitor} |[0m
-  [;1m          {tag, term()}.[0m
-
-  [;1m-type timestamp() ::[0m
-  [;1m          {MegaSecs :: non_neg_integer(),[0m
-  [;1m           Secs :: non_neg_integer(),[0m
-  [;1m           MicroSecs :: non_neg_integer()}.[0m
-
-  [;1m-type time_unit() ::[0m
-  [;1m          pos_integer() |[0m
-  [;1m          second | millisecond | microsecond | nanosecond | native |[0m
-  [;1m          perf_counter |[0m
-  [;1m          deprecated_time_unit().[0m
-
-  [;1m-type deprecated_time_unit() ::[0m
-  [;1m          seconds | milli_seconds | micro_seconds | nano_seconds.[0m
-
-  [;1m-opaque dist_handle() [0m
-
-  [;1m-opaque nif_resource() [0m
+  [;1m-type send_destination() ::[0m
+  [;1m          pid() |[0m
+  [;1m          reference() |[0m
+  [;1m          port() |[0m
+  [;1m          (RegName :: atom()) |[0m
+  [;1m          {RegName :: atom(), Node :: node()}.[0m
 
   [;1m-type spawn_opt_option() ::[0m
   [;1m          link | monitor |[0m
@@ -137,8 +24,6 @@ These types are documented in this module:
   [;1m          {message_queue_data, MQD :: message_queue_data()} |[0m
   [;1m          {async_dist, Enabled :: boolean()}.[0m
 
-  [;1m-type priority_level() :: low | normal | high | max.[0m
-
   [;1m-type max_heap_size() ::[0m
   [;1m          Size ::[0m
   [;1m              non_neg_integer() |[0m
@@ -147,14 +32,245 @@ These types are documented in this module:
   [;1m                error_logger => boolean(),[0m
   [;1m                include_shared_binaries => boolean()}.[0m
 
+  [;1m-type garbage_collection_defaults() ::[0m
+  [;1m          [{max_heap_size, non_neg_integer()} |[0m
+  [;1m           {min_bin_vheap_size, non_neg_integer()} |[0m
+  [;1m           {min_heap_size, non_neg_integer()} |[0m
+  [;1m           {fullsweep_after, non_neg_integer()}].[0m
+
+  [;1m-type info_list() :: [].[0m
+
+  [;1m-type sub_level() ::[0m
+  [;1m          [LevelEntry :: level_entry()] |[0m
+  [;1m          (LogicalCpuId :: {logical, non_neg_integer()}).[0m
+
+  [;1m-type level_tag() :: core | node | processor | thread.[0m
+
+  [;1m-type level_entry() ::[0m
+  [;1m          {LevelTag :: level_tag(), SubLevel :: sub_level()} |[0m
+  [;1m          {LevelTag :: level_tag(),[0m
+  [;1m           InfoList :: info_list(),[0m
+  [;1m           SubLevel :: sub_level()}.[0m
+
+  [;1m-type cpu_topology() :: [LevelEntry :: level_entry()] | undefined.[0m
+
+  [;1m-type trace_pattern_flag() ::[0m
+  [;1m          global | local | meta |[0m
+  [;1m          {meta, Pid :: pid()} |[0m
+  [;1m          {meta, TracerModule :: module(), TracerState :: term()} |[0m
+  [;1m          call_count | call_time | call_memory.[0m
+
+  [;1m-type trace_match_spec() ::[0m
+  [;1m          [{[term()] | '_' | match_variable(), [term()], [term()]}].[0m
+
+  [;1m-type trace_pattern_mfa() :: {atom(), atom(), arity() | '_'} | on_load.[0m
+
+  [;1m-type match_variable() :: atom().[0m
+
+  [;1m-type scheduler_bind_type() ::[0m
+  [;1m          no_node_processor_spread | no_node_thread_spread | no_spread |[0m
+  [;1m          processor_spread | spread | thread_spread |[0m
+  [;1m          thread_no_node_processor_spread | unbound.[0m
+
+  [;1m-type stack_item() ::[0m
+  [;1m          {Module :: module(),[0m
+  [;1m           Function :: atom(),[0m
+  [;1m           Arity :: arity() | (Args :: [term()]),[0m
+  [;1m           Location ::[0m
+  [;1m               [{file, Filename :: string()} |[0m
+  [;1m                {line, Line :: pos_integer()}]}.[0m
+
+  [;1m-type process_info_result_item() ::[0m
+  [;1m          {async_dist, Enabled :: boolean()} |[0m
+  [;1m          {backtrace, Bin :: binary()} |[0m
+  [;1m          {binary,[0m
+  [;1m           BinInfo ::[0m
+  [;1m               [{non_neg_integer(),[0m
+  [;1m                 non_neg_integer(),[0m
+  [;1m                 non_neg_integer()}]} |[0m
+  [;1m          {catchlevel, CatchLevel :: non_neg_integer()} |[0m
+  [;1m          {current_function,[0m
+  [;1m           {Module :: module(), Function :: atom(), Arity :: arity()} |[0m
+  [;1m           undefined} |[0m
+  [;1m          {current_location,[0m
+  [;1m           {Module :: module(),[0m
+  [;1m            Function :: atom(),[0m
+  [;1m            Arity :: arity(),[0m
+  [;1m            Location ::[0m
+  [;1m                [{file, Filename :: string()} |[0m
+  [;1m                 {line, Line :: pos_integer()}]}} |[0m
+  [;1m          {current_stacktrace, Stack :: [stack_item()]} |[0m
+  [;1m          {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |[0m
+  [;1m          {{dictionary, Key :: term()}, Value :: term()} |[0m
+  [;1m          {error_handler, Module :: module()} |[0m
+  [;1m          {garbage_collection, GCInfo :: [{atom(), non_neg_integer()}]} |[0m
+  [;1m          {garbage_collection_info,[0m
+  [;1m           GCInfo :: [{atom(), non_neg_integer()}]} |[0m
+  [;1m          {group_leader, GroupLeader :: pid()} |[0m
+  [;1m          {heap_size, Size :: non_neg_integer()} |[0m
+  [;1m          {initial_call, mfa()} |[0m
+  [;1m          {links, PidsAndPorts :: [pid() | port()]} |[0m
+  [;1m          {last_calls, false | (Calls :: [mfa()])} |[0m
+  [;1m          {memory, Size :: non_neg_integer()} |[0m
+  [;1m          {message_queue_len, MessageQueueLen :: non_neg_integer()} |[0m
+  [;1m          {messages, MessageQueue :: [term()]} |[0m
+  [;1m          {min_heap_size, MinHeapSize :: non_neg_integer()} |[0m
+  [;1m          {min_bin_vheap_size, MinBinVHeapSize :: non_neg_integer()} |[0m
+  [;1m          {max_heap_size, MaxHeapSize :: max_heap_size()} |[0m
+  [;1m          {monitored_by,[0m
+  [;1m           MonitoredBy :: [pid() | port() | nif_resource()]} |[0m
+  [;1m          {monitors,[0m
+  [;1m           Monitors ::[0m
+  [;1m               [{process | port,[0m
+  [;1m                 Pid ::[0m
+  [;1m                     pid() |[0m
+  [;1m                     port() |[0m
+  [;1m                     {RegName :: atom(), Node :: node()}}]} |[0m
+  [;1m          {message_queue_data, MQD :: message_queue_data()} |[0m
+  [;1m          {parent, pid() | undefined} |[0m
+  [;1m          {priority, Level :: priority_level()} |[0m
+  [;1m          {reductions, Number :: non_neg_integer()} |[0m
+  [;1m          {registered_name, [] | (Atom :: atom())} |[0m
+  [;1m          {sequential_trace_token,[0m
+  [;1m           [] | (SequentialTraceToken :: term())} |[0m
+  [;1m          {stack_size, Size :: non_neg_integer()} |[0m
+  [;1m          {status,[0m
+  [;1m           Status ::[0m
+  [;1m               exiting | garbage_collecting | waiting | running |[0m
+  [;1m               runnable | suspended} |[0m
+  [;1m          {suspending,[0m
+  [;1m           SuspendeeList ::[0m
+  [;1m               [{Suspendee :: pid(),[0m
+  [;1m                 ActiveSuspendCount :: non_neg_integer(),[0m
+  [;1m                 OutstandingSuspendCount :: non_neg_integer()}]} |[0m
+  [;1m          {total_heap_size, Size :: non_neg_integer()} |[0m
+  [;1m          {trace, InternalTraceFlags :: non_neg_integer()} |[0m
+  [;1m          {trap_exit, Boolean :: boolean()}.[0m
+
+  [;1m-type process_info_item() ::[0m
+  [;1m          async_dist | backtrace | binary | catchlevel |[0m
+  [;1m          current_function | current_location | current_stacktrace |[0m
+  [;1m          dictionary |[0m
+  [;1m          {dictionary, Key :: term()} |[0m
+  [;1m          error_handler | garbage_collection | garbage_collection_info |[0m
+  [;1m          group_leader | heap_size | initial_call | links | last_calls |[0m
+  [;1m          memory | message_queue_len | messages | min_heap_size |[0m
+  [;1m          min_bin_vheap_size | monitored_by | monitors |[0m
+  [;1m          message_queue_data | parent | priority | reductions |[0m
+  [;1m          registered_name | sequential_trace_token | stack_size |[0m
+  [;1m          status | suspending | total_heap_size | trace | trap_exit.[0m
+
   [;1m-type message_queue_data() :: off_heap | on_heap.[0m
 
-  [;1m-type stacktrace_extrainfo() ::[0m
-  [;1m          {line, pos_integer()} |[0m
-  [;1m          {file, unicode:chardata()} |[0m
-  [;1m          {error_info,[0m
-  [;1m           #{module => module(), function => atom(), cause => term()}} |[0m
-  [;1m          {atom(), term()}.[0m
+  [;1m-type priority_level() :: low | normal | high | max.[0m
+
+  [;1m-type monitor_option() ::[0m
+  [;1m          {alias, explicit_unalias | demonitor | reply_demonitor} |[0m
+  [;1m          {tag, term()}.[0m
+
+  [;1m-type monitor_port_identifier() :: port() | registered_name().[0m
+
+  [;1m-type monitor_process_identifier() ::[0m
+  [;1m          pid() | registered_process_identifier().[0m
+
+  [;1m-type registered_process_identifier() ::[0m
+  [;1m          registered_name() | {registered_name(), node()}.[0m
+
+  [;1m-type registered_name() :: atom().[0m
+
+  [;1m-type halt_options() ::[0m
+  [;1m          [{flush, boolean()} |[0m
+  [;1m           {flush_timeout, Timeout :: 0..2147483647 | infinity}].[0m
+
+  [;1m-type trace_info_return() ::[0m
+  [;1m          undefined |[0m
+  [;1m          {flags, [trace_info_flag()]} |[0m
+  [;1m          {tracer, pid() | port() | []} |[0m
+  [;1m          {tracer, module(), term()} |[0m
+  [;1m          trace_info_item_result() |[0m
+  [;1m          {all, [trace_info_item_result()] | false | undefined}.[0m
+
+  [;1m-type trace_info_flag() ::[0m
+  [;1m          send | 'receive' | set_on_spawn | call | return_to | procs |[0m
+  [;1m          set_on_first_spawn | set_on_link | running |[0m
+  [;1m          garbage_collection | timestamp | monotonic_timestamp |[0m
+  [;1m          strict_monotonic_timestamp | arity.[0m
+
+  [;1m-type trace_info_item_result() ::[0m
+  [;1m          {traced, global | local | false | undefined} |[0m
+  [;1m          {match_spec, trace_match_spec() | false | undefined} |[0m
+  [;1m          {meta, pid() | port() | false | undefined | []} |[0m
+  [;1m          {meta, module(), term()} |[0m
+  [;1m          {meta_match_spec, trace_match_spec() | false | undefined} |[0m
+  [;1m          {call_count, non_neg_integer() | boolean() | undefined} |[0m
+  [;1m          {call_time | call_memory,[0m
+  [;1m           [{pid(),[0m
+  [;1m             non_neg_integer(),[0m
+  [;1m             non_neg_integer(),[0m
+  [;1m             non_neg_integer()}] |[0m
+  [;1m           boolean() |[0m
+  [;1m           undefined}.[0m
+
+  [;1m-type trace_flag() ::[0m
+  [;1m          all | send | 'receive' | procs | ports | call | arity |[0m
+  [;1m          return_to | silent | running | exiting | running_procs |[0m
+  [;1m          running_ports | garbage_collection | timestamp |[0m
+  [;1m          cpu_timestamp | monotonic_timestamp |[0m
+  [;1m          strict_monotonic_timestamp | set_on_spawn |[0m
+  [;1m          set_on_first_spawn | set_on_link | set_on_first_link |[0m
+  [;1m          {tracer, pid() | port()} |[0m
+  [;1m          {tracer, module(), term()}.[0m
+
+  [;1m-type bitstring_list() ::[0m
+  [;1m          maybe_improper_list(byte() | bitstring() | bitstring_list(),[0m
+  [;1m                              bitstring() | []).[0m
+
+  [;1m-type raise_stacktrace() ::[0m
+  [;1m          [{module(), atom(), arity() | [term()]} |[0m
+  [;1m           {function(), arity() | [term()]}] |[0m
+  [;1m          stacktrace().[0m
+
+  [;1m-type system_monitor_option() ::[0m
+  [;1m          busy_port | busy_dist_port |[0m
+  [;1m          {long_gc, non_neg_integer()} |[0m
+  [;1m          {long_message_queue,[0m
+  [;1m           {Disable :: non_neg_integer(), Enable :: pos_integer()}} |[0m
+  [;1m          {long_schedule, non_neg_integer()} |[0m
+  [;1m          {large_heap, non_neg_integer()}.[0m
+
+  [;1m-type system_profile_option() ::[0m
+  [;1m          exclusive | runnable_ports | runnable_procs | scheduler |[0m
+  [;1m          timestamp | monotonic_timestamp | strict_monotonic_timestamp.[0m
+
+  [;1m-type fun_info_item() ::[0m
+  [;1m          arity | env | index | name | module | new_index | new_uniq |[0m
+  [;1m          pid | type | uniq.[0m
+
+  [;1m-type iovec() :: [binary()].[0m
+
+  [;1m-opaque dist_handle() [0m
+
+  [;1m-opaque nif_resource() [0m
+
+  [;1m-opaque prepared_code() [0m
+
+  [;1m-type deprecated_time_unit() ::[0m
+  [;1m          seconds | milli_seconds | micro_seconds | nano_seconds.[0m
+
+  [;1m-type time_unit() ::[0m
+  [;1m          pos_integer() |[0m
+  [;1m          second | millisecond | microsecond | nanosecond | native |[0m
+  [;1m          perf_counter |[0m
+  [;1m          deprecated_time_unit().[0m
+
+  [;1m-type timestamp() ::[0m
+  [;1m          {MegaSecs :: non_neg_integer(),[0m
+  [;1m           Secs :: non_neg_integer(),[0m
+  [;1m           MicroSecs :: non_neg_integer()}.[0m
+
+  [;1m-type ext_iovec() :: iovec().[0m
+
+  [;1m-type ext_binary() :: binary().[0m
 
   [;1m-type stacktrace() ::[0m
   [;1m          [{module(),[0m
@@ -163,9 +279,107 @@ These types are documented in this module:
   [;1m            [stacktrace_extrainfo()]} |[0m
   [;1m           {function(), arity() | [term()], [stacktrace_extrainfo()]}].[0m
 
-  [;1m-type send_destination() ::[0m
-  [;1m          pid() |[0m
-  [;1m          reference() |[0m
-  [;1m          port() |[0m
-  [;1m          (RegName :: atom()) |[0m
-  [;1m          {RegName :: atom(), Node :: node()}.[0m
+  [;1m-type stacktrace_extrainfo() ::[0m
+  [;1m          {line, pos_integer()} |[0m
+  [;1m          {file, unicode:chardata()} |[0m
+  [;1m          {error_info,[0m
+  [;1m           #{module => module(), function => atom(), cause => term()}} |[0m
+  [;1m          {atom(), term()}.[0m
+
+  [;1m-type tuple() :: tuple().[0m
+
+  [;1m-type timeout() :: infinity | non_neg_integer().[0m
+
+  [;1m-type term() :: any().[0m
+
+  [;1m-type string() :: [char()].[0m
+
+  [;1m-type reference() :: reference().[0m
+
+  [;1m-type pos_integer() :: pos_integer().[0m
+
+  [;1m-type port() :: port().[0m
+
+  [;1m-type pid() :: pid().[0m
+
+  [;1m-type number() :: integer() | float().[0m
+
+  [;1m-type nonempty_string() :: [char(), ...].[0m
+
+  [;1m-type nonempty_maybe_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          nonempty_maybe_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type nonempty_maybe_improper_list() ::[0m
+  [;1m          nonempty_maybe_improper_list(any(), any()).[0m
+
+  [;1m-type nonempty_list(ContentType) :: [ContentType, ...].[0m
+
+  [;1m-type nonempty_list() :: [any(), ...].[0m
+
+  [;1m-type nonempty_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          nonempty_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type nonempty_bitstring() :: <<_:1, _:_*1>>.[0m
+
+  [;1m-type nonempty_binary() :: <<_:8, _:_*8>>.[0m
+
+  [;1m-type none() :: none().[0m
+
+  [;1m-type non_neg_integer() :: non_neg_integer().[0m
+
+  [;1m-type node() :: atom().[0m
+
+  [;1m-type no_return() :: none().[0m
+
+  [;1m-type nil() :: [].[0m
+
+  [;1m-type neg_integer() :: neg_integer().[0m
+
+  [;1m-type module() :: atom().[0m
+
+  [;1m-type mfa() :: {module(), atom(), arity()}.[0m
+
+  [;1m-type maybe_improper_list(ContentType, TerminationType) ::[0m
+  [;1m          maybe_improper_list(ContentType, TerminationType).[0m
+
+  [;1m-type maybe_improper_list() :: maybe_improper_list(any(), any()).[0m
+
+  [;1m-type map() :: #{any() => any()}.[0m
+
+  [;1m-type list(ContentType) :: [ContentType].[0m
+
+  [;1m-type list() :: [any()].[0m
+
+  [;1m-type iolist() ::[0m
+  [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
+  [;1m                              binary() | []).[0m
+
+  [;1m-type iodata() :: iolist() | binary().[0m
+
+  [;1m-type integer() :: integer().[0m
+
+  [;1m-type identifier() :: pid() | port() | reference().[0m
+
+  [;1m-type function() :: fun().[0m
+
+  [;1m-type float() :: float().[0m
+
+  [;1m-type dynamic() :: dynamic().[0m
+
+  [;1m-type char() :: 0..1114111.[0m
+
+  [;1m-type byte() :: 0..255.[0m
+
+  [;1m-type boolean() :: true | false.[0m
+
+  [;1m-type bool() :: boolean().[0m
+
+  [;1m-type bitstring() :: <<_:_*1>>.[0m
+
+  [;1m-type binary() :: <<_:_*8>>.[0m
+
+  [;1m-type atom() :: atom().[0m
+
+  [;1m-type arity() :: arity().[0m
+
+  [;1m-type any() :: any().[0m
