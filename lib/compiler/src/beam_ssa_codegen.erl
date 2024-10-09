@@ -1884,7 +1884,7 @@ cg_instr(remove_message, [], _Dst) ->
 cg_instr(resume, [A,B], _Dst) ->
     [{bif,raise,{f,0},[A,B],{x,0}}];
 cg_instr(update_record, [Hint, {integer,Size}, Src | Ss0], Dst) ->
-    Ss = cg_update_record_list(Ss0, []),
+    Ss = cg_update_record_list(Ss0),
     [{update_record,Hint,Size,Src,Dst,{list,Ss}}].
 
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
@@ -1909,12 +1909,15 @@ cg_test(raw_raise, _Fail, Args, Dst, _I) ->
 cg_test(resume, _Fail, [_,_]=Args, Dst, _I) ->
     cg_instr(resume, Args, Dst).
 
-cg_update_record_list([{integer, Index}, Value], []) ->
+cg_update_record_list([{integer, Index}, Value]) ->
     [Index, Value];
-cg_update_record_list([{integer, Index}, Value | Updates], Acc) ->
-    cg_update_record_list(Updates, [{Index, Value} | Acc]);
-cg_update_record_list([], Acc) ->
-    append([[Index, Value] || {Index, Value} <- sort(Acc)]).
+cg_update_record_list([_,_|_]=Updates) ->
+    cg_update_record_list_1(Updates, #{}).
+
+cg_update_record_list_1([{integer, Index}, Value | Updates], Acc) ->
+    cg_update_record_list_1(Updates, Acc#{ Index => Value });
+cg_update_record_list_1([], Acc) ->
+    append([[Index, Value] || Index := Value <- maps:iterator(Acc, ordered)]).
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=Args,anno=Anno}=Set, St) ->
     [{atom,Type}|Ss0] = typed_args(Args, Anno, St),
