@@ -9,7 +9,7 @@
 
   %% Supervisors
   ssh_acceptor_sup, ssh_channel_sup,
-  sshc_sup, sshd_sup, ssh_subsystem_sup, ssh_sup,
+  sshc_sup, sshd_sup, ssh_connection_sup, ssh_sup,
   ssh_system_sup, ssh_tcpip_forward_acceptor_sup,
 
   %% Test and/or info modules:
