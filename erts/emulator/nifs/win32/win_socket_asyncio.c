@@ -236,7 +236,10 @@ typedef struct {
     WSADATA         wsaData;
     HANDLE          cport;
 
-    SOCKET          dummy; // Used for extracting AcceptEx and ConnectEx
+    /* Used during initiation
+     * for extracting AcceptEx and ConnectEx
+     */
+    SOCKET          srvInit;
 
     /* Extension functions */
     LPFN_ACCEPTEX   accept;
@@ -458,6 +461,9 @@ typedef struct __ESAIOOperation {
  *                        Function Forwards                            *
  *                                                                     *
  * =================================================================== */
+
+static
+BOOLEAN_T init_srv_init_socket(int* savedErrno);
 
 static ERL_NIF_TERM esaio_connect_stream(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
@@ -1183,15 +1189,13 @@ int esaio_init(unsigned int     numThreads,
     }
 
 
-    /* Create the "dummy" socket and then
+    /* Create the "service init" socket and then
      * extract the AcceptEx and ConnectEx functions.
      */
-    SGDBG( ("WIN-ESAIO", "esaio_init -> try create 'dummy' socket\r\n") );
-    ctrl.dummy = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (ctrl.dummy == INVALID_SOCKET) {
-        save_errno = sock_errno();
+    SGDBG( ("WIN-ESAIO", "esaio_init -> try create 'service init' socket\r\n") );
+    if ( !init_srv_init_socket(&save_errno) ) {
 
-        esock_error_msg("Failed create 'dummy' socket: "
+        esock_error_msg("Failed create 'service init' socket: "
                         "\r\n   %s (%d)"
                         "\r\n",
                         erl_errno_id(save_errno), save_errno);
@@ -1211,7 +1215,7 @@ int esaio_init(unsigned int     numThreads,
      * rather than refer to the Mswsock.lib library.
      */
     SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'accept' function\r\n") );
-    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+    ires = WSAIoctl(ctrl.srvInit, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidAcceptEx, sizeof (guidAcceptEx), 
                     &ctrl.accept, sizeof (ctrl.accept), 
                     &dummy, NULL, NULL);
@@ -1223,8 +1227,8 @@ int esaio_init(unsigned int     numThreads,
                         "\r\n",
                         ires, erl_errno_id(save_errno), save_errno);
 
-        (void) sock_close(ctrl.dummy);
-        ctrl.dummy  = INVALID_SOCKET;
+        (void) sock_close(ctrl.srvInit);
+        ctrl.srvInit  = INVALID_SOCKET;
         ctrl.accept = NULL;
 
         WSACleanup();
@@ -1235,7 +1239,7 @@ int esaio_init(unsigned int     numThreads,
 
     /* Basically the same as for AcceptEx above */
     SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'connect' function\r\n") );
-    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+    ires = WSAIoctl(ctrl.srvInit, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidConnectEx, sizeof (guidConnectEx), 
                     &ctrl.connect, sizeof (ctrl.connect), 
                     &dummy, NULL, NULL);
@@ -1247,8 +1251,8 @@ int esaio_init(unsigned int     numThreads,
                         "\r\n",
                         ires, erl_errno_id(save_errno), save_errno);
 
-        (void) sock_close(ctrl.dummy);
-        ctrl.dummy  = INVALID_SOCKET;
+        (void) sock_close(ctrl.srvInit);
+        ctrl.srvInit  = INVALID_SOCKET;
         ctrl.accept = NULL;
 
         WSACleanup();
@@ -1259,7 +1263,7 @@ int esaio_init(unsigned int     numThreads,
 
     /* Basically the same as for AcceptEx above */
     SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'sendmsg' function\r\n") );
-    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+    ires = WSAIoctl(ctrl.srvInit, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidSendMsg, sizeof (guidSendMsg), 
                     &ctrl.sendmsg, sizeof (ctrl.sendmsg), 
                     &dummy, NULL, NULL);
@@ -1271,8 +1275,8 @@ int esaio_init(unsigned int     numThreads,
                         "\r\n",
                         ires, erl_errno_id(save_errno), save_errno);
 
-        (void) sock_close(ctrl.dummy);
-        ctrl.dummy   = INVALID_SOCKET;
+        (void) sock_close(ctrl.srvInit);
+        ctrl.srvInit   = INVALID_SOCKET;
         ctrl.accept  = NULL;
         ctrl.connect = NULL;
 
@@ -1284,7 +1288,7 @@ int esaio_init(unsigned int     numThreads,
 
     /* Basically the same as for AcceptEx above */
     SGDBG( ("WIN-ESAIO", "esaio_init -> try extract 'recvmsg' function\r\n") );
-    ires = WSAIoctl(ctrl.dummy, SIO_GET_EXTENSION_FUNCTION_POINTER,
+    ires = WSAIoctl(ctrl.srvInit, SIO_GET_EXTENSION_FUNCTION_POINTER,
                     &guidRecvMsg, sizeof (guidRecvMsg), 
                     &ctrl.recvmsg, sizeof (ctrl.recvmsg), 
                     &dummy, NULL, NULL);
@@ -1296,8 +1300,8 @@ int esaio_init(unsigned int     numThreads,
                         "\r\n",
                         ires, erl_errno_id(save_errno), save_errno);
 
-        (void) sock_close(ctrl.dummy);
-        ctrl.dummy   = INVALID_SOCKET;
+        (void) sock_close(ctrl.srvInit);
+        ctrl.srvInit   = INVALID_SOCKET;
         ctrl.accept  = NULL;
         ctrl.connect = NULL;
         ctrl.sendmsg = NULL;
@@ -1389,6 +1393,44 @@ int esaio_init(unsigned int     numThreads,
 }
 
 
+static
+BOOLEAN_T init_srv_init_socket(int* savedErrno)
+{
+    SOCKET sock;
+    int    save_errno = 0;
+
+    sock = sock_open(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET) {
+        save_errno = sock_errno();
+
+        /* This *could* be because we are on a 'IPv6 only' machine
+         * => So try with that (AF_INET6) domain also.
+         */
+
+        if (save_errno == WSAEAFNOSUPPORT) { 
+            sock = sock_open(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+            if (sock == INVALID_SOCKET) {
+                /* Ouch, still failing, so we will keep the original error */
+                ctrl.srvInit = INVALID_SOCKET;
+                *savedErrno  = save_errno;
+                return FALSE;
+            } else {
+                ctrl.srvInit  = sock;
+                *savedErrno = 0;
+                return TRUE;
+            }
+        } else {
+            ctrl.srvInit = INVALID_SOCKET;
+            *savedErrno  = save_errno;
+            return FALSE;            
+        }
+    } else {
+        ctrl.srvInit = sock;
+        *savedErrno  = 0;
+        return TRUE;
+    }
+}
+
 
 /* *******************************************************************
  * Finish, terminate, the ESock Async I/O backend.
@@ -1403,10 +1445,10 @@ void esaio_finish()
 
     SGDBG( ("WIN-ESAIO", "esaio_finish -> entry\r\n") );
 
-    if (ctrl.dummy != INVALID_SOCKET) {
+    if (ctrl.srvInit != INVALID_SOCKET) {
         SGDBG( ("WIN-ESAIO", "esaio_finish -> close 'dummy' socket\r\n") );
-        (void) sock_close(ctrl.dummy);
-        ctrl.dummy = INVALID_SOCKET;
+        (void) sock_close(ctrl.srvInit);
+        ctrl.srvInit = INVALID_SOCKET;
     }
 
     SGDBG( ("WIN-ESAIO",
