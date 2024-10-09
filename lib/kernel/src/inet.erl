@@ -1322,6 +1322,7 @@ sctp_options() ->
 
     % Other options are SCTP-specific (though they may be similar to their
     % TCP and UDP counter-parts):
+    non_block_send,
     sctp_rtoinfo,   		 sctp_associnfo,	sctp_initmsg,
     sctp_autoclose,		 sctp_nodelay,		sctp_disable_fragments,
     sctp_i_want_mapped_v4_addr,  sctp_maxseg,		sctp_primary_addr,
@@ -1331,13 +1332,17 @@ sctp_options() ->
 ].
 
 sctp_options(Opts, Mod)  ->
+    %% ?DBG([{opts, Opts}, {mod, Mod}]),
     case sctp_opt(Opts, Mod, #sctp_opts{}, sctp_options()) of
-	{ok,SO} ->
+	{ok, SO} ->
 	    {ok,SO#sctp_opts{opts=lists:reverse(SO#sctp_opts.opts)}};
-	Error -> Error
+	Error ->
+            %% ?DBG([{error, Error}]),
+            Error
     end.
 
 sctp_opt([Opt|Opts], Mod, #sctp_opts{ifaddr = IfAddr} = R, As) ->
+    %% ?DBG([{opt, Opt}]),
     case Opt of
         %% what if IfAddr is already a map (=sockaddr)?
         %% Shall we allow ifaddr as a list of sockaddr?
@@ -1387,6 +1392,7 @@ sctp_opt([Opt|Opts], Mod, #sctp_opts{ifaddr = IfAddr} = R, As) ->
             sctp_opt(Opts, Mod, R#sctp_opts { opts = [{active,N}|NOpts] }, As);
 
 	{Name,Val}	->
+            %% ?DBG([{name, Name}, {val, Val}]),
             sctp_opt(Opts, Mod, R, As, Name, Val);
 
 	_ ->
@@ -1400,6 +1406,7 @@ sctp_opt([], _Mod, #sctp_opts{ifaddr=IfAddr}=R, _SockOpts) ->
     end.
 
 sctp_opt(Opts, Mod, #sctp_opts{} = R, As, Name, Val) ->
+    %% ?DBG([{opts, Opts}, {mod, Mod}, {name, Name}, {val, Val}]),
     case add_opt(Name, Val, R#sctp_opts.opts, As) of
 	{ok,SocketOpts} ->
 	    sctp_opt(Opts, Mod, R#sctp_opts{opts=SocketOpts}, As);
@@ -1427,17 +1434,22 @@ sctp_module(Opts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 add_opt(Name, Val, Opts, As) ->
+    %% ?DBG([{name, Name}, {val, Val}, {opts, Opts}, {as, As}]),
     case lists:member(Name, As) of
 	true ->
+            %% ?DBG(['is sockopt_val']),
 	    case prim_inet:is_sockopt_val(Name, Val) of
 		true when Name =:= raw ->
 		    {ok, [{Name,Val} | Opts]};
 		true ->
 		    Opts1 = lists:keydelete(Name, 1, Opts),
 		    {ok, [{Name,Val} | Opts1]};
-		false -> {error,badarg}
+		false ->
+                    %% ?DBG(['false']),
+                    {error,badarg}
 	    end;
-	false -> {error,badarg}
+	false ->
+            {error,badarg}
     end.
 	
 

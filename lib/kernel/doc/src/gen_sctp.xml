@@ -689,6 +689,18 @@ connect(Socket, Ip, Port>,
           for example, for error identification.
           However, such a fine level of user control is rarely required.
           The function <c>send/4</c> is sufficient for most applications.</p>
+
+	  <note>
+	    <p>
+	      Send is normally blocking, but if the socket option
+	      <seeerl marker="#option_non_block_send">
+	      <c>non_block_send</c></seeerl> is set to
+	      <c>true</c>, the function will return with e.g.
+	      <c>{error, eagain}</c> in the case when the
+	      function would otherwise block. It is then up the user to
+	      try again later.
+	    </p>
+	  </note>
       </desc>
     </func>
 
@@ -699,6 +711,18 @@ connect(Socket, Ip, Port>,
       <desc>
         <p>Sends a <c><anno>Data</anno></c> message over an existing association
           and specified stream.</p>
+
+	  <note>
+	    <p>
+	      Send is normally blocking, but if the socket option
+	      <seeerl marker="#option_non_block_send">
+	      <c>non_block_send</c></seeerl> is set to
+	      <c>true</c>, the function will return with e.g.
+	      <c>{error, eagain}</c> in the case when the
+	      function would otherwise block. It is then up the user to
+	      try again later.
+	    </p>
+	  </note>
       </desc>
     </func>
   </funcs>
@@ -818,6 +842,20 @@ connect(Socket, Ip, Port>,
           Sending errors would occur for datagrams larger than
           <c>val(recbuf)</c>. Setting this option also adjusts
           the size of the driver buffer (see <c>buffer</c> above).</p>
+      </item>
+      <tag><c>{non_block_send, boolean()}</c><marker id="option_non_block_send"></marker></tag>
+      <item>
+	<p>
+	  A send option.
+	</p>
+	<p>
+	  A send call that would otherwise block (hang),
+	  will instead immediately return with e.g. <c>{error, eagain}</c>
+	  <em>if</em> this option has been set to <c>true</c>.
+	</p>
+	<p>
+	  Defaults to <c>false</c>.
+	</p>
       </item>
       <tag><c>{sctp_module, module()}</c></tag>
       <item>
