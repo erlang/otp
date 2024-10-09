@@ -47,7 +47,7 @@ start_link(SystemSup, Address, Options) ->
 %%%----------------------------------------------------------------
 listen(Port, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
-    SockOpts = [{active, false}, {reuseaddr,true} | ?GET_OPT(socket_options, Options)],
+    SockOpts = ?GET_OPT(socket_options, Options) ++ [{active, false}, {reuseaddr,true}],
     case Callback:listen(Port, SockOpts) of
 	{error, nxdomain} ->
 	    Callback:listen(Port, lists:delete(inet6, SockOpts));
@@ -83,7 +83,6 @@ acceptor_init(Parent, SystemSup,
                     proc_lib:init_ack(Parent, {ok, self()}),
                     request_ownership(LSock, SockOwner),
                     acceptor_loop(Port, Address, Opts, LSock, AcceptTimeout, SystemSup);
-
                 {error,_Error} ->
                     %% Not open, a restart
                     %% Allow gen_tcp:listen to fail 4 times if eaddrinuse (It is a bug fix):
@@ -96,7 +95,6 @@ acceptor_init(Parent, SystemSup,
                             proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
                     end
             end;
-
         undefined ->
             %% No listening socket (nor fd option) was provided; open a listening socket:
             case try_listen(Port, Opts, 4) of
@@ -107,7 +105,6 @@ acceptor_init(Parent, SystemSup,
                     proc_lib:init_fail(Parent, {error,Error}, {exit, normal})
             end
     end.
-
 
 try_listen(Port, Opts, NtriesLeft) ->
     try_listen(Port, Opts, 1, NtriesLeft).
@@ -120,7 +117,6 @@ try_listen(Port, Opts, N, Nmax) ->
         Other ->
             Other
     end.
-
 
 request_ownership(LSock, SockOwner) ->
     SockOwner ! {request_control,LSock,self()},
@@ -137,7 +133,8 @@ acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
                 MaxSessions = ?GET_OPT(max_sessions, Opts),
                 NumSessions = number_of_connections(SystemSup),
                 ParallelLogin = ?GET_OPT(parallel_login, Opts),
-                case handle_connection(Address, Port, PeerName, Opts, Socket, MaxSessions, NumSessions, ParallelLogin) of
+                case handle_connection(Address, Port, PeerName, Opts, Socket,
+                                       MaxSessions, NumSessions, ParallelLogin) of
                     {error,Error} ->
                         catch close(Socket, Opts),
                         handle_error(Error, Address, Port, PeerName);
@@ -154,18 +151,19 @@ acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
     ?MODULE:acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup).
 
 %%%----------------------------------------------------------------
-handle_connection(_Address, _Port, _Peer, _Options, _Socket, MaxSessions, NumSessions, _ParallelLogin)
+handle_connection(_Address, _Port, _Peer, _Options, _Socket,
+                  MaxSessions, NumSessions, _ParallelLogin)
   when NumSessions >= MaxSessions->
     {error,{max_sessions,MaxSessions}};
-
-handle_connection(_Address, _Port, {error,Error}, _Options, _Socket, _MaxSessions, _NumSessions, _ParallelLogin) ->
+handle_connection(_Address, _Port, {error,Error}, _Options, _Socket,
+                  _MaxSessions, _NumSessions, _ParallelLogin) ->
     {error,Error};
-
-handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessions, ParallelLogin)
+handle_connection(Address, Port, _Peer, Options, Socket,
+                  _MaxSessions, _NumSessions, ParallelLogin)
   when ParallelLogin == false ->
     handle_connection(Address, Port, Options, Socket);
-
-handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessions, ParallelLogin)
+handle_connection(Address, Port, _Peer, Options, Socket,
+                  _MaxSessions, _NumSessions, ParallelLogin)
   when ParallelLogin == true ->
     Ref = make_ref(),
     Pid = spawn_link(
@@ -181,8 +179,6 @@ handle_connection(Address, Port, _Peer, Options, Socket, _MaxSessions, _NumSessi
     catch gen_tcp:controlling_process(Socket, Pid),
     Pid ! {start,Ref},
     ok.
-
-
 
 handle_connection(Address, Port, Options0, Socket) ->
     Options = ?PUT_INTERNAL_OPT([{user_pid, self()}
