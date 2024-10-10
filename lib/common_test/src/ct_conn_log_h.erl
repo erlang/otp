@@ -31,8 +31,7 @@
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
-
--record(state, {logs=[], default_gl}).
+-record(state, {logs=[], default_gl, header=false}).
 
 -define(WIDTH,80).
 
@@ -40,8 +39,10 @@
 
 %%%-----------------------------------------------------------------
 %%% Callbacks
-init({GL,ConnLogs}) ->
-    open_files(GL,ConnLogs,#state{default_gl=GL}).
+init({GL,ConnLogs,Opts}) ->
+    open_files(GL,ConnLogs,
+               #state{default_gl = GL,
+                      header = proplists:get_value(header, Opts, false)}).
 
 open_files(GL,[{ConnMod,{LogType,LogFiles}}|T],State=#state{logs=Logs}) ->
     case do_open_files(LogFiles,[]) of
@@ -104,6 +105,9 @@ terminate(_,#state{logs=Logs}) ->
 
 %%%-----------------------------------------------------------------
 %%% Writing reports
+write_report(Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,
+             #state{header=true}=State) ->
+    write_report_with_header(Info, GL, State, ConnMod, Data, Time);
 write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
     case get_log(Info,GL,State) of
 	{silent,_,_} ->
@@ -114,8 +118,10 @@ write_report(_Time,#conn_log{header=false,module=ConnMod}=Info,Data,GL,State) ->
 		  end,
 	    io:format(Fd,Str,[format_data(ConnMod,LogType,Data)])
     end;
-
 write_report(Time,#conn_log{module=ConnMod}=Info,Data,GL,State) ->
+    write_report_with_header(Info, GL, State, ConnMod, Data, Time).
+
+write_report_with_header(Info, GL, State, ConnMod, Data, Time) ->
     case get_log(Info,GL,State) of
 	{silent,_,_} ->
 	    ok;
