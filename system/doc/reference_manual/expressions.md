@@ -577,7 +577,7 @@ Finally, let us assume that `a()` returns `{ok,-1}`. Because `true = A >= 0` use
 the match operator `=`, a `{badmatch,false}` run-time error occurs when the
 expression fails to match the pattern.
 
-The example can be written in a less succient way using nested case expressions:
+The example can be written in a less succinct way using nested case expressions:
 
 ```
 case a() of
