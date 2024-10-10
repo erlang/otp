@@ -39,7 +39,7 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, maps/1,
+	 otp_7078/1, pr_7873/1, maps/1,
          side_effects/1]).
 
 init_per_testcase(_Case, Config) ->
@@ -59,7 +59,7 @@ all() ->
 
 groups() -> 
     [{tickets, [],
-      [otp_5915, otp_7931, otp_5990, otp_7078]}].
+      [otp_5915, otp_7931, otp_5990, otp_7078, pr_7873]}].
 
 init_per_suite(Config) ->
     Config.
@@ -755,6 +755,100 @@ otp_7078(Config) when is_list(Config) ->
       ">>
 
       ],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
+%% PR-7873. Reserved words and variable names as record names,
+%%          and record style record declarations
+pr_7873(Config) when is_list(Config) ->
+    Words = [
+             <<"Abc">>,
+             <<"after">>,
+             <<"and">>,
+             <<"andalso">>,
+             <<"band">>,
+             <<"begin">>,
+             <<"bnot">>,
+             <<"bor">>,
+             <<"bsl">>,
+             <<"bsr">>,
+             <<"bxor">>,
+             <<"case">>,
+             <<"catch">>,
+             <<"cond">>,
+             <<"div">>,
+             <<"else">>,
+             <<"end">>,
+             <<"fun">>,
+             <<"if">>,
+             <<"let">>,
+             <<"maybe">>,
+             <<"not">>,
+             <<"of">>,
+             <<"or">>,
+             <<"orelse">>,
+             <<"receive">>,
+             <<"rem">>,
+             <<"try">>,
+             <<"when">>,
+             <<"xor">>
+          ],
+
+    Declarations =
+        [~"-record('WORD', {a = 1}).",
+         ~"-record('WORD', {a = 1 :: integer()}).",
+         ~"-record 'WORD', {a = 1}.",
+         ~"-record 'WORD', {a = 1 :: integer()}.",
+         ~"-record(#WORD{a = 1}).",
+         ~"-record(#WORD{a = 1 :: integer()}).",
+         ~"-record #WORD{a = 1}.",
+         ~"-record #WORD{a = 1 :: integer()}.",
+         ~"-record # WORD{a = 1}.",
+         ~"-record #WORD {a = 1}.",
+         ~"-record # WORD {a = 1}.",
+         ~"-record #'WORD'{a = 1}."],
+
+    Code =
+        ~"""
+
+         -type x() :: #WORD{}.
+
+         t() ->
+            'WORD' = element(1, #WORD{}),
+            2 = #WORD.a,
+            A = #WORD{},
+            A = # WORD{},
+            A = #WORD {},
+            A = # WORD {},
+            _ = #WORD{a=5},
+            1 = A#WORD.a,
+            _ = A#WORD{},
+            C = A#WORD{a = 2},
+            2 = C#WORD.a,
+            #WORD{a = X} = C,
+            2 = X,
+            D = #WORD{a = 2}#WORD{a = 3},
+            4 = D#WORD{a = 4}#WORD.a,
+            3 = match1(D),
+            ok = match2(D, 3),
+            ok = match3(#WORD{a=#WORD{}}),
+            ok.
+
+         -spec match1(x()) -> any().
+         match1(#WORD{a = X}) -> X.
+
+         -spec match2(#WORD{}, any()) -> ok.
+         match2(Rec, V) when Rec#WORD.a == V -> ok.
+
+         match3(#WORD{a=#WORD{}}) -> ok.
+
+         """,
+    Ts =
+        [binary:replace(
+           <<Hdr/binary, Code/binary>>, <<"WORD">>, Word, [global])
+         || Hdr  <- Declarations,
+            Word <- Words],
+
     run(Config, Ts, [strict_record_tests]),
     ok.
 
