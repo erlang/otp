@@ -563,9 +563,10 @@ ensure_loaded(Mod) when is_atom(Mod) ->
                         {Binary,File,Ref} ->
                             case ensure_prepare_loading(Mod, Binary, File) of
                                 {error,_}=Error ->
-                                    call({load_error, Ref, Mod, Error});
+                                    call({load_error, Mod, Ref}),
+                                    Error;
                                 Prepared ->
-                                    call({load_module, Prepared, Mod, File, false, Ref})
+                                    call({load_ok, Prepared, Mod, File, Ref})
                             end
                     end;
                 embedded ->
