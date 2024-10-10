@@ -590,3 +590,10 @@ eep58() ->
     MapDouble = maps:from_list([{{key,I}, 2 * I} || I <- Seq]),
 
     ok.
+
+%% EEP-73: Zip generators.
+eep73() ->
+    [{X,Y}||X <- [1,2,3] && Y <- [2,2,2]],
+    [{X,Y}||X <- [1,2,3] && <<Y>> <= <<2,2,2>>],
+    [{K1,K2,V1,V2}|| K1 := V1 <- #{a=>1} && K2 := V2 <- #{b=>3}],
+    ok.
