@@ -573,7 +573,7 @@ call_ctrlr(Ctrlr, Msg) ->
 %% the connection supervisor.
 %%
 %% We are not allowed to block the connection
-%% superviser when writing a tick and we also want
+%% supervisor when writing a tick and we also want
 %% the tick to go through even during a heavily
 %% loaded system. gen_tcp does not have a
 %% non-blocking send operation exposed in its API

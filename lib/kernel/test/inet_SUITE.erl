@@ -40,7 +40,7 @@
 	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
 	 host_and_addr/0, host_and_addr/1,
 	 t_gethostnative/1, 
-	 gethostnative_parallell/1, cname_loop/1,
+	 gethostnative_parallel/1, cname_loop/1,
          missing_hosts_reload/1, hosts_file_quirks/1,
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
@@ -57,7 +57,7 @@
 
 -export([
          get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
-	 kill_gethost/0, parallell_gethost/0, test_netns/0
+	 kill_gethost/0, parallel_gethost/0, test_netns/0
         ]).
 
 
@@ -73,7 +73,7 @@ all() ->
      t_gethostbyaddr, t_gethostbyname, t_gethostbyname_empty, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, is_ip_address, {group, parse},
-     t_gethostnative, gethostnative_parallell, cname_loop,
+     t_gethostnative, gethostnative_parallel, cname_loop,
      missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
@@ -671,7 +671,7 @@ try_host({IP0, Host}) ->
     ok.
 
 %% Get all hosts from the system using 'ypcat hosts' or the local
-%% equvivalent.
+%% equivalent.
 
 get_hosts(_Config) ->
     Hosts = ct:get_config(test_hosts),
@@ -730,12 +730,12 @@ parse_hosts(Config) when is_list(Config) ->
     inet_parse:resolv(ResolvErr1).
 
 parse_address(Config) when is_list(Config) ->
-    V4Reversable =
+    V4Reversible =
 	[{{0,0,0,0},"0.0.0.0"},
          {{1,2,3,4},"1.2.3.4"},
 	 {{253,252,251,250},"253.252.251.250"},
 	 {{1,2,255,254},"1.2.255.254"}],
-    V6Reversable =
+    V6Reversible =
 	[{{0,0,0,0,0,0,0,0},"::"},
 	 {{0,0,0,0,0,0,0,1},"::1"},
 	 {{0,0,0,0,0,0,0,2},"::0.0.0.2"},
@@ -833,7 +833,7 @@ parse_address(Config) when is_list(Config) ->
          |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
             Q++S}
            || {{D1,D2,D3,D4},S} <-
-                  tl(V4Reversable),
+                  tl(V4Reversible),
               {P,Q} <-
                   [{[0,0,0,0,0,16#ffff],"::ffff:"},
                    {[0,0,0,0,0,0],"::"}]]],
@@ -865,7 +865,7 @@ parse_address(Config) when is_list(Config) ->
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
-         || {{D1,D2,D3,D4},S} <- V4Reversable,
+         || {{D1,D2,D3,D4},S} <- V4Reversible,
             {P,Q} <-
                 [{16#2001,"2001::"},{16#177,"177::"},{16#ff0,"Ff0::"}]],
     V4Err =
@@ -916,17 +916,17 @@ parse_address(Config) when is_list(Config) ->
     t_parse_address
       (parse_ipv6strict_address,
        true,
-       V6Reversable++V6Err++V4Err),
+       V6Reversible++V6Err++V4Err),
     t_parse_address
       (parse_ipv4_address,
        false,
-       V4Reversable++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Reversable]),
+       V4Reversible++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Reversible]),
     t_parse_address
       (parse_ipv4strict_address,
        true,
-       V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversable]).
+       V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversible]).
 
-t_parse_address(Func, _Reversable, []) ->
+t_parse_address(Func, _Reversible, []) ->
     io:format("~p done.~n", [Func]),
     ok;
 t_parse_address(Func, Reversible, [{Addr,String}|L]) ->
@@ -1087,31 +1087,31 @@ t_gethostnative(Config) when is_list(Config) ->
     end.
 
 %% Check that the emulator survives crashes in gethost_native.
-gethostnative_parallell(Config) when is_list(Config) ->
+gethostnative_parallel(Config) when is_list(Config) ->
     {ok,Hostname} = inet:gethostname(),
     {ok,_} = inet:gethostbyname(Hostname),
     case whereis(inet_gethost_native) of
 	Pid when is_pid(Pid) ->
-	    do_gethostnative_parallell();
+	    do_gethostnative_parallel();
 	_ ->
 	    {skipped, "Not running native gethostbyname"}
     end.
 
-do_gethostnative_parallell() ->
+do_gethostnative_parallel() ->
     {ok,Peer,Node} = ?CT_PEER(),
-    ok = rpc:call(Node, ?MODULE, parallell_gethost, []),
+    ok = rpc:call(Node, ?MODULE, parallel_gethost, []),
     receive after 10000 -> ok end,
     pong = net_adm:ping(Node),
     peer:stop(Peer),
     ok.
 
-parallell_gethost() ->
+parallel_gethost() ->
     {ok,Hostname} = inet:gethostname(),
     process_flag(trap_exit,true),
-    parallell_gethost_loop(10, Hostname).
+    parallel_gethost_loop(10, Hostname).
 
-parallell_gethost_loop(0, _) -> ok;
-parallell_gethost_loop(N, Hostname) ->
+parallel_gethost_loop(0, _) -> ok;
+parallel_gethost_loop(N, Hostname) ->
     case whereis(inet_gethost_native) of
 	Pid when is_pid(Pid) ->
 	    true = exit(Pid,kill);
@@ -1122,7 +1122,7 @@ parallell_gethost_loop(N, Hostname) ->
     L = spawn_gethosters(Hostname, 10),
     release_gethosters(L),
     collect_gethosters(10),
-    parallell_gethost_loop(N-1, Hostname).
+    parallel_gethost_loop(N-1, Hostname).
 
 spawn_gethosters(_, 0) ->
     [];

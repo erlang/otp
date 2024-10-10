@@ -25,7 +25,7 @@
 %% RFC 8945: Secret Key Transaction Authentication for DNS (TSIG)
 
 %% WARNING: in the spirit of inet_dns.erl, this module only handles the
-%% cryptographic operations and does not absolve you of your responsibities
+%% cryptographic operations and does not absolve you of your responsibilities
 %% that include:
 %%  * implement a truncation policy as per RFC8945, section 5.2
 %%  * verifying that for TSIG over TCP the last message contains a TSIG RR

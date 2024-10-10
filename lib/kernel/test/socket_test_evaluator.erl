@@ -666,7 +666,7 @@ print(Prefix, F, A) ->
                 f("[~s][~p]", [SName, self()])
         end,
     ?LOGGER:format("[~s]~s ~s" ++ F,
-                   [?LIB:formated_timestamp(), IDStr, Prefix | A]).
+                   [?LIB:formatted_timestamp(), IDStr, Prefix | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

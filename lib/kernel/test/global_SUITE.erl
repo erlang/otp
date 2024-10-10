@@ -2200,7 +2200,7 @@ otp_5737(Config) when is_list(Config) ->
 connect_all_false(Config) when is_list(Config) ->
     %% OTP-6931. Ignore nodeup when connect_all=false.
     connect_all_false_test("-connect_all false", Config),
-    %% OTP-17934: multipl -connect_all false and kernel parameter connect_all
+    %% OTP-17934: multiple -connect_all false and kernel parameter connect_all
     connect_all_false_test("-connect_all false -connect_all false", Config),
     connect_all_false_test("-kernel connect_all false", Config),
     ok.

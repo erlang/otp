@@ -275,7 +275,7 @@ getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
 -doc """
-Address-to-name translation in a protocol-independant manner.
+Address-to-name translation in a protocol-independent manner.
 
 This function is the inverse of [`getaddrinfo`](`getaddrinfo/1`). It converts a
 socket address to a corresponding host and service.
@@ -607,7 +607,7 @@ win_getifaddrs_iat3(Name,
                 connecting ->
                      [up, pointtopoint];
                  connected ->
-                     [up, runnning, pointtopoint];
+                     [up, running, pointtopoint];
                  operational ->
                      [up, running];
                  _ ->
@@ -710,7 +710,7 @@ win_getifaddrs_aa3(Name,
                  connecting ->
                      [up, pointtopoint];
                  connected ->
-                     [up, runnning, pointtopoint];
+                     [up, running, pointtopoint];
                  operational ->
                      [up, running];
                  _ ->
@@ -1025,7 +1025,7 @@ if_name2index(Name) when is_list(Name) ->
     catch
         C : E : S when (C =:= error) andalso (E =:= notsup) ->
             %% This is *most likely* Windows, so try that.
-            %% If not (another catch), raise the original catched error.
+            %% If not (another catch), raise the original caught error.
             try win_name2index(Name)
             catch
                 _:_:_ ->
@@ -1054,7 +1054,7 @@ if_index2name(Idx) when is_integer(Idx) ->
     catch
         C : E : S when (C =:= error) andalso (E =:= notsup) ->
             %% This is *most likely* Windows, so try that.
-            %% If not (another catch), raise the original catched error.
+            %% If not (another catch), raise the original caught error.
             try win_index2name(Idx)
             catch
                 _:_:_ ->
@@ -1082,7 +1082,7 @@ if_names() ->
     catch
         C : E : S when (C =:= error) andalso (E =:= notsup) ->
             %% This is *most likely* Windows, so try that.
-            %% If not (another catch), raise the original catched error.
+            %% If not (another catch), raise the original caught error.
             try {ok, win_names()}
             catch
                 _:_:_ ->
