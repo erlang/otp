@@ -617,7 +617,7 @@ ok
 """.
 -doc(#{since => ~"OTP 27.1"}).
 
--spec format(Term :: encode_value(), Encoder::formatter(), Options :: map()) -> iodata().
+-spec format(Term :: dynamic(), Encoder::formatter(), Options :: map()) -> iodata().
 format(Term, Encoder, Options) when is_function(Encoder, 3) ->
     Def = #{level => 0,
             col => 0,
