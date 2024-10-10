@@ -37,7 +37,15 @@
 get() ->
     case persistent_term:get(?MODULE, not_loaded) of
         not_loaded ->
-            case load() of
+            _ = application:load(public_key),
+
+            Result =
+                case application:get_env(public_key, cacerts_path) of
+                    {ok, EnvVar} -> load([EnvVar]);
+                    undefined -> load()
+                end,
+
+            case Result of
                 ok ->
                     persistent_term:get(?MODULE);
                 {error, Reason} ->
