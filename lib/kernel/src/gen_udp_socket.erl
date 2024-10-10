@@ -1163,7 +1163,7 @@ server_read_opts() ->
         deliver => term,
         %% WHAT DO WE DO ABOUT THIS!!!
         %% This option, read_packets, is *currently* not used,
-        %% but accepted for backward compatibillity reasons.
+        %% but accepted for backward compatibility reasons.
 	read_packets => 5,
         start_opts => [], % Just to make it settable
         %% XXX not implemented yet
@@ -1673,7 +1673,7 @@ handle_event(
   #recv{info = ?completion_info(Handle)},
   {#params{socket = Socket} = P, D}) ->
     %% ?DBG(['socket abort',
-    %%       {timestamp, formated_timestamp()},
+    %%       {timestamp, formatted_timestamp()},
     %%       {reason, Reason}, {p, P}, {d, D}]),
     handle_reading(P, cleanup_recv_reply(P, D, [], Reason));
 
@@ -1849,26 +1849,26 @@ handle_recv(#params{recv_method = []} = P,
                 case Reason0 of
                     {completion_status, #{info := more_data = _INFO}} ->
                         %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {info, INFO},
                         %%       {p, P}, {d, D}]),
                         emsgsize;
                     {completion_status, more_data = _INFO} ->
                         %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {info, INFO},
                         %%       {p, P}, {d, D}]),
                         emsgsize;
 
                     {completion_status, #{info := INFO}} ->
                         %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {info, INFO},
                         %%       {p, P}, {d, D}]),
                         INFO;
                     {completion_status, INFO} ->
                         %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {info, INFO},
                         %%       {p, P}, {d, D}]),
                         INFO;
@@ -1965,7 +1965,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     timeout ->
                         %% ?DBG(['error - timeout',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, Reason0},
@@ -1973,7 +1973,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     closed ->
                         %% ?DBG(['closed',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
                         Owner ! {udp_closed, ModuleSocket},
@@ -1981,7 +1981,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     emsgsize ->
                         %% ?DBG(['error - emsgsize',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, Reason0},
@@ -1992,34 +1992,34 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     {completion_status, #{info := more_data = _INFO}} ->
                         %% ?DBG(['completion status',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {info, INFO}, {p, P}, {d, D},
                         %%       {mq, mq(Owner)}]),
                         R = emsgsize,
                         Owner ! {udp_error, ModuleSocket, R},
                         %% ?DBG(['udp error sent',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {mq, mq(Owner)}]),
                         R;
                     {completion_status, more_data = _INFO} ->
                         %% ?DBG(['completion status',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {info, INFO}, {p, P}, {d, D},
                         %%       {mq, mq(Owner)}]),
                         R = emsgsize,
                         Owner ! {udp_error, ModuleSocket, R},
                         %% ?DBG(['udp error sent',
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {mq, mq(Owner)}]),
                         R;
 
                     {completion_status, #{info := INFO}} ->
                         %% ?DBG(['completion status',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {info, INFO}, {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, INFO},
@@ -2027,7 +2027,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     {completion_status, INFO} ->
                         %% ?DBG(['completion status',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {info, INFO}, {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, INFO},
@@ -2036,7 +2036,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                     _ ->
                         %% ?DBG(['error and closed',
                         %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
+                        %%       {timestamp, formatted_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {reason, Reason0}, {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, Reason0},
@@ -2507,7 +2507,7 @@ reverse(L1, L2) -> lists:reverse(L1, L2).
 
 %% -------------------------------------------------------------------------
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp({_N1, _N2, N3} = TS) ->

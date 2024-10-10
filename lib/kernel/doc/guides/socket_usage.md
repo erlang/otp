@@ -310,7 +310,7 @@ handler_loop(Sock, {select_info, recv, SelectHandle}) ->
     end;
 
 %% This is the (asyncronous) behaviour on platforms that support 'completion',
-%% currently only Windows.
+%% currently onla Windows.
 handler_loop(Sock, {completion_info, recv, CompletionHandle}) ->
     receive
 	{'$socket', Sock, completion, {CompletionHandle, CompletionStatus}} ->

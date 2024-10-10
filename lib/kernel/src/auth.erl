@@ -293,7 +293,7 @@ handle_info({From,badcookie,rex,_Msg}, O) ->
 handle_info({From,badcookie,net_kernel,{'$gen_call',{From,Tag},{is_auth,_Node}}}, O) -> %% ho ho
     From ! {Tag, no},
     {noreply, O};
-handle_info({_From,badcookie,To,{{auth_reply,N},R}}, O) ->%% Let auth replys through
+handle_info({_From,badcookie,To,{{auth_reply,N},R}}, O) ->%% Let auth replies through
     catch To ! {{auth_reply,N},R}, 
     {noreply, O};
 handle_info({From,badcookie,Name,Mess}, Opened) ->

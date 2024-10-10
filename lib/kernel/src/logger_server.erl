@@ -380,7 +380,7 @@ call(Request) when is_tuple(Request) ->
               Action == add_handler; Action == remove_handler;
               Action == add_filter; Action == remove_filter;
               Action == change_config ->
-            {error,{attempting_syncronous_call_to_self,Request}};
+            {error,{attempting_synchronous_call_to_self,Request}};
         _ ->
             gen_server:call(?SERVER,Request,?DEFAULT_LOGGER_CALL_TIMEOUT)
     end.

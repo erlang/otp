@@ -1041,7 +1041,7 @@ do_open_fd(Config) when is_list(Config) ->
                "~n   ~p", [inet:info(Socket)]),
             (catch gen_udp:close(Socket)),
             (catch gen_udp:close(S1)),
-            ct:fail(unexpected_succes)
+            ct:fail(unexpected_success)
     end,
 
     ?P("try open second socket with FD = ~w "
@@ -2162,7 +2162,7 @@ implicit_inet6(Config, S1, Active, Addr) ->
     {Addr,P2} = ok(inet:sockname(S2)),
     ?P("send ping on \"local\" socket (to ~p:~p)", [Addr, P2]),
     %% On some platforms its allowed to specify address and port
-    %% (that is; when useing sendto) *even* if the socket is connected
+    %% (that is; when using sendto) *even* if the socket is connected
     %% (assuming the send destination is the same as connected destination).
     %% But on other platforms, e.g. FreeBSD, this is *not* allowed!
     %% Linux:

@@ -82,7 +82,7 @@ on the same local node as the call is made. To trace remote nodes use `m:dbg` or
 > The main difference is the old functions operate on a single static
 > trace session per node. That could impose the problem that different
 > users and tools would interfere with each other's trace settings. The new trace
-> functions in this module all operate on dynamically created trace sesssions
+> functions in this module all operate on dynamically created trace sessions
 > isolated from each other. Also, this makes it easier to safely disable all trace
 > settings when done by a single call to `session_destroy/1`.
 >
@@ -1268,7 +1268,7 @@ functions.
 The only things not cleaned up are trace messages that have already been sent.
 
 Returns `true` if the session was active. Returns `false` if the session had
-already been destroyed by either an earler call to this function or the garbage
+already been destroyed by either an earlier call to this function or the garbage
 collector.
 """.
 -doc #{ since => <<"OTP 27.0">> }.

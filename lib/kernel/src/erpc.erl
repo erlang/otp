@@ -588,7 +588,7 @@ collection only containing associations of already handled or abandoned requests
 to [`receive_response/3`](`receive_response/3`), it will always block until a
 timeout determined by `Timeout` is triggered.
 
-Note that a response might have been consumed uppon an `{erpc, badarg}`
+Note that a response might have been consumed upon an `{erpc, badarg}`
 exception and if so, will be lost for ever.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
@@ -736,7 +736,7 @@ containing associations of already handled or abandoned requests to
 [`wait_response/3`](`wait_response/3`), it will always block until a timeout
 determined by `WaitTime` is triggered and then return `no_response`.
 
-Note that a response might have been consumed uppon an `{erpc, badarg}`
+Note that a response might have been consumed upon an `{erpc, badarg}`
 exception and if so, will be lost for ever.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
@@ -860,7 +860,7 @@ collection only containing associations of already handled or abandoned requests
 to [`check_response/3`](`check_response/3`), it will always return
 `no_response`.
 
-Note that a response might have been consumed uppon an `{erpc, badarg}`
+Note that a response might have been consumed upon an `{erpc, badarg}`
 exception and if so, will be lost for ever.
 """.
 -doc(#{since => <<"OTP 25.0">>}).

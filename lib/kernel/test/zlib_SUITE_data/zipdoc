@@ -557,7 +557,7 @@ General Format of a ZIP file
           .
           .
           .
-          TagN          Short           VMS attribute tage value #N
+          TagN          Short           VMS attribute tag value #N
           SizeN         Short           Size of attribute #N, in bytes
           (var.)        SizeN           Attribute #N data
 

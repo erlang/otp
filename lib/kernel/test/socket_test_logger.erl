@@ -56,7 +56,7 @@ start(Quiet) ->
     end.
 
 register_logger(Pid) when is_pid(Pid) ->
-    print("[~s] try register logger (~p)", [?LIB:formated_timestamp(), Pid]),
+    print("[~s] try register logger (~p)", [?LIB:formatted_timestamp(), Pid]),
     yes = global:register_name(?LOGGER, Pid),
     exit(ok).
 
@@ -64,15 +64,15 @@ register_logger(Pid) when is_pid(Pid) ->
 await_register_logger(Pid, MRef) ->
     receive
         {'DOWN', MRef, process, Pid, ok} ->
-            print("[~s] logger registration done", [?LIB:formated_timestamp()]),
+            print("[~s] logger registration done", [?LIB:formatted_timestamp()]),
             ok;
         {'DOWN', MRef, process, Pid, Reason} ->
             print("[~s] <ERROR> logger registration failed: "
-                  "~n      ~p", [?LIB:formated_timestamp(), Reason]),
+                  "~n      ~p", [?LIB:formatted_timestamp(), Reason]),
             {error, Reason}
     after 15000 ->
             print("[~s] <ERROR> logger registration failed: timeout",
-                  [?LIB:formated_timestamp()]),
+                  [?LIB:formatted_timestamp()]),
             erlang:demonitor(MRef, [flush]),
             exit(Pid, kill),
             {error, registration_timeout}
@@ -106,18 +106,18 @@ do_format(Msg) ->
 
 init(Parent, Quiet) ->
     put(sname, "logger"),
-    print("[~s][logger] starting~n", [?LIB:formated_timestamp()]),
+    print("[~s][logger] starting~n", [?LIB:formatted_timestamp()]),
     loop(#{parent => Parent, quiet => Quiet}).
 
 loop(#{parent := Parent,
        quiet  := Quiet} = State) ->
     receive
         {'EXIT', Parent, _} ->
-            print("[~s][logger] parent exit~n", [?LIB:formated_timestamp()]),
+            print("[~s][logger] parent exit~n", [?LIB:formatted_timestamp()]),
             exit(normal);
 
         {?MODULE, '$logger', stop} ->
-            print("[~s][logger] stopping~n", [?LIB:formated_timestamp()]),
+            print("[~s][logger] stopping~n", [?LIB:formatted_timestamp()]),
             exit(normal);
 
         {?MODULE, '$logger', {msg, Msg}} ->

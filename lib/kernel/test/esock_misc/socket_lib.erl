@@ -100,12 +100,12 @@ p(F, A) ->
 
 p(SName, F, A) ->
     io:format("[~s,~p][~s] " ++ F ++ "~n", 
-              [SName,self(),formated_timestamp()|A]).
+              [SName,self(),formatted_timestamp()|A]).
 
 
 %% ---
 
-formated_timestamp() ->
+formatted_timestamp() ->
     format_timestamp(os:timestamp()).
 
 format_timestamp(Now) ->

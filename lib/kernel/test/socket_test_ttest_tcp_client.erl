@@ -707,7 +707,7 @@ mq(Pid) when is_pid(Pid) ->
 %%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
 %%     T2 - T1.
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp({_N1, _N2, N3} = TS) ->
@@ -742,4 +742,4 @@ mq(Pid) when is_pid(Pid) ->
 %% p(undefined, F, A) ->
 %%     p("- ", F, A);
 %% p(Prefix, F, A) ->
-%%     io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
+%%     io:format("[~s, ~s] " ++ F ++ "~n", [formatted_timestamp(), Prefix |A]).

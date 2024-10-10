@@ -204,13 +204,13 @@ in the Erlang Reference Manual.
 -record(tick,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000                %% ticks until timout
+         intensity  :: 4..1000                %% ticks until timeout
         }).
 
 -record(tick_change,
         {ticker     :: pid(),                 %% ticker
          time       :: pos_integer(),         %% net tick time (ms)
-         intensity  :: 4..1000,               %% ticks until timout
+         intensity  :: 4..1000,               %% ticks until timeout
          how        :: 'longer' | 'shorter'   %% What type of change
         }).
 
@@ -848,7 +848,7 @@ Turns a non-distributed node into a distributed node by starting `net_kernel`
 and other necessary processes.
 
 `Options` list can only be exactly one of the following lists (order is
-imporant):
+important):
 
 - **`[Name]`** - The same as `net_kernel:start([Name, longnames, 15000])`.
 
@@ -1566,7 +1566,7 @@ handle_info({AcceptPid, {wait_pending, Node}}, State) ->
             ?debug({net_kernel, wait_pending, kill, OldCtrlr, new, AcceptPid}),
             exit(OldCtrlr, wait_pending);
         _ ->
-            %% Old connnection maybe already gone
+            %% Old connection maybe already gone
             ignore
     end,
     %% Exiting controller will trigger {Kernel,pending} reply

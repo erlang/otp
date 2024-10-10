@@ -24,10 +24,10 @@
 
 -export([
          t/0, tdiff/2,
-         formated_timestamp/0, format_timestamp/1,
+         formatted_timestamp/0, format_timestamp/1,
          format_time/1,
 
-         formated_process_stats/1, formated_process_stats/2,
+         formatted_process_stats/1, formatted_process_stats/2,
 
          format/2,
          error/1, error/2,
@@ -44,7 +44,7 @@ tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
     T2 - T1.
 
-formated_timestamp() ->
+formatted_timestamp() ->
     format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, N3} = TS) ->
@@ -62,10 +62,10 @@ format_time(T) ->
     format("~w sec (~w ms)", [T div 1000, T]).
 
 
-formated_process_stats(Pid) ->
-    formated_process_stats("", Pid).
+formatted_process_stats(Pid) ->
+    formatted_process_stats("", Pid).
 
-formated_process_stats(Prefix, Pid) when is_list(Prefix) andalso is_pid(Pid) ->
+formatted_process_stats(Prefix, Pid) when is_list(Prefix) andalso is_pid(Pid) ->
     try
         begin
             TotHeapSz = pi(Pid, total_heap_size),
@@ -123,5 +123,5 @@ info(F, A) ->
 print(undefined, F, A) ->
     print("- ", F, A);
 print(Prefix, F, A) ->
-    io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
+    io:format("[~s, ~s] " ++ F ++ "~n", [formatted_timestamp(), Prefix |A]).
 

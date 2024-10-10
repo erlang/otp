@@ -1144,7 +1144,7 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-formated_timestamp() ->
+formatted_timestamp() ->
     format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, _N3} = TS) ->
@@ -1195,7 +1195,7 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = f("[~s] " ++ F, [formatted_timestamp()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 

@@ -483,7 +483,7 @@ which_addr2(Domain, [_|IFO]) ->
                      
 %% ---
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp(Now) ->

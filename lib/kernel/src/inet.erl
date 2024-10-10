@@ -329,7 +329,7 @@ Function `parse_address/1` can be useful:
 	element(1, Record) =:= element(1, RS),
 	tuple_size(Record) =:= element(2, RS)).
 
-%% Two kinds of debug macros (depnds on what you need to debug)
+%% Two kinds of debug macros (depends on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 %% -define(DBG(F, A), io:format("~w -> " ++ F ++ "~n", [?FUNCTION_NAME | A])).
 %% -define(DBG(F),    ?DBG(F, [])).
@@ -2721,7 +2721,7 @@ getfd(Socket) ->
 %%
 
 -doc """
-Resolve a host to an address, in a specific addresss family.
+Resolve a host to an address, in a specific address family.
 
 Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
 `Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,

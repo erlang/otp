@@ -302,11 +302,11 @@ server_handle_message(#{mod      := Mod,
     end.
 
 server_handle_stats(ProcStr, Pid) ->
-    case ?LIB:formated_process_stats(Pid) of
+    case ?LIB:formatted_process_stats(Pid) of
         "" ->
             skip;
-        FormatedStats ->
-            ?I("Statistics for ~s ~p:~s", [ProcStr, Pid, FormatedStats]),
+        FormattedStats ->
+            ?I("Statistics for ~s ~p:~s", [ProcStr, Pid, FormattedStats]),
             ok
     end.
 
@@ -688,7 +688,7 @@ reply(Pid, Ref, Reply) ->
 %%     T2 = A2*1000000000+B2*1000+(C2 div 1000), 
 %%     T2 - T1.
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp({_N1, _N2, N3} = TS) ->
@@ -720,5 +720,5 @@ reply(Pid, Ref, Reply) ->
 %% p(undefined, F, A) ->
 %%     p("- ", F, A);
 %% p(Prefix, F, A) ->
-%%     io:format("[~s, ~s] " ++ F ++ "~n", [formated_timestamp(), Prefix |A]).
+%%     io:format("[~s, ~s] " ++ F ++ "~n", [formatted_timestamp(), Prefix |A]).
 

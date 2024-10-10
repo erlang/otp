@@ -36,7 +36,7 @@
          stop_node/1]).
 -export([f/2,
          print/1, print/2,
-         formated_timestamp/0]).
+         formatted_timestamp/0]).
 -export([good_hosts/1,
          lookup/3]).
 -export([
@@ -1909,7 +1909,7 @@ analyze_and_print_win_host_info(Version) ->
     %% 'VirtFactor' will be 0 unless virtual
     VirtFactor = win_virt_factor(SysMod),
 
-    %% On some machines this is a badly formated string
+    %% On some machines this is a badly formatted string
     %% (contains a char of 255), so we need to do some nasty stuff...
     MemFactor =
         try
@@ -2385,7 +2385,7 @@ tc_end(Result) when is_list(Result) ->
 %%         conditions.
 %% Pre:    A fun that is nominally part of the test case
 %%         but is an initiation that must be "undone". This is
-%%         done by the Post fun (regardless if the TC is successfull
+%%         done by the Post fun (regardless if the TC is successful
 %%         or not). Example: Starts a couple of nodes,
 %% TC:     The test case fun
 %% Post:   A fun that undo what was done by the Pre fun.
@@ -2525,7 +2525,7 @@ tc_print(F, Before, After) ->
 tc_print(F, A, Before, After) ->
     Name = tc_which_name(),
     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-             [formated_timestamp(),Name,self()|A]),
+             [formatted_timestamp(),Name,self()|A]),
     io:format(user, Before ++ FStr ++ After, []).
 
 tc_which_name() ->
@@ -2934,7 +2934,7 @@ ts(us) ->
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
-formated_timestamp() ->
+formatted_timestamp() ->
     format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, N3} = TS) ->
@@ -2948,4 +2948,4 @@ print(F) ->
     print(F, []).
 
 print(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+    io:format("~s ~p " ++ F ++ "~n", [formatted_timestamp(), self() | A]).
