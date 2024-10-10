@@ -2373,14 +2373,17 @@ native_move(Mod) ->
                 []
         end,
     _ = catch code:reset_coverage(Mod),
-    Coverage = maps:from_list(Coverage0),
+
+    %% Note that `executable_line` line instructions can become
+    %% duplicated, making it necessary to consolidate all entries
+    %% having the same cover id.
+    S0 = sofs:relation(Coverage0, [{cover_id,count}]),
+    S1 = sofs:relation_to_family(S0),
+    S = sofs:to_external(S1),
+    Coverage = #{Id => lists:sum(Counts) || {Id,Counts} <- S},
 
     fun({#bump{}=Key,Index}) ->
             case Coverage of
-                #{Index := false} ->
-                    {Key,0};
-                #{Index := true} ->
-                    {Key,1};
                 #{Index := N} when is_integer(N), N >= 0 ->
                     {Key,N};
                 #{} ->

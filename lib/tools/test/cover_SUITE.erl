@@ -33,7 +33,7 @@ all() ->
                    analyse_no_beam, line_0, compile_beam_no_file,
                    compile_beam_missing_backend,
                    otp_13277, otp_13289, guard_in_lc, gh_4796,
-                   eep49, gh_8159],
+                   eep49, gh_8159, gh_8867],
     StartStop = [start, compile, analyse, misc, stop,
                  distribution, distribution_export, reconnect, die_and_reconnect,
                  dont_reconnect_after_stop, stop_node_after_disconnect,
@@ -2015,6 +2015,41 @@ gh_8159(Config) ->
 
     ok.
 
+%% GH-8867: Certain guard expressions could cause `executable_line`
+%% instructions to be duplicated, resulting in multiple entries for
+%% each cover id. `cover` would only keep the last entry, resulting
+%% in lost coverage.
+gh_8867(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    M = ?FUNCTION_NAME,
+    File = atom_to_list(M) ++ ".erl",
+    Test = ~"""
+            -module(gh_8867).
+            -export([myfun/2]).
+            myfun(Arg1, <<"bar", _>>) when Arg1 == arg1 orelse Arg1 == arg2 ->
+                nil;
+            myfun(arg3, Arg2) ->
+                case lists:sum([10, 2]) of
+                    12 ->
+                        Res = Arg2,
+                        Res
+                end.
+            """,
+    ok = file:write_file(File, Test),
+    {ok, M} = cover:compile(File),
+
+    ~"foo" = M:myfun(arg3, ~"foo"),
+
+    {ok,[{{gh_8867,4},0},
+         {{gh_8867,6},1},
+         {{gh_8867,8},1},
+         {{gh_8867,9},1}]} = cover:analyse(M, calls, line),
+
+    cover:reset(),
+    ok = file:delete(File),
+
+    ok.
 
 %%--Auxiliary------------------------------------------------------------
 
