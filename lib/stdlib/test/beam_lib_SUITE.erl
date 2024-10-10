@@ -94,6 +94,7 @@ normal(Conf) when is_list(Conf) ->
     P0 = pps(),
 
     do_normal(Source, PrivDir, BeamFile, []),
+    do_normal(Source, PrivDir, BeamFile, [r27]),
 
     {ok,_} = compile:file(Source, [{outdir,PrivDir}, no_debug_info]),
     {ok, {simple, [{debug_info, {debug_info_v1, erl_abstract_code, {none, _}}}]}} =
@@ -118,7 +119,7 @@ do_normal(Source, PrivDir, BeamFile, Opts) ->
     do_normal(BeamFile, Opts),
     do_normal(Binary, Opts).
 
-do_normal(BeamFile, Opts) ->
+do_normal(BeamFile, _Opts) ->
     Imports = {imports, [{erlang, get_module_info, 1},
 			 {erlang, get_module_info, 2},
 			 {lists, member, 2}]},
@@ -151,10 +152,8 @@ do_normal(BeamFile, Opts) ->
     %% Test reading optional chunks.
     All = ["Atom", "Code", "StrT", "ImpT", "ExpT", "FunT", "LitT", "AtU8"],
     {ok,{simple,Chunks}} = beam_lib:chunks(BeamFile, All, [allow_missing_chunks]),
-    case {verify_simple(Chunks),Opts} of
-	{{missing_chunk, AtomBin}, []} when is_binary(AtomBin) -> ok;
-	{{AtomBin, missing_chunk}, [no_utf8_atoms]} when is_binary(AtomBin) -> ok
-    end,
+    {missing_chunk, AtomBin} = verify_simple(Chunks),
+    true = is_binary(AtomBin),
 
     %% 'allow_missing_chunks' should work for named chunks too.
     {ok, {simple, StrippedBeam}} = beam_lib:strip(BeamFile),

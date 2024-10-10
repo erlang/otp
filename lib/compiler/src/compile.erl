@@ -1040,7 +1040,9 @@ expand_opt(r25, Os) ->
     [no_ssa_opt_update_tuple, no_bs_match, no_min_max_bifs |
      expand_opt(r26, Os)];
 expand_opt(r26, Os) ->
-    [no_bsm_opt | Os];
+    [no_bsm_opt | expand_opt(r27, Os)];
+expand_opt(r27, Os) ->
+    [no_long_atoms | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
