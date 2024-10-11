@@ -569,15 +569,28 @@ async(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
 
     {ok, RequestId} =
-	httpc:request(get, Request, [], [{sync, false}]),
+        httpc:request(get, Request, [], [{sync, false}]),
     Body =
-	receive
-	    {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
-		BinBody;
-	    {http, Msg} ->
-		ct:fail(Msg)
-	end,
+        receive
+            {http, {RequestId, {{_, 200, _}, _, BinBody}}} ->
+                BinBody;
+            {http, Msg} ->
+                ct:fail(Msg)
+        end,
     inets_test_lib:check_body(binary_to_list(Body)),
+
+    %% Check full result false option for async request
+    {ok, RequestId2} =
+        httpc:request(get, Request, [], [{sync, false},
+                                         {full_result, false}]),
+    Body2 =
+        receive
+            {http, {RequestId2, {200, BinBody2}}} ->
+                BinBody2;
+            {http, Msg2} ->
+                ct:fail(Msg2)
+        end,
+    inets_test_lib:check_body(binary_to_list(Body2)),
 
     {ok, NewRequestId} =
 	httpc:request(get, Request, [], [{sync, false}]),
