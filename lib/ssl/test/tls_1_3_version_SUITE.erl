@@ -52,6 +52,8 @@
          tls11_client_tls_server/1,
          tls12_client_tls_server/0,
          tls12_client_tls_server/1,
+         tls13_client_tls11_server/0,
+         tls13_client_tls11_server/1,
          middle_box_tls13_client/0,
          middle_box_tls13_client/1,
          middle_box_tls12_enabled_client/0,
@@ -104,7 +106,9 @@ legacy_tests() ->
      tls_client_tls12_server,
      tls10_client_tls_server,
      tls11_client_tls_server,
-     tls12_client_tls_server].
+     tls12_client_tls_server,
+     tls13_client_tls11_server
+    ].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -335,7 +339,6 @@ middle_box_client_tls_v2_session_reused(Config) when is_list(Config) ->
                                                        {reuse_session, {SessionId, SessData}} | ClientOpts]}]),
     {ok,[{session_id, SessionId}]}  = ssl:connection_information(CSock1, [session_id]).
 
-
 client_cert_fail_alert_active() ->
     [{doc, "Check that we receive alert message"}].
 client_cert_fail_alert_active(Config) when is_list(Config) ->
@@ -388,6 +391,13 @@ client_cert_fail_alert_passive(Config) when is_list(Config) ->
                   ServerNode, Hostname),
     alert_passive(ServerOpts, ClientOpts, setopts,
                   ServerNode, Hostname).
+
+tls13_client_tls11_server() ->
+    [{doc,"Test that a TLS 1.3 client gets old server alert from TLS 1.0 server."}].
+tls13_client_tls11_server(Config) when is_list(Config) ->
+    ClientOpts = [{versions, ['tlsv1.3']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+    ServerOpts =  [{versions, ['tlsv1']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+    ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, insufficient_security).
 
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
