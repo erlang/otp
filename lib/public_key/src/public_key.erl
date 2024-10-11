@@ -851,12 +851,7 @@ sign(DigestOrPlainText, DigestType, Key, Options) ->
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Key, Options]);
 	{Algorithm, CryptoKey} ->
-	    try crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
-            catch %% Compatible with old error schema
-                error:{notsup,_,_} -> error(notsup);
-                error:{error,_,_} -> error(error);
-                error:{badarg,_,_} -> error(badarg)
-            end
+	    crypto:sign(Algorithm, DigestType, DigestOrPlainText, CryptoKey, Options)
     end.
 
 %%--------------------------------------------------------------------
@@ -886,12 +881,7 @@ verify(DigestOrPlainText, DigestType, Signature, Key, Options) when is_binary(Si
 	badarg ->
 	    erlang:error(badarg, [DigestOrPlainText, DigestType, Signature, Key, Options]);
 	{Algorithm, CryptoKey} ->
-	    try crypto:verify(Algorithm, DigestType, DigestOrPlainText, Signature, CryptoKey, Options)
-            catch %% Compatible with old error schema
-                error:{notsup,_,_} -> error(notsup);
-                error:{error,_,_} -> error(error);
-                error:{badarg,_,_} -> error(badarg)
-            end
+	    crypto:verify(Algorithm, DigestType, DigestOrPlainText, Signature, CryptoKey, Options)
     end;
 verify(_,_,_,_,_) ->
     %% If Signature is a bitstring and not a binary we know already at this
