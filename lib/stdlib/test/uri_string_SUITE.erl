@@ -1073,7 +1073,13 @@ normalize_map(_Config) ->
                                host => <<"localhost">>}),
     <<"yeti://localhost">> =
         uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,path => <<>>,
-                               host => <<"localhost">>}).
+                               host => <<"localhost">>}),
+    <<"yeti://localhost">> =
+        uri_string:normalize(#{scheme => <<"yeti">>,port => undefined,
+                               host => <<"localhost">>}),
+    "yeti://localhost" =
+        uri_string:normalize(#{scheme => "yeti",port => undefined,
+                               host => "localhost"}).
 
 normalize_return_map(_Config) ->
     #{scheme := "http",path := "/a/g",host := "localhost-örebro"} =
