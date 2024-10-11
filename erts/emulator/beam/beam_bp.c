@@ -121,6 +121,7 @@ static GenericBpData* check_break(const ErtsCodeInfo *ci, Uint break_flags);
 
 static void bp_meta_unref(BpMetaTracer *bmt);
 static void bp_count_unref(BpCount *bcp);
+static BpDataTime* bp_time_alloc(void);
 static void bp_time_unref(BpDataTime *bdt);
 static void consolidate_bp_data(Module *modp, ErtsCodeInfo *ci, int local);
 static void uninstall_breakpoint(ErtsCodeInfo *ci_rw,
@@ -380,7 +381,6 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci_rw, int local)
     if (flags & ERTS_BPF_TIME_TRACE) {
 	dst->time = src->time;
 	erts_refc_inc(&dst->time->refc, 1);
-	ASSERT(dst->time->hash);
     }
 }
 
@@ -1308,6 +1308,11 @@ static void bp_hash_delete(bp_time_hash_t *hash) {
     hash->item = NULL;
 }
 
+static void bp_hash_reset(BpDataTime** bdt_p) {
+    bp_time_unref(*bdt_p);
+    *bdt_p = bp_time_alloc();
+}
+
 void erts_schedule_time_break(Process *p, Uint schedule) {
     process_breakpoint_time_t *pbt = NULL;
     bp_data_time_item_t sitem, *item = NULL;
@@ -1388,6 +1393,7 @@ set_break(BpFunctions* f, Binary *match_spec, Uint break_flags,
     }
 }
 
+
 static void
 set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 		   enum erts_break_op count_op, ErtsTracer tracer)
@@ -1450,17 +1456,11 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
     } else if (common & ERTS_BPF_TIME_TRACE) {
-	BpDataTime* bdt = bp->time;
-	Uint i = 0;
-
 	if (count_op == ERTS_BREAK_PAUSE) {
 	    bp->flags &= ~ERTS_BPF_TIME_TRACE_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_TIME_TRACE_ACTIVE;
-	    for (i = 0; i < bdt->n; i++) {
-		bp_hash_delete(&(bdt->hash[i]));
-		bp_hash_init(&(bdt->hash[i]), 32);
-	    }
+            bp_hash_reset(&bp->time);
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
@@ -1492,18 +1492,8 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	erts_atomic_init_nob(&bcp->acount, 0);
 	bp->count = bcp;
     } else if (break_flags & ERTS_BPF_TIME_TRACE) {
-	BpDataTime* bdt;
-	Uint i;
-
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
-	bdt = Alloc(sizeof(BpDataTime));
-	erts_refc_init(&bdt->refc, 1);
-	bdt->n = erts_no_schedulers + 1;
-	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
-	for (i = 0; i < bdt->n; i++) {
-	    bp_hash_init(&(bdt->hash[i]), 32);
-	}
-	bp->time = bdt;
+	bp->time = bp_time_alloc();
     }
 
     bp->flags |= break_flags;
@@ -1578,6 +1568,19 @@ bp_count_unref(BpCount* bcp)
     }
 }
 
+static BpDataTime* bp_time_alloc(void)
+{
+    const Uint n = erts_no_schedulers + 1;
+    BpDataTime *bdt = Alloc(offsetof(BpDataTime,hash) +
+                            sizeof(bp_time_hash_t)*n);
+    bdt->n = n;
+    erts_refc_init(&bdt->refc, 1);
+    for (Uint i = 0; i < n; i++) {
+        bp_hash_init(&(bdt->hash[i]), 32);
+    }
+    return bdt;
+}
+
 static void
 bp_time_unref(BpDataTime* bdt)
 {
@@ -1587,7 +1590,6 @@ bp_time_unref(BpDataTime* bdt)
 	for (i = 0; i < bdt->n; ++i) {
 	    bp_hash_delete(&(bdt->hash[i]));
 	}
-	Free(bdt->hash);
 	Free(bdt);
     }
 }
