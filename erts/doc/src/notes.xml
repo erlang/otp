@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed beam crash that could happen if resetting
+	    <c>call_time</c> or <c>call_memory</c> trace counters of
+	    a function while it is called. Bug exists since OTP
+	    R16.</p>
+          <p>
+	    Own Id: OTP-19269 Aux Id: GH-8835, PR-8897 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

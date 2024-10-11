@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 4.3.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With this change, shutdown procedure handles a race
+	    condition between supervisor executing a shutdown and
+	    child process termination from other reason.</p>
+          <p>
+	    Own Id: OTP-19256 Aux Id: PR-8780 </p>
+        </item>
+        <item>
+          <p>
+	    With this change, uri_string:normalize assumes empty path
+	    (do not crash) when no path is provided in the URI map.</p>
+          <p>
+	    Own Id: OTP-19266 Aux Id: ERIERL-1127, PR-8890 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 4.3.1.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
