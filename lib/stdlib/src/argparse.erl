@@ -727,8 +727,9 @@ parse(Args, Command, Options) ->
     Prog = validate(Command, Options),
     %% use maps and not sets v2, because sets:is_element/2 cannot be used in guards (unlike is_map_key)
     Prefixes = maps:from_list([{P, true} || P <- maps:get(prefixes, Options, [$-])]),
+    Args2 = [unicode:characters_to_list(Arg) || Arg <- Args],
     try
-        parse_impl(Args, merge_arguments(Prog, Command, init_parser(Prefixes, Command, Options)))
+        parse_impl(Args2, merge_arguments(Prog, Command, init_parser(Prefixes, Command, Options)))
     catch
         %% Parser error may happen at any depth, and bubbling the error is really
         %% cumbersome. Use exceptions and catch it before returning from `parse/2,3' instead.
