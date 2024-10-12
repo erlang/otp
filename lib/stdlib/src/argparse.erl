@@ -1661,7 +1661,10 @@ collect_options(CmdName, Command, [Cmd|Tail], Args) ->
 
 %% gets help for sub-command
 get_help(Command, []) ->
-    maps:get(help, Command, "");
+    case maps:get(help, Command, "") of
+        Help when is_binary(Help) -> unicode:characters_to_list(Help);
+        Help -> Help
+    end;
 get_help(Command, [Cmd|Tail]) ->
     Sub = maps:get(commands, Command),
     SubCmd = maps:get(Cmd, Sub),

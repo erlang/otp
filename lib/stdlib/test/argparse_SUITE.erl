@@ -43,6 +43,7 @@
     proxy_arguments/0, proxy_arguments/1,
 
     usage/0, usage/1,
+    usage_help_binary/0, usage_help_binary/1,
     usage_required_args/0, usage_required_args/1,
     usage_template/0, usage_template/1,
     usage_args_ordering/0, usage_args_ordering/1,
@@ -72,7 +73,7 @@ groups() ->
             very_short, multi_short, proxy_arguments
         ]},
         {usage, [parallel], [
-            usage, usage_required_args, usage_template, usage_args_ordering,
+            usage, usage_help_binary, usage_required_args, usage_template, usage_args_ordering,
             parser_error_usage, command_usage, usage_width
         ]},
         {validator, [parallel], [
@@ -814,6 +815,33 @@ usage(Config) when is_list(Config) ->
     ?assertEqual(CrawlerStatus, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["status", "crawler"]}))),
     ok.
+
+usage_help_binary() ->
+    [{doc, "Test binary command help string"}].
+
+usage_help_binary(Config) when is_list(Config) ->
+    Cmd2 = #{arguments => [#{ 
+        name => shard,
+        type => integer,
+        default => 0,
+        help => <<"help binary for shard">>}],
+        commands => #{"somecommand" => #{ help => <<"help binary for somecommand">> }},
+        help => "help binary for command"
+    },
+
+    Expected = "Usage:\n"
+        "  erl {somecommand} <shard>\n"
+        "\n"
+        "help binary for command\n"
+        "\n"
+        "Subcommands:\n"
+        "  somecommand help binary for somecommand\n"
+        "\n"
+        "Arguments:\n"
+        "  shard help binary for shard (int), default: 0\n",
+
+    ?assertEqual(Expected,
+        unicode:characters_to_list(argparse:help(Cmd2, #{}))).
 
 usage_required_args() ->
     [{doc, "Verify that required args are printed as required in usage"}].
