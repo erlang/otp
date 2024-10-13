@@ -100,6 +100,7 @@ typedef enum {
 #define ERTS_TMR_ROFLG_PROC		(((Uint32) 1) << 15)
 #define ERTS_TMR_ROFLG_PORT		(((Uint32) 1) << 16)
 #define ERTS_TMR_ROFLG_CALLBACK		(((Uint32) 1) << 17)
+#define ERTS_TMR_ROFLG_PAUSED		(((Uint32) 1) << 18)
 
 #define ERTS_TMR_ROFLG_SID_MASK	\
     (ERTS_TMR_ROFLG_HLT - (Uint32) 1)
@@ -204,6 +205,12 @@ typedef union {
     ErtsTWTimer twt;
     ErtsBifTimer btm;
 } ErtsTimer;
+
+typedef struct {
+    ErtsTmrHead head;  /* NEED to be first! */
+    Sint64 time_left_in_msec;
+    erts_atomic32_t count;
+} ErtsPausedProcTimer;
 
 typedef ErtsTimer *(*ErtsCreateTimerFunc)(ErtsSchedulerData *esdp,
                                           ErtsMonotonicTime timeout_pos,
@@ -951,6 +958,53 @@ create_tw_timer(ErtsSchedulerData *esdp,
 }
 
 /*
+ * Paused proc timers
+ */
+static ERTS_INLINE ErtsPausedProcTimer *
+create_paused_proc_timer(Process *c_p)
+{
+    ErtsPausedProcTimer *result = NULL;
+    erts_aint_t itmr = erts_atomic_read_nob(&c_p->common.timer);
+
+    if (itmr != ERTS_PTMR_NONE && itmr != ERTS_PTMR_TIMEDOUT) {
+        ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
+        ErtsTimer *tmr = (ErtsTimer *)itmr;
+
+        if (tmr->head.roflgs & ERTS_TMR_ROFLG_PAUSED) {
+            // The process timer was already paused, reuse the paused timer
+            erts_atomic32_inc_nob(&((ErtsPausedProcTimer*) tmr)->count);
+        } else {
+            int is_hlt = !!(tmr->head.roflgs & ERTS_TMR_ROFLG_HLT);
+            ErtsMonotonicTime timeout_pos;
+
+            ASSERT(tmr->head.roflgs & ERTS_TMR_ROFLG_PROC);
+
+            result = erts_alloc(ERTS_ALC_T_PAUSED_TIMER,
+                                sizeof(ErtsPausedProcTimer));
+            result->head.roflgs = tmr->head.roflgs | ERTS_TMR_ROFLG_PAUSED;
+            erts_atomic32_init_nob(&result->head.refc, 1);
+            result->head.receiver.proc = tmr->head.receiver.proc;
+
+            timeout_pos = (is_hlt
+                       ? tmr->hlt.timeout
+                       : erts_tweel_read_timeout(&tmr->twt.u.tw_tmr));
+            result->time_left_in_msec = get_time_left(esdp, timeout_pos);
+            erts_atomic32_set_nob(&result->count, 1);
+        }
+    }
+
+    return result;
+}
+
+static ERTS_INLINE void
+paused_proc_timer_dec_refc(ErtsPausedProcTimer *pptmr)
+{
+    if (erts_atomic32_dec_read_relb(&pptmr->head.refc) == 0) {
+        erts_free(ERTS_ALC_T_PAUSED_TIMER, (void *) pptmr);
+    }
+}
+
+/*
  * Basic high level timer stuff
  */
 
@@ -1664,6 +1718,11 @@ static void
 continue_cancel_ptimer(ErtsSchedulerData *esdp, ErtsTimer *tmr)
 {
     Uint32 sid = (tmr->head.roflgs & ERTS_TMR_ROFLG_SID_MASK);
+
+    if (tmr->head.roflgs & ERTS_TMR_ROFLG_PAUSED) {
+        paused_proc_timer_dec_refc((ErtsPausedProcTimer*) tmr);
+        return;
+    }
 
     if (esdp->no != sid)
 	queue_canceled_timer(esdp, sid, tmr);
@@ -2712,6 +2771,80 @@ erts_cancel_proc_timer(Process *c_p)
     }
     continue_cancel_ptimer(erts_proc_sched_data(c_p),
 			   (ErtsTimer *) tval);
+}
+
+void
+erts_pause_proc_timer(Process *c_p)
+{
+    ErtsPausedProcTimer *pptmr;
+
+    ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_STATUS)
+                   & erts_proc_lc_my_proc_locks(c_p));
+
+    pptmr = create_paused_proc_timer(c_p);
+    if (!pptmr) {
+        return;
+    }
+
+    CANCEL_TIMER(c_p);
+
+    erts_atomic_set_nob(&c_p->common.timer, (erts_aint_t) pptmr);
+}
+
+int
+erts_try_reuse_paused_proc_timer(Process *c_p)
+{
+    erts_aint_t timer;
+
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(c_p));
+
+    timer = erts_atomic_read_acqb(&c_p->common.timer);
+    if (timer == ERTS_PTMR_NONE || timer == ERTS_PTMR_TIMEDOUT) {
+        return 0;
+    }
+
+    if (!(((ErtsTimer *)timer)->head.roflgs & ERTS_TMR_ROFLG_PAUSED)) {
+        return 0;
+    }
+
+    erts_atomic32_inc_nob(&((ErtsPausedProcTimer *)timer)->count);
+    return 1;
+}
+
+int
+erts_resume_paused_proc_timer(Process *c_p)
+{
+    erts_aint_t timer;
+    int resumed_timer = 0;
+
+    ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_STATUS)
+                   & erts_proc_lc_my_proc_locks(c_p));
+
+    timer = erts_atomic_xchg_nob(&c_p->common.timer, ERTS_PTMR_NONE);
+
+    ASSERT(timer != ERTS_PTMR_TIMEDOUT);
+
+    if (timer != ERTS_PTMR_NONE) {
+        UWord tmo = 0;
+        ErtsPausedProcTimer *pptmr = (ErtsPausedProcTimer *)timer;
+        int count;
+
+        ASSERT(pptmr->head.roflgs & ERTS_TMR_ROFLG_PAUSED);
+
+        count = erts_atomic32_dec_read_acqb(&pptmr->count);
+        if (count == 0) {
+            if (pptmr->time_left_in_msec > 0) {
+                ASSERT((pptmr->time_left_in_msec >> 32) == 0);
+                tmo = (UWord) pptmr->time_left_in_msec;
+            }
+
+            erts_set_proc_timer_uword(c_p, tmo);
+            paused_proc_timer_dec_refc(pptmr);
+            resumed_timer = 1;
+        }
+    }
+
+    return resumed_timer;
 }
 
 void

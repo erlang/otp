@@ -555,7 +555,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
                                    commit_code_ix, NULL);
 
         erts_proc_inc_refc(c_p);
-        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
 
         /* commit_code_ix(NULL) will resume us when everything is finished, at
          * which point we'll return `res`. */
@@ -1631,7 +1631,7 @@ BIF_RETTYPE erts_literal_area_collector_release_area_switch_0(BIF_ALIST_0)
             erts_schedule_thr_prgr_later_op(rla_resume,
                                             NULL,
                                             &later_literal_area_switch);
-            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL, 0);
             if (new_area) {
                 /*
                  * If we also got a new block_area, we will
@@ -1789,7 +1789,7 @@ erts_suspend_process_on_pending_purge_lambda(Process *c_p,
 	    purge_state.sprocs = sprocs;
 	}
 	purge_state.sprocs[purge_state.sp_ix++] = c_p->common.id;
-	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
 	ERTS_VBUMP_ALL_REDS(c_p);
     }
     erts_mtx_unlock(&purge_state.mtx);
@@ -1969,7 +1969,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
             erts_schedule_thr_prgr_later_op(resume_purger,
                                             NULL,
                                             &purger_lop_data);
-            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL, 0);
             ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
         }
 
@@ -1999,7 +1999,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
             erts_schedule_thr_prgr_later_op(finalize_purge_abort,
                                             NULL,
                                             &purger_lop_data);
-            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL, 0);
             ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
         }
 

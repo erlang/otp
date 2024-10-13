@@ -553,6 +553,7 @@ atom parent
 atom Plus='+'
 atom PlusPlus='++'
 atom pause
+atom pause_proc_timer
 atom pending
 atom pending_driver
 atom pending_process
