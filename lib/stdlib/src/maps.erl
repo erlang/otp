@@ -1145,41 +1145,68 @@ _Examples:_
 
 ```erlang
 > EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
-maps:groups_from_list(EvenOdd, [1, 2, 3]).
+  maps:groups_from_list(EvenOdd, [1, 2, 3]).
 #{even => [2], odd => [1, 3]}
 > maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}
 ```
+
+Since OTP-28, it is also possible to give a list of `KeyFun`s. The result is
+a hierarchy of maps, where the keys of each tier are given by the respective
+`KeyFun`.
+
+_Examples:_
+
+```erlang
+> Data = [#{continent => asia, country => japan, city => tokyo},
+          #{continent => europe, country => germany, city => berlin},
+          #{continent => europe, country => germany, city => munich},
+          #{continent => europe, country => sweden, city => stockholm}],
+  ContinentFn = fun(#{continent := Continent}) -> Continent end,
+  CountryFn = fun(#{country := Country}) -> Country end,
+  maps:groups_from_list([ContinentFn, CountryFn], Data).
+#{asia =>
+      #{japan =>
+            [#{continent => asia, country => japan, city => tokyo}]},
+  europe =>
+      #{germany =>
+            [#{continent => europe, country => germany, city => berlin},
+             #{continent => europe, country => germany, city => munich}],
+        sweden =>
+            [#{continent => europe, country => sweden, city => stockholm}]}}
+```
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec groups_from_list(KeyFun, List) -> GroupsMap when
+-spec groups_from_list(KeyFunOrFuns, List) -> Group | GroupsMap when
+    KeyFunOrFuns :: KeyFun | [KeyFun],
     KeyFun :: fun((Elem) -> Key),
-    GroupsMap :: #{Key => Group},
+    GroupsMap :: #{Key => Group | GroupsMap},
     Key :: term(),
     List :: [Elem],
     Group :: [Elem],
     Elem :: term().
 
-groups_from_list(Fun, List0) when is_function(Fun, 1) ->
-    try lists:reverse(List0) of
-        List ->
-            groups_from_list_1(Fun, List, #{})
+groups_from_list([], List) when is_list(List) ->
+    List;
+groups_from_list([_|_], []) ->
+    #{};
+groups_from_list([_|_]=KeyFuns, [_|_]=List) ->
+    %% try/catching via ErrorTag is necessary in order to distinguish
+    %% invalid input (eg improper lists or non-functions in `KeyFuns`)
+    %% from errors caused by calling a `KeyFun`
+    ErrorTag = make_ref(),
+    try
+	gfl_1(KeyFuns,
+	      gfl_maybe_reverse(KeyFuns, List, ErrorTag),
+	      ErrorTag)
     catch
-        error:_ ->
-            badarg_with_info([Fun, List0])
+	error:ErrorTag ->
+	    badarg_with_info([KeyFuns, List])
     end;
-groups_from_list(Fun, List) ->
-    badarg_with_info([Fun, List]).
-
-groups_from_list_1(Fun, [H | Tail], Acc) ->
-    K = Fun(H),
-    NewAcc = case Acc of
-                 #{K := Vs} -> Acc#{K := [H | Vs]};
-                 #{} -> Acc#{K => [H]}
-             end,
-    groups_from_list_1(Fun, Tail, NewAcc);
-groups_from_list_1(_Fun, [], Acc) ->
-    Acc.
+groups_from_list(KeyFun, List) when is_function(KeyFun, 1) ->
+    groups_from_list([KeyFun], List);
+groups_from_list(KeyFunOrFuns, List) ->
+    badarg_with_info([KeyFunOrFuns, List]).
 
 -doc """
 Partitions the given `List` into a map of groups.
@@ -1204,40 +1231,141 @@ _Examples:_
     ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["tna", "tac"],5 => ["ognid"],7 => ["olaffub"]}
 ```
+
+Since OTP-28, it is also possible to give a list of `KeyFun`s. The result is
+a hierarchy of maps, where the keys on each tier are given by the respective
+`KeyFun`.
+
+_Examples:_
+
+```erlang
+> Data = [#{continent => asia, country => japan, city => tokyo},
+          #{continent => europe, country => germany, city => berlin},
+          #{continent => europe, country => germany, city => munich},
+          #{continent => europe, country => sweden, city => stockholm}],
+  ContinentFn = fun(#{continent := Continent}) -> Continent end,
+  CountryFn = fun(#{country := Country}) -> Country end,
+  CityFn = fun(#{city := City}) -> City end,
+  maps:groups_from_list([ContinentFn, CountryFn], CityFn, Data).
+#{asia =>
+      #{japan =>
+            [tokyo]},
+  europe =>
+      #{germany =>
+            [berlin},
+             munich],
+        sweden =>
+            [stockholm]}}
+```
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec groups_from_list(KeyFun, ValueFun, List) -> GroupsMap when
+-spec groups_from_list(KeyFunOrFuns, ValueFun, List) -> Group | GroupsMap when
+    KeyFunOrFuns :: KeyFun | [KeyFun],
     KeyFun :: fun((Elem) -> Key),
     ValueFun :: fun((Elem) -> Value),
-    GroupsMap :: #{Key := Group},
+    GroupsMap :: #{Key := Group | GroupsMap},
     Key :: term(),
     Value :: term(),
     List :: [Elem],
     Group :: [Value],
     Elem :: term().
 
-groups_from_list(Fun, ValueFun, List0) when is_function(Fun, 1),
-                                            is_function(ValueFun, 1) ->
-    try lists:reverse(List0) of
-        List ->
-            groups_from_list_2(Fun, ValueFun, List, #{})
+groups_from_list([], ValueFun, []) when is_function(ValueFun, 1) ->
+    [];
+groups_from_list([], ValueFun, [_|_]=List) when is_function(ValueFun, 1) ->
+    %% try/catching via ErrorTag is necessary in order to distinguish
+    %% invalid input (eg improper lists or non-functions in `KeyFuns`)
+    %% from errors caused by calling the `ValueFun`
+    ErrorTag = make_ref(),
+    try
+	gfl_valuemap(ValueFun, List, ErrorTag)
     catch
-        error:_ ->
-            badarg_with_info([Fun, ValueFun, List0])
+	error:ErrorTag ->
+	    badarg_with_info([[], ValueFun, List])
     end;
-groups_from_list(Fun, ValueFun, List) ->
-    badarg_with_info([Fun, ValueFun, List]).
+groups_from_list([_|_], ValueFun, []) when is_function(ValueFun, 1) ->
+    #{};
+groups_from_list([_|_]=KeyFuns, ValueFun, [_|_]=List) when is_function(ValueFun, 1) ->
+    %% try/catching via ErrorTag is necessary in order to distinguish
+    %% invalid input (eg improper lists or non-functions in `KeyFuns`)
+    %% from errors caused by calling a `KeyFun` or the `ValueFun`
+    ErrorTag = make_ref(),
+    try
+	gfl_valuemapping_1(KeyFuns,
+			   ValueFun,
+			   gfl_maybe_reverse(KeyFuns, List, ErrorTag),
+			   ErrorTag)
+    catch
+	error:ErrorTag ->
+	    badarg_with_info([KeyFuns, ValueFun, List])
+    end;
+groups_from_list(KeyFun, ValueFun, List) when is_function(KeyFun, 1) ->
+    groups_from_list([KeyFun], ValueFun, List);
+groups_from_list(KeyFun, ValueFun, List) ->
+    badarg_with_info([KeyFun, ValueFun, List]).
 
-groups_from_list_2(Fun, ValueFun, [H | Tail], Acc) ->
-    K = Fun(H),
-    V = ValueFun(H),
-    NewAcc = case Acc of
-                 #{K := Vs} -> Acc#{K := [V | Vs]};
-                 #{} -> Acc#{K => [V]}
-             end,
-    groups_from_list_2(Fun, ValueFun, Tail, NewAcc);
-groups_from_list_2(_Fun, _ValueFun, [], Acc) ->
-    Acc.
+gfl_1([KeyFun], List, ErrorTag) when is_function(KeyFun, 1) ->
+    gfl_2(KeyFun, List, ErrorTag, #{});
+gfl_1([KeyFun|KeyFuns], List, ErrorTag) when is_function(KeyFun, 1) ->
+    #{K => gfl_1(KeyFuns, V, ErrorTag)
+      ||
+      K := V <- gfl_2(KeyFun, List, ErrorTag, #{})};
+gfl_1(_, _, ErrorTag) ->
+    error(ErrorTag).
+
+gfl_2(KeyFun, [E|List], ErrorTag, Acc0) ->
+    K = KeyFun(E),
+    Acc1 = case Acc0 of
+	       #{K := Old} -> Acc0#{K := [E|Old]};
+	       #{} -> Acc0#{K => [E]}
+	   end,
+    gfl_2(KeyFun, List, ErrorTag, Acc1);
+gfl_2(_, [], _, Acc) ->
+    Acc;
+gfl_2(_, _, ErrorTag, _) ->
+    error(ErrorTag).
+
+gfl_valuemapping_1([KeyFun], ValueFun, List, ErrorTag) when is_function(KeyFun, 1) ->
+    gfl_valuemapping_2(KeyFun, ValueFun, List, ErrorTag, #{});
+gfl_valuemapping_1([KeyFun|KeyFuns], ValueFun, List, ErrorTag) when is_function(KeyFun, 1) ->
+    #{K => gfl_valuemapping_1(KeyFuns, ValueFun, V, ErrorTag)
+      ||
+      K := V <- gfl_2(KeyFun, List, ErrorTag, #{})};
+gfl_valuemapping_1(_, _, _, ErrorTag) ->
+    error(ErrorTag).
+
+gfl_valuemapping_2(KeyFun, ValueFun, [E|List], ErrorTag, Acc0) ->
+    K = KeyFun(E),
+    V = ValueFun(E),
+    Acc1 = case Acc0 of
+	       #{K := Old} -> Acc0#{K := [V|Old]};
+	       #{} -> Acc0#{K => [V]}
+	   end,
+    gfl_valuemapping_2(KeyFun, ValueFun, List, ErrorTag, Acc1);
+gfl_valuemapping_2(_, _, [], _, Acc) ->
+    Acc;
+gfl_valuemapping_2(_, _, _, ErrorTag, _) ->
+    error(ErrorTag).
+
+gfl_valuemap(ValueFun, [E|List], ErrorTag) ->
+    [ValueFun(E) | gfl_valuemap(ValueFun, List, ErrorTag)];
+gfl_valuemap(_, [], _) ->
+    [];
+gfl_valuemap(_, _, ErrorTag) ->
+    error(ErrorTag).
+
+gfl_maybe_reverse([_, _], List, _) ->
+    List;
+gfl_maybe_reverse(KeyFuns, List, ErrorTag) ->
+    try
+	case length(KeyFuns) rem 2 of
+	    0 -> List;
+	    1 -> lists:reverse(List)
+	end
+    catch
+	error:_ ->
+	    error(ErrorTag)
+    end.
 
 error_type(M) when is_map(M) -> badarg;
 error_type(V) -> {badmap, V}.

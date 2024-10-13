@@ -233,10 +233,17 @@ format_maps_error(get, [_Key,Map]) ->
         true ->
             [[],not_map]
     end;
-format_maps_error(groups_from_list, [Fun, List]) ->
-    [must_be_fun(Fun, 1), must_be_list(List)];
-format_maps_error(groups_from_list, [Fun1, Fun2, List]) ->
-    [must_be_fun(Fun1, 1), must_be_fun(Fun2, 1), must_be_list(List)];
+format_maps_error(groups_from_list, [KeyFunOrFuns, List]) ->
+    [
+	format_maps_groups_from_list_keyfun_error(KeyFunOrFuns),
+        must_be_list(List)
+    ];
+format_maps_error(groups_from_list, [KeyFunOrFuns, ValueFun, List]) ->
+    [
+	format_maps_groups_from_list_keyfun_error(KeyFunOrFuns),
+	must_be_fun(ValueFun, 1),
+	must_be_list(List)
+    ];
 format_maps_error(get, [_,_,_]) ->
     [[],not_map];
 format_maps_error(intersect, [Map1, Map2]) ->
@@ -284,6 +291,26 @@ format_maps_error(with, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)];
 format_maps_error(without, [List, Map]) ->
     [must_be_list(List), must_be_map(Map)].
+
+format_maps_groups_from_list_keyfun_error(KeyFun) when is_function(KeyFun, 1) ->
+    [];
+format_maps_groups_from_list_keyfun_error([]) ->
+    [];
+format_maps_groups_from_list_keyfun_error(KeyFuns) ->
+    try
+	lists:all(fun(KeyFun) -> is_function(KeyFun, 1) end, KeyFuns)
+    of
+	true ->
+	    %% proper list of functions of arity 1
+	    [];
+	false  ->
+	    %% proper list containing at least one element which is not a function of arity 1
+	    <<"not a function or list of functions that take one argument">>
+    catch
+	error:_ ->
+	    %% not a proper list
+	    <<"not a function or list of functions that take one argument">>
+    end.
 
 format_math_error(acos, Args) ->
     maybe_domain_error(Args);
