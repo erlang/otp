@@ -1113,7 +1113,7 @@ send_all_state_event(Name, Event) ->
 -doc #{ equiv => sync_send_all_state_event(FsmRef, Event, 5000) }.
 -spec sync_send_all_state_event(FsmRef, Event) -> Reply when
       FsmRef :: fsm_ref(),
-      Event  :: term,
+      Event  :: term(),
       Reply  :: term().
 sync_send_all_state_event(Name, Event) ->
     case catch gen:call(Name, '$gen_sync_all_state_event', Event) of
