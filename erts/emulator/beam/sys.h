@@ -867,7 +867,7 @@ int erts_sys_explicit_8bit_putenv(char *key, char *value);
 
 /* This is identical to erts_sys_explicit_8bit_getenv but falls down to the
  * host OS implementation instead of erts_osenv. */
-int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size);
+int erts_sys_explicit_host_getenv(const char *key, char *value, size_t *size);
 
 const erts_osenv_t *erts_sys_rlock_global_osenv(void);
 void erts_sys_runlock_global_osenv(void);

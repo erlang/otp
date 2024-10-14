@@ -566,7 +566,7 @@ delay_garbage_collection(Process *p, int need, int fcalls)
     else {
 	/* Do not leave a hole in the abandoned heap... */
 	if (orig_htop < orig_hend) {
-	    *orig_htop = make_pos_bignum_header(orig_hend-orig_htop-1);
+	    erts_write_heap_filler(orig_htop, orig_hend-orig_htop);
 	    if (orig_htop + 1 < orig_hend) {
 		orig_hend[-1] = (Uint) (orig_htop - orig_heap);
 		p->flags |= F_ABANDONED_HEAP_USE;

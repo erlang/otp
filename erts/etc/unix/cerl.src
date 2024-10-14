@@ -387,14 +387,11 @@ if [ "x$GDB" = "x" ]; then
         if [ $EMU_NAME = "beam.valgrind.smp" ] && [ "x${VALGRIND_LOG_DIR}" != "x" ]; then
             # Always enable `perf` support as we use the same symbol map
             emu_xargs="$emu_xargs -JPperf true "
-            set -m
-	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" &
-            VG_PID=$!
-            fg
+	    export ERL_SYM_MAP_FILE="/tmp/cerl.valgrind.$$.map"
+	    $taskset1 valgrind $valgrind_xml $valgrind_log $vgflags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@"
             VG_EXIT=$?
-            set +m
-            if [ -f /tmp/perf-$VG_PID.map ]; then
-                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file /tmp/perf-$VG_PID.map
+            if [ -f $ERL_SYM_MAP_FILE ]; then
+                $ERL_TOP/scripts/valgrind_beamasm_update.escript $valgrind_log_file $ERL_SYM_MAP_FILE
             fi
             exit $VG_EXIT
         else

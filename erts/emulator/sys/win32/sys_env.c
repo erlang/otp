@@ -58,7 +58,7 @@ void erts_sys_rwunlock_global_osenv() {
     erts_rwmtx_rwunlock(&sysenv_rwmtx);
 }
 
-int erts_sys_explicit_host_getenv(char *key, char *value, size_t *size) {
+int erts_sys_explicit_host_getenv(const char *key, char *value, size_t *size) {
     size_t new_size = GetEnvironmentVariableA(key, value, (DWORD)*size);
 
     if(new_size == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {

@@ -2174,10 +2174,10 @@ int erts_net_message(Port *prt,
 	goto decode_error;
     }
 
-    /* Fill the unused part of the hfrag with a bignum header */
+    /* Fill the unused part of the hfrag */
     if (ede_hfrag && ede_hfrag->mem + ede_hfrag->used_size > factory.hp) {
         Uint slot = factory.hp - ede_hfrag->mem;
-        ede_hfrag->mem[slot] = make_pos_bignum_header(ede_hfrag->used_size - slot - 1);
+        erts_write_heap_filler(&ede_hfrag->mem[slot], ede_hfrag->used_size - slot);
     }
 
     if (is_not_tuple(arg) || 

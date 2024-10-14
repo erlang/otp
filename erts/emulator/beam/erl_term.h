@@ -1457,7 +1457,15 @@ do { \
 #define ET_ASSERT(expr,file,line)	do { } while(0)
 #endif
 
+ERTS_GLB_INLINE void erts_write_heap_filler(Eterm *hp, size_t sz);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void erts_write_heap_filler(Eterm *hp, size_t sz)
+{
+    ASSERT(sz > 0);
+    *hp = make_pos_bignum_header(sz - 1);
+}
 
 #if ET_DEBUG
 ERTS_GLB_INLINE unsigned tag_val_def(Eterm x, const char *file, unsigned line)

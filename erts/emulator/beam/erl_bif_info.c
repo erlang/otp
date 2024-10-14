@@ -5135,7 +5135,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             UWord left = HeapWordsLeft(BIF_P);
             if (left > 1) {
                 Eterm* hp = HAlloc(BIF_P, left);
-                *hp = make_pos_bignum_header(left - 1);
+                erts_write_heap_filler(hp, left);
             }
             if (BIF_ARG_2 == am_true) {
                 FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
