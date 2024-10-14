@@ -25,7 +25,7 @@
 
 -export([tc_try/2, tc_try/3,
          tc_try/4, tc_try/5]).
--export([proxy_call/3]).
+-export([proxy_call/3, proxy_call/4]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
@@ -294,17 +294,88 @@ test_inet_backends() ->
 
 
 
-proxy_call(F, Timeout, Default)
-  when is_function(F, 0) andalso is_integer(Timeout) andalso (Timeout > 0) ->
-    {P, M} = erlang:spawn_monitor(fun() -> exit(F()) end),
+proxy_call(F, Timeout, Default) ->
+    proxy_call(F, Timeout, infinity, Default).
+
+proxy_call(F, Timeout, PollTimeout, Default)
+  when is_function(F, 0) andalso
+       is_integer(Timeout) andalso (Timeout > 0) andalso
+       ((PollTimeout =:= infinity) orelse
+        (is_integer(PollTimeout) andalso (PollTimeout > 0))) ->
+    PollTimer = poll_timer_start(Timeout, PollTimeout),
+    iprint("[proxy-init] create proxy", []),
+    {P, M}    = erlang:spawn_monitor(fun() -> exit(F()) end),
+    pc_loop(P, M, Timeout, PollTimer, Default).
+
+pc_loop(P, M, Timeout, PollTimer, Default) ->
+    T0 = t(),
     receive
         {'DOWN', M, process, P, Reply} ->
-            Reply
+            iprint("[proxy-loop] received result: "
+                   "~n   ~p", [Reply]),
+            Reply;
+        {?MODULE, poll, PollTimeout} ->
+            iprint("[proxy-loop] Poll proxy: "
+                   "~n   Current Function:   ~p"
+                   "~n   Current Stacktrace: ~p"
+                   "~n   Reductions:         ~p"
+                   "~n   Memory:             ~p"
+                   "~n   Heap Size:          ~p"
+                   "~n   Max Heap Size:      ~p"
+                   "~n   Total Heap Size:    ~p"
+                   "~n   Status:             ~p",
+                   [pi(P, current_function),
+                    pi(P, current_stacktrace),
+                    pi(P, reductions),
+                    pi(P, memory),
+                    pi(P, heap_size),
+                    pi(P, max_heap_size),
+                    pi(P, total_heap_size),
+                    pi(P, status)]),
+            Timeout2   = t(T0, Timeout),
+            PollTimer2 = poll_timer_start(Timeout2, PollTimeout),
+            pc_loop(P, M, Timeout2, PollTimer2, Default)
+
     after Timeout ->
+            wprint("[proxy-loop] timeout: "
+                   "~n   Current Function:   ~p"
+                   "~n   Current Stacktrace: ~p"
+                   "~n   Reductions:         ~p"
+                   "~n   Memory:             ~p"
+                   "~n   Heap Size:          ~p"
+                   "~n   Max Heap Size:      ~p"
+                   "~n   Total Heap Size:    ~p"
+                   "~n   Status:             ~p",
+                   [pi(P, current_function),
+                    pi(P, current_stacktrace),
+                    pi(P, reductions),
+                    pi(P, memory),
+                    pi(P, heap_size),
+                    pi(P, max_heap_size),
+                    pi(P, total_heap_size),
+                    pi(P, status)]),
+            poll_timer_stop(PollTimer),
             erlang:demonitor(M, [flush]),
             exit(P, kill),
             Default
     end.
+
+poll_timer_start(_Timeout, PollTimeout)
+  when (PollTimeout =:= infinity) ->
+    undefined;
+poll_timer_start(Timeout, PollTimeout)
+  when (Timeout > PollTimeout) ->
+    erlang:send_after(PollTimeout, self(), {?MODULE, poll, PollTimeout});
+poll_timer_start(_, _) ->
+    undefined.
+
+poll_timer_stop(TRef) when is_reference(TRef) ->
+    erlang:cancel_timer(TRef);
+poll_timer_stop(_) ->
+    ok.
+
+t(T0, T)  -> T - (t() - T0).
+t()       -> snmp_misc:now(ms).
 
 
 hostname() ->
@@ -3344,6 +3415,12 @@ del_file_or_dir(FileOrDir) ->
 	    ok
     end.
 	    
+
+%% ----------------------------------------------------------------------
+
+pi(P, Key) ->
+    {Key, Value} = erlang:process_info(P, Key),
+    Value.
 
 %% ----------------------------------------------------------------------
 %% (debug) Print functions
