@@ -457,11 +457,11 @@ static Eterm flatmap_from_validated_list(Process *p, Eterm list, Eterm fill_valu
 
     if (unused_size) {
 	/* the key tuple is embedded in the heap
-	 * write a bignum to clear it.
+	 * write a heap filler to clear it.
 	 */
 	/* release values as normal since they are on the top of the heap */
 
-	ks[size] = make_pos_bignum_header(unused_size - 1);
+	erts_write_heap_filler(ks + size, unused_size);
 	HRelease(p, vs + size + unused_size, vs + size);
     }
 
@@ -1384,8 +1384,8 @@ static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
             hp_release = thp - unused_size;
         }
         else {
-            /* Unused values are embedded in the heap, write bignum to clear them */
-            *vs = make_pos_bignum_header(unused_size - 1);
+            /* Unused values are embedded in the heap, write filler to clear them */
+            erts_write_heap_filler(vs, unused_size);
             /* Release unused keys */
             hp_release = ks;
         }
@@ -2220,7 +2220,7 @@ Eterm erts_maps_put(Process *p, Eterm key, Eterm value, Eterm map) {
 	 * this will work out fine once we get the size word
 	 * in the header.
 	 */
-	*shp = make_pos_bignum_header(0);
+	erts_write_heap_filler(shp, 1);
 	return res;
 
 found_key:
