@@ -219,6 +219,14 @@ limitations under the License.
 
   Own Id: OTP-18447
 
+## Public_Key 1.13.3.4
+
+### Improvements and New Features
+
+* Do not hide crypto badarg reason, this error handling enhancement facilitates debugging. These kind of runtime errors are not documented and should never be relied on for matching, they are intended for catching input errors early.
+
+  Own Id: OTP-19238 Aux Id: PR-8831
+
 ## Public_Key 1.13.3.3
 
 ### Fixed Bugs and Malfunctions

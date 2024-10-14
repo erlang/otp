@@ -225,6 +225,19 @@ limitations under the License.
 
   Own Id: OTP-18544 Aux Id: GH-5276
 
+## Inets 8.3.1.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, HTTP client, when returning an asynchronous request, now correctly takes into account \`OptionRequest - full_result\`
+
+  \*** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19158
+* With this change, synchronous httpc:request now timeouts after \`Timeout\` specified in \`HttpOption \{timeout, Timeout\}\`
+
+  Own Id: OTP-19221 Aux Id: ERIERL-1091, PR-8788, PR-8801
+
 ## Inets 8.3.1.3
 
 ### Fixed Bugs and Malfunctions
