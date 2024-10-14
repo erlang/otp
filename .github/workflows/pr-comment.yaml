@@ -21,7 +21,7 @@ jobs:
     outputs:
       result: ${{ steps.pr-number.outputs.result }}
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
       - name: Fetch PR number
         id: pr-number
         env:
@@ -40,7 +40,7 @@ jobs:
       pull-requests: write
     if: github.event.action == 'requested' && needs.pr-number.outputs.result != ''
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
       ## We create an initial comment with some useful help to the user
       - uses: actions/github-script@v7.0.1
         with:
@@ -63,7 +63,7 @@ jobs:
           needs.pr-number.outputs.result != '' &&
           github.event.workflow_run.conclusion != 'skipped'
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
       - name: Download and Extract Artifacts
         id: extract
         env:
@@ -88,7 +88,7 @@ jobs:
              echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           repository: 'erlang/erlang.github.io'

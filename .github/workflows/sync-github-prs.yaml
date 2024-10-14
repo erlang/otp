@@ -14,8 +14,8 @@ jobs:
     concurrency: erlang.github.io-deploy
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v4.1.7
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@v4.2.1
         with:
           token: ${{ secrets.ERLANG_TOKEN }}
           repository: 'erlang/erlang.github.io'

@@ -27,7 +27,7 @@ runs:
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Cache BASE image
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.1
         if: inputs.TYPE == '64-bit' || inputs.TYPE == 'clang'
         with:
             path: otp_docker_base.tar
@@ -46,13 +46,13 @@ runs:
 
       - name: Cache pre-built src
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.1
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
       - name: Cache pre-built binaries
         if: inputs.BUILD_IMAGE == 'true'
-        uses: actions/cache@v4.0.2
+        uses: actions/cache@v4.1.1
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-${{ inputs.TYPE }}-${{ github.ref_name }}-${{ github.sha }}
