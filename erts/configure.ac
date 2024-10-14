@@ -3556,17 +3556,6 @@ fi
 AC_SUBST(CC32)
 AC_SUBST(CFLAGS32)
 
-dnl
-dnl ERTS_EMU_CMDLINE_FLAGS will force modification of config.h when
-dnl the emulator command line flags are modified by configure, which
-dnl in turn will make 'make' detect that files depending on config.h
-dnl needs to be rebuilt.
-dnl
-
-AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
-"$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
-[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
-
 AC_SUBST(STATIC_CFLAGS)
 
 dnl ---------------------------------------------------------------------
@@ -3666,6 +3655,21 @@ fi
 AC_MSG_RESULT([yes])
 DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
 AC_SUBST(DEBUG_CFLAGS)
+
+no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[[^ ]]*/ /g')
+DEBUG_CXXFLAGS="-g -O0 $no_opt_CXXFLAGS"
+AC_SUBST(DEBUG_CXXFLAGS)
+
+dnl
+dnl ERTS_EMU_CMDLINE_FLAGS will force modification of config.h when
+dnl the emulator command line flags are modified by configure, which
+dnl in turn will make 'make' detect that files depending on config.h
+dnl needs to be rebuilt.
+dnl
+
+AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
+"$STATIC_CFLAGS $CFLAGS $CXXFLAGS $DEBUG_CFLAGS $DEBUG_CXXFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
+[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.
