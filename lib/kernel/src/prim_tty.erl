@@ -112,12 +112,12 @@
 -export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
 
 -nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/3, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
+       tty_select/2, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
-       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3, tty_read_signal/2]).
+       tgoto_nif/1, tgoto_nif/2, tgoto_nif/3]).
 
--export([reader_loop/6, writer_loop/2]).
+-export([reader_loop/5, writer_loop/2]).
 
 %% Exported in order to remove "unused function" warning
 -export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
@@ -320,6 +320,28 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 WriterState
         end,
 
+    %% `prim_tty' has signal handlers for SIGCONT and SIGWINCH.
+    %%
+    %% Historically, these signals were caught by `prim_tty_nif.c' and
+    %% forwarded to this process.
+    %%
+    %% After SIGCONT and SIGWINCH support was added, this module uses a
+    %% gen_event handler in `prim_tty_sighandler'.
+    case {ReaderState#state.reader, erlang:whereis(erl_signal_server)} of
+        {{_ReaderPid, ReaderRef}, EssPid}
+          when is_reference(ReaderRef) andalso is_pid(EssPid) ->
+            _ = gen_event:delete_handler(
+                  erl_signal_server, prim_tty_sighandler,
+                  undefined),
+            ok = gen_event:add_handler(
+                   erl_signal_server, prim_tty_sighandler,
+                   #{parent => self(), reader => ReaderRef}),
+            ok = os:set_signal(sigcont, handle),
+            ok = os:set_signal(sigwinch, handle);
+        _ ->
+            ok
+    end,
+
     update_geometry(ReaderState).
 
 -spec reinit(state(), options()) -> state().
@@ -469,10 +491,10 @@ reader_stop(#state{ reader = {ReaderPid, _} } = State) ->
     {error, _} = call(ReaderPid, stop),
     State#state{ reader = undefined }.
 
--spec handle_signal(state(), winch | cont) -> state().
-handle_signal(State, winch) ->
+-spec handle_signal(state(), sigwinch | sigcont) -> state().
+handle_signal(State, sigwinch) ->
     update_geometry(State);
-handle_signal(State, cont) ->
+handle_signal(State, sigcont) ->
     tty_set(State#state.tty),
     State.
 
@@ -497,34 +519,29 @@ call(Pid, Msg) ->
 reader([TTY, Encoding, Parent]) ->
     register(user_drv_reader, self()),
     ReaderRef = make_ref(),
-    SignalRef = make_ref(),
 
-    ok = tty_select(TTY, SignalRef, ReaderRef),
+    ok = tty_select(TTY, ReaderRef),
     proc_lib:init_ack({ok, {self(), ReaderRef}}),
     FromEnc = case tty_encoding(TTY) of
                   utf8 -> Encoding;
                   Else -> Else
               end,
-    reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, <<>>).
+    reader_loop(TTY, Parent, ReaderRef, FromEnc, <<>>).
 
-reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
+reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc) ->
     receive
         {DisableAlias, disable} ->
             DisableAlias ! {DisableAlias, ok},
             receive
                 {EnableAlias, enable} ->
                     EnableAlias ! {EnableAlias, ok},
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc)
+                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc)
             end;
-        {select, TTY, SignalRef, ready_input} ->
-            {ok, Signal} = tty_read_signal(TTY, SignalRef),
-            Parent ! {ReaderRef,{signal,Signal}},
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
         {set_unicode_state, _} when FromEnc =:= {utf16, little} ->
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc);
         {set_unicode_state, Bool} ->
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
-            ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, Acc);
+            ?MODULE:reader_loop(TTY, Parent, ReaderRef, NewFromEnc, Acc);
         {_Alias, stop} ->
             ok;
         {select, TTY, ReaderRef, ready_input} ->
@@ -538,10 +555,10 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                     %% Windows when we change from "noshell" to "newshell".
                     %% When it happens we need to re-read the tty_encoding as
                     %% it has changed.
-                    reader_loop(TTY, Parent, SignalRef, ReaderRef, tty_encoding(TTY), Acc);
+                    reader_loop(TTY, Parent, ReaderRef, tty_encoding(TTY), Acc);
                 {ok, <<>>} ->
                     %% EAGAIN or EINTR
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc);
+                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc);
                 {ok, UtfXBytes} ->
 
                     %% read_nif may have blocked for a long time, so we check if
@@ -570,7 +587,7 @@ reader_loop(TTY, Parent, SignalRef, ReaderRef, FromEnc, Acc) ->
                                 {B, <<>>, UpdatedFromEnc}
                         end,
                     Parent ! {ReaderRef, {data, Bytes}},
-                    ?MODULE:reader_loop(TTY, Parent, SignalRef, ReaderRef, NewFromEnc, NewAcc)
+                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, NewFromEnc, NewAcc)
             end
     end.
 
@@ -1403,7 +1420,7 @@ tty_set(_TTY) ->
     erlang:nif_error(undef).
 setlocale(_TTY) ->
     erlang:nif_error(undef).
-tty_select(_TTY, _SignalRef, _ReadRef) ->
+tty_select(_TTY, _ReadRef) ->
     erlang:nif_error(undef).
 tty_encoding(_TTY) ->
     erlang:nif_error(undef).
@@ -1454,6 +1471,3 @@ tgoto_nif(_Ent, _Arg) ->
     erlang:nif_error(undef).
 tgoto_nif(_Ent, _Arg1, _Arg2) ->
     erlang:nif_error(undef).
-tty_read_signal(_TTY, _Ref) ->
-    erlang:nif_error(undef).
-
