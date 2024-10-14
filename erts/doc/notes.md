@@ -1448,6 +1448,14 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.11
+
+### Fixed Bugs and Malfunctions
+
+* Fixed beam crash that could happen if resetting `call_time` or `call_memory` trace counters of a function while it is called. Bug exists since OTP R16.
+
+  Own Id: OTP-19269 Aux Id: GH-8835, PR-8897
+
 ## Erts 13.2.2.10
 
 ### Fixed Bugs and Malfunctions

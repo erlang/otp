@@ -228,6 +228,20 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.7
+
+### Fixed Bugs and Malfunctions
+
+* With this change, a race condition is removed from ssh client connection setup procedure.
+
+  Own Id: OTP-19124 Aux Id: GH-7550, PR-8766
+* With this change, ssh:connect is not affected by presence of EXIT message in queue.
+
+  Own Id: OTP-19246 Aux Id: GH-8223, PR-8854
+* With this change, ssh appends \{active, false\} option after socket options received from user - so that false value is always used.
+
+  Own Id: OTP-19247 Aux Id: PR-8226
+
 ## Ssh 4.15.3.6
 
 ### Fixed Bugs and Malfunctions

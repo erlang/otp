@@ -1116,6 +1116,17 @@ This document describes the changes made to the STDLIB application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## STDLIB 4.3.1.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change, shutdown procedure handles a race condition between supervisor executing a shutdown and child process termination from other reason.
+
+  Own Id: OTP-19256 Aux Id: PR-8780
+* With this change, uri_string:normalize assumes empty path (do not crash) when no path is provided in the URI map.
+
+  Own Id: OTP-19266 Aux Id: ERIERL-1127, PR-8890
+
 ## STDLIB 4.3.1.4
 
 ### Fixed Bugs and Malfunctions
