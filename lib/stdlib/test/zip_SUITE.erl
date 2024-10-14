@@ -1470,9 +1470,9 @@ basic_timestamp(Config) ->
     if UnzipMode =/= unemzip ->
             ?assertEqual(ZMtime, UnZMtime),
 
-            %% When using unzip, the atime is sometimes set to ctime for unknown reasons... so we cannot test it
-            %% ?assertEqual(UnZAtime, UnZMtime),
-            ?assert(UnZAtime =:= UnZMtime orelse UnZAtime =:= UnZCtime),
+            %% both atime and ctime behave very differently on different platforms, so it is rather hard to test.
+            %% atime is sometimes set to ctime for unknown reasons, and sometimes set to 1970...
+            ?assert(UnZAtime =:= UnZMtime orelse UnZAtime =:= UnZCtime orelse UnZAtime =:= {1970,1,1},{1,0,0}),
 
             %% On windows the ctime and mtime are the same so
             %% we cannot compare them.
