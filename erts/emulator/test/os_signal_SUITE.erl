@@ -42,6 +42,7 @@
          t_sigalrm/1,
          t_sigchld/1,
          t_sigchld_fork/1,
+         t_sigcont/1,
          t_sigwinch/1,
          t_siginfo/1]).
 
@@ -95,7 +96,7 @@ set_unset(_Config) ->
                sigalrm, sigterm,
                sigusr1, sigusr2,
                sigchld,
-               sigstop, sigtstp],
+               sigstop, sigtstp, sigcont],
     F1 = fun(Sig) -> ok = os:set_signal(Sig,handle) end,
     F2 = fun(Sig) -> ok = os:set_signal(Sig,default) end,
     F3 = fun(Sig) -> ok = os:set_signal(Sig,ignore) end,
@@ -300,6 +301,35 @@ sigchld_fork() ->
     42 = Status,
     %% reset to ignore (it's the default)
     os:set_signal(sigchld, ignore),
+    ok.
+
+t_sigcont(_Config) ->
+    Pid1 = setup_service(),
+    OsPid = os:getpid(),
+    os:set_signal(sigcont, handle),
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    Msgs1 = fetch_msgs(Pid1),
+    io:format("Msgs1: ~p~n", [Msgs1]),
+    [{notify,sigcont},
+     {notify,sigcont},
+     {notify,sigcont}] = Msgs1,
+    %% no proc
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    %% ignore
+    Pid2 = setup_service(),
+    os:set_signal(sigcont, ignore),
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    ok = kill("CONT", OsPid),
+    Msgs2 = fetch_msgs(Pid2),
+    io:format("Msgs2: ~p~n", [Msgs2]),
+    [] = Msgs2,
+    %% reset to ignore (it's the default)
+    os:set_signal(sigcont, ignore),
     ok.
 
 t_sigwinch(_Config) ->

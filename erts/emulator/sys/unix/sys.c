@@ -682,7 +682,7 @@ static RETSIGTYPE suspend_signal(int signum)
   SIGUSR1    Term     User-defined signal 1
   SIGUSR2    Term     User-defined signal 2
  !SIGCHLD    Ign      Child stopped or terminated
- !SIGCONT    Cont     Continue if stopped
+  SIGCONT    Cont     Continue if stopped
   SIGSTOP    Stop     Stop process
   SIGTSTP    Stop     Stop typed at terminal
  !SIGTTIN    Stop     Terminal input for background process
@@ -709,6 +709,7 @@ signalterm_to_signum(Eterm signal)
     case am_sigchld: return SIGCHLD;
     case am_sigstop: return SIGSTOP;
     case am_sigtstp: return SIGTSTP;
+    case am_sigcont: return SIGCONT;
     case am_sigwinch: return SIGWINCH;
 #ifdef SIGINFO
     case am_siginfo: return SIGINFO;
@@ -734,6 +735,7 @@ signum_to_signalterm(int signum)
     case SIGCHLD: return am_sigchld;
     case SIGSTOP: return am_sigstop;
     case SIGTSTP: return am_sigtstp;   /* ^z */
+    case SIGCONT: return am_sigcont;
     case SIGWINCH: return am_sigwinch;
 #ifdef SIGINFO
     case SIGINFO: return am_siginfo;  /* ^t */

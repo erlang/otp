@@ -673,6 +673,7 @@ atom sigstop
 atom sigint
 atom sigsegv
 atom sigtstp
+atom sigcont
 atom sigquit
 atom sigwinch
 atom siginfo
