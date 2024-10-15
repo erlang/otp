@@ -24,6 +24,8 @@
 -export([init/1, handle_event/2, handle_call/2, code_change/3]).
 
 init(#{parent := _, reader := _} = State) ->
+    ok = os:set_signal(sigcont, handle),
+    ok = os:set_signal(sigwinch, handle),
     {ok, State}.
 
 handle_event(Signal, #{parent := Parent, reader := ReaderRef} = State)

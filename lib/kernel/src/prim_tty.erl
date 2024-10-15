@@ -310,36 +310,32 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 DefaultReaderEncoding = if State#state.unicode -> utf8;
                                            not State#state.unicode -> latin1
                                         end,
-                {ok, Reader} = proc_lib:start_link(
-                                 ?MODULE, reader,
-                                 [[State#state.tty, DefaultReaderEncoding, self()]]),
+                {ok, {_, ReaderRef} = Reader} =
+                    proc_lib:start_link(
+                      ?MODULE, reader,
+                      [[State#state.tty, DefaultReaderEncoding, self()]]),
+
+                case os:type() of
+                    {unix, _} ->
+                        %% `prim_tty' has signal handlers for SIGCONT and SIGWINCH.
+                        %%
+                        %% Historically, these signals were caught by `prim_tty_nif.c' and
+                        %% forwarded to this process.
+                        %%
+                        %% After SIGCONT and SIGWINCH support was added, this module uses a
+                        %% gen_event handler in `prim_tty_sighandler'.
+                        ok = gen_event:add_handler(
+                               erl_signal_server, prim_tty_sighandler,
+                               #{parent => self(), reader => ReaderRef});
+                    _ ->
+                        ok
+                end,
                 WriterState#state{ reader = Reader };
             {true, _} ->
                 WriterState;
             {false, undefined} ->
                 WriterState
         end,
-
-    %% `prim_tty' has signal handlers for SIGCONT and SIGWINCH.
-    %%
-    %% Historically, these signals were caught by `prim_tty_nif.c' and
-    %% forwarded to this process.
-    %%
-    %% After SIGCONT and SIGWINCH support was added, this module uses a
-    %% gen_event handler in `prim_tty_sighandler'.
-    case ReaderState#state.reader of
-        {_ReaderPid, ReaderRef} when is_reference(ReaderRef) ->
-            _ = gen_event:delete_handler(
-                  erl_signal_server, prim_tty_sighandler,
-                  undefined),
-            ok = gen_event:add_handler(
-                   erl_signal_server, prim_tty_sighandler,
-                   #{parent => self(), reader => ReaderRef}),
-            ok = os:set_signal(sigcont, handle),
-            ok = os:set_signal(sigwinch, handle);
-        _ ->
-            ok
-    end,
 
     update_geometry(ReaderState).
 
@@ -490,8 +486,10 @@ reader_stop(#state{ reader = {ReaderPid, _} } = State) ->
     {error, _} = call(ReaderPid, stop),
     State#state{ reader = undefined }.
 
--spec handle_signal(state(), sigwinch | sigcont) -> state().
+-spec handle_signal(state(), sigwinch | sigcont | resize) -> state().
 handle_signal(State, sigwinch) ->
+    update_geometry(State);
+handle_signal(State, resize) ->
     update_geometry(State);
 handle_signal(State, sigcont) ->
     tty_set(State#state.tty),

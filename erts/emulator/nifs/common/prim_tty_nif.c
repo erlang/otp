@@ -539,12 +539,10 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                     break;
                 case WINDOW_BUFFER_SIZE_EVENT:
                     enif_send(env, &tty->self, NULL,
+                        enif_make_tuple2(env, argv[1],
                               enif_make_tuple2(
-                                  env, enif_make_atom(env, "resize"),
-                                  enif_make_tuple2(
-                                      env,
-                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
-                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
+                                  env, enif_make_atom(env, "signal"),
+                                       enif_make_atom(env, "resize"))));
                     break;
                 case MOUSE_EVENT:
                     /* We don't do anything with the mouse event */
