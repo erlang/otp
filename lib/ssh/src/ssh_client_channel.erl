@@ -199,6 +199,7 @@ The following message is taken care of by the `ssh_client_channel` behavior.
 	  channel_cb,
 	  channel_state,
 	  channel_id,
+	  channel_adjust_fun, % :: fun/2
 	  close_sent = false
 	 }).
 
@@ -351,6 +352,24 @@ The user is responsible for any initialization of the process and must call
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 
+check_adjust_fun(Cb, ChState) ->
+    case catch Cb:get_adjust(ChState) of
+        Val when Val == immediate orelse Val == delayed ->
+            %% The existence of the get_adjust should not change in runtime
+            %% So it should be safe to use it here
+            fun(Msg, ChannelState) ->
+                Adjust = Cb:get_adjust(ChannelState),
+                if Adjust == immediate ->
+                        adjust_window(Msg);
+                    true -> % delayed
+                        ok
+                end
+            end;
+        _ ->
+        %% If the channel handler is not aware that it can manage adjustments
+        %% then OTP SSH function is used
+            fun(Msg, _) -> adjust_window(Msg) end
+    end.
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -398,17 +417,21 @@ init([Options]) ->
     process_flag(trap_exit, true),
     try Cb:init(channel_cb_init_args(Options)) of
 	{ok, ChannelState} ->
+	    ChannelAdjustFun = check_adjust_fun(Cb, ChannelState),
 	    State = #state{cm = ConnectionManager, 
 			   channel_cb = Cb,
 			   channel_id = ChannelId,
-			   channel_state = ChannelState},
+			   channel_state = ChannelState,
+			   channel_adjust_fun = ChannelAdjustFun},
 	    self() ! {ssh_channel_up, ChannelId, ConnectionManager}, 
 	    {ok, State};
 	{ok, ChannelState, Timeout} ->
+	    ChannelAdjustFun = check_adjust_fun(Cb, ChannelState),
 	    State = #state{cm = ConnectionManager, 
 			   channel_cb = Cb,
 			   channel_id = ChannelId,
-			   channel_state = ChannelState},
+			   channel_state = ChannelState,
+			   channel_adjust_fun = ChannelAdjustFun},
 	    self() ! {ssh_channel_up, ChannelId, ConnectionManager}, 
 	    {ok, State, Timeout};
 	{stop, Why} ->
@@ -496,14 +519,15 @@ handle_info({ssh_cm, ConnectionManager, {closed, ChannelId}},
     (catch ssh_connection:close(ConnectionManager, ChannelId)),
     {stop, normal, State#state{close_sent = true}};
 
-handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module, 
-                                         channel_state = ChannelState0} = State) ->
+handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module,
+			channel_adjust_fun = AdjustFun,
+			channel_state = ChannelState0} = State) ->
     try Module:handle_ssh_msg(Msg, ChannelState0) of
 	{ok, ChannelState} ->
-	    adjust_window(Msg),
+            AdjustFun(Msg, ChannelState),
 	    {noreply, State#state{channel_state = ChannelState}};
 	{ok, ChannelState, Timeout} ->
-	    adjust_window(Msg),
+            AdjustFun(Msg, ChannelState),
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
 	{stop, ChannelId, ChannelState} ->
             do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
