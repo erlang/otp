@@ -327,9 +327,8 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
     %%
     %% After SIGCONT and SIGWINCH support was added, this module uses a
     %% gen_event handler in `prim_tty_sighandler'.
-    case {ReaderState#state.reader, erlang:whereis(erl_signal_server)} of
-        {{_ReaderPid, ReaderRef}, EssPid}
-          when is_reference(ReaderRef) andalso is_pid(EssPid) ->
+    case ReaderState#state.reader of
+        {_ReaderPid, ReaderRef} when is_reference(ReaderRef) ->
             _ = gen_event:delete_handler(
                   erl_signal_server, prim_tty_sighandler,
                   undefined),
