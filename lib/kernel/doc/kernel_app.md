@@ -86,6 +86,8 @@ Any event handler added to `erl_signal_server` must handle the following events.
 
 - **`sigtstp`** - Stop typed at terminal
 
+- **`sigcont`** - Continue after stop
+
 - **`sigwinch`** - Window size change
 
 - **`siginfo`** - Status request from keyboard. Note several operating systems
