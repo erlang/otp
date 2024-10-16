@@ -39,7 +39,8 @@
 	 overflow/1,
 	 verify_sections/4,
          unicode/1,
-         bad_io_server/1
+         bad_io_server/1,
+         bypass_unicode_conversion/1
 	]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -54,9 +55,10 @@ all() ->
      emulator_flags_no_shebang, two_lines,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access, unicode, bad_io_server].
+     archive_script_file_access, unicode, bad_io_server,
+     bypass_unicode_conversion].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -977,6 +979,29 @@ bad_io_server(Config) when is_list(Config) ->
            " an arithmetic expression\n  in operator  '/'/2\n     "
            "called as '\\x{400}' / 0\nExitCode:127">>]),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+bypass_unicode_conversion(Config) when is_list(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    ToNull = case os:type() of
+        {win32,_} -> " 1> nul ";
+        _ -> " 1> /dev/null "
+    end,
+    Cmd = fun(Enc) -> "bypass_unicode_conversion "++atom_to_list(Enc)++ToNull end,
+    {TimeLatin1, _} = timer:tc(
+        fun() -> run(Config, Dir, Cmd(latin1), [<<"ExitCode:0">>]) end),
+    {TimeUnicode, _} = timer:tc(
+        fun() -> run(Config, Dir, Cmd(unicode), [<<"ExitCode:0">>]) end),
+    %% Check that Time(latin1) is about the same as Time(unicode)
+    %% Without the bypass, the time difference would be about 5x.
+    %% Turns out that the timing might be a bit unstable, so we allow a 2x difference.
+    io:format("Time(latin1) = ~p ~~= Time(unicode) = ~p~n", [TimeLatin1, TimeUnicode]),
+    true = TimeLatin1 =< TimeUnicode * 2,
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 run(Config, Dir, Cmd, Expected) ->
     run_with_opts(Config, Dir, "", Cmd, Expected).

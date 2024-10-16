@@ -52,6 +52,9 @@
         %% Same as put_chars/3, but sends Reply to From when the characters are
         %% guaranteed to have been written to the terminal
         {put_chars_sync, unicode, binary(), {From :: pid(), Reply :: term()}} |
+        %% Output raw binary, should only be called if output mode is set to raw
+        %% and encoding set to latin1.
+        {put_chars_sync, latin1, binary(), {From :: pid(), Reply :: term()}} |
         %% Put text in expansion area
         {put_expand, unicode, binary(), integer()} |
         {move_expand, -32768..32767} |
@@ -852,7 +855,7 @@ group_opts() ->
     [{expand_below, application:get_env(stdlib, shell_expand_location, below) =:= below}].
 
 -spec io_request(request(), prim_tty:state()) -> {noreply, prim_tty:state()} |
-          {term(), reference(), prim_tty:state()}.
+          {term(), reference(), prim_tty:state()} | {term(), {error, term()}}.
 io_request({requests,Rs}, TTY) ->
     {noreply, io_requests(Rs, TTY)};
 io_request(redraw_prompt, TTY) ->
@@ -867,6 +870,22 @@ io_request(delete_line, TTY) ->
     write(prim_tty:handle_request(TTY, delete_line));
 io_request({put_chars, unicode, Chars}, TTY) ->
     write(prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}));
+io_request({put_chars_sync, latin1, Chars, Reply}, TTY) ->
+    try
+        case {prim_tty:unicode(TTY), prim_tty:output_mode(TTY)} of
+            {false, raw} ->
+                Bin = if is_binary(Chars) -> Chars;
+                    true -> list_to_binary(Chars)
+                end,
+                {Output, NewTTY} = prim_tty:handle_request(TTY, {putc_raw, Bin}),
+                {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
+                {Reply, MonitorRef, NewTTY};
+            _ ->
+                io_request({put_chars_sync, unicode, unicode:characters_to_binary(Chars,latin1), Reply}, TTY)
+        end
+    catch
+        _:_ -> {Reply, {error, {put_chars, latin1, Chars}}}
+    end;
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY) ->
     {Output, NewTTY} = prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)}),
     {ok, MonitorRef} = prim_tty:write(NewTTY, Output, self()),
@@ -958,13 +977,16 @@ mktemp() ->
 handle_req(next, TTYState, {false, IOQ} = IOQueue) ->
     case queue:out(IOQ) of
         {empty, _} ->
-	    {TTYState, IOQueue};
+            {TTYState, IOQueue};
         {{value, {Origin, Req}}, ExecQ} ->
             case io_request(Req, TTYState) of
                 {noreply, NewTTYState} ->
-		    handle_req(next, NewTTYState, {false, ExecQ});
+                    handle_req(next, NewTTYState, {false, ExecQ});
                 {Reply, MonitorRef, NewTTYState} ->
-		    {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}}
+                    {NewTTYState, {{Origin, MonitorRef, Reply}, ExecQ}};
+                {Reply, {error, Reason}} ->
+                    Origin ! {reply, Reply, {error, Reason}},
+                    handle_req(next, TTYState, {false, ExecQ})
             end
     end;
 handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
@@ -972,9 +994,12 @@ handle_req(Msg, TTYState, {false, IOQ} = IOQueue) ->
     {Origin, Req} = Msg,
     case io_request(Req, TTYState) of
         {noreply, NewTTYState} ->
-	    {NewTTYState, IOQueue};
+            {NewTTYState, IOQueue};
         {Reply, MonitorRef, NewTTYState} ->
-	    {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}}
+            {NewTTYState, {{Origin, MonitorRef, Reply}, IOQ}};
+        {Reply, {error, Reason}} ->
+            Origin ! {reply, Reply, {error, Reason}},
+            {TTYState, IOQueue}
     end;
 handle_req(Msg,TTYState,{Resp, IOQ}) ->
     %% All requests are queued when we have outstanding sync put_chars
