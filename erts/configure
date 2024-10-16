@@ -27000,7 +27000,7 @@ if test "X $CFLAGS" = "X$no_opt_CFLAGS"; then
 fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
+DEBUG_CFLAGS="-g -Og $no_opt_CFLAGS"
 
 
 no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[^ ]*/ /g')
