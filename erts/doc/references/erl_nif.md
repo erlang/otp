@@ -859,7 +859,8 @@ calling NIF API functions. Functions exist for the following functionality:
 ## enif_alloc()
 
 ```c
-void * enif_alloc(size_t size);
+void * enif_alloc(
+        size_t size);
 ```
 
 Allocates memory of `size` bytes.
@@ -872,7 +873,9 @@ allocated memory.
 ## enif_alloc_binary()
 
 ```c
-int enif_alloc_binary(size_t size, ErlNifBinary* bin);
+int enif_alloc_binary(
+        size_t size,
+        ErlNifBinary* bin);
 ```
 
 Allocates a new binary of size `size` bytes. Initializes the structure pointed
@@ -907,8 +910,9 @@ Available since OTP R14B
 ## enif_alloc_resource()
 
 ```c
-void * enif_alloc_resource(ErlNifResourceType* type,
-                           unsigned size);
+void * enif_alloc_resource(
+        ErlNifResourceType* type,
+        unsigned size);
 ```
 
 Allocates a memory-managed resource object of type `type` and size `size` bytes.
@@ -918,11 +922,12 @@ Available since OTP R13B04
 ## enif_binary_to_term()
 
 ```c
-size_t enif_binary_to_term(ErlNifEnv *env,
-                           const unsigned char* data,
-			   size_t size,
-			   ERL_NIF_TERM *term,
-                           unsigned int opts);
+size_t enif_binary_to_term(
+        ErlNifEnv *env,
+        const unsigned char* data,
+        size_t size,
+        ERL_NIF_TERM *term,
+        unsigned int opts);
 ```
 
 Creates a term that is the result of decoding the binary data at `data`, which
@@ -954,7 +959,9 @@ Available since OTP R14B
 ## enif_compare()
 
 ```c
-int enif_compare(ERL_NIF_TERM lhs, ERL_NIF_TERM rhs);
+int enif_compare(
+        ERL_NIF_TERM lhs,
+        ERL_NIF_TERM rhs);
 ```
 
 Returns an integer < `0` if `lhs` < `rhs`, `0` if `lhs` = `rhs`, and > `0` if
@@ -966,8 +973,9 @@ Available since OTP R13B04
 ## enif_compare_monitors()
 
 ```c
-int enif_compare_monitors(const ErlNifMonitor
-        *monitor1, const ErlNifMonitor *monitor2);
+int enif_compare_monitors(
+        const ErlNifMonitor *monitor1,
+        const ErlNifMonitor *monitor2);
 ```
 
 Compares two [`ErlNifMonitor`](erl_nif.md#ErlNifMonitor)s. Can also be used to
@@ -981,7 +989,9 @@ Available since OTP 20.0
 ## enif_compare_pids()
 
 ```c
-int enif_compare_pids(const ErlNifPid *pid1, const ErlNifPid *pid2);
+int enif_compare_pids(
+        const ErlNifPid *pid1,
+        const ErlNifPid *pid2);
 ```
 
 Compares two [`ErlNifPid` ](erl_nif.md#ErlNifPid)s according to term order.
@@ -994,7 +1004,8 @@ Available since OTP 22.0
 ## enif_cond_broadcast()
 
 ```c
-void enif_cond_broadcast(ErlNifCond *cnd);
+void enif_cond_broadcast(
+        ErlNifCond *cnd);
 ```
 
 Same as [`erl_drv_cond_broadcast`](erl_driver.md#erl_drv_cond_broadcast).
@@ -1004,7 +1015,8 @@ Available since OTP R13B04
 ## enif_cond_create()
 
 ```c
-ErlNifCond * enif_cond_create(char *name);
+ErlNifCond * enif_cond_create(
+        char *name);
 ```
 
 Same as [`erl_drv_cond_create`](erl_driver.md#erl_drv_cond_create).
@@ -1014,7 +1026,8 @@ Available since OTP R13B04
 ## enif_cond_destroy()
 
 ```c
-void enif_cond_destroy(ErlNifCond *cnd);
+void enif_cond_destroy(
+        ErlNifCond *cnd);
 ```
 
 Same as [`erl_drv_cond_destroy`](erl_driver.md#erl_drv_cond_destroy).
@@ -1024,7 +1037,8 @@ Available since OTP R13B04
 ## enif_cond_name()
 
 ```c
-char* enif_cond_name(ErlNifCond* cnd);
+char* enif_cond_name(
+        ErlNifCond* cnd);
 ```
 
 Same as [`erl_drv_cond_name`](erl_driver.md#erl_drv_cond_name).
@@ -1034,7 +1048,8 @@ Available since OTP 21.0
 ## enif_cond_signal()
 
 ```c
-void enif_cond_signal(ErlNifCond *cnd);
+void enif_cond_signal(
+        ErlNifCond *cnd);
 ```
 
 Same as [`erl_drv_cond_signal`](erl_driver.md#erl_drv_cond_signal).
@@ -1044,7 +1059,9 @@ Available since OTP R13B04
 ## enif_cond_wait()
 
 ```c
-void enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx);
+void enif_cond_wait(
+        ErlNifCond *cnd,
+        ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_cond_wait`](erl_driver.md#erl_drv_cond_wait).
@@ -1054,7 +1071,9 @@ Available since OTP R13B04
 ## enif_consume_timeslice()
 
 ```c
-int enif_consume_timeslice(ErlNifEnv *env, int percent);
+int enif_consume_timeslice(
+        ErlNifEnv *env,
+        int percent);
 ```
 
 Gives the runtime system a hint about how much CPU time the current NIF call has
@@ -1090,8 +1109,10 @@ Available since OTP R16B
 ## enif_convert_time_unit()
 
 ```c
-ErlNifTime enif_convert_time_unit(ErlNifTime
-        val, ErlNifTimeUnit from, ErlNifTimeUnit to);
+ErlNifTime enif_convert_time_unit(
+        ErlNifTime val,
+        ErlNifTimeUnit from,
+        ErlNifTimeUnit to);
 ```
 
 Converts the `val` value of time unit `from` to the corresponding value of time
@@ -1113,7 +1134,8 @@ Available since OTP 18.3
 ## enif_cpu_time()
 
 ```c
-ERL_NIF_TERM enif_cpu_time(ErlNifEnv *);
+ERL_NIF_TERM enif_cpu_time(
+        ErlNifEnv *env);
 ```
 
 Returns the CPU time in the same format as
@@ -1127,8 +1149,10 @@ Available since OTP 19.0
 ## enif_demonitor_process()
 
 ```c
-int enif_demonitor_process(ErlNifEnv* caller_env,
-      void* obj, const ErlNifMonitor* mon);
+int enif_demonitor_process(
+        ErlNifEnv* caller_env,
+        void* obj,
+        const ErlNifMonitor* mon);
 ```
 
 Cancels a monitor created earlier with
@@ -1155,9 +1179,12 @@ Available since OTP 20.0
 ## enif_dynamic_resource_call()
 
 ```c
-int enif_dynamic_resource_call(ErlNifEnv* caller_env,
-	ERL_NIF_TERM rt_module, ERL_NIF_TERM rt_name, ERL_NIF_TERM resource,
-	void* call_data);
+int enif_dynamic_resource_call(
+        ErlNifEnv* caller_env,
+        ERL_NIF_TERM rt_module,
+        ERL_NIF_TERM rt_name,
+        ERL_NIF_TERM resource,
+        void* call_data);
 ```
 
 Call code of a resource type implemented by another NIF module. The atoms
@@ -1180,7 +1207,9 @@ Available since OTP 24.0
 ## enif_equal_tids()
 
 ```c
-int enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2);
+int enif_equal_tids(
+        ErlNifTid tid1,
+        ErlNifTid tid2);
 ```
 
 Same as [`erl_drv_equal_tids`](erl_driver.md#erl_drv_equal_tids).
@@ -1190,7 +1219,10 @@ Available since OTP R13B04
 ## enif_fprintf()
 
 ```c
-int enif_fprintf(FILE *stream, const char *format, ...);
+int enif_fprintf(
+        FILE *stream,
+        const char *format,
+        ...);
 ```
 
 Similar to `fprintf` but this format string also accepts `"%T"`, which formats
@@ -1205,7 +1237,8 @@ Available since OTP 21.0
 ## enif_free()
 
 ```c
-void enif_free(void* ptr);
+void enif_free(
+        void* ptr);
 ```
 
 Frees memory allocated by [`enif_alloc`](erl_nif.md#enif_alloc).
@@ -1213,7 +1246,8 @@ Frees memory allocated by [`enif_alloc`](erl_nif.md#enif_alloc).
 ## enif_free_env()
 
 ```c
-void enif_free_env(ErlNifEnv* env);
+void enif_free_env(
+        ErlNifEnv* env);
 ```
 
 Frees an environment allocated with
@@ -1225,7 +1259,8 @@ Available since OTP R14B
 ## enif_free_iovec()
 
 ```c
-void enif_free_iovec(ErlNifIOVec* iov);
+void enif_free_iovec(
+        ErlNifIOVec* iov);
 ```
 
 Frees an io vector returned from
@@ -1251,8 +1286,12 @@ Available since OTP 20.1
 ## enif_get_atom()
 
 ```c
-int enif_get_atom(ErlNifEnv *env, ERL_NIF_TERM
-        term, char *buf, unsigned size, ErlNifCharEncoding encoding);
+int enif_get_atom(
+        ErlNifEnv *env,
+        ERL_NIF_TERM term,
+        char *buf,
+        unsigned size,
+        ErlNifCharEncoding encoding);
 ```
 
 Writes a `NULL`\-terminated string in the buffer pointed to by `buf` of size
@@ -1268,8 +1307,11 @@ Available since OTP R13B04
 ## enif_get_atom_length()
 
 ```c
-int enif_get_atom_length(ErlNifEnv *env,
-        ERL_NIF_TERM term, unsigned *len, ErlNifCharEncoding encoding);
+int enif_get_atom_length(
+        ErlNifEnv *env,
+        ERL_NIF_TERM term,
+        unsigned *len,
+        ErlNifCharEncoding encoding);
 ```
 
 Sets `*len` to the length (number of bytes excluding terminating `NULL`
@@ -1283,8 +1325,10 @@ Available since OTP R14B
 ## enif_get_double()
 
 ```c
-int enif_get_double(ErlNifEnv* env,
-        ERL_NIF_TERM term, double* dp);
+int enif_get_double(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        double* dp);
 ```
 
 Sets `*dp` to the floating-point value of `term`.
@@ -1296,8 +1340,10 @@ Available since OTP R13B04
 ## enif_get_int()
 
 ```c
-int enif_get_int(ErlNifEnv* env, ERL_NIF_TERM
-        term, int* ip);
+int enif_get_int(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        int* ip);
 ```
 
 Sets `*ip` to the integer value of `term`.
@@ -1308,8 +1354,10 @@ the bounds of type `int`.
 ## enif_get_int64()
 
 ```c
-int enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM
-        term, ErlNifSInt64* ip);
+int enif_get_int64(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifSInt64* ip);
 ```
 
 Sets `*ip` to the integer value of `term`.
@@ -1322,8 +1370,10 @@ Available since OTP R14B
 ## enif_get_local_pid()
 
 ```c
-int enif_get_local_pid(ErlNifEnv* env,
-        ERL_NIF_TERM term, ErlNifPid* pid);
+int enif_get_local_pid(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifPid* pid);
 ```
 
 If `term` is the pid of a node local process, this function initializes the pid
@@ -1340,8 +1390,10 @@ Available since OTP R14B
 ## enif_get_local_port()
 
 ```c
-int enif_get_local_port(ErlNifEnv* env,
-        ERL_NIF_TERM term, ErlNifPort* port_id);
+int enif_get_local_port(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifPort* port_id);
 ```
 
 If `term` identifies a node local port, this function initializes the port
@@ -1353,8 +1405,11 @@ Available since OTP 19.0
 ## enif_get_list_cell()
 
 ```c
-int enif_get_list_cell(ErlNifEnv* env,
-        ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail);
+int enif_get_list_cell(
+        ErlNifEnv* env,
+        ERL_NIF_TERM list,
+        ERL_NIF_TERM* head,
+        ERL_NIF_TERM* tail);
 ```
 
 Sets `*head` and `*tail` from list `list`.
@@ -1364,8 +1419,10 @@ Returns `true` on success, or `false` if it is not a list or the list is empty.
 ## enif_get_list_length()
 
 ```c
-int enif_get_list_length(ErlNifEnv* env,
-        ERL_NIF_TERM term, unsigned* len);
+int enif_get_list_length(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        unsigned* len);
 ```
 
 Sets `*len` to the length of list `term`.
@@ -1377,8 +1434,10 @@ Available since OTP R14B
 ## enif_get_long()
 
 ```c
-int enif_get_long(ErlNifEnv* env, ERL_NIF_TERM
-        term, long int* ip);
+int enif_get_long(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        long int* ip);
 ```
 
 Sets `*ip` to the long integer value of `term`.
@@ -1391,8 +1450,10 @@ Available since OTP R13B04
 ## enif_get_map_size()
 
 ```c
-int enif_get_map_size(ErlNifEnv* env,
-        ERL_NIF_TERM term, size_t *size);
+int enif_get_map_size(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        size_t *size);
 ```
 
 Sets `*size` to the number of key-value pairs in the map `term`.
@@ -1404,8 +1465,11 @@ Available since OTP 18.0
 ## enif_get_map_value()
 
 ```c
-int enif_get_map_value(ErlNifEnv* env,
-        ERL_NIF_TERM map, ERL_NIF_TERM key, ERL_NIF_TERM* value);
+int enif_get_map_value(
+        ErlNifEnv* env,
+        ERL_NIF_TERM map,
+        ERL_NIF_TERM key,
+        ERL_NIF_TERM* value);
 ```
 
 Sets `*value` to the value associated with `key` in the map `map`.
@@ -1418,8 +1482,11 @@ Available since OTP 18.0
 ## enif_get_resource()
 
 ```c
-int enif_get_resource(ErlNifEnv* env,
-        ERL_NIF_TERM term, ErlNifResourceType* type, void** objp);
+int enif_get_resource(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifResourceType* type,
+        void** objp);
 ```
 
 Sets `*objp` to point to the resource object referred to by `term`.
@@ -1436,8 +1503,11 @@ Available since OTP R13B04
 ## enif_get_string()
 
 ```c
-int enif_get_string(ErlNifEnv* env,
-        ERL_NIF_TERM list, char* buf, unsigned size,
+int enif_get_string(
+        ErlNifEnv* env,
+        ERL_NIF_TERM list,
+        char* buf,
+        unsigned size,
         ErlNifCharEncoding encoding);
 ```
 
@@ -1459,8 +1529,11 @@ Available since OTP R13B04
 ## enif_get_string_length()
 
 ```c
-int enif_get_string_length(ErlNifEnv *env,
-        ERL_NIF_TERM list, unsigned *len, ErlNifCharEncoding encoding);
+int enif_get_string_length(
+        ErlNifEnv *env,
+        ERL_NIF_TERM list,
+        unsigned *len,
+        ErlNifCharEncoding encoding);
 ```
 
 Sets `*len` to the length (number of bytes excluding terminating `NULL`
@@ -1474,8 +1547,11 @@ Available since OTP 26.0
 ## enif_get_tuple()
 
 ```c
-int enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM
-        term, int* arity, const ERL_NIF_TERM** array);
+int enif_get_tuple(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        int* arity,
+        const ERL_NIF_TERM** array);
 ```
 
 If `term` is a tuple, this function sets `*array` to point to an array
@@ -1490,8 +1566,10 @@ Available since OTP R13B04
 ## enif_get_uint()
 
 ```c
-int enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM
-        term, unsigned int* ip);
+int enif_get_uint(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        unsigned int* ip);
 ```
 
 Sets `*ip` to the unsigned integer value of `term`.
@@ -1504,8 +1582,10 @@ Available since OTP R13B04
 ## enif_get_uint64()
 
 ```c
-int enif_get_uint64(ErlNifEnv* env,
-        ERL_NIF_TERM term, ErlNifUInt64* ip);
+int enif_get_uint64(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifUInt64* ip);
 ```
 
 Sets `*ip` to the unsigned integer value of `term`.
@@ -1518,8 +1598,10 @@ Available since OTP R14B
 ## enif_get_ulong()
 
 ```c
-int enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM
-        term, unsigned long* ip);
+int enif_get_ulong(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        unsigned long* ip);
 ```
 
 Sets `*ip` to the unsigned long integer value of `term`.
@@ -1530,7 +1612,9 @@ outside the bounds of type `unsigned long`.
 ## enif_getenv()
 
 ```c
-int enif_getenv(const char* key, char* value,
+int enif_getenv(
+        const char* key,
+        char* value,
         size_t *value_size);
 ```
 
@@ -1541,7 +1625,8 @@ Available since OTP 18.2
 ## enif_has_pending_exception()
 
 ```c
-int enif_has_pending_exception(ErlNifEnv* env,
+int enif_has_pending_exception(
+        ErlNifEnv* env,
         ERL_NIF_TERM* reason);
 ```
 
@@ -1561,7 +1646,10 @@ Available since OTP 18.0
 ## enif_hash()
 
 ```c
-ErlNifUInt64 enif_hash(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt);
+ErlNifUInt64 enif_hash(
+        ErlNifHash type,
+        ERL_NIF_TERM term,
+        ErlNifUInt64 salt);
 ```
 
 Hashes `term` according to the specified [`ErlNifHash`](erl_nif.md#ErlNifHash)
@@ -1574,8 +1662,10 @@ Available since OTP 20.0
 ## enif_inspect_binary()
 
 ```c
-int enif_inspect_binary(ErlNifEnv* env,
-        ERL_NIF_TERM bin_term, ErlNifBinary* bin);
+int enif_inspect_binary(
+        ErlNifEnv* env,
+        ERL_NIF_TERM bin_term,
+        ErlNifBinary* bin);
 ```
 
 Initializes the structure pointed to by `bin` with information about binary term
@@ -1586,8 +1676,10 @@ Returns `true` on success, or `false` if `bin_term` is not a binary.
 ## enif_inspect_iolist_as_binary()
 
 ```c
-int enif_inspect_iolist_as_binary(ErlNifEnv*
-        env, ERL_NIF_TERM term, ErlNifBinary* bin);
+int enif_inspect_iolist_as_binary(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term,
+        ErlNifBinary* bin);
 ```
 
 Initializes the structure pointed to by `bin` with a continuous buffer with the
@@ -1601,8 +1693,11 @@ Available since OTP R13B04
 ## enif_inspect_iovec()
 
 ```c
-int enif_inspect_iovec(ErlNifEnv*
-        env, size_t max_elements, ERL_NIF_TERM iovec_term, ERL_NIF_TERM* tail,
+int enif_inspect_iovec(
+        ErlNifEnv* env,
+        size_t max_elements,
+        ERL_NIF_TERM iovec_term,
+        ERL_NIF_TERM* tail,
         ErlNifIOVec** iovec);
 ```
 
@@ -1640,7 +1735,8 @@ Available since OTP 20.1
 ## enif_ioq_create()
 
 ```c
-ErlNifIOQueue * enif_ioq_create(ErlNifIOQueueOpts opts);
+ErlNifIOQueue * enif_ioq_create(
+        ErlNifIOQueueOpts opts);
 ```
 
 Create a new I/O Queue that can be used to store data. `opts` has to be set to
@@ -1651,7 +1747,8 @@ Available since OTP 20.1
 ## enif_ioq_destroy()
 
 ```c
-void enif_ioq_destroy(ErlNifIOQueue *q);
+void enif_ioq_destroy(
+        ErlNifIOQueue *q);
 ```
 
 Destroy the I/O queue and free all of it's contents
@@ -1661,7 +1758,10 @@ Available since OTP 20.1
 ## enif_ioq_deq()
 
 ```c
-int enif_ioq_deq(ErlNifIOQueue *q, size_t count, size_t *size);
+int enif_ioq_deq(
+        ErlNifIOQueue *q,
+        size_t count,
+        size_t *size);
 ```
 
 Dequeue `count` bytes from the I/O queue. If `size` is not `NULL`, the new size
@@ -1675,7 +1775,10 @@ Available since OTP 20.1
 ## enif_ioq_enq_binary()
 
 ```c
-int enif_ioq_enq_binary(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip);
+int enif_ioq_enq_binary(
+        ErlNifIOQueue *q,
+        ErlNifBinary *bin,
+        size_t skip);
 ```
 
 Enqueue the `bin` into `q` skipping the first `skip` bytes.
@@ -1689,7 +1792,10 @@ Available since OTP 20.1
 ## enif_ioq_enqv()
 
 ```c
-int enif_ioq_enqv(ErlNifIOQueue *q, ErlNifIOVec *iovec, size_t skip);
+int enif_ioq_enqv(
+        ErlNifIOQueue *q,
+        ErlNifIOVec *iovec,
+        size_t skip);
 ```
 
 Enqueue the `iovec` into `q` skipping the first `skip` bytes.
@@ -1702,7 +1808,9 @@ Available since OTP 20.1
 ## enif_ioq_peek()
 
 ```c
-SysIOVec * enif_ioq_peek(ErlNifIOQueue *q, int *iovlen);
+SysIOVec * enif_ioq_peek(
+        ErlNifIOQueue *q,
+        int *iovlen);
 ```
 
 Get the I/O queue as a pointer to an array of `SysIOVec`s. It also returns the
@@ -1718,7 +1826,11 @@ Available since OTP 20.1
 ## enif_ioq_peek_head()
 
 ```c
-int enif_ioq_peek_head(ErlNifEnv *env, ErlNifIOQueue *q, size_t *size, ERL_NIF_TERM *bin_term);
+int enif_ioq_peek_head(
+        ErlNifEnv *env,
+        ErlNifIOQueue *q,
+        size_t *size,
+        ERL_NIF_TERM *bin_term);
 ```
 
 Get the head of the IO Queue as a binary term.
@@ -1735,7 +1847,8 @@ Available since OTP 21.0
 ## enif_ioq_size()
 
 ```c
-size_t enif_ioq_size(ErlNifIOQueue *q);
+size_t enif_ioq_size(
+        ErlNifIOQueue *q);
 ```
 
 Get the size of `q`.
@@ -1745,7 +1858,9 @@ Available since OTP 20.1
 ## enif_is_atom()
 
 ```c
-int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_atom(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is an atom.
@@ -1755,7 +1870,9 @@ Available since OTP R13B04
 ## enif_is_binary()
 
 ```c
-int enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_binary(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a binary.
@@ -1763,7 +1880,8 @@ Returns `true` if `term` is a binary.
 ## enif_is_current_process_alive()
 
 ```c
-int enif_is_current_process_alive(ErlNifEnv* env);
+int enif_is_current_process_alive(
+        ErlNifEnv* env);
 ```
 
 Returns `true` if the currently executing process is currently alive, otherwise
@@ -1777,7 +1895,8 @@ Available since OTP 19.0
 ## enif_is_empty_list()
 
 ```c
-int enif_is_empty_list(ErlNifEnv* env,
+int enif_is_empty_list(
+        ErlNifEnv* env,
         ERL_NIF_TERM term);
 ```
 
@@ -1788,7 +1907,8 @@ Available since OTP R13B04
 ## enif_is_exception()
 
 ```c
-int enif_is_exception(ErlNifEnv* env,
+int enif_is_exception(
+        ErlNifEnv* env,
         ERL_NIF_TERM term);
 ```
 
@@ -1799,8 +1919,9 @@ Available since OTP R14B03
 ## enif_is_fun()
 
 ```c
-int enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM
-        term);
+int enif_is_fun(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a fun.
@@ -1810,7 +1931,8 @@ Available since OTP R13B04
 ## enif_is_identical()
 
 ```c
-int enif_is_identical(ERL_NIF_TERM lhs,
+int enif_is_identical(
+        ERL_NIF_TERM lhs,
         ERL_NIF_TERM rhs);
 ```
 
@@ -1822,7 +1944,9 @@ Available since OTP R13B04
 ## enif_is_list()
 
 ```c
-int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_list(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a list.
@@ -1832,8 +1956,9 @@ Available since OTP R14B
 ## enif_is_map()
 
 ```c
-int enif_is_map(ErlNifEnv* env, ERL_NIF_TERM
-        term);
+int enif_is_map(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a map, otherwise `false`.
@@ -1843,8 +1968,9 @@ Available since OTP 18.0
 ## enif_is_number()
 
 ```c
-int enif_is_number(ErlNifEnv* env, ERL_NIF_TERM
-        term);
+int enif_is_number(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a number.
@@ -1854,7 +1980,9 @@ Available since OTP R15B
 ## enif_is_pid()
 
 ```c
-int enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_pid(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a pid.
@@ -1864,7 +1992,8 @@ Available since OTP R13B04
 ## enif_is_pid_undefined()
 
 ```c
-int enif_is_pid_undefined(const ErlNifPid* pid);
+int enif_is_pid_undefined(
+        const ErlNifPid* pid);
 ```
 
 Returns `true` if `pid` has been set as undefined by
@@ -1875,7 +2004,9 @@ Available since OTP 22.0
 ## enif_is_port()
 
 ```c
-int enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_port(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a port.
@@ -1885,7 +2016,8 @@ Available since OTP R13B04
 ## enif_is_port_alive()
 
 ```c
-int enif_is_port_alive(ErlNifEnv* env,
+int enif_is_port_alive(
+        ErlNifEnv* env,
         ErlNifPort *port_id);
 ```
 
@@ -1898,7 +2030,8 @@ Available since OTP 19.0
 ## enif_is_process_alive()
 
 ```c
-int enif_is_process_alive(ErlNifEnv* env,
+int enif_is_process_alive(
+        ErlNifEnv* env,
         ErlNifPid *pid);
 ```
 
@@ -1911,7 +2044,9 @@ Available since OTP 19.0
 ## enif_is_ref()
 
 ```c
-int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_ref(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a reference.
@@ -1921,7 +2056,9 @@ Available since OTP R13B04
 ## enif_is_tuple()
 
 ```c
-int enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term);
+int enif_is_tuple(
+        ErlNifEnv* env,
+        ERL_NIF_TERM term);
 ```
 
 Returns `true` if `term` is a tuple.
@@ -1931,7 +2068,8 @@ Available since OTP R14B
 ## enif_keep_resource()
 
 ```c
-int enif_keep_resource(void* obj);
+int enif_keep_resource(
+        void* obj);
 ```
 
 Adds a reference to resource object `obj` obtained from
@@ -1945,7 +2083,9 @@ Available since OTP R14B
 ## enif_make_atom()
 
 ```c
-ERL_NIF_TERM enif_make_atom(ErlNifEnv *env, const char *name);
+ERL_NIF_TERM enif_make_atom(
+        ErlNifEnv *env,
+        const char *name);
 ```
 
 Creates an atom term from the `NULL`\-terminated C-string `name` with ISO
@@ -1956,8 +2096,10 @@ an atom (255 characters), `enif_make_atom` invokes
 ## enif_make_atom_len()
 
 ```c
-ERL_NIF_TERM enif_make_atom_len(ErlNifEnv *env,
-        const char *name, size_t len);
+ERL_NIF_TERM enif_make_atom_len(
+        ErlNifEnv *env,
+        const char *name,
+        size_t len);
 ```
 
 Create an atom term from the string `name` with length `len` and ISO Latin-1
@@ -1970,7 +2112,8 @@ Available since OTP R14B
 ## enif_make_badarg()
 
 ```c
-ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env);
+ERL_NIF_TERM enif_make_badarg(
+        ErlNifEnv* env);
 ```
 
 Makes a `badarg` exception to be returned from a NIF, and associates it with
@@ -1996,7 +2139,9 @@ and [`enif_raise_exception`](erl_nif.md#enif_raise_exception).
 ## enif_make_binary()
 
 ```c
-ERL_NIF_TERM enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin);
+ERL_NIF_TERM enif_make_binary(
+        ErlNifEnv* env,
+        ErlNifBinary* bin);
 ```
 
 Makes a binary term from `bin`. Any ownership of the binary data is transferred
@@ -2006,7 +2151,8 @@ NIF call and then as released.
 ## enif_make_copy()
 
 ```c
-ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env,
+ERL_NIF_TERM enif_make_copy(
+        ErlNifEnv* dst_env,
         ERL_NIF_TERM src_term);
 ```
 
@@ -2018,7 +2164,9 @@ Available since OTP R14B
 ## enif_make_double()
 
 ```c
-ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d);
+ERL_NIF_TERM enif_make_double(
+        ErlNifEnv* env,
+        double d);
 ```
 
 Creates a floating-point term from a `double`. If argument `double` is not
@@ -2030,9 +2178,11 @@ Available since OTP R13B04
 ## enif_make_existing_atom()
 
 ```c
-int enif_make_existing_atom(ErlNifEnv *env,
-        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
-        encoding);
+int enif_make_existing_atom(
+        ErlNifEnv *env,
+        const char *name,
+        ERL_NIF_TERM *atom,
+        ErlNifCharEncoding encoding);
 ```
 
 Tries to create the term of an already existing atom from the `NULL`\-terminated
@@ -2048,9 +2198,12 @@ Available since OTP R13B04
 ## enif_make_existing_atom_len()
 
 ```c
-int enif_make_existing_atom_len(ErlNifEnv *env,
-        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
-        encoding);
+int enif_make_existing_atom_len(
+        ErlNifEnv *env,
+        const char *name,
+        size_t len,
+        ERL_NIF_TERM *atom,
+        ErlNifCharEncoding encoding);
 ```
 
 Tries to create the term of an already existing atom from the string `name` with
@@ -2067,7 +2220,9 @@ Available since OTP R14B
 ## enif_make_int()
 
 ```c
-ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i);
+ERL_NIF_TERM enif_make_int(
+        ErlNifEnv* env,
+        int i);
 ```
 
 Creates an integer term.
@@ -2075,7 +2230,9 @@ Creates an integer term.
 ## enif_make_int64()
 
 ```c
-ERL_NIF_TERM enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i);
+ERL_NIF_TERM enif_make_int64(
+        ErlNifEnv* env,
+        ErlNifSInt64 i);
 ```
 
 Creates an integer term from a signed 64-bit integer.
@@ -2085,7 +2242,10 @@ Available since OTP R14B
 ## enif_make_list()
 
 ```c
-ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...);
+ERL_NIF_TERM enif_make_list(
+        ErlNifEnv* env,
+        unsigned cnt,
+        ...);
 ```
 
 Creates an ordinary list term of length `cnt`. Expects `cnt` number of arguments
@@ -2095,79 +2255,73 @@ Returns an empty list if `cnt` is 0.
 
 ## enif_make_list1()
 
-Available since OTP R13B04
-
 ## enif_make_list2()
-
-Available since OTP R13B04
 
 ## enif_make_list3()
 
-Available since OTP R13B04
-
 ## enif_make_list4()
-
-Available since OTP R13B04
 
 ## enif_make_list5()
 
-Available since OTP R13B04
-
 ## enif_make_list6()
-
-Available since OTP R13B04
 
 ## enif_make_list7()
 
-Available since OTP R13B04
-
 ## enif_make_list8()
-
-Available since OTP R13B04
 
 ## enif_make_list9()
 
 ```c
-ERL_NIF_TERM enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1);
+ERL_NIF_TERM enif_make_list1(
+        ErlNifEnv* env,
+        ERL_NIF_TERM e1);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list2(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list2(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list3(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list3(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list4(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list4(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list5(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list5(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list6(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list6(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list7(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list7(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list8(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list8(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_list9(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9);
 ```
 
@@ -2180,8 +2334,10 @@ Available since OTP R13B04
 ## enif_make_list_cell()
 
 ```c
-ERL_NIF_TERM enif_make_list_cell(ErlNifEnv*
-        env, ERL_NIF_TERM head, ERL_NIF_TERM tail);
+ERL_NIF_TERM enif_make_list_cell(
+        ErlNifEnv* env,
+        ERL_NIF_TERM head,
+        ERL_NIF_TERM tail);
 ```
 
 Creates a list cell `[head | tail]`.
@@ -2189,8 +2345,10 @@ Creates a list cell `[head | tail]`.
 ## enif_make_list_from_array()
 
 ```c
-ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM
-          arr[], unsigned cnt);
+ERL_NIF_TERM enif_make_list_from_array(
+        ErlNifEnv* env,
+        const ERL_NIF_TERM arr[],
+        unsigned cnt);
 ```
 
 Creates an ordinary list containing the elements of array `arr` of length `cnt`.
@@ -2202,7 +2360,9 @@ Available since OTP R13B04
 ## enif_make_long()
 
 ```c
-ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long int i);
+ERL_NIF_TERM enif_make_long(
+        ErlNifEnv* env,
+        long int i);
 ```
 
 Creates an integer term from a `long int`.
@@ -2212,8 +2372,11 @@ Available since OTP R13B04
 ## enif_make_map_put()
 
 ```c
-int enif_make_map_put(ErlNifEnv* env,
-        ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM value,
+int enif_make_map_put(
+        ErlNifEnv* env,
+        ERL_NIF_TERM map_in,
+        ERL_NIF_TERM key,
+        ERL_NIF_TERM value,
         ERL_NIF_TERM* map_out);
 ```
 
@@ -2230,8 +2393,11 @@ Available since OTP 18.0
 ## enif_make_map_remove()
 
 ```c
-int enif_make_map_remove(ErlNifEnv* env,
-        ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM* map_out);
+int enif_make_map_remove(
+        ErlNifEnv* env,
+        ERL_NIF_TERM map_in,
+        ERL_NIF_TERM key,
+        ERL_NIF_TERM* map_out);
 ```
 
 If map `map_in` contains `key`, this function makes a copy of `map_in` in
@@ -2247,8 +2413,11 @@ Available since OTP 18.0
 ## enif_make_map_update()
 
 ```c
-int enif_make_map_update(ErlNifEnv* env,
-        ERL_NIF_TERM map_in, ERL_NIF_TERM key, ERL_NIF_TERM new_value,
+int enif_make_map_update(
+        ErlNifEnv* env,
+        ERL_NIF_TERM map_in,
+        ERL_NIF_TERM key,
+        ERL_NIF_TERM new_value,
         ERL_NIF_TERM* map_out);
 ```
 
@@ -2265,8 +2434,12 @@ Available since OTP 18.0
 ## enif_make_map_from_arrays()
 
 ```c
-int enif_make_map_from_arrays(ErlNifEnv* env, ERL_NIF_TERM keys[],
-        ERL_NIF_TERM values[], size_t cnt, ERL_NIF_TERM *map_out);
+int enif_make_map_from_arrays(
+        ErlNifEnv* env,
+        ERL_NIF_TERM keys[],
+        ERL_NIF_TERM values[],
+        size_t cnt,
+        ERL_NIF_TERM *map_out);
 ```
 
 Makes a map term from the given keys and values.
@@ -2281,7 +2454,9 @@ Available since OTP 21.0
 ## enif_make_monitor_term()
 
 ```c
-ERL_NIF_TERM enif_make_monitor_term(ErlNifEnv* env, const ErlNifMonitor* mon);
+ERL_NIF_TERM enif_make_monitor_term(
+        ErlNifEnv* env,
+        const ErlNifMonitor* mon);
 ```
 
 Creates a term identifying the given monitor received from
@@ -2294,9 +2469,11 @@ Available since OTP 22.0
 ## enif_make_new_atom()
 
 ```c
-int enif_make_new_atom(ErlNifEnv *env,
-        const char *name, ERL_NIF_TERM *atom, ErlNifCharEncoding
-        encoding);
+int enif_make_new_atom(
+        ErlNifEnv *env,
+        const char *name,
+        ERL_NIF_TERM *atom,
+        ErlNifCharEncoding encoding);
 ```
 
 Creates an atom term from the `NULL`\-terminated C-string `name` with
@@ -2313,9 +2490,12 @@ Available since OTP 26.0
 ## enif_make_new_atom_len()
 
 ```c
-int enif_make_new_atom_len(ErlNifEnv *env,
-        const char *name, size_t len, ERL_NIF_TERM *atom, ErlNifCharEncoding
-        encoding);
+int enif_make_new_atom_len(
+        ErlNifEnv *env,
+        const char *name,
+        size_t len,
+        ERL_NIF_TERM *atom,
+        ErlNifCharEncoding encoding);
 ```
 
 Create an atom term from string `name` with length `len` bytes and
@@ -2331,8 +2511,10 @@ Available since OTP 26.0
 ## enif_make_new_binary()
 
 ```c
-unsigned char * enif_make_new_binary(ErlNifEnv*
-        env, size_t size, ERL_NIF_TERM* termp);
+unsigned char * enif_make_new_binary(
+	 ErlNifEnv* env,
+	 size_t size,
+	 ERL_NIF_TERM* termp);
 ```
 
 Allocates a binary of size `size` bytes and creates an owning term. The binary
@@ -2348,7 +2530,8 @@ Available since OTP R14B
 ## enif_make_new_map()
 
 ```c
-ERL_NIF_TERM enif_make_new_map(ErlNifEnv* env);
+ERL_NIF_TERM enif_make_new_map(
+        ErlNifEnv* env);
 ```
 
 Makes an empty map term.
@@ -2358,7 +2541,9 @@ Available since OTP 18.0
 ## enif_make_pid()
 
 ```c
-ERL_NIF_TERM enif_make_pid(ErlNifEnv* env, const ErlNifPid* pid);
+ERL_NIF_TERM enif_make_pid(
+        ErlNifEnv* env,
+        const ErlNifPid* pid);
 ```
 
 Makes a pid term or the atom [`undefined`](erl_nif.md#enif_set_pid_undefined)
@@ -2369,7 +2554,8 @@ Available since OTP R14B
 ## enif_make_ref()
 
 ```c
-ERL_NIF_TERM enif_make_ref(ErlNifEnv* env);
+ERL_NIF_TERM enif_make_ref(
+        ErlNifEnv* env);
 ```
 
 Creates a reference like `erlang:make_ref/0`.
@@ -2379,7 +2565,9 @@ Available since OTP R13B04
 ## enif_make_resource()
 
 ```c
-ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj);
+ERL_NIF_TERM enif_make_resource(
+        ErlNifEnv* env,
+        void* obj);
 ```
 
 Creates an opaque handle to a memory-managed resource object obtained by
@@ -2421,8 +2609,11 @@ Available since OTP R13B04
 ## enif_make_resource_binary()
 
 ```c
-ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj, const
-        void* data, size_t size);
+ERL_NIF_TERM enif_make_resource_binary(
+        ErlNifEnv* env,
+        void* obj,
+        const void* data,
+        size_t size);
 ```
 
 Creates a binary term that is memory-managed by a resource object `obj` obtained
@@ -2445,7 +2636,9 @@ Available since OTP R14B
 ## enif_make_reverse_list()
 
 ```c
-int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM list_in,
+int enif_make_reverse_list(
+        ErlNifEnv* env,
+        ERL_NIF_TERM list_in,
         ERL_NIF_TERM *list_out);
 ```
 
@@ -2462,8 +2655,10 @@ Available since OTP R15B
 ## enif_make_string()
 
 ```c
-ERL_NIF_TERM enif_make_string(ErlNifEnv *env,
-        const char *string, ErlNifCharEncoding encoding);
+ERL_NIF_TERM enif_make_string(
+        ErlNifEnv *env,
+        const char *string,
+        ErlNifCharEncoding encoding);
 ```
 
 Creates a list containing the characters of the `NULL`\-terminated string
@@ -2472,9 +2667,11 @@ Creates a list containing the characters of the `NULL`\-terminated string
 ## enif_make_string_len()
 
 ```c
-ERL_NIF_TERM enif_make_string_len(ErlNifEnv
-        *env, const char *string, size_t len, ErlNifCharEncoding
-        encoding);
+ERL_NIF_TERM enif_make_string_len(
+        ErlNifEnv *env,
+        const char *string,
+        size_t len,
+        ErlNifCharEncoding encoding);
 ```
 
 Creates a list containing the characters of the string `string` with length
@@ -2486,8 +2683,11 @@ Available since OTP R14B
 ## enif_make_sub_binary()
 
 ```c
-ERL_NIF_TERM enif_make_sub_binary(ErlNifEnv*
-        env, ERL_NIF_TERM bin_term, size_t pos, size_t size);
+ERL_NIF_TERM enif_make_sub_binary(
+        ErlNifEnv* env,
+        ERL_NIF_TERM bin_term,
+        size_t pos,
+        size_t size);
 ```
 
 Makes a subbinary of binary `bin_term`, starting at zero-based position `pos`
@@ -2499,8 +2699,10 @@ Available since OTP R13B04
 ## enif_make_tuple()
 
 ```c
-ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env,
-        unsigned cnt, ...);
+ERL_NIF_TERM enif_make_tuple(
+        ErlNifEnv* env,
+        unsigned cnt,
+        ...);
 ```
 
 Creates a tuple term of arity `cnt`. Expects `cnt` number of arguments (after
@@ -2508,80 +2710,73 @@ Creates a tuple term of arity `cnt`. Expects `cnt` number of arguments (after
 
 ## enif_make_tuple1()
 
-Available since OTP R13B04
-
 ## enif_make_tuple2()
-
-Available since OTP R13B04
 
 ## enif_make_tuple3()
 
-Available since OTP R13B04
-
 ## enif_make_tuple4()
-
-Available since OTP R13B04
 
 ## enif_make_tuple5()
 
-Available since OTP R13B04
-
 ## enif_make_tuple6()
-
-Available since OTP R13B04
 
 ## enif_make_tuple7()
 
-Available since OTP R13B04
-
 ## enif_make_tuple8()
-
-Available since OTP R13B04
 
 ## enif_make_tuple9()
 
 ```c
-ERL_NIF_TERM enif_make_tuple1(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple1(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple2(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple2(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple3(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple3(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple4(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple4(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple5(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple5(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple6(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple6(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple7(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple7(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple8(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple8(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8);
 ```
 
 ```c
-ERL_NIF_TERM enif_make_tuple9(ErlNifEnv* env,
+ERL_NIF_TERM enif_make_tuple9(
+        ErlNifEnv* env,
         ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9);
 ```
 
@@ -2594,8 +2789,10 @@ Available since OTP R13B04
 ## enif_make_tuple_from_array()
 
 ```c
-ERL_NIF_TERM enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM
-        arr[], unsigned cnt);
+ERL_NIF_TERM enif_make_tuple_from_array(
+        ErlNifEnv* env,
+        const ERL_NIF_TERM arr[],
+        unsigned cnt);
 ```
 
 Creates a tuple containing the elements of array `arr` of length `cnt`.
@@ -2605,7 +2802,9 @@ Available since OTP R13B04
 ## enif_make_uint()
 
 ```c
-ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned int i);
+ERL_NIF_TERM enif_make_uint(
+        ErlNifEnv* env,
+        unsigned int i);
 ```
 
 Creates an integer term from an `unsigned int`.
@@ -2615,7 +2814,9 @@ Available since OTP R13B04
 ## enif_make_uint64()
 
 ```c
-ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i);
+ERL_NIF_TERM enif_make_uint64(
+        ErlNifEnv* env,
+        ErlNifUInt64 i);
 ```
 
 Creates an integer term from an unsigned 64-bit integer.
@@ -2625,7 +2826,9 @@ Available since OTP R14B
 ## enif_make_ulong()
 
 ```c
-ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i);
+ERL_NIF_TERM enif_make_ulong(
+        ErlNifEnv* env,
+        unsigned long i);
 ```
 
 Creates an integer term from an `unsigned long int`.
@@ -2633,8 +2836,9 @@ Creates an integer term from an `unsigned long int`.
 ## enif_make_unique_integer()
 
 ```c
-ERL_NIF_TERM enif_make_unique_integer(ErlNifEnv
-        *env, ErlNifUniqueInteger properties);
+ERL_NIF_TERM enif_make_unique_integer(
+        ErlNifEnv *env,
+        ErlNifUniqueInteger properties);
 ```
 
 Returns a unique integer with the same properties as specified by
@@ -2653,9 +2857,11 @@ Available since OTP 19.0
 ## enif_map_iterator_create()
 
 ```c
-int enif_map_iterator_create(ErlNifEnv *env,
-        ERL_NIF_TERM map, ErlNifMapIterator *iter, ErlNifMapIteratorEntry
-        entry);
+int enif_map_iterator_create(
+        ErlNifEnv *env,
+        ERL_NIF_TERM map,
+        ErlNifMapIterator *iter,
+        ErlNifMapIteratorEntry entry);
 ```
 
 Creates an iterator for the map `map` by initializing the structure pointed to
@@ -2691,7 +2897,8 @@ Available since OTP 18.0
 ## enif_map_iterator_destroy()
 
 ```c
-void enif_map_iterator_destroy(ErlNifEnv *env,
+void enif_map_iterator_destroy(
+        ErlNifEnv *env,
         ErlNifMapIterator *iter);
 ```
 
@@ -2703,9 +2910,11 @@ Available since OTP 18.0
 ## enif_map_iterator_get_pair()
 
 ```c
-int enif_map_iterator_get_pair(ErlNifEnv *env,
-        ErlNifMapIterator *iter, ERL_NIF_TERM *key, ERL_NIF_TERM
-        *value);
+int enif_map_iterator_get_pair(
+        ErlNifEnv *env,
+        ErlNifMapIterator *iter,
+        ERL_NIF_TERM *key,
+        ERL_NIF_TERM *value);
 ```
 
 Gets key and value terms at the current map iterator position.
@@ -2718,7 +2927,8 @@ Available since OTP 18.0
 ## enif_map_iterator_is_head()
 
 ```c
-int enif_map_iterator_is_head(ErlNifEnv *env,
+int enif_map_iterator_is_head(
+        ErlNifEnv *env,
         ErlNifMapIterator *iter);
 ```
 
@@ -2729,7 +2939,8 @@ Available since OTP 18.0
 ## enif_map_iterator_is_tail()
 
 ```c
-int enif_map_iterator_is_tail(ErlNifEnv *env,
+int enif_map_iterator_is_tail(
+        ErlNifEnv *env,
         ErlNifMapIterator *iter);
 ```
 
@@ -2740,7 +2951,8 @@ Available since OTP 18.0
 ## enif_map_iterator_next()
 
 ```c
-int enif_map_iterator_next(ErlNifEnv *env,
+int enif_map_iterator_next(
+        ErlNifEnv *env,
         ErlNifMapIterator *iter);
 ```
 
@@ -2754,7 +2966,8 @@ Available since OTP 18.0
 ## enif_map_iterator_prev()
 
 ```c
-int enif_map_iterator_prev(ErlNifEnv *env,
+int enif_map_iterator_prev(
+        ErlNifEnv *env,
         ErlNifMapIterator *iter);
 ```
 
@@ -2768,8 +2981,11 @@ Available since OTP 18.0
 ## enif_monitor_process()
 
 ```c
-int enif_monitor_process(ErlNifEnv* caller_env,
-      void* obj, const ErlNifPid* target_pid, ErlNifMonitor* mon);
+int enif_monitor_process(
+        ErlNifEnv* caller_env,
+        void* obj,
+        const ErlNifPid* target_pid,
+        ErlNifMonitor* mon);
 ```
 
 Starts monitoring a process from a resource. When a process is monitored, a
@@ -2803,7 +3019,8 @@ Available since OTP 20.0
 ## enif_monotonic_time()
 
 ```c
-ErlNifTime enif_monotonic_time(ErlNifTimeUnit time_unit);
+ErlNifTime enif_monotonic_time(
+        ErlNifTimeUnit time_unit);
 ```
 
 Returns the current
@@ -2823,7 +3040,8 @@ Available since OTP 18.3
 ## enif_mutex_create()
 
 ```c
-ErlNifMutex * enif_mutex_create(char *name);
+ErlNifMutex * enif_mutex_create(
+        char *name);
 ```
 
 Same as [`erl_drv_mutex_create`](erl_driver.md#erl_drv_mutex_create).
@@ -2833,7 +3051,8 @@ Available since OTP R13B04
 ## enif_mutex_destroy()
 
 ```c
-void enif_mutex_destroy(ErlNifMutex *mtx);
+void enif_mutex_destroy(
+        ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_destroy`](erl_driver.md#erl_drv_mutex_destroy).
@@ -2843,7 +3062,8 @@ Available since OTP R13B04
 ## enif_mutex_lock()
 
 ```c
-void enif_mutex_lock(ErlNifMutex *mtx);
+void enif_mutex_lock(
+        ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_lock`](erl_driver.md#erl_drv_mutex_lock).
@@ -2853,7 +3073,8 @@ Available since OTP R13B04
 ## enif_mutex_name()
 
 ```c
-char* enif_mutex_name(ErlNifMutex* mtx);
+char* enif_mutex_name(
+        ErlNifMutex* mtx);
 ```
 
 Same as [`erl_drv_mutex_name`](erl_driver.md#erl_drv_mutex_name).
@@ -2863,7 +3084,8 @@ Available since OTP 21.0
 ## enif_mutex_trylock()
 
 ```c
-int enif_mutex_trylock(ErlNifMutex *mtx);
+int enif_mutex_trylock(
+        ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_trylock`](erl_driver.md#erl_drv_mutex_trylock).
@@ -2873,7 +3095,8 @@ Available since OTP R13B04
 ## enif_mutex_unlock()
 
 ```c
-void enif_mutex_unlock(ErlNifMutex *mtx);
+void enif_mutex_unlock(
+        ErlNifMutex *mtx);
 ```
 
 Same as [`erl_drv_mutex_unlock`](erl_driver.md#erl_drv_mutex_unlock).
@@ -2883,7 +3106,8 @@ Available since OTP R13B04
 ## enif_now_time()
 
 ```c
-ERL_NIF_TERM enif_now_time(ErlNifEnv *env);
+ERL_NIF_TERM enif_now_time(
+        ErlNifEnv *env);
 ```
 
 Returns an [`erlang:now()`](`erlang:now/0`) time stamp.
@@ -2895,9 +3119,13 @@ Available since OTP 19.0
 ## enif_open_resource_type()
 
 ```c
-ErlNifResourceType * enif_open_resource_type(ErlNifEnv* env, const char*
-        module_str, const char* name, ErlNifResourceDtor* dtor,
-        ErlNifResourceFlags flags, ErlNifResourceFlags* tried);
+ErlNifResourceType * enif_open_resource_type(
+        ErlNifEnv* env,
+        const char* module_str,
+        const char* name,
+        ErlNifResourceDtor* dtor,
+        ErlNifResourceFlags flags,
+        ErlNifResourceFlags* tried);
 ```
 
 Creates or takes over a resource type identified by the string `name` and gives
@@ -2934,9 +3162,12 @@ Available since OTP R13B04
 ## enif_open_resource_type_x()
 
 ```c
-ErlNifResourceType * enif_open_resource_type_x(ErlNifEnv* env, const char* name,
-	const ErlNifResourceTypeInit* init,
-        ErlNifResourceFlags flags, ErlNifResourceFlags* tried);
+ErlNifResourceType * enif_open_resource_type_x(
+        ErlNifEnv* env,
+        const char* name,
+        const ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags,
+        ErlNifResourceFlags* tried);
 ```
 
 Same as [`enif_open_resource_type`](erl_nif.md#enif_open_resource_type) except
@@ -2961,9 +3192,12 @@ Available since OTP 20.0
 ## enif_init_resource_type()
 
 ```c
-ErlNifResourceType * enif_init_resource_type(ErlNifEnv* env, const char* name,
-	const ErlNifResourceTypeInit* init,
-        ErlNifResourceFlags flags, ErlNifResourceFlags* tried);
+ErlNifResourceType * enif_init_resource_type(
+        ErlNifEnv* env,
+        const char* name,
+        const ErlNifResourceTypeInit* init,
+        ErlNifResourceFlags flags,
+        ErlNifResourceFlags* tried);
 ```
 
 Same as [`enif_open_resource_type_x`](erl_nif.md#enif_open_resource_type_x)
@@ -2984,8 +3218,11 @@ Available since OTP 24.0
 ## enif_port_command()
 
 ```c
-int enif_port_command(ErlNifEnv* env, const
-       ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg);
+int enif_port_command(
+        ErlNifEnv* env, const
+        ErlNifPort* to_port,
+        ErlNifEnv *msg_env,
+        ERL_NIF_TERM msg);
 ```
 
 Works as `erlang:port_command/2`, except that it is always completely
@@ -3022,7 +3259,8 @@ Available since OTP 19.0
 ## enif_priv_data()
 
 ```c
-void * enif_priv_data(ErlNifEnv* env);
+void * enif_priv_data(
+        ErlNifEnv* env);
 ```
 
 Returns the pointer to the private data that was set by
@@ -3033,8 +3271,9 @@ Available since OTP R13B04
 ## enif_raise_exception()
 
 ```c
-ERL_NIF_TERM enif_raise_exception(ErlNifEnv*
-        env, ERL_NIF_TERM reason);
+ERL_NIF_TERM enif_raise_exception(
+        ErlNifEnv* env,
+        ERL_NIF_TERM reason);
 ```
 
 Creates an error exception with the term `reason` to be returned from a NIF, and
@@ -3056,7 +3295,9 @@ Available since OTP 18.0
 ## enif_realloc()
 
 ```c
-void * enif_realloc(void* ptr, size_t size);
+void * enif_realloc(
+        void* ptr,
+        size_t size);
 ```
 
 Reallocates memory allocated by [`enif_alloc`](erl_nif.md#enif_alloc) to `size`
@@ -3072,7 +3313,9 @@ Available since OTP 20.2
 ## enif_realloc_binary()
 
 ```c
-int enif_realloc_binary(ErlNifBinary* bin, size_t size);
+int enif_realloc_binary(
+        ErlNifBinary* bin,
+        size_t size);
 ```
 
 Changes the size of a binary `bin`. The source binary can be read-only, in which
@@ -3086,7 +3329,8 @@ Available since OTP R13B04
 ## enif_release_binary()
 
 ```c
-void enif_release_binary(ErlNifBinary* bin);
+void enif_release_binary(
+        ErlNifBinary* bin);
 ```
 
 Releases a binary obtained from
@@ -3095,7 +3339,8 @@ Releases a binary obtained from
 ## enif_release_resource()
 
 ```c
-void enif_release_resource(void* obj);
+void enif_release_resource(
+        void* obj);
 ```
 
 Removes a reference to resource object `obj` obtained from
@@ -3115,7 +3360,8 @@ Available since OTP R13B04
 ## enif_rwlock_create()
 
 ```c
-ErlNifRWLock * enif_rwlock_create(char *name);
+ErlNifRWLock * enif_rwlock_create(
+        char *name);
 ```
 
 Same as [`erl_drv_rwlock_create`](erl_driver.md#erl_drv_rwlock_create).
@@ -3125,7 +3371,8 @@ Available since OTP R13B04
 ## enif_rwlock_destroy()
 
 ```c
-void enif_rwlock_destroy(ErlNifRWLock *rwlck);
+void enif_rwlock_destroy(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_destroy`](erl_driver.md#erl_drv_rwlock_destroy).
@@ -3135,7 +3382,8 @@ Available since OTP R13B04
 ## enif_rwlock_name()
 
 ```c
-char* enif_rwlock_name(ErlNifRWLock* rwlck);
+char* enif_rwlock_name(
+        ErlNifRWLock* rwlck);
 ```
 
 Same as [`erl_drv_rwlock_name`](erl_driver.md#erl_drv_rwlock_name).
@@ -3145,7 +3393,8 @@ Available since OTP 21.0
 ## enif_rwlock_rlock()
 
 ```c
-void enif_rwlock_rlock(ErlNifRWLock *rwlck);
+void enif_rwlock_rlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_rlock`](erl_driver.md#erl_drv_rwlock_rlock).
@@ -3155,7 +3404,8 @@ Available since OTP R13B04
 ## enif_rwlock_runlock()
 
 ```c
-void enif_rwlock_runlock(ErlNifRWLock *rwlck);
+void enif_rwlock_runlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_runlock`](erl_driver.md#erl_drv_rwlock_runlock).
@@ -3165,7 +3415,8 @@ Available since OTP R13B04
 ## enif_rwlock_rwlock()
 
 ```c
-void enif_rwlock_rwlock(ErlNifRWLock *rwlck);
+void enif_rwlock_rwlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_rwlock`](erl_driver.md#erl_drv_rwlock_rwlock).
@@ -3175,7 +3426,8 @@ Available since OTP R13B04
 ## enif_rwlock_rwunlock()
 
 ```c
-void enif_rwlock_rwunlock(ErlNifRWLock *rwlck);
+void enif_rwlock_rwunlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_rwunlock`](erl_driver.md#erl_drv_rwlock_rwunlock).
@@ -3185,7 +3437,8 @@ Available since OTP R13B04
 ## enif_rwlock_tryrlock()
 
 ```c
-int enif_rwlock_tryrlock(ErlNifRWLock *rwlck);
+int enif_rwlock_tryrlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_tryrlock`](erl_driver.md#erl_drv_rwlock_tryrlock).
@@ -3195,7 +3448,8 @@ Available since OTP R13B04
 ## enif_rwlock_tryrwlock()
 
 ```c
-int enif_rwlock_tryrwlock(ErlNifRWLock *rwlck);
+int enif_rwlock_tryrwlock(
+        ErlNifRWLock *rwlck);
 ```
 
 Same as [`erl_drv_rwlock_tryrwlock`](erl_driver.md#erl_drv_rwlock_tryrwlock).
@@ -3206,9 +3460,12 @@ Available since OTP R13B04
 
 ```c
 ERL_NIF_TERM enif_schedule_nif(
-        ErlNifEnv* caller_env, const char* fun_name, int flags,
-	ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]),
-	int argc, const ERL_NIF_TERM argv[]);
+        ErlNifEnv* caller_env,
+        const char* fun_name,
+        int flags,
+        ERL_NIF_TERM (*fp)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]),
+        int argc,
+        const ERL_NIF_TERM argv[]);
 ```
 
 Schedules NIF `fp` to execute. This function allows an application to break up
@@ -3242,8 +3499,13 @@ Available since OTP 17.3
 ## enif_select()
 
 ```c
-int enif_select(ErlNifEnv* env, ErlNifEvent event, enum ErlNifSelectFlags mode,
-	void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref);
+int enif_select(
+        ErlNifEnv* env,
+        ErlNifEvent event,
+        enum ErlNifSelectFlags mode,
+        void* obj,
+        const ErlNifPid* pid,
+        ERL_NIF_TERM ref);
 ```
 
 This function can be used to receive asynchronous notifications when OS-specific
@@ -3383,13 +3645,23 @@ Available since OTP 22.0
 ## enif_select_write()
 
 ```c
-int enif_select_read(ErlNifEnv* env, ErlNifEvent event, void* obj,
-      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env);
+int enif_select_read(
+        ErlNifEnv* env,
+        ErlNifEvent event,
+        void* obj,
+        const ErlNifPid* pid,
+        ERL_NIF_TERM msg,
+        ErlNifEnv* msg_env);
 ```
 
 ```c
-int enif_select_write(ErlNifEnv* env, ErlNifEvent event, void* obj,
-      const ErlNifPid* pid, ERL_NIF_TERM msg, ErlNifEnv* msg_env);
+int enif_select_write(
+        ErlNifEnv* env,
+        ErlNifEvent event,
+        void* obj,
+        const ErlNifPid* pid,
+        ERL_NIF_TERM msg,
+        ErlNifEnv* msg_env);
 ```
 
 These are variants of [enif_select](erl_nif.md#enif_select) where you can supply
@@ -3415,7 +3687,9 @@ Available since OTP 22.0
 ## enif_self()
 
 ```c
-ErlNifPid * enif_self(ErlNifEnv* caller_env, ErlNifPid* pid);
+ErlNifPid * enif_self(
+        ErlNifEnv* caller_env,
+        ErlNifPid* pid);
 ```
 
 Initializes the [`ErlNifPid`](erl_nif.md#ErlNifPid) variable at `*pid` to
@@ -3429,8 +3703,11 @@ Available since OTP R14B
 ## enif_send()
 
 ```c
-int enif_send(ErlNifEnv* caller_env,
-      ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg);
+int enif_send(
+        ErlNifEnv* caller_env,
+        ErlNifPid* to_pid,
+        ErlNifEnv* msg_env,
+        ERL_NIF_TERM msg);
 ```
 
 Sends a message to a process.
@@ -3476,7 +3753,10 @@ Available since OTP R14B
 ## enif_set_option()
 
 ```c
-int enif_set_option(ErlNifEnv *env, ErlNifOption opt, ...);
+int enif_set_option(
+        ErlNifEnv *env,
+        ErlNifOption opt,
+	...);
 ```
 
 Set an option. On success, zero will be returned. On failure, a non zero value
@@ -3608,7 +3888,8 @@ Available since OTP 26.0
 ## enif_set_pid_undefined()
 
 ```c
-void enif_set_pid_undefined(ErlNifPid* pid);
+void enif_set_pid_undefined(
+        ErlNifPid* pid);
 ```
 
 Sets an [`ErlNifPid`](erl_nif.md#ErlNifPid) variable as undefined. See
@@ -3619,7 +3900,8 @@ Available since OTP 22.0
 ## enif_sizeof_resource()
 
 ```c
-unsigned enif_sizeof_resource(void* obj);
+unsigned enif_sizeof_resource(
+        void* obj);
 ```
 
 Gets the byte size of resource object `obj` obtained by
@@ -3630,8 +3912,11 @@ Available since OTP R13B04
 ## enif_snprintf()
 
 ```c
-int enif_snprintf(char *str, size_t size, const
-        char *format, ...);
+int enif_snprintf(
+        char *str,
+        size_t size,
+        const char *format,
+	...);
 ```
 
 Similar to `snprintf` but this format string also accepts `"%T"`, which formats
@@ -3646,8 +3931,9 @@ Available since OTP 19.0
 ## enif_system_info()
 
 ```c
-void enif_system_info(ErlNifSysInfo
-        *sys_info_ptr, size_t size);
+void enif_system_info(
+        ErlNifSysInfo *sys_info_ptr,
+        size_t size);
 ```
 
 Same as [`driver_system_info`](erl_driver.md#driver_system_info).
@@ -3657,8 +3943,10 @@ Available since OTP R13B04
 ## enif_term_to_binary()
 
 ```c
-int enif_term_to_binary(ErlNifEnv *env,
-        ERL_NIF_TERM term, ErlNifBinary *bin);
+int enif_term_to_binary(
+        ErlNifEnv *env,
+        ERL_NIF_TERM term,
+        ErlNifBinary *bin);
 ```
 
 Allocates a new binary with [`enif_alloc_binary`](erl_nif.md#enif_alloc_binary)
@@ -3675,7 +3963,9 @@ Available since OTP 19.0
 ## enif_term_type()
 
 ```c
-ErlNifTermType enif_term_type(ErlNifEnv *env, ERL_NIF_TERM term);
+ErlNifTermType enif_term_type(
+        ErlNifEnv *env,
+        ERL_NIF_TERM term);
 ```
 
 Determines the type of the given term. The term must be an ordinary Erlang term
@@ -3715,9 +4005,12 @@ Available since OTP 22.0
 ## enif_thread_create()
 
 ```c
-int enif_thread_create(char *name,ErlNifTid
-        *tid,void * (*func)(void *),void *args,ErlNifThreadOpts
-        *opts);
+int enif_thread_create(
+        char *name,
+        ErlNifTid *tid,
+        void * (*func)(void *),
+        void *args,
+        ErlNifThreadOpts *opts);
 ```
 
 Same as [`erl_drv_thread_create`](erl_driver.md#erl_drv_thread_create).
@@ -3727,7 +4020,8 @@ Available since OTP R13B04
 ## enif_thread_exit()
 
 ```c
-void enif_thread_exit(void *resp);
+void enif_thread_exit(
+        void *resp);
 ```
 
 Same as [`erl_drv_thread_exit`](erl_driver.md#erl_drv_thread_exit).
@@ -3737,7 +4031,9 @@ Available since OTP R13B04
 ## enif_thread_join()
 
 ```c
-int enif_thread_join(ErlNifTid, void **respp);
+int enif_thread_join(
+        ErlNifTid tid,
+        void **respp);
 ```
 
 Same as [`erl_drv_thread_join`](erl_driver.md#erl_drv_thread_join).
@@ -3747,7 +4043,8 @@ Available since OTP R13B04
 ## enif_thread_name()
 
 ```c
-char* enif_thread_name(ErlNifTid tid);
+char* enif_thread_name(
+        ErlNifTid tid);
 ```
 
 Same as [`erl_drv_thread_name`](erl_driver.md#erl_drv_thread_name).
@@ -3757,7 +4054,8 @@ Available since OTP 21.0
 ## enif_thread_opts_create()
 
 ```c
-ErlNifThreadOpts * enif_thread_opts_create(char *name);
+ErlNifThreadOpts * enif_thread_opts_create(
+        char *name);
 ```
 
 Same as
@@ -3768,7 +4066,8 @@ Available since OTP R13B04
 ## enif_thread_opts_destroy()
 
 ```c
-void enif_thread_opts_destroy(ErlNifThreadOpts *opts);
+void enif_thread_opts_destroy(
+        ErlNifThreadOpts *opts);
 ```
 
 Same as
@@ -3810,7 +4109,8 @@ Available since OTP 19.0
 ## enif_time_offset()
 
 ```c
-ErlNifTime enif_time_offset(ErlNifTimeUnit time_unit);
+ErlNifTime enif_time_offset(
+        ErlNifTimeUnit time_unit);
 ```
 
 Returns the current time offset between
@@ -3831,7 +4131,8 @@ Available since OTP 18.3
 ## enif_tsd_get()
 
 ```c
-void * enif_tsd_get(ErlNifTSDKey key);
+void * enif_tsd_get(
+        ErlNifTSDKey key);
 ```
 
 Same as [`erl_drv_tsd_get`](erl_driver.md#erl_drv_tsd_get).
@@ -3841,7 +4142,9 @@ Available since OTP R13B04
 ## enif_tsd_key_create()
 
 ```c
-int enif_tsd_key_create(char *name, ErlNifTSDKey *key);
+int enif_tsd_key_create(
+        char *name,
+        ErlNifTSDKey *key);
 ```
 
 Same as [`erl_drv_tsd_key_create`](erl_driver.md#erl_drv_tsd_key_create).
@@ -3851,7 +4154,8 @@ Available since OTP R13B04
 ## enif_tsd_key_destroy()
 
 ```c
-void enif_tsd_key_destroy(ErlNifTSDKey key);
+void enif_tsd_key_destroy(
+        ErlNifTSDKey key);
 ```
 
 Same as [`erl_drv_tsd_key_destroy`](erl_driver.md#erl_drv_tsd_key_destroy).
@@ -3861,7 +4165,9 @@ Available since OTP R13B04
 ## enif_tsd_set()
 
 ```c
-void enif_tsd_set(ErlNifTSDKey key, void *data);
+void enif_tsd_set(
+        ErlNifTSDKey key,
+        void *data);
 ```
 
 Same as [`erl_drv_tsd_set`](erl_driver.md#erl_drv_tsd_set).
@@ -3871,7 +4177,10 @@ Available since OTP R13B04
 ## enif_vfprintf()
 
 ```c
-int enif_vfprintf(FILE *stream, const char *format, va_list ap);
+int enif_vfprintf(
+        FILE *stream,
+        const char *format,
+        va_list ap);
 ```
 
 Equivalent to [`enif_fprintf`](erl_nif.md#enif_fprintf) except that its called
@@ -3882,7 +4191,11 @@ Available since OTP 21.0
 ## enif_vsnprintf()
 
 ```c
-int enif_vsnprintf(char *str, size_t size, const char *format, va_list ap);
+int enif_vsnprintf(
+        char *str,
+        size_t size,
+        const char *format,
+        va_list ap);
 ```
 
 Equivalent to [`enif_snprintf`](erl_nif.md#enif_snprintf) except that its called
@@ -3893,8 +4206,10 @@ Available since OTP 21.0
 ## enif_whereis_pid()
 
 ```c
-int enif_whereis_pid(ErlNifEnv *caller_env,
-          ERL_NIF_TERM name, ErlNifPid *pid);
+int enif_whereis_pid(
+        ErlNifEnv *caller_env,
+        ERL_NIF_TERM name,
+        ErlNifPid *pid);
 ```
 
 Looks up a process by its registered name.
@@ -3921,8 +4236,10 @@ Available since OTP 20.0
 ## enif_whereis_port()
 
 ```c
-int enif_whereis_port(ErlNifEnv *caller_env,
-          ERL_NIF_TERM name, ErlNifPort *port);
+int enif_whereis_port(
+        ErlNifEnv *caller_env,
+        ERL_NIF_TERM name,
+        ErlNifPort *port);
 ```
 
 Looks up a port by its registered name.
@@ -3949,6 +4266,6 @@ Available since OTP 20.0
 
 ## See Also
 
-`erlang:load_nif/2`  
-[NIFs (tutorial)](`e:system:nif.md`)  
+`erlang:load_nif/2`
+[NIFs (tutorial)](`e:system:nif.md`)
 [Debugging NIFs and Port Drivers](`e:system:debugging.md`)
