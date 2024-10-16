@@ -447,14 +447,14 @@ handle_event(_, _, State, Data) ->
 >   [`wait_response/1,2`](`wait_response/2`), and `check_response/2`.
 > - In OTP 24.0 [`receive_response/1,2`](`receive_response/2`) were added.
 > - In OTP 25.0 [`Module:format_status/1`](`c:format_status/1`)
->   was added to replace [`Module:format_status/1`](`c:format_status/1`),
+>   was added to replace [`Module:format_status/2`](`c:format_status/2`),
 >   as well as functions for collections of asynchronous calls:
 >   `send_request/4`, `wait_response/3`, `receive_response/3`,
 >   `check_response/3`, `reqids_new/0`, `reqids_size/1`,
 >   `reqids_add/3`, `reqids_to_list/1`.
 > - In OTP 26.0 the possibility to return `{error, Reason}` from
 >   [`Module:init/1`](`c:init/1`) was added.
-> - In OTP 27.0 [`Module:format_status/1`](`c:format_status/1`)
+> - In OTP 27.0 [`Module:format_status/2`](`c:format_status/2`)
 >   was deprecated.
 
 ## See Also
