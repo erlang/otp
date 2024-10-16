@@ -818,7 +818,9 @@ get_line_edlin({open_editor, _Cs, Cont, Rs}, Drv, State) ->
             send_drv_reqs(Drv, edlin:erase_line()),
             {more_chars,NewCont,NewRs} = edlin:start(edlin:prompt(Cont)),
             send_drv_reqs(Drv, NewRs),
-            get_line_edlin(edlin:edit_line(Cs1, NewCont), Drv, State)
+            get_line_edlin(edlin:edit_line(Cs1, NewCont), Drv, State);
+        {Drv, not_supported} ->
+            get_line_edlin(edlin:edit_line(_Cs, Cont), Drv, State)
     end;
 get_line_edlin({format_expression, _Cs, {line, _, _, _} = Cont, Rs}, Drv, State) ->
     send_drv_reqs(Drv, Rs),
