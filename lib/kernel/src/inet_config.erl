@@ -426,17 +426,15 @@ valid_type(win32) ->             true;
 valid_type(_) ->                 false.
 
 read_inetrc() ->
-   case application:get_env(inetrc) of
-       {ok,File} ->
-	   try_get_rc(File);
-       _ ->
-	   case os:getenv("ERL_INETRC") of
-	       false ->
-		   {nofile,[]};
-	       File ->
-		   try_get_rc(File)
-	   end
-   end.
+    File = case application:get_env(inetrc) of
+               {ok, Value} when is_list(Value) -> Value;
+               {ok, Value} when is_atom(Value) -> atom_to_list(Value);
+               undefined -> os:getenv("ERL_INETRC")
+           end,
+    case is_list(File) of
+        true -> try_get_rc(File);
+        false -> {nofile,[]}
+    end.
 
 try_get_rc(File) ->
     case get_rc(File) of
