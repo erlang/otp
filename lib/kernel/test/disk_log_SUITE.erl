@@ -3236,7 +3236,7 @@ chunk(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     file:delete(File),
 
-    %% Minimal MD5-proctected term, and maximal unprotected term.
+    %% Minimal MD5-protected term, and maximal unprotected term.
     %% A chunk ends in the middle of the MD5-sum.
     MD5term = mk_bytes(64*1024-8),
     NotMD5term = mk_bytes((64*1024-8)-1),

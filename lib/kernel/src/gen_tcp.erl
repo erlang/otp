@@ -822,10 +822,10 @@ Close a TCP socket.
 
 Note that in most implementations of TCP, doing a `close` does not guarantee
 that the data sent is delivered to the recipient.  It is guaranteed that
-the recepient will see all sent data before getting the close, but the
+the recipient will see all sent data before getting the close, but the
 sender gets no indication of that.
 
-If the sender needs to know that the recepient has received all data
+If the sender needs to know that the recipient has received all data
 there are two common ways to achieve this:
 
 1. Use [`gen_tcp:shutdown(Sock, write)`](`shutdown/2`) to signal that no more

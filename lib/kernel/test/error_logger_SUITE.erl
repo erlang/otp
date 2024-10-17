@@ -75,7 +75,7 @@ end_per_group(_GroupName, Config) ->
 off_heap(_Config) ->
     %% The error_logger process may receive a huge amount of
     %% messages. Make sure that they are stored off heap to
-    %% avoid exessive GCs.
+    %% avoid excessive GCs.
     MQD = message_queue_data,
     {MQD,off_heap} = process_info(whereis(error_logger), MQD),
     ok.
