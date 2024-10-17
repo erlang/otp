@@ -14,7 +14,7 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ## Install build tools
 RUN apt-get update && apt-get -y upgrade && \
     apt-get install -y build-essential m4 autoconf clang-format \
-    default-jdk flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
+    openjdk-8-jdk-headless flex pkg-config locales tzdata sudo ${INSTALL_LIBS} && \
     sed -i 's@# en_US.UTF-8@en_US.UTF-8@g' /etc/locale.gen && locale-gen && \
     update-alternatives --set wx-config /usr/lib/x86_64-linux-gnu/wx/config/gtk3-unicode-3.0
 
