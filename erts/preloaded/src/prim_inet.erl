@@ -352,62 +352,69 @@ bindx_check_addrs([]) ->
 %% For TCP, UDP or SCTP sockets.
 %%
 
-connect(S, SockAddr, Time) when is_map(SockAddr) ->
-    case type_value(set, addr, SockAddr) of
-	true when Time =:= infinity ->
-	    connect0(S, SockAddr, -1);
-	true when is_integer(Time) ->
-	    connect0(S, SockAddr, Time);
-	false ->
-	    {error, einval}
-    end;
+connect(S, SockAddr, Time)
+  when is_map(SockAddr);
+       tuple_size(SockAddr) =:= 2 ->
+    connect_addr(S, SockAddr, Time, sync);
 connect(S, IP, Port) ->
-    connect(S, IP, Port, infinity).
-%%
-connect(S, Addr, _, Time) when is_port(S), tuple_size(Addr) =:= 2 ->
-    case type_value(set, addr, Addr) of
-	true when Time =:= infinity ->
-	    connect0(S, Addr, -1);
-	true when is_integer(Time) ->
-	    connect0(S, Addr, Time);
-	false ->
-	    {error, einval}
-    end;
+    connect_addr(S, {IP, Port}, infinity, sync).
+
+connect(S, Addr, _, Time)
+  when is_map(Addr);
+       tuple_size(Addr) =:= 2 ->
+    connect_addr(S, Addr, Time, sync);
 connect(S, IP, Port, Time) ->
-    connect(S, {IP, Port}, 0, Time).
-
-connect0(S, Addr, Time) ->
-    case async_connect0(S, Addr, Time) of
-	{ok, S, Ref} ->
-	    receive
-		{inet_async, S, Ref, Status} ->
-		    Status
-	    end;
-	Error -> Error
-    end.
-
+    connect_addr(S, {IP, Port}, Time, sync).
 
 async_connect(S, Addr, _, Time)
-  when is_port(S) andalso ((tuple_size(Addr) =:= 2) orelse is_map(Addr)) ->
+  when is_map(Addr);
+       tuple_size(Addr) =:= 2 ->
+    connect_addr(S, Addr, Time, async);
+async_connect(S, IP, Port, Time) ->
+    connect_addr(S, {IP, Port}, Time, async).
+
+
+
+connect_addr(S, Addr, Time, Mode) when is_port(S) ->
     case type_value(set, addr, Addr) of
-	true when Time =:= infinity ->
-	    async_connect0(S, Addr, -1);
-	true when is_integer(Time) ->
-	    async_connect0(S, Addr, Time);
+        true ->
+            connect_time(S, enc_value(set, addr, Addr), Time, Mode);
 	false ->
 	    {error, einval}
     end;
-%%
-async_connect(S, IP, Port, Time) ->
-    async_connect(S, {IP, Port}, 0, Time).
+connect_addr(_, _, _, _) ->
+    {error, einval}.
 
-async_connect0(S, Addr, Time) ->
-    case ctl_cmd(
-	   S, ?INET_REQ_CONNECT,
-	   [enc_time(Time),enc_value(set, addr, Addr)])
-    of
-	{ok, [R1,R0]} -> {ok, S, ?u16(R1,R0)};
-	{error, _}=Error -> Error
+connect_time(S, Args, Time, Mode) ->
+    if
+        Time =:= infinity ->
+            connect_cmd(S, [enc_time(-1), Args], Mode);
+        is_integer(Time) ->
+            connect_cmd(S, [enc_time(Time), Args], Mode);
+        true ->
+            {error, einval}
+    end.
+
+connect_cmd(S, Args, Mode) ->
+    case ctl_cmd(S, ?INET_REQ_CONNECT, Args) of
+        {ok, []} ->
+            ok;
+        {ok, [R1, R0]} ->
+            R = ?u16(R1, R0),
+            case Mode of
+                async ->
+                    {ok, S, R};
+                sync ->
+                    receive
+                        {inet_async, S, R, Status} ->
+                            Status
+                    end
+            end;
+        {ok, [A3, A2, A1, A0]} ->
+            AssocId = ?u32(A3, A2, A1, A0),
+            {ok, AssocId};
+        {error, _} = Error ->
+            Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -423,27 +430,16 @@ async_connect0(S, Addr, Time) ->
 connectx(S, IPs, Port) ->
     connectx(S, {IPs, Port}).
 
-connectx(S, AddrList) ->
+connectx(S, AddrList) when is_port(S) ->
     case type_value(set, addr_list, AddrList) of
 	true ->
-	    connectx0(S, AddrList);
+	    connect_time(
+              S, enc_value(set, addr_list, AddrList), infinity, sync);
 	false ->
 	    {error, einval}
-    end.
-
-
-connectx0(S, Addrs) ->
-    Args = [enc_time(-1),enc_value(set, addr_list, Addrs)],
-    case ctl_cmd(S, ?INET_REQ_CONNECT, Args) of
-	{ok, [R1,R0]} ->
-	    Ref = ?u16(R1,R0),
-	    receive
-		{inet_async, S, Ref, Status} ->
-		    Status
-	    end;
-	Error ->
-	    Error
-    end.
+    end;
+connectx(_, _) ->
+    {error, einval}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
