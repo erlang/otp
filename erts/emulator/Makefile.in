@@ -80,9 +80,11 @@ OPCODE_TABLES += \
     beam/emu/trace_instrs.tab
 endif
 
-
-DEBUG_CFLAGS = @DEBUG_CFLAGS@
+## These are here for ease of debugging purposes, they are not used anywher
 CONFIGURE_CFLAGS = @CFLAGS@
+CONFIGURE_CXXFLAGS = @CXXFLAGS@
+DEBUG_CFLAGS = @DEBUG_CFLAGS@
+DEBUG_CXXFLAGS = @DEBUG_CXXFLAGS@
 
 #
 # Run this make file with TYPE set to the type of emulator you want.
@@ -124,7 +126,8 @@ DIRTY_SCHEDULER_TEST=@DIRTY_SCHEDULER_TEST@
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
-TYPE_FLAGS = $(DEBUG_CFLAGS) -DDEBUG
+TYPE_FLAGS = @DEBUG_CFLAGS@ -DDEBUG
+TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 ENABLE_ALLOC_TYPE_VARS += debug
 ifeq ($(TARGET),win32)
 TYPE_FLAGS += -DNO_JUMP_TABLE
@@ -134,7 +137,8 @@ else
 
 ifeq ($(TYPE),gcov)
 TYPEMARKER = .gcov
-TYPE_FLAGS = $(DEBUG_CFLAGS) -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
+TYPE_FLAGS = @DEBUG_CFLAGS@ -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
+TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 ifneq ($(findstring solaris,$(TARGET)),solaris)
 TYPE_LIBS = -lgcov
 endif
@@ -143,14 +147,16 @@ else
 
 ifeq ($(TYPE),valgrind)
 TYPEMARKER = .valgrind
-TYPE_FLAGS = $(DEBUG_CFLAGS) -DVALGRIND -DNO_JUMP_TABLE
+TYPE_FLAGS = @DEBUG_CFLAGS@ -DVALGRIND -DNO_JUMP_TABLE
+TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 ENABLE_ALLOC_TYPE_VARS += valgrind
 else
 
 ifeq ($(TYPE),asan)
 PURIFY =
 TYPEMARKER = .asan
-TYPE_FLAGS = $(DEBUG_CFLAGS) -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+TYPE_FLAGS = @DEBUG_CFLAGS@ -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 LDFLAGS += -fsanitize=address
 ENABLE_ALLOC_TYPE_VARS += asan
 else
@@ -158,6 +164,7 @@ else
 ifeq ($(TYPE),gprof)
 TYPEMARKER = .gprof
 TYPE_FLAGS = @CFLAGS@ -DGPROF -pg -DERTS_CAN_INLINE=0 -DERTS_INLINE=
+TYPE_CXXFLAGS = @CXXFLAGS@
 LDFLAGS += -pg
 ENABLE_ALLOC_TYPE_VARS += gprof
 NO_INLINE_FUNCTIONS=true
@@ -167,23 +174,27 @@ ifeq ($(TYPE),lcnt)
 TYPEMARKER = .lcnt
 TYPE_FLAGS = @CFLAGS@ -DERTS_ENABLE_LOCK_COUNT
 ENABLE_ALLOC_TYPE_VARS += lcnt
+TYPE_CXXFLAGS = @CXXFLAGS@
 else
 
 ifeq ($(TYPE),frmptr)
 OMIT_OMIT_FP=yes
 TYPEMARKER = .frmptr
 TYPE_FLAGS = @CFLAGS@ -DERTS_FRMPTR
+TYPE_CXXFLAGS = @CXXFLAGS@
 else
 
 ifeq ($(TYPE),icount)
 TYPEMARKER = .icount
 TYPE_FLAGS = @CFLAGS@ -DERTS_OPCODE_COUNTER_SUPPORT
+TYPE_CXXFLAGS = @CXXFLAGS@
 else
 
 # If type isn't one of the above, it *is* opt type...
 override TYPE=opt
 TYPEMARKER =
 TYPE_FLAGS = @CFLAGS@
+TYPE_CXXFLAGS = @CXXFLAGS@
 endif
 endif
 endif
@@ -276,7 +287,7 @@ ifeq ($(FLAVOR),jit)
 CFLAGS  += -DBEAMASM=1
 ENABLE_ALLOC_TYPE_VARS += beamasm
 endif
-CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes -Wdeclaration-after-statement,$(CFLAGS)) @CXXFLAGS@
+CXXFLAGS = $(filter-out -Werror=implicit -Wstrict-prototypes -Wmissing-prototypes -Wdeclaration-after-statement,$(CFLAGS)) $(TYPE_CXXFLAGS)
 HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@

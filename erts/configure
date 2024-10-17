@@ -643,6 +643,7 @@ ac_func_c_list=
 enable_year2038=yes
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+DEBUG_CXXFLAGS
 DEBUG_CFLAGS
 ERL_DETERMINISTIC
 CFLAGS32
@@ -26856,11 +26857,6 @@ fi
 
 
 
-printf "%s\n" "#define ERTS_EMU_CMDLINE_FLAGS \"$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS\"" >>confdefs.h
-
-
-
-
 
 
 
@@ -26932,6 +26928,15 @@ fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
 DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
+
+
+no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[^ ]*/ /g')
+DEBUG_CXXFLAGS="-g -O0 $no_opt_CXXFLAGS"
+
+
+
+
+printf "%s\n" "#define ERTS_EMU_CMDLINE_FLAGS \"$STATIC_CFLAGS $CFLAGS $CXXFLAGS $DEBUG_CFLAGS $DEBUG_CXXFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS\"" >>confdefs.h
 
 
 
