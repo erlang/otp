@@ -2734,7 +2734,7 @@ to_lower(<<>>, Acc) ->
 %% 6.2.2.3. Path Segment Normalization
 %% 5.2.4.   Remove Dot Segments
 normalize_path_segment(Map) ->
-    Path = maps:get(path, Map, undefined),
+    Path = maps:get(path, Map, <<>>),
     Map#{path => remove_dot_segments(Path)}.
 
 
