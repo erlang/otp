@@ -23,6 +23,7 @@
 -export([
     readme/0, readme/1,
     basic/0, basic/1,
+    binary_args/0, binary_args/1,
     long_form_eq/0, long_form_eq/1,
     built_in_types/0, built_in_types/1,
     type_validators/0, type_validators/1,
@@ -43,6 +44,7 @@
     proxy_arguments/0, proxy_arguments/1,
 
     usage/0, usage/1,
+    usage_help_binary/0, usage_help_binary/1,
     usage_required_args/0, usage_required_args/1,
     usage_template/0, usage_template/1,
     usage_args_ordering/0, usage_args_ordering/1,
@@ -54,6 +56,7 @@
     validator_exception_format/0, validator_exception_format/1,
 
     run_handle/0, run_handle/1,
+    run_handle_binary_args/0, run_handle_binary_args/1,
     run_args_ordering/0, run_args_ordering/1
 ]).
 
@@ -65,21 +68,21 @@ suite() ->
 groups() ->
     [
         {parser, [parallel], [
-            readme, basic, long_form_eq, built_in_types, type_validators,
+            readme, basic, binary_args, long_form_eq, built_in_types, type_validators,
             invalid_arguments, complex_command, unicode, parser_error,
             nargs, argparse, negative, nodigits, pos_mixed_with_opt,
             default_for_not_required, global_default, subcommand,
             very_short, multi_short, proxy_arguments
         ]},
         {usage, [parallel], [
-            usage, usage_required_args, usage_template, usage_args_ordering,
+            usage, usage_help_binary, usage_required_args, usage_template, usage_args_ordering,
             parser_error_usage, command_usage, usage_width
         ]},
         {validator, [parallel], [
             validator_exception, validator_exception_format
         ]},
         {run, [parallel], [
-            run_handle, run_args_ordering
+            run_handle, run_handle_binary_args, run_args_ordering
         ]}
     ].
 
@@ -226,6 +229,15 @@ basic(Config) when is_list(Config) ->
     ArgListCmd = #{arguments => [#{name => arg, nargs => 2, type => boolean}]},
     ?assertEqual({ok, #{arg => [true, false]}, [Prog], ArgListCmd},
         parse(["true false"], ArgListCmd)).
+
+binary_args() ->
+    [{doc, "Args are provided as binarys"}].
+
+binary_args(Config) when is_list(Config) ->
+    %% no command, just argument list
+    KernelCmd = #{arguments => [#{name => kernel, long => "kernel", type => atom, nargs => 2}]},
+    ?assertEqual({ok, #{kernel => [port, dist]}, [prog()], KernelCmd},
+        argparse:parse([<<"-kernel">>, <<"port">>, <<"dist">>], KernelCmd)).
 
 long_form_eq() ->
     [{doc, "Tests that long form supports --arg=value"}].
@@ -815,6 +827,33 @@ usage(Config) when is_list(Config) ->
         #{progname => "erl", command => ["status", "crawler"]}))),
     ok.
 
+usage_help_binary() ->
+    [{doc, "Test binary command help string"}].
+
+usage_help_binary(Config) when is_list(Config) ->
+    Cmd2 = #{arguments => [#{ 
+        name => shard,
+        type => integer,
+        default => 0,
+        help => <<"help binary for shard">>}],
+        commands => #{"somecommand" => #{ help => <<"help binary for somecommand">> }},
+        help => "help binary for command"
+    },
+
+    Expected = "Usage:\n"
+        "  erl {somecommand} <shard>\n"
+        "\n"
+        "help binary for command\n"
+        "\n"
+        "Subcommands:\n"
+        "  somecommand help binary for somecommand\n"
+        "\n"
+        "Arguments:\n"
+        "  shard help binary for shard (int), default: 0\n",
+
+    ?assertEqual(Expected,
+        unicode:characters_to_list(argparse:help(Cmd2, #{}))).
+
 usage_required_args() ->
     [{doc, "Verify that required args are printed as required in usage"}].
 
@@ -1098,6 +1137,16 @@ run_handle(Config) when is_list(Config) ->
         argparse:run(["map", "arg"], #{commands => #{"map" => #{
             handler => {maps, to_list},
             arguments => [#{name => arg}]}}},
+            #{})).
+
+run_handle_binary_args() ->
+    [{doc, "Verify that argparse:run/3, accepts binary args"}].
+
+run_handle_binary_args(Config) when is_list(Config) ->
+    %% no subcommand, positional module-based function
+    ?assertEqual(6,
+        argparse:run([<<"2">>, <<"3">>], #{handler => {erlang, '*', undefined},
+            arguments => [#{name => l, type => integer}, #{name => r, type => integer}]},
             #{})).
 
 run_args_ordering() ->

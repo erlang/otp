@@ -499,6 +499,11 @@ corresponding key is not present in the resulting map.
 %% Arguments map: argument name to a term, produced by parser. Supplied to the command handler
 
 -doc """
+List of command line arguments to be parsed.
+""".
+-type args() :: [string() | unicode:chardata()].
+
+-doc """
 Command handler specification. Called by [`run/3` ](`run/3`)upon successful
 parser return.
 
@@ -599,7 +604,7 @@ elements are nested command names.
 %% Command path, for nested commands
 
 -export_type([arg_type/0, argument_help/0, argument/0,
-    command/0, handler/0, cmd_path/0, arg_map/0]).
+    command/0, handler/0, cmd_path/0, arg_map/0, args/0]).
 
 -doc """
 Returned from [`parse/2,3`](`parse/3`) when the user input cannot be parsed
@@ -703,7 +708,7 @@ validate(Command, Options) ->
 %% @equiv parse(Args, Command, #{})
 -doc(#{equiv => parse/3}).
 -doc(#{since => <<"OTP 26.0">>}).
--spec parse(Args :: [string()], command()) -> parse_result().
+-spec parse(args(), command()) -> parse_result().
 parse(Args, Command) ->
     parse(Args, Command, #{}).
 
@@ -722,13 +727,14 @@ makes `parse/2,3` to return a tuple
 This function does not call command handler.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec parse(Args :: [string()], command(), Options :: parser_options()) -> parse_result().
+-spec parse(args(), command(), Options :: parser_options()) -> parse_result().
 parse(Args, Command, Options) ->
     Prog = validate(Command, Options),
     %% use maps and not sets v2, because sets:is_element/2 cannot be used in guards (unlike is_map_key)
     Prefixes = maps:from_list([{P, true} || P <- maps:get(prefixes, Options, [$-])]),
+    Args2 = [unicode:characters_to_list(Arg) || Arg <- Args],
     try
-        parse_impl(Args, merge_arguments(Prog, Command, init_parser(Prefixes, Command, Options)))
+        parse_impl(Args2, merge_arguments(Prog, Command, init_parser(Prefixes, Command, Options)))
     catch
         %% Parser error may happen at any depth, and bubbling the error is really
         %% cumbersome. Use exceptions and catch it before returning from `parse/2,3' instead.
@@ -772,7 +778,7 @@ specification or user-provided command line input.
 > may result in an unexpected shutdown of a remote node.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec run(Args :: [string()], command(), parser_options()) -> term().
+-spec run(args(), command(), parser_options()) -> term().
 run(Args, Command, Options) ->
     try parse(Args, Command, Options) of
         {ok, ArgMap, Path, SubCmd} ->
@@ -1661,7 +1667,10 @@ collect_options(CmdName, Command, [Cmd|Tail], Args) ->
 
 %% gets help for sub-command
 get_help(Command, []) ->
-    maps:get(help, Command, "");
+    case maps:get(help, Command, "") of
+        Help when is_binary(Help) -> unicode:characters_to_list(Help);
+        Help -> Help
+    end;
 get_help(Command, [Cmd|Tail]) ->
     Sub = maps:get(commands, Command),
     SubCmd = maps:get(Cmd, Sub),
