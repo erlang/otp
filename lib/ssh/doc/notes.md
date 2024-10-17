@@ -19,6 +19,28 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.3
+
+### Fixed Bugs and Malfunctions
+
+- With this change, a race condition is removed from ssh client connection setup procedure.
+
+  Own Id: OTP-19124 Aux Id: [GH-7550], [PR-8766]
+
+- With this change, ssh:connect is not affected by presence of EXIT message in queue.
+
+  Own Id: OTP-19246 Aux Id: [GH-8223], [PR-8854]
+
+- With this change, ssh appends {active, false} option after socket options received from user - so that false value is always used.
+
+  Own Id: OTP-19247 Aux Id: [PR-8226]
+
+[GH-7550]: https://github.com/erlang/otp/issues/7550
+[PR-8766]: https://github.com/erlang/otp/pull/8766
+[GH-8223]: https://github.com/erlang/otp/issues/8223
+[PR-8854]: https://github.com/erlang/otp/pull/8854
+[PR-8226]: https://github.com/erlang/otp/pull/8226
+
 ## Ssh 5.2.2
 
 ### Fixed Bugs and Malfunctions

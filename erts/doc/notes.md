@@ -21,6 +21,50 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.1.2
+
+### Fixed Bugs and Malfunctions
+
+- A bug has been fixed where receiving an SCTP message with `gen_sctp` could waste the first fragments of a message and only deliver the last fragment.
+  
+  This happened with low probability when the OS signaled that the socket was ready for reading in combination with an internal time-out retry.
+  
+  A bug has been fixed with a lingering time-out from after an SCTP connect that could stop the flow of incoming messages on an active `gen_tcp` socket.
+
+  Own Id: OTP-19235 Aux Id: ERIERL-1133, [PR-8837]
+
+- An boolean option `non_block_send` for SCTP, has ben added to be able to achieve the old behaviour to avoid blocking send operations by passing the OS network stack error message (`{error,eagain}` through.
+
+  Own Id: OTP-19258 Aux Id: OTP-19061, ERIERL-1134
+
+- The call `gen_tcp:send/2` could hang indefinitely despite having set the `send_timeout` option for the following unfortunate combination of circumstances:
+  
+  * The socket has to be in passive mode.
+  * All output buffers had to be filled util the `high_watermark` was hit, causing the `gen_tcp:send/2` operation to block.
+  * While the send operation was blocked, a `gen_tcp:recv/2,3` call had to be done from a different process.  It had to block, waiting for data for a while before completing the operation, and the received packet had to fill at least 75% of the receive buffer.
+  
+  Under these circumstances he information that a send operation was waiting got lost, so the send operation that blocked in the first placed would never return.  The data it had would be sent, though, and send operations from other processes, still work.
+  
+  This bug has been fixed.
+
+  Own Id: OTP-19267 Aux Id: [GH-6455], OTP-18520, ERIERL-1138, [PR-8892]
+
+- In rare circumstances, in code that matches multiple tuples, the JIT could generate code that would raise a `badmatch` exception even if the given tuples were correct.
+
+  Own Id: OTP-19268 Aux Id: [GH-8875], [PR-8895]
+
+- Fixed beam crash that could happen if resetting `call_time` or `call_memory` trace counters of a function while it is called. Bug exists since OTP R16.
+
+  Own Id: OTP-19269 Aux Id: [GH-8835], [PR-8897]
+
+[PR-8837]: https://github.com/erlang/otp/pull/8837
+[GH-6455]: https://github.com/erlang/otp/issues/6455
+[PR-8892]: https://github.com/erlang/otp/pull/8892
+[GH-8875]: https://github.com/erlang/otp/issues/8875
+[PR-8895]: https://github.com/erlang/otp/pull/8895
+[GH-8835]: https://github.com/erlang/otp/issues/8835
+[PR-8897]: https://github.com/erlang/otp/pull/8897
+
 ## Erts 15.1.1
 
 ### Fixed Bugs and Malfunctions
