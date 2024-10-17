@@ -179,7 +179,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.c-code-changes
     env:
-      WXWIDGETS_VERSION: 3.1.5
+      WXWIDGETS_VERSION: 3.2.6
     steps:
       - uses: actions/checkout@v4.2.1
 
@@ -260,7 +260,7 @@ jobs:
       run:
         shell: wsl-bash {0}
     env:
-      WXWIDGETS_VERSION: 3.1.4
+      WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
