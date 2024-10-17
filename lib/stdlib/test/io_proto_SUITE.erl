@@ -316,19 +316,45 @@ setopts_getopts(Config) when is_list(Config) ->
        {expect, "true"}
       ],[],"",["-oldshell"]),
 
-    %% Test that terminal options when used in non-terminal
-    %% are returned as they should
+    %% Test that terminal options when used in non-terminal are returned as they should
+    %% both when run as an os:cmd and when run directly as a port.
     Erl = ct:get_progname(),
-    Str = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
+    CmdStr = os:cmd(Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"),
     maybe
-        {ok, T, _} ?= erl_scan:string(Str),
+        {ok, T, _} ?= erl_scan:string(CmdStr),
         {ok, Opts} ?= erl_parse:parse_term(T),
         ?assertEqual(false, proplists:get_value(terminal,Opts)),
-        ?assertEqual(false, proplists:get_value(stdin,Opts)),
+        case os:type() of
+            {win32, nt} ->
+                %% On Windows stdin will be a tty
+                ?assertEqual(true, proplists:get_value(stdin,Opts));
+            _ ->
+                ?assertEqual(false, proplists:get_value(stdin,Opts))
+        end,
         ?assertEqual(false, proplists:get_value(stdout,Opts)),
         ?assertEqual(false, proplists:get_value(stderr,Opts))
     else
-        _ -> ct:fail({failed_to_parse, Str})
+        _ -> ct:fail({failed_to_parse, CmdStr})
+    end,
+
+    Port = erlang:open_port({spawn, Erl ++ " -noshell -eval \"io:format(~s'~p.',[io:getopts()])\" -s init stop"},
+            [exit_status]),
+    PortStr = (fun F() ->
+        receive
+            {Port,{data,D}} -> D ++ F();
+            {Port,{exit_status,0}} -> []
+        end
+    end)(),
+
+    maybe
+        {ok, PortT, _} ?= erl_scan:string(PortStr),
+        {ok, PortOpts} ?= erl_parse:parse_term(PortT),
+        ?assertEqual(false, proplists:get_value(terminal,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdin,PortOpts)),
+        ?assertEqual(false, proplists:get_value(stdout,PortOpts)),
+        ?assertEqual(proplists:get_value(stderr, io:getopts()), proplists:get_value(stderr,PortOpts))
+    else
+        _ -> ct:fail({failed_to_parse, PortStr})
     end,
     ok.
 
