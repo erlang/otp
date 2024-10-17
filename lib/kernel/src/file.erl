@@ -238,7 +238,7 @@ operating system kernel.
 
 %% Types that can be used from other modules -- alphabetically ordered.
 -export_type([date_time/0, fd/0, file_info/0, filename/0, filename_all/0,
-              io_device/0, location/0, mode/0, name/0, name_all/0, posix/0]).
+              io_device/0, io_server/0, location/0, mode/0, name/0, name_all/0, posix/0]).
 
 %%% Includes and defines
 -include("file_int.hrl").
@@ -264,8 +264,14 @@ See the documentation of the `t:name_all/0` type.".
 -type file_descriptor() :: #file_descriptor{}.
 -doc "A file descriptor representing a file opened in [`raw`](`m:file#raw`) mode.".
 -type fd()        :: file_descriptor().
--doc "As returned by `open/2`; `t:pid/0` is a process handling I/O-protocols.".
--type io_device() :: pid() | fd().
+-doc "A process handling the I/O protocol.".
+-type io_server() :: pid().
+-doc """
+An IO device as returned by `open/2`.
+
+`t:io_server/0` is returned by default and `t:fd/0` is returned if the `raw` option is given.
+""".
+-type io_device() :: io_server() | fd().
 -type location()  :: integer() | {'bof', Offset :: integer()}
                    | {'cur', Offset :: integer()}
 		   | {'eof', Offset :: integer()} | 'bof' | 'cur' | 'eof'.

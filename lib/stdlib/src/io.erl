@@ -142,10 +142,10 @@ handled by `user`.
 """.
 -type user() :: user.
 -doc """
-An I/O device, either `standard_io`, `standard_error`, `user`, a registered
-name, or a pid handling I/O protocols (returned from `file:open/2`).
+An I/O device, either `t:standard_io/0`, `t:standard_error/0`, `t:user/0`, a `t:file:io_server/0`,
+a registered name, or any pid handling I/O protocols.
 """.
--type device() :: atom() | pid() | standard_io() | standard_error() | user().
+-type device() :: atom() | pid() | file:io_server() | standard_io() | standard_error() | user().
 -type prompt() :: atom() | unicode:chardata().
 
 %% ErrorDescription is whatever the I/O-server sends.
@@ -494,8 +494,8 @@ The options and values supported by the OTP I/O devices are as follows:
   functions can handle any of these modes and so should other, user-written,
   modules behaving as clients to I/O servers.
 
-  This option is supported by the standard shell (`group.erl`), the 'oldshell'
-  (`user.erl`), and the file I/O servers.
+  This option is supported by the `t:standard_io/0`, `t:user/0` and `t:file:io_server/0`
+   I/O servers.
 
 - **`{echo, boolean()}`** - Denotes if the terminal is to echo input. Only
   supported for the standard shell I/O server (`group.erl`)
