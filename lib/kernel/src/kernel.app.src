@@ -89,6 +89,7 @@
 	     user_drv,
 	     user_sup,
              prim_tty,
+             prim_tty_sighandler,
              disk_log,
              disk_log_1,
              disk_log_server,

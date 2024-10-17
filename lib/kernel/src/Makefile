@@ -146,6 +146,7 @@ MODULES = \
 	user_drv \
 	user_sup \
 	prim_tty \
+	prim_tty_sighandler \
 	raw_file_io \
 	raw_file_io_compressed \
 	raw_file_io_inflate \

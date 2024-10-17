@@ -133,6 +133,14 @@ init([]) ->
                type => worker,
                modules => [?MODULE]},
 
+    %% Must be started before user
+    SigSrv = #{id => erl_signal_server,
+               start => {gen_event, start_link, [{local, erl_signal_server}]},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => dynamic},
+
     User = #{id => user,
              start => {user_sup, start, []},
              restart => temporary,
@@ -187,7 +195,7 @@ init([]) ->
             {ok, {SupFlags,
                   [Code, StdError | EarlyFile] ++
                       [OnLoad | LateFile] ++
-                      Peer ++
+                      [SigSrv | Peer] ++
                       [User, LoggerSup, Config, RefC, SafeSup]}};
         _ ->
             DistChildren =
@@ -202,13 +210,6 @@ init([]) ->
                        shutdown => 2000,
                        type => worker,
                        modules => [inet_db]},
-
-            SigSrv = #{id => erl_signal_server,
-                       start => {gen_event, start_link, [{local, erl_signal_server}]},
-                       restart => permanent,
-                       shutdown => 2000,
-                       type => worker,
-                       modules => dynamic},
 
             Timer = start_timer(),
             CompileServer = start_compile_server(),
