@@ -1,0 +1,4 @@
+
+  [;1m-type io_server() :: pid().[0m
+
+  A process handling the I/O protocol.
