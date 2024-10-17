@@ -145,10 +145,25 @@
 #define D2S(__D__)   (((__D__) == INET_DELIVER_PORT) ? "port" :         \
                       (((__D__) == INET_DELIVER_TERM) ? "term" :        \
                        "undefined"))
-#define DOM2S(__D__)   (((__D__) == INET_AF_INET) ? "inet" :         \
-                        (((__D__) == INET_AF_INET6) ? "inet6" :      \
-                         (((__D__) == INET_AF_LOCAL) ? "local" :     \
+#define DOM2S(__D__)   (((__D__) == INET_AF_INET) ? "inet" :            \
+                        (((__D__) == INET_AF_INET6) ? "inet6" :         \
+                         (((__D__) == INET_AF_LOCAL) ? "local" :        \
                           "undefined")))
+#if defined(AF_LINK)
+#define FAM2S(__F__)   (((__F__) == AF_INET) ? "inet" :            \
+                        (((__F__) == AF_INET6) ? "inet6" :         \
+                         (((__F__) == AF_LINK) ? "link" :          \
+                          "undefined")))
+#elif defined(AF_PACKET)
+#define FAM2S(__F__)   (((__F__) == AF_INET) ? "inet" :            \
+                        (((__F__) == AF_INET6) ? "inet6" :         \
+                         (((__F__) == AF_PACKET) ? "packet" :      \
+                          "undefined")))
+#else
+#define FAM2S(__F__)   (((__F__) == AF_INET) ? "inet" :            \
+                        (((__F__) == AF_INET6) ? "inet6" :         \
+                         "undefined"))
+#endif
 
 #if defined(__WIN32__) && defined(ARCH_64)
 #define SOCKET_FSTR "%lld"
@@ -6571,6 +6586,12 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	}                                                               \
     } while (0)
 
+    DDBG(desc_p,
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+          "%s -> get if addrs"
+          "\r\n",
+          __LINE__, desc_p->s, driver_caller(desc_p->port), __FUNCTION__) );
+        
     if ((save_errno = call_getifaddrs(desc_p, &ifa_p)) != 0)
         return ctl_error(save_errno, rbuf_pp, rsize);
 
@@ -6578,6 +6599,15 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     *buf_p++ = INET_REP_OK;
     for (;  ifa_p;  ifa_p = ifa_p->ifa_next) {
 	int len = utf8_len(ifa_p->ifa_name, -1);
+
+        DDBG(desc_p,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "%s -> process if-addr %s"
+              "\r\n   flags: 0x%X"
+              "\r\n",
+              __LINE__, desc_p->s, driver_caller(desc_p->port), __FUNCTION__,
+              ifa_p->ifa_name, ifa_p->ifa_flags) );
+        
 	BUF_ENSURE(len+1 + 1+4 + 1);
 	utf8_encode(ifa_p->ifa_name, -1, buf_p);
 	buf_p += len;
@@ -6585,6 +6615,15 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	*buf_p++ = INET_IFOPT_FLAGS;
 	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p); buf_p += 4;
 	if (ifa_p->ifa_addr) {
+
+            DDBG(desc_p,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "%s -> family: %d (%s)"
+                  "\r\n",
+                  __LINE__, desc_p->s, driver_caller(desc_p->port), __FUNCTION__,
+                  ifa_p->ifa_addr->sa_family,
+                  FAM2S(ifa_p->ifa_addr->sa_family)) );
+        
 	    if (ifa_p->ifa_addr->sa_family == AF_INET
 #if defined(AF_INET6)
 		|| ifa_p->ifa_addr->sa_family == AF_INET6
@@ -6632,6 +6671,14 @@ static ErlDrvSSizeT inet_ctl_getifaddrs(inet_descriptor* desc_p,
     /* buf_p is now unreliable */
     freeifaddrs(ifa_free_p);
     *rbuf_pp = buf_alloc_p;
+
+    DDBG(desc_p,
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+          "%s -> done when buffer size: %d"
+          "\r\n",
+          __LINE__, desc_p->s, driver_caller(desc_p->port), __FUNCTION__,
+          buf_size) );
+        
     return buf_size;
 #   undef BUF_ENSURE
 }

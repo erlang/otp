@@ -1895,6 +1895,8 @@ check_addr(Addr) ->
     ok = gen_tcp:close(L).
 
 ifaddrs(IfOpts) ->
+    ?P("~w(~w) -> entry with"
+       "~n   IfOpts: ~p", [?FUNCTION_NAME, ?LINE, IfOpts]),
     IfMap = collect_ifopts(IfOpts),
     ChkFun =
         fun Self({{_,Flags} = Key, Opts}, ok) ->
@@ -1936,8 +1938,14 @@ collect_ifopts(IfOpts) ->
     collect_ifopts(IfOpts, #{}).
 %%
 collect_ifopts(IfOpts, IfMap) ->
+    ?P("~w(~w) -> entry with"
+       "~n  IfMap: ~p", [?FUNCTION_NAME, ?LINE, IfMap]),
     case IfOpts of
         [{If,[{flags,Flags}|Opts]}|IfOs] ->
+            ?P("~w(~w) -> found: "
+               "~n  If:    ~p"
+               "~n  Flags: ~p"
+               "~n  Opts:  ~p", [?FUNCTION_NAME, ?LINE, If, Flags, Opts]),
             Key = {If,Flags},
             case maps:is_key(Key, IfMap) of
                 true ->
@@ -1948,7 +1956,9 @@ collect_ifopts(IfOpts, IfMap) ->
         [] ->
             IfMap;
         _ ->
-            ct:fail({unexpected_ifopts,IfOpts,IfMap})
+            ?P("~w(~w) -> invalid: "
+               "~n  IfOpts: ~p", [?FUNCTION_NAME, ?LINE, IfOpts]),
+            ct:fail({unexpected_ifopts, IfOpts, IfMap})
     end.
 %%
 collect_ifopts(IfOpts, IfMap, Opts, Key, R) ->
@@ -2067,9 +2077,70 @@ getifaddrs_verify_backends3([{I_IF, _}|_], [{S_IF, _}|_]) ->
 %% (inet and net versions) because the information
 %% comes from several sources. And the processing
 %% is different on inet and net.
-%% The info always starts with 'flags' and ends with
+%% The info allways starts with 'flags' and ends with
 %% 'hwaddr'. So deal with those two first and the rest
 %% can compared after.
+
+%% getifaddrs_verify_backend(IF,
+%%                           [],
+%%                           []) ->
+%%     io:format("done => "
+%%               "~n   backend(s) equal (enough) for ~p~n", [IF]),
+%%     ok;
+%% getifaddrs_verify_backend(IF,
+%%                           [{flags, Flags}, {hwaddr, HwAddr}],
+%%                           [{flags, Flags}, {hwaddr, HwAddr}]) ->
+%%     io:format("done when hwaddr (and flags) equal => "
+%%               "~n   backend(s) equal (enough) for ~p~n", [IF]),
+%%     ok;
+%% getifaddrs_verify_backend(IF,
+%%                           [{flags, []}, {hwaddr, HwAddr}],
+%%                           [{flags, Flags}, {hwaddr, HwAddr}])
+%%   when (Flags =/= []) ->
+%%     io:format("done when hwaddr (inet flags empty and socket flags non-empty) "
+%%               "equal enough => "
+%%               "~n   backend(s) equal (enough) for ~p~n", [IF]),
+%%     ok;
+%% getifaddrs_verify_backend(IF,
+%%                           [{flags, []}, {hwaddr, HwAddr}],
+%%                           [{hwaddr, HwAddr}]) ->
+%%     io:format("done when hwaddr (inet flags empty and no socket flags) "
+%%               "equal => "
+%%               "~n   backend(s) equal (enough) for ~p~n", [IF]),
+%%     ok;
+%% getifaddrs_verify_backend(IF,
+%%                           [{hwaddr, HwAddr}],
+%%                           [{hwaddr, HwAddr}]) ->
+%%     io:format("done when hwaddr equal => "
+%%               "~n   backend(s) equal (enough) for ~p~n", [IF]),
+%%     ok;
+
+%% getifaddrs_verify_backend(IF,
+%%                           [{flags, Flags} | I_Info],
+%%                           [{flags, Flags} | S_Info]) ->
+%%     io:format("flags are equal for ~p => continue~n", [IF]),
+%%     getifaddrs_verify_backend(IF, I_Info, S_Info);
+
+%% getifaddrs_verify_backend(
+%%   IF,
+%%   [{addr, Addr}, {netmask, Mask}, {broadaddr, BAddr} | I_Info],
+%%   [{addr, Addr}, {netmask, Mask}, {broadaddr, BAddr} | S_Info]) ->
+%%     io:format("addr, netmask and bradcast addr equal for ~p => contunue: "
+%%               "~n   Addr:  ~p"
+%%               "~n   Mask:  ~p"
+%%               "~n   BAddr: ~p"
+%%               "~n", [IF, Addr, Mask, BAddr]),
+%%     getifaddrs_verify_backend(IF, I_Info, S_Info);
+%% getifaddrs_verify_backend(
+%%   IF,
+%%   [{addr, Addr}, {netmask, Mask}, {broadaddr, BAddr} | I_Info],
+%%   S_Info0) ->
+%%     io:format("addr, netmask and bradcast addr equal for ~p => contunue: "
+%%               "~n   Addr:  ~p"
+%%               "~n   Mask:  ~p"
+%%               "~n   BAddr: ~p"
+%%               "~n", [IF, Addr, Mask, BAddr]),
+%%     getifaddrs_verify_backend(IF, I_Info, S_Info);
 
 getifaddrs_verify_backend(IF, I_INFO, S_INFO) ->
     {I_Rest1, S_Rest1} =
@@ -2131,6 +2202,26 @@ getifaddrs_verify_backend(IF, I_INFO, S_INFO) ->
         end,
     {I_Rest2, S_Rest2} =
         case {lists:reverse(I_Rest1), lists:reverse(S_Rest1)} of
+            {[{hwaddr, HWADDR}, {flags, I_Flags2}|IR2],
+             [{hwaddr, HWADDR}, {flags, S_Flags2}|SR2]}
+              when I_Flags2 =:= S_Flags2 ->
+                io:format("hwaddr for ~p *is* equal (and flags are also equal)~n",
+                          [IF]),
+                {lists:reverse(IR2), lists:reverse(SR2)};
+            {[{hwaddr, HWADDR}, {flags, I_Flags2}|_IR2],
+             [{hwaddr, HWADDR}, {flags, S_Flags2}|_SR2]}
+              when I_Flags2 =/= S_Flags2 ->
+                io:format("hwaddr for ~p *is* equal"
+                          "~n   But flags not equal: "
+                          "~n      Inet Flags: ~p"
+                          "~n      Sock Flags: ~p"
+                          "~n",
+                          [IF, I_Flags2, S_Flags2]),
+                ct:fail(ifaddrs_equal_but_flags_are_not);
+            {[{hwaddr, HWADDR}, {flags, []}|IR2], [{hwaddr, HWADDR}|SR2]} ->
+                io:format("hwaddr for ~p *is* equal "
+                          "(empty flags on inet - ignore)~n", [IF]),
+                {lists:reverse(IR2), lists:reverse(SR2)};
             {[{hwaddr, HWADDR}|IR2], [{hwaddr, HWADDR}|SR2]} ->
                 io:format("hwaddr for ~p *is* equal~n", [IF]),
                 {lists:reverse(IR2), lists:reverse(SR2)};
