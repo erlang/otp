@@ -1138,7 +1138,7 @@ format_each(Device, call_count, _Total, Inspected) ->
     [format_out(Device, Fmt, Line) || Line <- lists:reverse(Lines)],
     format_out(Device, Fmt, [" ", " ", "100.0"]);
 format_each(Device, call_time, Total, Inspected) ->
-    format_labelled(Device, "TIME (μs)", Total, Inspected);
+    format_labelled(Device, "TIME (us)", Total, Inspected);
 format_each(Device, call_memory, Total, Inspected) ->
     format_labelled(Device, "WORDS", Total, Inspected).
 
