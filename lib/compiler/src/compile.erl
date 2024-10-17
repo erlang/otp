@@ -2424,7 +2424,7 @@ beam_docs(Code, #compile{dir = Dir, options = Options,
     SourceName = deterministic_filename(St),
     case beam_doc:main(Dir, SourceName, Code, Options) of
         {ok, Docs, Ws} ->
-            Binary = term_to_binary(Docs, [deterministic, compressed]),
+            Binary = term_to_binary(Docs, [deterministic]),
             MetaDocs = [{?META_DOC_CHUNK, Binary} | ExtraChunks],
             {ok, Code, St#compile{extra_chunks = MetaDocs,
                                   warnings = St#compile.warnings ++ Ws}};
@@ -2481,7 +2481,7 @@ debug_info_chunk(#compile{mod_options=ModOpts0,
                 {erl_abstract_code,{none,AbstOpts},ModOpts0}
         end,
     DebugInfo = term_to_binary({debug_info_v1,Backend,Metadata},
-                               ensure_deterministic(CompOpts, [compressed])),
+                               ensure_deterministic(CompOpts, [])),
     {DebugInfo, ModOpts}.
 
 encrypt_debug_info(DebugInfo, Key, Opts) ->
