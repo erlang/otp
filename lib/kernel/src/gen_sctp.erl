@@ -133,8 +133,15 @@ by calling `inet:setopts/2`.  They can be retrieved using `inet:getopts/2`.
   larger than `val(recbuf)`. Setting this option also adjusts the size
   of the driver buffer (see `buffer` above).
 
+### [](){: #option_non_block_send }
+
+- **`{non_block_send, boolean()}`** - A send call that would otherwise block (hang),
+  will instead immediately return with e.g. `{error, eagain}`
+  *if* this option has been set to `true`.
+  Defaults to `false`.
+
 - **`{sctp_module, module()}`** - Overrides which callback module is used.
-  Defaults to `inet_sctp` for IPv4 and `inet6_sctp` for IPv6.
+Defaults to `inet_sctp` for IPv4 and `inet6_sctp` for IPv6.
 
 - **`{sctp_rtoinfo, #sctp_rtoinfo{}}`**
 
@@ -683,6 +690,7 @@ future associations".
 -type elementary_option() ::
         {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
+        {non_block_send, boolean()} |
         {debug, boolean()} |
         {dontroute, boolean()} |
         {exclusiveaddruse, boolean()} |
@@ -713,6 +721,7 @@ future associations".
 -type elementary_option_name() ::
         active |
         buffer |
+        non_block_send |
         debug |
         dontroute |
         exclusiveaddruse |
@@ -1502,6 +1511,14 @@ and context (passed to the local SCTP layer), which can be used,
 for example, for error identification.  However, such a fine grained
 user control is rarely required. The function [`send/4`](`send/4`)
 is sufficient for most applications.
+
+> #### Note {: .info }
+>
+> Send is normally blocking, but if the socket option
+> [`non_block_send`](#option_non_block_send) is set to true,
+> the function will return with e.g. {error, eagain}
+> in the case when the function would otherwise block.
+> It is then up to the user to try again later.
 """.
 -spec send(Socket, SndRcvInfo, Data) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
@@ -1528,6 +1545,14 @@ Sends a `Data` message on the association `Assoc` and `Stream`.
 [`#sctp_assoc_change{}`](#record-sctp_assoc_change) record
 from an association establishment, or as the `t:assoc_id/0`
 `t:integer/0` field value.
+
+> #### Note {: .info }
+>
+> Send is normally blocking, but if the socket option
+> [`non_block_send`](#option_non_block_send) is set to true,
+> the function will return with e.g. {error, eagain}
+> in the case when the function would otherwise block.
+> It is then up to the user to try again later.
 """.
 -spec send(Socket, Assoc, Stream, Data) -> ok | {error, Reason} when
       Socket :: sctp_socket(),

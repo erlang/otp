@@ -898,6 +898,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_OPT_RECVTTL            47  /* IP_RECVTTL ancillary data */
 #define TCP_OPT_NOPUSH              48  /* super-Nagle, aka TCP_CORK */
 #define INET_LOPT_TCP_READ_AHEAD    49  /* Read ahead of packet data */
+#define INET_LOPT_NON_BLOCK_SEND    50  /* Non-blocking send, only SCTP */
 #define INET_LOPT_DEBUG             99  /* Enable/disable DEBUG for a socket */
 
 /* SCTP options: a separate range, from 100: */
@@ -988,6 +989,7 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_FLG_IS_IGNORED_RD   (1 << 2)
 #define INET_FLG_IS_IGNORED_WR   (1 << 3)
 #define INET_FLG_IS_IGNORED_PASS (1 << 4)
+#define INET_FLG_NON_BLOCK_SEND  (1 << 5) /* Currently only SCTP */
 
 /*
 ** End of interface constants.
@@ -1039,6 +1041,9 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define INET_IGNORE_READ    (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_RD)
 #define INET_IGNORE_WRITE   (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_WR)
 #define INET_IGNORE_PASSIVE (INET_FLG_IS_IGNORED|INET_FLG_IS_IGNORED_PASS)
+#define IS_NON_BLOCK_SEND(desc)    ((desc)->flags & INET_FLG_NON_BLOCK_SEND)
+#define SET_NON_BLOCK_SEND(desc)   ((desc)->flags & INET_FLG_NON_BLOCK_SEND)
+#define CLEAR_NON_BLOCK_SEND(desc) ((desc)->flags & ~(INET_FLG_NON_BLOCK_SEND))
 
 /* Max length of Erlang Term Buffer (for outputting structured terms):  */
 #ifdef  HAVE_SCTP
@@ -1256,6 +1261,7 @@ typedef struct {
 #endif
     int recv_cmsgflags;         /* Which ancillary data to expect */
     int debug;                  /* debug enabled or not */
+
 } inet_descriptor;
 
 
@@ -7702,6 +7708,37 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    break;
 #endif
 
+	case INET_LOPT_NON_BLOCK_SEND:
+#ifdef HAVE_SCTP
+            if (IS_SCTP(desc)) {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> %s\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port), B2S(ival)) );
+                if (ival) {
+                    desc->flags |= INET_FLG_NON_BLOCK_SEND;
+                } else {
+                    desc->flags  = (desc->flags) & ~(INET_FLG_NON_BLOCK_SEND);
+                }
+            } else {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+#else
+            {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "inet_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+#endif
+            continue; /* take care of next option */
+
 	case INET_LOPT_DEBUG:
             DDBG(desc,
                  ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
@@ -8731,6 +8768,33 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 #endif
 
+	case INET_LOPT_NON_BLOCK_SEND:
+            if (IS_SCTP(desc))
+                {
+                    int ival = get_int32(curr); curr += 4;
+
+                    DDBG(desc,
+                         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                          "sctp_set_opts(non-block-send) -> %s\r\n",
+                          __LINE__, desc->s, driver_caller(desc->port),
+                          B2S(ival)) );
+                    if (ival) {
+                        desc->flags |= INET_FLG_NON_BLOCK_SEND;
+                    } else {
+                        desc->flags  = (desc->flags) & ~(INET_FLG_NON_BLOCK_SEND);
+                    }
+
+                    res = 0;
+                }
+            else {
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "sctp_set_opts(non-block-send) -> IGNORE\r\n",
+                      __LINE__, desc->s,
+                      driver_caller(desc->port)) );
+            }
+            continue; /* take care of next option */
+
 	case INET_LOPT_DEBUG:
             {
                 int ival = get_int32(curr); curr += 4;
@@ -9435,6 +9499,15 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
         }
 #endif /* #ifdef __WIN32__ */
 
+	case INET_LOPT_NON_BLOCK_SEND:
+            *ptr++ = opt;
+            if (IS_NON_BLOCK_SEND(desc))
+                ival = TRUE;
+            else
+                ival = FALSE;
+            put_int32(ival, ptr);
+            continue;
+
 	case INET_LOPT_DEBUG:
             *ptr++ = opt;
             ival = desc->debug;
@@ -9570,6 +9643,11 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	int eopt = *buf;   /* "eopt" is 1-byte encoded */
 	buf ++; buflen --;
 	
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "sctp_fill_opts -> opt: %d\r\n",
+              __LINE__, desc->s, driver_caller(desc->port), eopt) );
+
 	switch(eopt)
 	{
 	/* Local options allowed for SCTP. For TCP and UDP, the values of
@@ -9577,6 +9655,36 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	   but here, we encode them as proper terms the same way as we do
 	   it for all other SCTP options:
 	*/
+	case INET_LOPT_NON_BLOCK_SEND:
+        {
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_fill_opts -> NON_BLOCK_SEND: %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port),
+                  B2S(IS_NON_BLOCK_SEND(desc))) );
+
+            if (IS_NON_BLOCK_SEND(desc))
+                i = LOAD_ATOM (spec, i, am_true);
+            else
+                i = LOAD_ATOM (spec, i, am_false);
+            break;
+        }
+
+        case INET_LOPT_DEBUG:
+        {
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "sctp_fill_opts -> DEBUG: %s\r\n",
+                  __LINE__, desc->s, driver_caller(desc->port),
+                  B2S(desc->debug)) );
+
+            if (desc->debug)
+                i = LOAD_ATOM (spec, i, am_true);
+            else
+                i = LOAD_ATOM (spec, i, am_false);
+            break;
+        }
+
 	case INET_LOPT_BUFFER:
 	{
 	    PLACE_FOR(spec, i, LOAD_ATOM_CNT + LOAD_INT_CNT + LOAD_TUPLE_CNT);
@@ -14025,15 +14133,17 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s,
     }
 
     /* Some flags must be inherited at this point */
-    copy_desc->inet.mode     = desc->inet.mode;
-    copy_desc->inet.exitf    = desc->inet.exitf;
-    copy_desc->inet.deliver  = desc->inet.deliver;
-    copy_desc->inet.htype    = desc->inet.htype;
-    copy_desc->inet.psize    = desc->inet.psize;
-    copy_desc->inet.stype    = desc->inet.stype;
-    copy_desc->inet.sfamily  = desc->inet.sfamily;
-    copy_desc->inet.hsz      = desc->inet.hsz;
-    copy_desc->inet.bufsz    = desc->inet.bufsz;
+    copy_desc->inet.mode         = desc->inet.mode;
+    copy_desc->inet.exitf        = desc->inet.exitf;
+    copy_desc->inet.deliver      = desc->inet.deliver;
+    copy_desc->inet.htype        = desc->inet.htype;
+    copy_desc->inet.psize        = desc->inet.psize;
+    copy_desc->inet.stype        = desc->inet.stype;
+    copy_desc->inet.sfamily      = desc->inet.sfamily;
+    copy_desc->inet.hsz          = desc->inet.hsz;
+    copy_desc->inet.bufsz        = desc->inet.bufsz;
+    // Only inherit the NON-BLOCK-SEND flag
+    copy_desc->inet.flags = desc->inet.flags & INET_FLG_NON_BLOCK_SEND;
 
     /* The new port will be linked and connected to the owner */
     port = driver_create_port(port, owner, "sctp_inet",
@@ -14765,11 +14875,42 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 #endif
     if (IS_SOCKET_ERROR(code)) {
         int err = sock_errno();
+
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "packet_inet_command -> send failed"
+              "\r\n   error: %d (%T)"
+              "\r\n",
+              __LINE__,
+              desc->s, driver_caller(desc->port),
+              err, error_atom(err)) );
+        
         if ((err != ERRNO_BLOCK) && (err != EINTR)) {
             inet_reply_error(desc, err);
             return;
         }
+        // else if (desc->nonBlockSend) {
+        else if (IS_NON_BLOCK_SEND(desc)) {
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "packet_inet_command -> block|intr when non-block send"
+                  "\r\n",
+                  __LINE__,
+                  desc->s, driver_caller(desc->port)) );
+        
+            inet_reply_error(desc, err);
+            return;
+        }
         else {
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "packet_inet_command -> block|intr send"
+                  "\r\n",
+                  __LINE__,
+                  desc->s, driver_caller(desc->port)) );
+
             /* XXX if(! INET_IGNORED(INETP(desc))) */
             sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
             set_busy_port(desc->port, 1);
