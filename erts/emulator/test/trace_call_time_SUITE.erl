@@ -35,7 +35,7 @@
 
 -export([seq/3, seq_r/3]).
 -export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1, dead_tracer/1,
-        return_stop/1,catch_crash/1]).
+        return_stop/1,reset/1,catch_crash/1]).
 
 -define(US_ERROR, 10000).
 -define(R_ERROR, 0.8).
@@ -88,6 +88,7 @@ testcases() ->
      disable_ongoing,
      apply_bif_bug,
      combo, bif, nif, called_function, dead_tracer, return_stop,
+     reset,
      catch_crash].
 
 init_per_suite(Config) ->
@@ -684,6 +685,77 @@ spinner(N) ->
 
 quicky() ->
     done.
+
+%% OTP-19269: Verify call_time is reset correctly
+%% while traced functions are called.
+reset(_Config) ->
+    erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+
+    CallTimeReader = fun({P,Cnt,_,_}) -> {P,Cnt} end,
+    reset_do(call_time, true, CallTimeReader),
+    reset_do(call_time, restart, CallTimeReader),
+
+    CallMemoryReader = fun({P,Cnt,_}) -> {P,Cnt} end,
+    reset_do(call_memory, true, CallMemoryReader),
+    reset_do(call_memory, restart, CallMemoryReader),
+    ok.
+
+reset_do(TraceType, ResetArg, InfoReader) ->
+    %%
+    1 = erlang:trace_pattern({?MODULE,aaa, 0}, true, [TraceType]),
+    1 = erlang:trace_pattern({?MODULE,bbb, 0}, true, [TraceType]),
+
+    Np = erlang:system_info(schedulers_online),
+    Tester = self(),
+    Pids = [begin
+                Pid = spawn_opt(fun() ->
+                                        receive go -> ok end,
+                                        aaa(),
+                                        bbb(),
+                                        Tester ! {running, self()},
+                                        loop_aaa_bbb()
+                                end,
+                                [link, {scheduler,I}]),
+                erlang:trace(Pid, true, [call]),
+                Pid ! go,
+                Pid
+            end
+            || I <- lists:seq(1,Np)],
+
+    %% Wait for all to make at least one traced call
+    [receive {running, P} -> ok end || P <- Pids],
+
+    {TraceType, AAA1} = erlang:trace_info({?MODULE,aaa,0}, TraceType),
+
+    io:format("Reset trace counters for aaa.\n", []),
+    1 = erlang:trace_pattern({?MODULE,aaa, 0}, ResetArg, [TraceType]),
+
+    {TraceType, AAA2} = erlang:trace_info({?MODULE,aaa,0}, TraceType),
+    {TraceType, BBB} = erlang:trace_info({?MODULE,bbb,0}, TraceType),
+
+    %% Verify counters are sane
+    lists:zipwith3(fun({P, ACnt1}=A1,
+                       {P, ACnt2}=A2,
+                       {P, BCnt}=B) ->
+                           io:format("A1=~p A2=~p B=~p\n", [A1,A2,B]),
+                           true = (ACnt1+ACnt2 =< BCnt)
+                  end,
+                  lists:sort(lists:map(InfoReader, AAA1)),
+                  lists:sort(lists:map(InfoReader, AAA2)),
+                  lists:sort(lists:map(InfoReader, BBB))),
+
+    [P ! die || P <- Pids],
+    1 = erlang:trace_pattern({?MODULE,aaa, 0}, false, [TraceType]),
+    1 = erlang:trace_pattern({?MODULE,bbb, 0}, false, [TraceType]),
+    ok.
+
+loop_aaa_bbb() ->
+    aaa = aaa(),
+    bbb = bbb(),
+    receive die -> ok
+    after 0 -> loop_aaa_bbb()
+    end.
+
 
 %% OTP-16994: next_catch returned a bogus stack pointer when call_time tracing
 %% was enabled, crashing the emulator.
