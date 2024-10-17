@@ -3953,8 +3953,10 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
     if (ERTS_IS_ATOM_STR("stdin", BIF_ARG_1)) {
         for (int i = 0; i < len; i++) {
             if (ioctl(fd, TIOCSTI, str+i) < 0) {
-                fprintf(stderr,"failed to write to %s (%s)\r\n", "/proc/self/fd/0",
-                        strerror(errno));
+                fprintf(stderr,"failed to write to %s (%s)\r\n"
+                        "to solve this you may need to enable legacy tiocsti\r\n"
+                        "  sudo sysctl -w dev.tty.legacy_tiocsti=1\r\n",
+                        "/proc/self/fd/0", strerror(errno));
                 close(fd);
                 goto error;
             }
