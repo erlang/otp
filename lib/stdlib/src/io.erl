@@ -524,6 +524,26 @@ The options and values supported by the OTP I/O devices are as follows:
 
   This option is only supported by the standard shell (`group.erl`).
 
+- **`{log, true | false}`** - Tells the I/O server that it should log each I/O request.
+  Requests will be logged at `info` level with the following report:
+
+  ```erl
+  #{ request := IoRequest, server := pid(), server_name => term() }.
+  ```
+
+  Not all I/O servers support this option. Use `io:getopts/1` to check if it is available.
+
+  > #### Note {: .info }
+  >
+  > The I/O servers in Erlang/OTP will set the [logger domain](`logger_filters:domain/2`)
+  > to `[otp, kernel, io, input | output]`. By default `m:logger` will not print this domain,
+  > so you need to enable it. This can be done by adding a new filter like this:
+  >
+  > ```erl
+  > logger:add_handler_filter(default, io_domain,
+  >    {fun logger_filters:domain/2, {log,sub,[otp,kernel,io]}}).
+  > ```
+
 - **`{encoding, latin1 | unicode}`** - Specifies how characters are input or
   output from or to the I/O device, implying that, for example, a terminal is
   set to handle Unicode input and output or a file is set to handle UTF-8 data
