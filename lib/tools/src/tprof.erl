@@ -46,7 +46,7 @@ There are [three kinds of profiling](`t:trace_type/0`) supported by this module:
 - `call_time`
 - `call_memory`
 
-The default is `call_count`, which has the smallest peformance impact
+The default is `call_count`, which has the smallest performance impact
 and memory footprint, but it does not support per-process
 profiling. For this reason, all of the examples below uses
 `call_memory`, which measures heap allocation, and provide a more complex
@@ -271,8 +271,8 @@ erl_eval:merge_bindings/4      3     24         8  [24.24]
                                      99            [100.0]
 ```
 
-By default, there is no limit for the profiling time. For ac-hoc
-profiling, is is possible to configure a time limit. If the profiled
+By default, there is no limit for the profiling time. For ad-hoc
+profiling, it is possible to configure a time limit. If the profiled
 function does not return before that time expires, the process is
 terminated with reason `kill`. Any unlinked children processes started
 by the user-supplied function are kept; it is the responsibility of
