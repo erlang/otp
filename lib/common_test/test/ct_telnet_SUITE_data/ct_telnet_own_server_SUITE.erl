@@ -29,10 +29,9 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [
-     {require,telnet_server_conn1,{unix,[telnet]}},
+    [{require,telnet_server_conn1,{unix,[telnet]}},
      {require,ct_conn_log},
-     {ct_hooks, [{cth_conn_log,[]}]}
+     {ct_hooks, [{cth_conn_log,[{ct_telnet, [{prefix, short}]}]}]}
     ].
 
 all() ->

@@ -94,12 +94,13 @@ get_log_opts(Mod,Opts) ->
 		     end,
     LogType = proplists:get_value(log_type,Opts,DefaultLogType),
     Hosts = proplists:get_value(hosts,Opts,[]),
-    {LogType,Hosts}.
+    {LogType,Hosts,[{prefix, proplists:get_value(prefix,Opts,disabled)}]}.
 
 pre_init_per_testcase(_Suite,TestCase,Config,CthState) ->
+    {_, _, CtTelnetOpts} = proplists:get_value(ct_telnet, CthState, {null, null, []}),
     Logs =
 	lists:map(
-	  fun({ConnMod,{LogType,Hosts}}) ->		  
+	  fun({ConnMod,{LogType,Hosts, _Opts}}) ->
 		  ct_util:set_testdata({{?MODULE,ConnMod},LogType}),
 		  case LogType of
 		      LogType when LogType==raw; LogType==pretty ->
@@ -131,11 +132,11 @@ pre_init_per_testcase(_Suite,TestCase,Config,CthState) ->
 		  end
 	  end,
 	  CthState),
-
     GL = group_leader(),
     Update =
 	fun(Init) when Init == undefined; Init == [] ->
-		error_logger:add_report_handler(ct_conn_log_h,{GL,Logs}),
+		error_logger:add_report_handler(ct_conn_log_h,
+                                                {GL,Logs,CtTelnetOpts}),
 		[TestCase];
 	   (PrevUsers) ->
 		error_logger:info_report(update,{GL,Logs}),
