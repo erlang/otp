@@ -24,11 +24,11 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
-	 extended_bit_aligned/1,mixed/1]).
+	 extended_bit_aligned/1,mixed/1,strict_generators/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,11 +43,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     [byte_aligned, bit_aligned, extended_byte_aligned,
-     extended_bit_aligned, mixed].
+     extended_bit_aligned, mixed, strict_generators].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -124,4 +124,26 @@ mixed(Config) when is_list(Config) ->
 	[(X+Y) || <<X:3>> <= <<1:3,2:3,3:3,4:3>>, <<Y:3>> <= <<1:3,2:3>>],
     [2,3,3,4,4,5,5,6] =
 	[(X+Y) || <<X:3>> <= <<1:3,2:3,3:3,4:3>>, Y <- [1,2]],
+    ok.
+
+strict_generators(Config) when is_list(Config) ->
+    %% Basic strict generators (each generator type)
+    <<2,3,4>> = << <<(X+1)>> || X <:- [1,2,3]>>,
+    <<2,3,4>> = << <<(X+1)>> || <<X>> <:= <<1,2,3>> >>,
+    <<2,12>> = << <<(X*Y)>> || X := Y <:- #{1 => 2, 3 => 4} >>,
+
+    %% A failing guard following a strict generator is ok
+    <<3,4>> = << <<(X+1)>> || X <:- [1,2,3], X > 1>>,
+    <<3,4>> = << <<(X+1)>> || <<X>> <:= <<1,2,3>>, X > 1 >>,
+    <<12>> = << <<(X*Y)>> || X := Y <:- #{1 => 2, 3 => 4}, X > 1 >>,
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    {'EXIT',{{badmatch,2},_}} = (catch << <<X>> || {ok, X} <:- [{ok,1},2,{ok,3}] >>),
+    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch << <<X>> || <<0:1, X:7>> <:= <<1,128,2>> >>),
+    {'EXIT',{{badmatch,{2,error}},_}} = (catch << <<X>> || X := ok <:- #{1 => ok, 2 => error, 3 => ok} >>),
+
+    %% Extra bits cannot be skipped at the end of the binary either
+    {'EXIT',{{badmatch,<<0:2>>},_}} = (catch [X || <<X:3>> <:= <<0>>]),
+    {'EXIT',{{badmatch,<<9,2>>},_}} = (catch [Y || <<X, Y:X>> <:= <<8,1,9,2>>]),
+
     ok.

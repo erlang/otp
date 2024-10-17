@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2006-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Originally based on Per Gustafsson's test suite.
@@ -22,14 +22,14 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          verify_highest_opcode/1,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,
          no_generator/1,zero_pattern/1,multiple_segments/1,
-         grab_bag/1]).
+         grab_bag/1, strict_generators/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +41,7 @@ all() ->
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions,
      no_generator, zero_pattern, multiple_segments,
-     grab_bag].
+     grab_bag, strict_generators].
 
 groups() ->
     [].
@@ -322,7 +322,7 @@ trim_coverage(Config) when is_list(Config) ->
     <<0,0,0,2,0,0,5,48,0,11,219,174,0,0,0,0>> = coverage_materialiv(a, b, {1328,777134}),
     <<67,40,0,0,66,152,0,0,69,66,64,0>> = coverage_trimmer([42,19,777]),
     <<0,0,2,43,0,0,3,9,0,0,0,3,64,8,0,0,0,0,0,0,
-	   64,68,0,0,0,0,0,0,192,171,198,0,0,0,0,0>> = 
+	   64,68,0,0,0,0,0,0,192,171,198,0,0,0,0,0>> =
 	coverage_lightfv(555, 777, {3.0,40.0,-3555.0}),
     <<"abcabc">> = coverage_strange(0, <<"abc">>),
     ok.
@@ -680,6 +680,28 @@ grab_bag_gh_8617(Bin) ->
     [0 || <<_:0, _:(tuple_size({self()}))>> <= Bin,
           is_pid(id(self()))].
 
+strict_generators(_Config) ->
+    %% Basic strict generators (each generator type)
+    <<2,3,4>> = << <<(X+1)>> || X <:- [1,2,3]>>,
+    <<2,3,4>> = << <<(X+1)>> || <<X>> <:= <<1,2,3>> >>,
+    <<2,12>> = << <<(X*Y)>> || X := Y <:- #{1 => 2, 3 => 4} >>,
+
+    %% A failing guard following a strict generator is ok
+    <<3,4>> = << <<(X+1)>> || X <:- [1,2,3], X > 1>>,
+    <<3,4>> = << <<(X+1)>> || <<X>> <:= <<1,2,3>>, X > 1 >>,
+    <<12>> = << <<(X*Y)>> || X := Y <:- #{1 => 2, 3 => 4}, X > 1 >>,
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    {'EXIT',{{badmatch,2},_}} = (catch << <<X>> || {ok, X} <:- [{ok,1},2,{ok,3}] >>),
+    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch << <<X>> || <<0:1, X:7>> <:= <<1,128,2>> >>),
+    {'EXIT',{{badmatch,{2,error}},_}} = (catch << <<X>> || X := ok <:- #{1 => ok, 2 => error, 3 => ok} >>),
+
+    %% Extra bits cannot be skipped at the end of the binary either
+    {'EXIT',{{badmatch,<<0:2>>},_}} = (catch [X || <<X:3>> <:= <<0>>]),
+    {'EXIT',{{badmatch,<<9,2>>},_}} = (catch [Y || <<X, Y:X>> <:= <<8,1,9,2>>]),
+
+    ok.
+
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
     ok.
@@ -717,7 +739,7 @@ cs(Bin) ->
 %% Verify that the allocated size of the binary is the default size.
 cs_default(Bin) ->
     ByteSize = byte_size(Bin),
-    {refc_binary,ByteSize,{binary,256},_} = 
+    {refc_binary,ByteSize,{binary,256},_} =
 	erts_debug:get_internal_state({binary_info,Bin}),
     Bin.
 

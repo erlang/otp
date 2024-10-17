@@ -1050,12 +1050,21 @@ lc_quals(Qs, Opts) ->
 lc_qual({m_generate,_,Pat,E}, Opts) ->
     Pl = map_field(Pat, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({m_generate_strict,_,Pat,E}, Opts) ->
+    Pl = map_field(Pat, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual({b_generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <=")],lexpr(E, 0, Opts)}]};
+lc_qual({b_generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:=")],lexpr(E, 0, Opts)}]};
 lc_qual({generate,_,Pat,E}, Opts) ->
     Pl = lexpr(Pat, 0, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};
+lc_qual({generate_strict,_,Pat,E}, Opts) ->
+    Pl = lexpr(Pat, 0, Opts),
+    {list,[{step,[Pl,leaf(" <:-")],lexpr(E, 0, Opts)}]};
 lc_qual(Q, Opts) ->
     lexpr(Q, 0, Opts).
 
