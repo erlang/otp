@@ -309,10 +309,11 @@ Function `parse_address/1` can be useful:
 %% Socket utility functions
 -export([ensure_sockaddr/1]).
 
--export_type([address_family/0, socket_protocol/0, hostent/0, hostname/0, ip4_address/0,
-              ip6_address/0, ip_address/0, port_number/0,
-	      family_address/0, local_address/0,
-              socket_address/0, returned_non_ip_address/0,
+-export_type([socket_protocol/0, hostent/0, hostname/0,
+              address_family/0, ip4_address/0, ip6_address/0, ip_address/0,
+              port_number/0,
+	      family_address/0, local_address/0, socket_address/0,
+              returned_non_ip_address/0,
 	      socket_setopt/0, socket_getopt/0, socket_optval/0,
               ancillary_data/0,
 	      posix/0, socket/0, inet_backend/0, stat_option/0]).
@@ -331,8 +332,9 @@ Function `parse_address/1` can be useful:
 
 %% Two kinds of debug macros (depnds on what you need to debug)
 %% -define(DBG(T), erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
-%% -define(DBG(F, A), io:format("~w -> " ++ F ++ "~n", [?FUNCTION_NAME | A])).
+%% -define(DBG(F, A), io:format("~w(~w) -> " ++ F ++ "~n", [?FUNCTION_NAME, ?LINE | A])).
 %% -define(DBG(F),    ?DBG(F, [])).
+-define(DBG(F, A),    ok).
 
 
 %%% ---------------------------------
@@ -1719,125 +1721,192 @@ net_collect_ifopts([], _AllIfs, AllNameAndOpts) ->
     lists:reverse(AllNameAndOpts);
 net_collect_ifopts([IfName|IfNames], AllIfs, NameAndOpts) ->
     %% Get the Ifs with the name IfName
+    ?DBG("entry with"
+         "~n   IfName: ~p", [IfName]),
     Ifs = [If || #{name := N} = If <- AllIfs, (N =:= IfName)],
     IfOpts = net_ifs2ifopts(Ifs),
+    ?DBG("collected for interface ~s:"
+         "~n   ~p", [IfName, IfOpts]),
     net_collect_ifopts(IfNames, AllIfs, [{IfName, IfOpts}|NameAndOpts]).
 
 net_ifs2ifopts(Ifs) ->
-    net_ifs2ifopts(Ifs, #{flags  => [],
-                          addrs  => [],
-                          hwaddr => []}).
+    net_ifs2ifopts(Ifs,
+                   %% Family: inet
+                   #{flags  => [],
+                     addrs  => []},
+                   %% Family: inet6
+                   #{flags  => [],
+                     addrs  => []},
+                   %% Family: packet | link
+                   #{flags  => [],
+                     addr   => []}).
 
 
-net_ifs2ifopts([], #{flags  := Flags,
-                     addrs  := Addrs,
-                     hwaddr := HwAddr}) ->
-    [{flags, net_flags_to_inet_flags(Flags)}] ++
-        lists:reverse(Addrs) ++
-        case HwAddr of
+net_ifs2ifopts([],
+               %% Family: inet
+               #{flags := [],
+                 addrs := []},
+               %% Family: inet6
+               #{flags := [],
+                 addrs := []},
+               %% Family: packet | link
+               #{flags := [],
+                 addr  := []}) ->
+    [{flags, []}];
+net_ifs2ifopts([],
+               %% Family: inet
+               #{flags := Flags4,
+                 addrs := Addrs4},
+               %% Family: inet6
+               #{flags := Flags6,
+                 addrs := Addrs6},
+               %% Family: packet | link
+               #{flags := FlagsHw,
+                 addr  := AddrHw}) ->
+    ?DBG("entry when done with"
+         "~n   Flags4:  ~p"
+         "~n   Addrs4:  ~p"
+         "~n   Flags6:  ~p"
+         "~n   Addrs6:  ~p"
+         "~n   FlagsHw: ~p"
+         "~n   AddrHw:  ~p",
+         [Flags4, Addrs4, Flags6, Addrs6, FlagsHw, AddrHw]),
+    case {Flags4, Addrs4} of
+        {[], []} ->
+            [];
+        _ ->
+            [{flags, net_flags_to_inet_flags(Flags4)}] ++
+                lists:reverse(Addrs4)
+    end ++
+        case Addrs6 of
             [] ->
                 [];
             _ ->
-                [{hwaddr, HwAddr}]
-        end;
-net_ifs2ifopts([If|Ifs], #{flags := []} = IfOpts0) ->
-    IfOpts =
-        case If of
-	     %% LINK or PACKET
-	     %% - On some platforms LINK is used (FreeBSD for instance)
-	     %%   LINK does not include an explicit HW address. Instead
-	     %%   its part of the 'data', together with name and possibly
-	     %%   link layer selector (the lengths can be used to decode
-	     %%   the data)..
-	     %% - On others PACKET is used.
-            #{flags := Flags,
-              addr  := #{family := packet,
-                         addr   := HwAddrBin}} ->
-                IfOpts0#{flags  => Flags,
-                         hwaddr => binary_to_list(HwAddrBin)};
-            #{flags := Flags,
-              addr  := #{family := link,
-                         nlen    := NLen,
-                         alen    := ALen,
-                         data    := Data}} when (ALen > 0) ->
-		case Data of
-		      <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
-                           IfOpts0#{flags  => Flags,
-                                    hwaddr => binary_to_list(ABin)};
-		      _ ->
-                        IfOpts0#{flags => Flags}
-		end;
-            #{flags := Flags,
-              addr  := #{family := Fam,
-                         addr   := Addr},
-              netmask := #{family := Fam,
-                           addr   := Mask}} when (Fam =:= inet) orelse
-                                                 (Fam =:= inet6) ->
-                %% We may also have broadcast or dest addr
-                BroadAddr = case maps:get(broadaddr, If, undefined) of
-                                undefined ->
-                                    [];
-                                #{addr := BA} ->
-                                    [{broadaddr, BA}]
-                            end,
-                DstAddr = case maps:get(dstaddr, If, undefined) of
-                              undefined ->
-                                  [];
-                              #{addr := DA} ->
-                                  [{dstaddr, DA}]
-                          end,
-                IfOpts0#{flags  => Flags,
-                         addrs  => DstAddr ++ BroadAddr ++ [{netmask, Mask},
-                                                            {addr,    Addr}]};
-            #{flags := Flags} ->
-                IfOpts0#{flags => Flags}
-        end,
-    net_ifs2ifopts(Ifs, IfOpts);
-net_ifs2ifopts([If|Ifs], IfOpts0) ->
-    %% We can only have one 'flags' entry
-    %% (they are supposed to be the same for all if:s of the same name).
-    %% For each 'addr' entry we can have one 'netmask' and 'broadcast'
-    %% or 'dstaddr'
-    IfOpts =
-        case If of
-            #{flags := Flags,
-              addr := #{family := packet,
-                        addr   := HwAddrBin}} ->
-                Flags0 = maps:get(flags, IfOpts0, []),
-                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
-                         hwaddr => binary_to_list(HwAddrBin)};
-            #{flags := Flags,
-              addr  := #{family := Fam,
-                         addr   := Addr},
-              netmask := #{family := Fam,
-                           addr   := Mask}} when (Fam =:= inet) orelse
-                                                 (Fam =:= inet6) ->
-                Addrs0 = maps:get(addrs, IfOpts0, []),
-                Flags0 = maps:get(flags, IfOpts0, []),
-                %% We may also have broadcast or dest addr
-                BroadAddr = case maps:get(broadaddr, If, undefined) of
-                                undefined ->
-                                    [];
-                                #{addr := BA} ->
-                                    [{broadaddr, BA}]
-                            end,
-                DstAddr = case maps:get(dstaddr, If, undefined) of
-                              undefined ->
-                                  [];
-                              #{addr := DA} ->
-                                  [{dstaddr, DA}]
-                          end,
-                IfOpts0#{flags => Flags0 ++ (Flags -- Flags0),
-                         addrs =>
-                             DstAddr ++
-                             BroadAddr ++
-                             [{netmask, Mask},
-                              {addr,    Addr}] ++
-                             Addrs0};
+                case Flags6 of
+                    Flags4 ->
+                        lists:reverse(Addrs6);
+                    [] ->
+                        lists:reverse(Addrs6);
+                    _ ->
+                        [{flags, net_flags_to_inet_flags(Flags6)}] ++
+                            lists:reverse(Addrs6)
+                end
+        end ++
+        case {FlagsHw, AddrHw} of
+            {[], []} ->
+                [];
+            {[], _} ->
+                [{hwaddr, AddrHw}];
+            {_, _} when ((FlagsHw =:= Flags4) orelse
+                         (FlagsHw =:= Flags6)) andalso (AddrHw =/= []) ->
+                [{hwaddr, AddrHw}];
             _ ->
-                IfOpts0
-        end,
-    net_ifs2ifopts(Ifs, IfOpts).
+                [{flags, net_flags_to_inet_flags(FlagsHw)}] ++
+                    [{hwaddr, AddrHw}]
+        end;
+net_ifs2ifopts([If|Ifs], IfOpts4_0, IfOpts6_0, IfOptsHw_0) ->
+    case If of
+        %% LINK or PACKET
+        %% - On some platforms LINK is used (FreeBSD for instance)
+        %%   LINK does not include an explicit HW address. Instead
+        %%   its part of the 'data', together with name and possibly
+        %%   link layer selector (the lengths can be used to decode
+        %%   the data)..
+        %% - On others PACKET is used.
+        #{flags := Flags,
+          addr  := #{family := packet,
+                     addr   := HwAddrBin}} ->
+            %% This should only come once (per interface) so we
+            %% do not actually check...
+            ?DBG("packet entry:"
+                 "~n   Flags:     ~p"
+                 "~n   HwAddrBin: ~p", [Flags, HwAddrBin]),
+            IfOptsHw =
+                IfOptsHw_0#{flags => Flags,
+                            addr  => binary_to_list(HwAddrBin)},
+            net_ifs2ifopts(Ifs, IfOpts4_0, IfOpts6_0, IfOptsHw);
+        #{flags := Flags,
+          addr  := #{family := link,
+                     nlen   := NLen,
+                     alen   := ALen,
+                     data   := Data}} when (ALen > 0) ->
+            ?DBG("link entry:"
+                 "~n   Flags: ~p"
+                 "~n   NLen:  ~p"
+                 "~n   ALen:  ~p"
+                 "~n   Data:  ~p", [Flags, NLen, ALen, Data]),
+            IfOptsHw =
+                case Data of
+                    <<_:NLen/binary, ABin:ALen/binary, _/binary>> ->
+                        IfOptsHw_0#{flags => Flags,
+                                    addr  => binary_to_list(ABin)};
+                    _ ->
+                        IfOptsHw_0#{flags => Flags}
+                end,
+            net_ifs2ifopts(Ifs, IfOpts4_0, IfOpts6_0, IfOptsHw);
+
+        #{flags := Flags,
+          addr  := #{family := Fam,
+                     addr   := Addr},
+          netmask := #{family := Fam,
+                       addr   := Mask}} when (Fam =:= inet) orelse
+                                             (Fam =:= inet6) ->
+            %% We may also have broadcast or dest addr
+            BroadAddr = case maps:get(broadaddr, If, undefined) of
+                            undefined ->
+                                [];
+                            #{addr := BA} ->
+                                [{broadaddr, BA}]
+                        end,
+            DstAddr = case maps:get(dstaddr, If, undefined) of
+                          undefined ->
+                              [];
+                          #{addr := DA} ->
+                              [{dstaddr, DA}]
+                      end,
+            ?DBG("~w entry:"
+                 "~n   Flags:      ~p"
+                 "~n   Addr:       ~p"
+                 "~n   Mask:       ~p"
+                 "~n   Broad Addr: ~p"
+                 "~n   Dest Addr:  ~p",
+                 [Fam, Flags, Addr, Mask, BroadAddr, DstAddr]),
+            case Fam of
+                inet ->
+                    Flags4_0 = maps:get(flags, IfOpts4_0, []),
+                    Flags4   = Flags4_0 ++ (Flags -- Flags4_0),
+                    Addrs4_0 = maps:get(addrs, IfOpts4_0, []),
+                    IfOpts4  =
+                        IfOpts4_0#{flags  => Flags4,
+                                   addrs  =>
+                                       DstAddr ++
+                                       BroadAddr ++
+                                       [{netmask, Mask},
+                                        {addr,    Addr}] ++
+                                       Addrs4_0},
+                    net_ifs2ifopts(Ifs, IfOpts4, IfOpts6_0, IfOptsHw_0);
+                inet6 ->
+                    Flags6_0 = maps:get(flags, IfOpts6_0, []),
+                    Flags6   = Flags6_0 ++ (Flags -- Flags6_0),
+                    Addrs6_0 = maps:get(addrs, IfOpts6_0, []),
+                    IfOpts6 =
+                        IfOpts6_0#{flags  => Flags6,
+                                   addrs  =>
+                                       DstAddr ++
+                                       BroadAddr ++
+                                       [{netmask, Mask},
+                                        {addr,    Addr}] ++
+                                       Addrs6_0},
+                    net_ifs2ifopts(Ifs, IfOpts4_0, IfOpts6, IfOptsHw_0)
+            end;
+
+        #{flags := Flags} ->
+            ?DBG("other entry => retain flags"
+                 "~n   ~p", [If]),
+            %% Reuse the IPv4 opts
+            net_ifs2ifopts(Ifs,
+                           IfOpts4_0#{flags => Flags}, IfOpts6_0, IfOptsHw_0)
+    end.
 
 net_flags_to_inet_flags(Flags) ->
     net_flags_to_inet_flags(Flags, []).

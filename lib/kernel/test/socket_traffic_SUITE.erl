@@ -5367,6 +5367,9 @@ traffic_ping_pong_send_and_receive_stream2(InitState) ->
                                    ?SEV_IPRINT("remote client bind failure:"
                                                "~n   ~p", [Reason]),
                                    {skip, Reason};
+                               {error, no_address = Reason} ->
+                                   ?SEV_IPRINT("remote valid address"),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("remote client failure:"
                                                "~n   ~p", [Reason]),
@@ -7039,14 +7042,6 @@ is_slow_ubuntu(Config) ->
     end.
 
 
-is_not_solaris() ->
-    case os:type() of
-        {unix, solaris} ->
-            skip("Solaris");
-        _ ->
-            ok
-    end.
-
 is_not_windows() ->
     case os:type() of
         {win32, nt} ->
@@ -7068,7 +7063,7 @@ has_support_sctp() ->
         {win32, _} ->
             skip("Not supported");
         {unix, netbsd} ->
-            %% XXX We will have to investigate this later...
+            %% XYZ We will have to investigate this later...
             skip("Not supported");
         _ ->
             case socket:is_supported(sctp) of

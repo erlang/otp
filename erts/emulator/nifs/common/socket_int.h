@@ -205,6 +205,7 @@ typedef long ssize_t;
  */
 
 #define GLOBAL_ATOM_DEFS                       \
+    GLOBAL_ATOM_DEF(6to4);                     \
     GLOBAL_ATOM_DEF(abort);                    \
     GLOBAL_ATOM_DEF(accept);                   \
     GLOBAL_ATOM_DEF(acceptconn);               \
@@ -240,6 +241,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(base_addr);                \
     GLOBAL_ATOM_DEF(bindtodevice);             \
     GLOBAL_ATOM_DEF(block_source);             \
+    GLOBAL_ATOM_DEF(bridge);                   \
     GLOBAL_ATOM_DEF(broadcast);                \
     GLOBAL_ATOM_DEF(bsp_state);                \
     GLOBAL_ATOM_DEF(busy_poll);                \
@@ -251,6 +253,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(cancel);                   \
     GLOBAL_ATOM_DEF(cancelled);                \
     GLOBAL_ATOM_DEF(cantconfig);	       \
+    GLOBAL_ATOM_DEF(cellular);                 \
     GLOBAL_ATOM_DEF(chaos);                    \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
@@ -326,7 +329,9 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(frelay);                   \
     GLOBAL_ATOM_DEF(get_overlapped_result);    \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
+    GLOBAL_ATOM_DEF(gif);                      \
     GLOBAL_ATOM_DEF(hatype);                   \
+    GLOBAL_ATOM_DEF(hdh1822);                  \
     GLOBAL_ATOM_DEF(hdrincl);                  \
     GLOBAL_ATOM_DEF(hmac_ident);               \
     GLOBAL_ATOM_DEF(hoplimit);                 \
@@ -353,6 +358,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(ipcomp_level);             \
     GLOBAL_ATOM_DEF(ipip);                     \
     GLOBAL_ATOM_DEF(iplevel);                  \
+    GLOBAL_ATOM_DEF(ipv4);                     \
     GLOBAL_ATOM_DEF(ipv6);                     \
     GLOBAL_ATOM_DEF(irq);                      \
     GLOBAL_ATOM_DEF(i_want_mapped_v4_addr);    \
@@ -375,6 +381,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(local);                    \
     GLOBAL_ATOM_DEF(localtlk);                 \
     GLOBAL_ATOM_DEF(local_auth_chunks);        \
+    GLOBAL_ATOM_DEF(loop);		       \
     GLOBAL_ATOM_DEF(loopback);		       \
     GLOBAL_ATOM_DEF(lowdelay);                 \
     GLOBAL_ATOM_DEF(lower_up);                 \
@@ -435,6 +442,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(oobinline);                \
     GLOBAL_ATOM_DEF(options);                  \
     GLOBAL_ATOM_DEF(origdstaddr);              \
+    GLOBAL_ATOM_DEF(other);                    \
     GLOBAL_ATOM_DEF(otherhost);                \
     GLOBAL_ATOM_DEF(outgoing);                 \
     GLOBAL_ATOM_DEF(packet);                   \
@@ -449,11 +457,12 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
     GLOBAL_ATOM_DEF(pkttype);                  \
-    GLOBAL_ATOM_DEF(ppromisc);		       \
     GLOBAL_ATOM_DEF(pointopoint);              \
     GLOBAL_ATOM_DEF(port);                     \
     GLOBAL_ATOM_DEF(portrange);                \
     GLOBAL_ATOM_DEF(portsel);                  \
+    GLOBAL_ATOM_DEF(ppromisc);		       \
+    GLOBAL_ATOM_DEF(ppp);                      \
     GLOBAL_ATOM_DEF(primary_addr);             \
     GLOBAL_ATOM_DEF(prim_file);                \
     GLOBAL_ATOM_DEF(priority);                 \
@@ -542,6 +551,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(state);                    \
     GLOBAL_ATOM_DEF(status);                   \
     GLOBAL_ATOM_DEF(staticarp);		       \
+    GLOBAL_ATOM_DEF(stf);                      \
     GLOBAL_ATOM_DEF(stream);                   \
     GLOBAL_ATOM_DEF(syncnt);                   \
     GLOBAL_ATOM_DEF(syn_rcvd);                 \
@@ -585,6 +595,8 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(write_pkg);                \
     GLOBAL_ATOM_DEF(write_tries);              \
     GLOBAL_ATOM_DEF(write_waits);              \
+    GLOBAL_ATOM_DEF(x25ddn);                   \
+    GLOBAL_ATOM_DEF(x25);                      \
     GLOBAL_ATOM_DEF(zero)
 
 
