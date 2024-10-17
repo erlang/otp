@@ -53,6 +53,7 @@ MODULES= \
 	record_SUITE \
 	trycatch_SUITE \
 	test_lib \
+	zlc_SUITE\
 	cleanup
 
 ERL_FILES= $(MODULES:%=%.erl)
