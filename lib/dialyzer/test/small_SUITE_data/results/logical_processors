@@ -1,0 +1,5 @@
+
+logical_processors.erl:11:1: Function t1/0 has no local return
+logical_processors.erl:12:7: The pattern 'ok' can never match the type 'unknown' | non_neg_integer()
+logical_processors.erl:14:1: Function t2/0 has no local return
+logical_processors.erl:15:7: The pattern 'ok' can never match the type 'unknown' | non_neg_integer()
