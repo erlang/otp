@@ -228,8 +228,6 @@ end_per_group(_, Config) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    %% To make sure we start clean as it is not certain that
-    %% end_per_testcase will be run!
     ssh:stop(),
     ssh:start(),
     {ok, TestLogHandlerRef} = ssh_test_lib:add_log_handler(),
@@ -239,26 +237,125 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
                      proplists:get_value(log_handler_ref, Config)),
-    EventNumber = length(Events),
-    VerifcationResult = verify_events(TestCase, EventNumber, Events),
+    EventCnt = length(Events),
+    {ok, InterestingEventCnt} = analyze_events(Events, EventCnt),
+    VerificationResult = verify_events(TestCase, InterestingEventCnt),
     ssh_test_lib:rm_log_handler(),
     ssh:stop(),
-    VerifcationResult.
+    VerificationResult.
 
-verify_events(_TestCase, 0, _Events) -> ok;
-verify_events(gracefull_invalid_version, 1, _) -> ok;
-verify_events(gracefull_invalid_start, 1, _) -> ok;
-verify_events(gracefull_invalid_long_start, 1, _) -> ok;
-verify_events(gracefull_invalid_long_start_no_nl, 1, _) -> ok;
-verify_events(kex_error, 2, _) -> ok;
-verify_events(stop_listener, 1, _) -> ok;
-verify_events(no_sensitive_leak, 10, _) -> ok;
-verify_events(start_subsystem_on_closed_channel, 8, _) -> ok;
-verify_events(max_channels_option, 11, _) -> ok;
-verify_events(_TestCase, EventNumber, Events) when EventNumber > 0->
-    ct:log("~nEvent number: ~p~nEvents:~n~p", [EventNumber, Events]),
+analyze_events(_, 0) ->
+    {ok, 0};
+analyze_events(Events, EventNumber) when EventNumber > 0 ->
+    {ok, Cnt} = print_interesting_events(Events, 0),
+    case Cnt > 0 of
+        true ->
+            ct:comment("(logger stats) interesting: ~p boring: ~p",
+                       [Cnt, EventNumber - Cnt]);
+        _ ->
+            ct:comment("(logger stats) boring: ~p",
+                       [length(Events)])
+    end,
+    AllEventsSummary = lists:flatten([process_event(E) || E <- Events]),
+    ct:log("~nTotal logger events: ~p~nAll events:~n~s", [EventNumber, AllEventsSummary]),
+    {ok, Cnt}.
+
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {Status, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, {Status, _ReasonDetails}},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [{supervisor, Supervisor},
+                                     {errorContext, _ErrorContext},
+                                     {reason, Status},
+                                     {offender, Properties}]}},
+                level := Level}) ->
+    format_event1(Label, Supervisor, Status, Properties, Level);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          report := [Properties, []]}},
+                level := Level}) ->
+    {status, Status} = get_value(status, Properties),
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(registered_name, Properties),
+    {initial_call, {M, F, Args}} = get_value(initial_call, Properties),
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s)~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Status, Id, M, F, Args]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                          name := Pid,
+                          reason := {Reason, _Stack = [{M, F, Args, Location} | _]}}},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~30s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label, Reason, undefined, M, F, Args, Location]]);
+process_event(#{msg := {report,
+                        #{label := Label,
+                         format := Format,
+                         args := Args}},
+                meta := #{pid := Pid},
+                level := Level}) ->
+    io_lib:format("[~44s]  ~6s ~30s ~150s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Pid, Level, Label]] ++ [io_lib:format(Format, Args)]);
+process_event(E) ->
+    io_lib:format("~n||RAW event||~n~p~n", [E]).
+
+format_event1(Label, Supervisor, Status, Properties, Level) ->
+    {pid, Pid} = get_value(pid, Properties),
+    Id = get_value(id, Properties),
+    {M, F, Args} = get_mfa_value(Properties),
+    RestartType = get_value(restart_type, Properties),
+    Significant = get_value(significant, Properties),
+    io_lib:format("[~30s <- ~10s]  ~6s ~30s ~20s  ~30s ~20s:~10s(~40s) ~20s ~25s~n",
+                  [io_lib:format("~p", [E]) ||
+                      E <- [Supervisor, Pid, Level, Label, Status, Id, M, F, Args,
+                            Significant, RestartType]]).
+
+get_mfa_value(Properties) ->
+    case get_value(mfargs, Properties) of
+        {mfargs, MFA} ->
+            MFA;
+        false ->
+            {mfa, MFA} = get_value(mfa, Properties),
+            MFA
+    end.
+
+get_value(Key, List) ->
+    case lists:keyfind(Key, 1, List) of
+        R = false ->
+            ct:log("Key ~p not found in~n~p", [Key, List]),
+            R;
+        R -> R
+    end.
+
+print_interesting_events([], Cnt) ->
+    {ok, Cnt};
+print_interesting_events([#{level := Level} = Event | Tail], Cnt)
+  when Level /= info, Level /= notice ->
+    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+    print_interesting_events(Tail, Cnt + 1);
+print_interesting_events([_|Tail], Cnt) ->
+    print_interesting_events(Tail, Cnt).
+
+verify_events(_TestCase, 0) -> ok;
+verify_events(no_sensitive_leak, 1) -> ok;
+verify_events(max_channels_option, 3) -> ok;
+verify_events(_TestCase, EventNumber) when EventNumber > 0->
     {fail, lists:flatten(
-             io_lib:format("Unexpected ~s events found",
+             io_lib:format("unexpected event cnt: ~s",
                            [integer_to_list(EventNumber)]))}.
 
 %%--------------------------------------------------------------------
@@ -659,6 +756,15 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
+%%- small_interrupted_send is interrupted by ssh_echo_server which is
+%%  done with transferring data towards client and terminates the
+%%  channel (this results with {error, closed} return value from
+%%  ssh_connection:send on the client side)
+%%- interrupted_send used to be interrupted when ssh_echo_server ran
+%%  out of data window and closed channel
+%%- but with automatic window adjustment, above condition is not taking
+%%  place, so ssh_echo_server continues sending data until it is done
+%%- so ssh_connection:send returns 'ok'
 small_interrupted_send(Config) ->
     K = 1024,
     SendSize = 10 * K * K,

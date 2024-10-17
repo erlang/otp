@@ -80,7 +80,7 @@ MODULES= \
 	ssh_sftpd \
 	ssh_sftpd_file\
 	ssh_shell \
-	ssh_subsystem_sup \
+	ssh_connection_sup \
 	ssh_system_sup \
 	ssh_tcpip_forward_srv \
 	ssh_tcpip_forward_client \

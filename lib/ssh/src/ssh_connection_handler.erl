@@ -43,7 +43,7 @@
 %%====================================================================
 
 %%% Start and stop
--export([start_link/4, start_link/5,
+-export([start_link/3, start_link/4,
          takeover/4,
 	 stop/1
 	]).
@@ -99,10 +99,10 @@
 %% Start / stop
 %%====================================================================
 
-start_link(Role, Address, Socket, Options) ->
-    start_link(Role, Address, undefined, Socket, Options).
+start_link(Role, Socket, Options) ->
+    start_link(Role, undefined, Socket, Options).
 
-start_link(Role, _Address=#address{}, Id, Socket, Options) ->
+start_link(Role, Id, Socket, Options) ->
     case gen_statem:start_link(?MODULE,
                                [Role, Socket, Options],
                                [{spawn_opt, [{message_queue_data,off_heap}]}]) of
@@ -111,7 +111,7 @@ start_link(Role, _Address=#address{}, Id, Socket, Options) ->
             %% Announce the ConnectionRef to the system supervisor so it could
             %%   1) initiate the socket handover, and
             %%   2) be returned to whoever called for example ssh:connect; the Pid
-            %%      returned from this function is "consumed" by the subsystem
+            %%      returned from this function is "consumed" by the connection
             %%      supervisor.
             ?GET_INTERNAL_OPT(user_pid,Options) ! {new_connection_ref, Id, Pid},
             {ok, Pid};
@@ -197,8 +197,8 @@ open_channel(ConnectionHandler,
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
-    {ok, {SubSysSup,Role,Opts}} = call(ConnectionHandler, get_misc),
-    ssh_subsystem_sup:start_channel(Role, SubSysSup,
+    {ok, {ConnectionSup,Role,Opts}} = call(ConnectionHandler, get_misc),
+    ssh_connection_sup:start_channel(Role, ConnectionSup,
                                     ConnectionHandler, CallbackModule, ChannelId,
                                     Args, Exec, Opts).
 
@@ -418,7 +418,7 @@ init_connection_record(Role, Socket, Opts) ->
                     suggest_packet_size = PktSz,
                     requests = [],
                     options = Opts,
-                    sub_system_supervisor = ?GET_INTERNAL_OPT(subsystem_sup, Opts)
+                    connection_supervisor = ?GET_INTERNAL_OPT(connection_sup, Opts)
                    },
     case Role of
         server ->
@@ -1022,8 +1022,8 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 
 handle_event({call,From}, get_misc, StateName,
              #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
-    SubSysSup = ?GET_INTERNAL_OPT(subsystem_sup, Opts),
-    Reply = {ok, {SubSysSup, ?role(StateName), Opts}},
+    ConnectionSup = ?GET_INTERNAL_OPT(connection_sup, Opts),
+    Reply = {ok, {ConnectionSup, ?role(StateName), Opts}},
     {keep_state, D, [{reply,From,Reply}]};
 
 handle_event({call,From},
@@ -1286,9 +1286,9 @@ handle_event(info, check_cache, _, D) ->
 handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{connection_state = Connection}) ->
     #connection{options = Options,
                 channel_cache = Cache,
-                sub_system_supervisor = SubSysSup} = Connection,
+                connection_supervisor = ConnectionSup} = Connection,
     Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_subsystem_sup:start_channel(?role(StateName), SubSysSup, self(), ChanCB, ChId, [Sock], undefined, Options),
+    {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined, Options),
     ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
     gen_tcp:controlling_process(Sock, Pid),
     inet:setopts(Sock, [{active,once}]),
@@ -1297,8 +1297,8 @@ handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{
 handle_event({call,From},
              {handle_direct_tcpip, ListenHost, ListenPort, ConnectToHost, ConnectToPort, _Timeout},
              _StateName,
-             #data{connection_state = #connection{sub_system_supervisor=SubSysSup}}) ->
-    case ssh_tcpip_forward_acceptor:supervised_start(ssh_subsystem_sup:tcpip_fwd_supervisor(SubSysSup),
+             #data{connection_state = #connection{connection_supervisor=ConnectionSup}}) ->
+    case ssh_tcpip_forward_acceptor:supervised_start(ssh_connection_sup:tcpip_fwd_supervisor(ConnectionSup),
                                                      {ListenHost, ListenPort},
                                                      {ConnectToHost, ConnectToPort},
                                                      "direct-tcpip", ssh_tcpip_forward_client,
