@@ -21,6 +21,28 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.4
+
+### Fixed Bugs and Malfunctions
+
+- Refactor trying to also make some optimizations introduced a bug in signature algorithms checks in OTP-26.2.1. This could manifest itself in not being able to negotiate connections using certificates needing to use some TLS-1.2 compatibility legacy signature schemes.
+
+  Own Id: OTP-19249 Aux Id: ERIERL-1137, [PR-8866]
+
+- Correct timeout handling for termination code run for own alerts, so that intended timeout is used instead of falling back to OS TCP-stack timeout that is unreasonably long on some platforms.
+
+  Own Id: OTP-19274 Aux Id: [PR-8901]
+
+- Fix assertion so that works as intended.
+  This could result in that some TLS-1.2 clients would fail to connect to the the erlang server.  Bug introduced in OTP-27.1.1
+
+  Own Id: OTP-19288 Aux Id: [GH-8908], [PR-8916]
+
+[PR-8866]: https://github.com/erlang/otp/pull/8866
+[PR-8901]: https://github.com/erlang/otp/pull/8901
+[GH-8908]: https://github.com/erlang/otp/issues/8908
+[PR-8916]: https://github.com/erlang/otp/pull/8916
+
 ## SSL 11.2.3
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27.3
+
+### Fixed Bugs and Malfunctions
+
+- With this change, jquery and tablesorter licenses are added to COPYRIGHT file.
+  Also tablesorter is updated to version 2.32.
+
+  Own Id: OTP-19265 Aux Id: [PR-8876]
+
+[PR-8876]: https://github.com/erlang/otp/pull/8876
+
 ## Common_Test 1.27.2
 
 ### Fixed Bugs and Malfunctions

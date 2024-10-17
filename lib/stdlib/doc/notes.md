@@ -21,6 +21,22 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.1.2
+
+### Fixed Bugs and Malfunctions
+
+- With this change, uri_string:normalize assumes empty path (do not crash) when no path is provided in the URI map.
+
+  Own Id: OTP-19266 Aux Id: ERIERL-1127, [PR-8890]
+
+- Fixed spec for `json:format/3`.
+
+  Own Id: OTP-19286 Aux Id: [GH-8880], [PR-8914]
+
+[PR-8890]: https://github.com/erlang/otp/pull/8890
+[GH-8880]: https://github.com/erlang/otp/issues/8880
+[PR-8914]: https://github.com/erlang/otp/pull/8914
+
 ## STDLIB 6.1.1
 
 ### Fixed Bugs and Malfunctions
