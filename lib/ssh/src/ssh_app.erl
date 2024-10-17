@@ -23,11 +23,11 @@
 %%%=========================================================================
 %%% Purpose : Application master and top supervisors for SSH.
 %%%
-%%%  -----> ssh_sup -----+-----> sshc_sup --+--> "system sup" (etc)
+%%%  -----> ssh_sup -----+-----> sshc_sup --+--> "connection sup" (etc)
 %%%                      |                  |
-%%%                      |                  +--> "system sup" (etc)
+%%%                      |                  +--> "connection sup" (etc)
 %%%                      |                  :
-%%%                      |                  +--> "system sup" (etc)
+%%%                      |                  +--> "connection sup" (etc)
 %%%                      |
 %%%                      +-----> sshc_sup --+--> "system sup" (etc)
 %%%                                         |

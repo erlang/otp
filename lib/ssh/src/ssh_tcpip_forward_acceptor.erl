@@ -36,9 +36,8 @@ supervised_start(FwdSup, {ListenAddrStr, ListenPort}, ConnectToAddr, ChanType, C
     case get_fwd_listen_opts(ListenAddrStr) of
         {ok,Opts} ->
             %% start listening on Addr:BoundPort
-            case gen_tcp:listen(ListenPort, [binary,
-                                             {reuseaddr,true},
-                                             {active,false} | Opts]) of
+            case gen_tcp:listen(ListenPort,
+                                Opts ++ [binary, {reuseaddr,true}, {active,false}]) of
                 {ok,LSock} ->
                     {ok,{_, TrueListenPort}} = inet:sockname(LSock),
                     ssh_tcpip_forward_acceptor_sup:start_child(FwdSup,
