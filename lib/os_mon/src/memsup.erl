@@ -29,7 +29,9 @@ Periodically performs a memory check:
 
 - If more than a certain amount of available system memory is allocated, as
   reported by the underlying operating system, the alarm
-  `{system_memory_high_watermark, []}` is set.
+  `{system_memory_high_watermark, []}` is set. How the amount of available
+  memory is determined depends on the underlying OS and may change as better
+  values become available.
 - If any Erlang process `Pid` in the system has allocated more than a certain
   amount of total system memory, the alarm
   `{process_memory_high_watermark, Pid}` is set.
