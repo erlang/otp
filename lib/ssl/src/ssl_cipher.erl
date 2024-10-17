@@ -560,10 +560,20 @@ hash_size(sha384) ->
 hash_size(sha512) ->
     64.
 
-is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) ->
+%% Handle RSA and RSA_PSS_RSAE
+is_supported_sign({Hash, rsa} = SignAlgo, HashSigns) -> %% ?rsaEncryption cert signalgo used
     lists:member(SignAlgo, HashSigns) orelse
         lists:member({Hash, rsa_pss_rsae}, HashSigns);
-is_supported_sign(SignAlgo, HashSigns) ->
+is_supported_sign(rsa_pkcs1_sha256 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha256, HashSigns);
+is_supported_sign(rsa_pkcs1_sha384 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha384, HashSigns);
+is_supported_sign(rsa_pkcs1_sha512 = SignAlgo, HashSigns) -> %% TLS-1.3 legacy scheme
+    lists:member(SignAlgo, HashSigns) orelse
+        lists:member(rsa_pss_rsae_sha512, HashSigns);
+is_supported_sign(SignAlgo, HashSigns) ->  %% Normal case, format (scheme or alg-pair) depends on version
     lists:member(SignAlgo, HashSigns).
 
 signature_scheme(rsa_pkcs1_sha256) -> ?RSA_PKCS1_SHA256;
