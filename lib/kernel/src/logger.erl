@@ -170,7 +170,7 @@ equal to or below the configured log level.
 -type level() :: emergency | alert | critical | error |
                  warning | notice | info | debug.
 -doc "A log report.".
--type report() :: map() | [{atom(),term()}].
+-type report() :: map() | [{atom(),term()}, ...].
 -doc """
 A fun which converts a [`report()`](`t:report/0`) to a format string and
 arguments, or directly to a string.
