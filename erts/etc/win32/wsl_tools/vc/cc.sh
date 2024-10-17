@@ -307,7 +307,7 @@ while (<FH>) {
 }
 flushDeps();
 ' $MSG_FILE "$MPATH"
-
+    RES=$?
     rm -f $ERR_FILE $MSG_FILE
 else
     # Compile
