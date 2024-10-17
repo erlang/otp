@@ -61,7 +61,7 @@
 %%--------------------------------------------------------------------
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,100}}].
+     {timetrap,{seconds,50}}].
 
 all() ->
     [default_tree, sshc_subtree, sshd_subtree, sshd_subtree_profile,

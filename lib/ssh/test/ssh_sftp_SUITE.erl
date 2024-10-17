@@ -83,7 +83,7 @@
 -include("ssh_test_lib.hrl").
 -include_lib("stdlib/include/assert.hrl").
 %% Default timetrap timeout
--define(default_timeout, test_server:minutes(1)).
+-define(default_timeout, test_server:minutes(0.5)).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -91,7 +91,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,20}}].
 
 all() -> 
     [{group, not_unicode},
