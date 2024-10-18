@@ -200,8 +200,8 @@ All TCP socket options are accepted except `active`, `binary`, `deliver`,
 	 {log, function()} |
 	 {timeout, integer()} |
 	 {ssl, boolean()} |
-	 {sslopts, list()} |
-	 {tcpopts, list()}],
+	 {sslopts, [ssl:tls_client_option()]} |
+	 {tcpopts, [inet:inet_backend() | gen_tcp:connect_option()]}],
     Handle :: handle(),
     Reason :: term().
 
