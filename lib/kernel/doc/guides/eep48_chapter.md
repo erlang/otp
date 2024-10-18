@@ -148,11 +148,11 @@ information to each entry. This EEP documents the following metadata keys:
 - **`since := binary()`** - a binary representing the version such entry was
   added, such as `<<"1.3.0">>` or `<<"20.0">>`.
 
-- **`source := binary()`** - the location of the source file for this module.
-  Applies only to the module metadata.
+- **`source_path := binary()`** - the absolute location of the source file for
+  this module. Applies only to the module metadata.
 
-- **`source_anno := erl_anno:anno()`** - annotation metadata of the source
-  code (opposite to the annotation of the documentation attribute).
+- **`source_annos := [erl_anno:anno()]`** - a list of source code locations.
+  You may either store one for each clause or only for the first clause.
 
 Any key may be added to Metadata at any time. Keys that are frequently used by
 the community can be standardized in future versions.
