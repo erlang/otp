@@ -1456,10 +1456,7 @@ basic_timestamp(Config) ->
        {ok, ["testfile.txt"]},
        unzip(Config, Archive, [{cwd,ExtractDir}])),
 
-    {ok, UnzipFI = #file_info{ atime = UnZAtime,
-                               mtime = UnZMtime,
-                               ctime = UnZCtime
-                             }} =
+    {ok, UnzipFI } =
         file:read_file_info(filename:join(ExtractDir, "testfile.txt"),[raw]),
 
 
@@ -1511,17 +1508,14 @@ extended_timestamp(Config) ->
        {ok, ["testfile.txt"]},
        unzip(Config, Archive, [{cwd,ExtractDir}])),
 
-    {ok, UnzipFI = #file_info{ atime = UnZAtime,
-                               mtime = UnZMtime,
-                               ctime = UnZCtime
-                             }} =
+    {ok, UnzipFI } =
         file:read_file_info(filename:join(ExtractDir, "testfile.txt"),[raw]),
 
     ct:log("extract: ~p",[UnzipFI]),
 
     UnzipMode = un_z64(get_value(unzip, Config)),
 
-    assert_time(UnzipMode, UnzipFI, ZMtime ),
+    assert_timestamp(UnzipMode, UnzipFI, ZMtime ),
 
     ok.
 
