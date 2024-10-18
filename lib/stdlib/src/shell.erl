@@ -81,7 +81,7 @@ or when [`erl`](`e:erts:erl_cmd.md`) is started with the
 [`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
 allowed:
 
-- **noshell | {noshell, Mode}** - Starts the interactive shell
+- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive shell
   as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
   [`erl`](`e:erts:erl_cmd.md`).
 
