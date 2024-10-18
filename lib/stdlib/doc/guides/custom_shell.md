@@ -20,7 +20,7 @@ limitations under the License.
 # Creating a custom shell
 
 This guide will show how to create a custom shell. The most common
-usecase for this is to support other languages running on the Erlang VM,
+use case for this is to support other languages running on the Erlang VM,
 but it can also be used to create specialized debugging shells a system.
 
 This guide will build on top of the built-in [Erlang line editor](`m:edlin`),
@@ -211,7 +211,7 @@ expand_fun(Curr, [Cmd | T]) ->
     end.
 ```
 
-With the above code we will get expensions of our commands if we hit `<TAB>` in the shell.
+With the above code we will get expansions of our commands if we hit `<TAB>` in the shell.
 Its possible to make very complex completion algorithms, for example the Erlang shell
 has completions based on the function specifications of your code. It is important though that
 the shell still feels responsive, so calling out to a LLM model for completion may or may not
