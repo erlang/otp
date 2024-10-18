@@ -837,7 +837,7 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
                        end,
             {OpArgs0, Other} = splitwith(Splitter, Patches),
             OpArgs = [{Idx,Lit,Element}
-                      || {opargs,_D,Idx,Lit,Element} <- OpArgs0],
+                      || {opargs,_D,Idx,Lit,Element} <:- OpArgs0],
             Ps = keysort(1, OpArgs),
             {Is,Cnt} = patch_opargs(I0, Ps, Cnt0),
             patch_is([hd(Is)|Rest], PD#{Dst=>Other}, Cnt,
@@ -888,7 +888,7 @@ no_reuse(I) ->
 %% literal.
 patch_ret(Last=#b_ret{arg=#b_literal{val=Lit}}, Patches, Cnt0) ->
     ?DP("patch_appends_ret:~n  lit: ~p~n  Patches: ~p~n", [Lit, Patches]),
-    Element = aggregate_ret_patches(keysort(1, [E || {ret,_,E} <- Patches])),
+    Element = aggregate_ret_patches(keysort(1, [E || {ret,_,E} <:- Patches])),
     ?DP("  element: ~p~n", [Element]),
     {V,Extra,Cnt} = patch_literal_term(Lit, Element, Cnt0),
     {Last#b_ret{arg=V}, Extra, Cnt}.
@@ -976,7 +976,7 @@ patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
 
 %% Should return the instructions in reversed order
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
-    Es = [{tuple_element,I,E,0} || {I,E} <- keysort(1, Elems)],
+    Es = [{tuple_element,I,E,0} || {I,E} <:- keysort(1, Elems)],
     patch_literal_tuple(Tuple, Es, Cnt);
 patch_literal_term(Tuple, E={tuple_element,_,_,_}, Cnt) ->
     patch_literal_tuple(Tuple, [E], Cnt);
@@ -1017,7 +1017,7 @@ patch_literal_list(Lit, {hd,_,_}, Cnt) ->
 patch_literal_tuple(Tuple, Elements0, Cnt) ->
     ?DP("Will patch literal tuple~n  tuple:~p~n  elements: ~p~n",
         [Tuple,Elements0]),
-    Elements = [ E || {tuple_element,_,_,_}=E <- Elements0],
+    Elements = [ E || {tuple_element,_,_,_}=E <:- Elements0],
     patch_literal_tuple(erlang:tuple_to_list(Tuple), Elements, [], [], 0, Cnt).
 
 patch_literal_tuple([Lit|LitElements],

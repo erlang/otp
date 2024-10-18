@@ -556,7 +556,7 @@ prune_by_add([{Depth0,V}|Wanted], Edges, New0, Old) ->
             %% Add all incoming edges to this node.
             InEdges = beam_digraph:in_edges(Old, V),
             Depth = Depth0 + 1,
-            InNodes = [{Depth, From} || {From,_,_} <- InEdges],
+            InNodes = [{Depth, From} || {From,_,_} <:- InEdges],
             prune_by_add(InNodes ++ Wanted, InEdges ++ Edges, New, Old);
         false ->
             %% We're in too deep, give up. This case will probably
@@ -664,7 +664,7 @@ size(State) ->
 
 -spec variables(sharing_state()) -> [beam_ssa:b_var()].
 variables(State) ->
-    [V || {V,_Lbl} <- beam_digraph:vertices(State)].
+    [V || {V,_Lbl} <:- beam_digraph:vertices(State)].
 
 -type call_in_arg_status() :: no_info
                             | unique
@@ -930,7 +930,7 @@ assert_state(State) ->
 %% Check that we don't have edges between non-existing nodes
 assert_bad_edges(State) ->
     [{assert_variable_exists(F, State), assert_variable_exists(T, State)}
-     || {F,T,_} <- beam_digraph:edges(State)].
+     || {F,T,_} <:- beam_digraph:edges(State)].
 
 
 %% Check that extracted and embedded elements of an aliased variable
@@ -940,7 +940,7 @@ assert_aliased_parent_implies_aliased(State) ->
 
 assert_apia(Parent, State) ->
     Children = [Child
-                || {_,Child,Info} <- beam_digraph:out_edges(State, Parent),
+                || {_,Child,Info} <:- beam_digraph:out_edges(State, Parent),
                    case Info of
                        {extract,_} -> true;
                        embed -> true;
@@ -993,7 +993,7 @@ assert_mefa(V, State) ->
 
 %% Check that elements which are extracted twice are aliased.
 assert_multiple_extractions_force_aliasing(State) ->
-    [assert_mxfa(V, State) || {V,_} <- beam_digraph:vertices(State)].
+    [assert_mxfa(V, State) || {V,_} <:- beam_digraph:vertices(State)].
 
 assert_mxfa(V, State) ->
     %% Build a map of the extracted values keyed by element.

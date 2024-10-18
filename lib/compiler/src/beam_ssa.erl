@@ -293,7 +293,7 @@ insert_on_edges_1([], Blocks, Count) ->
 
 insert_on_edges_reroute(#b_switch{fail=Fail0,list=List0}=Sw, Old, New) ->
     Fail = rename_label(Fail0, Old, New),
-    List = [{Value, rename_label(Dst, Old, New)} || {Value, Dst} <- List0],
+    List = [{Value, rename_label(Dst, Old, New)} || {Value, Dst} <:- List0],
     Sw#b_switch{fail=Fail,list=List};
 insert_on_edges_reroute(#b_br{succ=Succ0,fail=Fail0}=Br, Old, New) ->
     Succ = rename_label(Succ0, Old, New),
@@ -358,7 +358,7 @@ successors(#b_blk{last=Terminator}) ->
         #b_br{succ=Succ,fail=Fail} ->
             [Fail,Succ];
         #b_switch{fail=Fail,list=List} ->
-            [Fail|[L || {_,L} <- List]];
+            [Fail|[L || {_,L} <:- List]];
         #b_ret{} ->
             []
     end.
@@ -943,7 +943,7 @@ fix_phis([{L,Blk0}|Bs], S) ->
 fix_phis([], _) -> [].
 
 fix_phis_1([#b_set{op=phi,args=Args0}=I|Is], L, S) ->
-    Args = [{Val,Pred} || {Val,Pred} <- Args0,
+    Args = [{Val,Pred} || {Val,Pred} <:- Args0,
                           is_successor(L, Pred, S)],
     [I#b_set{args=Args}|fix_phis_1(Is, L, S)];
 fix_phis_1(Is, _, _) -> Is.
@@ -982,7 +982,7 @@ trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
 trim_phis(Blk, _Seen) -> Blk.
 
 trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
-    Args = [P || {_,L}=P <- Args0, sets:is_element(L, Seen)],
+    Args = [P || {_,L}=P <:- Args0, sets:is_element(L, Seen)],
     [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
 trim_phis_1(Is, _Seen) -> Is.
 
@@ -1095,7 +1095,7 @@ split_blocks_is([I|Is], P, Acc) ->
 split_blocks_is([], _, _) -> no.
 
 update_phi_labels_is([#b_set{op=phi,args=Args0}=I0|Is], Old, New) ->
-    Args = [{Arg,rename_label(Lbl, Old, New)} || {Arg,Lbl} <- Args0],
+    Args = [{Arg,rename_label(Lbl, Old, New)} || {Arg,Lbl} <:- Args0],
     I = I0#b_set{args=Args},
     [I|update_phi_labels_is(Is, Old, New)];
 update_phi_labels_is(Is, _, _) -> Is.

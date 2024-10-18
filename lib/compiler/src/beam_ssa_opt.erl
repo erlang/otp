@@ -320,7 +320,7 @@ late_epilogue_passes(Opts) ->
 
 passes_1(Ps, Opts0) ->
     Negations = [{list_to_atom("no_"++atom_to_list(N)),N} ||
-                    {N,_} <- Ps],
+                    {N,_} <:- Ps],
     Expansions = [{no_bs_match,[no_ssa_opt_bs_ensure,no_bs_match]}],
     Opts = proplists:normalize(Opts0, [{expand,Expansions},
                                        {negations,Negations}]),
@@ -640,7 +640,7 @@ c_rewrite_phis(Is, _Info) -> Is.
 c_rewrite_phi([{Var,Pred}|As], {Var,Pred,Values}) ->
     Values ++ As;
 c_rewrite_phi([{Value,Pred}|As], {_,Pred,Values}) ->
-    [{Value,P} || {_,P} <- Values] ++ As;
+    [{Value,P} || {_,P} <:- Values] ++ As;
 c_rewrite_phi([A|As], Info) ->
     [A|c_rewrite_phi(As, Info)];
 c_rewrite_phi([], _Info) -> [].
@@ -734,7 +734,7 @@ opt_tail_phi(Phis0, Is, Ret, Blocks0, Count0) ->
     end.
 
 reduce_phis([#b_set{dst=PhiDst,args=PhiArgs}|Is]) ->
-    [{L,{PhiDst,Val}} || {Val,L} <- PhiArgs] ++ reduce_phis(Is);
+    [{L,{PhiDst,Val}} || {Val,L} <:- PhiArgs] ++ reduce_phis(Is);
 reduce_phis([]) -> [].
 
 opt_tail_phi_arg({PredL,Sub0}, Is0, Ret0, {Blocks0,Count0,Cost0}) ->
@@ -1618,12 +1618,12 @@ live_opt_phis(Is, L, Live0, LiveMap0) ->
         [] ->
             LiveMap;
         [_|_] ->
-            PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
+            PhiArgs = append([Args || #b_set{args=Args} <:- Phis]),
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
                     PhiLive = #{{L,P} => list_set_union(Vs, Live0) ||
-                                  {P,Vs} <- PhiLive0},
+                                  {P,Vs} <:- PhiLive0},
                     maps:merge(LiveMap, PhiLive);
                 [] ->
                     %% There were only literals in the phi node(s).
@@ -1958,7 +1958,7 @@ trim_try([], _Unreachable, Killed, Acc0) ->
             %% Remove all `kill_try_tag` instructions referencing removed
             %% try/catches.
             [{L, Blk#b_blk{is=trim_try_is(Is0, Killed)}} ||
-                {L, #b_blk{is=Is0}=Blk} <- Acc0]
+                {L, #b_blk{is=Is0}=Blk} <:- Acc0]
     end.
 
 trim_try_is([#b_set{op=phi,dst=CatchEndVal}=Phi,
@@ -2795,12 +2795,12 @@ partition_deflocs(DefLoc, _Defs, Blocks) ->
     {BlkNums0,_} = mapfoldl(fun(L, N) -> {{L,N},N+1} end, 0, beam_ssa:rpo(Blocks)),
     BlkNums = maps:from_list(BlkNums0),
     S = [{Tuple,{map_get(To, BlkNums),{V,{From,To}}}} ||
-            {V,Tuple,{From,To}} <- DefLoc],
+            {V,Tuple,{From,To}} <:- DefLoc],
     F = rel2fam(S),
     partition_deflocs_1(F, Blocks).
 
 partition_deflocs_1([{Tuple,DefLocs0}|T], Blocks) ->
-    DefLocs1 = [DL || {_,DL} <- DefLocs0],
+    DefLocs1 = [DL || {_,DL} <:- DefLocs0],
     DefLocs = partition_dl(DefLocs1, Blocks),
     [{Tuple,DL} || DL <- DefLocs] ++ partition_deflocs_1(T, Blocks);
 partition_deflocs_1([], _) -> [].
@@ -2827,9 +2827,9 @@ filter_deflocs([{Tuple,DefLoc0}|DLs], Preds, Blocks) ->
     %% execution order from the same tuple in the same clause.
     [{_,{_,First}}|_] = DefLoc0,
     Paths = find_paths_to_check(DefLoc0, First),
-    WillGC0 = ordsets:from_list([FromTo || {{_,_}=FromTo,_} <- Paths]),
+    WillGC0 = ordsets:from_list([FromTo || {{_,_}=FromTo,_} <:- Paths]),
     WillGC = #{{From,To} => will_gc(From, To, Preds, Blocks, true) ||
-                 {From,To} <- WillGC0},
+                 {From,To} <:- WillGC0},
 
     %% Separate sinks that will force the reference to the tuple to be
     %% saved on the stack from sinks that don't force.
@@ -2843,7 +2843,7 @@ filter_deflocs([{Tuple,DefLoc0}|DLs], Preds, Blocks) ->
 
     %% Construct the complete list of sink operations.
     DefLoc1 = DefLocGC ++ DefLocNoGC,
-    [DL || {_,{_,{From,To}}=DL} <- DefLoc1, From =/= To] ++
+    [DL || {_,{_,{From,To}}=DL} <:- DefLoc1, From =/= To] ++
         filter_deflocs(DLs, Preds, Blocks);
 filter_deflocs([], _, _) -> [].
 
@@ -3157,8 +3157,8 @@ opt_get_tuple_element_is([#b_set{op=get_tuple_element,
                                  args=[#b_var{}=Src,_]}=I0|Is0],
                          _AnyChange, Acc) ->
     {GetIs0,Is} = collect_get_tuple_element(Is0, Src, [I0]),
-    GetIs1 = sort([{Pos,I} || #b_set{args=[_,Pos]}=I <- GetIs0]),
-    GetIs = [I || {_,I} <- GetIs1],
+    GetIs1 = sort([{Pos,I} || #b_set{args=[_,Pos]}=I <:- GetIs0]),
+    GetIs = [I || {_,I} <:- GetIs1],
     opt_get_tuple_element_is(Is, true, reverse(GetIs, Acc));
 opt_get_tuple_element_is([I|Is], AnyChange, Acc) ->
     opt_get_tuple_element_is(Is, AnyChange, [I|Acc]);
@@ -3828,7 +3828,7 @@ sub(I, Sub) ->
     beam_ssa:normalize(sub_1(I, Sub)).
 
 sub_1(#b_set{op=phi,args=Args}=I, Sub) ->
-    I#b_set{args=[{sub_arg(A, Sub),P} || {A,P} <- Args]};
+    I#b_set{args=[{sub_arg(A, Sub),P} || {A,P} <:- Args]};
 sub_1(#b_set{args=Args}=I, Sub) ->
     I#b_set{args=[sub_arg(A, Sub) || A <- Args]};
 sub_1(#b_br{bool=#b_var{}=Old}=Br, Sub) ->
@@ -3946,7 +3946,7 @@ restore_nifs(#b_module{exports=Exports0}=Module0, {NIFsToExport, NIFs}) ->
     %% Remove the NIFs which where were forcibly exported by
     %% isolate_nifs/1 from the export list.
     Exports = [E
-               || E={N,A} <- Exports0,
+               || {N,A}=E <:- Exports0,
                   not sets:is_element(#b_local{name=#b_literal{val=N},
                                                arity=A}, NIFsToExport)],
 

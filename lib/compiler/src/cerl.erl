@@ -651,7 +651,7 @@ _See also: _`c_module/4`.
 -spec module_vars(Node :: c_module()) -> [cerl()].
 
 module_vars(Node) ->
-    [F || {F, _} <- module_defs(Node)].
+    [F || {F, _} <:- module_defs(Node)].
 
 %% ---------------------------------------------------------------------
 
@@ -2561,7 +2561,7 @@ _See also: _`c_letrec/2`.
 -spec letrec_vars(Node :: c_letrec()) -> [cerl()].
 
 letrec_vars(Node) ->
-    [F || {F, _} <- letrec_defs(Node)].
+    [F || {F, _} <:- letrec_defs(Node)].
 
 
 %% ---------------------------------------------------------------------
@@ -4027,16 +4027,16 @@ meta_1('catch', Node) ->
 meta_1(letrec, Node) ->
     meta_call(c_letrec,
 	      [make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- letrec_defs(Node)]),
+			  || {N, F} <:- letrec_defs(Node)]),
 	       meta(letrec_body(Node))]);
 meta_1(module, Node) ->
     meta_call(c_module,
 	      [meta(module_name(Node)),
 	       make_list(meta_list(module_exports(Node))),
 	       make_list([c_tuple([meta(A), meta(V)])
-			  || {A, V} <- module_attrs(Node)]),
+			  || {A, V} <:- module_attrs(Node)]),
 	       make_list([c_tuple([meta(N), meta(F)])
-			  || {N, F} <- module_defs(Node)])]).
+			  || {N, F} <:- module_defs(Node)])]).
 
 meta_call(F, As) ->
     c_call(c_atom(?MODULE), c_atom(F), As).

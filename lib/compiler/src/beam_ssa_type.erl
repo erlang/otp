@@ -973,7 +973,7 @@ simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
     Arg = simplify_arg(Arg0, Ts, Sub),
     %% Ensure that no label in the switch list is the same as the
     %% failure label.
-    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    List = [{Val,Lbl} || {Val,Lbl} <:- List0, Lbl =/= Fail],
     case beam_ssa:normalize(Sw0#b_switch{arg=Arg,list=List}) of
         #b_switch{}=Sw ->
             case beam_types:is_boolean_type(concrete_type(Arg, Ts)) of
@@ -1959,7 +1959,7 @@ st_filter_reachable([], CallArgs, Deferred, Acc) ->
             %% We have no reachable self calls, so we know our argument types
             %% can't expand any further. Filter out our reachable sites and
             %% return.
-            [ST || {SuccArgs, _}=ST <- Acc, st_is_reachable(SuccArgs, CallArgs)]
+            [ST || {SuccArgs, _}=ST <:- Acc, st_is_reachable(SuccArgs, CallArgs)]
     end.
 
 st_join_return_types([{_SuccArgs, SuccRet} | Rest], Acc0) ->
@@ -2644,7 +2644,7 @@ infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
     {[{V,beam_types:subtract(ThisType, OtherType)} ||
-         {V, ThisType, OtherType} <- [{RHS, RType, LType}, {LHS, LType, RType}],
+         {V, ThisType, OtherType} <:- [{RHS, RType, LType}, {LHS, LType, RType}],
          beam_types:is_singleton_type(OtherType)], NeTypes};
 infer_relop(Op, Args, Types, _Ds) ->
     {infer_relop(Op, Args, Types), []}.

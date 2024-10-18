@@ -389,7 +389,7 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
         false ->
             %% Some variables defined in this block are used by
             %% successors. We must update the set of unset variables.
-            SetInThisBlock = [V || #b_set{dst=V} <- Is],
+            SetInThisBlock = [V || #b_set{dst=V} <:- Is],
             list_set_union(SetInThisBlock, UnsetVars)
     end.
 
@@ -1010,7 +1010,7 @@ comb_is([], _Bool, Safe) ->
 %%
 
 combine_lists(Fail, L1, L2, Blocks) ->
-    Ls = beam_ssa:rpo([Lbl || {_,Lbl} <- L1], Blocks),
+    Ls = beam_ssa:rpo([Lbl || {_,Lbl} <:- L1], Blocks),
     case member(Fail, Ls) of
         true ->
             %% One or more of labels in the first list
@@ -1030,7 +1030,7 @@ combine_lists_1(List0, List1) ->
     case are_lists_compatible(List0, List1) of
         true ->
             First = maps:from_list(List0),
-            List0 ++ [{Val,Lbl} || {Val,Lbl} <- List1,
+            List0 ++ [{Val,Lbl} || {Val,Lbl} <:- List1,
                                    not is_map_key(Val, First)];
         false ->
             none
@@ -1425,7 +1425,7 @@ used_vars([{L,#b_blk{is=Is}=Blk}|Bs], UsedVars0, Skip0) ->
     %% successor). This information is also useful for speeding up
     %% shortcut_opt/1.
 
-    Defined0 = [Def || #b_set{dst=Def} <- Is],
+    Defined0 = [Def || #b_set{dst=Def} <:- Is],
     Defined = sets:from_list(Defined0),
     MaySkip = sets:is_disjoint(Defined, Used0),
     case MaySkip of
@@ -1462,12 +1462,12 @@ used_vars_phis(Is, L, Live0, UsedVars0) ->
         [] ->
             UsedVars;
         [_|_] ->
-            PhiArgs = append([Args || #b_set{args=Args} <- Phis]),
+            PhiArgs = append([Args || #b_set{args=Args} <:- Phis]),
             case [{P,V} || {#b_var{}=V,P} <- PhiArgs] of
                 [_|_]=PhiVars ->
                     PhiLive0 = rel2fam(PhiVars),
                     PhiLive = #{{L,P} => list_set_union(Vs, Live0) ||
-                                  {P,Vs} <- PhiLive0},
+                                  {P,Vs} <:- PhiLive0},
                     maps:merge(UsedVars, PhiLive);
                 [] ->
                     %% There were only literals in the phi node(s).

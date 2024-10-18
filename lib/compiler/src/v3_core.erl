@@ -200,7 +200,7 @@ module(Forms0, Opts) ->
 	      true -> defined_functions(Forms);
 	      false -> Exp0
 	  end,
-    Cexp = [#c_var{name=FA} || {_,_}=FA <- Exp],
+    Cexp = [#c_var{name=FA} || {_,_}=FA <:- Exp],
     Kfs1 = reverse(Kfs0),
     Kfs = if LoadNif and (Nifs =:= none) ->
                   insert_nif_start(Kfs1);
@@ -3172,7 +3172,7 @@ upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
             {Seg#ibitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St2};
         Expr when is_list(Expr) ->
             Sz1 = [#iset{var=#c_var{name=Old},arg=#c_var{name=New}} ||
-                      {Old,New} <- Bs0] ++ Expr,
+                      {Old,New} <:- Bs0] ++ Expr,
             {Sz2,_,St2} = uexprs(Sz1, Ks, St1),
             Us = used_in_expr(Sz2),
             {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2}

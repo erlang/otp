@@ -290,7 +290,7 @@ bs_update_successors(#b_br{succ=Succ,fail=Fail}, SPos, FPos, D) ->
     join_positions([{Succ,SPos},{Fail,FPos}], D);
 bs_update_successors(#b_switch{fail=Fail,list=List}, SPos, FPos, D) ->
     SPos = FPos,                                %Assertion.
-    Update = [{L,SPos} || {_,L} <- List] ++ [{Fail,SPos}],
+    Update = [{L,SPos} || {_,L} <:- List] ++ [{Fail,SPos}],
     join_positions(Update, D);
 bs_update_successors(#b_ret{}, SPos, FPos, D) ->
     SPos = FPos,                                %Assertion.
@@ -871,7 +871,7 @@ sanitize_arg(Arg, _Values) ->
     Arg.
 
 sanitize_instr(phi, PhiArgs0, I, Blocks) ->
-    PhiArgs = [{V,L} || {V,L} <- PhiArgs0,
+    PhiArgs = [{V,L} || {V,L} <:- PhiArgs0,
                         is_map_key(L, Blocks)],
     case phi_all_same(PhiArgs) of
         true ->
@@ -1089,7 +1089,7 @@ create_fc_stubs(Fs, #b_module{name=Mod}) ->
                  #b_function{anno=Anno,args=Args,
                              bs=#{0 => Blk},
                              cnt=1}
-             end || {{Name,Arity},Location} <- Stubs0],
+             end || {{Name,Arity},Location} <:- Stubs0],
     Fs ++ Stubs.
 
 find_fc_errors([#b_function{bs=Blocks}|Fs], Acc0) ->
@@ -1188,7 +1188,7 @@ sort_update_tuple([_Index, _Value]=Args, []) ->
 sort_update_tuple([#b_literal{}=Index, Value | Updates], Acc) ->
     sort_update_tuple(Updates, [{Index, Value} | Acc]);
 sort_update_tuple([], Acc) ->
-    append([[Index, Value] || {Index, Value} <- sort(fun erlang:'>='/2, Acc)]).
+    append([[Index, Value] || {Index, Value} <:- sort(fun erlang:'>='/2, Acc)]).
 
 %%%
 %%% Find out where frames should be placed.
@@ -1328,7 +1328,7 @@ place_frame_here(L, Blocks, Doms, Frames) ->
 
 phi_predecessors(L, Blocks) ->
     #b_blk{is=Is} = map_get(L, Blocks),
-    [P || #b_set{op=phi,args=Args} <- Is, {_,P} <- Args].
+    [P || #b_set{op=phi,args=Args} <- Is, {_,P} <:- Args].
 
 %% is_dominated_by(Label, DominatedBy, Dominators) -> true|false.
 %%  Test whether block Label is dominated by block DominatedBy.
@@ -1529,7 +1529,7 @@ rce_reroute_terminator(#b_switch{list=List0}=Last, Exit, New) ->
     List = [if
                 Lbl =:= Exit -> {Arg, New};
                 Lbl =/= Exit -> {Arg, Lbl}
-            end || {Arg, Lbl} <- List0],
+            end || {Arg, Lbl} <:- List0],
     Last#b_switch{list=List}.
 
 %% recv_fix_common([CommonVar], LoopExit, [RemoveMessageLabel],
@@ -1594,7 +1594,7 @@ fix_receive([L|Ls], Defs, Blocks0, Count0) ->
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk1 = map_get(L, Blocks1),
     Is = [#b_set{op=copy,dst=New,args=[Old]} ||
-             {Old,New} <- Ren] ++ Is0,
+             {Old,New} <:- Ren] ++ Is0,
     Blk = Blk1#b_blk{is=Is},
     Blocks = Blocks1#{L:=Blk},
     fix_receive(Ls, Defs, Blocks, Count);
@@ -2257,7 +2257,7 @@ live_interval_blk([L|Ls], Blocks, LiveMap0, Intervals0) ->
 
             %% Update what is live at the beginning of this block and
             %% store it.
-            Live = [V || {V,{From,_To}} <- Ranges,
+            Live = [V || {V,{From,_To}} <:- Ranges,
                          From =< FirstNumber],
             LiveMap = LiveMap0#{L => Live},
             live_interval_blk(Ls, Blocks, LiveMap, Intervals)
@@ -2392,7 +2392,7 @@ reserve_yregs_1(L, #st{ssa=Blocks0,cnt=Count0,res=Res0}=St) ->
     {BeforeVars,Blocks,Count} = rename_vars(DefBefore, L, RPO, Blocks0, Count0),
     InsideVars = ordsets:subtract(UsedYregs, DefBefore),
     ResTryTags0 = reserve_try_tags(L, Blocks),
-    ResTryTags = [{V,{Reg,Count}} || {V,Reg} <- ResTryTags0],
+    ResTryTags = [{V,{Reg,Count}} || {V,Reg} <:- ResTryTags0],
     Vars = BeforeVars ++ InsideVars,
     Res = [{V,{y,Count}} || V <- Vars] ++ ResTryTags ++ Res0,
     St#st{res=Res,ssa=Blocks,cnt=Count+1}.
@@ -2401,7 +2401,7 @@ reserve_try_tags(L, Blocks) ->
     Seen = gb_sets:empty(),
     {Res0,_} = reserve_try_tags_1([L], Blocks, Seen, #{}),
     Res1 = [maps:to_list(M) || M <- maps:values(Res0)],
-    Res = [{V,{y,Y}} || {V,Y} <- append(Res1)],
+    Res = [{V,{y,Y}} || {V,Y} <:- append(Res1)],
     ordsets:from_list(Res).
 
 reserve_try_tags_1([L|Ls], Blocks, Seen0, ActMap0) ->
@@ -2454,7 +2454,7 @@ rename_vars(Vs, L, RPO, Blocks0, Count0) ->
     Ren = zip(Vs, NewVars),
     Blocks1 = beam_ssa:rename_vars(Ren, RPO, Blocks0),
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks1),
-    CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <- Ren],
+    CopyIs = [#b_set{op=copy,dst=New,args=[Old]} || {Old,New} <:- Ren],
     Is = insert_after_phis(Is0, CopyIs),
     Blk = Blk0#b_blk{is=Is},
     Blocks = Blocks1#{L:=Blk},

@@ -1279,9 +1279,9 @@ print_pass_times(File, Times) ->
 
 print_subpass_times(Times0, Name) ->
     Fam0 = rel2fam(Times0),
-    Fam1 = [{W,lists:sum(Times)} || {W,Times} <- Fam0],
+    Fam1 = [{W,lists:sum(Times)} || {W,Times} <:- Fam0],
     Fam = reverse(lists:keysort(2, Fam1)),
-    Total = case lists:sum([T || {_,T} <- Fam]) of
+    Total = case lists:sum([T || {_,T} <:- Fam]) of
                 0 -> 1;
                 Total0 -> Total0
             end,
@@ -1367,7 +1367,7 @@ werror(#compile{options=Opts,warnings=Ws}) ->
 
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
-    T = lists:sort([{File,M} || {File,Messages} <- Ms, M <- Messages]),
+    T = lists:sort([{File,M} || {File,Messages} <:- Ms, M <- Messages]),
     PrioMs = [erl_scan, epp, erl_parse],
     {Prio0, Rest} =
         lists:mapfoldl(fun(M, A) ->
@@ -1381,7 +1381,7 @@ messages_per_file(Ms) ->
 
 mpf(Ms) ->
     [{File,[M || {F,M} <- Ms, F =:= File]} ||
-	File <- lists:usort([F || {F,_} <- Ms])].
+	File <- lists:usort([F || {F,_} <:- Ms])].
 
 %% passes(forms|file, [Option]) -> {Extension,[{Name,PassFun}]}
 %%  Figure out the extension of the input file and which passes
@@ -2575,7 +2575,7 @@ beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpt
 
 beam_strip_types(Beam0, #compile{}=St) ->
     {ok,_Module,Chunks0} = beam_lib:all_chunks(Beam0),
-    Chunks = [{Tag,Contents} || {Tag,Contents} <- Chunks0,
+    Chunks = [{Tag,Contents} || {Tag,Contents} <:- Chunks0,
                                 Tag =/= "Type"],
     {ok,Beam} = beam_lib:build_module(Chunks),
     {ok,Beam,St}.
@@ -2834,7 +2834,7 @@ output_encoding(F, #compile{encoding = Encoding}) ->
 diffable(Code0, St) ->
     {Mod,Exp,Attr,Fs0,NumLabels} = Code0,
     EntryLabels = #{Entry => {Name,Arity} ||
-                      {function,Name,Arity,Entry,_} <- Fs0},
+                      {function,Name,Arity,Entry,_} <:- Fs0},
     Fs = [diffable_fix_function(F, EntryLabels) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,NumLabels},
     {ok,Code,St}.

@@ -56,7 +56,7 @@ bsm_reorder_1(Vs0, #c_case{clauses=Cs0}=Case) ->
         Pos when Pos > 0, Pos =/= none ->
             Vs = core_lib:make_values(move_from_col(Pos, Vs0)),
             Cs = [C#c_clause{pats=move_from_col(Pos, Ps)}
-                  || #c_clause{pats=Ps}=C <- Cs0],
+                  || #c_clause{pats=Ps}=C <:- Cs0],
             Case#c_case{arg=Vs,clauses=Cs};
         _ ->
             Case

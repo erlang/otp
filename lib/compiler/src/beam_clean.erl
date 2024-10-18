@@ -31,8 +31,8 @@
 
 module({Mod,Exp,Attr,Fs0,_}, Opts) ->
     Fs1 = move_out_funs(Fs0),
-    Order = [Lbl || {function,_,_,Lbl,_} <- Fs1],
-    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <- Fs1},
+    Order = [Lbl || {function,_,_,Lbl,_} <:- Fs1],
+    All = #{Lbl => Func || {function,_,_,Lbl,_}=Func <:- Fs1},
     WorkList = rootset(Fs1, Exp, Attr),
     Used = find_all_used(WorkList, All, sets:from_list(WorkList)),
     Fs2 = remove_unused(Order, Used, All),
@@ -49,7 +49,7 @@ rootset(Fs, Root0, Attr) ->
 		[OnLoad] -> [OnLoad|Root0]
 	   end,
     Root = sofs:set(Root1, [function]),
-    Map0 = [{{Name,Arity},Lbl} || {function,Name,Arity,Lbl,_} <- Fs],
+    Map0 = [{{Name,Arity},Lbl} || {function,Name,Arity,Lbl,_} <:- Fs],
     Map = sofs:relation(Map0, [{function,label}]),
     sofs:to_external(sofs:image(Map, Root)).
 

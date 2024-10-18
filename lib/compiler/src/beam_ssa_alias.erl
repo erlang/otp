@@ -144,7 +144,7 @@ opt(StMap0, FuncDb0) ->
 
 killsets(Funs, StMap) ->
     OptStates = [{F,map_get(F, StMap)} || F <- Funs],
-    #{ F=>killsets_fun(reverse(SSA)) || {F,#opt_st{ssa=SSA}} <- OptStates }.
+    #{ F=>killsets_fun(reverse(SSA)) || {F,#opt_st{ssa=SSA}} <:- OptStates }.
 
 killsets_fun(Blocks) ->
     %% Pre-calculate the live-ins due to Phi-instructions.
@@ -655,7 +655,7 @@ aa_terminator(#b_ret{arg=Arg,anno=Anno0}, SS, Lbl2SS0) ->
     Lbl2SS = Lbl2SS0#{ returns => Type2Status },
     {Lbl2SS, []};
 aa_terminator(#b_switch{fail=F,list=Ls}, _SS, Lbl2SS) ->
-    {Lbl2SS,[F|[L || {_,L} <- Ls]]}.
+    {Lbl2SS,[F|[L || {_,L} <:- Ls]]}.
 
 %% Store the updated SS for the point where execution leaves the
 %% block.
@@ -1069,7 +1069,7 @@ aa_construct_tuple(Dst, IdxValues, Types, SS, AAS) ->
         [Dst, [#{idx=>Idx,v=>V,status=>aa_get_status(V, SS, Types),
                  killed=>aa_dies(V, Types, KillSet),
                  plain=>aa_is_plain_value(V, Types)}
-               || {Idx,V} <- IdxValues]]),
+               || {Idx,V} <:- IdxValues]]),
     ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
     aa_build_tuple_or_pair(Dst, IdxValues, Types, KillSet, SS, []).
 
@@ -1168,7 +1168,7 @@ aa_bif(Dst, Bif, Args, SS, _AAS) ->
 
 aa_phi(Dst, Args0, SS0, #aas{cnt=Cnt0}=AAS) ->
     %% TODO: Use type info?
-    Args = [V || {V,_} <- Args0],
+    Args = [V || {V,_} <:- Args0],
     ?DP("Phi~n"),
     SS1 = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
     ?DP("  after aa_alias_surviving_args:~n~s.~n", [beam_ssa_ss:dump(SS1)]),

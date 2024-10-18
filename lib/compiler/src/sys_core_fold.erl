@@ -450,7 +450,7 @@ ifes_1(FVar, #c_fun{body=Body}, _Safe) ->
 ifes_1(FVar, #c_let{arg=Arg,body=Body}, Safe) ->
     ifes_1(FVar, Arg, false) andalso ifes_1(FVar, Body, Safe);
 ifes_1(FVar, #c_letrec{defs=Defs,body=Body}, Safe) ->
-    Funs = [Fun || {_,Fun} <- Defs],
+    Funs = [Fun || {_,Fun} <:- Defs],
     ifes_list(FVar, Funs, false) andalso ifes_1(FVar, Body, Safe);
 ifes_1(_FVar, #c_literal{}, _Safe) ->
     true;
@@ -1081,7 +1081,7 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 let_substs(Vs0, As0, Sub0) ->
     {Vs1,Sub1} = var_list(Vs0, Sub0),
     {Vs2,As1,Ss} = let_substs_1(Vs1, As0, Sub1),
-    Sub2 = sub_add_scope([V || #c_var{name=V} <- Vs2], Sub1),
+    Sub2 = sub_add_scope([V || #c_var{name=V} <:- Vs2], Sub1),
     {Vs2,As1,
     foldl(fun ({V,S}, Sub) -> sub_set_name(V, S, Sub) end, Sub2, Ss)}.
 
@@ -1707,14 +1707,14 @@ case_opt(Arg, Cs0, Sub) ->
 			       reverse(Ps),
 			       letify(Bs, cerl:clause_guard(C)),
 			       letify(Bs, cerl:clause_body(C))) ||
-	     {[],C,Ps,Bs} <- Cs2],
+	     {[],C,Ps,Bs} <:- Cs2],
     {core_lib:make_values(Args),Cs}.
 
 case_opt_args([A0|As0], Cs0, Sub, LitExpr, Acc) ->
     case case_opt_arg(A0, Sub, Cs0, LitExpr) of
         {error,Cs1} ->
 	    %% Nothing to be done. Move on to the next argument.
-            Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <- Cs1],
+            Cs = [{Ps,C,[P|PsAcc],Bs} || {[P|Ps],C,PsAcc,Bs} <:- Cs1],
 	    case_opt_args(As0, Cs, Sub, LitExpr, [A0|Acc]);
 	{ok,As1,Cs} ->
 	    %% The argument was either expanded (from tuple/list) or
@@ -2032,7 +2032,7 @@ opt_not_in_let_2(#c_case{clauses=Cs0}=Case, NotCall) ->
     Cs = [begin
 	      Let = #c_let{vars=Vars,arg=B,body=Body},
 	      C#c_clause{body=opt_not_in_let(Let)}
-	  end || #c_clause{body=B}=C <- Cs0],
+	  end || #c_clause{body=B}=C <:- Cs0],
     {yes,Case#c_case{clauses=Cs}};
 opt_not_in_let_2(#c_call{}=Call0, _NotCall) ->
     invert_call(Call0);
@@ -2274,7 +2274,7 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
                     Cs = [begin
                               B = opt_build_stacktrace(Let#c_let{body=B0}),
                               C#c_clause{body=B}
-                          end || #c_clause{body=B0}=C <- Cs0],
+                          end || #c_clause{body=B0}=C <:- Cs0],
                     Body#c_case{clauses=Cs};
                 true ->
                     Let

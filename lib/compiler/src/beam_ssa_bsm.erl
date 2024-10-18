@@ -525,7 +525,7 @@ cm_handle_priors(Src, DstCtx, Bool, Acc, MatchSeq, Lbl, State0) ->
                         %% we can only consider the ones whose success path
                         %% dominate us.
                         Dominators = maps:get(Lbl, State0#cm.dominators, []),
-                        [Ctx || {ValidAfter, Ctx} <- Priors,
+                        [Ctx || {ValidAfter, Ctx} <:- Priors,
                                 member(ValidAfter, Dominators)];
                     error ->
                         []
@@ -776,7 +776,7 @@ aca_cs_is([], Counter, VRs, _BRs, Acc) ->
     {VRs, reverse(Acc), Counter}.
 
 aca_cs_last(#b_switch{arg=Arg0,list=Switch0,fail=Fail0}=Sw, VRs, BRs) ->
-    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <- Switch0],
+    Switch = [{Literal, maps:get(Lbl, BRs)} || {Literal, Lbl} <:- Switch0],
     Sw#b_switch{arg=aca_cs_arg(Arg0, VRs),
                 fail=maps:get(Fail0, BRs),
                 list=Switch};
@@ -821,7 +821,7 @@ aca_cs_arg(Arg, VRs) ->
 %% contexts to us.
 
 allow_context_passthrough({Fs, ModInfo0}) ->
-    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <- Fs],
+    FsUses = [{F, beam_ssa:uses(beam_ssa:rpo(Bs), Bs)} || #b_function{bs=Bs}=F <:- Fs],
     ModInfo = acp_forward_params(FsUses, ModInfo0),
     {Fs, ModInfo}.
 

@@ -2028,7 +2028,7 @@ force_reg({Kind,_}=R, _) when Kind =:= x; Kind =:= y ->
 successors(#cg_br{succ=Succ,fail=Fail}) ->
     ordsets:from_list([Succ,Fail]);
 successors(#cg_switch{fail=Fail,list=List}) ->
-    ordsets:from_list([Fail|[Lbl || {_,Lbl} <- List]]);
+    ordsets:from_list([Fail|[Lbl || {_,Lbl} <:- List]]);
 successors(#cg_ret{}) -> [].
 
 %% linearize(Blocks) -> [{BlockLabel,#cg_blk{}}].
@@ -2134,7 +2134,7 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
 translate_phis(_, _, _) -> [].
 
 phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
-    CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
+    CopyArgs = [V || {V,Target} <:- PhiArgs, Target =:= L],
     [#cg_set{op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
 phi_copies([], _) -> [].
 
