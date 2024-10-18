@@ -1355,7 +1355,7 @@ store_module_and_reply(File, Mod, St0) ->
     %% loader actions that it has succeeded.
     Waiting = lists:filter(fun
                                ({get_object_code, Pid}) ->
-                                   reply(Pid, {module, Mod}),
+                                   _ = reply(Pid, {module, Mod}),
                                    false;
                                ({_Action, _Pid}) ->
                                    true
