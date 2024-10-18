@@ -477,6 +477,10 @@ server(info, {Requester, read, N}, State = #state{ tty = TTYState })
     ok = prim_tty:read(TTYState, N),
     keep_state_and_data;
 
+server(info, {Requester, read, _N}, _State) ->
+    Requester ! {self(), {error, enotsup}},
+    keep_state_and_data;
+
 server(info, {Requester, tty_geometry}, #state{ tty = TTYState }) ->
     case prim_tty:window_size(TTYState) of
         {ok, Geometry} ->
