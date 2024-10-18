@@ -24,7 +24,7 @@ the shell. We will go through how to read key-strokes and how to update
 the screen to show the tic-tac-toe board. The game will be implemented as an
 `m:escript`, but it can just as well be implemented in a regular system.
 
-Let us start by drawing a the board which will look like this:
+Let us start by drawing the board which will look like this:
 
 ```txt
 ╔═══════╤═══════╤═══════╗
@@ -84,8 +84,10 @@ draw_board() ->
 
 Let us add some interactivity to our game! To do that we need to change the
 shell from running in `cooked` to `raw` mode. This is done by calling
-`shell:start_interactive({noshell, raw})`. We can then use `io:get_chars/2` to
-read key strokes from the user. The key stroked will be returned as [ANSI escape codes], so we will have need to handle the codes for up, down, left, right and enter.
+[`shell:start_interactive({noshell, raw})`](`shell:start_interactive/1`).
+We can then use `io:get_chars/2` to read key strokes from the user. The key
+strokes will be returned as [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code), 
+so we will have need to handle the codes for up, down, left, right and enter.
 
 It could look something like this:
 
@@ -103,7 +105,7 @@ main(_Args) ->
 
 loop(Pos) ->
     io:put_chars(draw_selection(Pos)),
-    %% Read atmost 1024 characters from stdin.
+    %% Read at most 1024 characters from stdin.
     {ok, Chars} = io:get_chars("", 1024),
     case handle_input(Chars, Pos) of
         stop -> stop;
