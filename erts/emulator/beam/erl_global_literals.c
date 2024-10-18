@@ -122,19 +122,20 @@ Eterm *erts_global_literal_allocate(Uint heap_size, struct erl_off_heap_header *
         expand_shared_global_literal_area(heap_size + GLOBAL_LITERAL_EXPAND_SIZE);
     }
 
-    *ohp = &global_literal_chunk->area.off_heap;
-    hp = global_literal_chunk->hp;
-    global_literal_chunk->hp += heap_size;
-
 #ifdef DEBUG
     {
         struct global_literal_chunk *chunk = global_literal_chunk;
-        erts_mem_guard(&chunk->area.start[0], 
-                       (chunk->area.end - &chunk->area.start[0]) * sizeof(Eterm), 
+        erts_mem_guard(chunk,
+                       (chunk->area.end - (Eterm*)chunk) * sizeof(Eterm),
                        1, 
                        1);
     }
 #endif
+
+
+    *ohp = &global_literal_chunk->area.off_heap;
+    hp = global_literal_chunk->hp;
+    global_literal_chunk->hp += heap_size;
 
     return hp;
 }
@@ -145,8 +146,8 @@ void erts_global_literal_register(Eterm *variable, Eterm *hp, Uint heap_size) {
 #ifdef DEBUG
     {
         struct global_literal_chunk *chunk = global_literal_chunk;
-        erts_mem_guard(&chunk->area.start[0], 
-                       (chunk->area.end - &chunk->area.start[0]) * sizeof(Eterm), 
+        erts_mem_guard(chunk,
+                       (chunk->area.end - (Eterm*)chunk) * sizeof(Eterm),
                        1, 
                        0);
     }
