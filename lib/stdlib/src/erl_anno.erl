@@ -75,7 +75,7 @@ for manipulating annotations in abstract code.
 -export([column/1, end_location/1, file/1, generated/1,
          line/1, location/1, record/1, text/1]).
 -export([set_file/2, set_generated/2, set_line/2, set_location/2,
-         set_record/2, set_text/2]).
+         set_end_location/2, set_record/2, set_text/2]).
 
 %% To be used when necessary to avoid Dialyzer warnings.
 -export([to_term/1, from_term/1]).
@@ -251,24 +251,37 @@ column(Anno) ->
     end.
 
 -doc """
-Returns the end location of the text of the annotations Anno. If there is no
-text, `undefined` is returned.
+Returns the end location of the annotations Anno.
+
+If the end location annotation is present, its value is returned. Otherwise,
+if the text annotation is present, the end location is inferred from the
+location and the text. Finally, if there is no text, `undefined` is returned.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec end_location(Anno) -> location() | 'undefined' when
       Anno :: anno().
 
+end_location(Line) when ?ALINE(Line) ->
+    undefined;
+end_location({Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column) ->
+    undefined;
 end_location(Anno) ->
-    case text(Anno) of
+    case anno_info(Anno, end_location) of
         undefined ->
-            undefined;
-        Text ->
-            case location(Anno) of
-                {Line, Column} ->
-                    end_location(Text, Line, Column);
-                Line ->
-                    end_location(Text, Line)
-            end
+            case text(Anno) of
+                undefined ->
+                    undefined;
+                Text ->
+                    case location(Anno) of
+                        {Line, Column} ->
+                            end_location(Text, Line, Column);
+                        Line ->
+                            end_location(Text, Line)
+                    end
+            end;
+
+        Location ->
+            Location
     end.
 
 -doc """
@@ -403,6 +416,15 @@ set_location({L, C}=Loc, {Line, Column}) when ?ALINE(Line), ?ACOLUMN(Column),
 set_location(Location, Anno) ->
     set(location, Location, Anno).
 
+-doc "Modifies the end location of the annotations Anno.".
+-doc(#{since => <<"OTP 27.2">>}).
+-spec set_end_location(Location, Anno) -> Anno when
+      Location :: location(),
+      Anno :: anno().
+
+set_end_location(Location, Anno) ->
+    set(end_location, Location, Anno).
+
 -doc "Modifies the record marker of the annotations Anno.".
 -doc(#{since => <<"OTP 18.0">>}).
 -spec set_record(Record, Anno) -> Anno when
@@ -507,6 +529,10 @@ is_settable(generated, Boolean) when Boolean; not Boolean ->
 is_settable(location, Line) when ?LLINE(Line) ->
     true;
 is_settable(location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
+    true;
+is_settable(end_location, Line) when ?LLINE(Line) ->
+    true;
+is_settable(end_location, {Line, Column}) when ?LLINE(Line), ?LCOLUMN(Column) ->
     true;
 is_settable(record, Boolean) when Boolean; not Boolean ->
     true;
