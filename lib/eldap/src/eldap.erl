@@ -200,8 +200,8 @@ All TCP socket options are accepted except `active`, `binary`, `deliver`,
 	 {log, function()} |
 	 {timeout, integer()} |
 	 {ssl, boolean()} |
-	 {sslopts, list()} |
-	 {tcpopts, list()}],
+	 {sslopts, [ssl:tls_client_option()]} |
+	 {tcpopts, [inet:inet_backend() | gen_tcp:connect_option()]}],
     Handle :: handle(),
     Reason :: term().
 
@@ -219,7 +219,7 @@ Same as start_tls(Handle, Options, infinity)
 -doc(#{since => <<"OTP R16B03">>}).
 -spec start_tls(Handle, TlsOptions) -> ok |{ok, Refs} | {error, Reason} when
     Handle :: handle(),
-    TlsOptions :: ssl:tls_client_option(),
+    TlsOptions :: [ssl:tls_client_option()],
     Refs :: {referral, referrals()},
     Reason :: term().
 start_tls(Handle, TlsOptions) ->
@@ -254,7 +254,7 @@ upgrade (phase 1).
 -doc(#{since => <<"OTP R16B03">>}).
 -spec start_tls(Handle, TlsOptions, Timeout) -> ok | {ok, Refs} | {error, Reason} when
     Handle :: handle(),
-    TlsOptions :: ssl:tls_client_option(),
+    TlsOptions :: [ssl:tls_client_option()],
     Timeout :: infinity | pos_integer(),
     Refs :: {referral, referrals()},
     Reason :: term().
