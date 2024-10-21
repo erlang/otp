@@ -136,13 +136,9 @@ groups() ->
                        known_hosts,
                        ssh_file_is_host_key,
                        ssh_file_is_host_key_misc,
-                       ssh_file_is_auth_key
-                      ]},
-
+                       ssh_file_is_auth_key]},
      {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
-
      {internal_error, [?PARALLEL], [internal_error]},
-
      {login_bad_pwd_no_retry, [?PARALLEL], [login_bad_pwd_no_retry1,
                                             login_bad_pwd_no_retry2,
                                             login_bad_pwd_no_retry3,
@@ -1520,7 +1516,6 @@ check_error(Error) -> ct:fail(Error).
 basic_test(Config) ->
     ClientOpts = proplists:get_value(client_opts, Config),
     ServerOpts = proplists:get_value(server_opts, Config),
-    
     {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
     CM = ssh_test_lib:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),

@@ -20,7 +20,7 @@
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose: The acceptor supervisor for ssh servers hangs under 
+%% Purpose: The acceptor supervisor for ssh servers hangs under
 %%          ssh_system_sup.
 %%----------------------------------------------------------------------
 

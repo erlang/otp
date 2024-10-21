@@ -553,12 +553,9 @@ daemon(Socket, UserOptions) ->
                 {error,SockError} ->
                     {error,SockError}
             end;
-
         {error,OptionError} ->
             {error,OptionError}
     end.
-
-
 
 -doc """
 daemon(HostAddress, Port, Options) -> Result
@@ -590,8 +587,7 @@ The rules for handling the two address passing options are:
   is set to the value of the 'ip'-option
 """.
 -spec daemon(any | inet:ip_address(), inet:port_number(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
-           ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
-            .
+           ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}.
 
 daemon(Host0, Port0, UserOptions0)
   when 0 =< Port0, Port0 =< 65535, Host0 == any ;
@@ -642,7 +638,6 @@ daemon(Host0, Port0, UserOptions0)
         OptionError = {error,_} ->
             OptionError
     end;
-
 daemon(_, _, _) ->
     {error, badarg}.
 
@@ -1225,13 +1220,11 @@ fp_fmt(b64, Bin) ->
 %%--------------------------------------------------------------------
 %% The handle_daemon_args/2 function basically only sets the ip-option in Opts
 %% so that it is correctly set when opening the listening socket.
-
 handle_daemon_args(any, Opts) ->
     case proplists:get_value(ip, Opts) of
         undefined -> {any, Opts};
         IP -> {IP, Opts}
     end;
-
 handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ; IPaddr == loopback ->
     case proplists:get_value(ip, Opts) of
         undefined -> {IPaddr, [{ip,IPaddr}|Opts]};
@@ -1239,7 +1232,6 @@ handle_daemon_args(IPaddr, Opts) when is_tuple(IPaddr) ; IPaddr == loopback ->
         IP -> {IPaddr, [{ip,IPaddr}|Opts--[{ip,IP}]]} %% Backward compatibility
     end.
 
-%%%----------------------------------------------------------------
 valid_socket_to_use(Socket, {tcp,_,_}) ->
     %% Is this tcp-socket a valid socket?
     try {is_tcp_socket(Socket),
@@ -1274,15 +1266,13 @@ close_listen_socket(ListenSocket, Options) ->
 transport_connect(Host, Port, SocketOpts, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
     Callback:connect(Host, Port, SocketOpts, ?GET_OPT(connect_timeout,Options)).
-    
-%%%----------------------------------------------------------------
+
 -doc false.
 is_host(X, Opts) ->
     try is_host1(mangle_connect_address(X, Opts))
     catch
         _:_ -> false
     end.
-            
 
 is_host1(L) when is_list(L) -> true; %% "string()"
 is_host1(T) when tuple_size(T)==4 -> lists:all(fun(I) -> 0=<I andalso I=<255 end,
@@ -1291,7 +1281,6 @@ is_host1(T) when tuple_size(T)==16 -> lists:all(fun(I) -> 0=<I andalso I=<65535 
                                                 tuple_to_list(T));
 is_host1(loopback) -> true.
 
-%%%----------------------------------------------------------------
 mangle_connect_address(A,  #{socket_options := SockOpts}) ->
     mangle_connect_address(A, SockOpts);
 mangle_connect_address(A, SockOpts) ->
@@ -1312,7 +1301,6 @@ mangle_connect_address1(A, _) ->
         _ -> A
     end.
 
-%%%----------------------------------------------------------------
 mangle_tunnel_address(any) -> <<"">>;
 mangle_tunnel_address(loopback) -> <<"localhost">>;
 mangle_tunnel_address({0,0,0,0}) -> <<"">>;

@@ -29,7 +29,7 @@
 -export([start_link/3,
 	 number_of_connections/1]).
 
-%% spawn export  
+%% spawn export
 -export([acceptor_init/4, acceptor_loop/6]).
 
 -behaviour(ssh_dbg).

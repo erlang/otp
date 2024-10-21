@@ -1002,9 +1002,7 @@ client_close_after_hello(Config0) ->
              ]},
             {send, hello}
            ]) || _ <- lists:seq(1,MaxSessions+100)],
-
     ct:log("=== Tried to start ~p sessions.", [length(Cs)]),
-
     ssh_info:print(fun ct:log/2),
     {Parents, Conns, Handshakers} =
         ssh_test_lib:find_handshake_parent(ssh_test_lib:server_port(Config)),
@@ -1161,7 +1159,6 @@ check_std_daemon_works(Config, Line) ->
 server_user_password(Config) -> server_user_password(1, Config).
 
 server_user_password(N, Config) -> lists:nth(N, ?v(user_passwords,Config)).
-    
 
 std_connect(Config) ->
     std_connect({ssh_test_lib:server_host(Config),
