@@ -918,8 +918,10 @@ type(erlang, system_info, 1, Xs, Opaques) ->
 		     t_internal_cpu_topology();
 		   ['loaded'] ->
 		     t_binary();
-		   ['logical_processors'] ->
-		     t_non_neg_fixnum();
+		   [P] when P == 'logical_processors'
+		        orelse P == 'logical_processors_available'
+		        orelse P == 'logical_processors_online' ->
+		     t_sup([t_non_neg_fixnum(),t_atom('unknown')]);
 		   ['machine'] ->
 		     t_string();
 		   ['multi_scheduling'] ->
