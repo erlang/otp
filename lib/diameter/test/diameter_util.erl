@@ -203,14 +203,18 @@ await_down(ParentMRef, WorkerPid, N) ->
                 "~n   Initial Call:         ~p"
                 "~n   Current Function:     ~p"
                 "~n   Message Queue Length: ~p"
+                "~n   (Process) Dictionary: ~p"
                 "~n   Reductions:           ~p"
-                "~n   Status:               ~p",
+                "~n   Status:               ~p"
+                "~n   Monitors:             ~p",
                 [WorkerPid, N,
                  pi(WorkerPid, initial_call),
                  pi(WorkerPid, current_function),
                  pi(WorkerPid, message_queue_len),
+                 pi(WorkerPid, dictionary),
                  pi(WorkerPid, reductions),
-                 pi(WorkerPid, status)]),
+                 pi(WorkerPid, status),
+                 pi(WorkerPid, monitors)]),
             timer:send_after(1000, self(), check_worker_status),
             await_down(ParentMRef, WorkerPid, N+1);
 
@@ -240,17 +244,41 @@ await_down(ParentMRef, WorkerPid, N) ->
     end.
 
 
+mq() -> 
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    pi(Pid, messages).
+
 pi(Pid, Key) ->
     try
         begin
             {Key, Value} = process_info(Pid, Key),
-            Value
+            process_pi_value(Key, Value)
         end
     catch
         _:_:_ ->
             undefined
     end.
-        
+
+
+process_pi_value(monitors, Value) ->
+    process_monitors(Value);
+process_pi_value(_, Value) ->
+    Value.
+
+process_monitors(Mons) ->
+    [process_monitor(Mon) || Mon <- Mons].
+
+process_monitor({process, Pid})
+  when is_pid(Pid) andalso (node(Pid) =:= node()) ->
+    {Pid, process_info(Pid, [initial_call, current_function, message_queue_len,
+                             dictionary, reductions, status])};
+process_monitor({process, Pid}) ->
+    {Pid, undefined};
+process_monitor({port, Port}) ->
+    {Port, undefined}.
+
 
 %% ---------------------------------------------------------------------------
 %% fold/3
@@ -276,15 +304,17 @@ fold(_, Acc, Map)
 fold(Fun, Acc, #{} = Map) ->
     receive
         check_worker_status ->
+            ?UL("~w -> check worker status when: "
+                "~n   MQ: ~p", [?FUNCTION_NAME, mq()]),
             fold_display_workers_status(Map),
             timer:send_after(1000, self(), check_worker_status),
             fold(Fun, Acc, Map);
 
         {'DOWN', MRef, process, Pid, Info} when is_map_key(MRef, Map) ->
-            ?UL("fold -> process ~p terminated:"
+            ?UL("~w -> process ~p terminated:"
                 "~n   Info: ~p"
                 "~nwhen"
-                "~n   Map:  ~p", [Pid, Info, Map]),
+                "~n   Map:  ~p", [?FUNCTION_NAME, Pid, Info, Map]),
             fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
     end.
 
@@ -305,13 +335,15 @@ fold_display_worker_status(W) ->
         "~n      Current Function:     ~p"
         "~n      Message Queue Length: ~p"
         "~n      Reductions:           ~p"
-        "~n      Status:               ~p",
+        "~n      Status:               ~p"
+        "~n      Monitors:             ~p",
         [W,
          pi(W, initial_call),
          pi(W, current_function),
          pi(W, message_queue_len),
          pi(W, reductions),
-         pi(W, status)]),
+         pi(W, status),
+         pi(W, monitors)]),
     ok.
 
 %% spawn_eval/1
