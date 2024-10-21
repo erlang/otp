@@ -922,11 +922,11 @@ render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
 %%% Functions for rendering type/callback documentation
 render_signature_listing(Module, Type, D, Config) when is_map(Config) ->
     render_signature_listing(Module, Type, D, init_config(D, Config));
-render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D, #config{}=Config) ->
+render_signature_listing(Module, Type, #docs_v1{ docs = Docs, module_doc = MD } = D, #config{}=Config) ->
     Config0 = config_module(Module, Config),
     Slogan = [{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]},{br,[],[]}],
     case lists:filter(fun({{T, _, _},_Anno,_Sig,_Doc,_Meta}) ->
-                              Type =:= T
+                              Type =:= T andalso is_map(MD)
                       end, Docs) of
         [] ->
             render_docs(

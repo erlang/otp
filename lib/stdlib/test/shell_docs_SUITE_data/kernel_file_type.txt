@@ -53,7 +53,9 @@ These types are documented in this module:
   [;1m          {eof, Offset :: integer()} |[0m
   [;1m          bof | cur | eof.[0m
 
-  [;1m-type io_device() :: pid() | fd().[0m
+  [;1m-type io_device() :: io_server() | fd().[0m
+
+  [;1m-type io_server() :: pid().[0m
 
   [;1m-type fd() :: file_descriptor().[0m
 
