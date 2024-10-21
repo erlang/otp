@@ -33,11 +33,12 @@
 #endif
 
 int erts_mem_guard(void *p, UWord size, int readable, int writable) {
-    
+
 #if defined(WIN32)
     DWORD oldProtect;
     DWORD newProtect = PAGE_NOACCESS;
     BOOL success;
+
     if (readable && writable) {
         newProtect = PAGE_READWRITE;
     } else if (readable) {
@@ -53,6 +54,9 @@ int erts_mem_guard(void *p, UWord size, int readable, int writable) {
     return success ? 0 : -1;
 #elif defined(HAVE_SYS_MMAN_H)
     int flags = 0;
+
+    /* Check that the ptr is aligned at page boundary */
+    ASSERT((Uint)p % sys_page_size == 0);
     
     if (writable) {
         flags |= PROT_WRITE;
