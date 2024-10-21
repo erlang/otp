@@ -1387,6 +1387,7 @@ ERTS_RBT_FUNC__(foreach_unordered__)(ERTS_RBT_T **root,
 	while (1) {
 #ifdef ERTS_RBT_DEBUG
 	    int cdir;
+            ERTS_UNDEF(cdir,0);
 #endif
 	    if (yielding && reds <= 0) {
 		ystate->x = x;
