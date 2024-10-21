@@ -167,10 +167,11 @@ The directory could be changed with the option
          
 
 %%% Internal export
--export([is_host/2]).
+-export([is_host/2, update_lsocket/3]).
 
 -behaviour(ssh_dbg).
--export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2, ssh_dbg_format/3]).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1,
+         ssh_dbg_format/2, ssh_dbg_format/3]).
 
 %%% "Deprecated" types export:
 -export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
@@ -592,69 +593,54 @@ The rules for handling the two address passing options are:
            ;(socket, open_socket(), daemon_options()) -> {ok,daemon_ref()} | {error,term()}
             .
 
-daemon(Host0, Port0, UserOptions0) when 0 =< Port0, Port0 =< 65535,
-                                        Host0 == any ; Host0 == loopback ; is_tuple(Host0) ->
-    try
-        {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
-        #{} = Options0 = ssh_options:handle_options(server, UserOptions),
-        %% We need to open the listen socket here before start of the system supervisor. That
-        %% is because Port0 might be 0, or if an FD is provided in the Options0, in which case
-        %% the real listening port will be known only after the gen_tcp:listen call.
-        maybe_open_listen_socket(Host1, Port0, Options0)
-    of
-        {Host, Port, ListenSocket, Options1} ->
-            try
-                %% Now Host,Port is what to use for the supervisor to register its name,
-                %% and ListenSocket, if provided,  is for listening on connections. But
-                %% it is still owned by self()...
+daemon(Host0, Port0, UserOptions0)
+  when 0 =< Port0, Port0 =< 65535, Host0 == any ;
+       Host0 == loopback ; is_tuple(Host0) ->
+    {Host1, UserOptions} = handle_daemon_args(Host0, UserOptions0),
+    case ssh_options:handle_options(server, UserOptions) of
+        #{} = Options0 ->
+            case ssh_lsocket:get_lsocket(Host1, Port0, Options0) of
+                {ok, LSocketProvider, {ok, LSocket}} ->
+                    {Host, Port, Options1} = update_lsocket(LSocket, LSocketProvider, Options0),
+                    try
+                        %% Now Host,Port is what to use for the supervisor to register its name,
+                        %% and ListenSocket, if provided,  is for listening on connections. But
+                        %% it is still owned by self()...
 
-                %% throws error:Error if no usable hostkey is found
-                ssh_connection_handler:available_hkey_algorithms(server, Options1),
-                ssh_system_sup:start_system(#address{address = Host,
-                                                     port = Port,
-                                                     profile = ?GET_OPT(profile,Options1)},
-                                            Options1)
-            of
-                {ok,DaemonRef} when ListenSocket == undefined ->
-                    {ok,DaemonRef};
-                {ok,DaemonRef} ->
-                    receive
-                        {request_control, ListenSocket, ReqPid} ->
-                            ok = controlling_process(ListenSocket, ReqPid, Options1),
-                            ReqPid ! {its_yours,ListenSocket}
-                    end,
-                    {ok,DaemonRef};
-                {error, {already_started, _}} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, eaddrinuse};
-                {error, Error} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, Error}
-            catch
-                error:{shutdown,Err} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error,Err};
-                exit:{noproc, _} ->
-                    close_listen_socket(ListenSocket, Options1),
-                    {error, ssh_not_started};
-                error:Error ->
-                    close_listen_socket(ListenSocket, Options1),
-                    error(Error);
-                exit:Exit ->
-                    close_listen_socket(ListenSocket, Options1),
-                    exit(Exit)
-            end
-    catch
-        throw:bad_fd ->
-            {error,bad_fd};
-        throw:bad_socket ->
-            {error,bad_socket};
-        error:{badmatch,{error,Error}} ->
-            {error,Error};
-        error:Error ->
-            {error,Error};
-        _C:_E ->
-            {error,{cannot_start_daemon,_C,_E}}
+                        %% throws error:Error if no usable hostkey is found
+                        ssh_connection_handler:available_hkey_algorithms(server, Options1),
+                        ssh_system_sup:start_system(#address{address = Host,
+                                                             port = Port,
+                                                             profile = ?GET_OPT(profile,Options1)},
+                                                    Options1)
+                    of
+                        {ok,DaemonRef} ->
+                            {ok,DaemonRef};
+                        {error, {already_started, _}} ->
+                            close_listen_socket(LSocket, Options1),
+                            {error, eaddrinuse};
+                        {error, Error} ->
+                            close_listen_socket(LSocket, Options1),
+                            {error, Error}
+                    catch
+                        error:{shutdown,Err} ->
+                            close_listen_socket(LSocket, Options1),
+                            {error,Err};
+                        exit:{noproc, _} ->
+                            close_listen_socket(LSocket, Options1),
+                            {error, ssh_not_started};
+                        error:Error ->
+                            close_listen_socket(LSocket, Options1),
+                            error(Error);
+                        exit:Exit ->
+                            close_listen_socket(LSocket, Options1),
+                            exit(Exit)
+                    end;
+                Error = {error, _} ->
+                    Error
+            end;
+        OptionError = {error,_} ->
+            OptionError
     end;
 
 daemon(_, _, _) ->
@@ -682,9 +668,9 @@ chapters [Configuration in SSH](configurations.md) and
       NewUserOptions :: daemon_options().
 
 daemon_replace_options(DaemonRef, NewUserOptions) ->
-    {ok,Os0} = ssh_system_sup:get_acceptor_options(DaemonRef),
-    Os1 = ssh_options:merge_options(server, NewUserOptions, Os0),
-    ssh_system_sup:replace_acceptor_options(DaemonRef, Os1).
+    {ok, Options0} = ssh_system_sup:get_acceptor_options(DaemonRef),
+    Options = ssh_options:merge_options(server, NewUserOptions, Options0),
+    ssh_system_sup:restart_acceptor(DaemonRef, Options).
 
 %%--------------------------------------------------------------------
 -doc """
@@ -1277,29 +1263,6 @@ is_tcp_socket(Socket) ->
         _ -> false
     end.
 
-%%%----------------------------------------------------------------
-maybe_open_listen_socket(Host, Port, Options) ->
-    Opened =
-        case ?GET_SOCKET_OPT(fd, Options) of
-            undefined when Port == 0 ->
-                ssh_acceptor:listen(0, Options);
-            Fd when is_integer(Fd) ->
-                %% Do gen_tcp:listen with the option {fd,Fd}:
-                ssh_acceptor:listen(0, Options);
-            undefined ->
-                open_later
-        end,
-    case Opened of
-        {ok,LSock} ->
-            {ok,{LHost,LPort}} = inet:sockname(LSock),
-            {LHost, LPort, LSock, ?PUT_INTERNAL_OPT({lsocket,{LSock,self()}}, Options)};
-        open_later ->
-            {Host, Port, undefined, Options};
-        Others ->
-            Others
-    end.
-
-%%%----------------------------------------------------------------
 close_listen_socket(ListenSocket, Options) ->
     try
         {_, Callback, _} = ?GET_OPT(transport, Options),
@@ -1307,10 +1270,6 @@ close_listen_socket(ListenSocket, Options) ->
     catch
         _C:_E -> ok
     end.
-
-controlling_process(ListenSocket, ReqPid, Options) ->
-    {_, Callback, _} = ?GET_OPT(transport, Options),
-    Callback:controlling_process(ListenSocket, ReqPid).
 
 transport_connect(Host, Port, SocketOpts, Options) ->
     {_, Callback, _} = ?GET_OPT(transport, Options),
@@ -1365,7 +1324,12 @@ mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
                                      {ok, {0,0,0,0,0,0,0,0}} -> <<"">>;
                                      _ -> list_to_binary(X)
                                  end.
-
+-doc false.
+update_lsocket(LSocket, LSocketProvider, Options0) ->
+    {ok, {LHost, LPort}} = inet:sockname(LSocket),
+    Options = ?PUT_INTERNAL_OPT({lsocket,
+                                 {LSocket, LHost, LPort, LSocketProvider}}, Options0),
+    {LHost, LPort, Options}.
 
 %%%################################################################
 %%%#
@@ -1373,37 +1337,46 @@ mangle_tunnel_address(X) when is_list(X) -> case catch inet:parse_address(X) of
 %%%#
 
 -doc false.
-ssh_dbg_trace_points() -> [tcp].
+ssh_dbg_trace_points() -> [tcp, connections].
 
 -doc false.
-ssh_dbg_flags(tcp) -> [c].
+ssh_dbg_flags(tcp) -> [c];
+ssh_dbg_flags(connections) -> [c].
 
 -doc false.
-ssh_dbg_on(tcp) -> dbg:tpl(?MODULE, controlling_process, 3, x),
-                   dbg:tpl(?MODULE, transport_connect, 4, x),
-                   dbg:tpl(?MODULE, close_listen_socket, 2, x).
-                   
--doc false.
-ssh_dbg_off(tcp) ->dbg:ctpl(?MODULE, controlling_process, 3),
-                   dbg:ctpl(?MODULE, transport_connect, 4),
-                   dbg:ctpl(?MODULE, close_listen_socket, 2).
+ssh_dbg_on(tcp) ->
+    dbg:tpl(?MODULE, transport_connect, 4, x),
+    dbg:tpl(?MODULE, close_listen_socket, 2, x);
+ssh_dbg_on(connections) ->
+    dbg:tpl(?MODULE, update_lsocket, 3, x).
 
 -doc false.
-ssh_dbg_format(tcp, {call, {?MODULE,controlling_process, [ListenSocket, ReqPid, _Opts]}}) ->
-    ["TCP socket transferred to\n",
-     io_lib:format("Sock: ~p~n"
-                   "ToPid: ~p~n", [ListenSocket, ReqPid])
-    ];
-ssh_dbg_format(tcp, {return_from, {?MODULE,controlling_process,3}, _Result}) ->
-    skip;
+ssh_dbg_off(tcp) ->
+    dbg:ctpl(?MODULE, transport_connect, 4),
+    dbg:ctpl(?MODULE, close_listen_socket, 2);
+ssh_dbg_off(connections) ->
+    dbg:ctpl(?MODULE, update_lsocket, 3).
 
+-doc false.
 ssh_dbg_format(tcp, {call, {?MODULE,close_listen_socket, [ListenSocket, _Opts]}}) ->
     ["TCP socket listening closed\n",
      io_lib:format("Sock: ~p~n", [ListenSocket])
     ];
 ssh_dbg_format(tcp, {return_from, {?MODULE,close_listen_socket,2}, _Result}) ->
-    skip.
+    skip;
+ssh_dbg_format(Tracepoint , Event = {call, {?MODULE, Function, Args}}) ->
+    [io_lib:format("~w:~w/~w> ~s", [?MODULE, Function, length(Args)] ++
+                       ssh_dbg_comment(Tracepoint, Event))];
+ssh_dbg_format(Tracepoint, Event = {return_from, {?MODULE,Function,Arity}, Ret}) ->
+    [io_lib:format("~w:~w/~w returned ~W> ~s", [?MODULE, Function, Arity, Ret, 3] ++
+                  ssh_dbg_comment(Tracepoint, Event))].
 
+ssh_dbg_comment(connections, {call, {?MODULE, update_lsocket, [LSocket, LSocketProvider, _]}}) ->
+    [io_lib:format("LSocket = ~p, LSocketProvider = ~p", [LSocket, LSocketProvider])];
+ssh_dbg_comment(connections, {return_from, {?MODULE, update_lsocket,3}, {LHost, LPort, _}}) ->
+    [io_lib:format("LHost = ~p, LPort = ~p", [LHost, LPort])];
+ssh_dbg_comment(_, _) ->
+    [""].
 
 -doc false.
 ssh_dbg_format(tcp, {call, {?MODULE,transport_connect, [Host,Port,SockOpts,_Opts]}}, Stack) ->

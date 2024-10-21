@@ -25,6 +25,8 @@
 	     ssh_daemon_channel,
 	     ssh_dbg,
              ssh_lib,
+             ssh_lsocket_sup,
+             ssh_lsocket,
 	     ssh_shell,
 	     ssh_io,
 	     ssh_info,
