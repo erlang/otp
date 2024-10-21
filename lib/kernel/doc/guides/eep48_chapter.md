@@ -105,8 +105,8 @@ For each entry in Docs, we have:
   `callback`. Other languages will add their own. For instance, Elixir and LFE
   might add `macro`.
 
-- **`Anno`** - annotation (line, column, file) of the module documentation or of
-  the definition itself (see `m:erl_anno`).
+- **`Anno`** - annotation (line, column, file) of the module documentation
+  (see `m:erl_anno`).
 
 - **`Signature`** - the signature of the entity. It is is a list of binaries.
   Each entry represents a binary in the signature that can be joined with
@@ -134,6 +134,9 @@ information to each entry. This EEP documents the following metadata keys:
 
 - **`authors := [binary()]`** - a list of authors as binaries.
 
+- **`behaviours := [module()]`** - a list of the behaviours implemented by
+  this module.
+
 - **`cross_references := [module() | {module(), {Kind, Name, Arity}}]`** - a
   list of modules or module entries that can be used as cross references when
   generating documentation.
@@ -145,8 +148,11 @@ information to each entry. This EEP documents the following metadata keys:
 - **`since := binary()`** - a binary representing the version such entry was
   added, such as `<<"1.3.0">>` or `<<"20.0">>`.
 
-- **`edit_url := binary()`** - a binary representing a URL to change the
-  documentation itself.
+- **`source_path := binary()`** - the absolute location of the source file for
+  this module. Applies only to the module metadata.
+
+- **`source_annos := [erl_anno:anno()]`** - a list of source code locations.
+  You may either store one for each clause or only for the first clause.
 
 Any key may be added to Metadata at any time. Keys that are frequently used by
 the community can be standardized in future versions.
