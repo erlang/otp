@@ -57,7 +57,7 @@
                opts                :: [opt()],
 
                module              :: module(),
-               anno                :: erl_anno:anno(),
+               anno = none         :: none | erl_anno:anno(),
                deprecated = #{}    :: map(),
 
                docformat = ?DEFAULT_FORMAT :: binary(),
