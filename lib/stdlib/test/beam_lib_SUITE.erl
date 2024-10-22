@@ -36,7 +36,8 @@
 	 init_per_group/2,end_per_group/2, 
 	 normal/1, error/1, cmp/1, cmp_literals/1, strip/1, strip_add_chunks/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1,
-         missing_debug_info_backend/1]).
+         missing_debug_info_backend/1, literals/1
+        ]).
 -export([test_makedep_abstract_code/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -48,7 +49,8 @@ suite() ->
 all() -> 
     [error, normal, cmp, cmp_literals, strip, strip_add_chunks, otp_6711,
      building, md5, encrypted_abstr, encrypted_abstr_file,
-     missing_debug_info_backend, test_makedep_abstract_code
+     missing_debug_info_backend, test_makedep_abstract_code,
+     literals
     ].
 
 groups() -> 
@@ -874,6 +876,29 @@ missing_debug_info_backend(Conf) ->
 
     ok.
 
+literals(Conf) ->
+    do_literals(Conf, []),
+    do_literals(Conf, [r27]),
+
+    ok.
+
+do_literals(Conf, Options) ->
+    PrivDir = ?privdir,
+    Simple = filename:join(PrivDir, "simple"),
+    Source = Simple ++ ".erl",
+    BeamFile = Simple ++ ".beam",
+    simple_file(Source, simple, literals),
+
+    {ok,simple} = compile:file(Source, [{outdir,PrivDir},report|Options]),
+
+    {ok, {simple, [{literals,[{0,{literal,tuple}}]}]}} =
+	beam_lib:chunks(BeamFile, [literals]),
+
+    ok = file:delete(Source),
+    ok = file:delete(BeamFile),
+
+    ok.
+
 compare_chunks(File1, File2, ChunkIds) ->
     {ok, {_, Chunks1}} = beam_lib:chunks(File1, ChunkIds),
     {ok, {_, Chunks2}} = beam_lib:chunks(File2, ChunkIds),
@@ -978,6 +1003,12 @@ simple_file(File, Module, lines) ->
 			"-export([t/1]).\n"
 			"t(A) ->\n"
 			"    A+1.\n"]),
+    ok = file:write_file(File, B);
+simple_file(File, Module, literals) ->
+    B = list_to_binary(["-module(", atom_to_list(Module), "). "
+			"-export([t/0]). "
+			"t() -> "
+			"    {literal, tuple}. "]),
     ok = file:write_file(File, B);
 simple_file(File, Module, F) ->
     B = list_to_binary(["-module(", atom_to_list(Module), "). "

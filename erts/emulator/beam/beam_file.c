@@ -692,7 +692,7 @@ static void free_literal_fragment(ErlHeapFragment *fragment) {
 }
 
 static int parse_decompressed_literals(BeamFile *beam,
-                                       byte *data,
+                                       const byte *data,
                                        uLongf size) {
     BeamFile_LiteralTable *literals;
     BeamFile_LiteralEntry *entries;
@@ -796,6 +796,7 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     uLongf uncompressed_size_z;
     byte *uncompressed_data;
     int success;
+    int zerr;
 
     beamreader_init(chunk->data, chunk->size, &reader);
     compressed_size = chunk->size;
@@ -807,12 +808,17 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
     success = 0;
 
-    if (erl_zlib_uncompress(uncompressed_data,
-                            &uncompressed_size_z,
-                            reader.head,
-                            compressed_size) == Z_OK) {
+    zerr = erl_zlib_uncompress(uncompressed_data,
+                               &uncompressed_size_z,
+                               reader.head,
+                               compressed_size);
+    if (zerr == Z_OK) {
         success = parse_decompressed_literals(beam,
                                               uncompressed_data,
+                                              uncompressed_size_z);
+    } else {
+        success = parse_decompressed_literals(beam,
+                                              reader.head,
                                               uncompressed_size_z);
     }
 

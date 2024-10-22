@@ -191,8 +191,11 @@ process_chunks(F) ->
 	    Atoms = mk_atoms(AtomsList),
 	    LambdaBin = optional_chunk(F, "FunT"),
 	    Lambdas = beam_disasm_lambdas(LambdaBin, Atoms),
-	    LiteralBin = optional_chunk(F, "LitT"),
-	    Literals = beam_disasm_literals(LiteralBin),
+            Literals1 = case optional_chunk(F, literals) of
+                            none -> [];
+                            Literals0 -> Literals0
+                        end,
+	    Literals = gb_trees:from_orddict(Literals1),
 	    TypeBin = optional_chunk(F, "Type"),
 	    Types = beam_disasm_types(TypeBin),
 	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
@@ -243,21 +246,6 @@ disasm_lambdas(<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32,More/binary>>,
     Info = {lookup(F, Atoms),A,Lbl,Index,NumFree,OldUniq},
     [{OldIndex,Info}|disasm_lambdas(More, Atoms, OldIndex+1)];
 disasm_lambdas(<<>>, _, _) -> [].
-
-%%-----------------------------------------------------------------------
-%% Disassembles the literal table (constant pool) of a BEAM file.
-%%-----------------------------------------------------------------------
-
--spec beam_disasm_literals('none' | binary()) -> literals().
-
-beam_disasm_literals(none) -> none;
-beam_disasm_literals(<<_:32,Compressed/binary>>) ->
-    <<_:32,Tab/binary>> = zlib:uncompress(Compressed),
-    gb_trees:from_orddict(disasm_literals(Tab, 0)).
-
-disasm_literals(<<Sz:32,Ext:Sz/binary,T/binary>>, Index) ->
-    [{Index,binary_to_term(Ext)}|disasm_literals(T, Index+1)];
-disasm_literals(<<>>, _) -> [].
 
 %%-----------------------------------------------------------------------
 %% Disassembles the type table of a BEAM file.
