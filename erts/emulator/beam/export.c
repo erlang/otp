@@ -51,7 +51,7 @@ static void create_shared_lambda(Export *export)
 
     export->lambda = make_fun(lambda);
 
-    erts_global_literal_register(&export->lambda, (Eterm*)lambda, ERL_FUN_SIZE);
+    erts_global_literal_register(&export->lambda);
 }
 
 static HashValue export_hash(const Export *export)

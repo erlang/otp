@@ -1163,7 +1163,7 @@ void init_dist(void)
             if (hpp) {
                 ASSERT(is_value(tuple));
                 ASSERT(hp == hp_start + sz);
-                erts_global_literal_register(&tuple, hp, sz);
+                erts_global_literal_register(&tuple);
                 ERTS_GLOBAL_LIT_DFLAGS_RECORD = tuple;
                 break;
             }
