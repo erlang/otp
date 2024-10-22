@@ -69,7 +69,7 @@ groups() ->
       [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
        system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
-       otp_9507_path_ebin, additional_files_tar, erts_tar]},
+       otp_9507_path_ebin, additional_files_tar, erts_tar, appup_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup,
@@ -1569,6 +1569,28 @@ otp_9507_path_ebin(Config) when is_list(Config) ->
 
     ok = file:set_cwd(OldDir),
 
+    ok.
+
+%% make_tar: Check application upgrade file included
+appup_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest_no_mod_vsn,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-3.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-3.1',ebin,'db.appup']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.appup']), LatestName),
+
+    ok = file:set_cwd(OldDir),
     ok.
 
 
