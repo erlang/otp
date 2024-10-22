@@ -81,6 +81,12 @@ ErtsLiteralArea *erts_global_literal_iterate_area(ErtsLiteralArea *prev)
         next = global_literal_chunk;
     }
 
+#ifdef DEBUG
+    erts_mem_guard(next,
+                   (byte*)next->area.end - (byte*)next,
+                   1,
+                   1);
+#endif
     next->area.end = next->hp;
     return &next->area;
 }
