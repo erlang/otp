@@ -595,10 +595,9 @@ extract_type_specs(Module) ->
   maybe
     Path = find_path(Module),
     true ?= non_existing =/= Path,
-    {ok, {_ModName,
-            [{debug_info,
-                {debug_info_v1,erl_abstract_code,
-                   {AST, _Opts}}}]}} ?= beam_lib:chunks(Path, [debug_info]),
+    {ok, {Module,
+           [{abstract_code,
+             {raw_abstract_v1,AST}}]}} ?= beam_lib:chunks(Path, [abstract_code]),
 
     %% the mapping keys 'type', 'function', and 'callback' correspond
     %% to existing EEP-48 {**Kind**, Name, Arity} format, where Kind
@@ -608,6 +607,7 @@ extract_type_specs(Module) ->
     lists:foldl(fun filter_exported_types/2, Acc, AST)
   else
     false -> #{}; % when non_existing =/= Path,
+    {ok, {Module, [{abstract_code, no_abstract_code}]}} -> #{}; % from beam_lib:chunks/1
     {error,beam_lib,{file_error,_,_}} -> #{} % from beam_lib:chunks/1
   end.
 
@@ -859,41 +859,27 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D, Config) ->
       end, Grouping).
 
 %% Render the signature of either function, type, or anything else really.
-render_signature({{Type,F,A},_Anno,_Sigs,_Docs,Meta}=AST, Specs) ->
-    MetaSpec = render_meta(Meta),
-    maybe
-      M = maps:get(Type, Specs, undefined),
-      true ?= is_map(M),
-      {_, _, _, _}=Spec0 ?= maps:get({F, A}, M, undefined),
-      render_ast(Spec0, MetaSpec)
-    else
-      _ ->
-        {AltSpecs,AltFun} = meta_and_renderer(AST, MetaSpec),
-        lists:flatmap(AltFun, AltSpecs)
+render_signature({{_Type,_F,_A},_Anno,_Sigs,_Docs,#{ signature := Specs } = Meta}, _ASTSpecs) ->
+    lists:map( fun render_ast/1,Specs) ++ [render_meta(Meta)];
+render_signature({{Type,F,A},_Anno,Sigs,_Docs,Meta}, Specs) ->
+    case maps:find({F, A}, maps:get(Type, Specs, #{})) of
+        {ok, Spec} ->
+            [render_ast(Spec) | render_meta(Meta)];
+        error ->
+            lists:map(fun(Sig) -> {h2,[],[<<"  "/utf8,Sig/binary>>]} end, Sigs) ++ [render_meta(Meta)]
     end.
 
-meta_and_renderer({{_Type,_F,_A},_Anno,Sigs,_Docs, Meta}, MetaSpec) ->
-  case Meta of
-    #{ signature := Specs} ->
-      {Specs, fun(AST0) -> render_ast(AST0, MetaSpec) end};
-    _ ->
-      {Sigs, fun (Sig) ->
-                 [{h2,[],[<<"  "/utf8,Sig/binary>>]}|MetaSpec]
-             end}
-  end.
-
-
-render_ast(AST, Meta) ->
-  PPSpec = erl_pp:attribute(AST,[{encoding,unicode}]),
-  Spec = case AST of
-           {_Attribute, _Line, opaque, _} ->
-             %% We do not want show the internals of the opaque type
-             hd(string:split(PPSpec,"::"));
-           _ ->
-             PPSpec
-         end,
-  BinSpec = unicode:characters_to_binary(string:trim(Spec, trailing, "\n")),
-  [{pre,[],[{strong,[],BinSpec}]} | Meta].
+render_ast(AST) ->
+    PPSpec = erl_pp:attribute(AST,[{encoding,unicode}]),
+    Spec = case AST of
+               {_Attribute, _Line, opaque, _} ->
+                   %% We do not want show the internals of the opaque type
+                   hd(string:split(PPSpec,"::"));
+               _ ->
+                   PPSpec
+           end,
+    BinSpec = unicode:characters_to_binary(string:trim(Spec, trailing, "\n")),
+    {pre,[],[{strong,[],BinSpec}]}.
 
 render_meta(M) ->
     case render_meta_(M) of
@@ -924,11 +910,11 @@ render_headers_and_docs(Headers, DocContents, #config{} = Config) ->
 %%% Functions for rendering type/callback documentation
 render_signature_listing(Module, Type, D, Config) when is_map(Config) ->
     render_signature_listing(Module, Type, D, init_config(D, Config));
-render_signature_listing(Module, Type, #docs_v1{ docs = Docs } = D, #config{}=Config) ->
+render_signature_listing(Module, Type, #docs_v1{ docs = Docs, module_doc = MD } = D, #config{}=Config) ->
     Config0 = config_module(Module, Config),
     Slogan = [{h2,[],[<<"\t",(atom_to_binary(Module))/binary>>]},{br,[],[]}],
     case lists:filter(fun({{T, _, _},_Anno,_Sig,_Doc,_Meta}) ->
-                              Type =:= T
+                              Type =:= T andalso is_map(MD)
                       end, Docs) of
         [] ->
             render_docs(

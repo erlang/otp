@@ -74,8 +74,8 @@
        monitor is created. But the monitor will only supervise
        the connection. That is, a [;;4m{'DOWN', _, process, _,[0m
        [;;4mnoconnection}[0m is the only message that may be received,
-       as the primitive node have no way of reporting the
-       status of the monitored process.
+       as the primitive node has no way of reporting the status
+       of the monitored process.
 
    • Monitoring a [;;4mport[0m - Creates monitor between the current
      process and a port identified by [;;4mItem[0m, which can be a [;;4m[0m

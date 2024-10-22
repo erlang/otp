@@ -107,7 +107,6 @@ render(Config) ->
 
     lists:foreach(
       fun(Module) ->
-              {ok, [D]} = file:consult(filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1")),
               maps:map(
                 fun(FName, Current) ->
                         case file:read_file(filename:join(DataDir,FName)) of
@@ -123,7 +122,7 @@ render(Config) ->
                                 %% available on windows.
                                 ok
                         end
-                end, render_module(Module, D))
+                end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
 
 update_render() ->
@@ -134,18 +133,51 @@ update_render(DataDir) ->
     lists:foreach(
       fun(Module) ->
               case code:get_doc(Module) of
-                  {ok, D} ->
+                  {ok, Docs} ->
+                      NewEntries =
+                          case beam_lib:chunks(find_path(Module),[abstract_code]) of
+                              {ok,{Module,[{abstract_code,{raw_abstract_v1,AST}}]}} ->
+                                  lists:map(fun({{Type, F, A}, Anno, Sig, #{} = Doc, Meta} = E) ->
+
+                                                    case lists:search(
+                                                           fun({attribute, _, spec, {FA, _}}) when Type =:= function ->
+                                                                   FA =:= {F,A};
+                                                              ({attribute, _, What, {Name, _, Args}}) when What =:= Type; What =:= opaque andalso Type =:= type ->
+                                                                   {Name,length(Args)} =:= {F,A};
+                                                              (_) ->
+                                                                   false
+                                                           end, AST) of
+                                                        {value, Signature} ->
+                                                            {{Type, F, A}, Anno, Sig, Doc, Meta#{ specification => [Signature] }};
+                                                        _ -> throw({did_not_find, E})
+                                                    end;
+                                               (E) -> E
+
+                                            end, Docs#docs_v1.docs);
+                              {ok,{shell_docs_SUITE,[{abstract_code,no_abstract_code}]}} ->
+                                  Docs#docs_v1.docs
+                          end,
+
                       ok = file:write_file(
                              filename:join(DataDir, atom_to_list(Module) ++ ".docs_v1"),
-                             io_lib:format("~w.",[D])),
-                      maps:map(
-                        fun(FName, Output) ->
-                                ok = file:write_file(filename:join(DataDir, FName), Output)
-                        end, render_module(Module, D));
-                  E ->
-                      io:format("Error processing: ~p ~p",[Module, E])
-              end
+                             io_lib:format("~w.",[Docs#docs_v1{ docs = NewEntries }]));
+                  {error, _} ->
+                      ok
+              end,
+              maps:map(
+                fun(FName, Output) ->
+                        ok = file:write_file(filename:join(DataDir, FName), Output)
+                end, render_module(Module, DataDir))
       end, ?RENDER_MODULES).
+
+find_path(Module) ->
+    maybe
+        preloaded ?= code:which(Module),
+        PreloadedPath = filename:join(code:lib_dir(erts),"ebin"),
+        filename:join(PreloadedPath, atom_to_list(Module) ++ ".beam")
+    else
+        Other -> Other
+    end.
 
 handle_error({error,_}) ->
   ok;
@@ -478,7 +510,10 @@ render_module(Mod, #docs_v1{ docs = Docs } = D) ->
               FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_cb.txt",
               Acc#{ sanitize(FName) =>
                         unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D, Opts))}
-      end, Files, Docs).
+      end, Files, Docs);
+render_module(Mod, Datadir) ->
+    {ok, [Docs]} = file:consult(filename:join(Datadir, atom_to_list(Mod) ++ ".docs_v1")),
+    render_module(Mod, Docs).
 
 sanitize(FName) ->
     lists:foldl(
