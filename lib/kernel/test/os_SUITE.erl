@@ -28,7 +28,7 @@
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1, error_info/1]).
+         perf_counter_api/1, error_info/1, os_cmd_shell/1,os_cmd_shell_peer/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +43,7 @@ all() ->
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
-     error_info].
+     error_info, os_cmd_shell, os_cmd_shell_peer].
 
 groups() ->
     [].
@@ -468,6 +468,36 @@ error_info(Config) ->
          {unsetenv, [{bad,key}]}
         ],
     error_info_lib:test_error_info(os, L).
+
+os_cmd_shell(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    SysShell = filename:join(DataDir, "sys_shell"),
+
+    {ok, OldShell} = application:get_env(kernel, os_cmd_shell),
+    try
+        application:set_env(kernel, os_cmd_shell, SysShell),
+
+        %% os:cmd should not try to detect the shell location rather than use
+        %% the value from kernel:os_cmd_shell parameter
+        comp("sys_shell", os:cmd("ls"))
+    after
+        application:set_env(kernel, os_cmd_shell, OldShell)
+    end.
+
+os_cmd_shell_peer(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    SysShell = "\"" ++ filename:join(DataDir, "sys_shell") ++ "\"",
+    {ok, Peer, Node} = ?CT_PEER(["-kernel","os_cmd_shell", SysShell]),
+    try erpc:call(Node, os, cmd, ["ls"], rtnode:timeout(normal)) of
+        "sys_shell" -> ok;
+        Other -> ct:fail({unexpected, Other})
+    catch
+        C:R:Stk ->
+            io:format("~p\n~p\n~p\n", [C,R,Stk]),
+            ct:fail(failed)
+    after
+        peer:stop(Peer)
+    end.
 
 no_limit_for_opened_files() ->
     case os:type() of

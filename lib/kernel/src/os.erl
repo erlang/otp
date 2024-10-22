@@ -37,6 +37,8 @@ a program to run on most platforms.
 
 -export([type/0, version/0, cmd/1, cmd/2, find_executable/1, find_executable/2]).
 
+-export([internal_init_cmd_shell/0]).
+
 -include("file.hrl").
 
 -export_type([env_var_name/0, env_var_value/0, env_var_name_value/0]).
@@ -518,6 +520,10 @@ cmd(Cmd) ->
 Executes `Command` in a command shell of the target OS, captures the standard
 output and standard error of the command, and returns this result as a string.
 
+The command shell can be set using the
+[kernel configuration parameter](kernel_app.md#os_cmd_shell), by default the
+shell is detected upon system startup.
+
 _Examples:_
 
 ```erlang
@@ -581,35 +587,14 @@ get_option(Opt, Options, Default) ->
         _ -> throw(badopt)
     end.
 
-mk_cmd({win32,Wtype}, Cmd) ->
-    Command = case {os:getenv("COMSPEC"),Wtype} of
-                  {false,windows} -> lists:concat(["command.com /c", Cmd]);
-                  {false,_} -> lists:concat(["cmd /c", Cmd]);
-                  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
-              end,
+mk_cmd({win32,_}, Cmd) ->
+    {ok, Shell} = application:get_env(kernel, os_cmd_shell),
+    Command = lists:concat([Shell, " /c", Cmd]),
     {Command, [], [], <<>>};
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
     %% cd and ulimit available.
-    %%
-    %% We use an absolute path here because we do not want the path to be
-    %% searched in case a stale NFS handle is somewhere in the path before
-    %% the sh command.
-    %%
-    %% Check if the default shell is located in /bin/sh as expected usually
-    %% or in /system/bin/sh as implemented on Android. The raw option is
-    %% used to bypass the file server and speed up the file access.
-    Shell = case file:read_file_info("/bin/sh",[raw]) of
-                {ok,#file_info{type=regular}} ->
-                    "/bin/sh";
-                _ ->
-                    case file:read_file_info("/system/bin/sh",[raw]) of
-                        {ok,#file_info{type=regular}} ->
-                            "/system/bin/sh";
-                        _ ->
-                            "/bin/sh"
-                    end
-            end,
+    {ok, Shell} = application:get_env(kernel, os_cmd_shell),
     {Shell ++ " -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
@@ -627,6 +612,41 @@ mk_cmd(_,Cmd) ->
      %% backwards incompatibility bug reports, so leave this as it is.
      ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
      <<$\^D>>}.
+
+-doc false.
+internal_init_cmd_shell() ->
+    case application:get_env(kernel, os_cmd_shell) of
+        undefined ->
+            application:set_env(kernel, os_cmd_shell,
+            internal_init_cmd_shell(os:type()));
+        _ ->
+            ok
+    end.
+internal_init_cmd_shell({win32,Wtype}) ->
+    case {os:getenv("COMSPEC"),Wtype} of
+        {false,windows} -> "command.com";
+        {false,_} -> "cmd";
+        {Cspec,_} -> Cspec
+    end;
+internal_init_cmd_shell(_) ->
+    %% We use an absolute path here because we do not want the path to be
+    %% searched in case a stale NFS handle is somewhere in the path before
+    %% the sh command.
+    %%
+    %% Check if the default shell is located in /bin/sh as expected usually
+    %% or in /system/bin/sh as implemented on Android. The raw option is
+    %% used to bypass the file server.
+    case file:read_file_info("/bin/sh",[raw]) of
+        {ok,#file_info{type=regular}} ->
+            "/bin/sh";
+        _ ->
+            case file:read_file_info("/system/bin/sh",[raw]) of
+                {ok,#file_info{type=regular}} ->
+                    "/system/bin/sh";
+                _ ->
+                    "/bin/sh"
+            end
+    end.
 
 validate(Term) ->
     try validate1(Term)
