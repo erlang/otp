@@ -48,9 +48,9 @@ PLT="$(mktemp).plt"
 
 set -x
 
-$DIALYZER --build_plt --output_plt "$PLT" -Wunknown --apps $BASE_PLT $APP_PLT --statistics
-$DIALYZER -n --plt "$PLT" -Wunknown -Wunmatched_returns --apps $UNMATCHED --statistics
-$DIALYZER -n --plt "$PLT" -Wunknown --apps $NO_UNMATCHED --statistics
+$DIALYZER --build_plt --output_plt "$PLT" -Wunknown -Woverlapping_contract --apps $BASE_PLT $APP_PLT --statistics
+$DIALYZER -n --plt "$PLT" -Wunknown -Wunmatched_returns -Woverlapping_contract --apps $UNMATCHED --statistics
+$DIALYZER -n --plt "$PLT" -Wunknown -Woverlapping_contract --apps $NO_UNMATCHED --statistics
 if [ "X$WARNINGS" != "X" ]; then
     $DIALYZER -n --plt "$PLT" --apps $WARNINGS --statistics || true
 fi
