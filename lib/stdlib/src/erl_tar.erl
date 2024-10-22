@@ -94,7 +94,7 @@ opens a tar file on a remote machine using an SFTP channel.
   of `erl_tar` or `tar` which does not support PAX. In this case, the PAX
   headers will be extracted as regular files, and you will need to apply them
   manually.
-- Like the above, if you must remain USTAR compatible, you must also ensure than
+- Like the above, if you must remain USTAR compatible, you must also ensure that
   paths for symbolic/hard links are no more than 100 bytes, otherwise PAX
   headers will be used.
 """.
