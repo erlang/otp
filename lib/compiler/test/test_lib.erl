@@ -163,14 +163,15 @@ highest_opcode(Beam) ->
 
 p_run(Test, List) ->
     %% Limit the number of parallel processes to avoid running out of
-    %% memory.
-    S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
-            {S0,4} ->
-                min(S0, 2);
-            {S0,8} ->
-                min(S0, 8)
+    %% virtual address space or memory. This is especially important
+    %% on 32-bit Windows, where only 2 GB of virtual address space is
+    %% available.
+    N = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
+            {_,4} ->
+                1;
+            {N0,8} ->
+                min(N0, 8)
         end,
-    N = S + 1,
     p_run(Test, List, N).
 
 p_run(Test, List, N) ->

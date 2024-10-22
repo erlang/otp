@@ -307,16 +307,18 @@ ber_get_len(<<1:1,Octets:7,T0/binary>>) ->
 
 p_run(Test, List) ->
     %% Limit the number of parallel processes to avoid running out of
-    %% memory.
+    %% virtual address space or memory. This is especially important
+    %% on 32-bit Windows, where only 2 GB of virtual address space is
+    %% available.
     S = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
-            {S0,4} ->
-                min(S0, 2);
+            {_,4} ->
+                1;
             {S0,_} ->
                 min(S0, 8)
         end,
     N = case test_server:is_cover() of
 	    false ->
-		S + 1;
+		S;
 	    true ->
 		%% Cover is running. Using too many processes
 		%% could slow us down.
