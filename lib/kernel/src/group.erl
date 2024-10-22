@@ -453,6 +453,8 @@ handle_info(State, {Drv, {data, Buf}}, Data = #state{ driver = Drv }) ->
     ?MODULE:State(data, Buf, Data);
 handle_info(State, {Drv, eof}, Data = #state{ driver = Drv }) ->
     ?MODULE:State(data, eof, Data);
+handle_info(_State, {Drv, echo, Bool}, Data = #state{ driver = Drv }) ->
+    {keep_state, Data#state{ echo = Bool } };
 handle_info(_State, {Drv, {error, _} = Error}, Data = #state{ driver = Drv }) ->
     io_reply(Data, Error),
     pop_state(Data#state{ buf = [] });
