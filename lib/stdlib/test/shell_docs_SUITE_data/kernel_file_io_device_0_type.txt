@@ -1,5 +1,7 @@
 
-  [;1m-type io_device() :: pid() | fd().[0m
+  [;1m-type io_device() :: io_server() | fd().[0m
 
-  As returned by [;;4mopen/2[0m; [;;4mpid/0[0m is a process handling
-  I/O-protocols.
+  An IO device as returned by [;;4mopen/2[0m.
+
+  [;;4mio_server/0[0m is returned by default and [;;4mfd/0[0m is returned if the [;;4m[0m
+  [;;4mraw[0m option is given.
