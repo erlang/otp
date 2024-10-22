@@ -26,7 +26,7 @@ jobs:
     outputs:
        versions: ${{ steps.get-versions.outputs.versions }}
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
@@ -52,7 +52,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
         with:
           ref: ${{ matrix.type }}
 
