@@ -140,7 +140,7 @@ cli() ->
                 no_behaviours, no_contracts, no_fail_call, no_fun_app, no_improper_lists,
                 no_match, no_missing_calls, no_opaque, no_return, no_undefined_callbacks,
                 no_underspecs, no_unknown, no_unused, underspecs, unknown, unmatched_returns,
-                overspecs, specdiffs, extra_return, no_extra_return, missing_return, no_missing_return]},
+                overspecs, specdiffs, overlapping_contract, extra_return, no_extra_return, missing_return, no_missing_return]},
                 help => {<<"[-Wwarn]*">>, [<<"A family of options which selectively turn on/off warnings">>]}},
             #{name => version, short => $v, long => "-version", type => boolean,
                 help => <<"Print the Dialyzer version and some more information and exit.">>},
