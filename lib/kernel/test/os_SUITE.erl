@@ -28,7 +28,7 @@
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1, error_info/1]).
+         perf_counter_api/1, error_info/1, os_cmd_shell/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,12 +43,13 @@ all() ->
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
-     error_info].
+     error_info, os_cmd_shell].
 
 groups() ->
     [].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     Config.
 
 end_per_suite(_Config) ->
@@ -61,7 +62,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(TC, Config)
-  when TC =:= background_command; TC =:= close_stdin ->
+  when TC =:= background_command; TC =:= close_stdin; TC =:= os_cmd_shell ->
     case os:type() of
         {win32, _} ->
             {skip,"Should not work on windows"};
@@ -468,6 +469,19 @@ error_info(Config) ->
          {unsetenv, [{bad,key}]}
         ],
     error_info_lib:test_error_info(os, L).
+
+os_cmd_shell(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    SysShell = filename:join(DataDir, "sys_shell"),
+
+    {ok, OldShell} = application:get_env(kernel, os_cmd_shell),
+    application:set_env(kernel, os_cmd_shell, SysShell),
+
+    %% os:cmd should not try to detect the shell location rather than use
+    %% the value from kernel:os_cmd_shell parameter
+    Ls = os:cmd("ls"),
+    application:set_env(kernel, os_cmd_shell, OldShell),
+    comp("sys_shell", Ls).
 
 no_limit_for_opened_files() ->
     case os:type() of

@@ -72,11 +72,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite([{allow_skip, Allow}|Config]) ->
+    os:internal_init_cmd_shell(),
     init_per_suite(Allow, Config);
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     init_per_suite(true, Config).
 
 init_per_suite(AllowSkip, Config) when is_boolean(AllowSkip) ->
+    os:internal_init_cmd_shell(),
 
     print("kernel environment: "
           "~n   (kernel) app:  ~p"

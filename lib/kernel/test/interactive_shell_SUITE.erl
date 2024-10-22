@@ -144,6 +144,7 @@ groups() ->
     ].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM", "vt100"),
     [{term,Term}|Config].

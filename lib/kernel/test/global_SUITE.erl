@@ -159,6 +159,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     Config.
 
 end_per_suite(_Config) ->

@@ -189,6 +189,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) when is_list(Config) ->
+    os:internal_init_cmd_shell(),
     SaslConfig = case application:start(sasl) of
 		     {error, {already_started, sasl}} ->
 			 [];

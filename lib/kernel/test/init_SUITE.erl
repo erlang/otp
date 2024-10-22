@@ -60,6 +60,7 @@ groups() ->
     [{boot, [], [boot1, boot2]}].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     Config.
 
 end_per_suite(_Config) ->
