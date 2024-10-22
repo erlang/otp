@@ -78,20 +78,21 @@ im() ->
 	    Pid
     end.
 
+-dialyzer({no_contracts, ii/1}).
 -doc """
 Interprets the specified module(s) on the local node.
 
 See `int:i/1` for more information.
 """.
 -spec ii(AbsModule) -> {module, Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all();
         (AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+          AbsModules :: [AbsModule],
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all().
 ii(Module) ->
     int:i(Module).
 
@@ -109,20 +110,21 @@ Stops interpreting the specified module on the local node.
 iq(Module) ->
     int:n(Module).
 
+-dialyzer({no_contracts, ini/1}).
 -doc """
 Interprets the specified module(s) on all known nodes.
 
 See `int:ni/1` for more information.
 """.
 -spec ini(AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
+          AbsModules :: [AbsModule],
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all();
          (AbsModule) -> {module, Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all().
 ini(Module) ->
     int:ni(Module).
 
