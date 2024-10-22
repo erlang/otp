@@ -142,6 +142,7 @@ in the User's Guide for Debugger.
 %% External exports
 %%====================================================================
 
+-dialyzer({no_contracts, i/1}).
 -doc """
 Interprets the specified module(s) on the local node.
 
@@ -183,6 +184,7 @@ i(AbsMods) -> i2(AbsMods, local, ok).
 -doc false.
 i(AbsMods, _Options) -> i2(AbsMods, local, ok).
 
+-dialyzer({no_contracts, ni/1}).
 -doc """
 Interprets the specified module(s) on all known nodes.
 
