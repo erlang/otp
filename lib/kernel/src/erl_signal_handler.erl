@@ -29,12 +29,7 @@
 
 start() ->
     %% add signal handler
-    case whereis(erl_signal_server) of
-        %% in case of minimal mode
-        undefined -> ok;
-        _ ->
-            gen_event:add_handler(erl_signal_server, erl_signal_handler, [])
-    end.
+    gen_event:add_handler(erl_signal_server, erl_signal_handler, []).
 
 init(_Args) ->
     {ok, #state{}}.

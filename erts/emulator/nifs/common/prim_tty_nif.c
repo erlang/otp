@@ -102,9 +102,6 @@ typedef struct {
     ErlNifPid self;
     ErlNifPid reader;
     int tty;       /* if the tty is initialized */
-#ifndef __WIN32__
-    int signal[2]; /* Pipe used for signal (winch + cont) notifications */
-#endif
 #ifdef HAVE_TERMCAP
     struct termios tty_smode;
     struct termios tty_rmode;
@@ -142,16 +139,14 @@ static ERL_NIF_TERM tty_tgetnum_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM tty_tgetflag_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_tgetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM tty_read_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
     {"isatty", 1, isatty_nif},
     {"tty_create", 0, tty_create_nif},
     {"tty_init", 3, tty_init_nif},
     {"tty_set", 1, tty_set_nif},
-    {"tty_read_signal", 2, tty_read_signal_nif},
     {"setlocale", 1, setlocale_nif},
-    {"tty_select", 3, tty_select_nif},
+    {"tty_select", 2, tty_select_nif},
     {"tty_window_size", 1, tty_window_size_nif},
     {"write_nif", 2, tty_write_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
     {"tty_encoding", 1, tty_encoding_nif},
@@ -544,12 +539,10 @@ static ERL_NIF_TERM tty_read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
                     break;
                 case WINDOW_BUFFER_SIZE_EVENT:
                     enif_send(env, &tty->self, NULL,
+                        enif_make_tuple2(env, argv[1],
                               enif_make_tuple2(
-                                  env, enif_make_atom(env, "resize"),
-                                  enif_make_tuple2(
-                                      env,
-                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.Y),
-                                      enif_make_int(env, inputs[i].Event.WindowBufferSizeEvent.dwSize.X))));
+                                  env, enif_make_atom(env, "signal"),
+                                       enif_make_atom(env, "resize"))));
                     break;
                 case MOUSE_EVENT:
                     /* We don't do anything with the mouse event */
@@ -1015,60 +1008,6 @@ static ERL_NIF_TERM tty_window_size_nif(ErlNifEnv* env, int argc, const ERL_NIF_
             ));
 }
 
-#ifndef __WIN32__
-
-static int tty_signal_fd = -1;
-
-static RETSIGTYPE tty_cont(int sig)
-{
-    if (tty_signal_fd != 1) {
-        while (write(tty_signal_fd, "c", 1) < 0 && errno == EINTR) { };
-    }
-}
-
-
-static RETSIGTYPE tty_winch(int sig)
-{
-    if (tty_signal_fd != 1) {
-        while (write(tty_signal_fd, "w", 1) < 0 && errno == EINTR) { };
-    }
-}
-
-#endif
-
-static ERL_NIF_TERM tty_read_signal_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    TTYResource *tty;
-    char buff[1];
-    ssize_t ret;
-    ERL_NIF_TERM res;
-    if (!enif_get_resource(env, argv[0], tty_rt, (void **)&tty))
-        return enif_make_badarg(env);
-#ifndef __WIN32__
-    do {
-        ret = read(tty->signal[0], buff, 1);
-    } while (ret < 0 && errno == EAGAIN);
-
-    if (ret < 0) {
-        return make_errno_error(env, "read");
-    } else if (ret == 0) {
-        return make_error(env, enif_make_atom(env,"empty"));
-    }
-
-    enif_select(env, tty->signal[0], ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-
-    if (buff[0] == 'w') {
-        res = enif_make_atom(env, "winch");
-    } else if (buff[0] == 'c') {
-        res = enif_make_atom(env, "cont");
-    } else {
-        res = enif_make_string_len(env, buff, 1, ERL_NIF_LATIN1);
-    }
-    return enif_make_tuple2(env, atom_ok, res);
-#else
-    return make_enotsup(env);
-#endif
-}
-
 static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     TTYResource *tty;
 #ifndef __WIN32__
@@ -1080,23 +1019,13 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         return enif_make_badarg(env);
 
 #ifndef __WIN32__
-    if (pipe(tty->signal) == -1) {
-        return make_errno_error(env, "pipe");
-    }
-    SET_NONBLOCKING(tty->signal[0]);
-    enif_select(env, tty->signal[0], ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
-    tty_signal_fd = tty->signal[1];
-
-    sys_signal(SIGCONT, tty_cont);
-    sys_signal(SIGWINCH, tty_winch);
-
     using_oldshell = 0;
 
-    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
 #else
     if (tty->tty || GetFileType(tty->ifd) != FILE_TYPE_CHAR) {
         debug("Select on %d\r\n",  tty->ifd);
-        enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+        enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
     } else {
         tty->ifdOverlapped = CreateFile("CONIN$", GENERIC_READ, FILE_SHARE_READ, NULL,
                                         OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
@@ -1109,7 +1038,7 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
             }
         }
         debug("Select on %d\r\n",  tty->overlapped.hEvent);
-        enif_select(env, tty->overlapped.hEvent, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+        enif_select(env, tty->overlapped.hEvent, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
     }
 #endif
 
@@ -1128,12 +1057,6 @@ static void tty_monitor_down(ErlNifEnv* caller_env, void* obj, ErlNifPid* pid, E
 #endif
     if (enif_compare_pids(pid, &tty->reader) == 0) {
         enif_select(caller_env, tty->ifd, ERL_NIF_SELECT_STOP, tty, NULL, atom_undefined);
-#ifndef __WIN32__
-        enif_select(caller_env, tty->signal[0], ERL_NIF_SELECT_STOP, tty, NULL, atom_undefined);
-        close(tty->signal[1]);
-        sys_signal(SIGCONT, SIG_DFL);
-        sys_signal(SIGWINCH, SIG_DFL);
-#endif
     }
 }
 
