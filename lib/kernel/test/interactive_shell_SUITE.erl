@@ -48,7 +48,7 @@
 	 job_control_remote_noshell/1,ctrl_keys/1,
          get_columns_and_rows_escript/1,
          shell_get_password/1,
-         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1,
+         shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1, shell_multiline_prompt_ssh/1,
          shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
          shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
@@ -72,6 +72,7 @@
 -export([load/0, add/1]).
 %% For custom prompt testing
 -export([prompt/1]).
+-export([output_to_stdout_slowly/1]).
 -record(tmux, {peer, node, name, orig_location }).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -79,7 +80,8 @@ suite() ->
 
 all() ->
     [{group, to_erl},
-     {group, tty}].
+     {group, tty},
+     {group, ssh}].
 
 groups() ->
     [{to_erl,[],
@@ -111,7 +113,28 @@ groups() ->
        remsh_no_epmd,
        remsh_expand_compatibility_25,
        remsh_expand_compatibility_later_version]},
-     {tty,[],
+     {ssh, [],
+        [{group,ssh_unicode},
+         {group,ssh_latin1},
+         shell_ignore_pager_commands
+        ]},
+       {ssh_unicode,[],
+        [{group,ssh_tests}]},
+       {ssh_latin1,[],[{group,ssh_tests}]},
+       {ssh_tests, [],
+        [shell_navigation, shell_multiline_navigation,
+         shell_multiline_prompt_ssh,
+         shell_xnfix, shell_delete,
+         shell_transpose, shell_search, shell_insert,
+         shell_update_window,
+         shell_small_window_multiline_navigation,
+         shell_huge_input,
+         shell_support_ansi_input,
+         shell_receive_standard_out,
+         shell_expand_location_above,
+         shell_expand_location_below,
+         shell_clear]},
+     {tty, [],
       [{group,tty_unicode},
        {group,tty_latin1},
        test_invalid_keymap, test_valid_keymap,
@@ -174,7 +197,7 @@ init_per_group(shell_history, Config) ->
         old -> {skip, "Not supported in old shell"};
         new -> Config
     end;
-init_per_group(tty, Config) ->
+init_per_group(Group, Config) when Group =:= tty; Group =:= ssh ->
     case string:split(tmux("-V")," ") of
         ["tmux",[Num,$.|_]] when Num >= $3, Num =< $9 ->
             tmux("kill-session"),
@@ -187,8 +210,11 @@ init_per_group(tty, Config) ->
         Error ->
             {skip, "tmux not installed " ++ Error}
     end;
+
 init_per_group(Group, Config) when Group =:= tty_unicode;
-                                   Group =:= tty_latin1 ->
+                                   Group =:= tty_latin1;
+                                   Group =:= ssh_unicode;
+                                   Group =:= ssh_latin1 ->
     [Lang,_] =
         string:split(
           os:getenv("LC_ALL",
@@ -199,6 +225,10 @@ init_per_group(Group, Config) when Group =:= tty_unicode;
             [{encoding, unicode},{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
         tty_latin1 ->
             % [{encoding, latin1},{env,[{"LC_ALL",Lang++".ISO-8859-1"}]}|Config],
+            {skip, "latin1 tests not implemented yet"};
+        ssh_unicode ->
+            [{encoding, unicode},{env,[{"LC_ALL",Lang++".UTF-8"}]}|Config];
+        ssh_latin1 ->
             {skip, "latin1 tests not implemented yet"}
     end;
 init_per_group(sh_custom, Config) ->
@@ -220,7 +250,7 @@ init_per_group(sh_custom, Config) ->
 init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_group(tty, _Config) ->
+end_per_group(Group, _Config) when Group =:= tty; Group =:= ssh ->
     Windows = string:split(tmux("list-windows"), "\n", all),
     lists:foreach(
       fun(W) ->
@@ -521,12 +551,24 @@ shell_format(Config) ->
     after
         stop_tty(Term1)
     end.
-
+shell_multiline_prompt_ssh(Config) ->
+    Term1 = start_tty(Config),
+    try
+        send_tty(Term1, "shell:multiline_prompt_func({shell,inverted_space_prompt}).\n"),
+        check_location(Term1, {0, 0}),
+        send_tty(Term1,"\na"),
+        check_location(Term1, {0, 1}),
+        check_content(Term1, "   a"),
+        ok
+    after
+        stop_tty(Term1)
+    end.
 shell_multiline_prompt(Config) ->
     Term1 = start_tty([{args,["-stdlib","shell_multiline_prompt","{shell,inverted_space_prompt}"]}|Config]),
     Term2 = start_tty([{args,["-stdlib","shell_multiline_prompt","\"...> \""]}|Config]),
     Term3 = start_tty([{args,["-stdlib","shell_multiline_prompt","edlin"]}|Config]),
     Term4 = start_tty(Config),
+
     try
         check_location(Term1, {0, 0}),
         send_tty(Term1,"\na"),
@@ -1042,11 +1084,18 @@ shell_huge_input(Config) ->
     after
         stop_tty(Term)
     end.
+output_to_stdout_slowly(5) -> ok;
+output_to_stdout_slowly(N) ->
+    receive
+        after 100 ->
+            io:format("~p~n", [N]),
+            output_to_stdout_slowly(N+1)
+    end.
+
 shell_receive_standard_out(Config) ->
     Term = start_tty(Config),
     try
-        send_tty(Term,"my_fun(5) -> ok; my_fun(N) -> receive after 100 -> io:format(\"~p\\n\", [N]), my_fun(N+1) end.\n"),
-        send_tty(Term, "spawn(shell_default, my_fun, [0]). ABC\n"),
+        send_tty(Term, "spawn(interactive_shell_SUITE, output_to_stdout_slowly, [0]). ABC\n"),
         timer:sleep(1000),
         check_location(Term, {0, 0}), %% Check that we are at the same location relative to the start.
         check_content(Term, "3\\s+4\\s+.+>\\sABC"),
@@ -1377,10 +1426,7 @@ shell_ignore_pager_commands(Config) ->
 test_valid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     Term = setup_tty([{args, ["-config", DataDir ++ "valid_keymap.config"]} | Config]),
-    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
-    erpc:call(Term#tmux.node, application, set_env,
-              [stdlib, shell_prompt_func_test,
-               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
+    set_tty_prompt(Term, Config),
     try
         check_not_in_content(Term, "Invalid key"),
         check_not_in_content(Term, "Invalid function"),
@@ -1399,6 +1445,7 @@ test_valid_keymap(Config) when is_list(Config) ->
 test_invalid_keymap(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     Term1 = setup_tty([{args, ["-config", DataDir ++ "invalid_keymap.config"]} | Config]),
+    set_tty_prompt(Term1, Config),
     try
         check_content(Term1, "Invalid key"),
         check_content(Term1, "Invalid function"),
@@ -1762,11 +1809,17 @@ rpc(#tmux{ node = N }, Fun) ->
 rpc(#tmux{ node = N }, M, F, A) ->
     erpc:call(N, M, F, A).
 
-%% Setup a TTY, but do not type anything in terminal
+%% Setup a TTY, or a ssh server and client but do not type anything in terminal (except password)
 setup_tty(Config) ->
-    Name = maps:get(name,proplists:get_value(peer, Config, #{}),
+    ClientName = maps:get(name,proplists:get_value(peer, Config, #{}),
                     peer:random_name(proplists:get_value(tc_path, Config))),
 
+    PG = get_top_parent_test_group(Config),
+    Name = if PG =:= ssh ->
+            ClientName ++ "_ssh";
+        true ->
+            ClientName
+    end,
     Envs = lists:flatmap(fun({Key,Value}) ->
                                  ["-env",Key,Value]
                          end, proplists:get_value(env,Config,[])),
@@ -1845,18 +1898,63 @@ setup_tty(Config) ->
                   monitor(process, Self),
                   receive _ -> ok end
           end),
+    Tmux = #tmux{ peer = Peer, node = Node, name = ClientName },
+    if PG =:= ssh ->
+            rpc(Tmux, fun() ->
+                ssh:start(),
+                PrivDir = filename:join(proplists:get_value(priv_dir, Config), "nopubkey"),
+                file:make_dir(PrivDir),
+                SysDir = proplists:get_value(data_dir, Config),
+                {ok, _Sshd} = ssh:daemon(8989, [{system_dir, SysDir},
+                                    {user_dir, PrivDir},
+                                    {password, "bar"}])
+            end),
+            os:cmd(os:find_executable("tmux") ++ " new-window -n " ++ ClientName ++ " -d -- "++
+                "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null localhost -p 8989 -l foo"),
+            "" = tmux(["set-option -t ",ClientName," remain-on-exit on"]),
 
-    #tmux{ peer = Peer, node = Node, name = Name }.
+            timer:sleep(2000),
+            check_content(Tmux,"Enter password for \"foo\""),
+            "" = tmux("send -t " ++ ClientName ++ " bar Enter"),
+            timer:sleep(1000),
+            check_content(Tmux,"\\d+>");
+        true ->
+            ok
+    end,
+    Tmux.
+
+get_top_parent_test_group(Config) ->
+    maybe
+        GroupPath = proplists:get_value(tc_group_path,Config),
+        [_|_] ?= GroupPath,
+        [{name, Group2}] ?= lists:last(GroupPath),
+        Group2
+    else
+        _ -> proplists:get_value(name,
+                                 proplists:get_value(tc_group_properties,
+                                                                Config))
+    end.
+
+set_tty_prompt(Term, Config) ->
+    PG = get_top_parent_test_group(Config),
+
+    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
+    Prompt1 = proplists:get_value(shell_prompt_func_test, Config, Prompt),
+
+    if PG =:= ssh ->
+            erpc:call(Term#tmux.node, application, set_env,
+                [stdlib, shell_prompt_func_test, Prompt1]);
+        true ->
+            erpc:call(Term#tmux.node, application, set_env,
+                [stdlib, shell_prompt_func_test, Prompt1])
+    end.
 
 %% Start a tty, setup custom prompt and set cursor at bottom
 start_tty(Config) ->
 
     Term = setup_tty(Config),
 
-    Prompt = fun() -> ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"] end,
-    erpc:call(Term#tmux.node, application, set_env,
-              [stdlib, shell_prompt_func_test,
-               proplists:get_value(shell_prompt_func_test, Config, Prompt)]),
+    set_tty_prompt(Term, Config),
 
     {Rows, _} = get_window_size(Term),
 

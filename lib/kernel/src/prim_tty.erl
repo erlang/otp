@@ -105,8 +105,8 @@
 %%      * Same problem as insert mode, it only deleted current line, and does not move
 %%        to previous line automatically.
 
--export([init/1, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, handle_request/2, write/2, write/3,
+-export([init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
+         handle_signal/2, window_size/1, update_geometry/3, handle_request/2, write/2, write/3,
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
@@ -322,6 +322,18 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
 
     update_geometry(ReaderState).
 
+init_ssh(UserOptions, {Cols, Rows}, IOEncoding) ->
+    {ok, ANSI_RE_MP} = re:compile(?ANSI_REGEXP, [unicode]),
+    Options = options(UserOptions),
+    UnicodeMode = if IOEncoding =:= unicode -> true;
+                     IOEncoding =:= utf8 -> true;
+                     true -> false
+                  end,
+    State = init(#state{ tty = undefined, unicode = UnicodeMode,
+                 options = Options, ansi_regexp = ANSI_RE_MP }, ssh),
+    update_geometry(State, Cols, Rows).
+
+
 -spec reinit(state(), options()) -> state().
 reinit(State, UserOptions) ->
     init_term(State#state{ options = options(UserOptions) }).
@@ -332,6 +344,8 @@ options(UserOptions) ->
          tty => true,
          canon => false,
          echo => false }, UserOptions).
+init(State, ssh) ->
+    State#state{ xn = true };
 
 init(State, {unix,_}) ->
 
@@ -1149,6 +1163,9 @@ update_geometry(State) ->
             ?dbg({?FUNCTION_NAME, _Error}),
             State
     end.
+%% Functions for non ttys to update the geometry.
+update_geometry(State, NewCols, NewRows) ->
+    State#state{cols = NewCols, rows = NewRows}.
 
 npwcwidth(Char) ->
     npwcwidth(Char, true).
