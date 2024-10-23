@@ -1333,6 +1333,7 @@ user_info(UserMid) ->
     [{requests, user_info(UserMid, requests)},
      {replies,  user_info(UserMid, replies)} | user_info(UserMid, all)].
 
+-dialyzer({no_contracts, user_info/2}).
 -doc """
 Lookup user information
 
@@ -1407,7 +1408,7 @@ conn_info(ConnHandle) ->
     [{requests, conn_info(ConnHandle, requests)},
      {replies,  conn_info(ConnHandle, replies)} | conn_info(ConnHandle, all)].
 
-
+-dialyzer({no_contracts, conn_info/2}).
 -doc """
 Lookup information about an active connection
 
@@ -1418,7 +1419,9 @@ longer exists.
 
 [](){: #conn_info_21 }
 
-Lookup all connection information about an _active_ connection
+If `ConnInfo :: all`,
+lookup all connection information about an _active_ connection, where
+`Value :: [{conn_info_item(), V :: term()}]`.
 
 See [conn_info](`m:megaco#conn_info_24`) for more info.
 
@@ -1427,39 +1430,31 @@ longer exists.
 
 [](){: #conn_info_22 }
 
-Lookup information about currently active requests for an _active_ connection
+If `ConnInfo :: requests`,
+lookup information about currently active requests for an _active_ connection, where
+`Value :: [transaction_id()]`.
 
 Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
 longer exists.
 
 [](){: #conn_info_23 }
 
-Lookup information about currently active replies for an _active_ connection
+If `ConnInfo :: replies`,
+lookup information about currently active replies for an _active_ connection, where
+`Value :: [{TransId, ReplyState, Handler}]`, `TransId :: transaction_id()`,
+`ReplyState :: prepare | eval_request | waiting_for_ack | aborted`, and
+`Handler    :: undefined | pid()`.
 
 Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
 longer exists.
 
+If `ConnInfo :: conn_info_item()`, then `Value :: term()`.
+
 [](){: #update_conn_info }
 """.
--spec conn_info(ConnHandle, all) -> [{Item, Value}] when
+-spec conn_info(ConnHandle, ConnInfo) -> Value when
       ConnHandle :: conn_handle(),
-      Item       :: conn_info_item(),
-      Value      :: term();
-
-               (ConnHandle, requests) -> [TransId] when
-      ConnHandle :: conn_handle(),
-      TransId    :: transaction_id();
-
-               (ConnHandle, replies) ->
-          [{TransId, ReplyState, Handler}] when
-      ConnHandle :: conn_handle(),
-      TransId    :: transaction_id(),
-      ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
-      Handler    :: undefined | pid();
-
-               (ConnHandle, Item) -> Value when
-      ConnHandle :: conn_handle(),
-      Item       :: conn_info_item(),
+      ConnInfo   :: all | requests | replies | conn_info_item(),
       Value      :: term().
 
 conn_info(ConnHandle, all = Item) ->
