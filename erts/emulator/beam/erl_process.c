@@ -4475,7 +4475,6 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
 {
     Uint32 procs_qmask = flags & ERTS_RUNQ_FLGS_PROCS_QMASK;
     int max_prio_bit;
-    int skip_process = 0;
     ErtsRunPrioQueue *rpq;
 #define PSTACK_TYPE ErtsStolenProcess
     PSTACK_DECLARE(stolen_processes, 16);
@@ -4498,18 +4497,28 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
 	Process *proc;
         unsigned max_processes_to_steal;
         unsigned n_procs_stolen[ERTS_NO_PROC_PRIO_LEVELS];
+        unsigned prio_q;
+        ErtsRunQueueInfo *rqi;
 
 	max_prio_bit = procs_qmask & -procs_qmask;
 	switch (max_prio_bit) {
 	case MAX_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_MAX];
+            prio_q = PRIORITY_MAX;
+            rqi = &vrq->procs.prio_info[prio_q];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case HIGH_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_HIGH];
+            prio_q = PRIORITY_HIGH;
+            rqi = &vrq->procs.prio_info[prio_q];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case NORMAL_BIT:
 	case LOW_BIT:
-	    rpq = &vrq->procs.prio[PRIORITY_NORMAL];
+            prio_q = PRIORITY_NORMAL;
+            rqi = &vrq->procs.prio_info[PRIORITY_NORMAL];
+            max_processes_to_steal = erts_atomic32_read_dirty(&rqi->len);
+            rqi = &vrq->procs.prio_info[PRIORITY_LOW];
+            max_processes_to_steal += erts_atomic32_read_dirty(&rqi->len);
 	    break;
 	case 0:
 	    goto no_procs;
@@ -4519,18 +4528,20 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
 	    goto no_procs;
 	}
 
-        max_processes_to_steal = 100;
+        rpq = &vrq->procs.prio[prio_q];
+        // Steal at least one task, even if there is a single one
+        max_processes_to_steal++;
+        // Only steal half the tasks (to balance the load between the victim runqueue and this one)
+        max_processes_to_steal /= 2;
+        // Don't steal too many tasks at once, to keep the critical section from getting too long
+        max_processes_to_steal = max_processes_to_steal > 100 ? 100 : max_processes_to_steal;
         for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
             n_procs_stolen[i] = 0;
         }
 	prev_proc = NULL;
 	proc = rpq->first;
-	while (proc) {
-            // We try to steal roughly half the processes that we can steal.
-            if (skip_process) {
-                skip_process = 0;
-                prev_proc = proc;
-            } else if (erts_try_change_runq_proc(proc, rq)) {
+	while (proc && max_processes_to_steal) {
+            if (erts_try_change_runq_proc(proc, rq)) {
                 erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
                 int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
                 ErtsStolenProcess *sp = PSTACK_PUSH(stolen_processes);
@@ -4538,10 +4549,7 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
                 sp->prio = prio;
                 n_procs_stolen[prio]++;
                 unqueue_process_no_update_lengths(rpq, prev_proc, proc);
-                if (--max_processes_to_steal == 0) {
-                    break;
-                }
-                skip_process = 1;
+                --max_processes_to_steal;
             } else {
                 prev_proc = proc;
             }
