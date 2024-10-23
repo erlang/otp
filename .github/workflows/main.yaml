@@ -270,12 +270,7 @@ jobs:
         installer_name: ${{ steps.compile-erlang.outputs.installer_name }}
     
     steps:
-      - uses: Vampire/setup-wsl@v3.1.3
-        with:
-          distribution: Ubuntu-18.04
-
-      - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
+      - uses: ./.github/actions/setup-wsl-runner
 
       - name: Install openssl
         shell: cmd
@@ -497,32 +492,9 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: Vampire/setup-wsl@v3.1.1
+      - uses: ./.github/actions/setup-wsl-runner
         with:
-          distribution: Ubuntu-18.04
-      - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
-      - name: Download installer
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_win32_installer
-      - name: Download tests
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_tests
-
-      - name: Install OTP
-        shell: cmd
-        run: |
-            echo %cd%
-            start "" /WAIT ${{ needs.build-windows.outputs.installer_name }} /S /D=%CD%\release\win32\
-            dir %cd%
-            dir %cd%\release\win32\
-
-      - name: Download source archive
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_prebuilt
+          SETUP_TEST: true
 
       - name: Run tests
         id: run-tests
@@ -573,35 +545,10 @@ jobs:
     if: ${{ !cancelled() }} # Run even if the need has failed
     needs: [test-windows, build-windows]
     steps:
-      - uses: Vampire/setup-wsl@v3.1.1
+      - uses: ./.github/actions/setup-wsl-runner
         with:
-          distribution: Ubuntu-18.04
-      - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
-      - name: Download installer
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_win32_installer
-      - name: Download tests
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_tests
+          SETUP_TEST: true
 
-      - name: Install OTP
-        shell: cmd
-        run: |
-            echo %cd%
-            start "" /WAIT ${{ needs.build-windows.outputs.installer_name }} /S /D=%CD%\release\win32\
-            dir %cd%
-            dir %cd%\release\win32\
-
-      - name: Download source archive
-        uses: actions/download-artifact@v4.1.8
-        with:
-          name: otp_prebuilt
-
-      - name: Download test results
-        uses: actions/download-artifact@v4.1.8
       - name: Merge test results
         run: |
           shopt -s nullglob

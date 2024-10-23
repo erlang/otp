@@ -1,0 +1,44 @@
+name: Setup Windows WSL Runner
+description: 'Setup a WSL Runner for building and testing Erlang/OTP'
+
+inputs:
+  SETUP_TEST:
+    default: false
+  github_token:
+    description: 'GITHUB_TOKEN'
+    default: '${{ github.token }}'
+
+runs:
+    using: composite
+    steps:
+      - uses: Vampire/setup-wsl@v3.1.3
+        with:
+          distribution: Ubuntu-18.04
+
+      - name: Install WSL dependencies
+        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip zip
+
+      - name: Download source archive
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_prebuilt
+
+      - name: Download installer
+        if: inputs.SETUP_TEST == 'true'
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_win32_installer
+      - name: Download tests
+        if: inputs.SETUP_TEST == 'true'
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: otp_tests
+
+      - name: Install OTP
+        if: inputs.SETUP_TEST == 'true'
+        shell: cmd
+        run: |
+            echo %cd%
+            start "" /WAIT ${{ needs.build-windows.outputs.installer_name }} /S /D=%CD%\release\win32\
+            dir %cd%
+            dir %cd%\release\win32\
