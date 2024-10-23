@@ -2368,7 +2368,6 @@ erts_build_stacktrace(ErtsHeapFactory* hfact, Process* rp,
 {
     Uint sz;
     struct StackTrace* s;
-    int depth;
     FunctionInfo* stk;
     FunctionInfo* stkp;
     Uint heap_size;
@@ -2377,23 +2376,21 @@ erts_build_stacktrace(ErtsHeapFactory* hfact, Process* rp,
     Eterm mfa;
     Eterm res = NIL;
 
-    depth = max_depth;
-    sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
+    sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * max_depth;
     s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
     s->depth = 0;
+    s->max_depth = max_depth;
     s->pc = NULL;
 
-    if (include_i && depth > 0 && rp->i) {
+    if (include_i && max_depth > 0 && rp->i) {
         s->trace[s->depth++] = rp->i;
-        depth--;
     }
-    erts_save_stacktrace(rp, s, depth);
+    erts_save_stacktrace(rp, s);
 
-    depth = s->depth;
     stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
-					     depth*sizeof(FunctionInfo));
+					     s->depth * sizeof(FunctionInfo));
     heap_size = 3;
-    for (i = 0; i < depth; i++) {
+    for (i = 0; i < s->depth; i++) {
 	erts_lookup_function_info(stkp, s->trace[i], 1);
 	if (stkp->mfa) {
 	    heap_size += stkp->needed + 2;
