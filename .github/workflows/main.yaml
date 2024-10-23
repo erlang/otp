@@ -496,7 +496,7 @@ jobs:
       - uses: actions/checkout@v4.2.1
       - uses: ./.github/actions/setup-wsl-runner
         with:
-          SETUP_TEST: true
+          installer_name: ${ needs.build-windows.outputs.installer_name }
 
       - name: Run tests
         id: run-tests
@@ -548,7 +548,7 @@ jobs:
       - uses: actions/checkout@v4.2.1
       - uses: ./.github/actions/setup-wsl-runner
         with:
-          SETUP_TEST: true
+          installer_name: ${ needs.build-windows.outputs.installer_name }
 
       - name: Merge test results
         run: |
