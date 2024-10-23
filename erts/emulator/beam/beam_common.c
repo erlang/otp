@@ -883,9 +883,9 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
     /* Create a container for the exception data */
     sz = (offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth
           + sizeof(Eterm) - 1) / sizeof(Eterm);
-    s = (struct StackTrace *) HAlloc(c_p, 1 + sz);
+    s = (struct StackTrace *) HAlloc(c_p, sz);
     /* The following fields are inside the bignum */
-    s->header = make_pos_bignum_header(sz);
+    s->header = make_pos_bignum_header(sz - 1);
     s->freason = c_p->freason;
     s->depth = 0;
 
