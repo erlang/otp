@@ -29,6 +29,7 @@ runs:
         uses: actions/download-artifact@v4.1.8
         with:
           name: otp_win32_installer
+
       - name: Download tests
         if: inputs.installer_name != 'false'
         uses: actions/download-artifact@v4.1.8
