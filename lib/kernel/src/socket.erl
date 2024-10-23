@@ -2739,7 +2739,9 @@ The `Opts` argument can provide extra information:
       Reason   ::
         posix() | 'domain' | 'type' | 'protocol';
 
-          (Domain :: term(), Type :: term()) -> _.
+          (Domain :: domain(), Type :: type() | integer()) -> {'ok', Socket} | {'error', Reason} when
+      Socket :: socket(),
+      Reason :: posix() | protocol.
 
 open(FD, Opts) when is_map(Opts) ->
     if
@@ -2769,9 +2771,18 @@ Equivalent to [`open(Domain, Type, Protocol, #{})`](`open/4`).
 
 Equivalent to [`open(Domain, Type, default, #{})`](`open/4`).
 """.
--spec open(Domain :: term(), Type :: term(), Opts :: map()) -> _;
-          (Domain :: term(), Type :: term(), Protocol :: term()) -> _.
-
+-spec open(Domain, Type, Opts) -> {'ok', Socket} | {'error', Reason} when
+      Domain :: domain() | integer(),
+      Type :: type() | integer(),
+      Opts :: map(),
+      Socket :: socket(),
+      Reason :: posix() | protocol;
+          (Domain, Type, Protocol) -> {'ok', Socket} | {'error', Reason} when
+      Domain :: domain() | integer(),
+      Type :: type() | integer(),
+      Protocol :: default | protocol() | integer(),
+      Socket :: socket(),
+      Reason :: posix() | protocol.
 open(Domain, Type, Opts) when is_map(Opts) ->
     open(Domain, Type, 0, Opts);
 open(Domain, Type, Protocol) ->
@@ -3700,7 +3711,7 @@ With argument `Cont`; equivalent to
 [`sendto(Socket, Data, Cont, infinity)`](`sendto/4`) *since OTP 24.0*.
 """.
 -spec sendto(Socket :: term(), Data :: term(), Cont :: select_info()) -> _;
-            (Socket :: term(), Data :: term(), Dest :: term()) -> _.
+            (Socket :: term(), Data :: term(), Dest :: sockaddr()) -> _.
 
 sendto(Socket, Data, ?SELECT_INFO(_, _) = Cont) ->
     sendto(Socket, Data, Cont, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -3709,6 +3720,8 @@ sendto(Socket, Data, Dest) ->
       Socket, Data, Dest,
       ?ESOCK_SENDTO_FLAGS_DEFAULT, ?ESOCK_SENDTO_TIMEOUT_DEFAULT).
 
+
+-dialyzer({no_contracts, sendto/4}).
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
 Send data on a socket.
@@ -3730,6 +3743,7 @@ and encode message flags in every call but the first.
 See the last argument (argument 5) of `sendto/5` for
 an explanation of `TimeoutOrHandle`.
 """.
+
 -spec sendto(Socket :: term(), Data :: term(),
              Dest :: term(), Flags :: list()) -> _;
             (Socket :: term(), Data :: term(),
@@ -3958,11 +3972,11 @@ With arguments `Msg` and `Flags`; equivalent to
 With arguments `Data` and `Cont`; equivalent to
 [`sendmsg(Socket, Data, Cont, infinity)`](`sendmsg/4`) *since OTP 24.0*.
 """.
--spec sendmsg(Socket :: term(), Msg :: term(), Flags :: list())
+-spec sendmsg(Socket :: socket(), Msg :: msg_send(), Flags :: list())
              -> _;
-             (Socket :: term(), Data :: term(), Cont :: select_info())
+             (Socket :: socket(), Data :: msg_send() | erlang:iovec(), Cont :: select_info())
              -> _;
-             (Socket :: term(), Msg :: term(), Timeout :: term())
+             (Socket :: socket(), Msg :: msg_send(), Timeout :: infinity)
              -> _.
 
 sendmsg(Socket, Msg, Flags) when is_list(Flags) ->
@@ -4847,11 +4861,13 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 [`recv(Socket, 0, Flags, TimeoutOrHandle)`](`recv/4`)
 *(since OTP 24.0)*.
 """.
--spec recv(Socket :: term(), Flags :: list(), TimeoutOrHandle :: term())
+-spec recv(Socket, Flags, TimeoutOrHandle) -> _ when
+      Socket :: socket(),
+      Flags :: list(),
+      TimeoutOrHandle :: nowait | select_handle() | completion_handle();
+          (Socket :: socket(), Length :: non_neg_integer(), Flags :: list())
           -> _;
-          (Socket :: term(), Length :: term(), Flags :: list())
-          -> _;
-          (Socket :: term(), Length :: term(), TimeoutOrHandle :: term())
+          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle :: select_handle() | completion_handle())
           -> _.
 
 recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
@@ -5279,13 +5295,13 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
--spec recvfrom(Socket :: term(), Flags :: list(),
+-spec recvfrom(Socket :: socket(), Flags :: [msg_flag() | integer()],
                TimeoutOrHandle :: term())
               -> _;
-              (Socket :: term(), BufSz :: term(), Flags :: list())
+              (Socket :: socket(), BufSz :: non_neg_integer(), Flags :: [msg_flag() | integer()])
               -> _;
-              (Socket :: term(), BufSz :: term(),
-               TimeoutOrHandle :: term())
+              (Socket :: socket(), BufSz :: non_neg_integer(),
+               TimeoutOrHandle :: 'nowait' | select_handle() | completion_handle())
               -> _.
 
 recvfrom(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
@@ -5491,7 +5507,7 @@ With argument `TimeoutOrHandle`; equivalent to
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
 -spec recvmsg(Socket :: term(), Flags :: list()) -> _;
-             (Socket :: term(), TimeoutOrHandle :: term()) -> _.
+             (Socket :: term(), TimeoutOrHandle :: reference() | 'infinity' | 'nowait' | non_neg_integer()) -> _.
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
