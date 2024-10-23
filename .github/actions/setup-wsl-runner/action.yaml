@@ -25,18 +25,18 @@ runs:
           name: otp_prebuilt
 
       - name: Download installer
-        if: inputs.SETUP_TEST != 'false'
+        if: inputs.installer_name != 'false'
         uses: actions/download-artifact@v4.1.8
         with:
           name: otp_win32_installer
       - name: Download tests
-        if: inputs.SETUP_TEST != 'false'
+        if: inputs.installer_name != 'false'
         uses: actions/download-artifact@v4.1.8
         with:
           name: otp_tests
 
       - name: Install OTP
-        if: inputs.SETUP_TEST != 'false'
+        if: inputs.installer_name != 'false'
         shell: cmd
         run: |
             echo %cd%
