@@ -596,12 +596,16 @@ daemon(Host0, Port0, UserOptions0)
     case ssh_options:handle_options(server, UserOptions) of
         #{} = Options0 ->
             case ssh_lsocket:get_lsocket(Host1, Port0, Options0) of
-                {ok, LSocketProvider, {ok, LSocket}} ->
-                    {Host, Port, Options1} = update_lsocket(LSocket, LSocketProvider, Options0),
+                {ok, {LSocketProvider, LSocket}} ->
+                    {Host, Port, Options1} =
+                        update_lsocket(LSocket, LSocketProvider, Options0),
                     try
-                        %% Now Host,Port is what to use for the supervisor to register its name,
-                        %% and ListenSocket, if provided,  is for listening on connections. But
-                        %% it is still owned by self()...
+                        %% Host,Port is what to use for the system
+                        %% supervisor to register its name (see
+                        %% #address record); LSocket is owned by
+                        %% LSocketProvider process.  Ownership will be
+                        %% transferred once ssh_acceptor_sup is
+                        %% started.
 
                         %% throws error:Error if no usable hostkey is found
                         ssh_connection_handler:available_hkey_algorithms(server, Options1),
@@ -610,32 +614,31 @@ daemon(Host0, Port0, UserOptions0)
                                                              profile = ?GET_OPT(profile,Options1)},
                                                     Options1)
                     of
-                        {ok,DaemonRef} ->
-                            {ok,DaemonRef};
-                        {error, {already_started, _}} ->
+                        {ok, DaemonRef} ->
+                            {ok, DaemonRef};
+                        {error, {already_started, _}} -> % ssh_system_sup with #address already register
                             close_listen_socket(LSocket, Options1),
                             {error, eaddrinuse};
                         {error, Error} ->
                             close_listen_socket(LSocket, Options1),
                             {error, Error}
                     catch
-                        error:{shutdown,Err} ->
+                        error:{shutdown, Err} -> % no suitable host key
                             close_listen_socket(LSocket, Options1),
-                            {error,Err};
-                        exit:{noproc, _} ->
+                            {error, Err};
+                        exit:{noproc, _} -> % ssh application not started
                             close_listen_socket(LSocket, Options1),
                             {error, ssh_not_started};
                         error:Error ->
                             close_listen_socket(LSocket, Options1),
-                            error(Error);
-                        exit:Exit ->
-                            close_listen_socket(LSocket, Options1),
-                            exit(Exit)
+                            {error, Error};
+                        _C:_E ->
+                            {error,{cannot_start_daemon,_C,_E}}
                     end;
-                Error = {error, _} ->
-                    Error
+                {error, {_, LSocketError}} ->
+                    {error, LSocketError}
             end;
-        OptionError = {error,_} ->
+        OptionError = {error, _} ->
             OptionError
     end;
 daemon(_, _, _) ->

@@ -285,12 +285,12 @@ refresh_lsocket(Options0) ->
     {_OldLSock, LHost, LPort, _SockOwner} =
         ?GET_INTERNAL_OPT(lsocket, Options0, lsocket_undefined),
     case ssh_lsocket:get_lsocket(LHost, LPort, Options0) of
-        {ok, LSocketProvider, {ok, LSocket}} ->
+        {ok, {LSocketProvider, LSocket}} ->
             {_Host, _Port, Options} =
                 ssh:update_lsocket(LSocket, LSocketProvider, Options0),
             Options;
-        {error, Error} ->
-            {error, Error}
+        Error = {error, _} ->
+            Error
     end.
 
 %%%################################################################

@@ -26,47 +26,53 @@
 -moduledoc false.
 
 -include("ssh.hrl").
--export([start_link/4, provide_lsocket/5, get_lsocket/3]).
+-export([start_link/4, provide_lsocket/4, get_lsocket/3]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1,
          ssh_dbg_format/2, ssh_dbg_format/3]).
 
 get_lsocket(Host, Port, Options) ->
-    supervisor:start_child(ssh_lsocket_sup, [self(), Host, Port, Options]).
+    try
+        supervisor:start_child(ssh_lsocket_sup, [self(), Host, Port, Options])
+    of
+        {ok, LSocketProvider} ->
+            receive
+                Result = {_, {LSocketProvider, _}} ->
+                    Result
+            after
+                ?DEFAULT_TIMEOUT ->
+                    {error, LSocketProvider, no_response_from_lsocket_provider}
+            end
+    catch
+        exit:{noproc, _} ->
+            {error, {no_provider_pid, ssh_not_started}}
+    end.
 
 start_link(Caller, Host, Port, Options) ->
-    proc_lib:start_link(?MODULE, provide_lsocket,
-                            [self(), Caller, Host, Port, Options]).
+    {ok, proc_lib:spawn_link(?MODULE, provide_lsocket,
+                             [Caller, Host, Port, Options])}.
 
-provide_lsocket(Parent, _Caller, _Host1, Port0, Options) ->
-    OpenResult =
+provide_lsocket(Caller, _Host1, Port0, Options) ->
+    ListenResult =
         try
             try_listen(Port0, Options, 4)
         of
             {ok, LSocket} ->
-                {ok, LSocket};
-            Others ->
-                Others
+                {ok, {self(), LSocket}};
+            {error, Details} ->
+                {error, {self(), Details}}
         catch
-            throw:bad_fd ->
-                {error,bad_fd};
-            throw:bad_socket ->
-                {error,bad_socket};
-            error:{badmatch, {error,Error}} ->
-                {error,Error};
-            error:Error ->
-                {error,Error};
-            _C:_E ->
-                {error,{cannot_start_daemon,_C,_E}}
+            _Class:Exception ->
+                {error, {self(), Exception}}
         end,
-    case OpenResult of
-        {ok, LSocket1} ->
-            proc_lib:init_ack(Parent, {ok, self(), OpenResult}),
+    case ListenResult of
+        {ok, {_, LSocket1}} ->
+            Caller ! ListenResult,
             wait_for_acceptor_sup(LSocket1, Options),
             ok;
-        {error, _} ->
-            proc_lib:init_fail(Parent, OpenResult, {exit, normal})
+        {error, {_, _}} ->
+            Caller ! ListenResult
     end.
 
 wait_for_acceptor_sup(ListenSocket, Options) ->
@@ -118,14 +124,14 @@ ssh_dbg_trace_points() -> [connections].
 ssh_dbg_flags(connections) -> [c].
 
 ssh_dbg_on(connections) ->
-    dbg:tpl(?MODULE, provide_lsocket, 5, x),
+    dbg:tpl(?MODULE, provide_lsocket, 4, x),
     dbg:tpl(?MODULE, controlling_process, 3, x),
     dbg:tpl(?MODULE, try_listen, 4, x),
     dbg:tpl(?MODULE, wait_for_acceptor_sup, 2, x);
 ssh_dbg_on(tcp) -> dbg:tpl(?MODULE, accept, 3, x).
 
 ssh_dbg_off(connections) ->
-    dbg:ctpl(?MODULE, provide_lsocket, 5),
+    dbg:ctpl(?MODULE, provide_lsocket, 4),
     dbg:ctpl(?MODULE, controlling_process, 3),
     dbg:ctpl(?MODULE, try_listen, 4),
     dbg:ctpl(?MODULE, wait_for_acceptor_sup, 2);
