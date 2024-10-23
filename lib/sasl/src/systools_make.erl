@@ -1905,6 +1905,8 @@ add_appl(Name, Vsn, App, Tar, Variables, Flags, Var) ->
 		    add_to_tar(Tar, AppUp, BinBase ++ ".appup");
 		false ->
 		    ok
+	    end,
+	    add_modules(map(fun(Mod) -> to_list(Mod) end,
 			    App#application.modules),
 			Tar,
 			AppDir,
