@@ -106,7 +106,7 @@
 %%        to previous line automatically.
 
 -export([init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, handle_request/2,
+         handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
          write/2, write/3,
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).

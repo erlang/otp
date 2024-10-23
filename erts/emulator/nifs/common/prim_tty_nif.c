@@ -1083,7 +1083,7 @@ static ERL_NIF_TERM tty_select_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     using_oldshell = 0;
 #endif
     debug("Select on %d\r\n", tty->ifd);
-    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[2]);
+    enif_select(env, tty->ifd, ERL_NIF_SELECT_READ, tty, NULL, argv[1]);
 
     enif_self(env, &tty->reader);
     enif_monitor_process(env, tty, &tty->reader, NULL);
