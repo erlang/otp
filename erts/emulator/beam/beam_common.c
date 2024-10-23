@@ -35,6 +35,9 @@
 #include "beam_catches.h"
 #include "beam_common.h"
 #include "erl_global_literals.h"
+#ifdef VALGRIND
+#  include <valgrind/memcheck.h>
+#endif
 
 #ifdef USE_VM_PROBES
 #include "dtrace-wrapper.h"
@@ -1044,6 +1047,17 @@ save_stacktrace(Process* c_p, ErtsCodePtr pc, Eterm* reg,
 
     /* Save the actual stack trace */
     gather_stacktrace(c_p, s);
+
+#ifdef VALGRIND
+    /* Make sure entire bignum is defined in case it shows up in a crash dump */
+    {
+        const int words_left = s->max_depth - s->depth;
+        if (words_left) {
+            VALGRIND_MAKE_MEM_DEFINED(&s->trace[s->depth],
+                                      words_left * sizeof(ErtsCodePtr));
+        }
+    }
+#endif
 }
 
 void
