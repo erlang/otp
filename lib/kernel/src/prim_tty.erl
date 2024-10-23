@@ -106,21 +106,24 @@
 %%        to previous line automatically.
 
 -export([init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
-         handle_signal/2, window_size/1, update_geometry/3, handle_request/2, write/2, write/3,
+         handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
+         write/2, write/3,
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
--export([reader_stop/1, disable_reader/1, enable_reader/1, is_reader/2, is_writer/2]).
+-export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
+         is_reader/2, is_writer/2]).
 
--nifs([isatty/1, tty_create/0, tty_init/3, tty_set/1, setlocale/1,
-       tty_select/2, tty_window_size/1, tty_encoding/1, write_nif/2, read_nif/2, isprint/1,
+-nifs([isatty/1, tty_create/0, tty_init/2, setlocale/1,
+       tty_select/2, tty_window_size/1,
+       tty_encoding/1, tty_is_open/2, write_nif/2, read_nif/3, isprint/1,
        wcwidth/1, wcswidth/1,
        sizeof_wchar/0, tgetent_nif/1, tgetnum_nif/1, tgetflag_nif/1, tgetstr_nif/1,
        tgoto_nif/1, tgoto_nif/2, tgoto_nif/3]).
 
--export([reader_loop/5, writer_loop/2]).
+-export([reader_loop/2, writer_loop/2]).
 
 %% Exported in order to remove "unused function" warning
--export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3]).
+-export([sizeof_wchar/0, wcswidth/1, tgoto/1, tgoto/2, tgoto/3, tty_is_open/2]).
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
@@ -138,7 +141,7 @@
 -record(state, {tty :: tty() | undefined,
                 reader :: {pid(), reference()} | undefined,
                 writer :: {pid(), reference()} | undefined,
-                options,
+                options = #{ input => cooked, output => cooked } :: options(),
                 unicode = true :: boolean(),
                 lines_before = [],   %% All lines before the current line in reverse order
                 lines_after = [],    %% All lines after the current line.
@@ -166,12 +169,8 @@
                 ansi_regexp
                }).
 
--type options() :: #{ tty => boolean(),
-                      input => boolean(),
-                      canon => boolean(),
-                      echo => boolean(),
-                      sig => boolean()
-                    }.
+-type options() :: #{ input := cooked | raw | disabled,
+                      output := raw | cooked }.
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
@@ -241,7 +240,7 @@ on_load(Extra) ->
 -spec window_size(state()) -> {ok, {non_neg_integer(), non_neg_integer()}} | {error, term()}.
 window_size(State = #state{ tty = TTY }) ->
     case tty_window_size(TTY) of
-        {error, enotsup} when map_get(tty, State#state.options) ->
+        {error, enotsup} when map_get(input, State#state.options) =:= raw ->
             %% When the TTY is enabled, we should return a "dummy" row and column
             %% when we cannot find the proper size.
             {ok, {State#state.cols, State#state.rows}};
@@ -275,27 +274,24 @@ init(UserOptions) when is_map(UserOptions) ->
     init_term(#state{ tty = TTY, unicode = UnicodeMode, options = Options, ansi_regexp = ANSI_RE_MP }).
 init_term(State = #state{ tty = TTY, options = Options }) ->
     TTYState =
-        case maps:get(tty, Options) of
-            true ->
-                %% If a reader has been started already, we disable it to avoid race conditions when
-                %% upgrading the terminal
-                [disable_reader(State) || State#state.reader =/= undefined],
-
-                try
-                    case tty_init(TTY, stdout, Options) of
-                        ok -> ok;
-                        {error, enotsup} -> error(enotsup)
-                    end,
-                    NewState = init(State, os:type()),
-                    ok = tty_set(TTY),
-
-                    NewState
-                after
-                    [enable_reader(State) || State#state.reader =/= undefined]
-                end;
-            false ->
+        case maps:get(input, Options) of
+            raw ->
+                init(State, os:type());
+            Else when Else =:= cooked; Else =:= disabled ->
                 State
         end,
+
+    try
+        [disable_reader(State) || State#state.reader =/= undefined],
+
+        case tty_init(TTY, Options) of
+            ok -> ok;
+            {error, enotsup} -> error(enotsup)
+        end
+
+    after
+        [enable_reader(State) || State#state.reader =/= undefined]
+    end,
 
     WriterState =
         if TTYState#state.writer =:= undefined ->
@@ -305,7 +301,7 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
                 TTYState
         end,
     ReaderState =
-        case {maps:get(input, Options), TTYState#state.reader} of
+        case {maps:get(input, Options) =/= disabled, TTYState#state.reader} of
             {true, undefined} ->
                 DefaultReaderEncoding = if State#state.unicode -> utf8;
                                            not State#state.unicode -> latin1
@@ -352,18 +348,18 @@ init_ssh(UserOptions, {Cols, Rows}, IOEncoding) ->
 
 
 -spec reinit(state(), options()) -> state().
-reinit(State, UserOptions) ->
-    init_term(State#state{ options = options(UserOptions) }).
+reinit(State = #state{ options = OldOptions }, UserOptions) ->
+    case options(UserOptions) of
+        OldOptions -> State;
+        _ ->
+            init_term(State#state{ options = options(UserOptions) })
+    end.
 
 options(UserOptions) ->
-    maps:merge(
-      #{ input => true,
-         tty => true,
-         canon => false,
-         echo => false }, UserOptions).
+    maps:merge(#{ input => raw, output => cooked }, UserOptions).
+
 init(State, ssh) ->
     State#state{ xn = true };
-
 init(State, {unix,_}) ->
 
     case os:getenv("TERM") of
@@ -506,7 +502,7 @@ handle_signal(State, sigwinch) ->
 handle_signal(State, resize) ->
     update_geometry(State);
 handle_signal(State, sigcont) ->
-    tty_set(State#state.tty),
+    tty_init(State#state.tty, State#state.options),
     State.
 
 -spec disable_reader(state()) -> ok.
@@ -516,6 +512,18 @@ disable_reader(#state{ reader = {ReaderPid, _} }) ->
 -spec enable_reader(state()) -> ok.
 enable_reader(#state{ reader = {ReaderPid, _} }) ->
     ok = call(ReaderPid, enable).
+
+-spec read(state()) -> ok.
+read(#state{ reader = {ReaderPid, _} }) ->
+    ReaderPid ! {read, infinity},
+    ok.
+
+-spec read(state(), pos_integer()) -> ok.
+read(State, 0) ->
+    read(State, 1024);
+read(#state{ reader = {ReaderPid, _} }, N) ->
+    ReaderPid ! {read, N},
+    ok.
 
 call(Pid, Msg) ->
     Alias = erlang:monitor(process, Pid, [{alias, reply_demonitor}]),
@@ -537,69 +545,84 @@ reader([TTY, Encoding, Parent]) ->
                   utf8 -> Encoding;
                   Else -> Else
               end,
-    reader_loop(TTY, Parent, ReaderRef, FromEnc, <<>>).
+    reader_loop(#{ tty => TTY, parent => Parent,
+                   reader => ReaderRef, enc => FromEnc, read => 0,
+                   ready_input => false}, <<>>).
 
-reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc) ->
+reader_loop(State = #{ tty := TTY, reader := ReaderRef, enc := FromEnc, read := Read,
+                       ready_input := ReadyInput }, Acc) ->
     receive
         {DisableAlias, disable} ->
             DisableAlias ! {DisableAlias, ok},
             receive
                 {EnableAlias, enable} ->
                     EnableAlias ! {EnableAlias, ok},
-                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc)
+                    ?MODULE:reader_loop(State, Acc)
             end;
         {set_unicode_state, _} when FromEnc =:= {utf16, little} ->
-            ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc);
+            ?MODULE:reader_loop(State, Acc);
         {set_unicode_state, Bool} ->
             NewFromEnc = if Bool -> utf8; not Bool -> latin1 end,
-            ?MODULE:reader_loop(TTY, Parent, ReaderRef, NewFromEnc, Acc);
+            ?MODULE:reader_loop(State#{ enc := NewFromEnc }, Acc);
         {_Alias, stop} ->
             ok;
-        {select, TTY, ReaderRef, ready_input} ->
-            %% This call may block until data is available
-            case read_nif(TTY, ReaderRef) of
-                {error, closed} ->
-                    Parent ! {ReaderRef, eof},
-                    ok;
-                {error, aborted} ->
-                    %% The read operation was aborted. This only happens on
-                    %% Windows when we change from "noshell" to "newshell".
-                    %% When it happens we need to re-read the tty_encoding as
-                    %% it has changed.
-                    reader_loop(TTY, Parent, ReaderRef, tty_encoding(TTY), Acc);
-                {ok, <<>>} ->
-                    %% EAGAIN or EINTR
-                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, FromEnc, Acc);
-                {ok, UtfXBytes} ->
+        {read, N} when ReadyInput ->
+            reader_read(State#{ read := N }, Acc);
+        {read, N} when not ReadyInput ->
+            ?MODULE:reader_loop(State#{ read := N }, Acc);
+        {select, TTY, ReaderRef, ready_input} when Read > 0; Read =:= infinity ->
+            reader_read(State, Acc);
+        {select, TTY, ReaderRef, ready_input} when Read =:= 0 ->
+            ?MODULE:reader_loop(State#{ ready_input := true }, Acc);
+        _M ->
+            % erlang:display(_M),
+            ?MODULE:reader_loop(State, Acc)
+    end.
 
-                    %% read_nif may have blocked for a long time, so we check if
-                    %% there have been any changes to the unicode state before
-                    %% decoding the data.
-                    UpdatedFromEnc = flush_unicode_state(FromEnc),
+reader_read(State = #{ tty := TTY, parent := Parent, reader := ReaderRef,
+                       enc := FromEnc, read := Read }, Acc) ->
+    %% This call may block until data is available
+    case read_nif(TTY, ReaderRef, if Read =:= infinity -> 1024; true -> Read end) of
+        {error, closed} ->
+            Parent ! {ReaderRef, eof},
+            ok;
+        {ok, <<>>} ->
+            %% EAGAIN or EINTR
+            ?MODULE:reader_loop(State#{ ready_input := false }, Acc);
+        {ok, UtfXBytes} ->
 
-                    {Bytes, NewAcc, NewFromEnc} =
-                        case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
-                            {error, B, Error} ->
-                                %% We should only be able to get incorrect encoded data when
-                                %% using utf8
-                                UpdatedFromEnc = utf8,
-                                Parent ! {self(), set_unicode_state, false},
+            %% read_nif may have blocked for a long time, so we check if
+            %% there have been any changes to the unicode state before
+            %% decoding the data.
+            UpdatedFromEnc = flush_unicode_state(FromEnc),
+
+            {Bytes, NewAcc, NewFromEnc} =
+                case unicode:characters_to_binary([Acc, UtfXBytes], UpdatedFromEnc, utf8) of
+                    {error, B, Error} ->
+                        %% We should only be able to get incorrect encoded data when
+                        %% using utf8
+                        UpdatedFromEnc = utf8,
+                        Parent ! {self(), set_unicode_state, false},
+                        receive
+                            {set_unicode_state, false} ->
                                 receive
-                                    {set_unicode_state, false} ->
-                                        receive
-                                            {Parent, set_unicode_state, _} -> ok
-                                        end
-                                end,
-                                Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
-                                {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
-                            {incomplete, B, Inc} ->
-                                {B, Inc, UpdatedFromEnc};
-                            B when is_binary(B) ->
-                                {B, <<>>, UpdatedFromEnc}
+                                    {Parent, set_unicode_state, _} -> ok
+                                end
                         end,
-                    Parent ! {ReaderRef, {data, Bytes}},
-                    ?MODULE:reader_loop(TTY, Parent, ReaderRef, NewFromEnc, NewAcc)
-            end
+                        Latin1Chars = unicode:characters_to_binary(Error, latin1, utf8),
+                        {<<B/binary,Latin1Chars/binary>>, <<>>, latin1};
+                    {incomplete, B, Inc} ->
+                        {B, Inc, UpdatedFromEnc};
+                    B when is_binary(B) ->
+                        {B, <<>>, UpdatedFromEnc}
+                end,
+            Parent ! {ReaderRef, {data, Bytes}},
+            ResetRead = if
+                           Read =:= infinity -> infinity;
+                           true -> 0
+                        end,
+            ?MODULE:reader_loop(State#{ read := ResetRead, ready_input := false,
+                                        enc := NewFromEnc }, NewAcc)
     end.
 
 flush_unicode_state(FromEnc) ->
@@ -646,7 +669,7 @@ writer_loop(TTY, WriterRef) ->
     end.
 
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
-handle_request(State = #state{ options = #{ tty := false } }, Request) ->
+handle_request(State = #state{ options = #{ output := raw } }, Request) ->
     case Request of
         {putc_raw, Binary} ->
             {Binary, State};
@@ -1428,9 +1451,7 @@ isatty(_Fd) ->
 -spec tty_create() -> {ok, tty()}.
 tty_create() ->
     erlang:nif_error(undef).
-tty_init(_TTY, _Fd, _Options) ->
-    erlang:nif_error(undef).
-tty_set(_TTY) ->
+tty_init(_TTY, _Options) ->
     erlang:nif_error(undef).
 setlocale(_TTY) ->
     erlang:nif_error(undef).
@@ -1438,9 +1459,11 @@ tty_select(_TTY, _ReadRef) ->
     erlang:nif_error(undef).
 tty_encoding(_TTY) ->
     erlang:nif_error(undef).
+tty_is_open(_TTY, _Fd) ->
+    erlang:nif_error(undef).
 write_nif(_TTY, _IOVec) ->
     erlang:nif_error(undef).
-read_nif(_TTY, _Ref) ->
+read_nif(_TTY, _Ref, _N) ->
     erlang:nif_error(undef).
 tty_window_size(_TTY) ->
     erlang:nif_error(undef).

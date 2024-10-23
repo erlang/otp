@@ -40,6 +40,7 @@
          init_per_testcase/2, end_per_testcase/2,
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1,
 	 job_control_remote/1,stop_during_init/1,wrap/1,
+         noshell_raw/1,
          shell_history/1, shell_history_resize/1, shell_history_eaccess/1,
          shell_history_repair/1, shell_history_repair_corrupt/1,
          shell_history_corrupt/1,
@@ -67,13 +68,15 @@
          external_editor/1, external_editor_visual/1,
          external_editor_unicode/1, shell_ignore_pager_commands/1]).
 
+-export([get_until/2]).
+
 -export([test_invalid_keymap/1, test_valid_keymap/1]).
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 %% For custom prompt testing
 -export([prompt/1]).
 -export([output_to_stdout_slowly/1]).
--record(tmux, {peer, node, name, orig_location }).
+-record(tmux, {peer, node, name, ssh_server_name, orig_location }).
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,3}}].
@@ -91,6 +94,7 @@ groups() ->
        ctrl_keys, stop_during_init, wrap,
        shell_invalid_ansi,
        shell_get_password,
+       noshell_raw,
        {group, shell_history},
        {group, remsh}]},
      {shell_history, [],
@@ -1398,7 +1402,20 @@ shell_get_password(_Config) ->
        {putline,"secret\r"},
        {expect, "\r\n\"secret\""}]),
 
-    %% io:get_password only works when run in "newshell"
+    rtnode:run(
+        [{eval,fun() -> shell:start_interactive({noshell, raw}) end},
+        {eval,
+            fun() ->
+                io:format(user, "Enter password: ", []),
+                spawn(fun() -> io:format(user, "~nPassword was: ~ts~n",[io:get_password(user)]) end),
+                ok
+            end},
+        {expect, "Enter password: "},
+        {putline,"secret"},
+        {expect, "^\nPassword was: secret\n"}],
+        "", "", ["-noshell"]),
+
+    %% io:get_password only works when run in "newshell", or "noshell/raw"
     rtnode:run(
       [{putline,"io:get_password()."},
        {expect, "\\Q{error,enotsup}\\E"}],
@@ -1917,11 +1934,11 @@ setup_tty(Config) ->
             check_content(Tmux,"Enter password for \"foo\""),
             "" = tmux("send -t " ++ ClientName ++ " bar Enter"),
             timer:sleep(1000),
-            check_content(Tmux,"\\d+>");
+            check_content(Tmux,"\\d+\n?>"),
+            Tmux#tmux{ ssh_server_name = Name };
         true ->
-            ok
-    end,
-    Tmux.
+            Tmux
+    end.
 
 get_top_parent_test_group(Config) ->
     maybe
@@ -1979,6 +1996,8 @@ prompt(L) ->
 stop_tty(Term) ->
     catch peer:stop(Term#tmux.peer),
     ct:log("~ts",[get_content(Term, "-e")]),
+    [ct:log("~ts",[get_content(Term#tmux{ name = Term#tmux.ssh_server_name }, "-e")])
+      || Term#tmux.ssh_server_name =/= undefined],
 %    "" = tmux("kill-window -t " ++ Term#tmux.name),
     ok.
 
@@ -2185,6 +2204,110 @@ wrap(Config) when is_list(Config) ->
             ok
     end,
     ok.
+
+noshell_raw(Config) ->
+
+    case proplists:get_value(default_shell, Config) of
+        new ->
+
+            TCGl = group_leader(),
+            TC = self(),
+
+            TestcaseFun = fun() ->
+                                  link(TC),
+                                  group_leader(whereis(user), self()),
+
+                                  try
+                                    %% Make sure we are in unicode encoding
+                                    unicode = proplists:get_value(encoding, io:getopts()),
+
+                                    "\fhello\n" = io:get_line("1> "),
+                                    ok = shell:start_interactive({noshell, raw}),
+
+                                    %% Test that we can receive 1 char when N is 100
+                                    [$\^p] = io:get_chars("2> ", 100),
+
+                                    %% Test that we only receive 1 char when N is 1
+                                    "a" = io:get_chars("3> ", 1),
+                                    "bc" = io:get_chars("", 2),
+
+                                    %% Test that get_chars counts characters not bytes
+                                    ok = io:setopts([binary]),
+                                    ~b"å" = io:get_chars("4> ", 1),
+                                    ~b"äö" = io:get_chars("", 2),
+
+                                    %% Test that echo works
+                                    ok = io:setopts([{echo, true}]),
+                                    ~b"åäö" = io:get_chars("5> ", 100),
+                                    ok = io:setopts([{echo, false}]),
+
+                                    %% Test that get_line works
+                                    ~b"a\n" = io:get_line("6> "),
+
+                                    %% Test that get_until works
+                                    ~b"a,b,c" = io:request({get_until, unicode, "7> ", ?MODULE, get_until, []}),
+
+                                    %% Test that we can go back to cooked mode
+                                    ok = shell:start_interactive({noshell, cooked}),
+                                    ~b"abc" = io:get_chars(user, "8> ", 3),
+                                    ~b"\n" = io:get_chars(user, "", 1),
+
+                                    io:format("exit")
+                                  catch E:R:ST ->
+                                    io:format(TCGl, "~p", [{E, R, ST}])
+                                  end
+                          end,
+
+            rtnode:run(
+              [
+               {eval, fun() -> spawn(TestcaseFun), ok end},
+
+               {expect, "1> $"},
+               {putline, "hello"},
+
+               {expect, "2> $"},
+               {putdata, [$\^p]},
+
+               {expect, "3> $"},
+               {putdata, "abc"},
+
+               {expect, "4> $"},
+               {putdata, ~b"åäö"},
+
+               {expect, "5> $"},
+               {putdata, ~b"åäö"},
+               {expect, "åäö$"},
+
+               {expect, "6> $"},
+               {putdata, "a\r"}, %% When in raw mode, \r is newline.
+
+               {expect, "7> $"},
+               {putline, "a"},
+               {sleep, 10},
+               {putline, "b"},
+               {sleep, 10},
+               {putdata, "c."},
+
+               {expect, "8> $"},
+               {putline, "abc"},
+               {expect, "abc\r\n$"},
+
+               {expect, "exit$"}
+              ], [], [],
+              ["-noshell","-pz",filename:dirname(code:which(?MODULE))]);
+        _ -> ok
+    end,
+    ok.
+
+get_until(start, NewChars) ->
+    get_until([], NewChars);
+get_until(State, NewChars) ->
+    Chars = State ++ NewChars,
+    case string:split(Chars, ".") of
+        [Chars] -> {more, Chars ++ ","};
+        [Before, After] -> {done, [C || C <- Before, C =/= $\n], After}
+    end.
+
 
 %% This testcase tests that shell_history works as it should.
 %% We use Ctrl + P = Cp=[$\^p] in order to navigate up

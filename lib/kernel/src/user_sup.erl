@@ -124,13 +124,13 @@ check_flags([{nouser, []} |T], Attached, _) -> check_flags(T, Attached, nouser);
 check_flags([{user, [User]} | T], Attached, _) ->
     check_flags(T, Attached, {list_to_atom(User), start, []});
 check_flags([{noshell, []} | T], Attached, _) ->
-    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell }]});
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => cooked }]});
 check_flags([{oldshell, []} | T], false, _) ->
     %% When running in detached mode, we ignore any -oldshell flags as we do not
     %% want input => true to be set as they may halt the node (on bsd)
     check_flags(T, false, {user_drv, start, [#{ initial_shell => oldshell }]});
 check_flags([{noinput, []} | T], Attached, _) ->
-    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => false }]});
+    check_flags(T, Attached, {user_drv, start, [#{ initial_shell => noshell, input => disabled }]});
 check_flags([{master, [Node]} | T], Attached, _) ->
     check_flags(T, Attached, {master, list_to_atom(Node)});
 check_flags([_H | T], Attached, User) -> check_flags(T, Attached, User);
