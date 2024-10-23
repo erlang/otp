@@ -270,6 +270,7 @@ jobs:
         installer_name: ${{ steps.compile-erlang.outputs.installer_name }}
     
     steps:
+      - uses: actions/checkout@v4.2.1
       - uses: ./.github/actions/setup-wsl-runner
 
       - name: Install openssl
@@ -492,6 +493,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
+      - uses: actions/checkout@v4.2.1
       - uses: ./.github/actions/setup-wsl-runner
         with:
           SETUP_TEST: true
@@ -502,12 +504,10 @@ jobs:
           set -x
           unzip -q tests.zip
 
-          tar -xzf ./otp_src.tar.gz
-
           export ERL_TOP="$(pwd)/otp"
           export MAKEFLAGS=-j$(($(nproc) + 2))
 
-          eval `./otp/otp_build env_win32 x64`
+          eval `./otp_build env_win32 x64`
 
           export PATH=`pwd`/release/win32/bin/:$PATH
 
@@ -545,6 +545,7 @@ jobs:
     if: ${{ !cancelled() }} # Run even if the need has failed
     needs: [test-windows, build-windows]
     steps:
+      - uses: actions/checkout@v4.2.1
       - uses: ./.github/actions/setup-wsl-runner
         with:
           SETUP_TEST: true
@@ -563,12 +564,10 @@ jobs:
           set -x
           unzip -q -o tests.zip
 
-          tar -xzf ./otp_src.tar.gz
-
           export ERL_TOP="$(pwd)/otp"
           export MAKEFLAGS=-j$(($(nproc) + 2))
 
-          eval `./otp/otp_build env_win32 x64`
+          eval `./otp_build env_win32 x64`
 
           export PATH=`pwd`/release/win32/bin/:$PATH
 
