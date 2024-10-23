@@ -4465,26 +4465,21 @@ evacuate_run_queue(ErtsRunQueue *rq,
     }
 }
 
-typedef struct ErtsStolenProcess_ {
-    Process *proc;
-    int prio;
-} ErtsStolenProcess;
-
 static int
 try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Process **result_proc)
 {
     Uint32 procs_qmask = flags & ERTS_RUNQ_FLGS_PROCS_QMASK;
     int max_prio_bit;
     ErtsRunPrioQueue *rpq;
-#define PSTACK_TYPE ErtsStolenProcess
-    PSTACK_DECLARE(stolen_processes, 16);
+    Process *first_stolen_proc = NULL;
+    Process *last_stolen_proc = NULL;
+    unsigned first_stolen_proc_prio;
 
     ERTS_LC_ASSERT(!erts_lc_runq_is_locked(rq));
 
     erts_runq_lock(vrq);
 
     if (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_HALTING) {
-        PSTACK_DESTROY(stolen_processes);
 	goto no_procs;
     }
 
@@ -4501,6 +4496,7 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
         ErtsRunQueueInfo *rqi;
 
 	max_prio_bit = procs_qmask & -procs_qmask;
+	procs_qmask &= ~max_prio_bit;
 	switch (max_prio_bit) {
 	case MAX_BIT:
             prio_q = PRIORITY_MAX;
@@ -4524,10 +4520,12 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
 	    goto no_procs;
 	default:
 	    ASSERT(!"Invalid queue mask");
-            PSTACK_DESTROY(stolen_processes);
 	    goto no_procs;
 	}
 
+        if (!max_processes_to_steal) {
+            continue;
+        }
         rpq = &vrq->procs.prio[prio_q];
         // Steal at least one task, even if there is a single one
         max_processes_to_steal++;
@@ -4544,19 +4542,22 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
             if (erts_try_change_runq_proc(proc, rq)) {
                 erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
                 int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
-                ErtsStolenProcess *sp = PSTACK_PUSH(stolen_processes);
-                sp->proc = proc;
-                sp->prio = prio;
-                n_procs_stolen[prio]++;
                 unqueue_process_no_update_lengths(rpq, prev_proc, proc);
+                if (!first_stolen_proc) {
+                    first_stolen_proc = proc;
+                    first_stolen_proc_prio = prio;
+                } else {
+                    last_stolen_proc->next = proc;
+                }
+                last_stolen_proc = proc;
+                n_procs_stolen[prio]++;
                 --max_processes_to_steal;
             } else {
                 prev_proc = proc;
             }
 	    proc = proc->next;
 	}
-        if (!PSTACK_IS_EMPTY(stolen_processes)) {
-            ErtsStolenProcess *sp = (ErtsStolenProcess *) stolen_processes.pstart;
+        if (first_stolen_proc) {
             for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
                 if (n_procs_stolen[i] > 0) {
                     ErtsRunQueueInfo *rqi = &vrq->procs.prio_info[i];
@@ -4564,30 +4565,32 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
                 }
             }
             erts_runq_unlock(vrq);
-            *result_proc = sp->proc;
-            ASSERT(n_procs_stolen[sp->prio] > 0);
-            n_procs_stolen[sp->prio]--; // We're not going to requeue this one, as we're returning it
-            ++sp;
+            *result_proc = first_stolen_proc;
+            ASSERT(n_procs_stolen[first_stolen_proc_prio] > 0);
+            n_procs_stolen[first_stolen_proc_prio]--; // We're not going to requeue this one, as we're returning it
+            ASSERT(last_stolen_proc);
+            last_stolen_proc->next = NULL;
+            first_stolen_proc = first_stolen_proc->next;
 
             erts_runq_lock(rq);
-            for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
-                if (n_procs_stolen[i] > 0) {
-                    ErtsRunQueueInfo *rqi = &rq->procs.prio_info[i];
-                    erts_add_runq_len(rq, rqi, i, n_procs_stolen[i]);
+            if (first_stolen_proc) {
+                for (int i = 0; i < ERTS_NO_PROC_PRIO_LEVELS; ++i) {
+                    if (n_procs_stolen[i] > 0) {
+                        ErtsRunQueueInfo *rqi = &rq->procs.prio_info[i];
+                        erts_add_runq_len(rq, rqi, i, n_procs_stolen[i]);
+                    }
                 }
+                rpq = &rq->procs.prio[prio_q];
+                // Someone may have pushed work to us while we were not holding our lock
+                if (rpq->last) {
+                    rpq->last->next = first_stolen_proc;
+                } else {
+                    rpq->first = first_stolen_proc;
+                }
+                rpq->last = last_stolen_proc;
             }
-            // We're not using a loop of PSTACK_POP to keep the right (LIFO) order of elements
-            // "<=" rather than "<" because of the insanity that is PSTACK (offs = 0 means that there is one element)
-            for (;(byte *) sp <= stolen_processes.pstart + stolen_processes.offs; ++sp) {
-                unsigned prio_q = sp->prio == PRIORITY_LOW ? PRIORITY_NORMAL : sp->prio;
-                enqueue_process_internal(&rq->procs.prio[prio_q], sp->proc);
-            }
-            PSTACK_DESTROY(stolen_processes);
             return !0;
         }
-        PSTACK_DESTROY(stolen_processes);
-
-	procs_qmask &= ~max_prio_bit;
     }
 
 no_procs:
