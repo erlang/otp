@@ -258,6 +258,9 @@ int main(int argc, char** argv)
     {
         char* full_path_emulator = find_executable(emulator);
         set_env("ERLC_CONFIGURATION", full_path_emulator);
+        if (full_path_emulator != emulator) {
+            free(full_path_emulator);
+        }
     }
 #endif
 
@@ -276,6 +279,9 @@ int main(int argc, char** argv)
     eargv = eargv_base;
     eargc = 0;
     PUSH(strsave(emulator));
+    if (emulator != env) {
+        free(emulator);
+    }
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -1053,7 +1059,7 @@ get_default_emulator(char* progname)
     char* s;
 
     if (strlen(progname) >= sizeof(sbuf))
-        return ERL_NAME;
+        return strsave(ERL_NAME);
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
@@ -1064,7 +1070,7 @@ get_default_emulator(char* progname)
 	    break;
 	}
     }
-    return ERL_NAME;
+    return strsave(ERL_NAME);
 }
 
 
