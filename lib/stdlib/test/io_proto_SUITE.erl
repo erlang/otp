@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
-	 binary_options/1, read_modes_gl/1,
+         binary_options/1, read_modes_gl/1, logging_gl/1,
 	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,
          unicode_prompt/1, shell_slogan/1, raw_stdout/1, raw_stdout_isatty/1,
          file_read_stdin_binary_mode/1, file_read_stdin_list_mode/1,
@@ -68,7 +68,7 @@ suite() ->
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
-     binary_options, read_modes_gl, read_modes_ogl,
+     binary_options, read_modes_gl, read_modes_ogl, logging_gl,
      broken_unicode, eof_on_pipe, unicode_prompt,
      shell_slogan, raw_stdout, raw_stdout_isatty,
      file_read_stdin_binary_mode,
@@ -1456,6 +1456,70 @@ read_modes_gl_1(_Config,Machine) ->
     end,
     ok.
 
+logging_gl(Config) when is_list(Config) ->
+
+    AssertString = fun(Match) ->
+                           fun F() ->
+                                   ?MODULE ! {get, self()},
+                                   receive
+                                       {put_chars, _, M} ->
+                                           case string:find(M, Match) of
+                                               nomatch -> io:format("~p~n",[M]), F();
+                                               _ -> ok
+                                           end
+                                   after 500 -> timeout end
+                           end
+                   end,
+
+    rtnode:run(
+      [{putline,""},
+       {putline, "2."},
+       {expect, "[\n ]2"},
+       {eval, fun() ->
+                      Device = spawn(
+                                 fun F() ->
+                                         receive
+                                             {get, Parent} ->
+                                                 receive {io_request, From, ReplyAs, M} ->
+                                                         Parent ! M,
+                                                         From ! {io_reply, ReplyAs, ok}
+                                                 after 500 ->
+                                                         Parent ! timeout
+                                                 end,
+                                                 F()
+                                         end
+                                 end),
+                      register(?MODULE, Device),
+                      ok = logger:add_handler(default, logger_std_h, #{ filter_default => stop, config => #{ type => {device, Device} }}),
+                      ok = io:setopts(user, [{log,true}])
+              end},
+       {putline, "io:format(user,\"abc\n\",[])."},
+       {expect, "abc\r\nok"},
+       {eval, fun() -> ?MODULE ! {get, self()}, receive timeout -> ok; M -> {unexpected_message, M} end end},
+       {eval, fun() -> ok = logger:add_handler_filter(default, stderr, {fun logger_filters:domain/2, {log, sub, [otp, kernel, io]}}) end},
+       {putline, "io:format(user,\"abc\n\",[])."},
+       {expect, "abc\r\nok"},
+       {eval, AssertString("put_chars,unicode,\"abc\\n\"")},
+
+       {putline, "io:setopts([{log,true}])."},
+       {expect, "\r\nok"},
+       {eval, AssertString("get_until")},
+       {putline, "io:get_line(\"prompt: \")."},
+       {expect, "prompt: "},
+       {eval, AssertString("get_line")},
+       {putline, "def"},
+       {expect, "\\Q\"def\\n\"\\E"},
+
+       {eval, fun() -> ok = logger:set_primary_config(level, info) end}
+      ],[],"",
+      ["-pz",filename:dirname(code:which(?MODULE)),
+       "-oldshell",
+       "-connect_all","false",
+       "-kernel","logger_level","all",
+       "-kernel","logger","[{handler, default, undefined}]",
+       "-kernel","shell_history","disabled",
+       "-kernel","prevent_overlapping_partitions","false"]),
+    ok.
 
 %% Test behaviour when reading broken Unicode files
 broken_unicode(Config) when is_list(Config) ->
