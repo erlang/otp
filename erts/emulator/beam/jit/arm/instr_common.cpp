@@ -3109,7 +3109,14 @@ void BeamModuleAssembler::emit_i_perf_counter() {
     Label next = a.newLabel(), small = a.newLabel();
 
     emit_enter_runtime_frame();
+
+#ifdef WIN32
+    /* Call the function pointer used by erts_sys_perf_counter */
+    runtime_call<0>(erts_sys_time_data__.r.o.sys_hrtime);
+#else
     runtime_call<0>(erts_sys_time_data__.r.o.perf_counter);
+#endif
+
     emit_leave_runtime_frame();
 
     a.asr(TMP1, ARG1, imm(SMALL_BITS - 1));
