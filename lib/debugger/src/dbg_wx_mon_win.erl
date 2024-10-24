@@ -558,7 +558,7 @@ handle_event(#wx{obj=ListBox, event=#wxMouse{type=right_down, x=X,y=Y}},
 	Row ->	    
 	    ModS = wxListBox:getString(ListBox,Row),
 	    io:format("Re-loading/interpreting: ~s~n", [ModS]),
-	    int:i(list_to_atom(ModS)),
+	    _ = int:i(list_to_atom(ModS)),
 	    ignore
     end;
 

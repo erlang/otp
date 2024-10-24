@@ -142,7 +142,6 @@ in the User's Guide for Debugger.
 %% External exports
 %%====================================================================
 
--dialyzer({no_contracts, i/1}).
 -doc """
 Interprets the specified module(s) on the local node.
 
@@ -171,20 +170,18 @@ function tries to interpret each module as specified earlier. The function then
 always returns `ok`, but prints some information to `stdout` if a module cannot
 be interpreted.
 """.
--spec i(AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
-       (AbsModule) -> {module,Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+-spec i(AbsModules | AbsModule) -> Result when
+    AbsModules :: [AbsModule],
+    AbsModule :: Module | File,
+    Module :: module(),
+    File :: file:name_all(),
+    Result :: AbsModuleResult | AbsModulesResult,
+    AbsModuleResult :: {module, Module} | error,
+    AbsModulesResult :: ok.
 i(AbsMods) -> i2(AbsMods, local, ok).
 -doc false.
 i(AbsMods, _Options) -> i2(AbsMods, local, ok).
 
--dialyzer({no_contracts, ni/1}).
 -doc """
 Interprets the specified module(s) on all known nodes.
 
@@ -213,15 +210,14 @@ function tries to interpret each module as specified earlier. The function then
 always returns `ok`, but prints some information to `stdout` if a module cannot
 be interpreted.
 """.
--spec ni(AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
-        (AbsModule) -> {module,Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+-spec ni(AbsModules | AbsModule) -> Result when
+    AbsModules :: [AbsModule],
+    AbsModule :: Module | File,
+    Module :: module(),
+    File :: file:name_all(),
+    Result :: AbsModuleResult | AbsModulesResult,
+    AbsModuleResult :: {module, Module} | error,
+    AbsModulesResult :: ok.
 ni(AbsMods) -> i2(AbsMods, distributed, ok).
 -doc false.
 ni(AbsMods, _Options) -> i2(AbsMods, distributed, ok).
