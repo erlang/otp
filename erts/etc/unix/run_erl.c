@@ -711,8 +711,8 @@ static void pass_on(pid_t childpid)
 #endif
 		    }
 		}
-
-		if (!got_some && wfd && buf[0] == '\014') {
+    if (!got_some && wfd && buf[0] == '\033' &&
+         buf[1] == 'l') {
 		    char wbuf[30];
 		    int wlen = sn_printf(wbuf,sizeof(wbuf),"[run_erl v%u-%u]\n",
 					 RUN_ERL_HI_VER, RUN_ERL_LO_VER);
