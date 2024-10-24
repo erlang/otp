@@ -29,6 +29,15 @@ SAVE="$@"
 # Constants
 COMMON_CFLAGS="-nologo -D__WIN32__ -DWIN32 -DWINDOWS -D_WIN32 -DNT -D_CRT_SECURE_NO_DEPRECATE"
 
+if [ "$CONFIG_SUBTYPE" = "arm64" -o "$CONFIG_SUBTYPE" = "x64_arm64" ]; then
+    MACHINE="ARM64"
+    COMMON_CFLAGS="${COMMON_CFLAGS} -D__aarch64__"
+elif [ "$CONFIG_SUBTYPE" = "win64" ]; then
+    MACHINE="x64"
+else
+    MACHINE="x86"
+fi
+
 # Variables
 # The stdout and stderr for the compiler
 MSG_FILE=/tmp/cl.exe.$$.1
@@ -64,7 +73,7 @@ CMD=""
 # All the c source files, in unix style
 SOURCES=""
 # All the options to pass to the linker, kept in Unix style
-LINKCMD=""
+LINKCMD="-MACHINE:${MACHINE}"
 
 
 # Loop through the parameters and set the above variables accordingly
