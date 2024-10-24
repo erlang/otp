@@ -1880,11 +1880,12 @@ log_alert(Level, Role, ProtocolName, StateName,  Alert) ->
                                     statename => StateName,
                                     alert => Alert,
                                     alerter => peer}, Alert#alert.where).
-terminate_alert(normal) ->
+terminate_alert(Reason) when Reason == normal;
+                             Reason == shutdown;
+                             Reason == close ->
     ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY);
-terminate_alert({Reason, _}) when Reason == close;
-                                  Reason == shutdown ->
-    ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY);
+terminate_alert({Reason, _}) ->
+    terminate_alert(Reason);
 terminate_alert(_) ->
     ?ALERT_REC(?FATAL, ?INTERNAL_ERROR).
 

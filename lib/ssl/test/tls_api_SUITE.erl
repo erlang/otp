@@ -63,6 +63,8 @@
          tls_shutdown_both/1,
          tls_shutdown_error/0,
          tls_shutdown_error/1,
+         tls_sup_shutdown/0,
+         tls_sup_shutdown/1,
          tls_client_closes_socket/0,
          tls_client_closes_socket/1,
          tls_closed_in_active_once/0,
@@ -164,6 +166,7 @@ api_tests() ->
      tls_shutdown_write,
      tls_shutdown_both,
      tls_shutdown_error,
+     tls_sup_shutdown,
      tls_password_correct,
      tls_password_incorrect,
      tls_password_badarg,
@@ -796,6 +799,36 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     Pid ! {tcp_error, Socket, etimedout},
 
     ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
+
+%%--------------------------------------------------------------------
+tls_sup_shutdown() ->
+    [{doc,"Test that terminate behaves correctly for exit(shutdown) as done by supervisor at application shutdown"}].
+tls_sup_shutdown(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					 {from, self()},
+					 {mfa, {?MODULE, receive_msg, []}},
+					 {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {_, #sslsocket{pid=[Pid|_]}} = ssl_test_lib:start_client([return_socket,
+                                                                   {node, ClientNode}, {port, Port},
+                                                                   {host, Hostname},
+                                                                   {from, self()},
+                                                                   {mfa, {ssl_test_lib, no_result, []}},
+                                                                   {options, [{active, false} | ClientOpts]}]),
+    exit(Pid, shutdown),
+
+    receive
+        {Server, {ssl_closed, _}} ->
+            ok;
+        Msg ->
+          ct:fail(Msg)
+    end.
 
 %%--------------------------------------------------------------------
 tls_reject_warning_alert_in_initial_hs() ->
