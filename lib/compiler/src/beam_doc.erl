@@ -57,11 +57,14 @@
                opts                :: [opt()],
 
                module              :: module(),
+               anno = none         :: none | erl_anno:anno(),
                deprecated = #{}    :: map(),
 
                docformat = ?DEFAULT_FORMAT :: binary(),
                moduledoc = {?DEFAULT_MODULE_DOC_LOC, none} :: {integer() | erl_anno:anno(), none | map() | hidden},
                moduledoc_meta = none :: none | #{ _ := _ },
+
+               behaviours = []     :: list(module()),
 
                %% If the module has any documentation attributes at all.
                %% If it does not and no documentation related options are
@@ -244,15 +247,30 @@ main(Dirname, Filename, AST, CmdLineOpts) ->
     if State1#docs.has_docs orelse Opts =/= [] ->
             Docs = extract_documentation(AST, State1),
             {ModuleDocAnno, ModuleDoc} = Docs#docs.moduledoc,
+            Behaviours = lists:sort(Docs#docs.behaviours),
+            Metadata0 = maps:merge(Docs#docs.moduledoc_meta, #{
+                source_anno => Docs#docs.anno,
+                behaviours => Behaviours}),
+            Metadata = maybe_add_source_path_meta(Metadata0, Docs, CmdLineOpts),
             DocV1 = #docs_v1{},
             Result = DocV1#docs_v1{ format = Docs#docs.docformat,
                                     anno = ModuleDocAnno,
-                                    metadata = Docs#docs.moduledoc_meta,
+                                    metadata = Metadata,
                                     module_doc = ModuleDoc,
                                     docs = process_docs(Docs) },
             {ok, Result, Docs#docs.warnings };
        not State1#docs.has_docs ->
             {error, no_docs}
+    end.
+
+maybe_add_source_path_meta(Metadata, Docs, CmdLineOpts) ->
+    case lists:member(deterministic, CmdLineOpts) of
+        true ->
+            Metadata;
+        false ->
+            Dir = filename:absname(Docs#docs.cwd),
+            SourcePath = filename:join(Dir, Docs#docs.filename),
+            Metadata#{source_path => SourcePath}
     end.
 
 extract_opts(AST, CmdLineOpts) ->
@@ -321,6 +339,7 @@ preprocessing(AST, State) ->
                                      fun extract_exported_funs/2,
                                      fun extract_file/2,
                                      fun extract_record/2,
+                                     fun extract_behaviours/2,
                                      fun extract_hidden_types0/2,
                                      fun extract_type_defs0/2,
                                      fun extract_type_dependencies/2],
@@ -363,8 +382,8 @@ extract_deprecated(_, State) ->
 
 extract_exported_types0({attribute,_ANNO,export_type,ExportedTypes}, State) ->
    update_export_types(State, ExportedTypes);
-extract_exported_types0({attribute,_ANNO,module, Module}, State) ->
-    State#docs{ module = Module };
+extract_exported_types0({attribute,Anno,module, Module}, State) ->
+    State#docs{ module = Module, anno = Anno };
 extract_exported_types0({attribute,_ANNO,compile, export_all}, State) ->
    update_export_all(State, true);
 extract_exported_types0(_AST, State) ->
@@ -437,27 +456,27 @@ track_documentation({attribute, Anno, doc, Doc}, State) when is_binary(Doc) ->
 track_documentation(_, State) ->
    State.
 
-upsert_documentation_from_terminal_item({function, _Anno, F, Arity, _}, State) ->
-   upsert_documentation(function, F, Arity, State);
-upsert_documentation_from_terminal_item({attribute, _Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}},State)
+upsert_documentation_from_terminal_item({function, Anno, F, Arity, _}, State) ->
+   upsert_documentation(function, F, Arity, Anno, State);
+upsert_documentation_from_terminal_item({attribute, Anno, TypeOrOpaque, {TypeName, _TypeDef, TypeArgs}},State)
   when TypeOrOpaque =:= type; TypeOrOpaque =:= opaque ->
    Arity = length(fun_to_varargs(TypeArgs)),
-   upsert_documentation(type, TypeName, Arity, State);
-upsert_documentation_from_terminal_item({attribute, _Anno, callback, {{CB, Arity}, _Form}}, State) ->
-   upsert_documentation(callback, CB, Arity, State);
+   upsert_documentation(type, TypeName, Arity, Anno, State);
+upsert_documentation_from_terminal_item({attribute, Anno, callback, {{CB, Arity}, _Form}}, State) ->
+   upsert_documentation(callback, CB, Arity, Anno, State);
 upsert_documentation_from_terminal_item(_, State) ->
    State.
 
-upsert_documentation(Tag, Name, Arity, State) when Tag =:= function;
-                                                   Tag =:= type;
-                                                   Tag =:= opaque;
-                                                   Tag =:= callback ->
+upsert_documentation(Tag, Name, Arity, Anno, State) when Tag =:= function;
+                                                         Tag =:= type;
+                                                         Tag =:= opaque;
+                                                         Tag =:= callback ->
    Docs = State#docs.docs,
    State1 = case maps:get({Tag, Name, Arity}, Docs, none) of
                none ->
                   Status = State#docs.doc_status,
                   Doc = State#docs.doc,
-                  Meta = State#docs.meta,
+                  Meta = (State#docs.meta)#{source_anno => Anno},
                   State#docs{docs = Docs#{{Tag, Name, Arity} => {Status, Doc, Meta}}};
                {Status, Documentation, Meta} ->
                   Status1 = upsert_state(Status, State#docs.doc_status),
@@ -537,6 +556,11 @@ extract_record({attribute, Anno, record, {Name, Fields}}, State) ->
                    end, Fields),
     State#docs{ records = (State#docs.records)#{ Name => TypeFields } };
 extract_record(_, State) ->
+   State.
+
+extract_behaviours({attribute, _Anno, behaviour, Behaviour}, State) ->
+    State#docs{ behaviours = [Behaviour | State#docs.behaviours] };
+extract_behaviours(_, State) ->
    State.
 
 %%
