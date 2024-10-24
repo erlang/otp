@@ -192,7 +192,7 @@ dbg_connections(Config) ->
                                                           end},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
@@ -435,7 +435,7 @@ dbg_channels(Config) ->
                                              },
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
-    ?DBG_RECEIVE("Starting LISTENER on ", Ref, _, Pid),
+    ?DBG_RECEIVE("ssh_acceptor:acceptor_init/4> Starting LISTENER on ", Ref, _, Pid),
 
     C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
                                           {user_dir, UserDir},

@@ -82,6 +82,7 @@
          pass_phrase/1,
          peername_sockname/1,
          send/1,
+         parallel_login/1,
          setopts_getopts/1,
          shell/1,
          shell_exit_status/1,
@@ -113,7 +114,6 @@ all() ->
     [{group, all_tests}
     ].
 
-%%%-define(PARALLEL, ).
 -define(PARALLEL, parallel).
 
 groups() ->
@@ -121,9 +121,7 @@ groups() ->
                                {group, p_basic},
                                {group, internal_error},
                                {group, login_bad_pwd_no_retry},
-                               {group, key_cb}
-                              ]},
-
+                               {group, key_cb}]},
      {sequential, [], [app_test,
                        appup_test,
                        daemon_already_started,
@@ -138,32 +136,25 @@ groups() ->
                        known_hosts,
                        ssh_file_is_host_key,
                        ssh_file_is_host_key_misc,
-                       ssh_file_is_auth_key
-                      ]},
-
+                       ssh_file_is_auth_key]},
      {key_cb, [?PARALLEL], [key_callback, key_callback_options]},
-
      {internal_error, [?PARALLEL], [internal_error]},
-
      {login_bad_pwd_no_retry, [?PARALLEL], [login_bad_pwd_no_retry1,
                                             login_bad_pwd_no_retry2,
                                             login_bad_pwd_no_retry3,
                                             login_bad_pwd_no_retry4,
-                                            login_bad_pwd_no_retry5
-                                           ]},
-     
-     {p_basic, [?PARALLEL], [send, peername_sockname,
-                             exec, exec_compressed, 
+                                            login_bad_pwd_no_retry5]},
+     {p_basic, [?PARALLEL], [send, parallel_login, peername_sockname,
+                             exec, exec_compressed,
                              exec_with_io_out, exec_with_io_in,
                              cli, cli_exit_normal, cli_exit_status,
                              idle_time_client, idle_time_server,
                              max_initial_idle_time,
                              openssh_zlib_basic_test,
                              misc_ssh_options, inet_option, inet6_option,
-                             shell, shell_socket, shell_ssh_conn, shell_no_unicode, shell_unicode_string,
-                             close
-                            ]}
-    ].
+                             shell, shell_socket, shell_ssh_conn,
+                             shell_no_unicode, shell_unicode_string,
+                             close]}].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -1038,6 +1029,29 @@ send(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh:stop_daemon(Pid).
 
+%%--------------------------------------------------------------------
+%%% Test parallel_login
+parallel_login(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {preferred_algorithms, ssh_transport:supported_algorithms()},
+					     {user_dir, UserDir},
+                                             {parallel_login, true},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{preferred_algorithms, ssh_transport:supported_algorithms()},
+                                          {silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"Data">>),
+    ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
+    ssh_info:print(fun(Fmt, Args) -> io:fwrite(user, Fmt, Args) end),
+    {Parents, Conns, Handshakers} =
+        ssh_test_lib:find_handshake_parent(Port),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %%% Test ssh:connection_info([peername, sockname])
@@ -1502,7 +1516,6 @@ check_error(Error) -> ct:fail(Error).
 basic_test(Config) ->
     ClientOpts = proplists:get_value(client_opts, Config),
     ServerOpts = proplists:get_value(server_opts, Config),
-    
     {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
     CM = ssh_test_lib:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),

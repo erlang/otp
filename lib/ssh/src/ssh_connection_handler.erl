@@ -2154,16 +2154,20 @@ ssh_dbg_format(connections, {call, {?MODULE,init, [[Role, Sock, Opts]]}}) ->
                             end
                     end,
                     Opts),
-    {ok, {IPp,Portp}} = inet:peername(Sock),
-    {ok, {IPs,Ports}} = inet:sockname(Sock),
+    Addresses =
+        case {inet:peername(Sock), inet:sockname(Sock)} of
+            {{ok, {IPp,Portp}}, {ok, {IPs,Ports}}} ->
+                io_lib:format("Socket = ~p, Peer = ~s, Local = ~s,~n"
+                              "Non-default options:~n~p",
+                              [Sock, ssh_lib:format_address_port(IPp,Portp),
+                               ssh_lib:format_address_port(IPs,Ports), NonDefaultOpts]);
+            {E1, E2} ->
+                io_lib:format("Socket = ~p, Peer = ~p, Local = ~p,~n"
+                              "Non-default options:~n~p",
+                              [Sock, E1, E2, NonDefaultOpts])
+        end,
     [io_lib:format("Starting ~p connection:\n",[Role]),
-     io_lib:format("Socket = ~p, Peer = ~s, Local = ~s,~n"
-                   "Non-default options:~n~p",
-                   [Sock,
-                    ssh_lib:format_address_port(IPp,Portp),
-                    ssh_lib:format_address_port(IPs,Ports),
-                    NonDefaultOpts])
-    ];
+     Addresses];
 ssh_dbg_format(connections, F) ->
     ssh_dbg_format(terminate, F);
 

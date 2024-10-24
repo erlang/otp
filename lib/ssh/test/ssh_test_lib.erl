@@ -124,7 +124,11 @@ setup_known_host/3,
 get_addr_str/0,
 file_base_name/2,
 kex_strict_negotiated/2,
-event_logged/3
+event_logged/3,
+server_host/1,
+server_port/1,
+server_pid/1,
+find_handshake_parent/1
         ]).
 %% logger callbacks and related helpers
 -export([log/2,
@@ -1372,3 +1376,43 @@ log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
     #{test_ref := TestRef, recipient := Recipient}) ->
     Recipient ! {TestRef, LogEvent},
     ok.
+
+server_pid(Config)  -> element(1,?v(server,Config)).
+server_host(Config) -> element(2,?v(server,Config)).
+server_port(Config) -> element(3,?v(server,Config)).
+
+%%%----------------------------------------------------------------
+find_handshake_parent(Port) ->
+    Acc = {_Parents=[], _Connections=[], _Handshakers=[]},
+    find_handshake_parent(supervisor:which_children(sshd_sup), Port, Acc).
+
+find_handshake_parent([{{ssh_system_sup,{address,_,Port,_}},
+                        Pid,supervisor, [ssh_system_sup]}|_],
+                      Port, Acc) ->
+    find_handshake_parent(supervisor:which_children(Pid), Port, Acc);
+find_handshake_parent([{{ssh_acceptor_sup,{address,_,Port,_}},
+                        PidS,supervisor,[ssh_acceptor_sup]}|T],
+                       Port, {AccP,AccC,AccH}) ->
+    ParentHandshakers =
+        [{PidW,PidH} ||
+            {{ssh_acceptor_sup,{address,_,Port1,_}}, PidW, worker,
+             [ssh_acceptor]} <- supervisor:which_children(PidS),
+            Port1 == Port,
+            PidH <- element(2, process_info(PidW,links)),
+            is_pid(PidH),
+            process_info(PidH,current_function) ==
+                {current_function,
+                 {ssh_connection_handler,handshake,4}}],
+    {Parents,Handshakers} = lists:unzip(ParentHandshakers),
+    find_handshake_parent(T, Port, {AccP++Parents, AccC, AccH++Handshakers});
+find_handshake_parent([{_Ref,PidS,supervisor,[ssh_connection_sup]}|T],
+                      Port, {AccP,AccC,AccH}) ->
+    Connections =
+        [Pid ||
+            {connection,Pid,worker,[ssh_connection_handler]} <-
+                supervisor:which_children(PidS)],
+    find_handshake_parent(T, Port, {AccP, AccC++Connections, AccH});
+find_handshake_parent([_|T], Port, Acc) ->
+    find_handshake_parent(T, Port, Acc);
+find_handshake_parent(_, _,  {AccP,AccC,AccH}) ->
+    {lists:usort(AccP), lists:usort(AccC), lists:usort(AccH)}.

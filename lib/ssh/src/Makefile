@@ -73,6 +73,8 @@ MODULES= \
 	ssh_info \
 	ssh_io \
 	ssh_lib \
+	ssh_lsocket \
+	ssh_lsocket_sup \
 	ssh_message \
 	ssh_no_io \
 	ssh_options \
