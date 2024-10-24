@@ -472,6 +472,40 @@ int packet_get_length(enum PacketParseType htype,
             plen = get_int16(&ptr[3]);
         }
         goto remain;
+
+    case TCP_PB_MQTT: {
+        /* Byte 1: MQTT Control Packet fixed header
+         * Bytes 2-2/3/4/5: Remaining Length (variable byte integer)
+         */
+        byte vb, ptype;
+        hlen = 2;
+        plen = 0;
+        if (n < 1) goto more;
+        /* Bits 4-8: Packet type */
+        ptype = ptr[0] >> 4;
+        /* ERROR: Type 0 is reserved, forbidden */
+        if (ptype == 0)
+            goto error;
+        while (hlen <= 1 + 4) {
+            if (hlen > n) goto more;
+            vb = ptr[hlen - 1] & 0x7F;
+            plen |= vb << (7 * (hlen - 2));
+            if (ptr[hlen - 1] & 0x80) {
+                hlen = hlen + 1;
+            }
+            else {
+                /* NOTE: Tolerate minumum-number-of-bytes rule violation
+                 * [MQTT-1.5.5-1]
+                 */
+                goto packet;
+            }
+        }
+        /* ERROR: variable byte integer >4 bytes long */
+        goto error;
+    packet:
+        /* No special parsing for now */
+        goto remain;
+    }
     
     default:
         DEBUGF((" => case error\r\n"));

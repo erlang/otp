@@ -465,6 +465,7 @@ atom monitors
 atom monotonic
 atom monotonic_timestamp
 atom more
+atom mqtt
 atom multi_scheduling
 atom multiline
 atom nano_seconds

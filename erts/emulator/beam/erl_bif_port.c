@@ -1502,6 +1502,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     case am_httph: type = TCP_PB_HTTPH; break;
     case am_http_bin: type = TCP_PB_HTTP_BIN; break;
     case am_httph_bin: type = TCP_PB_HTTPH_BIN; break;
+    case am_mqtt: type = TCP_PB_MQTT; break;
     case am_ssl_tls: type = TCP_PB_SSL_TLS; break;
     default:
         BIF_P->fvalue = am_badopt;

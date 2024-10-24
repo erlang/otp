@@ -1738,6 +1738,7 @@ type_opt_1(packet) ->
 	   {httph,?TCP_PB_HTTPH},
 	   {http_bin, ?TCP_PB_HTTP_BIN},
 	   {httph_bin,?TCP_PB_HTTPH_BIN},
+	   {mqtt, ?TCP_PB_MQTT},
 	   {ssl, ?TCP_PB_SSL_TLS}, % obsolete
 	   {ssl_tls, ?TCP_PB_SSL_TLS}]};
 type_opt_1(line_delimiter)  -> int;

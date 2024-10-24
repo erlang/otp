@@ -1793,7 +1793,8 @@ Examples:
                                   {more, Length} |
                                   {error, Reason} when
       Type :: 'raw' | 0 | 1 | 2 | 4 | 'asn1' | 'cdr' | 'sunrm' | 'fcgi'
-            | 'tpkt' | 'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin',
+            | 'tpkt' | 'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin'
+            | 'mqtt',
       Bin :: binary(),
       Options :: [Opt],
       Opt :: {packet_size, non_neg_integer()}

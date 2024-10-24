@@ -26,15 +26,15 @@
 
 -export([all/0, suite/0,groups/0,
          init_per_testcase/2,end_per_testcase/2,
-         basic/1, ipv6/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1,
-         otp_9389/1, otp_9389_line/1]).
+         basic/1, ipv6/1, packet_size/1, neg/1, http/1, line/1, mqtt/1, ssl/1,
+         otp_8536/1, otp_9389/1, otp_9389_line/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [basic, packet_size, neg, http, line, ssl, otp_8536,
+    [basic, packet_size, neg, http, line, mqtt, ssl, otp_8536,
      otp_9389, otp_9389_line, ipv6].
 
 groups() -> 
@@ -62,7 +62,7 @@ basic(Config) when is_list(Config) ->
     {more, undefined} = decode_pkt(2,<<0>>),
     {more, undefined} = decode_pkt(4,<<0,0,0>>),
 
-    Types = [1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    Types = [1,2,4,asn1,sunrm,cdr,fcgi,tpkt,mqtt,ssl_tls],
 
     %% Run tests for different header types and bit offsets.
 
@@ -185,6 +185,11 @@ pack(tpkt,Bin) ->
     Size = byte_size(Bin) + 4,
     Res = <<Ver:8,Reserv:8,Size:16,Bin/binary>>,
     {Res, Res};
+pack(mqtt,Bin) ->
+    Type = 3, % PUBLISH
+    Size = pack_mqtt_vbi(byte_size(Bin)),
+    Res = <<Type:4,0:4,Size/binary,Bin/binary>>,
+    {Res, Res};
 pack(ssl_tls,Bin) ->
     Content = case (rand:uniform(256) - 1) of
                   C when C<128 -> C;
@@ -207,6 +212,11 @@ pack_ssl(Content, Major, Minor, Body) ->
             Data = Body			    
     end,
     {Res, {ssl_tls,[],C,{Major,Minor}, Data}}.
+
+pack_mqtt_vbi(N) when N =< 2#01111111 ->
+    <<0:1, N:7>>;
+pack_mqtt_vbi(N) ->
+    <<1:1, (N rem 2#10000000):7, (pack_mqtt_vbi(N div 2#10000000))/binary>>.
 
 ipv6(Config) when is_list(Config) ->
     %% Test with port
@@ -242,7 +252,7 @@ packet_size(Config) when is_list(Config) ->
                         ok
                 end
         end,
-    lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,mqtt,ssl_tls],
                                D<-lists:seq(0, byte_size(Packet)*2)]),
 
     %% Test OTP-8102, "negative" 4-byte sizes.
@@ -301,6 +311,20 @@ neg(Config) when is_list(Config) ->
                              BadargF(0,Bin,[{packet_size,1000},Opt]) end,
                   InvOpts),
     ok.
+
+
+mqtt(_Config) ->
+    Type = 1, % CONNECT
+    {more, undefined} = decode_pkt(mqtt,<<>>),
+    {error, invalid} = decode_pkt(mqtt,<<0>>),
+    {more, undefined} = decode_pkt(mqtt,<<Type:4,0:4>>),
+    {more, 2 + 10} = decode_pkt(mqtt,<<Type:4,0:4, 10:8>>),
+    {more, undefined} = decode_pkt(mqtt,<<Type:4,0:4, 1:1,10:7>>),
+    {more, 3 + 138} = decode_pkt(mqtt,<<Type:4,0:4, 1:1,10:7,1:8>>),
+    {more, 5 + 13*128*128*128 + 12*128*128 + 11*128 + 10} =
+        decode_pkt(mqtt,<<Type:4,0:4, 1:1,10:7,1:1,11:7,1:1,12:7,0:1,13:7>>),
+    {error, invalid} =
+        decode_pkt(mqtt,<<Type:4,0:4, 1:1,10:7,1:1,11:7,1:1,12:7,1:1,13:7>>).
 
 
 http(Config) when is_list(Config) ->
