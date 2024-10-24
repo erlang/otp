@@ -3,7 +3,7 @@ LD = @LD@
 CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
 CROSSLDFLAGS = @CROSSLDFLAGS@
 
-PROGS = my_echo@exe@ my_fds@exe@
+PROGS = my_echo@exe@ my_fds@exe@ sys_shell@exe@
 
 all: $(PROGS)
 
@@ -18,3 +18,9 @@ my_fds@exe@: my_fds@obj@
 
 my_fds@obj@: my_fds.c
 	$(CC) -c -o my_fds@obj@ $(CFLAGS) my_fds.c
+
+sys_shell@exe@: sys_shell@obj@
+	$(LD) $(CROSSLDFLAGS) -o sys_shell sys_shell@obj@ @LIBS@
+
+sys_shell@obj@: sys_shell.c
+	$(CC) -c -o sys_shell@obj@ $(CFLAGS) sys_shell.c

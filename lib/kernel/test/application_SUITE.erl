@@ -2060,6 +2060,7 @@ do_configfd_test_bash() ->
                 Command =
                     lists:flatten(io_lib:format("bash -c \"~s\"",
                                                 [quote_sub_strings(String)])),
+                os:internal_init_cmd_shell(),
                 Res = os:cmd(Command),
                 io:format("Command:~n"),
                 io:format("~s~n", [Command]),
@@ -2255,6 +2256,7 @@ total_memory() ->
 configfd_bash(Conf) when is_list(Conf) ->
     case os:type() of
     	{unix,_} ->
+            os:internal_init_cmd_shell(),
             case os:cmd("bash -c \"echo -n yes_bash_shell_exists\"") of
                 "yes_bash_shell_exists" ->
                     do_configfd_test_bash();

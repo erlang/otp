@@ -126,6 +126,7 @@ groups() ->
        xdg_cookie]}].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     start_gen_tcp_dist_test_type_server(),
     Config.
 

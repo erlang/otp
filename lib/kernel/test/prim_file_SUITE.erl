@@ -100,6 +100,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) when is_list(Config) ->
+    os:internal_init_cmd_shell(),
     case os:type() of
 	{win32, _} ->
 	    Priv = proplists:get_value(priv_dir, Config),

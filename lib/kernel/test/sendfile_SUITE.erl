@@ -60,6 +60,7 @@ all() ->
      t_sendfile_arguments].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     case {os:type(),os:version()} of
 	{{unix,sunos}, {5,8,_}} ->
 	    {skip, "Solaris 8 not supported for now"};

@@ -307,6 +307,7 @@ traffic_pp_sendmsg_recvmsg_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config0) ->
+    os:internal_init_cmd_shell(),
     ?P("init_per_suite -> entry with"
        "~n      Config: ~p"
        "~n      Nodes:  ~p", [Config0, erlang:nodes()]),

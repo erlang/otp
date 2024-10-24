@@ -122,6 +122,7 @@ required(hosts) ->
 
 
 init_per_suite(Config0) ->
+    os:internal_init_cmd_shell(),
 
     ?P("init_per_suite -> entry with"
        "~n      Config: ~p"

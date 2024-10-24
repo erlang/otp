@@ -48,6 +48,7 @@ suite() ->
     [{timetrap,{seconds,30}}].
 
 init_per_suite(Config) ->
+    os:internal_init_cmd_shell(),
     Hs0 = logger:get_handler_config(),
     Hs = lists:keydelete(cth_log_redirect,1,Hs0),
     [ok = logger:remove_handler(Id) || {Id,_,_} <- Hs],
