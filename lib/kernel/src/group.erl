@@ -1180,6 +1180,9 @@ edit_line_dumb([Erase|Cs],[], Rs) when Erase =:= $\177; Erase =:= $\^H ->
     edit_line_dumb(Cs,[], Rs);
 edit_line_dumb([Erase|Cs],[_|Chars], Rs) when Erase =:= $\177; Erase =:= $\^H ->
     edit_line_dumb(Cs,Chars, [{delete_chars, -1}|Rs]);
+edit_line_dumb([$\e, $l |Cs],Chars, Rs) ->
+    %% this is a key sequence sent by to_erl to refresh the screen
+    edit_line_dumb(Cs,Chars, Rs);
 edit_line_dumb([CtrlChar|Cs],Chars, Rs) when CtrlChar < 32 ->
     edit_line_dumb(Cs,Chars,Rs);
 edit_line_dumb([Char|Cs],Chars, Rs) ->
