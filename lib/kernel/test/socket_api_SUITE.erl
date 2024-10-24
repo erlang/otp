@@ -4701,7 +4701,7 @@ api_ffd_open_and_info(InitState) ->
 %%
 %% This is *not* how its intended to be used.
 %% That an erlang process creating a socket and then handing over the
-%% file descriptor to another erlang process. *But* its a convient way
+%% file descriptor to another erlang process. *But* its a convenient way
 %% to test it!
 %%
 %% </WARNING>
@@ -4735,7 +4735,7 @@ api_ffd_open_and_open_wod_and_send_udp4(_Config) when is_list(_Config) ->
 %%
 %% This is *not* how its intended to be used.
 %% That an erlang process creating a socket and then handing over the
-%% file descriptor to another erlang process. *But* its a convient way
+%% file descriptor to another erlang process. *But* its a convenient way
 %% to test it!
 %%
 %% </WARNING>
@@ -5431,7 +5431,7 @@ api_ffd_open_and_open_and_send_udp2(InitState) ->
 %%
 %% This is *not* how its intended to be used.
 %% That an erlang process creating a socket and then handing over the
-%% file descriptor to another erlang process. *But* its a convient way
+%% file descriptor to another erlang process. *But* its a convenient way
 %% to test it!
 %%
 %% </WARNING>
@@ -5465,7 +5465,7 @@ api_ffd_open_connect_and_open_wod_and_send_tcp4(_Config) when is_list(_Config) -
 %%
 %% This is *not* how its intended to be used.
 %% That an erlang process creating a socket and then handing over the
-%% file descriptor to another erlang process. *But* its a convient way
+%% file descriptor to another erlang process. *But* its a convenient way
 %% to test it!
 %%
 %% </WARNING>

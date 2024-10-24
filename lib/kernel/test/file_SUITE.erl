@@ -493,7 +493,7 @@ um_check_unicode(_Utf8Bin, {ok, _ListOrBin}, _, _UTF8_) ->
     %% 	   end,
     %% io:format("In: ~w~n", [binary_to_list(Utf8Bin)]),
     %% io:format("Ut: ~w~n", [List]),
-    ?THROW_ERROR({shoud_be, no_translation}).
+    ?THROW_ERROR({should_be, no_translation}).
 
 um_filename(Bin, Dir, Options) when is_binary(Bin) ->
     um_filename(binary_to_list(Bin), Dir, Options);

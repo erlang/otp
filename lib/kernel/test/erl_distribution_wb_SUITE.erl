@@ -814,8 +814,8 @@ recv_message(Socket) ->
 	{ok,Data} ->
 	    B0 = list_to_binary(Data),
 	    <<?PASS_THROUGH, B1/binary>> = B0,
-	    {Header,Siz} = binary_to_term(B1,[used]),
-	    <<_:Siz/binary,B2/binary>> = B1,
+	    {Header,Size} = binary_to_term(B1,[used]),
+	    <<_:Size/binary,B2/binary>> = B1,
 	    Message = case (catch binary_to_term(B2)) of
 			  {'EXIT', _} ->
 			      {could_not_digest_message,B2};

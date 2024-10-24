@@ -108,7 +108,7 @@ In the following descriptions, all functions fail with reason `badarg` if
 %%% This is a rewrite of pre_heart from BS.3.
 %%%
 %%% The purpose of this process-module is to act as a supervisor
-%%% of the entire erlang-system. This 'heart' beats with a frequence
+%%% of the entire erlang-system. This 'heart' beats with a frequency
 %%% satisfying an external port program *not* reboot the entire
 %%% system. If however the erlang-emulator would hang, a reboot is
 %%% then needed.

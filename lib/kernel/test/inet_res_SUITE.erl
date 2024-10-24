@@ -1479,7 +1479,7 @@ update(Config) when is_list(Config) ->
 
 % note for implementors reading this, the usage of
 % inet_dns_tsig.erl is identical except you do not need
-% to inspect the reponse for the presence of a TSIG RR
+% to inspect the response for the presence of a TSIG RR
 tsig_client(Config) when is_list(Config) ->
     {NSIP,NSPort} = ns(Config),
     Domain = "otptest",

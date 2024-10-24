@@ -202,7 +202,7 @@
 	{
 	 header,       %% dns_header record
 	 qdlist = [],  %% list of question (for UPDATE 'zone') entries
-	 anlist = [],  %% list of answer (for UPDATE 'prequisites') entries
+	 anlist = [],  %% list of answer (for UPDATE 'prerequisites') entries
 	 nslist = [],  %% list of authority (for UPDATE 'update') entries
 	 arlist = []   %% list of resource entries
 	}).
