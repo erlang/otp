@@ -36,11 +36,13 @@
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
-	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
+	 code_archive/1, code_archive2/1, on_load/1,
+     on_load_binary/1, on_load_binary_twice/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
          on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
 	 on_load_deleted/1, on_load_deadlock/1,
+         on_load_deadlock_load_binary_GH7466/1, on_load_deadlock_ensure_loaded_GH7466/1,
 	 big_boot_embedded/1,
          module_status/1,
 	 get_mode/1, code_path_cache/1,
@@ -73,10 +75,12 @@ all() ->
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_binary, on_load_embedded, on_load_errors,
+     on_load_binary, on_load_binary_twice,
+     on_load_embedded, on_load_errors,
      {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
-     on_load_deleted, on_load_deadlock,
+     on_load_deleted, on_load_deadlock, on_load_deadlock_load_binary_GH7466,
+     on_load_deadlock_ensure_loaded_GH7466,
      module_status,
      big_boot_embedded, get_mode, normalized_paths,
      mult_embedded_flags].
@@ -1447,11 +1451,11 @@ on_load_binary(_) ->
 
     {Pid1,Ref1} = spawn_monitor(fun() ->
 					code:load_binary(Mod, File, Bin),
-					true = on_load_binary:ok()
+					true = Mod:ok()
 				end),
     receive {Mod,OnLoadPid} -> ok end,
     {Pid2,Ref2} = spawn_monitor(fun() ->
-					true = on_load_binary:ok()
+					true = Mod:ok()
 				end),
     erlang:yield(),
     OnLoadPid ! go,
@@ -1459,8 +1463,49 @@ on_load_binary(_) ->
     receive {'DOWN',Ref2,process,Pid2,Exit2} -> ok end,
     normal = Exit1,
     normal = Exit2,
-    true = code:delete(on_load_binary),
-    false = code:purge(on_load_binary),
+    true = code:delete(Mod),
+    false = code:purge(Mod),
+    ok.
+
+on_load_binary_twice(_) ->
+    Master = on_load_binary_twice_test_case_process,
+    register(Master, self()),
+
+    %% Construct, compile and pretty-print.
+    Mod = ?FUNCTION_NAME,
+    File = atom_to_list(Mod) ++ ".erl",
+    Tree = ?Q(["-module('@Mod@').\n",
+           "-export([ok/0]).\n",
+           "-on_load({init,0}).\n",
+           "init() ->\n",
+           "  '@Master@' ! {on_load_binary_twice,self()},\n",
+           "  receive go -> ok end.\n",
+           "ok() -> true.\n"]),
+    {ok,Mod,Bin} = merl:compile(Tree),
+    merl:print(Tree),
+
+    {Pid1,Ref1} = spawn_monitor(fun() ->
+                    code:load_binary(Mod, File, Bin),
+                    true = Mod:ok()
+                end),
+    receive {Mod,OnLoadPid1} -> ok end,
+    {Pid2,Ref2} = spawn_monitor(fun() ->
+                    code:load_binary(Mod, File, Bin),
+                    true = Mod:ok()
+                end),
+    erlang:yield(),
+
+    OnLoadPid1 ! go,
+    receive {'DOWN',Ref1,process,Pid1,Exit1} -> ok end,
+    normal = Exit1,
+
+    receive {Mod,OnLoadPid2} -> ok end,
+    OnLoadPid2 ! go,
+    receive {'DOWN',Ref2,process,Pid2,Exit2} -> ok end,
+    normal = Exit2,
+
+    false = code:purge(Mod),
+    true = code:delete(Mod),
     ok.
 
 on_load_embedded(Config) when is_list(Config) ->
@@ -1946,6 +1991,78 @@ on_load_deadlock(Config) ->
 
     code:del_path(Dir),
     ok.
+
+on_load_deadlock_load_binary_GH7466(Config) ->
+    Tree = ?Q(["-module(foo).\n",
+               "-on_load(init_module/0).\n",
+               "-export([bar/0]).\n",
+               "bar() -> ok.\n",
+               "init_module() ->\n",
+               "    timer:sleep(1000).\n"]),
+    merl:print(Tree),
+
+    %% Compiles the form, does not load binary
+    {ok,Mod,Bin} = compile:forms(Tree),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "foo.beam"),
+    ok = file:write_file(File, Bin),
+    code:add_path(Dir),
+
+    Self = self(),
+    LoadBin = fun() ->
+                      _ = code:load_binary(Mod, "foo.beam", Bin),
+                      Self ! {done, self()},
+                      Self
+              end,
+    %% this deadlocks in OTP-26
+    PidX = spawn(LoadBin),
+    PidY = spawn(LoadBin),
+    Self = LoadBin(),
+    ok = receiver(PidX),
+    ok = receiver(PidY),
+    ok = receiver(Self),
+
+    code:del_path(Dir),
+    ok.
+
+on_load_deadlock_ensure_loaded_GH7466(Config) ->
+    Tree = ?Q(["-module(foo).\n",
+               "-on_load(init_module/0).\n",
+               "-export([bar/0]).\n",
+               "bar() -> ok.\n",
+               "init_module() ->\n",
+               "    timer:sleep(1000), bar().\n"]),
+    _ = merl:print(Tree),
+
+    %% Compiles the form, does not load binary
+    {ok,Mod,Bin} = compile:forms(Tree),
+    Dir = proplists:get_value(priv_dir, Config),
+    File = filename:join(Dir, "foo.beam"),
+    ok = file:write_file(File, Bin),
+    code:add_path(Dir),
+
+    Self = self(),
+    EnsureLoaded = fun() ->
+                           _ = code:ensure_loaded(Mod),
+                           Self ! {done, self()},
+                           Self
+                   end,
+    Pid = spawn(EnsureLoaded),
+    Pid2 = spawn(EnsureLoaded),
+    Self = EnsureLoaded(),
+    ok = receiver(Pid),
+    ok = receiver(Pid2),
+    ok = receiver(Self),
+
+    code:del_path(Dir),
+    ok.
+
+receiver(Pid) ->
+    receive
+        {done, Pid} -> ok
+    after 10_000 ->
+            it_deadlocked
+    end.
 
 delete_before_reload(Mod, Reload) ->
     false = check_old_code(Mod),
