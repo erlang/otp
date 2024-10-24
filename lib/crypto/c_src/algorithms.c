@@ -250,16 +250,14 @@ int get_curve_cnt(ErlNifEnv* env, int fips) {
 
     enif_mutex_lock(mtx_init_curve_types);
     if (1 == fips) {
-        if (algo_curve_fips_cnt >= 0) {
-            return algo_curve_fips_cnt;
+        if (algo_curve_fips_cnt < 0) {
+            algo_curve_fips_cnt = init_curves(env, 1);
         }
-        algo_curve_fips_cnt = init_curves(env, 1);
         cnt = algo_curve_fips_cnt;
     } else {
-        if (algo_curve_cnt >= 0) {
-            return algo_curve_cnt;
+        if (algo_curve_cnt < 0) {
+            algo_curve_cnt = init_curves(env, 0);
         }
-        algo_curve_cnt = init_curves(env, 0);
         cnt = algo_curve_cnt;
     }
     enif_mutex_unlock(mtx_init_curve_types);
