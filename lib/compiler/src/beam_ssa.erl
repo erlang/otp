@@ -696,8 +696,10 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
 
 %% split_blocks(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
 %%  Call Predicate(Instruction) for each instruction in the given
-%%  blocks. If Predicate/1 returns true, split the block
-%%  before this instruction.
+%%  blocks. If Predicate/1 returns true, split the block before this
+%%  instruction. Note that this function won't create a new empty
+%%  block if the predicate returns true for the first instruction in a
+%%  block.
 
 -spec split_blocks(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
       Labels :: [label()],
