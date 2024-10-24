@@ -1333,37 +1333,37 @@ user_info(UserMid) ->
     [{requests, user_info(UserMid, requests)},
      {replies,  user_info(UserMid, replies)} | user_info(UserMid, all)].
 
--dialyzer({no_contracts, user_info/2}).
 -doc """
 Lookup user information
 
 [](){: #user_info_21 }
 
 Lookup user information about currently active requests.
+Expected input type `Input :: Requests` with expected
+output type `Result "" RequestsResult`.
 
 [](){: #user_info_22 }
 
 Lookup user information about currently active replies.
+Expected input type `Input :: Replies` with expected
+output type `Result "" RepliessResult`.
 
 [](){: #update_user_info }
 """.
--spec user_info(UserMid, requests) -> [{Conn, [TransId]}] when
+-spec user_info(UserMid, Input) -> Result when
+      Input   :: Requests | Replies | Item,
+      Requests :: requests,
+      Replies :: replies,
+      Item    :: user_info_item(),
       UserMid :: mid(),
       Conn    :: conn_handle(),
-      TransId :: transaction_id();
-
-               (UserMid, replies) ->
-          [{Conn, [{TransId, ReplyState, Handler}]}] when
-      UserMid    :: mid(),
-      Conn       :: conn_handle(),
-      TransId    :: transaction_id(),
+      Result  :: RequestsResult | RepliesResult | ItemResult,
+      RequestsResult :: [{Conn, [TransId]}],
+      ItemResult :: term(),
+      RepliesResult :: [{Conn, [{TransId, ReplyState, Handler}]}],
+      TransId :: transaction_id(),
       ReplyState :: prepare | eval_request | waiting_for_ack | aborted,
-      Handler    :: undefined | pid();
-
-               (UserMid, Item) -> Value when
-      UserMid :: mid(),
-      Item    :: user_info_item(),
-      Value   :: term().
+      Handler    :: undefined | pid().
 
 user_info(UserMid, requests) ->
     megaco_messenger:which_requests(UserMid);
@@ -1408,7 +1408,6 @@ conn_info(ConnHandle) ->
     [{requests, conn_info(ConnHandle, requests)},
      {replies,  conn_info(ConnHandle, replies)} | conn_info(ConnHandle, all)].
 
--dialyzer({no_contracts, conn_info/2}).
 -doc """
 Lookup information about an active connection
 
