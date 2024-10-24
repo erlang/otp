@@ -2901,28 +2901,29 @@ restart:
             Eterm mfa;
             Eterm res;
             struct StackTrace *s;
-            int depth;
+            int max_depth;
             FunctionInfo* stk;
             FunctionInfo* stkp;
 
             ASSERT(c_p == self);
 
-            depth = unsigned_val(esp[-1]);
+            max_depth = unsigned_val(esp[-1]);
+            ASSERT(max_depth >= 0 && max_depth <= MAX_BACKTRACE_SIZE);
             esp--;
 
-            sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * depth;
+            sz = offsetof(struct StackTrace, trace) + sizeof(ErtsCodePtr) * max_depth;
             s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
             s->depth = 0;
+            s->max_depth = max_depth;
             s->pc = NULL;
 
-            erts_save_stacktrace(c_p, s, depth);
+            erts_save_stacktrace(c_p, s);
 
-            depth = s->depth;
             stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
-                                                     depth*sizeof(FunctionInfo));
+                                                     s->depth * sizeof(FunctionInfo));
 
             heap_size = 0;
-            for (i = 0; i < depth; i++) {
+            for (i = 0; i < s->depth; i++) {
                 erts_lookup_function_info(stkp, s->trace[i], 1);
                 if (stkp->mfa) {
                     heap_size += stkp->needed + 2;

@@ -1215,7 +1215,7 @@ void erts_prepare_bs_construct_fail_info(Process* c_p, const BeamInstr* p, Eterm
 void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
-void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
+void erts_save_stacktrace(Process* p, struct StackTrace* s);
 ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
 
 /* erl_init.c */
