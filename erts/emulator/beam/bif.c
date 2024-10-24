@@ -2320,12 +2320,12 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    case ERTS_PORT_OP_BUSY:
 		/* Nothing has been sent */
 		if (suspend)
-		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
+		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt, 0);
 		return SEND_YIELD;
 	    case ERTS_PORT_OP_BUSY_SCHEDULED:
 		/* Message was sent */
 		if (suspend) {
-		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
+		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt, 0);
 		    ret_val = SEND_YIELD_RETURN;
 		    break;
 		}

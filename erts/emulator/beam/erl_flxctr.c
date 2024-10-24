@@ -158,7 +158,7 @@ static void suspend_until_thr_prg(Process* p)
     info = ERTS_MAGIC_BIN_DATA(state_bin);
     info->process = p;
     erts_refc_inctest(&state_bin->intern.refc, 1);
-    erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
+    erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL, 0);
     erts_proc_inc_refc(p);
     ERTS_VBUMP_ALL_REDS(p);
     erts_schedule_thr_prgr_later_op(thr_prg_wake_up_later, state_bin, &info->later_op);
@@ -309,7 +309,7 @@ erts_flxctr_snapshot(ErtsFlxCtr* c,
             info->nr_of_counters = c->nr_of_counters;
             erts_proc_inc_refc(p);
             erts_refc_inctest(&state_bin->intern.refc, 2);
-            erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
+            erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL, 0);
             ERTS_VBUMP_ALL_REDS(p);
             erts_schedule_thr_prgr_later_op(thr_prg_wake_up_and_count,
                                             state_bin,

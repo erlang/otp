@@ -24,6 +24,7 @@
 %% 	exit/1
 %%	exit/2
 %%	process_info/1,2
+%%      suspend_process/2 (partially)
 %%	register/2 (partially)
 
 -include_lib("stdlib/include/assert.hrl").
@@ -31,7 +32,7 @@
 
 -define(heap_binary_size, 64).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2, spawn_with_binaries/1,
 	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
@@ -55,6 +56,8 @@
          process_info_self_msgq_len_more/1,
          process_info_msgq_len_no_very_long_delay/1,
          process_info_dict_lookup/1,
+         suspend_process_pausing_proc_timer/1,
+         suspend_process_pausing_proc_timer_after_suspended/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -130,6 +133,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -183,6 +187,9 @@ groups() ->
        process_info_self_msgq_len_more,
        process_info_msgq_len_no_very_long_delay,
        process_info_dict_lookup]},
+     {suspend_process_bif, [],
+      [suspend_process_pausing_proc_timer,
+       suspend_process_pausing_proc_timer_after_suspended]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1753,6 +1760,57 @@ proc_dict_helper() ->
             _ = erase(Key)
     end,
     proc_dict_helper().
+
+suspend_process_pausing_proc_timer(_Config) ->
+    BeforeSuspend = fun(_Pid) -> ok end,
+    AfterResume = fun(_Pid) -> ok end,
+    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
+    ok.
+
+suspend_process_pausing_proc_timer_after_suspended(_Config) ->
+    % We suspend the process once before using pause_proc_timer
+    BeforeSuspend = fun(Pid) -> true = erlang:suspend_process(Pid) end,
+    AfterResume = fun(Pid) -> true = erlang:resume_process(Pid) end,
+    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
+    ok.
+
+suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+            TcProc ! {sync, self()},
+            receive go -> ok
+            after 2_000 -> exit(timer_not_paused)
+            end,
+            TcProc ! {sync, self()},
+            receive _ -> error(unexpected)
+            after 2_000 -> ok
+            end,
+            TcProc ! {sync, self()}
+        end
+    ),
+
+    WaitForSync = fun () ->
+        receive {sync, Pid} -> ok
+        after 10_000 -> error(timeout)
+        end
+    end,
+
+    WaitForSync(),
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid, [pause_proc_timer]),
+    timer:sleep(5_000),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    timer:sleep(1_000),
+    Pid ! go,
+    WaitForSync(),
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid, [pause_proc_timer]),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    WaitForSync(),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->

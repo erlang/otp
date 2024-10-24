@@ -1165,6 +1165,8 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "DIRTY_RUNNING"); break;
             case ERTS_PSFLG_DIRTY_RUNNING_SYS:
                 erts_print(to, to_arg, "DIRTY_RUNNING_SYS"); break;
+            case ERTS_PSFLG_PAUSED_TIMER:
+                erts_print(to, to_arg, "PAUSED_TIMER"); break;
             default:
                 erts_print(to, to_arg, "UNKNOWN(%d)", chk); break;
             }

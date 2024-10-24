@@ -188,7 +188,7 @@ static int try_seize_code_permission(struct code_permission *perm,
             qitem->aux_func = NULL;
             qitem->aux_arg = NULL;
             erts_proc_inc_refc(c_p);
-            erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+            erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
         } else {
             qitem->p = NULL;
             qitem->aux_func = aux_func;

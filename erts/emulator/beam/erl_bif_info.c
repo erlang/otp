@@ -712,7 +712,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 {
     if (mon->type == ERTS_MON_TYPE_SUSPEND) {
         Sint count;
-        erts_aint_t mstate;
+        erts_aint64_t mstate;
         ErtsMonitorSuspend *msp;
         ErtsSuspendMonitorInfoCollection *smicp;
 
@@ -724,7 +724,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 	smicp->smi[smicp->smi_i] = msp;
 	smicp->sz += 2 /* cons */ + 4 /* 3-tuple */;
 
-        mstate = erts_atomic_read_nob(&msp->state);
+        mstate = erts_atomic64_read_nob(&msp->state);
 
         count = (Sint) (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK);
 	if (!IS_SSMALL(count))
@@ -1893,15 +1893,15 @@ process_info_aux(Process *c_p,
 	res = NIL;
 	for (i = 0; i < smic.smi_i; i++) {
             ErtsMonitorSuspend *msp;
-            erts_aint_t mstate;
-	    Sint ci;
+            erts_aint64_t mstate;
+            Sint64 ci;
             Eterm ct, active, pending, item;
             Uint sz = 4 + 2;
 
             msp = smic.smi[i];
-            mstate = erts_atomic_read_nob(&msp->state);
+            mstate = erts_atomic64_read_nob(&msp->state);
 
-            ci = (Sint) (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK);
+            ci = (Sint64) (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK);
             if (!IS_SSMALL(ci))
                 sz += BIG_UINT_HEAP_SIZE;
 

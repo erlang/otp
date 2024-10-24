@@ -1294,7 +1294,7 @@ try_seize_update_permission(Process* c_p)
         erts_proc_inc_refc(c_p);
         qitem->next = update_queue;
         update_queue = qitem;
-        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+        erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
     }
     erts_mtx_unlock(&update_table_permission_mtx);
     return success;
@@ -1340,7 +1340,7 @@ suspend_updater(Process* c_p)
     erts_mtx_unlock(&update_table_permission_mtx);
 #endif
     erts_proc_inc_refc(c_p);
-    erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+    erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL, 0);
 }
 
 static void

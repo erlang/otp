@@ -507,7 +507,7 @@ trace_pattern(Process* p, ErtsTraceSession *session,
 	finish_bp.stager = p;
 	erts_schedule_code_barrier(&finish_bp.barrier, smp_bp_finisher, NULL);
 	erts_proc_inc_refc(p);
-	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
+	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL, 0);
 	ERTS_BIF_YIELD_RETURN(p, make_small(matches));
     }
     else {
@@ -1310,7 +1310,7 @@ erts_internal_trace_session_destroy_1(BIF_ALIST_1)
         erts_schedule_code_barrier(&finish_bp.barrier, smp_bp_finisher, NULL);
 
         erts_proc_inc_refc(BIF_P);
-        erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+        erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL, 0);
         ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
     }
     else {
