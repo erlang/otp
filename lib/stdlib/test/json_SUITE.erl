@@ -39,6 +39,7 @@
     test_encode_proplist/1,
     test_encode_escape_all/1,
     test_format_list/1,
+    test_format_proplist/1,
     test_format_map/1,
     test_format_fun/1,
     test_decode_atoms/1,
@@ -91,6 +92,7 @@ groups() ->
         ]},
         {format, [parallel], [
             test_format_list,
+            test_format_proplist,
             test_format_map,
             test_format_fun
         ]},
@@ -365,6 +367,186 @@ test_format_list(_Config) ->
 
     """,
     ?assertEqual(ListString, format([~"foo", ~"bar", ~"baz"], #{indent => 3})),
+    ok.
+
+test_format_proplist(_Config) ->
+    Formatter = fun({kvlist, KVList}, Fun, State) ->
+                        json:format_key_value_list(KVList, Fun, State);
+                   ({kvlist_checked, KVList}, Fun, State) ->
+                        json:format_key_value_list_checked(KVList, Fun, State);
+                   (Other, Fun, State) ->
+                        json:format_value(Other, Fun, State)
+                end,
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": "str"
+                  }
+
+                  """, format({kvlist, [{a, 1}, {b, ~"str"}]}, Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": "str"
+                  }
+
+                  """, format({kvlist_checked, [{a, 1}, {b, ~"str"}]}, Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "10": 1.0,
+                    "1.0": 10,
+                    "a": "αβ",
+                    "αβ": "a"
+                  }
+
+                  """, format({kvlist, [{10, 1.0},
+                                        {1.0, 10},
+                                        {a, ~"αβ"},
+                                        {~"αβ", a}
+                                       ]}, Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "10": 1.0,
+                    "1.0": 10,
+                    "a": "αβ",
+                    "αβ": "a"
+                  }
+
+                  """, format({kvlist_checked, [{10, 1.0},
+                                                {1.0, 10},
+                                                {a, ~"αβ"},
+                                                {~"αβ", a}
+                                               ]}, Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": {
+                      "aa": 10,
+                      "bb": 20
+                    },
+                    "c": "str"
+                  }
+
+                  """, format({kvlist, [{a, 1},
+                                        {b, {kvlist, [{aa, 10}, {bb, 20}]}},
+                                        {c, ~"str"}
+                                       ]}, Formatter)),
+
+    ?assertEqual(~"""
+                  [{
+                      "a1": 1,
+                      "b1": [{
+                          "a11": 1,
+                          "b11": 2
+                        },{
+                          "a12": 3,
+                          "b12": 4
+                        }],
+                      "c1": "str1"
+                    },
+                    {
+                      "a2": 2,
+                      "b2": [{
+                          "a21": 5,
+                          "b21": 6
+                        },{
+                          "a22": 7,
+                          "b22": 8
+                        }],
+                      "c2": "str2"
+                    }]
+
+                  """, format([{kvlist, [{a1, 1},
+                                         {b1, [{kvlist, [{a11, 1}, {b11, 2}]},
+                                               {kvlist, [{a12, 3}, {b12, 4}]}
+                                              ]},
+                                         {c1, ~"str1"}
+                                        ]},
+                               {kvlist, [{a2, 2},
+                                         {b2, [{kvlist, [{a21, 5}, {b21, 6}]}
+                                              ,{kvlist, [{a22, 7}, {b22, 8}]}
+                                              ]},
+                                         {c2, ~"str2"}
+                                        ]}
+                              ], Formatter)),
+
+    ?assertEqual(~"""
+                  {
+                    "a": 1,
+                    "b": {
+                      "aa": 10,
+                      "bb": 20
+                    },
+                    "c": "str"
+                  }
+
+                  """, format({kvlist_checked, [{a, 1},
+                                                {b, {kvlist_checked, [{aa, 10}, {bb,20}]}},
+                                                {c, ~"str"}
+                                               ]}, Formatter)),
+
+    ?assertEqual(~"""
+                  [{
+                      "a1": 1,
+                      "b1": [{
+                          "a11": 1,
+                          "b11": 2
+                        },{
+                          "a12": 3,
+                          "b12": 4
+                        }],
+                      "c1": "str1"
+                    },
+                    {
+                      "a2": 2,
+                      "b2": [{
+                          "a21": 5,
+                          "b21": 6
+                        },{
+                          "a22": 7,
+                          "b22": 8
+                        }],
+                      "c2": "str2"
+                    }]
+
+                  """, format([{kvlist_checked,
+                                [{a1, 1},
+                                 {b1, [{kvlist_checked, [{a11, 1}, {b11, 2}]},
+                                       {kvlist_checked, [{a12, 3}, {b12, 4}]}
+                                      ]},
+                                 {c1, ~"str1"}
+                                ]},
+                               {kvlist_checked,
+                                [{a2, 2},
+                                 {b2, [{kvlist_checked, [{a21, 5}, {b21, 6}]}
+                                      ,{kvlist_checked, [{a22, 7}, {b22, 8}]}
+                                      ]},
+                                 {c2, ~"str2"}
+                                ]}
+                              ], Formatter)),
+
+
+    ?assertError({duplicate_key, a},
+                 format({kvlist_checked, [{a, 1}, {b, ~"str"}, {a, 2}]}, Formatter)),
+
+    %% on invalid input exact error is not specified
+    ?assertError(_, format({kvlist, [{a, 1}, b]}, Formatter)),
+
+    ?assertError(_, format({kvlist, x}, Formatter)),
+
+    ?assertError(_, format({kvlist, [{#{}, 1}]}, Formatter)),
+
+    ?assertError(_, format({kvlist_checked, [{a, 1}, b]}, Formatter)),
+
+    ?assertError(_, format({kvlist_checked, x}, Formatter)),
+
+    ?assertError(_, format({kvlist_checked, [{#{}, 1}]}, Formatter)),
+
     ok.
 
 test_format_map(_Config) ->
