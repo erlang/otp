@@ -2322,19 +2322,39 @@ option_order(Config) ->
     run(Config, Ts),
     ok.
 
-%% Make sure that the `line_coverage` option will not change
-%% line numbers in exceptions.
 sys_coverage(Config) ->
-    Mod = exceptions,
     DataDir = proplists:get_value(data_dir, Config),
+
+    sys_coverage_1(DataDir),
+    sys_coverage_2(DataDir),
+
+    ok.
+
+%% Make sure that the `line_coverage` option will not change line
+%% numbers in exceptions.
+sys_coverage_1(DataDir) ->
+    Mod = exceptions,
     Source = filename:join(DataDir, "exceptions"),
     {ok,Mod,Code} = compile:file(Source, [line_coverage,binary,report]),
     {module,Mod} = code:load_binary(Mod, "", Code),
 
-    Mod:Mod(Config),
+    Mod:Mod(DataDir),
 
     true = code:delete(Mod),
     false = code:purge(Mod),
+
+    ok.
+
+%% Make sure that the `line_coverage` option given in the `compile`
+%% attribute in a module works.
+sys_coverage_2(DataDir) ->
+    Mod = embedded_line_coverage,
+    Source = filename:join(DataDir, "embedded_line_coverage"),
+    {ok,Mod,Asm} = compile:file(Source, ['S',binary,report]),
+
+    {Mod,_,_,Fs,_} = Asm,
+    [{function,add,2,_,Is}|_] = Fs,
+    true = lists:keymember(executable_line, 1, Is),
 
     ok.
 
