@@ -137,6 +137,7 @@ the warning options.
                        | 'unmatched_returns'
                        | 'overspecs'
                        | 'specdiffs'
+                       | 'overlapping_contract'
                        | 'extra_return'
                        | 'no_extra_return'
                        | 'missing_return'

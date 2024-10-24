@@ -265,34 +265,26 @@ symbolic_store, local_db and master_agent (and sub-agents).
   Sets verbosity for all sub-agent(s) controlled by this (master) agent.
 
 - **`master_agent | pid()`** - Sets verbosity for the agent process.
+
+The following text documents expected input-output relations
+
+- If `Target :: all | net_if | note_store | mib_server | symbolic_store | local_db`,
+  then `Verbosity :: snmp:verbosity()`.
+
+- If `Target :: master_agent`,
+  then `Verbosity :: {subagents, snmp:verbosity()}`
+
+- If `Target :: pid() | atom()`,
+  then `Verbosity :: snmp:verbosity() | {subagents, snmp:verbosity()}`.
 """.
 -spec verbosity(Target, Verbosity) -> snmp:void() when
-      Target    :: all,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: net_if,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: note_store,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: mib_server,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: symbolic_store,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: local_db,
-      Verbosity :: snmp:verbosity();
-               (Target, Verbosity) -> snmp:void() when
-      Target    :: master_agent | Agent,
-      Agent     :: pid() | AgentName,
-      AgentName :: atom(),
-      Verbosity :: {subagents, snmp:verbosity()};
-               (Agent, Verbosity) -> snmp:void() when
-      Agent     :: pid() | AgentName,
-      AgentName :: atom(),
-      Verbosity :: snmp:verbosity().
+      Target :: Actions | Agent | Pid,
+      Actions :: all | net_if | note_store | mib_server | symbolic_store | local_db,
+      Agent :: master_agent | pid() | atom(),
+      Pid :: pid() | atom(),
+      Verbosity :: SNMPVerb | SubAgent,
+      SNMPVerb :: snmp:verbosity(),
+      SubAgent :: {subagents, snmp:verbosity()}.
 
 verbosity(all = _Target, Verbosity) when is_atom(Verbosity) ->
     catch snmpa_agent:verbosity(sub_agents,   Verbosity),
@@ -1401,19 +1393,20 @@ register_notification_filter(Id, Mod, Data) when is_atom(Mod) ->
     register_notification_filter(snmp_master_agent, Id, Mod, Data, last).
  
 -doc(#{equiv => register_notification_filter/5}).
--spec register_notification_filter(Agent, Id, Mod, Data) ->
+-doc """
+Accepted type specifications are:
+```
+-spec register_notification_filter(Agent, Id, Mod, Data) -> ok | {error, Reason}.
+-spec register_notification_filter(Id, Mod, Data, Where) -> ok | {error, Reason}.
+```
+""".
+-spec register_notification_filter(Agent | Id, Id | Mod, Mod | Data, Data | Where) ->
           ok | {error, Reason} when
       Agent     :: pid() | AgentName,
       AgentName :: atom(),
       Id        :: nfilter_id(),
       Mod       :: module(),
       Data      :: term(),
-      Reason    :: term();
-                                  (Id, Mod, Data, Where) ->
-          ok | {error, Reason} when
-      Id     :: nfilter_id(),
-      Mod    :: module(),
-      Data   :: term(),
       Where  :: nfilter_position(),
       Reason :: term().
 
@@ -1987,19 +1980,19 @@ discovery(TargetName, Notification) ->
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds).
 
+%% TODO: Is using nominal types fixing this type, where the overlap
+%%       is on the empty List of Varbinds and ContextName (string()).
+-dialyzer({no_contracts, discovery/3}).
 -doc(#{equiv => discovery/6}).
 -spec discovery(TargetName, Notification, Varbinds) ->
           {ok, ManagerEngineID} | {error, Reason} when
       TargetName      :: string(),
       Notification    :: atom(),
       Varbinds        :: [Varbind],
-      Varbind         :: {Variable, Value} |
-                         {Column, RowIndex, Value} |
-                         {OID, Value},
-      Variable        :: atom(),
-      Column          :: atom(),
-      RowIndex        :: snmp:row_index(),
-      OID             :: snmp:oid(),
+      Varbind         :: {Variable :: atom(), Value}
+                       | {OID :: snmp:oid(), Value}
+                       | { Column :: atom(),
+                           RowIndex :: snmp:row_index(), Value},
       Value           :: term(),
       ManagerEngineID :: snmp_framework_mib:engine_id(),
       Reason          :: term();
@@ -2437,22 +2430,15 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
 
 
 -doc(#{equiv => log_to_txt/8}).
--spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) ->
+-spec log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->
           snmp:void() when
       LogDir  :: snmp:dir(),
       Mibs    :: [snmp:mib_name()],
       OutFile :: file:filename(),
       LogName :: string(),
       LogFile :: string(),
-      Block   :: boolean();
-                (LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
-          snmp:void() when
-      LogDir  :: snmp:dir(),
-      Mibs    :: [snmp:mib_name()],
-      OutFile :: file:filename(),
-      LogName :: string(),
-      LogFile :: string(),
-      Start   :: null | snmp:log_time().
+      Block   :: boolean(),
+      Start   :: snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
@@ -2473,7 +2459,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
-      Start   :: null | snmp:log_time();
+      Start   :: snmp:log_time();
                 (LogDir, Mibs,
 		 OutFile, LogName, LogFile,
 		 Start, Stop) -> snmp:void() when
@@ -2482,8 +2468,8 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
       OutFile :: file:filename(),
       LogName :: string(),
       LogFile :: string(),
-      Start   :: null | snmp:log_time(),
-      Stop    :: null | snmp:log_time().
+      Start   :: snmp:log_time(),
+      Stop    :: snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
