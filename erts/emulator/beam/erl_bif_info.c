@@ -6273,7 +6273,7 @@ static void os_info_init(void)
 
     hp = erts_global_literal_allocate(3, &ohp);
     tuple = TUPLE2(hp, type, flav);
-    erts_global_literal_register(&tuple, hp, 3);
+    erts_global_literal_register(&tuple);
     ERTS_GLOBAL_LIT_OS_TYPE = tuple;
 
     hp = erts_global_literal_allocate(4, &ohp);
@@ -6282,7 +6282,7 @@ static void os_info_init(void)
                    make_small(major),
                    make_small(minor),
                    make_small(build));
-    erts_global_literal_register(&tuple, hp, 4);
+    erts_global_literal_register(&tuple);
     ERTS_GLOBAL_LIT_OS_VERSION = tuple;
 }
 

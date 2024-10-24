@@ -55,11 +55,13 @@ erts_mtx_t global_literal_lock;
  * This is protected by the global literal lock. */
 struct global_literal_chunk {
     struct global_literal_chunk *next;
-    Eterm *hp;
+    Eterm *chunk_end;
 
     ErtsLiteralArea area;
 } *global_literal_chunk = NULL;
 
+/* The size of the global literal term that is being built */
+Uint global_literal_build_size;
 
 
 ErtsLiteralArea *erts_global_literal_iterate_area(ErtsLiteralArea *prev)
@@ -81,7 +83,6 @@ ErtsLiteralArea *erts_global_literal_iterate_area(ErtsLiteralArea *prev)
         next = global_literal_chunk;
     }
 
-    next->area.end = next->hp;
     return &next->area;
 }
 
@@ -100,10 +101,14 @@ static void expand_shared_global_literal_area(Uint heap_size)
     address = (UWord) erts_alloc(ERTS_ALC_T_LITERAL, size + sys_page_size * 2);
     address = (address + (sys_page_size - 1)) & ~(sys_page_size - 1);
     chunk = (struct global_literal_chunk *) address;
+
+    for (int i = 0; i < heap_size; i++) {
+        chunk->area.start[i] = ERTS_HOLE_MARKER;
+    }
 #endif
 
-    chunk->hp = &chunk->area.start[0];
-    chunk->area.end = &chunk->hp[heap_size];
+    chunk->area.end = &(chunk->area.start[0]);
+    chunk->chunk_end = &(chunk->area.start[heap_size]);
     chunk->area.off_heap = NULL;
     chunk->next = global_literal_chunk;
 
@@ -112,45 +117,53 @@ static void expand_shared_global_literal_area(Uint heap_size)
 
 Eterm *erts_global_literal_allocate(Uint heap_size, struct erl_off_heap_header ***ohp)
 {
-    Eterm *hp;
-
     erts_mtx_lock(&global_literal_lock);
 
-    ASSERT((global_literal_chunk->hp <= global_literal_chunk->area.end &&
-            global_literal_chunk->hp >= global_literal_chunk->area.start) );
-    if (global_literal_chunk->area.end - global_literal_chunk->hp <= heap_size) {
+    ASSERT(global_literal_chunk->area.end <= global_literal_chunk->chunk_end &&
+           global_literal_chunk->area.end >= global_literal_chunk->area.start);
+    if (global_literal_chunk->chunk_end - global_literal_chunk->area.end < heap_size) {
         expand_shared_global_literal_area(heap_size + GLOBAL_LITERAL_EXPAND_SIZE);
     }
+
+    *ohp = &global_literal_chunk->area.off_heap;
 
 #ifdef DEBUG
     {
         struct global_literal_chunk *chunk = global_literal_chunk;
         erts_mem_guard(chunk,
-                       (chunk->area.end - (Eterm*)chunk) * sizeof(Eterm),
+                       (byte*)(chunk->area.end + heap_size) - (byte*)chunk,
                        1, 
                        1);
     }
 #endif
 
+    global_literal_build_size = heap_size;
 
-    *ohp = &global_literal_chunk->area.off_heap;
-    hp = global_literal_chunk->hp;
-    global_literal_chunk->hp += heap_size;
-
-    return hp;
+    return global_literal_chunk->area.end;
 }
 
-void erts_global_literal_register(Eterm *variable, Eterm *hp, Uint heap_size) {
-    erts_set_literal_tag(variable, hp, heap_size);
+void erts_global_literal_register(Eterm *variable) {
+    struct global_literal_chunk *chunk = global_literal_chunk;
+
+    ASSERT(ptr_val(*variable) >= chunk->area.end &&
+           ptr_val(*variable) < (chunk->area.end + global_literal_build_size));
+
+    erts_set_literal_tag(variable,
+                         chunk->area.end,
+                         global_literal_build_size);
     
+    chunk->area.end += global_literal_build_size;
+
+    ASSERT(chunk->area.end <= chunk->chunk_end &&
+           chunk->area.end >= chunk->area.start);
+    ASSERT(chunk->area.end == chunk->chunk_end ||
+           chunk->area.end[0] == ERTS_HOLE_MARKER);
+
 #ifdef DEBUG
-    {
-        struct global_literal_chunk *chunk = global_literal_chunk;
-        erts_mem_guard(chunk,
-                       (chunk->area.end - (Eterm*)chunk) * sizeof(Eterm),
-                       1, 
-                       0);
-    }
+    erts_mem_guard(chunk,
+                   (byte*)chunk->chunk_end - (byte*)chunk,
+                   1,
+                   0);
 #endif
 
     erts_mtx_unlock(&global_literal_lock);
@@ -163,7 +176,7 @@ static void init_empty_tuple(void) {
     hp[0] = make_arityval_zero();
     hp[1] = make_arityval_zero();
     tuple = make_tuple(hp);
-    erts_global_literal_register(&tuple, hp, 2);
+    erts_global_literal_register(&tuple);
     ERTS_GLOBAL_LIT_EMPTY_TUPLE = tuple;
 }
 

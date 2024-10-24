@@ -1331,7 +1331,7 @@ void beamfile_init(void) {
     hp = erts_global_literal_allocate(8, &ohp);
     suffix = erts_bin_bytes_to_list(NIL, hp, (byte*)".erl", 4, 0);
 
-    erts_global_literal_register(&suffix, hp, 8);
+    erts_global_literal_register(&suffix);
     ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX = suffix;
 }
 

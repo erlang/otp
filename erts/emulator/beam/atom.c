@@ -152,7 +152,7 @@ atom_alloc(Atom* tmpl)
                                                     0, 
                                                     tmpl->len, 
                                                     tmpl->u.name);
-        erts_global_literal_register(&obj->u.bin, hp, heap_size);
+        erts_global_literal_register(&obj->u.bin);
     }
     
     obj->len = tmpl->len;
