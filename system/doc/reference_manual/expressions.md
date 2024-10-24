@@ -1958,28 +1958,55 @@ is either a **generator** or a **filter**.
 >
 > Map comprehensions and map generators were introduced in Erlang/OTP 26.
 
-There are three kinds of generators.
+There are three kinds of generators, each with a relaxed and a strict
+variant.
 
-A _list generator_ has the following syntax:
+> #### Change {: .info }
+>
+> Strict generators were introduced in Erlang/OTP 28.
+
+Relaxed generators ignore terms in the right-hand side expression that
+do not match the left-hand side pattern. Strict generators on the other
+hand fail with exception `badmatch`.
+
+A _list generator_ has the following syntax for relaxed:
 
 ```
 Pattern <- ListExpr
 ```
 
+and strict variant:
+
+```
+Pattern <:- ListExpr
+```
+
 where `ListExpr` is an expression that evaluates to a list of terms.
 
-A _bit string generator_ has the following syntax:
+A _bit string generator_ has the following syntax for relaxed:
 
 ```
 BitstringPattern <= BitStringExpr
 ```
 
+and strict variant:
+
+```
+BitstringPattern <:= BitStringExpr
+```
+
 where `BitStringExpr` is an expression that evaluates to a bit string.
 
-A _map generator_ has the following syntax:
+A _map generator_ has the following syntax for relaxed:
 
 ```
 KeyPattern := ValuePattern <- MapExpression
+```
+
+and strict variant:
+
+```
+KeyPattern := ValuePattern <:- MapExpression
 ```
 
 where `MapExpr` is an expression that evaluates to a map, or a map iterator

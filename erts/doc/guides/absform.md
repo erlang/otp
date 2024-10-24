@@ -294,11 +294,18 @@ A qualifier Q is one of the following:
 - If Q is a filter `E`, where `E` is an expression, then Rep(Q) = `Rep(E)`.
 - If Q is a list generator `P <- E`, where `P` is a pattern and `E` is an
   expression, then Rep(Q) = `{generate,ANNO,Rep(P),Rep(E)}`.
+- If Q is a list generator `P <:- E`, where `P` is a pattern and `E` is an
+  expression, then Rep(Q) = `{generate_strict,ANNO,Rep(P),Rep(E)}`.
 - If Q is a bitstring generator `P <= E`, where `P` is a pattern and `E` is an
   expression, then Rep(Q) = `{b_generate,ANNO,Rep(P),Rep(E)}`.
+- If Q is a bitstring generator `P <:= E`, where `P` is a pattern and `E` is an
+  expression, then Rep(Q) = `{b_generate_strict,ANNO,Rep(P),Rep(E)}`.
 - If Q is a map generator `P <- E`, where `P` is an association pattern
   `P_1 := P_2` and `E` is an expression, then Rep(Q) =
   `{m_generate,ANNO,Rep(P),Rep(E)}`. For Rep(P), see below.
+- If Q is a map generator `P <:- E`, where `P` is an association pattern
+  `P_1 := P_2` and `E` is an expression, then Rep(Q) =
+  `{m_generate_strict,ANNO,Rep(P),Rep(E)}`.
 
 ### Bitstring Element Type Specifiers
 

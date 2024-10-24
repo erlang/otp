@@ -122,6 +122,21 @@ basic(_Config) ->
                            N rem 2 =:= 1]),
     Odd = lists:sort([V || #foo{a=N} := V <- RecordMap, N rem 2 =:= 1]),
 
+    %% Strict generators (each generator type)
+    #{1 := 2, 2 := 3, 3 := 4} = #{X => X+1 || X <:- [1,2,3]},
+    #{1 := 2, 2 := 3, 3 := 4} = #{X => X+1 || <<X>> <:= <<1,2,3>>},
+    #{2 := 4, 4 := 8} = #{X+1 => Y*2 || X := Y <:- #{1 => 2, 3 => 4}},
+
+    %% A failing guard following a strict generator is ok
+    #{2 := 3, 3 := 4} = #{X => X+1 || X <:- [1,2,3], X > 1},
+    #{2 := 3, 3 := 4} = #{X => X+1 || <<X>> <:= <<1,2,3>>, X > 1},
+    #{4 := 8} = #{X+1 => Y*2 || X := Y <:- #{1 => 2, 3 => 4}, X > 1},
+
+    %% Non-matching elements cause a badmatch error for strict generators
+    {'EXIT',{{badmatch,2},_}} = (catch #{X => X+1 || {ok, X} <:- [{ok,1},2,{ok,3}]}),
+    {'EXIT',{{badmatch,<<128,2>>},_}} = (catch #{X => X+1 || <<0:1, X:7>> <:= <<1,128,2>>}),
+    {'EXIT',{{badmatch,{2,error}},_}} = (catch #{X => X+1 || X := ok <:-#{1 => ok, 2 => error, 3 => ok}}),
+
     ok.
 
 mc_double(Size) ->

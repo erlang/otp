@@ -203,8 +203,8 @@ normalise_test(function, 1)  -> is_function;
 normalise_test(integer, 1)   -> is_integer;
 normalise_test(list, 1)      -> is_list;
 normalise_test(number, 1)    -> is_number;
-normalise_test(pid, 1)       -> is_pid; 
-normalise_test(port, 1)      -> is_port; 
+normalise_test(pid, 1)       -> is_pid;
+normalise_test(port, 1)      -> is_port;
 normalise_test(record, 2)    -> is_record;
 normalise_test(reference, 1) -> is_reference;
 normalise_test(tuple, 1)     -> is_tuple;
@@ -505,7 +505,7 @@ strict_record_access(E0, St0) ->
     St1 = St0#exprec{strict_ra = [], checked_ra = NC},
     expr(E1, St1).
 
-%% Make it look nice (?) when compiled with the 'E' flag 
+%% Make it look nice (?) when compiled with the 'E' flag
 %% ('and'/2 is left recursive).
 conj([], _E) ->
     empty;
@@ -545,11 +545,21 @@ lc_tq(Anno, [{generate,AnnoG,P0,G0} | Qs0], St0) ->
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [{generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{generate_strict,AnnoG,P1,G1} | Qs1],St3};
 lc_tq(Anno, [{b_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {P1,St2} = pattern(P0, St1),
     {Qs1,St3} = lc_tq(Anno, Qs0, St2),
     {[{b_generate,AnnoG,P1,G1} | Qs1],St3};
+lc_tq(Anno, [{b_generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {P1,St2} = pattern(P0, St1),
+    {Qs1,St3} = lc_tq(Anno, Qs0, St2),
+    {[{b_generate_strict,AnnoG,P1,G1} | Qs1],St3};
 lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {G1,St1} = expr(G0, St0),
     {map_field_exact,AnnoMFE,KeyP0,ValP0} = P0,
@@ -558,6 +568,14 @@ lc_tq(Anno, [{m_generate,AnnoG,P0,G0} | Qs0], St0) ->
     {Qs1,St4} = lc_tq(Anno, Qs0, St3),
     P1 = {map_field_exact,AnnoMFE,KeyP1,ValP1},
     {[{m_generate,AnnoG,P1,G1} | Qs1],St4};
+lc_tq(Anno, [{m_generate_strict,AnnoG,P0,G0} | Qs0], St0) ->
+    {G1,St1} = expr(G0, St0),
+    {map_field_exact,AnnoMFE,KeyP0,ValP0} = P0,
+    {KeyP1,St2} = pattern(KeyP0, St1),
+    {ValP1,St3} = pattern(ValP0, St2),
+    {Qs1,St4} = lc_tq(Anno, Qs0, St3),
+    P1 = {map_field_exact,AnnoMFE,KeyP1,ValP1},
+    {[{m_generate_strict,AnnoG,P1,G1} | Qs1],St4};
 lc_tq(Anno, [F0 | Qs0], #exprec{calltype=Calltype,raw_records=Records}=St0) ->
     %% Allow record/2 and expand out as guard test.
     IsOverriden = fun(FA) ->
@@ -785,7 +803,7 @@ record_upd_fs([{record_field,Anno,{atom,_AnnoA,F},_Val} | Fs], Us, St0) ->
 record_upd_fs([], _, St) -> {[],[],St}.
 
 %% record_setel(Record, RecordName, [RecDefField], [Update])
-%%  Build a nested chain of setelement calls to build the 
+%%  Build a nested chain of setelement calls to build the
 %%  updated record tuple.
 
 record_setel(R, Name, Fs, Us0) ->

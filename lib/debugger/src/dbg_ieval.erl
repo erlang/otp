@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 1998-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg_ieval).
@@ -69,7 +69,7 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
     put(breakpoints, dbg_iserver:call(Int, all_breaks)),
     put(self, OrigPid),
     put(exit_info, ExitInfo),
-    
+
     case ExitInfo of
 	{{Mod,Line},Bs,S} ->
 	    dbg_istk:from_external(S),
@@ -216,7 +216,7 @@ meta(Int, Debugged, M, F, As) ->
 		    {M, F, As}
 	    end,
     Status = dbg_iserver:call(Int, {new_process,Debugged,self(),Pargs}),
-    
+
     %% Initiate process dictionary
     put(int, Int),           % pid() dbg_iserver
     put(attached, undefined),% pid() attached process
@@ -283,7 +283,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 	    dbg_istk:init(),
 	    put(stacktrace, []),
 	    put(exit_info, undefined),
-	    
+
 	    dbg_iserver:cast(get(int), {set_status,self(),running,{}}),
 	    dbg_icmd:tell_attached(running),
 
@@ -357,7 +357,7 @@ format_trace(What, Args, P) ->
         call ->
             {Called, {Le,Li,M,F,As}} = Args,
             case Called of
-                extern ->	
+                extern ->
                     io_lib:format("++ (~w) <~w> ~w:~tw~ts~n",
                                   [Le,Li,M,F,format_args(As, P)]);
                 local ->
@@ -404,7 +404,7 @@ catch_value(throw, Reason) ->
 %%--Code interpretation-----------------------------------------------
 
 %%--------------------------------------------------------------------
-%% Top level function of meta evaluator. 
+%% Top level function of meta evaluator.
 %% Return message to be replied to the target process.
 %%--------------------------------------------------------------------
 eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
@@ -483,11 +483,11 @@ do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
 
 lambda(eval_fun, [Cs,As,Bs,{Mod,Name}=F]) ->
     %% Fun defined in interpreted code, called from outside
-    if 
+    if
 	length(element(3,hd(Cs))) =:= length(As) ->
 	    db_ref(Mod),  %% Adds ref between module and process
 	    {Cs,Mod,Name,As,Bs};
-	true -> 
+	true ->
 	    {error,{badarity,{F,As}}}
     end;
 lambda(eval_named_fun, [Cs,As,Bs0,FName,RF,{Mod,Name}=F]) ->
@@ -514,7 +514,7 @@ lambda(Fun, As) when is_function(Fun) ->
 		        {M,F,add_binding(FName, Fun, Bs0), Cs0}
 		end,
 	    {arity, Arity} = erlang:fun_info(Fun, arity),
-	    if 
+	    if
 		length(As) =:= Arity ->
 		    db_ref(Mod), %% Adds ref between module and process
 		    {Cs,Mod,Name,As,Bs};
@@ -586,7 +586,7 @@ db_ref(Mod) ->
 
 cache(Key, Data) ->
     put(cache, lists:sublist([{Key,Data}|get(cache)], 5)).
-	    
+
 cached(Key) ->
     case lists:keyfind(Key, 1, get(cache))  of
 	{Key,Data} -> Data;
@@ -806,7 +806,7 @@ expr({maybe_match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
     Arity = length(element(3,hd(Cs))),
     Info = {{Module,Name},Bs,Cs},
-    Fun = 
+    Fun =
 	case Arity of
 	    0 -> fun() -> eval_fun([], Info) end;
 	    1 -> fun(A) -> eval_fun([A], Info) end;
@@ -815,33 +815,33 @@ expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
 	    4 -> fun(A,B,C,D) -> eval_fun([A,B,C,D], Info) end;
 	    5 -> fun(A,B,C,D,E) -> eval_fun([A,B,C,D,E], Info) end;
 	    6 -> fun(A,B,C,D,E,F) -> eval_fun([A,B,C,D,E,F], Info) end;
-	    7 -> fun(A,B,C,D,E,F,G) -> 
+	    7 -> fun(A,B,C,D,E,F,G) ->
 			 eval_fun([A,B,C,D,E,F,G], Info) end;
-	    8 -> fun(A,B,C,D,E,F,G,H) -> 
+	    8 -> fun(A,B,C,D,E,F,G,H) ->
 			 eval_fun([A,B,C,D,E,F,G,H], Info) end;
-	    9 -> fun(A,B,C,D,E,F,G,H,I) -> 
+	    9 -> fun(A,B,C,D,E,F,G,H,I) ->
 			 eval_fun([A,B,C,D,E,F,G,H,I], Info) end;
-	    10 -> fun(A,B,C,D,E,F,G,H,I,J) -> 
+	    10 -> fun(A,B,C,D,E,F,G,H,I,J) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J], Info) end;
-	    11 -> fun(A,B,C,D,E,F,G,H,I,J,K) -> 
+	    11 -> fun(A,B,C,D,E,F,G,H,I,J,K) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K], Info) end;
-	    12 -> fun(A,B,C,D,E,F,G,H,I,J,K,L) -> 
+	    12 -> fun(A,B,C,D,E,F,G,H,I,J,K,L) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L], Info) end;
-	    13 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M) -> 
+	    13 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M], Info) end;
-	    14 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N) -> 
+	    14 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N], Info) end;
-	    15 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) -> 
+	    15 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O], Info) end;
-	    16 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) -> 
+	    16 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P], Info) end;
-	    17 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) -> 
+	    17 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q], Info) end;
-	    18 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) -> 
+	    18 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R], Info) end;
-	    19 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) -> 
+	    19 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S],Info) end;
-	    20 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) -> 
+	    20 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
 			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],Info) end;
 	    _Other ->
 		exception(error, {'argument_limit',{'fun',Cs}}, Bs,
@@ -1049,7 +1049,7 @@ expr({apply,Line,As0,Lc}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {[M,F,As],Bs} = eval_list(As0, Bs0, Ieval),
     eval_function(M, F, As, Bs, extern, Ieval, Lc);
-    
+
 %% Receive statement
 expr({'receive',Line,Cs}, Bs0, #ieval{level=Le}=Ieval) ->
     trace(receivex, {Le,false}),
@@ -1179,15 +1179,18 @@ eval_mc1({map_field_assoc,_,K0,V0}, [], Bs, Ieval) ->
     {value,V,_} = expr(V0, Bs, Ieval#ieval{top=false}),
     [{K,V}].
 
-eval_generator({generate,Line,P,L0}, Bs0, CompFun, Ieval0) ->
+eval_generator({Generate,Line,P,L0}, Bs0, CompFun, Ieval0) when Generate =:= generate;
+                                                                Generate =:= generate_strict ->
     Ieval = Ieval0#ieval{line=Line},
     {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
-    eval_generate(L1, P, Bs1, CompFun, Ieval);
-eval_generator({b_generate,Line,P,Bin0}, Bs0, CompFun, Ieval0) ->
+    eval_generate(L1, P, Bs1, CompFun, Generate =:= generate, Ieval);
+eval_generator({Generate,Line,P,Bin0}, Bs0, CompFun, Ieval0) when Generate =:= b_generate;
+                                                                  Generate =:= b_generate_strict ->
     Ieval = Ieval0#ieval{line=Line},
     {value,Bin,Bs1} = expr(Bin0, Bs0, Ieval#ieval{top=false}),
-    eval_b_generate(Bin, P, Bs1, CompFun, Ieval);
-eval_generator({m_generate,Line,P,Map0}, Bs0, CompFun, Ieval0) ->
+    eval_b_generate(Bin, P, Bs1, CompFun, Generate =:= b_generate, Ieval);
+eval_generator({Generate,Line,P,Map0}, Bs0, CompFun, Ieval0) when Generate =:= m_generate;
+                                                                  Generate =:= m_generate_strict ->
     Ieval = Ieval0#ieval{line=Line},
     {map_field_exact,_,K,V} = P,
     {value,Map,_Bs1} = expr(Map0, Bs0, Ieval),
@@ -1204,45 +1207,53 @@ eval_generator({m_generate,Line,P,Map0}, Bs0, CompFun, Ieval0) ->
                            exception(error, {bad_generator,Map}, Bs0, Ieval)
                    end
            end,
-    eval_m_generate(Iter, {tuple,Line,[K,V]}, Bs0, CompFun, Ieval).
+    eval_m_generate(Iter, {tuple,Line,[K,V]}, Bs0, CompFun, Generate =:= m_generate, Ieval).
 
-eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
+eval_generate([V|Rest], P, Bs0, CompFun, Relaxed, Ieval) ->
     case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
-	{match,Bsn} ->
-	    Bs2 = add_bindings(Bsn, Bs0),
-            CompFun(Bs2) ++ eval_generate(Rest, P, Bs0, CompFun, Ieval);
-	nomatch -> 
-	    eval_generate(Rest, P, Bs0, CompFun, Ieval)
-	end;
-eval_generate([], _P, _Bs0, _CompFun, _Ieval) ->
+        {match,Bsn} ->
+            Bs2 = add_bindings(Bsn, Bs0),
+            CompFun(Bs2) ++ eval_generate(Rest, P, Bs0, CompFun, Relaxed, Ieval);
+        nomatch when Relaxed ->
+            eval_generate(Rest, P, Bs0, CompFun, Relaxed, Ieval);
+        nomatch ->
+            exception(error, {badmatch, V}, Bs0, Ieval)
+        end;
+eval_generate([], _P, _Bs0, _CompFun, _Relaxed, _Ieval) ->
     [];
-eval_generate(Term, _P, Bs, _CompFun, Ieval) ->
+eval_generate(Term, _P, Bs, _CompFun, _Relaxed, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
 
-eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
+eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Relaxed, Ieval) ->
     Mfun = match_fun(Bs0),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, #ieval{}) end,
     case eval_bits:bin_gen(P, Bin, erl_eval:new_bindings(), Bs0, Mfun, Efun) of
-	{match,Rest,Bs1} ->
-	    Bs2 = add_bindings(Bs1, Bs0),
-	    CompFun(Bs2) ++ eval_b_generate(Rest, P, Bs0, CompFun, Ieval);
-	{nomatch,Rest} ->
-	    eval_b_generate(Rest, P, Bs0, CompFun, Ieval);
-	done ->
-	    []
+        {match,Rest,Bs1} ->
+            Bs2 = add_bindings(Bs1, Bs0),
+            CompFun(Bs2) ++ eval_b_generate(Rest, P, Bs0, CompFun, Relaxed, Ieval);
+        {nomatch,Rest} when Relaxed ->
+            eval_b_generate(Rest, P, Bs0, CompFun, Relaxed, Ieval);
+        {nomatch,_Rest} ->
+            exception(error, {badmatch, Bin}, Bs0, Ieval);
+        done when not Relaxed, Bin =/= <<>> ->
+            exception(error, {badmatch, Bin}, Bs0, Ieval);
+        done ->
+            []
     end;
-eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
+eval_b_generate(Term, _P, Bs, _CompFun, _Relaxed, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
 
-eval_m_generate(Iter0, P, Bs0, CompFun, Ieval) ->
+eval_m_generate(Iter0, P, Bs0, CompFun, Relaxed, Ieval) ->
     case maps:next(Iter0) of
         {K,V,Iter} ->
             case catch match1(P, {K,V}, erl_eval:new_bindings(), Bs0) of
                 {match,Bsn} ->
                     Bs2 = add_bindings(Bsn, Bs0),
-                    CompFun(Bs2) ++ eval_m_generate(Iter, P, Bs0, CompFun, Ieval);
+                    CompFun(Bs2) ++ eval_m_generate(Iter, P, Bs0, CompFun, Relaxed, Ieval);
+                nomatch when Relaxed ->
+                    eval_m_generate(Iter, P, Bs0, CompFun, Relaxed, Ieval);
                 nomatch ->
-                    eval_m_generate(Iter, P, Bs0, CompFun, Ieval)
+                    exception(error, {badmatch, {K,V}}, Bs0, Ieval)
             end;
         none ->
             []
@@ -1264,7 +1275,7 @@ safe_bif(M, F, As, Bs, Ieval0) ->
 
 eval_send(To, Msg, Bs, Ieval) ->
     try To ! Msg of
-	Msg -> 
+	Msg ->
 	    trace(send, {To,Msg}),
 	    {value,Msg,Bs}
     catch
@@ -1273,7 +1284,7 @@ eval_send(To, Msg, Bs, Ieval) ->
     end.
 
 %% Start tracing of messages before fetching current messages in
-%% the queue to make sure that no messages are lost. 
+%% the queue to make sure that no messages are lost.
 eval_receive(Debugged, Cs, Bs0,
 	     #ieval{module=M,line=Line,level=Le}=Ieval) ->
     %% To avoid private message passing protocol between META
@@ -1514,7 +1525,7 @@ rec_clauses([], _, _) ->
 %%  Evaluate a list of guards.
 guard([], _) -> true;
 guard(Gs, Bs) -> or_guard(Gs, Bs).
-    
+
 or_guard([G|Gs], Bs) ->
     %% Short-circuit OR.
     and_guard(G, Bs) orelse or_guard(Gs, Bs);
@@ -1588,7 +1599,7 @@ guard_expr({map,_,E0,Fs0}, Bs) ->
                         E, Fs),
     {value,Value};
 guard_expr({bin,_,Flds}, Bs) ->
-    {value,V,_Bs} = 
+    {value,V,_Bs} =
 	eval_bits:expr_grp(Flds, Bs,
 			   fun(E,B) ->
 				   {value,V} = guard_expr(E,B),
@@ -1678,7 +1689,7 @@ match1({match,_,Pat1,Pat2}, Term, Bs0, BBs) ->
 match1({cons,_,H,T}, [H1|T1], Bs0, BBs) ->
     {match,Bs} = match1(H, H1, Bs0, BBs),
     match1(T, T1, Bs, BBs);
-match1({tuple,_,Elts}, Tuple, Bs, BBs) 
+match1({tuple,_,Elts}, Tuple, Bs, BBs)
   when length(Elts) =:= tuple_size(Tuple) ->
     match_tuple(Elts, Tuple, 1, Bs, BBs);
 match1({map,_,Fields}, Map, Bs, BBs) when is_map(Map) ->
@@ -1724,7 +1735,7 @@ match_map([], _, Bs, _BBs) ->
 head_match([Par|Pars], [Arg|Args], Bs0, BBs) ->
     try match1(Par, Arg, Bs0, BBs) of
 	{match,Bs} -> head_match(Pars, Args, Bs, BBs)
-    catch 
+    catch
 	Result -> Result
     end;
 head_match([],[],Bs,_) -> {match,Bs}.
@@ -1787,7 +1798,7 @@ add_anon(Val,[]) ->
     [{'_',Val}].
 
 %% merge_bindings(Bindings1, Bindings2, Ieval)
-%% Merge bindings detecting bad matches. 
+%% Merge bindings detecting bad matches.
 %% Special case '_',save the new one !!!
 %% Bindings1 is the newest bindings.
 merge_bindings(Bs, Bs, _Ieval) ->
