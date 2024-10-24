@@ -2726,7 +2726,7 @@ The `Opts` argument can provide extra information:
 > On some platforms it is not easy to get hold of a file descriptor
 > to use in this function.
 """.
--spec open(FD, Opts) -> {'ok', Socket} | {'error', Reason} when
+-spec open(FD, Opts) -> Result when
       FD       :: integer(),
       Opts     ::
         #{'domain'       => domain() | integer(),
@@ -2736,11 +2736,15 @@ The `Opts` argument can provide extra information:
 	  'debug'        => boolean(),
 	  'use_registry' => boolean()},
       Socket   :: socket(),
+      Result   :: {'ok', Socket} | {'error', Reason},
       Reason   ::
         posix() | 'domain' | 'type' | 'protocol';
 
-          (Domain :: domain(), Type :: type() | integer()) -> {'ok', Socket} | {'error', Reason} when
+          (Domain, Type) -> Result when
+      Domain :: domain(),
+      Type   :: type() | integer(),
       Socket :: socket(),
+      Result :: {'ok', Socket} | {'error', Reason},
       Reason :: posix() | protocol.
 
 open(FD, Opts) when is_map(Opts) ->
@@ -3721,7 +3725,6 @@ sendto(Socket, Data, Dest) ->
       ?ESOCK_SENDTO_FLAGS_DEFAULT, ?ESOCK_SENDTO_TIMEOUT_DEFAULT).
 
 
--dialyzer({no_contracts, sendto/4}).
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
 Send data on a socket.
@@ -3744,12 +3747,20 @@ See the last argument (argument 5) of `sendto/5` for
 an explanation of `TimeoutOrHandle`.
 """.
 
--spec sendto(Socket :: term(), Data :: term(),
-             Dest :: term(), Flags :: list()) -> _;
-            (Socket :: term(), Data :: term(),
-             Cont :: select_info(), TimeoutOrHandle :: term()) -> _;
-            (Socket :: term(), Data :: term(),
-             Dest :: term(), TimeoutOrHandle :: term()) -> _.
+-spec sendto(Socket, Data,
+             Dest | Cont, Flags | TimeoutOrHandle) -> Result when
+      Socket :: socket(),
+      Data   :: iodata(),
+      Dest   :: sockaddr(),
+      Cont   :: select_info(),
+      Flags  :: list(),
+      TimeoutOrHandle :: term(),
+      Result :: 'ok'
+              | {'ok', RestData}
+              | {'error', Reason}
+              | {'error', {Reason, RestData}},
+      RestData :: binary(),
+      Reason     :: posix() | 'closed' | invalid().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
     sendto(Socket, Data, Dest, Flags, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
