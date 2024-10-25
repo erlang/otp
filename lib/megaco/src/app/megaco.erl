@@ -1340,13 +1340,13 @@ Lookup user information
 
 Lookup user information about currently active requests.
 Expected input type `Input :: Requests` with expected
-output type `Result "" RequestsResult`.
+output type `Result :: RequestsResult`.
 
 [](){: #user_info_22 }
 
 Lookup user information about currently active replies.
 Expected input type `Input :: Replies` with expected
-output type `Result "" RepliessResult`.
+output type `Result :: RepliessResult`.
 
 [](){: #update_user_info }
 """.
