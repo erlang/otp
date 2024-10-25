@@ -87,7 +87,7 @@ Interprets the specified module(s) on the local node.
 See `int:i/1` for more information.
 """.
 -spec ii(AbsModules | AbsModule) -> Result when
-          AbsModules :: [AbsModule],
+          AbsModules :: [AbsModule,...],
           AbsModule :: Module | File,
           Module :: module(),
           File :: file:name_all(),

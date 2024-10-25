@@ -171,7 +171,7 @@ always returns `ok`, but prints some information to `stdout` if a module cannot
 be interpreted.
 """.
 -spec i(AbsModules | AbsModule) -> Result when
-    AbsModules :: [AbsModule],
+    AbsModules :: [AbsModule,...],
     AbsModule :: Module | File,
     Module :: module(),
     File :: file:name_all(),
