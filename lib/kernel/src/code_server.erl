@@ -35,22 +35,27 @@
 -import(lists, [foreach/2]).
 -define(moddb, code_server).
 
--type on_load_action() ::
-	fun((term(), state()) -> {'reply',term(),state()} |
-				 {'noreply',state()}).
-
--type on_load_item() :: {{pid(),reference()},module(),
-			 [{pid(),on_load_action()}]}.
-
 -record(state, {supervisor :: pid(),
 		root :: file:name_all(),
 		path :: [{file:name_all(), nocache | integer()}],
                 path_cache = #{} :: #{integer() => #{string() => []}},
 		moddb :: ets:table(),
 		namedb :: ets:table(),
-		on_load = [] :: [on_load_item()],
-                loading = #{} :: #{module() => [pid()]}}).
+                on_load = #{} :: #{module() => {on_load_file(), client_pid(), on_load_pid()}},
+                loading = #{} :: #{module() => [{loading_action(), client_pid()}]}}).
 -type state() :: #state{}.
+-type loading_action() :: load_module | get_object_code | finish_on_load.
+
+%% Note: this type comes from code:load_binary/3 (type was not exported)
+-type on_load_file() :: 'cover_compiled' | 'preloaded' | file:filename().
+
+%% client-side pid() (i.e., process that call code:load_binary/et al),
+%% to which 'code_server' needs to send a response when on_load finishes.
+-type client_pid() :: pid().
+
+%% This pid() refers to the spawned process calling
+%% 'erlang:call_on_load_function(Mod)'
+-type on_load_pid() :: pid().
 
 -spec start_link([term()]) -> {'ok', pid()}.
 start_link(Args) ->
@@ -179,11 +184,11 @@ loop(#state{supervisor=Supervisor}=State0) ->
 	    system_terminate(Reason, Supervisor, [], State0);
 	{system, From, Msg} ->
 	    handle_system_msg(running,Msg, From, Supervisor, State0);
-	{'DOWN',Ref,process,Pid,Res} ->
-	    State = finish_on_load({Pid,Ref}, Res, State0),
-	    loop(State);
-        {{'LOADER_DOWN', Info}, _Ref, process, _Pid, _Res} ->
-            State = loader_down(State0, Info),
+        {{'LOADER_DOWN', Mod}, _Ref, process, _Pid, _Res} ->
+            State = run_loader_next(Mod, State0),
+            loop(State);
+        {{'ON_LOAD_DOWN', Mod}, _Ref, process, _Pid, Res} ->
+            State = on_load_down(Mod, Res, State0),
             loop(State);
 	_Msg ->
 	    loop(State0)
@@ -316,10 +321,15 @@ handle_call({load_module,PC,Mod,File,Purge,EnsureLoaded}, From, S)
 	true -> do_purge(Mod);
 	false -> ok
     end,
-    try_finish_module(File, Mod, PC, EnsureLoaded, From, S);
+    schedule_or_run_loader({load_module,PC,File,EnsureLoaded}, From, Mod, S);
 
-handle_call({load_error,Ref,Mod,Error}, _From, S) ->
-    reply_loading(Ref, Mod, Error, S);
+handle_call({load_ok,PC,Mod,File,Ref}, From, S) ->
+    erlang:demonitor(Ref, [flush]),
+    {noreply, run_loader({load_module,PC,File,true}, From, Mod, S)};
+
+handle_call({load_error,Mod,Ref}, _From, S) ->
+    erlang:demonitor(Ref, [flush]),
+    {reply,ok,run_loader_next(Mod, S)};
 
 handle_call({delete,Mod}, _From, St) when is_atom(Mod) ->
     case catch erlang:delete_module(Mod) of
@@ -347,19 +357,7 @@ handle_call({get_object_code,Mod}, _From, St0) when is_atom(Mod) ->
     end;
 
 handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
-    case erlang:module_loaded(Mod) of
-        true -> {reply, {module, Mod}, St0};
-        false ->
-            %% Handles pending on_load events first. If the code is being
-            %% loaded, finish before adding more entries to the queue.
-            Action = fun(_, St1) ->
-                case erlang:module_loaded(Mod) of
-                    true -> {reply, {module, Mod}, St1};
-                    false -> get_object_code_for_loading(St1, Mod, From)
-                end
-            end,
-            handle_pending_on_load(Action, Mod, From, St0)
-    end;
+    schedule_or_run_loader(get_object_code, From, Mod, St0);
 
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
@@ -551,7 +549,7 @@ patch_path(Path) ->
     case check_path(Path) of
 	{ok, NewPath} -> NewPath;
 	{error, _Reason} -> Path
-    end.	    
+    end.
 
 %% As the erl_prim_loader path includes the -pa and -pz
 %% directories they have to be removed first !!
@@ -692,7 +690,7 @@ do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
 			false ->
 			    {error, bad_directory}
-		    end;    
+		    end;
 		["ebin", App, OptArchive | RevTop] ->
 		    Ext = filename:extension(OptArchive),
 		    Base = filename:basename(OptArchive, Ext),
@@ -715,7 +713,7 @@ do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
 			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
 			false ->
 			    {error, bad_directory}
-		    end;    
+		    end;
 		_ ->
 		    {error, bad_directory}
 	    end
@@ -1103,43 +1101,6 @@ del_paths([Name | Names],Path,Cache,NameDb) ->
 del_paths(_,Path,Cache,_) ->
     {ok,Path,Cache}.
 
-try_finish_module(File, Mod, PC, EnsureLoaded, From, St) ->
-    Action =  fun(_, S) ->
-        case (EnsureLoaded =/= false) andalso erlang:module_loaded(Mod) of
-            true ->
-                reply_loading(EnsureLoaded, Mod, {module, Mod}, S);
-            false ->
-                try_finish_module_1(File, Mod, PC, From, EnsureLoaded, S)
-        end
-    end,
-    handle_pending_on_load(Action, Mod, From, St).
-
-try_finish_module_1(File, Mod, PC, From, EnsureLoaded, #state{moddb=Db}=St) ->
-    case is_sticky(Mod, Db) of
-	true ->                         %% Sticky file reject the load
-	    error_msg("Can't load module '~w' that resides in sticky dir\n",[Mod]),
-            reply_loading(EnsureLoaded, Mod, {error,sticky_directory}, St);
-	false ->
-	    try_finish_module_2(File, Mod, PC, From, EnsureLoaded, St)
-    end.
-
-try_finish_module_2(File, Mod, PC, From, EnsureLoaded, St0) ->
-    Action = fun(Result, #state{moddb=Db}=St1) ->
-        case Result of
-            {module, _} -> ets:insert(Db, {Mod, File});
-            {error, on_load_failure} -> ok;
-            {error, What} -> error_msg("Loading of ~ts failed: ~p\n", [File, What])
-        end,
-        reply_loading(EnsureLoaded, Mod, Result, St1)
-    end,
-    Res = case erlang:finish_loading([PC]) of
-        ok ->
-            {module,Mod};
-        {Error,[Mod]} ->
-            {error,Error}
-    end,
-    handle_on_load(Res, Action, Mod, From, St0).
-
 get_object_code(#state{path=Path,path_cache=Cache} = St, Mod) when is_atom(Mod) ->
     ModStr = atom_to_list(Mod),
     case erl_prim_loader:is_basename(ModStr) of
@@ -1154,59 +1115,6 @@ get_object_code(#state{path=Path,path_cache=Cache} = St, Mod) when is_atom(Mod) 
 
         false ->
             {error, St}
-    end.
-
-get_object_code_for_loading(St0, Mod, From) ->
-    case wait_loading(St0, Mod, From) of
-        {true, St1} -> {noreply, St1};
-        false ->
-            case get_object_code(St0, Mod) of
-                {Bin, FName, St1} ->
-                    {Ref, St2} = monitor_loader(St1, Mod, From, Bin, FName),
-                    {reply, {Bin, FName, Ref}, St2};
-                {error, St1} ->
-                    {reply, {error, nofile}, St1}
-            end
-    end.
-
-monitor_loader(#state{loading = Loading0} = St, Mod, Pid, Bin, FName) ->
-    Tag = {'LOADER_DOWN', {Mod, Bin, FName}},
-    Ref = erlang:monitor(process, Pid, [{tag, Tag}]),
-    Loading = Loading0#{Mod => []},
-    {Ref, St#state{loading = Loading}}.
-
-wait_loading(#state{loading = Loading0} = St, Mod, Pid) ->
-    case Loading0 of
-        #{Mod := Waiting} ->
-            Loading = Loading0#{Mod := [Pid | Waiting]},
-            {true, St#state{loading = Loading}};
-        _ ->
-            false
-    end.
-
-reply_loading(Ref, Mod, Reply, #state{loading = Loading0} = St)
-  when is_reference(Ref) ->
-    {Waiting, Loading} = maps:take(Mod, Loading0),
-    _ = [reply(Pid, Reply) || Pid <- Waiting],
-    erlang:demonitor(Ref, [flush]),
-    {reply, Reply, St#state{loading = Loading}};
-reply_loading(Ref, _Mod, Reply, St) when is_boolean(Ref) ->
-    {reply, Reply, St}.
-
-loader_down(#state{loading = Loading0} = St, {Mod, Bin, FName}) ->
-    case Loading0 of
-        #{Mod := [First | Rest]} ->
-            Tag = {'LOADER_DOWN', {Mod, Bin, FName}},
-            Ref = erlang:monitor(process, First, [{tag, Tag}]),
-            Loading = Loading0#{Mod := Rest},
-            _ = reply(First, {Bin, FName, Ref}),
-            St#state{loading = Loading};
-        #{Mod := []} ->
-            Loading = maps:remove(Mod, Loading0),
-            St#state{loading = Loading};
-        #{} ->
-            %% Rogue message, unknown messages are silently dropped in code server
-            St
     end.
 
 mod_to_bin([{Dir, nocache}|Tail], ModFile, Cache) ->
@@ -1312,12 +1220,12 @@ finish_loading_ensure(Prepared, true) ->
 finish_loading_ensure(Prepared, false) ->
     {ok,Prepared}.
 
-abort_if_pending_on_load(L, #state{on_load=[]}) ->
+abort_if_pending_on_load(L, #state{on_load=OnLoad}) when map_size(OnLoad) =:= 0 ->
     {ok,L};
 abort_if_pending_on_load(L, #state{on_load=OnLoad}) ->
     Pending = [{M,pending_on_load} ||
 		  {M,_} <- L,
-		  lists:keymember(M, 2, OnLoad)],
+		  is_map_key(M, OnLoad)],
     case Pending of
 	[] -> {ok,L};
 	[_|_] -> {error,Pending}
@@ -1352,80 +1260,139 @@ run([F|Fs], Data0) ->
     end.
 
 %% -------------------------------------------------------
-%% The on_load functionality.
+%% The module loading and on_load functionality.
 %% -------------------------------------------------------
 
-handle_on_load({error,on_load}, Action, Mod, From, St0) ->
-    #state{on_load=OnLoad0} = St0,
-    Fun = fun() ->
-		  Res = erlang:call_on_load_function(Mod),
-		  exit(Res)
-	  end,
-    PidRef = spawn_monitor(Fun),
-    PidAction = {From,Action},
-    OnLoad = [{PidRef,Mod,[PidAction]}|OnLoad0],
-    St = St0#state{on_load=OnLoad},
-    {noreply,St};
-handle_on_load(Res, Action, _, _, St) ->
-    Action(Res, St).
+%% Because can be loaded by the client and the server,
+%% we need to track which modules are being loaded to
+%% avoid concurrent loading of them. The code server is
+%% also responsible for "finish"ing modules and running
+%% on_load callback, which we track here. To do this,
+%% we queue loaders for a given module and either reply
+%% to them or run them if a previous loader succeeded.
 
-handle_pending_on_load(Action, Mod, From, #state{on_load=OnLoad0}=St) ->
-    case lists:keyfind(Mod, 2, OnLoad0) of
-	false ->
-	    Action({module, Mod}, St);
-	{{From,_Ref},Mod,_Pids} ->
-	    %% The on_load function tried to make an external
-	    %% call to its own module. That would be a deadlock.
-	    %% Fail the call. (The call is probably from error_handler,
-	    %% and it will ignore the actual error reason and cause
-	    %% an undef exception.)
-	    {reply,{error,deadlock},St};
-	{_,_,_} ->
-	    OnLoad = handle_pending_on_load_1(Mod, {From,Action}, OnLoad0),
-	    {noreply,St#state{on_load=OnLoad}}
+%% Schedules or runs a given loader action for a module.
+schedule_or_run_loader(Action, Pid, Mod, #state{loading=Loading0} = St0) ->
+    case Loading0 of
+        #{Mod := Waiting} ->
+            #state{on_load=OnLoad} = St0,
+            case OnLoad of
+                #{Mod := {_, _, Pid}} ->
+                    {reply, {error, deadlock}, St0};
+                _ ->
+                    Loading = Loading0#{Mod := [{Action, Pid} | Waiting]},
+                    {noreply, St0#state{loading=Loading}}
+            end;
+        _ ->
+            Loading = Loading0#{Mod => []},
+            St = St0#state{loading=Loading},
+            {noreply, run_loader(Action, Pid, Mod, St)}
     end.
 
-handle_pending_on_load_1(Mod, From, [{PidRef,Mod,Pids}|T]) ->
-    [{PidRef,Mod,[From|Pids]}|T];
-handle_pending_on_load_1(Mod, From, [H|T]) ->
-    [H|handle_pending_on_load_1(Mod, From, T)];
-handle_pending_on_load_1(_, _, []) -> [].
-
-finish_on_load(PidRef, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
-    case lists:keyfind(PidRef, 1, OnLoad0) of
-	false ->
-	    %% Since this process in general silently ignores messages
-	    %% it doesn't understand, it should also ignore a 'DOWN'
-	    %% message with an unknown reference.
-	    St0;
-	{PidRef,Mod,Waiting} ->
-	    St = finish_on_load_1(Mod, OnLoadRes, Waiting, St0),
-	    OnLoad = [E || {R,_,_}=E <- OnLoad0, R =/= PidRef],
-	    St#state{on_load=OnLoad}
+%% Runs the loader. If keep is returned,
+%% it does not immediately start the next loader
+%% because the current one is still running.
+run_loader(Action, Pid, Mod, St0) ->
+    case handle_loader(Action, Pid, Mod, St0) of
+        {keep, St} ->
+            St;
+        {next, Reply, St} ->
+            _ = reply(Pid, Reply),
+            run_loader_next(Mod, St)
     end.
 
-finish_on_load_1(Mod, OnLoadRes, Waiting, St) ->
+run_loader_next(Mod, #state{loading=Loading0} = St0) ->
+    case Loading0 of
+        #{Mod := [{Action, Pid} | Waiting]} ->
+            Loading = Loading0#{Mod := Waiting},
+            St = St0#state{loading=Loading},
+            run_loader(Action, Pid, Mod, St);
+        #{Mod := []} ->
+            St0#state{loading=maps:remove(Mod, Loading0)}
+    end.
+
+handle_loader(get_object_code, Pid, Mod, St0) ->
+    case erlang:module_loaded(Mod) of
+        true ->
+            {next, {module, Mod}, St0};
+        false ->
+            case get_object_code(St0, Mod) of
+                {Bin, FName, St1} ->
+                    Tag = {'LOADER_DOWN', Mod},
+                    Ref = erlang:monitor(process, Pid, [{tag, Tag}]),
+                    _ = reply(Pid, {Bin, FName, Ref}),
+                    {keep, St1};
+                {error, St1} ->
+                    {next, {error, nofile}, St1}
+            end
+    end;
+
+handle_loader({load_module, PC, File, EnsureLoaded}, Pid, Mod, St0) ->
+    case EnsureLoaded andalso erlang:module_loaded(Mod) of
+        true ->
+            {next, {module, Mod}, St0};
+        false ->
+            case is_sticky(Mod, St0#state.moddb) of
+                true ->
+                    error_msg("Can't load module '~w' that resides in sticky dir\n", [Mod]),
+                    {next, {error,sticky_directory}, St0};
+                false ->
+                    case erlang:finish_loading([PC]) of
+                        ok ->
+                            store_module_and_reply(File, Mod, St0);
+                        {on_load,[Mod]} ->
+                            schedule_on_load(File, Pid, Mod, St0);
+                        {Error, [Mod]} ->
+                            error_msg("Loading of ~ts failed: ~p\n", [File, Error]),
+                            {next, {error, Error}, St0}
+                    end
+            end
+    end;
+
+handle_loader({finish_on_load, File, OnLoadRes}, _Pid, Mod, St0) ->
     Keep = OnLoadRes =:= ok,
     erts_code_purger:finish_after_on_load(Mod, Keep),
-    Res = case Keep of
-	      false ->
-		  _ = finish_on_load_report(Mod, OnLoadRes),
-		  {error,on_load_failure};
-	      true ->
-		  {module,Mod}
-	  end,
-    finish_on_load_2(Waiting, Res, St).
+    case Keep of
+        true ->
+            store_module_and_reply(File, Mod, St0);
+        false ->
+            _ = finish_on_load_report(Mod, OnLoadRes),
+            {next, {error, on_load_failure}, St0}
+    end.
 
-finish_on_load_2([{Pid,Action}|T], Res, St0) ->
-    case Action(Res, St0) of
-	{reply,Rep,St} ->
-	    _ = reply(Pid, Rep),
-	    finish_on_load_2(T, Res, St);
-	{noreply,St} ->
-	    finish_on_load_2(T, Res, St)
-    end;
-finish_on_load_2([], _, St) ->
-    St.
+store_module_and_reply(File, Mod, St0) ->
+    #state{moddb=Db, loading=Loading0} = St0,
+    ets:insert(Db, {Mod, File}),
+    %% Optimization: go ahead and notify all get_object_code
+    %% loader actions that it has succeeded.
+    Waiting = lists:filter(fun
+                               ({get_object_code, Pid}) ->
+                                   _ = reply(Pid, {module, Mod}),
+                                   false;
+                               ({_Action, _Pid}) ->
+                                   true
+                           end, maps:get(Mod, Loading0)),
+    Loading = maps:put(Mod, Waiting, Loading0),
+    {next, {module, Mod}, St0#state{loading=Loading}}.
+
+schedule_on_load(File, Pid, Mod, St0) ->
+    %% We use a separate state for on_load because we
+    %% need to track them for abort_if_pending_on_load
+    %% and we also need to be able to detect deadlocks.
+    #state{on_load=OnLoad0} = St0,
+    Fun = fun() ->
+        Res = erlang:call_on_load_function(Mod),
+        exit(Res)
+    end,
+    Tag = {'ON_LOAD_DOWN', Mod},
+    {Loader, _} = spawn_opt(Fun, [{monitor, [{tag, Tag}]}]),
+    OnLoad = maps:put(Mod, {File, Pid, Loader}, OnLoad0),
+    {keep, St0#state{on_load=OnLoad}}.
+
+on_load_down(Mod, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
+    {{File, Pid, _Loader}, OnLoad} = maps:take(Mod, OnLoad0),
+    St = St0#state{on_load=OnLoad},
+    run_loader({finish_on_load, File, OnLoadRes}, Pid, Mod, St).
 
 finish_on_load_report(_Mod, Atom) when is_atom(Atom) ->
     %% No error reports for atoms.
