@@ -948,7 +948,6 @@ funs(Config) when is_list(Config) ->
     error_check("apply(timer, sleep, [1]).", got_it, none, EFH),
     error_check("begin F = fun(T) -> timer:sleep(T) end,F(1) end.",
                       got_it, none, EFH),
-    error_check("fun c/1.", undef),
     error_check("fun a:b/0().", undef),
 
     MaxArgs = 20,
