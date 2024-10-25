@@ -203,9 +203,12 @@ tc_api_profile(Config) ->
     check_trace_map(Ref, TracesAfterConnect, UnhandledTraceCnt1),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
+    %% terminate_alert will get called twice by both client and
+    %% server to strip away Details from {shutdown::Reason, Detatils}
+    %% before matching the Reason
     UnhandledTraceCnt2 =
-        #{call => 0, processed => no_trace_received, exception_from => 0,
-          return_from => 0},
+        #{call => 2, processed => no_trace_received, exception_from => 0,
+          return_from => 2},
     check_trace_map(Ref, TracesAfterDisconnect, UnhandledTraceCnt2),
     ssl_trace:stop(),
     ok.
