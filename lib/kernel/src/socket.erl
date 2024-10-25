@@ -2775,15 +2775,10 @@ Equivalent to [`open(Domain, Type, Protocol, #{})`](`open/4`).
 
 Equivalent to [`open(Domain, Type, default, #{})`](`open/4`).
 """.
--spec open(Domain, Type, Opts) -> {'ok', Socket} | {'error', Reason} when
+-spec open(Domain, Type, Opts | Protocol) -> {'ok', Socket} | {'error', Reason} when
       Domain :: domain() | integer(),
       Type :: type() | integer(),
       Opts :: map(),
-      Socket :: socket(),
-      Reason :: posix() | protocol;
-          (Domain, Type, Protocol) -> {'ok', Socket} | {'error', Reason} when
-      Domain :: domain() | integer(),
-      Type :: type() | integer(),
       Protocol :: default | protocol() | integer(),
       Socket :: socket(),
       Reason :: posix() | protocol.
@@ -3714,8 +3709,15 @@ With argument `Dest`; equivalent to
 With argument `Cont`; equivalent to
 [`sendto(Socket, Data, Cont, infinity)`](`sendto/4`) *since OTP 24.0*.
 """.
--spec sendto(Socket :: term(), Data :: term(), Cont :: select_info()) -> _;
-            (Socket :: term(), Data :: term(), Dest :: sockaddr()) -> _.
+-spec sendto(Socket :: term(), Data :: term(), Cont | Dest) -> Result when
+      Cont :: select_info(),
+      Dest :: sockaddr(),
+      Result :: 'ok'
+              | {'ok', RestData}
+              | {'error', Reason}
+              | {'error', {Reason, RestData}},
+      RestData :: binary(),
+      Reason     :: posix() | 'closed' | invalid().
 
 sendto(Socket, Data, ?SELECT_INFO(_, _) = Cont) ->
     sendto(Socket, Data, Cont, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -3747,14 +3749,16 @@ See the last argument (argument 5) of `sendto/5` for
 an explanation of `TimeoutOrHandle`.
 """.
 
--spec sendto(Socket, Data,
-             Dest | Cont, Flags | TimeoutOrHandle) -> Result when
-      Socket :: socket(),
-      Data   :: iodata(),
-      Dest   :: sockaddr(),
-      Cont   :: select_info(),
-      Flags  :: list(),
-      TimeoutOrHandle :: term(),
+-spec sendto(Socket :: socket(), Data :: iodata(),
+             Dest :: sockaddr(), Flags :: list()) -> Result when
+      Result :: 'ok'
+              | {'ok', RestData}
+              | {'error', Reason}
+              | {'error', {Reason, RestData}},
+      RestData :: binary(),
+      Reason     :: posix() | 'closed' | invalid();
+            (Socket :: socket(), Data :: iodata(),
+             Cont :: select_info(), TimeoutOrHandle :: term()) -> Result when
       Result :: 'ok'
               | {'ok', RestData}
               | {'error', Reason}
@@ -3984,11 +3988,11 @@ With arguments `Data` and `Cont`; equivalent to
 [`sendmsg(Socket, Data, Cont, infinity)`](`sendmsg/4`) *since OTP 24.0*.
 """.
 -spec sendmsg(Socket :: socket(), Msg :: msg_send(), Flags :: list())
-             -> _;
+             -> dynamic();
              (Socket :: socket(), Data :: msg_send() | erlang:iovec(), Cont :: select_info())
-             -> _;
+             -> dynamic();
              (Socket :: socket(), Msg :: msg_send(), Timeout :: infinity)
-             -> _.
+             -> dynamic().
 
 sendmsg(Socket, Msg, Flags) when is_list(Flags) ->
     sendmsg(Socket, Msg, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
