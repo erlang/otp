@@ -23,6 +23,7 @@
 
 Nonterminals
 form
+reserved_word
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
@@ -34,7 +35,7 @@ list_comprehension lc_expr lc_exprs
 map_comprehension
 binary_comprehension
 tuple
-record_expr record_tuple record_field record_fields
+record_expr record_tuple record_field record_fields record_name record_spec
 map_expr map_tuple map_field map_field_assoc map_field_exact map_fields map_key
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses atom_or_var integer_or_var
@@ -47,7 +48,8 @@ binary bin_elements bin_element bit_expr sigil
 opt_bit_size_expr bit_size_expr opt_bit_type_list bit_type_list bit_type
 top_type top_types type typed_expr typed_attr_val
 type_sig type_sigs type_guard type_guards fun_type binary_type
-type_spec spec_fun typed_exprs typed_record_fields field_types field_type
+type_spec spec_fun typed_exprs
+typed_record_spec typed_record_fields field_types field_type
 map_pair_types map_pair_type
 bin_base_type bin_unit_type
 maybe_expr maybe_match_exprs maybe_match
@@ -81,7 +83,7 @@ char integer float atom sigil_prefix string sigil_suffix var
 
 '(' ')' ',' '->' '{' '}' '[' ']' '|' '||' '<-' '<:-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
-'maybe' 'else'
+'maybe' 'else' 'cond' 'let'
 'andalso' 'orelse'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
@@ -91,7 +93,8 @@ char integer float atom sigil_prefix string sigil_suffix var
 '<<' '>>'
 '!' '=' '::' '..' '...'
 '?='
-'spec' 'callback' % helper
+%% helper: special handling in parse_form like reserved word
+'spec' 'callback' 'record'
 dot
 '%ssa%'.
 
@@ -127,6 +130,9 @@ form -> function dot : '$1'.
 attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
 attribute -> '-' atom '(' typed_attr_val ')' : build_typed_attribute('$2','$4').
+attribute -> '-' 'record' record_spec        : build_attribute(build_atom('$2'), '$3').
+attribute -> '-' 'record' typed_record_spec  : build_typed_attribute(build_atom('$2'), '$3').
+attribute -> '-' 'record' '(' typed_record_spec ')' : build_typed_attribute(build_atom('$2'), '$4').
 attribute -> '-' 'spec' type_spec            : build_type_spec('$2', '$3').
 attribute -> '-' 'callback' type_spec        : build_type_spec('$2', '$3').
 
@@ -138,6 +144,19 @@ spec_fun ->                  atom ':' atom : {'$1', '$3'}.
 
 typed_attr_val -> expr ',' typed_record_fields : {typed_record, '$1', '$3'}.
 typed_attr_val -> expr '::' top_type           : {type_def, '$1', '$3'}.
+
+%% Pretty much like attr_val, but record name must be an atom,
+%% to not allow variable names as record names when there is no leading '#'
+record_spec -> atom : ['$1'].
+record_spec -> atom ',' exprs: ['$1' | '$3'].
+record_spec -> '(' atom ',' exprs ')': ['$2' | '$4'].
+%% More record like record declararion that allows record_name
+record_spec -> '#' record_name : ['$2'].
+record_spec -> '#' record_name exprs: ['$2' | '$3'].
+record_spec -> '(' '#' record_name exprs ')': ['$3' | '$4'].
+
+typed_record_spec -> atom ',' typed_record_fields : {typed_record, '$1', '$3'}.
+typed_record_spec -> '#' record_name typed_record_fields : {typed_record, '$2', '$3'}.
 
 typed_record_fields -> '{' typed_exprs '}' : {tuple, ?anno('$1'), '$2'}.
 
@@ -189,9 +208,13 @@ type -> '#' '{' '}'                       : {type, ?anno('$1'), map, []}.
 type -> '#' '{' map_pair_types '}'        : {type, ?anno('$1'), map, '$3'}.
 type -> '{' '}'                           : {type, ?anno('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?anno('$1'), tuple, '$2'}.
-type -> '#' atom '{' '}'                  : {type, ?anno('$1'), record, ['$2']}.
-type -> '#' atom '{' field_types '}'      : {type, ?anno('$1'),
-                                             record, ['$2'|'$4']}.
+type -> '#' record_name '{' '}'           : {type, ?anno('$1'),
+                                             record,
+                                             [build_atom('$2')]}.
+type -> '#' record_name '{' field_types '}' : {type, ?anno('$1'),
+                                             record,
+                                             [build_atom('$2')|'$4']}.
+
 type -> binary_type                       : '$1'.
 type -> integer                           : '$1'.
 type -> char                              : '$1'.
@@ -311,10 +334,10 @@ pat_expr_max -> '(' pat_expr ')' : '$2'.
 map_pat_expr -> '#' map_tuple :
 	{map, ?anno('$1'),'$2'}.
 
-record_pat_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
-record_pat_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
+record_pat_expr -> '#' record_name '.' atom :
+	{record_index,?anno('$1'),record_name('$2'),'$4'}.
+record_pat_expr -> '#' record_name record_tuple :
+	{record,?anno('$1'),record_name('$2'),'$3'}.
 
 list -> '[' ']' : {nil,?anno('$1')}.
 list -> '[' expr tail : {cons,?anno('$1'),'$2','$3'}.
@@ -403,18 +426,18 @@ map_key -> expr : '$1'.
 %% N.B. Field names are returned as the complete object, even if they are
 %% always atoms for the moment, this might change in the future.
 
-record_expr -> '#' atom '.' atom :
-	{record_index,?anno('$1'),element(3, '$2'),'$4'}.
-record_expr -> '#' atom record_tuple :
-	{record,?anno('$1'),element(3, '$2'),'$3'}.
-record_expr -> expr_max '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> expr_max '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
-record_expr -> record_expr '#' atom '.' atom :
-	{record_field,?anno('$2'),'$1',element(3, '$3'),'$5'}.
-record_expr -> record_expr '#' atom record_tuple :
-	{record,?anno('$2'),'$1',element(3, '$3'),'$4'}.
+record_expr -> '#' record_name '.' atom :
+	{record_index,?anno('$1'),record_name('$2'),'$4'}.
+record_expr -> '#' record_name record_tuple :
+	{record,?anno('$1'),record_name('$2'),'$3'}.
+record_expr -> expr_max '#' record_name '.' atom :
+	{record_field,?anno('$2'),'$1',record_name('$3'),'$5'}.
+record_expr -> expr_max '#' record_name record_tuple :
+	{record,?anno('$2'),'$1',record_name('$3'),'$4'}.
+record_expr -> record_expr '#' record_name '.' atom :
+	{record_field,?anno('$2'),'$1',record_name('$3'),'$5'}.
+record_expr -> record_expr '#' record_name record_tuple :
+	{record,?anno('$2'),'$1',record_name('$3'),'$4'}.
 
 record_tuple -> '{' '}' : [].
 record_tuple -> '{' record_fields '}' : '$2'.
@@ -589,6 +612,40 @@ comp_op -> '>=' : '$1'.
 comp_op -> '>' : '$1'.
 comp_op -> '=:=' : '$1'.
 comp_op -> '=/=' : '$1'.
+
+record_name -> atom : '$1'.
+record_name -> var : '$1'.
+record_name -> reserved_word : '$1'.
+
+reserved_word -> 'after' : '$1'.
+reserved_word -> 'and' : '$1'.
+reserved_word -> 'andalso' : '$1'.
+reserved_word -> 'band' : '$1'.
+reserved_word -> 'begin' : '$1'.
+reserved_word -> 'bnot' : '$1'.
+reserved_word -> 'bor' : '$1'.
+reserved_word -> 'bsl' : '$1'.
+reserved_word -> 'bsr' : '$1'.
+reserved_word -> 'bxor' : '$1'.
+reserved_word -> 'case' : '$1'.
+reserved_word -> 'catch' : '$1'.
+reserved_word -> 'cond' : '$1'.
+reserved_word -> 'div' : '$1'.
+reserved_word -> 'else' : '$1'.
+reserved_word -> 'end' : '$1'.
+reserved_word -> 'fun' : '$1'.
+reserved_word -> 'if' : '$1'.
+reserved_word -> 'let' : '$1'.
+reserved_word -> 'maybe' : '$1'.
+reserved_word -> 'not' : '$1'.
+reserved_word -> 'of' : '$1'.
+reserved_word -> 'or' : '$1'.
+reserved_word -> 'orelse' : '$1'.
+reserved_word -> 'receive' : '$1'.
+reserved_word -> 'rem' : '$1'.
+reserved_word -> 'try' : '$1'.
+reserved_word -> 'when' : '$1'.
+reserved_word -> 'xor' : '$1'.
 
 ssa_check_when_clauses -> ssa_check_when_clause : ['$1'].
 ssa_check_when_clauses -> ssa_check_when_clause ssa_check_when_clauses :
@@ -1309,6 +1366,10 @@ parse_form([{'-',A1},{atom,A2,callback}|Tokens]) ->
     NewTokens = [{'-',A1},{'callback',A2}|Tokens],
     ?ANNO_CHECK(NewTokens),
     parse(NewTokens);
+parse_form([{'-',A1},{atom,A2,record}|Tokens]) ->
+    NewTokens = [{'-',A1},{'record',A2}|Tokens],
+    ?ANNO_CHECK(NewTokens),
+    parse(NewTokens);
 parse_form(Tokens) ->
     ?ANNO_CHECK(Tokens),
     parse(Tokens).
@@ -1371,6 +1432,12 @@ parse_term(Tokens) ->
 build_typed_attribute({atom,Aa,record},
 		      {typed_record, {atom,_An,RecordName}, RecTuple}) ->
     {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
+build_typed_attribute({atom,Aa,record},
+		      {typed_record, {var,_An,RecordName}, RecTuple}) ->
+    {attribute,Aa,record,{RecordName,record_tuple(RecTuple)}};
+build_typed_attribute({atom,Aa,record},
+		      {typed_record, {ReservedWord,_An}, RecTuple}) ->
+    {attribute,Aa,record,{ReservedWord,record_tuple(RecTuple)}};
 build_typed_attribute({atom,Aa,Attr},
                       {type_def, {call,_,{atom,_,TypeName},Args}, Type})
   when Attr =:= 'type' ; Attr =:= 'opaque' ->
@@ -1382,7 +1449,7 @@ build_typed_attribute({atom,Aa,Attr},
                                                     "bad type variable")
                    end, Args),
     {attribute,Aa,Attr,{TypeName,Type,Args}};
-build_typed_attribute({atom,Aa,Attr}=Abstr,_) ->
+build_typed_attribute({atom,Aa,Attr}=Abstr,_What) ->
     case Attr of
         record -> error_bad_decl(Abstr, record);
         type   -> error_bad_decl(Abstr, type);
@@ -1451,6 +1518,21 @@ build_bin_type([], Int) ->
 build_bin_type([{var, Aa, _}|_], _) ->
     ret_err(Aa, "Bad binary type").
 
+build_atom({atom, _Aa, _Name} = Atom) -> Atom;
+build_atom({ReservedWord, Aa}) -> {atom, Aa, ReservedWord};
+build_atom({var, Aa, Name}) -> {atom, Aa, Name}.
+
+record_name(RecordName) ->
+    case RecordName of
+        {atom, _Aa, Name}   -> Name;
+        {var, _Aa, Name}    -> Name;
+        {ReservedWord, _Aa} -> ReservedWord
+    end.
+
+%print(X) ->
+%    io:format("Details: ~p~n",[X]),
+%    X.
+
 build_type({atom, A, Name}, Types) ->
     Tag = type_tag(Name, length(Types)),
     {Tag, A, Name, Types}.
@@ -1496,6 +1578,10 @@ build_attribute({atom,Aa,import}, Val) ->
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
 	[{atom,_An,Record},RecTuple] ->
+	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
+	[{var,_An,Record},RecTuple] ->
+	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
+	[{Record,_An},RecTuple] ->
 	    {attribute,Aa,record,{Record,record_tuple(RecTuple)}};
         [Other|_] -> error_bad_decl(Other, record)
     end;

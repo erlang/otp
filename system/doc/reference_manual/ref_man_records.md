@@ -39,6 +39,15 @@ used.
                FieldN [= ExprN]}).
 ```
 
+> #### Change {: .info }
+>
+> Since OTP 28.0 the record creation syntax is allowed when defining a record:
+> ```erlang
+> -record #Name{Field1 [= Expr1],
+>               ...
+>               FieldN [= ExprN]}).
+> ```
+
 The default value for a field is an arbitrary expression, except that it must
 not use any variables.
 
@@ -230,3 +239,39 @@ record_info(size, Record) -> Size
 
 `Size` is the size of the tuple representation, that is, one more than the
 number of fields.
+
+## Record name quoting
+
+A record name is an atom.  Atoms can be quoted.
+[Reserved words](reference_manual.md#reserved-words) and variable
+names are not atoms, unless quoted.
+
+For example `div` is the integer division operator so it cannot be used
+as a record name unless quoted:
+
+``` erlang
+-record('div', {field :: integer()}).
+
+foo() -> #'div'{field = 17}.
+```
+
+The same applies to a variable name such as `Var`:
+
+``` erlang
+-record('Var', {field :: integer()}).
+
+foo() -> #'Var'{field = 4711}.
+```
+
+> #### Change {: .info }
+>
+> Since OTP-28.0, a name after the `#` operator doesn't have to be quoted,
+> and since record definition can be done with record creation syntax,
+> this also works:
+> ``` erlang
+> -record #div{field :: integer()}).
+> -record #Var{field :: integer()}).
+>
+> foo() -> #div{field = 17}.
+> bar() -> #Var{field = 4711}.
+> ```
