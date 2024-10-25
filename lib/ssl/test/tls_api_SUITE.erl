@@ -815,7 +815,7 @@ tls_sup_shutdown(Config) when is_list(Config) ->
 					 {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
-    {_, #sslsocket{pid=[Pid|_]}} = ssl_test_lib:start_client([return_socket,
+    {_, #sslsocket{connection_handler = Pid}} = ssl_test_lib:start_client([return_socket,
                                                                    {node, ClientNode}, {port, Port},
                                                                    {host, Hostname},
                                                                    {from, self()},
