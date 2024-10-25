@@ -41,11 +41,15 @@
          addresses/1,
          get_options/2,
          get_acceptor_options/1,
-         replace_acceptor_options/2
+         restart_acceptor/2
         ]).
 
 %% Supervisor callback
 -export([init/1]).
+
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1,
+         ssh_dbg_format/2]).
 
 %%%=========================================================================
 %%% API
@@ -54,7 +58,7 @@
 start_system(Address0, Options) ->
     case find_system_sup(Address0) of
         {ok,{SysPid,Address}} ->
-            restart_acceptor(SysPid, Address, Options);
+            start_acceptor(SysPid, Address, Options);
         {error,not_found} ->
             supervisor:start_child(sshd_sup,
                                    #{id       => {?MODULE,Address0},
@@ -164,16 +168,19 @@ get_acceptor_options(SysPid) ->
             {error,Error}
     end.
 
-replace_acceptor_options(SysPid, NewOpts) ->
+restart_acceptor(SysPid, Options0) ->
     case get_daemon_listen_address(SysPid) of
         {ok,Address} ->
-            try stop_listener(SysPid)
+            try
+                stop_listener(SysPid)
             of
                 ok ->
-                    restart_acceptor(SysPid, Address, NewOpts)
+                    Options = refresh_lsocket(Options0),
+                    start_acceptor(SysPid, Address, Options)
             catch
-                error:_ ->
-                    restart_acceptor(SysPid, Address, NewOpts)
+                error:_Error ->
+                    Options = refresh_lsocket(Options0),
+                    start_acceptor(SysPid, Address, Options)
             end;
         {error,Error} ->
             {error,Error}
@@ -258,7 +265,7 @@ sup(server) -> sshd_sup.
 is_socket_server(Options) ->
     undefined =/= ?GET_INTERNAL_OPT(connected_socket,Options,undefined).
 
-restart_acceptor(SysPid, Address, Options) ->
+start_acceptor(SysPid, Address, Options) ->
     case lookup(ssh_acceptor_sup, SysPid) of
         {_,_,supervisor,_} ->
             {error, eaddrinuse};
@@ -273,3 +280,42 @@ restart_acceptor(SysPid, Address, Options) ->
                     {error,Error}
             end
     end.
+
+refresh_lsocket(Options0) ->
+    {_OldLSock, LHost, LPort, _SockOwner} =
+        ?GET_INTERNAL_OPT(lsocket, Options0, lsocket_undefined),
+    case ssh_lsocket:get_lsocket(LHost, LPort, Options0) of
+        {ok, {LSocketProvider, LSocket}} ->
+            {_Host, _Port, Options} =
+                ssh:update_lsocket(LSocket, LSocketProvider, Options0),
+            Options;
+        Error = {error, _} ->
+            Error
+    end.
+
+%%%################################################################
+%%%#
+%%%# Tracing
+%%%#
+
+ssh_dbg_trace_points() -> [connections].
+
+ssh_dbg_flags(connections) -> [c].
+
+ssh_dbg_on(connections) ->
+    dbg:tpl(?MODULE, stop_listener, 1, x),
+    dbg:tpl(?MODULE, start_acceptor, 3, x).
+
+ssh_dbg_off(connections) ->
+    dbg:ctpl(?MODULE, stop_listener, 1),
+    dbg:ctpl(?MODULE, start_acceptor, 3).
+
+ssh_dbg_format(Tracepoint, Event = {call, {?MODULE, Function, Args}}) ->
+    [io_lib:format("~w:~w/~w> ~s", [?MODULE, Function, length(Args)] ++
+                       ssh_dbg_comment(Tracepoint, Event))];
+ssh_dbg_format(Tracepoint, Event = {return_from, {?MODULE,Function,Arity}, Ret}) ->
+    [io_lib:format("~w:~w/~w returned ~W> ~s", [?MODULE, Function, Arity, Ret, 3] ++
+                  ssh_dbg_comment(Tracepoint, Event))].
+
+ssh_dbg_comment(_, _) ->
+    [""].

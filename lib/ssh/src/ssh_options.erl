@@ -229,7 +229,6 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
         check_and_save(OptsList2, OptionDefinitions, InitialMap)
-
     catch
         error:{EO, KV, Reason} when EO == eoptions ; EO == eerl_env ->
             if
