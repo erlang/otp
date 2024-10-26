@@ -977,8 +977,11 @@ i_bs_match_string S f W M
 bs_get_integer2 f S t s t t d
 
 # Fetching binaries from binaries.
-bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
-    get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+bs_get_binary2 Fail=f Ms=xy Live=u _Sz=a==am_all Unit=u _Flags=u Dst=d =>
+    i_bs_get_binary_all2 Ms Fail Live Unit Dst
+
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=s Unit=u _Flags=u Dst=d =>
+    i_bs_get_binary2 Ms Fail Live Sz Unit Dst
 
 i_bs_get_binary2 S f t s t d
 i_bs_get_binary_all2 S f t t d

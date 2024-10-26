@@ -1175,7 +1175,7 @@ i_bs_get_integer_32 xy f? d
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
     get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 xy f? t W t d
+i_bs_get_binary_imm2 xy f? t W d
 i_bs_get_binary2 xy f t? S t d
 i_bs_get_binary_all2 xy f? t t d
 
