@@ -793,10 +793,7 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamReader reader;
 
     Sint32 compressed_size, uncompressed_size;
-    uLongf uncompressed_size_z;
-    byte *uncompressed_data;
     int success;
-    int zerr;
 
     beamreader_init(chunk->data, chunk->size, &reader);
     compressed_size = chunk->size;
@@ -804,25 +801,31 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(beamreader_read_i32(&reader, &uncompressed_size));
     LoadAssert(compressed_size >= 0);
 
-    uncompressed_size_z = uncompressed_size;
-    uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
     success = 0;
 
-    zerr = erl_zlib_uncompress(uncompressed_data,
-                               &uncompressed_size_z,
-                               reader.head,
-                               compressed_size);
-    if (zerr == Z_OK) {
-        success = parse_decompressed_literals(beam,
-                                              uncompressed_data,
-                                              uncompressed_size_z);
-    } else {
+    if (uncompressed_size == 0) {
+        /* Erlang/OTP 28 and later. The literal table is not
+         * compressed. */
         success = parse_decompressed_literals(beam,
                                               reader.head,
-                                              uncompressed_size_z);
+                                              reader.end - reader.head);
+    } else {
+        byte *uncompressed_data;
+        uLongf uncompressed_size_z;
+
+        uncompressed_size_z = uncompressed_size;
+        uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
+        if (erl_zlib_uncompress(uncompressed_data,
+                                &uncompressed_size_z,
+                                reader.head,
+                                compressed_size) == Z_OK) {
+            success = parse_decompressed_literals(beam,
+                                                  uncompressed_data,
+                                                  uncompressed_size_z);
+        }
+        erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     }
 
-    erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     return success;
 }
 

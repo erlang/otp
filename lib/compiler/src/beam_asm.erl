@@ -330,19 +330,26 @@ encode_line_items([], _) -> [].
 build_literal_chunk(Options, Dict) ->
     case beam_dict:literal_table(Dict) of
         {0,[]} ->
+            %% No literals. The literal chunk must be omitted.
             [];
         {NumLiterals,LitTab0} ->
             LitTab1 = [<<NumLiterals:32>>,LitTab0],
-            LitTab = case member(compressed_literals, Options) of
-                         true ->
-                             %% Erlang/OTP 27 and earlier.
-                             zlib:compress(LitTab1);
-                         false ->
-                             %% Erlang/OTP 28 and later.
-                             LitTab1
-                     end,
-            chunk(<<"LitT">>, <<(iolist_size(LitTab1)):32>>,
-                  LitTab)
+            case member(compressed_literals, Options) of
+                true ->
+                    %% Erlang/OTP 27 and earlier. The word following
+                    %% the chunk header is the size of the data
+                    %% before compression.
+                    LitTab = zlib:compress(LitTab1),
+                    chunk(<<"LitT">>, <<(iolist_size(LitTab1)):32>>,
+                          LitTab);
+                false ->
+                    %% Erlang/OTP 28 and later. No compression, which
+                    %% is indicated by the zero word following the
+                    %% chunk header. (Zero is not a valid uncompressed
+                    %% size because the literal chunk is only present
+                    %% if there is at least one literal.)
+                    chunk(<<"LitT">>, <<0:32>>, LitTab1)
+            end
     end.
 %%
 %% If the attributes contains no 'vsn' attribute, we'll insert one

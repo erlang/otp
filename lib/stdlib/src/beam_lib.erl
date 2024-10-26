@@ -1261,19 +1261,20 @@ decode_arg_val(<<High:3,0:1,1:1, _Tag:3, Low, Code0/binary>>) ->
     {N, Code0}.
 
 extract_literals(Chunk0) ->
-    <<OriginalSize:32, Chunk/binary>> = Chunk0,
-    Literals0 = try
-                    %% Literals are compressed in Erlang/OTP 27 and
-                    %% earlier.
-                    zlib:uncompress(Chunk)
-                catch
-                    error:_ ->
-                        %% Literals are not compressed in Erlang/OTP
-                        %% 28 and later.
-                        Chunk
-                end,
+    Literals0 =
+        case Chunk0 of
+            <<0:32, Chunk/binary>> ->
+                %% Literals are not compressed in Erlang/OTP 28 and
+                %% later.
+                Chunk;
+            <<OriginalSize:32, Chunk1/binary>> ->
+                %% Literals are compressed in Erlang/OTP 27 and
+                %% earlier.
+                Chunk = zlib:uncompress(Chunk1),
+                OriginalSize = byte_size(Chunk), %Sanity check.
+                Chunk
+        end,
     <<NumLiterals:32, Literals1/binary>> = Literals0,
-    OriginalSize = byte_size(Literals0),        %Sanity check.
     Literals = [binary_to_term(Term) ||
                    <<N:32, Term:N/binary>> <:= Literals1],
     NumLiterals = length(Literals),             %Sanity check.
