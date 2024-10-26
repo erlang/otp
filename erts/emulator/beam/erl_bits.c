@@ -409,7 +409,7 @@ erts_bs_get_integer_2(Process *p, Uint num_bits,
 }
 
 Eterm
-erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
+erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits *sb)
 {
     Eterm result;
 

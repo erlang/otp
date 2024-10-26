@@ -385,41 +385,20 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
                                                     const ArgWord &Live,
                                                     const ArgWord &Unit,
                                                     const ArgRegister &Dst) {
+    /* This instruction is only found in unoptimized code and in code
+     * compiled for Erlang/OTP 25 and earlier. */
     unsigned unit = Unit.get();
+    const ArgVal match[] = {ArgAtom(am_ensure_at_least),
+                            ArgWord(0),
+                            ArgWord(unit),
 
-    /* The division below clobbers RAX:RDX, place the context in ARG1 which is
-     * neither on all supported platforms. */
-    mov_arg(ARG1, Ctx);
+                            ArgAtom(am_get_tail),
+                            ArgWord(Live),
+                            ArgWord(unit),
+                            Dst};
+    const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
 
-    emit_gc_test_preserve(ArgWord(BUILD_SUB_BITSTRING_HEAP_NEED),
-                          Live,
-                          Ctx,
-                          ARG1);
-
-    a.mov(RET, emit_boxed_val(ARG1, offsetof(ErlSubBits, end)));
-    a.sub(RET, emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
-
-    if ((unit & (unit - 1))) {
-        a.cqo();
-        mov_imm(ARG4, unit);
-        a.div(ARG4);
-        a.test(x86::rdx, x86::rdx);
-    } else {
-        a.test(RETb, imm(unit - 1));
-    }
-
-    a.jne(resolve_beam_label(Fail));
-
-    emit_enter_runtime<Update::eHeapOnlyAlloc>();
-
-    a.lea(ARG2, emit_boxed_val(ARG1));
-    a.mov(ARG1, c_p);
-    runtime_call<Eterm (*)(Process *, ErlSubBits *),
-                 erts_bs_get_binary_all_2>();
-
-    emit_leave_runtime<Update::eHeapOnlyAlloc>();
-
-    mov_arg(Dst, RET);
+    emit_i_bs_match(Fail, Ctx, args);
 }
 
 void BeamGlobalAssembler::emit_bs_get_tail_shared() {
@@ -497,13 +476,13 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
                                                 const ArgLabel &Fail,
                                                 const ArgWord &Live,
                                                 const ArgSource &Size,
-                                                const ArgWord &Flags,
+                                                const ArgWord &Unit,
                                                 const ArgRegister &Dst) {
     Label fail;
     int unit;
 
     fail = resolve_beam_label(Fail);
-    unit = Flags.get() >> 3;
+    unit = Unit.get();
 
     /* Clobbers RET + ARG3 */
     if (emit_bs_get_field_size(Size, unit, fail, ARG2) >= 0) {
@@ -520,9 +499,8 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
 
         a.mov(ARG1, c_p);
         a.mov(ARG2, TMP_MEM1q);
-        mov_imm(ARG3, Flags.get());
-        a.sub(ARG4, imm(TAG_PRIMARY_BOXED));
-        runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+        a.lea(ARG3, x86::qword_ptr(ARG4, -TAG_PRIMARY_BOXED));
+        runtime_call<Eterm (*)(Process *, Uint, ErlSubBits *),
                      erts_bs_get_binary_2>();
 
         emit_leave_runtime<Update::eHeapOnlyAlloc>();

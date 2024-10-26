@@ -376,50 +376,20 @@ void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
                                                     const ArgWord &Live,
                                                     const ArgWord &Unit,
                                                     const ArgRegister &Dst) {
+    /* This instruction is only found in unoptimized code and in code
+     * compiled for Erlang/OTP 25 and earlier. */
     unsigned unit = Unit.get();
+    const ArgVal match[] = {ArgAtom(am_ensure_at_least),
+                            ArgWord(0),
+                            ArgWord(unit),
 
-    mov_arg(ARG1, Ctx);
+                            ArgAtom(am_get_tail),
+                            ArgWord(Live),
+                            ArgWord(unit),
+                            Dst};
+    const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
 
-    emit_gc_test_preserve(ArgWord(BUILD_SUB_BITSTRING_HEAP_NEED),
-                          Live,
-                          Ctx,
-                          ARG1);
-
-    /* Make field fetching slightly more compact by pre-loading the match
-     * context into the right argument slot for `erts_bs_get_binary_all_2`. */
-    emit_untag_ptr(ARG2, ARG1);
-    ERTS_CT_ASSERT_FIELD_PAIR(ErlSubBits, start, end);
-    a.ldp(TMP2, TMP3, arm::Mem(ARG2, offsetof(ErlSubBits, start)));
-
-    /* Remainder = Size - Offset */
-    a.sub(TMP1, TMP3, TMP2);
-
-    /* Unit may be 1 if compiling with +no_bsm3, which lacks the
-     * bs_get_tail instruction. */
-    if (unit > 1) {
-        if ((unit & (unit - 1))) {
-            mov_imm(TMP2, unit);
-
-            a.udiv(TMP3, TMP1, TMP2);
-            a.msub(TMP1, TMP3, TMP2, TMP1);
-
-            a.cbnz(TMP1, resolve_beam_label(Fail, disp1MB));
-        } else {
-            a.tst(TMP1, imm(unit - 1));
-            a.b_ne(resolve_beam_label(Fail, disp1MB));
-        }
-    }
-
-    emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
-
-    a.mov(ARG1, c_p);
-    /* ARG2 was set above. */
-    runtime_call<Eterm (*)(Process *, ErlSubBits *),
-                 erts_bs_get_binary_all_2>();
-
-    emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
-
-    mov_arg(Dst, ARG1);
+    emit_i_bs_match(Fail, Ctx, args);
 }
 
 void BeamGlobalAssembler::emit_bs_get_tail_shared() {
@@ -525,13 +495,13 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
                                                 const ArgLabel &Fail,
                                                 const ArgWord &Live,
                                                 const ArgSource &Size,
-                                                const ArgWord &Flags,
+                                                const ArgWord &Unit,
                                                 const ArgRegister &Dst) {
     Label fail;
     int unit;
 
     fail = resolve_beam_label(Fail, dispUnknown);
-    unit = Flags.get() >> 3;
+    unit = Unit.get();
 
     if (emit_bs_get_field_size(Size, unit, fail, ARG2) >= 0) {
         a.str(ARG2, TMP_MEM1q);
@@ -543,14 +513,13 @@ void BeamModuleAssembler::emit_i_bs_get_binary2(const ArgRegister &Ctx,
                               Ctx,
                               ARG4);
 
-        emit_untag_ptr(ARG4, ARG4);
+        emit_untag_ptr(ARG3, ARG4);
 
         emit_enter_runtime<Update::eHeapOnlyAlloc>(Live.get());
 
         a.mov(ARG1, c_p);
         a.ldr(ARG2, TMP_MEM1q);
-        mov_imm(ARG3, Flags.get());
-        runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
+        runtime_call<Eterm (*)(Process *, Uint, ErlSubBits *),
                      erts_bs_get_binary_2>();
 
         emit_leave_runtime<Update::eHeapOnlyAlloc>(Live.get());
