@@ -155,6 +155,37 @@ static void check_match_buffer(const ErlSubBits *sb)
 # define CHECK_MATCH_BUFFER(MB)
 #endif
 
+/*
+ * Some C compilers will emit branchless code for this macro.
+ *
+ * It works like this:
+ *
+ * If the result should be unsigned (BSF_SIGNED bit clear), the
+ * sign_bit variable is set to 0 and the line that follows does
+ * nothing.
+ *
+ * If the result should be signed, and the most significant bit of val
+ * is 0, the XOR operation sets the sign bit and the subtraction
+ * operation then subtracts it away, resulting in no change.
+ *
+ * If the result should be signed, and the most significant bit of val
+ * is 1, the XOR operation clears the sign bit and the subtraction
+ * operation subtracts the sign bit. Effectively, the sign bit is
+ * subtracted twice, resulting in a sign extension.
+ *
+ * References:
+ *    https://fgiesen.wordpress.com/2024/10/23/zero-or-sign-extend
+ *
+ *    Henry S. Warren, Jr. Hacker's Delight (2 ed). Addison Wesley -
+ *    Pearson Education, Inc. Section 2.6: Sign Extension
+ */
+#define MAYBE_SIGN_EXTEND(flags, val, num_bits)                 \
+  do {                                                          \
+      Uint sign_bit = ((flags) & BSF_SIGNED) ?                  \
+             ((Uint)1 << ((num_bits)-1)) : 0;                   \
+      val = ((val) ^ sign_bit) - sign_bit;                      \
+  } while (0)
+
 Eterm
 erts_bs_get_integer_2(
 Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
@@ -195,9 +226,7 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 	sb->start += num_bits;
 	b >>= 8 - offs - num_bits;
 	b &= mask;
-	if ((flags & BSF_SIGNED) && b >> (num_bits-1)) {
-	    b |= ~mask;
-	}
+        MAYBE_SIGN_EXTEND(flags, b, num_bits);
 	return make_small(b);
     } else if (num_bits <= 8) {
 	/*
@@ -212,9 +241,7 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 	sb->start += num_bits;
 	w >>= 16 - offs - num_bits;
 	w &= mask;
-	if ((flags & BSF_SIGNED) && w >> (num_bits-1)) {
-	    w |= ~mask;
-	}
+        MAYBE_SIGN_EXTEND(flags, w, num_bits);
 	return make_small(w);
     } else if (num_bits < SMALL_BITS && (flags & BSF_LITTLE) == 0) {
 	/*
@@ -268,13 +295,7 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 	    w = (w << n) | b;
 	}
 
-	/*
-	 * Sign extend the result if the field type is 'signed' and the
-	 * most significant bit is 1.
-	 */
-	if ((flags & BSF_SIGNED) != 0 && (w >> (num_bits-1) != 0)) {
-	    w |= ~MAKE_MASK(num_bits);
-	}
+        MAYBE_SIGN_EXTEND(flags, w, num_bits);
 	return make_small(w);
     }
 
