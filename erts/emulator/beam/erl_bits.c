@@ -89,15 +89,6 @@ static byte get_bit(byte b, size_t a_offs);
  ***
  *****************************************************************/
 
-#define ReadToVariable(v64, Buffer, x)		\
-  do{						\
-    int _i;					\
-    v64 = 0;					\
-    for(_i = 0; _i < x; _i++) {			\
-      v64 = ((Uint)Buffer[_i] <<(8*_i)) + v64;	\
-	}					\
-  }while(0)					\
-
 ErlSubBits *erts_bs_start_match_3(Process *p, Eterm bin)
 {
     ErlSubBits *sb;
@@ -187,116 +178,114 @@ static void check_match_buffer(const ErlSubBits *sb)
   } while (0)
 
 Eterm
-erts_bs_get_integer_2(
-Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
+erts_bs_get_integer_2(Process *p, Uint num_bits,
+                      unsigned flags, ErlSubBits *sb)
 {
     Uint bytes;
     Uint bits;
-    Uint offs;
+    Uint bit_offset;
     byte bigbuf[64];
     byte* LSB;
     byte* MSB;
     Uint* hp;
-    Uint words_needed;
-    Uint actual;
-    Uint v32;
     int sgn = 0;
     Eterm res = THE_NON_VALUE;
-	
-    if (num_bits == 0) {
-	return SMALL_ZERO;
-    }
-    
+    Uint byte_offset;
+    const byte* bp;
+
     CHECK_MATCH_BUFFER(sb);
-    if (sb->end - sb->start < num_bits) {	/* Asked for too many bits.  */
-	return THE_NON_VALUE;
+    if (sb->end - sb->start < num_bits) { /* Asked for too many bits. */
+        return THE_NON_VALUE;
     }
+
+    byte_offset = BYTE_OFFSET(sb->start);
+    bp = erl_sub_bits_get_base(sb) + byte_offset;
+    bit_offset = BIT_OFFSET(sb->start);
 
     /*
-     * Special cases for field sizes up to the size of Uint.
+     * Handle special cases for segment sizes guaranteed to fit in a
+     * small.
      */
 
-    if (num_bits <= 8-(offs = BIT_OFFSET(sb->start))) {
-	/*
-	 * All bits are in one byte in the binary. We only need
-	 * shift them right and mask them.
-	 */
-	Uint b = *(erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start));
-	Uint mask = MAKE_MASK(num_bits);
-	sb->start += num_bits;
-	b >>= 8 - offs - num_bits;
-	b &= mask;
-        MAYBE_SIGN_EXTEND(flags, b, num_bits);
-	return make_small(b);
+    if (num_bits == 0) {
+        return SMALL_ZERO;
     } else if (num_bits <= 8) {
-	/*
-	 * The bits are in two different bytes. It is easiest to
-	 * combine the bytes to a word first, and then shift right and
-	 * mask to extract the bits.
-	 */
-	Uint byte_offset = BYTE_OFFSET(sb->start);
-	const byte* bp = erl_sub_bits_get_base(sb) + byte_offset;
-	Uint w = bp[0] << 8 | bp[1];
-	Uint mask = MAKE_MASK(num_bits);
-	sb->start += num_bits;
-	w >>= 16 - offs - num_bits;
-	w &= mask;
+        Uint w;
+
+        sb->start += num_bits;
+        if (num_bits <= 8 - bit_offset) {
+            /*
+             * All bits are located in a single byte in the binary. We
+             * only need to shift them right and mask them.
+             */
+            w = bp[0];
+            w >>= 8 - bit_offset - num_bits;
+        } else {
+            /*
+             * The bits are in two different bytes. It is easiest to
+             * combine the bytes to a word first, and then shift right and
+             * mask to extract the bits.
+             */
+            w = bp[0] << 8 | bp[1];
+            w >>= 16 - bit_offset - num_bits;
+        }
+
+        w &= MAKE_MASK(num_bits);
         MAYBE_SIGN_EXTEND(flags, w, num_bits);
-	return make_small(w);
+        return make_small(w);
     } else if (num_bits < SMALL_BITS && (flags & BSF_LITTLE) == 0) {
-	/*
-	 * Handle field sizes from 9 up to SMALL_BITS-1 bits, big-endian,
-	 * stored in at least two bytes.
-	 */
-	const byte* bp = erl_sub_bits_get_base(sb) + BYTE_OFFSET(sb->start);
-	Uint n;
-	Uint w;
+        /*
+         * Handle field sizes from 9 up to SMALL_BITS-1 bits, big-endian,
+         * stored in at least two bytes.
+         */
+        Uint n;
+        Uint w;
 
-	n = num_bits;
-	sb->start += num_bits;
+        n = num_bits;
+        sb->start += num_bits;
 
-	/*
-	 * Handle the most signicant byte if it contains 1 to 7 bits.
-	 * It only needs to be masked, not shifted.
-	 */
-	if (offs == 0) {
-	    w = 0;
-	} else {
-	    Uint num_bits_in_msb = 8 - offs;
-	    w = *bp++;
-	    n -= num_bits_in_msb;
-	    w &= MAKE_MASK(num_bits_in_msb);
-	}
+        /*
+         * Handle the most signicant byte if it contains 1 to 7 bits.
+         * It only needs to be masked, not shifted.
+         */
+        if (bit_offset == 0) {
+            w = 0;
+        } else {
+            Uint num_bits_in_msb = 8 - bit_offset;
+            w = *bp++;
+            n -= num_bits_in_msb;
+            w &= MAKE_MASK(num_bits_in_msb);
+        }
 
-	/*
-	 * Simply shift whole bytes into the result.
-	 */
-	switch (BYTE_OFFSET(n)) {
+        /*
+         * Simply shift whole bytes into the result.
+         */
+        switch (BYTE_OFFSET(n)) {
 #if defined(ARCH_64)
-	case 7: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
-	case 6: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
-	case 5: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
-	case 4: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 7: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 6: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 5: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 4: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
 #endif
-	case 3: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
-	case 2: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
-	case 1: w = (w << 8) | *bp++;
+        case 3: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 2: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+        case 1: w = (w << 8) | *bp++;
 	}
 	n = BIT_OFFSET(n);
 
-	/*
-	 * Handle the 1 to 7 bits remaining in the last byte (if any).
-	 * They need to be shifted right, but there is no need to mask;
-	 * then they can be shifted into the word.
-	 */
-	if (n > 0) {
-	    Uint b = *bp;
-	    b >>= 8 - n;
-	    w = (w << n) | b;
-	}
+        /*
+         * Handle the 1 to 7 bits remaining in the last byte (if any).
+         * They need to be shifted right, but there is no need to mask;
+         * then they can be shifted into the word.
+         */
+        if (n > 0) {
+            Uint b = *bp;
+            b >>= 8 - n;
+            w = (w << n) | b;
+        }
 
         MAYBE_SIGN_EXTEND(flags, w, num_bits);
-	return make_small(w);
+        return make_small(w);
     }
 
     /*
@@ -308,14 +297,14 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 
     bytes = NBYTES(num_bits);
     if ((bits = BIT_OFFSET(num_bits)) == 0) {  /* number of bits in MSB */
-	bits = 8;
+        bits = 8;
     }
-    offs = 8 - bits;                  /* adjusted offset in MSB */
+    bit_offset = 8 - bits;                  /* adjusted offset in MSB */
 
     if (bytes <= sizeof bigbuf) {
-	LSB = bigbuf;
+        LSB = bigbuf;
     } else {
-	LSB = erts_alloc(ERTS_ALC_T_TMP, bytes);
+        LSB = erts_alloc(ERTS_ALC_T_TMP, bytes);
     }
     MSB = LSB + bytes - 1;
 
@@ -327,11 +316,11 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
     if (flags & BSF_LITTLE) {
         erts_copy_bits_fwd(erl_sub_bits_get_base(sb), sb->start,
                            LSB, 0, num_bits);
-	*MSB >>= offs;		/* adjust msb */
+        *MSB >>= bit_offset;		/* adjust msb */
     } else {
-	*MSB = 0;
+        *MSB = 0;
         erts_copy_bits_rev(erl_sub_bits_get_base(sb), sb->start,
-                           MSB, offs, num_bits);
+                           MSB, bit_offset, num_bits);
     }
     sb->start += num_bits;
 
@@ -340,98 +329,81 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
      */
     sgn = 0;
     if ((flags & BSF_SIGNED) && (*MSB & (1<<(bits-1)))) {
-	byte* ptr = LSB; 
-	byte c = 1;
+        byte* ptr = LSB;
+        byte c = 1;
 
-	/* sign extend MSB */
-	*MSB |= ~MAKE_MASK(bits);
+        /* Sign extend MSB. */
+        *MSB |= ~MAKE_MASK(bits);
 
-	/* two's complement */
-	while (ptr <= MSB) {
-	    byte pd = ~(*ptr);
-	    byte d = pd + c;
-	    c = (d < pd);
-	    *ptr++ = d;
-	}
-	sgn = 1;
+        /* Two's complement to turn number positive. */
+        while (ptr <= MSB) {
+            byte pd = ~(*ptr);
+            byte d = pd + c;
+            c = (d < pd);
+            *ptr++ = d;
+        }
+        sgn = 1;
     }
 
-    /* normalize */
-    while ((*MSB == 0) && (MSB > LSB)) {
-	MSB--;
-	bytes--;
+    /* Normalize. */
+    while (*MSB == 0 && MSB > LSB) {
+        MSB--;
+        bytes--;
     }
 
-    /* check for guaranteed small num */
-    switch (bytes) {
-    case 1:
-	v32 = LSB[0];
-	goto big_small;
-    case 2:
-	v32 = LSB[0] + (LSB[1]<<8); 
-	goto big_small; 
-    case 3: 
-	v32 = LSB[0] + (LSB[1]<<8) + (LSB[2]<<16); 
-	goto big_small;
-#if !defined(ARCH_64)
-    case 4:
-	v32 = (LSB[0] + (LSB[1]<<8) + (LSB[2]<<16) + (LSB[3]<<24));
-	if (!IS_USMALL(sgn, v32)) {
-	  goto make_big;
-	}
-#else
-    case 4:
-      ReadToVariable(v32, LSB, 4);					
-      goto big_small;
-    case 5:	
-      ReadToVariable(v32, LSB, 5);					
-      goto big_small;
-    case 6:	
-      ReadToVariable(v32, LSB, 6);
-      goto big_small; 
-    case 7:
-      ReadToVariable(v32, LSB, 7);
-      goto big_small; 
-    case 8:
-      ReadToVariable(v32, LSB, 8);
-      if (!IS_USMALL(sgn, v32)) {
-	goto make_big;   
-	}
-#endif   
-    big_small:			/* v32 loaded with value which fits in fixnum */
-	if (sgn) {
-	    res = make_small(-((Sint)v32));
-	} else {
-	    res = make_small(v32);
-	}
-	break;
-    make_big:
-	hp = HeapOnlyAlloc(p, BIG_UINT_HEAP_SIZE);
-	if (sgn) {
-	  hp[0] = make_neg_bignum_header(1);
-	} else {
-	  hp[0] = make_pos_bignum_header(1);
-	}
-	BIG_DIGIT(hp,0) = v32;
-	res = make_big(hp);
-	break;
-    default:
-	words_needed = 1+WSIZE(bytes);
-	hp = HeapOnlyAlloc(p, words_needed);
-	res = bytes_to_big(LSB, bytes, sgn, hp); 
-	if (is_nil(res)) {
-	    p->htop = hp;
-	    res = THE_NON_VALUE;
-	} else if (is_small(res)) {
-	    p->htop = hp;
-	} else if ((actual = bignum_header_arity(*hp)+1) < words_needed) {
-	    p->htop = hp + actual;
-	}
-	break;
+    if (bytes > sizeof(Uint)) {
+        /* Too many bytes to fit in a small. */
+        Uint words_needed = 1+WSIZE(bytes);
+        Uint actual;
+
+        hp = HeapOnlyAlloc(p, words_needed);
+        res = bytes_to_big(LSB, bytes, sgn, hp);
+        if (is_nil(res)) {
+            /* system_limit */
+            p->htop = hp;
+            res = THE_NON_VALUE;
+        } else if ((actual = bignum_header_arity(*hp)+1) < words_needed) {
+            p->htop = hp + actual;
+        }
+    } else {
+        /* Collect a integer that could potentially fit in small. */
+        Uint w = 0;
+
+        ASSERT(1 <= bytes && bytes <= sizeof(Uint));
+        switch (bytes) {
+#if defined(ARCH_64)
+        case 8: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 7: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 6: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 5: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+#endif
+        case 4: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 3: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 2: w = (w << 8) | *MSB--; ERTS_FALLTHROUGH();
+        case 1: w = (w << 8) | *MSB--;
+        }
+
+        /* Check whether it fits in a small. */
+        if (IS_USMALL(sgn, w)) {
+            if (sgn) {
+                res = make_small(-((Sint)w));
+            } else {
+                res = make_small(w);
+            }
+        } else {
+            hp = HeapOnlyAlloc(p, BIG_UINT_HEAP_SIZE);
+            if (sgn) {
+                hp[0] = make_neg_bignum_header(1);
+            } else {
+                hp[0] = make_pos_bignum_header(1);
+            }
+            BIG_DIGIT(hp,0) = w;
+            res = make_big(hp);
+        }
     }
 
     if (LSB != bigbuf) {
-	erts_free(ERTS_ALC_T_TMP, (void *) LSB);
+        erts_free(ERTS_ALC_T_TMP, (void *) LSB);
     }
     return res;
 }
