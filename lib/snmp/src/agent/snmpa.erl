@@ -261,10 +261,10 @@ symbolic_store, local_db and master_agent (and sub-agents).
 
 - **`local_db`** - Sets verbosity for the local-db process.
 
-- **`master_agent | pid()`** when `Verbosity = {subagents,` [`snmp:verbosity()`](`t:snmp:verbosity/0`)`}` - 
+- **`master_agent | pid()`** when `Verbosity = {subagents,` [`snmp:verbosity()`](`t:snmp:verbosity/0`)`}` -
   Sets verbosity for all sub-agent(s) controlled by this (master) agent.
 
-- **`master_agent | pid()`** - Sets verbosity for the agent process.
+- **`master_agent | pid() | atom()`** - Sets verbosity for the agent process.
 
 The following text documents expected input-output relations
 
@@ -278,10 +278,10 @@ The following text documents expected input-output relations
   then `Verbosity :: snmp:verbosity() | {subagents, snmp:verbosity()}`.
 """.
 -spec verbosity(Target, Verbosity) -> snmp:void() when
-      Target :: Actions | Agent | Pid,
-      Actions :: all | net_if | note_store | mib_server | symbolic_store | local_db,
-      Agent :: master_agent | pid() | atom(),
-      Pid :: pid() | atom(),
+      Target :: 'all' | LogicalName | Agent,
+      LogicalName :: 'net_if' | 'note_store' | 'mib_server'
+                   | 'symbolic_store' | 'local_db' | 'master_agent',
+      Agent :: pid() | atom(),
       Verbosity :: SNMPVerb | SubAgent,
       SNMPVerb :: snmp:verbosity(),
       SubAgent :: {subagents, snmp:verbosity()}.
@@ -1980,8 +1980,6 @@ discovery(TargetName, Notification) ->
     Varbinds = [],
     discovery(TargetName, Notification, Varbinds).
 
-%% TODO: Is using nominal types fixing this type, where the overlap
-%%       is on the empty List of Varbinds and ContextName (string()).
 -dialyzer({no_contracts, discovery/3}).
 -doc(#{equiv => discovery/6}).
 -spec discovery(TargetName, Notification, Varbinds) ->
@@ -2438,7 +2436,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
-      Start   :: snmp:log_time().
+      Start   :: null | snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
@@ -2459,7 +2457,7 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
       LogName :: string(),
       LogFile :: string(),
       Block   :: boolean(),
-      Start   :: snmp:log_time();
+      Start   :: null | snmp:log_time();
                 (LogDir, Mibs,
 		 OutFile, LogName, LogFile,
 		 Start, Stop) -> snmp:void() when
@@ -2468,8 +2466,8 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
       OutFile :: file:filename(),
       LogName :: string(),
       LogFile :: string(),
-      Start   :: snmp:log_time(),
-      Stop    :: snmp:log_time().
+      Start   :: null | snmp:log_time(),
+      Stop    :: null | snmp:log_time().
 
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
   when ((Block =:= true) orelse (Block =:= false)) -> 
