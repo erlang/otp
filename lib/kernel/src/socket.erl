@@ -2726,7 +2726,7 @@ The `Opts` argument can provide extra information:
 > On some platforms it is not easy to get hold of a file descriptor
 > to use in this function.
 """.
--spec open(FD, Opts) -> Result when
+-spec open(FD, Opts) -> {'ok', Socket} | {'error', Reason} when
       FD       :: integer(),
       Opts     ::
         #{'domain'       => domain() | integer(),
@@ -2736,15 +2736,13 @@ The `Opts` argument can provide extra information:
 	  'debug'        => boolean(),
 	  'use_registry' => boolean()},
       Socket   :: socket(),
-      Result   :: {'ok', Socket} | {'error', Reason},
       Reason   ::
         posix() | 'domain' | 'type' | 'protocol';
 
-          (Domain, Type) -> Result when
+          (Domain, Type) -> {'ok', Socket} | {'error', Reason} when
       Domain :: domain(),
       Type   :: type() | integer(),
       Socket :: socket(),
-      Result :: {'ok', Socket} | {'error', Reason},
       Reason :: posix() | protocol.
 
 open(FD, Opts) when is_map(Opts) ->
@@ -3767,18 +3765,16 @@ an explanation of `TimeoutOrHandle`.
 -spec sendto(Socket :: socket(), Data :: iodata(),
              Dest :: sockaddr(), Flags :: list()) -> Result when
       Result :: 'ok'
-              | {'ok', RestData}
+              | {'ok', RestData :: binary()}
               | {'error', Reason}
-              | {'error', {Reason, RestData}},
-      RestData :: binary(),
+              | {'error', {Reason, RestData :: binary()}},
       Reason     :: posix() | 'closed' | invalid();
             (Socket :: socket(), Data :: iodata(),
-             Cont :: select_info(), TimeoutOrHandle :: term()) -> Result when
+             Cont :: select_info(), TimeoutOrHandle :: dynamic()) -> Result when
       Result :: 'ok'
-              | {'ok', RestData}
+              | {'ok', RestData :: binary()}
               | {'error', Reason}
-              | {'error', {Reason, RestData}},
-      RestData :: binary(),
+              | {'error', {Reason, RestData :: binary()}},
       Reason     :: posix() | 'closed' | invalid().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
