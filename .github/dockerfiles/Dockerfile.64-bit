@@ -13,11 +13,30 @@ RUN cd /buildroot && tar -xzf ./otp.tar.gz
 WORKDIR /buildroot/otp/
 
 ENV CFLAGS="-O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1"
+ENV CFLAGS="${CFLAGS} -Wall -Wformat -Wformat=2 -Wno-conversion -Wimplicit-fallthrough \
+    -Werror=format-security -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS \
+    -fstack-clash-protection -fstack-protector-strong -Wtrampolines \
+    -fcf-protection=full -fexceptions -fno-strict-overflow -fno-delete-null-pointer-checks \
+    -D_GLIBCXX_ASSERTIONS"
+## OpenSSF recommended CFLAGS, skipped are:
+##  -Wconversion -Wextra -Wsign-conversion - As we have way too many of these warnings
+##  -fstrict-flex-arrays=3 -Wbidi-chars=any - As gcc 11 does not support it
+##  -mbranch-protection=standard - Only on arm
+##  -Werror=implicit -Wincompatible-pointer-types -Wint-conversion - As these do not work on c++ code
+ENV SKIPPED_OSSF_CFLAGS="-Wconversion -mbranch-protection=standard \
+    -Wextra  -Werror=implicit -Werror=incompatible-pointer-types -Werror=int-conversion \
+    -Wsign-conversion"
+ENV LDFLAGS="-Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -Wl,--as-needed -Wl,--no-copy-dt-needed-entries"
+## OpenSSF recommended LDFLAGS, skipped are:
+## -Wl,-z,nodlopen - as opening drivers/nifs needs this
+## -fPIE - not needed with gcc 11
+## -fPIC -shared - only needed for .so files
+ENV SKIPPED_OSSF_LDFLAGS="-Wl,-z,nodlopen -fPIE -fPIC -shared"
 
 ## Configure (if not cached), check that no application are disabled and then make
 RUN if [ ! -f Makefile ]; then \
       touch README.md && \
-      ./configure --prefix="/Erlang ∅⊤℞" && \
+      ./configure --prefix="/Erlang ∅⊤℞" --enable-pie && \
       if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
       find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
     fi && \
@@ -26,6 +45,7 @@ RUN if [ ! -f Makefile ]; then \
 
 ## Disable -Werror as testcases do not compile with it on
 ENV CFLAGS="-O2 -g"
+ENV LDFLAGS=""
 
 ## Update init.sh with correct env vars
 RUN echo "export MAKEFLAGS=$MAKEFLAGS" > /buildroot/env.sh && \
