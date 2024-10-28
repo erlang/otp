@@ -1338,8 +1338,9 @@ request_client_cert(#state{static_env = #static_env{cert_db = CertDbHandle,
     TLSVersion =  ssl:tls_version(Version),
     HashSigns = ssl_handshake:available_signature_algs(SupportedHashSigns, 
 						       TLSVersion),
+    IncludeCertAuths = maps:get(certificate_authorities, Opts, true),
     Msg = ssl_handshake:certificate_request(CertDbHandle, CertDbRef, 
-					    HashSigns, TLSVersion),
+					    HashSigns, TLSVersion, IncludeCertAuths),
     State = Connection:queue_handshake(Msg, State0),
     State#state{client_certificate_status = requested};
 

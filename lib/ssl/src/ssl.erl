@@ -1991,8 +1991,12 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
                         [{verify, verify_peer}, {cacerts, undefined}]),
 
     {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
-    assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3']),
-
+    case Role of
+        server ->
+            assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1']);
+        client ->
+            assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3'])
+    end,
     Opts1 = set_opt_new(new, cacertfile, <<>>, CaCertFile, Opts),
     Opts2 = set_opt_new(Where2, certificate_authorities, Role =:= server, CA, Opts1),
     Opts2#{cacerts => CaCerts}.
