@@ -63,7 +63,7 @@
          server_hello_done/0,
 	 certificate/4,
          client_certificate_verify/6,
-         certificate_request/4,
+         certificate_request/5,
          key_exchange/3,
 	 finished/5,
          next_protocol/1,
@@ -219,19 +219,25 @@ client_certificate_verify([OwnCert|_], MasterSecret, Version,
 
 %%--------------------------------------------------------------------
 -spec certificate_request(ssl_manager:db_handle(),
-			  ssl_manager:certdb_ref(),  #hash_sign_algos{}, ssl_record:ssl_version()) ->
-				 #certificate_request{}.
+			  ssl_manager:certdb_ref(),  #hash_sign_algos{}, 
+                          ssl_record:ssl_version(), boolean()) ->
+          #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
-certificate_request(CertDbHandle, CertDbRef, HashSigns, Version) ->
+certificate_request(CertDbHandle, CertDbRef, HashSigns, Version, IncludeCertAuths) ->
     Types = certificate_types(Version),
-    Authorities = certificate_authorities(CertDbHandle, CertDbRef),
+    Authorities = case IncludeCertAuths of
+                      true ->
+                          certificate_authorities(CertDbHandle, CertDbRef);
+                      false ->
+                          []
+                  end,
     #certificate_request{
-		    certificate_types = Types,
-		    hashsign_algorithms = HashSigns,
-		    certificate_authorities = Authorities
-		   }.
+       certificate_types = Types,
+       hashsign_algorithms = HashSigns,
+       certificate_authorities = Authorities
+      }.
 %%--------------------------------------------------------------------
 -spec key_exchange(client | server, ssl_record:ssl_version(),
 		   {premaster_secret, binary(), public_key_info()} |
