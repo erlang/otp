@@ -5431,10 +5431,13 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
+        break;
     case ERL_DRV_WRITE:
 	type = "Output";
+        break;
     case ERL_DRV_READ:
 	type = "Input";
+        break;
     default:
         type = "";
     }

@@ -575,6 +575,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 #else
 #error No 16-bit integer datatype found
 #endif
+                        break;
 		    case 8:
 #if SIZEOF_CHAR == 1
 			fmt |= FMTL_hh;
