@@ -252,6 +252,18 @@ AC_SUBST(ODBC_INCLUDE)
 
  ]) dnl "$with_odbc" != "no"
 
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Wstringop-truncation"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+         _Pragma("GCC diagnostic pop")
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WSTRINGOP_TRUNCATION,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Wstringop-truncation''))],[])
+CFLAGS="$saved_CFLAGS"
+
 AS_IF([test "x$GCC" = xyes],
   [
     # Treat certain GCC warnings as errors

@@ -645,8 +645,15 @@ static db_result_msg db_query(byte *sql, db_state *state)
 	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	    if(strcmp((char *)diagnos.sqlState, INFO) == 0) { 
 		    is_error[0] = 0;
-		    strncat((char *)is_error, (char *)diagnos.error_msg, 
-			    5);
+#ifdef HAVE_GCC_DIAG_IGNORE_WSTRINGOP_TRUNCATION
+_Pragma("GCC diagnostic push");
+_Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"");
+#endif
+		    strncat((char *)is_error, (char *)diagnos.error_msg,
+                            5);
+#ifdef HAVE_GCC_DIAG_IGNORE_WSTRINGOP_TRUNCATION
+_Pragma("GCC diagnostic pop");
+#endif
 		    str_tolower((char *)&is_error, 5);
 		    /* The ODBC error handling could have been more
 		       predictable but alas ... we try to make the best of
