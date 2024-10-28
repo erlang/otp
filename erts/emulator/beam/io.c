@@ -3198,6 +3198,7 @@ static int flush_linebuf(LineBufContext *bp)
 	    resize_linebuf(bp->b);
 	LINEBUF_DATA(*bp)[((*bp->b)->ovlen)++] = '\r';
 	++bp->retlen; /* fall through instead of switching state... */
+        ERTS_FALLTHROUGH();
     case LINEBUF_MAIN:
     case LINEBUF_FULL:
 	(*bp->b)->ovlen = 0;

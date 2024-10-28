@@ -1509,7 +1509,7 @@ void erts_factory_trim_and_close(ErtsHeapFactory* factory,
 	    /*else we don't trim multi fragmented messages for now (off_heap...) */
 	    break;
 	}
-	/* Fall through... */
+	ERTS_FALLTHROUGH();
     }
     case FACTORY_HEAP_FRAGS:
 	bp = factory->heap_frags;

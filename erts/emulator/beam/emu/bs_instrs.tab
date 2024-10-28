@@ -1343,22 +1343,22 @@ i_bs_read_bits.execute() {
 #ifdef ARCH_64
     case 9:
     case 8:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 7:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 6:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 5:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
 #else
     case 5:
 #endif
     case 4:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 3:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 2:
-        bitdata = bitdata << 8 | *byte_ptr++;
+        bitdata = bitdata << 8 | *byte_ptr++; ERTS_FALLTHROUGH();
     case 1:
         bitdata = bitdata << 8 | *byte_ptr++;
     }

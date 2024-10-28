@@ -388,6 +388,7 @@ int packet_get_length(enum PacketParseType htype,
     case TCP_PB_HTTPH:
     case TCP_PB_HTTPH_BIN:
         *statep = !0;
+        ERTS_FALLTHROUGH();
     case TCP_PB_HTTP:
     case TCP_PB_HTTP_BIN:
         /* TCP_PB_HTTP:  data \r\n(SP data\r\n)*  */

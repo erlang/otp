@@ -633,10 +633,13 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
 		switch (flgs_bytes) {
 		case 4:
 		    *--ep = (byte) ((flgs >> 24) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 3:
 		    *--ep = (byte) ((flgs >> 16) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 2:
 		    *--ep = (byte) ((flgs >> 8) & 0xff);
+                    ERTS_FALLTHROUGH();
 		case 1:
 		    *--ep = (byte) (flgs & 0xff);
 		}
@@ -1044,9 +1047,11 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 			case 6:
 			case 5:
 			    flgs |= (((Uint32) flgsp[2]) << 16);
+                            ERTS_FALLTHROUGH();
 			case 4:
 			case 3:
 			    flgs |= (((Uint32) flgsp[1]) << 8);
+                            ERTS_FALLTHROUGH();
 			case 2:
 			case 1:
 			    flgs |= ((Uint32) flgsp[0]);
@@ -3089,11 +3094,11 @@ dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp, int internal_nc)
 	*objp = make_atom(n);
 	break;
     case NIL_EXT:
-        if (internal_nc) {
-            *objp = INTERNAL_LOCAL_SYSNAME;
-            break;
+        if (!internal_nc) {
+            goto error;
         }
-        /* else: fail... */
+        *objp = INTERNAL_LOCAL_SYSNAME;
+        break;
     default:
     error:
 	*objp = NIL;	/* Don't leave a hole in the heap */

@@ -221,12 +221,15 @@ erts_bp_match_functions(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
             case 3:
                 if (ci->mfa.arity != mfa->arity)
                     continue;
+                ERTS_FALLTHROUGH();
             case 2:
                 if (ci->mfa.function != mfa->function)
                     continue;
+                ERTS_FALLTHROUGH();
             case 1:
                 if (ci->mfa.module != mfa->module)
                     continue;
+                ERTS_FALLTHROUGH();
             case 0:
                 break;
             }
@@ -259,12 +262,15 @@ erts_bp_match_export(BpFunctions* f, ErtsCodeMFA *mfa, int specified)
         case 3:
             if (mfa->arity != ep->info.mfa.arity)
                 continue;
+            ERTS_FALLTHROUGH();
         case 2:
             if (mfa->function != ep->info.mfa.function)
                 continue;
+            ERTS_FALLTHROUGH();
         case 1:
             if (mfa->module != ep->info.mfa.module)
                 continue;
+            ERTS_FALLTHROUGH();
         case 0:
             break;
         default:

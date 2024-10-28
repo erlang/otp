@@ -1226,7 +1226,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
                                     &tnif, TRACE_FUN_ENABLED,
                                     am_trace_status, p->common.id)) {
         default:
-        case am_remove: *tracer_p = erts_tracer_nil;
+        case am_remove: *tracer_p = erts_tracer_nil; ERTS_FALLTHROUGH();
         case am_discard: return 0;
         case am_trace:
             switch (call_enabled_tracer(tracer,

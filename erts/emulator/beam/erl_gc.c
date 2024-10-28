@@ -2562,6 +2562,7 @@ erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
 	    case REF_SUBTAG:
 		if (!is_magic_ref_thing(fhp - 1))
 		    goto the_default;
+                ERTS_FALLTHROUGH();
 	    case BIN_REF_SUBTAG:
 	    case EXTERNAL_PID_SUBTAG:
 	    case EXTERNAL_PORT_SUBTAG:
@@ -3058,7 +3059,7 @@ sweep_off_heap(Process *p, int fullsweep)
 		    bin_vheap += size / sizeof(Eterm);
                 else
 		    p->bin_old_vheap += size / sizeof(Eterm); /* for binary gc (words)*/
-                /* fall through... */
+                ERTS_FALLTHROUGH();
             }
             default:
                 if (is_external_header(ptr->thing_word)) {
@@ -3312,6 +3313,7 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      case REF_SUBTAG:
 		  if (!is_magic_ref_thing(hp))
 		      break;
+                  ERTS_FALLTHROUGH();
 	      case BIN_REF_SUBTAG:
 	      case EXTERNAL_PID_SUBTAG:
 	      case EXTERNAL_PORT_SUBTAG:
@@ -4023,7 +4025,7 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
                 if (is_magic_ref_thing(rtp)) {
                     goto off_heap_common;
                 }
-                /* Fall through... */
+                ERTS_FALLTHROUGH();
             }
             default:
                 {

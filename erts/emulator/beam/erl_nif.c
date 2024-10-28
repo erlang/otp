@@ -2707,10 +2707,10 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
 	ort->type = type;
         sys_memzero(&ort->new_callbacks, sizeof(ErlNifResourceTypeInit));
         switch (init_members) {
-        case 4: ort->new_callbacks.dyncall = init->dyncall;
-        case 3: ort->new_callbacks.down = init->down;
-        case 2: ort->new_callbacks.stop = init->stop;
-        case 1: ort->new_callbacks.dtor = init->dtor;
+        case 4: ort->new_callbacks.dyncall = init->dyncall; ERTS_FALLTHROUGH();
+        case 3: ort->new_callbacks.down = init->down; ERTS_FALLTHROUGH();
+        case 2: ort->new_callbacks.stop = init->stop; ERTS_FALLTHROUGH();
+        case 1: ort->new_callbacks.dtor = init->dtor; ERTS_FALLTHROUGH();
         case 0:
             break;
         default:

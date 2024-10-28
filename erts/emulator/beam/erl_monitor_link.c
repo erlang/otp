@@ -894,7 +894,8 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
             mdp->u.target.type = type;
             erts_atomic32_init_nob(&mdp->refc, 2);
             break;
-        }
+        } /* end of "if (is_nil(name))"" */
+        ERTS_FALLTHROUGH();
     case ERTS_MON_TYPE_DIST_PROC:
     case ERTS_MON_TYPE_DIST_PORT:
     case ERTS_MON_TYPE_RESOURCE:

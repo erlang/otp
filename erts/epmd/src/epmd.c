@@ -523,7 +523,9 @@ static void free_all_nodes(EpmdVars *g)
 	free(tmp);
     }
 }
-void epmd_cleanup_exit(EpmdVars *g, int exitval)
+
+__decl_noreturn void __noreturn
+epmd_cleanup_exit(EpmdVars *g, int exitval)
 {
   int i;
 

@@ -3902,6 +3902,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, int *done)
 	    return 0;
 	}
 	/* Drop through */
+        ERTS_FALLTHROUGH();
       default:
 	  return CMP(a,b);
     }

@@ -14161,6 +14161,7 @@ restart:
 
         trap_state->phase = ERTS_CONTINUE_EXIT_BLCKD_MSHED;
         if (reds <= 0) goto yield;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_BLCKD_MSHED:
 
         if (p->flags & F_HAVE_BLCKD_MSCHED) {
@@ -14181,6 +14182,7 @@ restart:
 
         trap_state->phase = ERTS_CONTINUE_EXIT_BLCKD_NMSHED;
         if (reds <= 0) goto yield;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_BLCKD_NMSHED:
 
         if (p->flags & F_HAVE_BLCKD_NMSCHED) {
@@ -14202,6 +14204,7 @@ restart:
         trap_state->yield_state = NULL;
         trap_state->phase = ERTS_CONTINUE_EXIT_USING_DB;
         if (reds <= 0) goto yield;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_USING_DB:
 
         if (p->flags & F_USING_DB) {
@@ -14211,6 +14214,7 @@ restart:
         }
 
         trap_state->phase = ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS:
 
         state = erts_atomic32_read_acqb(&p->state);
@@ -14246,6 +14250,7 @@ restart:
         }
 
         trap_state->phase = ERTS_CONTINUE_EXIT_FREE;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_FREE:
 
 #ifdef DEBUG
@@ -14320,6 +14325,7 @@ restart:
         erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
         curr_locks = ERTS_PROC_LOCK_MAIN;
         trap_state->phase = ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS_AFTER;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS_AFTER:
         /*
          * It might show up signal prio elevation tasks until we
@@ -14383,6 +14389,7 @@ restart:
         trap_state->yield_state = NULL;
         trap_state->phase = ERTS_CONTINUE_EXIT_LINKS;
         if (reds <= 0) goto yield;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_LINKS:
 
         reds = erts_link_tree_foreach_delete_yielding(
@@ -14397,6 +14404,7 @@ restart:
         ASSERT(!trap_state->links);
         trap_state->yield_state = NULL;
         trap_state->phase = ERTS_CONTINUE_EXIT_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_MONITORS:
 
     reds = erts_monitor_tree_foreach_delete_yielding(
@@ -14411,6 +14419,7 @@ restart:
         ASSERT(!trap_state->monitors);
         trap_state->yield_state = NULL;
         trap_state->phase = ERTS_CONTINUE_EXIT_LT_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_LT_MONITORS:
 
         reds = erts_monitor_list_foreach_delete_yielding(
@@ -14424,6 +14433,7 @@ restart:
 
         ASSERT(!trap_state->lt_monitors);
         trap_state->phase = ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG;
+        ERTS_FALLTHROUGH();
     case ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG: {
         Sint r = reds;
 
@@ -14434,6 +14444,7 @@ restart:
         reds -= r;
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_SEND;
+        ERTS_FALLTHROUGH();
     }
     case ERTS_CONTINUE_EXIT_DIST_SEND: {
 
@@ -14472,6 +14483,7 @@ restart:
         }
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_LINKS;
+        ERTS_FALLTHROUGH();
     }
     case ERTS_CONTINUE_EXIT_DIST_LINKS: {
 
@@ -14488,6 +14500,7 @@ restart:
             goto yield;
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_MONITORS;
+        ERTS_FALLTHROUGH();
     }
     case ERTS_CONTINUE_EXIT_DIST_MONITORS: {
 
@@ -14504,6 +14517,7 @@ restart:
             goto yield;
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS;
+        ERTS_FALLTHROUGH();
     }
     case ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS: {
 
@@ -14529,6 +14543,7 @@ restart:
             goto yield;
 
         trap_state->phase = ERTS_CONTINUE_EXIT_DONE;
+        ERTS_FALLTHROUGH();
     }
     case ERTS_CONTINUE_EXIT_DONE: {
         erts_aint_t state;

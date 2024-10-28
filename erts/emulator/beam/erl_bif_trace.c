@@ -2666,6 +2666,7 @@ erts_finish_breakpointing(void)
 	}
         /* Nothing to do here. Fall through to next stage. */
         finish_bp.current++;
+        ERTS_FALLTHROUGH();
     case 1:
 	/*
 	 * Switch index for the breakpoint data, activating the staged
@@ -2702,6 +2703,7 @@ erts_finish_breakpointing(void)
         }
         /* Nothing done here. Fall through to next stage. */
         finish_bp.current++;
+        ERTS_FALLTHROUGH();
     case 3:
 	/*
 	 * Now all breakpoints have either been inserted or removed.

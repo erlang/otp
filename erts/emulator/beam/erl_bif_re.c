@@ -1361,7 +1361,8 @@ handle_iodata:
         case PCRE_ERROR_BADUTF8_OFFSET:
             BUMP_ALL_REDS(p); /* Unknown amount of work done... */
             /* Fall through for badarg... */
-            
+            ERTS_FALLTHROUGH();
+
             /* Bad pre-compiled regexp... */
         case PCRE_ERROR_BADMAGIC:
         case PCRE_ERROR_BADENDIANNESS:
