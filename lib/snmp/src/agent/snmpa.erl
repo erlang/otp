@@ -278,10 +278,10 @@ The following text documents expected input-output relations
   then `Verbosity :: snmp:verbosity() | {subagents, snmp:verbosity()}`.
 """.
 -spec verbosity(Target, Verbosity) -> snmp:void() when
-      Target :: 'all' | LogicalName | Agent,
+      Target :: 'all' | LogicalName | PidOrAgentName,
       LogicalName :: 'net_if' | 'note_store' | 'mib_server'
-                   | 'symbolic_store' | 'local_db' | 'master_agent',
-      Agent :: pid() | atom(),
+                   | 'symbolic_store' | 'local_db',
+      PidOrAgentName :: pid() | 'master_agent' | atom(),
       Verbosity :: SNMPVerb | SubAgent,
       SNMPVerb :: snmp:verbosity(),
       SubAgent :: {subagents, snmp:verbosity()}.
