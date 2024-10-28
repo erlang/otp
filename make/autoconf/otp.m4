@@ -30,6 +30,23 @@ dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
 dnl not always consistently made...).
 dnl
 
+dnl We check if -Werror was given on command line and if so
+dnl we disable it for the configure and only use it when
+dnl actually building erts
+AC_DEFUN([ERL_PUSH_WERROR],
+[
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi])
+
+AC_DEFUN([ERL_POP_WERROR],
+[
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi])
+
 AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
 [
     AC_CANONICAL_HOST

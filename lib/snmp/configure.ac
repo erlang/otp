@@ -31,6 +31,8 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIRS([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -63,6 +65,8 @@ fi
 
 
 dnl ----------------------------------------------------------------------
+
+ERL_POP_WERROR
 
 AC_SUBST(SNMP_EMPTY_PDU_SIZE_DEFAULT)
 AC_CONFIG_FILES([mibs/Makefile:mibs/Makefile.in])

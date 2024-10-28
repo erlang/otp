@@ -29,14 +29,7 @@ m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
 
-dnl We check if -Werror was given on command line and if so
-dnl we disable it for the configure and only use it when
-dnl actually building erts
-no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
-if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
-   CFLAGS="$no_werror_CFLAGS"
-   WERRORFLAGS=-Werror
-fi
+ERL_PUSH_WERROR
 
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
@@ -630,7 +623,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
 AC_SUBST(WFLAGS)
-AC_SUBST(WERRORFLAGS)
 
 ## Check if we can do profile guided optimization of beam_emu
 LM_CHECK_RUN_CFLAG([-fprofile-generate -Werror],[PROFILE_GENERATE])
@@ -3637,9 +3629,7 @@ dnl ----------------------------------------------------------------------
 dnl Enable any -Werror flags
 dnl ----------------------------------------------------------------------
 
-if test "x$GCC" = xyes; then
-  CFLAGS="$WERRORFLAGS $CFLAGS"
-fi
+ERL_POP_WERROR
 
 dnl ----------------------------------------------------------------------
 dnl Enable build determinism flag

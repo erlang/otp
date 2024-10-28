@@ -30,6 +30,8 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 ERL_CANONICAL_SYSTEM_TYPE
 
 AC_LANG(C)
@@ -921,6 +923,8 @@ AS_IF([test $have_crypto_memcmp_decl = yes],
 CFLAGS="$saveCFLAGS"
 LDFLAGS="$saveLDFLAGS"
 LIBS="$saveLIBS"
+
+ERL_PUSH_WERROR
 
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_INCDIR)

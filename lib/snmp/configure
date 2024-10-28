@@ -1917,6 +1917,17 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
+
+
+
+
   # Make sure we can run config.sub.
 $SHELL "${ac_aux_dir}config.sub" sun4 >/dev/null 2>&1 ||
   as_fn_error $? "cannot run $SHELL ${ac_aux_dir}config.sub" "$LINENO" 5
@@ -2189,6 +2200,11 @@ printf "%s\n" "$as_me: Default (snmp) empty pdu size set to $with_snmp_empty_pdu
 fi
 
 
+
+
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
 
 
 ac_config_files="$ac_config_files mibs/Makefile:mibs/Makefile.in"

@@ -702,7 +702,6 @@ PROFILE_COMPILER
 USE_PGO
 XCRUN
 LLVM_PROFDATA
-WERRORFLAGS
 WFLAGS
 DEBUG_FLAGS
 ERTS_CONFIG_H_IDIR
@@ -3530,6 +3529,11 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+
 
 
 
@@ -8298,7 +8302,6 @@ printf "%s\n" "no" >&6; }
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-
 
 
 
@@ -26921,8 +26924,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 CFLAGS="$saved_CFLAGS"
 
 
+
 if test "x$GCC" = xyes; then
-  CFLAGS="$WERRORFLAGS $CFLAGS"
+    CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
 
 

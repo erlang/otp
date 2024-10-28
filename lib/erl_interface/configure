@@ -2899,6 +2899,17 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessary, since pwd can
 #### give you automounter prefixes, which can go away.
@@ -9944,7 +9955,7 @@ esac
 # ---------------------------------------------------------------------------
 
 
-WFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS"
+WFLAGS="$WERRORFLAGS $DED_WERRORFLAGS $DED_WARN_FLAGS"
 if test "x$GCC" = xyes
 then :
   WFLAGS="$WFLAGS -Wmissing-declarations -Wnested-externs -Winline"
@@ -10036,6 +10047,11 @@ printf "%s\n" "no" >&6; }
 esac
 fi
 
+
+
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
 
 # ---------------------------------------------------------------------------
 # XXX
