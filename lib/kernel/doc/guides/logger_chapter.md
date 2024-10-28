@@ -428,8 +428,8 @@ The primary Logger configuration is a map with the following keys:
 
 - **`filters = [{FilterId,Filter}]`** - Specifies the primary filters.
 
-  - `FilterId = ``t:logger:filter_id/0`
-  - `Filter = ``t:logger:filter/0`
+  - `FilterId = ` `t:logger:filter_id/0`
+  - `Filter = ` `t:logger:filter/0`
 
   The initial value of this option is set by the Kernel configuration parameter
   [`logger`](#logger_parameter). During runtime, primary
@@ -470,7 +470,7 @@ Logger API functions that apply to handler configuration are:
 
 The configuration for a handler is a map with the following keys:
 
-- **`id = ``t:logger_handler:id/0`** - Automatically inserted by Logger. The
+- **`id =` `t:logger_handler:id/0`** - Automatically inserted by Logger. The
   value is the same as the `HandlerId` specified when adding the handler, and it
   cannot be changed.
 
@@ -478,7 +478,7 @@ The configuration for a handler is a map with the following keys:
   same as the `Module` specified when adding the handler, and it cannot be
   changed.
 
-- **`level = ``t:logger:level/0`` | all | none`** - Specifies the log level for
+- **`level =` `t:logger:level/0` ` | all | none`** - Specifies the log level for
   the handler, that is, log events that are equally or more severe than this
   level, are forwarded to the handler filters for this handler.
 
@@ -493,8 +493,8 @@ The configuration for a handler is a map with the following keys:
 
 - **`filters = [{FilterId,Filter}]`** - Specifies the handler filters.
 
-  - `FilterId = ``t:logger:filter_id/0`
-  - `Filter = ``t:logger:filter/0`
+  - `FilterId = ` `t:logger:filter_id/0`
+  - `Filter = ` `t:logger:filter/0`
 
   Handler filters are specified when adding the handler, or added or removed
   during runtime with `logger:add_handler_filter/3` and
@@ -517,7 +517,7 @@ The configuration for a handler is a map with the following keys:
   string.
 
   - `FormatterModule = module()`
-  - `FormatterConfig = ``t:logger:formatter_config/0`
+  - `FormatterConfig =` `t:logger:formatter_config/0`
 
   The formatter information is specified when adding the handler. The formatter
   configuration can be changed during runtime with

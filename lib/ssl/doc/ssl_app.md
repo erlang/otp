@@ -51,13 +51,13 @@ The environment parameters can be set on the command line, for example:
 
 `erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"`
 
-- **`protocol_version = ``t:ssl:tls_version/0` | [`t:ssl:tls_version/0`]
+- **`protocol_version = ` `t:ssl:tls_version/0` | [`t:ssl:tls_version/0`]
   `<optional>`** - Protocol supported by started clients and servers. If this
   option is not set, it defaults to all TLS protocols currently supported, more
   might be configurable, by the SSL application. This option can be overridden
   by the version option to `ssl:connect/2,3` and `ssl:listen/2`.
 
-- **`dtls_protocol_version = ``t:ssl:dtls_version/0` | [`t:ssl:dtls_version/0`]
+- **`dtls_protocol_version = ` `t:ssl:dtls_version/0` | [`t:ssl:dtls_version/0`]
   `<optional>`** - Protocol supported by started clients and servers. If this
   option is not set, it defaults to all DTLS protocols currently supported, more
   might be configurable, by the SSL application. This option can be overridden
