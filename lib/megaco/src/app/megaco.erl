@@ -1346,7 +1346,7 @@ output type `Result :: RequestsResult`.
 
 Lookup user information about currently active replies.
 Expected input type `Input :: Replies` with expected
-output type `Result :: RepliessResult`.
+output type `Result :: RepliesResult`.
 
 [](){: #update_user_info }
 """.
