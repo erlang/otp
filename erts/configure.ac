@@ -3621,6 +3621,17 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
            define if compiler support _Pragma('GCC diagnostic ignored '-Waddress-of-packed-member''))],[])
 CFLAGS="$saved_CFLAGS"
 
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Wformat-nonliteral"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
+         _Pragma("GCC diagnostic pop")
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Wformat-nonliteral''))],[])
+CFLAGS="$saved_CFLAGS"
 
 dnl ----------------------------------------------------------------------
 dnl Enable any -Werror flags

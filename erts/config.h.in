@@ -672,6 +672,10 @@
    '-Waddress-of-packed-member'') */
 #undef HAVE_GCC_DIAG_IGNORE_WADDRESS_OF_PACKED_MEMBER
 
+/* define if compiler support _Pragma('GCC diagnostic ignored
+   '-Wformat-nonliteral'') */
+#undef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+
 /* Define to 1 if you have a good `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
 

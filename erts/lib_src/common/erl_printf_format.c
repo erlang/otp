@@ -426,7 +426,14 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	}
     }
 
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic push");
+_Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"");
+#endif
     size = sprintf(bufp, format_str, precision, val);
+#ifdef HAVE_GCC_DIAG_IGNORE_WFORMAT_NONLITERAL
+_Pragma("GCC diagnostic pop");
+#endif
     if (size < 0) {
 	if (errno > 0)
 	    res = -errno;
