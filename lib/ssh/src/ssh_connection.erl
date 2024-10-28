@@ -340,8 +340,8 @@ dummy(_) -> false.
       Timeout :: timeout(),
       Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
-session_channel(ConnectionHandler, Timeout) ->
-    session_channel(ConnectionHandler, undefined, undefined, Timeout).
+session_channel(ConnectionRef, Timeout) ->
+    session_channel(ConnectionRef, undefined, undefined, Timeout).
 
 
 -doc """
@@ -355,8 +355,8 @@ is the id used as input to the other functions in this module.
       Timeout :: timeout(),
       Result :: {ok, ssh:channel_id()} | {error, reason()} .
 
-session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
-    open_channel(ConnectionHandler, "session", <<>>,
+session_channel(ConnectionRef, InitialWindowSize, MaxPacketSize, Timeout) ->
+    open_channel(ConnectionRef, "session", <<>>,
                  InitialWindowSize,
                  MaxPacketSize,
                  Timeout).
@@ -365,11 +365,11 @@ session_channel(ConnectionHandler, InitialWindowSize, MaxPacketSize, Timeout) ->
 %% Description: Opens a channel for the given type.
 %% --------------------------------------------------------------------
 -doc false.
-open_channel(ConnectionHandler, Type, ChanData, Timeout) ->
-    open_channel(ConnectionHandler, Type, ChanData, undefined, undefined, Timeout).
+open_channel(ConnectionRef, Type, ChanData, Timeout) ->
+    open_channel(ConnectionRef, Type, ChanData, undefined, undefined, Timeout).
 
-open_channel(ConnectionHandler, Type, ChanData, InitialWindowSize, MaxPacketSize, Timeout) ->
-    case ssh_connection_handler:open_channel(ConnectionHandler, Type, ChanData,
+open_channel(ConnectionRef, Type, ChanData, InitialWindowSize, MaxPacketSize, Timeout) ->
+    case ssh_connection_handler:open_channel(ConnectionRef, Type, ChanData,
                                              InitialWindowSize, MaxPacketSize,
                                              Timeout) of
         {open, Channel} ->
@@ -414,8 +414,8 @@ See the User's Guide section on
       Command :: string(),
       Timeout :: timeout().
 
-exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
-    ssh_connection_handler:request(ConnectionHandler, self(), ChannelId, "exec",
+exec(ConnectionRef, ChannelId, Command, TimeOut) ->
+    ssh_connection_handler:request(ConnectionRef, self(), ChannelId, "exec",
 				   true, [?string(Command)], TimeOut).
 
 %%--------------------------------------------------------------------
@@ -437,8 +437,8 @@ would break a large number of existing software.
       ChannelId :: ssh:channel_id(),
       Result :: ok | success | failure | {error, timeout} .
 
-shell(ConnectionHandler, ChannelId) ->
-    ssh_connection_handler:request(ConnectionHandler, self(), ChannelId,
+shell(ConnectionRef, ChannelId) ->
+    ssh_connection_handler:request(ConnectionRef, self(), ChannelId,
  				   "shell", false, <<>>, 0).
 %%--------------------------------------------------------------------
 %%
@@ -457,8 +457,8 @@ The function [`subsystem/4`](`subsystem/4`) and subsequent calls of
       Subsystem  :: string(),
       Timeout :: timeout().
 
-subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
-     ssh_connection_handler:request(ConnectionHandler, self(),
+subsystem(ConnectionRef, ChannelId, SubSystem, TimeOut) ->
+     ssh_connection_handler:request(ConnectionRef, self(),
 				    ChannelId, "subsystem", 
 				    true, [?string(SubSystem)], TimeOut).
 %%--------------------------------------------------------------------
@@ -466,14 +466,16 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 %%--------------------------------------------------------------------
 -doc(#{equiv => send/5}).
 -spec send(connection_ref(), channel_id(), iodata()) ->
-		  ok | {error, timeout | closed}.
+		  ok | {error, reason()}.
 
-send(ConnectionHandler, ChannelId, Data) ->
-    send(ConnectionHandler, ChannelId, 0, Data, infinity).
+send(ConnectionRef, ChannelId, Data) ->
+    send(ConnectionRef, ChannelId, 0, Data, infinity).
 
 
 -doc """
 send(ConnectionRef, ChannelId, Type, Data)
+
+Depending on input arguments equivalent to one of `send/5` calls specified below.
 
 Equivalent to [send(ConnectionRef, ChannelId, 0, Data, TimeOut)](`send/5`) if
 called with TimeOut being integer.
@@ -481,36 +483,34 @@ called with TimeOut being integer.
 Equivalent to [send(ConnectionRef, ChannelId, 0, Data, infinity)](`send/5`) if
 called with TimeOut being infinity atom.
 
-Equivalent to [send(ConnectionHandler, ChannelId, Type, Data, infinity)](`send/5`) if
+Equivalent to [send(ConnectionRef, ChannelId, Type, Data, infinity)](`send/5`) if
 called with last argument which is not integer or infinity atom.
 """.
 
--spec send(connection_ref(), channel_id(), iodata(), timeout()) -> ok |  {error, reason()};
-          (connection_ref(), channel_id(), ssh_data_type_code(), iodata()) -> ok |  {error, reason()}.
+-spec send(connection_ref(), channel_id(), iodata(), timeout()) -> ok | {error, reason()};
+          (connection_ref(), channel_id(), ssh_data_type_code(), iodata()) -> ok | {error, reason()}.
 
-send(ConnectionHandler, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
-    send(ConnectionHandler, ChannelId, 0, Data, TimeOut);
+send(ConnectionRef, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
+    send(ConnectionRef, ChannelId, 0, Data, TimeOut);
 
-send(ConnectionHandler, ChannelId, Data, infinity) ->
-    send(ConnectionHandler, ChannelId, 0, Data, infinity);
+send(ConnectionRef, ChannelId, Data, infinity) ->
+    send(ConnectionRef, ChannelId, 0, Data, infinity);
 
-send(ConnectionHandler, ChannelId, Type, Data) ->
-    send(ConnectionHandler, ChannelId, Type, Data, infinity).
+send(ConnectionRef, ChannelId, Type, Data) ->
+    send(ConnectionRef, ChannelId, Type, Data, infinity).
 
 
 -doc """
-send(ConnectionRef, ChannelId, Type, Data, TimeOut)
-
 Is to be called by client- and server-channel processes to send data to each
 other.
 
 The function `subsystem/4` and subsequent calls of `send/3,4,5` must be executed
 in the same process.
 """.
--spec send(connection_ref(), channel_id(), ssh_data_type_code(), iodata(), timeout()) -> ok |  {error, reason()}.
+-spec send(connection_ref(), channel_id(), ssh_data_type_code(), iodata(), timeout()) -> ok | {error, reason()}.
 
-send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
-    ssh_connection_handler:send(ConnectionHandler, ChannelId,
+send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
+    ssh_connection_handler:send(ConnectionRef, ChannelId,
 				Type, Data, TimeOut).
 %%--------------------------------------------------------------------
 -doc "Sends EOF on channel `ChannelId`.".
@@ -521,8 +521,8 @@ send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
 %%
 %% Description: Sends eof on the channel <ChannelId>.
 %%--------------------------------------------------------------------
-send_eof(ConnectionHandler, Channel) ->
-    ssh_connection_handler:send_eof(ConnectionHandler, Channel).
+send_eof(ConnectionRef, Channel) ->
+    ssh_connection_handler:send_eof(ConnectionRef, Channel).
 
 %%--------------------------------------------------------------------
 -doc """
@@ -545,8 +545,8 @@ server-side channel processes.
 %%
 %% Description: Adjusts the ssh flowcontrol window.
 %%--------------------------------------------------------------------
-adjust_window(ConnectionHandler, Channel, Bytes) ->
-    ssh_connection_handler:adjust_window(ConnectionHandler, Channel, Bytes).
+adjust_window(ConnectionRef, Channel, Bytes) ->
+    ssh_connection_handler:adjust_window(ConnectionRef, Channel, Bytes).
 
 %%--------------------------------------------------------------------
 -doc """
@@ -563,11 +563,11 @@ called by a client channel processes.
 %%
 %% Description: Environment variables may be passed to the shell/command to be
 %% started later.
-setenv(ConnectionHandler, ChannelId, Var, Value, TimeOut) ->
-    setenv(ConnectionHandler, ChannelId, true, Var, Value, TimeOut).
+setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) ->
+    setenv(ConnectionRef, ChannelId, true, Var, Value, TimeOut).
 
-setenv(ConnectionHandler, ChannelId, WantReply, Var, Value, TimeOut) ->
-    case ssh_connection_handler:request(ConnectionHandler, ChannelId,
+setenv(ConnectionRef, ChannelId, WantReply, Var, Value, TimeOut) ->
+    case ssh_connection_handler:request(ConnectionRef, ChannelId,
                                         "env", WantReply,
                                         [?string(Var), ?string(Value)], TimeOut) of
         ok when WantReply == false ->
@@ -593,8 +593,8 @@ a close event.
 %%
 %% Description: Sends a close message on the channel <ChannelId>.
 %%--------------------------------------------------------------------
-close(ConnectionHandler, ChannelId) ->
-    ssh_connection_handler:close(ConnectionHandler, ChannelId).
+close(ConnectionRef, ChannelId) ->
+    ssh_connection_handler:close(ConnectionRef, ChannelId).
 
 %%--------------------------------------------------------------------
 -doc """
@@ -612,8 +612,8 @@ Protocol message containing a `WantReply` boolean value.
 %%
 %% Description: Send status replies to requests that want such replies.
 %%--------------------------------------------------------------------
-reply_request(ConnectionHandler, true, Status, ChannelId) ->
-    ssh_connection_handler:reply_request(ConnectionHandler, Status, ChannelId);
+reply_request(ConnectionRef, true, Status, ChannelId) ->
+    ssh_connection_handler:reply_request(ConnectionRef, Status, ChannelId);
 reply_request(_,false, _, _) ->
     ok.
 
@@ -627,8 +627,8 @@ reply_request(_,false, _, _) ->
       ChannelId :: ssh:channel_id(),
       Options  :: proplists:proplist().
 
-ptty_alloc(ConnectionHandler, Channel, Options) ->
-    ptty_alloc(ConnectionHandler, Channel, Options, infinity).
+ptty_alloc(ConnectionRef, Channel, Options) ->
+    ptty_alloc(ConnectionRef, Channel, Options, infinity).
 
 
 -doc """
@@ -659,11 +659,11 @@ Options:
       Options  :: proplists:proplist(),
       Timeout :: timeout().
 
-ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
+ptty_alloc(ConnectionRef, Channel, Options0, TimeOut) ->
     TermData = backwards_compatible(Options0, []), % FIXME
     {Width, PixWidth} = pty_default_dimensions(width, TermData),
     {Height, PixHeight} = pty_default_dimensions(height, TermData),
-    pty_req(ConnectionHandler, Channel,
+    pty_req(ConnectionRef, Channel,
 	    proplists:get_value(term, TermData, os:getenv("TERM", ?DEFAULT_TERMINAL)),
 	    proplists:get_value(width, TermData, Width),
 	    proplists:get_value(height, TermData, Height),
@@ -678,19 +678,19 @@ ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
 %% Should they be documented and tested?
 %%--------------------------------------------------------------------
 -doc false.
-window_change(ConnectionHandler, Channel, Width, Height) ->
-    window_change(ConnectionHandler, Channel, Width, Height, 0, 0).
+window_change(ConnectionRef, Channel, Width, Height) ->
+    window_change(ConnectionRef, Channel, Width, Height, 0, 0).
 -doc false.
-window_change(ConnectionHandler, Channel, Width, Height,
+window_change(ConnectionRef, Channel, Width, Height,
 	      PixWidth, PixHeight) ->
-    ssh_connection_handler:request(ConnectionHandler, Channel,
+    ssh_connection_handler:request(ConnectionRef, Channel,
 				   "window-change", false, 
 				   [?uint32(Width), ?uint32(Height),
 				    ?uint32(PixWidth), ?uint32(PixHeight)], 0).
 
 -doc false.
-signal(ConnectionHandler, Channel, Sig) ->
-    ssh_connection_handler:request(ConnectionHandler, Channel,
+signal(ConnectionRef, Channel, Sig) ->
+    ssh_connection_handler:request(ConnectionRef, Channel,
 				   "signal", false, [?string(Sig)], 0).
 
 
@@ -702,8 +702,8 @@ to the client.
       ConnectionRef :: ssh:connection_ref(),
       ChannelId :: ssh:channel_id(),
       Status  :: integer().
-exit_status(ConnectionHandler, Channel, Status) ->
-    ssh_connection_handler:request(ConnectionHandler, Channel,
+exit_status(ConnectionRef, Channel, Status) ->
+    ssh_connection_handler:request(ConnectionRef, Channel,
 				   "exit-status", false, [?uint32(Status)], 0).
 
 %%--------------------------------------------------------------------
@@ -1555,9 +1555,9 @@ flow_control(_,_,_) ->
 %%% Pseudo terminal stuff
 %%% 
 
-pty_req(ConnectionHandler, Channel, Term, Width, Height,
+pty_req(ConnectionRef, Channel, Term, Width, Height,
 	 PixWidth, PixHeight, PtyOpts, TimeOut) ->
-    ssh_connection_handler:request(ConnectionHandler,
+    ssh_connection_handler:request(ConnectionRef,
 				   Channel, "pty-req", true,
 				   [?string(Term),
 				    ?uint32(Width), ?uint32(Height),
@@ -1867,14 +1867,14 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 
 %%%----------------------------------------------------------------
 -doc false.
-send_environment_vars(ConnectionHandler, Channel, VarNames) ->
+send_environment_vars(ConnectionRef, Channel, VarNames) ->
     lists:foldl(
       fun(Var, success) ->
               case os:getenv(Var) of
                   false ->
                       success;
                   Value ->
-                      setenv(ConnectionHandler, Channel, false,
+                      setenv(ConnectionRef, Channel, false,
                              Var, Value, infinity)
               end
       end, success, VarNames).

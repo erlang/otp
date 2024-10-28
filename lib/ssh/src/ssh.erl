@@ -61,7 +61,7 @@ To write your own client channel handler, use the behaviour
 `m:ssh_client_channel`. For server channel handlers use `m:ssh_server_channel`
 behaviour (replaces ssh_daemon_channel).
 
-Both clients and daemons accepts options that controls the exact behaviour. Some
+Both clients and daemons accept options that control the exact behaviour. Some
 options are common to both. The three sets are called
 [Client Options](`t:client_options/0`), [Daemon Options](`t:daemon_options/0`)
 and [Common Options](`t:common_options/0`).

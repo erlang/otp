@@ -263,7 +263,7 @@ Records are extended to possibly contain type information. This is described in
 
 > #### Change {: .info }
 >
-> Starting from Erlang/OTP 26, is is permitted to define a type having the same
+> Starting from Erlang/OTP 26, it is permitted to define a type having the same
 > name as a built-in type.
 
 It is recommended to avoid deliberately reusing built-in names because it can be
