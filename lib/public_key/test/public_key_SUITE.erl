@@ -103,6 +103,8 @@
          pkix_path_validation_root_expired/1,
          pkix_ext_key_usage/0,
          pkix_ext_key_usage/1,
+         pkix_ext_key_usage_any/0,
+         pkix_ext_key_usage_any/1,
          pkix_path_validation_bad_date/0,
          pkix_path_validation_bad_date/1,
          pkix_verify_hostname_cn/1,
@@ -170,6 +172,7 @@ all() ->
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_ext_key_usage,
+     pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
      pkix_iso_rsa_oid, 
      pkix_iso_dsa_oid, 
@@ -1006,8 +1009,72 @@ pkix_path_validation_root_expired(Config) when is_list(Config) ->
     {error, {bad_cert, cert_expired}} = public_key:pkix_path_validation(Root, [ICA, Peer], []).
     
 pkix_ext_key_usage() ->
-    [{doc, "Extended key usage is usually in end entity certs, may be in CA but should not be critical in such case"}].
+    [{doc, "If extended key usage is a critical extension in a CA (usually not included) make sure it is compatible with keyUsage extension"}].
 pkix_ext_key_usage(Config) when is_list(Config) ->
+    SRootSpec = public_key:pkix_test_root_cert("OTP test server ROOT", []),
+    CRootSpec = public_key:pkix_test_root_cert("OTP test client ROOT", []),
+
+    CAExtServer = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                                extnValue = [digitalSignature, keyCertSign, cRLSign],
+                                critical = false},
+                   #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                extnValue = [?'id-kp-OCSPSigning', ?'id-kp-emailProtection', ?'id-kp-serverAuth'],
+                                critical = true}],
+
+    CAExtClient = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                                extnValue = [digitalSignature, keyCertSign, cRLSign],
+                                critical = false},
+                   #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                extnValue = [?'id-kp-codeSigning', ?'id-kp-emailProtection', ?'id-kp-clientAuth'],
+                                critical = true}],
+    #{server_config := SConf,
+      client_config := CConf} = public_key:pkix_test_data(#{server_chain => #{root => SRootSpec,
+                                                                              intermediates => [[{extensions, CAExtServer}]],
+                                                                              peer => []},
+                                                           client_chain => #{root => CRootSpec,
+                                                                             intermediates => [[{extensions, CAExtClient}]],
+                                                                             peer => []}}),
+    [_STRoot, SICA, SRoot] = proplists:get_value(cacerts, SConf),
+    [_CTRoot, CICA, CRoot] = proplists:get_value(cacerts, CConf),
+    SPeer = proplists:get_value(cert, SConf),
+    CPeer = proplists:get_value(cert, CConf),
+
+    {ok, _} = public_key:pkix_path_validation(SRoot, [SICA, SPeer], []),
+    {ok, _} = public_key:pkix_path_validation(CRoot, [CICA, CPeer], []),
+
+    CAExtServerFail = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                                extnValue = [keyAgreement, keyCertSign, cRLSign],
+                                    critical = false},
+                       #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                    extnValue = [?'id-kp-serverAuth', ?'id-kp-timeStamping'],
+                                    critical = true}],
+
+    CAExtClient1 = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                                extnValue = [keyEncipherment, keyCertSign, cRLSign],
+                                critical = false},
+                   #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                extnValue = [?'id-kp-emailProtection', ?'id-kp-clientAuth'],
+                                critical = true}],
+
+    #{server_config := SConf1,
+      client_config := CConf1} = public_key:pkix_test_data(#{server_chain => #{root => SRootSpec,
+                                                                                 intermediates => [[{extensions, CAExtServerFail}]],
+                                                                               peer => []},
+                                                               client_chain => #{root => CRootSpec,
+                                                                                 intermediates => [[{extensions, CAExtClient1}]],
+                                                                                 peer => []}}),
+    [_, SICA1, SRoot1] = proplists:get_value(cacerts, SConf1),
+    SPeer1 = proplists:get_value(cert, SConf1),
+
+    {error, {bad_cert,{key_usage_mismatch, _}}} = public_key:pkix_path_validation(SRoot1, [SICA1, SPeer1], []),
+
+    [_, CICA1, CRoot1] = proplists:get_value(cacerts, CConf1),
+    CPeer1 = proplists:get_value(cert, CConf1),
+    {ok, _} = public_key:pkix_path_validation(CRoot1, [CICA1, CPeer1], []).
+
+pkix_ext_key_usage_any() ->
+    [{doc, "Extended key usage is usually in end entity certs, may be in CA but should not be critical in such case"}].
+pkix_ext_key_usage_any(Config) when is_list(Config) ->
     SRootSpec = public_key:pkix_test_root_cert("OTP test server ROOT", []),
     CRootSpec = public_key:pkix_test_root_cert("OTP test client ROOT", []),
 

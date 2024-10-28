@@ -308,6 +308,7 @@ The reason that a certifcate gets rejected by the certificate path validation.
 """.
 -type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted |
                                 missing_basic_constraint | invalid_key_usage | duplicate_cert_in_path |
+                                {key_usage_mismatch, term()} |
                                 {'policy_requirement_not_met', term()} | {'invalid_policy_mapping', term()} |
                                 {revoked, crl_reason()} | invalid_validity_dates |
                                 {revocation_status_undetermined, term()} | atom().
