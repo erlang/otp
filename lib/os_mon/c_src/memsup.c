@@ -288,7 +288,6 @@ get_mem_procfs(memory_ext *me){
     int fd, nread;
     char buffer[4097];
     char *bp;
-    unsigned long value;
     
     me->flag = 0;
     
@@ -494,7 +493,7 @@ get_extended_mem(memory_ext *me) {
 static void 
 get_basic_mem(unsigned long *tot, unsigned long *used, unsigned long *pagesize){
 #if defined(_SC_AVPHYS_PAGES)	/* Does this exist on others than Solaris2? */
-    unsigned long avPhys, phys, pgSz;
+    unsigned long avPhys, phys;
     
     phys = sysconf(_SC_PHYS_PAGES);
     avPhys = sysconf(_SC_AVPHYS_PAGES);
