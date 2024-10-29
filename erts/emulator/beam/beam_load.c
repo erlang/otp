@@ -504,6 +504,8 @@ static int load_code(LoaderState* stp)
             int specific, arity, arg, i;
             Uint32 mask[3] = {0, 0, 0};
 
+            ERTS_UNDEF(arity, 0); /* Suppress warning. */
+
             if (num_specific != 0) {
                 /* The `bs_append` instruction made obsolete in
                  * Erlang/OTP 28 has 8 operands. Therefore, the if
