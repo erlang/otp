@@ -297,10 +297,15 @@ end_per_testcase(_Case, Config) ->
 -endif.
 
 string_to_term(Str) ->
-    {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
-    {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
-    {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
-    Value.
+    try
+        {ok,Tokens,_EndLine} = erl_scan:string(Str ++ "."),
+        {ok,AbsForm} = erl_parse:parse_exprs(Tokens),
+        {value,Value,_Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
+        Value
+    catch E:R:ST ->
+        ct:log("Could not parse: ~ts~n", [Str]),
+        erlang:raise(E,R,ST)
+    end.
 
 run_unbuffer_escript(Rows, Columns, EScript, NoTermStdIn, NoTermStdOut) ->
     DataDir = filename:join(filename:dirname(code:which(?MODULE)), "interactive_shell_SUITE_data"),
