@@ -58,8 +58,7 @@ The timeout values that can be returned by the callback functions have the same
 semantics as in a `m:gen_server`. If the time-out occurs, `c:handle_msg/2` is called as
 handle_msg(timeout, State).
 """.
--moduledoc(#{since => "OTP 21.0",
-             titles => [{callback,<<"Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 21.0"}).
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
@@ -71,7 +70,7 @@ initializations succeed.
 For more detailed information on time-outs, see Section
 [Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
@@ -81,7 +80,7 @@ Handles messages sent by calling [call/2,3](`call/2`)
 For more detailed information on time-outs,, see Section
 [Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
@@ -96,7 +95,7 @@ Handles messages sent by calling [`cast/2`](`cast/2`).
 For more detailed information on time-outs, see Section
 [Callback timeouts](`m:ssh_client_channel#module-callback-timeouts`).
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
     {noreply, NewState :: term(), timeout() | hibernate} |
@@ -110,7 +109,7 @@ called earlier. This function does any necessary cleaning up. When it returns,
 the channel process terminates with reason `Reason`. The return value is
 ignored.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->
@@ -134,7 +133,7 @@ Handling Instructions in the
 > handle two versions of the state, but this function cannot be used in the
 > normal way.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
                       Extra :: term()) ->
     {ok, NewState :: term()} | {error, Reason :: term()}.
@@ -153,7 +152,7 @@ channels are to handle the following message.
   from it. If the message is not useful for your particular scenario, ignore it
   by immediately returning `{ok, State}`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_msg(Msg ::term(), State :: term()) ->
     {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
 
@@ -167,7 +166,7 @@ The following message is taken care of by the `ssh_client_channel` behavior.
   message to the other side, if such a message has not already been sent. Then
   it terminates the channel with reason `normal`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_ssh_msg(ssh_connection:event(),
  			 State::term()) -> {ok, State::term()} | 
  					   {stop, ChannelId::ssh:channel_id(), 

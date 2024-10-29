@@ -133,7 +133,7 @@ The directory could be changed with the option
 """.
 -moduledoc(#{titles =>
                  [{type,<<"Client Options">>},
-                  {type,<<"Daemon Options (Server Options)">>},
+                  {type,<<"Daemon Options">>},
                   {type,<<"Common Options">>},
                   {type,<<"Other data types">>}]}).
 

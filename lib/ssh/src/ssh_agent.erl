@@ -58,7 +58,7 @@ option can be set.
 """.
 -moduledoc(#{since => "OTP 23.0",
              titles =>
-                 [{type,<<"Options for the ssh_agent callback module">>}]}).
+                 [{type,<<"Options">>}]}).
 
 -behaviour(ssh_client_key_api).
 
@@ -72,19 +72,19 @@ option can be set.
 Sets the [socket path](`m:ssh_agent#SOCKET_PATH`) for the communication with the
 agent.
 """.
--doc(#{title => <<"Options for the ssh_agent callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type socket_path_option() :: {socket_path,  string()}.
 -doc """
 Sets the time-out in milliseconds when communicating with the agent via the
 socket. The default value is `1000`.
 """.
--doc(#{title => <<"Options for the ssh_agent callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type timeout_option() :: {timeout, integer()}.
 -doc """
 The module which the `add_host_key` and `is_host_key` callbacks are delegated
 to. Defaults to the `m:ssh_file` module.
 """.
--doc(#{title => <<"Options for the ssh_agent callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type call_ssh_file_option() :: {call_ssh_file, atom()}.
 
 %% ssh_client_key_api implementation
