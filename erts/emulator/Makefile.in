@@ -645,7 +645,7 @@ $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
 GENERATE += $(TTF_DIR)/erl_alloc_types.h
 
 # version include file
-$(TARGET)/erl_version.h: ../vsn.mk $(ERL_TOP)/make/$(TARGET)/otp.mk
+$(TARGET)/erl_version.h: ../vsn.mk $(ERL_TOP)/make/$(TARGET)/otp.mk utils/make_version
 	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(OTP_VERSION) $(VSN)$(SERIALNO) $(TARGET)
 GENERATE += $(TARGET)/erl_version.h
 
@@ -776,13 +776,13 @@ ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
 PRELOAD_OBJ = $(OBJDIR)/beams.$(RES_EXT)
 PRELOAD_SRC = $(TTF_DIR)/beams.rc
-$(PRELOAD_SRC): $(PRELOAD_BEAM)
-	$(gen_verbose)LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
+$(PRELOAD_SRC): $(PRELOAD_BEAM) utils/make_preload
+	$(gen_verbose)LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $(PRELOAD_BEAM) > $@
 else
 PRELOAD_OBJ = $(OBJDIR)/preload.o
 PRELOAD_SRC = $(TTF_DIR)/preload.c
-$(PRELOAD_SRC): $(PRELOAD_BEAM)
-	$(gen_verbose)LANG=C $(PERL) utils/make_preload -old $^ > $@
+$(PRELOAD_SRC): $(PRELOAD_BEAM) utils/make_preload
+	$(gen_verbose)LANG=C $(PERL) utils/make_preload -old $(PRELOAD_BEAM) > $@
 endif
 
 .PHONY : generate
