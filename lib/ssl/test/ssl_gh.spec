@@ -2,6 +2,7 @@
 {alias,dir,"../ssl_test"}.
 
 {suites,dir,all}.
+{skip_suites,dir,[ssl_upgrade_SUITE], "Versions not always correct"}.
 {skip_groups,all_nodes, dir, openssl_session_ticket_SUITE, 'openssl_server',
  {cases,[openssl_server_hrr]},"Unstable testcases"}.
 {skip_groups,dir,ssl_bench_SUITE,setup,"Benchmarks run separately"}.
