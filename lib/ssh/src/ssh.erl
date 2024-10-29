@@ -427,13 +427,13 @@ close(ConnectionRef) ->
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
 %%---------------------------------------------------------------------
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type version() :: {protocol_version(), software_version()}.
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type software_version() :: string().
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type conn_info_algs() :: [{kex, kex_alg()}
                            | {hkey, pubkey_alg()}
                            | {encrypt, cipher_alg()}
@@ -454,7 +454,7 @@ default values.
 -doc(#{title => <<"Other data types">>}).
 -type conn_info_channels() :: [proplists:proplist()].
 
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}
