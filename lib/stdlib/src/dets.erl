@@ -504,11 +504,11 @@ from_ets_fun(LC, ETab) ->
 Returns information about table `Name` as a list of tuples:
 
 - `{file_size, integer() >= 0}}` \- The file size, in bytes.
-- `{filename, ``t:file:name/0``}` \- The name of the file where objects are
+- `{filename,` `t:file:name/0` `}` \- The name of the file where objects are
   stored.
-- `{keypos, ``t:keypos/0``}` \- The key position.
+- `{keypos,` `t:keypos/0` `}` \- The key position.
 - `{size, integer() >= 0}` \- The number of objects stored in the table.
-- `{type, ``t:type/0``}` \- The table type.
+- `{type,` `t:type/0` `}` \- The table type.
 """.
 -spec info(Name) -> InfoList | 'undefined' when
       Name :: tab_name(),
@@ -531,8 +531,8 @@ info(Tab) ->
 Returns the information associated with `Item` for table `Name`. In addition to
 the `{Item, Value}` pairs defined for `info/1`, the following items are allowed:
 
-- `{access, ``t:access/0``}` \- The access mode.
-- `{auto_save, ``t:auto_save/0``}` \- The autosave interval.
+- `{access,` `t:access/0` `}` \- The access mode.
+- `{auto_save,` `t:auto_save/0` `}` \- The autosave interval.
 - `{bchunk_format, binary()}` \- An opaque binary describing the format of the
   objects returned by [`bchunk/2`](`bchunk/2`). The binary can be used as
   argument to
@@ -1045,28 +1045,28 @@ second user closes it.
 Argument `Args` is a list of `{Key, Val}` tuples, where the following values are
 allowed:
 
-- `{access, ``t:access/0``}` \- Existing tables can be opened in read-only mode.
+- `{access,` `t:access/0` `}` \- Existing tables can be opened in read-only mode.
   A table that is opened in read-only mode is not subjected to the automatic
   file reparation algorithm if it is later opened after a crash. Defaults to
   `read_write`.
-- `{auto_save, ``t:auto_save/0``}` \- The autosave interval. If the interval is
+- `{auto_save,` `t:auto_save/0` `}` \- The autosave interval. If the interval is
   an integer `Time`, the table is flushed to disk whenever it is not accessed
   for `Time` milliseconds. A table that has been flushed requires no reparation
   when reopened after an uncontrolled emulator halt. If the interval is the atom
   `infinity`, autosave is disabled. Defaults to 180000 (3 minutes).
-- `{estimated_no_objects, ``t:no_slots/0``}` \- Equivalent to option
+- `{estimated_no_objects,` `t:no_slots/0` `}` \- Equivalent to option
   `min_no_slots`.
-- `{file, ``t:file:name/0``}` \- The name of the file to be opened. Defaults to
+- `{file,` `t:file:name/0` `}` \- The name of the file to be opened. Defaults to
   the table name.
-- `{max_no_slots, ``t:no_slots/0``}` \- The maximum number of slots to be used.
+- `{max_no_slots,` `t:no_slots/0` `}` \- The maximum number of slots to be used.
   Defaults to 32 M, which is the maximal value. Notice that a higher value can
   increase the table fragmentation, and a smaller value can decrease the
   fragmentation, at the expense of execution time.
-- `{min_no_slots, ``t:no_slots/0``}` \- Application performance can be enhanced
+- `{min_no_slots,` `t:no_slots/0` `}` \- Application performance can be enhanced
   with this flag by specifying, when the table is created, the estimated number
   of different keys to be stored in the table. Defaults to 256, which is the
   minimum value.
-- `{keypos, ``t:keypos/0``}` \- The position of the element of each object to be
+- `{keypos,` `t:keypos/0` `}` \- The position of the element of each object to be
   used as key. Defaults to 1. The ability to explicitly state the key position
   is most convenient when we want to store Erlang records in which the first
   position of the record is the name of the record type.
@@ -1086,7 +1086,7 @@ allowed:
 
   Option `repair` is ignored if the table is already open.
 
-- `{type, ``t:type/0``}` \- The table type. Defaults to `set`.
+- `{type,` `t:type/0` `}` \- The table type. Defaults to `set`.
 """.
 -spec open_file(Name, Args) -> {'ok', Name} | {'error', Reason} when
       Name :: tab_name(),
@@ -1379,7 +1379,7 @@ the whole table is traversed. Option `traverse` determines how this is done:
     [`select/3`](`select/3`) given a match specification that matches all
     objects.
 
-- `{select, ``t:match_spec/0``}` \- As for `select`, the table is traversed by
+- `{select,` `t:match_spec/0` `}` \- As for `select`, the table is traversed by
   calling `dets:select/3` and `dets:select/1`. The difference is that the match
   specification is specified explicitly. This is how to state match
   specifications that cannot easily be expressed within the syntax provided by

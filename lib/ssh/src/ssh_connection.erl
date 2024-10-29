@@ -36,7 +36,7 @@ events, which are received as messages by the remote channel handling the remote
 channel. The Erlang format of thoose messages is (see also
 [below](`t:event/0`)):
 
-`{ssh_cm, ``t:ssh:connection_ref/0``, ``t:channel_msg/0``}`
+`{ssh_cm,` `t:ssh:connection_ref/0` `,` `t:channel_msg/0` `}`
 
 If the `m:ssh_client_channel` behavior is used to implement the channel process,
 these messages are handled by

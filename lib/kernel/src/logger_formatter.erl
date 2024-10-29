@@ -83,7 +83,7 @@ following keys can be set as configuration parameters:
 
   Defaults to `unlimited`.
 
-- **`report_cb = ``t:logger:report_cb/0`** - A report callback is used by the
+- **`report_cb = ` `t:logger:report_cb/0`** - A report callback is used by the
   formatter to transform log messages on report form to a format string and
   arguments. The report callback can be specified in the metadata for the log
   event. If no report callback exists in metadata, `logger_formatter` will use

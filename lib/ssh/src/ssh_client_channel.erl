@@ -148,7 +148,7 @@ to the channel.
 Possible Erlang 'EXIT' messages is to be handled by this function and all
 channels are to handle the following message.
 
-- **`{ssh_channel_up, ``t:ssh:channel_id/0``, ``t:ssh:connection_ref/0``}`** -
+- **`{ssh_channel_up,` `t:ssh:channel_id/0` `,` `t:ssh:connection_ref/0` `}`** -
   This is the first message that the channel receives. It is sent just before
   the `init/1` function returns successfully. This is especially useful if the
   server wants to send a message to the client without first receiving a message
@@ -165,7 +165,7 @@ attention. For details, see `t:ssh_connection:event/0`.
 
 The following message is taken care of by the `ssh_client_channel` behavior.
 
-- **`{closed, ``t:ssh:channel_id/0``}`** - The channel behavior sends a close
+- **`{closed,` `t:ssh:channel_id/0` `}`** - The channel behavior sends a close
   message to the other side, if such a message has not already been sent. Then
   it terminates the channel with reason `normal`.
 """.
@@ -370,10 +370,10 @@ The following options must be present:
 - **`{init_args(), list()}`** - The list of arguments to the `init` function of
   the callback module.
 
-- **`{cm, ``t:ssh:connection_ref/0``}`** - Reference to the `ssh` connection as
+- **`{cm,` `t:ssh:connection_ref/0` `}`** - Reference to the `ssh` connection as
   returned by `ssh:connect/3`.
 
-- **`{channel_id, ``t:ssh:channel_id/0``}`** - Id of the `ssh` channel as
+- **`{channel_id,` `t:ssh:channel_id/0` `}`** - Id of the `ssh` channel as
   returned by
   [ssh_connection:session_channel/2,4](`ssh_connection:session_channel/2`).
 
