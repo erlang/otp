@@ -89,7 +89,7 @@ to the channel.
 Possible Erlang 'EXIT' messages is to be handled by this function and all
 channels are to handle the following message.
 
-- **`{ssh_channel_up, ``t:ssh:channel_id/0``, ``t:ssh:connection_ref/0``}`** -
+- **`{ssh_channel_up,` `t:ssh:channel_id/0` `,` `t:ssh:connection_ref/0` `}`** -
   This is the first message that the channel receives. This is especially useful
   if the server wants to send a message to the client without first receiving a
   message from it. If the message is not useful for your particular scenario,
@@ -104,7 +104,7 @@ attention. For details, see `t:ssh_connection:event/0`.
 
 The following message is taken care of by the `ssh_server_channel` behavior.
 
-- **`{closed, ``t:ssh:channel_id/0``}`** - The channel behavior sends a close
+- **`{closed,` `t:ssh:channel_id/0` `}`** - The channel behavior sends a close
   message to the other side, if such a message has not already been sent. Then
   it terminates the channel with reason `normal`.
 """.
