@@ -1424,6 +1424,10 @@ protected:
      * appropriate address before jumping there. */
     const Label &resolve_fragment(void (*fragment)());
 
+    /* Move past the `last_error_offset` if necessary for the next instruction
+     * to be properly aligned (e.g. for line mappings). */
+    void flush_last_error();
+
     void safe_fragment_call(void (*fragment)()) {
         emit_assert_redzone_unused();
         a.call(resolve_fragment(fragment));

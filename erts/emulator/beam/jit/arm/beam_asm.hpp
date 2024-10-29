@@ -1401,6 +1401,10 @@ protected:
      * the current code position is unreachable. */
     void flush_pending_labels();
 
+    /* Move past the `last_error_offset` if necessary for the next instruction
+     * to be properly aligned (e.g. for line mappings). */
+    void flush_last_error();
+
     /* Calls the given shared fragment, ensuring that the redzone is unused and
      * that the return address forms a valid CP. */
     template<typename Any>
