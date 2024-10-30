@@ -218,7 +218,8 @@ struct StackTrace {
     Eterm freason; /* original exception reason is saved in the struct */
     ErtsCodePtr pc;
     const ErtsCodeMFA* current;
-    int depth;	/* number of saved pointers in trace[] */
+    int depth;	   /* number of saved pointers in trace[] */
+    int max_depth; /* capacity of trace[] */
     ErtsCodePtr trace[1];  /* varying size - must be last in struct */
 };
 

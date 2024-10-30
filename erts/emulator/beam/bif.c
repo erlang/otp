@@ -1440,6 +1440,7 @@ BIF_RETTYPE raise_3(BIF_ALIST_3)
     s->pc = NULL;
     s->current = NULL;
     s->depth = 0;
+    s->max_depth = 0;
     hp += sz;
     if (must_copy) {
 	int cnt;
