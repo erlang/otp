@@ -69,6 +69,7 @@
 -export([count_down/2, count_down_fun/0, do_apply/2,
          local_func/3, local_func_value/2]).
 -export([simple/0]).
+-export([my_div/2]).
 
 -ifdef(STANDALONE).
 -define(config(A,B),config(A,B)).
@@ -1218,8 +1219,6 @@ custom_stacktrace(Config) when is_list(Config) ->
     backtrace_check("#unknown.index.", {undef_record,unknown},
                     [erl_eval, mystack(1)], none, EFH),
 
-    backtrace_check("fun foo/2.", undef,
-                    [{erl_eval, foo, 2}, erl_eval, mystack(1)], none, EFH),
     backtrace_check("foo(1, 2).", undef,
                     [{erl_eval, foo, 2}, erl_eval, mystack(1)], none, EFH),
 
@@ -1370,7 +1369,6 @@ funs(Config) when is_list(Config) ->
     error_check("begin F = fun(T) -> timer:sleep(T) end,F(1) end.",
                       got_it, none, AnnEFH),
 
-    error_check("fun c/1.", undef),
     error_check("fun a:b/0().", undef),
 
     MaxArgs = 20,
@@ -1388,7 +1386,35 @@ funs(Config) when is_list(Config) ->
     %% Test that {M,F} is not accepted as a fun.
     error_check("{" ?MODULE_STRING ",module_info}().",
 		{badfun,{?MODULE,module_info}}),
+
+    %% Test defining and calling a fun based on an auto-imported BIF.
+    check(fun() ->
+                  F = fun is_binary/1,
+                  true = F(<<>>),
+                  false = F(a)
+          end,
+          ~S"""
+           F = fun is_binary/1,
+           true = F(<<>>),
+           false = F(a).
+           """,
+          false, ['F'], lfh(), none),
+
+    %% Test defining and calling a local fun defined in the shell.
+    check(fun() ->
+                  D = fun my_div/2,
+                  3 = D(15, 5)
+          end,
+          ~S"""
+           D = fun my_div/2,
+           3 = D(15, 5).
+           """,
+          3, ['D'], lfh(), efh()),
+
     ok.
+
+my_div(A, B) ->
+    A div B.
 
 run_many_args({S, As}) ->
     apply(eval_string(S), As) =:= As.

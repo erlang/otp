@@ -489,9 +489,24 @@ expr({'fun',_Anno,{function,Mod0,Name0,Arity0}}, Bs0, Lf, Ef, RBs, FUVs) ->
     {[Mod,Name,Arity],Bs} = expr_list([Mod0,Name0,Arity0], Bs0, Lf, Ef, FUVs),
     F = erlang:make_fun(Mod, Name, Arity),
     ret_expr(F, Bs, RBs);
-expr({'fun',Anno,{function,Name,Arity}}, Bs0, _Lf, Ef, RBs, _FUVs) -> % R8
-    %% Don't know what to do...
-    apply_error(undef, [{?MODULE,Name,Arity}|?STACKTRACE], Anno, Bs0, Ef, RBs);
+expr({'fun',Anno,{function,Name,Arity}}, Bs0, Lf, Ef, RBs, FUVs) -> % R8
+    case erl_internal:bif(Name, Arity) of
+        true ->
+            %% Auto-imported BIF. Create an external fun.
+            ret_expr(fun erlang:Name/Arity, Bs0, RBs);
+        false ->
+            %% A local function assumed to be defined in the shell.
+            %% Create a wrapper fun that will call the local fun.
+            %% Calling the fun will succeed if the local fun is
+            %% defined when the call is made.
+            Args = [{var,Anno,list_to_atom("@arg" ++ [V])} ||
+                       V <- lists:seq($a, $a+Arity-1)],
+            H = Args,
+            G = [{atom,Anno,true}],
+            B = [{call,Anno,{atom,Anno,Name},Args}],
+            Cs = [{clause,Anno,H,G,B}],
+            expr({'fun',Anno,{clauses,Cs}}, Bs0, Lf, Ef, RBs, FUVs)
+    end;
 expr({'fun',Anno,{clauses,Cs}} = Ex, Bs, Lf, Ef, RBs, FUVs) ->
     {En,NewFUVs} = fun_used_bindings(Ex, Cs, Bs, FUVs),
     Info = {Anno,En,Lf,Ef,NewFUVs,Cs},
