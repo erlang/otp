@@ -852,7 +852,7 @@ usage_help_binary(Config) when is_list(Config) ->
         "  shard help binary for shard (int), default: 0\n",
 
     ?assertEqual(Expected,
-        unicode:characters_to_list(argparse:help(Cmd2, #{}))).
+        unicode:characters_to_list(argparse:help(Cmd2, #{ progname => erl }))).
 
 usage_required_args() ->
     [{doc, "Verify that required args are printed as required in usage"}].
