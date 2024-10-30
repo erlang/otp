@@ -1648,11 +1648,29 @@ aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) 
 aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info}=T) ->
     <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
     Plain = iolist_to_binary(PlainText),
-    cipher_test(T,
-                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) end,
-                {CipherText, TruncatedCipherTag},
-                fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) end,
-                Plain).
+    T1 = cipher_test(T,
+                     fun() -> crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) end,
+                     {CipherText, TruncatedCipherTag},
+                     fun() -> crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) end,
+                     Plain),
+    case T1 == ok of
+        false ->
+            T1;
+        true ->
+            %% ok
+            CipherTextCipherTag = <<CipherText/binary, TruncatedCipherTag/binary>>,
+            cipher_test(T,
+                        fun() ->
+                                Handle = crypto:crypto_one_time_aead_init(Type, Key, TagLen, true),
+                                crypto:crypto_one_time_aead(Handle, IV, PlainText, AAD)
+                        end,
+                        CipherTextCipherTag,
+                        fun() ->
+                                Handle = crypto:crypto_one_time_aead_init(Type, Key, TagLen, false),
+                                crypto:crypto_one_time_aead(Handle, IV, CipherTextCipherTag, AAD)
+                        end,
+                        Plain)
+    end.
 
 aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     BadTag = mk_bad_tag(CipherTag),
@@ -1708,7 +1726,7 @@ do_cipher_tests(F, TestVectors) when is_function(F,1) ->
         [] ->
             ct:comment("All ~p passed", [length(Passed)]);
         _ ->
-            ct:log("~p",[hd(Failed)]),
+            ct:log("~p", [hd(Failed)]),
             ct:comment("Passed: ~p, BothFailed: ~p OnlyOneFailed: ~p",
                        [length(Passed), length(BothFailed), length(Failed)-length(BothFailed)]),
             ct:fail("Failed", [])
