@@ -154,6 +154,21 @@ ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (EVP_DigestInit(ctx->ctx, digp->md.p) != 1)
         assign_goto(ret, done, EXCP_ERROR(env, "Low-level call EVP_DigestInit failed"));
 
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,4,0)
+    /*
+     * The default digest length for shake128 and shake256 was removed
+     * in OpenSSL 3.4, so we set them to be backward compatible with ourself.
+     */
+    if (digp->xof_default_length) {
+        OSSL_PARAM params[2];
+        params[0] = OSSL_PARAM_construct_uint("xoflen", &digp->xof_default_length);
+        params[1] = OSSL_PARAM_construct_end();
+        if (!EVP_MD_CTX_set_params(ctx->ctx, params)) {
+            assign_goto(ret, done, EXCP_ERROR(env, "Can't set param xoflen"));
+        }
+    }
+#endif
+
     ret = enif_make_resource(env, ctx);
 
  done:

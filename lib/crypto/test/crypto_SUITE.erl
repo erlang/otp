@@ -806,9 +806,9 @@ hash(Config) when is_list(Config) ->
 hash_xof() ->
   [{doc, "Test all different hash_xof functions"}].
 hash_xof(Config) when is_list(Config) ->
-  {Type, MsgsLE, Digests, Lengths} = proplists:get_value(hash_xof, Config),
+  {Type, DefaultLen, MsgsLE, Digests, Lengths} = proplists:get_value(hash_xof, Config),
   Msgs = lazy_eval(MsgsLE),
-  hash_xof(Type, Msgs, Digests, Lengths).
+  hash_xof(Type, DefaultLen, Msgs, Digests, Lengths).
 
 %%--------------------------------------------------------------------
 no_hash() ->
@@ -1569,15 +1569,29 @@ hash(Type, [Msg | RestMsg], [Digest| RestDigest]) ->
 	    ct:fail({{crypto, hash, [Type, Msg]}, {expected, Digest}, {got, Other}})
     end.
 
-hash_xof(_, [], [], []) ->
+hash_xof(_, _, [], [], []) ->
   ok;
-hash_xof(Type, [Msg | RestMsg], [Digest | RestDigest], [Length | RestLength]) ->
-  case crypto:hash_xof(Type, Msg, Length) of
-    Digest ->
-      hash_xof(Type, RestMsg, RestDigest, RestLength);
-    Other ->
-      ct:fail({{crypto, hash_xof, [Type, Msg, Length]}, {expected, Digest}, {got, Other}})
-  end.
+hash_xof(Type, DefaultLen, [Msg | RestMsg], [Digest | RestDigest], [Length | RestLength]) ->
+    case crypto:hash_xof(Type, Msg, Length) of
+        Digest ->
+            ok;
+        Other1 ->
+            ct:fail({{crypto, hash_xof, [Type, Msg, Length]}, {expected, Digest}, {got, Other1}})
+    end,
+    case Length of
+        DefaultLen ->
+            State1 = crypto:hash_init(Type),
+            State2 = crypto:hash_update(State1, Msg),
+            case crypto:hash_final(State2) of
+                Digest ->
+                    ok;
+                Other2 ->
+                    ct:fail({{crypto, hash_xof, [Type, Msg, Length]}, {expected, Digest}, {got, Other2}})
+            end;
+        _ ->
+            ok % No crypto:hash_init({Type,Length}) support yet
+    end,
+    hash_xof(Type, DefaultLen, RestMsg, RestDigest, RestLength).
 
 hash_increment(Type, Increments, Digest) ->
     State = crypto:hash_init(Type),
@@ -2215,10 +2229,10 @@ group_config(sm3 = Type, Config) ->
     [{hash, {Type, Msgs, Digests}} | Config];
 group_config(shake128 = Type, Config) ->
     {Msgs,Digests,Lengths} = sha3_shake128_test_vectors(Type),
-    [{hash_xof, {Type, Msgs, Digests, Lengths}} | Config];
+    [{hash_xof, {Type, 128, Msgs, Digests, Lengths}} | Config];
 group_config(shake256 = Type, Config) ->
     {Msgs,Digests,Lengths} = sha3_shake256_test_vectors(Type),
-    [{hash_xof, {Type, Msgs, Digests, Lengths}} | Config];
+    [{hash_xof, {Type, 256, Msgs, Digests, Lengths}} | Config];
 group_config(blake2b = Type, Config) ->
     {Msgs, Digests} = blake2_test_vectors(Type),
     [{hash, {Type, Msgs, Digests}} | Config];

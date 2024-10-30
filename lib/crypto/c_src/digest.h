@@ -32,6 +32,7 @@ struct digest_type_t {
         const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
         const EVP_MD* p;              /* after init, NULL if notsup */
     }md;
+    unsigned int xof_default_length;  /* 0 or default digest length for XOF digests */
 };
 
 /* masks in the flags field if digest_type_t */
