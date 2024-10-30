@@ -116,7 +116,8 @@ static struct digest_type_t digest_types[] =
 
     {"shake128", "SHAKE-128", 0, 0,
 #ifdef HAVE_SHAKE128
-    {&EVP_shake128, NULL}
+    {&EVP_shake128, NULL},
+    16,   /* xof_default_length */
 #else
     {NULL,NULL}
 #endif
@@ -124,7 +125,8 @@ static struct digest_type_t digest_types[] =
 
     {"shake256", "SHAKE-256", 0, 0,
 #ifdef HAVE_SHAKE256
-    {&EVP_shake256, NULL}
+    {&EVP_shake256, NULL},
+    32,  /* xof_default_length */
 #else
     {NULL,NULL}
 #endif
