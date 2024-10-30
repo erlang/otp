@@ -104,6 +104,7 @@
 -record(state, { tty :: prim_tty:state() | undefined,
                  write :: reference() | undefined,
                  read :: reference() | undefined,
+                 terminal_mode :: raw | cooked | disabled,
                  shell_started = new :: new | old | false,
                  editor :: #editor{} | undefined,
                  user :: pid(),
@@ -111,9 +112,10 @@
                  groups, queue }).
 
 -type shell() :: {module(), atom(), [term()]} | {node(), module(), atom(), [term()]}.
--type arguments() :: #{ initial_shell => noshell | shell() |
-                        {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
-                        input => boolean() }.
+-type arguments() ::
+        #{ initial_shell => noshell | shell() |
+           {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
+           input => cooked | raw | disabled }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -162,20 +164,22 @@ init(Args) ->
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
     OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
+
     try
         if
             not IsTTY andalso StartShell; OldShell ->
                 error(enotsup);
             IsTTY, StartShell ->
-                TTYState = prim_tty:init(#{}),
+                TTYState = prim_tty:init(#{ input => raw,
+                                            output => cooked }),
                 init_standard_error(TTYState, true),
-                {ok, init, {Args, #state{ user = start_user() } },
+                {ok, init, {Args, #state{ terminal_mode = raw, user = start_user() } },
                  {next_event, internal, TTYState}};
-           true ->
-                TTYState = prim_tty:init(#{input => maps:get(input, Args, true),
-                                           tty => false}),
+            true ->
+                TTYState = prim_tty:init(
+                             #{ input => maps:get(input, Args), output => raw }),
                 init_standard_error(TTYState, false),
-                {ok, init, {Args,#state{ user = start_user() } },
+                {ok, init, {Args,#state{ terminal_mode = maps:get(input, Args), user = start_user() } },
                  {next_event, internal, TTYState}}
         end
     catch error:enotsup ->
@@ -186,9 +190,9 @@ init(Args) ->
             %% The oldshell mode is important as it is
             %% the mode used when running erlang in an
             %% emacs buffer.
-            CatchTTYState = prim_tty:init(#{tty => false}),
+            CatchTTYState = prim_tty:init(#{ input => cooked, output => raw }),
             init_standard_error(CatchTTYState, false),
-            {ok, init, {Args,#state{ shell_started = old, user = start_user() } },
+            {ok, init, {Args,#state{ terminal_mode = cooked, shell_started = old, user = start_user() } },
              {next_event, internal, CatchTTYState}}
     end.
 
@@ -245,6 +249,7 @@ exit_on_remote_shell_error(_, _, Result) ->
 %% We have been started with -noshell. In this mode the current_group is
 %% the `user` group process.
 init_noshell(State) ->
+    State#state.user ! {self(), terminal_mode, State#state.terminal_mode},
     init_shell(State#state{ shell_started = false }, "").
 
 init_remote_shell(State, Node, {M, F, A}) ->
@@ -336,7 +341,11 @@ init_local_shell(State, InitialShell) ->
 
 init_shell(State, Slogan) ->
 
-    init_standard_error(State#state.tty, State#state.shell_started =:= new),
+    init_standard_error(State#state.tty, State#state.terminal_mode =:= raw),
+
+    %% Tell the reader to read greedily if there is a shell
+    [prim_tty:read(State#state.tty) || State#state.shell_started =/= false],
+
     Curr = gr_cur_pid(State#state.groups),
     put(current_group, Curr),
     {next_state, server, State#state{ current_group = gr_cur_pid(State#state.groups) },
@@ -367,16 +376,28 @@ server({call, From}, {start_shell, Args},
                 not IsTTY andalso StartShell; OldShell ->
                     error(enotsup);
                 IsTTY, StartShell ->
-                    NewTTY = prim_tty:reinit(TTY, #{ }),
-                    State#state{ tty = NewTTY,
-                                 shell_started = new };
-               true ->
-                    NewTTY = prim_tty:reinit(TTY, #{ tty => false }),
-                    State#state{ tty = NewTTY, shell_started = false }
+                    NewTTY = prim_tty:reinit(TTY, #{ input => raw, output => cooked }),
+                    State#state{ tty = NewTTY, terminal_mode = raw, shell_started = new };
+                not StartShell ->
+                    Input = maps:get(input, Args),
+                    if not IsTTY andalso Input =:= raw ->
+                            error(enotsup);
+                       true ->
+                            State#state{
+                              terminal_mode = Input,
+                              tty = prim_tty:reinit(TTY, #{ input => Input,
+                                                            output => raw }),
+                              shell_started = false }
+                    end
             end
         catch error:enotsup ->
-                NewTTYState = prim_tty:reinit(TTY, #{ tty => false }),
-                State#state{ tty = NewTTYState, shell_started = old }
+                NewTTYState = prim_tty:reinit(TTY, #{ input => cooked, output => raw }),
+                Shell = if StartShell ->
+                                old;
+                           true ->
+                                false
+                        end,
+                State#state{ terminal_mode = cooked, tty = NewTTYState, shell_started = Shell }
         end,
     #{ read := ReadHandle, write := WriteHandle } = prim_tty:handles(NewState#state.tty),
     NewHandleState = NewState#state {
@@ -386,7 +407,12 @@ server({call, From}, {start_shell, Args},
     {Result, Reply}
         = case maps:get(initial_shell, Args, undefined) of
               noshell ->
-                  {init_noshell(NewHandleState), ok};
+                  case maps:get(input, Args) =:= NewHandleState#state.terminal_mode of
+                    true ->
+                        {init_noshell(NewHandleState), ok};
+                    false ->
+                        {init_noshell(NewHandleState), {error, enotsup}}
+                    end;
               {remote, Node} ->
                   case init_remote_shell(NewHandleState, Node, {shell, start, []}) of
                       {error, _} = Error ->
@@ -443,6 +469,17 @@ server(info, {ReadHandle,eof}, State = #state{ read = ReadHandle }) ->
     {keep_state, State#state{ read = undefined }};
 server(info,{ReadHandle,{signal,Signal}}, State = #state{ tty = TTYState, read = ReadHandle }) ->
     {keep_state, State#state{ tty = prim_tty:handle_signal(TTYState, Signal) }};
+
+server(info, {Requester, read, N}, State = #state{ tty = TTYState })
+  when Requester =:= State#state.current_group ->
+    %% Only allowed when current_group == user
+    true = State#state.current_group =:= State#state.user,
+    ok = prim_tty:read(TTYState, N),
+    keep_state_and_data;
+
+server(info, {Requester, read, _N}, _State) ->
+    Requester ! {self(), {error, enotsup}},
+    keep_state_and_data;
 
 server(info, {Requester, tty_geometry}, #state{ tty = TTYState }) ->
     case prim_tty:window_size(TTYState) of

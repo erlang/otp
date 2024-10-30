@@ -86,9 +86,9 @@ used for flattening deep lists.
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters mostly used by group
--export([collect_chars/3, collect_chars/4,
-	 collect_line/3, collect_line/4, collect_line_no_eol/4,
-	 get_until/3, get_until/4]).
+-export([collect_chars/1, collect_chars/3, collect_chars/4, collect_chars_eager/4,
+	 collect_line/1, collect_line/3, collect_line/4, collect_line_no_eol/4,
+	 get_until/1, get_until/3, get_until/4]).
 
 %% The following functions were used by Yecc's include-file.
 -export([write_unicode_string/1, write_unicode_char/1,
@@ -1135,6 +1135,25 @@ collect_chars_list(Stack, N, []) ->
 collect_chars_list(Stack,N, [H|T]) ->
     collect_chars_list([H|Stack], N-1, T).
 
+%% Fetch the number of remaining bytes
+-doc false.
+collect_chars({_, _, N}) ->
+    N.
+
+%% A special collect_chars that never returns more_chars,
+%% instead it eagerly stops collecting if it has received
+%% any characters at all.
+-doc false.
+collect_chars_eager(State, Chars, Encoding, N) ->
+    case collect_chars(State, Chars, Encoding, N) of
+        {list, Stack, _N} when Stack =/= [] ->
+            {stop, lists:reverse(Stack), []};
+        {binary, Stack, _N} when Stack =/= [<<>>] ->
+            {stop, binrev(Stack), []};
+        Else ->
+            Else
+    end.
+
 %% collect_line(State, Data, _). New in R9C.
 %%  Returns:
 %%	{stop,Result,RestData}
@@ -1206,6 +1225,11 @@ collect_line_list([H|T], Stack) ->
 collect_line_list([], Stack) ->
     Stack.
 
+%% Return the number of remaing bytes, 0 for unknown.
+-doc false.
+collect_line(_State) ->
+    0.
+
 %% Translator function to emulate a new (R9C and later) 
 %% I/O client when you have an old one.
 %%
@@ -1261,6 +1285,11 @@ binrev(L) ->
 
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
+
+%% Return the number of remaing bytes, 0 for unknown.
+-doc false.
+get_until(_State) ->
+    0.
 
 -doc false.
 -spec limit_term(term(), depth()) -> term().

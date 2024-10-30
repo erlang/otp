@@ -67,11 +67,14 @@
         }).
 
 -record(state,
-        { read_mode :: list | binary,
+        { read_type :: list | binary,
           driver :: pid(),
           echo :: boolean(),
           dumb :: boolean(),
           shell = noshell :: noshell | pid(),
+
+          %% Only used by dumb
+          terminal_mode = cooked :: raw | cooked | disabled,
 
           %% Only used by xterm
           line_history :: [string()] | undefined,
@@ -129,7 +132,7 @@ init([Drv, Shell, Options]) ->
 
     State = #state{
                driver = Drv,
-               read_mode = list,
+               read_type = list,
                dumb = Dumb,
                save_history = not Dumb,
 
@@ -230,9 +233,7 @@ server(info, {io_request,From,ReplyAs,Req}, Data) when is_pid(From), ?IS_INPUT_R
     {next_state,
      if Data#state.dumb orelse not Data#state.echo -> dumb; true -> xterm end,
      Data#state{ input = #input_state{ from = From, reply_as = ReplyAs } },
-     {next_event, internal, Req}};
-server(info, {Drv, echo, Bool}, Data = #state{ driver = Drv }) ->
-    {keep_state, Data#state{ echo = Bool }};
+     {next_event, internal, Req} };
 server(info, {Drv, _}, #state{ driver = Drv }) ->
     %% We postpone any Drv event sent to us as they are handled in xterm or dumb states
     {keep_state_and_data, postpone};
@@ -240,16 +241,29 @@ server(info, Msg, Data) ->
     handle_info(server, Msg, Data).
 
 %% This is the dumb terminal state, also used for noshell and xterm get_password
+
+%% When terminal_mode == raw, the terminal is in '{noshell,raw}'  mode, which means that
+%% for get_until and get_chars we change the behaviour a bit so that characters are
+%% delivered as they are typed instead of at new-lines.
+dumb(internal, {get_chars, Encoding, Prompt, N}, Data = #state{ terminal_mode = raw }) ->
+    dumb(input_request, {collect_chars_eager, N, Prompt, Encoding, fun get_chars_dumb/5}, Data);
+dumb(internal, {get_line, Encoding, Prompt}, Data = #state{ terminal_mode = raw }) ->
+    dumb(input_request, {collect_line, [], Prompt, Encoding, fun get_line_dumb/5}, Data);
+dumb(internal, {get_until, Encoding, Prompt, M, F, As}, Data = #state{ terminal_mode = raw }) ->
+    dumb(input_request, {get_until, {M, F, As}, Prompt, Encoding, fun get_chars_dumb/5}, Data);
+
 dumb(internal, {get_chars, Encoding, Prompt, N}, Data) ->
     dumb(input_request, {collect_chars, N, Prompt, Encoding, fun get_chars_dumb/5}, Data);
 dumb(internal, {get_line, Encoding, Prompt}, Data) ->
     dumb(input_request, {collect_line, [], Prompt, Encoding, fun get_line_dumb/5}, Data);
 dumb(internal, {get_until, Encoding, Prompt, M, F, As}, Data) ->
     dumb(input_request, {get_until, {M, F, As}, Prompt, Encoding, fun get_line_dumb/5}, Data);
+
 dumb(internal, {get_password, _Encoding}, Data) ->
     %% TODO: Implement for noshell by disabling characters echo if isatty(stdin)
     io_reply(Data, {error, enotsup}),
     pop_state(Data);
+
 dumb(input_request, {CollectF, CollectAs, Prompt, Encoding, GetFun},
      Data = #state{ input = OrigInputState }) ->
 
@@ -278,7 +292,7 @@ dumb(data, Buf, Data = #state{ input = #input_state{ prompt_bytes = Pbs, encodin
             io_reply(Data, {error,{no_translation, unicode, latin1}}),
             pop_state(Data#state{ buf = [] });
         {done, NewLine, RemainBuf} ->
-            EncodedLine = cast(NewLine, Data#state.read_mode, Encoding),
+            EncodedLine = cast(NewLine, Data#state.read_type, Encoding),
             case io_lib:CollectF(State, EncodedLine, Encoding, CollectAs) of
                 {stop, eof, _} ->
                     io_reply(Data, eof),
@@ -293,9 +307,11 @@ dumb(data, Buf, Data = #state{ input = #input_state{ prompt_bytes = Pbs, encodin
                     io_reply(Data, {error,err_func(io_lib, CollectF, CollectAs)}),
                     pop_state(Data#state{ buf = [] });
                 NewState ->
+                    [Data#state.driver ! {self(), read, io_lib:CollectF(NewState)} || Data#state.shell =:= noshell],
                     dumb(data, RemainBuf, Data#state{ input = InputState#input_state{ cont = undefined, io_lib_state = NewState } })
             end;
         {more_chars, NewCont} ->
+            [Data#state.driver ! {self(), read, 0} || Data#state.shell =:= noshell],
             {keep_state, Data#state{ input = InputState#input_state{ cont = NewCont } } }
     end;
 
@@ -361,7 +377,7 @@ xterm(data, Buf, Data = #state{ input = #input_state{
     %% Get a single line using edlin
     case get_line_edlin(Buf, Pbs, Cont, Lines, Encoding, Data) of
         {done, NewLines, RemainBuf} ->
-            CurrentLine = cast(edlin:current_line(NewLines), Data#state.read_mode, Encoding),
+            CurrentLine = cast(edlin:current_line(NewLines), Data#state.read_type, Encoding),
             case io_lib:CollectF(start, CurrentLine, Encoding, CollectAs) of
                 {stop, eof, _} ->
                     io_reply(Data, eof),
@@ -395,7 +411,7 @@ xterm(data, Buf, Data = #state{ input = #input_state{
                 {'EXIT',_} ->
                     io_reply(Data, {error,err_func(io_lib, CollectF, CollectAs)}),
                     pop_state(Data#state{ buf = [] });
-                _M ->
+                _NewState ->
                     xterm(data, RemainBuf, Data#state{ input = InputState#input_state{ cont = undefined, lines = NewLines} })
             end;
         {blink, NewCont} ->
@@ -427,6 +443,15 @@ handle_info(State, {Drv, {data, Buf}}, Data = #state{ driver = Drv }) ->
     ?MODULE:State(data, Buf, Data);
 handle_info(State, {Drv, eof}, Data = #state{ driver = Drv }) ->
     ?MODULE:State(data, eof, Data);
+handle_info(_State, {Drv, echo, Bool}, Data = #state{ driver = Drv }) ->
+    {keep_state, Data#state{ echo = Bool } };
+handle_info(_State, {Drv, {error, _} = Error}, Data = #state{ driver = Drv }) ->
+    io_reply(Data, Error),
+    pop_state(Data#state{ buf = [] });
+handle_info(_State, {Drv, terminal_mode, Mode}, Data = #state{ driver = Drv }) ->
+    noshell = Data#state.shell,
+    true = lists:member(Mode, [raw, cooked, disabled]),
+    {keep_state, Data#state{ terminal_mode = Mode }};
 
 handle_info(_State, {io_request, From, ReplyAs, {setopts, Opts}}, Data) ->
     {Reply, NewData} = setopts(Opts, Data),
@@ -717,9 +742,9 @@ do_setopts(Opts, Data) ->
         undefined ->
             ok
     end,
-    ReadMode =
+    ReadType =
         case proplists:get_value(binary, Opts,
-                                 case Data#state.read_mode of
+                                 case Data#state.read_type of
                                      binary -> true;
                                      _ -> false
                                  end) of
@@ -729,7 +754,7 @@ do_setopts(Opts, Data) ->
                 list
         end,
     LineHistory = proplists:get_value(line_history, Opts, true),
-    {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_mode = ReadMode,
+    {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_type = ReadType,
                      save_history = LineHistory }}.
 
 normalize_expand_fun(Options, Default) ->
@@ -758,7 +783,7 @@ getopts(Data) ->
                        _ ->
                            false
                    end},
-    Bin = {binary, case Data#state.read_mode of
+    Bin = {binary, case Data#state.read_type of
                        binary ->
                            true;
                        _ ->
@@ -1087,7 +1112,8 @@ get_line_dumb(Buf, _Pbs, Cont, ToEnc, Data = #state{ driver = Drv }) ->
 
     EditLineRes =
         if
-            Data#state.shell =:= noshell -> edit_line_noshell(cast(Buf, list), Cont, []);
+            Data#state.shell =:= noshell ->
+                edit_line_noshell(cast(Buf, list), Cont, [], Data#state.terminal_mode);
             true -> edit_line_dumb(cast(Buf, list), Cont, [])
         end,
 
@@ -1160,16 +1186,18 @@ edit_line_dumb([Char|Cs],Chars, Rs) ->
     edit_line_dumb(Cs,[Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
 
 %% This is used by noshell to get just get everything until the next \n
-edit_line_noshell(eof, [], _) ->
+edit_line_noshell(eof, [], _, _) ->
     eof;
-edit_line_noshell(eof, Chars, Rs) ->
+edit_line_noshell(eof, Chars, Rs, _) ->
     {done, Chars, eof, lists:reverse(Rs)};
-edit_line_noshell([],Chars, Rs) ->
+edit_line_noshell([],Chars, Rs, _) ->
     {more, Chars, lists:reverse(Rs)};
-edit_line_noshell([NL|Cs],Chars, Rs) when NL =:= $\n ->
+edit_line_noshell([NL|Cs],Chars, Rs, raw) when NL =:= $\r ->
+    {done, [$\n | Chars], Cs, lists:reverse([{put_chars, unicode, "\r\n"}|Rs])};
+edit_line_noshell([NL|Cs],Chars, Rs, _) when NL =:= $\n ->
     {done, [$\n | Chars], Cs, lists:reverse([{put_chars, unicode, "\n"}|Rs])};
-edit_line_noshell([Char|Cs],Chars, Rs) ->
-    edit_line_noshell(Cs, [Char|Chars], [{put_chars, unicode, [Char]}|Rs]).
+edit_line_noshell([Char|Cs],Chars, Rs, TerminalMode) ->
+    edit_line_noshell(Cs, [Char|Chars], [{put_chars, unicode, [Char]}|Rs], TerminalMode).
 
 %% Handling of the line history stack
 new_stack(Ls) -> {stack,Ls,{},[]}.
