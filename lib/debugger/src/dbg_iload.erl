@@ -528,10 +528,17 @@ expr({'fun',Anno,{clauses,Cs0}}, _Lc, St) ->
 expr({'fun',Anno,{function,F,A}}, _Lc, _St) ->
     %% New R8 format (abstract_v2).
     Line = ln(Anno),
-    As = new_vars(A, Line),
-    Name = new_fun_name(),
-    Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
-    {make_fun,Line,Name,Cs};
+    case erl_internal:bif(F, A) of
+        true ->
+            %% Auto-imported BIF. Create an external fun.
+            {value,Line,fun erlang:F/A};
+        false ->
+            %% A local function.
+            As = new_vars(A, Line),
+            Name = new_fun_name(),
+            Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
+            {make_fun,Line,Name,Cs}
+    end;
 expr({named_fun,Anno,FName,Cs0}, _Lc, St) ->
     Cs = fun_clauses(Cs0, St),
     Name = new_fun_name(),
