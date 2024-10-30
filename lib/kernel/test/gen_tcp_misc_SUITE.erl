@@ -5806,7 +5806,7 @@ connector(Config, AccPort, Tester) ->
     ManyPorts = open_ports([]),
     ?P("[connector] length(ManyPorts): ~p", [length(ManyPorts)]),
     Tester ! {self(), sync},
-    ?P("[connector] await continute from tester (~p)", [Tester]),
+    ?P("[connector] await continue from tester (~p)", [Tester]),
     receive {Tester, continue} -> timer:sleep(100) end,
     ?P("[connector] begin connecting"),
     ConnF =
@@ -6502,7 +6502,7 @@ send_timeout_close(Sock) ->
             Pid ! {close, Sock},
             ok;
         {error, Reason} ->
-            ?P("failed transfering ownership to closer process: "
+            ?P("failed transferring ownership to closer process: "
                "~n   ~p", [Reason]),
             exit(Pid, kill),
             (catch gen_tcp:close(Sock))

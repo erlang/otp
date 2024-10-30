@@ -923,7 +923,7 @@ init([]) ->
 %%   received. The init_connect_ack messages are only there to confirm
 %%   that both nodes has the same view of which connect session is
 %%   ongoing. If lockers get out of sync, the lock will not be able
-%%   to be aquired on both nodes. The out of sync lock operation will
+%%   to be acquired on both nodes. The out of sync lock operation will
 %%   be detected when the init_connect_ack message is received and the
 %%   operation can be cancelled and then restarted.
 %%
@@ -1493,8 +1493,8 @@ handle_info({lost_connection, NodeA, XCreationA, OpIdA, NodeB} = Msg,
                               false ->
                                   NodeB;
                               true ->
-                                  %% This toghether with NodeA being known by
-                                  %% us probably is unusal, but can happen
+                                  %% This together with NodeA being known by
+                                  %% us probably is unusual, but can happen
                                   %% since lost_connection messages are
                                   %% reapeted by receiving nodes. All other
                                   %% nodes will remove us, so there is no
@@ -1877,7 +1877,7 @@ restart_connect(Node, MyTag, S0) ->
             %% and send a new init_connect...
             handle_nodeup(Node, S2);
        true ->
-            %% Node is down from our prespective; wait until
+            %% Node is down from our perspective; wait until
             %% global_group say Node is up by sending us a
             %% group_nodeup message...
             S2

@@ -2289,13 +2289,13 @@ net_kernel_start(Config) when is_list(Config) ->
     net_kernel_start_test(MyName, 120, 8, true, true),
     net_kernel_start_test(MyName, undefined, undefined, undefined, undefined).
 
-net_kernel_start_test(MyName, NetTickTime, NetTickIntesity, DistListen, Hidden) ->
+net_kernel_start_test(MyName, NetTickTime, NetTickIntensity, DistListen, Hidden) ->
     TestNameStr = "net_kernel_start_test_node-"
         ++ integer_to_list(erlang:system_time(seconds))
         ++ "-" ++ integer_to_list(erlang:unique_integer([monotonic,positive])),
     TestNode = list_to_atom(TestNameStr ++ "@" ++ atom_to_list(gethostname())),
     CmdLine = net_kernel_start_cmdline(MyName, list_to_atom(TestNameStr),
-                                       NetTickTime, NetTickIntesity, DistListen, Hidden),
+                                       NetTickTime, NetTickIntensity, DistListen, Hidden),
     io:format("Starting test node ~p: ~s~n", [TestNode, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
 	Port when is_port(Port) ->

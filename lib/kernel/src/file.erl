@@ -2698,7 +2698,7 @@ The option list can contain the following options:
       Offset :: non_neg_integer(),
       Bytes :: non_neg_integer(),
       Opts :: [sendfile_option()].
-sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
+sendfile(File, _Sock, _Offset, _Bytes, _Opts) when is_pid(File) ->
     {error, badarg};
 sendfile(File, Sock, Offset, Bytes, []) ->
     sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [], []);

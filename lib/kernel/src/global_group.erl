@@ -390,7 +390,7 @@ request(Req, Time) ->
 	P when is_pid(P) ->
 	    gen_server:call(global_group, Req, Time);
 	_Other -> 
-	    {error, global_group_not_runnig}
+	    {error, global_group_not_running}
     end.
 
 %%%====================================================================================
@@ -739,7 +739,7 @@ handle_call({global_groups_changed, NewPara}, _From,
 
     case GState of
         no_conf ->
-            exit({error, 'no global_groups definiton'});
+            exit({error, 'no global_groups definition'});
         {error, _Err, NodeGrps} ->
             exit({error, {'invalid global_groups definition', NodeGrps}});
         _ ->
@@ -793,7 +793,7 @@ handle_call({global_groups_added, NewPara}, _From,
 
     case GState of
         no_conf ->
-            exit({error, 'no global_groups definiton'});
+            exit({error, 'no global_groups definition'});
         {error, _Err, NodeGrps} ->
             exit({error, {'invalid global_groups definition', NodeGrps}});
         _ ->

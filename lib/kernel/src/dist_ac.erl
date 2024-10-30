@@ -860,7 +860,7 @@ wait_dist_start(Node, Appl, Name, Nodes, PermittedNodes, S, Type) ->
 	    _ = ac_error(Type, Name, {Node, R}),
 	    monitor_node(Node, false),
 	    {Appl#appl.id, false};
-	{dist_ac_weight, Name, _Weigth, Node} ->
+	{dist_ac_weight, Name, _Weight, Node} ->
 	    %% This is the situation: {Name, [RNode, {Node}, node()]}
 	    %% and permit(false) is called on RNode, and we sent the
 	    %% weight first.  Node handled it in handle_info, and

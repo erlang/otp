@@ -856,7 +856,7 @@ how to configure Logger for live systems.
 `Request` is one of the following:
 
 - **`{open, Filename}`** - Opens log file `Filename`. Returns `ok` if
-  successful, or `{error, allready_have_logfile}` if logging to file is already
+  successful, or `{error, already_have_logfile}` if logging to file is already
   enabled, or an error tuple if another error occurred (for example, if
   `Filename` cannot be opened). The file is opened with encoding UTF-8.
 
@@ -868,7 +868,7 @@ how to configure Logger for live systems.
 """.
 -spec logfile(Request :: {open, Filename}) -> ok | {error, OpenReason} when
                   Filename ::file:name(),
-                  OpenReason :: allready_have_logfile | open_error()
+                  OpenReason :: already_have_logfile | open_error()
            ; (Request :: close) -> ok | {error, CloseReason} when
                   CloseReason :: module_not_found
 	   ; (Request :: filename) -> Filename | {error, FilenameReason} when
@@ -878,7 +878,7 @@ how to configure Logger for live systems.
 logfile({open, File}) ->
     case lists:member(error_logger_file_h,which_report_handlers()) of
 	true ->
-	    {error, allready_have_logfile};
+	    {error, already_have_logfile};
 	_ ->
             add_report_handler(error_logger_file_h, File)
     end;

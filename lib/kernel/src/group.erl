@@ -1042,23 +1042,23 @@ get_line_edlin({What,Cont0,Rs}, Drv, State) ->
     {What, {Cont0, State}}.
 
 format_expression(Cont, Drv) ->
-    FormatingCommand = application:get_env(stdlib, format_shell_func, default),
+    FormattingCommand = application:get_env(stdlib, format_shell_func, default),
     Buffer = edlin:current_line(Cont),
     try
-        case FormatingCommand of
+        case FormattingCommand of
             default ->
                 string:trim(Buffer, trailing, "\n");
             {M,F} when is_atom(M), is_atom(F) ->
                 M:F(Buffer);
-            FormatingCommand1 when is_list(FormatingCommand1) ->
-                format_expression1(Buffer, FormatingCommand1)
+            FormattingCommand1 when is_list(FormattingCommand1) ->
+                format_expression1(Buffer, FormattingCommand1)
         end
     catch _:_ ->
-            send_drv_reqs(Drv, [{put_chars, unicode, io_lib:format("* Bad format function: ~tp~n", [FormatingCommand])}]),
+            send_drv_reqs(Drv, [{put_chars, unicode, io_lib:format("* Bad format function: ~tp~n", [FormattingCommand])}]),
             _ = shell:format_shell_func(default),
             string:trim(Buffer, trailing, "\n")
     end.
-format_expression1(Buffer, FormatingCommand) ->
+format_expression1(Buffer, FormattingCommand) ->
     %% Write the current expression to a file, format it with a formatting tool
     %% provided by the user and read the file back
     MkTemp = case os:type() of
@@ -1069,7 +1069,7 @@ format_expression1(Buffer, FormatingCommand) ->
              end,
     TmpFile = string:chomp(MkTemp) ++ ".erl",
     _ = file:write_file(TmpFile, unicode:characters_to_binary(Buffer, unicode)),
-    FormattingCommand1 = string:replace(FormatingCommand, "${file}", TmpFile),
+    FormattingCommand1 = string:replace(FormattingCommand, "${file}", TmpFile),
     _ = os:cmd(FormattingCommand1),
     {ok, Content} = file:read_file(TmpFile),
     _ = file:del_dir_r(TmpFile),

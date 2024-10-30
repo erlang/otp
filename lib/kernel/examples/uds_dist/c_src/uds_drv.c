@@ -118,7 +118,7 @@ typedef enum {
     portTypeCommand,      /* A connected open port in command mode */
     portTypeIntermediate, /* A connected open port in special half 
 			     active mode */
-    portTypeData          /* A connectec open port in data mode */ 
+    portTypeData          /* A connected open port in data mode */ 
 } PortType;
 
 typedef unsigned char Byte;

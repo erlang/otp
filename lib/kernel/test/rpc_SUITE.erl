@@ -88,7 +88,7 @@ end_per_group(_GroupName, Config) ->
 off_heap(_Config) ->
     %% The rex server process may receive a huge amount of
     %% messages. Make sure that they are stored off heap to
-    %% avoid exessive GCs.
+    %% avoid excessive GCs.
     MQD = message_queue_data,
     {MQD,off_heap} = process_info(whereis(rex), MQD),
     ok.
@@ -819,7 +819,7 @@ cast_old_against_new_test([NodeOld], [NodeCurr]) ->
     true = rpc:cast(NodeOld, erlang, send, [Me, {Ref, 3}]),
     true = rpc:cast(NodeCurr, erlang, send, [Me, {Ref, 4}]),
 
-    receive Msg -> error({unexcpected_message, Msg})
+    receive Msg -> error({unexpected_message, Msg})
     after 1000 -> ok
     end.
 

@@ -1165,7 +1165,7 @@ Initiates a new association for socket `Socket`, with the peer
 
 The fundamental difference between this API and `connect/*` is that
 the return value is that of the underlying OS `connect(2)` system call.
-If `ok` is returned, the operation has been succesfully initiated,
+If `ok` is returned, the operation has been successfully initiated,
 and the final result result of the association establishment
 is sent to the socket owner (controlling process) as an
 [`#sctp_assoc_change{}`](#record-sctp_assoc_change) event.

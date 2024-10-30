@@ -3306,7 +3306,7 @@ error_report(Report) ->
 
 %% -------------------------------------------------------------------------
 
-%% formated_timestamp() ->
+%% formatted_timestamp() ->
 %%     format_timestamp(os:timestamp()).
 
 %% format_timestamp(TS) ->
@@ -3317,4 +3317,4 @@ error_report(Report) ->
 
 %% d(F, A) ->
 %%     io:format("*** [~s] ~p ~w " ++ F ++ "~n",
-%%               [formated_timestamp(), self(), ?MODULE | A]).
+%%               [formatted_timestamp(), self(), ?MODULE | A]).

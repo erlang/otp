@@ -33,7 +33,7 @@
          %% Time stuff
          timestamp/0,
          tdiff/2,
-         formated_timestamp/0,
+         formatted_timestamp/0,
          format_timestamp/1,
 
          %% String and format
@@ -101,7 +101,7 @@ tdiff({A1, B1, C1} = _T1x, {A2, B2, C2} = _T2x) ->
     T2 - T1.
 
 
-formated_timestamp() ->
+formatted_timestamp() ->
     format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, _N3} = TS) ->
@@ -121,7 +121,7 @@ print(F) ->
     print(F, []).
 
 print(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+    io:format("~s ~p " ++ F ++ "~n", [formatted_timestamp(), self() | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

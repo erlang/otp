@@ -312,7 +312,7 @@ control_application(AppName) ->
 %%          different view of e.g. the distributed applications.
 %%          This is solved by syncing the release installation.
 %%          However, strange things may happen if a node crashes
-%%          and two other nodes have different opinons about who's
+%%          and two other nodes have different opinions about who's
 %%          gonna start the applications.  The release handler must
 %%          shutdown each involved node in this case.
 %%          Note that this function is used to change existing apps,
@@ -767,7 +767,7 @@ handle_call({permit_application, AppName, Bool}, From, S) ->
 	false ->
 	    case {Bool, IsLoaded, IsStarting, IsSPF, IsStarted, IsRunning} of
 		%%------------------------
-		%% permit the applicaition
+		%% permit the application
 		%%------------------------
 		%% already running
 		{true, _, _, _, _, {value, _Tuple}} ->

@@ -709,13 +709,13 @@ make_hostent(Name, Addrs, Aliases, ?S_AAAA) ->
 	      h_addr_list = Addrs,
 	      h_aliases = Aliases
 	     };
-make_hostent(Name, Datas, Aliases, Type) ->
+make_hostent(Name, Data, Aliases, Type) ->
     %% Use #hostent{} for other Types as well !
     #hostent {
 	      h_name = Name,
 	      h_addrtype = Type,
-	      h_length = length(Datas),
-	      h_addr_list = Datas,
+	      h_length = length(Data),
+	      h_addr_list = Data,
 	      h_aliases = Aliases
 	     }.
 
@@ -1869,7 +1869,7 @@ eq_domains([A | As], [B | Bs]) ->
         is_integer(B), 0 =< B, B =< 16#10FFFF ->
             %% An upper bound of 255 would be right right now,
             %% but this algorithm works for any integer.  That
-            %% guard just gives the compiler the opportuinity
+            %% guard just gives the compiler the opportunity
             %% to optimize bit operations for machine word size,
             %% so we might as well use the Unicode upper bound instead.
             Xor = (A bxor B),
