@@ -4277,7 +4277,9 @@ erts_port_control(Process* c_p,
 	return ERTS_PORT_OP_BADARG;
 
     try_call = !(sched_flags & ERTS_PTS_FLGS_FORCE_SCHEDULE_OP);
+
     binp = NULL;
+    ERTS_UNDEF(br, NULL);       /* Suppress warning. */
 
     if (is_bitstring(data)) {
         ERTS_DECLARE_DUMMY(Eterm br_flags);
