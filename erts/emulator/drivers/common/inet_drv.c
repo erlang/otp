@@ -14693,17 +14693,22 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
               "\r\n", __LINE__,
               desc->s, driver_caller(desc->port), err, errno_str(err)) );
 
-        if ((err != ERRNO_BLOCK) && (err != EINTR)) {
+        if (IS_UDP(desc)) {
             inet_reply_error(desc, err);
             return;
-        }
-        else {
-            /* XXX if(! INET_IGNORED(INETP(desc))) */
-            sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
-            set_busy_port(desc->port, 1);
-            /* XXX add_multi_timer(... desc->send_timeout, ...); */
-            inet_reply_caller_ref(desc);
-            return;
+        } else {
+            if ((err != ERRNO_BLOCK) && (err != EINTR)) {
+                inet_reply_error(desc, err);
+                return;
+            }
+            else {
+                /* XXX if(! INET_IGNORED(INETP(desc))) */
+                sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
+                set_busy_port(desc->port, 1);
+                /* XXX add_multi_timer(... desc->send_timeout, ...); */
+                inet_reply_caller_ref(desc);
+                return;
+            }
         }
     }
     else {
