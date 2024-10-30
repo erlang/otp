@@ -692,7 +692,7 @@ static void free_literal_fragment(ErlHeapFragment *fragment) {
 }
 
 static int parse_decompressed_literals(BeamFile *beam,
-                                       byte *data,
+                                       const byte *data,
                                        uLongf size) {
     BeamFile_LiteralTable *literals;
     BeamFile_LiteralEntry *entries;
@@ -793,8 +793,6 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamReader reader;
 
     Sint32 compressed_size, uncompressed_size;
-    uLongf uncompressed_size_z;
-    byte *uncompressed_data;
     int success;
 
     beamreader_init(chunk->data, chunk->size, &reader);
@@ -803,20 +801,31 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     LoadAssert(beamreader_read_i32(&reader, &uncompressed_size));
     LoadAssert(compressed_size >= 0);
 
-    uncompressed_size_z = uncompressed_size;
-    uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
     success = 0;
 
-    if (erl_zlib_uncompress(uncompressed_data,
-                            &uncompressed_size_z,
-                            reader.head,
-                            compressed_size) == Z_OK) {
+    if (uncompressed_size == 0) {
+        /* Erlang/OTP 28 and later. The literal table is not
+         * compressed. */
         success = parse_decompressed_literals(beam,
-                                              uncompressed_data,
-                                              uncompressed_size_z);
+                                              reader.head,
+                                              reader.end - reader.head);
+    } else {
+        byte *uncompressed_data;
+        uLongf uncompressed_size_z;
+
+        uncompressed_size_z = uncompressed_size;
+        uncompressed_data = erts_alloc(ERTS_ALC_T_TMP, uncompressed_size);
+        if (erl_zlib_uncompress(uncompressed_data,
+                                &uncompressed_size_z,
+                                reader.head,
+                                compressed_size) == Z_OK) {
+            success = parse_decompressed_literals(beam,
+                                                  uncompressed_data,
+                                                  uncompressed_size_z);
+        }
+        erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     }
 
-    erts_free(ERTS_ALC_T_TMP, (void*)uncompressed_data);
     return success;
 }
 

@@ -39,6 +39,7 @@ follows:
 - `indexed_imports ("ImpT")`
 - `labeled_exports ("ExpT")`
 - `labeled_locals ("LocT")`
+- `literals ("LitT")`
 - `locals ("LocT")`
 - `documentation ("Docs")`
 
@@ -231,12 +232,14 @@ computed from the `debug_info` chunk.
 """.
 -type chunkid()   :: nonempty_string(). % approximation of the strings below
 %% "Abst" | "Dbgi" | "Attr" | "CInf" | "ExpT" | "ImpT" | "LocT" | "Atom" | "AtU8" | "Docs"
+%% "LitT"
 -type chunkname() :: 'abstract_code' | 'debug_info'
                    | 'attributes' | 'compile_info'
                    | 'exports' | 'labeled_exports'
                    | 'imports' | 'indexed_imports'
                    | 'locals' | 'labeled_locals'
-                   | 'atoms' | 'documentation'.
+                   | 'atoms' | 'documentation'
+                   | 'literals'.
 -type chunkref()  :: chunkname() | chunkid().
 
 -type attrib_entry()   :: {Attribute :: atom(), [AttributeValue :: term()]}.
@@ -245,6 +248,8 @@ computed from the `debug_info` chunk.
 
 -doc "[EEP-48 documentation format](`e:kernel:eep48_chapter.md#the-docs-format`)".
 -type docs() :: #docs_v1{}.
+
+-type literals() :: {index(), term()}.
 
 -doc """
 The list of attributes is sorted on `Attribute` (in `t:attrib_entry/0`) and each
@@ -263,7 +268,8 @@ order as in the file. The lists of functions are also sorted.
                    | {'locals', [{atom(), arity()}]}
                    | {'labeled_locals', [labeled_entry()]}
                    | {'atoms', [{integer(), atom()}]}
-                   | {'documentation', docs()}.
+                   | {'documentation', docs()}
+                   | {'literals', literals()}.
 
 %% Error reasons
 -type info_rsn()  :: {'chunk_too_big', file:filename(),
@@ -1123,6 +1129,14 @@ chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
     AtomTable = ensure_atoms(AtomTable0, Cs),
     Atoms = ets:tab2list(AtomTable),
     {AtomTable, {Id, lists:sort(Atoms)}};
+chunk_to_data(literals=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
+    try extract_literals(Chunk) of
+        Literals ->
+            {AtomTable, {Id, Literals}}
+    catch
+        _:_ ->
+            error({invalid_chunk, File, chunk_name_to_id(Id, File)})
+    end;
 chunk_to_data(ChunkName, Chunk, File,
 	      Cs, AtomTable, _Mod) when is_atom(ChunkName) ->
     case catch symbols(Chunk, AtomTable, Cs, ChunkName) of
@@ -1146,6 +1160,7 @@ chunk_name_to_id(abstract_code, _)   -> "Abst";
 chunk_name_to_id(debug_info, _)      -> "Dbgi";
 chunk_name_to_id(compile_info, _)    -> "CInf";
 chunk_name_to_id(documentation, _)   -> "Docs";
+chunk_name_to_id(literals, _)        -> "LitT";
 chunk_name_to_id(Other, File) -> 
     error({unknown_chunk, File, Other}).
 
@@ -1244,6 +1259,26 @@ decode_arg_val(<<N:4,0:1, _Tag:3, Code/binary>>) ->
 decode_arg_val(<<High:3,0:1,1:1, _Tag:3, Low, Code0/binary>>) ->
     N = (High bsl 8) bor Low,
     {N, Code0}.
+
+extract_literals(Chunk0) ->
+    Literals0 =
+        case Chunk0 of
+            <<0:32, Chunk/binary>> ->
+                %% Literals are not compressed in Erlang/OTP 28 and
+                %% later.
+                Chunk;
+            <<OriginalSize:32, Chunk1/binary>> ->
+                %% Literals are compressed in Erlang/OTP 27 and
+                %% earlier.
+                Chunk = zlib:uncompress(Chunk1),
+                OriginalSize = byte_size(Chunk), %Sanity check.
+                Chunk
+        end,
+    <<NumLiterals:32, Literals1/binary>> = Literals0,
+    Literals = [binary_to_term(Term) ||
+                   <<N:32, Term:N/binary>> <:= Literals1],
+    NumLiterals = length(Literals),             %Sanity check.
+    lists:zip(lists:seq(0, NumLiterals - 1), Literals).
 
 %%% Utils.
 
