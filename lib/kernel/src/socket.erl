@@ -5187,9 +5187,26 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                     _ = cancel(SockRef, recv, Handle),
                     recv_error(Buf, timeout)
             end;
-        %%
-        {ok, Bin} -> % All requested data
+
+
+        %% All requested data
+        {ok, Bin} when (Length =:= 0) orelse
+                       (Length =:= byte_size(Bin)) -> % All requested data
             {ok, condense_buffer([Bin | Buf])};
+
+        {ok, Bin} -> % Only part of the requested data
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length - byte_size(Bin), Flags,
+                      Deadline, [Bin | Buf]);
+                true ->
+                    recv_error([Bin | Buf], timeout)
+            end;
+
+
         %%
         {error, Reason} ->
             recv_error(Buf, Reason)
