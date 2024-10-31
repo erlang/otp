@@ -29,7 +29,7 @@
 -export([send/3, 
          listen/3, 
          accept/3, 
-         socket/5, 
+         socket/5,
          connect/4, 
          upgrade/3,
 	 setopts/3, 
@@ -114,32 +114,30 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
     end.
 
 upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
-			ssl = SslOptions,
-			emulated = EmOpts, connection_cb = ConnectionCb}, Timeout) ->
+			ssl = SslOpts,
+			emulated = EmOpts}, Timeout) ->
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
     case peername(Transport, Socket) of
-	{ok, {Address, Port}} ->
-	    ssl_gen_statem:connect(ConnectionCb, Address, Port, Socket,
-				   {SslOptions, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
+	{ok, {Host, Port}} ->
+            start_client_fsm(Host, Port, Socket,
+                             {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                             self(), CbInfo, Timeout);
 	{error, Error} ->
 	    {error, Error}
     end.
 
-connect(Address, Port,
+connect(Host, Port,
 	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
-		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
+		emulated = EmOpts, inet_ssl = SocketOpts},
 	Timeout) ->
     {Transport, _, _, _, _} = CbInfo,
-    try Transport:connect(Address, Port,  SocketOpts, Timeout) of
+    try Transport:connect(Host, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnetionCb, Address, Port, Socket,
-				   {SslOpts, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
-	{error, Reason} ->
-	    {error, Reason}
+            start_client_fsm(Host, Port, Socket,
+                             {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                             self(), CbInfo, Timeout);
+        {error, Reason} ->
+            {error, Reason}
     catch
 	exit:{function_clause, _} ->
 	    {error, {options, {cb_info, CbInfo}}};
@@ -149,6 +147,14 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
+start_client_fsm(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
+    try tls_gen_connection:start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
+                                     Timeout)
+    catch
+        exit:{noproc, _} ->
+            {error, ssl_not_started}
+    end.
+
 socket([Receiver, Sender], Transport, Socket, ConnectionCb, Trackers) ->
     #sslsocket{socket_handle = Socket,
                connection_handler = Receiver,
@@ -156,6 +162,7 @@ socket([Receiver, Sender], Transport, Socket, ConnectionCb, Trackers) ->
                transport_cb = Transport,
                connection_cb = ConnectionCb,
                listener_config = Trackers}.
+
 setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
                                      listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),

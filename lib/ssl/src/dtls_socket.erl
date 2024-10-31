@@ -40,6 +40,7 @@
 
 -export([emulated_options/0,
          emulated_options/1,
+         emulated_socket_options/2,
          internal_inet_values/0,
          default_inet_values/0,
          default_cb_info/0]).
@@ -80,16 +81,19 @@ accept({Listener,_}, #config{transport_info = Info,
     end.
 
 connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo,
-                               connection_cb = ConnectionCb,
                                ssl = SslOpts,
                                emulated = EmOpts,
                                inet_ssl = SocketOpts}, Timeout) ->
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
-				   {SslOpts, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
+            try dtls_gen_connection:start_fsm(client, Address, Port, {{Address, Port}, Socket},
+                                              {SslOpts, emulated_socket_options(EmOpts, 
+                                                                                #socket_options{}), undefined},
+                                              self(), CbInfo, Timeout)
+            catch
+                exit:{noproc, _} ->
+                    {error, ssl_not_started}
+            end;
 	{error, _} = Error->	
 	    Error
     end.
@@ -221,7 +225,7 @@ port(Transport, Socket) ->
     Transport:port(Socket).
 
 emulated_options() ->
-    [mode, active,  packet, packet_size].
+    [mode, active].
 
 emulated_options(Opts) ->
       emulated_options(Opts, internal_inet_values(), default_inet_values()).
@@ -230,20 +234,16 @@ internal_inet_values() ->
     [{active, false}, {mode,binary}].
 
 default_inet_values() ->
-    [{active, true}, {mode, list}, {packet, 0}, {packet_size, 0}].
+    [{active, true}, {mode, list}].
 
 default_cb_info() ->
     {gen_udp, udp, udp_closed, udp_error, udp_passive}.
 
 emulated_socket_options(InetValues, #socket_options{
 				       mode   = Mode,
-                                       packet = Packet,
-                                       packet_size = PacketSize,
 				       active = Active}) ->
     #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
-       packet = proplists:get_value(packet, InetValues, Packet),
-       packet_size = proplists:get_value(packet_size, InetValues, PacketSize),
        active = emulated_active_option(InetValues, Active)
       }.
 

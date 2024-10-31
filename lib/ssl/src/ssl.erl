@@ -2347,6 +2347,7 @@ handshake(#sslsocket{connection_handler = Controller} = Socket, Timeout)
 
 handshake(ListenSocket, SslOptions) ->
     handshake(ListenSocket, SslOptions, infinity).
+
 -doc """
 Performs the TLS/DTLS server-side handshake.
 
@@ -2381,6 +2382,7 @@ If option `active` is set to `once`, `true`, or an integer value, the process
 owning the [`sslsocket()`](`t:sslsocket/0`) will receive messages of type
 [`active_msgs()`](`t:active_msgs/0`).
 """.
+
 -doc(#{title => <<"Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
@@ -2404,37 +2406,42 @@ handshake(#sslsocket{connection_cb = tls_gen_connection,
         Tracker = proplists:get_value(option_tracker, Trackers),
 	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
 	ssl_gen_statem:handshake(Socket, {SslOpts,
-					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+                                          tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, 
+                                 Timeout)
     catch
-	Error = {error, _Reason} -> Error
+        Error = {error, _Reason} -> Error
     end;
-handshake(#sslsocket{socket_handle = {Controller,_}, connection_cb = dtls_gen_connection} = Socket, SslOpts, Timeout)
+handshake(#sslsocket{socket_handle = {Controller,_}, connection_cb = dtls_gen_connection} = Socket, 
+          SslOpts, Timeout)
   when is_list(SslOpts), ?IS_TIMEOUT(Timeout) ->
     try
         {ok, EmOpts, _} = dtls_packet_demux:get_all_opts(Controller),
 	ssl_gen_statem:handshake(Socket, {SslOpts,
-                                          tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
+                                          dtls_socket:emulated_socket_options(EmOpts, 
+                                                                              #socket_options{})}, Timeout)
     catch
-	Error = {error, _Reason} -> Error
+        Error = {error, _Reason} -> Error
     end;
 handshake(Socket, SslOptions, Timeout)
   when is_list(SslOptions), ?IS_TIMEOUT(Timeout) ->
     try
         CbInfo = handle_option_cb_info(SslOptions, tls),
         Transport = element(1, CbInfo),
-        ConnetionCb = connection_cb(SslOptions),
         {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} =
             handle_options(Transport, Socket, SslOptions, server, undefined),
         ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
         {ok, Port} = tls_socket:port(Transport, Socket),
         {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-        ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
-                                 {SslOpts, 
-                                  tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
-                                  [{session_id_tracker, SessionIdHandle}]},
-                                 self(), CbInfo, Timeout)
+        tls_gen_connection:start_fsm(server, "localhost", Port, Socket,
+                                     {SslOpts,
+                                      tls_socket:emulated_options(EmOpts),
+                                      [{session_id_tracker, SessionIdHandle}]},
+                                     self(), CbInfo, Timeout)
     catch
-        Error = {error, _Reason} -> Error
+        exit:{noproc, _} ->
+	    {error, ssl_not_started};
+        Error = {error, _Reason} ->
+            Error
     end.   
 
 %%--------------------------------------------------------------------
@@ -5163,10 +5170,7 @@ make_next_protocol_selector(What) ->
 connection_cb(tls) ->
     tls_gen_connection;
 connection_cb(dtls) ->
-    dtls_gen_connection;
-connection_cb(Opts) ->
-    connection_cb(proplists:get_value(protocol, Opts, tls)).
-
+    dtls_gen_connection.
 
 %% Assert that basic options are on the format {Key, Value}
 %% with a few exceptions and phase out log_alert 
