@@ -175,11 +175,11 @@ jobs:
 
   build-macos:
     name: Build Erlang/OTP (macOS)
-    runs-on: macos-12
+    runs-on: macos-15
     needs: pack
     if: needs.pack.outputs.c-code-changes
     env:
-      WXWIDGETS_VERSION: 3.1.5
+      WXWIDGETS_VERSION: 3.2.6
     steps:
       - uses: actions/checkout@v4.2.1
 
@@ -193,7 +193,7 @@ jobs:
         uses: actions/cache@v4.1.1
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh')}}-12
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh')}}-15
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
@@ -226,7 +226,7 @@ jobs:
       RELEASE_LIBBEAM: yes
       TARGET_ARCH: aarch64-apple-ios
     name: Build Erlang/OTP (iOS)
-    runs-on: macos-12
+    runs-on: macos-15
     needs: pack
     steps:
       - uses: actions/checkout@v4.2.1
@@ -260,7 +260,7 @@ jobs:
       run:
         shell: wsl-bash {0}
     env:
-      WXWIDGETS_VERSION: 3.1.4
+      WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2022
     needs: pack
