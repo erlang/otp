@@ -63,7 +63,7 @@ defmodule Smoke.MixProject do
 	  {:zotonic_stdlib, "~> 1.0"},
 	]
       'rabbitmq' ->
-	[{:rabbit_common, "~> 3.7"}]
+	[{:rabbit_common, "~> 3.7.20"}]
       _ ->
 	[]
     end
