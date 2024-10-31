@@ -1205,9 +1205,7 @@ init_dict([{K,V}|Ds]) ->
     init_dict(Ds);
 init_dict([]) -> true.
 
-
--doc "Print the help for all shell internal commands.".
--spec help() -> true.
+-doc false.
 help() ->
     S = ~"""
          ** shell internal commands **
