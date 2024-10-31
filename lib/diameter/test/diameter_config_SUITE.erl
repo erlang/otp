@@ -232,30 +232,48 @@ end_per_suite(Config) ->
     ?DUTIL:end_per_suite(Config).
 
 
-start_service(_Config) ->
+start_service(Config) ->
     ?CL("~w -> entry", [?FUNCTION_NAME]),
+    put(dia_factor, dia_factor(Config)),
     Res = run([?FUNCTION_NAME]),
     ?CL("~w -> done when"
         "~n   Res: ~p", [?FUNCTION_NAME, Res]),
     Res.
 
-add_transport(_Config) ->
+add_transport(Config) ->
     ?CL("~w -> entry", [?FUNCTION_NAME]),
+    put(dia_factor, dia_factor(Config)),
     Res = run([?FUNCTION_NAME]),
     ?CL("~w -> done when"
         "~n   Res: ~p", [?FUNCTION_NAME, Res]),
     Res.
 
+dia_factor(Config) ->
+    {value, {?FUNCTION_NAME, DiaFactor}} =
+        lists:keysearch(?FUNCTION_NAME, 1, Config),
+    DiaFactor.
 
 %% ===========================================================================
+
+%% Factor: >= 1
+to(Base, Factor) when (Factor >= 0) ->
+    round(Base * (((Factor-1) + 10) / 10)).
 
 run() ->
     run(all()).
 
 run(List)
   when is_list(List) ->
+    BaseTo = 5000,
+    To = case get(dia_factor) of
+             undefined ->
+                 BaseTo;
+             DF when is_integer(DF) ->
+                 to(BaseTo, DF)
+         end,
+    ?CL("~w -> timeout calculated to ~w", [?FUNCTION_NAME, To]),
     try
-        ?RUN([[[fun run/1, {F, 5000}] || F <- List]])
+        ?RUN([[[fun run/1, {F, To}] || F <- List]])
     after
         dbg:stop(),
         diameter:stop()
@@ -265,7 +283,7 @@ run({F, Tmo}) ->
     ?CL("~w -> entry - try start diameter", [?FUNCTION_NAME]),
     ok = diameter:start(),
     try
-        ?CL("~w -> try - start diameter", [?FUNCTION_NAME]),
+        ?CL("~w -> try - run ~p", [?FUNCTION_NAME, F]),
         ?RUN([{[fun run/1, F], Tmo}])
     after
         ?CL("~w -> after - try stop diameter", [?FUNCTION_NAME]),

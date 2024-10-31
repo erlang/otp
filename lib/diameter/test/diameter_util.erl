@@ -481,7 +481,7 @@ eval({F, Tmo})
     ?UL("eval(~p) -> entry", [Tmo]),
     %% Since this function is used for all kinds of functions,
     %% a timeout is not very informative, so include the "function".
-    {ok, _} = timer:exit_after(Tmo, {timeout, F}),
+    {ok, _} = timer:exit_after(Tmo, {timeout, F, Tmo}),
     eval(F);
 
 eval({M,[F|A]})
