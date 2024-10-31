@@ -203,7 +203,7 @@ will_succeed(Mod, Func, Args) ->
 
 max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
     Union = meet(Union, #t_tuple{}),            %Assertion.
-    Arities = [Arity || {{Arity, _Tag}, _Record} <- Set],
+    Arities = [Arity || {{Arity, _Tag}, _Record} <:- Set],
     lists:max(Arities);
 max_tuple_size(#t_tuple{exact=true,size=Size}) ->
     Size;

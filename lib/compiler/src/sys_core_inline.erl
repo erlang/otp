@@ -123,7 +123,7 @@ inline(Fs0, St0) ->
     %% Use fixed inline functions on all functions.
     Fs = [inline_func(F, Is1) || F <- Fs2],
     %% Regenerate module body.
-    [Def || #fstat{def=Def} <- Fs].
+    [Def || #fstat{def=Def} <:- Fs].
 
 %% is_inlineable(Fstat, Thresh, [Inline]) -> boolean().
 

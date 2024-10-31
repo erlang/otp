@@ -142,7 +142,7 @@ in_edges(#dg{in_es=InEsMap}, V) ->
 
 -spec in_neighbours(graph(), vertex()) -> [vertex()].
 in_neighbours(#dg{in_es=InEsMap}, V) ->
-    [From || {From,_,_} <- maps:get(V, InEsMap, [])].
+    [From || {From,_,_} <:- maps:get(V, InEsMap, [])].
 
 -spec is_path(graph(), vertex(), vertex()) -> boolean().
 is_path(G, From, To) ->
@@ -180,7 +180,7 @@ out_edges(#dg{out_es=OutEsMap}, V) ->
 
 -spec out_neighbours(graph(), vertex()) -> [vertex()].
 out_neighbours(#dg{out_es=OutEsMap}, V) ->
-    [To || {_,To,_} <- maps:get(V, OutEsMap, [])].
+    [To || {_,To,_} <:- maps:get(V, OutEsMap, [])].
 
 -spec no_vertices(graph()) -> non_neg_integer().
 no_vertices(#dg{vs=Vs}) ->

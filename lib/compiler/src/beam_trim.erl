@@ -394,7 +394,7 @@ frame_layout(N, Killed, {U,_}) ->
     Is = [[{R,{live,R}} || R <- U],
           [{R,{dead,R}} || R <- Dead],
           [{R,{kill,R}} || R <- Killed]],
-    [I || {_,I} <- lists:merge(Is)].
+    [I || {_,I} <:- lists:merge(Is)].
 
 %% usage([Instruction], SafeLabels) -> {FrameSize,[UsedYRegs]}
 %%  Find out the frame size and usage information by looking at the

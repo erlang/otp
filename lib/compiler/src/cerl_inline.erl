@@ -835,8 +835,8 @@ add_match_bindings(Bs, E) ->
 	true ->
 	    E;
 	false ->
-	    Vs = [V || {V, E} <- Bs, E =/= any],
-	    Es = [hd(get_ann(E)) || {_V, E} <- Bs, E =/= any],
+	    Vs = [V || {V, E} <:- Bs, E =/= any],
+	    Es = [hd(get_ann(E)) || {_V, E} <:- Bs, E =/= any],
 	    c_let(Vs, c_values(Es), E)
     end.
 
@@ -935,7 +935,7 @@ i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
                            S, Es),
 
     %% Then we make recursive bindings for the definitions.
-    {Rs, Ren1, Env1, S2} = bind_recursive([F || {F, _} <- Es],
+    {Rs, Ren1, Env1, S2} = bind_recursive([F || {F, _} <:- Es],
                                           Opnds, Ren, Env, S1),
     
     %% For the function variables listed in Xs (none for a

@@ -346,7 +346,7 @@ build_map_key({list,_,Elems}, Env) ->
 build_map_key({tuple,_,Elems}, Env) ->
     list_to_tuple([build_map_key(E, Env) || E <- Elems]);
 build_map_key({map,_,Elems}, Env) ->
-    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <- Elems};
+    #{build_map_key(K, Env) => build_map_key(V, Env) || {K,V} <:- Elems};
 build_map_key({var,_,V}, Env) ->
     map_get(V, Env);
 build_map_key(_Key, _Env) ->

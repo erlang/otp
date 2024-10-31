@@ -207,7 +207,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, ExtraChunks0, CompileInfo, Com
 
     %% Compile all extra chunks.
 
-    CheckedChunks = [chunk(Key, Value) || {Key, Value} <- ExtraChunks],
+    CheckedChunks = [chunk(Key, Value) || {Key, Value} <:- ExtraChunks],
 
     %% Create IFF chunk.
 
@@ -284,7 +284,7 @@ build_atom_table(Options, Dict) ->
     case member(no_long_atoms, Options) of
         false ->
             %% Build an atom table for Erlang/OTP 28 and later.
-            AtomTab = [[encode(?tag_u, Len),Text] || [Len,Text] <- AtomTab0],
+            AtomTab = [[encode(?tag_u, Len),Text] || [Len,Text] <:- AtomTab0],
             chunk(<<"AtU8">>, <<-NumAtoms:32>>, AtomTab);
         true ->
             %% Build an atom table compatible with Erlang/OTP 27

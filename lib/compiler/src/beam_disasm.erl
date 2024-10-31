@@ -295,7 +295,7 @@ beam_disasm_code(<<_SS:32, % Sub-Size (length of information before code)
 	    [function__code_update(Function,
 				   resolve_names(Is, Imports, Str,
 						 Labels, Lambdas, Literals, M))
-	     || Function = #function{code=Is} <- Functions]
+	     || Function = #function{code=Is} <:- Functions]
     catch
 	error:Rsn ->
 	    ?NO_DEBUG('code disassembling failed: ~p~n', [Rsn]),
@@ -1398,7 +1398,8 @@ decode_field_flags(FieldFlags) when is_integer(FieldFlags) ->
 %%-----------------------------------------------------------------------
 
 mk_imports(ImportList) ->
-    gb_trees:from_orddict([{I,{extfunc,M,F,A}} || {I,M,F,A} <- ImportList]).
+    gb_trees:from_orddict([{I,{extfunc,M,F,A}} ||
+                              {I,M,F,A} <:- ImportList]).
 
 mk_atoms(AtomList) ->
     gb_trees:from_orddict(AtomList).

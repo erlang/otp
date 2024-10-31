@@ -667,7 +667,7 @@ intersect_uses(UsageMap, RefMap, Graph) ->
                               [begin
                                    Vertex = {FuncId, Lbl},
                                    {Vertex, Ref}
-                               end || {Lbl, _I, Ref} <- Uses] ++ Acc
+                               end || {Lbl, _I, Ref} <:- Uses] ++ Acc
                       end, [], UsageMap),
     intersect_uses_1(Roots, RefMap, Graph, #{}).
 
@@ -723,7 +723,7 @@ plan_markers(Candidates, UsageMap) ->
               end, #{}, Candidates).
 
 plan_markers_1(MakeRefs0, FuncId, UsageMap) ->
-    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <- MakeRefs0,
+    [Marker || {_, _, _, ExtractedAt, Ref}=Marker <:- MakeRefs0,
                case UsageMap of
                    #{ {FuncId, ExtractedAt} := Refs } ->
                        sets:is_element(Ref, Refs);

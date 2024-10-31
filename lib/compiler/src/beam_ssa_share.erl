@@ -215,7 +215,7 @@ are_equivalent(_, _, _, _, _) -> false.
 share_switch(#b_switch{fail=Fail0,list=List0}=Sw, Blocks) ->
     Prep = share_prepare_sw([{value,Fail0}|List0], Blocks, 0, []),
     Res = do_share_switch(Prep, Blocks, []),
-    [{_,Fail}|List] = [VL || {_,VL} <- sort(Res)],
+    [{_,Fail}|List] = [VL || {_,VL} <:- sort(Res)],
     Sw#b_switch{fail=Fail,list=List}.
 
 share_prepare_sw([{V,L0}|T], Blocks, N, Acc) ->
@@ -245,7 +245,7 @@ share_switch_2([[{done,{_,{_,Common}}}|_]=Eqs|T], Blocks, Acc0) ->
     %% are either terminated with a `ret` or a `br` to the same target
     %% block. Replace the labels in the `switch` for all of those
     %% blocks with the label for the first of the blocks.
-    Acc = [{N,{V,Common}} || {done,{N,{V,_}}} <- Eqs] ++ Acc0,
+    Acc = [{N,{V,Common}} || {done,{N,{V,_}}} <:- Eqs] ++ Acc0,
     share_switch_2(T, Blocks, Acc);
 share_switch_2([[{_,_}|_]=Prep|T], Blocks, Acc0) ->
     %% Two or more blocks are semantically equivalent, but they have

@@ -119,7 +119,7 @@ quote_source_2(Bin, Enc, StartLine, StartCol, EndLine, EndCol, Ctx) ->
                         Before ++ [{0, "..."}] ++ After
                 end,
             Lines2 = decorate(Lines1, StartLine, StartCol, EndLine, EndCol),
-            [[fmt_line(L, Text) || {L, Text} <- Lines2], $\n]
+            [[fmt_line(L, Text) || {L, Text} <:- Lines2], $\n]
     end.
 
 line_prefix() ->

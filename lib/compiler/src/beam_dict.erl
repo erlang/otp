@@ -261,7 +261,7 @@ atom_table(#asm{atoms=Atoms}) ->
     {NumAtoms,[begin
                    L = atom_to_binary(A, utf8),
                    [byte_size(L),L]
-               end || {A,_} <- Sorted]}.
+               end || {A,_} <:- Sorted]}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
@@ -283,7 +283,7 @@ export_table(#asm{exports = Exports}) ->
 
 import_table(#asm{imports=Imp,next_import=NumImports}) ->
     Sorted = lists:keysort(2, gb_trees:to_list(Imp)),
-    ImpTab = [MFA || {MFA,_} <- Sorted],
+    ImpTab = [MFA || {MFA,_} <:- Sorted],
     {NumImports,ImpTab}.
 
 -spec string_table(bdict()) -> {non_neg_integer(), binary()}.
@@ -295,15 +295,15 @@ string_table(#asm{strings=Strings,string_offset=Size}) ->
 
 lambda_table(#asm{locals=Loc0,exports=Ext0,lambdas={NumLambdas,Lambdas0}}) ->
     Lambdas1 = sofs:relation(Lambdas0),
-    Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Loc0]),
-    Ext = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <- Ext0]),
+    Loc = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <:- Loc0]),
+    Ext = sofs:relation([{Lbl,{F,A}} || {F,A,Lbl} <:- Ext0]),
     All = sofs:union(Loc, Ext),
     Lambdas2 = sofs:relative_product1(Lambdas1, All),
     %% Initialize OldUniq to 0. It will be set to an unique value
     %% based on the MD5 checksum of the BEAM code for the module.
     OldUniq = 0,
     Lambdas = [<<F:32,A:32,Lbl:32,Index:32,NumFree:32,OldUniq:32>> ||
-                  {{Index,Lbl,NumFree},{F,A}} <- sofs:to_external(Lambdas2)],
+                  {{Index,Lbl,NumFree},{F,A}} <:- sofs:to_external(Lambdas2)],
     {NumLambdas,Lambdas}.
 
 %% Returns the literal table.
@@ -318,7 +318,7 @@ literal_table(#asm{literals=Tab,next_literal=NumLiterals}) ->
 			   [{Num,Lit}|Acc]
 		   end, [], Tab),
     L1 = lists:sort(L0),
-    L = [[<<(byte_size(Term)):32>>,Term] || {_,Term} <- L1],
+    L = [[<<(byte_size(Term)):32>>,Term] || {_,Term} <:- L1],
     {NumLiterals,L}.
 
 my_term_to_binary(Term) ->
@@ -352,10 +352,10 @@ line_table(#asm{fnames=Fnames0,lines=Lines0,
                 num_lines=NumLineInstrs,exec_line=ExecLine}) ->
     NumFnames = maps:size(Fnames0),
     Fnames1 = lists:keysort(2, maps:to_list(Fnames0)),
-    Fnames = [Name || {Name,_} <- Fnames1],
+    Fnames = [Name || {Name,_} <:- Fnames1],
     NumLines = maps:size(Lines0),
     Lines1 = lists:keysort(2, maps:to_list(Lines0)),
-    Lines = [L || {L,_} <- Lines1],
+    Lines = [L || {L,_} <:- Lines1],
     {NumLineInstrs,NumFnames,Fnames,NumLines,Lines,ExecLine}.
 
 %% Search for binary string Str in the binary string pool Pool.

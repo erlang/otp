@@ -401,7 +401,7 @@ ois_1([], _Blocks, _Ts) ->
     true.
 
 ois_successors(#b_switch{fail=Fail,list=List}, _Ts) ->
-    Lbls = [Lbl || {_, Lbl} <- List],
+    Lbls = [Lbl || {_, Lbl} <:- List],
     [Fail | Lbls];
 ois_successors(#b_br{bool=Bool,succ=Succ,fail=Fail}, Ts) ->
     case beam_types:get_singleton_value(ois_get_type(Bool, Ts)) of

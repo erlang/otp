@@ -321,7 +321,7 @@ expr(#c_let{vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
     %% Break known multiple values into separate sets.
     Sets = case Ka of
                #ivalues{args=Kas} ->
-                   [#iset{vars=[V],arg=Val} || {V,Val} <- zip(Kps, Kas)];
+                   [#iset{vars=[V],arg=Val} || {V,Val} <:- zip(Kps, Kas)];
                _Other ->
                    [#iset{vars=Kps,arg=Ka}]
            end,
@@ -1451,7 +1451,7 @@ reorder_bin_ints(Cs0) ->
     %% * The patterns that follow are also safe to re-order.
     try
         Cs = sort([{reorder_bin_int_sort_key(C),C} || C <- Cs0]),
-        [C || {_,C} <- Cs]
+        [C || {_,C} <:- Cs]
     catch
         throw:not_possible ->
             Cs0
@@ -1692,7 +1692,7 @@ new_clauses(Cs, #b_var{name=U}) ->
                            #cg_bin_int{next=N} ->
                                [N|As];
                            #cg_map{op=exact,es=Es} ->
-                               Vals = [V || #cg_map_pair{val=V} <- Es],
+                               Vals = [V || #cg_map_pair{val=V} <:- Es],
                                Vals ++ As;
                            _Other ->
                                As
@@ -1802,7 +1802,7 @@ do_squeeze_clauses(Cs, Size, Count) when Count >= 16; Size =< 1 ->
     Cs;
 do_squeeze_clauses(Cs, Size, _Count) ->
     [C#iclause{pats=[squeeze_segments(P, Size)|Pats]} ||
-        #iclause{pats=[P|Pats]}=C <- Cs].
+        #iclause{pats=[P|Pats]}=C <:- Cs].
 
 squeeze_segments(BinSeg, Size) ->
     squeeze_segments(BinSeg, 0, 0, Size).
@@ -1919,7 +1919,7 @@ arg_val(Arg, C) ->
                          %% Literals will sort before variables
                          %% as intended.
                          erts_internal:cmp_term(A, B) < 0
-                 end, [Key || #cg_map_pair{key=Key} <- Es])
+                 end, [Key || #cg_map_pair{key=Key} <:- Es])
     end.
 
 %%%
