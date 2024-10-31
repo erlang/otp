@@ -30,6 +30,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>With this change, ssh connection does not crash upon
+	    receiving exit-signal message for an already terminated
+	    channel.</p>
+          <p>
+	    Own Id: OTP-19326 Aux Id: PR-8995, GH-8929 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

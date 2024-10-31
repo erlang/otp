@@ -33,6 +33,23 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.26.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>With this change, prefix option can be specified in
+	    cth_conn_log option list. Option allows to specify how
+	    much of additional information is added in raw log
+	    output.</p>
+          <p>
+	    Own Id: OTP-19293 Aux Id: ERIERL-1139, PR-8924, PR-8931 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.26.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

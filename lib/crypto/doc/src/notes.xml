@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 5.4.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed bug that could cause blocking scheduler threads
+	    in <c>crypto:supports(curves)</c> if called the first
+	    time by more than one Erlang process. Bug exists only in
+	    OTP-26.2.5.4.</p>
+          <p>
+	    Own Id: OTP-19316 Aux Id: GH-8971, PR-8979 </p>
+        </item>
+        <item>
+	    <p>Fixed <c>crypto:hash_final/1</c> for digest types
+	    <c>shake128</c> and <c>shake256</c> when using OpenSSL
+	    3.4 or newer.</p>
+          <p>
+	    Own Id: OTP-19329 Aux Id: GH-8997, PR-9002 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 5.4.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
