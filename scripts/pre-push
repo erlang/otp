@@ -230,18 +230,20 @@ then
 		    exit 1
 		fi
 
-		# Check for fixup! commits
-		FIXUPS=`git log --format='format:%h: %s' $remote_sha..$local_sha | grep -E '^\w+: fixup!'`
-		if [ -n "$FIXUPS" ]
+		# Check for invalid commit messages
+		INVALID_MSG='(fixup!|squash!|TEST|DEBUG)'
+		BAD_COMMITS=`git log --format='format:%h: %s' $remote_sha..$local_sha | grep -E "^\w+: $INVALID_MSG"`
+		if [ -n "$BAD_COMMITS" ]
 		then
 		    error_color
 		    echo "$0 says:"
 		    echo "***"
-		    echo "*** \"fixup!\" commit found: NOT ALLOWED!!!!"
+		    echo "*** Forbidden commit message found!!!!"
+		    echo "*** Not allowed: $INVALID_MSG"
 		    echo "***"
 		    notice_color
 		    cat <<EOF
-$FIXUPS
+$BAD_COMMITS
 
 EOF
 		    reset_color
