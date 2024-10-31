@@ -23,9 +23,9 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("tls_record.hrl").
--include("ssl_cipher.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/tls_record.hrl").
+-include_lib("ssl/src/ssl_cipher.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Callback functions
 -export([all/0,

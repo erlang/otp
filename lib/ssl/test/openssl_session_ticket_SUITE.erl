@@ -57,7 +57,7 @@
          openssl_client_early_data_basic/1]).
 
 -include("ssl_test_lib.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 

@@ -23,7 +23,7 @@
 
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 
 %% Common test
 -export([all/0,
