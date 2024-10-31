@@ -135,6 +135,13 @@
       is set to <c>html</c>, all Telnet communication is printed to the test
       case HTML log instead.</p>
 
+      <p>For raw logs, <c>prefix</c> option can be used for adjusting
+      prefix data added to connection log. The default value of this
+      option is <c>disabled</c>, which results with no prefix data. If
+      the value is set to <c>full</c> prefix contains timestamp and
+      additonal information. If the value is set to <c>short</c>
+      prefix includes only human readable timestamp.</p>
+
     <p>All <c>cth_conn_log</c> hook options described can also be
       specified in a configuration file with configuration variable
       <c>ct_conn_log</c>.</p>
