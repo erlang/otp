@@ -9695,6 +9695,7 @@ the `CpuTopology` type to change.
          (scheduler_id) -> SchedulerId :: pos_integer();
          (schedulers | schedulers_online) -> pos_integer();
          (smp_support) -> boolean();
+         (snifs) -> [mfa()];
          (start_time) -> integer();
          (system_architecture) -> string();
          (system_logger) -> logger | undefined | pid();
