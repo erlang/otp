@@ -1775,6 +1775,11 @@ Certificate related options for a server.
   certificate request message that is sent when the option `verify` is set to
   `verify_peer`. Defaults to `true`.
 
+  If set to `false` for older TLS versions its corresponding certificate authorities
+  definition in its certificate request will be set to the empty list instead of
+  including the appropriate certificate authorities. This has the same affect
+  as excluding the TLS-1.3 extension.
+
   A reason to exclude the extension would be if the server wants to communicate
   with clients incapable of sending complete certificate chains that adhere to the
   extension, but the server still has the capability to recreate a chain that it
@@ -4134,8 +4139,12 @@ opt_cacerts(UserOpts, #{verify := Verify, log_level := LogLevel, versions := Ver
                         [{verify, verify_peer}, {cacerts, undefined}]),
 
     {Where2, CA} = get_opt_bool(certificate_authorities, Role =:= server, UserOpts, Opts),
-    assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3']),
-
+    case Role of
+        server ->
+            assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', 'tlsv1']);
+        client ->
+            assert_version_dep(Where2 =:= new, certificate_authorities, Versions, ['tlsv1.3'])
+    end,
     Opts1 = set_opt_new(new, cacertfile, <<>>, CaCertFile, Opts),
     Opts2 = set_opt_new(Where2, certificate_authorities, Role =:= server, CA, Opts1),
     Opts2#{cacerts => CaCerts}.

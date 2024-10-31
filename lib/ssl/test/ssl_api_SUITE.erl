@@ -2774,6 +2774,7 @@ options_certificate_authorities(_Config) ->
     ?OK(#{certificate_authorities := true}, [{certificate_authorities, true}], client),
     ?OK(#{}, [{certificate_authorities, false}], client, [certificate_authorities]),
     ?OK(#{certificate_authorities := false}, [{certificate_authorities, false}], server),
+    ?OK(#{certificate_authorities := false}, [{certificate_authorities, false}, {versions, ['tlsv1.2']}], server),
     ?OK(#{}, [{certificate_authorities, true}], server, [certificate_authorities]),
 
     %% Errors
