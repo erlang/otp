@@ -1575,7 +1575,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
     ErtsMessage *mp;
     ErlHeapFragment *hfrag;
     ErlOffHeap *ohp;
-    Uint hsz, from_sz, reason_sz, ref_sz, token_sz, dist_ext_sz = 0;
+    Uint hsz = 0, from_sz, reason_sz, ref_sz, token_sz, dist_ext_sz = 0;
     int seq_trace, has_token;
     Process *c_p;
 #ifdef USE_VM_PROBES
@@ -1610,12 +1610,12 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
 
     has_token = !is_nil(token);
     if (has_token) {
-        hsz = sizeof(ErtsSeqTokenExitSignalData)/sizeof(Eterm);
+        hsz += sizeof(ErtsSeqTokenExitSignalData)/sizeof(Eterm);
         token_sz = size_object(token);
         hsz += token_sz;
     }
     else {
-        hsz = sizeof(ErtsExitSignalData)/sizeof(Eterm);
+        hsz += sizeof(ErtsExitSignalData)/sizeof(Eterm);
         token_sz = 0;
     }
 
