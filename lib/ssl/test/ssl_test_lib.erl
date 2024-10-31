@@ -3532,8 +3532,8 @@ portable_open_port("openssl" = Exe, Args0) ->
     case IsWindows andalso os:getenv("WSLENV") of
         false ->
             AbsPath = os:find_executable(Exe),
-            ?CT_LOG("open_port({spawn_executable, ~p}, [stderr_to_stdout,~n {args, \"~s\"}]).",
-		 [AbsPath, lists:join($\s, Args0)]),
+            %% ?CT_LOG("open_port({spawn_executable, ~p}, [stderr_to_stdout,~n {args, \"~s\"}]).",
+	    %%      [AbsPath, lists:join($\s, Args0)]),
             open_port({spawn_executable, AbsPath},
                       [{args, Args0}, stderr_to_stdout]);
 	_ ->

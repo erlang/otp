@@ -47,7 +47,6 @@ setup(Name) ->
             PeerOptions =
                 #{name => NameStr,
                   host => Host},
-            ?CT_LOG("PeerOptions: ~p~n", [PeerOptions]),
             {ok, _Pid, Node} =
                 peer:start(
                   case Remote of
@@ -61,7 +60,6 @@ setup(Name) ->
             Path = code:get_path(),
             true = erpc:call(Node, code, set_path, [Path]),
             ok = erpc:call(Node, ?MODULE, setup_server, [node()]),
-            ?CT_LOG("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
             (Node =:= node()) andalso restrict_schedulers(client),
             Node
     end.
@@ -74,7 +72,6 @@ find_executable(Prog) ->
 
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
-    ?CT_PAL("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
     ok.
 
 restrict_schedulers(Type) ->

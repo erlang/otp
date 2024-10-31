@@ -25,11 +25,11 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssl_alert.hrl").
--include("ssl_handshake.hrl").
--include("ssl_internal.hrl").
--include("ssl_record.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_handshake.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
