@@ -122,6 +122,14 @@ limitations under the License.
 [GH-7972]: https://github.com/erlang/otp/issues/7972
 [PR-8112]: https://github.com/erlang/otp/pull/8112
 
+## Common_Test 1.26.2.2
+
+### Improvements and New Features
+
+* With this change, prefix option can be specified in cth_conn_log option list. Option allows to specify how much of additional information is added in raw log output.
+
+  Own Id: OTP-19293 Aux Id: ERIERL-1139, PR-8924, PR-8931
+
 ## Common_Test 1.26.2.1
 
 ### Fixed Bugs and Malfunctions

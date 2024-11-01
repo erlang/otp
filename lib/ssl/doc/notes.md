@@ -207,6 +207,20 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.5
+
+### Fixed Bugs and Malfunctions
+
+* Avoid generating an internal alert for case that should have been an orderly shutdown by the supervisor.
+
+  Own Id: OTP-19311 Aux Id: PR-8980
+
+### Improvements and New Features
+
+* Back port certificate_authorities option for TLS-1.3 servers to pre TLS-1.3 servers to enable them to disable the sending of certificate authorities in their certificate request. This will have same affect as the the TLS-1.3 server option although it is handled by a different mechanism in these versions, where the functionality is described to be more of a guidance, although some pre TLS clients have proven to make it mandatory as in TLS-1.3 extension handling.
+
+  Own Id: OTP-19325 Aux Id: PR-9001, ERIERL-1147
+
 ## SSL 11.1.4.4
 
 ### Fixed Bugs and Malfunctions

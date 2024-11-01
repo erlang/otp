@@ -99,6 +99,17 @@ This document describes the changes made to the Crypto application.
 [PR-8168]: https://github.com/erlang/otp/pull/8168
 [PR-8233]: https://github.com/erlang/otp/pull/8233
 
+## Crypto 5.4.2.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed bug that could cause blocking scheduler threads in `crypto:supports(curves)` if called the first time by more than one Erlang process. Bug exists only in OTP-26.2.5.4.
+
+  Own Id: OTP-19316 Aux Id: GH-8971, PR-8979
+* Fixed `crypto:hash_final/1` for digest types `shake128` and `shake256` when using OpenSSL 3.4 or newer.
+
+  Own Id: OTP-19329 Aux Id: GH-8997, PR-9002
+
 ## Crypto 5.4.2.2
 
 ### Fixed Bugs and Malfunctions
