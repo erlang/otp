@@ -2109,6 +2109,14 @@ append_tail_segment(Segs, St0) ->
 %%  in the skip clause that will continue the iteration when
 %%  the accumulator pattern didn't match.
 
+skip_segments([#ibitstr{val=#c_var{},type=#c_literal{val=float}}=B|Rest], St, Acc) ->
+    skip_segments(Rest, St, [B#ibitstr{type=#c_literal{val=integer}}|Acc]);
+skip_segments([#ibitstr{type=#c_literal{val=float}}=B|Rest], St0, Acc) ->
+    %% If the binary pattern has the form X:Y/float, the generated skip
+    %% clause is _:Y/integer, so that we skip as long as Y is valid.
+    {Var,St1} = new_var(St0),
+    B1 = B#ibitstr{val=Var,type=#c_literal{val=integer}},
+    skip_segments(Rest, St1, [B1|Acc]);
 skip_segments([#ibitstr{val=#c_var{}}=B|Rest], St, Acc) ->
     %% We must keep the names of existing variables to ensure that
     %% patterns such as <<Size,X:Size>> will work.

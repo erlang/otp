@@ -57,7 +57,8 @@
          eep49/1,
          binary_and_map_aliases/1,
          eep58/1,
-         strict_generators/1]).
+         strict_generators/1,
+         binary_skip/1]).
 
 %%
 %% Define to run outside of test server
@@ -99,7 +100,7 @@ all() ->
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
-     eep49, binary_and_map_aliases, eep58, strict_generators].
+     eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip].
 
 groups() ->
     [].
@@ -2141,6 +2142,18 @@ strict_generators(Config) when is_list(Config) ->
                 {badmatch,<<0:2>>}),
     error_check("[Y || <<X, Y:X>> <:= <<8,1,9,2>>].",
                 {badmatch,<<9,2>>}),
+    ok.
+
+binary_skip(Config) when is_list(Config) ->
+    check(fun() -> X = 32, [X || <<X:64/float>> <= <<-1:64, 0:64, 0:64, 0:64>>] end,
+	  "begin X = 32, [X || <<X:64/float>> <= <<-1:64, 0:64, 0:64, 0:64>>] end.",
+	  [+0.0,+0.0,+0.0]),
+    check(fun() -> X = 32, [X || <<X:64/float>> <= <<0:64, -1:64, 0:64, 0:64>>] end,
+	  "begin X = 32, [X || <<X:64/float>> <= <<0:64, -1:64, 0:64, 0:64>>] end.",
+	  [+0.0,+0.0,+0.0]),
+    check(fun() -> [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end,
+	  "begin [a || <<0:64/float>> <= <<0:64, 1:64, 0:64, 0:64>> ] end.",
+	  [a,a,a]),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.

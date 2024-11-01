@@ -258,6 +258,23 @@ bin_gen_field_string([C|Cs], Bin0, Bs0, BBs0, Fun) ->
             done
     end.
 
+bin_gen_field1(Bin, float, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
+    case catch get_value(Bin, float, Size, Unit, Sign, Endian) of
+        {Val,<<_/bitstring>>=Rest} ->
+            case catch Mfun(match, {NewV,Val,Bs0}) of
+                {match,Bs} ->
+                    BBs = add_bin_binding(Mfun, NewV, Bs, BBs0),
+                    {match,Bs,BBs,Rest};
+                _ ->
+                    {nomatch,Rest}
+            end;
+        _ ->
+            case catch get_value(Bin, integer, Size, Unit, Sign, Endian) of
+                {_,<<_/bitstring>>=Rest} ->
+                    {nomatch,Rest};
+                _ -> done
+            end
+    end;
 bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun) ->
     case catch get_value(Bin, Type, Size, Unit, Sign, Endian) of
         {Val,<<_/bitstring>>=Rest} ->

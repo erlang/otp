@@ -29,7 +29,7 @@
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,general_expressions/1,
          no_generator/1,zero_pattern/1,multiple_segments/1,
-         grab_bag/1, strict_generators/1]).
+         grab_bag/1, strict_generators/1, float_skip/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -41,7 +41,7 @@ all() ->
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, general_expressions,
      no_generator, zero_pattern, multiple_segments,
-     grab_bag, strict_generators].
+     grab_bag, strict_generators, float_skip].
 
 groups() ->
     [].
@@ -742,5 +742,14 @@ cs_default(Bin) ->
     {refc_binary,ByteSize,{binary,256},_} =
 	erts_debug:get_internal_state({binary_info,Bin}),
     Bin.
+
+float_skip(Config) when is_list(Config) ->
+    BadFloat = <<-1:64>>,
+    [1.0,1.5,200.0] = [X || <<X:64/float>> <= <<BadFloat/binary,
+                        1:64/float, 1.5:64/float, 200:64/float>>],
+    [24.0,+48.5,21.0] =[X || <<X:64/float>> <= <<24:64/float,
+                        BadFloat/binary, 48.5:64/float, 21:64/float>>],
+    [a,a] =[a || <<0:64/float>> <= <<0:64/float, BadFloat/binary,
+                        0:64/float, 1.0:64/float>>].
 
 id(I) -> I.

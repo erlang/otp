@@ -28,7 +28,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
-	 extended_bit_aligned/1,mixed/1,strict_generators/1]).
+	 extended_bit_aligned/1,mixed/1,strict_generators/1,float_skip/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +45,7 @@ suite() ->
 
 all() ->
     [byte_aligned, bit_aligned, extended_byte_aligned,
-     extended_bit_aligned, mixed, strict_generators].
+     extended_bit_aligned, mixed, strict_generators, float_skip].
 
 groups() ->
     [].
@@ -147,3 +147,12 @@ strict_generators(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,<<9,2>>},_}} = (catch [Y || <<X, Y:X>> <:= <<8,1,9,2>>]),
 
     ok.
+
+float_skip(Config) when is_list(Config) ->
+    BadFloat = <<-1:64>>,
+    [1.0,1.5,200.0] = [X || <<X:64/float>> <= <<BadFloat/binary,
+                        1:64/float, 1.5:64/float, 200:64/float>>],
+    [24.0,+48.5,21.0] =[X || <<X:64/float>> <= <<24:64/float,
+                        BadFloat/binary, 48.5:64/float, 21:64/float>>],
+    [a,a] =[a || <<0:64/float>> <= <<0:64/float, BadFloat/binary,
+                        0:64/float, 1.0:64/float>>].
