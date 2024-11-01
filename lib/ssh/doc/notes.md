@@ -99,6 +99,14 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.4
+
+### Fixed Bugs and Malfunctions
+
+* With this change, ssh connection does not crash upon receiving exit-signal message for an already terminated channel.
+
+  Own Id: OTP-19326 Aux Id: PR-8995, GH-8929
+
 ## Ssh 5.1.4.3
 
 ### Fixed Bugs and Malfunctions
