@@ -83,7 +83,6 @@ static void* emalloc(size_t size);
 static void efree(void *p);
 #endif
 static char* strsave(char* string);
-static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static void call_compile_server(char** argv);
 static void encode_env(ei_x_buff* buf);
@@ -259,6 +258,9 @@ int main(int argc, char** argv)
     {
         char* full_path_emulator = find_executable(emulator);
         set_env("ERLC_CONFIGURATION", full_path_emulator);
+        if (full_path_emulator != emulator) {
+            free(full_path_emulator);
+        }
     }
 #endif
 
@@ -276,7 +278,10 @@ int main(int argc, char** argv)
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
-    push_words(emulator);
+    PUSH(strsave(emulator));
+    if (emulator != env) {
+        free(emulator);
+    }
     eargc_base = eargc;
     eargv = eargv + eargv_size/2;
     eargc = 0;
@@ -469,27 +474,6 @@ get_env_compile_server(void)
     }
     fprintf(stderr, "erlc: Warning: Ignoring unrecognized value '%s' "
             "for environment value ERLC_USE_SERVER\n", us);
-}
-
-static void
-push_words(char* src)
-{
-    char sbuf[MAXPATHLEN];
-    char* dst;
-
-    dst = sbuf;
-    while ((*dst++ = *src++) != '\0') {
-	if (isspace((int)*src)) {
-	    *dst = '\0';
-	    PUSH(strsave(sbuf));
-	    dst = sbuf;
-	    do {
-		src++;
-	    } while (isspace((int)*src));
-	}
-    }
-    if (sbuf[0])
-	PUSH(strsave(sbuf));
 }
 
 #ifdef __WIN32__
@@ -1075,7 +1059,7 @@ get_default_emulator(char* progname)
     char* s;
 
     if (strlen(progname) >= sizeof(sbuf))
-        return ERL_NAME;
+        return strsave(ERL_NAME);
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
@@ -1086,7 +1070,7 @@ get_default_emulator(char* progname)
 	    break;
 	}
     }
-    return ERL_NAME;
+    return strsave(ERL_NAME);
 }
 
 

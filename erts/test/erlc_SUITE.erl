@@ -1188,7 +1188,7 @@ run_command(Dir, {win32, _}, Cmd) ->
     {BatchFile,
      Run,
      ["@echo off\r\n",
-      "set ERLC_EMULATOR=", ct:get_progname(), "\r\n",
+      "set ERLC_EMULATOR=", os:find_executable("erl"), "\r\n",
       Cmd, "\r\n",
       "if errorlevel 1 echo _ERROR_\r\n",
       "if not errorlevel 1 echo _OK_\r\n"]};
@@ -1197,7 +1197,7 @@ run_command(Dir, {unix, _}, Cmd) ->
     {Name,
      "/bin/sh " ++ Name,
      ["#!/bin/sh\n",
-      "ERLC_EMULATOR='", ct:get_progname(), "'\n",
+      "ERLC_EMULATOR='",  os:find_executable("erl"), "'\n",
       "export ERLC_EMULATOR\n",
       Cmd, "\n",
       "case $? in\n",
