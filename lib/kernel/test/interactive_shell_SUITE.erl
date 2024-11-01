@@ -60,7 +60,7 @@
          shell_update_window_unicode_wrap/1,
          shell_receive_standard_out/1,
          shell_standard_error_nlcr/1, shell_clear/1,
-         shell_format/1,
+         shell_format/1, shell_help/1,
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
@@ -132,7 +132,7 @@ groups() ->
      {tty_latin1,[],[{group,tty_tests}]},
      {tty_tests, [parallel],
       [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
-       shell_xnfix, shell_delete, shell_format,
+       shell_xnfix, shell_delete, shell_format, shell_help,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
@@ -1292,12 +1292,19 @@ shell_expand_location_above(Config) ->
 shell_help(Config) ->
     Term = start_tty(Config),
     try
-        send_stdin(Term, "lists"),
-        send_stdin(Term, "\^[h"),
+        send_tty(Term, "application:put_env(kernel, shell_docs_ansi, false).\n"),
+        send_tty(Term, "lists"),
+        send_tty(Term, "\^[h"),
+        %% Check we can see the first line
         check_content(Term, "List processing functions."),
-        send_stdin(Term, ":all"),
-        send_stdin(Term, "\^[h"),
-        check_content(Term, "-spec all(Pred, List) -> boolean()"),
+        check_not_in_content(Term, "less than or equal to"),
+        %% Expand the help area to take up the whole buffer.
+        send_tty(Term, "\^[h"),
+        %% Check that we can see the last line (lists help should fit in the window)
+        check_content(Term, "less than or equal to"),
+        send_tty(Term, ":all"),
+        send_tty(Term, "\^[h"),
+        check_content(Term, ~S"all\(Pred, List\)"),
         ok
     after
         stop_tty(Term),
