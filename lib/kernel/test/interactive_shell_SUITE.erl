@@ -2213,7 +2213,8 @@ noshell_raw(Config) ->
                                     %% Make sure we are in unicode encoding
                                     unicode = proplists:get_value(encoding, io:getopts()),
 
-                                    "\fhello\n" = io:get_line("1> "),
+                                    %% "\el" is an artifact from the attaching to_erl program
+                                    "\el" ++ "hello\n" = io:get_line("1> "),
                                     io:format(TCGl, "TC Line: ~p~n", [?LINE]),
                                     ok = shell:start_interactive({noshell, raw}),
 
