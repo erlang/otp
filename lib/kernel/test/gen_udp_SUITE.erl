@@ -209,14 +209,43 @@ init_per_suite(Config0) ->
 
         Config1 when is_list(Config1) ->
             
+            %% We need a monitor on this node also
+            ?P("init_per_suite -> start (local) system monitor"),
+            kernel_test_sys_monitor:start(),
+
+            maybe_display_dgram_qlen(),
+
             ?P("init_per_suite -> end when "
                "~n      Config: ~p", [Config1]),
-            
-            %% We need a monitor on this node also
-            kernel_test_sys_monitor:start(),
 
             Config1
     end.
+
+maybe_display_dgram_qlen() ->
+    maybe_display_dgram_qlen(os:type()).
+
+-define(QLEN, "net.unix.max_dgram_qlen").
+
+maybe_display_dgram_qlen({unix, linux}) ->
+    case string:strip(sysctl(?QLEN), right, $\n) of
+        "sysctl: " ++ _ ->
+            %% Key does not exist...skip
+            ok;
+        QLEN ->
+            case [string:strip(S) || S <- string:tokens(QLEN, [$=])] of
+                [?QLEN, Value] ->
+                    ?P("Max DGram QLen: ~p~n", [Value]),
+                    ok;
+                _ ->
+                    ok
+            end
+    end;
+maybe_display_dgram_qlen(_) ->
+    ok.
+
+sysctl(Key) when is_list(Key) ->
+    os:cmd(?F("~w ~s", [?FUNCTION_NAME, Key])).
+
 
 end_per_suite(Config0) ->
 
