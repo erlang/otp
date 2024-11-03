@@ -375,21 +375,12 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_bs_test_tail2(const ArgLabel &Fail,
                                              const ArgRegister &Ctx,
                                              const ArgWord &Offset) {
-    mov_arg(ARG1, Ctx);
+    /* This instruction is only found in unoptimized code and in code
+     * compiled for Erlang/OTP 25 and earlier. */
+    const ArgVal match[] = {ArgAtom(am_ensure_exactly), Offset};
+    const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
 
-    a.mov(ARG2, emit_boxed_val(ARG1, offsetof(ErlSubBits, end)));
-    a.sub(ARG2, emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
-
-    if (Offset.get() != 0) {
-        if (Support::isInt32(Offset.get())) {
-            a.cmp(ARG2, imm(Offset.get()));
-        } else {
-            mov_imm(RET, Offset.get());
-            a.cmp(ARG2, RET);
-        }
-    }
-
-    a.jne(resolve_beam_label(Fail));
+    emit_i_bs_match(Fail, Ctx, args);
 }
 
 void BeamModuleAssembler::emit_bs_set_position(const ArgRegister &Ctx,

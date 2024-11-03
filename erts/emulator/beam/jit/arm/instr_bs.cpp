@@ -356,23 +356,12 @@ void BeamModuleAssembler::emit_bs_get_integer2(const ArgLabel &Fail,
 void BeamModuleAssembler::emit_bs_test_tail2(const ArgLabel &Fail,
                                              const ArgRegister &Ctx,
                                              const ArgWord &Offset) {
-    const int start_offset = offsetof(ErlSubBits, start);
-    const int end_offset = offsetof(ErlSubBits, end);
+    /* This instruction is only found in unoptimized code and in code
+     * compiled for Erlang/OTP 25 and earlier. */
+    const ArgVal match[] = {ArgAtom(am_ensure_exactly), Offset};
+    const Span<ArgVal> args(match, sizeof(match) / sizeof(match[0]));
 
-    auto ctx_reg = load_source(Ctx, TMP1);
-
-    ASSERT(Offset.isWord());
-
-    a.ldur(TMP2, emit_boxed_val(ctx_reg.reg, end_offset));
-    a.ldur(TMP3, emit_boxed_val(ctx_reg.reg, start_offset));
-    a.sub(TMP2, TMP2, TMP3);
-
-    if (Offset.get() != 0) {
-        cmp(TMP2, Offset.get());
-        a.b_ne(resolve_beam_label(Fail, disp1MB));
-    } else {
-        a.cbnz(TMP2, resolve_beam_label(Fail, disp1MB));
-    }
+    emit_i_bs_match(Fail, Ctx, args);
 }
 
 void BeamModuleAssembler::emit_bs_set_position(const ArgRegister &Ctx,
