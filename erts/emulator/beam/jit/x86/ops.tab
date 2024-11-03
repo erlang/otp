@@ -898,6 +898,14 @@ i_bs_match_string S f W M
 bs_get_integer2 f S t s t t d
 
 # Fetching binaries from binaries.
+bs_get_binary2 Fail=f Ms1=xy Live1=u Sz=xy Unit=u _Flags=u Dst1=d |
+  bs_get_tail Ms2=xy Dst2 Live2 |
+  equal(Ms1, Ms2) |
+  equal(Live1, Live2) =>
+    i_bs_get_bin_and_tail Ms1 Fail Live1 Sz Unit Dst1 Dst2
+
+i_bs_get_bin_and_tail S f t S t d d
+
 bs_get_binary2 Fail=f Ms=xy Live=u _Sz=a==am_all Unit=u _Flags=u Dst=d =>
     i_bs_get_binary_all2 Ms Fail Live Unit Dst
 
