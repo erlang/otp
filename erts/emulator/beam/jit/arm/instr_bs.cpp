@@ -233,16 +233,22 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
 void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
                                                  const ArgRegister &Dst) {
     const int start_offset = offsetof(ErlSubBits, start);
-    auto ctx_reg = load_source(Ctx);
-    auto dst_reg = init_destination(Dst, TMP2);
+    auto ctx = load_source(Ctx);
+    auto dst = init_destination(Dst, TMP2);
+    a64::Gp ctx_reg = ctx.reg;
+    a64::Gp dst_reg = dst.reg;
 
     /* Match contexts can never be literals, so we can skip clearing literal
      * tags. */
-    a.ldur(dst_reg.reg, emit_boxed_val(ctx_reg.reg, start_offset));
-    a.lsl(dst_reg.reg, dst_reg.reg, imm(_TAG_IMMED1_SIZE));
-    a.orr(dst_reg.reg, dst_reg.reg, imm(_TAG_IMMED1_SMALL));
+    preserve_cache(
+            [&]() {
+                a.ldur(dst_reg, emit_boxed_val(ctx_reg, start_offset));
+                a.lsl(dst_reg, dst_reg, imm(_TAG_IMMED1_SIZE));
+                a.orr(dst_reg, dst_reg, imm(_TAG_IMMED1_SMALL));
+            },
+            dst_reg);
 
-    flush_var(dst_reg);
+    flush_var(dst);
 }
 
 void BeamModuleAssembler::emit_bs_get_small(const Label &fail,
@@ -373,9 +379,15 @@ void BeamModuleAssembler::emit_bs_set_position(const ArgRegister &Ctx,
                                                const ArgRegister &Pos) {
     const int start_offset = offsetof(ErlSubBits, start);
     auto [ctx, pos] = load_sources(Ctx, TMP1, Pos, TMP2);
+    a64::Gp ctx_reg = ctx.reg;
+    a64::Gp pos_reg = pos.reg;
 
-    a.lsr(TMP2, pos.reg, imm(_TAG_IMMED1_SIZE));
-    a.stur(TMP2, emit_boxed_val(ctx.reg, start_offset));
+    preserve_cache(
+            [&]() {
+                a.lsr(TMP2, pos_reg, imm(_TAG_IMMED1_SIZE));
+                a.stur(TMP2, emit_boxed_val(ctx_reg, start_offset));
+            },
+            TMP2);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
@@ -569,7 +581,6 @@ void BeamModuleAssembler::emit_i_bs_get_bin_and_tail(const ArgRegister &Ctx,
     fragment_call(ga->get_bs_get_tail_shared());
     mov_arg(Dst2, ARG1);
 }
-
 
 void BeamModuleAssembler::emit_i_bs_get_float2(const ArgRegister &Ctx,
                                                const ArgLabel &Fail,

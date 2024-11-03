@@ -245,15 +245,22 @@ void BeamModuleAssembler::emit_i_bs_match_string(const ArgRegister &Ctx,
 
 void BeamModuleAssembler::emit_i_bs_get_position(const ArgRegister &Ctx,
                                                  const ArgRegister &Dst) {
+    x86::Gp tmp_reg = alloc_temp_reg();
+
     mov_arg(ARG1, Ctx);
 
     /* Match contexts can never be literals, so we can skip clearing literal
      * tags. */
-    a.mov(ARG1, emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
-    a.sal(ARG1, imm(_TAG_IMMED1_SIZE));
-    a.or_(ARG1, imm(_TAG_IMMED1_SMALL));
+    mov_preserve_cache(tmp_reg,
+                       emit_boxed_val(ARG1, offsetof(ErlSubBits, start)));
+    preserve_cache(
+            [&]() {
+                a.sal(tmp_reg, imm(_TAG_IMMED1_SIZE));
+                a.or_(tmp_reg, imm(_TAG_IMMED1_SMALL));
+            },
+            tmp_reg);
 
-    mov_arg(Dst, ARG1);
+    mov_arg(Dst, tmp_reg);
 }
 
 void BeamModuleAssembler::emit_bs_get_small(const Label &fail,
@@ -390,8 +397,12 @@ void BeamModuleAssembler::emit_bs_set_position(const ArgRegister &Ctx,
     mov_arg(ARG1, Ctx);
     mov_arg(ARG2, Pos);
 
-    a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
-    a.mov(emit_boxed_val(ARG1, offsetof(ErlSubBits, start)), ARG2);
+    preserve_cache(
+            [&]() {
+                a.sar(ARG2, imm(_TAG_IMMED1_SIZE));
+            },
+            ARG2);
+    mov_preserve_cache(emit_boxed_val(ARG1, offsetof(ErlSubBits, start)), ARG2);
 }
 
 void BeamModuleAssembler::emit_i_bs_get_binary_all2(const ArgRegister &Ctx,
