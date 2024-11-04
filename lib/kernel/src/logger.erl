@@ -339,7 +339,7 @@ Handler configuration data for Logger.
 %%%-----------------------------------------------------------------
 %%% API
 
--define(LOG_DOC_1(Level), (#{equiv => emergency(StringOrReport, #{})})).
+-define(LOG_DOC_1(Level), (#{equiv => Level(StringOrReport, #{})})).
 -define(LOG_DOC_2(Level), "
 Create a " Level " log event.
 
