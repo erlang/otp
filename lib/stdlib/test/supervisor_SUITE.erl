@@ -90,7 +90,8 @@
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
          order_of_children/1, scale_start_stop_many_children/1,
-         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1]).
+         format_log_1/1, format_log_2/1, already_started_outside_supervisor/1,
+	 which_children/1, which_children_simple_one_for_one/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -119,7 +120,8 @@ all() ->
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
      order_of_children, scale_start_stop_many_children,
-     format_log_1, format_log_2, already_started_outside_supervisor].
+     format_log_1, format_log_2, already_started_outside_supervisor,
+     which_children, which_children_simple_one_for_one].
 
 groups() -> 
     [{sup_start, [],
@@ -3725,6 +3727,72 @@ already_started_outside_supervisor(_Config) ->
     terminate(SupPid, shutdown),
     Pid ! die,
     ok = check_exit([SupPid]),
+    ok.
+
+%% Test which_children/1 and which_child/2.
+which_children(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{}, []}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child1} = supervisor:start_child(SupPid, #{id => child1,
+						    start => {supervisor_1, start_child, []}}),
+    [{child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    {ok, Child2} = supervisor:start_child(SupPid, #{id => child2,
+						    start => {supervisor_1, start_child, []}}),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:terminate_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]},
+     {child1, undefined, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {child1, undefined, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok = supervisor:delete_child(SupPid, child1),
+    [{child2, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, child1),
+    {ok, {child2, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, child2),
+    {error, not_found} = supervisor:which_child(SupPid, childx),
+
+    ok.
+
+which_children_simple_one_for_one(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {#{strategy => simple_one_for_one}, [#{id => child,
+									  start => {supervisor_1, start_child, []},
+									  restart => temporary}]}}),
+
+    [] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child1} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {ok, Child2} = supervisor:start_child(SupPid, []),
+    [{undefined, Child1, worker, [supervisor_1]},
+     {undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {ok, {undefined, Child1, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    ok = supervisor:terminate_child(SupPid, Child1),
+    [{undefined, Child2, worker, [supervisor_1]}] = supervisor:which_children(SupPid),
+    {error, not_found} = supervisor:which_child(SupPid, Child1),
+    {ok, {undefined, Child2, worker, [supervisor_1]}} = supervisor:which_child(SupPid, Child2),
+    {error, not_found} = supervisor:which_child(SupPid, self()),
+
+    {error, simple_one_for_one} = supervisor:which_child(SupPid, not_a_pid),
+
     ok.
 
 %%-------------------------------------------------------------------------
