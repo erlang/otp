@@ -587,14 +587,16 @@ get_option(Opt, Options, Default) ->
         _ -> throw(badopt)
     end.
 
+-define(KERNEL_OS_CMD_SHELL_KEY, kernel_os_cmd_shell).
+
 mk_cmd({win32,_}, Cmd) ->
-    {ok, Shell} = application:get_env(kernel, os_cmd_shell),
+    Shell = persistent_term:get(?KERNEL_OS_CMD_SHELL_KEY),
     Command = lists:concat([Shell, " /c", Cmd]),
     {Command, [], [], <<>>};
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
     %% cd and ulimit available.
-    {ok, Shell} = application:get_env(kernel, os_cmd_shell),
+    Shell = persistent_term:get(?KERNEL_OS_CMD_SHELL_KEY),
     {Shell ++ " -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
@@ -615,13 +617,14 @@ mk_cmd(_,Cmd) ->
 
 -doc false.
 internal_init_cmd_shell() ->
-    case application:get_env(kernel, os_cmd_shell) of
-        undefined ->
-            application:set_env(kernel, os_cmd_shell,
-            internal_init_cmd_shell(os:type()));
-        _ ->
-            ok
-    end.
+    Shell =
+        case application:get_env(kernel, os_cmd_shell) of
+            undefined ->
+                internal_init_cmd_shell(os:type());
+            {ok, Val} ->
+                Val
+        end,
+    persistent_term:put(?KERNEL_OS_CMD_SHELL_KEY, Shell).
 internal_init_cmd_shell({win32,Wtype}) ->
     case {os:getenv("COMSPEC"),Wtype} of
         {false,windows} -> "command.com";

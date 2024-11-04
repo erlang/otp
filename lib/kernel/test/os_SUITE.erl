@@ -469,21 +469,15 @@ error_info(Config) ->
         ],
     error_info_lib:test_error_info(os, L).
 
-os_cmd_shell(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    SysShell = filename:join(DataDir, "sys_shell"),
+%% Check that is *not* possible to change shell after startup
+os_cmd_shell(_Config) ->
 
-    {ok, OldShell} = application:get_env(kernel, os_cmd_shell),
-    try
-        application:set_env(kernel, os_cmd_shell, SysShell),
+    application:set_env(kernel, os_cmd_shell, "broken shell"),
 
-        %% os:cmd should not try to detect the shell location rather than use
-        %% the value from kernel:os_cmd_shell parameter
-        comp("sys_shell", os:cmd("ls"))
-    after
-        application:set_env(kernel, os_cmd_shell, OldShell)
-    end.
+    %% os:cmd should continue to work as normal
+    comp("hello", os:cmd("echo hello")).
 
+%% When started with os_cmd_shell set, we make sure that it is used.
 os_cmd_shell_peer(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     SysShell = "\"" ++ filename:join(DataDir, "sys_shell") ++ "\"",
