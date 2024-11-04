@@ -5659,15 +5659,14 @@ BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 #ifdef USE_VM_PROBES
     Eterm b; 
     Eterm *hp;
-    if (is_bitstring((DT_UTAG(BIF_P)))) {
-        byte *temp_alloc = NULL;
-        const byte *p;
-        byte *q;
-        Uint size;
-        Uint i;
-        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
+    const byte *temp_alloc = NULL;
+    const byte *p;
+    Uint size;
+    if (p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
                                           &size,
-                                          &temp_alloc);
+                                          &temp_alloc)) {
+        byte *q;
+        Uint i;
         b = erts_new_binary(BIF_P, (size + 1), &q);
         for(i = 0; i < size; i++) {
             q[i] = p[i];
@@ -5688,11 +5687,13 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
 #ifdef USE_VM_PROBES
     Eterm b; 
     Eterm *hp;
-    if (is_bitstring((DT_UTAG(BIF_P)))) {
-        byte *temp_alloc = NULL;
-        const byte *p;
+    const byte *temp_alloc = NULL;
+    const byte *p;
+    Uint size;
+    if (p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
+                                          &size,
+                                          &temp_alloc)) {
         byte *q;
-        Uint size;
         Uint i;
         p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
                                           &size,
