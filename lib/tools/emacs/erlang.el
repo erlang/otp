@@ -1169,8 +1169,9 @@ behaviour.")
 
 (defvar erlang-font-lock-keywords-operators
   (list
-   (list erlang-operators-regexp
-         1 'font-lock-builtin-face))
+    (list erlang-operators-regexp 1 'font-lock-builtin-face)
+    ;; Don't highlight record names
+    (list (concat "#\\s-*" erlang-operators-regexp) 1 nil t))
   "Font lock keyword highlighting Erlang operators.")
 
 (defvar erlang-font-lock-keywords-dollar
@@ -1191,12 +1192,15 @@ behaviour.")
 
 (defvar erlang-font-lock-keywords-keywords
   (list
-   (list erlang-keywords-regexp 1 'font-lock-keyword-face))
+    (list erlang-keywords-regexp 1 'font-lock-keyword-face)
+    ;; Don't highlight record names
+    (list (concat "#\\s-*" erlang-keywords-regexp) 1 nil t))
   "Font lock keyword highlighting Erlang keywords.")
 
 (defvar erlang-font-lock-keywords-attr
   (list
-   (list (concat "^\\(-" erlang-atom-regexp "\\)\\(\\s-\\|\\.\\|(\\)")
+    (list (concat "\\(?:^\\s-*\\|\\.\\s-+\\)"
+            "\\(-" erlang-atom-regexp "\\)\\(\\s-\\|\\.\\|(\\|#\\)")
          1 (if (boundp 'font-lock-preprocessor-face)
                'font-lock-preprocessor-face
              'font-lock-constant-face)))
@@ -1243,15 +1247,17 @@ This must be placed in front of `erlang-font-lock-keywords-vars'.")
 
 (defvar erlang-font-lock-keywords-records
   (list
-   (list (concat "#\\s *" erlang-atom-regexp)
-         1 'font-lock-type-face)
+    (list (concat "#\\s-*\\(" erlang-atom-regexp "\\|"
+            erlang-variable-regexp "\\)")
+      1 'font-lock-type-face)
    ;; Don't highlight numerical constants.
    (list (if erlang-regexp-modern-p
              "\\_<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)"
               "\\<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)")
          1 nil t)
-   (list (concat "^-record\\s-*(\\s-*" erlang-atom-regexp)
-         1 'font-lock-type-face))
+    (list (concat "\\(?:^\\s-*\\|\\.\\s-*\\)"
+            "-record\\s-*\\(?:(\\|\\s-+\\)\\s-*" erlang-atom-regexp)
+      1 'font-lock-type-face))
   "Font lock keyword highlighting Erlang records.
 This must be placed in front of `erlang-font-lock-keywords-vars'.")
 
