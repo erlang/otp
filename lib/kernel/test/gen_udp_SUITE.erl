@@ -77,7 +77,8 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
          otp_18323_opts_processing/1,
-         otp_18323_open/1
+         otp_18323_open/1,
+         otp_19332/1
 
 	]).
 
@@ -119,7 +120,9 @@ groups() ->
      {socket_monitor,         [], socket_monitor_cases()},
 
      {sockaddr,               [], sockaddr_cases()},
-     {otp18323,               [], otp18323_cases()}
+     {tickets,                [], tickets_cases()},
+     {otp18323,               [], otp18323_cases()},
+     {otp19332,               [], otp19332_cases()}
     ].
 
 inet_backend_default_cases() ->
@@ -152,7 +155,9 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
-     {group, otp18323}
+     {group, tickets},
+     {group, otp18323},
+     {group, otp19332}
     ].
 
 recv_and_send_opts_cases() ->
@@ -190,12 +195,22 @@ sockaddr_cases() ->
      t_simple_link_local_sockaddr_in6_send_recv
     ].
 
+tickets_cases() ->
+    [
+     {group, otp18323},
+     {group, otp19332}
+    ].
+
 otp18323_cases() ->
     [
      otp_18323_opts_processing,
      otp_18323_open
     ].
 
+otp19332_cases() ->
+    [
+     otp_19332
+    ].
 
 init_per_suite(Config0) ->
 
@@ -224,27 +239,16 @@ init_per_suite(Config0) ->
 maybe_display_dgram_qlen() ->
     maybe_display_dgram_qlen(os:type()).
 
--define(QLEN, "net.unix.max_dgram_qlen").
-
 maybe_display_dgram_qlen({unix, linux}) ->
-    case string:strip(sysctl(?QLEN), right, $\n) of
-        "sysctl: " ++ _ ->
-            %% Key does not exist...skip
+    case max_dgram_qlen() of
+        QLen when is_integer(QLen) ->
+            ?P("Max DGram QLen: ~w~n", [QLen]),
             ok;
-        QLEN ->
-            case [string:strip(S) || S <- string:tokens(QLEN, [$=])] of
-                [?QLEN, Value] ->
-                    ?P("Max DGram QLen: ~p~n", [Value]),
-                    ok;
-                _ ->
-                    ok
-            end
+        _ ->
+            ok
     end;
 maybe_display_dgram_qlen(_) ->
     ok.
-
-sysctl(Key) when is_list(Key) ->
-    os:cmd(?F("~w ~s", [?FUNCTION_NAME, Key])).
 
 
 end_per_suite(Config0) ->
@@ -3247,6 +3251,87 @@ do_otp_18323_open(#{local_addr := Addr}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% On some linux platforms, mostly in "docker"-like environments,
+%% send *can* block. This, I think, mostly depends the value of
+%% system config *net.unix.max_dgram_qlen*. On Docker this can
+%% be small (10). With "normal" machines this is much larger (> 500),
+%% which makes this hard tp reproduce.
+otp_19332(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Cond = fun() ->
+                   is_linux(),
+                   is_docker(Config),
+                   %% We should really test for UDS support also,
+                   %% but how without using 'socket'?
+                   %% Maybe its enough to open the socket (with 'local').
+                   has_small_enough_dgram_qlen(20),
+                   ok
+           end,
+    Pre  = fun() ->
+                   Opts = [local,
+                           {active, false},
+                           {debug, true}],
+                   case gen_udp:open(0, Opts) of
+                       {ok, Sock} ->
+                           inet:setopts(Sock, [{debug, false}]),
+                           #{sock => Sock};
+                       {error, Reason} ->
+                           skip(?F("Failed open socket: ~p", [Reason]))
+                   end
+           end,
+    Case = fun(State) -> do_otp_19332(State) end,
+    Post = fun(#{sock := Sock}) ->
+                   (catch gen_udp:close(Sock))
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_19332(#{sock := Sock}) ->
+    ?P("begin"),
+
+    do_otp_19332_test(Sock),
+    0 = do_otp_19332_collect_replies(Sock),
+
+    ?P("done"),
+    ok.
+
+do_otp_19332_test(S) ->
+    do_otp_19332_test(S, 100000, 0).
+
+do_otp_19332_test(_S, 0, NumR) ->
+    ?P("send attempts done: ~w", [NumR]),
+    NumR;
+do_otp_19332_test(S, N, NumR) ->
+    Packet = lists:duplicate(100, "hello\n"),
+    case gen_udp:send(S, {local, "/tmp/test.sock"}, Packet) of
+        ok ->
+            ?P("UNEXPECTED SUCCESS (at ~w)", [N]),
+            exit(unexpected_success);
+        {error, enoent} ->
+            %% Expected
+            do_otp_19332_test(S, N-1, NumR+1);
+        {error, Reason} ->
+            ?P("OTHER REASON[~w]: ~p", [N, Reason]),
+            do_otp_19332_test(S, N-1, NumR)
+        end.
+
+
+do_otp_19332_collect_replies(Sock) ->
+    ?P("start collecting replies", []),
+    do_otp_19332_collect_replies(Sock, 0).
+
+do_otp_19332_collect_replies(Sock, N) ->
+    receive
+        {inet_reply, Sock, _Ref} ->
+            ?P("Got a reply"),
+            do_otp_19332_collect_replies(Sock, N+1)
+    after 0 ->
+            ?P("done collecting replies: ~w", [N]),
+            N
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 ok({ok,V}) -> V;
 ok(NotOk) ->
     try throw(not_ok)
@@ -3289,6 +3374,50 @@ get_localaddr([Localhost|Ls]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+is_docker(Config) ->
+    case lists:keysearch(label, 1, Config) of
+        {value, {lable, docker}} ->
+            ok;
+        _ ->
+            skip("Is not running in a Docker")
+    end.
+
+has_small_enough_dgram_qlen(Max) when is_integer(Max) ->
+    case max_dgram_qlen() of
+        QLen when is_integer(QLen) andalso (QLen < Max) ->
+            ok;
+        QLen when is_integer(QLen) ->
+            skip("QLen too large: " ++
+                     integer_to_list(QLen) ++ " > " ++ integer_to_list(Max));
+        _ ->
+            skip("Could not get qlen")
+    end.
+
+-define(QLEN, "net.unix.max_dgram_qlen").
+max_dgram_qlen() ->
+    case string:strip(sysctl(?QLEN), right, $\n) of
+        "sysctl: " ++ _ ->
+            %% Key does not exist...skip
+            skip;
+        QLenAttrStr ->
+            case [string:strip(S) || S <- string:tokens(QLenAttrStr, [$=])] of
+                [?QLEN, Value] ->
+                    ?P("Max DGram QLen: ~p~n", [Value]),
+                    try list_to_integer(Value) of
+                        QLen ->
+                            QLen
+                    catch
+                        _:_:_ ->
+                            skip
+                    end;
+                _ ->
+                    skip
+            end
+    end.
+    
+sysctl(Key) when is_list(Key) ->
+    os:cmd(?F("~w ~s", [?FUNCTION_NAME, Key])).
+
 is_net_supported() ->
     try net:info() of
         #{} ->
@@ -3298,6 +3427,18 @@ is_net_supported() ->
             not_supported(net)
     end.
 
+-define(UNIX(Flavor), {unix, Flavor}).
+
+is_linux() ->
+    is_platform(?UNIX(linux), "Linux").
+
+is_platform(Platform, PlatformStr) ->
+    case os:type() of
+        Platform ->
+            ok;
+        _ ->
+            skip("Is not " ++ PlatformStr)
+    end.
 
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").
