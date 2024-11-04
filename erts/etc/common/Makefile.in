@@ -467,6 +467,7 @@ $(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
 # erl_call
 $(BINDIR)/erl_call@EXEEXT@: $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)/erl_call@EXEEXT@
 	$(ld_verbose)cp $< $@
+	$(ld_verbose)cp $(<:.exe=.pdb) $(@:.exe=.pdb)
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
@@ -545,6 +546,10 @@ ifneq ($(TARGET), win32)
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+ifeq ($(TARGET),win32)
+	$(INSTALL_DATA) $(INSTALL_PROGS:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_DATA) $(INSTALL_PROGS:.dll=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+endif
 endif
 ifneq ($(INSTALL_TOP),)
 	$(INSTALL_SCRIPT) $(INSTALL_TOP) "$(RELEASE_PATH)"

@@ -1119,12 +1119,26 @@ erts_tar(Config) ->
                   "start","start_erl.src","start.src","to_erl"],
                  ["ct_run","dialyzer","erlc","typer","yielding_c_fun"]};
             {win32, _} ->
-                {["beam.smp.pdb","erl.exe",
-                  "erl.pdb","erl_log.exe","erlexec.dll","erlsrv.exe","heart.exe",
-                  "start_erl.exe","beam.smp.dll",
-                  "epmd.exe","erl.ini","erl_call.exe",
-                  "erlexec.pdb","escript.exe","inet_gethost.exe"],
-                 ["dialyzer.exe","erlc.exe","yielding_c_fun.exe","ct_run.exe","typer.exe"]}
+                Files = ["beam.smp.dll",
+                         "epmd.exe",
+                         "erl.exe",
+                         "erl_call.exe",
+                         "erl_log.exe",
+                         "erlexec.dll",
+                         "erlsrv.exe",
+                         "escript.exe",
+                         "heart.exe",
+                         "inet_gethost.exe",
+                         "start_erl.exe"],
+                PdbFiles = ["beam.jit.pdb" || erlang:system_info(emu_flavor) =:= jit]
+                    ++ [filename:rootname(F) ++ ".pdb" || F <- Files],
+                IgnoredFiles = ["ct_run.exe",
+                           "dialyzer.exe",
+                           "erlc.exe",
+                           "typer.exe",
+                           "yielding_c_fun.exe"],
+                PdbIgnored = [filename:rootname(F) ++ ".pdb" || F <- IgnoredFiles],
+                {["erl.ini"] ++ Files ++ PdbFiles, IgnoredFiles ++ PdbIgnored}
         end,
 
     ErtsTarContent =
@@ -1134,9 +1148,11 @@ erts_tar(Config) ->
                    || File <- tar_contents(TarName),
                       string:equal(filename:dirname(File),ERTS_DIR),
                       %% Filter out beam.*.smp.*
-                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll)?") == nomatch,
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.smp(\\.dll|\\.pdb)?") == nomatch,
                       %% Filter out beam.*.emu.*
-                      re:run(filename:basename(File), "beam\\.([^\\.]+\\.)?emu(\\.dll)?") == nomatch,
+                      re:run(filename:basename(File), "beam\\.([^\\.]+\\.)?emu(\\.dll\\.pdb)?") == nomatch,
+                      %% Filter out beam.*.jit.pdb
+                      re:run(filename:basename(File), "beam\\.[^\\.]+\\.?jit\\.pdb") == nomatch,
                       %% Filter out any erl_child_setup.*
                       re:run(filename:basename(File), "erl_child_setup\\..*") == nomatch
                   ])
