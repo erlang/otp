@@ -49,6 +49,7 @@ stop(_State) ->
 %% Some configuration parameters for kernel are changed
 %%-------------------------------------------------------------------
 config_change(Changed, New, Removed) ->
+    ok = os:internal_init_cmd_shell(),
     do_distribution_change(Changed, New, Removed),
     do_global_groups_change(Changed, New, Removed),
     ok.
