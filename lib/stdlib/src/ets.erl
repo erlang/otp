@@ -1018,9 +1018,9 @@ same as specifying
   [](){: #heir }
 
 - **`{heir,Pid,HeirData} | {heir,none}`** - Set a process as heir. The heir
-  inherits the table if the owner terminates. Message
-  `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when that
-  occurs. The heir must be a local process. Default heir is `none`, which
+  inherits the table if the owner terminates. If `HeirData` is given, a
+  Message `{'ETS-TRANSFER',tid(),FromPid,HeirData}` is sent to the heir when
+  that occurs. The heir must be a local process. Default heir is `none`, which
   destroys the table when the owner terminates.
 
   [](){: #new_2_write_concurrency }
@@ -1130,7 +1130,8 @@ same as specifying
       Name :: atom(),
       Options :: [Option],
       Option :: Type | Access | named_table | {keypos,Pos}
-              | {heir, Pid :: pid(), HeirData} | {heir, none} | Tweaks,
+              | {heir, Pid} | {heir, Pid, HeirData} | {heir, none}
+              | Tweaks,
       Type :: table_type(),
       Access :: table_access(),
       WriteConcurrencyAlternative :: boolean() | auto,
@@ -1139,6 +1140,7 @@ same as specifying
               | {decentralized_counters, boolean()}
               | compressed,
       Pos :: pos_integer(),
+      Pid :: pid(),
       HeirData :: term().
 
 new(_, _) ->
@@ -1627,7 +1629,8 @@ created is [`heir`](`m:ets#heir`). The calling process must be the table owner.
 -spec setopts(Table, Opts) -> true when
       Table :: table(),
       Opts :: Opt | [Opt],
-      Opt :: {heir, pid(), HeirData} | {heir,none},
+      Opt :: {heir, Pid} | {heir, Pid, HeirData} | {heir,none},
+      Pid :: pid(),
       HeirData :: term().
 
 setopts(_, _) ->
