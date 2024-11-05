@@ -58,15 +58,11 @@ For more information about URI, see
 %%%=========================================================================
 
 -doc """
-encode(DecodedPart) -> EncodedPart
+Performs percent encoding.
 
 > #### Warning {: .warning }
 >
 > Use `uri_string:quote/1` instead
-
-Performs percent encoding.
-
-[](){: #decode }
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec encode(Data) -> QuotedData when
@@ -76,13 +72,11 @@ encode(Data) ->
     uri_string:quote(Data).
 
 -doc """
-decode(EncodedPart) -> DecodePart
+Decodes a possibly percent encoded URI part
 
 > #### Warning {: .warning }
 >
 > Use `uri_string:unquote/1` instead
-
-Decodes a possibly percent encoded URI part
 """.
 -doc(#{since => <<"OTP R15B01">>}).
 -spec decode(QuotedData) -> Data when
