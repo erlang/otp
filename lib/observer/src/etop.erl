@@ -96,8 +96,6 @@ For details about Erlang Top, see the [User's Guide](etop_ug.md).
 -define(change_at_runtime_config,[lines,interval,sort,accumulate]).
 
 -doc """
-help() -> ok
-
 Displays the help of `etop` and its options.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
@@ -130,8 +128,6 @@ help() ->
      ).
 
 -doc """
-stop() -> stop
-
 Terminates `etop`.
 """.
 -spec stop() -> stop | not_started.
@@ -142,8 +138,6 @@ stop() ->
     end.
 
 -doc """
-config(Key,Value) -> Result
-
 Changes the configuration parameters of the tool during runtime. Allowed
 parameters are `lines`, `interval`, `accumulate`, and `sort`.
 """.
@@ -169,8 +163,6 @@ check_runtime_config(accumulate,A) when A=:=true; A=:=false -> ok;
 check_runtime_config(_Key,_Value) -> error.
 
 -doc """
-dump(File) -> Result
-
 Dumps the current display to a text file.
 """.
 -spec dump(File) -> ok | {error, Reason} when
@@ -183,8 +175,6 @@ dump(File) ->
     end.
 
 -doc """
-start() -> ok
-
 Starts `etop`. Notice that `etop` is preferably started with the `etop` script.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
@@ -193,8 +183,6 @@ start() ->
     start([]).
 
 -doc """
-start(Options) -> ok
-
 Starts `etop`. To view the possible options, use `help/0`.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
