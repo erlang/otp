@@ -118,7 +118,7 @@ start() ->
              ?DEFAULT_RUN_TIME, ?DEFAULT_MODE, ?DEFAULT_MESSAGE_PACKAGE).
 
 -doc """
-start(MessagePackage) -> void()
+start(MessagePackage)
 
 This function starts the _mstone2_ performance test with all codec configs.
 Processes are created dynamically. Each process make _one_ run through their
