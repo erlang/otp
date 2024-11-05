@@ -1921,9 +1921,6 @@ get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
 %%% --------------------------------------------------------------------
 
 -doc """
-paged_result_control(PageSize) -> {control, "1.2.840.113556.1.4.319", true,
-binary()}
-
 Paged results is an extension to the LDAP protocol specified by RFC2696
 
 This function creates a control with the specified page size for use in
@@ -1943,9 +1940,6 @@ paged_result_control(PageSize) when is_integer(PageSize) ->
     paged_result_control(PageSize, "").
 
 -doc """
-paged_result_control(PageSize, Cookie) -> {control, "1.2.840.113556.1.4.319",
-true, binary()}
-
 Paged results is an extension to the LDAP protocol specified by RFC2696
 
 This function creates a control with the specified page size and cookie for use
@@ -1986,7 +1980,7 @@ paged_result_control(PageSize, Cookie) when is_integer(PageSize) ->
 %%% --------------------------------------------------------------------
 
 -doc """
-paged_result_cookie(SearchResult) -> binary()
+paged_result_cookie(SearchResult)
 
 Paged results is an extension to the LDAP protocol specified by RFC2696.
 
