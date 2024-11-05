@@ -55,7 +55,6 @@ if a user defined instrumentation function returns erroneous.
 
 `Format` and `Args` are as in `io:format(Format, Args)`.
 
-[](){: #user_err }
 """.
 -spec user_err(Format, Args) -> snmp:void() when
       Format :: string(),
@@ -77,7 +76,6 @@ example if a syntax error is found in a configuration file.
 
 `Format` and `Args` are as in `io:format(Format, Args)`.
 
-[](){: #config_err }
 """.
 -spec config_err(Format, Args) -> snmp:void() when
       Format :: string(),

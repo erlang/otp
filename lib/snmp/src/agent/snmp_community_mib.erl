@@ -26,7 +26,6 @@ SNMP-COMMUNITY-MIB, and functions for configuring the database.
 
 The configuration files are described in the SNMP User's Manual.
 
-[](){: #configure }
 """.
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
@@ -115,7 +114,6 @@ files are found.
 
 The configuration file read is: `community.conf`.
 
-[](){: #reconfigure }
 """.
 -spec configure(ConfDir) -> snmp:void() when
       ConfDir :: string().
@@ -169,7 +167,6 @@ files are found.
 
 The configuration file read is: `community.conf`.
 
-[](){: #add_community }
 """.
 -spec reconfigure(ConfDir) -> snmp:void() when
       ConfDir :: string().
@@ -294,7 +291,6 @@ Adds a community to the agent config. Equivalent to one line in the
 With the `EngineId` argument it is possible to override the configured engine-id
 (SNMP-FRAMEWORK-MIB).
 
-[](){: #delete_community }
 """.
 -doc(#{since => <<"OTP R14B03">>}).
 -spec add_community(Idx, CommName, SecName, EngineId, CtxName, TransportTag) ->
