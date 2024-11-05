@@ -3376,7 +3376,7 @@ get_localaddr([Localhost|Ls]) ->
 
 is_docker(Config) ->
     case lists:keysearch(label, 1, Config) of
-        {value, {lable, docker}} ->
+        {value, {label, docker}} ->
             ok;
         _ ->
             skip("Is not running in a Docker")
