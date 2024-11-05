@@ -322,8 +322,6 @@ connect(_HostOrSocket, PortOrOptions, OptionsOrTimeout) ->
     bad_arg(PortOrOptions, OptionsOrTimeout).
 
 -doc """
-connect(Host, Port, Options, NegotiationTimeout) -> Result
-
 Connects to an SSH server at the `Host` on `Port`.
 
 As an alternative, an already open TCP socket could be passed to the function in
@@ -560,7 +558,7 @@ daemon(Socket, UserOptions) ->
 
 
 -doc """
-daemon(HostAddress, Port, Options) -> Result
+daemon(HostAddress, Port, Options)
 
 Starts a server listening for SSH connections on the given port. If the `Port`
 is 0, a random free port is selected. See `daemon_info/1` about how to find the
@@ -894,8 +892,6 @@ shell_socket(Socket, Options) ->
 
 
 -doc """
-shell(Host, Port, Options) -> Result
-
 Connects to an SSH server at `Host` and `Port` (defaults to 22) and starts an
 interactive shell on that remote host.
 
