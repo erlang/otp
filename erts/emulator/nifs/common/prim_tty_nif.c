@@ -935,7 +935,6 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
-#if defined(HAVE_TERMCAP) || defined(__WIN32__)
     ERL_NIF_TERM input;
     TTYResource *tty;
 
@@ -956,6 +955,8 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             return make_enotsup(env);
         return atom_ok;
     }
+
+#if defined(HAVE_TERMCAP) || defined(__WIN32__)
 
     tty->tty = enif_is_identical(input, atom_raw) ? enabled : disabled;
 
