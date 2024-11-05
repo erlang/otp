@@ -77,8 +77,6 @@ start() ->
 -doc """
 Starts the `Inets` application. Default type is `temporary`. See also
 `m:application`.
-
-[](){: #stop }
 """.
 -spec start(Type) -> ok | {error, Reason} when
       Type :: application:restart_type(),
@@ -146,8 +144,6 @@ started.
 > #### Warning {: .warning }
 > The stand_alone option is considered deprecated.
 >
-
-[](){: #stop2 }
 """.
 -spec start(Service, ServiceConfig, How) -> Result when
       Service :: inets_service(),
@@ -169,8 +165,6 @@ start(Service, ServiceConfig, How) ->
 %%--------------------------------------------------------------------
 -doc """
 Stops the `Inets` application. See also `m:application`.
-
-[](){: #start2 }
 """.
 -spec stop() -> ok.
 stop() ->
@@ -189,8 +183,6 @@ stop() ->
 Stops a started service of the `Inets` application or takes down a
 `stand_alone`\-service gracefully. When option `stand_alone` is used in start,
 only the pid is a valid argument to stop.
-
-[](){: #see_also }
 """.
 -spec stop(Service, Reference) -> ok | {error, Reason} when
       Service :: inets_service() | stand_alone,
@@ -216,8 +208,6 @@ Returns a list of currently running services.
 > #### Note {: .info }
 >
 > Services started as `stand_alone` are not listed.
-
-[](){: #services_info }
 """.
 -spec services() -> [{inets_service(), pid()}] | {error, inets_not_started}.
 services() ->
@@ -244,8 +234,6 @@ an `[{Option, Value}]` list. The information in the list is specific for each
 service and each service has probably its own info function that gives more
 details about the service. If specific service info returns `{error, Reason}`,
 Info will contain Reason term.
-
-[](){: #service_names }
 """.
 -spec services_info() -> [service_info()]
               | {error, inets_not_started}.
@@ -477,8 +465,6 @@ key1search(Key, Vals, Def) ->
 %%-------------------------------------------------------------------
 -doc """
 Returns a list of available service names.
-
-[](){: #start }
 """.
 -spec service_names() -> [inets_service()].
 service_names() ->
