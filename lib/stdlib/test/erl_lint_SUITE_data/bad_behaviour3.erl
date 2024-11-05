@@ -1,8 +1,7 @@
--module(bad_behaviour1).
-
+-module(bad_behaviour3).
 -export([behaviour_info/1]).
 
 behaviour_info(callbacks) ->
-    [{a,1,bad}];
+    [{good,1}];
 behaviour_info(optional_callbacks) ->
     [{b,1,bad}].

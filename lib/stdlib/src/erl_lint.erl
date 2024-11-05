@@ -821,6 +821,31 @@ start(File, Opts) ->
                       true, Opts)},
          {update_literal,
           bool_option(warn_update_literal, nowarn_update_literal,
+                      true, Opts)},
+         %% Behaviour warnings.
+         {conflicting_behaviours,
+          bool_option(warn_conflicting_behaviours,
+                      nowarn_conflicting_behaviours,
+                      true, Opts)},
+         {undefined_behaviour_func,
+          bool_option(warn_undefined_behaviour_func,
+                      nowarn_undefined_behaviour_func,
+                      true, Opts)},
+         {undefined_behaviour,
+          bool_option(warn_undefined_behaviour,
+                      nowarn_undefined_behaviour,
+                      true, Opts)},
+         {undefined_behaviour_callbacks,
+          bool_option(warn_undefined_behaviour_callbacks,
+                      nowarn_undefined_behaviour_callbacks,
+                      true, Opts)},
+         {ill_defined_behaviour_callbacks,
+          bool_option(warn_ill_defined_behaviour_callbacks,
+                      nowarn_ill_defined_behaviour_callbacks,
+                      true, Opts)},
+         {ill_defined_optional_callbacks,
+          bool_option(warn_ill_defined_optional_callbacks,
+                      nowarn_ill_defined_optional_callbacks,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -1256,10 +1281,21 @@ all_behaviour_callbacks([{Anno,B}|Bs], Acc, St0) ->
     all_behaviour_callbacks(Bs, [{{Anno,B},Bfs0,OBfs0}|Acc], St);
 all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
 
+add_behaviour_warning(Anno, Warning, St) when is_tuple(Warning) ->
+    Tag = element(1, Warning),
+    case is_warn_enabled(Tag, St) of
+        true ->
+            add_warning(Anno, Warning, St);
+        false ->
+            St
+    end.
+
 behaviour_callbacks(Anno, B, St0) ->
     try B:behaviour_info(callbacks) of
         undefined ->
-            St1 = add_warning(Anno, {undefined_behaviour_callbacks, B}, St0),
+            St1 = add_behaviour_warning(Anno,
+                                        {undefined_behaviour_callbacks, B},
+                                        St0),
             {[], [], St1};
         Funcs ->
             case is_fa_list(Funcs) of
@@ -1275,7 +1311,7 @@ behaviour_callbacks(Anno, B, St0) ->
                                     {Funcs, OptFuncs, St0};
                                 false ->
                                     W = {ill_defined_optional_callbacks, B},
-                                    St1 = add_warning(Anno, W, St0),
+                                    St1 = add_behaviour_warning(Anno, W, St0),
                                     {Funcs, [], St1}
                             end
                     catch
@@ -1283,14 +1319,14 @@ behaviour_callbacks(Anno, B, St0) ->
                             {Funcs, [], St0}
                     end;
                 false ->
-                    St1 = add_warning(Anno,
-                                      {ill_defined_behaviour_callbacks, B},
-                                      St0),
+                    St1 = add_behaviour_warning(Anno,
+                                                {ill_defined_behaviour_callbacks, B},
+                                                St0),
                     {[], [], St1}
             end
     catch
         _:_ ->
-            St1 = add_warning(Anno, {undefined_behaviour, B}, St0),
+            St1 = add_behaviour_warning(Anno, {undefined_behaviour, B}, St0),
             St2 = check_module_name(B, Anno, St1),
             {[], [], St2}
     end.
@@ -1334,7 +1370,7 @@ behaviour_missing_callbacks([{{Anno,B},Bfs0,OBfs}|T], St0) ->
                        case is_fa(F) of
                            true ->
                                M = {undefined_behaviour_func,F,B},
-                               add_warning(Anno, M, S0);
+                               add_behaviour_warning(Anno, M, S0);
                            false ->
                                S0 % ill_defined_behaviour_callbacks
                        end
@@ -1358,7 +1394,9 @@ behaviour_add_conflicts([{Cb,[{FirstAnno,FirstB}|Cs]}|T], St0) ->
 behaviour_add_conflicts([], St) -> St.
 
 behaviour_add_conflict([{Anno,B}|Cs], Cb, FirstL, FirstB, St0) ->
-    St = add_warning(Anno, {conflicting_behaviours,Cb,B,FirstL,FirstB}, St0),
+    St = add_behaviour_warning(Anno,
+                               {conflicting_behaviours,Cb,B,FirstL,FirstB},
+                               St0),
     behaviour_add_conflict(Cs, Cb, FirstL, FirstB, St);
 behaviour_add_conflict([], _, _, _, St) -> St.
 
