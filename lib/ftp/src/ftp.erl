@@ -288,8 +288,6 @@ The available configuration options are as follows:
   in all other functions, and they are to be called by the process that created
   the connection. The FTP client process monitors the process that created it
   and terminates if that process terminates.
-
-[](){: #pwd }
 """.
 -spec open(Host :: string() | inet:ip_address(), Opts) ->
     {'ok', Client :: client()} | {'error', Reason :: term()} when
@@ -320,8 +318,6 @@ open(Host, Port) ->
 -doc(#{title => <<"Connection API">>}).
 -doc """
 Performs login of `User` with `Pass`.
-
-[](){: #user4 }
 """.
 -spec user(Pid  :: pid(),
            User :: string(),
