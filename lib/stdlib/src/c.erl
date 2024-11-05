@@ -585,8 +585,6 @@ purge_and_load(Mod, File, Opts) ->
 -type cmd_line_arg() :: atom() | string().
 
 -doc """
-lc(Files) -> ok
-
 Compiles a list of files by calling
 `compile:file(File, [report_errors, report_warnings])` for each `File` in
 `Files`.
@@ -1367,21 +1365,17 @@ get_uptime() ->
 %% Cross Reference Check
 %% 
 -doc """
-xm(ModSpec) -> term()
-
 Finds undefined functions, unused functions, and calls to deprecated functions
 in a module by calling `xref:m/1`.
 """.
 -spec xm(module() | file:filename()) -> XRefMRet :: term(). % xref:m/1 return
-xm(M) ->
-    appcall(tools, xref, m, [M]).
+xm(ModSpec) ->
+    appcall(tools, xref, m, [ModSpec]).
 
 %%
 %% Call yecc 
 %% 
 -doc """
-y(File) -> YeccRet
-
 Generates an LALR-1 parser. Equivalent to:
 
 ```text
@@ -1395,8 +1389,6 @@ For information about `File = name()`, see `m:filename`. For information about
 y(File) -> y(File, []).
 
 -doc """
-y(File, Options) -> YeccRet
-
 Generates an LALR-1 parser. Equivalent to:
 
 ```text
@@ -1407,8 +1399,8 @@ For information about `File = name()`, see `m:filename`. For information about
 `Options` and `YeccRet`, see [`yecc:file/2`](`yecc:file/1`).
 """.
 -spec y(file:name(), [yecc:option()]) -> YeccFileRet :: yecc:yecc_ret(). % yecc:file/2 return
-y(File, Opts) ->
-    appcall(parsetools, yecc, file, [File, Opts]).
+y(File, Options) ->
+    appcall(parsetools, yecc, file, [File, Options]).
 
 %%
 %% Avoid creating strong components in xref and dialyzer by making calls
