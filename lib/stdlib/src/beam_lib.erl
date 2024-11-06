@@ -1278,7 +1278,7 @@ extract_literals(Chunk0) ->
     Literals = [binary_to_term(Term) ||
                    <<N:32, Term:N/binary>> <:= Literals1],
     NumLiterals = length(Literals),             %Sanity check.
-    lists:zip(lists:seq(0, NumLiterals - 1), Literals).
+    lists:enumerate(0, Literals).
 
 %%% Utils.
 

@@ -1761,8 +1761,7 @@ exs1024_jump({L, RL}, AS, JL, J, N, TN) ->
     {_, NS} = exs1024_next({L, RL}),
     case ?MASK(1, J) of
         1 ->
-            AS2 = lists:zipwith(fun(X, Y) -> X bxor Y end,
-                        AS, L ++ lists:reverse(RL)),
+            AS2 = [X bxor Y || X <- AS && Y <- L ++ lists:reverse(RL)],
             exs1024_jump(NS, AS2, JL, J bsr 1, N-1, TN-1);
         0 ->
             exs1024_jump(NS, AS, JL, J bsr 1, N-1, TN-1)
