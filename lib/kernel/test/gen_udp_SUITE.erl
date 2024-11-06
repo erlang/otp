@@ -3288,47 +3288,42 @@ otp_19332(Config) when is_list(Config) ->
 do_otp_19332(#{sock := Sock}) ->
     ?P("begin"),
 
-    do_otp_19332_test(Sock),
-    0 = do_otp_19332_collect_replies(Sock),
+    0 = do_otp_19332_test(Sock),
 
     ?P("done"),
     ok.
 
 do_otp_19332_test(S) ->
-    do_otp_19332_test(S, 100000, 0).
+    do_otp_19332_test(S, 100000, #{}, 0).
 
-do_otp_19332_test(_S, 0, NumR) ->
-    ?P("send attempts done: ~w", [NumR]),
+do_otp_19332_test(_S, 0, Errs, NumR) ->
+    ?P("send attempts done: "
+       "~n   Errors:                   ~p"
+       "~n   Number of (inet) replies: ~p", [Errs, NumR]),
     NumR;
-do_otp_19332_test(S, N, NumR) ->
+do_otp_19332_test(S, N, Errs, NumR) ->
     Packet = lists:duplicate(100, "hello\n"),
-    case gen_udp:send(S, {local, "/tmp/test.sock"}, Packet) of
-        ok ->
-            ?P("UNEXPECTED SUCCESS (at ~w)", [N]),
-            exit(unexpected_success);
-        {error, enoent} ->
-            %% Expected
-            do_otp_19332_test(S, N-1, NumR+1);
-        {error, Reason} ->
-            ?P("OTHER REASON[~w]: ~p", [N, Reason]),
-            do_otp_19332_test(S, N-1, NumR)
-        end.
-
-
-do_otp_19332_collect_replies(Sock) ->
-    ?P("start collecting replies", []),
-    do_otp_19332_collect_replies(Sock, 0).
-
-do_otp_19332_collect_replies(Sock, N) ->
+    Errs2  =
+        case gen_udp:send(S, {local, "/tmp/test.sock"}, Packet) of
+            ok ->
+                ?P("UNEXPECTED SUCCESS (at ~w)", [N]),
+                exit(unexpected_success);
+            {error, Reason} ->
+                case Errs of
+                    #{Reason := EN} ->
+                        Errs#{Reason => EN + 1};
+                    _ ->
+                        Errs#{Reason => 1}
+                end
+        end,
     receive
-        {inet_reply, Sock, _Ref} ->
+        {inet_reply, S, _Ref} ->
             ?P("Got a reply"),
-            do_otp_19332_collect_replies(Sock, N+1)
+            do_otp_19332_test(S, N-1, Errs2, NumR+1)
     after 0 ->
-            ?P("done collecting replies: ~w", [N]),
-            N
+            do_otp_19332_test(S, N-1, Errs2, NumR)
     end.
-
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3375,8 +3370,8 @@ get_localaddr([Localhost|Ls]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 is_docker(Config) ->
-    case lists:keysearch(label, 1, Config) of
-        {value, {label, docker}} ->
+    case which_label(Config) of
+        {ok, docker} ->
             ok;
         _ ->
             skip("Is not running in a Docker")
@@ -3455,6 +3450,20 @@ is_not_platform(Platform, PlatformStr)
             skip("This does not work on " ++ PlatformStr);
         _ ->
             ok
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+which_label(Config) ->
+    config_lookup(label, Config).
+
+config_lookup(Key, Config) ->
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} ->
+            {ok, Value};
+        _ ->
+            {error, not_found}
     end.
 
 
