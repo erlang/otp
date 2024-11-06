@@ -2804,9 +2804,8 @@ generate_key(rsa, {ModulusSize, PublicExponent}, undefined) ->
                          [rsa,{ModulusSize,PublicExponent}]);
         {Private, OldPrivate} when Private == OldPrivate ->
             {lists:sublist(Private,2), Private};
-        {_Private, _OldPrivate} ->
-            Where = lists:map(fun({A,B}) -> A == B end,
-                              lists:zip(_Private, _OldPrivate)),
+        {Private, OldPrivate} ->
+            Where = [A == B || A <- Private && B <- OldPrivate],
             erlang:error({new_old_differ,Where},
                          [rsa,{ModulusSize,PublicExponent}]);
         Private ->
