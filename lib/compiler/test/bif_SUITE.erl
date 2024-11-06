@@ -27,7 +27,8 @@
 	 beam_validator/1,trunc_and_friends/1,cover_safe_and_pure_bifs/1,
          cover_trim/1,
          head_tail/1,
-         min_max/1]).
+         min_max/1,
+         non_throwing/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +44,8 @@ groups() ->
        cover_safe_and_pure_bifs,
        cover_trim,
        head_tail,
-       min_max
+       min_max,
+       non_throwing
       ]}].
 
 init_per_suite(Config) ->
@@ -291,6 +293,24 @@ int_clamped_add(A) when is_integer(A) ->
 
 num_clamped_add(A) ->
     min(max(A, 0), 10) + 100.
+
+non_throwing(_Config) ->
+    a = try binary_to_atom(<<"a">>)
+        catch _:_ -> []
+        end,
+    l = try list_to_existing_atom([108])
+        catch _:_ -> []
+        end,
+    [] = try list_to_existing_atom([a])
+         catch _:_ -> []
+         end,
+    'Erlang' = try binary_to_atom(<<"Erlang">>, unicode)
+               catch _:_ -> []
+               end,
+    [] = try binary_to_existing_atom(a, unicode)
+         catch _:_ -> []
+         end,
+    ok.
 
 %%%
 %%% Common utilities.

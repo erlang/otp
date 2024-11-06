@@ -929,7 +929,8 @@ sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
             end
     end;
 sanitize_instr({bif,Bif}, [#b_literal{val=Lit1},#b_literal{val=Lit2}], _I) ->
-    true = erl_bifs:is_pure(erlang, Bif, 2),    %Assertion.
+    true = erl_bifs:is_pure(erlang, Bif, 2) orelse
+        beam_ssa:can_be_guard_bif(erlang, Bif, 2),    %Assertion.
     try
         {subst,#b_literal{val=erlang:Bif(Lit1, Lit2)}}
     catch
