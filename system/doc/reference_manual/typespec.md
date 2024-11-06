@@ -75,7 +75,8 @@ empty set of terms.
 [](){: #dynamic }
 
 To facilitate [gradual typing](https://en.wikipedia.org/wiki/Gradual_typing) of
-Erlang, the type `t:dynamic/0` is provided. It is similar to
+Erlang, the type `t:dynamic/0` is provided. The type `t:dynamic/0`
+represents a statically unknown type. It is similar to
 [Any](https://docs.python.org/3/library/typing.html#the-any-type) in Python,
 [any](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any) in
 TypeScript and [dynamic](https://docs.hhvm.com/hack/built-in-types/dynamic) in
