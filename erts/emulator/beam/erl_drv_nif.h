@@ -182,7 +182,7 @@ typedef struct {
  * D: Has 1-to-1 Deallocator function with ptr argument. ((malloc(DTOR,PTRPOS)))
  */
 
-#ifdef __has_attribute
+#if defined(__has_attribute) && !defined(__WIN32__)
 #  if __has_attribute(warn_unused_result)
 #    undef  ERL_NAPI_ATTR_WUR
 #    define ERL_NAPI_ATTR_WUR __attribute__((warn_unused_result))
