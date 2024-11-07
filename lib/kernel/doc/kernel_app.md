@@ -525,6 +525,10 @@ For more information about configuration parameters, see file
   [Escripts and non-interactive I/O in Unicode Usage in Erlang](`e:stdlib:unicode_usage.md#escripts-and-non-interactive-i-o`)
   for more details.
 
+- **`os_cmd_shell = string()`{: #os_cmd_shell }** - Specifies which shell to
+  use when invoking system commands via `os:cmd/2`. By default the shell is detected
+  automatically.
+
 ## Deprecated Configuration Parameters
 
 In Erlang/OTP 21.0, a new API for logging was added. The old `error_logger`
