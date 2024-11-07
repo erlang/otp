@@ -360,6 +360,8 @@ trees.
 	 variable_literal/1,
 	 warning_marker/1,
 	 warning_marker_info/1,
+	 zip_generator/1,
+	 zip_generator_body/1,
 
 	 tree/1,
 	 tree/2,
@@ -467,6 +469,7 @@ trees.
                    | erl_parse:form_info()
                    | erl_parse:af_binelement(term())
                    | erl_parse:af_generator()
+                   | erl_parse:af_zip_generator()
                    | erl_parse:af_remote_function().
 
 %% The representation built by the Erlang standard library parser
@@ -558,6 +561,7 @@ reason `badarg`. Node types currently defined by this module are:
 * `user_type_application`
 * `variable`
 * `warning_marker`
+* `zip_generator`
 
 The user may (for special purposes) create additional nodes with other type
 tags, using the `tree/2` function.
@@ -582,7 +586,7 @@ _See also: _`annotated_type/2`, `application/3`, `arity_qualifier/2`, `atom/1`,
 `size_qualifier/2`, `string/1`, `text/1`, `tree/2`, `try_expr/3`, `tuple/1`,
 `tuple_type/0`, `tuple_type/1`, `type_application/2`, `type_union/1`,
 `typed_record_field/2`, `underscore/0`, `user_type_application/2`, `variable/1`,
-`warning_marker/1`.
+`warning_marker/1`,`zip_generator/1`.
 """.
 -spec type(syntaxTree()) -> atom().
 
@@ -635,6 +639,7 @@ type(Node) ->
 	{generate_strict, _, _, _} -> strict_generator;
 	{m_generate, _, _, _} -> map_generator;
 	{m_generate_strict, _, _, _} -> strict_map_generator;
+	{zip,_,_} -> zip_generator;
 	{lc, _, _, _} -> list_comp;
 	{bc, _, _, _} -> binary_comp;
 	{mc, _, _, _} -> map_comp;
@@ -6158,6 +6163,48 @@ strict_map_generator_body(Node) ->
     end.
 
 
+-record(zip_generator, {body :: [syntaxTree()]}).
+
+-doc """
+Creates an abstract zip_generator.
+
+The result represents `G1 && ... Gn`, where each `G` is a generator.
+
+_See also: _`binary_comp/2`, `list_comp/2`, `map_comp/2`, `map_generator_body/1`,
+`map_generator_pattern/1`.
+""".
+-spec zip_generator([syntaxTree()]) -> syntaxTree().
+
+%% `erl_parse' representation:
+%%
+%% {zip, Pos, Body}
+%%
+%%	Body = erl_parse()
+
+zip_generator(Body) ->
+    tree(zip_generator, #zip_generator{body = Body}).
+
+revert_zip_generator(Node) ->
+    Pos = get_pos(Node),
+    Body = zip_generator_body(Node),
+    {zip, Pos, Body}.
+
+
+-doc """
+Returns the body subtree of a `zip_generator` node.
+
+_See also: _`zip_generator/1`.
+""".
+-spec zip_generator_body(syntaxTree()) -> syntaxTree().
+
+zip_generator_body(Node) ->
+    case unwrap(Node) of
+	{zip, _, Body} ->
+	    Body;
+	Node1 ->
+	    (data(Node1))#zip_generator.body
+    end.
+
 %% =====================================================================
 
 -doc """
@@ -7577,6 +7624,8 @@ revert_root(Node) ->
 	    revert_variable(Node);
 	warning_marker ->
 	    revert_warning_marker(Node);
+	zip_generator ->
+	    revert_zip_generator(Node);
 	_ ->
 	    %% Non-revertible new-form node
 	    Node
@@ -7934,7 +7983,9 @@ subtrees(T) ->
                      [typed_record_field_type(T)]];
                 user_type_application ->
                     [[user_type_application_name(T)],
-                     user_type_application_arguments(T)]
+                     user_type_application_arguments(T)];
+		zip_generator ->
+		    [zip_generator_body(T)]
 	    end
     end.
 
@@ -8053,7 +8104,8 @@ make_tree(tuple_type, [Es]) -> tuple_type(Es);
 make_tree(type_application, [[N], Ts]) -> type_application(N, Ts);
 make_tree(type_union, [Es]) -> type_union(Es);
 make_tree(typed_record_field, [[F],[T]]) -> typed_record_field(F, T);
-make_tree(user_type_application, [[N], Ts]) -> user_type_application(N, Ts).
+make_tree(user_type_application, [[N], Ts]) -> user_type_application(N, Ts);
+make_tree(zip_generator, [Ts]) -> zip_generator(Ts).
 
 
 -doc """

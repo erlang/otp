@@ -397,6 +397,8 @@ explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad filter ">>, Cl, PF, S, CL);
 explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad generator ">>, Cl, PF, S, CL);
+explain_reason({bad_generators,V}, error=Cl, [], PF, S, _Enc, CL) ->
+    format_value(V, <<"bad generators: ">>, Cl, PF, S, CL);
 explain_reason({unbound,V}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:fwrite(<<"variable ~w is unbound">>, [V]);
 %% Exit codes local to the shell module (restricted shell):

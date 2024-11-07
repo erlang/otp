@@ -292,6 +292,9 @@ An expression E is one of the following:
 A qualifier Q is one of the following:
 
 - If Q is a filter `E`, where `E` is an expression, then Rep(Q) = `Rep(E)`.
+- If Q is a zip generator `Q_1 && ...&& Q_k]`, where each `Q_i` is
+  a non-zip generator, then Rep(E) = `{zip,ANNO,[Rep(Q_1), ..., Rep(Q_k)]}`.
+  For Rep(Q), see below.
 - If Q is a list generator `P <- E`, where `P` is a pattern and `E` is an
   expression, then Rep(Q) = `{generate,ANNO,Rep(P),Rep(E)}`.
 - If Q is a list generator `P <:- E`, where `P` is a pattern and `E` is an

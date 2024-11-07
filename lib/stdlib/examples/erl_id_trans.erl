@@ -643,6 +643,9 @@ comprehension_quals([{m_generate_strict,Anno,P0,E0}|Qs]) ->
     E1 = expr(E0),
     P1 = pattern(P0),
     [{m_generate_strict,Anno,P1,E1}|comprehension_quals(Qs)];
+comprehension_quals([{zip,Anno,Gens0}|Qs]) ->
+    Gens1 = comprehension_quals(Gens0),
+    [{zip,Anno,Gens1}|comprehension_quals(Qs)];
 comprehension_quals([E0|Qs]) ->
     E1 = expr(E0),
     [E1|comprehension_quals(Qs)];

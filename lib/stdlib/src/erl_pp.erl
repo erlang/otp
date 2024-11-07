@@ -1047,6 +1047,8 @@ clauses(Type, Opts, Cs) ->
 lc_quals(Qs, Opts) ->
     {prefer_nl,[$,],lexprs(Qs, fun lc_qual/2, Opts)}.
 
+lc_qual({zip,_,Qs}, Opts) ->
+    {prefer_nl,["&&"],lexprs(Qs, fun lc_qual/2, Opts)};
 lc_qual({m_generate,_,Pat,E}, Opts) ->
     Pl = map_field(Pat, Opts),
     {list,[{step,[Pl,leaf(" <-")],lexpr(E, 0, Opts)}]};

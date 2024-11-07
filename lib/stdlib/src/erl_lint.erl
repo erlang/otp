@@ -403,6 +403,8 @@ format_error_1({too_many_arguments,Arity}) ->
     {~"too many arguments (~w) -- maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]};
 format_error_1(update_literal) ->
     ~"expression updates a literal";
+format_error_1(illegal_zip_generator) ->
+    ~"only generators are allowed in a zip generator.";
 %% --- patterns and guards ---
 format_error_1(illegal_map_assoc_in_pattern) -> ~"illegal pattern, did you mean to use `:=`?";
 format_error_1(illegal_pattern) -> ~"illegal pattern";
@@ -3979,6 +3981,10 @@ lc_quals(Qs, Vt0, St0) ->
     {Vt,Uvt,St} = lc_quals(Qs, Vt0, [], St0#lint{recdef_top = false}),
     {Vt,Uvt,St#lint{recdef_top = OldRecDef}}.
 
+lc_quals([{zip,_Anno,Gens} | Qs], Vt0, Uvt0, St0) ->
+    St1 = are_all_generators(Gens,St0),
+    {Vt,Uvt,St} = handle_generators(Gens,Vt0,Uvt0,St1),
+    lc_quals(Qs, Vt, Uvt, St);
 lc_quals([{generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
@@ -4015,6 +4021,36 @@ is_guard_test2_info(#lint{records=RDs,locals=Locals,imports=Imports}) ->
 		     is_imported_function(Imports, FA)
 	 end}.
 
+are_all_generators([{generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([{generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([{b_generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([{b_generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([{m_generate,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([{m_generate_strict,_,_,_}|Qs],St) -> are_all_generators(Qs,St);
+are_all_generators([Q|_Qs],St) ->
+    Anno1 = element(2,Q),
+    add_error(Anno1, illegal_zip_generator, St);
+are_all_generators([],St) -> St.
+
+handle_generators(Gens,Vt,Uvt,St0) ->
+    Ps = [P || {_,_,P,_} <- Gens],
+    Es = [E || {_,_,_,E} <- Gens],
+    {Evt,St1} = exprs(Es, Vt, St0),
+    %% Forget variables local to E immediately.
+    Vt1 = vtupdate(vtold(Evt, Vt), Vt),
+    {_, St2} = check_unused_vars(Evt, Vt, St1),
+    {Pvt,Pnew,St3} = comprehension_pattern(Ps, Vt1, St2),
+    %% Have to keep fresh variables separated from used variables somehow
+    %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
+    %%                                1           2      2 1
+    Vt2 = vtupdate(Pvt, Vt1),
+    St4 = shadow_vars(Pnew, Vt1, generate, St3),
+    Svt = vtold(Vt2, Pnew),
+    {_, St5} = check_old_unused_vars(Svt, Uvt, St4),
+    NUvt = vtupdate(vtnew(Svt, Uvt), Uvt),
+    Vt3 = vtupdate(vtsubtract(Vt2, Pnew), Pnew),
+    {Vt3,NUvt,St5}.
+
 handle_generator(P,E,Vt,Uvt,St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     %% Forget variables local to E immediately.
@@ -4032,6 +4068,10 @@ handle_generator(P,E,Vt,Uvt,St0) ->
     Vt3 = vtupdate(vtsubtract(Vt2, Pnew), Pnew),
     {Vt3,NUvt,St5}.
 
+comprehension_pattern([_|_]=Ps, Vt, St) ->
+    Mps = [K || {map_field_exact,_,K,_} <- Ps] ++ [V || {map_field_exact,_,_,V} <- Ps],
+    Ps1 = [P || P <- Ps, element(1,P)=/=map_field_exact],
+    pattern_list(Ps1++Mps, Vt, [], St);
 comprehension_pattern({map_field_exact,_,K,V}, Vt, St) ->
     pattern_list([K,V], Vt, [], St);
 comprehension_pattern(P, Vt, St) ->
