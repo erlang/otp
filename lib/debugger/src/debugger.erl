@@ -142,7 +142,7 @@ Process" window. For details, see the
    Name :: atom(),
    Args :: [term()].
 quick(M, F, A) ->
-    int:i(M),
+    _ = int:i(M),
     auto_attach([init]),
     apply(M, F, A).
 

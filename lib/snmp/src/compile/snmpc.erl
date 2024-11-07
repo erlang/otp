@@ -152,14 +152,11 @@ make_options(#options{includes = Incs,
 %%----------------------------------------------------------------------
 
 -doc(#{equiv => compile/2}).
--spec compile([AtomFileName]) -> {ok, BinFileName} | {error, Reason} when
-      AtomFileName :: atom(),
-      BinFileName  :: string(),
-      Reason       :: term();
-             (FileName) -> {ok, BinFileName} | {error, Reason} when
-      FileName    :: string(),
-      BinFileName :: string(),
-      Reason      :: term().
+-spec compile(AtomFileNames | FileName) -> {ok, BinFileName} | {error, Reason} when
+      AtomFileNames :: [atom()],
+      FileName      :: string(),
+      BinFileName   :: string(),
+      Reason        :: term().
       
 %% Returns: {ok, File}|{error, Reason}
 compile([AtomFileName]) when is_atom(AtomFileName) ->

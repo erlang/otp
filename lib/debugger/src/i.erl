@@ -81,17 +81,19 @@ im() ->
 -doc """
 Interprets the specified module(s) on the local node.
 
+- If `AbsModule :: Module | File`, then `Result :: {module, Module} | error`.
+- If `AbsModules :: [AbsModule]`, then `Result :: ok`.
+
 See `int:i/1` for more information.
 """.
--spec ii(AbsModule) -> {module, Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
-        (AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+-spec ii(AbsModules | AbsModule) -> Result when
+          AbsModules :: [AbsModule,...],
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all(),
+          Result :: AbsModuleResult | AbsModulesResult,
+          AbsModuleResult :: {module, Module} | error,
+          AbsModulesResult :: ok.
 ii(Module) ->
     int:i(Module).
 
@@ -112,17 +114,19 @@ iq(Module) ->
 -doc """
 Interprets the specified module(s) on all known nodes.
 
+- If `AbsModule :: Module | File`, then `Result :: {module, Module} | error`.
+- If `AbsModules :: [AbsModule]`, then `Result :: ok`.
+
 See `int:ni/1` for more information.
 """.
--spec ini(AbsModules) -> ok when
-      AbsModules :: [AbsModule],
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all();
-         (AbsModule) -> {module, Module} | error when
-      AbsModule :: Module | File,
-      Module :: module(),
-      File :: file:name_all().
+-spec ini(AbsModules | AbsModule) -> Result when
+          AbsModules :: [AbsModule],
+          AbsModule :: Module | File,
+          Module :: module(),
+          File :: file:name_all(),
+          Result :: AbsModuleResult | AbsModulesResult,
+          AbsModuleResult :: {module, Module} | error,
+          AbsModulesResult :: ok.
 ini(Module) ->
     int:ni(Module).
 

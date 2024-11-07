@@ -505,8 +505,9 @@ build_warnings([Opt|Opts], Warnings) ->
       no_fail_call ->
 	ordsets:del_element(?WARN_FAILING_CALL, Warnings);
       no_contracts ->
-	Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
-	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings1);
+        Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
+        Warnings2 = ordsets:del_element(?WARN_OVERLAPPING_CONTRACT, Warnings1),
+	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings2);
       no_behaviours ->
 	ordsets:del_element(?WARN_BEHAVIOUR, Warnings);
       no_undefined_callbacks ->
