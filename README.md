@@ -73,7 +73,10 @@ Please visit our [GitHub Issues](https://github.com/erlang/otp/issues) page for 
 
 ### Security Disclosure
 
-We take security bugs in Erlang/OTP seriously. Please disclose the issues regarding security by sending an email to **erlang-security [at] erlang [dot] org** and not by creating a public issue.
+Please do not report security vulnerabilities through public channels, like
+GitHub issues, discussions, or pull requests.
+
+Please disclose the security issues following our [SECURITY](SECURITY.md) guidelines.
 
 ## Contributing
 
