@@ -61,6 +61,7 @@
 -define(HAS_SUPPORT_IPV6(),  ?LIB:has_support_ipv6()).
 
 -define(PCALL(F, T, D),      ?LIB:proxy_call(F, T, D)).
+-define(PCALL(F, T, PT, D),  ?LIB:proxy_call(F, T, PT, D)).
 
 
 %% - Time macros -

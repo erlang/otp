@@ -1218,11 +1218,19 @@ simulate_crash(NumKills, _) ->
 %%======================================================================
 
 notify_started01(Config) when is_list(Config) ->
-    ?TC_TRY(notify_started01,
-            fun() -> do_notify_started01(Config) end).
+    Cond = fun() -> ok end,
+    Pre  = fun() -> ok end,
+    TC   = fun(_) -> do_notify_started01(Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("[post] ensure snmpm not running"),
+                   ?ENSURE_NOT_RUNNING(snmpm_supervisor,
+                                       fun() -> snmpm:stop() end,
+                                       1000)
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 do_notify_started01(Config) ->
-    ?IPRINT("starting with Config: "
+    ?IPRINT("[tc] starting with Config: "
             "~n      ~p", [Config]),
 
     SCO     = ?config(socket_create_opts, Config),
@@ -1236,11 +1244,11 @@ do_notify_started01(Config) ->
 	    {note_store, [{verbosity, silence}]},
 	    {config,     [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    ?IPRINT("request start notification (1)"),
+    ?IPRINT("[tc] request start notification (1)"),
     Pid1 = snmpm:notify_started(10000),
     receive
 	{snmpm_start_timeout, Pid1} ->
-	    ?IPRINT("received expected start timeout"),
+	    ?IPRINT("[tc] received expected start timeout"),
 	    ok;
 	Any1 ->
 	    ?FAIL({unexpected_message, Any1})
@@ -1248,25 +1256,41 @@ do_notify_started01(Config) ->
 	    ?FAIL({unexpected_timeout, Pid1})
     end,
 
-    ?IPRINT("request start notification (2)"),
+    ?IPRINT("[tc] request start notification (2)"),
     Pid2 = snmpm:notify_started(10000),
 
-    ?IPRINT("start the snmpm starter"),
-    Pid = snmpm_starter(Opts, 5000),
+    ?IPRINT("[tc] start the snmpm starter"),
+    StarterPid = snmpm_starter(Opts, 5000),
 
-    ?IPRINT("await the start notification"),
+    ?IPRINT("[tc] await the start notification"),
     Ref = 
 	receive
 	    {snmpm_started, Pid2} ->
-		?IPRINT("received started message -> create the monitor"),
+		?IPRINT("[tc] received start notification message -> "
+                        "create the monitor"),
 		snmpm:monitor();
+            {snmpm_start_timeout, StarterPid} ->
+                ?EPRINT("[tc] Start Timeout: "
+                        "~n   Starter Process (~p) Info: ~p",
+                        [StarterPid, (catch erlang:process_info(StarterPid))]),
+                ?FAIL(start_timeout);
 	    Any2 ->
+                ?EPRINT("[tc] Unexpected Message: "
+                        "~n   Notify Process Info:  ~p"
+                        "~n   Starter Process info: ~p",
+                        [(catch erlang:process_info(Pid2)),
+                         (catch erlang:process_info(StarterPid))]),
 		?FAIL({unexpected_message, Any2})
 	after 15000 ->
-		?FAIL({unexpected_timeout, Pid2})
+                ?EPRINT("[tc] Unexpected Start Timeout: "
+                        "~n   Notify Process Info:  ~p"
+                        "~n   Starter Process info: ~p",
+                        [(catch erlang:process_info(Pid2)),
+                         (catch erlang:process_info(StarterPid))]),
+		?FAIL(unexpected_start_timeout)
 	end,
 
-    ?IPRINT("[~p] make sure it has not already crashed...", [Ref]),
+    ?IPRINT("[tc] make sure it (~p) has not already crashed...", [Ref]),
     receive
 	{'DOWN', Ref, process, Obj1, Reason1} ->
 	    ?FAIL({unexpected_down, Obj1, Reason1})
@@ -1274,13 +1298,14 @@ do_notify_started01(Config) ->
 	    ok
     end,
 
-    ?IPRINT("stop the manager"),
-    Pid ! {stop, self()}, %ok = snmpm:stop(),
+    ?IPRINT("[tc] stop the manager (send stop to starter process ~p)",
+            [StarterPid]),
+    StarterPid ! {stop, self()}, %ok = snmpm:stop(),
 
-    ?IPRINT("await the down-message"),
+    ?IPRINT("[tc] await the down-message"),
     receive
 	{'DOWN', Ref, process, Obj2, Reason2} ->
-	    ?IPRINT("received expected down-message: "
+	    ?IPRINT("[tc] received expected down-message: "
                     "~n   Obj2:    ~p"
                     "~n   Reason2: ~p", 
                     [Obj2, Reason2]),
@@ -1289,27 +1314,34 @@ do_notify_started01(Config) ->
 	    ?FAIL(down_timeout)
     end,
 
-    ?IPRINT("end"),
+    ?IPRINT("[tc] end"),
     ok.
 
 
 snmpm_starter(Opts, To) ->
     Parent = self(),
     spawn(
-      fun() -> 
-	      ?SLEEP(To), 
-	      ok = snmpm:start(Opts),
+      fun() ->
+              ?IPRINT("[snmpm-starter] wait ~w msec", [To]),
+	      ?SLEEP(To),
+              ?IPRINT("[snmpm-starter] try start snmpm"),
+	      ok = ?PCALL(fun() -> snmpm:start(Opts) end,
+                          To, 1000, {error, timeout}),
+              ?IPRINT("[snmpm-starter] snmpm started - await stop command"),
 	      receive
 		  {stop, Parent} ->
+                      ?IPRINT("[snmpm-starter] received stop command"),
 		      snmpm:stop()
-	      end
+	      end,
+              ?IPRINT("[snmpm-starter] done"),
+              ok
       end).
 
 
 %%======================================================================
 
 notify_started02(Config) when is_list(Config) ->
-    ?TC_TRY(notify_started02,
+    ?TC_TRY(?FUNCTION_NAME,
             fun() -> notify_started02_cond(Config) end,
             fun() -> do_notify_started02(Config) end).
 
@@ -1344,9 +1376,12 @@ do_notify_started02(Config) ->
     write_manager_conf(ConfDir),
 
     Opts = [{server,     [{verbosity, log}]},
-	    {net_if,     [{verbosity, silence}, {options, SCO}]},
+	    {net_if,     [{verbosity, silence},
+                          {options,   SCO}]},
 	    {note_store, [{verbosity, silence}]},
-	    {config,     [{verbosity, debug}, {dir, ConfDir}, {db_dir, DbDir}]}],
+	    {config,     [{verbosity, debug},
+                          {dir,       ConfDir},
+                          {db_dir,    DbDir}]}],
 
     ?IPRINT("start snmpm client process"),
     NumIterations = 5,
