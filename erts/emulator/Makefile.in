@@ -377,10 +377,12 @@ endif
 ifeq ($(TARGET),win32)
 LIBS    += -L$(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE) -lepcre
 else
-LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+#LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+LIBS    += $(ERL_PCRE2_DIR)/lib/$(LIB_PREFIX)pcre2-8$(LIB_SUFFIX)
 endif
 
-EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+#EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+EPCRE_LIB = $(ERL_PCRE2_DIR)/lib/$(LIB_PREFIX)pcre2-8$(LIB_SUFFIX)
 DEPLIBS += $(EPCRE_LIB)
 
 DEPLIBS += $(RYU_LIBRARY)
@@ -510,7 +512,7 @@ ifeq ($(TARGET), win32)
 endif
 
 include zlib/zlib.mk
-include pcre/pcre.mk
+#include pcre/pcre.mk
 include ryu/ryu.mk
 include openssl/openssl.mk
 
@@ -812,7 +814,8 @@ COMMON_INCLUDES = -Ibeam -Isys/$(ERLANG_OSTYPE) -Isys/common -I$(TARGET)
 ifndef Z_LIB
 COMMON_INCLUDES += -Izlib 
 endif
-COMMON_INCLUDES += -Ipcre
+#COMMON_INCLUDES += -Ipcre
+COMMON_INCLUDES += -I$(ERL_PCRE2_DIR)/include
 COMMON_INCLUDES += -Iryu
 COMMON_INCLUDES += -Iopenssl/include
 COMMON_INCLUDES += -I../include -I../include/$(TARGET)

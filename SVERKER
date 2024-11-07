@@ -1,0 +1,20 @@
+# Build pcre2 from source:
+
+git clone https://github.com/PCRE2Project/pcre2
+cd pcre2
+git co pcre2-10.44
+git clean -xfdq
+
+sudo apt install autotools-dev	# not sure if needed
+sudo apt install autoconf	# not sure if needed
+sudo apt install libtool
+
+# Set ERL_PCRE2_DIR where to install pcre2
+export ERL_PCRE2_DIR=/home/uabseri/src/pcre2-10.44
+
+./autogen.sh
+./configure --prefix=$ERL_PCRE2_DIR
+make
+make install
+
+# then build OTP as usual with ERL_PCRE2_DIR set
