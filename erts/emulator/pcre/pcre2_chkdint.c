@@ -5,8 +5,8 @@
 /* PCRE is a library of functions to support regular expressions whose syntax
 and semantics are as close as possible to those of the Perl 5 language.
 
-                       Written by Philip Hazel
-           Copyright (c) 1997-2014 University of Cambridge
+                     Written by Philip Hazel
+            Copyright (c) 2023 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -37,52 +37,60 @@ POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------------
 */
 
+/* This file contains functions to implement checked integer operation */
 
-/* This module contains global variables that are exported by the PCRE library.
-PCRE is thread-clean and doesn't use any global variables in the normal sense.
-However, it calls memory allocation and freeing functions via the four
-indirections below, and it can optionally do callouts, using the fifth
-indirection. These values can be changed by the caller, but are shared between
-all threads.
-
-For MS Visual Studio and Symbian OS, there are problems in initializing these
-variables to non-local functions. In these cases, therefore, an indirection via
-a local function is used.
-
-Also, when compiling for Virtual Pascal, things are done differently, and
-global variables are not used. */
-
-/* %ExternalCopyright% */
-
+#ifndef PCRE2_PCRE2TEST
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "pcre_internal.h"
-
-#if defined _MSC_VER || defined  __SYMBIAN32__
-static void* LocalPcreMalloc(size_t aSize)
-  {
-  return malloc(aSize);
-  }
-static void LocalPcreFree(void* aPtr)
-  {
-  free(aPtr);
-  }
-PCRE_EXP_DATA_DEFN void *(*PUBL(malloc))(size_t) = LocalPcreMalloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(free))(void *) = LocalPcreFree;
-PCRE_EXP_DATA_DEFN void *(*PUBL(stack_malloc))(size_t) = LocalPcreMalloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(stack_free))(void *) = LocalPcreFree;
-PCRE_EXP_DATA_DEFN int   (*PUBL(callout))(PUBL(callout_block) *) = NULL;
-PCRE_EXP_DATA_DEFN int   (*PUBL(stack_guard))(void) = NULL;
-
-#elif !defined VPCOMPAT
-PCRE_EXP_DATA_DEFN void *(*PUBL(malloc))(size_t) = malloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(free))(void *) = free;
-PCRE_EXP_DATA_DEFN void *(*PUBL(stack_malloc))(size_t) = malloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(stack_free))(void *) = free;
-PCRE_EXP_DATA_DEFN int   (*PUBL(callout))(PUBL(callout_block) *) = NULL;
-PCRE_EXP_DATA_DEFN int   (*PUBL(stack_guard))(void) = NULL;
+#include "pcre2_internal.h"
 #endif
 
-/* End of pcre_globals.c */
+/*************************************************
+*        Checked Integer Multiplication          *
+*************************************************/
+
+/*
+Arguments:
+  r         A pointer to PCRE2_SIZE to store the answer
+  a, b      Two integers
+
+Returns:    Bool indicating if the operation overflows
+
+It is modeled after C23's <stdckdint.h> interface
+The INT64_OR_DOUBLE type is a 64-bit integer type when available,
+otherwise double. */
+
+BOOL
+PRIV(ckd_smul)(PCRE2_SIZE *r, int a, int b)
+{
+#ifdef HAVE_BUILTIN_MUL_OVERFLOW
+PCRE2_SIZE m;
+
+if (__builtin_mul_overflow(a, b, &m)) return TRUE;
+
+*r = m;
+#else
+INT64_OR_DOUBLE m;
+
+#ifdef PCRE2_DEBUG
+if (a < 0 || b < 0) abort();
+#endif
+
+m = (INT64_OR_DOUBLE)a * (INT64_OR_DOUBLE)b;
+
+#if defined INT64_MAX || defined int64_t
+if (sizeof(m) > sizeof(*r) && m > (INT64_OR_DOUBLE)PCRE2_SIZE_MAX) return TRUE;
+*r = (PCRE2_SIZE)m;
+#else
+if (m > PCRE2_SIZE_MAX) return TRUE;
+*r = m;
+#endif
+
+#endif
+
+return FALSE;
+}
+
+/* End of pcre_chkdint.c */
