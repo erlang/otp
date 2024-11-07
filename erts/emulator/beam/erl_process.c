@@ -13692,7 +13692,9 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
             break;
         }
         case ERTS_MON_TYPE_RESOURCE:
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
             erts_fire_nif_monitor(mon);
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
             mon = NULL;
             break;
         case ERTS_MON_TYPE_DIST_PORT:
