@@ -124,7 +124,7 @@
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
 -record(ifilter,   {anno=#a{},arg}).
 -record(igen,      {anno=#a{},acc_pat,acc_guard,
-                    nomatch_pat,nomatch_guard,nomatch_mode,
+                    nomatch_pat,nomatch_mode,
                     tail,tail_pat,arg,
                     refill={nomatch,ignore}}).
 -record(izip,      {anno=#a{},acc_pats=[],acc_guard,
@@ -1626,7 +1626,6 @@ lc_tq(Line, E0, [], Mc0, St0) ->
 lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 		      acc_pat=AccPat,acc_guard=AccGuard,
                       nomatch_pat=NomatchPat,
-                      nomatch_guard=NomatchGuard,
                       nomatch_mode=NomatchMode,
                       tail=Tail,tail_pat=TailPat,
                       refill={RefillPat,RefillAction},
@@ -1647,7 +1646,7 @@ lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     {[FcVar,Var],St2} = new_vars(2, St1),
     Fc = bad_generator([FcVar], FcVar, Arg),
     NomatchClause = make_clause([nomatch_clause,compiler_generated|LA],
-                                NomatchPat, [], NomatchGuard, [Nc]),
+                                NomatchPat, [], [], [Nc]),
     TailClause = make_clause(LA, TailPat, [], [], [Mc]),
     {Lc,Lps,St3} = lc_tq(Line, E, Qs, Sc, St2),
     AccClause = make_clause(LA, AccPat, [], AccGuard, Lps ++ [Lc]),
@@ -1661,7 +1660,15 @@ lc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
                                             AccPat, [], [], [Sc])
                         end,
     RefillClause = make_clause(LA, RefillPat, [], [], [RefillAction,Sc]),
-    Cs0 = [AccClause,AccClauseNoGuards,NomatchClause,TailClause,RefillClause],
+    Cs0 = [AccClause,AccClauseNoGuards|
+           case TailPat of
+               #ibinary{segments=[]} ->
+                   %% Order clauses for strict binary generator.
+                   [TailClause,NomatchClause,RefillClause];
+               _ ->
+                   %% Order clauses for relaxed generator.
+                   [NomatchClause,TailClause,RefillClause]
+           end],
     Cs = [C || C <- Cs0, C =/= nomatch],
     Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
@@ -1747,7 +1754,6 @@ bc_tq(Line, Exp, Qs0, St0) ->
 bc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 		       acc_pat=AccPat,acc_guard=AccGuard,
                        nomatch_pat=NomatchPat,
-                       nomatch_guard=NomatchGuard,
                        nomatch_mode=NomatchMode,
                        tail=Tail,tail_pat=TailPat,
                        refill={RefillPat,RefillAction},
@@ -1771,7 +1777,7 @@ bc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
           end,
     Fc = bad_generator(FcVars, hd(FcVars), Arg),
     NomatchClause = make_clause([compiler_generated,nomatch_clause|LA],
-                             NomatchPat, [IgnoreVar], NomatchGuard, [Nc]),
+                             NomatchPat, [IgnoreVar], [], [Nc]),
     TailClause = make_clause(LA, TailPat, [IgnoreVar], [], [AccVar]),
     {Bc,Bps,St5} = bc_tq1(Line, E, Qs, AccVar, St4),
     Body = Bps ++ [#iset{var=AccVar,arg=Bc},Sc],
@@ -1786,7 +1792,15 @@ bc_tq1(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
                                             AccPat, [IgnoreVar], [], [Sc])
                         end,
     RefillClause = make_clause(LA, RefillPat, [AccVar], [], [RefillAction,Sc]),
-    Cs0 = [AccClause,AccClauseNoGuards,NomatchClause,TailClause,RefillClause],
+    Cs0 = [AccClause,AccClauseNoGuards|
+           case TailPat of
+               #ibinary{segments=[]} ->
+                   %% Order clauses for strict binary generator.
+                   [TailClause,NomatchClause,RefillClause];
+               _ ->
+                   %% Order clauses for relaxed generator.
+                   [NomatchClause,TailClause,RefillClause]
+           end],
     Cs = [C || C <- Cs0, C =/= nomatch],
     Fun = #ifun{anno=GAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
 
@@ -2073,7 +2087,6 @@ get_qual_anno(Abstract) -> element(2, Abstract).
 %%    generator in the qualifier list input.
 %%  - nomatch_pat is the no-match pattern, e.g. <<X,_:X,Tail/bitstring>>
 %%    for <<X,1:X>> <= Expr.
-%%  - nomatch_guard is the list of guards to add to the no-match clause.
 %%  - nomatch_mode is either skip (not matching elements of the relaxed
 %%    generator have to be silently skipped by the comprehension) or a
 %%    value X (to be used in the {badmatch, X} error a strict generator
@@ -2114,7 +2127,7 @@ generator(Line, {Generate,Lg,P0,E}, Gs, St0) when Generate =:= generate;
                   end,
     {Ce,Pre,St4} = safe(E, St3),
     Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,
-                nomatch_pat=NomatchPat,nomatch_guard=[],nomatch_mode=NomatchMode,
+                nomatch_pat=NomatchPat,nomatch_mode=NomatchMode,
                 tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
 generator(Line, {Generate,Lg,P,E}, Gs, St0) when Generate =:= b_generate;
@@ -2165,7 +2178,7 @@ generator(Line, {Generate,Lg,P,E}, Gs, St0) when Generate =:= b_generate;
             NomatchPat = Cp#ibinary{segments=SkipSegs},
             {Ce,Pre,St5} = safe(E, St4),
             Gen = #igen{anno=GAnno,acc_pat=AccPat,acc_guard=Cg,
-                        nomatch_pat=NomatchPat,nomatch_guard=[],nomatch_mode=skip,
+                        nomatch_pat=NomatchPat,nomatch_mode=skip,
                         tail=Tail,tail_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
                         arg={Pre,Ce}},
             {Gen,St5};
@@ -2173,23 +2186,18 @@ generator(Line, {Generate,Lg,P,E}, Gs, St0) when Generate =:= b_generate;
             {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
             AccPat = Cp#ibinary{segments=AccSegs},
             {Cg,St3} = lc_guard_tests(Gs, St2),
-            Guard = #icall{anno=GAnno,
-                           module=#c_literal{anno=GA,val=erlang},
-                           name=#c_literal{anno=GA,val='=/='},
-                           args=[Tail,#c_literal{anno=GA,val= <<>>}]},
             {Ce,Pre,St4} = safe(E, St3),
             Gen = #igen{anno=GAnno,acc_pat=AccPat,acc_guard=Cg,
                         nomatch_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
-                        nomatch_guard=[Guard],
                         nomatch_mode=Tail,
-                        tail=Tail,tail_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
+                        tail=Tail,tail_pat=#ibinary{anno=#a{anno=LA},segments=[]},
                         arg={Pre,Ce}},
             {Gen,St4}
     catch
         throw:nomatch ->
             {Ce,Pre,St1} = safe(E, St0),
             Gen = #igen{anno=#a{anno=GA},acc_pat=nomatch,acc_guard=[],
-                        nomatch_pat=nomatch,nomatch_guard=[],nomatch_mode=skip,
+                        nomatch_pat=nomatch,nomatch_mode=skip,
                         tail_pat=#c_var{name='_'},
                         arg={Pre,Ce}},
             {Gen,St1}
@@ -2289,7 +2297,6 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, St0) when
     Gen = #igen{anno=#a{anno=GA},
 		acc_pat=AccPat,acc_guard=Cg,
                 nomatch_pat=NomatchPat,
-                nomatch_guard=[],
                 nomatch_mode=NomatchMode,
                 tail=IterVar,tail_pat=#c_literal{anno=LA,val=none},
                 refill=Refill,
