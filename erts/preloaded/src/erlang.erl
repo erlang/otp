@@ -119,7 +119,7 @@ a bitstring with a size divisible by 8.
 -type byte() :: 0..255.
 -doc "An ASCII character or a `m:unicode` codepoint presented by an integer.".
 -type char() :: 0..16#10FFFF.
--doc "The [dynamic](`e:system:typespec.md#dynamic`) type.".
+-doc "The [dynamic](`e:system:typespec.md#dynamic`) type, which represents a statically unknown type".
 -type dynamic() :: dynamic().
 -doc "An Erlang [float](`e:system:data_types.md#number`).".
 -type float() :: float().

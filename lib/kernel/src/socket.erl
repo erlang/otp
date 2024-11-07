@@ -2659,7 +2659,7 @@ protocol(Proto) ->
 
 -doc(#{since => <<"OTP 23.0">>}).
 -doc "Equivalent to [`open(FD, #{})`](`open/2`).".
--spec open(FD :: integer()) -> _.
+-spec open(FD :: integer()) -> dynamic().
 
 open(FD) when is_integer(FD) ->
     open(FD, #{});
@@ -2739,7 +2739,11 @@ The `Opts` argument can provide extra information:
       Reason   ::
         posix() | 'domain' | 'type' | 'protocol';
 
-          (Domain :: term(), Type :: term()) -> _.
+          (Domain, Type) -> {'ok', Socket} | {'error', Reason} when
+      Domain :: domain(),
+      Type   :: type() | integer(),
+      Socket :: socket(),
+      Reason :: posix() | protocol.
 
 open(FD, Opts) when is_map(Opts) ->
     if
@@ -2769,9 +2773,13 @@ Equivalent to [`open(Domain, Type, Protocol, #{})`](`open/4`).
 
 Equivalent to [`open(Domain, Type, default, #{})`](`open/4`).
 """.
--spec open(Domain :: term(), Type :: term(), Opts :: map()) -> _;
-          (Domain :: term(), Type :: term(), Protocol :: term()) -> _.
-
+-spec open(Domain, Type, Opts | Protocol) -> {'ok', Socket} | {'error', Reason} when
+      Domain :: domain() | integer(),
+      Type :: type() | integer(),
+      Opts :: map(),
+      Protocol :: default | protocol() | integer(),
+      Socket :: socket(),
+      Reason :: posix() | protocol.
 open(Domain, Type, Opts) when is_map(Opts) ->
     open(Domain, Type, 0, Opts);
 open(Domain, Type, Protocol) ->
@@ -2968,7 +2976,7 @@ connect(Socket) ->
 Equivalent to
 [`connect(Socket, SockAddr, infinity)`](#connect-infinity).
 """.
--spec connect(Socket :: term(), SockAddr :: term()) -> _.
+-spec connect(Socket :: socket(), SockAddr :: sockaddr()) -> 'ok' | {'error', Reason :: dynamic()}.
 
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
@@ -3145,7 +3153,7 @@ Make a socket listen for connections.
 Equivalent to [`listen(Socket, Backlog)`](`listen/2`) with a default
 value for `Backlog` (currently `5`).
 """.
--spec listen(Socket :: term()) -> _.
+-spec listen(Socket :: socket()) -> 'ok' | {'error', Reason  :: posix() | 'closed'}.
 
 listen(Socket) ->
     listen(Socket, ?ESOCK_LISTEN_BACKLOG_DEFAULT).
@@ -3164,10 +3172,7 @@ will most probably be perceived as at least that long.
 >
 > On _Windows_ the socket has to be _bound_.
 """.
--spec listen(Socket, Backlog) -> 'ok' | {'error', Reason} when
-      Socket  :: socket(),
-      Backlog :: integer(),
-      Reason  :: posix() | 'closed'.
+-spec listen(Socket :: socket(), Backlog :: integer()) -> 'ok' | {'error', Reason  :: posix() | 'closed'}.
 
 listen(?socket(SockRef), Backlog)
   when is_reference(SockRef), is_integer(Backlog) ->
@@ -3183,7 +3188,17 @@ listen(Socket, Backlog) ->
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc("Equivalent to [`accept(ListenSocket, infinity)`](`accept/2`).").
--spec accept(ListenSocket :: term()) -> _.
+-spec accept(ListenSocket) -> Result when
+      Result ::  {'ok', Socket} |
+                 {'select', SelectInfo} |
+                 {'completion', CompletionInfo} |
+                 {'error', Reason},
+      ListenSocket    :: socket(),
+      Socket          :: socket(),
+      SelectInfo      :: select_info(),
+      CompletionInfo  :: completion_info(),
+      Reason          :: dynamic().
+
 
 accept(ListenSocket) ->
     accept(ListenSocket, ?ESOCK_ACCEPT_TIMEOUT_DEFAULT).
@@ -3340,7 +3355,15 @@ accept_result(LSockRef, AccRef, Result) ->
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc "Equivalent to [`send(Socket, Data, [], infinity)`](`send/4`).".
--spec send(Socket :: term(), Data :: term()) -> _.
+-spec send(Socket, Data) -> Result when
+      Socket         :: socket(),
+      Data           :: iodata(),
+      Result         :: 'ok' |
+                        {'ok', RestData :: binary()} |
+                        {'select', SelectInfo :: dynamic()} |
+                        {'completion', CompletionInfo :: dynamic()} |
+                        {'error', Reason :: dynamic()}.
+
 
 send(Socket, Data) ->
     send(Socket, Data, ?ESOCK_SEND_FLAGS_DEFAULT, ?ESOCK_SEND_TIMEOUT_DEFAULT).
@@ -3699,8 +3722,15 @@ With argument `Dest`; equivalent to
 With argument `Cont`; equivalent to
 [`sendto(Socket, Data, Cont, infinity)`](`sendto/4`) *since OTP 24.0*.
 """.
--spec sendto(Socket :: term(), Data :: term(), Cont :: select_info()) -> _;
-            (Socket :: term(), Data :: term(), Dest :: term()) -> _.
+-spec sendto(Socket :: socket(), Data :: iodata(), Cont | Dest) -> Result when
+      Cont :: select_info(),
+      Dest :: sockaddr(),
+      Result :: 'ok'
+              | {'ok', RestData}
+              | {'error', Reason}
+              | {'error', {Reason, RestData}},
+      RestData :: binary(),
+      Reason     :: posix() | 'closed' | invalid().
 
 sendto(Socket, Data, ?SELECT_INFO(_, _) = Cont) ->
     sendto(Socket, Data, Cont, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -3708,6 +3738,7 @@ sendto(Socket, Data, Dest) ->
     sendto(
       Socket, Data, Dest,
       ?ESOCK_SENDTO_FLAGS_DEFAULT, ?ESOCK_SENDTO_TIMEOUT_DEFAULT).
+
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc """
@@ -3730,12 +3761,21 @@ and encode message flags in every call but the first.
 See the last argument (argument 5) of `sendto/5` for
 an explanation of `TimeoutOrHandle`.
 """.
--spec sendto(Socket :: term(), Data :: term(),
-             Dest :: term(), Flags :: list()) -> _;
-            (Socket :: term(), Data :: term(),
-             Cont :: select_info(), TimeoutOrHandle :: term()) -> _;
-            (Socket :: term(), Data :: term(),
-             Dest :: term(), TimeoutOrHandle :: term()) -> _.
+
+-spec sendto(Socket :: socket(), Data :: iodata(),
+             Dest :: sockaddr(), Flags :: list()) -> Result when
+      Result :: 'ok'
+              | {'ok', RestData :: binary()}
+              | {'error', Reason}
+              | {'error', {Reason, RestData :: binary()}},
+      Reason     :: posix() | 'closed' | invalid();
+            (Socket :: socket(), Data :: iodata(),
+             Cont :: select_info(), TimeoutOrHandle :: dynamic()) -> Result when
+      Result :: 'ok'
+              | {'ok', RestData :: binary()}
+              | {'error', Reason}
+              | {'error', {Reason, RestData :: binary()}},
+      Reason     :: posix() | 'closed' | invalid().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
     sendto(Socket, Data, Dest, Flags, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -3938,7 +3978,11 @@ sendto_deadline_cont(SockRef, Bin, Cont, Deadline, HasWritten) ->
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc "Equivalent to [`sendmsg(Socket, Msg, [], infinity)`](`sendmsg/4`).".
--spec sendmsg(Socket :: term(), Msg :: term()) -> _.
+-spec sendmsg(Socket, Msg) -> Result when
+      Socket :: socket(),
+      Msg :: msg_send() | erlang:iovec(),
+      Result :: dynamic().
+
 
 sendmsg(Socket, Msg) ->
     sendmsg(Socket, Msg,
@@ -3958,12 +4002,12 @@ With arguments `Msg` and `Flags`; equivalent to
 With arguments `Data` and `Cont`; equivalent to
 [`sendmsg(Socket, Data, Cont, infinity)`](`sendmsg/4`) *since OTP 24.0*.
 """.
--spec sendmsg(Socket :: term(), Msg :: term(), Flags :: list())
-             -> _;
-             (Socket :: term(), Data :: term(), Cont :: select_info())
-             -> _;
-             (Socket :: term(), Msg :: term(), Timeout :: term())
-             -> _.
+-spec sendmsg(Socket :: socket(), Msg :: msg_send(), Flags :: list())
+             -> dynamic();
+             (Socket :: socket(), Data :: msg_send() | erlang:iovec(), Cont :: select_info())
+             -> dynamic();
+             (Socket :: socket(), Msg :: msg_send(), Timeout :: infinity)
+             -> dynamic().
 
 sendmsg(Socket, Msg, Flags) when is_list(Flags) ->
     sendmsg(Socket, Msg, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
@@ -4485,7 +4529,10 @@ Send a file on a socket.
 Equivalent to
 [`sendfile(Socket, FileHandle_or_Continuation, 0, 0, infinity)`](`sendfile/5`).
 """.
--spec sendfile(Socket :: term(), FileHandle_or_Continuation :: term()) -> _.
+-spec sendfile(Socket, FileHandle | Continuation) -> dynamic() when
+      Socket       :: socket(),
+      FileHandle   :: file:fd(),
+      Continuation :: select_info().
 
 sendfile(Socket, FileHandle_Cont) ->
     sendfile(Socket, FileHandle_Cont, 0, 0, infinity).
@@ -4497,9 +4544,14 @@ Send a file on a socket.
 Equivalent to
 [`sendfile(Socket, FileHandle_or_Continuation, 0, 0, Timeout_or_Handle)`](`sendfile/5`).
 """.
--spec sendfile(Socket :: term(),
-               FileHandle_or_Continuation :: term(),
-               Timeout_or_Handle :: term()) -> _.
+-spec sendfile(Socket,
+               FileHandle | Continuation,
+               Timeout | Handle) -> dynamic() when
+      Socket       :: socket(),
+      FileHandle   :: file:fd(),
+      Continuation :: select_info(),
+      Timeout      :: 'infinity' | non_neg_integer(),
+      Handle       :: 'nowait' | select_handle().
 sendfile(Socket, FileHandle_Cont, Timeout_Handle) ->
     sendfile(Socket, FileHandle_Cont, 0, 0, Timeout_Handle).
 
@@ -4510,9 +4562,15 @@ Send a file on a socket.
 Equivalent to
 [`sendfile(Socket, FileHandle_or_Continuation, Offset, Count, infinity)`](`sendfile/5`).
 """.
--spec sendfile(Socket :: term(),
-               FileHandle_or_Continuation :: term(),
-               Offset :: term(), Count :: term()) -> _.
+-spec sendfile(Socket,
+               FileHandle | Continuation,
+               Offset, Count) -> dynamic() when
+      Socket       :: socket(),
+      FileHandle   :: file:fd(),
+      Continuation :: select_info(),
+      Offset       :: integer(),
+      Count        :: non_neg_integer().
+
 sendfile(Socket, FileHandle_Cont, Offset, Count) ->
     sendfile(Socket, FileHandle_Cont, Offset, Count, infinity).
 
@@ -4805,7 +4863,7 @@ sendfile_next(BytesSent, Offset, Count) ->
 -doc """
 Equivalent to [`recv(Socket, 0, [], infinity)`](`recv/4`).
 """.
--spec recv(Socket :: term()) -> _.
+-spec recv(Socket :: socket()) -> dynamic().
 
 recv(Socket) ->
     recv(Socket, 0, ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
@@ -4820,8 +4878,8 @@ With argument `Length`; equivalent to
 With argument `Flags`; equivalent to
 [`recv(Socket, 0, Flags, infinity)`](`recv/4`) *(since OTP 24.0)*.
 """.
--spec recv(Socket :: term(), Flags :: list()) -> _;
-          (Socket :: term(), Length :: non_neg_integer()) -> _.
+-spec recv(Socket :: socket(), Flags :: list()) -> dynamic();
+          (Socket :: socket(), Length :: non_neg_integer()) -> dynamic().
 
 recv(Socket, Flags) when is_list(Flags) ->
     recv(Socket, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -4847,12 +4905,14 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 [`recv(Socket, 0, Flags, TimeoutOrHandle)`](`recv/4`)
 *(since OTP 24.0)*.
 """.
--spec recv(Socket :: term(), Flags :: list(), TimeoutOrHandle :: term())
-          -> _;
-          (Socket :: term(), Length :: term(), Flags :: list())
-          -> _;
-          (Socket :: term(), Length :: term(), TimeoutOrHandle :: term())
-          -> _.
+-spec recv(Socket, Flags, TimeoutOrHandle) -> dynamic() when
+      Socket :: socket(),
+      Flags :: list(),
+      TimeoutOrHandle :: nowait | select_handle() | completion_handle();
+          (Socket :: socket(), Length :: non_neg_integer(), Flags :: list())
+          -> dynamic();
+          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle :: select_handle() | completion_handle())
+          -> dynamic().
 
 recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recv(Socket, 0, Flags, TimeoutOrHandle);
@@ -5234,7 +5294,7 @@ recv_error(Buf, Reason) when is_list(Buf) ->
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc "Equivalent to [`recvfrom(Socket, 0, [], infinity)`](`recvfrom/4`).".
--spec recvfrom(Socket :: term()) -> _.
+-spec recvfrom(Socket :: socket()) -> dynamic().
 
 recvfrom(Socket) ->
     recvfrom(
@@ -5250,8 +5310,8 @@ With argument `BufSz`; equivalent to
 With argument `Flags`; equivalent to
 [`recvfrom(Socket, 0, Flags, infinity)`](`recvfrom/4`) *(since OTP 24.0)*.
 """.
--spec recvfrom(Socket :: term(), Flags :: list()) -> _;
-              (Socket :: term(), BufSz :: non_neg_integer()) -> _.
+-spec recvfrom(Socket :: socket(), Flags :: list()) -> dynamic();
+              (Socket :: socket(), BufSz :: non_neg_integer()) -> dynamic().
 
 recvfrom(Socket, Flags) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -5279,14 +5339,14 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
--spec recvfrom(Socket :: term(), Flags :: list(),
-               TimeoutOrHandle :: term())
-              -> _;
-              (Socket :: term(), BufSz :: term(), Flags :: list())
-              -> _;
-              (Socket :: term(), BufSz :: term(),
-               TimeoutOrHandle :: term())
-              -> _.
+-spec recvfrom(Socket :: socket(), Flags :: [msg_flag() | integer()],
+               TimeoutOrHandle :: dynamic())
+              -> dynamic();
+              (Socket :: socket(), BufSz :: non_neg_integer(), Flags :: [msg_flag() | integer()])
+              -> dynamic();
+              (Socket :: socket(), BufSz :: non_neg_integer(),
+               TimeoutOrHandle :: 'nowait' | select_handle() | completion_handle())
+              -> dynamic().
 
 recvfrom(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, TimeoutOrHandle);
@@ -5469,7 +5529,7 @@ recvfrom_result(Result) ->
 
 -doc(#{since => <<"OTP 22.0">>}).
 -doc "Equivalent to [`recvmsg(Socket, 0, 0, [], infinity)`](`recvmsg/5`).".
--spec recvmsg(Socket :: term()) -> _.
+-spec recvmsg(Socket :: socket()) -> dynamic().
 
 recvmsg(Socket) ->
     recvmsg(Socket, 0, 0,
@@ -5490,8 +5550,8 @@ With argument `TimeoutOrHandle`; equivalent to
 
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
--spec recvmsg(Socket :: term(), Flags :: list()) -> _;
-             (Socket :: term(), TimeoutOrHandle :: term()) -> _.
+-spec recvmsg(Socket :: socket(), Flags :: list()) -> dynamic();
+             (Socket :: socket(), TimeoutOrHandle :: reference() | 'infinity' | 'nowait' | non_neg_integer()) -> dynamic().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -5513,10 +5573,10 @@ With argument `TimeoutOrHandle`; equivalent to
 
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
--spec recvmsg(Socket :: term(), Flags :: list(), TimeoutOrHandle :: term())
-             -> _;
-             (Socket :: term(), BufSz :: integer(), CtrlSz :: integer())
-             -> _.
+-spec recvmsg(Socket :: dynamic(), Flags :: list(), TimeoutOrHandle :: dynamic())
+             -> dynamic();
+             (Socket :: dynamic(), BufSz :: integer(), CtrlSz :: integer())
+             -> dynamic().
 
 recvmsg(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, TimeoutOrHandle);
@@ -5532,9 +5592,9 @@ Equivalent to
 [`recvmsg(Socket, BufSz, CtrlSz, [], TimeoutOrHandle)`](`recvmsg/5`).
 """.
 -spec recvmsg(
-        Socket :: term(), BufSz :: term(), CtrlSz :: term(),
-        TimeoutOrHandle :: term())
-             -> _.
+        Socket :: socket(), BufSz :: non_neg_integer(), CtrlSz :: non_neg_integer(),
+        TimeoutOrHandle :: dynamic())
+             -> dynamic().
 
 recvmsg(Socket, BufSz, CtrlSz, TimeoutOrHandle) ->
     recvmsg(
@@ -5841,14 +5901,14 @@ in the User's Guide for more info.
               when
       Socket       :: socket(),
       SocketOption :: {Level :: 'otp', Opt :: otp_socket_option()},
-      Value        :: term();
+      Value        :: dynamic();
 
             (Socket, SocketOption, Value) ->
           ok | {'error', posix() | invalid() | 'closed'}
               when
       Socket       :: socket(),
       SocketOption :: socket_option(),
-      Value        :: term().
+      Value        :: dynamic().
 
 setopt(?socket(SockRef), SocketOption, Value)
   when is_reference(SockRef) ->
@@ -6409,7 +6469,7 @@ the `Value` for the request parameter *(since OTP 26.1)*.
                      'gifmtu' | 'giftxqlen' | 'gifflags' |
 		     'tcp_info',
       NameOrIndex :: string() | integer(),
-      Result      :: term(),
+      Result      :: dynamic(),
       Reason      :: posix() | 'closed';
 	   (Socket, SetRequest, Value) -> ok | {'error', Reason} when
       Socket     :: socket(),
@@ -6524,7 +6584,7 @@ of the interface with the specified name.
                     'sifnetmask' | 'sifhwaddr' |
                     'sifmtu' | 'siftxqlen',
       Name       :: string(),
-      Value      :: term(),
+      Value      :: dynamic(),
       Reason     :: posix() | 'closed'.
 
 ioctl(?socket(SockRef), sifflags = SetRequest, Name, Flags)
