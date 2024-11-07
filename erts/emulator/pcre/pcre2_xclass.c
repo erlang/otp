@@ -6,7 +6,8 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2013 University of Cambridge
+     Original API code Copyright (c) 1997-2012 University of Cambridge
+          New API code Copyright (c) 2016-2023 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -36,48 +37,48 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------------
 */
-
+/* SPDX-License-Identifier: BSD-3-Clause */
 
 /* This module contains an internal function that is used to match an extended
-class. It is used by both pcre_exec() and pcre_def_exec(). */
+class. It is used by pcre2_auto_possessify() and by both pcre2_match() and
+pcre2_def_match(). */
 
-/* %ExternalCopyright% */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "pcre_internal.h"
 
+#include "pcre2_internal.h"
 
 /*************************************************
 *       Match character against an XCLASS        *
 *************************************************/
 
 /* This function is called to match a character against an extended class that
-might contain values > 255 and/or Unicode properties.
+might contain codepoints above 255 and/or Unicode properties.
 
 Arguments:
   c           the character
-  data        points to the flag byte of the XCLASS data
+  data        points to the flag code unit of the XCLASS data
+  utf         TRUE if in UTF mode
 
 Returns:      TRUE if character matches, else FALSE
 */
 
 BOOL
-PRIV(xclass)(pcre_uint32 c, const pcre_uchar *data, BOOL utf)
+PRIV(xclass)(uint32_t c, PCRE2_SPTR data, BOOL utf)
 {
-pcre_uchar t;
+PCRE2_UCHAR t;
 BOOL negated = (*data & XCL_NOT) != 0;
 
-(void)utf;
-#ifdef COMPILE_PCRE8
+#if PCRE2_CODE_UNIT_WIDTH == 8
 /* In 8 bit mode, this must always be TRUE. Help the compiler to know that. */
 utf = TRUE;
 #endif
 
-/* Character values < 256 are matched against a bitmap, if one is present. If
-not, we still carry on, because there may be ranges that start below 256 in the
+/* Code points < 256 are matched against a bitmap, if one is present. If not,
+we still carry on, because there may be ranges that start below 256 in the
 additional data. */
 
 if (c < 256)
@@ -85,37 +86,37 @@ if (c < 256)
   if ((*data & XCL_HASPROP) == 0)
     {
     if ((*data & XCL_MAP) == 0) return negated;
-    return (((pcre_uint8 *)(data + 1))[c/8] & (1 << (c&7))) != 0;
+    return (((uint8_t *)(data + 1))[c/8] & (1u << (c&7))) != 0;
     }
   if ((*data & XCL_MAP) != 0 &&
-    (((pcre_uint8 *)(data + 1))[c/8] & (1 << (c&7))) != 0)
+    (((uint8_t *)(data + 1))[c/8] & (1u << (c&7))) != 0)
     return !negated; /* char found */
   }
 
 /* First skip the bit map if present. Then match against the list of Unicode
 properties or large chars or ranges that end with a large char. We won't ever
-encounter XCL_PROP or XCL_NOTPROP when UCP support is not compiled. */
+encounter XCL_PROP or XCL_NOTPROP when UTF support is not compiled. */
 
-if ((*data++ & XCL_MAP) != 0) data += 32 / sizeof(pcre_uchar);
+if ((*data++ & XCL_MAP) != 0) data += 32 / sizeof(PCRE2_UCHAR);
 
 while ((t = *data++) != XCL_END)
   {
-  pcre_uint32 x, y;
+  uint32_t x, y;
   if (t == XCL_SINGLE)
     {
-#ifdef SUPPORT_UTF
+#ifdef SUPPORT_UNICODE
     if (utf)
       {
       GETCHARINC(x, data); /* macro generates multiple statements */
       }
     else
 #endif
-      x = *data++;
+    x = *data++;
     if (c == x) return !negated;
     }
   else if (t == XCL_RANGE)
     {
-#ifdef SUPPORT_UTF
+#ifdef SUPPORT_UNICODE
     if (utf)
       {
       GETCHARINC(x, data); /* macro generates multiple statements */
@@ -130,11 +131,13 @@ while ((t = *data++) != XCL_END)
     if (c >= x && c <= y) return !negated;
     }
 
-#ifdef SUPPORT_UCP
+#ifdef SUPPORT_UNICODE
   else  /* XCL_PROP & XCL_NOTPROP */
     {
+    int chartype;
     const ucd_record *prop = GET_UCD(c);
     BOOL isprop = t == XCL_PROP;
+    BOOL ok;
 
     switch(*data)
       {
@@ -143,8 +146,9 @@ while ((t = *data++) != XCL_END)
       break;
 
       case PT_LAMP:
-      if ((prop->chartype == ucp_Lu || prop->chartype == ucp_Ll ||
-           prop->chartype == ucp_Lt) == isprop) return !negated;
+      chartype = prop->chartype;
+      if ((chartype == ucp_Lu || chartype == ucp_Ll ||
+           chartype == ucp_Lt) == isprop) return !negated;
       break;
 
       case PT_GC:
@@ -160,9 +164,16 @@ while ((t = *data++) != XCL_END)
       if ((data[1] == prop->script) == isprop) return !negated;
       break;
 
+      case PT_SCX:
+      ok = (data[1] == prop->script ||
+            MAPBIT(PRIV(ucd_script_sets) + UCD_SCRIPTX_PROP(prop), data[1]) != 0);
+      if (ok == isprop) return !negated;
+      break;
+
       case PT_ALNUM:
-      if ((PRIV(ucp_gentype)[prop->chartype] == ucp_L ||
-           PRIV(ucp_gentype)[prop->chartype] == ucp_N) == isprop)
+      chartype = prop->chartype;
+      if ((PRIV(ucp_gentype)[chartype] == ucp_L ||
+           PRIV(ucp_gentype)[chartype] == ucp_N) == isprop)
         return !negated;
       break;
 
@@ -187,9 +198,10 @@ while ((t = *data++) != XCL_END)
       break;
 
       case PT_WORD:
-      if ((PRIV(ucp_gentype)[prop->chartype] == ucp_L ||
-           PRIV(ucp_gentype)[prop->chartype] == ucp_N || c == CHAR_UNDERSCORE)
-             == isprop)
+      chartype = prop->chartype;
+      if ((PRIV(ucp_gentype)[chartype] == ucp_L ||
+           PRIV(ucp_gentype)[chartype] == ucp_N ||
+           chartype == ucp_Mn || chartype == ucp_Pc) == isprop)
         return !negated;
       break;
 
@@ -207,6 +219,17 @@ while ((t = *data++) != XCL_END)
         }
       break;
 
+      case PT_BIDICL:
+      if ((UCD_BIDICLASS_PROP(prop) == data[1]) == isprop)
+        return !negated;
+      break;
+
+      case PT_BOOL:
+      ok = MAPBIT(PRIV(ucd_boolprop_sets) +
+        UCD_BPROPS_PROP(prop), data[1]) != 0;
+      if (ok == isprop) return !negated;
+      break;
+
       /* The following three properties can occur only in an XCLASS, as there
       is no \p or \P coding for them. */
 
@@ -220,9 +243,10 @@ while ((t = *data++) != XCL_END)
       */
 
       case PT_PXGRAPH:
-      if ((PRIV(ucp_gentype)[prop->chartype] != ucp_Z &&
-            (PRIV(ucp_gentype)[prop->chartype] != ucp_C ||
-              (prop->chartype == ucp_Cf &&
+      chartype = prop->chartype;
+      if ((PRIV(ucp_gentype)[chartype] != ucp_Z &&
+            (PRIV(ucp_gentype)[chartype] != ucp_C ||
+              (chartype == ucp_Cf &&
                 c != 0x061c && c != 0x180e && (c < 0x2066 || c > 0x2069))
          )) == isprop)
         return !negated;
@@ -232,10 +256,11 @@ while ((t = *data++) != XCL_END)
       not Zl and not Zp, and U+180E. */
 
       case PT_PXPRINT:
-      if ((prop->chartype != ucp_Zl &&
-           prop->chartype != ucp_Zp &&
-            (PRIV(ucp_gentype)[prop->chartype] != ucp_C ||
-              (prop->chartype == ucp_Cf &&
+      chartype = prop->chartype;
+      if ((chartype != ucp_Zl &&
+           chartype != ucp_Zp &&
+            (PRIV(ucp_gentype)[chartype] != ucp_C ||
+              (chartype == ucp_Cf &&
                 c != 0x061c && (c < 0x2066 || c > 0x2069))
          )) == isprop)
         return !negated;
@@ -246,8 +271,21 @@ while ((t = *data++) != XCL_END)
       compatibility (these are $+<=>^`|~). */
 
       case PT_PXPUNCT:
-      if ((PRIV(ucp_gentype)[prop->chartype] == ucp_P ||
-            (c < 128 && PRIV(ucp_gentype)[prop->chartype] == ucp_S)) == isprop)
+      chartype = prop->chartype;
+      if ((PRIV(ucp_gentype)[chartype] == ucp_P ||
+            (c < 128 && PRIV(ucp_gentype)[chartype] == ucp_S)) == isprop)
+        return !negated;
+      break;
+
+      /* Perl has two sets of hex digits */
+
+      case PT_PXXDIGIT:
+      if (((c >= CHAR_0 && c <= CHAR_9) ||
+           (c >= CHAR_A && c <= CHAR_F) ||
+           (c >= CHAR_a && c <= CHAR_f) ||
+           (c >= 0xff10 && c <= 0xff19) ||  /* Fullwidth digits */
+           (c >= 0xff21 && c <= 0xff26) ||  /* Fullwidth letters */
+           (c >= 0xff41 && c <= 0xff46)) == isprop)
         return !negated;
       break;
 
@@ -260,10 +298,12 @@ while ((t = *data++) != XCL_END)
 
     data += 2;
     }
-#endif  /* SUPPORT_UCP */
+#else
+  (void)utf;  /* Avoid compiler warning */
+#endif  /* SUPPORT_UNICODE */
   }
 
 return negated;   /* char did not match */
 }
 
-/* End of pcre_xclass.c */
+/* End of pcre2_xclass.c */
