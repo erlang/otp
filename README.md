@@ -1,3 +1,5 @@
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/9678/badge)](https://www.bestpractices.dev/projects/9678)
+
 # [Erlang/OTP](https://www.erlang.org)
 
 **Erlang** is a programming language and runtime system for building massively scalable soft real-time systems with requirements on high availability. 
