@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "team:VM"
+    assignee:
+      - "garazdawi"
+      - "kikofernandez"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
