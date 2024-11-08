@@ -283,9 +283,9 @@ but the map is preferred.
 -export([start_link/2, start_link/3,
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
-	 which_children/1, count_children/1,
-	 check_childspecs/1, check_childspecs/2,
-	 get_childspec/2]).
+	 which_children/1, which_child/2,
+	 count_children/1, check_childspecs/1,
+	 check_childspecs/2, get_childspec/2]).
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -764,6 +764,25 @@ which_children(Supervisor) ->
     call(Supervisor, which_children).
 
 -doc """
+Returns information about the child specification and child process identified
+by the given `Id`.
+
+See `which_children/1` for an explanation of the information returned.
+
+If no child with the given `Id` exists, returns `{error, not_found}`.
+""".
+-spec which_child(SupRef, Id) -> Result when
+      SupRef :: sup_ref(),
+      Id :: pid() | child_id(),
+      Result :: {'ok', {Id, Child, Type, Modules}} | {'error', Error},
+      Child :: child() | 'restarting',
+      Type :: worker(),
+      Modules :: modules(),
+      Error :: 'not_found'.
+which_child(Supervisor, Id) ->
+    call(Supervisor, {which_child, Id}).
+
+-doc """
 Returns a [property list](`t:proplists:proplist/0`) containing the counts for each of
 the following elements of the supervisor's child specifications and managed
 processes:
@@ -1090,6 +1109,37 @@ handle_call(which_children, _From, State) ->
           end,
           State#state.children),
     {reply, Resp, State};
+
+%% which_child for simple_one_for_one can only be done with pid
+handle_call({which_child, Id}, _From, State) when not is_pid(Id),
+                                                  ?is_simple(State) ->
+    {reply, {error, simple_one_for_one}, State};
+
+handle_call({which_child, Pid}, _From, State) when ?is_simple(State) ->
+    Result = case find_dynamic_child(Pid, State) of
+		 {ok, #child{pid = ?restarting(_),
+			     child_type = CT, modules = Mods}} ->
+		     {ok, {undefined, restarting, CT, Mods}};
+		 {ok, #child{pid = Pid,
+			     child_type = CT, modules = Mods}} ->
+		     {ok, {undefined, Pid, CT, Mods}};
+		 error ->
+		     {error, not_found}
+	     end,
+    {reply, Result, State};
+
+handle_call({which_child, Id}, _From, State) ->
+    Result = case find_child(Id, State) of
+		 {ok, #child{pid = ?restarting(_),
+			     child_type = CT, modules = Mods}} ->
+		     {ok, {Id, restarting, CT, Mods}};
+		 {ok, #child{pid = Pid,
+			     child_type = CT, modules = Mods}} ->
+		     {ok, {Id, Pid, CT, Mods}};
+		 error ->
+		     {error, not_found}
+	     end,
+    {reply, Result, State};
 
 handle_call(count_children, _From,  #state{dynamic_restarts = Restarts} = State)
   when ?is_simple(State) ->
