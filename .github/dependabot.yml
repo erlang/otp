@@ -7,7 +7,7 @@ updates:
       interval: "weekly"
     labels:
       - "team:VM"
-    assignee:
+    assignees:
       - "garazdawi"
       - "kikofernandez"
     open-pull-requests-limit: 10
