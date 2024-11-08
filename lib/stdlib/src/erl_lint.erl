@@ -823,6 +823,10 @@ start(File, Opts) ->
           bool_option(warn_update_literal, nowarn_update_literal,
                       true, Opts)},
          %% Behaviour warnings.
+         {behaviours,
+          bool_option(warn_behaviours,
+                      nowarn_behaviours,
+                      true, Opts)},
          {conflicting_behaviours,
           bool_option(warn_conflicting_behaviours,
                       nowarn_conflicting_behaviours,
@@ -1256,8 +1260,13 @@ post_traversal_check(Forms, St0) ->
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
 
-check_behaviour(St0) ->
-    behaviour_check(St0#lint.behaviour, St0).
+check_behaviour(St) ->
+    case is_warn_enabled(behaviours, St) of
+        true ->
+            behaviour_check(St#lint.behaviour, St);
+        false ->
+            St
+    end.
 
 %% behaviour_check([{Anno,Behaviour}], State) -> State'
 %%  Check behaviours for existence and defined functions.

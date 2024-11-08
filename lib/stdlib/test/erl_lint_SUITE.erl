@@ -3472,10 +3472,14 @@ behaviour_basic(Config) when is_list(Config) ->
 	 ],
     [] = run(Config, Ts),
 
-    Subst = #{behaviour1 => [nowarn_undefined_behaviour_func],
-              behaviour2 => [nowarn_undefined_behaviour_func],
-              behaviour4 => [nowarn_undefined_behaviour_func]},
+    Subst0 = #{behaviour1 => [nowarn_undefined_behaviour_func],
+               behaviour2 => [nowarn_undefined_behaviour_func],
+               behaviour4 => [nowarn_undefined_behaviour_func]},
+    [] = run(Config, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
     [] = run(Config, rewrite(Ts, Subst)),
+
     ok.
 
 %% Basic tests with multiple behaviours.
@@ -3781,13 +3785,16 @@ otp_11861(Conf) when is_list(Conf) ->
 	 ],
     [] = run(Conf, Ts),
 
-    Subst = #{otp_11861_1 => [nowarn_conflicting_behaviours],
-              otp_11861_11 => [nowarn_ill_defined_behaviour_callbacks],
-              otp_11861_12 => [nowarn_undefined_behaviour],
-              otp_11861_13 => [nowarn_undefined_behaviour],
-              otp_11861_17 => [nowarn_undefined_behaviour_callbacks],
-              otp_11861_19 => [nowarn_ill_defined_optional_callbacks]
-             },
+    Subst0 = #{otp_11861_1 => [nowarn_conflicting_behaviours],
+               otp_11861_11 => [nowarn_ill_defined_behaviour_callbacks],
+               otp_11861_12 => [nowarn_undefined_behaviour],
+               otp_11861_13 => [nowarn_undefined_behaviour],
+               otp_11861_17 => [nowarn_undefined_behaviour_callbacks],
+               otp_11861_19 => [nowarn_ill_defined_optional_callbacks]
+              },
+    [] = run(Conf, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
     [] = run(Conf, rewrite(Ts, Subst)),
 
     true = code:set_path(CodePath),

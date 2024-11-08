@@ -736,6 +736,9 @@ value are listed.
   this kind of warning for the types in `Types`, where `Types` is a tuple
   `{TypeName,Arity}` or a list of such tuples.
 
+- **`nowarn_behaviours`** - By default, warnings are emitted for issues
+  with behaviours. Use this option to turn off all warnings of this kind.
+
 - **`nowarn_conflicting_behaviours`** - By default, warnings are emitted when
   a module opts in to multiple behaviours that share the names of one or more
   callback functions. Use this option to turn off this kind of warning.
