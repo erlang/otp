@@ -47,11 +47,11 @@
 log(Level, LogLevel, ReportMap, Meta) ->
     case logger:compare_levels(LogLevel, Level) of
         lt ->
-            logger:log(Level, ReportMap,  Meta#{depth => ?DEPTH, 
-                                                report_cb => fun ?MODULE:format/1});
+            logger:log(Level, maps:merge(ReportMap, Meta),
+                       Meta#{depth => ?DEPTH, report_cb => fun ?MODULE:format/1});
         eq ->
-            logger:log(Level, ReportMap, Meta#{depth => ?DEPTH, 
-                                               report_cb => fun ?MODULE:format/1});
+            logger:log(Level, maps:merge(ReportMap, Meta),
+                       Meta#{depth => ?DEPTH, report_cb => fun ?MODULE:format/1});
         _ ->
             ok
     end.
@@ -99,11 +99,15 @@ format(#{alert := Alert, alerter := ignored} = Report) ->
     %% Happens in DTLS
     {Fmt, Args} = ssl_alert:own_alert_format(ProtocolName, Role, StateName, Alert),
     {"~s " ++ Fmt, ["Ignored alert to mitigate DoS attacks", Args]};
+format(#{description := Desc, reason := Reason, file := Mod, line := Line}) ->
+    {"~12s ~p~n"
+     "~12s ~p~n"
+     "~12s ~s:~w~n",
+     ["Description:", Desc, "Reason:", Reason, "Location:", Mod, Line]
+    };
 format(#{description := Desc, reason := Reason}) ->
-    {"~12s ~p"
-     "~n"
-     "~12s ~p"
-     "~n",
+    {"~12s ~p~n"
+     "~12s ~p~n",
      ["Description:", Desc, "Reason:", Reason]
     }.
 
