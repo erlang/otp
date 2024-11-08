@@ -30,6 +30,9 @@ env:
     ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
 
+permissions:
+  contents: read
+
 jobs:
 
   pack:
