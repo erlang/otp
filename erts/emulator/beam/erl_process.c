@@ -4635,18 +4635,15 @@ check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc)
 static int
 try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 {
-    int res, rq_locked, vix, active_rqs, blnc_rqs;
+    int res, vix, active_rqs, blnc_rqs;
     Uint32 flags;
 
     flags = empty_runq_get_old_flags(rq);
     if (flags & ERTS_RUNQ_FLG_SUSPENDED)
 	return 0; /* go suspend instead... */
 
-    res = 0;
-
-    ERTS_LC_CHK_RUNQ_LOCK(rq, rq_locked);
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     erts_runq_unlock(rq);
-    rq_locked = 0;
 
     get_no_runqs(&active_rqs, &blnc_rqs);
 
@@ -4662,8 +4659,7 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	    while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
 		res = check_possible_steal_victim(rq, vix, result_proc);
 		if (res) {
-                    rq_locked = 1;
-		    goto done;
+                    return res;
                 }
 		vix++;
 		if (vix >= blnc_rqs)
@@ -4685,20 +4681,13 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 
 	    res = check_possible_steal_victim(rq, vix, result_proc);
 	    if (res) {
-                rq_locked = 1;
-		goto done;
+                return res;
             }
 	}
 
     }
 
- done:
-
-    if (!rq_locked)
-	erts_runq_lock(rq);
-
-    if (res)
-        return res;
+    erts_runq_lock(rq);
     return runq_got_work_to_execute(rq);
 }
 
