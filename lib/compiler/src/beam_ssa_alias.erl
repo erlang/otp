@@ -58,8 +58,11 @@
               orig_st_map :: st_map(),
               repeats = sets:new([{version,2}]) :: sets:set(func_id()),
               %% The next unused variable name in caller
-              cnt = 0 :: non_neg_integer()
+              cnt = 0 :: non_neg_integer(),
+              forced_aliases :: #{ func_id() => var_set() }
              }).
+
+-type var_set() :: sets:set(#b_var{}).
 
 %% A code location refering to either the #b_set{} defining a variable
 %% or the terminator of a block.
@@ -93,8 +96,12 @@ opt(StMap0, FuncDb0) ->
     try
         Funs = [ F || F <- maps:keys(StMap0), is_map_key(F, FuncDb0)],
         StMap1 = #{ F=>expand_record_update(OptSt) || F:=OptSt <- StMap0},
+        ForcedAliases = foldl(fun(F, Acc) ->
+                                      #opt_st{ssa=Is} = map_get(F, StMap1),
+                                      Acc#{F=>forced_aliasing(Is)}
+                              end, #{}, Funs),
         KillsMap = killsets(Funs, StMap1),
-        {StMap2, FuncDb} = aa(Funs, KillsMap, StMap1, FuncDb0),
+        {StMap2, FuncDb} = aa(Funs, KillsMap, StMap1, FuncDb0, ForcedAliases),
         StMap = #{ F=>restore_update_record(OptSt) || F:=OptSt <- StMap2},
         {StMap, FuncDb}
     catch
@@ -135,7 +142,7 @@ killsets_fun(Blocks) ->
 killsets_blks([{Lbl,Blk}|Blocks], LiveIns0, Kills0, PhiLiveIns) ->
     {LiveIns,Kills} = killsets_blk(Lbl, Blk, LiveIns0, Kills0, PhiLiveIns),
     killsets_blks(Blocks, LiveIns, Kills, PhiLiveIns);
-killsets_blks([], _LiveIns0, Kills, _PhiLiveIns) ->
+killsets_blks([], _LiveIns, Kills, _PhiLiveIns) ->
     Kills.
 
 killsets_blk(Lbl, #b_blk{is=Is0,last=L}=Blk, LiveIns0, Kills0, PhiLiveIns) ->
@@ -287,10 +294,11 @@ killsets_blk_live_outs([], _, _, _, Acc) ->
 %%% are propagated along the edges of the execution graph during a
 %%% post order traversal of the basic blocks.
 
--spec aa([func_id()], kills_map(), st_map(), func_info_db()) ->
+-spec aa([func_id()], kills_map(), st_map(), func_info_db(),
+         #{ func_id() => var_set() }) ->
           {st_map(), func_info_db()}.
 
-aa(Funs, KillsMap, StMap, FuncDb) ->
+aa(Funs, KillsMap, StMap, FuncDb, ForcedAliases) ->
     %% Set up the argument info to make all incoming arguments to
     %% exported functions aliased and all non-exported functions
     %% unique.
@@ -306,7 +314,8 @@ aa(Funs, KillsMap, StMap, FuncDb) ->
           end, #{}, Funs),
     AAS = #aas{call_args=ArgsInfoIn,
                func_db=FuncDb,kills=KillsMap,
-               st_map=StMap, orig_st_map=StMap},
+               st_map=StMap, orig_st_map=StMap,
+               forced_aliases=ForcedAliases},
     aa_fixpoint(Funs, AAS).
 
 %%%
@@ -366,7 +375,8 @@ aa_fixpoint([], Order, _OldAliasMap, _OldCallArgs,
 
 aa_fun(F, #opt_st{ssa=Linear0,args=Args},
        AAS0=#aas{alias_map=AliasMap0,call_args=CallArgs0,
-                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0}) ->
+                 func_db=FuncDb,kills=KillsMap,repeats=Repeats0,
+                 forced_aliases=ForcedAliases}) ->
     %% Initially assume all formal parameters are unique for a
     %% non-exported function, if we have call argument info in the
     %% AAS, we use it. For an exported function, all arguments are
@@ -374,7 +384,8 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     {SS0,Cnt} = aa_init_fun_ss(Args, F, AAS0),
     #{F:=Kills} = KillsMap,
     {SS,#aas{call_args=CallArgs}=AAS} =
-        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt}),
+        aa_blocks(Linear0, Kills, #{0=>SS0}, AAS0#aas{cnt=Cnt},
+                  maps:get(F, ForcedAliases)),
     AliasMap = AliasMap0#{ F => SS },
     PrevSS = maps:get(F, AliasMap0, #{}),
     Repeats = case PrevSS =/= SS orelse CallArgs0 =/= CallArgs of
@@ -390,27 +401,29 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     AAS#aas{alias_map=AliasMap,repeats=Repeats}.
 
 %% Main entry point for the alias analysis
-aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS) ->
+aa_blocks([{?EXCEPTION_BLOCK,_}|Bs], Kills, Lbl2SS, AAS, ForcedAliases) ->
     %% Nothing happening in the exception block can propagate to the
     %% other block.
-    aa_blocks(Bs, Kills, Lbl2SS, AAS);
-aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0, AAS0) ->
+    aa_blocks(Bs, Kills, Lbl2SS, AAS, ForcedAliases);
+aa_blocks([{L,#b_blk{is=Is0,last=T}}|Bs0], Kills, Lbl2SS0,
+          AAS0, ForcedAliases) ->
     #{L:=SS0} = Lbl2SS0,
     ?DP("Block: ~p~nSS: ~p~n", [L, SS0]),
-    {FullSS,AAS1} = aa_is(Is0, SS0, AAS0),
+    {FullSS,AAS1} = aa_is(Is0, SS0, AAS0, ForcedAliases),
     #{{live_outs,L}:=LiveOut} = Kills,
     {Lbl2SS1,Successors} = aa_terminator(T, FullSS, Lbl2SS0),
     PrunedSS = beam_ssa_ss:prune(LiveOut, FullSS),
     Lbl2SS2 = aa_add_block_entry_ss(Successors, PrunedSS, Lbl2SS1),
     Lbl2SS = aa_set_block_exit_ss(L, FullSS, Lbl2SS2),
-    aa_blocks(Bs0, Kills, Lbl2SS, AAS1);
-aa_blocks([], _Kills, Lbl2SS, AAS) ->
+    aa_blocks(Bs0, Kills, Lbl2SS, AAS1, ForcedAliases);
+aa_blocks([], _Kills, Lbl2SS, AAS, _ForcedAliases) ->
     {Lbl2SS,AAS}.
 
-aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
+aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0,
+      AAS0, ForcedAliases) ->
     ?DP("I: ~p~n", [I]),
     SS1 = beam_ssa_ss:add_var(Dst, unique, SS0),
-    {SS, AAS} =
+    {SS3, AAS} =
         case Op of
             %% Instructions changing the alias status.
             {bif,Bif} ->
@@ -563,9 +576,15 @@ aa_is([I=#b_set{dst=Dst,op=Op,args=Args,anno=Anno0}|Is], SS0, AAS0) ->
             _ ->
                 exit({unknown_instruction, I})
         end,
+    SS = case sets:is_element(Dst, ForcedAliases) of
+             true ->
+                 aa_set_aliased(Dst, SS3);
+             false ->
+                 SS3
+         end,
     ?DP("Post I: ~p.~n      ~p~n", [I, SS]),
-    aa_is(Is, SS, AAS);
-aa_is([], SS, AAS) ->
+    aa_is(Is, SS, AAS, ForcedAliases);
+aa_is([], SS, AAS, _ForcedAliases) ->
     {SS, AAS}.
 
 aa_terminator(#b_br{succ=S,fail=S}, _SS, Lbl2SS) ->
@@ -1401,3 +1420,93 @@ rur_args([Idx,V|Updates], Limit) ->
     [Idx,V|rur_args(Updates, Limit)];
 rur_args([], _) ->
     [].
+
+%%
+%% Detect when the same element is extracted from a tuple multiple
+%% times in a function. Normally the CSE pass ensures that this is
+%% only done once, but sometimes it decides that it is more efficient
+%% to keep the tuple around and extract the element again. This
+%% interacts badly with the alias analysis which takes care to
+%% minimize the database it keeps about aliasing status to variables
+%% that are live, and can therefore in rare cases fail to detect
+%% aliasing.
+%%
+%% Instead of complicating and slowing down the main alias analysis,
+%% we do a once over on all functions and detect when the same field
+%% is extracted twice and store the afflicted variables in a
+%% set. During the main alias analysis pass we consult the set and
+%% forcibly alias the variable when it is defined.
+%%
+forced_aliasing(Linear) ->
+    forced_aliasing(Linear, #{0=>#{}}, sets:new()).
+
+forced_aliasing([{Lbl,#b_blk{last=Last,is=Is}}|Rest], SeenDb0, ToExtend0) ->
+    #{Lbl:=Seen0} = SeenDb0,
+    Successors = fa_successors(Last),
+    {Seen,ToExtend} = forced_aliasing_is(Is, Seen0, ToExtend0),
+    SeenDb = foldl(fun(Succ, Acc) -> fa_merge(Seen, Succ, Acc) end,
+                   SeenDb0, Successors),
+    forced_aliasing(Rest, SeenDb, ToExtend);
+forced_aliasing([], _Seen, ToExtend) ->
+    ToExtend.
+
+forced_aliasing_is([#b_set{op=get_tuple_element,dst=Dst,args=[Src,Idx]}|Is],
+                   Seen, ToExtend0) ->
+    Aliases = forced_aliasing_get_aliases(Src, Idx, Seen),
+    ToExtend = forced_aliasing_extend_to(Dst, Aliases, ToExtend0),
+    forced_aliasing_is(Is,
+                       forced_aliasing_add_seen(Src, Idx, Dst, Seen),
+                       ToExtend);
+forced_aliasing_is([#b_set{op=phi,dst=Dst,args=Args}|Is], Seen0, ToExtend) ->
+    %% If elements are extracted from the Phi-value, behave as if the
+    %% same elements were extracted from the in-values.
+    Seen =
+        foldl(
+          fun({Src,_}, Acc0) ->
+                  ExtractedIdxs = maps:get(Src, Acc0, []),
+                  foldl(
+                    fun(Idx, Acc1) ->
+                            forced_aliasing_add_seen(Src, Idx, Dst, Acc1)
+                    end, Acc0, ExtractedIdxs)
+          end, Seen0, Args),
+    forced_aliasing_is(Is, Seen, ToExtend);
+forced_aliasing_is([_|Is], Seen, ToExtend) ->
+    forced_aliasing_is(Is, Seen, ToExtend);
+forced_aliasing_is([], Seen, ToExtend) ->
+    {Seen,ToExtend}.
+
+forced_aliasing_get_aliases(Src, Idx, Seen) ->
+    Key = {extracts,Src,Idx},
+    case Seen of
+        #{Key:=Aliases} ->
+            Aliases;
+        #{} ->
+            []
+    end.
+
+forced_aliasing_add_seen(Src, Idx, Dst, Seen0) ->
+    Key = {extracts,Src,Idx},
+    Seen0#{Key=>ordsets:add_element(Dst, maps:get(Key, Seen0, [])),
+           Src=>ordsets:add_element(Idx, maps:get(Src, Seen0, []))}.
+
+forced_aliasing_extend_to(_, [], ToExtend) ->
+    ToExtend;
+forced_aliasing_extend_to(Dst, Aliases, ToExtend) ->
+    foldl(fun sets:add_element/2,
+          sets:add_element(Dst, ToExtend), Aliases).
+
+fa_successors(#b_ret{}) ->
+    [];
+fa_successors(#b_br{succ=S,fail=F}) ->
+    [S,F];
+fa_successors(#b_switch{list=Ls,fail=F}) ->
+    [F|[L || {_,L} <- Ls]].
+
+fa_merge(Seen, Succ, SeenDb) ->
+    Other = maps:get(Succ, SeenDb, #{}),
+    SeenDb#{Succ=>maps:merge_with(
+                    fun(_, A, B) ->
+                            ordsets:union(A, B)
+                    end,
+                    Seen, Other)}.
+
