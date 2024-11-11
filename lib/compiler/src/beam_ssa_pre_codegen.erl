@@ -1564,11 +1564,10 @@ recv_fix_common_1([V|Vs], [Rm|Rms], Msg, Blocks0) ->
     recv_fix_common_1(Vs, Rms, Msg, Blocks);
 recv_fix_common_1([], [], _Msg, Blocks) -> Blocks.
 
-fix_exit_phi_args([V|Vs], [Rm|Rms], Exit, Blocks) ->
-    Path = beam_ssa:rpo([Rm], Blocks),
-    Preds = exit_predecessors(Path, Exit, Blocks),
-    [{V,Pred} || Pred <- Preds] ++ fix_exit_phi_args(Vs, Rms, Exit, Blocks);
-fix_exit_phi_args([], [], _, _) -> [].
+fix_exit_phi_args(Vs, Rms, Exit, Blocks) ->
+    [{V,Pred} ||
+        V <- Vs && Rm <- Rms,
+        Pred <- exit_predecessors(beam_ssa:rpo([Rm], Blocks), Exit, Blocks)].
 
 exit_predecessors([L|Ls], Exit, Blocks) ->
     Blk = map_get(L, Blocks),

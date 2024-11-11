@@ -959,7 +959,7 @@ summate_stats([S|Ss], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt
 summate_histogram(Tup,undefined) when is_tuple(Tup) -> Tup;
 summate_histogram(undefined,Tup) when is_tuple(Tup) -> Tup;
 summate_histogram(Hs1,Hs2) ->
-    list_to_tuple([ A + B || {A,B} <- lists:zip(tuple_to_list(Hs1),tuple_to_list(Hs2))]).
+    list_to_tuple([A + B || A <- tuple_to_list(Hs1) && B <- tuple_to_list(Hs2)]).
 
 %% manipulators
 filter_locks_type(Locks, undefined) -> Locks;

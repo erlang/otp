@@ -1991,19 +1991,16 @@ preprocess_quals(Line, [{zip,Anno,Gens}|Qs], St, Acc) ->
     Zip2 = Zip1#izip{skip_pats=[case NomatchMode of
                                     skip -> NomatchPat;
                                     _ -> AccPat
-                                end ||
-                                   {NomatchMode, NomatchPat, AccPat} <:-
-                                       lists:zip3(Zip1#izip.nomatch_total,
-                                                  Zip1#izip.nomatch_pats,
-                                                  Zip1#izip.acc_pats)],
+                                end || NomatchMode <- Zip1#izip.nomatch_total &&
+                                           NomatchPat <- Zip1#izip.nomatch_pats &&
+                                           AccPat <:-Zip1#izip.acc_pats],
                      tail_pats=[case {NomatchMode,AccPat} of
                                     {skip,_} -> AccPat;
                                     {_,#ibinary{}} -> AccPat#ibinary{segments=[]};
                                     {_,_} -> AccPat
                                 end ||
-                                   {NomatchMode, AccPat} <:-
-                                       lists:zip(Zip1#izip.nomatch_total,
-                                                 Zip1#izip.tail_pats)],
+                                   NomatchMode <- Zip1#izip.nomatch_total &&
+                                       AccPat <- Zip1#izip.tail_pats],
                      nomatch_total=get_nomatch_total(Zip1#izip.nomatch_total)},
     preprocess_quals(Line, Qs, St1, [Zip2|Acc]);
 preprocess_quals(Line, [Q|Qs0], St0, Acc) ->

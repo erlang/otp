@@ -67,8 +67,7 @@
                 map/2,mapfoldl/3,member/2,
                 keyfind/3,keysort/2,last/1,
                 partition/2,reverse/1,reverse/2,
-                sort/1,sort/2,splitwith/2,
-                zip/2]).
+                sort/1,sort/2,splitwith/2]).
 -import(ordsets, [add_element/2,del_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
@@ -321,7 +320,7 @@ expr(#c_let{vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
     %% Break known multiple values into separate sets.
     Sets = case Ka of
                #ivalues{args=Kas} ->
-                   [#iset{vars=[V],arg=Val} || {V,Val} <:- zip(Kps, Kas)];
+                   [#iset{vars=[V],arg=Val} || V <- Kps && Val <- Kas];
                _Other ->
                    [#iset{vars=Kps,arg=Ka}]
            end,

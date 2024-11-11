@@ -2294,9 +2294,10 @@ use_maps(#state{options=Opts}) ->
     lists:member(maps, Opts).
 
 create_map_value(Components, ListOfVals) ->
-    Zipped = lists:zip(Components, ListOfVals),
-    #{Name => V || {#'ComponentType'{name=Name},V} <- Zipped,
-                   V =/= asn1_NOVALUE}.
+    #{Name => V ||
+        #'ComponentType'{name=Name} <- Components &&
+            V <- ListOfVals,
+        V =/= asn1_NOVALUE}.
 
 normalize_seq_or_set(SorS, S,
 		     [{#seqtag{val=Cname},V}|Vs],

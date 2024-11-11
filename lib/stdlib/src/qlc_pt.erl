@@ -1796,7 +1796,7 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
     BF = fun(_Op, Value) -> is_bindable(Value) end,
     Fun = fun({_PatN, PatVar, PatSizes, Vars}, Frames) ->
                   [unify('=:=', pat_tuple(Sz, Vars), PatVar, Frame, BF, Imp) ||
-                      {Sz, Frame} <- lists:zip(PatSizes, Frames)]
+                      Sz <- PatSizes && Frame <- Frames]
           end,
     NFs = lists:foldl(Fun, Fs, SizesVarsL),
     [frames2cols(NFs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ||
@@ -1805,8 +1805,8 @@ frames_to_columns(Fs, PatternVars, DerefFun, SelectorFun, Imp, CompOp) ->
 frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
     Rs = [ begin
                RL = [{{PatN,Col},cons2tuple(element(2, Const))} ||
-                        {V, Col} <- lists:zip(lists:sublist(Vars, PatSz),
-                                              lists:seq(1, PatSz)),
+                        V <- lists:sublist(Vars, PatSz) &&
+                            Col <- lists:seq(1, PatSz),
                         %% Do not handle the case where several
                         %% values compare equal, e.g. "X =:= 1
                         %% andalso X == 1.0". Looking up both
@@ -1826,7 +1826,7 @@ frames2cols(Fs, PatN, PatSizes, Vars, DerefFun, SelectorFun, CompOp) ->
                         tl(Consts = DerefFun(V, F)) =:= [],
                         (Const = (SelectorFun(F))(hd(Consts))) =/= no],
                sofs:relation(RL) % possibly empty
-            end || {F,PatSz} <- lists:zip(Fs, PatSizes)],
+            end || F <- Fs && PatSz <- PatSizes],
     Ss = sofs:from_sets(Rs),
     %% D: columns occurring in every frame (path).
     D = sofs:intersection(sofs:projection(fun(S) -> sofs:projection(1, S) end,

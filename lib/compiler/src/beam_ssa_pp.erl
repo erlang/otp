@@ -266,9 +266,8 @@ format_instr_anno(#{arg_types:=Ts}=Anno0, FuncAnno, Args) ->
 
     Iota = lists:seq(0, length(Args) - 1),
     Formatted0 = [[format_arg(Arg, FuncAnno), " => ",
-                   format_type(map_get(Idx, Ts),
-                   Break)]
-                  || {Idx, Arg} <:- lists:zip(Iota, Args), is_map_key(Idx, Ts)],
+                   format_type(map_get(Idx, Ts), Break)] ||
+                     Idx <- Iota && Arg <- Args, is_map_key(Idx, Ts)],
     Formatted = lists:join(Break, Formatted0),
 
     [io_lib:format("  %% Argument types:~s~ts\n",
