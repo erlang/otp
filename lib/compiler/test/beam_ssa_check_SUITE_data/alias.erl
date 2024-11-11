@@ -108,6 +108,8 @@
          alias_after_phi/0,
          check_identifier_type/0,
 
+         gh9014_main/0,
+
          nested_tuple/0,
          nested_cons/0,
          nested_mixed/0,
@@ -1159,6 +1161,36 @@ should_return_unique({X}) ->
 %ssa% (_) when post_ssa_opt ->
 %ssa% ret(R) { unique => [R] }.
     X.
+
+%% Check that the alias analysis doesn't fail to detect aliasing when
+%% a tuple element is extracted multiple times in a function.
+gh9014_inc_counter(Counter) ->
+%ssa% (Counter) when post_ssa_opt ->
+%ssa% _ = get_tuple_element(Counter, 1) {aliased => [Counter]}.
+    CounterValue = erlang:element(2, Counter),
+    erlang:setelement(2, Counter, CounterValue + 1).
+
+gh9014_wibble(State) ->
+%ssa% (State) when post_ssa_opt ->
+%ssa% X = get_tuple_element(State, 1) {unique => [State]},
+%ssa% _ = call(fun gh9014_inc_counter/1, X) {aliased => [X]},
+%ssa% Y = get_tuple_element(State, 1) {unique => [State]},
+%ssa% ret(Y) {aliased => [Y]}.
+    gh9014_inc_counter(erlang:element(2, State)),
+    Counter = erlang:element(2, State),
+    CounterValue = erlang:element(2, Counter),
+    case CounterValue >= 1 of
+        true ->
+            Counter;
+        false ->
+            NewCounter = gh9014_inc_counter(Counter),
+            NewState = erlang:setelement(2, State, NewCounter),
+            gh9014_wibble(NewState)
+    end.
+
+gh9014_main() ->
+    {counter, 1} = gh9014_wibble({state, {counter, 0}}).
+
 
 %% Check that the alias analysis handles a chain of extracts from
 %% tuples.
