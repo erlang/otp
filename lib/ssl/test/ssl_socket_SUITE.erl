@@ -74,14 +74,16 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
-    {group, tls},
-    {group, dtls}  
+     {group, tls},
+     {group, dtls},
+     {group, transport_socket}
     ].
 
 groups() ->
     [
      {tls,[], socket_tests() ++ raw_inet_opt()},
-     {dtls,[], socket_tests()}
+     {dtls,[], socket_tests()},
+     {transport_socket, [], socket_tests() ++ raw_inet_opt()}
     ].
 
 socket_tests() ->
@@ -117,13 +119,12 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-init_per_group(dtls, Config) ->    
-    [{protocol_opts, [{protocol, dtls}]} | proplists:delete(protocol_opts, Config)];
-init_per_group(tls, Config) ->    
-    [{protocol_opts, [{protocol, tls}]} | proplists:delete(protocol_opts, Config)];
-init_per_group(_GroupName, Config) ->    
-    [{client_type, erlang},
-     {server_type, erlang} | Config].
+init_per_group(dtls, Config) ->
+    [{group_opts, [{protocol, dtls}]} | proplists:delete(group_opts, Config)];
+init_per_group(tls, Config) ->
+    [{group_opts, [{protocol, tls}]} | proplists:delete(group_opts, Config)];
+init_per_group(transport_socket, Config) ->
+    [{group_opts, [{protocol, tls}, {cb_info, tls_socket_tcp:cb_info()}]}| Config].
 
 end_per_group(_GroupName, Config) ->
     Config.
@@ -442,7 +443,7 @@ get_invalid_inet_option(Socket) ->
 
 get_invalid_inet_option_not_list(Socket) ->
     {error, {options, {socket_options, some_invalid_atom_here}}}
-     = ssl:getopts(Socket, some_invalid_atom_here),
+        = ssl:getopts(Socket, some_invalid_atom_here),
      ok.
 
 get_invalid_inet_option_improper_list(Socket) ->

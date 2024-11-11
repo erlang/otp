@@ -252,7 +252,23 @@ gen_info(Event, StateName, State) ->
 					    StateName, State)
     end.
 
-%% raw data from socket, upack records
+%% socket:socket() have data fetch and unpack records
+handle_info({Protocol, Socket, Type, Handle}, StateName,
+            #state{static_env = #static_env{socket = Socket,
+                                            data_tag = Protocol,
+                                            transport_cb = Transport},
+                   protocol_specific = #{socket_active := N}=PS}
+            = State0)
+  when Type =:= select; Type =:= completion ->
+    Data = Transport:data_available(Socket, Type, Handle, N > 0),
+    State1 = State0#state{protocol_specific = PS#{socket_active := N-1}},
+    case next_tls_record(Data, StateName, State1) of
+	{Record, State} ->
+	    next_event(StateName, Record, State);
+	#alert{} = Alert ->
+	    ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
+    end;
+%% raw data from (gen_tcp) socket, unpack records
 handle_info({Protocol, _, Data}, StateName,
             #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_tls_record(Data, StateName, State0) of
@@ -265,15 +281,15 @@ handle_info({PassiveTag, Socket},  StateName,
             #state{static_env = #static_env{socket = Socket, passive_tag = PassiveTag} = StatEnv,
                    recv = #recv{from = From},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
-                   protocol_specific = PS
+                   protocol_specific = PS0
                   } = State0) ->
     case (From =/= undefined) andalso (CTs == []) of
         true ->
-            do_activate_socket(PS, StatEnv),
-            State = State0#state{protocol_specific = PS#{active_n_toggle => false}},
+            PS = do_activate_socket(PS0, StatEnv),
+            State = State0#state{protocol_specific = PS},
             next_event(StateName, no_record, State);
         false ->
-            State = State0#state{protocol_specific = PS#{active_n_toggle => true}},
+            State = State0#state{protocol_specific = PS0#{active_n_toggle => true}},
             next_event(StateName, no_record, State)
     end;
 handle_info({CloseTag, Socket}, StateName,
@@ -712,15 +728,17 @@ activate_socket(#state{protocol_specific = #{active_n_toggle := true} = Protocol
                        static_env = StatEnv
                       } = State,
                 PBuffers) ->
-    do_activate_socket(ProtocolSpec, StatEnv),
-    {no_record, State#state{protocol_specific = ProtocolSpec#{active_n_toggle => false},
-                            protocol_buffers = PBuffers}}.
+    PS = do_activate_socket(ProtocolSpec, StatEnv),
+    {no_record, State#state{protocol_specific = PS, protocol_buffers = PBuffers}}.
 
-do_activate_socket(#{active_n := N},
+do_activate_socket(#{active_n := N} = PS,
                    #static_env{socket = Socket, close_tag = CloseTag, transport_cb = Transport}) ->
     case tls_socket:setopts(Transport, Socket, [{active, N}]) of
-        ok -> ok;
-        _ -> self() ! {CloseTag, Socket}
+        ok ->
+            PS#{active_n_toggle => false, socket_active => N};
+        _ ->
+            self() ! {CloseTag, Socket},
+            PS#{active_n_toggle => false}
     end.
 
 %% Decipher next record and concatenate consecutive ?APPLICATION_DATA records into one

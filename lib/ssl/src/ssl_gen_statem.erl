@@ -844,15 +844,29 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     alert_user(UserSocket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, transport_closed}, State};
-handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
-                                                                          role = Role,
-                                                                          socket = Socket,
-                                                                          error_tag = ErrorTag}
-                                                         } = State)  ->
+handle_info({ErrorTag, Socket, Reason}, StateName,
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket,
+                                   error_tag = ErrorTag}
+                  } = State)  ->
     ?SSL_LOG(info, "Socket error", [{error_tag, ErrorTag}, {description, Reason}]),
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, {transport_error, Reason}),
     handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
-    {stop, {shutdown, transport_closed}, State};
+    {stop, {shutdown,normal}, State};
+
+handle_info({ErrorTag, Socket, abort, Reason}, StateName,
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket,
+                                   error_tag = ErrorTag}
+                  } = State)  ->
+    ?SSL_LOG(info, "Socket error", [{error_tag, ErrorTag}, {description, Reason}]),
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, {transport_error, Reason}),
+    handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
+    {stop, {shutdown,normal}, State};
+
+
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
             #state{connection_env = #connection_env{user_application = {MonitorRef, _Pid}},
                    ssl_options = #{erl_dist := true}}) ->

@@ -252,7 +252,8 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     {group, transport_socket}
     ] ++ simple_api_tests().
 
 groups() ->
@@ -263,14 +264,16 @@ groups() ->
                            new_options_in_handshake,
                            handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
-     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++ [honor_client_cipher_order_tls12,
-                                                                                                honor_server_cipher_order_tls12]},
+     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
+          [honor_client_cipher_order_tls12,honor_server_cipher_order_tls12]},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++ beast_mitigation_test()},
+     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
+          beast_mitigation_test()},
      {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
      {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
-          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()}
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
+     {transport_socket,  gen_api_tests() -- [ssl_not_started, dh_params]}
     ].
 
 since_1_2() ->
@@ -401,6 +404,11 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
+init_per_group(transport_socket, Config) ->
+    ssl_test_lib:init_per_group(transport_socket,
+                                [{client_type, erlang},
+                                 {server_type, erlang}
+                                | Config]);
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_protocol_version(GroupName) of
         true  ->
@@ -409,7 +417,7 @@ init_per_group(GroupName, Config) ->
                                          {server_type, erlang},
                                          {version, GroupName}
                                         | Config]);
-        false -> 
+        false ->
             Config
     end.
 
@@ -1464,7 +1472,7 @@ listen_socket(Config) ->
 
     {ok, _} = ssl:sockname(ListenSocket),
 
-    {error, enotconn} = ssl:send(ListenSocket, <<"data">>),
+    {error, _enotconn} = ssl:send(ListenSocket, <<"data">>),
     {error, enotconn} = ssl:recv(ListenSocket, 0),
     {error, enotconn} = ssl:connection_information(ListenSocket),
     {error, enotconn} = ssl:peername(ListenSocket),
@@ -2261,19 +2269,23 @@ new_options_in_handshake(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Filter = fun(any) when Version =:= 'tlsv1.3' ->
+                     true;
+                (_) when Version =:= 'tlsv1.3' ->
+                     false;
+                (dhe_rsa) ->
+                     true;
+                (ecdhe_rsa) ->
+                     true;
+                (rsa) ->
+                     false;
+                (_) ->
+                     false
+             end,
 
     Ciphers = [_, Cipher | _] = ssl:filter_cipher_suites(ssl:cipher_suites(all, Version), 
-                                                         [{key_exchange,
-                                                 fun(dhe_rsa) ->
-                                                         true;
-                                                    (ecdhe_rsa) ->
-                                                         true;
-                                                    (rsa) ->
-                                                         false;
-                                                    (_) ->
-                                                         false
-                                                 end
-                                                }]),
+                                                         [{key_exchange, Filter}]),
     
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
@@ -3839,11 +3851,12 @@ check_random_nonce(Config) when is_list(Config) ->
                   {_Id, {_, <<FourBytes:32, _/binary>>}, SecsSince}} <- Randoms],
     MeanDelta = lists:sum(Deltas) div N,
     case ?config(version, Config) of
-        'tlsv1.3' ->
+        Vsn when Vsn =:= 'tlsv1.3'; Vsn =:= undefined ->
             %% 4B "random" expected since TLS1.3
             RndThreshold   = 10000,
             true = MeanDelta > RndThreshold;
-        _ ->
+        _Vsn ->
+            ct:log("Using Version: ~p", [_Vsn]),
             %% 4 epoch based bytes expected pre TLS1.3
             EpochThreshold = 10,
             true = MeanDelta < EpochThreshold
@@ -4704,10 +4717,14 @@ run_sha1_cert_conf('tlsv1.3', #{client_config := ClientOpts, server_config := Se
                eddsa_ed448
               ],
     IncludeLegacyAlg =  SigAlgs ++ [LegacyAlg],
-    ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts],
-                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config, handshake_failure),
-    ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts],
-                                    [{signature_algs,  IncludeLegacyAlg} | ServerOpts], Config);
+    Extra = case proplists:get_value(transport, Config) of
+                socket -> [{cb_info, tls_socket_tcp:cb_info()}];
+                _ -> []
+            end,
+    ssl_test_lib:basic_alert([{verify, verify_peer}, {signature_algs,  SigAlgs} | ClientOpts ++ Extra],
+                             [{signature_algs,  IncludeLegacyAlg} | ServerOpts ++ Extra], Config, handshake_failure),
+    ssl_test_lib:basic_test([{verify, verify_peer}, {signature_algs,  IncludeLegacyAlg} | ClientOpts ++ Extra],
+                            [{signature_algs,  IncludeLegacyAlg} | ServerOpts ++ Extra], Config);
 
 run_sha1_cert_conf(Version, #{client_config := ClientOpts, server_config := ServerOpts}, Config, LegacyAlg) when Version == 'tlsv1.2';
                                                                                                                  Version == 'dtlsv1.2' ->

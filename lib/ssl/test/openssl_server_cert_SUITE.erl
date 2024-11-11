@@ -81,7 +81,8 @@ all() ->
 groups() ->
     [
      {openssl_server, [], protocol_groups()},
-     {'tlsv1.3', [], tls_1_3_protocol_groups()},
+     {'tlsv1.3', [], [{group, transport_socket}]},
+     {transport_socket, [], tls_1_3_protocol_groups()},
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
@@ -354,7 +355,7 @@ init_per_group(GroupName, Config) ->
                     {skip, {atom_to_list(GroupName) ++ " not supported by OpenSSL"}}
             end;
         false ->
-            Config
+            ssl_test_lib:init_per_group(GroupName, Config)
     end.
 
 end_per_group(GroupName, Config) ->

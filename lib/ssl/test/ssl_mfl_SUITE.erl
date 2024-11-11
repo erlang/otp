@@ -64,7 +64,8 @@ groups() ->
      {'tlsv1.1', [], common_tests() ++ pre_tls_1_3()},
      {'tlsv1', [], common_tests() ++ pre_tls_1_3()},
      {'dtlsv1.2', [], common_tests() ++ pre_tls_1_3()},
-     {'dtlsv1', [], common_tests() ++ pre_tls_1_3()}
+     {'dtlsv1', [], common_tests() ++ pre_tls_1_3()},
+     {transport_socket, [], common_tests()}
     ].
 
 common_tests() ->
