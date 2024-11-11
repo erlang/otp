@@ -69,12 +69,13 @@ listen(Port, #config{inet_ssl = SockOpts,
             Error
     end.
 
-accept({Listener,_}, #config{transport_info = Info,
-                             connection_cb = ConnectionCb}, _Timeout) ->
-    Transport = element(1, Info),
+accept({Listener,_}, #config{}, _Timeout) ->
     case dtls_packet_demux:accept(Listener, self()) of
-	{ok, Pid, Socket} ->
-	    {ok, socket([Pid], Transport, {Listener, Socket}, ConnectionCb)};
+	{ok, Pid} ->
+            receive
+                {Pid, user_socket, UserSocket} ->
+                    {ok, UserSocket}
+            end;
 	{error, Reason} ->
 	    {error, Reason}
     end.

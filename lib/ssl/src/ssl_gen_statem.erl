@@ -49,8 +49,7 @@
          handshake_continue/3,
          handshake_cancel/1,
          handle_sni_extension/2,
-	 socket_control/4,
-         socket_control/5,
+	 socket_control/1,
          prepare_connection/2]).
 
 %% User Events
@@ -361,37 +360,33 @@ handshake_cancel(#sslsocket{connection_handler = Pid}) ->
 	    Error
     end.
 %--------------------------------------------------------------------
--spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom()) ->
-    {ok, #sslsocket{}} | {error, ssl:reason()}.
-%%
-%% Description: Set the ssl process to own the accept socket
-%%--------------------------------------------------------------------
-socket_control(Connection, Socket, Pid, Transport) ->
-    socket_control(Connection, Socket, Pid, Transport, undefined).
 
-%--------------------------------------------------------------------
--spec socket_control(tls_gen_connection | dtls_gen_connection, port(), [pid()], atom(), [pid()] | atom()) ->
-    {ok, #sslsocket{}} | {error, ssl:reason()}.
-%%--------------------------------------------------------------------
-socket_control(dtls_gen_connection, Socket, Pids, Transport, udp_listener) ->
+-spec socket_control(#sslsocket{}) ->
+          {ok, #sslsocket{}} | {error, ssl:reason()}.
+
+socket_control(#sslsocket{connection_cb = dtls_gen_connection,
+                          listener_config = Config} = SslSocket)
+  when Config =/= undefined ->
     %% dtls listener process must have the socket control
-    {ok, dtls_gen_connection:socket(Pids, Transport, Socket, undefined)};
-
-socket_control(tls_gen_connection, Socket, [Pid|_] = Pids, Transport, Trackers) ->
+    {ok, SslSocket};
+socket_control(#sslsocket{connection_cb = dtls_gen_connection,
+                          transport_cb = Transport,
+                          socket_handle = {_, Socket},
+                          connection_handler = Pid} = SslSocket) ->
     case Transport:controlling_process(Socket, Pid) of
-	ok ->
-	    {ok, tls_gen_connection:socket(Pids, Transport, Socket, Trackers)};
-	{error, Reason}	->
-	    {error, Reason}
+ 	ok ->
+            {ok, SslSocket};
+        {error, Reason}	->
+ 	    {error, Reason}
     end;
-socket_control(dtls_gen_connection, {PeerAddrPort, Socket},
-               [Pid|_] = Pids, Transport, Trackers) ->
+socket_control(#sslsocket{transport_cb = Transport,
+                          socket_handle = Socket,
+                          connection_handler = Pid} = SslSocket) ->
     case Transport:controlling_process(Socket, Pid) of
-	ok ->
-	    {ok, dtls_gen_connection:socket(Pids, Transport, {PeerAddrPort, Socket},
-                                            Trackers)};
-	{error, Reason}	->
-	    {error, Reason}
+ 	ok ->
+            {ok, SslSocket};
+        {error, Reason}	->
+ 	    {error, Reason}
     end.
 
 prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegotiate},
@@ -598,14 +593,11 @@ connection({call, From}, negotiated_protocol,
 connection({call, From}, 
            {close,{_NewController, _Timeout}},
            #state{static_env = #static_env{role = Role,
-                                           socket = Socket,
-                                           trackers = Trackers,
-                                           transport_cb = Transport,
+                                           user_socket = UserSocket,
                                            protocol_cb = Connection},
                   connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}
                  } = State) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, ?STATE(connection), Connection),
+    alert_user(UserSocket, From, Alert, Role, ?STATE(connection), Connection),
     {stop, {shutdown, normal}, State};
 connection({call, From}, 
            {close,{NewController, Timeout}},
@@ -842,10 +834,10 @@ handle_call({get_opts, OptTags}, From, _,
     OptsReply = get_socket_opts(Connection, Transport, Socket, OptTags, SockOpts, []),
     {keep_state_and_data, [{reply, From, OptsReply}]};
 handle_call({set_opts, Opts0}, From, StateName,
-	    #state{static_env =  #static_env{protocol_cb = Connection,
+	    #state{static_env =  #static_env{user_socket = UserSocket,
+                                             protocol_cb = Connection,
                                              socket = Socket,
-                                             transport_cb = Transport,
-                                             trackers = Trackers},
+                                             transport_cb = Transport},
                    connection_env =
                        #connection_env{user_application = {_Mon, Pid}},
                    socket_options = Opts1
@@ -853,10 +845,7 @@ handle_call({set_opts, Opts0}, From, StateName,
     {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
     case {proplists:lookup(active, Opts0), Opts} of
         {{_, N}, #socket_options{active=false}} when is_integer(N) ->
-            send_user(
-              Pid,
-              format_passive(
-                Connection:pids(State0), Transport, Socket, Trackers, Connection));
+            send_user(Pid,{ssl_passive,UserSocket});
         _ ->
             ok
     end,
@@ -874,9 +863,8 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
                                             host = Host,
                                             port = Port,
                                             socket = Socket,
-                                            transport_cb = Transport,
+                                            user_socket = UserSocket,
                                             error_tag = ErrorTag,
-                                            trackers = Trackers,
                                             protocol_cb = Connection},
                    handshake_env = #handshake_env{renegotiation = Type},
                    connection_env = #connection_env{negotiated_version = Version},
@@ -884,9 +872,7 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
                    recv = #recv{from = StartFrom}
                   } = State)  when StateName =/= connection ->
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket,
-               StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
+    alert_user(UserSocket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
@@ -968,15 +954,12 @@ read_application_data(Data,
     end.
 
 passive_receive(#state{static_env = #static_env{role = Role,
-                                                socket = Socket,
-                                                trackers = Trackers,
-                                                transport_cb = Transport,
+                                                user_socket = UserSocket,
                                                 protocol_cb = Connection},
                        recv = #recv{from = RecvFrom},
                        connection_env = #connection_env{socket_tls_closed = #alert{} = Alert}} = State, 
                 StateName, _) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, RecvFrom, Alert, Role, StateName, Connection),
+    alert_user(UserSocket, RecvFrom, Alert, Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
                        %% Assert! Erl distribution uses active sockets
@@ -1038,29 +1021,25 @@ handle_own_alert(Alert0, StateName,
     end,
     {stop, {shutdown, own_alert}, State}.
 
-handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
-                                                                         socket = Socket,
-                                                                         transport_cb = Transport,
-                                                                         protocol_cb = Connection,
-                                                                         trackers = Trackers},
-                                                handshake_env = #handshake_env{renegotiation = {false, first}},
-                                                recv = #recv{from = StartFrom}
-                                               } = State) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, StartFrom, Alert, Role, StateName, Connection);
+handle_normal_shutdown(Alert, StateName,
+                       #state{static_env = #static_env{role = Role,
+                                                       user_socket = UserSocket,
+                                                       protocol_cb = Connection},
+                              handshake_env = #handshake_env{renegotiation = {false, first}},
+                              recv = #recv{from = StartFrom}
+                             }) ->
+    alert_user(UserSocket, StartFrom, Alert, Role, StateName, Connection);
 
-handle_normal_shutdown(Alert, StateName, #state{static_env = #static_env{role = Role,
-                                                                         socket = Socket,
-                                                                         transport_cb = Transport,
-                                                                         protocol_cb = Connection,
-                                                                         trackers = Trackers},
-                                                connection_env  = #connection_env{user_application = {_Mon, Pid}},
-                                                handshake_env = #handshake_env{renegotiation = Type},
-                                                socket_options = Opts,
-                                                recv = #recv{from = RecvFrom}
-                                               } = State) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
+handle_normal_shutdown(Alert, StateName,
+                       #state{static_env = #static_env{role = Role,
+                                                       user_socket = UserSocket,
+                                                       protocol_cb = Connection},
+                              connection_env  = #connection_env{user_application = {_Mon, Pid}},
+                              handshake_env = #handshake_env{renegotiation = Type},
+                              socket_options = Opts,
+                              recv = #recv{from = RecvFrom}
+                             }) ->
+    alert_user(UserSocket, Type, Opts, Pid, RecvFrom, Alert, Role, StateName, Connection).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName, State) ->
     handle_fatal_alert(Alert, StateName, State);
@@ -1159,11 +1138,9 @@ handle_alert(Alert, StateName, State) ->
 
 handle_fatal_alert(Alert0, StateName,
                    #state{static_env = #static_env{role = Role,
-                                                   socket = Socket,
+                                                   user_socket = UserSocket,
                                                    host = Host,
                                                    port = Port,
-                                                   trackers = Trackers,
-                                                   transport_cb = Transport,
                                                    protocol_cb = Connection},
                           connection_env  = #connection_env{user_application = {_Mon, Pid}},
                           ssl_options = #{log_level := LogLevel},
@@ -1174,8 +1151,7 @@ handle_fatal_alert(Alert0, StateName,
     Alert = Alert0#alert{role = opposite_role(Role)},
     log_alert(LogLevel, Role, Connection:protocol_name(),
               StateName, Alert),
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
+    alert_user(UserSocket, StateName, Opts, Pid, From, Alert, Role, StateName, Connection),
     {stop, {shutdown, normal}, State}.
 
 handle_trusted_certs_db(#state{ssl_options =#{cacerts := []} = Opts})
@@ -1419,15 +1395,12 @@ handle_active_option(_, connection = StateName, To, Reply,
     {stop_and_reply,{shutdown, peer_close}, [{reply, To, Reply}]};
 handle_active_option(_, connection = StateName, To, _Reply,
                      #state{static_env = #static_env{role = Role,
-                                                     socket = Socket,
-                                                     trackers = Trackers,
-                                                     transport_cb = Transport,
+                                                     user_socket = UserSocket,
                                                      protocol_cb = Connection},
                             connection_env =
                                 #connection_env{socket_tls_closed = Alert = #alert{}},
                             user_data_buffer = {_,0,_}} = State) ->
-    Pids = Connection:pids(State),
-    alert_user(Pids, Transport, Trackers, Socket, To, Alert, Role, StateName, Connection),
+    alert_user(UserSocket, To, Alert, Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 handle_active_option(_, connection = StateName0, To, Reply,
                      #state{static_env = #static_env{protocol_cb = Connection},
@@ -1532,18 +1505,10 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
 	{error,_Reason} ->
             %% Invalid packet in packet mode
             #state{
-               static_env =
-                   #static_env{
-                      socket = Socket,
-                      protocol_cb = Connection,
-                      transport_cb = Transport,
-                      trackers = Trackers},
-               connection_env =
-                   #connection_env{user_application = {_Mon, Pid}}} = State,
+               static_env = #static_env{user_socket = UserSocket},
+               connection_env = #connection_env{user_application = {_Mon, Pid}}} = State,
             Buffer = iolist_to_binary([Bin0,Front0|lists:reverse(Rear0)]),
-	    deliver_packet_error(
-              Connection:pids(State), Transport, Socket, SocketOpts0,
-              Buffer, Pid, RecvFrom, Trackers, Connection),
+	    deliver_packet_error(UserSocket, SocketOpts0, Buffer, Pid, RecvFrom),
             {stop, {shutdown, normal},
              State#state{socket_options = SocketOpts0,
                          recv = State#state.recv#recv{from = RecvFrom,
@@ -1553,17 +1518,9 @@ read_application_data_bin(State, Front0, BufferSize0, Rear0, SocketOpts0, RecvFr
 
 read_application_data_deliver(State, Front, BufferSize, Rear, SocketOpts0, RecvFrom, Data) ->
     #state{
-       static_env =
-           #static_env{
-              socket = Socket,
-              protocol_cb = Connection,
-              transport_cb = Transport,
-              trackers = Trackers},
-       connection_env =
-           #connection_env{user_application = {_Mon, Pid}}} = State,
-    SocketOpts =
-        deliver_app_data(
-          Connection:pids(State), Transport, Socket, SocketOpts0, Data, Pid, RecvFrom, Trackers, Connection),
+       static_env = #static_env{user_socket = UserSocket},
+       connection_env = #connection_env{user_application = {_Mon, Pid}}} = State,
+    SocketOpts = deliver_app_data(UserSocket, SocketOpts0, Data, Pid, RecvFrom),
     if
         SocketOpts#socket_options.active =:= false ->
             %% Passive mode, wait for active once or recv
@@ -1751,12 +1708,10 @@ decode_packet(Type, Buffer, PacketOpts) ->
 %% Note that if the user has explicitly configured the socket to expect
 %% HTTP headers using the {packet, httph} option, we don't do any automatic
 %% switching of states.
-deliver_app_data(CPids, Transport, Socket,
-                 #socket_options{active=Active, packet=Type} = SOpts,
-                 Data, Pid, From, Trackers, Connection) ->
+deliver_app_data(UserSocket, #socket_options{active=Active, packet=Type} = SOpts,
+                 Data, Pid, From) ->
     send_or_reply(Active, Pid, From,
-                  format_reply(CPids, Transport, Socket,
-                               SOpts, Data, Trackers, Connection)),
+                  format_reply(UserSocket, SOpts, Data)),
     SO =
         case Data of
             {P, _, _, _}
@@ -1774,9 +1729,7 @@ deliver_app_data(CPids, Transport, Socket,
         once ->
             SO#socket_options{active=false};
         1 ->
-            send_user(Pid,
-                      format_passive(CPids, Transport,
-                                     Socket, Trackers, Connection)),
+            send_user(Pid, {ssl_passive, UserSocket}),
             SO#socket_options{active=false};
         N when is_integer(N) ->
             SO#socket_options{active=N - 1};
@@ -1784,24 +1737,20 @@ deliver_app_data(CPids, Transport, Socket,
 	    SO
     end.
 
-format_reply(_, _, _,#socket_options{active = false, mode = Mode, packet = Packet,
-				  header = Header}, Data, _, _) ->
+format_reply(_UserSocket, #socket_options{active = false, mode = Mode, packet = Packet,
+                                          header = Header}, Data) ->
     {ok, do_format_reply(Mode, Packet, Header, Data)};
-format_reply(CPids, Transport, Socket, #socket_options{active = _, mode = Mode, packet = Packet,
-						header = Header}, Data, Trackers, Connection) ->
-    {ssl, Connection:socket(CPids, Transport, Socket, Trackers),
-     do_format_reply(Mode, Packet, Header, Data)}.
+format_reply(UserSocket, #socket_options{active = _, mode = Mode, packet = Packet, header = Header},
+             Data) ->
+    {ssl, UserSocket, do_format_reply(Mode, Packet, Header, Data)}.
 
-deliver_packet_error(CPids, Transport, Socket,
-                     SO= #socket_options{active = Active}, Data, Pid, From, Trackers, Connection) ->
-    send_or_reply(Active, Pid, From, format_packet_error(CPids,
-                                                         Transport, Socket, SO, Data, Trackers, Connection)).
+deliver_packet_error(UserSocket, SO= #socket_options{active = Active}, Data, Pid, From) ->
+    send_or_reply(Active, Pid, From, format_packet_error(UserSocket, SO, Data)).
 
-format_packet_error(_, _, _,#socket_options{active = false, mode = Mode}, Data, _, _) ->
+format_packet_error(_, #socket_options{active = false, mode = Mode}, Data) ->
     {error, {invalid_packet, do_format_reply(Mode, raw, 0, Data)}};
-format_packet_error(CPids, Transport, Socket, #socket_options{active = _, mode = Mode},
-                    Data, Trackers, Connection) ->
-    {ssl_error, Connection:socket(CPids, Transport, Socket, Trackers),
+format_packet_error(UserSocket, #socket_options{active = _, mode = Mode}, Data) ->
+    {ssl_error, UserSocket,
      {invalid_packet, do_format_reply(Mode, raw, 0, Data)}}.
 
 do_format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
@@ -1815,9 +1764,6 @@ do_format_reply(list, Packet, _, Data)
     Data;
 do_format_reply(list, _,_, Data) ->
     binary_to_list(Data).
-
-format_passive(CPids, Transport, Socket, Trackers, Connection) ->
-    {ssl_passive, Connection:socket(CPids, Transport, Socket, Trackers)}.
 
 header(0, <<>>) ->
     <<>>;
@@ -1842,30 +1788,29 @@ send_user(Pid, Msg) ->
     Pid ! Msg,
     ok.
 
-alert_user(Pids, Transport, Trackers, Socket, _, Opts, Pid, From, Alert, Role, connection = StateName, Connection) ->
-    alert_user(Pids, Transport, Trackers, Socket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
-alert_user(Pids, Transport, Trackers, Socket, {true, internal}, Opts, Pid, From, Alert, Role, StateName, Connection) ->
-    alert_user(Pids, Transport, Trackers, Socket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
-alert_user(Pids, Transport, Trackers, Socket, _, _, _, From, Alert, Role, StateName, Connection) ->
-    alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, StateName, Connection).
+alert_user(UserSocket, _, Opts, Pid, From, Alert, Role, connection = StateName, Connection) ->
+    alert_user(UserSocket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
+alert_user(UserSocket, {true, internal}, Opts, Pid, From, Alert, Role, StateName, Connection) ->
+    alert_user(UserSocket, Opts#socket_options.active, Pid, From, Alert, Role, StateName, Connection);
+alert_user(UserSocket, _, _, _, From, Alert, Role, StateName, Connection) ->
+    alert_user(UserSocket, From, Alert, Role, StateName, Connection).
 
-alert_user(Pids, Transport, Trackers, Socket, From, Alert, Role, StateName, Connection) ->
-    alert_user(Pids, Transport, Trackers, Socket, false, no_pid, From, Alert, Role, StateName, Connection).
+alert_user(UserSocket, From, Alert, Role, StateName, Connection) ->
+    alert_user(UserSocket, false, no_pid, From, Alert, Role, StateName, Connection).
 
-alert_user(_, _, _, _, false = Active, Pid, From,  Alert, Role, StateName, Connection) when From =/= undefined ->
+alert_user(_UserSocket, false = Active, Pid, From,  Alert, Role, StateName, Connection)
+  when From =/= undefined ->
     %% If there is an outstanding handshake | recv
     %% From will be defined and send_or_reply will
     %% send the appropriate error message.
     ReasonCode = ssl_alert:reason_code(Alert, Role, Connection:protocol_name(), StateName),
     send_or_reply(Active, Pid, From, {error, ReasonCode});
-alert_user(Pids, Transport, Trackers, Socket, Active, Pid, From, Alert, Role, StateName, Connection) ->
+alert_user(UserSocket, Active, Pid, From, Alert, Role, StateName, Connection) ->
     case ssl_alert:reason_code(Alert, Role, Connection:protocol_name(), StateName) of
 	closed ->
-	    send_or_reply(Active, Pid, From,
-			  {ssl_closed, Connection:socket(Pids, Transport, Socket, Trackers)});
+	    send_or_reply(Active, Pid, From, {ssl_closed, UserSocket});
 	ReasonCode ->
-	    send_or_reply(Active, Pid, From,
-			  {ssl_error, Connection:socket(Pids, Transport, Socket, Trackers), ReasonCode})
+	    send_or_reply(Active, Pid, From, {ssl_error, UserSocket, ReasonCode})
     end.
 
 log_alert(Level, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
@@ -1976,7 +1921,7 @@ security_info(#state{connection_states = ConnectionStates,
                       server_handshake_traffic_secret := ServerHSTrafficSecret} ->
                         [{client_handshake_traffic_secret, ClientHSTrafficSecret},
                          {server_handshake_traffic_secret, ServerHSTrafficSecret}];
-                   _ ->
+                    _ ->
                         []
                 end ++ BaseSecurityInfo
     end.

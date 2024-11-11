@@ -43,7 +43,6 @@
          peer_renegotiate/1,
          downgrade/2,
          update_connection_state/3,
-         dist_tls_socket/1,
          dist_handshake_complete/3]).
 
 %% gen_statem callbacks
@@ -192,11 +191,7 @@ downgrade(Pid, Timeout) ->
 dist_handshake_complete(ConnectionPid, Node, DHandle) ->
     gen_statem:call(ConnectionPid, {dist_handshake_complete, Node, DHandle}).
 %%--------------------------------------------------------------------
--spec dist_tls_socket(pid()) -> {ok, #sslsocket{}}. 
-%%  Description: To enable distribution startup to get a proper "#sslsocket{}" 
-%%--------------------------------------------------------------------
-dist_tls_socket(Pid) ->
-    gen_statem:call(Pid, dist_get_tls_socket).
+
 
 %%%===================================================================
 %%% gen_statem callbacks
@@ -298,13 +293,6 @@ connection({call, From}, downgrade, #data{connection_states =
     {next_state, death_row, StateData, [{reply,From, {ok, Write}}]};
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(connection, From, Opts, StateData);
-connection({call, From}, dist_get_tls_socket, 
-           #data{static = #static{transport_cb = Transport,
-                                  socket = Socket,
-                                  connection_pid = Pid,
-                                  trackers = Trackers}} = StateData) ->
-    TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
-    hibernate_after(connection, StateData, [{reply, From, {ok, TLSSocket}}]);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
            #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),

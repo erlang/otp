@@ -25,14 +25,10 @@
 -module(tls_gen_connection).
 -moduledoc false.
 
--include_lib("public_key/include/public_key.hrl").
--include_lib("kernel/include/logger.hrl").
-
 -include("tls_connection.hrl").
 -include("tls_handshake.hrl").
 -include("tls_record.hrl").
 -include("ssl_alert.hrl").
--include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 -include("tls_record_1_3.hrl").
 
@@ -58,8 +54,7 @@
          handle_protocol_record/3]).
 
 %% Data handling
--export([socket/4,
-         setopts/3,
+-export([setopts/3,
          getopts/3,
          handle_info/3,
          gen_info/3]).
@@ -77,18 +72,18 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket,
-          {SSLOpts, _, Trackers} = Opts,
-	  User, {CbModule, _, _, _, _} = CbInfo,
-	  Timeout) ->
+start_fsm(Role, Host, Port, Socket, {SSLOpts, _, _Trackers} = Opts,
+	  User, CbInfo, Timeout) ->
     ErlDist = maps:get(erl_dist, SSLOpts, false),
     SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
     Starter = start_connection_tree(User, ErlDist, SenderOptions,
                                     Role, [Host, Port, Socket, Opts, User, CbInfo]),
     receive
-        {Starter, SockReceiver, SockSender} ->
-            socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout);
+        {Starter, {ok, SockReceiver}} ->
+            receive {SockReceiver, user_socket, UserSocket} ->
+                    socket_control(UserSocket, Timeout)
+            end;
         {Starter, Error} ->
             Error
     end.
@@ -108,20 +103,19 @@ start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
                     {ok, DynSup} ->
                         case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
                             {ok, Sender} ->
-                                case tls_dyn_connection_sup:start_child(DynSup, receiver,
-                                                                        [Role, Sender |
-                                                                         ReceiverOpts]) of
+                                Args = [Role, Sender | ReceiverOpts],
+                                case tls_dyn_connection_sup:start_child(DynSup, receiver, Args) of
                                     {ok, Receiver} ->
-                                        User ! {self(), Receiver, Sender};
-                                    {error, Error} ->
+                                        User ! {self(), {ok, Receiver}};
+                                    {error, _} = Error ->
                                         User ! {self(), Error},
                                         exit(DynSup, shutdown)
                                 end;
-                            {error, Error} ->
+                            {error, _} = Error ->
                                 User ! {self(), Error},
                                 exit(DynSup, shutdown)
                         end;
-                    {error, Error} ->
+                    {error, _Error} = Error ->
                         User ! {self(), Error}
                 catch exit:{noproc, _} ->
                         User ! {self(), {error, ssl_not_started}};
@@ -137,9 +131,8 @@ start_dyn_connection_sup(true) ->
 start_dyn_connection_sup(false) ->
     tls_connection_sup:start_child([]).
 
-socket_control(Socket, SockReceiver, SockSender, CbModule, Trackers, Timeout) ->
-    case ssl_gen_statem:socket_control(?MODULE, Socket, [SockReceiver, SockSender],
-                                       CbModule, Trackers) of
+socket_control(SslSocket, Timeout) ->
+    case ssl_gen_statem:socket_control(SslSocket) of
         {ok, SslSocket} ->
             ssl_gen_statem:handshake(SslSocket, Timeout);
         Error ->
@@ -252,9 +245,6 @@ empty_connection_state(ConnectionEnd) ->
 %%====================================================================
 %% Data handling
 %%====================================================================	     
-
-socket(Pids,  Transport, Socket, Trackers) ->
-    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Trackers).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).

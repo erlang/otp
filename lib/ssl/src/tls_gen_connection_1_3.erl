@@ -64,8 +64,11 @@ initial_state(Role, Sender, Host, Port, Socket,
                                                          disabled,
                                                          MaxEarlyDataSize),
     UserMonitor = erlang:monitor(process, User),
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Trackers),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,

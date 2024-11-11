@@ -134,7 +134,7 @@ handle_peer_cert_key(_, _, _, State) ->
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
 %%====================================================================
-
+%% Only called by TLS tls_gen_server and tls_gen_client (no dtls)
 initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -146,8 +146,12 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                                                          BeastMitigation),
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
+
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Trackers),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,
