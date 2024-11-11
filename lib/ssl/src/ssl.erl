@@ -352,6 +352,7 @@
                                 {keep_secrets, keep_secrets()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
+                                {allow_any_ca_purpose, allow_any_ca_purpose()} |
                                 {crl_check, crl_check()} |
                                 {crl_cache, crl_cache_opts()} |
                                 {max_handshake_size, handshake_size()} |
@@ -398,6 +399,7 @@
 -type allowed_cert_chain_length() :: integer().
 
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
+-type allow_any_ca_purpose()       :: boolean().
 -type crl_check()                :: boolean() | peer | best_effort.
 -type crl_cache_opts()           :: {Module :: atom(),
                                      {DbHandle :: internal | term(),
@@ -1680,6 +1682,7 @@ ssl_options() ->
      use_srtp,
      user_lookup_fun,
      verify, verify_fun,
+     allow_any_ca_purpose,
      versions
     ].
 
@@ -1840,17 +1843,18 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
     option_incompatible(FailNoPeerCert andalso Verify =:= verify_none,
                         [{verify, verify_none}, {fail_if_no_peer_cert, true}]),
 
-    Opts = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
+    Opts3 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
 
-    case Role of
-        client ->
-            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain},
-                           Env);
-        server ->
-            opt_verify_fun(UserOpts, Opts#{partial_chain => PartialChain,
-                                           fail_if_no_peer_cert => FailNoPeerCert},
-                           Env)
-    end.
+    Opts = case Role of
+               client ->
+                   opt_verify_fun(UserOpts, Opts3#{partial_chain => PartialChain},
+                                  Env);
+               server ->
+                   opt_verify_fun(UserOpts, Opts3#{partial_chain => PartialChain,
+                                                   fail_if_no_peer_cert => FailNoPeerCert},
+                                  Env)
+           end,
+    opt_extend_keyusage(UserOpts, Opts).
 
 default_verify(client) ->
     %% Server authenication is by default requiered
@@ -1902,6 +1906,16 @@ convert_verify_fun() ->
             {valid, UserState};
        (_, valid_peer, UserState) ->
             {valid, UserState}
+    end.
+
+opt_extend_keyusage(UserOpts, Opts) ->
+    case get_opt_bool(allow_any_ca_purpose, false, UserOpts, Opts) of
+        {default, Value} ->
+            Opts#{allow_any_ca_purpose => Value};
+        {old, _OldValue} ->
+            Opts;
+        {new, NewValue} ->
+            Opts#{allow_any_ca_purpose => NewValue}
     end.
 
 opt_certs(UserOpts, #{log_level := LogLevel} = Opts0, Env) ->

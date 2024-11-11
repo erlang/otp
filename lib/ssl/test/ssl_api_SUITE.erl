@@ -2837,6 +2837,13 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
                                                         {verify_fun, {NewF3, bar}}],
                                                        client, DefOpts),
 
+    ?OK(#{allow_any_ca_purpose := true},
+        [{allow_any_ca_purpose, true}, {verify, verify_peer}, {cacerts, [Cert]}],
+        server),
+    ?OK(#{allow_any_ca_purpose := false},
+        [{verify, verify_peer}, {cacerts, [Cert]}],
+        client),
+
     %% Errors
     ?ERR({partial_chain, undefined}, [{partial_chain, undefined}], client),
     ?ERR({options, incompatible, [{verify, verify_none}, {fail_if_no_peer_cert, true}]},
@@ -2849,6 +2856,7 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
     ?ERR({options, incompatible, [{verify, _}, {cacerts, undefined}]}, [{verify, verify_peer}], server),
     ?ERR({partial_chain, not_a_fun}, [{partial_chain, not_a_fun}], client),
     ?ERR({verify_fun, not_a_fun}, [{verify_fun, not_a_fun}], client),
+    ?ERR({allow_any_ca_purpose, foo},[{allow_any_ca_purpose, foo}, {verify, verify_peer}, {cacerts, [Cert]}], server),
     ok.
 
 options_fallback(_Config) ->

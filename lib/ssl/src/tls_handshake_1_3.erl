@@ -1885,6 +1885,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
                   log_level := LogLevel,
+                  allow_any_ca_purpose := AllowAnyPurpose,
                   signature_algs := SignAlgos,
                   signature_algs_cert := SignAlgosCert} = Opts,
                 #{cert_ext := CertExt,
@@ -1908,6 +1909,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                                  cert_ext => CertExt,
                                                  ocsp_responder_certs => OcspResponderCerts,
                                                  ocsp_state => OcspState,
+                                                 allow_any_ca_purpose => AllowAnyPurpose,
                                                  path_len => length(Path)
                                                 },
                                                Path, LogLevel),
