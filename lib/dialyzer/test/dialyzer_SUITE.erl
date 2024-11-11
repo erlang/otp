@@ -37,7 +37,8 @@
          incremental_plt_given_to_classic_mode/1,
          classic_plt_given_to_incremental_mode/1,
          if_output_plt_is_missing_incremental_mode_makes_it/1,
-         file_list/1]).
+         file_list/1,
+         line_coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -46,7 +47,8 @@ all() ->
      incremental_plt_given_to_classic_mode,
      classic_plt_given_to_incremental_mode,
      if_output_plt_is_missing_incremental_mode_makes_it,
-     file_list].
+     file_list,
+     line_coverage].
 
 groups() ->
     [].
@@ -77,7 +79,7 @@ compile(Config, Prog, Module, CompileOpts) ->
     PrivDir = proplists:get_value(priv_dir,Config),
     Filename = filename:join([PrivDir, Source]),
     ok = file:write_file(Filename, Prog),
-    Opts = [{outdir, PrivDir}, debug_info | CompileOpts],
+    Opts = [report, {outdir, PrivDir}, debug_info | CompileOpts],
     {ok, Module} = compile:file(Filename, Opts),
     {ok, filename:join([PrivDir, lists:concat([Module, ".beam"])])}.
 
@@ -241,4 +243,21 @@ expected(Files0) ->
              ":6:5: The variable _ can never match since previous clauses completely covered the type \n"
          "          atom()\n" || F <- Files],
     iolist_to_binary(S).
+
+line_coverage(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Prog = <<"-module(foo).
+              bar() -> ok."
+           >>,
+    {ok, Beam1} = compile(Config, Prog, foo, [line_coverage]),
+
+    Plt1 = filename:join(PrivDir, "line_coverage.plt"),
+    _ = dialyzer:run([{analysis_type, plt_build},
+                      {files, [Beam1]},
+                      {init_plt, Plt1},
+                      {from, byte_code}]),
+
+    {ok, [{files, [Beam1]}]} = dialyzer:plt_info(Plt1),
+
+    ok.
 
