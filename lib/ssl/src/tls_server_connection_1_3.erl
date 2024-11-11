@@ -105,9 +105,9 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?SERVER_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?SERVER_ROLE, Sender, Tab,
                                              Host, Port, Socket, Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},

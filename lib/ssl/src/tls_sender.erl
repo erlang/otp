@@ -270,15 +270,8 @@ init(_, _, _) ->
            StateData :: term()) ->
                   gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
-connection({call, From}, {application_data, AppData}, 
-           #data{static = #static{socket_options = #socket_options{packet = Packet}}} =
-               StateData) ->
-    case encode_packet(Packet, AppData) of
-        {error, _} = Error ->
-            {next_state, connection, StateData, [{reply, From, Error}]};
-        Data ->
-            send_application_data(Data, From, connection, StateData)
-    end;
+connection({call, From}, {application_data, Data}, StateData) ->
+    send_application_data(Data, From, connection, StateData);
 connection({call, From}, {post_handshake_data, HSData}, StateData) ->
     send_post_handshake_data(HSData, From, connection, StateData);
 connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
@@ -598,20 +591,6 @@ key_update_at(?TLS_1_3, _, KeyUpdateAt) ->
     KeyUpdateAt;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.
-
--compile({inline, encode_packet/2}).
-encode_packet(Packet, Data) ->
-    Len = iolist_size(Data),
-    case Packet of
-        1 when Len < (1 bsl 8) ->  [<<Len:8>>|Data];
-        2 when Len < (1 bsl 16) -> [<<Len:16>>|Data];
-        4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
-        N when N =:= 1; N =:= 2; N =:= 4 ->
-            {error,
-             {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
-        _ ->
-            Data
-    end.
 
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.

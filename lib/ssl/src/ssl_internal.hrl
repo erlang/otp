@@ -148,11 +148,12 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or 
-                 trackers, 
+		 emulated,          %% Emulated option list or
+                 trackers,
 		 inet_ssl,          %% inet options for internal ssl socket
-		 transport_info,                 %% Callback info
-		 connection_cb
+		 transport_info,    %% Callback info
+		 connection_cb,
+                 tab
 		}).
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.

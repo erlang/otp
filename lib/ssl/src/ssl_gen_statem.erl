@@ -140,7 +140,7 @@ start_link(Role, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInfo) ->
 -spec init(list()) -> no_return().
 %% Description: Initialization
 %%--------------------------------------------------------------------
-init([Role, _Sender, Host, Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = InitArgs) ->
+init([Role, Sender |[Host, Port, _Socket, {TLSOpts, _, _}, _User, _CbInfo] = InitArgs]) ->
     process_flag(trap_exit, true),
 
     case maps:get(erl_dist, TLSOpts, false) of
@@ -148,36 +148,38 @@ init([Role, _Sender, Host, Port, _Socket, {TLSOpts, _, _},  _User, _CbInfo] = In
             process_flag(priority, max);
         _ ->
             ok
-    end,    
-    
+    end,
+
     init_label(Role, Host, Port, TLSOpts),
-
-    case Role of 
-        ?CLIENT_ROLE ->
-            case TLSOpts of
-                #{versions := [?TLS_1_3]} ->
-                    tls_client_connection_1_3:init(InitArgs);
-                _  ->
-                    tls_client_connection:init(InitArgs)
-            end;     
-        ?SERVER_ROLE ->
-            case TLSOpts of
-                #{versions := [?TLS_1_3]} ->
-                    tls_server_connection_1_3:init(InitArgs);
-                _ ->
-                    tls_server_connection:init(InitArgs)
-            end                                                       
-    end;
-init([Role, Host, Port, _Socket, {DTLSOpts,_,_}, _User, _CbInfo] = InitArgs) ->
-    process_flag(trap_exit, true),
-
-    init_label(Role, Host, Port, DTLSOpts),
+    Tab = ets:new(tls_socket, []),
 
     case Role of
         ?CLIENT_ROLE ->
-            dtls_client_connection:init(InitArgs);
+            case TLSOpts of
+                #{versions := [?TLS_1_3]} ->
+                    tls_client_connection_1_3:init([Role, Sender, Tab|InitArgs]);
+                _  ->
+                    tls_client_connection:init([Role, Sender, Tab | InitArgs])
+            end;
         ?SERVER_ROLE ->
-            dtls_server_connection:init(InitArgs)
+            case TLSOpts of
+                #{versions := [?TLS_1_3]} ->
+                    tls_server_connection_1_3:init([Role, Sender, Tab|InitArgs]);
+                _ ->
+                    tls_server_connection:init([Role, Sender, Tab|InitArgs])
+            end
+    end;
+init([Role | [Host, Port, _Socket, {DTLSOpts,_,_}, _User, _CbInfo] = InitArgs]) ->
+    process_flag(trap_exit, true),
+
+    init_label(Role, Host, Port, DTLSOpts),
+    Tab = ets:new(tls_socket, []),
+
+    case Role of
+        ?CLIENT_ROLE ->
+            dtls_client_connection:init([Role, Tab|InitArgs]);
+        ?SERVER_ROLE ->
+            dtls_server_connection:init([Role, Tab|InitArgs])
     end.
 
 init_label(?CLIENT_ROLE = Role, Host, _, Options) ->
@@ -840,9 +842,10 @@ handle_call({set_opts, Opts0}, From, StateName,
                                              transport_cb = Transport},
                    connection_env =
                        #connection_env{user_application = {_Mon, Pid}},
-                   socket_options = Opts1
+                   socket_options = Opts1,
+                   tab = Tab
                   } = State0) ->
-    {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Opts0, Opts1, []),
+    {Reply, Opts} = set_socket_opts(Connection, Transport, Socket, Tab, Opts0, Opts1, []),
     case {proplists:lookup(active, Opts0), Opts} of
         {{_, N}, #socket_options{active=false}} when is_integer(N) ->
             send_user(Pid,{ssl_passive,UserSocket});
@@ -1964,9 +1967,9 @@ get_socket_opts(Connection, Transport, Socket, [Tag | Tags], SockOpts, Acc) ->
 get_socket_opts(_,_, _,Opts, _,_) ->
     {error, {options, {socket_options, Opts, function_clause}}}.
 
-set_socket_opts(_,_,_, [], SockOpts, []) ->
+set_socket_opts(_,_,_, _Tab, [], SockOpts, []) ->
     {ok, SockOpts};
-set_socket_opts(ConnectionCb, Transport, Socket, [], SockOpts, Other) ->
+set_socket_opts(ConnectionCb, Transport, Socket, _Tab, [], SockOpts, Other) ->
     %% Set non emulated options
     try ConnectionCb:setopts(Transport, Socket, Other) of
 	ok ->
@@ -1979,11 +1982,11 @@ set_socket_opts(ConnectionCb, Transport, Socket, [], SockOpts, Other) ->
 	    {{error, {options, {socket_options, Other, Error}}}, SockOpts}
     end;
 
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active}| Opts], SockOpts, Other)
+set_socket_opts(ConnectionCb, Transport, Socket, Tab, [{active, Active}| Opts], SockOpts, Other)
   when Active == once; Active == true; Active == false ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+    set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{active = Active}, Other);
-set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts],
+set_socket_opts(ConnectionCb, Transport, Socket, Tab, [{active, Active1} = Opt| Opts],
                 SockOpts=#socket_options{active = Active0}, Other)
   when Active1 >= -32768, Active1 =< 32767 ->
     Active = if
@@ -2004,19 +2007,19 @@ set_socket_opts(ConnectionCb, Transport, Socket, [{active, Active1} = Opt| Opts]
         error ->
             {{error, {options, {socket_options, Opt}} }, SockOpts};
         _ ->
-            set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+            set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts,
                             SockOpts#socket_options{active = Active}, Other)
     end;
-set_socket_opts(_,_, _, [{active, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_,_, _, _Tab, [{active, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
 
-set_socket_opts(ConnectionCb, Transport,Socket, [{mode, Mode}| Opts], SockOpts, Other)
+set_socket_opts(ConnectionCb, Transport, Socket, Tab, [{mode, Mode}| Opts], SockOpts, Other)
   when Mode == list; Mode == binary ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+    set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{mode = Mode}, Other);
-set_socket_opts(_, _, _, [{mode, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, _Tab, [{mode, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(ConnectionCb, Transport,Socket, [{packet, Packet}| Opts], SockOpts, Other)
+set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{packet, Packet}| Opts], SockOpts, Other)
   when Packet == raw;
        Packet == 0;
        Packet == 1;
@@ -2032,29 +2035,29 @@ set_socket_opts(ConnectionCb, Transport,Socket, [{packet, Packet}| Opts], SockOp
        Packet == httph;
        Packet == http_bin;
        Packet == httph_bin ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+    true = ets:insert(Tab, {{socket_options, packet}, Packet}),
+    set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{packet = Packet}, Other);
-set_socket_opts(_, _, _, [{packet, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, _Tab, [{packet, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(ConnectionCb, Transport, Socket, [{header, Header}| Opts], SockOpts, Other)
+set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{header, Header}| Opts], SockOpts, Other)
   when is_integer(Header) ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts,
+    set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{header = Header}, Other);
-set_socket_opts(_, _, _, [{header, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(_, _, _, _Tab, [{header, _} = Opt| _], SockOpts, _) ->
     {{error,{options, {socket_options, Opt}}}, SockOpts};
-set_socket_opts(ConnectionCb, Transport,Socket, [{packet_size, Size}| Opts], SockOpts, Other) when is_integer(Size) -> 
-      set_socket_opts(ConnectionCb, Transport, Socket, Opts,
-                      SockOpts#socket_options{packet_size = Size}, Other);
-set_socket_opts(_,_, _, [{packet_size, _} = Opt| _], SockOpts, _) ->
+set_socket_opts(tls_gen_connection, Transport,Socket, Tab, [{packet_size, Size}| Opts], SockOpts, Other)
+  when is_integer(Size) ->
+    set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
+                    SockOpts#socket_options{packet_size = Size}, Other);
+set_socket_opts(_,_, _, _Tab, [{packet_size, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
-set_socket_opts(ConnectionCb, Transport, Socket, [Opt | Opts], SockOpts, Other) ->
-    set_socket_opts(ConnectionCb, Transport, Socket, Opts, SockOpts, [Opt | Other]).
+set_socket_opts(ConnectionCb, Transport, Socket, Tab, [Opt | Opts], SockOpts, Other) ->
+    set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts, SockOpts, [Opt | Other]).
 
 ssl_options_list(SslOptions) ->
     L = maps:to_list(SslOptions),
     ssl_options_list(L, []).
-
-
 
 ssl_options_list([], Acc) ->
     lists:reverse(Acc);
@@ -2069,14 +2072,14 @@ ssl_options_list([{max_fragment_length, _}|T], Acc) ->
     %% skip max_fragment_length from options since it is taken above from connection_states
     ssl_options_list(T, Acc);
 ssl_options_list([{ciphers = Key, Value}|T], Acc) ->
-   ssl_options_list(T,
-		    [{Key, lists:map(
-			     fun(Suite) ->
-				     ssl_cipher_format:suite_bin_to_map(Suite)
-			     end, Value)}
+    ssl_options_list(T,
+                     [{Key, lists:map(
+                              fun(Suite) ->
+                                      ssl_cipher_format:suite_bin_to_map(Suite)
+                              end, Value)}
 		     | Acc]);
 ssl_options_list([{Key, Value}|T], Acc) ->
-   ssl_options_list(T, [{Key, Value} | Acc]).
+    ssl_options_list(T, [{Key, Value} | Acc]).
 
 %% Maybe add NSS keylog info according to
 %% https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
@@ -2121,7 +2124,7 @@ maybe_add_keylog({_, 'tlsv1.3'}, Info) ->
                      {client_early_data_secret, EarlySecret} ->
                          ClientEarlySecret = keylog_secret(EarlySecret, Prf),
                          [io_lib:format("CLIENT_EARLY_TRAFFIC_SECRET ~64.16.0B ", [ClientRandom]) ++ ClientEarlySecret
-                          | Keylog0];
+                         | Keylog0];
                      _ ->
                          Keylog0
                  end,
@@ -2158,10 +2161,10 @@ keylog_secret(SecretBin, sha512) ->
 %%%# Tracing
 %%%#
 handle_trace(api,
-                 {call, {?MODULE, connect, [Connection | _]}}, Stack0) ->
+             {call, {?MODULE, connect, [Connection | _]}}, Stack0) ->
     {io_lib:format("Connection = ~w", [Connection]), Stack0};
 handle_trace(rle,
-                 {call, {?MODULE, init, Args = [[Role | _]]}}, Stack0) ->
+             {call, {?MODULE, init, Args = [[Role | _]]}}, Stack0) ->
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 3]), [{role, Role} | Stack0]};
 handle_trace(hbn,
              {call, {?MODULE, hibernate_after,

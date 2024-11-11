@@ -128,6 +128,7 @@
               }).
 
 -record(state, {
+                tab                   :: ets:table(),
                 static_env            :: #static_env{},
                 connection_env        :: #connection_env{} | ssl_gen_statem:secret_printout(),
                 ssl_options           :: ssl_options(),

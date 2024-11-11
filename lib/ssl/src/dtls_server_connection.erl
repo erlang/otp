@@ -156,9 +156,9 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([Role, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = dtls_gen_connection:initial_state(Role, Host, Port, Socket,
+    State0 = dtls_gen_connection:initial_state(Role, Tab, Host, Port, Socket,
                                                Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},

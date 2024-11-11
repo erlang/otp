@@ -137,8 +137,8 @@
 %% Internal application API
 %%====================================================================
 
-init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
-    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Host, Port,
+init([Role, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
+    State0 = tls_dtls_gen_connection:initial_state(Role, Sender, Tab, Host, Port,
                                                    Socket, Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},

@@ -2546,18 +2546,25 @@ client_reject_packet_opt(Config, PacketOpt) ->
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
                                         {from, self()},
-                                        {mfa, {ssl_test_lib, no_result_msg ,[]}},
+                                        {mfa, {ssl_test_lib, no_result, []}},
                                         {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error([{node, ServerNode}, {port, Port},
                                               {host, Hostname},
                                               {from, self()},
-                                              {mfa, {ssl_test_lib, no_result_msg, []}},
-                                              {options, [PacketOpt |
-                                                         ClientOpts]}]),
-    
-    ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}).
+                                              {mfa, {ssl_test_lib, no_result, []}},
+                                              {options, [PacketOpt | ClientOpts]}]),
 
+    ok = ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}),
+
+    Client2 = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+                                         {host, Hostname},
+                                         {from, self()},
+                                         {mfa, {ssl, setopts, [[PacketOpt]]}},
+                                         {options, ClientOpts}]),
+    ssl_test_lib:check_result(Client2, {error, {options, {socket_options, PacketOpt}}}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client2).
 
 send_switch_packet(SslSocket, Data, NextPacket) ->
     spawn(fun() -> ssl:send(SslSocket, Data) end),

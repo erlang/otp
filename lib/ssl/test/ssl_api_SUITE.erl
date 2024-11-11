@@ -4157,7 +4157,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,0}]),
@@ -4165,7 +4165,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     ok = ssl:setopts(S, [{active,32767}]),
     {error,{options,_}} = ssl:setopts(S, [{active,1}]),
@@ -4175,31 +4175,39 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,true}]),
     [{active,true}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg -> error({error,active_n, _Msg})
     after
-        0 ->
+        100 ->
             ok
     end,
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,once}]),
     [{active,once}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg2 -> error({error,active_n, _Msg2})
     after
-        0 ->
+        100 ->
             ok
     end,
     {error,{options,_}} = ssl:setopts(S, [{active,32768}]),
     ok = ssl:setopts(S, [{active,false}]),
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok.
+
+flush() ->
+    receive Msg ->
+            [Msg|flush()]
+    after 0 ->
+            []
+    end.
+
 
 ok({ok,V}) -> V.
 

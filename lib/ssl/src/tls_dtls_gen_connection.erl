@@ -46,7 +46,7 @@
          is_anonymous/1]).
 
 %% Help functions for tls|dtls*_connection.erl
--export([initial_state/8,
+-export([initial_state/9,
          negotiated_hashsign/4,
          finalize_handshake/3,
          make_premaster_secret/2,
@@ -134,8 +134,10 @@ handle_peer_cert_key(_, _, _, State) ->
 %%====================================================================
 %% Help functions for tls|dtls_connection.erl
 %%====================================================================
+
+
 %% Only called by TLS tls_gen_server and tls_gen_client (no dtls)
-initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
+initial_state(Role, Sender, Tab, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
     %% Use highest supported version for client/server random nonce generation
@@ -147,7 +149,9 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     UserMonitor = erlang:monitor(process, User),
 
-    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Trackers),
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
+
+    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
 
     InitStatEnv = #static_env{
                      role = Role,
@@ -165,6 +169,7 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                      trackers = Trackers
                     },
     #state{
+       tab = Tab,
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history = ssl_handshake:init_handshake_history(),

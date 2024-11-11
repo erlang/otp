@@ -24,20 +24,16 @@
 -module(dtls_gen_connection).
 -moduledoc false.
 
--include_lib("public_key/include/public_key.hrl").
--include_lib("kernel/include/logger.hrl").
-
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("dtls_record.hrl").
 -include("ssl_cipher.hrl").
--include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 
 %% Setup
 -export([start_fsm/8,
-         initial_state/7,
+         initial_state/8,
          pids/1]).
 
 %% Handshake handling
@@ -90,7 +86,7 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-initial_state(Role, Host, Port, Socket,
+initial_state(Role, Tab, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -100,7 +96,7 @@ initial_state(Role, Host, Port, Socket,
     InternalActiveN = ssl_config:get_internal_active_n(),
     Monitor = erlang:monitor(process, User),
 
-    SslSocket = dtls_socket:socket([self()], CbModule, Socket, ?MODULE),
+    SslSocket = dtls_socket:socket([self()], CbModule, Socket, ?MODULE, Tab),
 
     InitStatEnv = #static_env{
                      user_socket = SslSocket,
@@ -118,7 +114,9 @@ initial_state(Role, Host, Port, Socket,
                      trackers = Trackers
                     },
 
-    #state{static_env = InitStatEnv,
+
+    #state{tab = Tab,
+           static_env = InitStatEnv,
            handshake_env = #handshake_env{
                               tls_handshake_history = ssl_handshake:init_handshake_history(),
                               renegotiation = {false, first},

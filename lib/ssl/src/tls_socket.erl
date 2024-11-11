@@ -29,7 +29,7 @@
 -export([send/3, 
          listen/3, 
          accept/3, 
-         socket/5, 
+         socket/6,
          connect/4, 
          upgrade/3,
 	 setopts/3, 
@@ -148,13 +148,15 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-socket([Receiver, Sender], Transport, Socket, ConnectionCb, Trackers) ->
+socket([Receiver, Sender], Transport, Socket, ConnectionCb, Tab, Trackers) ->
     #sslsocket{socket_handle = Socket,
                connection_handler = Receiver,
                payload_sender = Sender,
                transport_cb = Transport,
                connection_cb = ConnectionCb,
+               tab = Tab,
                listener_config = Trackers}.
+
 setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
                                      listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),

@@ -170,6 +170,10 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
                       {ssl, Socket, "from client"} ->
                           ssl:send(Socket, "from server"),
                           ssl:close(Socket)
+                  after 2000 ->
+                          ct:log("GOT WRONG MSG ~p~n", [flush()]),
+                          ct:log("Expected ~p~n", [ {ssl, Socket, "from client"}]),
+                          ct:fail(wrong_msg)
                   end
           end),
     {ok, Client} = ssl:connect(Hostname, Port, ClientOpts),
@@ -178,6 +182,9 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     receive
         {ssl, Client, "from server"} ->
             ssl:close(Client)
+    after 5000 ->
+            ct:log("GOT WRONG MSG ~p~n", [flush()]),
+            ct:fail(wrong_msg)
     end.
 
 dtls_listen_close() ->
