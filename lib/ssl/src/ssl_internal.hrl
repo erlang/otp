@@ -141,6 +141,7 @@
           cookie                     => {true,      [versions]},
           crl_cache                  => {{ssl_crl_cache, {internal, []}}, [versions]},
           crl_check                  => {false,     [versions]},
+          allow_any_ca_purpose       => {false,     [versions]},
           customize_hostname_check   => {[],        [versions]},
           depth                      => {10,         [versions]},
           dh                         => {undefined, [versions]},

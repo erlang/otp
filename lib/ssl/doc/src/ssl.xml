@@ -720,6 +720,18 @@ Types:
 	<tag><c>selfsigned_peer</c></tag>
 	<item><p>The chain consisted only of one self-signed certificate.</p></item>
 
+	<tag><c>{invalid_ext_keyusage, [public_key:oid()]}</c></tag>
+	<item><p>If the peer certificate specifies the extended keyusage extension and does
+	not include the purpose for either being a TLS server (<c>id-kp-ServerAuth</c>) or
+	TLS client (<c>id-kp-ClientAuth</c>) depending on the peers role. </p></item>
+
+	<tag><c>{ca_invalid_ext_keyusage, [public_key:oid()]} </c></tag>
+	<item><p>If a CA certificate specifies the extended keyusage extension and does
+	not include the purpose for either being a TLS server
+	(<c>id-kp-ServerAuth</c>) or TLS client (<c>id-kp-ClientAuth</c>) depending
+	on the role of the peer chained with this CA, or the option allow_any_ca_purpose is set to `true`
+	but the special any-value (<c>anyExtendedKeyUsage</c>) is not included in the CA cert purposes.</p></item>
+
 	<tag><c>PKIX X-509-path validation error</c></tag>
 	<item><p>For possible reasons, see <seemfa
 marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_validation/3</seemfa>
@@ -727,6 +739,17 @@ marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_valid
       </taglist>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="allow_any_ca_purpose"/>
+      <desc>
+	<p>If a CA certificate has an extended key usage extension but it does not want to
+	restrict the usages of the key it can include a special `anyExtendedKeyUsage` purpose.
+	If this is option is set to `true` all key usage purposes is automatically
+	accepted for the CA that includes this purpose, the option default to false.</p>
+      </desc>
+    </datatype>
+
     
     <datatype>
       <name name="crl_check"/>

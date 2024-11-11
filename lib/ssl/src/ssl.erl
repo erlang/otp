@@ -324,6 +324,7 @@
                                 {keep_secrets, keep_secrets()} |
                                 {depth, allowed_cert_chain_length()} |
                                 {verify_fun, custom_verify()} |
+                                {allow_any_ca_purpose, allow_any_ca_purpose()} |
                                 {crl_check, crl_check()} |
                                 {crl_cache, crl_cache_opts()} |
                                 {max_handshake_size, handshake_size()} |
@@ -370,6 +371,7 @@
 -type allowed_cert_chain_length() :: integer().
 
 -type custom_verify()               ::  {Verifyfun :: fun(), InitialUserState :: any()}.
+-type allow_any_ca_purpose()       :: boolean().
 -type crl_check()                :: boolean() | peer | best_effort.
 -type crl_cache_opts()           :: {Module :: atom(),
                                      {DbHandle :: internal | term(),
@@ -1924,6 +1926,15 @@ handle_option(cb_info = Option, Value0, OptionsMap, _Env) ->
     validate_option(Option, Value0),
     Value = handle_cb_info(Value0),
     OptionsMap#{Option => Value};
+handle_option(allow_any_ca_purpose = Option, Value0, OptionsMap, _Env) ->
+    Value = case Value0 of
+                unbound ->
+                    false;
+                _ ->
+                    Value0
+            end,
+    validate_option(Option, Value),
+    OptionsMap#{Option => Value};
 %% Generic case
 handle_option(Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = validate_option(Option, default_value(Option, Rules)),
@@ -1936,7 +1947,6 @@ handle_option_cb_info(Options, Protocol) ->
     Value = proplists:get_value(cb_info, Options, default_cb_info(Protocol)),
     #{cb_info := CbInfo} = handle_option(cb_info, Value, #{protocol => Protocol}, #{}),
     CbInfo.
-
 
 maybe_map_key_internal(client_preferred_next_protocols) ->
     next_protocol_selector;
@@ -1959,7 +1969,6 @@ check_dependencies(K, OptionsMap, Env) ->
                 dependecies_already_defined(L, OptionsMap)
     end.
 
-
 %% Handle options that are not present in the map
 get_dependencies(K, _) when K =:= cb_info orelse K =:= log_alert->
     [];
@@ -1970,7 +1979,6 @@ get_dependencies(K, Rules) ->
 
 option_already_defined(K, Map) ->
     maps:get(K, Map, unbound) =/= unbound.
-
 
 dependecies_already_defined(L, OptionsMap) ->
     Fun = fun (E) -> option_already_defined(E, OptionsMap) end,
@@ -2163,6 +2171,9 @@ validate_option(cookie, Value, _)
     Value;
 validate_option(crl_cache, {Cb, {_Handle, Options}} = Value, _)
   when is_atom(Cb) and is_list(Options) ->
+    Value;
+validate_option(allow_any_ca_purpose, Value, _)
+  when is_boolean(Value)  ->
     Value;
 validate_option(crl_check, Value, _)
   when is_boolean(Value)  ->

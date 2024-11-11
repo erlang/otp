@@ -2109,6 +2109,18 @@ path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
+path_validation_alert({bad_cert, invalid_ext_keyusage}) -> %% Detected by public key
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage,
+                                                  "CA cert purpose anyExtendedKeyUsage"
+                                                  "and extended-key-usage extension marked critical is not allowed"});
+path_validation_alert({bad_cert, {invalid_ext_keyusage, ExtKeyUses}}) ->
+     Uses = extkey_oids_to_names(ExtKeyUses, []),
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {invalid_ext_keyusage, Uses});
+path_validation_alert({bad_cert, {ca_invalid_ext_keyusage, ExtKeyUses}}) ->
+     Uses = extkey_oids_to_names(ExtKeyUses, []),
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, {ca_invalid_ext_keyusage, Uses});
+path_validation_alert({bad_cert, {key_usage_mismatch, _} = Reason}) ->
+    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE, Reason);
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
@@ -3857,8 +3869,9 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                 #{verify_fun := VerifyFun,
                   customize_hostname_check := CustomizeHostnameCheck,
                   crl_check := CrlCheck,
-                  log_level := Level,
-                  depth := Depth} = Opts,
+                  depth := Depth,
+                  allow_any_ca_purpose := AllowAnyPurpose,
+                  log_level := Level} = Opts,
                 #{cert_ext := CertExt,
                   ocsp_responder_certs := OcspResponderCerts,
                   ocsp_state := OcspState}) ->
@@ -3880,6 +3893,7 @@ path_validation(TrustedCert, Path, ServerName, Role, CertDbHandle, CertDbRef, CR
                                               issuer => TrustedCert,
                                               ocsp_responder_certs => OcspResponderCerts,
                                               ocsp_state => OcspState,
+                                              allow_any_ca_purpose => AllowAnyPurpose,
                                               path_len => length(Path)
                                              },
                                  Path, Level),
@@ -3896,3 +3910,22 @@ path_validation_cb({3,4}) ->
     tls_handshake_1_3;
 path_validation_cb(_) ->
     ?MODULE.
+
+extkey_oids_to_names([], Acc) ->
+    Acc;
+extkey_oids_to_names([?'id-kp-serverAuth'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-serverAuth"| Acc]);
+extkey_oids_to_names([?'id-kp-clientAuth'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-clientAuth"| Acc]);
+extkey_oids_to_names([?'id-kp-OCSPSigning'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-OCSPSigning"| Acc]);
+extkey_oids_to_names([?'id-kp-timeStamping'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-emailProtection"| Acc]);
+extkey_oids_to_names([?'id-kp-emailProtection'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-emailProtection"| Acc]);
+extkey_oids_to_names([?'id-kp-codeSigning'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["id-kp-codeSigning"| Acc]);
+extkey_oids_to_names([?'anyExtendedKeyUsage'| Rest], Acc) ->
+    extkey_oids_to_names(Rest, ["anyExtendedKeyUsage"| Acc]);
+extkey_oids_to_names([Other| Rest], Acc) ->
+    extkey_oids_to_names(Rest, [Other | Acc]).
