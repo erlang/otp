@@ -52,6 +52,7 @@
          shell_navigation/1, shell_multiline_navigation/1, shell_multiline_prompt/1, shell_multiline_prompt_ssh/1,
          shell_xnfix/1, shell_delete/1,
          shell_transpose/1, shell_search/1, shell_insert/1,
+         shell_combining_unicode/1,
          shell_update_window/1, shell_small_window_multiline_navigation/1, shell_huge_input/1,
          shell_invalid_unicode/1, shell_support_ansi_input/1,
          shell_invalid_ansi/1, shell_suspend/1, shell_full_queue/1,
@@ -163,6 +164,7 @@ groups() ->
      {tty_tests, [parallel],
       [shell_navigation, shell_multiline_navigation, shell_multiline_prompt,
        shell_xnfix, shell_delete, shell_format,
+       shell_combining_unicode,
        shell_transpose, shell_search, shell_insert,
        shell_update_window, shell_small_window_multiline_navigation, shell_huge_input,
        shell_support_ansi_input,
@@ -970,6 +972,40 @@ shell_search(C) ->
     after
         stop_tty(Term),
         ok
+    end.
+
+shell_combining_unicode(Config) ->
+    %% Tests that its possible to delete a combining unicode character as
+    %% the first character of the input line.
+    Term = start_tty(Config),
+    X = 0,
+    check_location(Term, {X,0}),
+    %% COMBINING DIAERESIS, ZWNJ, ZWJ
+    CombiningUnicode = [776, 8204, 8205],
+    try
+        [
+            begin
+                send_tty(Term,[J]),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,[J,$a]),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,[$a,J]),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,"BSpace"),
+                check_location(Term, {X,0}),
+                send_tty(Term,[$",$a,J,$b,$",$.,10]),
+                check_location(Term, {X,0})
+            end || J <- CombiningUnicode],
+        ok
+    after
+        stop_tty(Term)
     end.
 
 shell_insert(Config) ->

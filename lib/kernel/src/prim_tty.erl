@@ -865,13 +865,18 @@ handle_request(State = #state{ unicode = U, cols = W }, {delete, N}) when N < 0 
     BBCols = cols(State#state.buffer_before, U),
     BACols = cols(State#state.buffer_after, U),
     NewBBCols = cols(NewBB, U),
-    Output = [move_cursor(State, NewBBCols + DelCols, NewBBCols),
-              encode(State#state.buffer_after,U),
-              lists:duplicate(DelCols, $\s),
-              xnfix(State, NewBBCols + BACols + DelCols),
-              move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)],
+    %% DelCols is 0 only when we are removing a ZWJ or a ZWNJ that is the first character of
+    %% the user buffer. We remove the character from the buffer, but we don't output anything
+    Output = if
+        DelCols =:= 0 -> "";
+        true -> [move_cursor(State, NewBBCols + DelCols, NewBBCols),
+            encode(State#state.buffer_after,U),
+            lists:duplicate(DelCols, $\s),
+            xnfix(State, NewBBCols + BACols + DelCols),
+            move_cursor(State, NewBBCols + BACols + DelCols, NewBBCols)]
+    end,
     NewState0 = State#state{ buffer_before = NewBB },
-    if State#state.lines_after =/= [], (BBCols+BACols+N) rem W =:= 0 ->
+    if DelCols =/= 0, State#state.lines_after =/= [], (BBCols+BACols+N) rem W =:= 0 ->
             {Delete, _} = handle_request(State, delete_line),
             {Redraw, NewState1} = handle_request(NewState0, redraw_prompt_pre_deleted),
             {[Delete, Redraw], NewState1};
@@ -1023,9 +1028,15 @@ split_cols(_N, [], Acc, Chars, Cols, _Unicode) ->
     {Chars, Cols, Acc, []};
 split_cols(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
     split_cols(N - npwcwidth(Char), T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char, Unicode), Unicode);
-split_cols(N, [Chars | T], Acc, Cnt, Cols, Unicode) when is_list(Chars) ->
-    split_cols(N - length(Chars), T, [Chars | Acc],
-               Cnt + length(Chars), Cols + cols(Chars, Unicode), Unicode).
+split_cols(N, [GC|T], Acc, Cnt, Cols, Unicode) when is_list(GC) ->
+    %% We have to remove parts of the grapheme cluster
+    CGC = cols(GC, Unicode),
+    if CGC > N ->
+            {CntList2, ColsList2, List2, List1} = split_cols(N, GC, Unicode),
+            split_cols(N-ColsList2, [List1|T], List2 ++ Acc, Cnt+CntList2, Cols+ColsList2, Unicode);
+       true ->
+            split_cols(N-CGC, T, GC ++ Acc, Cnt+length(GC), Cols+CGC, Unicode)
+    end.
 
 %% Split the buffer after N logical characters returning
 %% the number of real characters deleted and the column length
@@ -1042,6 +1053,9 @@ split(_N, [], Acc, Chars, Cols, _Unicode) ->
     {Chars, Cols, Acc, []};
 split(N, [Char | T], Acc, Cnt, Cols, Unicode) when is_integer(Char) ->
     split(N - 1, T, [Char | Acc], Cnt + 1, Cols + npwcwidth(Char, Unicode), Unicode);
+split(N, [GC|T], Acc, Cnt, Cols, Unicode) when is_list(GC), N < length(GC) ->
+    {NumL2, ColsL2, List2, List1} = split(N, GC, Unicode),
+    split(N-NumL2, List1 ++ T, List2 ++ Acc, Cnt+NumL2, Cols+ColsL2, Unicode);
 split(N, [Chars | T], Acc, Cnt, Cols, Unicode) when is_list(Chars) ->
     split(N - length(Chars), T, [Chars | Acc],
           Cnt + length(Chars), Cols + cols(Chars, Unicode), Unicode);
