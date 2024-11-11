@@ -1013,6 +1013,8 @@ handle_primop(Tree, Map, State) ->
       {State, Map, t_any()};
     nif_start ->
       {State, Map, t_any()};
+    executable_line ->
+      {State, Map, t_any()};
     Other ->
       error({'Unsupported primop', Other})
   end.
