@@ -4477,8 +4477,6 @@ try_steal_task_from_victim(ErtsRunQueue *rq, ErtsRunQueue *vrq, Uint32 flags, Pr
 
     ERTS_LC_ASSERT(!erts_lc_runq_is_locked(rq));
 
-    erts_runq_lock(vrq);
-
     if (ERTS_RUNQ_FLGS_GET_NOB(rq) & ERTS_RUNQ_FLG_HALTING) {
 	goto no_procs;
     }
@@ -4621,22 +4619,33 @@ no_procs:
 // Expects rq to be unlocked
 // rq is locked on return iff the return value is non-zero
 static ERTS_INLINE int
-check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc)
+check_possible_steal_victim(ErtsRunQueue *rq, int vix, Process **result_proc, ErtsWStack* contended_runqueues)
 {
     ErtsRunQueue *vrq = ERTS_RUNQ_IX(vix);
     Uint32 flags = ERTS_RUNQ_FLGS_GET(vrq);
-    if (runq_got_work_to_execute_flags(flags))
-	return try_steal_task_from_victim(rq, vrq, flags, result_proc);
-    else
-	return 0;
-}
 
+    if (!runq_got_work_to_execute_flags(flags))
+        return 0;
+
+    if (contended_runqueues) {
+        if (erts_mtx_trylock(&vrq->mtx) == EBUSY) {
+            WSTACK_PUSH((*contended_runqueues), vix);
+            return 0;
+        }
+        goto lock_taken;
+    }
+
+    erts_mtx_lock(&vrq->mtx);
+lock_taken:
+    return try_steal_task_from_victim(rq, vrq, flags, result_proc);
+}
 
 static int
 try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 {
     int res, vix, active_rqs, blnc_rqs;
     Uint32 flags;
+    DECLARE_WSTACK(contended_runqueues);
 
     flags = empty_runq_get_old_flags(rq);
     if (flags & ERTS_RUNQ_FLG_SUSPENDED)
@@ -4651,14 +4660,14 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	active_rqs = blnc_rqs;
 
     if (rq->ix < active_rqs) {
-
 	/* First try to steal from an inactive run queue... */
 	if (active_rqs < blnc_rqs) {
 	    int no = blnc_rqs - active_rqs;
 	    int stop_ix = vix = active_rqs + rq->ix % no;
 	    while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
-		res = check_possible_steal_victim(rq, vix, result_proc);
+		res = check_possible_steal_victim(rq, vix, result_proc, &contended_runqueues);
 		if (res) {
+                    DESTROY_WSTACK(contended_runqueues);
                     return res;
                 }
 		vix++;
@@ -4679,14 +4688,25 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	    if (vix == rq->ix)
 		break;
 
-	    res = check_possible_steal_victim(rq, vix, result_proc);
+	    res = check_possible_steal_victim(rq, vix, result_proc, &contended_runqueues);
 	    if (res) {
+                DESTROY_WSTACK(contended_runqueues);
                 return res;
             }
 	}
 
+        /* ... and finally re-try stealing from the queues that were skipped because contended. */
+        while (!WSTACK_ISEMPTY(contended_runqueues)) {
+            vix = WSTACK_POP(contended_runqueues);
+            res = check_possible_steal_victim(rq, vix, result_proc, NULL);
+            if (res) {
+                DESTROY_WSTACK(contended_runqueues);
+                return res;
+            }
+        }
     }
 
+    DESTROY_WSTACK(contended_runqueues);
     erts_runq_lock(rq);
     return runq_got_work_to_execute(rq);
 }
