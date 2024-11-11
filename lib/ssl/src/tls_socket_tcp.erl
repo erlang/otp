@@ -1,0 +1,413 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+%%
+%%----------------------------------------------------------------------
+%% Purpose:  Use socket directly in tls instead of gen_tcp
+%%----------------------------------------------------------------------
+
+-module(tls_socket_tcp).
+-moduledoc false.
+
+-export([cb_info/0,
+
+         setopts/2,
+         getopts/2,
+         getstat/2,
+         peername/1,
+         sockname/1,
+         port/1,
+         controlling_process/2,
+
+         listen/2,
+         accept/2,
+         connect/4,
+%%         open/2,   dtls only
+         close/1,
+         shutdown/2,
+         send/2,
+%%         send/4,
+         recv/2, recv/3,
+
+         data_available/4
+        ]).
+
+-include("ssl_internal.hrl").
+
+cb_info() ->
+    %% {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}
+    {?MODULE, '$socket', '$socket_closed', '$socket', '$socket_passive'}.
+
+
+setopts(Socket, [{active, _N}]) ->
+    activate_socket(Socket);
+setopts(Socket, List) ->
+    try
+        Opts = check_opts(List),
+        [ok = socket:setopt(Socket, Opt, Val) || {_,_}=Opt := Val <- Opts],
+        ok
+    catch _:Err ->
+            Err
+    end.
+
+getopts(Socket, Keys) ->
+    try
+        Get = fun(Key) ->
+                      SocketKey = maps:get(Key, socket_opts()),
+                      {ok, Val} = socket:getopt(Socket, SocketKey),
+                      Val
+              end,
+        {ok, [{Key, Get(Key)} || Key <- Keys]}
+    catch _:Err ->
+            Err
+    end.
+
+getstat(Socket, Opts) ->
+    #{counters := Counters} = socket:info(Socket),
+    {ok, getstat_what(Opts, Counters)}.
+
+peername(Socket) ->
+    case socket:peername(Socket) of
+        {ok, #{addr := Addr, port := Port}} ->
+            {ok, {Addr, Port}};
+        Err ->
+            Err
+    end.
+
+sockname(Socket) ->
+    case socket:sockname(Socket) of
+        {ok, #{addr := Addr, port := Port}} ->
+            {ok, {Addr, Port}};
+        Err ->
+            Err
+    end.
+
+port(Socket) ->
+    case socket:sockname(Socket) of
+        {ok, #{port := Port}} ->
+            {ok, Port};
+        Err ->
+            Err
+    end.
+
+controlling_process(Socket, NewOwner) ->
+    socket:setopt(Socket, {otp, controlling_process}, NewOwner).
+
+listen(Port, Opts1) when is_integer(Port) ->
+    {Mod, Opts2} = inet:tcp_module(Opts1),
+    SetOpts = check_opts(Opts2),
+    maybe
+        BindAddr = get_addr(Opts2, undefined, Mod),
+        Domain = domain(Mod),
+        Fd = maps:get(fd, SetOpts, -1),
+        {ok, Sock} ?= socket_open(Fd, Domain, stream, tcp),
+        SockAddr = bind_addr(Domain, BindAddr, Port),
+        ok ?= socket:bind(Sock, SockAddr),
+        [ok = socket:setopt(Sock, Opt, Val)
+         || {_,_}=Opt := Val <- SetOpts,
+            Opt =/= {otp,fd}
+        ],
+        Backlog = maps:get(backlog, SetOpts, 5),
+        ok ?= socket:listen(Sock, Backlog),
+        {ok, Sock}
+    else
+        {error, _} = Error -> Error;
+        Reason -> {error, Reason}
+    end.
+
+accept(Socket, Timeout) ->
+    socket:accept(Socket, Timeout).
+
+-spec connect(Address, Port, Opts, Timeout) ->
+                     {ok, Socket} | {error, Reason} when
+      Address :: inet:socket_address() | inet:hostname(),
+      Port    :: inet:port_number(),
+      Opts    :: [inet:inet_backend() | gen_tcp:connect_option()],
+      Timeout :: timeout(),
+      Socket  :: socket:socket(),
+      Reason  :: timeout | inet:posix().
+
+connect(Address, Port, Opts0, Timeout) ->
+    Opts1 = check_opts(Opts0),
+    case inet:is_ip_address(Address) of
+        true ->
+            connect_1(Address, Port, Opts1, Timeout, {error,einval});
+        false ->
+            {Mod, Opts} = inet:tcp_module(maps:to_list(Opts1), Address),
+            case Mod:getaddrs(Address, Timeout) of
+                {ok, IPs} ->
+                    connect_1(IPs, Port, Opts, Timeout, {error,einval});
+                Error ->
+                    Error
+            end
+    end.
+
+close(Socket) ->
+    socket:close(Socket).
+
+shutdown(Socket, How) ->
+    socket:shutdown(Socket, How).
+
+recv(Socket, Size) ->
+    recv(Socket, Size, infinity).
+recv(Socket, Size, Timeout) ->
+    socket:recv(Socket, Size, Timeout).
+
+%%-define(CT_LOG(F,A), ct:log(default, 1, F, A, [esc_chars])).
+-define(CT_LOG(F,A), ok).
+
+send(Socket, Data) ->
+    ?CT_LOG("~w:~w: ~w send ~w", [?MODULE, ?LINE, get(role), iolist_size(Data)]),
+    case socket:sendv(Socket, erlang:iolist_to_iovec(Data)) of
+        ok ->
+            ok;
+        {ok, Cont} ->
+            ?CT_LOG("~w:~w: ~w send loop ~w", [?MODULE, ?LINE, get(role), iolist_size(Cont)]),
+            send(Socket, Cont);
+        Err ->
+            ?CT_LOG("~w:~w: ~w send ~w", [?MODULE, ?LINE, get(role), Err]),
+            Err
+    end.
+
+%% Note: returns the reverse list of packets
+data_available(Socket, _select, Handle, Activate) ->
+    ?CT_LOG("~w:~w: ~w recv ~w ~p",[?MODULE, ?LINE, get(role), Activate, Handle]),
+    Res = case socket:recv(Socket, 0, Handle) of
+              {ok, Data0} when Activate ->
+                  ?CT_LOG("~w:~w: ~w data", [?MODULE, ?LINE, get(role)]),
+                  active_socket(Socket, Handle, 5, [Data0]);
+              {ok, Data0} ->  %% Activate is false, fake passive message
+                  self() ! {'$socket_passive', Socket},
+                  ?CT_LOG("~w:~w: ~w passive", [?MODULE, ?LINE, get(role)]),
+                  Data0;
+              {select, {select_info, _, _Handle}} ->   %% Fix windows handles
+                  %% First time data may not be available
+                  ?CT_LOG("~w:~w: ~w wait_select ~p", [?MODULE, ?LINE, get(role), _Handle]),
+                  [];
+              {error, Reason} ->
+                  ?SSL_LOG(debug, socket_error, [{error, Reason}]),
+                  ?CT_LOG("~w:~w: ~w error", [?MODULE, ?LINE, get(role)]),
+                  self() ! {'$socket_closed', Socket},
+                  []
+          end,
+    ?CT_LOG("~w:~w: ~w recv res ~w", [?MODULE, ?LINE, get(role), iolist_size(Res)]),
+    Res.
+
+activate_socket(Socket) ->
+    active_socket(Socket, nowait, 0, []),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Helpers %%%%%%%%%%%%%%%%%%%%%%%%
+
+active_socket(Socket, Handle, N, Acc) when N > 0 ->
+    case socket:recv(Socket, 0, Handle) of %% More than 1 ssl packet
+        {ok, Data} ->
+            ?CT_LOG("~w:~w: ~w data", [?MODULE, ?LINE, get(role)]),
+            active_socket(Socket, Handle, N-1, [Data | Acc]);
+        {select, {select_info, _, _Handle}} ->   %% Fix windows
+            ?CT_LOG("~w:~w: ~w select ~p", [?MODULE, ?LINE, get(role), _Handle]),
+            Acc;
+        {select, {{select_info, _, _Handle}, Data}} ->
+            ?CT_LOG("~w:~w: ~w select with data", [?MODULE, ?LINE, get(role), _Handle]),
+            [Data | Acc];
+        {error, Reason} ->
+            ?CT_LOG("~w:~w: ~w error", [?MODULE, ?LINE, get(role)]),
+            ?SSL_LOG(debug, socket_error, [{error, Reason}]),
+            self() ! {'$socket_closed', Socket},
+            Acc
+    end;
+active_socket(Socket, Handle, 0, Acc) ->
+    ?CT_LOG("~w:~w: ~w to_many_reads", [?MODULE, ?LINE, get(role)]),
+    self() ! {'$socket', Socket, select, Handle},
+    Acc.
+
+connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
+    Family = which_family(IP),
+    SockAddr = #{family => Family, addr => IP, port => Port},
+    {ok, Socket} = socket:open(Family, stream, tcp),
+    [ok = socket:setopt(Socket, Opt, Val) || {{_,_}=Opt, Val} <- Opts],
+    case socket:connect(Socket, SockAddr, Timeout) of
+        ok ->
+            {ok, Socket};
+        Err ->
+            socket:close(Socket),
+            connect_1(IPs, Port, Opts, Timeout, Err)
+    end;
+connect_1([], _Port, _Opts, _Timeout, Err) ->
+    Err.
+
+socket_open(Fd, Domain, Type, Protocol) when Fd < 0 ->
+    socket:open(Domain, Type, Protocol);
+socket_open(Fd, Domain, Type, Protocol) ->
+    socket:open(Fd, #{domain => Domain, type => Type, protocol => Protocol}).
+
+get_addr([{ip, Ip}|Rest], _Prev, Mod) ->
+    get_addr(Rest, Ip, Mod);
+get_addr([{ifaddr, #{addr := Addr}}|Rest], _Prev, Mod) ->
+    get_addr(Rest, Addr, Mod);
+get_addr([{ifaddr, Addr}|Rest], _Prev, Mod) ->
+    get_addr(Rest, Addr, Mod);
+get_addr([_|Rest], Prev, Mod) ->
+    get_addr(Rest, Prev, Mod);
+get_addr([], Addr, Mod) ->
+    Mod:translate_ip(Addr).
+
+bind_addr(Domain, undefined, Port) ->
+    #{family => Domain,
+      addr   => any,
+      port   => Port};
+bind_addr(Domain, Addr, Port) ->
+    #{family => Domain,
+      addr   => Addr,
+      port   => Port}.
+
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 4) ->
+    inet;
+which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
+    inet6.
+
+domain(Mod) ->
+    case Mod of
+        inet_tcp  -> inet;
+        inet6_tcp -> inet6;
+        local_tcp -> local
+    end.
+
+check_opts(Opts0) ->
+    Def = #{
+            tcp_module => inet_tcp
+           },
+    lists:foldr(fun check_opts_1/2, Def, Opts0).
+
+check_opts_1(inet, Opts) ->
+    Opts#{tcp_module => inet_tcp};
+check_opts_1(inet6, Opts) ->
+    Opts#{tcp_module => inet6_tcp};
+check_opts_1(local, Opts) ->
+    Opts#{tcp_module => local_tcp};
+check_opts_1({raw, Level, Key, Value}, Opts) ->
+    Opts#{raw => {Level, Key, Value}};
+check_opts_1({exit_on_close, false}, Opts) ->
+    Opts;
+
+check_opts_1({backlog, Val}, Opts) ->
+    Opts#{backlog => Val};
+
+check_opts_1({ip, Val}, Opts) ->
+    Opts#{ip => Val};
+check_opts_1({ifaddr, Val}, Opts) ->
+    Opts#{ifaddr => Val};
+
+check_opts_1({Key, Val}, Opts) ->
+    case maps:get(Key, socket_opts(), undefined) of
+        undefined ->
+            logger:log(notice, "Unsupported option ~p ~p", [Key,Val]),
+            Opts;
+        SocketKeyOpt ->
+            Opts#{SocketKeyOpt => Val}
+    end;
+
+check_opts_1(Opt, Opts) ->
+    logger:log(notice, "Unsupported option ~p ", [Opt]),
+    Opts.
+
+
+socket_opts() ->
+    #{
+      %% Level: otp
+      buffer => {otp, rcvbuf},
+      debug  => {otp, debug},
+      fd     => {otp, fd},
+
+      %%
+      %% Level: socket
+      bind_to_device   => {socket, bindtodevice},
+      dontroute        => {socket, dontroute},
+      exclusiveaddruse => {socket, exclusiveaddruse},
+      keepalive        => {socket, keepalive},
+      linger           => {socket, linger},
+      priority         => {socket, priority},
+      recbuf           => {socket, rcvbuf},
+      reuseaddr        => {socket, reuseaddr},
+      sndbuf           => {socket, sndbuf},
+
+      %%
+      %% Level: tcp
+      nodelay => {tcp, nodelay},
+
+      %%
+      %% Level: ip
+      recvtos => {ip, recvtos},
+      recvttl => {ip, recvttl},
+      tos     => {ip, tos},
+      ttl     => {ip, ttl},
+
+      %%
+      %% Level: ipv6
+      recvtclass  => {ipv6, recvtclass},
+      ipv6_v6only => {ipv6, v6only},
+      tclass      => {ipv6, tclass},
+
+      %%
+      %% Raw
+      raw => raw,
+
+      %%
+      %% Special cases
+      %% These are options that cannot be mapped as above,
+      %% as they, for instance, "belong to" several domains.
+      %% So, we select which level to use based on the domain
+      %% of the socket.
+
+      %% This is a special case.
+      %% Only supported on Linux and then only actually for IPv6,
+      %% but unofficially also for ip...barf...
+      %% In both cases this is *no longer valid* as the RFC which 
+      %% introduced this, RFC 2292, is *obsoleted* by RFC 3542, where
+      %% this "feature" *does not exist*...
+      pktoptions  =>
+          [{inet, {ip, pktoptions}}, {inet6, {ipv6, pktoptions}}]
+     }.
+
+counter_key(Tag) ->
+    case Tag of
+        recv_oct -> [read_byte];
+        recv_cnt -> [read_pkg];
+        recv_max -> [read_pkg_max];
+        recv_avg -> [read_byte, read_pkg];
+        send_oct -> [write_byte];
+        send_cnt -> [write_pkg];
+        send_max -> [write_pkg_max];
+        send_avg -> [write_byte, write_pkg];
+        _ -> []
+    end.
+
+getstat_what([], _Counters) -> [];
+getstat_what([Tag | Tags], Counters) ->
+    case counter_key(Tag) of
+        [SocketTag] ->
+            [{Tag, maps:get(SocketTag, Counters)}
+            | getstat_what(Tags, Counters)];
+        [NumTag, DenomTag] ->
+            Denom = max(maps:get(DenomTag, Counters), 1),
+            [{Tag, maps:get(NumTag, Counters) div Denom}
+            | getstat_what(Tags, Counters)];
+        [] ->
+            getstat_what(Tags, Counters)
+    end.

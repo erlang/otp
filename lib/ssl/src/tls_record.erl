@@ -102,7 +102,7 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
 
 %%--------------------------------------------------------------------
 -spec get_tls_records(
-        binary(),
+        binary() | [binary()],
         [tls_version()] | tls_version(),
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
         tls_max_frag_len(),
@@ -115,10 +115,19 @@ init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize) ->
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer, MaxFragLen, Downgrade) when is_binary(Buffer) ->
-    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, Downgrade, undefined);
+get_tls_records([Data], Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, Downgrade) ->
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, Downgrade, Hdr);
+get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, Downgrade)
+  when is_list(Data) ->
+    parse_tls_records(Versions, {Front,Size + iolist_size(Data), Data ++ Rear}, MaxFragLen, Downgrade, Hdr);
 get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, Downgrade) ->
-    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, Downgrade, Hdr).
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, Downgrade, Hdr);
+get_tls_records(Data, Versions, <<>>, MaxFragLen, Downgrade)
+  when is_list(Data) ->
+    parse_tls_records(Versions, {[], iolist_size(Data), Data}, MaxFragLen, Downgrade, undefined);
+get_tls_records(Data, Versions, <<>>, MaxFragLen, Downgrade) ->
+    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, Downgrade, undefined).
+
 
 %%====================================================================
 %% Encoding

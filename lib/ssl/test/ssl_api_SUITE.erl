@@ -1464,7 +1464,7 @@ listen_socket(Config) ->
 
     {ok, _} = ssl:sockname(ListenSocket),
 
-    {error, enotconn} = ssl:send(ListenSocket, <<"data">>),
+    {error, _enotconn} = ssl:send(ListenSocket, <<"data">>),
     {error, enotconn} = ssl:recv(ListenSocket, 0),
     {error, enotconn} = ssl:connection_information(ListenSocket),
     {error, enotconn} = ssl:peername(ListenSocket),

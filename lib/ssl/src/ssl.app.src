@@ -13,6 +13,7 @@
 	       tls_record,
 	       tls_record_1_3,
 	       tls_socket,
+	       tls_socket_tcp,
 	       tls_v1,
 	       tls_connection_sup,
 	       tls_gen_connection,
