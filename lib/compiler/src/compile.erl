@@ -736,6 +736,37 @@ value are listed.
   this kind of warning for the types in `Types`, where `Types` is a tuple
   `{TypeName,Arity}` or a list of such tuples.
 
+- **`nowarn_behaviours`** - By default, warnings are emitted for issues
+  with behaviours. Use this option to turn off all warnings of this kind.
+
+- **`nowarn_conflicting_behaviours`** - By default, warnings are emitted when
+  a module opts in to multiple behaviours that share the names of one or more
+  callback functions. Use this option to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour_func`** - By default, a warning is
+  emitted when a module that uses a behaviour does not export a
+  mandatory callback function required by that behaviour. Use this
+  option to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour`** - By default, a warning is emitted
+  when a module attempts to us an unknown behaviour. Use this option
+  to turn off this kind of warning.
+
+- **`nowarn_undefined_behaviour_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(callbacks)` in the behaviour module
+  returns `undefined` instead of a list of callback functions. Use this
+  option to turn off this kind of warning.
+
+- **`nowarn_ill_defined_behaviour_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(callbacks)` in the behaviour module
+  returns a badly formed list of functions. Use this option to turn
+  off this kind of warning.
+
+- **`nowarn_ill_defined_optional_callbacks`** - By default, a warning
+  is emitted when `behaviour_info(optional_callbacks)` in the
+  behaviour module returns a badly formed list of functions. Use this
+  option to turn off this kind of warning.
+
 Other kinds of warnings are _opportunistic warnings_. They are generated when
 the compiler happens to notice potential issues during optimization and code
 generation.

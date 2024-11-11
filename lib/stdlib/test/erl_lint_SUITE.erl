@@ -3473,6 +3473,15 @@ behaviour_basic(Config) when is_list(Config) ->
            {warnings,[{{1,22},erl_lint,{undefined_behaviour_func,{start,2},application}}]}}
 	 ],
     [] = run(Config, Ts),
+
+    Subst0 = #{behaviour1 => [nowarn_undefined_behaviour_func],
+               behaviour2 => [nowarn_undefined_behaviour_func],
+               behaviour4 => [nowarn_undefined_behaviour_func]},
+    [] = run(Config, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
+    [] = run(Config, rewrite(Ts, Subst)),
+
     ok.
 
 %% Basic tests with multiple behaviours.
@@ -3570,12 +3579,21 @@ behaviour_multiple(Config) when is_list(Config) ->
 		       {conflicting_behaviours,{init,1},supervisor,{1,22},gen_server}}]}}
 	 ],
     [] = run(Config, Ts),
+
+    Subst = #{behaviour3 => [nowarn_undefined_behaviour_func,
+                             nowarn_conflicting_behaviours],
+              american_behavior3 => [nowarn_undefined_behaviour_func,
+                                     nowarn_conflicting_behaviours],
+              behaviour4 => [nowarn_conflicting_behaviours]},
+    [] = run(Config, rewrite(Ts, Subst)),
+
     ok.
 
 %% OTP-11861. behaviour_info() and -callback.
 otp_11861(Conf) when is_list(Conf) ->
     CallbackFiles = [callback1, callback2, callback3,
-                     bad_behaviour1, bad_behaviour2],
+                     bad_behaviour1, bad_behaviour2,
+                     bad_behaviour3],
     lists:foreach(fun(M) ->
                           F = filename:join(?datadir, M),
                           Opts = [{outdir,?privdir}, return],
@@ -3756,9 +3774,31 @@ otp_11861(Conf) when is_list(Conf) ->
               f1(_) -> ok.
              ">>,
            [],
-           []}
+           []},
+
+          {otp_11861_19,
+           <<"
+              -export([good/1]).
+              -behaviour(bad_behaviour3).
+              good(_) -> ok.
+             ">>,
+           [],
+           {warnings,[{{3,16},erl_lint,{ill_defined_optional_callbacks,bad_behaviour3}}]}}
 	 ],
     [] = run(Conf, Ts),
+
+    Subst0 = #{otp_11861_1 => [nowarn_conflicting_behaviours],
+               otp_11861_11 => [nowarn_ill_defined_behaviour_callbacks],
+               otp_11861_12 => [nowarn_undefined_behaviour],
+               otp_11861_13 => [nowarn_undefined_behaviour],
+               otp_11861_17 => [nowarn_undefined_behaviour_callbacks],
+               otp_11861_19 => [nowarn_ill_defined_optional_callbacks]
+              },
+    [] = run(Conf, rewrite(Ts, Subst0)),
+
+    Subst = #{K => [nowarn_behaviours] || K := _ <- Subst0},
+    [] = run(Conf, rewrite(Ts, Subst)),
+
     true = code:set_path(CodePath),
     ok.
 
@@ -5474,6 +5514,19 @@ illegal_zip_generator(Config) ->
 %%%
 %%% Common utilities.
 %%%
+
+rewrite([{Name,Code,[],{warnings,_}}=H|T], Subst) ->
+    case Subst of
+        #{Name := Opts} ->
+            io:format("~s: testing with options ~p\n", [Name,Opts]),
+            [{Name,Code,Opts,[]}|rewrite(T, Subst)];
+        #{} ->
+            [H|rewrite(T, Subst)]
+    end;
+rewrite([H|T], Subst) ->
+    [H|rewrite(T, Subst)];
+rewrite([], _Subst) ->
+    [].
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).
