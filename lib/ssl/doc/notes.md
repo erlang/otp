@@ -147,7 +147,7 @@ This document describes the changes made to the SSL application.
 
 - Improved error checking on the API functions.
 
-  Own Id: OTP-18992 Aux Id: [GH-8066] [PR-8156]
+  Own Id: OTP-18992 Aux Id: [GH-8066], [PR-8156]
 
 [GH-7493]: https://github.com/erlang/otp/issues/7493
 [PR-7918]: https://github.com/erlang/otp/pull/7918
