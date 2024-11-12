@@ -131,6 +131,11 @@ end_location(_Config) ->
     test(1, [{text, "TEXT", [{end_location, 1}, {length, 4}]},
              {text, "TEXT\n", [{end_location, 2}, {length, 5}]},
              {text, "TEXT\ntxt", [{end_location, 2}, {length, 8}]}]),
+    test({1, 17}, [{end_location, {1, 21}, [{end_location, {1, 21}}]},
+                   {end_location, {2, 1}, [{end_location, {2, 1}}]}]),
+    test(1, [{end_location, 1, [{end_location, 1}]},
+             {end_location, 2, [{end_location, 2}]},
+             {end_location, {1, 2}, [{end_location, {1, 2}}]}]),
     ok.
 
 %% Test 'file'.
@@ -396,6 +401,8 @@ anno_set(line, Value, Anno) ->
     erl_anno:set_line(Value, Anno);
 anno_set(location, Value, Anno) ->
     erl_anno:set_location(Value, Anno);
+anno_set(end_location, Value, Anno) ->
+    erl_anno:set_end_location(Value, Anno);
 anno_set(record, Value, Anno) ->
     erl_anno:set_record(Value, Anno);
 anno_set(text, Value, Anno) ->
@@ -463,6 +470,23 @@ primary_value(line, State) ->
                Line ->
                    Line
            end};
+primary_value(end_location, State) ->
+    case lists:keyfind(end_location, 1, State) of
+        false ->
+            case lists:keyfind(text, 1, State) of
+                false ->
+                    undefined;
+                {text, Text} ->
+                    case lists:keyfind(location, 1, State) of
+                        false ->
+                            undefined;
+                        {location, Location} ->
+                            {end_location, erl_anno:end_location(erl_anno:set_text(Text, erl_anno:new(Location)))}
+                    end
+            end;
+        Tuple ->
+            Tuple
+    end;
 primary_value(Item, State) ->
     case lists:keyfind(Item, 1, State) of
         false ->
@@ -475,7 +499,7 @@ default() ->
     [{Tag, default_value(Tag)} || Tag <- default_items()].
 
 primary_items() ->
-    [file, generated, line, location, record, text].
+    [file, generated, line, location, end_location, record, text].
 
 secondary_items() ->
     %% 'length' has not been implemented
