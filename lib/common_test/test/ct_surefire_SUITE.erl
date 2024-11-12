@@ -151,39 +151,39 @@ run_spec(Case,CTHs,Report,Config,Spec) ->
     Test = [{spec,Spec},{ct_hooks,CTHs},{label,Case}],
     do_run(Case, Report, Test, Config).
 
-do_run(Case, Report, Test, Config) ->
-    {Opts,ERPid} = setup(Test, Config),
-    ok = execute(Case, Opts, ERPid, Config),
+do_run(Case, Report, RunTestOpts0, Config) ->
+    {RunTestOpts,ERPid} = setup(RunTestOpts0, Config),
+    ok = execute(Case, RunTestOpts, ERPid, Config),
     LogDir =
-	case lists:keyfind(logdir,1,Opts) of
+	case lists:keyfind(logdir,1,RunTestOpts) of
 	    {logdir,LD} -> LD;
 	    false -> ?config(priv_dir,Config)
 	end,
     Re = filename:join([LogDir,"*",Report]),
     check_xml(Case,Re).
 
-setup(Test, Config) ->
+setup(RunTestOpts0, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
     Opts1 =
-	case lists:keymember(logdir,1,Test) of
+	case lists:keymember(logdir,1,RunTestOpts0) of
 	    true -> lists:keydelete(logdir,1,Opts0);
 	    false -> Opts0
 	end,
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts1 ++ [{event_handler,{?eh,EvHArgs}}|Test],
+    RunTestOpts = Opts1 ++ [{event_handler,{?eh,EvHArgs}}|RunTestOpts0],
     ERPid = ct_test_support:start_event_receiver(Config),
-    {Opts,ERPid}.
+    {RunTestOpts,ERPid}.
 
-execute(Name, Opts, ERPid, Config) ->
-    ok = ct_test_support:run(Opts, Config),
+execute(Case, RunTestOpts, ERPid, Config) ->
+    ok = ct_test_support:run(RunTestOpts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
-    ct_test_support:log_events(Name,
+    ct_test_support:log_events(Case,
 			       reformat(Events, ?eh),
 			       ?config(priv_dir, Config),
-			       Opts),
+			       RunTestOpts),
 
-    TestEvents = events_to_check(Name),
+    TestEvents = events_to_check(Case),
     ct_test_support:verify_events(TestEvents, Events, Config).
 
 reformat(Events, EH) ->
@@ -223,8 +223,8 @@ test_suite_events(pass_SUITE) ->
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{ct_framework,end_per_suite}},
      {?eh,tc_done,{ct_framework,end_per_suite,ok}}];
-test_suite_events(skip_all_surefire_SUITE) ->
-    [{?eh,tc_user_skip,{skip_all_surefire_SUITE,all,"skipped in spec"}},
+test_suite_events(skip_suite_in_spec) ->
+    [{?eh,tc_user_skip,{surefire_SUITE,all,"skipped in spec"}},
      {?eh,test_stats,{0,0,{1,0}}}];
 test_suite_events(Test) ->
     [{?eh,tc_start,{surefire_SUITE,init_per_suite}},
@@ -301,7 +301,7 @@ test_events(fail_pre_init_per_suite) ->
      [{?eh,stop_logging,[]}];
 test_events(skip_suite_in_spec) ->
     [{?eh,start_logging,'_'},{?eh,start_info,{1,1,0}}] ++
-     test_suite_events(skip_all_surefire_SUITE) ++
+     test_suite_events(skip_suite_in_spec) ++
      [{?eh,stop_logging,[]}];
 test_events(Test) ->
     [{?eh,start_logging,'_'}, {?eh,start_info,{1,1,11}}] ++
@@ -353,7 +353,14 @@ testsuites(Case,#xmlElement{name=testsuites,content=TS}) ->
     testsuite(Case,TS).
 
 testsuite(Case,[#xmlElement{name=testsuite,content=TC,attributes=A}|TS]) ->
-    TestSuiteEvents = test_suite_events(get_ts_name(A)),
+    TestSuiteEvents =
+        test_suite_events(
+          case Case of
+              skip_suite_in_spec ->
+                  skip_suite_in_spec;
+              _ ->
+                  get_ts_name(A)
+          end),
     {ET,EF,ES} = events_to_numbers(lists:flatten(TestSuiteEvents)),
     {T,E,F,S} = get_numbers_from_attrs(A,false,false,false,false),
     ct:log("Expecting total:~p, error:~p, failure:~p, skipped:~p~n",[ET,0,EF,ES]),
