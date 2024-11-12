@@ -279,20 +279,24 @@ explicit_inet_backend() ->
             false
     end.
 
+%% We cannot use application:get_all_env(snmp) since that only "works"
+%% when the application has been started and this function may be called
+%% well before that happens.
 test_inet_backends() ->
-    case application:get_all_env(snmp) of
-        Env when is_list(Env) ->
-            case lists:keysearch(test_inet_backends, 1, Env) of
-                {value, {test_inet_backends, true}} ->
-                    true;
-                _ ->
-                    false
-            end;
+    case init:get_argument(snmp) of
+        {ok, Args} when is_list(Args) ->
+            test_inet_backends(Args);
         _ ->
-            false 
+            false
     end.
 
-
+test_inet_backends([]) ->
+    false;
+test_inet_backends([["test_inet_backends","true"]|_]) ->
+    true;
+test_inet_backends([_|Args]) ->
+    test_inet_backends(Args).
+           
 
 proxy_call(F, Timeout, Default) ->
     proxy_call(F, Timeout, infinity, Default).
