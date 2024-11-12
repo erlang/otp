@@ -243,8 +243,8 @@ invalid_insert() ->
 invalid_insert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     [0, 0, 0, 0] = get_table_sizes(),  %% Initialy all tables are empty
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     BadClientOpts = [{cacertfile, "tmp/does_not_exist.pem"} |
                      proplists:delete(cacertfile, ClientOpts)],
@@ -614,8 +614,8 @@ alternative_path_helper(Config, GetAlternative,
     %% Init - represents initial state
     %% ConnectedN - state after establishing Nth connection
     %% Disconnected - state after closing connections
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    CACertFilePath0 = proplists:get_value(cacertfile, ClientOpts),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    CACertFilePath0 = ssl_test_lib:ssl_options(cacertfile, ClientOpts),
     {ok, CACertFilename} = strip_path(CACertFilePath0),
     {ok, Cwd} = file:get_cwd(),
 
@@ -705,8 +705,8 @@ create_initial_config(Config) ->
     ClientBase = filename:join(PrivDir, "client_test"),
     ServerBase = filename:join(PrivDir, "server_test"),
     PemConfig = x509_test:gen_pem_config_files(DerConfig, ClientBase, ServerBase),
-    ClientConf = proplists:get_value(client_config, PemConfig),
-    ServerConf = proplists:get_value(server_config, PemConfig),
+    ClientConf = ssl_test_lib:ssl_options(client_config, PemConfig),
+    ServerConf = ssl_test_lib:ssl_options(server_config, PemConfig),
     {proplists:get_value(cacertfile, ServerConf), ClientConf, ServerConf, ServerRootCert0,
     ClientBase, ServerBase}.
 
@@ -752,7 +752,7 @@ pem_periodical_cleanup(Config, FileIds,
     ct:sleep(4 * ?SLEEP_AMOUNT),
     Init = get_table_sizes(),
 
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     
     {Server, Client} = basic_verify_test_no_close(Config),
 

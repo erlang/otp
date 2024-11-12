@@ -730,7 +730,7 @@ connect(_, _, 0, AcceptSocket, _, _, _) ->
 connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
     ?CT_LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ?CT_LOG("~nssl:handshake(~p,~p,~p)~n", [AcceptSocket, format_options(SslOpts),Timeout]),
+    ?CT_LOG("~nssl:handshake(~p,~0.p,~0.p)~n", [AcceptSocket, format_options(SslOpts),Timeout]),
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
@@ -742,9 +742,9 @@ connect(ListenSocket, Node, _N, _, Timeout, SslOpts, cancel) ->
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
-    ?CT_LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?CT_LOG("ssl:transport_accept(~0.P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ?CT_LOG("~nssl:handshake(~p,~p,~p)~n", [AcceptSocket, SslOpts,Timeout]),
+    ?CT_LOG("~nssl:handshake(~p,~0.p,~0.p)~n", [AcceptSocket, SslOpts,Timeout]),
 
     case ssl:handshake(AcceptSocket, SslOpts, Timeout) of
 	{ok, Socket0, Ext} ->
@@ -761,7 +761,7 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
                            _ ->
                                ContOpts0
                        end,
-            ?CT_LOG("~nssl:handshake_continue(~p,~p,~p)~n", [Socket0, ContOpts,Timeout]),
+            ?CT_LOG("~nssl:handshake_continue(~p,~0.p,~0.p)~n", [Socket0, ContOpts,Timeout]),
             case ssl:handshake_continue(Socket0, ContOpts, Timeout) of
                 {ok, Socket} ->
                     connect(ListenSocket, Node, N-1, Socket, Timeout, SslOpts, ContOpts0);
@@ -774,7 +774,7 @@ connect(ListenSocket, Node, N, _, Timeout, SslOpts, [_|_] =ContOpts0) ->
 	    Result
     end;
 connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
-    ?CT_LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    ?CT_LOG("ssl:transport_accept(~0.P)~n", [ListenSocket, ?PRINT_DEPTH]),
     {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
     ?CT_LOG("~nssl:handshake(~p, ~p)~n", [AcceptSocket, Timeout]),
 
@@ -786,9 +786,9 @@ connect(ListenSocket, Node, N, _, Timeout, [], ContOpts) ->
 	    Result
     end;
 connect(ListenSocket, _Node, _, _, Timeout, Opts, _) ->
-    ?CT_LOG("ssl:transport_accept(~P)~n", [ListenSocket, ?PRINT_DEPTH]),
-    {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),    
-    ?CT_LOG("ssl:handshake(~p,~p, ~p)~n", [AcceptSocket, Opts, Timeout]),
+    ?CT_LOG("ssl:transport_accept(~0.P)~n", [ListenSocket, ?PRINT_DEPTH]),
+    {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),
+    ?CT_LOG("ssl:handshake(~p,~0.p, ~0.p)~n", [AcceptSocket, Opts, Timeout]),
     ssl:handshake(AcceptSocket, Opts, Timeout),
     AcceptSocket.
 
@@ -1891,12 +1891,11 @@ make_ecdsa_cert(Config) ->
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-	    [{server_ecdsa_opts, [{reuseaddr, true} | ServerConf]},
-             
-	     {server_ecdsa_verify_opts, [{reuseaddr, true},
-					 {verify, verify_peer} | ServerConf]},
-	     {client_ecdsa_opts, [{verify, verify_none} | ClientConf]},
-             {client_ecdsa_verify_opts, [{verify, verify_peer} | ClientConf]}
+	    [{server_ecdsa_opts, fun() -> [{reuseaddr, true} | ServerConf] end},
+	     {server_ecdsa_verify_opts,
+              fun() -> [{reuseaddr, true}, {verify, verify_peer} | ServerConf] end},
+	     {client_ecdsa_opts, fun() -> [{verify, verify_none} | ClientConf] end},
+             {client_ecdsa_verify_opts, fun() -> [{verify, verify_peer} | ClientConf] end}
 	     | Config];
 	false ->
 	    Config
@@ -1913,17 +1912,18 @@ make_rsa_cert(Config) ->
             GenCertData = public_key:pkix_test_data(CertChainConf),
             #{client_config := ClientDerConf, server_config := ServerDerConf} = GenCertData,
 
-            [{server_config, ServerConf}, 
-             {client_config, ClientConf}] = 
-                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-	    [{server_rsa_opts, [{reuseaddr, true} | ServerConf]},
-	     {server_rsa_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerConf]},
-	     {client_rsa_opts, [{verify, verify_none} | ClientConf]},
-             {client_rsa_verify_opts, [{verify, verify_peer} | ClientConf]},
-             {server_rsa_der_opts, [{reuseaddr, true}, {verify, verify_none} | ServerDerConf]},
-	     {server_rsa_der_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
-	     {client_rsa_der_opts, [{verify, verify_none} | ClientDerConf]},
-             {client_rsa_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
+            [{server_config, ServerConf},
+             {client_config, ClientConf}] =
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+
+	    [{server_rsa_opts, fun() -> [{reuseaddr, true} | ServerConf] end},
+	     {server_rsa_verify_opts, fun() -> [{reuseaddr, true}, {verify, verify_peer} | ServerConf] end},
+	     {client_rsa_opts, fun() -> [{verify, verify_none} | ClientConf] end},
+             {client_rsa_verify_opts, fun() -> [{verify, verify_peer} | ClientConf] end},
+             {server_rsa_der_opts, fun() -> [{reuseaddr, true}, {verify, verify_none} | ServerDerConf] end},
+	     {server_rsa_der_verify_opts, fun() -> [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf] end},
+	     {client_rsa_der_opts, fun() -> [{verify, verify_none} | ClientDerConf] end},
+             {client_rsa_der_verify_opts, fun() ->  [{verify, verify_peer} |ClientDerConf] end}
             | Config];
 	false ->
 	    Config
@@ -1955,7 +1955,8 @@ make_rsa_cert_with_protected_keyfile(Config0, Password) ->
                                            "tls_password_client.pem"),
     der_to_pem(ProtectedClientKeyFile, [ProtectedPemEntry]),
     ProtectedClientOpts = [{keyfile,ProtectedClientKeyFile} | proplists:delete(keyfile, ClientOpts)],
-    [{client_protected_rsa_opts, ProtectedClientOpts} | Config1].
+    [{client_protected_rsa_opts, fun() -> ProtectedClientOpts end}
+    | Config1].
 
 make_rsa_1024_cert(Config) ->
     CryptoSupport = crypto:supports(),
@@ -1971,14 +1972,14 @@ make_rsa_1024_cert(Config) ->
             [{server_config, ServerConf}, 
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
-	    [{server_rsa_1024_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
-	     {server_rsa_1024_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerConf]},
-	     {client_rsa_1024_opts, [{verify, verify_none} | ClientConf]},
-             {client_rsa_1024_verify_opts,  [{verify, verify_peer} |ClientConf]},
-             {server_rsa_1024_der_opts, [{reuseaddr, true} | ServerDerConf]},
-	     {server_rsa_1024_der_verify_opts, [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf]},
-	     {client_rsa_1024_der_opts, [{verify, verify_none} | ClientDerConf]},
-             {client_rsa_1024_der_verify_opts,  [{verify, verify_peer} |ClientDerConf]}
+	    [{server_rsa_1024_opts, fun() -> [{ssl_imp, new},{reuseaddr, true} | ServerConf] end},
+	     {server_rsa_1024_verify_opts, fun() -> [{reuseaddr, true}, {verify, verify_peer} | ServerConf] end},
+	     {client_rsa_1024_opts, fun() -> [{verify, verify_none} | ClientConf] end},
+             {client_rsa_1024_verify_opts, fun() -> [{verify, verify_peer} |ClientConf] end},
+             {server_rsa_1024_der_opts, fun() -> [{reuseaddr, true} | ServerDerConf] end},
+	     {server_rsa_1024_der_verify_opts, fun() -> [{reuseaddr, true}, {verify, verify_peer} | ServerDerConf] end},
+	     {client_rsa_1024_der_opts, fun() -> [{verify, verify_none} | ClientDerConf] end},
+             {client_rsa_1024_der_verify_opts, fun() ->  [{verify, verify_peer} |ClientDerConf] end}
 	     | Config];
 	false ->
 	    Config
@@ -2016,13 +2017,10 @@ make_ecdh_rsa_cert(Config) ->
              {client_config, ClientConf}] = 
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
 
-	    [{server_ecdh_rsa_opts, [{ssl_imp, new},{reuseaddr, true} | ServerConf]},
-				    
-	     {server_ecdh_rsa_verify_opts, [{ssl_imp, new},{reuseaddr, true}, 	 
-                                            {verify, verify_peer} | ServerConf]},
-					
-	     {client_ecdh_rsa_opts, ClientConf}
-				   
+	    [{server_ecdh_rsa_opts, fun() -> [{ssl_imp, new},{reuseaddr, true} | ServerConf] end},
+	     {server_ecdh_rsa_verify_opts,
+              fun() ->[{ssl_imp, new},{reuseaddr, true}, {verify, verify_peer} | ServerConf] end},
+	     {client_ecdh_rsa_opts, fun() -> ClientConf end}
              | Config];
 	_ ->
 	    Config
@@ -2044,10 +2042,11 @@ make_rsa_ecdsa_cert(Config, Curve) ->
              {client_config, ClientConf}] =
                 x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
 
-	    [{server_rsa_ecdsa_opts, [{reuseaddr, true} | ServerConf]},
-	     {server_rsa_ecdsa_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-                                            {verify, verify_peer} | ServerConf]},
-	     {client_rsa_ecdsa_opts, [{verify, verify_none} | ClientConf]} | Config];
+	    [{server_rsa_ecdsa_opts, fun() -> [{reuseaddr, true} | ServerConf] end},
+	     {server_rsa_ecdsa_verify_opts,
+              fun() -> [{ssl_imp, new},{reuseaddr, true},{verify, verify_peer} | ServerConf] end},
+	     {client_rsa_ecdsa_opts, fun() -> [{verify, verify_none} | ClientConf] end}
+            | Config];
 	_ ->
 	    Config
     end.
@@ -2833,7 +2832,7 @@ is_dtls_version(_) ->
 
 openssl_tls_version_support(Version, Config0) ->
     Config = make_rsa_cert(Config0),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ServerOpts = ssl_options(server_rsa_opts, Config),
     Port = inet_port(node()),
     CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
@@ -3667,16 +3666,27 @@ ubuntu_legacy_support() ->
     end.       
 
 ssl_options(Extra, Option, Config) ->
-    ExtraOpts = proplists:get_value(Extra, Config, []),
+    ExtraOpts = case proplists:get_value(Extra, Config, []) of
+                    Settings when is_list(Settings) -> Settings;
+                    Fun when is_function(Fun, 0) -> Fun();
+                    Other -> Other
+                end,
     ExtraOpts ++ ssl_options(Option, Config).
 
 ssl_options(Option, Config) when is_atom(Option) ->
     ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
-    Opts = proplists:get_value(Option, Config, []),
+    Opts = case proplists:get_value(Option, Config, []) of
+               Settings when is_list(Settings) -> Settings;
+               Fun when is_function(Fun, 0) -> Fun();
+               Other -> Other
+           end,
     Opts ++ ProtocolOpts;
-ssl_options(Options, Config) ->
+ssl_options(Options, Config) when is_list(Options) ->
     ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
-    Options ++ ProtocolOpts.
+    Options ++ ProtocolOpts;
+ssl_options(OptionFun, Config) when is_function(OptionFun, 0) ->
+    ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
+    OptionFun() ++ ProtocolOpts.
 
 protocol_version(Config) ->
    case proplists:get_value(version, Config, undefined) of

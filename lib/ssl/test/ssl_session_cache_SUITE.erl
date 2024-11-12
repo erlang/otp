@@ -360,8 +360,8 @@ max_table_size() ->
     [{doc,"Test max limit on session table"}].
 max_table_size(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

@@ -168,7 +168,7 @@ openssl_client_basic() ->
     [{doc,"Test session resumption with session tickets (openssl client - erlang server)"}].
 openssl_client_basic(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
@@ -264,7 +264,7 @@ openssl_client_hrr() ->
     [{doc,"Test session resumption with session tickets and hello_retry_request (openssl client - erlang server)"}].
 openssl_client_hrr(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
@@ -650,7 +650,7 @@ openssl_client_early_data_basic() ->
     [{doc,"Test early data (openssl client - erlang server)"}].
 openssl_client_early_data_basic(Config) when is_list(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
