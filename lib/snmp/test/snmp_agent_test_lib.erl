@@ -644,6 +644,7 @@ tc_run_skip_check(Mod, Func, Args, Reason, Cat) ->
 %% ---------------------------------------------------------------
 
 start_v1_agent(Config) when is_list(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     start_agent(Config, [v1]).
  
 start_v1_agent(Config, Opts) when is_list(Config) andalso is_list(Opts)  ->
@@ -735,8 +736,8 @@ start_agent(Config, Vsns, Opts) ->
     ?DBG("start_agent -> done", []),
 
     [{snmp_app_sup, AppSup},
-           {snmp_sup,     {Sup, self()}}, 
-           {snmp_sub,     Sub} | Config].
+     {snmp_sup,     {Sup, self()}}, 
+     {snmp_sub,     Sub} | Config].
 
 
 app_agent_env_init(Env0, Opts) ->
@@ -988,11 +989,19 @@ start_app_sup() ->
 start_sup(Env) ->
     case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
-	    ?DBG("start_agent -> started, Sup: ~p", [S]),
+	    ?DBG("~w -> started: ~p", [?FUNCTION_NAME, S]),
 	    S;
-	
+
+        {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	    ?EPRINT("~w -> failed start agent - net-if: "
+                    "~n   What:   ~p"
+                    "~n   Info:   ~p"
+                    "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	    ?FAIL({start_failed, net_if, Details});
+
 	Else ->
-	    ?EPRINT("start_agent -> unknown result: ~n~p", [Else]),
+	    ?EPRINT("~w -> unknown result: "
+                    "~n   ~p", [?FUNCTION_NAME, Else]),
 	    %% Get info about the apps we depend on
 	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.

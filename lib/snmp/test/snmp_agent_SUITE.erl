@@ -744,22 +744,31 @@ end_per_suite(Config0) when is_list(Config0) ->
 %%
 
 init_per_group(GroupName, Config0) ->
-    ?IPRINT("init_per_group -> entry with"
+    ?IPRINT("~w -> entry with"
             "~n      GroupName: ~p"
             "~n      Config:    ~p"
             "~n   when"
             "~n      Nodes:     ~p",
-            [GroupName, Config0, nodes()]),
+            [?FUNCTION_NAME, GroupName, Config0, nodes()]),
 
-    Config1 = init_per_group2(GroupName, Config0),
+    case init_per_group2(GroupName, Config0) of
+        Config1 when is_list(Config1) ->
 
-    ?IPRINT("init_per_group -> done when"
-            "~n      GroupName: ~p"
-            "~n      Config:    ~p"
-            "~n      Nodes:     ~p",
-            [GroupName, Config1, nodes()]),
+            ?IPRINT("~w(~w) -> done when"
+                    "~n      Config: ~p"
+                    "~n      Nodes:  ~p",
+                    [?FUNCTION_NAME, GroupName, Config1, nodes()]),
 
-    Config1.
+            Config1;
+        {skip, SkipReason} = SKIP ->
+
+            ?IPRINT("~w(~w) -> done when SKIP"
+                    "~n      Skip Reason: ~p"
+                    "~n      Nodes:       ~p",
+                    [?FUNCTION_NAME, GroupName, SkipReason, nodes()]),
+
+            SKIP
+    end.
 
 
 init_per_group2(inet_backend_default = _GroupName, Config0) ->
@@ -847,6 +856,7 @@ init_per_group2(test_v2 = GroupName, Config) ->
 init_per_group2(test_v1 = GroupName, Config) -> 
     init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group2(test_v1_ipv6 = GroupName, Config) ->
+    ?IPRINT("init_per_group2(test_v1_ipv6) -> entry"),
     init_per_group_ipv6(GroupName, Config, fun init_v1/1);
 init_per_group2(test_v2_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName, Config, fun init_v2/1);
@@ -931,12 +941,22 @@ init_per_group_ipv6(GroupName, Config, Init) ->
             %% one of the configured/supported IPv6 hosts...
             case ?HAS_SUPPORT_IPV6() of
                 true ->
-                    Init(
-                      snmp_test_lib:init_group_top_dir(
-                        GroupName,
-                        [{ipfamily, inet6},
-                         {ip, ?LOCALHOST(inet6)}
-                         | lists:keydelete(ip, 1, Config)]));
+                    ?IPRINT("~w(~w) -> IPv6 supported",
+                            [?FUNCTION_NAME, GroupName]),
+                    try Init(
+                          snmp_test_lib:init_group_top_dir(
+                            GroupName,
+                            [{ipfamily, inet6},
+                             {ip, ?LOCALHOST(inet6)}
+                            | lists:keydelete(ip, 1, Config)]))
+                    catch
+                        exit:{suite_failed, {start_failed, net_if, {udp_open, Info, Reason}}, _M, _L} ->
+                            ?EPRINT("Failed starting agent net-if: "
+                                    "~n   Info:   ~p"
+                                    "~n   Reason: ~p", [Info, Reason]),
+                            {skip, "IPv6 not supported after all"}
+                    end;
+                        
                 false ->
                     {skip, "Host does not support IPv6"}
             end
@@ -1044,14 +1064,29 @@ init_per_testcase(Case, Config) when is_list(Config) ->
             "~n   Config: ~p"
             "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
-    Result = init_per_testcase1(Case, Config),
+    try init_per_testcase1(Case, Config) of
+        Result ->
+            snmp_test_global_sys_monitor:reset_events(),
 
-    snmp_test_global_sys_monitor:reset_events(),
-
-    ?IPRINT("init_per_testcase -> done when"
-            "~n      Result: ~p"
-            "~n      Nodes:  ~p", [Result, erlang:nodes()]),
-    Result.
+            ?IPRINT("init_per_testcase -> done when"
+                    "~n      Result: ~p"
+                    "~n      Nodes:  ~p", [Result, erlang:nodes()]),
+            Result
+    catch
+        exit:{suite_failed, {start_failed, net_if, {What, Info, Reason}}, _M, _L} ->
+            ?IPRINT("~w -> Failed starting agent - net-if"
+                    "~n      What:   ~p"
+                    "~n      Info:   ~p"
+                    "~n      Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+            {skip, ?F("Failed start agent - net-if: ~w, ~w", [What, Reason])};
+        C:E:S ->
+            ?IPRINT("~w -> catched"
+                    "~n      C:   ~p"
+                    "~n      E:   ~p"
+                    "~n      S: ~p", [?FUNCTION_NAME, C, E, S]),
+            {skip, "Failed start agent"}
+            
+    end.
 
 init_per_testcase1(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
@@ -1334,6 +1369,7 @@ finish_all(Conf) ->
     ?ALIB:finish_all(Conf).
 
 start_v1_agent(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     ?ALIB:start_v1_agent(Config).
 
 start_v1_agent(Config, Opts) ->
@@ -2272,6 +2308,7 @@ v1_cases_ipv6() ->
     ].
 
 init_v1(Config) when is_list(Config) ->
+    ?IPRINT("~w -> entry", [?FUNCTION_NAME]),
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
     AgentConfDir = ?config(agent_conf_dir, Config),
@@ -8599,7 +8636,19 @@ process_options(Defaults, _Opts) ->
 
 
 start_standalone_agent(Node, Config)  ->
-    rpc:call(Node, ?MODULE, start_standalone_agent, [Config]).
+    case rpc:call(Node, ?MODULE, start_standalone_agent, [Config]) of
+        {ok, _} = OK ->
+	    ?IPRINT("~w -> agent started", [?FUNCTION_NAME]),
+            OK;
+        {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	    ?EPRINT("~w -> failed start agent - net-if: "
+                    "~n   What:   ~p"
+                    "~n   Info:   ~p"
+                    "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	    ?FAIL({start_failed, net_if, Details});            
+        {error, _} = ERROR ->
+            ERROR
+    end.
 
 start_standalone_agent(Config)  ->
     case snmpa_supervisor:start_link(normal, Config) of
@@ -8608,6 +8657,12 @@ start_standalone_agent(Config)  ->
             {ok, AgentTopSup};
         {error, {already_started, AgentTopSup}} ->
             {ok, AgentTopSup};
+        %% {error, {net_if, error, {What, Info, Reason} = Details}} ->
+	%%     ?EPRINT("~w -> failed start agent - net-if: "
+        %%             "~n   What:   ~p"
+        %%             "~n   Info:   ~p"
+        %%             "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
+	%%     ?FAIL({start_failed, net_if, Details});            
         {error, _} = ERROR ->
             ERROR
     end.
