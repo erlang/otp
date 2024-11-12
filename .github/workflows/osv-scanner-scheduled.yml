@@ -26,7 +26,7 @@ jobs:
     outputs:
        versions: ${{ steps.get-versions.outputs.versions }}
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
@@ -52,7 +52,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
         with:
           ref: ${{ matrix.type }}
 
@@ -72,4 +72,4 @@ jobs:
     # run-scheduled-scan triggers this job
     # PRs and pushes trigger this job
     if: github.event_name != 'schedule'
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.8.5"
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@f0e6719deb666cd19a0b56bc56d01161bd848b4f" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.8.5
