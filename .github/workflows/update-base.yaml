@@ -26,14 +26,14 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
         with:
           ref: ${{ matrix.branch }}
       - name: Cleanup GH Runner
         shell: bash
         run: .github/scripts/cleanup_gh_runner.sh
       - name: Docker login
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # ratchet:docker/login-action@v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
