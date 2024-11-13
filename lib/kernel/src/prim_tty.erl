@@ -111,7 +111,7 @@
          npwcwidth/1, npwcwidth/2,
          ansi_regexp/0, ansi_color/2]).
 -export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
-         is_reader/2, is_writer/2]).
+         is_reader/2, is_writer/2, output_mode/1]).
 
 -nifs([isatty/1, tty_create/0, tty_init/2, setlocale/1,
        tty_select/2, tty_window_size/1,
@@ -475,6 +475,11 @@ is_writer(#state{ writer = {WriterPid, _} }, WriterPid) ->
     true;
 is_writer(_, _) ->
     false.
+
+-spec output_mode(state()) -> cooked | raw.
+output_mode(State) ->
+    #{output := Output} = State#state.options,
+    Output.
 
 -spec unicode(state()) -> boolean().
 unicode(State) ->

@@ -608,36 +608,16 @@ putc_request({put_chars,unicode,M,F,As}, Drv, From) ->
                     {reply,{error,F}}
             end
     end;
-putc_request({put_chars,latin1,Binary}, Drv, From) when is_binary(Binary) ->
-    send_drv(Drv, {put_chars_sync, unicode,
-                   unicode:characters_to_binary(Binary,latin1),
-                   From}),
+putc_request({put_chars,latin1,Output}, Drv, From) ->
+    send_drv(Drv, {put_chars_sync, latin1, Output, From}),
     noreply;
-putc_request({put_chars,latin1,Chars}, Drv, From) ->
-    case catch unicode:characters_to_binary(Chars,latin1) of
-        Binary when is_binary(Binary) ->
-            send_drv(Drv, {put_chars_sync, unicode, Binary, From}),
-            noreply;
-        _ ->
-            {reply,{error,{put_chars,latin1,Chars}}}
-    end;
 putc_request({put_chars,latin1,M,F,As}, Drv, From) ->
     case catch apply(M, F, As) of
-        Binary when is_binary(Binary) ->
-            send_drv(Drv, {put_chars_sync, unicode,
-                           unicode:characters_to_binary(Binary,latin1),
-                           From}),
-            noreply;
-        Chars ->
-            case catch unicode:characters_to_binary(Chars,latin1) of
-                B when is_binary(B) ->
-                    send_drv(Drv, {put_chars_sync, unicode, B, From}),
-                    noreply;
-                _ ->
-                    {reply,{error,F}}
-            end
+        Ret when is_list(Ret) =:= false, is_binary(Ret) =:= false ->
+            {reply, {error, F}};
+        Chars -> send_drv(Drv, {put_chars_sync, latin1, Chars, From}),
+            noreply
     end;
-
 putc_request({requests,Reqs}, Drv, From) ->
     putc_requests(Reqs, {reply, ok}, Drv, From);
 
