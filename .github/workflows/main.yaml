@@ -411,12 +411,12 @@ jobs:
 
       ## Build all the documentation
       - name: Build documentation
+        env:
+            BASE_URL: ${{ github.event_name == 'pull_request' &&
+                format('{0}/blob/{1}/',github.event.pull_request.head.repo.full_name,github.event.pull_request.head.ref) ||
+                format('{0}/blob/{1}/',github.repository,github.ref_name)
+              }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_URL="${{ github.event.pull_request.head.repo.full_name }}/blob/${{ github.event.pull_request.head.ref }}/"
-          else
-            BASE_URL="${{ github.repository }}/blob/${{ github.ref_name }}/"
-          fi
           docker build --build-arg BASE_URL="$BASE_URL" -t otp - <<EOF
           FROM otp
           ENV BASE_URL=$BASE_URL
