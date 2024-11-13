@@ -38,6 +38,7 @@
          merge_blocks/2,
          normalize/1,
          no_side_effect/1,
+         can_be_guard_bif/3,
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
@@ -233,6 +234,19 @@ no_side_effect(#b_set{op=Op}) ->
         update_tuple -> true;
         _ -> false
     end.
+
+-spec can_be_guard_bif(atom(), atom(), integer()) -> boolean().
+
+can_be_guard_bif(M, F, A) ->
+    case {M,F,A} of
+        {erlang, binary_to_atom, 2} -> true;
+        {erlang, binary_to_existing_atom, 2} -> true;
+        {erlang, list_to_atom, 1} -> true;
+        {erlang, list_to_existing_atom, 1} -> true;
+        {_,_,_} -> false
+    end.
+
+
 
 %% insert_on_edges(Insertions, BlockMap, Count) -> {BlockMap, Count}.
 %%  Inserts instructions on the specified normal edges. It will not work on
