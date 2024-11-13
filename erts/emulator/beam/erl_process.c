@@ -4659,12 +4659,15 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
     if (active_rqs > blnc_rqs)
 	active_rqs = blnc_rqs;
 
+    if (erts_atomic32_read_acqb(&no_empty_run_queues) >= blnc_rqs)
+        goto end_try_steal_task;
+
     if (rq->ix < active_rqs) {
 	/* First try to steal from an inactive run queue... */
 	if (active_rqs < blnc_rqs) {
 	    int no = blnc_rqs - active_rqs;
 	    int stop_ix = vix = active_rqs + rq->ix % no;
-	    while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
+	    while (1) {
 		res = check_possible_steal_victim(rq, vix, result_proc, &contended_runqueues);
 		if (res) {
                     DESTROY_WSTACK(contended_runqueues);
@@ -4681,7 +4684,7 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	vix = rq->ix;
 
 	/* ... then try to steal a job from another active queue... */
-	while (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs) {
+	while (1) {
 	    vix++;
 	    if (vix >= active_rqs)
 		vix = 0;
@@ -4696,7 +4699,9 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
 	}
 
         /* ... and finally re-try stealing from the queues that were skipped because contended. */
-        while (!WSTACK_ISEMPTY(contended_runqueues)) {
+        // We recheck the number of empty runqueues in each iteration, as taking the runqueue lock in check_possible_steal_victim can take quite a while.
+        while (!WSTACK_ISEMPTY(contended_runqueues)
+                && (erts_atomic32_read_acqb(&no_empty_run_queues) < blnc_rqs)) {
             vix = WSTACK_POP(contended_runqueues);
             res = check_possible_steal_victim(rq, vix, result_proc, NULL);
             if (res) {
@@ -4706,6 +4711,7 @@ try_steal_task(ErtsRunQueue *rq, Process **result_proc)
         }
     }
 
+end_try_steal_task:
     DESTROY_WSTACK(contended_runqueues);
     erts_runq_lock(rq);
     return runq_got_work_to_execute(rq);
