@@ -12,6 +12,9 @@ on:
 # Limit concurrency so that we don't get any races between parallel actions
 concurrency: pr-comment
 
+permissions:
+  contents: read
+
 jobs:
   pr-number:
     runs-on: ubuntu-20.04

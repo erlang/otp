@@ -8,13 +8,15 @@ on:
       target:
         required: true
 
-## Needed to upload assets to releases
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   upload-windows-zip:
     runs-on: windows-2022
+    ## Needed to upload assets to releases
+    permissions:
+        contents: write
     env:
       basename: otp_${{ inputs.target }}_${{ inputs.version }}
     steps:
