@@ -7,6 +7,9 @@ on:
   ## In UTC
   - cron: '0 0 * * *'
 
+permissions:
+  contents: read
+
 ## Build base images to be used by other github workflows
 jobs:
 
@@ -16,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
       packages: write
+      contents: read
 
     strategy:
       matrix:
@@ -26,14 +29,14 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # ratchet:actions/checkout@v4.1.7
         with:
           ref: ${{ matrix.branch }}
       - name: Cleanup GH Runner
         shell: bash
         run: .github/scripts/cleanup_gh_runner.sh
       - name: Docker login
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # ratchet:docker/login-action@v3.3.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
