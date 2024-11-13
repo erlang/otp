@@ -114,6 +114,7 @@ get_context([$(|Bef], CR) ->
     {Bef1, Fun} = edlin_expand:over_word(Bef),
     case Fun of
         [] -> {term}; % parenthesis
+        "fun" -> {fun_};
         _ ->
             {_, Mod} = over_module(Bef1, Fun),
             case Mod of
