@@ -7,6 +7,9 @@ on:
     # Automatically run on every Sunday
     - cron:  '0 0 * * 0'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -7,6 +7,9 @@ on:
   ## In UTC
   - cron: '0 0 * * *'
 
+permissions:
+  contents: read
+
 ## Build base images to be used by other github workflows
 jobs:
 
