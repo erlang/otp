@@ -17,17 +17,17 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@v1.11.0
+        uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # ratchet:actions/create-github-app-token@v1.11.0
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PEM }}
 
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Run GitHub Actions Version Updater
-        uses: saadmk11/github-actions-version-updater@v0.8.1
+        uses: saadmk11/github-actions-version-updater@64be81ba69383f81f2be476703ea6570c4c8686e # ratchet:saadmk11/github-actions-version-updater@v0.8.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           pull_request_branch: "github/actions-update"
