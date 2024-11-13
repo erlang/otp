@@ -10,12 +10,6 @@ on:
     - cron: 0 1 * * *
 
 permissions:
-  # Required to upload SARIF file to CodeQL.
-  # See: https://github.com/github/codeql-action/issues/2117
-  actions: read
-  # Require writing security events to upload SARIF file to security tab
-  security-events: write
-  # Only need to read contents
   contents: read
 
 jobs:
@@ -72,4 +66,11 @@ jobs:
     # run-scheduled-scan triggers this job
     # PRs and pushes trigger this job
     if: github.event_name != 'schedule'
+    permissions:
+        # Require writing security events to upload SARIF file to security tab
+        security-events: write
+        # Required to upload SARIF file to CodeQL.
+        # See: https://github.com/github/codeql-action/issues/2117
+        actions: read
+        contents: read
     uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.8.5"
