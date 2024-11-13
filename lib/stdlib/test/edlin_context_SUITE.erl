@@ -188,4 +188,6 @@ get_context(_Config) ->
     {term,[],{float,"-1.2"}} = edlin_context:get_context(lists:reverse("-1.2")),
     {term,[],{tuple, "{hej, svej}"}} = edlin_context:get_context(lists:reverse("begin {hej, svej}")),
     {term,[],[]} = edlin_context:get_context(lists:reverse("begin {hej, svej} = {")),
+    {fun_} = edlin_context:get_context(lists:reverse("fun(")),
+    {fun_} = edlin_context:get_context(lists:reverse("maps:map(fun(")),
     ok.
