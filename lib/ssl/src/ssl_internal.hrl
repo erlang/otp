@@ -165,14 +165,13 @@
 
 -define(SSL_LOG(Level, Descr, Reason),
         fun() ->
-                case get(log_level) of
-                    undefined ->
-                        %% Use debug here, i.e. log everything and let loggers
-                        %% log_level decide if it should be logged
-                        ssl_logger:log(Level, debug,
-                                       #{description => Descr, reason => Reason},
-                                       ?LOCATION);
-                    __LogLevel__ ->
+                __LogLevel__ = case get(log_level) of
+                                   undefined -> debug;
+                                   Lvl -> Lvl
+                               end,
+                case logger:compare_levels(__LogLevel__, Level) of
+                    gt -> ok;
+                    _ ->
                         ssl_logger:log(Level, __LogLevel__,
                                        #{description => Descr, reason => Reason},
                                        ?LOCATION)
