@@ -30,7 +30,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([simple/1, loop/1, isolated/1, topsort/1, subgraph/1, 
-         condensation/1, tree/1]).
+         condensation/1, tree/1, traversals/1]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -39,7 +39,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [simple, loop, isolated, topsort, subgraph,
-     condensation, tree].
+     condensation, tree, traversals].
 
 groups() -> 
     [].
@@ -246,6 +246,22 @@ tree(Config) when is_list(Config) ->
     %% Parallel edges.
     false = is_arborescence([{a,b},{a,b}]),
 
+    ok.
+
+%% OTP-9040
+traversals(Config) when is_list(Config) ->
+    G = digraph:new([]),
+    [] = digraph_utils:preorder(G),
+    [] = digraph_utils:postorder(G),
+    add_edges(G, [{a,b},{b,c},{c,d},{d,e}]),
+    [a,b,c,d,e] = digraph_utils:preorder(G),
+    [e,d,c,b,a] = digraph_utils:postorder(G),
+    add_edges(G, [{0,1},{1,2},{2,0}]),
+    [a,b,c,d,e,0,1,2] = digraph_utils:preorder(G),
+    [e,d,c,b,a,2,1,0] = digraph_utils:postorder(G),
+    add_edges(G, [{x,0},{y,1},{z,2}]),
+    [z,2,0,1,y,x,a,b,c,d,e] = digraph_utils:preorder(G),
+    [1,0,2,z,y,x,e,d,c,b,a] = digraph_utils:postorder(G),
     ok.
 
 is_tree(Es) ->
