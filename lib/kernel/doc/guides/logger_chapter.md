@@ -1025,8 +1025,8 @@ actions, exist:
   message queue is reduced to a level below the threshold, synchronous or
   asynchronous mode is resumed. Notice that when the handler activates or
   deactivates drop mode, information about it is printed in the log.
-  The emitted log message looks something like this:
-  `[notice] Handler :default switched from :sync to :drop mode`
+  The emitted log message is on the `:notice` level and looks like this:
+  `Handler :default switched from :sync to :drop mode`
 
   Defaults to `200` messages.
 
@@ -1039,6 +1039,8 @@ actions, exist:
   make sure that no new events are received during the operation. Notice that
   after the flush operation is performed, the handler prints information in the
   log about how many events have been deleted.
+  The emitted log message is on the `:notice` level and looks like this:
+  `Handler :default flushed 1070 log events`
 
   Defaults to `1000` messages.
 
