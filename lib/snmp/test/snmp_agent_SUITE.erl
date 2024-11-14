@@ -611,19 +611,19 @@ inet_backend_socket_cases() ->
 %% group end!
 major_cases() ->
     [
-     %% {group, misc}, 
-     %% {group, test_v1}, 
-     %% {group, test_v2},
-     %% {group, test_v1_v2}, 
-     %% {group, test_v3},
-     {group, test_v1_ipv6}%%,
-     %% {group, test_v2_ipv6}
-     %% {group, test_v1_v2_ipv6},
-     %% {group, test_v3_ipv6},
-     %% {group, test_multi_threaded}, 
-     %% {group, test_multi_threaded_ext}, 
-     %% {group, mib_storage},
-     %% {group, tickets1}
+     {group, misc},
+     {group, test_v1},
+     {group, test_v2},
+     {group, test_v1_v2},
+     {group, test_v3},
+     {group, test_v1_ipv6},
+     {group, test_v2_ipv6},
+     {group, test_v1_v2_ipv6},
+     {group, test_v3_ipv6},
+     {group, test_multi_threaded}, 
+     {group, test_multi_threaded_ext}, 
+     {group, mib_storage},
+     {group, tickets1}
     ].
     
 all_cases() -> 
@@ -956,9 +956,10 @@ init_per_group_ipv6(GroupName, Config, Init, Finish) ->
                     try Init(Config3)
                     catch
                         exit:{suite_failed, {start_failed, net_if, {udp_open, Info, Reason}}, _M, _L} ->
-                            ?EPRINT("Failed starting agent net-if: "
+                            ?WPRINT("~w -> Failed starting agent net-if: "
                                     "~n   Info:   ~p"
-                                    "~n   Reason: ~p", [Info, Reason]),
+                                    "~n   Reason: ~p",
+				    [?FUNCTION_NAME, Info, Reason]),
                             %% If we get here there is a good chance we got
                             %% part way through the initiation...
                             %% And since the 'end_per_group is *not* called
@@ -968,11 +969,11 @@ init_per_group_ipv6(GroupName, Config, Init, Finish) ->
                             (catch Finish(Config3)),
                             {skip, "IPv6 not fully supported"};
                         C:E:S ->
-                            ?EPRINT("Failed starting agent net-if: "
+                            ?WPRINT("~w -> Failed starting agent net-if: "
                                     "~n   Error Class: ~p"
                                     "~n   Error:       ~p"
                                     "~n   StackTrace:  ~p",
-                                    [C, E, S]),
+                                    [?FUNCTION_NAME, C, E, S]),
                             %% If we get here there is a good chance we got
                             %% part way through the initiation...
                             %% And since the 'end_per_group is *not* called
