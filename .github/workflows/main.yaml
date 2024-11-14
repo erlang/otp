@@ -45,7 +45,7 @@ jobs:
         all: ${{ steps.apps.outputs.all }}
         added_files: ${{ steps.cache.outputs.added_files }}
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -83,14 +83,14 @@ jobs:
         with:
           filters: .github/scripts/c-code-path-filters.yaml
       - name: Cache pre-built src
-        uses: actions/cache@3624ceb22c1c5a301c8db4169662070a689d9ea8 # ratchet:actions/cache@v4.1.1
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # ratchet:actions/cache@v4.1.2
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
                 prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
       - name: Cache pre-built binaries
-        uses: actions/cache@3624ceb22c1c5a301c8db4169662070a689d9ea8 # ratchet:actions/cache@v4.1.1
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # ratchet:actions/cache@v4.1.2
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
@@ -188,7 +188,7 @@ jobs:
       WXWIDGETS_VERSION: 3.2.6
       MACOS_VERSION: 15
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
 
       - name: Download source archive
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
@@ -197,7 +197,7 @@ jobs:
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@3624ceb22c1c5a301c8db4169662070a689d9ea8 # ratchet:actions/cache@v4.1.1
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # ratchet:actions/cache@v4.1.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
@@ -236,7 +236,7 @@ jobs:
     runs-on: macos-15
     needs: pack
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - name: Download source archive
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
         with:
@@ -287,7 +287,7 @@ jobs:
           IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Cache wxWidgets
-        uses: actions/cache@3624ceb22c1c5a301c8db4169662070a689d9ea8 # ratchet:actions/cache@v4.1.1
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # ratchet:actions/cache@v4.1.2
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}
@@ -369,7 +369,7 @@ jobs:
     if: needs.pack.outputs.c-code-changes
 
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -397,7 +397,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -408,7 +408,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -462,7 +462,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -488,7 +488,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -537,7 +537,7 @@ jobs:
     if: ${{ !cancelled() }} # Run even if the need has failed
     needs: test
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -606,7 +606,7 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
@@ -637,7 +637,7 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191 # ratchet:softprops/action-gh-release@v2.0.8
+        uses: softprops/action-gh-release@01570a1f39cb168c169c802c3bceb9e93fb10974 # ratchet:softprops/action-gh-release@v2.1.0
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
