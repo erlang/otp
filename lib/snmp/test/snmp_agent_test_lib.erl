@@ -726,18 +726,29 @@ start_agent(Config, Vsns, Opts) ->
     ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
     ?IPRINT("start_agent -> try start master agent",[]),
-    Sup = start_sup(Env),
-    unlink(Sup),
-    ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
+    try start_sup(Env) of
+        Sup ->
+            unlink(Sup),
+            ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
+            
+            ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
+            SaDir = ?config(sa_dir, Config),
+            {ok, Sub} = start_sub_sup(SaNode, SaDir),
+            ?DBG("start_agent -> done", []),
 
-    ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
-    SaDir = ?config(sa_dir, Config),
-    {ok, Sub} = start_sub_sup(SaNode, SaDir),
-    ?DBG("start_agent -> done", []),
-
-    [{snmp_app_sup, AppSup},
-     {snmp_sup,     {Sup, self()}}, 
-     {snmp_sub,     Sub} | Config].
+            [{snmp_app_sup, AppSup},
+             {snmp_sup,     {Sup, self()}}, 
+             {snmp_sub,     Sub} | Config]
+    catch
+        C:E:S ->
+            ?EPRINT("start_agent -> "
+                    "failed starting master agent - stop app supervisor: "
+                    "~n   C: ~p"
+                    "~n   E: ~p"
+                    "~n   S: ~p", [C, E, S]),
+            stop_sup(AppSup, undefined),
+            erlang:raise(C, E, S)
+    end.
 
 
 app_agent_env_init(Env0, Opts) ->
@@ -929,49 +940,73 @@ merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
     end.
 
 
-stop_agent(Config) when is_list(Config) ->
+stop_agent(Config0) when is_list(Config0) ->
     ?IPRINT("stop_agent -> entry with"
-            "~n   Config: ~p",[Config]),
+            "~n   Config: ~p", [Config0]),
 
+    Fs =
+	[
+	 %% Stop the sub-agent (the agent supervisor)
+	 {"Stop the sub-agent (the agent supervisor)",
+	  fun(C) ->
+		  {SubSup, SubPar} = ?config(snmp_sub, C),
+		  ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
+			  "~n   Sub Sup info: "
+			  "~n      ~p"
+			  "~n   Sub Par info: "
+			  "~n      ~p",
+			  [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
+		  stop_sup(SubSup, SubPar),
+		  lists:keydelete(snmp_sub, 1, C)
+	  end},
 
-    %% Stop the sub-agent (the agent supervisor)
-    {SubSup, SubPar} = ?config(snmp_sub, Config),
-    ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
-            "~n   Sub Sup info: "
-            "~n      ~p"
-            "~n   Sub Par info: "
-            "~n      ~p",
-            [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
-    stop_sup(SubSup, SubPar),
-    Config2 = lists:keydelete(snmp_sub, 1, Config),
+	 %% Stop the master-agent (the top agent supervisor)
+	 {"Stop the master-agent (the top agent supervisor)",
+	  fun(C) ->
+		  {MasterSup, MasterPar} = ?config(snmp_sup, C),
+		  ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
+			  "~n   Master Sup: "
+			  "~n      ~p"
+			  "~n   Master Par: "
+			  "~n      ~p"
+			  "~n   Agent Info: "
+			  "~n      ~p",
+			  [MasterSup,
+			   ?PINFO(MasterSup), ?PINFO(MasterPar),
+			   agent_info(MasterSup)]),
+		  stop_sup(MasterSup, MasterPar),
+		  lists:keydelete(snmp_sup, 1, C)
+	  end},
 
+	 %% Stop the top supervisor (of the snmp app)
+	 {"Stop the top supervisor (of the snmp app)",
+	  fun(C) ->
+		  AppSup = ?config(snmp_app_sup, C),
+		  ?IPRINT("stop_agent -> attempt to app sup ~p"
+			  "~n   App Sup: ~p",
+			  [AppSup, ?PINFO(AppSup)]),
+		  stop_sup(AppSup, undefined),
+		  lists:keydelete(snmp_app_sup, 1, C)
+	  end}
+	],
 
-    %% Stop the master-agent (the top agent supervisor)
-    {MasterSup, MasterPar} = ?config(snmp_sup, Config),
-    ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
-            "~n   Master Sup: "
-            "~n      ~p"
-            "~n   Master Par: "
-            "~n      ~p"
-            "~n   Agent Info: "
-            "~n      ~p",
-            [MasterSup,
-             ?PINFO(MasterSup), ?PINFO(MasterPar),
-             agent_info(MasterSup)]),
-    stop_sup(MasterSup, MasterPar),
-    Config3 = lists:keydelete(snmp_sup, 1, Config2),
+    {Config, Description} = stop_agent_loop(Fs, Config0),
 
+    ?IPRINT("stop_agent -> ~s", [Description]),
+    Config.
 
-    %% Stop the top supervisor (of the snmp app)
-    AppSup = ?config(snmp_app_sup, Config),
-    ?IPRINT("stop_agent -> attempt to app sup ~p"
-            "~n   App Sup: ~p",
-            [AppSup, ?PINFO(AppSup)]),
-    Config4 = lists:keydelete(snmp_app_sup, 1, Config3),
+stop_agent_loop([], Config) ->
+    {Config, "done"};
+stop_agent_loop([{Desc, F}|Fs], Config0) ->
+    ?IPRINT("try ~s", [Desc]),
+    try F(Config0) of
+	Config when is_list(Config) ->
+	    stop_agent_loop(Fs, Config)
+    catch
+	_:_:_ ->
+	    {"aborted at " ++ Desc, Config0}
+    end.
 
-
-    ?IPRINT("stop_agent -> done", []),
-    Config4.
 
 start_app_sup() ->
     case snmp_app_sup:start_link() of
