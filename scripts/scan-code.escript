@@ -21,7 +21,7 @@
 %% %CopyrightEnd%
 
 main(Args) ->
-    argparse:run(Args, cli(), #{progname => otp_compliance}).
+    argparse:run(Args, cli(), #{progname => scancode}).
 
 cli() ->
     #{ help =>
@@ -77,6 +77,11 @@ template_option() ->
 
 scancode(#{ file_or_dir := FilesOrDirs}=Config) ->
     Files = string:split(FilesOrDirs, " ", all),
+    scancode0(Files, Config).
+
+scancode0([[]], _) ->
+    ok;
+scancode0(Files, Config) ->
     Results = lists:foldl(fun (File, Errors) ->
                                   Command = scancode(Config, File),
                                   case execute(Command, File) of
