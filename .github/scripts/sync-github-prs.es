@@ -178,7 +178,7 @@ purge_prs(Target) ->
     Files = string:split(cmd("find " ++ Target ++ " -type f -a "
                              "\\! -name suite.log.html -exec du -a {} \\+"),"\n",all),
     SortedFiles =
-        lists:sort(fun([A|_]=As,[B|_]=Bs) ->
+        lists:sort(fun([A|_],[B|_]) ->
                                binary_to_integer(A) >= binary_to_integer(B)
                    end, [string:split(F,"\t") || F <- Files, F =/= <<>>]),
     purge_prs(SortedFiles, Target, get_directory_size(Target)).
