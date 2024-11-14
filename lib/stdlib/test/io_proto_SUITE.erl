@@ -1470,6 +1470,14 @@ logging_gl(Config) when is_list(Config) ->
                                    after 500 -> timeout end
                            end
                    end,
+    
+    AssertTimeout = fun() ->
+                            ?MODULE ! {get, self()},
+                            receive
+                                timeout -> ok;
+                                Msg -> {unexpected, Msg}
+                             end
+                    end,
 
     rtnode:run(
       [{putline,""},
@@ -1491,17 +1499,24 @@ logging_gl(Config) when is_list(Config) ->
                                  end),
                       register(?MODULE, Device),
                       ok = logger:add_handler(default, logger_std_h, #{ filter_default => stop, config => #{ type => {device, Device} }}),
-                      ok = io:setopts(user, [{log,true}])
+                      ok = io:setopts(user, [{log,output}])
               end},
        {putline, "io:format(user,\"abc\n\",[])."},
        {expect, "abc\r\nok"},
-       {eval, fun() -> ?MODULE ! {get, self()}, receive timeout -> ok; M -> {unexpected_message, M} end end},
+       {eval, AssertTimeout},
        {eval, fun() -> ok = logger:add_handler_filter(default, stderr, {fun logger_filters:domain/2, {log, sub, [otp, kernel, io]}}) end},
        {putline, "io:format(user,\"abc\n\",[])."},
        {expect, "abc\r\nok"},
-       {eval, AssertString("put_chars,unicode,\"abc\\n\"")},
+       {eval, AssertString("abc\n")},
 
-       {putline, "io:setopts([{log,true}])."},
+       %% Check that no input events are logged
+       {putline, "io:setopts([{log, output}])."},
+       {expect, "\r\nok"},
+       {eval, AssertString("ok\n")},
+       {eval, AssertTimeout},
+
+       %% Check that input events work
+       {putline, "io:setopts([{log, input}])."},
        {expect, "\r\nok"},
        {eval, AssertString("get_until")},
        {putline, "io:get_line(\"prompt: \")."},

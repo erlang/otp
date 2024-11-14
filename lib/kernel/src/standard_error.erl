@@ -70,15 +70,13 @@ server(PortName,PortSettings) ->
 run(P) ->
     put(encoding, latin1),
     put(onlcr, false),
-    put(log, false),
+    put(log, none),
     server_loop(P).
 
 server_loop(Port) ->
     receive
         {io_request,From,ReplyAs,Request} = IoReq when is_pid(From) ->
-            _ = [?LOG_INFO(#{ request => IoReq, server => self(), server_name => ?MODULE},
-                           #{ report_cb => fun group:format_io_request_log/1,
-                              domain => [otp, kernel, io, type(Request)]}) || get(log)],
+            group:log_io_request(IoReq, get(log), ?MODULE),
             _ = do_io_request(Request, From, ReplyAs, Port),
             server_loop(Port);
         {'EXIT',Port,badsig} ->         % Ignore badsig errors
@@ -87,18 +85,6 @@ server_loop(Port) ->
             exit(What);
         _Other ->               % Ignore other messages
             server_loop(Port)
-    end.
-
-type(Req) ->
-    ReqType = element(1, Req),
-    case {lists:member(ReqType, [put_chars, requests]),
-            lists:member(ReqType, [get_chars, get_line, get_until, get_password])} of
-        {true, false} ->
-            output;
-        {false, true} ->
-            input;
-        {false, false} ->
-            ctrl
     end.
 
 get_fd_geometry(Port) ->
@@ -247,8 +233,11 @@ check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode; Valid =:= utf8;
     check_valid_opts(T);
 check_valid_opts([{onlcr,Bool}|T]) when is_boolean(Bool) ->
     check_valid_opts(T);
-check_valid_opts([{log,Bool}|T]) when is_boolean(Bool) ->
-    check_valid_opts(T);
+check_valid_opts([{log,Flag}|T]) ->
+    case lists:member(Flag, [none, output, input, all]) of
+        true -> check_valid_opts(T);
+        false -> false
+    end;
 check_valid_opts(_) ->
     false.
 

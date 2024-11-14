@@ -34,7 +34,7 @@
 -export([server_loop/3]).
 
 %% Logger report format fun
--export([format_io_request_log/1]).
+-export([format_io_request_log/1, log_io_request/3]).
 
 start(Drv, Shell) ->
     start(Drv, Shell, []).
@@ -78,7 +78,7 @@ server(Ancestors, Drv, Shell, Options) ->
 
     put(line_buffer, proplists:get_value(line_buffer, Options, DefaultGroupHistory)),
 
-    put(log, false),
+    put(log, none),
 
     server_loop(Drv, start_shell(Shell), []).
 
@@ -224,10 +224,7 @@ get_terminal_state(Drv) ->
     end.
 
 io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
-    _ = [?LOG_INFO(#{ request => {io_request, From, ReplyAs, Req}, server => self(),
-                      server_name => server_name() },
-                   #{ report_cb => fun format_io_request_log/1,
-                      domain => [otp, kernel, io, output]}) || get(log)],
+    log_io_request({io_request, From, ReplyAs, Req}, get(log), server_name()),
     case io_request(Req, Drv, Shell, {From,ReplyAs}, Buf0) of
 	{ok,Reply,Buf} ->
 	    io_reply(From, ReplyAs, Reply),
@@ -245,7 +242,6 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 	    exit_shell(kill),
 	    exit(R)
     end.
-
 
 %% Put_chars, unicode is the normal message, characters are always in
 %% standard unicode format.
@@ -429,8 +425,11 @@ check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
     check_valid_opts(T);
 check_valid_opts([{echo,Flag}|T]) when is_boolean(Flag) ->
     check_valid_opts(T);
-check_valid_opts([{log,Flag}|T]) when is_boolean(Flag) ->
-    check_valid_opts(T);
+check_valid_opts([{log,Flag}|T]) ->
+    case lists:member(Flag, [none, output, input, all]) of
+        true -> check_valid_opts(T);
+        false -> false
+    end;
 check_valid_opts([{expand_fun,Fun}|T]) when is_function(Fun, 1);
                                             is_function(Fun, 2) ->
     check_valid_opts(T);
@@ -481,12 +480,7 @@ getopts(Drv,Buf) ->
 		     _ ->
 			 false
 		  end},
-    Log = {log, case get(log) of
-		     LogBool when LogBool =:= true; LogBool =:= false ->
-                        LogBool;
-		     _ ->
-			 false
-		  end},
+    Log = {log, get(log)},
     Bin = {binary, case get(read_mode) of
 		       binary ->
 			   true;
@@ -1268,15 +1262,44 @@ server_name() ->
             Name
     end.
 
+log_io_request(Request, LogLevel, Name) ->
+    lists:member(LogLevel, [type(Request), all]) andalso
+                ?LOG_INFO(#{ request => Request, server => self(), server_name => Name},
+                          #{ report_cb => fun group:format_io_request_log/1,
+                             domain => [otp, kernel, io, type(Request)]}).
+
+type({io_request, _From, _ReplyAs, Req}) ->
+    type(Req);
+type(getopts) ->
+    ctrl;
+type(Req) ->
+    ReqType = element(1, Req),
+    case {lists:member(ReqType, [put_chars, requests]),
+            lists:member(ReqType, [get_chars, get_line, get_until, get_password])} of
+        {true, false} ->
+            output;
+        {false, true} ->
+            input;
+        {false, false} ->
+            ctrl
+    end.
+
 format_io_request_log(#{ request := {io_request, From, ReplyAs, Request},
                          server := Server,
                          server_name := Name }) ->
+    format_io_request_log(normalize_request(Request), From, ReplyAs, Server, Name).
+
+format_io_request_log({put_chars, unicode, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~ts", [From, Name, Data]};
+format_io_request_log({put_chars, latin1, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~s", [From, Name, Data]};
+format_io_request_log(Request, From, ReplyAs, Server, Name) ->
     {"Request: ~p\n"
      "  From: ~p\n"
      "  ReplyAs: ~p\n"
      "Server: ~p\n"
-     "Name: ~p\n"
-     ,[normalize_request(Request), From, ReplyAs, Server, Name]}.
+     "Name: ~p\n",
+     [Request, From, ReplyAs, Server, Name]}.
 
 normalize_request({put_chars, Chars}) ->
     normalize_request({put_chars, latin1, Chars});

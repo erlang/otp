@@ -88,7 +88,7 @@ logging(Config) when is_list(Config) ->
         logger:add_handler(stderr, logger_std_h, #{ filter_default => stop,
                                                     config => #{ type => {device, Device} } } ),
 
-        io:setopts(standard_error, [{log, true}]),
+        ok = io:setopts(standard_error, [{log, all}]),
 
         logger:set_primary_config(level, all),
 
