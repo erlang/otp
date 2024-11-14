@@ -422,7 +422,7 @@ pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
             {params, DssParams} = der_decode('DSAParams', Params),
             {der_decode(KeyType, Key0), DssParams};
         'ECPoint' ->
-	    ECCParams = der_decode('EcpkParameters', Params),
+            ECCParams = ec_decode_params(AlgId, Params),
             {#'ECPoint'{point = Key0}, ECCParams}
     end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
@@ -2271,6 +2271,12 @@ cacerts_clear() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+ec_decode_params(AlgId, _) when AlgId == ?'id-Ed25519';
+                                AlgId == ?'id-Ed448' ->
+    {namedCurve, AlgId};
+ec_decode_params(_, Params) ->
+    der_decode('EcpkParameters', Params).
+
 default_options([]) ->
     [{rsa_padding, rsa_pkcs1_padding}];
 default_options(Opts) ->
