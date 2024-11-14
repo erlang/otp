@@ -303,20 +303,17 @@ update_cipher_key(ConnStateName, CS0) ->
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
     HKDF = SecParams0#security_parameters.prf_algorithm,
     CipherSuite = SecParams0#security_parameters.cipher_suite,
-    ApplicationTrafficSecret0 =
-        SecParams0#security_parameters.application_traffic_secret,
-    ApplicationTrafficSecret =
-        tls_v1:update_traffic_secret(HKDF,
-                                     ApplicationTrafficSecret0),
+    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
+    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF,ApplicationTrafficSecret0),
 
     %% Calculate traffic keys
     KeyLength = tls_v1:key_length(CipherSuite),
-    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength,
-                                              ApplicationTrafficSecret),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, KeyLength, ApplicationTrafficSecret),
 
     SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
     CipherState = CipherState0#cipher_state{key = Key, iv = IV},
-    ConnState = ConnState0#{security_parameters => SecParams,
+    ConnState1 = maps:remove(aead_handle, ConnState0),
+    ConnState = ConnState1#{security_parameters => SecParams,
                             cipher_state => CipherState,
                             sequence_number => 0},
     CS0#{ConnStateName => ConnState}.

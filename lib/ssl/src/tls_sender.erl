@@ -311,7 +311,7 @@ connection(cast, {new_write, WritesState, Version},
            #data{connection_states = ConnectionStates, static = Static} = StateData) ->
     hibernate_after(connection,
                     StateData#data{connection_states =
-                                       ConnectionStates#{current_write => WritesState},
+                                       ConnectionStates#{current_write => maps:remove(aead_handle, WritesState)},
                                    static =
                                        Static#static{negotiated_version = Version}}, []);
 %%
@@ -357,8 +357,8 @@ handshake(cast, {new_write, WriteState, Version},
           #data{connection_states = ConnectionStates,
                 static = #static{key_update_at = KeyUpdateAt0} = Static} = StateData) ->
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
-    {next_state, connection, 
-     StateData#data{connection_states = ConnectionStates#{current_write => WriteState},
+    {next_state, connection,
+     StateData#data{connection_states = ConnectionStates#{current_write => maps:remove(aead_handle, WriteState)},
                     static = Static#static{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
