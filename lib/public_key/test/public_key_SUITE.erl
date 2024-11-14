@@ -61,6 +61,8 @@
          eddsa_priv_pkcs8/1,
          eddsa_priv_rfc5958/0,
          eddsa_priv_rfc5958/1,
+         eddsa_pub/0,
+         eddsa_pub/1,
          eddsa_sign_verify_24_compat/1,
          init_ec_pem_encode_generated/1,
          ec_pem_encode_generated/0,
@@ -494,6 +496,20 @@ eddsa_priv_rfc5958(Config) when is_list(Config) ->
     PrivEntry0 = public_key:pem_entry_encode('OneAsymmetricKey', ECPrivKey),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+eddsa_pub() ->
+    [{doc, "EDDSA PKCS8 public key decode/encode"}].
+eddsa_pub(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, EDDSAPubPem} = file:read_file(filename:join(Datadir, "public_eddsa.pem")),
+    [{'SubjectPublicKeyInfo', _, not_encrypted} = Key] = PemEntry =
+        public_key:pem_decode(EDDSAPubPem),
+    EDDSAPubKey = public_key:pem_entry_decode(PemEntry),
+    true = check_entry_type(EDDSAPubKey, 'ECPoint'),
+    {_, {namedCurve, ?'id-Ed25519'}} = EDDSAPubKey,
+    PrivEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', EDDSAPubKey),
+    ECPemNoEndNewLines = strip_superfluous_newlines(EDDSAPubPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PemEntry])).
 
 eddsa_sign_verify_24_compat(_Config) ->
     Key =
