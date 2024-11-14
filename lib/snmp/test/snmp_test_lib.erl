@@ -668,20 +668,35 @@ has_support_ipv6() ->
 has_valid_ipv6_address() ->
     case net:getifaddrs(fun(#{addr  := #{family := inet6},
                               flags := Flags}) ->
-                                not lists:member(loopback, Flags);
+                                lists:member(up, Flags) andalso
+                                    lists:member(running, Flags) andalso
+                                    not lists:member(loopback, Flags);
                            (_) ->
                                 false
                         end) of
         {ok, [#{addr := #{addr := LocalAddr}}|_]} ->
             %% At least one valid address, we pick the first...
+            iprint("~w -> try validate address: "
+                   "~n   ~p", [?FUNCTION_NAME, LocalAddr]),
             try validate_ipv6_address(LocalAddr)
             catch
-                _:_:_ ->
+                exit:{skip, SkipReasonStr} when is_list(SkipReasonStr) ->
+                    nprint("~w -> failed validating address: "
+                           "~n   ~s", [?FUNCTION_NAME, SkipReasonStr]),
+                    false;
+                C:E ->
+                    nprint("~w -> failed validating address: "
+                           "~n   Error Class: ~p"
+                           "~n   Error:       ~p", [?FUNCTION_NAME, C, E]),
                     false
             end;
-        {ok, _} ->
+        {ok, X} ->
+            nprint("~w -> invalid ok: "
+                   "~n   ~p", [?FUNCTION_NAME, X]),
             false;
-        {error, _} ->
+        {error, X} ->
+            wprint("~w -> error: "
+                   "~n   ~p", [?FUNCTION_NAME, X]),
             false
     end.
 

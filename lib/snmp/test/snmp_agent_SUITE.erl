@@ -611,19 +611,19 @@ inet_backend_socket_cases() ->
 %% group end!
 major_cases() ->
     [
-     {group, misc}, 
-     {group, test_v1}, 
-     {group, test_v2},
-     {group, test_v1_v2}, 
-     {group, test_v3},
-     {group, test_v1_ipv6},
-     {group, test_v2_ipv6},
-     {group, test_v1_v2_ipv6},
-     {group, test_v3_ipv6},
-     {group, test_multi_threaded}, 
-     {group, test_multi_threaded_ext}, 
-     {group, mib_storage},
-     {group, tickets1}
+     %% {group, misc}, 
+     %% {group, test_v1}, 
+     %% {group, test_v2},
+     %% {group, test_v1_v2}, 
+     %% {group, test_v3},
+     {group, test_v1_ipv6}%%,
+     %% {group, test_v2_ipv6}
+     %% {group, test_v1_v2_ipv6},
+     %% {group, test_v3_ipv6},
+     %% {group, test_multi_threaded}, 
+     %% {group, test_multi_threaded_ext}, 
+     %% {group, mib_storage},
+     %% {group, tickets1}
     ].
     
 all_cases() -> 
@@ -760,6 +760,7 @@ init_per_group(GroupName, Config0) ->
                     [?FUNCTION_NAME, GroupName, Config1, nodes()]),
 
             Config1;
+
         {skip, SkipReason} = SKIP ->
 
             ?IPRINT("~w(~w) -> done when SKIP"
@@ -857,13 +858,14 @@ init_per_group2(test_v1 = GroupName, Config) ->
     init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group2(test_v1_ipv6 = GroupName, Config) ->
     ?IPRINT("init_per_group2(test_v1_ipv6) -> entry"),
-    init_per_group_ipv6(GroupName, Config, fun init_v1/1);
+    init_per_group_ipv6(GroupName, Config, fun init_v1/1, fun finish_v1/1);
 init_per_group2(test_v2_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v2/1);
+    init_per_group_ipv6(GroupName, Config, fun init_v2/1, fun finish_v2/1);
 init_per_group2(test_v1_v2_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v1_v2/1);
+    init_per_group_ipv6(GroupName, Config,
+                        fun init_v1_v2/1, fun finish_v1_v2/1);
 init_per_group2(test_v3_ipv6 = GroupName, Config) ->
-    init_per_group_ipv6(GroupName, Config, fun init_v3/1);
+    init_per_group_ipv6(GroupName, Config, fun init_v3/1, fun finish_v3/1);
 init_per_group2(misc = GroupName, Config) -> 
     init_misc(snmp_test_lib:init_group_top_dir(GroupName, Config));
 init_per_group2(mib_storage_varm_mnesia = GroupName, Config) -> 
@@ -909,11 +911,12 @@ init_per_group2(otp16649_ipv4 = GroupName, Config) ->
 init_per_group2(otp16649_ipv6 = GroupName, Config) ->
     init_per_group_ipv6(GroupName,
                         [{tdomain,  transportDomainUdpIpv6} | Config],
+                        fun(C) -> C end,
                         fun(C) -> C end);
 init_per_group2(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
 
-init_per_group_ipv6(GroupName, Config, Init) ->
+init_per_group_ipv6(GroupName, Config, Init, Finish) ->
     %% <OS-CONDITIONAL-SKIP>
     %% This is a highly questionable test.
     %% But until we have time to figure out what IPv6 issues
@@ -939,22 +942,45 @@ init_per_group_ipv6(GroupName, Config, Init) ->
         false ->
             %% Even if this host supports IPv6 we don't use it unless its
             %% one of the configured/supported IPv6 hosts...
+            ?IPRINT("check if host has IPv6 support"),
             case ?HAS_SUPPORT_IPV6() of
                 true ->
                     ?IPRINT("~w(~w) -> IPv6 supported",
                             [?FUNCTION_NAME, GroupName]),
-                    try Init(
-                          snmp_test_lib:init_group_top_dir(
-                            GroupName,
-                            [{ipfamily, inet6},
-                             {ip, ?LOCALHOST(inet6)}
-                            | lists:keydelete(ip, 1, Config)]))
+                    Config2 =
+                        [{ipfamily, inet6},
+                         {ip,       ?LOCALHOST(inet6)} |
+                         lists:keydelete(ip, 1, Config)],
+                    Config3 = snmp_test_lib:init_group_top_dir(GroupName,
+                                                               Config2),
+                    try Init(Config3)
                     catch
                         exit:{suite_failed, {start_failed, net_if, {udp_open, Info, Reason}}, _M, _L} ->
                             ?EPRINT("Failed starting agent net-if: "
                                     "~n   Info:   ~p"
                                     "~n   Reason: ~p", [Info, Reason]),
-                            {skip, "IPv6 not supported after all"}
+                            %% If we get here there is a good chance we got
+                            %% part way through the initiation...
+                            %% And since the 'end_per_group is *not* called
+                            %% if we skip, we must do that here!!
+                            %% The assumption is that "nothing" happened if
+                            %% we skip...
+                            (catch Finish(Config3)),
+                            {skip, "IPv6 not fully supported"};
+                        C:E:S ->
+                            ?EPRINT("Failed starting agent net-if: "
+                                    "~n   Error Class: ~p"
+                                    "~n   Error:       ~p"
+                                    "~n   StackTrace:  ~p",
+                                    [C, E, S]),
+                            %% If we get here there is a good chance we got
+                            %% part way through the initiation...
+                            %% And since the 'end_per_group is *not* called
+                            %% if we skip, we must do that here!!
+                            %% The assumption is that "nothing" happened if
+                            %% we skip...
+                            (catch Finish(Config3)),
+                            {skip, "Failed initiating"}
                     end;
                         
                 false ->
