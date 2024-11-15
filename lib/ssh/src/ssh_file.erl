@@ -170,7 +170,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 """.
 -moduledoc(#{since => "OTP 21.2",
              titles =>
-                 [{type,<<"Options for the default ssh_file callback module">>}]}).
+                 [{type,<<"Options">>}]}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -186,7 +186,7 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
 -export([host_key/2, is_auth_key/3]).
 -export_type([system_dir_daemon_option/0]).
 -doc "Sets the [system directory](`m:ssh_file#SYSDIR`).".
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type system_dir_daemon_option()   :: {system_dir, string()}.
 
 %%%--------------------- client exports ---------------------------
@@ -199,7 +199,7 @@ supplied with thoose options.
 
 Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 """.
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
                                               %% Not yet implemented:                     | {ed25519_pass_phrase,  string()}
@@ -218,16 +218,15 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
              ]).
 
 -doc "Sets the [user directory](`m:ssh_file#USERDIR`).".
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type user_dir_common_option()     :: {user_dir,  string()}.
--doc(#{title => <<"Options for the default ssh_file callback module">>,
-       equiv => user2dir/0}).
+-doc(#{title => <<"Options">>}).
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -doc """
 Sets the [user directory](`m:ssh_file#USERDIR`) dynamically by evaluating the
 `user2dir` function.
 """.
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
 -doc """
@@ -239,17 +238,16 @@ To set it, set the option `{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}` in the
 call of ["ssh:connect/3](`ssh:connect/3`), `ssh:daemon/2` or similar function
 call that initiates an ssh connection.
 """.
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type optimize_key_lookup() :: {optimize, time|space} .
 
 -doc "The key representation".
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type key() :: public_key:public_key() | public_key:private_key() .
--doc(#{title => <<"Options for the default ssh_file callback module">>,
-       equiv => openssh_key_v1_attributes/0}).
+-doc(#{title => <<"Options">>}).
 -type experimental_openssh_key_v1() :: [{key(), openssh_key_v1_attributes()}].
 -doc "Types for the experimental implementaition of the `openssh_key_v1` format.".
--doc(#{title => <<"Options for the default ssh_file callback module">>}).
+-doc(#{title => <<"Options">>}).
 -type openssh_key_v1_attributes() :: [{atom(),term()}].
 
 %%%================================================================
