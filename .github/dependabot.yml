@@ -1,8 +1,66 @@
 version: 2
 
 updates:
+
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "master"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "team:VM"
+    assignees:
+      - "garazdawi"
+      - "kikofernandez"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "maint"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "team:VM"
+    assignees:
+      - "garazdawi"
+      - "kikofernandez"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "maint-27"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "team:VM"
+    assignees:
+      - "garazdawi"
+      - "kikofernandez"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "maint-26"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "team:VM"
+    assignees:
+      - "garazdawi"
+      - "kikofernandez"
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "maint-25"
     schedule:
       interval: "weekly"
     labels:
