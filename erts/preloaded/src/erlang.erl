@@ -5787,6 +5787,11 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:cancel_timer/2`](`cancel_timer/2`), and
 [`erlang:read_timer/2`](`read_timer/2`).
 
+For more information on timers in Erlang in general, see the
+[*Timers*](`e:erts:time_correction.md#timers`) section of the
+[*Time and Time Correction in Erlang*](`e:erts:time_correction.md`)
+ERTS User's guide.
+
 Failure: `badarg` if the arguments do not satisfy the requirements specified
 here.
 """.

@@ -38,6 +38,11 @@ module has been improved in OTP 25, making it more efficient and less
 susceptible to being overloaded. See
 [the Timer Module section in the Efficiency Guide](`e:system:commoncaveats.md#timer-module`).
 
+For more information on timers in Erlang in general, see the
+[*Timers*](`e:erts:time_correction.md#timers`) section of the
+[*Time and Time Correction in Erlang*](`e:erts:time_correction.md`)
+ERTS User's guide.
+
 ## Examples
 
 _Example 1_

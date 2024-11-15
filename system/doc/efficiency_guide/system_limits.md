@@ -107,3 +107,8 @@ sufficiently unique.
   If a unique integer  is created each nano second, unique integers will be
   reused at earliest after more than 584 years. That is, for the foreseeable future
   they are sufficiently unique.
+
+- ** Timer resolution ** - On most systems, millisecond resolution. For more
+  information, see the [*Timers*](`e:erts:time_correction.md#timers`) section of
+  the [*Time and Time Correction in Erlang*](`e:erts:time_correction.md`) ERTS
+  User's guide.
