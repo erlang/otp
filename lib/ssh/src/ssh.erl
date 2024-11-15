@@ -61,7 +61,7 @@ To write your own client channel handler, use the behaviour
 `m:ssh_client_channel`. For server channel handlers use `m:ssh_server_channel`
 behaviour (replaces ssh_daemon_channel).
 
-Both clients and daemons accepts options that controls the exact behaviour. Some
+Both clients and daemons accept options that control the exact behaviour. Some
 options are common to both. The three sets are called
 [Client Options](`t:client_options/0`), [Daemon Options](`t:daemon_options/0`)
 and [Common Options](`t:common_options/0`).
@@ -133,7 +133,7 @@ The directory could be changed with the option
 """.
 -moduledoc(#{titles =>
                  [{type,<<"Client Options">>},
-                  {type,<<"Daemon Options (Server Options)">>},
+                  {type,<<"Daemon Options">>},
                   {type,<<"Common Options">>},
                   {type,<<"Other data types">>}]}).
 
@@ -428,13 +428,13 @@ close(ConnectionRef) ->
 %%--------------------------------------------------------------------
 %% Description: Retrieves information about a connection.
 %%---------------------------------------------------------------------
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type version() :: {protocol_version(), software_version()}.
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type protocol_version() :: {Major::pos_integer(), Minor::non_neg_integer()}.
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type software_version() :: string().
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type conn_info_algs() :: [{kex, kex_alg()}
                            | {hkey, pubkey_alg()}
                            | {encrypt, cipher_alg()}
@@ -455,7 +455,7 @@ default values.
 -doc(#{title => <<"Other data types">>}).
 -type conn_info_channels() :: [proplists:proplist()].
 
--doc(#{title => <<"Other data types">>,equiv => conn_info_channels/0}).
+-doc(#{title => <<"Other data types">>}).
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}

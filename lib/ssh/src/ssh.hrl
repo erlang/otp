@@ -150,22 +150,19 @@ If the subsystems option is not present, the value of
 default. The option can be set to the empty list if you do not want the daemon
 to run any subsystems.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type subsystem_spec()        :: {Name::string(), mod_args()} .
                               
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type algs_list()             :: list( alg_entry() ).
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type alg_entry()             :: {kex, [kex_alg()]} 
                                | {public_key, [pubkey_alg()]}
                                | {cipher, double_algs(cipher_alg())}
                                | {mac, double_algs(mac_alg())}
                                | {compression, double_algs(compression_alg())} .
 
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type kex_alg()          :: 'curve25519-sha256' |
                             'curve25519-sha256@libssh.org' |
                             'curve448-sha512' |
@@ -181,8 +178,7 @@ to run any subsystems.
                             'diffie-hellman-group1-sha1'
                             .
 
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type pubkey_alg()       :: 'ssh-ed25519' |
                             'ssh-ed448' |
                             'ecdsa-sha2-nistp521' |
@@ -194,8 +190,7 @@ to run any subsystems.
                             'ssh-dss'
                             .
 
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type cipher_alg()       :: 'aes256-gcm@openssh.com' |
                             'aes256-ctr' |
                             'aes192-ctr' |
@@ -210,8 +205,7 @@ to run any subsystems.
                             '3des-cbc'
                             .
 
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type mac_alg()          :: 'hmac-sha2-512-etm@openssh.com' |
                             'hmac-sha2-256-etm@openssh.com' |
                             'hmac-sha2-512' |
@@ -223,8 +217,7 @@ to run any subsystems.
                             'AEAD_AES_128_GCM'
                             .
 
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type compression_alg()  :: 'none' |
                             'zlib' |
                             'zlib@openssh.com'
@@ -324,23 +317,20 @@ For background and more examples see the
 
 -type internal_options()      :: ssh_options:private_options().
 -type socket_options()        :: [gen_tcp:connect_option() | gen_tcp:listen_option()].
-                              
--doc(#{title => <<"Client Options">>,equiv => client_option/0}).
--type client_options()        :: [ client_option() ] .
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => daemon_option/0}).
--type daemon_options()        :: [ daemon_option() ].
-                              
 
--doc(#{title => <<"Common Options">>,
-       equiv => common_option/0}).
+-doc(#{title => <<"Client Options">>}).
+-type client_options()        :: [ client_option() ] .
+-doc(#{title => <<"Daemon Options">>}).
+-type daemon_options()        :: [ daemon_option() ].
+
+-doc(#{title => <<"Common Options">>}).
 -type common_options() :: [ common_option() ].
 -doc """
 The options above can be used both in clients and in daemons (servers). They are
 further explained below.
 """.
 -doc(#{title => <<"Common Options">>}).
--type common_option() :: 
+-type common_option() ::
         ssh_file:user_dir_common_option()
       | profile_common_option()
       | max_idle_time_common_option()
@@ -383,8 +373,7 @@ For more information about timeouts, see the
 """.
 -doc(#{title => <<"Common Options">>}).
 -type max_idle_time_common_option() :: {idle_time, timeout()}.
--doc(#{title => <<"Common Options">>,
-       equiv => limit_time/0}).
+-doc(#{title => <<"Common Options">>}).
 -type rekey_limit_common_option()   :: {rekey_limit, Bytes::limit_bytes() |
                                                      {Minutes::limit_time(), Bytes::limit_bytes()}
                                        }.
@@ -395,8 +384,7 @@ and the value defaults to 500.
 -doc(#{title => <<"Common Options">>}).
 -type max_log_item_len_common_option() :: {max_log_item_len, limit_bytes()} .
 
--doc(#{title => <<"Common Options">>,
-       equiv => limit_time/0}).
+-doc(#{title => <<"Common Options">>}).
 -type limit_bytes() :: non_neg_integer() | infinity .  % non_neg_integer due to compatibility
 -doc """
 Sets the limit when rekeying is to be initiated. Both the max time and max
@@ -497,11 +485,9 @@ specifying the path to the user's keys.
 """.
 -doc(#{title => <<"Common Options">>}).
 -type pref_public_key_algs_common_option() :: {pref_public_key_algs, [pubkey_alg()] } .
--doc(#{title => <<"Common Options">>,
-       equiv => double_algs/1}).
+-doc(#{title => <<"Common Options">>}).
 -type preferred_algorithms_common_option():: {preferred_algorithms, algs_list()}.
--doc(#{title => <<"Common Options">>,
-       equiv => modify_algs_list/0}).
+-doc(#{title => <<"Common Options">>}).
 -type modify_algorithms_common_option()   :: {modify_algorithms,    modify_algs_list()}.
 -doc """
 Comma-separated string that determines which authentication methods that the
@@ -561,8 +547,7 @@ risk.
       | gen_tcp:connect_option()
       | ?COMMON_OPTION .
 
--doc(#{title => <<"Other data types">>,
-       equiv => opaque_common_options/0}).
+-doc(#{title => <<"Other data types">>}).
 -type opaque_client_options() ::
         {keyboard_interact_fun, fun((Name::iodata(),
                                      Instruction::iodata(),
@@ -572,25 +557,6 @@ risk.
                                    )} 
         | opaque_common_options().
 
--doc(#{title => <<"Client Options">>,equiv => fingerprint/0}).
--type host_accepting_client_options() ::
-        {silently_accept_hosts, accept_hosts()}
-      | {user_interaction,     boolean()}
-      | {save_accepted_host,   boolean()}
-      | {quiet_mode,           boolean()} .
-
--doc(#{title => <<"Client Options">>,equiv => fingerprint/0}).
--type accept_hosts() :: boolean() 
-                      | accept_callback()
-                      | {HashAlgoSpec::fp_digest_alg(), accept_callback()}.
-
--doc(#{title => <<"Client Options">>,equiv => fingerprint/0}).
--type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
-
--doc(#{title => <<"Client Options">>,equiv => fingerprint/0}).
--type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) % Old style
-                         | fun((PeerName::string(), Port::inet:port_number(), fingerprint() ) -> boolean()) % New style
-                           .
 -doc """
 - **`silently_accept_hosts`{: #hardening_client_options-silently_accept_hosts
   }** - This option guides the `connect` function on how to act when the
@@ -650,6 +616,26 @@ risk.
 
   Defaults to `false`
 """.
+-doc(#{title => <<"Client Options">>}).
+-type host_accepting_client_options() ::
+        {silently_accept_hosts, accept_hosts()}
+      | {user_interaction,     boolean()}
+      | {save_accepted_host,   boolean()}
+      | {quiet_mode,           boolean()} .
+
+-doc(#{title => <<"Client Options">>}).
+-type accept_hosts() :: boolean()
+                      | accept_callback()
+                      | {HashAlgoSpec::fp_digest_alg(), accept_callback()}.
+
+-doc(#{title => <<"Client Options">>}).
+-type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
+
+-doc(#{title => <<"Client Options">>}).
+-type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) % Old style
+                         | fun((PeerName::string(), Port::inet:port_number(), fingerprint() ) -> boolean()) % New style
+                           .
+
 -doc(#{title => <<"Client Options">>}).
 -type fingerprint() :: string() | [string()].
 
@@ -712,7 +698,7 @@ Also note that setting a `t:gen_tcp:listen_option/0` could change the socket in
 a way that impacts the ssh deamon's behaviour negatively. You use it on your own
 risk.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type daemon_option()         ::
         subsystem_daemon_option()
       | shell_daemon_option()
@@ -732,23 +718,20 @@ risk.
       | gen_tcp:listen_option()
       | ?COMMON_OPTION .
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => subsystem_spec/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type subsystem_daemon_option() :: {subsystems, subsystem_specs()}.
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => subsystem_spec/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type subsystem_specs() :: [ subsystem_spec() ].
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
+-doc(#{title => <<"Daemon Options">>,
        equiv => 'shell_fun/2'/0}).
 -type shell_daemon_option()     :: {shell, shell_spec()} .
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => 'shell_fun/2'/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type shell_spec() :: mod_fun_args() | shell_fun() | disabled .
--doc(#{title => <<"Daemon Options (Server Options)">>,
+-doc(#{title => <<"Daemon Options">>,
        equiv => 'shell_fun/2'/0}).
 -type shell_fun() :: 'shell_fun/1'()  | 'shell_fun/2'() .
--doc(#{title => <<"Daemon Options (Server Options)">>,
+-doc(#{title => <<"Daemon Options">>,
        equiv => 'shell_fun/2'/0}).
 -type 'shell_fun/1'() :: fun((User::string()) -> pid()) .
 -doc """
@@ -759,23 +742,20 @@ See the option [`exec-option`](`t:exec_daemon_option/0`) for a description of
 how the daemon executes shell-requests and exec-requests depending on the shell-
 and exec-options.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type 'shell_fun/2'() :: fun((User::string(),  PeerAddr::inet:ip_address()) -> pid()).
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => exec_spec/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type exec_daemon_option()      :: {exec, exec_spec()} .
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type exec_spec()               :: {direct, exec_fun()} | disabled | deprecated_exec_opt().
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type exec_fun()                :: 'exec_fun/1'() | 'exec_fun/2'() | 'exec_fun/3'().
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => 'exec_fun/3'/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type 'exec_fun/1'() :: fun((Cmd::string()) -> exec_result()) .
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => 'exec_fun/3'/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type 'exec_fun/2'() :: fun((Cmd::string(), User::string()) -> exec_result()) .
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type 'exec_fun/3'() :: fun((Cmd::string(), User::string(), ClientAddr::ip_port()) -> exec_result()) .
 -doc """
 This option changes how the daemon executes exec-requests from clients. The term
@@ -847,13 +827,13 @@ implied by the custom CLI.
 > retained but obey the rules 1-6 above if conflicting. The old and undocumented
 > style should not be used in new programs.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type exec_result()  :: {ok,Result::term()} | {error,Reason::term()} .
 -doc """
 Old-style exec specification that are kept for compatibility, but should not be
 used in new programs
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type deprecated_exec_opt() :: fun() | mod_fun_args() .
 
 -doc """
@@ -866,20 +846,20 @@ own CLI channel. If `ssh_cli` is set to `no_cli`, the CLI channels like
 [`shell`](`t:shell_daemon_option/0`) and [`exec`](`t:exec_daemon_option/0`) are
 disabled and only subsystem channels are allowed.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type ssh_cli_daemon_option()   :: {ssh_cli, mod_args() | no_cli }.
 
 -doc """
 Enables (`true`) or disables (`false`) the possibility to tunnel a TCP/IP
 connection out of a [server](`daemon/2`). Disabled per default.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type tcpip_tunnel_out_daemon_option() :: {tcpip_tunnel_out, boolean()} .
 -doc """
 Enables (`true`) or disables (`false`) the possibility to tunnel a TCP/IP
 connection in to a [server](`daemon/2`). Disabled per default.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type tcpip_tunnel_in_daemon_option() :: {tcpip_tunnel_in, boolean()} .
 
 -doc """
@@ -892,11 +872,10 @@ extensions.
 Default value is `true` which is compatible with other implementations not
 supporting ext-info.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type send_ext_info_daemon_option() :: {send_ext_info, boolean()} .
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => pwdfun_4/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type authentication_daemon_options() ::
         ssh_file:system_dir_daemon_option()
       | {auth_method_kb_interactive_data, prompt_texts() }
@@ -904,28 +883,22 @@ supporting ext-info.
       | {pk_check_user, boolean()}  
       | {password, string()}
       | {pwdfun, pwdfun_2() | pwdfun_4()}
-      | {no_auth_needed, boolean()}
-        .
+      | {no_auth_needed, boolean()}.
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => pwdfun_4/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type prompt_texts() ::
         kb_int_tuple()
       | kb_int_fun_3()
-      | kb_int_fun_4()
-      .
+      | kb_int_fun_4().
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => pwdfun_4/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type kb_int_fun_3() :: fun((Peer::ip_port(), User::string(), Service::string()) -> kb_int_tuple()).
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => pwdfun_4/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type kb_int_fun_4() :: fun((Peer::ip_port(), User::string(), Service::string(), State::any()) -> kb_int_tuple()).
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => pwdfun_4/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type kb_int_tuple() :: {Name::string(), Instruction::string(), Prompt::string(), Echo::boolean()}.
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
+-doc(#{title => <<"Daemon Options">>,
        equiv => pwdfun_4/0}).
 -type pwdfun_2() :: fun((User::string(), Password::string()|pubkey) -> boolean()) .
 -doc """
@@ -1025,7 +998,7 @@ supporting ext-info.
 
   The default value is `false`.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type pwdfun_4() :: fun((User::string(),
                          Password::string()|pubkey,
                          PeerAddress::ip_port(),
@@ -1033,17 +1006,14 @@ supporting ext-info.
                                boolean() | disconnect | {boolean(),NewState::any()}
                        ) .
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => ssh_moduli_file/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type diffie_hellman_group_exchange_daemon_option() ::
         {dh_gex_groups, [explicit_group()] | explicit_group_file() | ssh_moduli_file()}
       | {dh_gex_limits, {Min::pos_integer(), Max::pos_integer()} } .
 
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => ssh_moduli_file/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type explicit_group() :: {Size::pos_integer(),G::pos_integer(),P::pos_integer()} .
--doc(#{title => <<"Daemon Options (Server Options)">>,
-       equiv => ssh_moduli_file/0}).
+-doc(#{title => <<"Daemon Options">>}).
 -type explicit_group_file() :: {file,string()} .
 -doc """
 - **`dh_gex_groups`** - Defines the groups the server may choose among when
@@ -1078,7 +1048,7 @@ supporting ext-info.
   See [RFC 4419](https://tools.ietf.org/html/rfc4419) for the function of the
   Max and Min values.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type ssh_moduli_file() :: {ssh_moduli_file,string()}.
 
 -doc """
@@ -1089,7 +1059,7 @@ For more information about timeouts, see the
 [Timeouts section ](hardening.md#timeouts)in the User's Guide
 [Hardening](hardening.md) chapter.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type max_initial_idle_time_daemon_option() :: {max_initial_idle_time, timeout()} .
 -doc """
 Maximum time in milliseconds for the authentication negotiation. Defaults to
@@ -1100,7 +1070,7 @@ For more information about timeouts, see the
 [Timeouts section ](hardening.md#timeouts)in the User's Guide
 [Hardening](hardening.md) chapter.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type negotiation_timeout_daemon_option() :: {negotiation_timeout, timeout()} .
 -doc """
 Maximum time in milliseconds for the first part of the ssh session setup, the
@@ -1111,7 +1081,7 @@ For more information about timeouts, see the
 [Timeouts section ](hardening.md#timeouts)in the User's Guide
 [Hardening](hardening.md) chapter.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type hello_timeout_daemon_option() :: {hello_timeout, timeout()} .
 
 -doc """
@@ -1160,7 +1130,7 @@ in the User's Guide chapter.
   maximum packet size that the daemon will accept in channel open requests from
   the client. The default value is 0.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type hardening_daemon_options() ::
         {max_sessions, pos_integer()}
       | {max_channels, pos_integer()}
@@ -1174,13 +1144,12 @@ in the User's Guide chapter.
 - **`failfun`** - Provides a fun to implement your own logging when a user fails
   to authenticate.
 """.
--doc(#{title => <<"Daemon Options (Server Options)">>}).
+-doc(#{title => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
       | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
 
--doc(#{title => <<"Other data types">>,
-       equiv => opaque_common_options/0}).
+-doc(#{title => <<"Other data types">>}).
 -type opaque_daemon_options()  ::
         {infofun, fun()}
       | opaque_common_options().
@@ -1202,7 +1171,7 @@ in the User's Guide chapter.
 
 -record(ssh,
 	{
-	  role :: client | role(),
+	  role :: role(),
 	  peer :: undefined | 
                   {inet:hostname(),ip_port()},         %% string version of peer address 
 

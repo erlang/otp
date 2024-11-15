@@ -51,8 +51,7 @@ tree.
 > When implementing a client subsystem handler, use
 > [\-behaviour(ssh_client_channel)](`m:ssh_client_channel`) instead.
 """.
--moduledoc(#{since => "OTP 21.0",
-             titles => [{callback,<<"Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 21.0"}).
 
 %% API to server side channel that can be plugged into the erlang ssh daemeon
 -doc """
@@ -63,7 +62,7 @@ The time-out values that can be returned have the same semantics as in a
 `m:gen_server`. If the time-out occurs, `c:handle_msg/2` is called as
 [`handle_msg(timeout, State)`](`c:handle_msg/2`).
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback init(Args :: term()) ->
     {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
     {stop, Reason :: term()} | ignore.
@@ -76,7 +75,7 @@ called earlier. This function does any necessary cleaning up. When it returns,
 the channel process terminates with reason `Reason`. The return value is
 ignored.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
                     State :: term()) ->
@@ -95,7 +94,7 @@ channels are to handle the following message.
   message from it. If the message is not useful for your particular scenario,
   ignore it by immediately returning `{ok, State}`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_msg(Msg ::term(), State :: term()) ->
     {ok, State::term()} | {stop, ChannelId::ssh:channel_id(), State::term()}. 
 -doc """
@@ -108,7 +107,7 @@ The following message is taken care of by the `ssh_server_channel` behavior.
   message to the other side, if such a message has not already been sent. Then
   it terminates the channel with reason `normal`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{since => <<"OTP 21.0">>}).
 -callback handle_ssh_msg(ssh_connection:event(),
 			 State::term()) -> {ok, State::term()} |
 					   {stop, ChannelId::ssh:channel_id(),
