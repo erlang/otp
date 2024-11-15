@@ -209,8 +209,8 @@ create_all_suites() ->
     lists:foreach(fun create_suite/1, Suites).
 
 escape_strings({differ, TestCase, List}) ->
-    Map = fun({T,L,S}) -> {T,L,xmerl_lib:export_text(S)} end,
-    {differ, TestCase, lists:keysort(3, lists:map(Map, List))}.
+    Escaped = [{T, L, xmerl_lib:export_text(S)} || {T, L, S} <- List],
+    {differ, TestCase, lists:keysort(2, Escaped)}.
 
 -spec get_suites(file:filename()) -> [string()].
 
