@@ -100,7 +100,6 @@ options). This implies that the (new) client will be served by the already
 ongoing connection on the server side. By not setting up yet another connection,
 in parallel with the ongoing one, the server consumes less resources.
 
-[](){: #prepare }
 """.
 
 %%-------------------------------------------------------------------
@@ -246,7 +245,6 @@ performed. `AcceptedOptions` is sent to the server, which replies with the
 options that it accepts. These are then forwarded to `open/4` as
 `SuggestedOptions`.
 
-[](){: #open }
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 
@@ -269,7 +267,6 @@ On the server side, where there is no preceding `prepare/5` call, no new options
 can be added, but those present in `SuggestedOptions` can be omitted or replaced
 with new values in `AcceptedOptions`.
 
-[](){: #read }
 """.
 
 -doc(#{title => <<"Client API">>,
@@ -292,7 +289,6 @@ clean up after the aborted file transfer, such as closing open file descriptors,
 and so on. In both cases there will be no more calls to any of the callback
 functions.
 
-[](){: #write }
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback read(State :: term()) -> {more, binary(), NewState :: term()} |
@@ -308,7 +304,6 @@ clean up after the aborted file transfer, such as closing open file descriptors,
 and so on. In both cases there will be no more calls to any of the callback
 functions.
 
-[](){: #abort }
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback write(binary(), State :: term()) ->

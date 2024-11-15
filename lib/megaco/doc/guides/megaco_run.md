@@ -149,17 +149,17 @@ There are three kinds of configuration:
   A User is an entity identified by a MID, e.g. a MGC or a MG.
 
   This information can be retrieved using
-  [megaco:user_info](`m:megaco#user_info`).
+  [megaco:user_info](`megaco:user_info/2`).
 
 - Connection info - Information regarding connections. Read/Write.
 
   This information can be retrieved using
-  [megaco:conn_info](`m:megaco#conn_info`).
+  [megaco:conn_info](`megaco:conn_info/2`).
 
 - System info - System wide information. Read only.
 
   This information can be retrieved using
-  [megaco:system_info](`m:megaco#system_info`).
+  [megaco:system_info](`megaco:system_info/1`).
 
 [](){: #initial_config }
 
@@ -190,8 +190,8 @@ more info.
 ## Changing the configuration
 
 The configuration can be changed during runtime. This is done with the functions
-[megaco:update_user_info](`m:megaco#update_user_info`) and
-[megaco:update_conn_info](`m:megaco#update_conn_info`)
+[megaco:update_user_info](`megaco:update_user_info/3`) and
+[megaco:update_conn_info](`megaco:update_conn_info/3`)
 
 [](){: #transaction_sender }
 
@@ -199,8 +199,8 @@ The configuration can be changed during runtime. This is done with the functions
 
 The transaction sender is a process (one per connection), which handle all
 transaction sending, if so configured (see
-[megaco:user_info](`m:megaco#user_info`) and
-[megaco:conn_info](`m:megaco#conn_info`)).
+[megaco:user_info](`megaco:user_info/2`) and
+[megaco:conn_info](`megaco:conn_info/2`)).
 
 The purpose of the transaction sender is to accumulate transactions for a more
 efficient message sending. The transactions that are accumulated are transaction
@@ -248,25 +248,25 @@ check this. Instead, it is up to the user to configure this properly.
 
   This is handled automatically by the megaco application. There is however one
   thing that need to be configured by the user, the
-  [segment_recv_timer](`m:megaco#user_info`) option.
+  [segment_recv_timer](`megaco:user_info/2`) option.
 
   Note that the segments are delivered to the user differently depending on
   which function is used to issue the original request. When issuing the request
-  using the [megaco:cast](`m:megaco#cast`) function, the segments are delivered
-  to the user via the [handle_trans_reply](`m:megaco_user#trans_reply`) callback
+  using the [megaco:cast](`megaco:cast/3`) function, the segments are delivered
+  to the user via the [handle_trans_reply](`c:megaco_user:handle_trans_reply/5`) callback
   function one at a time, as they arrive. But this obviously doe not work for
-  the [megaco:call](`m:megaco#call`) function. In this case, the segments are
+  the [megaco:call](`megaco:call/3`) function. In this case, the segments are
   accumulated and then delivered all at once as the function returns.
 
 - Sending segmented messages:
 
   This is also handled automatically by the megaco application. First of all,
   segmentation is only attempted if so configured, see the
-  [segment_send](`m:megaco#user_info`) option. Secondly, megaco relies on the
+  [segment_send](`megaco:user_info/2`) option. Secondly, megaco relies on the
   ability of the used codec to encode action replies, which is the smallest
   component the megaco application handles when segmenting. Thirdly, the reply
   will be segmented only if the sum of the size of the action replies (plus an
   arbitrary message header size) are greater then the specified max message size
-  (see the [max_pdu_size](`m:megaco#user_info`) option). Finally, if
+  (see the [max_pdu_size](`megaco:user_info/2`) option). Finally, if
   segmentation is decided, then each action reply will make up its own (segment)
   message.

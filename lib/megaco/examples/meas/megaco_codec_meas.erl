@@ -102,7 +102,7 @@ start() ->
     meas_init(1, ?DEFAULT_OPTS, ?DEFAULT_MESSAGE_PACKAGE, ?MEASURE_CODECS).
 
 -doc """
-start(MessagePackage) -> void()
+start(MessagePackage)
 
 This function runs the measurement on all the _official_ codecs; pretty,
 compact, ber, per and erlang.

@@ -286,8 +286,6 @@ Diameter messages.
 %% *the* encode.
 
 -doc """
-encode(Mod, Msg) -> Pkt
-
 Encode a Diameter message.
 """.
 -doc(#{since => <<"OTP R15B03">>}).
@@ -477,8 +475,6 @@ rec2msg(Mod, Rec) ->
 %% longer *the* decode.
 
 -doc """
-decode(Mod, Bin) -> Pkt
-
 Decode a Diameter message.
 """.
 -doc(#{since => <<"OTP R15B03">>}).

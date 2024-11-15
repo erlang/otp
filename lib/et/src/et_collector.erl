@@ -207,8 +207,6 @@ Interface module for the Event Trace (ET) application
 %% Reason = term()
 %%----------------------------------------------------------------------
 -doc """
-start_link(Options) -> {ok, CollectorPid} | {error, Reason}
-
 Start a collector process.
 
 The collector collects trace events and keeps them ordered by their timestamp.
@@ -352,11 +350,9 @@ start_clients(CollectorPid, []) ->
 %% CollectorPid = pid()
 %%----------------------------------------------------------------------
 -doc """
-stop(CollectorPid) -> ok
-
 Stop a collector process.
 """.
--spec stop(CollectorPid::pid()) -> ok.
+-spec stop(pid()) -> ok.
 stop(CollectorPid) ->
     call(CollectorPid, stop).
 
@@ -386,8 +382,6 @@ stop(CollectorPid) ->
 %% The options defaults to existing, write and keep.
 %%----------------------------------------------------------------------
 -doc """
-save_event_file(CollectorPid, FileName, Options) -> ok | {error, Reason}
-
 Save the events to a file.
 
 By default the currently stored events (existing) are written to a brand new
@@ -528,8 +522,8 @@ report(_, Bad) ->
     exit({bad_event, Bad}).
 
 -doc(#{equiv => report_event/6}).
--spec report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} when
-      CollectorPid :: pid(),
+-spec report_event(Handle, DetailLevel, FromTo, Label, Contents) -> {ok, Continuation} when
+      Handle :: CollectorPid :: pid() | table_handle(),
       DetailLevel :: level(),
       FromTo :: actor(),
       Label  :: term(),
@@ -539,9 +533,6 @@ report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) ->
     report_event(CollectorPid, DetailLevel, FromTo, FromTo, Label, Contents).
 
 -doc """
-report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok,
-Continuation} | exit(Reason)
-
 Report an event to the collector.
 
 All events are filtered thru the collector filter, which optionally may
@@ -549,8 +540,8 @@ transform or discard the event. The first call should use the pid of the
 collector process as report handle, while subsequent calls should use the table
 handle.
 """.
--spec report_event(CollectorPid, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} when
-      CollectorPid :: pid(),
+-spec report_event(Handle, DetailLevel, From, To, Label, Contents) -> {ok, Continuation} when
+      Handle :: CollectorPid :: pid() | table_handle(),
       DetailLevel :: level(),
       From :: actor(),
       To :: actor(),
@@ -582,8 +573,6 @@ report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
 %%----------------------------------------------------------------------
 
 -doc """
-make_key(Type, Stuff) -> Key
-
 Make a key out of an event record or an old key.
 """.
 -spec make_key(Handle, Stuff) -> Key when
@@ -644,8 +633,6 @@ get_table_handle(CollectorPid) when is_pid(CollectorPid) ->
 %% Reason = term()
 %%----------------------------------------------------------------------
 -doc """
-get_global_pid() -> CollectorPid | exit(Reason)
-
 Return a the identity of the globally registered collector if there is any.
 """.
 -spec get_global_pid() -> CollectorPid :: pid().
@@ -671,8 +658,6 @@ get_global_pid() ->
 %% TracePattern = {report_module(), dbg_match_spec_match_spec()}
 %%----------------------------------------------------------------------
 -doc """
-change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern}
-
 Change active trace pattern globally on all trace nodes.
 """.
 -spec change_pattern(CollectorPid, RawPattern) -> {old_pattern, TracePattern} when
@@ -709,11 +694,7 @@ change_pattern(CollectorPid, RawPattern) ->
 %% Val = term()
 %%----------------------------------------------------------------------
 -doc """
-dict_insert(CollectorPid, Key, Val) -> okdict_insert(CollectorPid, {subscriber,
-SubscriberPid}, Void) -> okdict_insert(CollectorPid, {filter, collector},
-FilterFun) -> ok
-
-Insert a dictionary entry and send a \{et, \{dict_insert, Key, Val\}\} tuple to
+Insert a dictionary entry and send a `{et, {dict_insert, Key, Val}}` tuple to
 all registered subscribers.
 
 If the entry is a new subscriber, it will imply that the new subscriber process
@@ -754,8 +735,6 @@ dict_insert(CollectorPid, Key, Val) ->
 %% Val = term()
 %%----------------------------------------------------------------------
 -doc """
-dict_lookup(CollectorPid, Key) -> [Val]
-
 Lookup a dictionary entry and return zero or one value.
 """.
 -spec dict_lookup(CollectorPid::pid(), Key::term()) -> [Val::term()].
@@ -781,8 +760,6 @@ dict_lookup(CollectorPid, Key) ->
 %% Key = term()
 %%----------------------------------------------------------------------
 -doc """
-dict_delete(CollectorPid, Key) -> ok
-
 Delete a dictionary entry and send a \{et, \{dict_delete, Key\}\} tuple to all
 registered subscribers.
 
@@ -808,8 +785,6 @@ dict_delete(CollectorPid, Key) ->
 %% val() = term()
 %%----------------------------------------------------------------------
 -doc """
-dict_match(CollectorPid, Pattern) -> [Match]
-
 Match some dictionary entries
 """.
 -spec dict_match(CollectorPid::pid(), {KeyPattern, ValPattern}) -> [Match] when
@@ -828,8 +803,6 @@ dict_match(CollectorPid, Pattern)  ->
 %% Msg = term()
 %%----------------------------------------------------------------------
 -doc """
-multicast(\_CollectorPid, Msg) -> ok
-
 Sends a message to all registered subscribers.
 """.
 -spec multicast(CollectorPid :: pid(), Msg::term()) -> ok.
@@ -851,9 +824,6 @@ multicast(CollectorPid, Msg) ->
 %% Pid        = dbg_trace_client_pid()
 %%----------------------------------------------------------------------
 -doc """
-start_trace_client(CollectorPid, Type, Parameters) -> file_loaded |
-{trace_client_pid, pid()} | exit(Reason)
-
 Load raw Erlang trace from a file, port or process.
 """.
 -spec start_trace_client(CollectorPid, Type, Parameter) -> file_loaded | {trace_client_pid, pid()} when
@@ -920,11 +890,7 @@ monitor_trace_port(CollectorPid, Parameters) ->
 %% 
 %% Short for iterate/5.
 %%----------------------------------------------------------------------
--doc """
-iterate(Handle, Prev, Limit) -> NewAcc
-
-Short for iterate(Handle, Prev, Limit, undefined, Prev) -> NewAcc
-""".
+-doc #{ equiv => iterate(Handle, Prev, Limit, undefined, Prev) }.
 -spec iterate(Handle, Prev, Limit) -> NewAcc when
       Handle :: CollectorPid | table_handle(),
       CollectorPid :: pid(),
@@ -957,8 +923,6 @@ iterate(Handle, Prev, Limit) ->
 %% Acc = NewAcc = term()
 %%----------------------------------------------------------------------
 -doc """
-iterate(Handle, Prev, Limit, Fun, Acc) -> NewAcc
-
 Iterate over the currently stored events.
 
 Iterates over the currently stored events and applies a function for each event.
@@ -1115,8 +1079,6 @@ incr(Val, Incr) ->
 %% table_handle() = record(table_handle)
 %%----------------------------------------------------------------------
 -doc """
-clear_table(Handle) -> ok
-
 Clear the event table.
 """.
 -spec clear_table(Handle) -> ok when

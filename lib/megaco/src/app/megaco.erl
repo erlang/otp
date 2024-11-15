@@ -246,14 +246,14 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   request-keep-alive timer.
 
   This timer is started when the _first_ reply to an asynchronous request
-  (issued using the [megaco:cast/3](`m:megaco#cast`) function) arrives. As long
+  (issued using the `megaco:cast/3` function) arrives. As long
   as this timer is running, replies will be delivered via the
-  [handle_trans_reply/4,5](`m:megaco_user#trans_reply`) callback function, with
+  [handle_trans_reply/4,5](`c:megaco_user:handle_trans_reply/5`) callback function, with
   their "arrival number" (see `UserReply` of the
-  [handle_trans_reply/4,5](`m:megaco_user#trans_reply`) callback function).
+  [handle_trans_reply/4,5](`c:megaco_user:handle_trans_reply/5`) callback function).
 
   Replies arriving after the timer has expired, will be delivered using the
-  [handle_unexpected_trans/3,4](`m:megaco_user#unexpected_trans`) callback
+  [handle_unexpected_trans/3,4](`c:megaco_user:handle_unexpected_trans/4`) callback
   function.
 
   Value type: `plain` | [non_neg_integer()](`t:erlang:non_neg_integer/0`)
@@ -301,11 +301,11 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 
 - **`call_proxy_gc_timeout`** - Timeout time for the call proxy.
 
-  When a request is sent using the [call/3](`m:megaco#call`) function, a proxy
+  When a request is sent using the `call/3` function, a proxy
   process is started to handle all replies. When the reply has been received and
   delivered to the user, the proxy process continue to exist for as long as this
   option specifies. Any received messages, is passed on to the user via the
-  [handle_unexpected_trans](`m:megaco_user#handle_unexpected_trans`) callback
+  [handle_unexpected_trans](`c:megaco_user:handle_unexpected_trans/4`) callback
   function.
 
   The timeout time is in milliseconds. A value of 0 (zero) means that the proxy
@@ -429,7 +429,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   package). This parameter specifies how many pending messages that can be sent
   (for a given received transaction request). When the limit is exceeded, the
   transaction is aborted (see
-  [handle_trans_request_abort](`m:megaco_user#request_abort`)) and an error
+  [handle_trans_request_abort](`c:megaco_user:handle_trans_request_abort/5`)) and an error
   message is sent to the other side.
 
   Note that this has no effect on the actual sending of pending transactions.
@@ -546,7 +546,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 - **`segment_reply_ind`** - This option specifies if the user shall be notified
   of received segment replies or not.
 
-  See [handle_segment_reply](`m:megaco_user#segment_reply`) callback function
+  See [handle_segment_reply](`c:megaco_user:handle_segment_reply/6`) callback function
   for more information.
 
   Value type: [boolean()](`t:erlang:boolean/0`)
@@ -562,8 +562,8 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   When the timer finally expires, a "megaco segments not received" (459) error
   message is sent to the other side and the user is notified with a
   `segment timeout` `UserReply` in either the
-  [handle_trans_reply](`m:megaco_user#trans_reply`) callback function or the
-  return value of the [call](`m:megaco#call`) function.
+  [handle_trans_reply](`c:megaco_user:handle_trans_reply/5`) callback function or the
+  return value of the `call/2` function.
 
   Value type: `t:megaco_timer/0`
 
@@ -749,14 +749,14 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   request-keep-alive timer.
 
   This timer is started when the _first_ reply to an asynchronous request
-  (issued using the [megaco:cast/3](`m:megaco#cast`) function) arrives. As long
+  (issued using the `megaco:cast/3` function) arrives. As long
   as this timer is running, replies will be delivered via the
-  [handle_trans_reply/4,5](`m:megaco_user#trans_reply`) callback function, with
+  [handle_trans_reply/4,5](`c:megaco_user:handle_trans_reply/5`) callback function, with
   their "arrival number" (see `UserReply` of the
-  [handle_trans_reply/4,5](`m:megaco_user#trans_reply`) callback function).
+  [handle_trans_reply/4,5](`c:megaco_user:handle_trans_reply/5`) callback function).
 
   Replies arriving after the timer has expired, will be delivered using the
-  [handle_unexpected_trans/3,4](`m:megaco_user#unexpected_trans`) callback
+  [handle_unexpected_trans/3,4](`c:megaco_user:handle_unexpected_trans/4`) callback
   function.
 
   Value type: `plain` | [non_neg_integer()](`t:erlang:non_neg_integer/0`)
@@ -767,11 +767,11 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 
 - **`call_proxy_gc_timeout`** - Timeout time for the call proxy.
 
-  When a request is sent using the [call/3](`m:megaco#call`) function, a proxy
+  When a request is sent using the `call/3` function, a proxy
   process is started to handle all replies. When the reply has been received and
   delivered to the user, the proxy process continue to exist for as long as this
   option specifies. Any received messages, is passed on to the user via the
-  [handle_unexpected_trans](`m:megaco_user#handle_unexpected_trans`) callback
+  [handle_unexpected_trans](`c:megaco_user:handle_unexpected_trans/4`) callback
   function.
 
   The timeout time is in milliseconds. A value of 0 (zero) means that the proxy
@@ -897,7 +897,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   package). This parameter specifies how many pending messages that can be sent
   (for a given received transaction request). When the limit is exceeded, the
   transaction is aborted (see
-  [handle_trans_request_abort](`m:megaco_user#request_abort`)) and an error
+  [handle_trans_request_abort](`c:megaco_user:handle_trans_request_abort/5`)) and an error
   message is sent to the other side.
 
   Note that this has no effect on the actual sending of pending transactions.
@@ -1030,7 +1030,7 @@ corresponding value can be of any type.[](){: #ci_control_pid }
 - **`segment_reply_ind`** - This option specifies if the user shall be notified
   of received segment replies or not.
 
-  See [handle_segment_reply](`m:megaco_user#segment_reply`) callback function
+  See [handle_segment_reply](`c:megaco_user:handle_segment_reply/6`) callback function
   for more information.
 
   Value type: [boolean()](`t:erlang:boolean/0`)
@@ -1046,8 +1046,8 @@ corresponding value can be of any type.[](){: #ci_control_pid }
   When the timer finally expires, a "megaco segments not received" (459) error
   message is sent to the other side and the user is notified with a
   `segment timeout` `UserReply` in either the
-  [handle_trans_reply](`m:megaco_user#trans_reply`) callback function or the
-  return value of the [call](`m:megaco#call`) function.
+  [handle_trans_reply](`c:megaco_user:handle_trans_reply/5`) callback function or the
+  return value of the `call/3` function.
 
   Value type: `t:megaco_timer/0`
 
@@ -1220,7 +1220,6 @@ to file or to stdout after formating).
   Value type: [\{recv | sent, [\{`t:transaction_id/0`,
   [non_neg_integer()](`t:erlang:non_neg_integer/0`)\}]\}]
 
-[](){: #start }
 """.
 -type system_info_item() :: text_config          |
                             connections          |
@@ -1247,7 +1246,6 @@ statically configured by setting the application environment variable 'users' to
 a list of \{UserMid, Config\} tuples. See the function megaco:start_user/2 for
 details.
 
-[](){: #stop }
 """.
 -spec start() -> ok | {error, Reason} when
       Reason :: term().
@@ -1263,7 +1261,6 @@ start() ->
 -doc """
 Stops the Megaco application
 
-[](){: #start_user }
 """.
 -spec stop() -> ok | {error, Reason} when
       Reason :: term().
@@ -1287,7 +1284,6 @@ A user is identified by its UserMid, which must be a legal Megaco MID.
 Config is a list of \{Item, Value\} tuples. See megaco:user_info/2 about which
 items and values that are valid.
 
-[](){: #stop_user }
 """.
 -spec start_user(UserMid, Config) -> ok | {error, Reason} when
       UserMid :: mid(),
@@ -1309,7 +1305,6 @@ Delete the configuration of a user
 
 Requires that the user does not have any active connection.
 
-[](){: #user_info } [](){: #user_info_11 } [](){: #user_info_23 }
 """.
 -spec stop_user(UserMid) -> ok | {error, Reason} when
       UserMid :: mid(),
@@ -1348,7 +1343,6 @@ Lookup user information about currently active replies.
 Expected input type `Input :: Replies` with expected
 output type `Result :: RepliesResult`.
 
-[](){: #update_user_info }
 """.
 -spec user_info(UserMid, Input) -> Result when
       Input   :: Requests | Replies | Item,
@@ -1382,7 +1376,6 @@ Update information about a user
 
 Requires that the user is started.
 
-[](){: #conn_info } [](){: #conn_info_11 } [](){: #conn_info_24 }
 """.
 -spec update_user_info(UserMid, Item, Value) -> ok | {error, Reason} when
       UserMid :: mid(),
@@ -1415,41 +1408,6 @@ Requires that the connection is active.
 
 Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
 longer exists.
-
-[](){: #conn_info_21 }
-
-If `ConnInfo :: all`,
-lookup all connection information about an _active_ connection, where
-`Value :: [{conn_info_item(), V :: term()}]`.
-
-See [conn_info](`m:megaco#conn_info_24`) for more info.
-
-Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
-longer exists.
-
-[](){: #conn_info_22 }
-
-If `ConnInfo :: requests`,
-lookup information about currently active requests for an _active_ connection, where
-`Value :: [transaction_id()]`.
-
-Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
-longer exists.
-
-[](){: #conn_info_23 }
-
-If `ConnInfo :: replies`,
-lookup information about currently active replies for an _active_ connection, where
-`Value :: [{TransId, ReplyState, Handler}]`, `TransId :: transaction_id()`,
-`ReplyState :: prepare | eval_request | waiting_for_ack | aborted`, and
-`Handler    :: undefined | pid()`.
-
-Failure: `exit` if, for instance, `ConnHandle` refers to a connection that no
-longer exists.
-
-If `ConnInfo :: conn_info_item()`, then `Value :: term()`.
-
-[](){: #update_conn_info }
 """.
 -spec conn_info(ConnHandle, ConnInfo) -> Value when
       ConnHandle :: conn_handle(),
@@ -1479,7 +1437,6 @@ Update information about an active connection
 Requires that the connection is activated. See `t:conn_info_item/0` about which
 items and values that are valid.
 
-[](){: #system_info }
 """.
 -spec update_conn_info(ConnHandle, Item, Value) -> ok | {error, Reason} when
       ConnHandle :: conn_handle(),
@@ -1500,11 +1457,8 @@ This function produces a list of information about the megaco application. Such
 as users and their config, connections and their config, statistics and so on.
 
 This information can be produced by the functions
-[user_info](`m:megaco#user_info`), [conn_info](`m:megaco#conn_info`),
-[system_info](`m:megaco#system_info`) and [get_stats](`m:megaco#get_stats`) but
+`user_info/2`, `conn_info/2`, `system_info/1` and `get_stats/2` but
 this is a simple way to get it all at once.
-
-[](){: #connect }
 """.
 -spec info() -> Info when
       Info  :: [{Key, Value}],
@@ -1585,7 +1539,6 @@ system_info() ->
 -doc """
 Lookup system information.
 
-[](){: #info }
 """.
 -spec system_info(Item) -> Value when
       Item  :: system_info_item(),
@@ -1678,7 +1631,7 @@ megaco_udp. Read the documentation about each transport module about the
 details.
 
 The connect is done in two steps: first an internal `connection setup` and then
-by calling the user [handle_connect](`m:megaco_user#connect`) callback function.
+by calling the user [handle_connect](`c:megaco_user:handle_connect/3`) callback function.
 The first step could result in an error with `Reason = ConnectReason` and the
 second an error with `Reason = HandleConnectReason`:
 
@@ -1686,14 +1639,13 @@ second an error with `Reason = HandleConnectReason`:
   application itself.
 
 - **`HandleConnectReason`** - An error with this reason is caused by the user
-  [handle_connect](`m:megaco_user#connect`) callback function either returning
+  [handle_connect](`c:megaco_user:handle_connect/3`) callback function either returning
   an error or an invalid value.
 
 `Extra` can be any `t:term/0` except the atom `ignore_extra`. It is passed
 (back) to the user via the callback function
-[handle_connect/3](`m:megaco_user#connect`).
+[handle_connect/3](`c:megaco_user:handle_connect/3`).
 
-[](){: #disconnect }
 """.
 -spec connect(ReceiveHandle, RemoteMid, SendHandle, ControlPid, Extra) ->
           {ok, ConnHandle} | {error, Reason} when
@@ -1727,7 +1679,6 @@ Tear down a "virtual" connection
 Causes the `UserMod:handle_disconnect/2` callback function to be invoked. See
 the megaco_user module for more info about the callback arguments.
 
-[](){: #call }
 """.
 -spec disconnect(ConnHandle, DiscoReason) -> ok | {error, ErrReason} when
       ConnHandle  :: conn_handle(),
@@ -1773,7 +1724,7 @@ transactionError.
 
 A `UserCancelReason`, indicates that the request has been canceled by the user.
 `ReasonForUserCancel` is the reason given in the call to the
-[cancel](`m:megaco#cancel`) function.
+`cancel/2` function.
 
 A send error (`SendReason`), indicates that the send function of the megaco
 transport callback module failed to send the request. There are two separate
@@ -1788,7 +1739,6 @@ For more info about the 'extra' part of the result (`SuccessExtra` and
 `ErrorExtra`), see the [note](`m:megaco_user#extra_argument`) in the user
 callback module documentation.
 
-[](){: #cast }
 """.
 -spec call(ConnHandle, ActionRequests, SendOptions) ->
           {ProtocolVersion, UserReply | [UserReply]} when
@@ -1863,7 +1813,6 @@ about the callback arguments.
 
 Given as `ReplyData` argument to UserMod:handle_trans_reply/4.
 
-[](){: #encode_actions }
 """.
 -spec cast(ConnHandle, ActionRequests, SendOptions) ->
           ok | {error, Reason} when
@@ -1893,13 +1842,12 @@ cast(ConnHandle, ActionRequests, Options) ->
 Tests if the Actions argument is correctly composed.
 
 This function is only intended for testing purposes. It's supposed to have a
-same kind of interface as the [call](`m:megaco#call`) or [cast](`m:megaco#cast`)
+same kind of interface as the `call/3` or `cast/3`
 functions (with the additions of the `EncodingMod` and `EncodingConfig`
 arguments). It composes a complete megaco message end attempts to encode it. The
 return value, will be a tuple of the composed megaco message and the encode
 result.
 
-[](){: #test_reply }
 """.
 -spec test_request(ConnHandle, Version,
                    EncodingMod, EncodingConfig,
@@ -1929,8 +1877,8 @@ Tests if the Reply argument is correctly composed.
 
 This function is only intended for testing purposes. It's supposed to test the
 `actual_reply()` return value of the callback functions
-[handle_trans_request](`m:megaco_user#trans_request`) and
-[handle_trans_long_request](`m:megaco_user#trans_long_request`) functions (with
+[handle_trans_request](`c:megaco_user:handle_trans_request/4`) and
+[handle_trans_long_request](`c:megaco_user:handle_trans_long_request/4`) functions (with
 the additions of the `EncodingMod` and `EncodingConfig` arguments). It composes
 a complete megaco message end attempts to encode it. The return value, will be a
 tuple of the composed megaco message and the encode result.
@@ -1966,7 +1914,6 @@ The global counters handle events that cannot be attributed to a single
 connection (e.g. protocol errors that occur before the connection has been
 properly setup).
 
-[](){: #get_stats_1_1 }
 """.
 -spec get_stats() -> {ok, [TotalStats]} | {error, Reason} when
       TotalStats :: {conn_handle(),    [Stats]} |
@@ -1990,7 +1937,6 @@ properly setup).
 Retreive all (SNMP) statistic counters maintained by the megaco application, for
 a specific connection.
 
-[](){: #get_stats_2 }
 """.
 -spec get_stats(GCounter) -> {ok, Value} | {error, Reason} when
       GCounter :: global_counter(),
@@ -2007,7 +1953,6 @@ get_stats(ConnHandleOrGCounter) ->
 -doc """
 Retreive a (SNMP) statistic counter maintained by the megaco application.
 
-[](){: #reset_stats } [](){: #reset_stats_0 }
 """.
 -spec get_stats(ConnHandle, Counter) -> {ok, Value} | {error, Reason} when
       ConnHandle :: conn_handle(),
@@ -2027,7 +1972,6 @@ get_stats(ConnHandle, Counter) ->
 -doc """
 Reset all (SNMP) statistics counters.
 
-[](){: #reset_stats_1_1 }
 """.
 -spec reset_stats() -> void().
 
@@ -2041,7 +1985,6 @@ Reset the specified (SNMP) statistics counter.
 
 Reset all (SNMP) statistics counters for a connection.
 
-[](){: #test_request }
 """.
 -spec reset_stats(GCounter) -> void() when
       GCounter :: global_counter();
@@ -2063,7 +2006,6 @@ This causes outstanding megaco:call/3 requests to return. The callback functions
 UserMod:handle_reply/4 and UserMod:handle_trans_ack/4 are also invoked where it
 applies. See the megaco_user module for more info about the callback arguments.
 
-[](){: #process_received_message }
 """.
 -spec cancel(ConnHandle, CancelReason) -> ok | {error, Reason} when
       ConnHandle   :: conn_handle(),
@@ -2106,7 +2048,7 @@ arguments.
 The argument `Extra` is just an opaque data structure passed to the user via the
 callback functions in the [user callback module](`m:megaco_user`). Note however
 that if `Extra` has the value `extra_undefined` the argument will be ignored
-(same as if [`process_received_message/4`](`process_received_message/4`) had
+(same as if `process_received_message/4` had
 been called). See the documentation for the behaviour of the callback module,
 `m:megaco_user`, for more info.
 
@@ -2152,7 +2094,6 @@ important the following callback function will be invoked:
 
 See the megaco_user module for more info about the callback arguments.
 
-[](){: #receive_message }
 """.
 -spec process_received_message(ReceiveHandle,
                                ControlPid, SendHandle, BinMsg, Extra) ->
@@ -2189,13 +2130,8 @@ This is a callback function intended to be invoked by some transport modules
 when get an incoming message. Which transport that actually is used is up to the
 user to choose.
 
-In principle, this function calls the `process_received_message/4,5` function
-via a `spawn` to perform the actual processing.
-
-For further information see the
-[process_received_message/4,5](`m:megaco#process_received_message`) function.
-
-[](){: #parse_digit_map }
+In principle, this function calls the [process_received_message/4,5](`process_received_message/5`)
+function via a `spawn` to perform the actual processing.
 """.
 -spec receive_message(ReceiveHandle, ControlPid, SendHandle, BinMsg, Extra) ->
           ok when
@@ -2223,7 +2159,6 @@ When encoding action requests for one transaction, `Actions` should be
 `Actions` should be `[action_reqs()]`. Each element of the list is part of one
 transaction.
 
-[](){: #token_tag2string }
 """.
 -spec encode_actions(ConnHandle, ActionRequests, Options) ->
           {ok, Result} | {error, Reason} when
@@ -2278,7 +2213,6 @@ If no or an unknown version is given, the _best_ version is used (which is v3).
 
 If no match is found for `Tag`, `Result` will be the empty string (`[]`).
 
-[](){: #cancel }
 """.
 -spec token_tag2string(Tag, EncodingMod, Version) -> Result when
       Tag         :: atom(),
@@ -2305,7 +2239,6 @@ Parses a digit map body
 Parses a digit map body, represented as a list of characters, into a list of
 state transitions suited to be evaluated by megaco:eval_digit_map/1,2.
 
-[](){: #eval_digit_map }
 """.
 -spec parse_digit_map(DigitMapBody) ->
           {ok, ParsedDigitMap} | {error, Reason} when
@@ -2349,7 +2282,6 @@ event is received when the digit map evaluator is expecting some other event).
 The unexpected events may either be ignored or rejected. The latter means that
 the evaluation is aborted and an error is returned.
 
-[](){: #report_digit_event }
 """.
 -spec eval_digit_map(DigitMap, Timers) ->
           {ok, MatchResult} | {error, Reason} when
@@ -2384,7 +2316,6 @@ process that is executing megaco:eval_digit_map/1,2.
 Note that the events `$s | $S`, `l | $L` and `$z | $Z` has nothing to do with
 the timers using the same characters.
 
-[](){: #test_digit_event }
 """.
 -spec report_digit_event(DigitMapEvalPid, Events) -> ok | {error, Reason} when
       DigitMapEvalPid :: pid(),
@@ -2406,7 +2337,6 @@ This function starts the evaluation of a digit map with megaco:eval_digit_map/1
 and sends a sequence of events to it with megaco:report_digit_event/2 in order
 to simplify testing of digit maps.
 
-[](){: #encode_sdp }
 """.
 -spec test_digit_event(DigitMap, Events) ->
           {ok,  Kind,  Letters}  |  {error, Reason} when
@@ -2471,7 +2401,6 @@ This function performs the following transformation:
 - sdp_property_group() -> property_group()
 - sdp_property_groups() -> property_groups()
 
-[](){: #decode_sdp }
 """.
 -spec encode_sdp(SDP) -> {ok, PP} | {error, Reason} when
       SDP   :: sdp_property_parm() |
@@ -2512,7 +2441,6 @@ This function performs the following transformation:
 - property_group() -> sdp_property_group()
 - property_groups() -> sdp_property_groups()
 
-[](){: #versions } [](){: #versions1 } [](){: #versions2 }
 """.
 -spec decode_sdp(PP) -> {ok, SDP} | {error, Reason} when
       PP                      :: property_parm() |
@@ -2568,7 +2496,6 @@ Example:
            {ok, V} = megaco:versions1(), megaco:format_versions(V).
 ```
 
-[](){: #enable_trace }
 """.
 -spec print_version_info(Versions) -> void() when
       Versions    :: [VersionInfo],
@@ -2744,7 +2671,6 @@ The difference between the two functions is in how they get the modules to
 check. `versions1` uses the app-file and `versions2` uses the function
 `application:get_key`.
 
-[](){: #print_version_info }
 """.
 -spec versions2() -> {ok, VersionInfo} | {error, Reason} when
       VersionInfo :: list(),
@@ -2953,7 +2879,6 @@ be printed on stdout using plain `io:format/2`.
 
 See `dbg` for further information.
 
-[](){: #disable_trace }
 """.
 -spec enable_trace(Level, Destination) -> void() when
       Level       :: trace_level(),
@@ -2995,7 +2920,6 @@ enable_trace(Level, {Fun, _Data} = HandleSpec) when is_function(Fun) ->
 -doc """
 This function is used to stop megaco tracing.
 
-[](){: #set_trace }
 """.
 -spec disable_trace() -> void().
 
@@ -3022,7 +2946,6 @@ This function is used to change the megaco trace level.
 
 It is assumed that tracing has already been enabled (see `enable_trace` above).
 
-[](){: #stats } [](){: #get_stats } [](){: #get_stats_0 }
 """.
 -spec set_trace(Level) -> void() when
       Level :: trace_level().

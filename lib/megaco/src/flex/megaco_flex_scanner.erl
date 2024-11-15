@@ -55,8 +55,6 @@ explicitly disable this even when flex support this. Use
 
 -doc """
 Return value of a successful (flex) scanner start.
-
-[](){: #start }
 """.
 -type megaco_ports() :: port() | tuple().
 
@@ -96,11 +94,7 @@ is_enabled() ->
 
 -dialyzer({nowarn_function, is_reentrant_enabled/0}).
 -doc """
-is_reentrant_enabled() -> Boolean
-
 Is the flex scanner reentrant or not.
-
-[](){: #is_scanner_port }
 """.
 -spec is_reentrant_enabled() -> boolean().
 is_reentrant_enabled() ->
@@ -111,8 +105,6 @@ is_reentrant_enabled() ->
 
 -doc """
 Checks if a port is a flex scanner port or not (useful when if a port exits).
-
-[](){: #scan }
 """.
 -spec is_scanner_port(Port, PortOrPorts) -> boolean() when
       Port        :: port(),
@@ -153,8 +145,6 @@ created (one for each scheduler).
 
 Note that the process that calls this function _must_ be permanent. If it dies,
 the port(s) will exit and the driver unload.
-
-[](){: #stop }
 """.
 -spec start() -> {ok, PortOrPorts} | {error, Reason} when
       PortOrPorts :: megaco_ports(),
@@ -233,8 +223,6 @@ drv_name() ->
 
 -doc """
 This function is used to stop the flex scanner. It also unloads the driver.
-
-[](){: #is_reentrant_enabled }
 """.
 -spec stop(PortOrPorts) -> stopped when
       PortOrPorts :: megaco_ports().

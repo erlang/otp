@@ -140,8 +140,6 @@ export_messages() ->
     export_messages(?DEFAULT_MESSAGE_PACKAGE).
 
 -doc """
-export_messages(MessagePackage) -> void()
-
 Export the messages in the `MessagePackage` (default is `time_test`).
 
 The output produced by this function is a directory structure with the following

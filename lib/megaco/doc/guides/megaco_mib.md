@@ -35,7 +35,7 @@ The implementation of the statistic counters is lightweight. I.e. the statistic
 counters are handled separately by different entities of the application. For
 instance our two transport module(s) (see [megaco_tcp](`megaco_tcp:get_stats/0`) and
 [megaco_udp](`megaco_udp:get_stats/0`)) maintain their own counters and the
-application engine (see [megaco](`m:megaco#stats`)) maintain its own counters.
+application engine (see [megaco](`megaco:get_stats/2`)) maintain its own counters.
 
 This also means that if a user implement their own transport service then it has
 to maintain its own statistics.

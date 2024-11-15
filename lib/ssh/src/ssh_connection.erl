@@ -499,7 +499,7 @@ send(ConnectionHandler, ChannelId, Type, Data) ->
 
 
 -doc """
-send(ConnectionRef, ChannelId, Type, Data, TimeOut) -> ok | Error
+send(ConnectionRef, ChannelId, Type, Data, TimeOut)
 
 Is to be called by client- and server-channel processes to send data to each
 other.

@@ -227,7 +227,6 @@ This function is called from the supervisor at system start-up.
 Creates the necessary objects in the database if they do not exist. It does not
 destroy any old values.
 
-[](){: #add_context }
 """.
 -spec init() -> snmp:void().
 
@@ -642,7 +641,6 @@ table_del_row(Tab, Key) ->
 Adds a context to the agent config. Equivalent to one line in the `context.conf`
 file.
 
-[](){: #delete_context }
 """.
 -spec add_context(Ctx) -> {ok, Key} | {error, Reason} when
       Ctx    :: string(),

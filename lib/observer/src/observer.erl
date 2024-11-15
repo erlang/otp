@@ -33,8 +33,6 @@ For details about how to get started, see the [`User's Guide`](observer_ug.md).
 -export([start/0, start/1, start_and_wait/0, start_and_wait/1, stop/0]).
 
 -doc """
-start() -> ok
-
 Starts the Observer GUI. To stop the tool, close the window or call `stop/0`.
 """.
 -doc(#{since => <<"OTP R15B">>}).
@@ -43,12 +41,10 @@ start() ->
     observer_wx:start().
 
 -doc """
-start(Node) -> ok
-
 Starts the Observer GUI and tries to connect it to `Node`.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start(node()|[node()]) -> ok | {error, term()}.
+-spec start(Node :: node()|[node()]) -> ok | {error, term()}.
 start(Node) when is_atom(Node) ->
     start([Node]);
 start([Node]) ->
@@ -67,8 +63,6 @@ start([Node]) ->
     end.
 
 -doc """
-start_and_wait() -> ok
-
 Starts the Observer GUI and only return when it is either stopped or the window
 is closed
 """.
@@ -83,13 +77,11 @@ start_and_wait() ->
     end.
 
 -doc """
-start_and_wait(Node) -> ok
-
 Starts the Observer GUI and only return when it is either stopped or the window
 is closed, connects it directly to `Node` like `start/1`.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start_and_wait(node()|[node()]) -> ok.
+-spec start_and_wait(Node :: node()|[node()]) -> ok.
 start_and_wait(Node) when is_atom(Node) ->
     start_and_wait([Node]);
 start_and_wait(List) when is_list(List) ->
@@ -101,8 +93,6 @@ start_and_wait(List) when is_list(List) ->
     end.
 
 -doc """
-stop() -> ok
-
 Stops the Observer GUI.
 """.
 -doc(#{since => <<"OTP 26.0">>}).

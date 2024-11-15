@@ -294,7 +294,7 @@ called, is the data from the configuration files.
 All `snmp` counters are set to zero.
 
 If an error is found in the configuration file, it is reported using the
-function [config_err/2](`m:snmpa_error#config_err`) of the error report module,
+function [config_err/2](`snmpa_error:config_err/2`) of the error report module,
 and the function fails with the reason `configuration_error`.
 
 `ConfDir` is a string which points to the directory where the configuration

@@ -95,7 +95,7 @@ start(Factor) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 -doc """
-start(MessagePackage, Factor) -> void()
+start(MessagePackage, Factor)
 
 This function starts the _mstone1_ performance test with all codec configs.
 `Factor` (defaults to `1`) processes are started for every supported codec
@@ -134,8 +134,6 @@ start_flex(Factor) ->
     start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 -doc """
-start_flex(MessagePackage, Factor) -> void()
-
 This function starts the _mstone1_ performance test with only the flex codec
 configs (i.e. `pretty` and `compact` with `flex`). The same number of processes
 are started as when running the standard test (using the `start/0,1` function).
@@ -164,8 +162,6 @@ start_only_drv(Factor) ->
     start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 -doc """
-start_only_drv(MessagePackage, Factor) -> void()
-
 This function starts the _mstone1_ performance test with only the driver using
 codec configs (i.e. `pretty` and `compact` with `flex`, and `ber` and `per` with
 `driver` and `erlang` with `compressed`). The same number of processes are
@@ -195,8 +191,6 @@ start_no_drv(Factor) ->
     start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor).
 
 -doc """
-start_no_drv(MessagePackage, Factor) -> void()
-
 This function starts the _mstone1_ performance test with codec configs not using
 any drivers (i.e. `pretty` and `compact` without `flex`, `ber` and `per` without
 `driver` and `erlang` without `compressed`). The same number of processes are

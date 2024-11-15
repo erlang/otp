@@ -1359,7 +1359,6 @@ call:
 See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
 for more info.
 
-[](){: #target_params_entry_2 }
 """.
 -spec target_params_entry(Name, Vsn) -> TargetParamsEntry when
       Name              :: snmp_target_mib:name(),
@@ -1396,7 +1395,6 @@ Where `MPModel` and `SecModel` is mapped from `Vsn`, see above.
 See [Target Parameters Definitions](snmp_agent_config_files.md#target_params)
 for more info.
 
-[](){: #target_params_entry_4 }
 """.
 -spec target_params_entry(Name, Vsn, SecName, SecLevel) ->
           TargetParamsEntry when
@@ -1875,7 +1873,6 @@ Create an (access) entry for the agent vacm config file, `vacm.conf`.
 
 See [MIB Views for VACM](snmp_agent_config_files.md#vacm) for more info.
 
-[](){: #vacm_s2g_entry }
 """.
 -spec vacm_acc_entry(GroupName, Prefix, SecModel, SecLevel, Match,
                      RV, WV, NV) -> VacmAccEntry when

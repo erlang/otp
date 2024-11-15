@@ -75,8 +75,6 @@
 %% Reason = term()
 %%----------------------------------------------------------------------
 -doc """
-file(FileName) -> {ok, ViewerPid} | {error, Reason}
-
 Start a new event viewer and a corresponding collector and load them with trace
 events from a trace file.
 """.
@@ -96,8 +94,6 @@ file(FileName) ->
 %%----------------------------------------------------------------------
 
 -doc """
-start() -> ok
-
 Simplified start of a sequence chart viewer with global tracing activated.
 
 Convenient to be used from the command line (erl -s et_viewer).
@@ -110,8 +106,6 @@ start() ->
 %% start(Options) -> {ok, ViewerPid} | {error, Reason}
 %%----------------------------------------------------------------------
 -doc """
-start(Options) -> ok
-
 Start of a sequence chart viewer without linking to the parent process.
 """.
 -spec start(GUIorOptions) -> {ok, Viewer::pid()} | {error, term()} when
@@ -185,12 +179,10 @@ start(Options, GUI) ->
 %% and returns false | true | {true, NewEvent}.
 %%----------------------------------------------------------------------
 -doc """
-start_link(Options) -> {ok, ViewerPid} | {error, Reason}
-
 Start a sequence chart viewer for trace events (messages/actions)
 
-A filter_fun() takes an event record as sole argument and returns false | true |
-\{true, NewEvent\}.
+A filter_fun() takes an event record as sole argument and returns
+`false | true | {true, NewEvent}`.
 
 If the `collector_pid` is `undefined` a new `et_collector` will be started with
 the following parameter settings: `parent_pid`, `event_order`, `trace_global`,
@@ -240,8 +232,6 @@ start_link(Options, GUI) ->
 which_gui() -> wx.
 
 -doc """
-get_collector_pid(ViewerPid) -> CollectorPid
-
 Returns the identifier of the collector process.
 """.
 -spec get_collector_pid(ViewerPid::pid()) -> pid().
@@ -256,8 +246,6 @@ get_collector_pid(ViewerPid) ->
 %% ViewerPid = pid()
 %%----------------------------------------------------------------------
 -doc """
-stop(ViewerPid) -> ok
-
 Stops a viewer process.
 """.
 -spec stop(ViewerPid::pid()) -> ok.
