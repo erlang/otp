@@ -62,21 +62,29 @@ run(Opts) ->
              "forward merge them to the local maint+master branches and push those to ~ts."
              "Do you want to want to proceed?", [Cwd, Upstream]),
 
-    cmd(Opts, ["git checkout -f maint && git fetch ", maps:get(upstream, Opts), " maint && git reset --hard FETCH_HEAD"]),
-    cmd(Opts, ["git checkout -f master && git fetch ", maps:get(upstream, Opts), " master && git reset --hard FETCH_HEAD"]),
+    %% Get this for dependabot update before we start switching branches and other chenanigans
+    SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-major-versions.sh | head -3"),"\n", all),
+    OriginalBranch = cmd(Opts, "git branch --show-current"),
 
     %% Fetch all PRs done by dependabot
-    DependabotPRs =
-        lists:foldl(
-          fun(PR, Acc) ->
-                  #{ ~"baseRefName" := BaseRefName, ~"headRefName" := HeadRefName } =
-                      json:decode(unicode:characters_to_binary(cmd(Opts, ["gh pr -R ", Upstream, " view --json \"baseRefName,headRefName\" ", PR]))),
-                  Acc#{ PR => #{ base =>  BaseRefName, head =>  HeadRefName }}
-          end, #{}, string:split(cmd(Opts, ["gh pr -R ", Upstream, " list | grep dependabot/github_actions | awk '{print $1}'"]),"\n")),
+    PRs = cmd(Opts, ["gh pr -R ", Upstream, " list | grep dependabot/github_actions | awk '{print $1}'"]),
 
-    if DependabotPRs =/= #{} ->
+    %% If string is non-empty we have some PRs that we need to deal with
+    case not string:equal(PRs,"") of
+        true ->
 
-            io:format("Approving and forward merge these PRs: ~ts~n",[string:join([PR || PR := _ <- DependabotPRs], ", ")]),
+            DependabotPRs =
+                lists:foldl(
+                  fun(PR, Acc) ->
+                          #{ ~"baseRefName" := BaseRefName, ~"headRefName" := HeadRefName } =
+                              json:decode(unicode:characters_to_binary(cmd(Opts, ["gh pr -R ", Upstream, " view --json \"baseRefName,headRefName\" ", PR]))),
+                          Acc#{ PR => #{ base =>  BaseRefName, head =>  HeadRefName }}
+                  end, #{}, string:split(PRs,"\n", all)),
+
+            synchronize_branch(Opts, "maint"),
+            synchronize_branch(Opts, "master"),
+
+            io:format("Approving and forward merge these PRs: ~ts~n",[lists:join(", ", [PR || PR := _ <- DependabotPRs])]),
 
             %% Approve all dependabot PRs
             [dry(Opts, ["gh pr -R ", Upstream, " review --approve ", PR]) || PR := _ <- DependabotPRs],
@@ -89,44 +97,37 @@ run(Opts) ->
                             cmd(Opts, ["gh pr -R ", Upstream, " checkout ", PR]),
                             case BaseName of
                                 ~"master" ->
-                                    cmd(Opts, ["git checkout master && git merge --log --no-ff ", HeadName]),
-                                    ["master"];
+                                    cmd(Opts, ["git checkout ",BaseName, " && git merge --log --no-ff ", HeadName]),
+                                    [BaseName];
                                 ~"maint" ->
-                                    cmd(Opts, ["git checkout maint && git merge --log --no-ff ", HeadName]),
-                                    cmd(Opts, ["git checkout master && git merge maint"]),
-                                    ["master","maint"];
+                                    cmd(Opts, ["git checkout ",BaseName, " && git merge --log --no-ff ", HeadName]),
+                                    cmd(Opts, ["git checkout master && git merge --strategy outs maint"]),
+                                    ["master", BaseName];
                                 _ ->
-                                    cmd(Opts, ["git checkout maint && git merge --strategy ours ", HeadName]),
+                                    synchronize_branch(Opts, BaseName),
+                                    cmd(Opts, ["git checkout ",BaseName, " && git merge --log --no-ff ", HeadName]),
+                                    cmd(Opts, ["git checkout maint && git merge --strategy ours ", BaseName]),
                                     cmd(Opts, ["git checkout master && git merge maint"]),
-                                    ["master","maint"]
+                                    ["master","maint", BaseName]
                             end
                     end, maps:to_list(DependabotPRs))),
 
-            continue(Opts, "Push ~ts to ~ts?", [string:join(UpdatedBranches, " "), Upstream]),
+            continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), Upstream]),
 
             %% Push maint+master if changed
-            dry(Opts, ["git push ", Upstream, " --atomic ", string:join(UpdatedBranches, " ")]),
+            dry(Opts, ["git push ", Upstream, " --atomic ", lists:join(" ", UpdatedBranches)]),
 
             %% Delete dependabot branches targeting master+maint and merge any PRs targeting maint-* branches
             maps:foreach(
-              fun(PR, #{ head := HeadName, base := BaseName }) ->
-                      case lists:member(BaseName, [~"master", ~"maint"]) of
-                          true ->
-                              continue(Opts, "Delete #~ts (~ts) on ~ts?", [HeadName, PR, Upstream]),
-                              dry(Opts, ["git push ", Upstream, " :", HeadName]);
-                          false ->
-                              continue(Opts, "Merge #~ts to ~ts on ~ts?", [PR, BaseName, Upstream]),
-                              dry(Opts, ["gh pr -R ", Upstream, " merge --delete-branch --merge ", PR ])
-                      end
+              fun(PR, #{ head := HeadName }) ->
+                      continue(Opts, "Delete #~ts (~ts) on ~ts?", [HeadName, PR, Upstream]),
+                      dry(Opts, ["git push ", Upstream, " :", HeadName])
               end, DependabotPRs);
-       true ->
+       false ->
             ok
     end,
 
-    cmd(Opts, "git checkout master"),
-
-    %% Check if dependabot.yml needs updating
-    SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-major-versions-2.sh | head -3"),"\n", all),
+    synchronize_branch(Opts, "master"),
 
     NewConfig = unicode:characters_to_binary(generate_dependabot_config(SupportedMajorVersions)),
     {ok, CurrentConfig} = file:read_file(".github/dependabot.yml"),
@@ -143,7 +144,13 @@ run(Opts) ->
             dry(Opts, ["gh pr -R ", Upstream, " create -a '@me' -H '", OriginOwner, ":update-dependabot-config' -t 'Update dependabot config' -b ''"])
     end,
 
+    cmd(Opts, ["git checkout ", OriginalBranch]),
+
     ok.
+
+synchronize_branch(Opts, Branch) ->
+    cmd(Opts, ["git fetch ", maps:get(upstream, Opts), " ", Branch, " && "
+               "git checkout -B ", Branch, " FETCH_HEAD"]).
 
 generate_dependabot_config(Versions) ->
     ["version: 2\n\nupdates:\n",
@@ -182,8 +189,7 @@ cmd(Opts = #{}, Cmd) ->
     Res = string:trim(os:cmd(lists:flatten(unicode:characters_to_list(Cmd)))),
     log(Opts, "~ts~n", [string:replace(Res, "\n", "\\n", all)]),
     Res.
-                                                % log(Opts = #{ }, Str) ->
-                                                %     log(Opts, "~ts",[Str]).
+
 log(#{ verbose := true }, Fmt, Args) ->
     io:format(standard_error, Fmt, Args);
 log(_, _, _) ->
