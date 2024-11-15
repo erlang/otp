@@ -777,6 +777,11 @@ timer(Pid) ->
     end.
 ```
 
+For more information on timers in Erlang in general, see the
+[*Timers*](`e:erts:time_correction.md#timers`) section of the
+[*Time and Time Correction in Erlang*](`e:erts:time_correction.md`)
+ERTS User's guide.
+
 ## Term Comparisons
 
 ```

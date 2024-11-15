@@ -178,6 +178,23 @@ offset, you get current Erlang system time.
 
 To retrieve the current time offset, call `erlang:time_offset/0`.
 
+### Timers
+
+All timers are triggered relative Erlang monotonic time. All timers currently
+have millisecond resolution both in the API and internally in the runtime
+system. That is, resolution (as well as precision and accuracy) will not be
+higher than millisecond. If [Erlang monotonic time](#erlang-monotonic-time) has
+a lower resolution than millisecond, the timer resolution will be lower than
+millisecond as well.
+
+Timers can only be triggered on whole milliseconds since [the runtime
+system start](`m:erlang#system_info_start_time`). A timer is not allowed to
+trigger before the timeout time given by the user. That is, assuming that the
+system is *not* heavily loaded, a timer will typically be triggered in the range
+[`T`, `T+1`) milliseconds when the user has given the timeout time `T`. If the
+system is heavily loaded, it may take an even longer time until a timer is
+triggered.
+
 ## Introduction
 
 Time is vital to an Erlang program and, more importantly, _correct_ time is
