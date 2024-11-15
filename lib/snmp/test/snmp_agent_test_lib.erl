@@ -1004,7 +1004,7 @@ stop_agent_loop([{Desc, F}|Fs], Config0) ->
 	    stop_agent_loop(Fs, Config)
     catch
 	_:_:_ ->
-	    {"aborted at " ++ Desc, Config0}
+	    {Config0, ?F("aborted at~n   ") ++ Desc}
     end.
 
 

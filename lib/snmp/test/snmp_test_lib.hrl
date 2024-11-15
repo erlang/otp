@@ -129,7 +129,8 @@
 -define(P(C),               ?LIB:p(?MODULE, C)).
 
 %% Takes a format call (such as io:format) and produces a printable string
--define(F(F, A),            ?LIB:f(F, A)).
+-define(F(_FS_, _AS_),      ?LIB:f((_FS_), (_AS_))).
+-define(F(_FS_),            ?F((_FS_), [])).
 
 -ifdef(snmp_debug).
 -define(DBG(F,A),      ?IPRINT(F, A)).
