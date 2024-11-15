@@ -23,7 +23,7 @@ jobs:
         contents: write
         actions: write
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       ## We need to login to the package registry in order to pull
       ## the base debian image.
       - name: Docker login

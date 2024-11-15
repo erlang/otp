@@ -20,7 +20,7 @@ jobs:
     outputs:
        versions: ${{ steps.get-versions.outputs.versions }}
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
@@ -46,7 +46,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
         with:
           ref: ${{ matrix.type }}
 
@@ -73,4 +73,4 @@ jobs:
         # See: https://github.com/github/codeql-action/issues/2117
         actions: read
         contents: read
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@f0e6719deb666cd19a0b56bc56d01161bd848b4f" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.8.5
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@19ec1116569a47416e11a45848722b1af31a857b" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.9.0
