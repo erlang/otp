@@ -60,7 +60,6 @@ command_request() = #'CommandRequest'{}
 error_desc()   = #'ErrorDescriptor'{}
 ```
 
-[](){: #encode_message }
 """.
 
 -export_type([
@@ -182,7 +181,6 @@ of the protocol we are using. As of version 3, it has two more fields.
 -doc """
 Encode a megaco message.
 
-[](){: #decode_message }
 """.
 -callback encode_message(EncodingConfig,
                          Version,
@@ -203,7 +201,6 @@ If on the other hand the Version argument is an integer, it means that this is
 the expected version of the message and the decoder for that version should be
 used.
 
-[](){: #decode_mini_message }
 """.
 -callback decode_message(EncodingConfig,
                          Version,
@@ -225,7 +222,6 @@ initiated. This function is used by the megaco_messenger module when the
 
 Note again that a successfull decode only returns a partially initiated message.
 
-[](){: #encode_transaction }
 """.
 -callback decode_mini_message(EncodingConfig,
                               Version,
@@ -244,7 +240,6 @@ This functionality is used both when the transaction sender is used and for
 segmentation. So, for either of those to work, this function _must_ be fully
 supported\!
 
-[](){: #encode_action_requests }
 """.
 -callback encode_transaction(EncodingConfig,
                              Version,
@@ -257,11 +252,10 @@ supported\!
 
 -doc """
 Encode megaco action requests. This function is called when the user calls the
-function [encode_actions/3](`m:megaco#encode_actions`). If that function is
+function [encode_actions/3](`megaco:encode_actions/3`). If that function is
 never used or if the codec cannot support this (the encoding of individual
 actions), then return with error reason `not_implemented`.
 
-[](){: #encode_action_reply }
 """.
 -callback encode_action_requests(EncodingConfig,
                                  Version,

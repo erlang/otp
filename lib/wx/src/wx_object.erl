@@ -110,8 +110,6 @@
 
 -module(wx_object).
 -moduledoc """
-wx_object - Generic wx object behaviour.
-
 wx_object - Generic wx object behaviour
 
 This is a behaviour module that can be used for "sub classing" wx objects. It
@@ -297,8 +295,6 @@ start(Mod, Args, Options) ->
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
 -doc """
-start(Name, Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
-
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
 -spec start(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
@@ -316,8 +312,6 @@ start(Name, Mod, Args, Options) ->
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
 -doc """
-start_link(Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
-
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
 -spec start_link(Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
@@ -334,8 +328,6 @@ start_link(Mod, Args, Options) ->
 %% @doc Starts a generic wx_object server and invokes Mod:init(Args) in the
 %% new process.
 -doc """
-start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow() | {error, term()}
-
 Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
 """.
 -spec start_link(Name, Mod, Args, Options) -> wxWindow:wxWindow()  | {error, term()} when
@@ -360,8 +352,6 @@ gen_response(Reply) ->
 %% the process is terminated. If the process does not exist, an
 %% exception is raised.
 -doc """
-stop(Obj) -> ok
-
 Stops a generic wx_object server with reason 'normal'. Invokes
 terminate(Reason,State) in the server. The call waits until the process is
 terminated. If the process does not exist, an exception is raised.
@@ -386,8 +376,6 @@ stop(Name) when is_atom(Name) orelse is_pid(Name) ->
 %% the process is terminated. If the call times out, or if the process
 %% does not exist, an exception is raised.
 -doc """
-stop(Obj, Reason, Timeout) -> ok
-
 Stops a generic wx_object server with the given Reason. Invokes
 terminate(Reason,State) in the server. The call waits until the process is
 terminated. If the call times out, or if the process does not exist, an
@@ -414,8 +402,6 @@ stop(Name, Reason, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 %% The call waits until it gets a result.
 %% Invokes handle_call(Request, From, State) in the server
 -doc """
-call(Obj, Request) -> term()
-
 Make a call to a wx_object server. The call waits until it gets a result.
 Invokes handle_call(Request, From, State) in the server
 """.
@@ -440,8 +426,6 @@ call(Name, Request) when is_atom(Name)  orelse is_pid(Name) ->
 %% @doc Make a call to a wx_object server with a timeout.
 %% Invokes handle_call(Request, From, State) in server
 -doc """
-call(Obj, Request, Timeout) -> term()
-
 Make a call to a wx_object server with a timeout. Invokes handle_call(Request,
 From, State) in server
 """.
@@ -468,8 +452,6 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
 %% and return a RequestId which can/should be used with wait_response/[1|2].
 %% Invokes handle_call(Request, From, State) in server.
 -doc """
-send_request(Obj, Request::term()) -> request_id()
-
 Make an send_request to a generic server. and return a RequestId which
 can/should be used with wait_response/\[1|2]. Invokes handle_call(Request, From,
 State) in server.
@@ -483,9 +465,6 @@ send_request(Pid, Request) when is_atom(Pid) orelse is_pid(Pid) ->
 
 %% @doc Wait infinitely for a reply from a generic server.
 -doc """
-wait_response(RequestId::request_id()) -> {reply, Reply::term()} | {error,
-{term(), server_ref()}}
-
 Wait infinitely for a reply from a generic server.
 """.
 -spec wait_response(RequestId::request_id()) ->
@@ -495,21 +474,15 @@ wait_response(RequestId) ->
 
 %% @doc Wait 'timeout' for a reply from a generic server.
 -doc """
-wait_response(Key::request_id(), Timeout::timeout()) -> {reply, Reply::term()} |
-timeout | {error, {term(), server_ref()}}
-
 Wait 'timeout' for a reply from a generic server.
 """.
--spec wait_response(Key::request_id(), timeout()) ->
+-spec wait_response(Key::request_id(), Timeout :: timeout()) ->
         {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
 wait_response(RequestId, Timeout) ->
     gen:wait_response(RequestId, Timeout).
 
 %% @doc Check if a received message was a reply to a RequestId
 -doc """
-check_response(Msg::term(), Key::request_id()) -> {reply, Reply::term()} | false
-| {error, {term(), server_ref()}}
-
 Check if a received message was a reply to a RequestId
 """.
 -spec check_response(Msg::term(), Key::request_id()) ->
@@ -520,8 +493,6 @@ check_response(Msg, RequestId) ->
 %% @doc Make a cast to a wx_object server.
 %% Invokes handle_cast(Request, State) in the server
 -doc """
-cast(Obj, Request) -> ok
-
 Make a cast to a wx_object server. Invokes handle_cast(Request, State) in the
 server
 """.
@@ -537,8 +508,6 @@ cast(Name, Request) when is_atom(Name) orelse is_pid(Name) ->
 
 %% @doc Get the pid of the object handle.
 -doc """
-get_pid(Obj) -> pid()
-
 Get the pid of the object handle.
 """.
 -spec get_pid(Obj) -> pid() when
@@ -548,11 +517,9 @@ get_pid(#wx_ref{state=Pid}) when is_pid(Pid) ->
 
 %% @doc Sets the controlling process of the object handle.
 -doc """
-set_pid(Obj, Pid::pid()) -> wx:wx_object()
-
 Sets the controlling process of the object handle.
 """.
--spec set_pid(Obj, pid()) -> wx:wx_object() when
+-spec set_pid(Obj, Pid :: pid()) -> wx:wx_object() when
       Obj::wx:wx_object()|atom()|pid().
 set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
     R#wx_ref{state=Pid}.
@@ -562,7 +529,7 @@ set_pid(#wx_ref{}=R, Pid) when is_pid(Pid) ->
 %% -----------------------------------------------------------------
 %% @doc Get the pid of the object handle.
 -doc """
-reply(X1::{pid(), Tag::term()}, Reply::term()) -> pid()
+reply(PidTag, Reply)
 
 Get the pid of the object handle.
 """.

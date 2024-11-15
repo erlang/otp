@@ -52,7 +52,7 @@
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
 -doc """
-make_pattern(RawPattern) -> TracePattern
+make_pattern(RawPattern)
 
 Makes a trace pattern suitable to feed change_pattern/1
 
@@ -115,7 +115,7 @@ make_pattern({Mod, Pattern}) when is_atom(Mod) ->
 %% accordingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 -doc """
-change_pattern(Pattern) -> ok
+change_pattern(Pattern)
 
 Activates/deactivates tracing by changing the current trace pattern.
 
@@ -219,8 +219,6 @@ error_to_exit({ok, _Res}) ->
 %%                   should be dropped
 %%----------------------------------------------------------------------
 -doc """
-parse_event(Mod, ValidTraceData) -> false | true | {true, Event}
-
 Transforms trace data and makes an event record out of it.
 
 See `erlang:trace/3` for more info about the semantics of the trace data.

@@ -104,8 +104,6 @@ parallel.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Shortcut
 -doc """
-start_trace(Nodes, Patterns, FlagSpec, Opts) -> Result
-
 This function is a shortcut allowing to start a trace with one command. Each
 tuple in `Patterns` is converted to a list, which in turn is passed to
 `ttb:tpl/2,3,4`.
@@ -143,15 +141,11 @@ start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Open a trace port on all given nodes and create the meta data file
--doc """
-tracer() -> Result
-
-Equivalent to [`tracer(node())`](`tracer/1`).
-""".
+-doc #{ equiv => tracer(node()) }.
 -spec tracer() -> {ok, [node()]} | {error, term()}.
 tracer() -> tracer(node()).
 -doc """
-tracer(Nodes) -> Result
+tracer(Nodes)
 
 Handy shortcuts for common tracing settings.
 
@@ -160,15 +154,13 @@ Handy shortcuts for common tracing settings.
 
 `dbg` is equivalent to [`tracer(node(),[{shell, only}])`](`tracer/2`).
 
-Equivalent to [`tracer(Nodes,[])`](`tracer/2`).
+`Nodes` is equivalent to [`tracer(Nodes,[])`](`tracer/2`).
 """.
 -spec tracer('shell' | 'dbg' | nodes()) -> {ok, [node()]} | {error, term()}.
 tracer(shell) -> tracer(node(), shell);
 tracer(dbg) -> tracer(node(), {shell, only});
 tracer(Nodes) -> tracer(Nodes,[]).
 -doc """
-tracer(Nodes,Opts) -> Result
-
 Starts a file trace port on all specified nodes and points the system tracer for
 sequential tracing to the same port.
 
@@ -484,8 +476,6 @@ store(Func,Args) ->
     ets:insert(?history_table,{Last+1,{?MODULE,Func,Args}}).
 
 -doc """
-list_history() -> History
-
 All calls to `ttb` is stored in the history. This function returns the current
 content of the history. Any entry can be reexecuted with
 [`run_history/1`](`run_history/1`) or stored in a configuration file with
@@ -501,8 +491,6 @@ list_history() ->
     end.
 
 -doc """
-run_history(N) -> ok | {error, Reason}
-
 Executes the specified entry or entries from the history list. To list history,
 use `list_history/0`.
 """.
@@ -538,11 +526,7 @@ run_printed({M,F,A},Verbose) ->
     R = apply(M,F,A),
     Verbose andalso print_result(R).
 
--doc """
-write_config(ConfigFile,Config)
-
-Equivalent to [`write_config(ConfigFile,Config,[])`](`write_config/3`).
-""".
+-doc #{ equiv => write_config(ConfigFile,Config,[]) }.
 -spec write_config(ConfigFile, Config) -> Result when
       ConfigFile :: file:filename(),
       Config :: all | [integer()] | [mfas()],
@@ -551,8 +535,6 @@ write_config(ConfigFile,Config) ->
     write_config(ConfigFile,Config,[]).
 
 -doc """
-write_config(ConfigFile,Config,Opts) -> ok | {error,Reason}
-
 Creates or extends a configuration file, which can be used for restoring a
 specific configuration later.
 
@@ -614,8 +596,6 @@ check_config([Other|_Rest],_Acc) ->
     {error,{illegal_config,Other}}.
 
 -doc """
-list_config(ConfigFile) -> Config | {error,Reason}
-
 Lists all entries in the specified configuration file.
 """.
 -spec list_config(ConfigFile) -> Result when
@@ -635,8 +615,6 @@ read_config(B,Acc,N) ->
     read_config(Rest,[{N,{M,F,A}}|Acc],N+1).
 
 -doc """
-run_config(ConfigFile) -> ok | {error,Reason}
-
 Executes all entries in the specified configuration file. Notice that the
 history of the last trace is always available in file `ttb_last_config`.
 """.
@@ -655,8 +633,6 @@ run_config(ConfigFile) ->
     end.
 
 -doc """
-run_config(ConfigFile,NumList) -> ok | {error,Reason}
-
 Executes selected entries from the specified configuration file. `NumList` is a
 list of integers pointing out the entries to be executed.
 
@@ -701,8 +677,6 @@ arg_list([A1|A],Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
 -doc """
-p(Item,Flags) -> Return
-
 Sets the specified trace flags on the specified processes or ports. Flag
 `timestamp` is always turned on.
 
@@ -820,7 +794,7 @@ tpl(A,B,C) ->
     dbg:tpl(A,B,ms(C)).
 
 -doc """
-tpl(Module [, Function [, Arity]], MatchSpec)
+tpl(Module, Function, Arity, MatchSpec)
 
 These functions are to be used with trace flag `call`, `send`, and `'receive'`
 for setting and clearing trace patterns.
@@ -1037,16 +1011,10 @@ fix_dot(FunStr) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Support for sequential trace
--doc """
-seq_trigger_ms() -> MatchSpec
-
-Equivalent to [`seq_trigger_ms(all)`](`seq_trigger_ms/1`).
-""".
+-doc #{ equiv => seq_trigger_ms(all) }.
 -spec seq_trigger_ms() -> match_spec().
 seq_trigger_ms() -> seq_trigger_ms(all).
 -doc """
-seq_trigger_ms(Flags) -> MatchSpec
-
 A match specification can turn on or off sequential tracing. This function
 returns a match specification, which turns on sequential tracing with the
 specified `Flags`.
@@ -1126,16 +1094,12 @@ no_store_write_trace_info(Key,What) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Stop tracing on all nodes
 -doc """
-stop()
-
 Equivalent to [`stop([])`](`stop/1`).
 """.
 -spec stop() -> stopped | {stopped, Dir::file:filename()}.
 stop() ->
     stop([]).
 -doc """
-stop(Opts) -> stopped | {stopped, Dir}
-
 Stops tracing on all nodes. Logs and trace information files are sent to the
 trace control node and stored in a directory named
 `ttb_upload_FileName-Timestamp`, where `Filename` is the one provided with
@@ -1563,8 +1527,6 @@ write_info(Nodes,PI,Traci) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Format binary trace logs
 -doc """
-get_et_handler()
-
 Returns the `et` handler, which can be used with [`format/2`](`format/2`) or
 [`tracer/2`](`tracer/2`).
 
@@ -1577,18 +1539,12 @@ Example: `ttb:format(Dir, [{handler, ttb:get_et_handler()}])`.
 get_et_handler() ->
     {fun ttb_et:handler/4, initial}.
 
--doc """
-format(File)
-
-Equivalent to [`format(File,[])`](`format/2`).
-""".
+-doc #{equiv => format(Files, []) }.
 -spec format(Files) -> ok | {error, term()} when
       Files :: [file:filename()] | file:filename().
 format(Files) ->
     format(Files,[]).
 -doc """
-format(File,Options) -> ok | {error, Reason}
-
 Reads the specified binary trace log(s). The logs are processed in the order of
 their time stamps as long as option `disable_sort` is not specified.
 

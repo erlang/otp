@@ -44,8 +44,6 @@ mechanism is transparently used, that is, `ip_comm` or `ssl`.
 `deliver/3` sends `Data` over `Socket` using the specified `SocketType`.
 `Socket` and `SocketType` is to be the socket and the `socket_type` form the
 `mod` record as defined in `httpd.hrl`
-
-[](){: #peername }
 """.
 -spec deliver(SocketType, Socket, Data) -> Result when
       SocketType :: httpd:socket_type(),

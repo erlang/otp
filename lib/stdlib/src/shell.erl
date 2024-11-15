@@ -1938,8 +1938,6 @@ results(L) when is_integer(L), L >= 0 ->
     set_env(stdlib, shell_saved_results, L, ?DEF_RESULTS).
 
 -doc """
-catch_exception(Bool) -> boolean()
-
 Sets the exception handling of the evaluator process. The previous exception
 handling is returned. The default (`false`) is to kill the evaluator process
 when an exception occurs, which causes the shell to create a new evaluator

@@ -22,16 +22,6 @@
 
 -module(ssh_client_channel).
 -moduledoc """
-\-behaviour(ssh_client_channel). (Replaces ssh_channel)
-
-> #### Note {: .info }
->
-> This module replaces ssh_channel.
->
-> The old module is still available for compatibility, but should not be used
-> for new programs. The old module will not be maintained except for some error
-> corrections
-
 SSH services (clients and servers) are implemented as channels that are
 multiplexed over an SSH connection and communicates over the
 [SSH Connection Protocol](http://www.ietf.org/rfc/rfc4254.txt). This module
@@ -42,6 +32,14 @@ that the channel process honors the principal of an OTP-process so that it can
 be part of a supervisor tree. This is a requirement of channel processes
 implementing a subsystem that will be added to the `ssh` applications supervisor
 tree.
+
+> #### Note {: .info }
+>
+> This module replaces ssh_channel.
+>
+> The old module is still available for compatibility, but should not be used
+> for new programs. The old module will not be maintained except for some error
+> corrections
 
 > #### Note {: .info }
 >
@@ -216,8 +214,6 @@ call(ChannelPid, Msg) ->
     call(ChannelPid, Msg, infinity).
 
 -doc """
-call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason}
-
 Makes a synchronous call to the channel process by sending a message and waiting
 until a reply arrives, or a time-out occurs. The channel calls
 [Module:handle_call/3](`c:handle_call/3`) to handle the message. If the channel
@@ -248,8 +244,6 @@ call(ChannelPid, Msg, TimeOute) ->
     end.
 
 -doc """
-cast(ChannelRef, Msg) -> ok
-
 Sends an asynchronous message to the channel process and returns ok immediately,
 ignoring if the destination node or channel process does not exist. The channel
 calls [Module:handle_cast/2](`c:handle_cast/2`) to handle the message.
@@ -263,8 +257,6 @@ cast(ChannelRef, Msg) ->
 
 -opaque client() :: term().
 -doc """
-reply(Client, Reply) -> \_
-
 This function can be used by a channel to send a reply to a client that called
 `call/[2,3]` when the reply cannot be defined in the return value of
 [Module:handle_call/3](`c:handle_call/3`).
@@ -307,9 +299,6 @@ start(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
     gen_server:start(?MODULE, [Options], []).
 
 -doc """
-start_link(SshConnection, ChannelId, ChannelCb, CbInitArgs) -> {ok, ChannelRef}
-| {error, Reason}
-
 Starts a process that handles an SSH channel. It is called internally, by the
 `ssh` daemon, or explicitly by the `ssh` client implementations. The behavior
 sets the `trap_exit` flag to `true`.
@@ -336,10 +325,10 @@ start_link(ConnectionManager, ChannelId, CallBack, CbInitArgs, Exec) ->
     gen_server:start_link(?MODULE, [Options], []).
 
 -doc """
-enter*loop(State) -> *
-
 Makes an existing process an `ssh_client_channel` (replaces ssh_channel)
-process. Does not return, instead the calling process enters the
+process.
+
+Does not return, instead the calling process enters the
 `ssh_client_channel` (replaces ssh_channel) process receive loop and become an
 `ssh_client_channel` process. The process must have been started using one of
 the start functions in `proc_lib`, see the `m:proc_lib` manual page in STDLIB.
@@ -363,7 +352,7 @@ enter_loop(State) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 -doc """
-init(Options) -> {ok, State} | {ok, State, Timeout} | {stop, Reason}
+Initiates a client channel.
 
 The following options must be present:
 

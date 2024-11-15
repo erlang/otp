@@ -91,13 +91,12 @@ Unrecognized options are silently ignored.
 %% two.
 
 -doc """
-codec(File :: iolist() | binary(), [Opt]) -> ok | {ok, [Out]} | {error, Reason}
+Compile a single dictionary file.
 
-Compile a single dictionary file. The input `File` can be either a path or a
-literal dictionary, the occurrence of newline (ascii NL) or carriage return
-(ascii CR) identifying the latter. `Opt` determines the format of the results
-and whether they are written to file or returned, and can have the following
-types.
+The input `File` can be either a path or a literal dictionary, the occurrence
+of newline (ascii NL) or carriage return (ascii CR) identifying the latter.
+`Opt` determines the format of the results and whether they are written to
+file or returned, and can have the following types.
 
 - **`parse | forms | erl | hrl`** - Specifies an output format. Whether the
   output is returned or written to file depends on whether or not option
@@ -183,7 +182,7 @@ codec(File) ->
 %% Turn an orddict returned by dict/1-2 back into a dictionary.
 
 -doc """
-format(Parsed) -> iolist()
+format(Parsed)
 
 Turns a parsed dictionary, as returned by `codec/2`, back into the dictionary
 format.
@@ -200,7 +199,7 @@ format([?VERSION | Dict]) ->
 %% Reconstitute a dictionary without @inherits.
 
 -doc """
-flatten(Parsed) -> term()
+flatten(Parsed)
 
 Reconstitute a parsed dictionary, as returned by `codec/2`, without using
 [`@inherits`](diameter_dict.md#inherits). That is, construct an equivalent
@@ -224,8 +223,6 @@ flatten([?VERSION = V | Dict]) ->
 %% format_error/1
 
 -doc """
-format_error(Reason) -> string()
-
 Turn an error reason returned by `codec/2` into a readable string.
 """.
 -doc(#{since => <<"OTP 17.0">>}).

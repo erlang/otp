@@ -603,8 +603,6 @@ close(Socket) ->
 %% Description: Returns the inet socket
 %%-----------------------------------------------------------------
 -doc """
-socket(Handle) -> Socket
-
 This function is used to convert a socket `handle()` to a inet `socket()`.
 """.
 

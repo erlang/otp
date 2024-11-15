@@ -30,12 +30,10 @@ Megaco transport behaviour.
 The following functions should be exported from a `megaco_transport` callback
 module:
 
-- [send_message/2](`m:megaco_transport#send_message`) [`mandatory`]
-- [send_message/3](`m:megaco_transport#send_message`) [`optional`]
-- [resend_message/2](`m:megaco_transport#resend_message`) [`optional`]
--
+- `c:send_message/2` [`mandatory`]
+- `c:send_message/3` [`optional`]
+- `c:resend_message/2` [`optional`]
 
-[](){: #send_message }
 """.
 
 -doc(#{equiv => send_message/3}).
@@ -55,21 +53,20 @@ depends on what kind of message was sent.
 In the case of requests, megaco will cancel the message in much the same way as
 if `megaco:cancel` had been called (after a successfull send). The information
 will be propagated back to the user differently depending on how the request(s)
-where issued: For requests issued using [megaco:call](`m:megaco#call`), the info
+where issued: For requests issued using `megaco:call/3`, the info
 will be delivered in the return value. For requests issued using `megaco:cast`
 the info will be delivered via a call to the callback function
-[handle_trans_reply](`m:megaco_user#trans_reply`).
+[handle_trans_reply](`c:megaco_user:handle_trans_reply/5`).
 
 In the case of reply, megaco will cancel the reply and information of this will
 be returned to the user via a call to the callback function
-[handle_trans_ack](`m:megaco_user#trans_ack`).
+[handle_trans_ack](`c:megaco_user:handle_trans_ack/5`).
 
 The function [`send_message/3`](`c:send_message/3`) will only be called if the
 [resend_indication](`m:megaco#ui_resend_indication`) config option has been set
 to the value `flag`. The third argument, `Resend` then indicates if the message
 send is a resend or not.
 
-[](){: #resend_message }
 """.
 -callback send_message(Handle, Msg, Resend) -> ok | {cancel, Reason :: term()} | Error  when
       Handle :: term(),
@@ -93,14 +90,14 @@ depends on what kind of message was sent.
 In the case of requests, megaco will cancel the message in much the same way as
 if `megaco:cancel` had been called (after a successfull send). The information
 will be propagated back to the user differently depending on how the request(s)
-where issued: For requests issued using [megaco:call](`m:megaco#call`), the info
+where issued: For requests issued using [megaco:call](`megaco:call/3`), the info
 will be delivered in the return value. For requests issued using `megaco:cast`
 the info will be delivered via a call to the callback function
-[handle_trans_reply](`m:megaco_user#trans_reply`).
+[handle_trans_reply](`c:megaco_user:handle_trans_reply/5`).
 
 In the case of reply, megaco will cancel the reply and information of this will
 be returned to the user via a call to the callback function
-[handle_trans_ack](`m:megaco_user#trans_ack`).
+[handle_trans_ack](`c:megaco_user:handle_trans_ack/5`).
 """.
 -callback resend_message(Handle, Msg) -> ok | {cancel, Reason :: term()} | Error when
       Handle :: term(),

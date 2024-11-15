@@ -660,8 +660,6 @@ Sets options to be used for subsequent requests.
 >
 > The current implementation assumes the requests to the same host, port
 > combination will use the same socket options.
-
-[](){: #get_options }
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec set_options(Options, Profile) -> ok | {error, Reason} when
@@ -1080,8 +1078,6 @@ reset_cookies(Profile) ->
 -doc """
 Triggers the next message to be streamed, that is, the same behavior as active
 ones for sockets.
-
-[](){: #verify_cookies } [](){: #store_cookies }
 """.
 -doc(#{since => <<"OTP R13B04">>}).
 -spec stream_next(Pid) -> ok when

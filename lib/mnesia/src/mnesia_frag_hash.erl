@@ -66,8 +66,6 @@ nicely when new fragments are added. It is well suited for scalable hash tables.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -doc """
-init_state(Tab, State) -> NewState | abort(Reason)
-
 Starts when a fragmented table is created with the function
 `mnesia:create_table/2` or when a normal (unfragmented) table is converted to be
 a fragmented table with `mnesia:change_table_frag/2`.
@@ -97,8 +95,6 @@ convert_old_state({hash_state, N, P, L}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-add_frag(State) -> {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)
-
 To scale well, it is a good idea to ensure that the records are evenly
 distributed over all fragments, including the new one.
 
@@ -138,8 +134,6 @@ add_frag(OldState) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -doc """
-del_frag(State) -> {NewState, IterFrags, AdditionalLockFrags} | abort(Reason)
-
 `NewState` is stored as `hash_state` among the other `frag_properties`.
 
 As a part of the `del_frag` procedure, Mnesia iterates over all fragments
@@ -181,8 +175,6 @@ del_frag(OldState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -doc """
-key_to_frag_number(State, Key) -> FragNum | abort(Reason)
-
 Starts whenever Mnesia needs to determine which fragment a certain record
 belongs to. It is typically started at `read`, `write`, and `delete`.
 """.
@@ -212,8 +204,6 @@ key_to_frag_number(OldState, Key) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -doc """
-match_spec_to_frag_numbers(State, MatchSpec) -> FragNums | abort(Reason)
-
 This function is called whenever Mnesia needs to determine which fragments that
 need to be searched for a `MatchSpec`. It is typically called by `select` and
 `match_object`.

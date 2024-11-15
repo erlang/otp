@@ -21,8 +21,6 @@
 -moduledoc """
 Generic Functions for Implementing SNMP Objects in a Database
 
-[](){: #description }
-
 The module `snmp_generic` contains generic functions for implementing tables
 (and variables) using the SNMP built-in database or Mnesia. These default
 functions are used if no instrumentation function is provided for a managed
@@ -332,7 +330,7 @@ table_set_element(NameDb, RowIndex, Col, NewVal) ->
     snmpa_local_db:table_set_elements(NameDb, RowIndex, [{Col, NewVal}]).
 
 -doc """
-table_set_elements(NameDb, RowIndex, Cols) -> bool()
+table_set_elements(NameDb, RowIndex, Cols)
 
 Sets the elements in `Cols` to the row specified by `RowIndex`. No checks are
 performed on the new values.
@@ -348,7 +346,7 @@ table_set_elements(NameDb, RowIndex, Cols) -> % ret true
     snmpa_local_db:table_set_elements(NameDb, RowIndex, Cols).
 
 -doc """
-table_next(NameDb, RestOid) -> RowIndex | endOfTable
+table_next(NameDb, RestOid)
 
 Finds the indices of the next row in the table. `RestOid` does not have to
 specify an existing row.
@@ -1019,10 +1017,7 @@ collect_length(N, [El | Rest], Rts) ->
 %% Returns true or false.
 %%------------------------------------------------------------------
 -doc """
-table_row_exists(NameDb, RowIndex) -> bool()
-
 Checks if a row in a table exists.
-
 """.
 table_row_exists(NameDb, RowIndex) ->
     case table_get_element(NameDb, RowIndex, 1) of

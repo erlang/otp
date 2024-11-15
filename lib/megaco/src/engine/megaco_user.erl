@@ -40,17 +40,17 @@ Callback module for users of the Megaco application
 This module defines the callback behaviour of Megaco users. A megaco_user
 compliant callback module must export the following functions:
 
-- [handle_connect/2,3](`m:megaco_user#connect`)
-- [handle_disconnect/3](`m:megaco_user#disconnect`)
-- [handle_syntax_error/3,4](`m:megaco_user#syntax_error`)
-- [handle_message_error/3,4](`m:megaco_user#message_error`)
-- [handle_trans_request/3,4](`m:megaco_user#trans_request`)
-- [handle_trans_long_request/3,4](`m:megaco_user#trans_long_request`)
-- [handle_trans_reply/4,5](`m:megaco_user#trans_reply`)
-- [handle_trans_ack/4,5](`m:megaco_user#trans_ack`)
-- [handle_unexpected_trans/3,4](`m:megaco_user#unexpected_trans`)
-- [handle_trans_request_abort/4,5](`m:megaco_user#request_abort`)
-- [handle_segment_reply/5,6](`m:megaco_user#segment_reply`)
+- [handle_connect/2,3](`c:handle_connect/3`)
+- [handle_disconnect/3](`c:handle_disconnect/3`)
+- [handle_syntax_error/3,4](`c:handle_syntax_error/4`)
+- [handle_message_error/3,4](`c:handle_message_error/4`)
+- [handle_trans_request/3,4](`c:handle_trans_request/4`)
+- [handle_trans_long_request/3,4](`c:handle_trans_long_request/4`)
+- [handle_trans_reply/4,5](`c:handle_trans_reply/5`)
+- [handle_trans_ack/4,5](`c:handle_trans_ack/5`)
+- [handle_unexpected_trans/3,4](`c:handle_unexpected_trans/4`)
+- [handle_trans_request_abort/4,5](`c:handle_trans_request_abort/5`)
+- [handle_segment_reply/5,6](`c:handle_segment_reply/6`)
 
 The semantics of them and their exact signatures are explained below.
 
@@ -58,8 +58,8 @@ The `user_args` configuration parameter which may be used to extend the argument
 list of the callback functions. For example, the handle_connect function takes
 by default two arguments:
 
-```text
-        handle_connect(Handle, Version)
+```
+handle_connect(Handle, Version)
 ```
 
 but if the `user_args` parameter is set to a longer list, such as
@@ -67,7 +67,7 @@ but if the `user_args` parameter is set to a longer list, such as
 this case two) extra arguments last in the argument list:
 
 ```erlang
-        handle_connect(Handle, Version, SomePid, SomeTableRef)
+handle_connect(Handle, Version, SomePid, SomeTableRef)
 ```
 
 [](){: #extra_argument }
@@ -75,10 +75,10 @@ this case two) extra arguments last in the argument list:
 > #### Note {: .info }
 >
 > Must of the functions below has an optional `Extra` argument (e.g.
-> [handle_unexpected_trans/4](`m:megaco_user#unexpected_trans`)). The functions
+> [handle_unexpected_trans/4](`c:handle_unexpected_trans/4`)). The functions
 > which takes this argument will be called if and only if one of the functions
-> [receive_message/5](`m:megaco#receive_message`) or
-> [process_received_message/5](`m:megaco#process_received_message`) was called
+> [`receive_message/5`](`megaco:receive_message/5`) or
+> [`process_received_message/5`](`megaco:process_received_message/5`) was called
 > with the `Extra` argument different than `ignore_extra`.
 
 ## DATA TYPES
@@ -114,7 +114,6 @@ connection configuration:
 
 - `megaco:conn_info(ConnHandle, protocol_version)`.
 
-[](){: #connect }
 """.
 
 -export_type([
@@ -151,14 +150,12 @@ request (and send a message error reply to the gateway) by returning
 code 402 (unauthorized) and reason "Connection refused by user" (this is also
 the case for all unknown results, such as exit signals or throw).
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_message_error/4`](`c:handle_message_error/4`).
 
 [`handle_connect/3`](`c:handle_connect/3`) (with `Extra`) can also be called as
-a result of a call to the [megaco:connect/5](`m:megaco#connect`) function (if
+a result of a call to the `megaco:connect/5` function (if
 that function is called with the `Extra` argument different than `ignore_extra`.
-
-[](){: #disconnect }
 """.
 -callback handle_connect(ConnHandle, ProtocolVersion, Extra) -> 
     ok | error | {error, ErrorDescr} when
@@ -172,8 +169,6 @@ Invoked when a connection is teared down
 
 The disconnect may either be made explicitly by a call to megaco:disconnect/2 or
 implicitly when the control process of the connection dies.
-
-[](){: #syntax_error }
 """.
 -callback handle_disconnect(ConnHandle, ProtocolVersion, Reason) ->
     megaco:void() when
@@ -207,10 +202,9 @@ and `no_reply` respectively.
 Any other return values (including exit signals or throw) and the `DefaultED`
 will be used.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_syntax_error/4`](`c:handle_syntax_error/4`).
 
-[](){: #message_error }
 """.
 -callback handle_syntax_error(ReceiveHandle, ProtocolVersion, DefaultED, Extra) -> 
     reply | {reply, ED} | no_reply | {no_reply, ED} when
@@ -239,10 +233,9 @@ probably don't want to reply to it, but it may indicate that you have
 outstanding transactions that not will get any response (request -> reply; reply
 -> ack).
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_message_error/4`](`c:handle_message_error/4`).
 
-[](){: #trans_request }
 """.
 -callback handle_message_error(ConnHandle, ProtocolVersion, ErrorDescr, Extra) ->
     megaco:void() when
@@ -298,7 +291,7 @@ options:
 
   If for some reason megaco is unable to deliver the reply, the reason for this
   will be passed to the user via a call to the callback function
-  [handle_trans_ack](`m:megaco_user#trans_ack`), unless
+  [handle_trans_ack](`c:handle_trans_ack/5`), unless
   `ack_action() = discard_ack`.
 
   The ack_action() is either:
@@ -331,10 +324,9 @@ Any other return values (including exit signals or throw) will result in an
 error descriptor with code 500 (internal gateway error) and the module name (of
 the callback module) as reason.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_trans_request/4`](`c:handle_trans_request/4`).
 
-[](){: #trans_long_request }
 """.
 -callback handle_trans_request(ConnHandle,
                                ProtocolVersion,
@@ -394,10 +386,9 @@ Any other return values (including exit signals or throw) will result in an
 error descriptor with code 500 (internal gateway error) and the module name (of
 the callback module) as reason.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_trans_long_request/4`](`c:handle_trans_long_request/4`).
 
-[](){: #trans_reply }
 """.
 -callback handle_trans_long_request(ConnHandle, ProtocolVersion, ReqData, Extra) ->
     Reply when
@@ -494,7 +485,7 @@ following:
   the reply was segmented.
 - A `user_cancel_reason()`, indicates that the request has been canceled by the
   user. `reason_for_user_cancel()` is the reason given in the call to the
-  [cancel](`m:megaco#cancel`) function.
+  [cancel](`megaco:cancel/2`) function.
 - A `send_reason()`, indicates that the transport module
   [send_message](`c:megaco_transport:send_message/3`) function did not send the
   message. The reason for this can be:
@@ -513,10 +504,9 @@ following:
   - `exceeded_recv_pending_limit` \- the pending limit was exceeded for this
     request.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_trans_reply/5`](`c:handle_trans_reply/5`).
 
-[](){: #trans_ack }
 """.
 -callback handle_trans_reply(ConnHandle,
                              ProtocolVersion,
@@ -604,14 +594,13 @@ happens when:
 - **`reply_timer`** - The `reply_timer` eventually times out.
 
 - **reply send failure** - When megaco fails to send the reply (see
-  [handle_trans_reply](`m:megaco_user#trans_reply`)), for whatever reason.
+  [handle_trans_reply](`c:handle_trans_reply/5`)), for whatever reason.
 
 - **cancel** - The user has explicitly cancelled the wait (megaco:cancel/2).
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_trans_ack/5`](`c:handle_trans_ack/5`).
 
-[](){: #unexpected_trans } [](){: #handle_unexpected_trans }
 """.
 -callback handle_trans_ack(ConnHandle,
                            ProtocolVersion,
@@ -651,10 +640,9 @@ been done the app has no way of knowing where to send this message. The message
 is delivered to the "user" by calling this function on the local node (the node
 which has the link).
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_unexpected_trans/4`](`c:handle_unexpected_trans/4`).
 
-[](){: #request_abort }
 """.
 -callback handle_unexpected_trans(ConnHandle, ProtocolVersion, Trans, Extra) ->
     ok when
@@ -681,10 +669,9 @@ Invoked when a transaction request has been aborted
 This function is invoked if the originating pending limit has been exceeded.
 This usually means that a request has taken abnormally long time to complete.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_trans_request_abort/5`](`c:handle_trans_request_abort/5`).
 
-[](){: #segment_reply }
 """.
 -callback handle_trans_request_abort(ConnHandle,
                                      ProtocolVersion,
@@ -712,11 +699,11 @@ See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
       SegCompl        :: asn1_NOVALUE | 'NULL'.
 -doc """
 This function is called when a segment reply has been received if the
-[segment_reply_ind](`m:megaco#conn_info`) config option has been set to true.
+[segment_reply_ind](`megaco:conn_info/2`) config option has been set to true.
 
 This is in effect a progress report.
 
-See [note](`m:megaco_user#extra_argument`) above about the `Extra` argument in
+See [note](#extra_argument) above about the `Extra` argument in
 [`handle_segment_reply/6`](`c:handle_segment_reply/6`).
 """.
 -callback handle_segment_reply(ConnHandle,

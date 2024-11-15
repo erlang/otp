@@ -136,8 +136,6 @@ Interface module for the Event Trace (ET) application
 %%----------------------------------------------------------------------
 
 -doc """
-trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced
-
 Invokes `et:trace_me/5` with both `From` and `To` set to `FromTo`.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
@@ -151,8 +149,6 @@ trace_me(DetailLevel, FromTo, Label, Contents)
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -doc """
-trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced
-
 A function that is intended to be traced.
 
 This function is intended to be invoked at strategic places in user applications
@@ -192,8 +188,6 @@ phone_home(DetailLevel, FromTo, Label, Contents) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -doc """
-phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced
-
 These functions sends a signal to the outer space and the caller hopes that
 someone is listening. In other words, they invoke `et:trace_me/4` and
 `et:trace_me/5` respectively.
@@ -219,8 +213,6 @@ report_event(DetailLevel, FromTo, Label, Contents) ->
     ?MODULE:trace_me(DetailLevel, FromTo, FromTo, Label, Contents).
 
 -doc """
-report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced
-
 Deprecated functions which for the time being are kept for backwards
 compatibility. Invokes `et:trace_me/4` and `et:trace_me/5` respectively.
 """.

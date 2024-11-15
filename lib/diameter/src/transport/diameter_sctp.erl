@@ -161,8 +161,6 @@ be specified as the value of a transport_module option to
 %% ---------------------------------------------------------------------------
 
 -doc """
-start({Type, Ref}, Svc, [Opt]) -> {ok, Pid, [LAddr]} | {error, Reason}
-
 The start function required by `m:diameter_transport`.
 
 Options `raddr` and `rport` specify the remote address and port for a connecting
@@ -226,14 +224,14 @@ connecting transport.
    -> {ok, pid(), [inet:ip_address()]}
  when Ref :: diameter:transport_ref().
 
-start(T, Svc, Opts)
-  when is_list(Opts) ->
+start(TypeRef, Svc, Options)
+  when is_list(Options) ->
     #diameter_service{capabilities = Caps,
                       pid = Pid}
         = Svc,
     diameter_sctp_sup:start(),  %% start supervisors on demand
     Addrs = Caps#diameter_caps.host_ip_address,
-    s(T, Addrs, Pid, Opts).
+    s(TypeRef, Addrs, Pid, Options).
 
 %% A listener spawns transports either as a consequence of this call
 %% when there is not yet an association to assign it, or at comm_up on

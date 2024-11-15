@@ -222,7 +222,7 @@ are two ways to get this working:
   - Add the `{scanner, flex}` (or similar) directive to an Erlang system config
     file for the megaco app (see
     [initial configuration](megaco_run.md#initial_config) chapter for details).
-  - Retrieve the encoding-config using the [system_info](`m:megaco#system_info`)
+  - Retrieve the encoding-config using the [system_info](`megaco:system_info/1`)
     function (with `Item = text_config`).
   - Update the receive handle with the encoding-config (the `encoding_config`
     field).
@@ -296,8 +296,8 @@ For outgoing messages:
 
 - Update the connection info protocol_version.
 - Override protocol version when sending a message by adding the item
-  `{protocol_version, integer()}` to the Options. See [call](`m:megaco#call`) or
-  [cast](`m:megaco#cast`).  
+  `{protocol_version, integer()}` to the Options. See [call](`megaco:call/3`) or
+  [cast](`megaco:cast/3`).  
   Note that this does not effect the messages that are sent autonomously by the
   stack. They use the protocol_version of the connection info.
 

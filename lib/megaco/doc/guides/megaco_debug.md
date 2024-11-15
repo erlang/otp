@@ -31,8 +31,8 @@ given external function.
 Event traces can be viewed in a generic message sequence chart tool, `et`, or as
 standard output (events are written to stdio).
 
-See [enable_trace](`m:megaco#enable_trace`),
-[disable_trace](`m:megaco#disable_trace`) and [set_trace](`m:megaco#set_trace`)
+See [enable_trace](`megaco:enable_trace/2`),
+[disable_trace](`megaco:disable_trace/0`) and [set_trace](`megaco:set_trace/1`)
 for more info.
 
 ## Measurement and transformation
