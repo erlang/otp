@@ -148,7 +148,7 @@ This document describes the changes made to the Kernel application.
 
 - Fix reading a line when reading from `t:io:user/0` to not consider `\r` without `\n` to be a new line when `erl` is started with `-noshell`.
 
-  Own Id: OTP-19088 Aux Id: [PR-8396] [GH-8360]
+  Own Id: OTP-19088 Aux Id: [PR-8396], [GH-8360]
 
 [PR-7220]: https://github.com/erlang/otp/pull/7220
 [GH-7718]: https://github.com/erlang/otp/issues/7718

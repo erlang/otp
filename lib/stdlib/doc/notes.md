@@ -63,7 +63,7 @@ This document describes the changes made to the STDLIB application.
 
 - The help printout for incorrect `t:io:format/0` strings now handles the `k` modifier correctly.
 
-  Own Id: OTP-19146 Aux Id: [PR-8611] [GH-8568]
+  Own Id: OTP-19146 Aux Id: [PR-8611], [GH-8568]
 
 - Fixed a bug that caused the shell completion to crash when keyword and tuple appeared on the same line.
 
@@ -161,7 +161,7 @@ This document describes the changes made to the STDLIB application.
 
 - Fixed `m:json` bugs, `json:encode_key_value_list/2` did not generate arrays and `json:decode/3` did not invoke the user callback for `0`.
 
-  Own Id: OTP-19106 Aux Id: [PR-8581] [GH-8580] [PR-8519]
+  Own Id: OTP-19106 Aux Id: [PR-8581], [GH-8580], [PR-8519]
 
 [PR-8542]: https://github.com/erlang/otp/pull/8542
 [PR-8581]: https://github.com/erlang/otp/pull/8581
@@ -210,7 +210,7 @@ This document describes the changes made to the STDLIB application.
 
 - Fix shell expansion to not crash when expanding a map with non-atom keys and to not list zero arity functions when an argument has been given.
 
-  Own Id: OTP-19073 Aux Id: [PR-8375] [GH-8366] [GH-8365] [GH-8364]
+  Own Id: OTP-19073 Aux Id: [PR-8375], [GH-8366], [GH-8365], [GH-8364]
 
 [PR-7481]: https://github.com/erlang/otp/pull/7481
 [PR-7607]: https://github.com/erlang/otp/pull/7607
@@ -357,7 +357,7 @@ This document describes the changes made to the STDLIB application.
 - Functions `shell:default_multiline_prompt/1`, `shell:inverted_space_prompt/1`, and 
   `shell:prompt_width/1` have been exported to help with custom prompt implementations.
 
-  Own Id: OTP-18834 Aux Id: [PR-7675] [PR-7816]
+  Own Id: OTP-18834 Aux Id: [PR-7675], [PR-7816]
 
 - The shell now pages long output from the documentation help command ([`h(Module)`](`c:h/1`)), auto completions and the search command.
 

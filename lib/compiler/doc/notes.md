@@ -46,7 +46,7 @@ This document describes the changes made to the Compiler application.
 
 - Fix `+deterministic` to work properly with documentation attributes.
 
-  Own Id: OTP-19142 Aux Id: [PR-8585] [GH-8579]
+  Own Id: OTP-19142 Aux Id: [PR-8585], [GH-8579]
 
 [PR-8567]: https://github.com/erlang/otp/pull/8567
 [PR-8585]: https://github.com/erlang/otp/pull/8585

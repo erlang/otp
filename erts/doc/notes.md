@@ -86,7 +86,7 @@ This document describes the changes made to the ERTS application.
 
 - The `erl -man example` has been corrected to not consider values set in `ERL_ZFLAGS` and stop parsing arguments when a `--` is encountered.
 
-  Own Id: OTP-19098 Aux Id: [PR-8478] [GH-8477]
+  Own Id: OTP-19098 Aux Id: [PR-8478], [GH-8477]
 
 - Compiler warnings for  Windows I/O back-end have been silenced.
 
@@ -159,7 +159,7 @@ This document describes the changes made to the ERTS application.
     'The I/O operation has been aborted because of either a thread exit or an application request.'}.
   ```
 
-  Own Id: OTP-19220 Aux Id: [PR-8774] [GH-7621]
+  Own Id: OTP-19220 Aux Id: [PR-8774], [GH-7621]
 
 [PR-8478]: https://github.com/erlang/otp/pull/8478
 [GH-8477]: https://github.com/erlang/otp/issues/8477

@@ -27,7 +27,7 @@ This document describes the changes made to the Tools application.
 
 - `m:tprof` no longer crashes when using pause/restart/continue when profiling all modules.
 
-  Own Id: OTP-19136 Aux Id: [GH-8472] [PR-8472] [PR-8541]
+  Own Id: OTP-19136 Aux Id: [GH-8472], [PR-8472], [PR-8541]
 
 - On systems supporting native coverage, calls to `m:cover` could hang or crash if cover-compiled module had been reloaded from outside `cover`. This has been corrected so that `cover` now recovers from the error and and sends a report to the logger about the failure to retrieve coverage information.
 
