@@ -1671,6 +1671,7 @@ abstr_passes(AbstrStatus) ->
          {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
 
          {delay,[{iff,line_coverage,{pass,sys_coverage}}]},
+         {iff,'dcover',{src_listing,"cover"}},
 
          ?pass(expand_records),
          {iff,'dexp',{listing,"expand"}},
