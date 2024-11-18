@@ -40,10 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'erlang/otp'
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_src.tar.gz
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # ratchet:actions/checkout@v4.2.1
         with:
             repository: ossf/wg-best-practices-os-developers
             sparse-checkout: docs/Compiler-Hardening-Guides/compiler-options-scraper
@@ -67,7 +67,7 @@ jobs:
 
       - name: "Upload artifact"
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4 # v4.4.3
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3 ratchet:actions/upload-artifact@v4
         with:
             name: SARIF file
             path: results.sarif
@@ -75,7 +75,7 @@ jobs:
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
         if: ${{ !cancelled() }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # ratchet:github/codeql-action/upload-sarif@v3
         with:
             sarif_file: results.sarif
           
