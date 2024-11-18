@@ -119,8 +119,16 @@ run(Opts) ->
 
             io:format("Approving and forward merge these PRs: ~ts~n",[lists:join(", ", [PR || PR := _ <- PassedDependabotPRs])]),
 
+            NeedsApproval = fun(No) ->
+                case json_cmd(Opts, ["gh pr view --json \"reviews\" ", No]) of
+                    #{ ~"reviews" := [#{ ~"state" := ~"APPROVED" }|_] } -> false;
+                    _ -> true
+                end
+            end,
+
             %% Approve all dependabot PRs
-            [dry(Opts, ["gh pr -R ", Upstream, " review --approve ", PR]) || PR := _ <- PassedDependabotPRs],
+            [dry(Opts, ["gh pr -R ", Upstream, " review --approve ", PR]) || PR := _ <- PassedDependabotPRs,
+              NeedsApproval(PR)],
 
             synchronize_branch(Opts, "maint"),
             synchronize_branch(Opts, "master"),
