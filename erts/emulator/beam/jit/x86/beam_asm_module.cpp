@@ -342,6 +342,11 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
     emit_label(Label);
 }
 
+void BeamModuleAssembler::emit_i_func_label(const ArgLabel &Label) {
+    flush_last_error();
+    emit_aligned_label(Label, ArgVal(ArgVal::Word, sizeof(UWord)));
+}
+
 void BeamModuleAssembler::emit_on_load() {
     on_load = current_label;
 }
@@ -362,22 +367,12 @@ void BeamModuleAssembler::emit_int_code_end() {
 void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
     /* There is no need to align the line instruction. In the loaded code, the
      * type of the pointer will be void* and that pointer will only be used in
-     * comparisons.
-     *
-     * We only need to do something when there's a possibility of raising an
-     * exception at the very end of the preceding instruction (and thus
-     * pointing at the start of this one). If we were to do nothing, the error
-     * would erroneously refer to this instead of the preceding line.
-     *
-     * Since line addresses are taken _after_ line instructions we can avoid
-     * this by adding a nop when we detect this condition. */
-    if (a.offset() == last_error_offset) {
-        a.nop();
-    }
+     * comparisons. */
+
+    flush_last_error();
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
-    emit_line(Loc);
 }
 
 void BeamModuleAssembler::emit_empty_func_line() {
@@ -415,4 +410,17 @@ const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)()) {
     }
 
     return it->second;
+}
+
+void BeamModuleAssembler::flush_last_error() {
+    /* When there's a possibility of raising an exception at the very end of the
+     * preceding instruction (and thus pointing at the start of this one) and
+     * this instruction has a new line registered, the error would erroneously
+     * refer to this instead of the preceding line.
+     *
+     * By adding a nop when we detect this condition, the error will correctly
+     * refer to the preceding line. */
+    if (a.offset() == last_error_offset) {
+        a.nop();
+    }
 }
