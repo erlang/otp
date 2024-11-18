@@ -42,11 +42,14 @@ label L
 
 # An label aligned to a certain boundary. This is used in two cases:
 #
-# * When the label points to the start of a function, as the ErtsCodeInfo
-#   struct must be word-aligned.
+# * When the label points to the start of a function. See `i_func_label`.
 # * When the address is stored on the stack or otherwise needs to be properly
 #   tagged as a continuation pointer.
 aligned_label L t
+
+# A label indicating the start of a function. The label is word-aligned as is
+# required by the ErtsCodeInfo struct.
+i_func_label L
 
 i_func_info I a a I
 int_code_end
@@ -904,8 +907,8 @@ int_func_start Func_Label Func_Line M F A |
   func_prologue Entry_Label Entry_Line |
   is_mfa_bif(M, F, A) =>
     i_flush_stubs |
+    i_func_label Func_Label |
     func_line Func_Line |
-    aligned_label Func_Label u=8 |
     i_func_info Func_Label M F A |
       aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
@@ -915,8 +918,8 @@ int_func_start Func_Label Func_Line M F A |
 int_func_start Func_Label Func_Line M F A |
   func_prologue Entry_Label Entry_Line =>
     i_flush_stubs |
+    i_func_label Func_Label |
     func_line Func_Line |
-    aligned_label Func_Label u=8 |
     i_func_info Func_Label M F A |
       aligned_label Entry_Label u=4 |
       i_breakpoint_trampoline |
