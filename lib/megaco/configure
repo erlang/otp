@@ -2784,6 +2784,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
   # Make sure we can run config.sub.
 $SHELL "${ac_aux_dir}config.sub" sun4 >/dev/null 2>&1 ||
   as_fn_error $? "cannot run $SHELL ${ac_aux_dir}config.sub" "$LINENO" 5
@@ -2983,6 +2987,13 @@ then :
           " "$LINENO" 5
 fi
 
+
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
 
 
 
@@ -5969,6 +5980,11 @@ fi
 
 if test "$PERL" = no_perl; then
   as_fn_error $? "Perl is required to build the flex scanner!" "$LINENO" 5
+fi
+
+
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
 fi
 
 ac_config_files="$ac_config_files examples/meas/Makefile:examples/meas/Makefile.in"

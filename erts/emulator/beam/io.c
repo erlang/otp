@@ -3198,6 +3198,7 @@ static int flush_linebuf(LineBufContext *bp)
 	    resize_linebuf(bp->b);
 	LINEBUF_DATA(*bp)[((*bp->b)->ovlen)++] = '\r';
 	++bp->retlen; /* fall through instead of switching state... */
+        ERTS_FALLTHROUGH();
     case LINEBUF_MAIN:
     case LINEBUF_FULL:
 	(*bp->b)->ovlen = 0;
@@ -5432,10 +5433,13 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
+        break;
     case ERL_DRV_WRITE:
 	type = "Output";
+        break;
     case ERL_DRV_READ:
 	type = "Input";
+        break;
     default:
         type = "";
     }

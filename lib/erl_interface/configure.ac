@@ -31,6 +31,8 @@ AC_PREREQ([2.72])
 
 m4_include([otp.m4])
 
+ERL_PUSH_WERROR
+
 dnl How to set srcdir absolute is taken from the GNU Emacs distribution
 #### Make srcdir absolute, if it isn't already.  It's important to
 #### avoid running the path through pwd unnecessary, since pwd can
@@ -325,7 +327,7 @@ AS_CASE(["$threads_disabled"],
 # ---------------------------------------------------------------------------
 AC_SUBST(WFLAGS)
 
-WFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS"
+WFLAGS="$WERRORFLAGS $DED_WERRORFLAGS $DED_WARN_FLAGS"
 AS_IF([test "x$GCC" = xyes],
       [WFLAGS="$WFLAGS -Wmissing-declarations -Wnested-externs -Winline"])
 
@@ -337,6 +339,8 @@ AS_IF([test "x$GCC" = xyes],
 LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 # No strict aliasing until we determined it is safe...
 LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [CFLAGS])
+
+ERL_POP_WERROR
 
 # ---------------------------------------------------------------------------
 # XXX

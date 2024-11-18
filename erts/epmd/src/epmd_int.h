@@ -97,6 +97,21 @@
 #define ASSERT(Cnd)
 #endif
 
+#if __GNUC__
+#  define __decl_noreturn
+#  ifndef __noreturn
+#     define __noreturn __attribute__((noreturn))
+#  endif
+#else
+#  if defined(__WIN32__) && defined(_MSC_VER)
+#    define __noreturn
+#    define __decl_noreturn __declspec(noreturn)
+#  else
+#    define __noreturn
+#    define __decl_noreturn
+#  endif
+#endif
+
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
 #  define EPMD6
 #endif
@@ -343,7 +358,7 @@ void dbg_perror(EpmdVars*,const char*,...);
 void kill_epmd(EpmdVars*);
 void epmd_call(EpmdVars*,int);
 void run(EpmdVars*);
-void epmd_cleanup_exit(EpmdVars*, int);
+__decl_noreturn void __noreturn epmd_cleanup_exit(EpmdVars*, int);
 int epmd_conn_close(EpmdVars*,Connection*);
 void stop_cli(EpmdVars *g, char *name);
 

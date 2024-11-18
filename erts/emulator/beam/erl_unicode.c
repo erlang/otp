@@ -2164,6 +2164,7 @@ Eterm erts_convert_native_to_filename(Process *p, size_t size, byte *bytes)
 	goto noconvert;
     case ERL_FILENAME_UTF8_MAC:
 	mac = 1;
+        ERTS_FALLTHROUGH();
     case ERL_FILENAME_UTF8:
 	if (size == 0)
 	    return NIL;
@@ -2334,6 +2335,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 				need += 2;
 				break;
 			    } /* else fall through to error */
+                            ERTS_FALLTHROUGH();
 			default:
 			    DESTROY_ESTACK(stack);
 			    return ((Sint) -1);

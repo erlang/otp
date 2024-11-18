@@ -26,6 +26,8 @@ AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 AC_PREREQ([2.71])
 
+ERL_PUSH_WERROR
+
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
    rm ./CONF_INFO
@@ -749,6 +751,8 @@ AC_SUBST(WXERL_SYS_TYPE)
 mkdir -p $WXERL_SYS_TYPE
 CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
 
+ERL_POP_WERROR
+
 dnl
 
 AC_CONFIG_FILES([ 
@@ -762,6 +766,3 @@ CORES=`ls core* 2>/dev/null`
 if test X"$CORES" != X"" ; then
    echo "Configure dumped core files" > ignore_core_files
 fi
-
-
-

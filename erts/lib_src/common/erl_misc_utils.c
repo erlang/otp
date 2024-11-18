@@ -1124,7 +1124,6 @@ get_cgroup_path(const char *controller,
                 const char **out) {
     enum cgroup_version_t version;
     char mount_line[10 << 10];
-    const char *mount_format;
     const char *child_path;
     FILE *mount_file;
 
@@ -1134,27 +1133,10 @@ get_cgroup_path(const char *controller,
     }
 
     version = get_cgroup_child_path(controller, &child_path);
-    switch (version) {
-    case ERTS_CGROUP_NONE:
+
+    if (version == ERTS_CGROUP_NONE) {
         fclose(mount_file);
         return ERTS_CGROUP_NONE;
-    case ERTS_CGROUP_V1:
-        /* Format:
-         *    [Mount id] [Parent id] [Major] [Minor] [Root] [Mounted at]    \
-         *    [Mount flags] ... (options terminated by a single hyphen) ... \
-         *    [FS type] [Mount source] [Flags]
-         *
-         * (See proc(5) for a more complete description.)
-         *
-         * This fails if any of the fs options contain a hyphen, but this is
-         * not likely to happen on a cgroup, so we just skip such lines. */
-        mount_format = "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
-                       "cgroup %*s %511[^\n]\n";
-        break;
-    case ERTS_CGROUP_V2:
-        mount_format = "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
-                       "cgroup2 %*s %511[^\n]\n";
-        break;
     }
 
     /* As a controller can only belong to one hierarchy, regardless of
@@ -1166,12 +1148,39 @@ get_cgroup_path(const char *controller,
         char root_path[4 << 10];
         char fs_flags[512];
 
-        if (sscanf(mount_line,
-                   mount_format,
-                   root_path,
-                   mount_path,
-                   fs_flags) != 3) {
-            continue;
+        switch (version) {
+
+            case ERTS_CGROUP_V1:
+            /* Format:
+            *    [Mount id] [Parent id] [Major] [Minor] [Root] [Mounted at]    \
+            *    [Mount flags] ... (options terminated by a single hyphen) ... \
+            *    [FS type] [Mount source] [Flags]
+            *
+            * (See proc(5) for a more complete description.)
+            *
+            * This fails if any of the fs options contain a hyphen, but this is
+            * not likely to happen on a cgroup, so we just skip such lines. */
+            if (sscanf(mount_line,
+                       "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
+                         "cgroup %*s %511[^\n]\n",
+                       root_path,
+                       mount_path,
+                       fs_flags) != 3) {
+                continue;
+            }
+            break;
+            case ERTS_CGROUP_V2:
+            if (sscanf(mount_line,
+                       "%*d %*d %*d:%*d %4095s %4095s %*s%*[^-]- "
+                        "cgroup2 %*s %511[^\n]\n",
+                       root_path,
+                       mount_path,
+                       fs_flags) != 3) {
+                continue;
+            }
+            break;
+            default:
+                ASSERT(0 && "Only V1 and V2 should come here");
         }
 
         if (version == ERTS_CGROUP_V2) {

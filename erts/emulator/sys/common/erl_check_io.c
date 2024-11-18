@@ -589,8 +589,8 @@ abort_tasks(ErtsDrvEventState *state, int mode)
 	    return;
 	default:
 	    ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
-	    /* Fall through */
 	}
+        ERTS_FALLTHROUGH();
     case ERL_DRV_READ|ERL_DRV_WRITE:
     case ERL_DRV_WRITE:
 	ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
@@ -599,6 +599,7 @@ abort_tasks(ErtsDrvEventState *state, int mode)
 		   state->type);
 	if (mode == ERL_DRV_WRITE)
 	    break;
+        ERTS_FALLTHROUGH();
     case ERL_DRV_READ:
 	ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
 	abort_task(state->driver.select->inport,

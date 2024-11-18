@@ -3307,6 +3307,17 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
 default_cache_file=./config.cache
 
 if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
@@ -7277,6 +7288,11 @@ fi
 
 
 
+
+
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
 
 ac_config_files="$ac_config_files ../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in"
 

@@ -26,6 +26,8 @@ m4_include([otp.m4])
 
 LM_PRECIOUS_VARS
 
+ERL_PUSH_WERROR
+
 default_cache_file=./config.cache
 
 if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
@@ -371,6 +373,8 @@ if test X${enable_m32_build} = Xyes; then
 fi
 
 ERL_DED
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([../Makefile output.mk ../make/$host/otp_ded.mk:../make/otp_ded.mk.in])
 

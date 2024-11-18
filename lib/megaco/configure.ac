@@ -33,6 +33,8 @@ AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
 ERL_CANONICAL_SYSTEM_TYPE
 
+ERL_PUSH_WERROR
+
 dnl ----------------------------------------------------------------------
 dnl Checks for programs.
 dnl ----------------------------------------------------------------------
@@ -168,6 +170,8 @@ AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
 fi
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([examples/meas/Makefile:examples/meas/Makefile.in])
 AC_OUTPUT

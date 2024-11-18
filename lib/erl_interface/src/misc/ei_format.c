@@ -116,6 +116,7 @@ static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
 	    ei_x_free(&x2);
 	    break;
 	}
+        EI_FALLTHROUGH();
     default:
 	if (isdigit((int)*p))
 	    res = pdigit(&p, x);

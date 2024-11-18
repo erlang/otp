@@ -1450,6 +1450,7 @@ tailrecur_ne:
                         if (aa[0] != bb[0])
                             goto not_equal;
 			aa++; bb++;
+                        ERTS_FALLTHROUGH();
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			ASSERT(sz > 0 && sz < 17);
@@ -1803,7 +1804,8 @@ tailrecur_ne:
 		goto mixed_types;
 	    }
 	}
-	}
+    }
+    ERTS_ASSERT(0 && "unreachable");
     case TAG_PRIMARY_LIST:
 	if (is_not_list(b)) {
 	    a_tag = LIST_DEF;

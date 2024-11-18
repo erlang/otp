@@ -2657,6 +2657,7 @@ ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 	    rwmtx->type = ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ;
 	}
 	/* Fall through */
+        ETHR_FALLTHROUGH();
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
 	int length;
 
@@ -2688,6 +2689,7 @@ ethr_rwmutex_init_opt(ethr_rwmutex *rwmtx, ethr_rwmutex_opt *opt)
 	    break;
 	}
     }
+        ETHR_FALLTHROUGH();
     case ETHR_RWMUTEX_TYPE_NORMAL:
 	rwmtx->tdata.rs = 0;
 	break;

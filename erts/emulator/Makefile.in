@@ -944,7 +944,7 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # included before any other directives, including other #includes.
 #
 ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1 -DASMJIT_NO_FOREIGN=1
-
+ASMJIT_CXXFLAGS=$(filter-out -Wformat -Wformat=2, $(CXXFLAGS))
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
@@ -960,7 +960,7 @@ $(OBJDIR)/%.o: beam/jit/$(JIT_ARCH)/%.cpp beam/jit/$(JIT_ARCH)/beam_asm.hpp $(AS
 
 $(OBJDIR)/asmjit/%.o: asmjit/%.cpp $(ASMJIT_PCH_OBJ) $(dir $@)
 	$(V_CXX) $(ASMJIT_FLAGS) $(INCLUDES)                        \
-          $(subst -O2, $(GEN_OPT_FLGS), $(CXXFLAGS))                \
+          $(subst -O2, $(GEN_OPT_FLGS), $(ASMJIT_CXXFLAGS))         \
           -include $(ASMJIT_PCH_SRC) -c $< -o $@
 
 ## The dependency on erl_bif_info.c is in order to trigger a rebuild when

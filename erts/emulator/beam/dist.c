@@ -383,6 +383,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CML_CLEANUP_STATE_MONITORS:
         reds = erts_monitor_list_foreach_delete_yielding(&dist->monitors,
                                                          monitor_connection_down,
@@ -393,6 +394,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_ONAME_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CML_CLEANUP_STATE_ONAME_MONITORS:
         reds = erts_monitor_tree_foreach_delete_yielding(&dist->orig_name_monitors,
                                                          monitor_connection_down,
@@ -403,6 +405,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_PEND_SPAWN_EXIT_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CML_CLEANUP_STATE_PEND_SPAWN_EXIT_MONITORS:
         reds = erts_monitor_tree_foreach_delete_yielding(&dist->dist_pend_spawn_exit,
                                                          dist_pend_spawn_exit_connection_down,
@@ -416,6 +419,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_SEQUENCES;
+        ERTS_FALLTHROUGH();
     case ERTS_CML_CLEANUP_STATE_SEQUENCES:
         reds = erts_dist_seq_tree_foreach_delete_yielding(&cmlcp->seq,
                                                           &cmlcp->yield_state,
@@ -425,6 +429,7 @@ con_monitor_link_seq_cleanup(void *vcmlcp)
 
         ASSERT(!cmlcp->yield_state);
         cmlcp->state = ERTS_CML_CLEANUP_STATE_NODE_MONITORS;
+        ERTS_FALLTHROUGH();
     case ERTS_CML_CLEANUP_STATE_NODE_MONITORS:
         if (cmlcp->trigger_node_monitors) {
             Process* waiter;
@@ -2114,6 +2119,7 @@ int erts_net_message(Port *prt,
         }
 
         /* fall through, the first fragment in the sequence was the last fragment */
+        ERTS_FALLTHROUGH();
     case ERTS_PREP_DIST_EXT_FRAG_CONT: {
         DistSeqNode *seq;
         erts_de_rlock(dep);
@@ -3274,6 +3280,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             }
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
+            ERTS_FALLTHROUGH();
 	case ERTS_DSIG_SEND_PHASE_MSG_SIZE: {
             Sint reds, *redsp;
             if (!ctx->no_trap)
@@ -3311,6 +3318,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             }
 
 	    ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
+            ERTS_FALLTHROUGH();
         }
 	case ERTS_DSIG_SEND_PHASE_ALLOC: {
 
@@ -3356,6 +3364,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             }
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_ENCODE;
+            ERTS_FALLTHROUGH();
         }
         case ERTS_DSIG_SEND_PHASE_MSG_ENCODE: {
             Sint reds, *redsp;
@@ -3387,6 +3396,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
             }
 
             ctx->phase = ERTS_DSIG_SEND_PHASE_FIN;
+            ERTS_FALLTHROUGH();
         }
 	case ERTS_DSIG_SEND_PHASE_FIN: {
             Uint fid = ctx->fragments;
@@ -3456,6 +3466,7 @@ erts_dsig_send(ErtsDSigSendContext *ctx)
                 retval = ERTS_DSIG_SEND_CONTINUE;
                 goto done;
             }
+            ERTS_FALLTHROUGH();
         }
         case ERTS_DSIG_SEND_PHASE_SEND: {
             /*

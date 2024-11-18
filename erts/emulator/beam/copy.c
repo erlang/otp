@@ -898,6 +898,7 @@ Eterm copy_struct_x(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap,
 		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
 		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			*htop++ = *objp++;
+                        ERTS_FALLTHROUGH();
 		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
 			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
 			while (i--)  { *htop++ = *objp++; }
@@ -1601,6 +1602,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                     case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
                     case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
 			*hp++ = *++ptr; /* total map size */
+                        ERTS_FALLTHROUGH();
                     case MAP_HEADER_TAG_HAMT_NODE_BITMAP : {
                          Uint n = hashmap_bitcount(MAP_HEADER_VAL(hdr));
                          while (n--)  {
@@ -1987,7 +1989,7 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 		    erts_refc_inc(&mreft->mb->intern.refc, 2);
 		    goto off_heap_common;
 		}
-		/* Fall through... */
+		ERTS_FALLTHROUGH();
 	    }
 	    default:
 		{
@@ -2101,6 +2103,7 @@ move_one_frag(Eterm** hpp, ErlHeapFragment* frag, ErlOffHeap* off_heap, int lite
                 if (!is_magic_ref_thing(hdr)) {
                     break;
                 }
+                ERTS_FALLTHROUGH();
             case BIN_REF_SUBTAG:
             case EXTERNAL_PID_SUBTAG:
             case EXTERNAL_PORT_SUBTAG:

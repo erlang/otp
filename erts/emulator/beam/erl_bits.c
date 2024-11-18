@@ -246,13 +246,13 @@ Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)
 	 */
 	switch (BYTE_OFFSET(n)) {
 #if defined(ARCH_64)
-	case 7: w = (w << 8) | *bp++;
-	case 6: w = (w << 8) | *bp++;
-	case 5: w = (w << 8) | *bp++;
-	case 4: w = (w << 8) | *bp++;
+	case 7: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+	case 6: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+	case 5: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+	case 4: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
 #endif
-	case 3: w = (w << 8) | *bp++;
-	case 2: w = (w << 8) | *bp++;
+	case 3: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
+	case 2: w = (w << 8) | *bp++; ERTS_FALLTHROUGH();
 	case 1: w = (w << 8) | *bp++;
 	}
 	n = BIT_OFFSET(n);
@@ -537,21 +537,21 @@ erts_bs_get_binary_all_2(Process *p, ErlSubBits *sb)
  * dst and val are updated.
  */
 
-#define FMT_COPY_VAL(dst,ddir,val,sz) do {                      \
-   Uint __sz = (sz);                                            \
-   while (__sz) {                                               \
-     switch(__sz) {                                             \
-     default:                                                   \
-     case 8: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 7: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 6: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 5: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 4: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 3: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 2: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     case 1: *dst = val; dst += ddir; val >>= 8; __sz--;        \
-     }                                                          \
-   }                                                            \
+#define FMT_COPY_VAL(dst,ddir,val,sz) do {                                   \
+   Uint __sz = (sz);                                                         \
+   while (__sz) {                                                            \
+     switch(__sz) {                                                          \
+     default:                                                                \
+     case 8: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 7: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 6: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 5: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 4: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 3: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 2: *dst = val; dst += ddir; val >>= 8; __sz--; ERTS_FALLTHROUGH(); \
+     case 1: *dst = val; dst += ddir; val >>= 8; __sz--;                     \
+     }                                                                       \
+   }                                                                         \
  } while(0)
 
 static void

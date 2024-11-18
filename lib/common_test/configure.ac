@@ -5,10 +5,14 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 ERL_CANONICAL_SYSTEM_TYPE
 
 TARGET=$host
 AC_SUBST(TARGET)
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([priv/$host/Makefile:priv/Makefile.in])
 AC_OUTPUT

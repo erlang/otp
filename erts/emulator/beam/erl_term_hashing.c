@@ -462,17 +462,17 @@ Uint32 block_hash_final_bytes(byte *buf,
     ctx->c += full_length;
     switch(len)
     { /* all the case statements fall through */      
-    case 11: ctx->c+=((Uint32)k[10]<<24);
-    case 10: ctx->c+=((Uint32)k[9]<<16);
-    case 9 : ctx->c+=((Uint32)k[8]<<8);
+    case 11: ctx->c+=((Uint32)k[10]<<24); ERTS_FALLTHROUGH();
+    case 10: ctx->c+=((Uint32)k[9]<<16); ERTS_FALLTHROUGH();
+    case 9 : ctx->c+=((Uint32)k[8]<<8); ERTS_FALLTHROUGH();
     /* the first byte of c is reserved for the length */
-    case 8 : ctx->b+=((Uint32)k[7]<<24);
-    case 7 : ctx->b+=((Uint32)k[6]<<16);
-    case 6 : ctx->b+=((Uint32)k[5]<<8);
-    case 5 : ctx->b+=k[4];
-    case 4 : ctx->a+=((Uint32)k[3]<<24);
-    case 3 : ctx->a+=((Uint32)k[2]<<16);
-    case 2 : ctx->a+=((Uint32)k[1]<<8);
+    case 8 : ctx->b+=((Uint32)k[7]<<24); ERTS_FALLTHROUGH();
+    case 7 : ctx->b+=((Uint32)k[6]<<16); ERTS_FALLTHROUGH();
+    case 6 : ctx->b+=((Uint32)k[5]<<8); ERTS_FALLTHROUGH();
+    case 5 : ctx->b+=k[4]; ERTS_FALLTHROUGH();
+    case 4 : ctx->a+=((Uint32)k[3]<<24); ERTS_FALLTHROUGH();
+    case 3 : ctx->a+=((Uint32)k[2]<<16); ERTS_FALLTHROUGH();
+    case 2 : ctx->a+=((Uint32)k[1]<<8); ERTS_FALLTHROUGH();
     case 1 : ctx->a+=k[0];
     /* case 0: nothing left to add */
     }
@@ -1964,12 +1964,12 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                     value = 0;
                     switch(BYTE_SIZE(size) % sizeof(Uint64[2]))
                     {
-                    case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30;
-                    case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28;
-                    case 13: value ^= ((Uint64)bytes[it + 12]) << 0x20;
-                    case 12: value ^= ((Uint64)bytes[it + 11]) << 0x18;
-                    case 11: value ^= ((Uint64)bytes[it + 10]) << 0x10;
-                    case 10: value ^= ((Uint64)bytes[it +  9]) << 0x08;
+                    case 15: value ^= ((Uint64)bytes[it + 14]) << 0x30; ERTS_FALLTHROUGH();
+                    case 14: value ^= ((Uint64)bytes[it + 13]) << 0x28; ERTS_FALLTHROUGH();
+                    case 13: value ^= ((Uint64)bytes[it + 12]) << 0x20; ERTS_FALLTHROUGH();
+                    case 12: value ^= ((Uint64)bytes[it + 11]) << 0x18; ERTS_FALLTHROUGH();
+                    case 11: value ^= ((Uint64)bytes[it + 10]) << 0x10; ERTS_FALLTHROUGH();
+                    case 10: value ^= ((Uint64)bytes[it +  9]) << 0x08; ERTS_FALLTHROUGH();
                     case  9: value ^= ((Uint64)bytes[it +  8]) << 0x00;
                         {
                             value *= IHASH_C2;
@@ -1977,15 +1977,15 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
                             value *= IHASH_C1;
                             hash_beta ^= value;
                             value = 0;
-                            /* !! FALL THROUGH !! */
+                            ERTS_FALLTHROUGH();
                         }
-                    case  8: value ^= ((Uint64)bytes[it + 7]) << 0x38;
-                    case  7: value ^= ((Uint64)bytes[it + 6]) << 0x30;
-                    case  6: value ^= ((Uint64)bytes[it + 5]) << 0x28;
-                    case  5: value ^= ((Uint64)bytes[it + 4]) << 0x20;
-                    case  4: value ^= ((Uint64)bytes[it + 3]) << 0x18;
-                    case  3: value ^= ((Uint64)bytes[it + 2]) << 0x10;
-                    case  2: value ^= ((Uint64)bytes[it + 1]) << 0x08;
+                    case  8: value ^= ((Uint64)bytes[it + 7]) << 0x38; ERTS_FALLTHROUGH();
+                    case  7: value ^= ((Uint64)bytes[it + 6]) << 0x30; ERTS_FALLTHROUGH();
+                    case  6: value ^= ((Uint64)bytes[it + 5]) << 0x28; ERTS_FALLTHROUGH();
+                    case  5: value ^= ((Uint64)bytes[it + 4]) << 0x20; ERTS_FALLTHROUGH();
+                    case  4: value ^= ((Uint64)bytes[it + 3]) << 0x18; ERTS_FALLTHROUGH();
+                    case  3: value ^= ((Uint64)bytes[it + 2]) << 0x10; ERTS_FALLTHROUGH();
+                    case  2: value ^= ((Uint64)bytes[it + 1]) << 0x08; ERTS_FALLTHROUGH();
                     case  1: value ^= ((Uint64)bytes[it + 0]) << 0x00;
                         {
                             value *= IHASH_C1;

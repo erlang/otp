@@ -3296,6 +3296,7 @@ BIF_RETTYPE string_list_to_float_1(BIF_ALIST_1)
 		break;
 	    case EXP0:		/* example: "2.3e--" */
 		LOAD_E(i, i_mem, list, list_mem);
+                ERTS_FALLTHROUGH();
 	    default:		/* unexpected - done */
 		part = END;
 	    }
@@ -3309,6 +3310,7 @@ BIF_RETTYPE string_list_to_float_1(BIF_ALIST_1)
 		break;
 	    case EXP0:		/* example: "2.3e++" */
 		LOAD_E(i, i_mem, list, list_mem);
+                ERTS_FALLTHROUGH();
 	    default:		/* unexpected - done */
 		part = END;
 	    }
@@ -3319,8 +3321,10 @@ BIF_RETTYPE string_list_to_float_1(BIF_ALIST_1)
 		break;
 	    case EXP_SIGN:	/* example: "2.3e." */
 		LOAD_E(i, i_mem, list, list_mem);
+                ERTS_FALLTHROUGH();
 	    case EXP0:		/* example: "2.3e+." */
 		LOAD_E(i, i_mem, list, list_mem);
+                ERTS_FALLTHROUGH();
 	    default:		/* unexpected - done */
 		part = END;
 	    }
@@ -3337,6 +3341,7 @@ BIF_RETTYPE string_list_to_float_1(BIF_ALIST_1)
 	    case EXP0:		/* example: "2.3e+e" */
 	    case EXP_SIGN:	/* example: "2.3ee" */
 		LOAD_E(i, i_mem, list, list_mem);
+                ERTS_FALLTHROUGH();
 	    case INT:		/* would like this to be ok, example "2e2",
 				   but it's not compatible with list_to_float */
 	    default:		/* unexpected - done */

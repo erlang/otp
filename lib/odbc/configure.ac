@@ -31,6 +31,8 @@ m4_include([otp.m4])
 
 AC_CONFIG_AUX_DIR([${ERL_TOP}/make/autoconf])
 
+ERL_PUSH_WERROR
+
 ERL_CANONICAL_SYSTEM_TYPE
 
 AC_ARG_WITH(odbc,
@@ -250,11 +252,25 @@ AC_SUBST(ODBC_INCLUDE)
 
  ]) dnl "$with_odbc" != "no"
 
+dnl ----------------------------------------------------------------------
+dnl Check for GCC diagnostic ignored "-Wstringop-truncation"
+dnl ----------------------------------------------------------------------
+saved_CFLAGS="$CFLAGS"
+CFLAGS="-Werror $CFLAGS"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
+         _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+         _Pragma("GCC diagnostic pop")
+         ]])],[AC_DEFINE(HAVE_GCC_DIAG_IGNORE_WSTRINGOP_TRUNCATION,1,
+           define if compiler support _Pragma('GCC diagnostic ignored '-Wstringop-truncation''))],[])
+CFLAGS="$saved_CFLAGS"
+
 AS_IF([test "x$GCC" = xyes],
   [
     # Treat certain GCC warnings as errors
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
   ])
+
+ERL_POP_WERROR
 
 AC_CONFIG_FILES([c_src/$host/Makefile:c_src/Makefile.in])
 AC_OUTPUT

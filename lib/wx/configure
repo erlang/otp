@@ -3094,6 +3094,17 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
+if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
+   CFLAGS="$no_werror_CFLAGS"
+   WERRORFLAGS=-Werror
+fi
+
 ## Delete previous failed configure results
 if test -f ./CONF_INFO; then
    rm ./CONF_INFO
@@ -7332,6 +7343,11 @@ mkdir -p $WXERL_SYS_TYPE
 CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
 
 
+if test "x$GCC" = xyes; then
+    CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
+
+
 ac_config_files="$ac_config_files config.mk c_src/Makefile"
 
 
@@ -8492,7 +8508,4 @@ CORES=`ls core* 2>/dev/null`
 if test X"$CORES" != X"" ; then
    echo "Configure dumped core files" > ignore_core_files
 fi
-
-
-
 

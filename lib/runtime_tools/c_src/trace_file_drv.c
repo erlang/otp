@@ -377,17 +377,15 @@ static void trace_file_outputv(ErlDrvData handle, ErlIOVec *ev)
 static void trace_file_output(ErlDrvData handle, char *buff,
 			      ErlDrvSizeT bufflen)
 {
-    int heavy = 0;
     TraceFileData *data = (TraceFileData *) handle;
     unsigned char b[5] = "";
     put_be((unsigned) bufflen, b + 1);
     switch (my_write(data, (unsigned char *) b, sizeof(b))) {
     case 1:
-	heavy = !0;
     case 0:
 	switch (my_write(data, (unsigned char *) buff, bufflen)) {
 	case 1:
-	    heavy = !0;
+            break;
 	case 0:
 	    break;
 	case -1:
@@ -408,11 +406,7 @@ static void trace_file_output(ErlDrvData handle, char *buff,
 		driver_failure_posix(data->port, errno); /* XXX */
 		return;
 	    }
-	    heavy = !0;
 	}
-    }
-    if (heavy) {
-	set_port_control_flags(data->port, PORT_CONTROL_FLAG_HEAVY);
     }
 }
 
@@ -577,7 +571,6 @@ static int my_write(TraceFileData *data, unsigned char *buff, int siz)
     } 
     memcpy(data->buff, buff + wrote, siz - wrote);
     data->buff_pos = siz - wrote;
-    set_port_control_flags(data->port, PORT_CONTROL_FLAG_HEAVY);
     return 1;
 }
 

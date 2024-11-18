@@ -528,7 +528,7 @@ load_preloaded(void)
 }
 
 /* be helpful (or maybe downright rude:-) */
-void erts_usage(void)
+__decl_noreturn void __noreturn  erts_usage(void)
 {
     int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
@@ -1033,6 +1033,7 @@ early_init(int *argc, char **argv) /*
 			    case 1:
 				onln = tot < dirty_cpu_scheds_online ?
 				    tot : dirty_cpu_scheds_online;
+                                ERTS_FALLTHROUGH();
 			    case 2:
 			    chk_SDcpu:
 				if (tot > 0)
@@ -1103,6 +1104,7 @@ early_init(int *argc, char **argv) /*
 			    }
 			case 1:
 			    onln = tot < schdlrs_onln ? tot : schdlrs_onln;
+                            ERTS_FALLTHROUGH();
 			case 2:
 			chk_S:
 			    if (tot > 0)

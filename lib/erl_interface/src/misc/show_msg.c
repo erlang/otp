@@ -157,6 +157,7 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 	if (ei_decode_pid(header,&index,&msg.from) 
 	    || ei_decode_pid(header,&index,&msg.to)) return -1;
 	mbuf = header+index;
+        break;
 
     case ERL_EXIT_TT:
     case ERL_EXIT2_TT:
