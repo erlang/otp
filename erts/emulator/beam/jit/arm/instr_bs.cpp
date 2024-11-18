@@ -2701,6 +2701,7 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
     Label read_done = a.newLabel();
 
     bool need_rev64 = false;
+    bool need_shift = true;
 
     const a64::Gp bin_byte_ptr = TMP2;
     const a64::Gp bit_offset = TMP4;
@@ -2920,7 +2921,12 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
             a.lsl(bitdata, bitdata, bit_offset);
             a.lsl(tmp, tmp, bit_offset);
             a.orr(bitdata, bitdata, tmp, arm::lsr(8));
-            a.b(read_done);
+            if (bits == 64) {
+                need_rev64 = need_shift = false;
+                comment("simplified reading of 64-bit word");
+            } else {
+                a.b(read_done);
+            }
         }
     }
 
@@ -2932,7 +2938,9 @@ void BeamModuleAssembler::emit_read_bits(Uint bits,
     /* Shift the read data into the most significant bits of the
      * word. */
     a.bind(shift);
-    a.lsl(bitdata, bitdata, bit_offset);
+    if (need_shift) {
+        a.lsl(bitdata, bitdata, bit_offset);
+    }
 
     a.bind(read_done);
 }
