@@ -1,3 +1,5 @@
+#!/bin/sh
+
 ## %CopyrightBegin%
 ##
 ## Copyright Ericsson AB 2024. All Rights Reserved.
@@ -16,22 +18,4 @@
 ##
 ## %CopyrightEnd%
 
-[PostgresLinux64Ubuntu]
-Driver = PostgreSQL64
-Description = PostgreSQL Data Source
-Servername = localhost
-Port = 5432
-Protocol = 10
-UserName = odbctest
-Password = odbctest
-Database = odbctest
-
-[PostgresLinuxUbuntu]
-Driver = PostgreSQL32
-Description = PostgreSQL Data Source
-Servername = localhost
-Port = 5432
-Protocol = 10
-UserName = odbctest
-Password = odbctest
-Database = odbctest
+curl -sL https://raw.githubusercontent.com/erlang/otp/refs/heads/master/otp_versions.table | grep -E 'OTP-[^.]+[.]0 :'  | awk '{ print $1 }' | sed 's/[-.]/ /g' | awk '{print $2}'
