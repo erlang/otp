@@ -100,17 +100,30 @@ run(Opts) ->
                 lists:foldl(
                   fun(PR, Acc) ->
                           #{ ~"baseRefName" := BaseRefName, ~"headRefName" := HeadRefName } =
-                              json:decode(unicode:characters_to_binary(cmd(Opts, ["gh pr -R ", Upstream, " view --json \"baseRefName,headRefName\" ", PR]))),
+                              json_cmd(Opts, ["gh pr -R ", Upstream, " view --json \"baseRefName,headRefName\" ", PR]),
                           Acc#{ PR => #{ base =>  BaseRefName, head =>  HeadRefName }}
                   end, #{}, string:split(PRs,"\n", all)),
 
-            synchronize_branch(Opts, "maint"),
-            synchronize_branch(Opts, "master"),
+            CheckIfCheckPassed = fun(No) ->
+                case  lists:all(fun(#{ ~"name" := Name, ~"state" := State}) ->
+                        string:equal(Name, "license/cla") orelse string:equal(State, "SUCCESS")
+                        orelse string:equal(State, "SKIPPED")
+                    end, json_cmd(Opts, ["gh pr checks ", No, " --required --json \"name,state\""])) of
+                        true -> true;
+                        false -> io:format("Skipping ~ts as it has checks that are not done",[No]),
+                        false
+                    end
+                end,
 
-            io:format("Approving and forward merge these PRs: ~ts~n",[lists:join(", ", [PR || PR := _ <- DependabotPRs])]),
+            PassedDependabotPRs = #{ PR => V || PR := V <- DependabotPRs, CheckIfCheckPassed(PR) },
+
+            io:format("Approving and forward merge these PRs: ~ts~n",[lists:join(", ", [PR || PR := _ <- PassedDependabotPRs])]),
 
             %% Approve all dependabot PRs
-            [dry(Opts, ["gh pr -R ", Upstream, " review --approve ", PR]) || PR := _ <- DependabotPRs],
+            [dry(Opts, ["gh pr -R ", Upstream, " review --approve ", PR]) || PR := _ <- PassedDependabotPRs],
+
+            synchronize_branch(Opts, "maint"),
+            synchronize_branch(Opts, "master"),
 
             %% Create all merges to maint + master
             UpdatedBranches =
@@ -133,7 +146,7 @@ run(Opts) ->
                                     cmd(Opts, ["git checkout master && git merge maint"]),
                                     ["master","maint", BaseName]
                             end
-                    end, maps:to_list(DependabotPRs))),
+                    end, maps:to_list(PassedDependabotPRs))),
 
             continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), Upstream]),
 
@@ -204,11 +217,16 @@ continue(Opts, Prompt) ->
           io:get_line(Prompt ++ " (Y/n) "),
           ["Y\n","y\n","\n"]) orelse halt(0).
 
+
+json_cmd(Opts, Cmd) ->
+    json:decode(unicode:characters_to_binary(cmd(Opts, Cmd))).
+
 dry(#{ dry := true } = Opts, Cmd) ->
     log(Opts, "DryRun: ~ts~n",[Cmd]),
     ok;
 dry(Opts, Cmd) ->
     cmd(Opts, Cmd).
+
 cmd(Opts = #{}, Cmd) ->
     log(Opts, "~ts...",[Cmd]),
     Res = string:trim(do_cmd(lists:flatten(unicode:characters_to_list(Cmd)))),
