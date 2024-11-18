@@ -138,13 +138,13 @@ run(Opts) ->
                                 ~"maint" ->
                                     cmd(Opts, ["git checkout ",BaseName, " && git merge --log --no-ff ", HeadName]),
                                     cmd(Opts, ["git checkout master && git merge --strategy ours maint"]),
-                                    ["master", BaseName];
+                                    [~"master", BaseName];
                                 _ ->
                                     synchronize_branch(Opts, BaseName),
                                     cmd(Opts, ["git checkout ",BaseName, " && git merge --log --no-ff ", HeadName]),
                                     cmd(Opts, ["git checkout maint && git merge --strategy ours ", BaseName]),
                                     cmd(Opts, ["git checkout master && git merge maint"]),
-                                    ["master","maint", BaseName]
+                                    [~"master",~"maint", BaseName]
                             end
                     end, maps:to_list(PassedDependabotPRs))),
 
