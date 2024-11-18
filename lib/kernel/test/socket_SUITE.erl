@@ -12632,8 +12632,9 @@ has_support_sctp() ->
     end.
 
 
-%% The idea is that this function shall test if the test host has 
-%% support for IPv4 or IPv6. If not, there is no point in running corresponding tests.
+%% The idea is that this function shall test if the host has 
+%% support for IPv4 or IPv6.
+%% If not, there is no point in running corresponding tests.
 %% Currently we just skip.
 has_support_ipv4() ->
     ?KLIB:has_support_ipv4().
