@@ -59,7 +59,8 @@ opts() ->
             help => "Set the upstream github repository"}],
     #{ handler =>
            fun(Opts) ->
-                   run(lists:foldl(fun parse_default/2, Opts, Arguments))
+                   OriginalBranch = cmd(Opts, "git branch --show-current"),
+                   run(lists:foldl(fun parse_default/2, Opts#{ original_branch => OriginalBranch }, Arguments))
            end,
        arguments => Arguments
      }.
@@ -87,7 +88,6 @@ run(Opts) ->
 
     %% Get this for dependabot update before we start switching branches and other chenanigans
     SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-major-versions.sh | head -3"),"\n", all),
-    OriginalBranch = cmd(Opts, "git branch --show-current"),
 
     %% Fetch all PRs done by dependabot
     PRs = cmd(Opts, ["gh pr -R ", Upstream, " list | grep dependabot/github_actions | awk '{print $1}'"]),
@@ -182,7 +182,7 @@ run(Opts) ->
             dry(Opts, ["gh pr -R ", Upstream, " create -a '@me' -H '", OriginOwner, ":update-dependabot-config' -t 'Update dependabot config' -b ''"])
     end,
 
-    cmd(Opts, ["git checkout ", OriginalBranch]),
+    cmd(Opts, ["git checkout ", maps:get(original_branch, Opts)]),
 
     ok.
 
@@ -212,10 +212,13 @@ generate_dependabot_config(Versions) ->
 continue(Opts, Format, Args) ->
     continue(Opts, io_lib:format(Format, Args)).
 continue(Opts, Prompt) ->
-    maps:get(force, Opts) orelse
-        lists:member(
-          io:get_line(Prompt ++ " (Y/n) "),
-          ["Y\n","y\n","\n"]) orelse halt(0).
+    maybe
+        false ?= maps:get(force, Opts),
+        Reply = io:get_line(Prompt ++ " (Y/n) "),
+        false ?= lists:member(Reply,["Y\n","y\n","\n"]),
+        cmd(Opts, ["git checkout ", maps:get(original_branch, Opts)]),
+        halt(0)
+    end.
 
 
 json_cmd(Opts, Cmd) ->
