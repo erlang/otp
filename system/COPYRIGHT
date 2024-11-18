@@ -210,11 +210,9 @@ terms specified in this license.
 * ./lib/compiler/src/cerl_inline.erl and
   ./lib/dialyzer/test/options1_SUITE_data/src/compiler/cerl_inline.erl
   * Copyright (C) 1999-2002 Richard Carlsson
-* ./lib/kernel/src/pg.erl and lib/kernel/doc/src/pg.xml and
+* ./lib/kernel/src/pg.erl and
   ./lib/kernel/test/pg_SUITE.erl and ./lib/stdlib/src/peer.erl
   * Copyright WhatsApp Inc. and its affiliates. All rights reserved.
-* ./lib/kernel/doc/src/peer.xml
-  * Maxim Fedorov, WhatsApp Inc.
 
 ---------------------------------------------------------------------------
 [AsmJit]
@@ -609,8 +607,7 @@ DEALINGS IN THE SOFTWARE.
 * Info:
   * SPDX-License-Identifier: BSD-2-Clause
   * Contribution made to Erlang/OTP
-  * OTP Location: ./lib/parsetools/src/leex.erl and
-                  ./lib/parsetools/doc/src/leex.xml
+  * OTP Location: ./lib/parsetools/src/leex.erl
 
 %% Copyright (c) 2008,2009 Robert Virding. All rights reserved.
 %%
