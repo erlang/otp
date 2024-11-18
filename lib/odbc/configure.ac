@@ -161,7 +161,10 @@ AS_CASE([$host_os],
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
 
-               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               fi
         ],
 
         [haiku*],
@@ -171,6 +174,9 @@ AS_CASE([$host_os],
                ODBC_INCLUDE="-I/system/develop/headers"
                dnl Haiku's package manager will deal with this for us
                AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               fi
         ],
 
         [win32|cygwin],
@@ -228,6 +234,9 @@ AS_CASE([$host_os],
 			else
 			    AC_MSG_RESULT($ODBC_LIB)
 			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			    if test $odbc_lib_link_success = no; then
+			       AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			    fi
 			fi
                     ],
 
@@ -235,6 +244,9 @@ AS_CASE([$host_os],
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
 			AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			if test $odbc_lib_link_success = no; then
+			   AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			fi
                     ])
         ])
 
