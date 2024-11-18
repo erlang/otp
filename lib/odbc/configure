@@ -5684,9 +5684,59 @@ fi
 printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
 if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
 then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+               if test $odbc_lib_link_success = no; then
+                  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
+printf %s "checking for SQLAllocHandle in -lodbc... " >&6; }
+if test ${ac_cv_lib_odbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_odbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_odbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_odbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_odbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_odbc_SQLAllocHandle" = xyes
+then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+               fi
          ;; #(
   haiku*) :
 
@@ -5741,6 +5791,56 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+               if test $odbc_lib_link_success = no; then
+                  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+               fi
          ;; #(
   win32|cygwin) :
 
@@ -5959,6 +6059,56 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+			    if test $odbc_lib_link_success = no; then
+			       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+			    fi
 			fi
                      ;; #(
   *) :
@@ -6013,6 +6163,56 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+			if test $odbc_lib_link_success = no; then
+			   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+			fi
                      ;;
 esac
          ;;
@@ -7264,5 +7464,4 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 printf "%s\n" "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
 
