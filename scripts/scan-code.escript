@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 %%
 %% %CopyrightEnd%
 
--define(tmp_folder, "tmp").
+-define(tmp_folder, "tmp/").
 
 main(Args) ->
     argparse:run(Args, cli(), #{progname => scancode}).
@@ -33,7 +33,8 @@ cli() ->
        arguments => [ scan_option(),
                       prefix_option(),
                       scan_results(),
-                      file_or_dir() ],
+                      file_or_dir(),
+                      sarif_option() ],
        handler => fun scancode/1}.
 
 approved() ->
@@ -78,6 +79,12 @@ file_or_dir() ->
       long => "-file-or-dir",
       help => "Files and/or directories to analyse."}.
 
+sarif_option() ->
+    #{name => sarif,
+      type => string,
+      default => undefined,
+      long => "-sarif"}.
+
 scancode(Config) ->
     ok = cp_files(Config),
     scan_folder(Config).
@@ -120,19 +127,22 @@ scancode_command(#{scan_option   := Options}=Config) ->
     "scancode -" ++ Options ++ " --json-pp " ++ ScanResultPath ++ " " ++ FolderPath.
 
 execute(Command, Config) ->
-    _ = os:cmd(Command),
+    io:format("Running: ~ts~n", [Command]),
+    R = os:cmd(Command),
+    io:format("Result: ~ts~n",[R]),
     ScanResult = scan_result_path(Config),
     Json = decode(ScanResult),
-    Licenses = fetch_licenses(Json),
+    Licenses = fetch_licenses(folder_path(Config), Json),
 
     Errors = compliance_check(Licenses),
     io:format("~n~nResuling Errors: ~p~n~n", [Errors]),
-    case Errors of
-        [] ->
-            ok;
-        _ ->
-            error(Errors)
-    end.
+
+    maps:get(sarif, Config) =/= undefined andalso
+        sarif(maps:get(sarif, Config), Errors),
+
+    Errors =/= [] andalso erlang:raise(exit, Errors, []),
+
+    ok.
 
 compliance_check(Licenses) when is_list(Licenses) ->
     lists:filtermap(fun (License) ->
@@ -164,11 +174,109 @@ decode(Filename) ->
     {ok, Bin} = file:read_file(Filename),
     json:decode(Bin).
 
-fetch_licenses(#{<<"files">> := Files}) ->
+fetch_licenses(FolderPath, #{<<"files">> := Files}) ->
     lists:filtermap(fun(#{<<"type">> := <<"file">>,
                           <<"detected_license_expression">> := License,
                           <<"path">> := Path}) ->
-                            {true, {Path, License}};
+                            {true, {string:trim(Path, leading, FolderPath), License}};
                        (_) ->
                             false
                     end, Files).
+
+sarif(SarifFile, Errors) ->
+    file:write_file(SarifFile, sarif(Errors)).
+sarif(Errors) ->
+    ErrorTypes = lists:usort([{Type, License} || {License, _File, Type} <- Errors]),
+    ErrorTypesIndex = lists:zip(ErrorTypes, lists:seq(0,length(ErrorTypes) - 1)),
+    json:format(
+      #{ ~"version" => ~"2.1.0",
+         ~"$schema" => ~"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+         ~"runs" =>
+             [ #{
+                 ~"tool" =>
+                     #{ ~"driver" =>
+                            #{ ~"informationUri" => ~"https://github.com/erlang/otp/scripts/scan-code.escript",
+                               ~"name" => ~"scan-code",
+                               ~"rules" =>
+                                   [ #{ ~"id" => error_type_to_id(ErrorType),
+                                        ~"name" => error_type_to_name(ErrorType),
+                                        ~"shortDescription" =>
+                                            #{ ~"text" => error_type_to_text(ErrorType) },
+                                                % ~"helpUri" => ~"????",
+                                        ~"fullDescription" =>
+                                            #{
+                                              ~"text" => error_type_to_description(ErrorType)
+                                             }
+                                      }
+                                     || ErrorType <- ErrorTypes],
+                               ~"version" => ~"1.0"
+                             }
+                      },
+                 ~"artifacts" =>
+                     [ #{
+                         ~"location" => #{
+                                          ~"uri" => File
+                                         },
+                         ~"length" => -1
+                        } || {_, File, _} <- Errors
+                     ],
+                 ~"results" =>
+                     [ #{
+                         ~"ruleId" => error_type_to_id({ErrorType, License}),
+                         ~"ruleIndex" => proplists:get_value({ErrorType, License}, ErrorTypesIndex),
+                         ~"level" => error_type_to_level({ErrorType, License}),
+                         ~"message" => #{ ~"text" => error_type_to_text({ErrorType, License}) },
+                         ~"locations" =>
+                             [ #{ ~"physicalLocation" =>
+                                      #{ ~"artifactLocation" =>
+                                             #{ ~"uri" => File }
+                                       }
+                                } ]
+                        } || {License, File, ErrorType} <- Errors]
+                } ]
+       }).
+
+error_type_to_id({no_license, _}) ->
+    atom_to_binary(no_license);
+error_type_to_id(ErrorType) ->
+    base64:encode(integer_to_binary(erlang:phash2(ErrorType))).
+error_type_to_text({license_not_recognised, L}) ->
+    <<"License not recognized: ", L/binary>>;
+error_type_to_text({no_license, _}) ->
+    <<"License not found">>;
+error_type_to_text({license_not_approved, L}) ->
+    <<"License not approved: ",L/binary>>.
+
+error_type_to_name({no_license, _}) ->
+    ~"NoLicense";
+error_type_to_name({license_not_recognised, _}) ->
+    ~"NoLicense";
+error_type_to_name({license_not_approved, _}) ->
+    ~"UnapprovedLicense".
+error_type_to_level({no_license, _}) ->
+    ~"warning";
+error_type_to_level({license_not_recognised, _}) ->
+    ~"error";
+error_type_to_level({license_not_approved, _}) ->
+    ~"error".
+error_type_to_description({no_license, _}) ->
+    ~"""
+    scancode has not found any license in this file.  To fix this,
+    add a license declaration to the top of the file.
+    """;
+error_type_to_description({license_not_recognised, L}) ->
+    unicode:characters_to_binary(
+        io_lib:format(
+            """
+            The license ~ts is not recognized by scancode.
+            You need to update scripts/scan-code.escript to include the
+            license, or change to another license.
+            """, [L]));
+error_type_to_description({license_not_approved, L}) ->
+    unicode:characters_to_binary(
+        io_lib:format(
+            """
+            scancode has detected ~ts, which is a license that is
+            not on the list of approved licenses. This file is not
+            allowed to be part of Erlang/OTP under this license.
+            """, [L])).

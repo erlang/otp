@@ -1,0 +1,89 @@
+## %CopyrightBegin%
+##
+## Copyright Ericsson AB 2024. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+## This workflow continually scan the master branch to make sure that no files
+## are added without a copyright notice and license.
+
+name: Check license header
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  run-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - name: Check which files have been added
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        id: new-files
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+              new:
+                  - added: '**'
+                  - '!**/*.beam'
+                  - '!**/*.exe'
+                  - '!**/*.config.cache.static'
+          ## OTP-27.0 tag as base
+          base: 601a012837ea0a5c8095bf24223132824177124d
+          list-files: shell
+
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
+        with:
+          otp-version: '27.1'
+
+      - name: License Compliance Check
+        run: |
+            pip install scancode-toolkit==32.3.0
+            scripts/scan-code.escript --file-or-dir "${{ steps.new-files.outputs.new_files }}" \
+                --sarif results.sarif
+
+      - name: "Upload artifact"
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3 ratchet:actions/upload-artifact@v4
+        with:
+            name: SARIF file
+            path: results.sarif
+          
+  upload-scan:
+    needs: run-scan
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    permissions:
+      # Required to upload SARIF file to CodeQL.
+      # See: https://github.com/github/codeql-action/issues/2117
+      actions: read
+      # Require writing security events to upload SARIF file to security tab
+      security-events: write
+      # Only need to read contents
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
+      - name: Download sarif file
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+      # Upload the results to GitHub's code scanning dashboard.
+      - name: "Upload to code-scanning"
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # ratchet:github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "SARIF file/results.sarif"

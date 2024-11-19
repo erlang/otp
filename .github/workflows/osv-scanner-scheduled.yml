@@ -42,13 +42,7 @@ jobs:
       - id: get-versions
         name: Fetch latest 3 OTP versions
         run: |
-          VSNs=$(grep -E 'OTP-[^.]+[.]0 :' otp_versions.table | awk '{ print $1 '} | head -3 | sed 's/[-.]/ /g' | awk '{print $2}')
-          versions='["maint", "master"'
-          for vsn in $VSNs; do
-            versions="${versions}, \"maint-$vsn\""
-          done
-          versions="${versions}]"
-          echo "versions=${versions}" >> "$GITHUB_OUTPUT"
+          echo "versions=$(.github/scripts/get-supported-branches.sh)" >> "$GITHUB_OUTPUT"
 
   run-scheduled-scan:
     # Fan out and create requests to run OSV on multiple branches.

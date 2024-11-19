@@ -82,7 +82,7 @@ run(Opts) ->
              "Do you want to want to proceed?", [Cwd, Upstream]),
 
     %% Get this for dependabot update before we start switching branches and other chenanigans
-    SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-major-versions.sh | head -3"),"\n", all),
+    SupportedMajorVersions = string:split(cmd(Opts, ".github/scripts/get-supported-versions.sh"),"\n", all),
     OriginalBranch = cmd(Opts, "git branch --show-current"),
 
     %% Fetch all PRs done by dependabot
