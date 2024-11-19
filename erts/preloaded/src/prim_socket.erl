@@ -99,6 +99,7 @@
 -define(ESOCK_OPT_OTP_FD,              1008).
 -define(ESOCK_OPT_OTP_META,            1009).
 -define(ESOCK_OPT_OTP_USE_REGISTRY,    1010).
+-define(ESOCK_OPT_OTP_SELECT_READ,     1011).
 %%
 -define(ESOCK_OPT_OTP_DOMAIN,          1999). % INTERNAL
 %%-define(ESOCK_OPT_OTP_TYPE,            1998). % INTERNAL
@@ -1134,6 +1135,7 @@ enc_sockopt({otp = Level, Opt}, 0 = _NativeValue) ->
             fd                  -> ?ESOCK_OPT_OTP_FD;
             meta                -> ?ESOCK_OPT_OTP_META;
             use_registry        -> ?ESOCK_OPT_OTP_USE_REGISTRY;
+            select_read         -> ?ESOCK_OPT_OTP_SELECT_READ;
             domain              -> ?ESOCK_OPT_OTP_DOMAIN;
             _                   -> invalid
         end

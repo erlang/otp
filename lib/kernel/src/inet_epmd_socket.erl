@@ -349,7 +349,9 @@ output_data(Socket, Buffer) ->
 %% ------------------------------------------------------------
 -spec input_handler_start(_, _) -> no_return(). % Server loop
 input_handler_start(Socket, DistHandle) ->
-    try input_handler(Socket, DistHandle)
+    try
+        ok = socket:setopt(Socket, {otp,select_read}, true),
+        input_handler(Socket, DistHandle)
     catch
         Class : Reason : Stacktrace when Class =:= error ->
             error_logger:error_report(

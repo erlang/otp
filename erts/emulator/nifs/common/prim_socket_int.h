@@ -543,6 +543,7 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;
