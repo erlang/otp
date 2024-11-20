@@ -143,7 +143,7 @@ process_killer(void)
                 erts_proc_sig_send_exit(&init_proc->common,
                                         erts_init_process_id,
                                         rp->common.id,
-                                        am_kill, NIL, 0);
+                                        am_kill, NIL, 0, 0);
                 break;
             }
             case 'n': break;

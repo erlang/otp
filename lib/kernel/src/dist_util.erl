@@ -127,6 +127,10 @@ dflag2str(?DFLAG_V4_NC) ->
     "V4_NC";
 dflag2str(?DFLAG_ALIAS) ->
     "ALIAS";
+dflag2str(?DFLAG_LOCAL_EXT) ->
+    "LOCAL_EXT";
+dflag2str(?DFLAG_ALTACT_SIG) ->
+    "ALTACT_SIG";
 dflag2str(Other) ->
     lists:flatten(io_lib:format("UNKNOWN<~.16.0B>", [Other])).
 

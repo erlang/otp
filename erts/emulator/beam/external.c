@@ -6372,6 +6372,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     Uint32 payload_ix;
     Sint start_r, r;
     byte *ep;
+    int payload_moved_to_control = 0;
 
     if (reds < 0)
         return reds;
@@ -6500,7 +6501,295 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
             return 0;
         return reds;
     }
-    
+
+    if ((~dflags & DFLAG_ALTACT_SIG)
+        && ep[0] == SMALL_TUPLE_EXT
+        && (ep[1] == 4 || ep[1] == 5)
+        && ep[2] == SMALL_INTEGER_EXT
+        && ep[3] == DOP_ALTACT_SIG_SEND) {
+        byte *ptr;
+        int dist_op;
+        Uint32 flags;
+        int tuple_size = ep[1];
+        ptr = &ep[4];
+
+        /*
+         * The receiver does not understand alternate action signals...
+         *
+         * This control message has the following layouts, depending on
+         * whether it contains a token or not:
+         * - {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To}
+         * - {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To, Token}
+         * The control message is always followed by a payload term which
+         * is the actual message to deliver.
+         *
+         * The Flags element is an integer which currently have these bit
+         * flags defined in the least significant bits:
+         * - ERTS_DOP_ALTACT_SIG_FLG_PRIO
+         *   This is a priority message
+         * - ERTS_DOP_ALTACT_SIG_FLG_TOKEN
+         *   Control message also contains a token (control message is
+         *   a 5-tuple instead of a 4-tuple).
+         * - ERTS_DOP_ALTACT_SIG_FLG_ALIAS
+         *   An alias message (To is a reference)
+         * - ERTS_DOP_ALTACT_SIG_FLG_NAME
+         *   Send to a registered name (To is an atom)
+         * - ERTS_DOP_ALTACT_SIG_FLG_EXIT
+         *   The signal is an exit signal; otherwise, a message signal
+         *
+         * If neither ERTS_DOP_ALTACT_SIG_FLG_ALIAS nor
+         * ERTS_DOP_ALTACT_SIG_FLG_NAME is set, 'To' is a process
+         * identifier.
+         *
+         * Currently the only alternate action messages supported are:
+         * * Alias messages ('To' is a reference)
+         * * Priority messages ('To' is a reference, atom, or pid)
+         *
+         * The receiving node does not support priority messages. By this we
+         * know that the receiver process have not enabled reception of messages
+         * as priority messages, so we can safely send the message as an
+         * ordinary message.
+         *
+         * If we are sending an alias message, we need to check if it supports
+         * DOP_ALIAS_SEND/DOP_ALIAS_SEND_TT control messages and send it as such
+         * if supported; otherwise, we can safely drop the message since we know
+         * that the receiver process will not have an alias registered.
+         */
+
+        /*
+         * First read the flags field so we know what kind of altact message
+         * this is.
+         *
+         * Currently we only have 4 flags defined, so we know that
+         * the flags field has been encoded using SMALL_INTEGER_EXT.
+         */
+        switch (*(ptr++)) {
+        case SMALL_INTEGER_EXT:
+            flags = (Uint32) *ptr;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR(!"Invalid altact msg flags");
+            break;
+        }
+
+        /* 'ptr' points to last byte before SenderPid... */
+
+        /*
+         * Determine what kind of control message we want to rewrite
+         * this control message as...
+         */
+        if (flags & ERTS_DOP_ALTACT_SIG_FLG_EXIT) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_ALIAS)
+                       ? 0 /* drop it... */
+                       : ((dflags & DFLAG_EXIT_PAYLOAD)
+                          ? ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                             ? DOP_PAYLOAD_EXIT2_TT
+                             : DOP_PAYLOAD_EXIT2)
+                          : ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                             ? DOP_EXIT2_TT
+                             : DOP_EXIT2)));
+        }
+        else if (flags & ERTS_DOP_ALTACT_SIG_FLG_ALIAS) {
+            dist_op = ((~dflags & DFLAG_ALIAS)
+                       ? 0 /* drop it... */
+                       : ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                          ? DOP_ALIAS_SEND_TT
+                          : DOP_ALIAS_SEND));
+        }
+        else if (flags & ERTS_DOP_ALTACT_SIG_FLG_NAME) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_REG_SEND_TT
+                       : DOP_REG_SEND);
+        }
+        else if (dflags & DFLAG_SEND_SENDER) {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_SEND_SENDER_TT
+                       : DOP_SEND_SENDER);
+        }
+        else {
+            dist_op = ((flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)
+                       ? DOP_SEND_TT
+                       : DOP_SEND);
+        }
+
+        switch (dist_op) {
+        case DOP_ALIAS_SEND:
+            /* {DOP_ALIAS_SEND, SenderPid, Alias} */
+        case DOP_ALIAS_SEND_TT:
+            /* {DOP_ALIAS_SEND_TT, SenderPid, Alias, Token} */
+        case DOP_SEND_SENDER:
+            /* {DOP_SEND_SENDER, SenderPid, ToPid} */
+        case DOP_SEND_SENDER_TT:
+            /* {DOP_SEND_SENDER_TT, SenderPid, ToPid, Token} */
+        case DOP_PAYLOAD_EXIT2:
+            /* {DOP_PAYLOAD_EXIT2, SenderPid, ToPid} */
+        case DOP_PAYLOAD_EXIT2_TT:
+            /* {DOP_PAYLOAD_EXIT2_TT, SenderPid, ToPid, Token} */
+
+            /*
+             * We want to drop the 'flags' element, add new 'dist_op',
+             * and decrease tuple size by one.
+             *
+             * 'ptr' points the the byte before SenderPid, so we can
+             * just write 'dist_op' and tuple info backwards from here.
+             */
+
+            tuple_size--;
+
+        altact_sig_fallback_common:
+
+            *(ptr--) = dist_op;
+            *(ptr--) = SMALL_INTEGER_EXT;
+            *(ptr--) = tuple_size;
+            *ptr = SMALL_TUPLE_EXT;
+
+            reds--;
+            break;
+
+        case DOP_EXIT2:
+            /* {DOP_EXIT2, SenderPid, ToPid, Reason} */
+        case DOP_EXIT2_TT:
+            /* {DOP_EXIT2_TT, SenderPid, ToPid, Token, Reason} */
+
+            /*
+             * In the DOP_ALTACT_SIG_SEND signal, Reason follows *after* the
+             * control message instead of *in* the control message as in the
+             * DOP_EXIT2 and DOP_EXIT2_TT signals.
+             *
+             * We want to:
+             * - leave the tuple size as it is, since we add a Reason element
+             *   to the tuple but remove the Flags element from the tuple
+             * - remove the encoding of the Flags element
+             * - if the distribution header isn't used, we also want to
+             *   prevent the magic number being placed before Reason
+             *
+             */
+
+            /* Prevent magic number being placed before Reason */
+            payload_moved_to_control = !0;
+
+            /*
+             * 'ptr' points the the byte before SenderPid and 'tuple_size'
+             * equals the tuple size we want, so we can just write 'dist_op'
+             * and tuple info backwards from here.
+             */
+            goto altact_sig_fallback_common;
+
+        case DOP_REG_SEND:
+            /* {DOP_REG_SEND, SenderPid, '', ToName} */
+        case DOP_REG_SEND_TT:
+            /* {DOP_REG_SEND_TT, SenderPid, '', ToName, TraceToken} */
+        case DOP_SEND:
+            /* {DOP_SEND, '', ToPid} */
+        case DOP_SEND_TT:
+            /* {DOP_SEND_TT, '', ToPid, TraceToken} */
+
+            /*
+             * These require a bit more rewriting...
+             *
+             * In the regsend case we want to insert an empty atom
+             * between the SenderPid and the ToName, remove the
+             * flags and change the 'dist_op'.
+             *
+             * In the send case we want to drop the flags field,
+             * replace the SenderPid with an empty atom, change the
+             * 'dist_op', and decrease the size of the tuple by one.
+             */
+        {
+            byte *sender_start = ++ptr;
+            int n;
+            ASSERT(*sender_start == NEW_PID_EXT);
+            ptr++;
+            switch (*(ptr++)) {
+            case ATOM_UTF8_EXT:
+                n = (int) get_int16(ptr);
+                ptr += 2;
+                break;
+            case SMALL_ATOM_UTF8_EXT:
+                n = (int) *(ptr++);
+                break;
+            default:
+                ERTS_INTERNAL_ERROR("Unexpected pid encoding");
+                break;
+            }
+
+            ptr += n;
+
+            ptr += 4 /* ID */ + 4 /* serial */ + 4 /* creation */;
+
+            /* 'ptr' now points to the first byte in 'ToPid'/'ToName' */
+
+            if (dist_op == DOP_SEND_TT || dist_op == DOP_SEND) {
+                /* Write the empty atom */
+                *(--ptr) = 0;
+                *(--ptr) = SMALL_ATOM_UTF8_EXT;
+                /* Tuple size one element smaller than for the altact msg... */
+                tuple_size--;
+                ptr--;
+                /*
+                 * 'ptr' now points to the last byte before the empty atom so we
+                 * can continue writing 'dist_op' and tuple info backwards from
+                 * here.
+                 */
+                reds--;
+            }
+            else {
+                /*
+                 * Move SenderId two bytes earlier in order to make room for
+                 * the empty atom that we want to write between SenderId and
+                 * ToName...
+                 */
+                size_t sender_sz = ptr - sender_start;
+                byte *new_sender_start = sender_start - 2;
+                ASSERT(dist_op == DOP_REG_SEND_TT || dist_op == DOP_REG_SEND);
+                memmove((void *) new_sender_start,
+                        (void *) sender_start,
+                        sender_sz);
+                /* Write the empty atom between SenderId and ToName... */
+                *(--ptr) = 0;
+                *(--ptr) = SMALL_ATOM_UTF8_EXT;
+                /*
+                 * We do not change tuple size since reg-send has the same tuple
+                 * size as for the altact msg
+                 */
+                ptr = new_sender_start - 1;
+                /*
+                 * 'ptr' now points to the last byte before the SenderId so we
+                 * can continue writing 'dist_op' and tuple info backwards from
+                 * here.
+                 */
+                reds -= 2;
+            }
+            goto altact_sig_fallback_common;
+        }
+
+        case 0: {
+            int i;
+            /* Drop signal and send a tick instead... */
+            for (i = 1; i < ob->eiov->vsize; i++) {
+                if (ob->eiov->binv[i])
+                    driver_free_binary(ob->eiov->binv[i]);
+            }
+            ob->eiov->vsize = 1;
+            ob->eiov->size = 0;
+            reds--;
+            if (reds < 0)
+                return 0;
+            return reds;
+        }
+
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected fallback dist operation");
+            break;
+        }
+
+        ASSERT(ptr >= ep);
+
+        iov[2].iov_base = ptr;
+        iov[2].iov_len -= (ptr - ep);
+        eiov->size -= (ptr - ep);
+    }
+
     start_r = r = reds*ERTS_TRANSCODE_REDS_FACT;
 
     /*
@@ -6522,7 +6811,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         hdr += 4;
         payload_ix = get_int32(hdr);
 
-        if (payload_ix) {
+        if (payload_ix && !payload_moved_to_control) {
             ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
             /* Prepend version magic on payload. */
             iov[payload_ix].iov_base = &((byte*)iov[payload_ix].iov_base)[-1];
