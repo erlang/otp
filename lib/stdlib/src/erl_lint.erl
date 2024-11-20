@@ -346,6 +346,8 @@ format_error_1({define_import,{F,A}}) ->
     {~"defining imported function ~tw/~w", [F,A]};
 format_error_1({unused_function,{F,A}}) ->
     {~"function ~tw/~w is unused", [F,A]};
+format_error_1({unexported_function, MFA}) ->
+    {~"function ~ts is not exported", [format_mfa(MFA)]};
 format_error_1({call_to_redefined_bif,{F,A}}) ->
     {~"""
       ambiguous call of overridden auto-imported BIF ~w/~w --
@@ -852,6 +854,9 @@ start(File, Opts) ->
          {ill_defined_optional_callbacks,
           bool_option(warn_ill_defined_optional_callbacks,
                       nowarn_ill_defined_optional_callbacks,
+                      true, Opts)},
+         {unexported_function,
+          bool_option(warn_unexported_function, nowarn_unexported_function,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -2772,8 +2777,10 @@ expr({'fun',Anno,Body}, Vt, St) ->
                 true -> {[],St};
                 false -> {[],call_function(Anno, F, A, St)}
             end;
-	{function,M,F,A} ->
-	    expr_list([M,F,A], Vt, St)
+        {function, {atom, _, M}, {atom, _, F}, {integer, _, A}} ->
+            {[], check_unexported_function(Anno, M, F, A, St)};
+        {function,M,F,A} ->
+            expr_list([M,F,A], Vt, St)
     end;
 expr({named_fun,_,'_',Cs}, Vt, St) ->
     fun_clauses(Cs, Vt, St);
@@ -2796,7 +2803,8 @@ expr({call,Anno,{remote,_Ar,{atom,_Am,M},{atom,Af,F}},As}, Vt, St0) ->
     St1 = keyword_warning(Af, F, St0),
     St2 = check_remote_function(Anno, M, F, As, St1),
     St3 = check_module_name(M, Anno, St2),
-    expr_list(As, Vt, St3);
+    St4 = check_unexported_function(Anno, M, F, length(As), St3),
+    expr_list(As, Vt, St4);
 expr({call,Anno,{remote,_Ar,M,F},As}, Vt, St0) ->
     St1 = keyword_warning(Anno, M, St0),
     St2 = keyword_warning(Anno, F, St1),
@@ -3022,6 +3030,21 @@ is_valid_call(Call) ->
         {tuple, _, Exprs} when length(Exprs) =/= 2 -> false;
         _ -> true
     end.
+
+%% Raises a warning if we're remote-calling an unexported function (or
+%% referencing it with `fun M:F/A`), as this is likely to be unintentional.
+check_unexported_function(Anno, M, F, A,
+                          #lint{module=M,
+                                compile=Opts,
+                                exports=Es} = St) ->
+    case (is_warn_enabled(unexported_function, St)
+          andalso (not lists:member(export_all, Opts))
+          andalso (not gb_sets:is_element({F, A}, Es))) of
+        true -> add_warning(Anno, {unexported_function, {M, F, A}}, St);
+        false -> St
+    end;
+check_unexported_function(_Anno, _M, _F, _A, St) ->
+    St.
 
 %% record_def(Anno, RecordName, [RecField], State) -> State.
 %%  Add a record definition if it does not already exist. Normalise
