@@ -738,11 +738,15 @@ shell(Fun) ->
 
 -doc false.
 shell_default_or_bif(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
-        true -> "shell_default";
-        _ -> bif(Fun)
+    case erl_scan:string(Fun) of
+        {ok, [{var, _, _}], _} -> [];
+        {ok, [{atom, _, Fun1}], _} ->
+            case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
+                true -> "shell_default";
+                _ -> bif(Fun)
+            end
     end.
+
 -doc false.
 bif(Fun) ->
     {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
