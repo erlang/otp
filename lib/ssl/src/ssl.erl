@@ -259,12 +259,18 @@ An option that can be supplied to a TLS server.
 The type for the messages that are delivered to the owner of a
 TLS/DTLS socket in active mode.
 
+The `ssl_error` reason may convey a TLS protocol alert if such an event occurs
+after the connection has been established. The most common case when this will
+happen is on the client side when a TLS-1.3 server requests a client certificate
+and the provided certificate is not accepted by the server, as it will be
+verified after the server has sent its last handshake message.
+
 The `ssl_passive` message is sent only when the socket is in `{active, N}` mode
 and the counter has dropped to 0. It indicates that the socket has transitioned
 to passive (`{active, false}`) mode.
 """.
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
-                                    {ssl_error, sslsocket(), Reason::any()} | {ssl_passive, sslsocket()}. % exported
+                                    {ssl_error, sslsocket(), Alert::error_alert() | Reason::any()} | {ssl_passive, sslsocket()}. % exported
 
 -doc(#{title => <<"Socket">>}).
 -doc """
