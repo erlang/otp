@@ -211,6 +211,8 @@ init_per_suite(Config) ->
     catch
         throw : {Skip, Reason} ->
             {skip, Reason};
+        throw : {skipped, Reason} ->
+            {skip, Reason};
         Class : Reason : Stacktrace ->
             {fail, {Class, Reason, Stacktrace}}
     end.

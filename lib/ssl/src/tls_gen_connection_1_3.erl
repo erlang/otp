@@ -31,7 +31,7 @@
 
 
 % gen_statem state help functions
--export([initial_state/8,
+-export([initial_state/9,
          user_hello/3,
          wait_cert/3,
          wait_cv/3,
@@ -52,7 +52,7 @@
 %%--------------------------------------------------------------------
 %%  Internal API 
 %%--------------------------------------------------------------------
-initial_state(Role, Sender, Host, Port, Socket,
+initial_state(Role, Sender, Tab, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -64,8 +64,13 @@ initial_state(Role, Sender, Host, Port, Socket,
                                                          disabled,
                                                          MaxEarlyDataSize),
     UserMonitor = erlang:monitor(process, User),
+    SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
+
+    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
+
     InitStatEnv = #static_env{
                      role = Role,
+                     user_socket = SslSocket,
                      transport_cb = CbModule,
                      protocol_cb = tls_gen_connection,
                      data_tag = DataTag,
@@ -78,6 +83,7 @@ initial_state(Role, Sender, Host, Port, Socket,
                      trackers = Trackers
                     },
     #state{
+       tab = Tab,
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
                           tls_handshake_history =

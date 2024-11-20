@@ -113,11 +113,13 @@
 callback_mode() ->
     [state_functions, state_enter].
 
-init([?CLIENT_ROLE, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} =
-        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender,
+        tls_gen_connection_1_3:initial_state(?CLIENT_ROLE, Sender, Tab,
                                              Host, Port, Socket,
                                              Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),
@@ -901,19 +903,10 @@ maybe_check_early_data_indication(_, State) ->
     ssl_record:step_encryption_state_write(State).
 
 signal_user_early_data(#state{
-                          connection_env =
-                              #connection_env{
-                                 user_application = {_, User}},
-                          static_env =
-                              #static_env{
-                                 socket = Socket,
-                                 protocol_cb = Connection,
-                                 transport_cb = Transport,
-                                 trackers = Trackers}} = State,
+                          connection_env = #connection_env{user_application = {_, User}},
+                          static_env = #static_env{user_socket = UserSocket}},
                        Result) ->
-    CPids = Connection:pids(State),
-    SslSocket = Connection:socket(CPids, Transport, Socket, Trackers),
-    User ! {ssl, SslSocket, {early_data, Result}}.
+    User ! {ssl, UserSocket, {early_data, Result}}.
 
 maybe_max_fragment_length(Extensions, State) ->
     ServerMaxFragEnum = maps:get(max_frag_enum, Extensions, undefined),

@@ -129,8 +129,8 @@ erlang_client_openssl_server_npn() ->
     [{doc,"Test erlang client with openssl server doing npn negotiation"}].
 
 erlang_client_openssl_server_npn(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     NpnProtocol = <<"spdy/2">>,
    
     {Server, OpenSSLPort} =
@@ -161,8 +161,8 @@ erlang_client_openssl_server_npn_renegotiate() ->
 
 erlang_client_openssl_server_npn_renegotiate(Config) when is_list(Config) ->
       
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     NpnProtocol = <<"spdy/2">>,
    
     Server = ssl_test_lib:start_server(openssl, [{np,"http/1.1,spdy/2"}],
@@ -197,8 +197,8 @@ erlang_server_openssl_client_npn() ->
     [{doc,"Test erlang server with openssl client and npn negotiation"}].
 
 erlang_server_openssl_client_npn(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_opts, Config),
-    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Protocol = <<"spdy/2">>,
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
                                        [{server_opts, [{next_protocols_advertised, 
@@ -230,8 +230,8 @@ erlang_server_openssl_client_npn(Config) when is_list(Config) ->
 %%     [{doc,"Test erlang server with openssl client and npn negotiation with renegotiation"}].
 
 erlang_server_openssl_client_npn_renegotiate(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     NpnProtocol = <<"spdy/2">>,
     Server =
         ssl_test_lib:start_server(erlang, [{from, self()}],
@@ -266,8 +266,8 @@ erlang_server_openssl_client_npn_renegotiate(Config) when is_list(Config) ->
     ssl:close(SSocket).
 %%--------------------------------------------------------------------------
 erlang_client_openssl_server_npn_only_client(Config) when is_list(Config) ->
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
    
     {Server, OpenSSLPort} =
         ssl_test_lib:start_server(openssl, [{np,"spdy/2"}, return_port],
@@ -290,8 +290,8 @@ erlang_client_openssl_server_npn_only_client(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------------
 erlang_client_openssl_server_npn_only_server(Config) when is_list(Config) ->
-   ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
-    ClientOpts =  ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
    
     {Server, OpenSSLPort} =
         ssl_test_lib:start_server(openssl, [{np,"spdy/2"}, return_port],
@@ -314,7 +314,7 @@ erlang_client_openssl_server_npn_only_server(Config) when is_list(Config) ->
         
 %%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn_only_server(Config) when is_list(Config) ->
-  ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server =
         ssl_test_lib:start_server(erlang, [{from, self()}],
@@ -344,8 +344,8 @@ erlang_server_openssl_client_npn_only_server(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------------
 erlang_server_openssl_client_npn_only_client(Config) when is_list(Config) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts =  ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     Server = ssl_test_lib:start_server(erlang, [{from, self()}],  
                                        [{server_opts, [ServerOpts]} | Config]),
     Port = ssl_test_lib:inet_port(Server),

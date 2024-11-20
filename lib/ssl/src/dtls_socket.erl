@@ -27,7 +27,7 @@
          listen/2,
          accept/3,
          connect/4,
-         socket/4,
+         socket/5,
          setopts/3,
          getopts/3,
          getstat/3,
@@ -69,12 +69,13 @@ listen(Port, #config{inet_ssl = SockOpts,
             Error
     end.
 
-accept({Listener,_}, #config{transport_info = Info,
-                             connection_cb = ConnectionCb}, _Timeout) ->
-    Transport = element(1, Info),
+accept({Listener,_}, #config{}, _Timeout) ->
     case dtls_packet_demux:accept(Listener, self()) of
-	{ok, Pid, Socket} ->
-	    {ok, socket([Pid], Transport, {Listener, Socket}, ConnectionCb)};
+	{ok, Pid} ->
+            receive
+                {Pid, user_socket, UserSocket} ->
+                    {ok, UserSocket}
+            end;
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -83,7 +84,9 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
                                connection_cb = ConnectionCb,
                                ssl = SslOpts,
                                emulated = EmOpts,
-                               inet_ssl = SocketOpts}, Timeout) ->
+                               inet_ssl = SocketOpts,
+                               tab = _Tab
+                              }, Timeout) ->
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
 	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
@@ -128,19 +131,23 @@ close(Transport, {_Client, Socket}) ->
 %% Note that gen_udp:send is not blocking as gen_tcp:send is.
 %% So normal DTLS can safely have the same connection handler
 %% as payload sender
+
 socket([Pid], gen_udp = Transport,
-       PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb) ->
-      #sslsocket{socket_handle = PeerAndSock,
-                 connection_handler = Pid,
-                 payload_sender = Pid,
-                 transport_cb = Transport,
-                 connection_cb = ConnectionCb};
-socket([Pid], Transport, Socket, ConnectionCb) ->
+       PeerAndSock = {{_Host, _Port}, _Socket}, ConnectionCb, Tab) when Tab =/= undefined ->
+    #sslsocket{socket_handle = PeerAndSock,
+               connection_handler = Pid,
+               payload_sender = Pid,
+               transport_cb = Transport,
+               connection_cb = ConnectionCb,
+               tab = Tab};
+socket([Pid], Transport, Socket, ConnectionCb, Tab) when Tab =/= undefined ->
     #sslsocket{socket_handle = Socket,
                connection_handler = Pid,
                payload_sender = Pid,
                transport_cb = Transport,
-               connection_cb = ConnectionCb}.
+               connection_cb = ConnectionCb, 
+               tab = Tab}.
+
 setopts(_, Socket = #sslsocket{socket_handle = {ListenPid, _},
                                listener_config = #config{}}, Options) ->
     SplitOpts = {_, EmOpts} = tls_socket:split_options(Options),
@@ -336,6 +343,7 @@ create_dtls_socket(#config{emulated = EmOpts} = Config,
                    Listener, Port) ->
     Socket = #sslsocket{
                 socket_handle = {Listener, Port},
-                listener_config = Config},
+                listener_config = Config,
+                tab = dtls_listen},
     check_active_n(EmOpts, Socket),
     Socket.

@@ -27,7 +27,7 @@
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
--include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/ssl_connection.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 
@@ -793,8 +793,8 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
-    StaticEnv = element(2, State),
-    Socket = element(11, StaticEnv),
+    StaticEnv = State#state.static_env,
+    Socket = StaticEnv#static_env.socket,
     %% Fake tcp error
     Pid ! {tcp_error, Socket, etimedout},
 
@@ -1259,7 +1259,7 @@ tls_password_correct() ->
     [{doc, "Test that connection is possible with a correct password"}].
 tls_password_correct(Config) when is_list(Config) ->
     F = fun (P) ->
-                ProtectedClientOpts = ?config(client_protected_rsa_opts, Config),
+                ProtectedClientOpts = ssl_test_lib:ssl_options(client_protected_rsa_opts, Config),
                 ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
                 {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1289,7 +1289,7 @@ tls_password_incorrect() ->
     [{doc, "Test that connection is not possible with wrong password"}].
 tls_password_incorrect(Config) when is_list(Config) ->
     F = fun (P) ->
-                ProtectedClientOpts = ?config(client_protected_rsa_opts, Config),
+                ProtectedClientOpts = ssl_test_lib:ssl_options(client_protected_rsa_opts, Config),
                 ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
                 {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1323,7 +1323,7 @@ tls_password_badarg() ->
     [{doc, "Test that connection is not possible with badarg password"}].
 tls_password_badarg(Config) when is_list(Config) ->
     F = fun (P, ServerError, ClientError) ->
-                ProtectedClientOpts = ?config(client_protected_rsa_opts, Config),
+                ProtectedClientOpts = ssl_test_lib:ssl_options(client_protected_rsa_opts, Config),
                 ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
                 {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
                 Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},

@@ -156,13 +156,15 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-init([Role, Host, Port, Socket, Options,  User, CbInfo]) ->
+init([Role, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
     process_flag(trap_exit, true),
-    State0 = dtls_gen_connection:initial_state(Role, Host, Port, Socket,
+    State0 = dtls_gen_connection:initial_state(Role, Tab, Host, Port, Socket,
                                                Options, User, CbInfo),
+    #state{static_env = #static_env{user_socket = UserSocket}} = State0,
+    User ! {self(), user_socket, UserSocket},
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
-                                          Role, State0),
+                                               Role, State0),
 	gen_statem:enter_loop(?MODULE, [], initial_hello, State)
     catch
 	throw:Error ->

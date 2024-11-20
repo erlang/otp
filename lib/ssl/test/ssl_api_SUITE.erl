@@ -3857,8 +3857,8 @@ export_key_materials(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label = <<"EXPERIMENTAL-otp">>,
 
@@ -3894,8 +3894,8 @@ exporter_master_secret_consumed(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label1 = <<"EXPERIMENTAL-otp1">>,
     Label2 = <<"EXPERIMENTAL-otp2">>,
@@ -3927,14 +3927,14 @@ legacy_prf(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Version = ssl_test_lib:protocol_version(Config, atom),
     BaseOpts = [{active, true}, {versions, [Version]}, {protocol, tls_or_dtls(Version)}],
-    ServerOpts = BaseOpts ++ proplists:get_value(server_rsa_opts, Config, []),
-    ClientOpts = BaseOpts ++ proplists:get_value(client_rsa_opts, Config, []),
+    ServerOpts = BaseOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = BaseOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     Label = <<"EXPERIMENTAL-otp">>,
 
@@ -4157,7 +4157,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,0}]),
@@ -4165,7 +4165,7 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     ok = ssl:setopts(S, [{active,32767}]),
     {error,{options,_}} = ssl:setopts(S, [{active,1}]),
@@ -4175,31 +4175,39 @@ active_n_common(S, N) ->
         {ssl_passive, S} -> ok
     after
         1000 ->
-            error({error,ssl_passive_failure})
+            error({error,ssl_passive_failure, flush()})
     end,
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,true}]),
     [{active,true}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg -> error({error,active_n, _Msg})
     after
-        0 ->
+        100 ->
             ok
     end,
     ok = ssl:setopts(S, [{active,N}]),
     ok = ssl:setopts(S, [{active,once}]),
     [{active,once}] = ok(ssl:getopts(S, [active])),
     receive
-        _ -> error({error,active_n})
+        _Msg2 -> error({error,active_n, _Msg2})
     after
-        0 ->
+        100 ->
             ok
     end,
     {error,{options,_}} = ssl:setopts(S, [{active,32768}]),
     ok = ssl:setopts(S, [{active,false}]),
     [{active,false}] = ok(ssl:getopts(S, [active])),
     ok.
+
+flush() ->
+    receive Msg ->
+            [Msg|flush()]
+    after 0 ->
+            []
+    end.
+
 
 ok({ok,V}) -> V.
 
@@ -4562,12 +4570,12 @@ test_config('dtlsv1.2', Config) ->
     ];
 test_config(_, Config) ->
     RSAConf1 = ssl_test_lib:make_rsa_cert(Config),
-    SRSA1Opts = proplists:get_value(server_rsa_opts, RSAConf1),
-    CRSA1Opts = proplists:get_value(client_rsa_opts, RSAConf1),
+    SRSA1Opts = ssl_test_lib:ssl_options(server_rsa_opts, RSAConf1),
+    CRSA1Opts = ssl_test_lib:ssl_options(client_rsa_opts, RSAConf1),
 
     RSAConf2 = ssl_test_lib:make_rsa_1024_cert(Config),
-    SRSA2Opts = proplists:get_value(server_rsa_1024_opts, RSAConf2),
-    CRSA2Opts = proplists:get_value(client_rsa_1024_opts, RSAConf2),
+    SRSA2Opts = ssl_test_lib:ssl_options(server_rsa_1024_opts, RSAConf2),
+    CRSA2Opts = ssl_test_lib:ssl_options(client_rsa_1024_opts, RSAConf2),
 
     {SRSA1Cert, SRSA1Key, _SRSA1CACerts} = get_single_options(certfile, keyfile, cacertfile, SRSA1Opts),
     {CRSA1Cert, CRSA1Key, _CRSA1CACerts} = get_single_options(certfile, keyfile, cacertfile, CRSA1Opts),

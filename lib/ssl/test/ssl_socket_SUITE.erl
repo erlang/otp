@@ -151,8 +151,8 @@ getstat() ->
     [{doc,"Test API function getstat/2"}].
 
 getstat(Config) when is_list(Config) ->
-    ClientOpts = ?config(client_rsa_opts, Config),
-    ServerOpts = ?config(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server1 =
         ssl_test_lib:start_server([{node, ServerNode}, {port, 0},

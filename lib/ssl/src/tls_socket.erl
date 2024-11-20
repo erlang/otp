@@ -29,7 +29,7 @@
 -export([send/3, 
          listen/3, 
          accept/3, 
-         socket/5, 
+         socket/6,
          connect/4, 
          upgrade/3,
 	 setopts/3, 
@@ -91,7 +91,7 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
             {ok, SessionIdHandle} = session_id_tracker(ListenSocket, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler},
                          {session_id_tracker, SessionIdHandle}],
-            Socket = #sslsocket{socket_handle = ListenSocket, 
+            Socket = #sslsocket{socket_handle = ListenSocket,
                                 listener_config = Config#config{trackers = Trackers}},
             check_active_n(EmOpts, Socket),
 	    {ok, Socket};
@@ -100,7 +100,6 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
     end.
 
 accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
-			     connection_cb = ConnectionCb,
 			     ssl = SslOpts,
 			     trackers = Trackers}, Timeout) -> 
     case Transport:accept(ListenSocket, Timeout) of
@@ -108,7 +107,7 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
             Tracker = proplists:get_value(option_tracker, Trackers),
             {ok, EmOpts} = get_emulated_opts(Tracker),
 	    {ok, Port} = tls_socket:port(Transport, Socket),
-            start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo);
+            start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo);
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -149,13 +148,15 @@ connect(Address, Port,
 	    {error, {options, {socket_options, UserOpts}}}
     end.
 
-socket([Receiver, Sender], Transport, Socket, ConnectionCb, Trackers) ->
+socket([Receiver, Sender], Transport, Socket, ConnectionCb, Tab, Trackers) ->
     #sslsocket{socket_handle = Socket,
                connection_handler = Receiver,
                payload_sender = Sender,
                transport_cb = Transport,
                connection_cb = ConnectionCb,
+               tab = Tab,
                listener_config = Trackers}.
+
 setopts(gen_tcp, Socket = #sslsocket{socket_handle = ListenSocket, 
                                      listener_config = #config{trackers = Trackers}}, Options) ->
     Tracker = proplists:get_value(option_tracker, Trackers),
@@ -406,7 +407,7 @@ code_change(_OldVsn, State, _Extra) ->
 call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
-start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOpts, Trackers, CbInfo) ->    
+start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo) ->
     try
         {ok, DynSup} = tls_connection_sup:start_child([]),
         SenderOpts = maps:get(sender_spawn_opts, SslOpts, []),
@@ -414,7 +415,9 @@ start_tls_server_connection(SslOpts, ConnectionCb, Transport, Port, Socket, EmOp
         ConnArgs = [server, Sender, "localhost", Port, Socket,
                     {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
         {ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, ConnArgs),
-        ssl_gen_statem:socket_control(ConnectionCb, Socket, [Pid, Sender], Transport, Trackers)
+        receive {Pid, user_socket, UserSocket} ->
+                ssl_gen_statem:socket_control(UserSocket)
+        end
     catch
 	error:{badmatch, {error, _} = Error} ->
             Error

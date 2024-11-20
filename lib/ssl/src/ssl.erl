@@ -2557,9 +2557,19 @@ closed.
 send(#sslsocket{payload_sender = Sender,
                 connection_cb = dtls_gen_connection}, Data) when is_pid(Sender) ->
     ssl_gen_statem:send(Sender, Data);
-send(#sslsocket{payload_sender = Sender,
-                connection_cb = tls_gen_connection}, Data) when is_pid(Sender) ->
-    tls_sender:send_data(Sender,  erlang:iolist_to_iovec(Data));
+send(#sslsocket{payload_sender = Sender, tab = Tab,
+                connection_cb = tls_gen_connection}, Data0) when is_pid(Sender) ->
+    try
+        Packet = ets:lookup_element(Tab, {socket_options, packet}, 2),
+        case encode_packet(Packet, Data0) of
+            {error, _} = Error ->
+                Error;
+            Data ->
+                tls_sender:send_data(Sender,  erlang:iolist_to_iovec(Data))
+        end
+    catch error:badarg ->
+            {error, closed}
+    end;
 send(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
 send(#sslsocket{socket_handle = ListenSocket, 
@@ -3136,31 +3146,21 @@ getopts(#sslsocket{}, OptionTags) ->
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
 %%--------------------------------------------------------------------
-setopts(#sslsocket{connection_handler = Controller}, [{active, _}] = Active) when is_pid(Controller) ->
+setopts(#sslsocket{connection_handler = Controller}, [{active, _}] = Active)
+  when is_pid(Controller) ->
     ssl_gen_statem:set_opts(Controller, Active);
-setopts(#sslsocket{connection_handler = Controller, payload_sender = Sender,
-                   connection_cb = tls_gen_connection}, Options0) when is_pid(Controller), is_list(Options0)  ->
-    try proplists:expand([{binary, [{mode, binary}]},
-			  {list, [{mode, list}]}], Options0) of
+setopts(#sslsocket{connection_handler = Controller, connection_cb = tls_gen_connection}, Options0)
+  when is_pid(Controller), is_list(Options0)  ->
+    try proplists:expand([{binary, [{mode, binary}]}, {list, [{mode, list}]}], Options0) of
         Options ->
-            case proplists:get_value(packet, Options, undefined) of
-                undefined ->
-                    ssl_gen_statem:set_opts(Controller, Options);
-                PacketOpt ->
-                    case tls_sender:setopts(Sender, [{packet, PacketOpt}]) of
-                        ok ->
-                            ssl_gen_statem:set_opts(Controller, Options);
-                        Error ->
-                            Error
-                    end
-            end
+            ssl_gen_statem:set_opts(Controller, Options)
     catch
         _:_ ->
             {error, {options, {not_a_proplist, Options0}}}
     end;
-setopts(#sslsocket{connection_handler = Controller}, Options0) when is_pid(Controller), is_list(Options0)  ->
-    try proplists:expand([{binary, [{mode, binary}]},
-			  {list, [{mode, list}]}], Options0) of
+setopts(#sslsocket{connection_handler = Controller}, Options0)
+  when is_pid(Controller), is_list(Options0)  ->
+    try proplists:expand([{binary, [{mode, binary}]}, {list, [{mode, list}]}], Options0) of
 	Options ->
 	    ssl_gen_statem:set_opts(Controller, Options)
     catch
@@ -5234,6 +5234,20 @@ unambiguous_path(Value) ->
                  AbsName
          end,
     validate_filename(UP, cacertfile).
+
+-compile({inline, encode_packet/2}).
+encode_packet(Packet, Data) ->
+    Len = iolist_size(Data),
+    case Packet of
+        1 when Len < (1 bsl 8) ->  [<<Len:8>>|Data];
+        2 when Len < (1 bsl 16) -> [<<Len:16>>|Data];
+        4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
+        N when N =:= 1; N =:= 2; N =:= 4 ->
+            {error,
+             {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
+        _ ->
+            Data
+    end.
 
 %%%################################################################
 %%%#

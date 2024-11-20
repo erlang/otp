@@ -24,20 +24,16 @@
 -module(dtls_gen_connection).
 -moduledoc false.
 
--include_lib("public_key/include/public_key.hrl").
--include_lib("kernel/include/logger.hrl").
-
 -include("dtls_connection.hrl").
 -include("dtls_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("dtls_record.hrl").
 -include("ssl_cipher.hrl").
--include("ssl_api.hrl").
 -include("ssl_internal.hrl").
 
 %% Setup
 -export([start_fsm/8,
-         initial_state/7,
+         initial_state/8,
          pids/1]).
 
 %% Handshake handling
@@ -67,7 +63,6 @@
 
 %% Data handling
 -export([send/3,
-         socket/4,
          setopts/3,
          getopts/3,
          handle_info/3,
@@ -91,7 +86,7 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-initial_state(Role, Host, Port, Socket,
+initial_state(Role, Tab, Host, Port, Socket,
               {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     put(log_level, maps:get(log_level, SSLOptions)),
@@ -100,7 +95,11 @@ initial_state(Role, Host, Port, Socket,
     #{session_cb := SessionCacheCb} = ssl_config:pre_1_3_session_opts(Role),
     InternalActiveN = ssl_config:get_internal_active_n(),
     Monitor = erlang:monitor(process, User),
+
+    SslSocket = dtls_socket:socket([self()], CbModule, Socket, ?MODULE, Tab),
+
     InitStatEnv = #static_env{
+                     user_socket = SslSocket,
                      role = Role,
                      transport_cb = CbModule,
                      protocol_cb = dtls_gen_connection,
@@ -115,7 +114,9 @@ initial_state(Role, Host, Port, Socket,
                      trackers = Trackers
                     },
 
-    #state{static_env = InitStatEnv,
+
+    #state{tab = Tab,
+           static_env = InitStatEnv,
            handshake_env = #handshake_env{
                               tls_handshake_history = ssl_handshake:init_handshake_history(),
                               renegotiation = {false, first},
@@ -138,14 +139,14 @@ initial_state(Role, Host, Port, Socket,
                                 }
 	  }.
 
-start_fsm(Role, Host, Port, Socket, {_,_, Tracker} = Opts,
-	  User, {CbModule, _, _, _, _} = CbInfo,
-	  Timeout) ->
+start_fsm(Role, Host, Port, Socket, Opts, User, CbInfo, Timeout) ->
     try
-	{ok, Pid} = dtls_connection_sup:start_child([Role, Host, Port, Socket, 
-						     Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_gen_statem:socket_control(?MODULE, Socket, [Pid], CbModule, Tracker),
-	ssl_gen_statem:handshake(SslSocket, Timeout)
+	{ok, Pid} = dtls_connection_sup:start_child([Role, Host, Port, Socket,
+						     Opts, User, CbInfo]),
+        receive {Pid, user_socket, SslSocket} ->
+                {ok, SslSocket} = ssl_gen_statem:socket_control(SslSocket),
+                ssl_gen_statem:handshake(SslSocket, Timeout)
+        end
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
@@ -743,9 +744,6 @@ pack_packets([P|Rest]=Packets, SoFar, Max, Acc) ->
     end;
 pack_packets([], _, _, Acc) ->
     {lists:reverse(Acc), []}.
-
-socket(Pid,  Transport, Socket, _Tracker) ->
-    dtls_socket:socket(Pid, Transport, Socket, ?MODULE).
 
 setopts(Transport, Socket, Other) ->
     dtls_socket:setopts(Transport, Socket, Other).

@@ -353,7 +353,7 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
-	    gen_server:reply(From, {ok, Pid, {Client, Socket}}),
+	    gen_server:reply(From, {ok, Pid}),
 	    Pid ! Msg,
 	    State#state{dtls_msq_queues = kv_insert(Client, {Pid, queue:new()}, MsgQueues),
 			dtls_processes = kv_insert(Pid, Client, Processes)};

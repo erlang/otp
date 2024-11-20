@@ -432,7 +432,7 @@ trace_profiles() ->
        {dtls_server_connection,
         [{initial_hello, 3}]},
        {tls_gen_connection,
-        [{start_connection_tree, 5}, {socket_control, 6}]}
+        [{start_connection_tree, 5}, {socket_control, 2}]}
       ]},
      {csp, %% OCSP
       fun(M, F, A) -> dbg:tpl(M, F, A, x) end,
