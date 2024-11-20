@@ -64,6 +64,7 @@
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
 #define DFLAG_LOCAL_EXT        (((Uint64)0x10) << 32) /* internal */
+#define DFLAG_ALTACT_MSG       (((Uint64)0x20) << 32)
 
 /*
  * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
@@ -101,6 +102,7 @@
 #define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
+                              | DFLAG_ALTACT_MSG                \
 			      | DFLAG_ALIAS)
 
 /* Our preferred set of flags. Used for connection setup handshake */
@@ -171,11 +173,18 @@ enum dop {
     DOP_ALIAS_SEND_TT       = 34,
 
     DOP_UNLINK_ID           = 35,
-    DOP_UNLINK_ID_ACK       = 36
+    DOP_UNLINK_ID_ACK       = 36,
+
+    DOP_ALTACT_MSG_SEND     = 37
 };
 
 #define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
 #define ERTS_DIST_SPAWN_FLAG_MONITOR    (1 << 1)
+
+#define ERTS_DOP_ALTACT_MSG_FLG_PRIO    (1 << 0)
+#define ERTS_DOP_ALTACT_MSG_FLG_TOKEN   (1 << 1)
+#define ERTS_DOP_ALTACT_MSG_FLG_ALIAS   (1 << 2)
+#define ERTS_DOP_ALTACT_MSG_FLG_NAME    (1 << 3)
 
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
@@ -409,8 +418,7 @@ struct dist_sequences {
 #define ERTS_DSIG_SEND_CONTINUE 2
 #define ERTS_DSIG_SEND_TOO_LRG  3
 
-extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
-extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm, int);
 extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Process *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm, Uint64);

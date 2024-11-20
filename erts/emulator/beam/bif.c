@@ -2132,7 +2132,7 @@ ebif_bang_2(BIF_ALIST_2)
 static Sint remote_send(Process *p, DistEntry *dep,
 			Eterm to, Eterm node, Eterm full_to, Eterm msg,
                         Eterm return_term, Eterm *ctxpp,
-                        int connect, int suspend)
+                        int connect, int suspend, int prio)
 {
     Sint res;
     int code;
@@ -2166,14 +2166,10 @@ static Sint remote_send(Process *p, DistEntry *dep,
         /* Fall through... */
     case ERTS_DSIG_PREP_PENDING: {
 
-	if (is_atom(to))
-	    code = erts_dsig_send_reg_msg(&ctx, to, full_to, msg);
-	else
-	    code = erts_dsig_send_msg(&ctx, to, msg);
+        code = erts_dsig_send_msg(&ctx, to, msg, prio);
 	/*
 	 * Note that reductions have been bumped on calling
-	 * process by erts_dsig_send_reg_msg() or
-	 * erts_dsig_send_msg().
+	 * process by erts_dsig_send_msg().
 	 */
 	if (code == ERTS_DSIG_SEND_YIELD)
 	    res = SEND_YIELD_RETURN;
@@ -2212,28 +2208,35 @@ static Sint remote_send(Process *p, DistEntry *dep,
 
 static Sint
 do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
-        Eterm *dist_ctx, int connect, int suspend)
+        Eterm *dist_ctx, int connect, int suspend, int prio)
 {
     Eterm portid;
     Port *pt;
     Process* rp;
     DistEntry *dep;
     Eterm* tp;
+    Eterm to_proc;
 
     if (is_internal_pid(to)) {
         if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
-
+        if (prio) {
+            to_proc = to;
+            goto send_altact_message;
+        }
 	rp = erts_proc_lookup_raw(to);	
 	if (!rp)
 	    return 0;
     }
     else if (is_internal_ref(to)) {
-        erts_proc_sig_send_to_alias(p, p->common.id, to,
-                                    msg, SEQ_TRACE_TOKEN(p));
-        return 0;
+        if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
+	    trace_send(p, to, msg);
+	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
+	    save_calls(p, &exp_send);
+        to_proc = to;
+        goto send_altact_message;
     } else if (is_external_pid(to) || is_external_ref(to)) {
 	dep = external_dist_entry(to);
 	if(dep == erts_this_dist_entry) {
@@ -2250,7 +2253,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 	    return 0;
 	}
 	return remote_send(p, dep, to, dep->sysname, to, msg, return_term,
-                           dist_ctx, connect, suspend);
+                           dist_ctx, connect, suspend, prio);
     } else if (is_atom(to)) {
 	Eterm id = erts_whereis_name_to_id(p, to);
 
@@ -2260,6 +2263,10 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
+            if (prio) {
+                to_proc = id;
+                goto send_altact_message;
+            }
 	    goto send_message;
 	}
 
@@ -2371,16 +2378,22 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
-	    if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
+
+            if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 		trace_send(p, to, msg);
 	    if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 		save_calls(p, &exp_send);
 
-	    id = erts_whereis_name_to_id(p, tp[1]);
+            id = erts_whereis_name_to_id(p, tp[1]);
 
 	    rp = erts_proc_lookup_raw(id);
-	    if (rp)
+	    if (rp) {
+                if (prio) {
+                    to_proc = id;
+                    goto send_altact_message;
+                }
 		goto send_message;
+            }
 	    pt = erts_port_lookup(id,
 				  (erts_port_synchronous_ops
 				   ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
@@ -2398,7 +2411,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
         }
 
 	ret = remote_send(p, dep, tp[1], tp[2], to, msg, return_term,
-                          dist_ctx, connect, suspend);
+                          dist_ctx, connect, suspend, prio);
 
         if (deref_dep)
             erts_deref_dist_entry(dep);
@@ -2423,6 +2436,13 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
 			     : rp_locks);
 	return 0;
     }
+
+send_altact_message: {
+        erts_proc_sig_send_altact_msg(p, p->common.id, to_proc, msg,
+                                      SEQ_TRACE_TOKEN(p), prio);
+        return 0;
+    }
+
 }
 
 BIF_RETTYPE send_3(BIF_ALIST_3)
@@ -2436,7 +2456,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 
     Eterm l = opts;
     Sint result;
-    int connect = 1, suspend = 1;
+    int connect = 1, suspend = 1, prio = 0;
     Eterm ctx;
 
     ERTS_MSACC_PUSH_STATE_M_X();
@@ -2446,6 +2466,8 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	    connect = 0;
 	} else if (CAR(list_val(l)) == am_nosuspend) {
 	    suspend = 0;
+	} else if (CAR(list_val(l)) == am_priority) {
+	    prio = !0;
 	} else {
             BIF_P->fvalue = am_badopt;
             ERTS_BIF_PREP_ERROR(retval, p, BADARG | EXF_HAS_EXT_INFO);
@@ -2464,7 +2486,7 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 #endif
 
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_SEND);
-    result = do_send(p, to, msg, am_ok, &ref, &ctx, connect, suspend);
+    result = do_send(p, to, msg, am_ok, &ref, &ctx, connect, suspend, prio);
     ERTS_MSACC_POP_STATE_M_X();
 
     if (result >= 0) {
@@ -2583,7 +2605,7 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ref = NIL;
 #endif
 
-    result = do_send(p, to, msg, msg, &ref, &ctx, 1, 1);
+    result = do_send(p, to, msg, msg, &ref, &ctx, 1, 1, 0);
 
     ERTS_MSACC_POP_STATE_M_X();
 

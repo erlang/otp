@@ -819,6 +819,12 @@ following capability flags are defined:
   [`ALIAS_SEND_TT`](erl_dist_protocol.md#ALIAS_SEND_TT) control messages.
   Introduced in OTP 24.
 
+- **`-define(DFLAG_ALTACT_MSG, (1 bsl 37)).`{: #DFLAG_ALTACT_MSG }** - The node
+  supports alternate action messages (alias and priority messages) and can by
+  this handle the
+  [`ALTACT_MSG_SEND`](erl_dist_protocol.md#ALTACT_MSG_SEND) control messages.
+  Introduced in OTP 28.
+
 There is also function `dist_util:strict_order_flags/0` returning all flags
 (bitwise or:ed together) corresponding to features that require strict ordering
 of data over distribution channels.
@@ -1147,6 +1153,32 @@ distributed operation it encodes:
 
   Same as [`ALIAS_SEND`](erl_dist_protocol.md#ALIAS_SEND), but also with a
   sequential trace `Token`.
+
+### New Ctrlmessages for Erlang/OTP 28
+
+- **`ALTACT_MSG_SEND`{: #ALTACT_MSG_SEND }** - `{37, Flags, SenderPid, To}` or `{37, Flags, SenderPid, To, Token}`
+
+  Followed by `Message`.
+
+  This control message is used when sending an alternate action message signal
+  `Message` to the process identified by `To`. Currently defined alternate
+  action message signals are alias and priority message signals. That is,
+  message signals with an action upon reception which is different than the
+  default action to append the message to the message queue.
+
+  Currently the following bitwise flags are defined:
+  * `ALTACT_MSG_FLG_PRIO` - **`1`** - This is a priority message
+  * `ALTACT_MSG_FLG_TOKEN` - **`2`** - The control message is a 5-tuple with
+    token as element 5; otherwise, the control message is a 4-tuple.
+  * `ALTACT_MSG_FLG_ALIAS` - **`4`** - Send to an alias, i.e., `To` is a reference
+  * `ALTACT_MSG_FLG_NAME` - **`8`** - Send to a registered name, i.e., `To` is an atom
+
+  If neither `ALTACT_MSG_ALIAS` nor `ALTACT_MSG_NAME` is set, `To` is a process
+  identifier.
+
+  Nodes that can handle this control message sets the distribution flag
+  [`DFLAG_ALTACT_MSG`](erl_dist_protocol.md#dflags) in the connection setup
+  handshake.
 
 [](){: #link_protocol } [](){: #new_link_protocol } [](){: #old_link_protocol }
 

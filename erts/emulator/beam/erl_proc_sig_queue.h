@@ -186,13 +186,13 @@ typedef struct {
 #define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
 #define ERTS_SIG_Q_OP_RPC                       13
 #define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
-#define ERTS_SIG_Q_OP_ALIAS_MSG                 15
+#define ERTS_SIG_Q_OP_ALTACT_MSG                 15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
 #define ERTS_SIG_Q_OP_ADJ_MSGQ                  18
 #define ERTS_SIG_Q_OP_FLUSH			ERTS_SIG_Q_OP_MAX
 
-#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
+#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 11)
 
 #define ERTS_SIG_Q_TYPE_UNDEFINED \
     (ERTS_MON_LNK_TYPE_MAX + 1)
@@ -206,54 +206,56 @@ typedef struct {
     (ERTS_MON_LNK_TYPE_MAX + 5)
 #define ERTS_SIG_Q_TYPE_DIST \
     (ERTS_MON_LNK_TYPE_MAX + 6)
-#define ERTS_SIG_Q_TYPE_HEAP \
+#define ERTS_SIG_Q_TYPE_DIST_FRAG \
     (ERTS_MON_LNK_TYPE_MAX + 7)
-#define ERTS_SIG_Q_TYPE_OFF_HEAP \
+#define ERTS_SIG_Q_TYPE_HEAP \
     (ERTS_MON_LNK_TYPE_MAX + 8)
-#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+#define ERTS_SIG_Q_TYPE_OFF_HEAP \
     (ERTS_MON_LNK_TYPE_MAX + 9)
+#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+    (ERTS_MON_LNK_TYPE_MAX + 10)
 #define ERTS_SIG_Q_TYPE_CLA \
     ERTS_SIG_Q_TYPE_MAX
 
-#define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
+#define ERTS_SIG_IS_DIST_ALTACT_MSG_TAG(Tag)                          \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_DIST,                 \
                                0))
-#define ERTS_SIG_IS_DIST_ALIAS_MSG(sig)                              \
-    ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_DIST_ALTACT_MSG(sig)                              \
+    ERTS_SIG_IS_DIST_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
-#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(Tag)                      \
+#define ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG_TAG(Tag)                      \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_OFF_HEAP,             \
                                0))
-#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG(sig)                          \
-    ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG(sig)                          \
+    ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
-#define ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(Tag)                          \
+#define ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(Tag)                          \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_HEAP,                 \
                                0))
-#define ERTS_SIG_IS_HEAP_ALIAS_MSG(sig)                              \
-    ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_HEAP_ALTACT_MSG(sig)                              \
+    ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
-#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(Tag)                     \
+#define ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG_TAG(Tag)                     \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_HEAP_FRAG,            \
                                0))
-#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG(sig)                         \
-    ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG(sig)                         \
+    ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_RECV_MARKER_TAG                                         \
     (ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_RECV_MARK,		     \
@@ -1466,13 +1468,14 @@ erts_proc_sig_send_pending(Process *c_p, ErtsSchedulerData* esdp);
 
 
 void
-erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to,
-                            Eterm msg, Eterm token);
+erts_proc_sig_send_altact_msg(Process *c_p, Eterm from, Eterm to,
+                              Eterm msg, Eterm token, int prio);
 
 void
-erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
-                                 ErtsDistExternal *edep,
-                                 ErlHeapFragment *hfrag, Eterm token);
+erts_proc_sig_send_dist_altact_msg(Eterm from, Eterm alias,
+                                   ErtsDistExternal *edep,
+                                   ErlHeapFragment *hfrag, Eterm token,
+                                   int prio);
 
 /**
  *
