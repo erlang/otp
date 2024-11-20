@@ -1,3 +1,5 @@
+%% SPDX-License-Identifier: Apache-2.0
+
 Welcome to Erlang/OTP!
 
 This Erlang installation requires "Microsoft Visual C++ Redistributable". Unless it is already
