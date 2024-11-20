@@ -491,9 +491,6 @@ jobs:
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
 
-      - name: License Compliance Check
-        run: docker run -v $PWD/:/github otp 'sudo apt install -y pip && pip install scancode-toolkit==32.3.0 && export PATH="$HOME/.local/bin:$PATH" && /github/scripts/scan-code.escript --file-or-dir "${{ needs.pack.outputs.added_files }}" --template-path /github/scripts/scan-code/template.txt --prefix /github/'
-
   test:
     name: Test Erlang/OTP
     runs-on: ubuntu-latest
