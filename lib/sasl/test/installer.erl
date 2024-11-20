@@ -885,6 +885,9 @@ trace_disallowed_calls(Node) ->
 
 check_disallowed_calls(TestNode,Line) ->
     receive
+        {trace,_,call,{file,read_file_info,["/bin/sh",[raw]]},{os,internal_init_cmd_shell,1}} ->
+            %% This call is done when kernel is started/reloaded and is ok
+            ok;
 	Trace when element(1,Trace)==trace ->
 	    ?print_line(Line,["Disallowed function called",Trace]),
 	    exit({disallowed_function_call,Trace})
