@@ -1248,7 +1248,7 @@ send_badsig(Port *prt) {
     ERTS_LC_ASSERT(erts_get_scheduler_id());
     ASSERT(is_internal_pid(connected));
     erts_proc_sig_send_exit(&prt->common, prt->common.id, connected,
-                            am_badsig, NIL, 0);
+                            am_badsig, NIL, 0, 0);
 } /* send_badsig */
 
 static void
