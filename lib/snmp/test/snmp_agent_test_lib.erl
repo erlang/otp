@@ -940,6 +940,7 @@ merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
     end.
 
 
+%% The actions in this function is in the reverse start order.
 stop_agent(Config0) when is_list(Config0) ->
     ?IPRINT("stop_agent -> entry with"
             "~n   Config: ~p", [Config0]),
