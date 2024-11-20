@@ -2727,7 +2727,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
              */
             for (mp = p->sig_inq.first; mp; mp = mp->next) {
                 if ((ERTS_SIG_IS_INTERNAL_MSG(mp) && !mp->data.attached)
-                    || ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
+                    || ERTS_SIG_IS_HEAP_ALTACT_MSG(mp)) {
                     int i = ERTS_SIG_IS_INTERNAL_MSG(mp) ? 0 : 1;
                     for (; i < ERL_MESSAGE_REF_ARRAY_SZ; i++) {
                         ASSERT(is_immed(mp->m[i])
@@ -2766,7 +2766,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 		roots[n].sz = ERL_MESSAGE_REF_ARRAY_SZ;
 		n++;
 	    }
-	    else if (ERTS_SIG_IS_HEAP_ALIAS_MSG(mp)) {
+	    else if (ERTS_SIG_IS_HEAP_ALTACT_MSG(mp)) {
 		/*
                  * Exclude message and token slots since they do
                  * not yet contain valid Erlang terms...
@@ -3449,7 +3449,7 @@ static ERTS_INLINE void
 offset_message(ErtsMessage *mp, Sint offs, char* area, Uint area_size)
 {
     Eterm mesg = ERL_MESSAGE_TERM(mp);
-    if (ERTS_SIG_IS_MSG_TAG(mesg) || ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(mesg)) {
+    if (ERTS_SIG_IS_MSG_TAG(mesg) || ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(mesg)) {
         if (ERTS_SIG_IS_INTERNAL_MSG_TAG(mesg)) {
             switch (primary_tag(mesg)) {
             case TAG_PRIMARY_LIST:
@@ -3468,7 +3468,7 @@ offset_message(ErtsMessage *mp, Sint offs, char* area, Uint area_size)
                     is_atom(ERL_MESSAGE_TOKEN(mp))));
         }
         /*
-         * In the alias message case, both reference to actual message and
+         * In the altact message case, both reference to actual message and
          * reference to a potential token are contained in the 'from'
          * entry...
          */

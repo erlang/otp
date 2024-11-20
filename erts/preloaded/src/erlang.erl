@@ -431,7 +431,8 @@ A list of binaries. This datatype is useful to use together with
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
 -export([display_string/1, display_string/2, erase/0, erase/1]).
--export([error/1, error/2, error/3, exit/1, exit/2, exit_signal/2, external_size/1]).
+-export([error/1, error/2, error/3, exit/1, exit/2, exit/3,
+         exit_signal/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
 	 float_to_list/1, float_to_list/2, floor/1]).
@@ -2468,6 +2469,13 @@ process got killed by a call to [`exit(Pid, kill)`](`exit/2`).
       Pid :: pid() | port(),
       Reason :: term().
 exit(_Pid, _Reason) ->
+    erlang:nif_error(undefined).
+
+-spec exit(Pid, Reason, OptList) -> true when
+      OptList :: [priority],
+      Pid :: pid() | port(),
+      Reason :: term().
+exit(_Pid, _Reason, OptList) ->
     erlang:nif_error(undefined).
 
 %% exit_signal/2
