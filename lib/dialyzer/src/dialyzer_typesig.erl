@@ -818,13 +818,13 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
 			 end, ArgVars), GenArgs};
 	  {value, {PltRetType, PltArgTypes}} ->
 	    %% Need to combine the contract with the success typing.
-	    {?mk_fun_var(
-		fun(Map) ->
-		    ArgTypes = lookup_type_list(ArgVars, Map),
+            {?mk_fun_var(
+                fun(Map) ->
+                    ArgTypes = lookup_type_list(ArgVars, Map),
                     CRet = get_contract_return(C, ArgTypes),
-		    t_inf(CRet, PltRetType)
-		end, ArgVars),
-	     [t_inf(X, Y) || {X, Y} <- lists:zip(GenArgs, PltArgTypes)]}
+                    t_inf(CRet, PltRetType)
+                end, ArgVars),
+             [t_inf(X, Y) || X <- GenArgs && Y <- PltArgTypes]}
 	end,
       state__store_conj_lists([Dst|ArgVars], sub, [RetType|ArgCs], State)
   end.
@@ -2640,8 +2640,7 @@ state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),
   Vars = mk_var_list(Vars0),
   Funs = mk_var_list(Funs0),
-  NewMap = lists:foldl(fun({Var, Fun}, MP) -> maps:put(Fun, Var, MP) end,
-		       Map, lists:zip(Vars, Funs)),
+  NewMap = maps:merge(Map, #{Fun => Var || Var <- Vars && Fun <- Funs}),
   State#state{fun_map = NewMap}.
 
 state__get_rec_var(Fun, #state{fun_map = Map}) ->

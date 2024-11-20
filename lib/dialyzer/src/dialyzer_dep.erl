@@ -438,7 +438,7 @@ merge_outs([#output{type = single, content = S1}|Left],
   merge_outs(Left, output(set__union(S1, S2)));
 merge_outs([#output{type = list, content = L1}|Left],
 	   #output{type = list, content = L2}) ->
-  NewList = [merge_outs([X, Y]) || {X, Y} <- lists:zip(L1, L2)],
+  NewList = [merge_outs([X, Y]) || X <- L1 && Y <- L2],
   merge_outs(Left, output(NewList));
 merge_outs([], Res) ->
   Res.

@@ -402,26 +402,18 @@ compute_new_md5_1(Entries, InitDiffs, ModuleToPathLookup) ->
   ExistingHashes = [Md5 || {_Module, Md5} <- Entries],
   Files = [maps:get(Module, ModuleToPathLookup) || Module <- Modules],
   NewHashes = dialyzer_utils:p_map(fun compute_md5_from_file/1, Files),
-  Diffs =
-    lists:zipwith3(
-      fun (Module, BeforeHash, AfterHash) ->
-          case BeforeHash of
-            AfterHash ->
-              none;
-            _ ->
-              {differ, Module}
-          end
-      end,
-      Modules,
-      ExistingHashes,
-      NewHashes),
-  Diffs1 = InitDiffs ++ lists:filter(fun ({differ,_}) -> true; (none) -> false end, Diffs),
-  case Diffs1 of
+  Diffs = InitDiffs ++
+    [{differ, Module} ||
+      Module <- Modules &&
+        BeforeHash <- ExistingHashes &&
+        AfterHash <- NewHashes,
+      BeforeHash =/= AfterHash],
+  case Diffs of
     [] ->
       ok;
     _ ->
       ModuleHashes = lists:zip(Modules, NewHashes),
-      {differ, lists:keysort(1, ModuleHashes), Diffs1}
+      {differ, lists:sort(ModuleHashes), Diffs}
   end.
 
 -spec implementation_module_paths() -> module_file_path_lookup().
