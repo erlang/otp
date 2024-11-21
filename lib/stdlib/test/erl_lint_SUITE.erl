@@ -72,7 +72,8 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1,binary_types/1,removed/1, otp_16516/1,
+         types/1,
+         removed/1, otp_16516/1,
          inline_nifs/1,
          undefined_nifs/1,
          no_load_nif/1,
@@ -80,6 +81,7 @@
          otp_16824/1,
          underscore_match/1,
          unused_record/1,
+         untyped_record/1,
          unused_type2/1,
          eep49/1,
          redefined_builtin_type/1,
@@ -88,7 +90,8 @@
          undefined_module/1,
          update_literal/1,
          messages_with_jaro_suggestions/1,
-         illegal_zip_generator/1]).
+         illegal_zip_generator/1,
+         coverage/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -111,11 +114,13 @@ all() ->
      record_errors, otp_11879_cont,
      non_latin1_module, illegal_module_name, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type, binary_types, removed, otp_16516,
+     otp_15456, otp_15563,
+     types,
+     removed, otp_16516,
      undefined_nifs,
      no_load_nif,
      inline_nifs, warn_missing_spec, otp_16824,
-     underscore_match, unused_record, unused_type2,
+     underscore_match, unused_record, untyped_record, unused_type2,
      eep49,
      redefined_builtin_type,
      tilde_k,
@@ -125,7 +130,8 @@ all() ->
      undefined_module,
      update_literal,
      messages_with_jaro_suggestions,
-     illegal_zip_generator].
+     illegal_zip_generator,
+     coverage].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -1222,7 +1228,7 @@ unused_function(Config) when is_list(Config) ->
     ok.
 
 %% Test warnings for unused types
-unused_type(Config) when is_list(Config) ->
+types(Config) ->
     Ts = [{func1,
            <<"-type foo() :: term().">>,
            {[]},                                %Tuple indicates no export_all
@@ -1239,14 +1245,10 @@ unused_type(Config) when is_list(Config) ->
            <<"-compile(nowarn_unused_type).
               -type foo() :: term().">>,
            {[]},                                %Tuple indicates no export_all
-           []}],
+           []},
 
-    [] = run(Config, Ts),
-    ok.
-
-%% OTP-17301. Types nonempty_binary(), nonempty_bitstring().
-binary_types(Config) when is_list(Config) ->
-    Ts = [{binary1,
+          %% OTP-17301. Types nonempty_binary(), nonempty_bitstring().
+          {binary1,
            <<"-type nonempty_binary() :: term().">>,
            [nowarn_unused_type],
            {warnings,[{{1,22},erl_lint,
@@ -1255,7 +1257,24 @@ binary_types(Config) when is_list(Config) ->
            <<"-type nonempty_bitstring() :: term().">>,
            [nowarn_unused_type],
            {warnings,[{{1,22},erl_lint,
-                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}}],
+                       {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
+
+          %% Test for bad types.
+          {bad_export_type1,
+           <<"-export_type(no_arity).
+              -export_type(undefined_type/0).
+              -export_type([fine/0,fine/0]).
+              -type fine() :: any().
+              -type duplicated() :: atom().
+              -type duplicated() :: integer().
+             ">>,
+           [nowarn_unused_type],
+           {error,[{{1,22},erl_lint,{bad_export_type,no_arity}},
+                   {{2,16},erl_lint,{bad_export_type,{undefined_type,0}}},
+                   {{6,16},erl_lint,{redefine_type,{duplicated,0}}}],
+            [{{3,16},erl_lint,{duplicated_export_type,{fine,0}}}]}}
+         ],
+
     [] = run(Config, Ts),
     ok.
 
@@ -2341,12 +2360,17 @@ otp_5362(Config) when is_list(Config) ->
              -compile({nowarn_unused_function,{unused_function,2}}).
              unused_function(_, _) ->
                  ok.
+
+             -compile({nowarn_unused_function,{totally_undefined,0}}).
            ">>,
           {[warn_unused_vars, warn_unused_import]},
            {error,[{{5,15},erl_lint,{bad_inline,{inl,7},{inl,[1]}}},
                    {{6,15},erl_lint,{bad_inline,{inl,17},{inl,[1]}}},
                    {{11,18},erl_lint,{undefined_function,{fipp,0},{foop,[0]}}},
-                   {{22,15},erl_lint,{bad_nowarn_unused_function,{and_not_used,2},{and_not_used,[1]}}}],
+                   {{22,15},erl_lint,{bad_nowarn_unused_function,
+                                      {and_not_used,2},{and_not_used,[1]}}},
+                   {{30,15},erl_lint,
+                    {bad_nowarn_unused_function,{totally_undefined,0}}}],
             [{{3,15},erl_lint,{unused_import,{{b,1},lists}}},
              {{9,14},erl_lint,{unused_function,{foop,0}}},
              {{19,14},erl_lint,{unused_function,{not_used,0}}},
@@ -2431,6 +2455,7 @@ otp_5362(Config) when is_list(Config) ->
               -compile([{nowarn_deprecated_function, 
                                 [{erlang,now,-1},{3,now,-1}]}, % 2 bad
                      {nowarn_deprecated_function, {{a,b,c},now,-1}}]). % bad
+              -compile({nowarn_bif_clash,{not_a_bif_at_all,1}}).
               spawn(A) ->
                   erlang:now(),
                   spawn(A).
@@ -2438,7 +2463,11 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function]},
            {errors,[{{3,16},erl_lint,disallowed_nowarn_bif_clash},
                     {{4,16},erl_lint,disallowed_nowarn_bif_clash},
-                    {{4,16},erl_lint,{bad_nowarn_bif_clash,{spawn,2},{spawn,[1]}}}],
+                    {{4,16},erl_lint,{bad_nowarn_bif_clash,{spawn,2},
+                                      {spawn,[1]}}},
+                    {{8,16},erl_lint,disallowed_nowarn_bif_clash},
+                    {{8,16},erl_lint,
+                     {bad_nowarn_bif_clash,{not_a_bif_at_all,1}}}],
             []}
            },
 
@@ -5127,6 +5156,22 @@ unused_record(Config) when is_list(Config) ->
 
     ok.
 
+untyped_record(Config) when is_list(Config) ->
+    Ts = [{untyped_record_1,
+          <<"-export([t/0]).
+             -record(a, {x :: integer(), y}).
+             -record(b, {}).
+             -compile(warn_untyped_record).
+              t() ->
+                  {#a{}, #b{}}.
+            ">>,
+           {[]},
+           {warnings,[{{2,15},erl_lint,{untyped_record,a}}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
 unused_type2(Config) when is_list(Config) ->
     Ts = [{unused_type2_1,
            <<"-type t() :: [t()].
@@ -5564,6 +5609,49 @@ illegal_zip_generator(Config) ->
            ],
     [] = run(Config,Ts),
 
+    ok.
+
+coverage(Config) ->
+    do_coverage(),
+
+    Ts = [{keyword_warning,
+           <<"-feature(maybe_expr, disable).
+              -compile(warn_keywords).
+              f() -> maybe.
+              g() -> 'maybe'.
+            ">>,
+           [],
+           {warnings,[{{3,22},erl_lint,{future_feature,maybe_expr,'maybe'}}]}},
+
+          {invalid_stuff,
+           <<"-record(r, {a}).
+              f() -> []().
+              g() -> (no_record)#r{a=42}.
+            ">>,
+           [no_copt],
+           {warnings,[{{2,22},erl_lint,invalid_call},
+                      {{3,33},erl_lint,invalid_record}]}}
+         ],
+    [] = run(Config, Ts),
+
+    ok.
+
+%% Improve code coverage for erl_parse and erl_lint by compiling
+%% all source code in STDLIB.
+do_coverage() ->
+    Wc = filename:join(code:lib_dir(stdlib), "src/*.erl"),
+    KernelInc = filename:join(code:lib_dir(kernel), "include"),
+    StdlibInc = filename:join(code:lib_dir(stdlib), "include"),
+    Res = [begin
+               Mod = filename:rootname(filename:basename(File)),
+               Opts = [return,binary,'E',
+                       {i,KernelInc},{i,StdlibInc}],
+               case compile:file(File, Opts) of
+                   {ok,_,_,_} ->
+                       Mod
+               end
+           end || File <- filelib:wildcard(Wc)],
+    io:format("~p\n", [Res]),
     ok.
 
 %%%
