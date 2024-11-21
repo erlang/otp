@@ -912,6 +912,18 @@ add_warning(Anno, W, St) ->
 add_lint_warning(W, File, St) ->
     St#lint{warnings=[{File,W}|St#lint.warnings]}.
 
+maybe_add_warning(Anno, W, St) ->
+    Tag = if
+              is_tuple(W) -> element(1, W);
+              is_atom(W) -> W
+          end,
+    case is_warn_enabled(Tag, St) of
+        true ->
+            add_warning(Anno, W, St);
+        false ->
+            St
+    end.
+
 loc(Anno, St) ->
     Location = erl_anno:location(Anno),
     case erl_anno:file(Anno) of
@@ -1274,13 +1286,7 @@ all_behaviour_callbacks([{Anno,B}|Bs], Acc, St0) ->
 all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
 
 add_behaviour_warning(Anno, Warning, St) when is_tuple(Warning) ->
-    Tag = element(1, Warning),
-    case is_warn_enabled(Tag, St) of
-        true ->
-            add_warning(Anno, Warning, St);
-        false ->
-            St
-    end.
+    maybe_add_warning(Anno, Warning, St).
 
 behaviour_callbacks(Anno, B, St0) ->
     try B:behaviour_info(callbacks) of
@@ -1338,12 +1344,7 @@ behaviour_deprecated(Anno, B, [{F, A} | T], Exports, St0) ->
             true ->
                 case otp_internal:obsolete_callback(B, F, A) of
                     {deprecated, String} when is_list(String) ->
-                        case is_warn_enabled(deprecated_callback, St0) of
-                            true ->
-                                add_warning(Anno, {deprecated_callback, {B, F, A}, String}, St0);
-                            false ->
-                                St0
-                        end;
+                        maybe_add_warning(Anno, {deprecated_callback, {B, F, A}, String}, St0);
                     {removed, String} ->
                         add_warning(Anno, {removed_callback, {B, F, A}, String}, St0);
                     no ->
@@ -2022,9 +2023,11 @@ pattern({var,Anno,V}, _Vt, Old, St) ->
 pattern({char,_Anno,_C}, _Vt, _Old, St) -> {[],[],St};
 pattern({integer,_Anno,_I}, _Vt, _Old, St) -> {[],[],St};
 pattern({float,Anno,F}, _Vt, _Old, St0) ->
-    St = case F == 0 andalso is_warn_enabled(match_float_zero, St0) of
-             true -> add_warning(Anno, match_float_zero, St0);
-             false -> St0
+    St = if
+             F == 0 ->
+                 maybe_add_warning(Anno, match_float_zero, St0);
+             true ->
+                 St0
          end,
     {[], [], St};
 pattern({atom,Anno,A}, _Vt, _Old, St) ->
@@ -2924,9 +2927,11 @@ check_call(Anno, F, As, _Aa, St0) ->
 %% that we do not warn when it's being used as arguments for expressions in
 %% in general: `A =:= abs(0.0)` is fine.
 expr_check_match_zero({float,Anno,F}, St) ->
-    case F == 0 andalso is_warn_enabled(match_float_zero, St) of
-        true -> add_warning(Anno, match_float_zero, St);
-        false -> St
+    if
+        F == 0 ->
+            maybe_add_warning(Anno, match_float_zero, St);
+        true ->
+            St
     end;
 expr_check_match_zero({cons,_Anno,H,T}, St) ->
     expr_check_match_zero(H, expr_check_match_zero(T, St));
@@ -4664,12 +4669,7 @@ deprecated_type(Anno, M, N, As, St) ->
     NAs = length(As),
     case otp_internal:obsolete_type(M, N, NAs) of
         {deprecated, String} when is_list(String) ->
-            case is_warn_enabled(deprecated_type, St) of
-                true ->
-                    add_warning(Anno, {deprecated_type, {M,N,NAs}, String}, St);
-                false ->
-                    St
-            end;
+            maybe_add_warning(Anno, {deprecated_type, {M,N,NAs}, String}, St);
         {removed, String} ->
             add_warning(Anno, {removed_type, {M,N,NAs}, String}, St);
         no ->
@@ -4682,12 +4682,7 @@ obsolete_guard({call,Anno,{atom,Ar,F},As}, St0) ->
 	false ->
 	    deprecated_function(Anno, erlang, F, As, St0);
 	true ->
-	    St = case is_warn_enabled(obsolete_guard, St0) of
-		     true ->
-			 add_warning(Ar, {obsolete_guard, {F, Arity}}, St0);
-		     false ->
-			 St0
-		 end,
+	    St = maybe_add_warning(Ar, {obsolete_guard, {F, Arity}}, St0),
 	    test_overriden_by_local(Ar, F, Arity, St)
     end;
 obsolete_guard(_G, St) ->
