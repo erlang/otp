@@ -2798,58 +2798,7 @@ expr({call,Anno,{remote,_Ar,M,F},As}, Vt, St0) ->
 expr({call,Anno,{atom,Aa,F},As}, Vt, St0) ->
     St1 = keyword_warning(Aa, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
-    A = length(As),
-    IsLocal = is_local_function(St2#lint.locals,{F,A}),
-    IsAutoBif = erl_internal:bif(F, A),
-    AutoSuppressed = is_autoimport_suppressed(St2#lint.no_auto,{F,A}),
-    Warn = is_warn_enabled(bif_clash, St2) and (not bif_clash_specifically_disabled(St2,{F,A})),
-    Imported = imported(F, A, St2),
-    case ((not IsLocal) andalso (Imported =:= no) andalso
-	  IsAutoBif andalso (not AutoSuppressed)) of
-        true ->
-	    St3 = deprecated_function(Anno, erlang, F, As, St2),
-	    {Asvt,St3};
-        false ->
-            {Asvt,case Imported of
-                      {yes,M} ->
-                          St3 = check_remote_function(Anno, M, F, As, St2),
-                          U0 = St3#lint.usage,
-                          Imp = ordsets:add_element({{F,A},M},U0#usage.imported),
-                          St3#lint{usage=U0#usage{imported = Imp}};
-                      no ->
-			  case {F,A} of
-			      {record_info,2} ->
-                                  check_record_info_call(Anno,Aa,As,St2);
-                              N ->
-				  %% BifClash - function call
-				  %% Issue these warnings/errors even if it's a recursive call
-				  St3 = if
-					    (not AutoSuppressed) andalso IsAutoBif andalso Warn ->
-						case erl_internal:old_bif(F,A) of
-						    true ->
-							add_error
-							  (Anno,
-							   {call_to_redefined_old_bif, {F,A}},
-							   St2);
-						    false ->
-							add_warning
-							  (Anno,
-							   {call_to_redefined_bif, {F,A}},
-							   St2)
-						end;
-					    true ->
-						St2
-					end,
-				  %% ...but don't lint recursive calls
-				  if
-				      N =:= St3#lint.func ->
-					  St3;
-				      true ->
-					  call_function(Anno, F, A, St3)
-				  end
-                          end
-                  end}
-    end;
+    {Asvt, check_call(Anno, F, As, Aa, St2)};
 expr({call,Anno,F,As}, Vt, St0) ->
     St = warn_invalid_call(Anno,F,St0),
     expr_list([F|As], Vt, St);                  %They see the same variables
@@ -2915,6 +2864,61 @@ expr({executable_line,_,_}, _Vt, St) ->
     {[], St};
 expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
     {[], St}.
+
+%% Check a call to function without a module name. This can be a call
+%% to a BIF or a local function.
+check_call(Anno, record_info, As, Aa, St0) ->
+    check_record_info_call(Anno, Aa, As, St0);
+check_call(Anno, F, As, _Aa, St0) ->
+    A = length(As),
+    case imported(F, A, St0) of
+        {yes,M} ->
+            St = check_remote_function(Anno, M, F, As, St0),
+            U0 = St#lint.usage,
+            Imp = ordsets:add_element({{F,A},M}, U0#usage.imported),
+            St#lint{usage=U0#usage{imported = Imp}};
+        no ->
+            IsLocal = is_local_function(St0#lint.locals, {F,A}),
+            IsAutoBif = erl_internal:bif(F, A),
+            AutoSuppressed = is_autoimport_suppressed(St0#lint.no_auto, {F,A}),
+            if
+                not IsLocal andalso IsAutoBif andalso not AutoSuppressed ->
+                    %% This is is remote call to erlang:F/A. Check whether
+                    %% this function is deprecated.
+                    deprecated_function(Anno, erlang, F, As, St0);
+                true ->
+                    FA = {F,A},
+                    %% Clash between a local function and a BIF.
+                    %% Issue these diagnostics even for recursive calls...
+                    St = maybe
+                             true ?= IsAutoBif,
+                             true ?= IsLocal,
+                             false ?= AutoSuppressed,
+                             true ?= is_warn_enabled(bif_clash, St0),
+                             false ?= bif_clash_specifically_disabled(St0, {F,A}),
+                             case erl_internal:old_bif(F, A) of
+                                 true ->
+                                     add_error(Anno,
+                                               {call_to_redefined_old_bif, {F,A}},
+                                               St0);
+                                 false ->
+                                     add_warning(Anno,
+                                                 {call_to_redefined_bif, {F,A}},
+                                                 St0)
+                             end
+                         else
+                             _ ->
+                                 St0
+                         end,
+                    %% ...but don't lint recursive calls.
+                    if
+                        FA =:= St#lint.func ->
+                            St;
+                        true ->
+                            call_function(Anno, F, A, St)
+                    end
+            end
+    end.
 
 %% Checks whether 0.0 occurs naked in the LHS or RHS of an equality check. Note
 %% that we do not warn when it's being used as arguments for expressions in
