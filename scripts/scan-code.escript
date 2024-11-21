@@ -147,11 +147,11 @@ execute(Command, Config) ->
     ok.
 
 compliance_check(Licenses) when is_list(Licenses) ->
-    lists:foldl(fun ({Path, License, Copyright}, Acc) ->
+    lists:foldl(fun ({Path, License, SPDX, Copyright}, Acc) ->
                         CopyrightResult = check_copyright(Copyright),
                         LicenseResult = compliance_check(License),
                         R = lists:foldl(fun (ok, Acc0) -> Acc0;
-                                            ({error, Msg}, Acc0) -> [{License, Path, Msg} | Acc0]
+                                            ({error, Msg}, Acc0) -> [{SPDX, Path, Msg} | Acc0]
                                         end, [], [CopyrightResult, LicenseResult]),
                         R ++ Acc
                     end, [], Licenses);
@@ -188,9 +188,10 @@ decode(Filename) ->
 fetch_licenses(FolderPath, #{<<"files">> := Files}) ->
     lists:filtermap(fun(#{<<"type">> := <<"file">>,
                           <<"detected_license_expression">> := License,
+                          <<"detected_license_expression_spdx">> := SPDX,
                           <<"copyrights">> := Copyrights,
                           <<"path">> := Path}) ->
-                            {true, {string:trim(Path, leading, FolderPath), License, Copyrights}};
+                            {true, {string:trim(Path, leading, FolderPath), License, SPDX, Copyrights}};
                        (_) ->
                             false
                     end, Files).
