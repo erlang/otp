@@ -886,15 +886,15 @@ get_unzip_opt([memory | Rest], Opts) ->
 get_unzip_opt([{cwd, CWD} | Rest], Opts) ->
     get_unzip_opt(Rest, Opts#unzip_opts{cwd = CWD});
 get_unzip_opt([{file_filter, F} | Rest], Opts) ->
-    Filter1 = fun({ZipFile,_Extra}) -> F(ZipFile) end,
+    Filter1 = fun({ZipFile,_Extra, _CWD}) -> F(ZipFile) end,
     Filter2 = fun_and_1(Filter1, Opts#unzip_opts.file_filter),
     get_unzip_opt(Rest, Opts#unzip_opts{file_filter = Filter2});
 get_unzip_opt([{file_list, L} | Rest], Opts) ->
-    FileInList = fun(F) -> file_in_list(F, L) end,
+    FileInList = fun({ZipFile, _Extra, _CWD}) -> file_in_list(ZipFile, L) end,
     Filter = fun_and_1(FileInList, Opts#unzip_opts.file_filter),
     get_unzip_opt(Rest, Opts#unzip_opts{file_filter = Filter});
 get_unzip_opt([keep_old_files | Rest], Opts) ->
-    Keep = fun keep_old_file/1,
+    Keep = fun({ZipFile, _Extra, CWD}) -> keep_old_file(ZipFile, CWD) end,
     Filter = fun_and_1(Keep, Opts#unzip_opts.file_filter),
     get_unzip_opt(Rest, Opts#unzip_opts{file_filter = Filter});
 get_unzip_opt([skip_directories | Rest], Opts) ->
@@ -997,14 +997,15 @@ verbose_zip(FN) ->
 %% file filter funs
 all(_) -> true.
 
-file_in_list({#zip_file{name = FileName},_}, List) ->
+file_in_list(#zip_file{name = FileName}, List) ->
     lists:member(FileName, List);
 file_in_list(_, _) ->
     false.
 
-keep_old_file({#zip_file{name = FileName},_}) ->
-    not (filelib:is_file(FileName) orelse filelib:is_dir(FileName));
-keep_old_file(_) ->
+keep_old_file(#zip_file{name = FileName}, CWD) ->
+    FileName1 = add_cwd(CWD, FileName),
+    not (filelib:is_file(FileName1) orelse filelib:is_dir(FileName1));
+keep_old_file(_, _) ->
     false.
 
 %% fun combiner
@@ -1246,7 +1247,12 @@ get_filename(Name, directory) ->
 
 add_cwd(_CWD, {_Name, _} = F) -> F;
 add_cwd("", F) -> F;
-add_cwd(CWD, F) -> filename:join(CWD, F).
+add_cwd(CWD, F) ->
+    TrailingSlash = case lists:last(F) of
+                        $/ -> "/";
+                        _ -> ""
+                    end,
+    string:trim(filename:join(CWD, F), trailing, "/") ++ TrailingSlash.
 
 %% already compressed data should be stored as is in archive,
 %% a simple name-match is used to check for this
@@ -2214,16 +2220,16 @@ get_z_files([], _Z, _In, _Opts, Acc) ->
     lists:reverse(Acc);
 get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
     get_z_files(Rest, Z, In, Opts, Acc);
-get_z_files([{#zip_file{offset = Offset},_} = ZFile | Rest], Z, In0,
+get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
 	    #unzip_opts{input = Input, output = Output, open_opts = OpO,
 			file_filter = Filter, feedback = FB,
 			cwd = CWD, skip_dirs = SkipDirs, extra = ExtraOpts} = Opts, Acc0) ->
-    case Filter(ZFile) of
+    case Filter({ZipFile, ZipExtra, CWD}) of
 	true ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    {In2, Acc1} =
 		case get_z_file(In1, Z, Input, Output, OpO, FB,
-				CWD, ZFile, Filter, SkipDirs, ExtraOpts) of
+				CWD, {ZipFile, ZipExtra}, Filter, SkipDirs, ExtraOpts) of
 		    {Type, GZD, Inx} when Type =:= file; Type =:= dir ->
                         {Inx, [GZD | Acc0]};
 		    {_, Inx}       -> {Inx, Acc0}
@@ -2265,8 +2271,10 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 		    {true,FileName1} ->
 			true;
 		    {false,FileName1} ->
-			Filter({ZipFile#zip_file{name = FileName1},ZipExtra})
+			Filter({ZipFile#zip_file{name = FileName1},ZipExtra, CWD})
 		end,
+
+            FileNameWithCwd = add_cwd(CWD, FileName1),
 
             IsDir = lists:last(FileName) =:= $/,
 
@@ -2275,11 +2283,11 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                     {Type, Out, In} =
                         case lists:last(FileName) of
                             $/ ->
-                                Out1 = Output({ensure_path,FileName1},[]),
+                                Out1 = Output({ensure_path,FileNameWithCwd},[]),
                                 {dir, Out1, In3};
                             _ ->
                                 {Out1, In4, CRC, _UncompSize} =
-                                    get_z_data(CompMethod, In3, FileName1,
+                                    get_z_data(CompMethod, In3, FileNameWithCwd,
                                                CompSize, Input, Output, OpO, Z),
                                 In5 = skip_z_data_descriptor(GPFlag, Input, In4),
 
@@ -2289,10 +2297,10 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                         end,
 
                     FileInfo = local_file_header_to_file_info(
-                                 Output({file_info, FileName1}, Out),
+                                 Output({file_info, FileNameWithCwd}, Out),
                                  LHExtra, ZipFile),
 
-                    Out2 = Output({set_file_info, FileName1, FileInfo, [{time, local}]}, Out),
+                    Out2 = Output({set_file_info, FileNameWithCwd, FileInfo, [{time, local}]}, Out),
                     {Type, Out2, In};
 		false ->
 		    {ignore, In3}
@@ -2317,7 +2325,7 @@ check_valid_location(CWD, FileName) ->
                         _ -> ""
                     end,
     %% check for directory traversal exploit
-    {IsValid, Cwd, Name} =
+    {IsValid, Name} =
         case check_dir_level(filename:split(FileName), 0) of
             {FileOrDir,Level} when Level < 0 ->
                 CWD1 = if CWD == "" -> "./";
@@ -2325,11 +2333,11 @@ check_valid_location(CWD, FileName) ->
                        end,
                 error_logger:format("Illegal path: ~ts, extracting in ~ts~n",
                                     [add_cwd(CWD,FileName),CWD1]),
-                {false, CWD, FileOrDir};
+                {false, FileOrDir};
             _ ->
-                {true, CWD, FileName}
+                {true, FileName}
         end,
-    {IsValid, string:trim(add_cwd(Cwd, Name), trailing, "/") ++ TrailingSlash}.
+    {IsValid, string:trim(Name, trailing, "/") ++ TrailingSlash}.
 
 check_dir_level([FileOrDir], Level) ->
     {FileOrDir,Level};

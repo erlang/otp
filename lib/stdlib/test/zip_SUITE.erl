@@ -436,7 +436,7 @@ spawned_zip_dead(ZipSrv) ->
             false
     end.
 
-%% Test options for unzip, only cwd and file_list currently.
+%% Test options for unzip, only cwd, file_list and keep_old_files currently.
 unzip_options(Config) when is_list(Config) ->
     DataDir = get_value(data_dir, Config),
     PrivDir = get_value(priv_dir, Config),
@@ -477,6 +477,34 @@ unzip_options(Config) when is_list(Config) ->
 		  RetList2),
 
     %% Clean up and verify no more files.
+    0 = delete_files([Subdir]),
+
+    OriginalFile1 = filename:join(Subdir, "abc.txt"),
+    OriginalFile2 = filename:join(Subdir, "quotes/rain.txt"),
+
+    ok = file:make_dir(filename:dirname(OriginalFile1)),
+    ok = file:write_file(OriginalFile1, ["Original 1"]),
+    ok = file:make_dir(filename:dirname(OriginalFile2)),
+    ok = file:write_file(OriginalFile2, ["Original 2"]),
+
+    FList3 = ["wikipedia.txt","emptyFile"],
+
+    %% Unzip a zip file in Subdir
+    {ok, RetList3} = zip:unzip(Long, [{cwd, Subdir},skip_directories,keep_old_files]),
+    {ok, []} = zip:unzip(Long, [{cwd, Subdir},skip_directories,keep_old_files]),
+
+    %% Verify.
+    true = (length(RetList3) =:= 2),
+    {ok,<<"Original 1">>} = file:read_file(OriginalFile1),
+    {ok,<<"Original 2">>} = file:read_file(OriginalFile2),
+    lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
+			   {ok,B} = file:read_file(filename:join(Subdir, F)) end,
+		  FList3),
+    lists:foreach(fun(F)-> 1 = delete_files([F]) end,
+		  RetList3),
+
+    %% Clean up and verify no more files.
+    2 = delete_files([OriginalFile1, OriginalFile2]),
     0 = delete_files([Subdir]),
     ok.
 
