@@ -239,7 +239,7 @@ sarif(Errors) ->
                                           ~"uri" => File
                                          },
                          ~"length" => -1
-                        } || {_, File, _} <- Errors
+                        } || File <- lists:usort([F || {_, F, _} <- Errors])
                      ],
                  ~"results" =>
                      [ #{
