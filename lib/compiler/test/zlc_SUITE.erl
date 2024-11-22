@@ -24,7 +24,8 @@
          init_per_testcase/2,end_per_testcase/2,
          basic/1,mixed_zlc/1,zmc/1,filter_guard/1,
          filter_pattern/1,cartesian/1,nomatch/1,bad_generators/1,
-         strict_list/1,strict_binary/1]).
+         strict_list/1,strict_binary/1,
+         cover/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -47,7 +48,8 @@ groups() ->
        nomatch,
        bad_generators,
        strict_list,
-       strict_binary
+       strict_binary,
+       cover
       ]}].
 
 init_per_suite(Config) ->
@@ -287,7 +289,7 @@ strict_list(Config) when is_list(Config) ->
     NaN = <<-1:64>>,
     [] = strict_list_5(<<>>, <<>>),
     [3.14] = strict_list_5(<<0:1,1:1>>, <<32,0.0:32/float, 64,3.14:64/float>>),
-    [0.0,3.14] = strict_list_5(<<1:1,1:1>>, <<32,0.0:32/float, 64,3.14:64/float>>),
+    [+0.0,3.14] = strict_list_5(<<1:1,1:1>>, <<32,0.0:32/float, 64,3.14:64/float>>),
     {'EXIT',{{bad_generators,{<<>>,<<64,42.0/float>>}},_}} =
         catch strict_list_5(<<>>, <<64,42.0/float>>),
     {'EXIT',{{bad_generators,{<<0:1,1:1>>,
@@ -439,6 +441,34 @@ bad_generators(Config) when is_list(Config) ->
                 catch bad_generators([a,b,c|d],[a,b,c,d])
     end,
     ok.
+
+%% Cover some code in sys_coverage.
+cover(Config) when is_list(Config) ->
+    [] = do_cover_1([], []),
+    [11,12,13] = do_cover_1([1,2,3], [10,10,10]),
+
+    ok.
+
+do_cover_1(L1, L2) ->
+    Res = [A + B || A <- begin L1 end && B <- L2],
+    Res = [A + B || A <-
+                        begin L1 end &&
+                        B <- L2],
+    Res = [A + B ||
+              A <-
+                  begin L1 end &&
+                  B <-
+                  begin L2 end],
+    Res = [A + B ||
+              A <-
+                  begin
+                      L1
+                  end &&
+                  B <-
+                  begin
+                      L2
+                  end],
+    Res.
 
 -file("bad_zlc.erl", 1).
 bad_generators(L1,L2) ->                        %Line 2

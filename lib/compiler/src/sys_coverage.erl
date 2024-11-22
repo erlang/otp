@@ -574,17 +574,35 @@ munge_qs([{m_generate_strict,Anno,Pattern,Expr}|Qs], Vars0, MQs) ->
     {MExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, {m_generate_strict,Anno,Pattern,MExpr}, Vars0, Vars1, MQs);
 munge_qs([{zip,Anno,Gs0}|Qs], Vars0, MQs) ->
-    {Gs1, Vars1} = munge_qualifiers(Gs0, Vars0),
-    %% Get rid of dummy filters inserted by munge_qualifiers/2 --
-    %% they are not allowed in the zip construct.
-    Gs = [G || G <- Gs1, element(1, G) =/= block],
-    munge_qs1(Qs, Anno, {zip,Anno,Gs}, Vars0, Vars1, MQs);
+    {Gs, Pre, Vars1} = munge_zip(Gs0, Vars0),
+    munge_qs1(Qs, Anno, {zip,Anno,Gs}, Vars0, Vars1, Pre ++ MQs);
 munge_qs([Expr|Qs], Vars0, MQs) ->
     A = element(2, Expr),
     {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
     munge_qs1(Qs, A, MungedExpr, Vars0, Vars1, MQs);
 munge_qs([], Vars0, MQs) ->
     {reverse(MQs), Vars0}.
+
+munge_zip([G0|Gs0], Vars0) ->
+    {Gen,Anno,Pattern,Expr} = G0,
+    {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
+    G1 = {Gen,Anno,Pattern,MungedExpr},
+    case munge_qs1([], Anno, G1, Vars0, Vars1, []) of
+        {[{block,_,_}=Blk,G], Vars2} ->
+            {Gs, Vars3} = munge_zip_1(Gs0, Vars2, [G]),
+            {Gs, [Blk], Vars3};
+        {[G], Vars2} ->
+            {Gs, Vars3} = munge_zip_1(Gs0, Vars2, [G]),
+            {Gs, [], Vars3}
+    end.
+
+munge_zip_1([G0|Gs], Vars0, Acc) ->
+    {Gen,Anno,Pattern,Expr} = G0,
+    {MungedExpr, Vars1} = munge_expr(Expr, Vars0),
+    G1 = {Gen,Anno,Pattern,MungedExpr},
+    munge_zip_1(Gs, Vars1, [G1|Acc]);
+munge_zip_1([], Vars, Acc) ->
+    {reverse(Acc), Vars}.
 
 munge_qs1(Qs, Anno, NQ, Vars0, Vars1, MQs) ->
     case new_bumps(Vars1, Vars0) of
