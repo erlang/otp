@@ -3335,9 +3335,9 @@ ERL_NIF_TERM encode_if_admin_status(ErlNifEnv* env,
     ERL_NIF_TERM estatus;
 
     if (status) {
-        estatus = atom_enabled;
+        estatus = esock_atom_enabled;
     } else {
-        estatus = atom_disabled;
+        estatus = esock_atom_disabled;
     }
 
     return estatus;
