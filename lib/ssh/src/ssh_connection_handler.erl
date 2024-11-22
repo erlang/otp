@@ -1085,12 +1085,20 @@ handle_event({call,From}, {recv_window, ChannelId}, StateName, D)
 
 handle_event({call,From}, {close, ChannelId}, StateName, D0)
   when ?CONNECTED(StateName) ->
+    %% Send 'channel-close' only if it has not been sent yet
+    %% e.g. when 'exit-signal' was received from the peer
+    %% and(!) we update the cache so that we remember what we've done
     case ssh_client_channel:cache_lookup(cache(D0), ChannelId) of
-	#channel{remote_id = Id} = Channel ->
+	#channel{remote_id = Id, sent_close = false} = Channel ->
 	    D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
-	    ssh_client_channel:cache_update(cache(D1), Channel#channel{sent_close = true}),
+	    ssh_client_channel:cache_update(cache(D1),
+                                            Channel#channel{sent_close = true}),
 	    {keep_state, D1, [cond_set_idle_timer(D1), {reply,From,ok}]};
-	undefined ->
+	_ ->
+            %% Here we match a channel which has already sent 'channel-close'
+            %% AND possible cases of 'broken cache' i.e. when a channel
+            %% disappeared from the cache, but has not been properly shut down
+            %% The latter would be a bug, but hard to chase
 	    {keep_state_and_data, [{reply,From,ok}]}
     end;
 
@@ -1251,15 +1259,26 @@ handle_event(info, {timeout, {_, From} = Request}, _,
 %%% Handle that ssh channels user process goes down
 handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
     Cache = cache(D),
-    ssh_client_channel:cache_foldl(
-      fun(#channel{user=U,
-                   local_id=Id}, Acc) when U == ChannelPid ->
-              ssh_client_channel:cache_delete(Cache, Id),
-              Acc;
+    %% Here we first collect the list of channel id's  handled by the process
+    %% Do NOT remove them from the cache - they are not closed yet!
+    Channels = ssh_client_channel:cache_foldl(
+      fun(#channel{user=U} = Channel, Acc) when U == ChannelPid ->
+              [Channel | Acc];
          (_,Acc) ->
               Acc
       end, [], Cache),
-    {keep_state, D, cond_set_idle_timer(D)};
+    %% Then for each channel where 'channel-close' has not been sent yet
+    %% we send 'channel-close' and(!) update the cache so that we remember
+    %% what we've done
+    D2 = lists:foldl(
+      fun(#channel{remote_id = Id, sent_close = false} = Channel, D0) ->
+          D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
+          ssh_client_channel:cache_update(cache(D1),
+                                          Channel#channel{sent_close = true}),
+          D1;
+         (_, D0) -> D0
+      end, D, Channels),
+    {keep_state, D2, cond_set_idle_timer(D2)};
 
 handle_event({timeout,idle_time}, _Data,  _StateName, D) ->
     case ssh_client_channel:cache_info(num_entries, cache(D)) of
