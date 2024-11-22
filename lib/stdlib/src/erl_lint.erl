@@ -412,7 +412,6 @@ format_error_1(illegal_zip_generator) ->
 %% --- patterns and guards ---
 format_error_1(illegal_map_assoc_in_pattern) -> ~"illegal pattern, did you mean to use `:=`?";
 format_error_1(illegal_pattern) -> ~"illegal pattern";
-format_error_1(illegal_map_key) -> ~"illegal map key in pattern";
 format_error_1(illegal_expr) -> ~"illegal expression";
 format_error_1({illegal_guard_local_call, {F,A}}) ->
     {~"call to local/imported function ~tw/~w is illegal in guard",
