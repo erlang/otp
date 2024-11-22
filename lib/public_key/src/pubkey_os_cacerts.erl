@@ -25,6 +25,7 @@
 
 -include("public_key.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 -export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
@@ -179,7 +180,9 @@ load_darwin() ->
                  {ok, Bin2} ->
                     decode_result(<<Bin1/binary, Bin2/binary>>);
                   Err ->
-                    Err
+                    ?LOG_WARNING(
+                        "Unable to load additional OS certificates from System.keychain : ~p~n", [Err]),
+                    decode_result(Bin1)
              end;
           Err ->
             Err
