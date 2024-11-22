@@ -1057,14 +1057,24 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
       ?DEC_BIN(Err, _ErrLen),
       ?DEC_BIN(Lang, _LangLen)>> = Data,
     case ssh_client_channel:cache_lookup(Cache, ChannelId) of
-        #channel{remote_id = RemoteId} = Channel ->
+        #channel{remote_id = RemoteId, sent_close = SentClose} = Channel ->
             {Reply, Connection} =  reply_msg(Channel, Connection0,
                                              {exit_signal, ChannelId,
                                               binary_to_list(SigName),
                                               binary_to_list(Err),
                                               binary_to_list(Lang)}),
-            ChannelCloseMsg = channel_close_msg(RemoteId),
-            {[{connection_reply, ChannelCloseMsg}|Reply], Connection};
+            %% Send 'channel-close' only if it has not been sent yet
+            %% by e.g. our side also closing the channel or going down
+            %% and(!) update the cache
+            %% so that the 'channel-close' is not sent twice
+            if not SentClose ->
+                    CloseMsg = channel_close_msg(RemoteId),
+                    ssh_client_channel:cache_update(Cache,
+                                            Channel#channel{sent_close = true}),
+                    {[{connection_reply, CloseMsg}|Reply], Connection};
+                true ->
+                    {Reply, Connection}
+            end;
         _ ->
             %% Channel already closed by peer
             {[], Connection0}
