@@ -323,7 +323,7 @@ integers() ->
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{integer, _, _}], _} ->
+                  {ok, [{integer, _, _}|_], _} ->
                       error({unexpected_integer, S});
                   _ ->
                       ok
@@ -388,7 +388,7 @@ base_integers() ->
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{integer, _, _}], _} ->
+                  {ok, [{integer, _, _}|_], _} ->
                       error({unexpected_integer, S});
                   _ ->
                       ok
@@ -441,7 +441,7 @@ floats() ->
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{float, _, _}], _} ->
+                  {ok, [{float, _, _}|_], _} ->
                       error({unexpected_float, S});
                   _ ->
                       ok
