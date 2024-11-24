@@ -90,10 +90,10 @@ AC_DEFUN([ERL_CANONICAL_SYSTEM_TYPE],
     AS_CASE([$target],
             [local-aarch64-*-windows],
             [
-                build=win32
-                build_os=win32
-                build_vendor=
-                build_cpu=aarch64
+                target=win32
+                target_os=win32
+                target_vendor=
+                target_cpu=aarch64
             ],
             [local-*-windows],
             [
