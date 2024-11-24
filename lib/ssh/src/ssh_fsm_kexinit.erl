@@ -215,7 +215,9 @@ handle_event(internal, #ssh_msg_newkeys{} = Msg, {new_keys,Role,renegotiate}, D)
     {ok, Ssh} = ssh_transport:handle_new_keys(Msg, D#data.ssh_params),
     %% {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh1),
     %% ssh_connection_handler:send_bytes(ExtInfo, D),
-    {next_state, {ext_info,Role,renegotiate}, D#data{ssh_params=Ssh}};
+    {next_state, {ext_info,Role,renegotiate}, D#data{ssh_params=Ssh},
+     [{{timeout, alive}, Ssh#ssh.alive_interval, none},
+      {{timeout, renegotiation_alive}, cancel}]};
 
 
 %%% ######## {ext_info, client|server, init|renegotiate} ####

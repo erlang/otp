@@ -860,6 +860,15 @@ default(common) ->
              class => user_option
             },
 
+      alive_params =>
+          #{default => {0, infinity},
+            chk => fun({AliveCount, AliveIntervalSeconds}) ->
+                        check_pos_integer(AliveCount) andalso
+                               check_timeout(AliveIntervalSeconds)
+                   end,
+            class => user_option
+           },
+
 %%%%% Undocumented
        transport =>
            #{default => ?DEFAULT_TRANSPORT,
