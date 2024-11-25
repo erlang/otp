@@ -862,9 +862,8 @@ merge_patches({self,heap_tuple}, Other) ->
     Other.
 
 patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
-    L2P = foldl(fun(Phi={phi,_,Lbl,_,_}, Acc) ->
-                        Acc#{Lbl => Phi}
-                end, #{}, Patches),
+    ?DP("Patching Phi:~n args: ~p~n  patches: ~p~n", [Args0, Patches]),
+    L2P = foldl(fun merge_phi_patch/2, #{}, Patches),
     {Args, Extra, Cnt} =
         foldr(fun(Arg0={_,Lbl}, {ArgsAcc,ExtraAcc,CntAcc}) ->
                       case L2P of
@@ -879,6 +878,15 @@ patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
               end, {[],[],Cnt0}, Args0),
     I = I0#b_set{op=phi,args=Args},
     {I, Extra, Cnt}.
+
+merge_phi_patch({phi,Var,Lbl,Lit,E}, Acc) ->
+    case Acc of
+        #{Lbl:={phi,Var,Lbl,Lit,Old}} ->
+            Acc#{Lbl => {phi,Var,Lbl,Lit,merge_patches(E, Old)}};
+        #{} ->
+            false = is_map_key(Lbl, Acc), %% Assert
+            Acc#{Lbl => {phi,Var,Lbl,Lit,E}}
+    end.
 
 %% Should return the instructions in reversed order
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
