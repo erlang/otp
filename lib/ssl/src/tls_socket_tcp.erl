@@ -50,13 +50,26 @@
 
 -include("ssl_internal.hrl").
 
+%% -define(CT_LOG(F,A), ct:log(default, 1, "~w:~w: " ++ F, [?MODULE, ?LINE|A], [esc_chars])).
+-define(CT_LOG(F,A), ok).
+
 cb_info() ->
     %% {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}
     {?MODULE, '$socket', '$socket_closed', '$socket', '$socket_passive'}.
 
-
-setopts(Socket, [{active, _N}]) ->
-    activate_socket(Socket);
+setopts(Socket, [{active, N}]) when is_integer(N) ->
+    if N > 1 ->
+            ?CT_LOG("~p Set active ~w~n ~p", [self(), N, process_info(self(), current_stacktrace)]),
+            self() ! {'$socket', Socket, select, nowait},
+            socket:setopt(Socket, {otp,select_read}, true);
+       N == 1 ->
+            ?CT_LOG("Send socket select", [1]),
+            self() ! {'$socket', Socket, select, nowait},
+            ok;
+       true ->
+            ?CT_LOG("ignore active ~w", [N]),
+            ok
+    end;
 setopts(Socket, List) ->
     try
         Opts = check_opts(List),
@@ -169,73 +182,56 @@ recv(Socket, Size) ->
 recv(Socket, Size, Timeout) ->
     socket:recv(Socket, Size, Timeout).
 
-%%-define(CT_LOG(F,A), ct:log(default, 1, F, A, [esc_chars])).
--define(CT_LOG(F,A), ok).
-
 send(Socket, Data) ->
-    ?CT_LOG("~w:~w: ~w send ~w", [?MODULE, ?LINE, get(role), iolist_size(Data)]),
+    ?CT_LOG("~w send ~w", [get(role), iolist_size(Data)]),
     case socket:sendv(Socket, erlang:iolist_to_iovec(Data)) of
         ok ->
             ok;
         {ok, Cont} ->
-            ?CT_LOG("~w:~w: ~w send loop ~w", [?MODULE, ?LINE, get(role), iolist_size(Cont)]),
+            ?CT_LOG("~w send loop ~w", [get(role), iolist_size(Cont)]),
             send(Socket, Cont);
         Err ->
-            ?CT_LOG("~w:~w: ~w send ~w", [?MODULE, ?LINE, get(role), Err]),
+            ?CT_LOG("~w send ~w", [get(role), Err]),
             Err
     end.
 
 %% Note: returns the reverse list of packets
 data_available(Socket, _select, Handle, Activate) ->
-    ?CT_LOG("~w:~w: ~w recv ~w ~p",[?MODULE, ?LINE, get(role), Activate, Handle]),
+    ?CT_LOG("~w recv ~w ~p",[get(role), Activate, Handle]),
     Res = case socket:recv(Socket, 0, Handle) of
               {ok, Data0} when Activate ->
-                  ?CT_LOG("~w:~w: ~w data", [?MODULE, ?LINE, get(role)]),
-                  active_socket(Socket, Handle, 5, [Data0]);
-              {ok, Data0} ->  %% Activate is false, fake passive message
-                  self() ! {'$socket_passive', Socket},
-                  ?CT_LOG("~w:~w: ~w passive", [?MODULE, ?LINE, get(role)]),
+                  ?CT_LOG("~w data", [get(role)]),
+                  self() ! {'$socket', Socket, select, nowait},
                   Data0;
+              {ok, Data0} ->  %% Activate is false, fake passive message
+                  socket:setopt(Socket, {otp,select_read}, false),
+                  self() ! {'$socket_passive', Socket},
+                  ?CT_LOG("~w passive", [get(role)]),
+                  Data0;
+              {select_read, {select_info, _, _Handle}} ->   %% Fix windows handles
+                  %% First time data may not be available
+                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+                  [];
+              {select_read, {{select_info, _, _Handle}, Data}} ->
+                  %% First time data may not be available
+                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+                  Data;
               {select, {select_info, _, _Handle}} ->   %% Fix windows handles
                   %% First time data may not be available
-                  ?CT_LOG("~w:~w: ~w wait_select ~p", [?MODULE, ?LINE, get(role), _Handle]),
+                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
                   [];
+              {select, {{select_info, _, _Handle}, Data}} ->
+                  %% First time data may not be available
+                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+                  Data;
               {error, Reason} ->
                   ?SSL_LOG(debug, socket_error, [{error, Reason}]),
-                  ?CT_LOG("~w:~w: ~w error", [?MODULE, ?LINE, get(role)]),
+                  ?CT_LOG("~w error", [get(role)]),
                   self() ! {'$socket_closed', Socket},
                   []
           end,
-    ?CT_LOG("~w:~w: ~w recv res ~w", [?MODULE, ?LINE, get(role), iolist_size(Res)]),
+    ?CT_LOG("~w recv res ~w", [get(role), iolist_size(Res)]),
     Res.
-
-activate_socket(Socket) ->
-    active_socket(Socket, nowait, 0, []),
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Helpers %%%%%%%%%%%%%%%%%%%%%%%%
-
-active_socket(Socket, Handle, N, Acc) when N > 0 ->
-    case socket:recv(Socket, 0, Handle) of %% More than 1 ssl packet
-        {ok, Data} ->
-            ?CT_LOG("~w:~w: ~w data", [?MODULE, ?LINE, get(role)]),
-            active_socket(Socket, Handle, N-1, [Data | Acc]);
-        {select, {select_info, _, _Handle}} ->   %% Fix windows
-            ?CT_LOG("~w:~w: ~w select ~p", [?MODULE, ?LINE, get(role), _Handle]),
-            Acc;
-        {select, {{select_info, _, _Handle}, Data}} ->
-            ?CT_LOG("~w:~w: ~w select with data", [?MODULE, ?LINE, get(role), _Handle]),
-            [Data | Acc];
-        {error, Reason} ->
-            ?CT_LOG("~w:~w: ~w error", [?MODULE, ?LINE, get(role)]),
-            ?SSL_LOG(debug, socket_error, [{error, Reason}]),
-            self() ! {'$socket_closed', Socket},
-            Acc
-    end;
-active_socket(Socket, Handle, 0, Acc) ->
-    ?CT_LOG("~w:~w: ~w to_many_reads", [?MODULE, ?LINE, get(role)]),
-    self() ! {'$socket', Socket, select, Handle},
-    Acc.
 
 connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
     Family = which_family(IP),
