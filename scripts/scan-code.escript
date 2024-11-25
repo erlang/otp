@@ -38,18 +38,24 @@ cli() ->
        handler => fun scancode/1}.
 
 approved() ->
-    [ ~"mit", ~"agpl-3.0", ~"apache-2.0", ~"boost-1.0", ~"llvm-exception",
-      ~"lgpl-2.1-plus", ~"cc0-1.0", ~"bsd-simplified", ~"bsd-new", ~"pcre",
-      ~"fsf-free", ~"autoconf-exception-3.0", ~"mpl-1.1", ~"public-domain",
-      ~"autoconf-simple-exception", ~"unicode", ~"tcl", ~"gpl-2.0 WITH classpath-exception-2.0",
-      ~"zlib", ~"lgpl-2.0-plus WITH wxwindows-exception-3.1", ~"lgpl-2.0-plus",
-      ~"openssl-ssleay", ~"cc-by-sa-3.0", ~"cc-by-4.0", ~"dco-1.1", ~"fsf-ap",
-      ~"agpl-1.0-plus", ~"agpl-1.0", ~"agpl-3.0-plus", ~"classpath-exception-2.0",
-      ~"ietf-trust"].
+    [ <<"apache-2.0">> ].
+
+reviewed() ->
+    [ <<"mit">>, <<"boost-1.0">>, <<"llvm-exception">>,
+      <<"cc0-1.0">>, <<"bsd-simplified">>, <<"bsd-new">>, <<"pcre">>,
+      <<"fsf-free">>, <<"autoconf-exception-3.0">>, <<"public-domain">>,
+      <<"autoconf-simple-exception">>, <<"unicode">>, <<"tcl">>, <<"gpl-2.0 WITH classpath-exception-2.0">>,
+      <<"zlib">>, <<"lgpl-2.0-plus WITH wxwindows-exception-3.1">>,
+      <<"openssl-ssleay">>, <<"cc-by-sa-3.0">>, <<"cc-by-4.0">>, <<"dco-1.1">>, <<"fsf-ap">>,
+      <<"classpath-exception-2.0">>, <<"ietf-trust">>, <<"apache-2.0-or-lgpl-2.1-or-later">> ].
 
 not_approved() ->
-    [~"gpl", ~"gpl-3.0-plus", ~"gpl-2.0", ~"gpl-1.0-plus", ~"unlicense",
-     ~"erlangpl-1.1", ~"gpl-2.0-plus", ~"null", 'null'].
+    [<<"gpl">>, <<"gpl-3.0-plus">>, <<"gpl-2.0">>, <<"gpl-1.0-plus">>, <<"unlicense">>,
+     <<"lgpl-2.0-plus">>, <<"lgpl-2.1-plus">>, <<"agpl-1.0-plus">>, <<"agpl-1.0">>,
+     <<"agpl-3.0-plus">>, <<"erlangpl-1.1">>, <<"gpl-2.0-plus">>, <<"agpl-3.0">>, <<"mpl-1.1">>].
+
+no_license() ->
+    [<<"null">>, 'null'].
 
 scan_option() ->
     #{name => scan_option,
@@ -86,6 +92,7 @@ sarif_option() ->
       long => "-sarif"}.
 
 scancode(Config) ->
+    io:format("Files to scan: ~ts~n", [maps:get(file_or_dir, Config, none)]),
     ok = cp_files(Config),
     scan_folder(Config).
 
@@ -135,40 +142,52 @@ execute(Command, Config) ->
     Licenses = fetch_licenses(folder_path(Config), Json),
 
     Errors = compliance_check(Licenses),
-    io:format("~n~nResuling Errors: ~p~n~n", [Errors]),
 
     maps:get(sarif, Config) =/= undefined andalso
         sarif(maps:get(sarif, Config), Errors),
 
     Errors =/= [] andalso erlang:raise(exit, Errors, []),
-
     ok.
 
 compliance_check(Licenses) when is_list(Licenses) ->
-    lists:filtermap(fun (License) ->
-                            case compliance_check(License) of
-                                ok ->
-                                    false;
-                                {error, Err} ->
-                                    {true, Err}
-                            end
-                    end, Licenses);
-compliance_check({Path, 'null'=License}) ->
-    {error, {License, Path, no_license}};
-compliance_check({Path, License}) ->
-    case lists:member(License, not_approved()) of
-        true ->
-            {error, {License, Path, license_not_approved}};
-        false ->
-            case lists:member(License, approved()) of
-                false ->
-                    %% this can happen if a license is
-                    %% not in the approve/not_approved list
-                    {error, {License, Path, license_not_recognised}};
-                true ->
-                    ok
-            end
-    end.
+    lists:foldl(fun ({Path, License, SPDX0, Copyright}, Acc) ->
+                        SPDX = spdx_nonnull(SPDX0),
+                        CopyrightResult = check_copyright(Copyright),
+                        LicenseResult = compliance_check(License),
+                        R = lists:foldl(fun (ok, Acc0) -> Acc0;
+                                            ({error, Msg}, Acc0) -> [{SPDX, Path, Msg} | Acc0]
+                                        end, [], [CopyrightResult, LicenseResult]),
+                        R ++ Acc
+                    end, [], Licenses);
+compliance_check(License) ->
+    Handler = [ {no_license(), {error, no_license}},
+                {not_approved(), {error, license_not_approved}},
+                {reviewed(), {error, license_to_be_reviewed}},
+                {approved(), ok}],
+    license_check(License, Handler).
+
+spdx_nonnull(null) ->
+    <<"no license/copyright">>;
+spdx_nonnull(X) ->
+    X.
+
+check_copyright([]) ->
+    {error, no_copyright};
+check_copyright([#{<<"copyright">> := _} | _]) ->
+    ok.
+
+license_check(License, Handler) ->
+    lists:foldl(fun(_, {error, X}=Error) when X =/= license_not_recognised ->
+                        Error;
+                   ({Licenses, Msg}, Acc) ->
+                        case lists:member(License, Licenses) of
+                            true ->
+                                Msg;
+                            false ->
+                                Acc
+                        end
+                end, {error, license_not_recognised}, Handler).
+
 
 decode(Filename) ->
     {ok, Bin} = file:read_file(Filename),
@@ -177,8 +196,10 @@ decode(Filename) ->
 fetch_licenses(FolderPath, #{<<"files">> := Files}) ->
     lists:filtermap(fun(#{<<"type">> := <<"file">>,
                           <<"detected_license_expression">> := License,
+                          <<"detected_license_expression_spdx">> := SPDX,
+                          <<"copyrights">> := Copyrights,
                           <<"path">> := Path}) ->
-                            {true, {string:trim(Path, leading, FolderPath), License}};
+                            {true, {string:trim(Path, leading, FolderPath), License, SPDX, Copyrights}};
                        (_) ->
                             false
                     end, Files).
@@ -218,7 +239,7 @@ sarif(Errors) ->
                                           ~"uri" => File
                                          },
                          ~"length" => -1
-                        } || {_, File, _} <- Errors
+                        } || File <- lists:usort([F || {_, F, _} <- Errors])
                      ],
                  ~"results" =>
                      [ #{
@@ -242,18 +263,30 @@ error_type_to_id(ErrorType) ->
     base64:encode(integer_to_binary(erlang:phash2(ErrorType))).
 error_type_to_text({license_not_recognised, L}) ->
     <<"License not recognized: ", L/binary>>;
+error_type_to_text({license_to_be_reviewed, L}) ->
+    <<"License must be reviewed: ", L/binary>>;
 error_type_to_text({no_license, _}) ->
     <<"License not found">>;
 error_type_to_text({license_not_approved, L}) ->
-    <<"License not approved: ",L/binary>>.
+    <<"License not approved: ",L/binary>>;
+error_type_to_text({no_copyright, L}) ->
+    <<"No copyright found for license: ", L/binary>>.
 
+error_type_to_name({no_copyright, _}) ->
+    ~"NoCopyright";
 error_type_to_name({no_license, _}) ->
     ~"NoLicense";
 error_type_to_name({license_not_recognised, _}) ->
     ~"NoLicense";
 error_type_to_name({license_not_approved, _}) ->
-    ~"UnapprovedLicense".
+    ~"UnapprovedLicense";
+error_type_to_name({license_to_be_reviewed, _}) ->
+    ~"LicenseMustBeReviewed".
 error_type_to_level({no_license, _}) ->
+    ~"warning";
+error_type_to_level({no_copyright, _}) ->
+    ~"warning";
+error_type_to_level({license_to_be_reviewed, _}) ->
     ~"warning";
 error_type_to_level({license_not_recognised, _}) ->
     ~"error";
@@ -264,6 +297,19 @@ error_type_to_description({no_license, _}) ->
     scancode has not found any license in this file.  To fix this,
     add a license declaration to the top of the file.
     """;
+error_type_to_description({no_copyright, _}) ->
+    ~"""
+    scancode has not found any copyright in this file.  To fix this,
+    add a copyright declaration to the top of the file.
+    """;
+error_type_to_description({license_to_be_reviewed, L}) ->
+    unicode:characters_to_binary(
+        io_lib:format(
+            """
+            The license ~ts must be reviewed manually.
+            This license is only allowed under certain
+            special circumstances.
+            """, [L]));
 error_type_to_description({license_not_recognised, L}) ->
     unicode:characters_to_binary(
         io_lib:format(
