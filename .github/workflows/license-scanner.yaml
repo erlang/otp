@@ -55,6 +55,7 @@ jobs:
       - name: License Compliance Check
         run: |
             pip install scancode-toolkit==32.3.0
+            scancode-reindex-licenses --additional-directory scripts/licensedetection/
             scripts/scan-code.escript --file-or-dir "${{ steps.new-files.outputs.new_files }}" \
                 --sarif results.sarif
 
