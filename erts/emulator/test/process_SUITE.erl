@@ -55,6 +55,7 @@
          process_info_self_msgq_len_more/1,
          process_info_msgq_len_no_very_long_delay/1,
          process_info_dict_lookup/1,
+         process_info_label/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -182,7 +183,8 @@ groups() ->
        process_info_self_msgq_len_messages,
        process_info_self_msgq_len_more,
        process_info_msgq_len_no_very_long_delay,
-       process_info_dict_lookup]},
+       process_info_dict_lookup,
+       process_info_label]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1726,6 +1728,25 @@ process_info_dict_lookup(Config) when is_list(Config) ->
               {{dictionary, Bin}, undefined}],
 
     false = is_process_alive(Pid),
+    ok.
+
+process_info_label(Config) when is_list(Config) ->
+    Pid = spawn_link(fun proc_dict_helper/0),
+    LabelKey = '$process_label',
+    Ref = make_ref(),
+    Tuple = {make_ref(), erlang:monotonic_time()},
+
+    undefined = pdh(Pid, put, [LabelKey, Tuple]),
+    erlang:garbage_collect(Pid),
+
+    {label,Tuple} = process_info(Pid, label),
+    Self = self(),
+    [{label,Tuple},{registered_name,[]},{links,[Self]}] =
+        process_info(Pid, [label,registered_name,links]),
+
+    put(LabelKey, Ref),
+    {label,Ref} = process_info(self(), label),
+
     ok.
 
 pdh(Pid, AsyncOp, Args) when AsyncOp == put_async;
