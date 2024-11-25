@@ -82,7 +82,9 @@
          bs_create_bin_on_literal/0,
 
          crash_in_value_tracking/3,
-         crash_in_value_tracking_inner/3]).
+         crash_in_value_tracking_inner/3,
+
+         gh9100/0]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1036,3 +1038,42 @@ crash_in_value_tracking(_, _V0, _) ->
     ((<<((crash_in_value_tracking_inner(
             {#{#{ ok => ok || _ := _ <- ok} => ok},
              _V0, false, _V0, "Bo"}, _V0, ok)))/bytes>>) =/= ok).
+
+gh9100() ->
+    gh9100(#{prev => nil,
+	     next =>
+		 [{equal, <<"a">>},
+		  {delete, <<"y">>}]},
+	   {{<<>>, <<>>}}).
+
+%% We could fail to update multiple elements of a tuple, it was a
+%% literal tuple in a Phi-instruction.
+gh9100(#{next := [{Op, Text} | Next]} = Diffs,
+       {{TextDelete, TextInsert}}) ->
+%ssa% (_, Acc) when post_ssa_opt ->
+%ssa% switch(X, Fail, [{'delete',_},{'equal',Equal},...]),
+%ssa% label Equal,
+%ssa% A = bs_init_writable(_),
+%ssa% B = bs_init_writable(_),
+%ssa% C = put_tuple(A, B),
+%ssa% D = put_tuple(C).
+    Acc =
+        case Op of
+            insert ->
+                {{TextDelete,
+		  <<TextInsert/binary,Text/binary>>}};
+            delete ->
+                {{<<TextDelete/binary,Text/binary>>,
+		  TextInsert}};
+            equal ->
+                {{<<>>, <<>>}}   %% Bug is here.
+        end,
+    gh9100(#{prev =>
+		 case Diffs of
+		     #{prev := Prev} ->
+			 Prev;
+		     Other ->
+                            ex:no_parens_remote(Other)
+		 end,
+	     next => Next},
+	   Acc).
