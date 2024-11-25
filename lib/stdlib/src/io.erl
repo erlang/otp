@@ -529,6 +529,46 @@ The options and values supported by the OTP I/O devices are as follows:
 
   This option is only supported by the standard shell (`group.erl`).
 
+- **`{log, none | output | input | all}`** - Tells the I/O server that it should log
+  I/O requests. Requests will be logged at [`info` level](`t:logger:level/0`) to the
+  `[otp, kernel, io, input | output | ctrl]` domain with the following report:
+
+  ```erl
+  #{ request := IoRequest, server := pid(), server_name => term() }.
+  ```
+
+  It is important to note that extra care should be taken so that these log reports are not
+  logged to `t:standard_io/0` as that may cause the system to enter an infinite loop.
+
+  Example:
+
+  ```
+  1> logger:set_primary_config(level, info).
+  ok
+  2> logger:add_handler(stdout, logger_std_h, #{ config => #{ file => "stdout.log" }}).
+  ok
+  3> io:setopts(user, [{log, output}]).
+  ok
+  4> io:format(user, "Hello~n", []).
+  Hello
+  ok
+  5> file:read_file("stdout.log").
+  {ok,<<"2024-11-14T09:53:49.275085+01:00 info: <0.89.0> wrote to user, Hello\n">>}
+  ```
+
+  Not all I/O servers support this option. Use `io:getopts/1` to check if it is available.
+
+  > #### Note {: .info }
+  >
+  > The I/O servers in Erlang/OTP will set the [logger domain](`logger_filters:domain/2`)
+  > to `[otp, kernel, io, input | output]`. The default `m:logger` handler will not print
+  > this domain, so you need to enable it. This can be done by adding a new filter like this:
+  >
+  > ```erl
+  > logger:add_handler_filter(default, io_domain,
+  >    {fun logger_filters:domain/2, {log,sub,[otp,kernel,io]}}).
+  > ```
+
 - **`{encoding, latin1 | unicode}`** - Specifies how characters are input or
   output from or to the I/O device, implying that, for example, a terminal is
   set to handle Unicode input and output or a file is set to handle UTF-8 data

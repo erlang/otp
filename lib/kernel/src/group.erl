@@ -39,6 +39,9 @@
 %% gen statem callbacks
 -export([init/1, callback_mode/0]).
 
+%% Logger report format fun
+-export([format_io_request_log/1, log_io_request/3]).
+
 -type mfargs() :: {module(), atom(), [term()]}.
 -type nmfargs() :: {node(), module(), atom(), [term()]}.
 
@@ -70,6 +73,7 @@
         { read_type :: list | binary,
           driver :: pid(),
           echo :: boolean(),
+          log = none :: none | input | output | all,
           dumb :: boolean(),
           shell = noshell :: noshell | pid(),
 
@@ -96,6 +100,7 @@
 start(Drv) ->
     start(Drv, noshell).
 -spec start(pid(), function() | nmfargs() | mfargs() | noshell) -> pid().
+
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
@@ -229,7 +234,8 @@ start_shell_fun(Fun) ->
     end.
 
 %% When there are no outstanding input requests we are in this state
-server(info, {io_request,From,ReplyAs,Req}, Data) when is_pid(From), ?IS_INPUT_REQ(Req) ->
+server(info, {io_request,From,ReplyAs,Req} = IOReq, Data) when is_pid(From), ?IS_INPUT_REQ(Req) ->
+    log_io_request(IOReq, Data#state.log, server_name()),
     {next_state,
      if Data#state.dumb orelse not Data#state.echo -> dumb; true -> xterm end,
      Data#state{ input = #input_state{ from = From, reply_as = ReplyAs } },
@@ -420,10 +426,9 @@ xterm(data, Buf, Data = #state{ input = #input_state{
             {keep_state, Data#state{ input = InputState#input_state{ cont = NewCont } } }
     end;
 
-xterm(info, {io_request,From,ReplyAs,Req},
-      #state{ driver = Drv})
+xterm(info, {io_request,From,ReplyAs,Req}, State)
   when ?IS_PUTC_REQ(Req) ->
-    putc_request(Req, From, ReplyAs, Drv),
+    putc_request(Req, From, ReplyAs, State),
     keep_state_and_data;
 
 xterm(info, {Drv, activate},
@@ -471,7 +476,7 @@ handle_info(_State, {io_request,From,ReplyAs, {get_geometry, What}}, Data) ->
     end,
     keep_state_and_data;
 handle_info(_State, {io_request,From,ReplyAs,Req}, Data) when ?IS_PUTC_REQ(Req) ->
-    putc_request(Req, From, ReplyAs, Data#state.driver);
+    putc_request(Req, From, ReplyAs, Data);
 
 handle_info(_State, {reply, undefined, _Reply}, _Data) ->
     %% Ignore any reply with an undefined From.
@@ -566,8 +571,9 @@ get_terminal_state(Drv) ->
     end.
 
 %% This function handles any put_chars request
-putc_request(Req, From, ReplyAs, Drv) ->
-    case putc_request(Req, Drv, {From, ReplyAs}) of
+putc_request(Req, From, ReplyAs, State) ->
+    log_io_request({io_request, From, ReplyAs, Req}, State#state.log, server_name()),
+    case putc_request(Req, State#state.driver, {From, ReplyAs}) of
         {reply,Reply} ->
             io_reply(From, ReplyAs, Reply),
             keep_state_and_data;
@@ -708,6 +714,11 @@ check_valid_opts([{line_history,Flag}|T], HasShell = true) when is_boolean(Flag)
 check_valid_opts([{expand_fun,Fun}|T], HasShell = true) when is_function(Fun, 1);
                                                              is_function(Fun, 2) ->
     check_valid_opts(T, HasShell);
+check_valid_opts([{log,Flag}|T], HasShell) ->
+    case lists:member(Flag, [none, output, input, all]) of
+        true -> check_valid_opts(T, HasShell);
+        false -> false
+    end;
 check_valid_opts(_, _HasShell) ->
     false.
 
@@ -733,9 +744,10 @@ do_setopts(Opts, Data) ->
             false ->
                 list
         end,
-    LineHistory = proplists:get_value(line_history, Opts, true),
+    LineHistory = proplists:get_value(line_history, Opts, Data#state.line_history),
+    Log = proplists:get_value(log, Opts, Data#state.log),
     {ok, Data#state{ expand_fun = ExpandFun, echo = Echo, read_type = ReadType,
-                     save_history = LineHistory }}.
+                     save_history = LineHistory, log = Log }}.
 
 normalize_expand_fun(Options, Default) ->
     case proplists:get_value(expand_fun, Options, Default) of
@@ -763,6 +775,7 @@ getopts(Data) ->
                        _ ->
                            false
                    end},
+    Log = {log, Data#state.log},
     Bin = {binary, case Data#state.read_type of
                        binary ->
                            true;
@@ -775,7 +788,7 @@ getopts(Data) ->
                      end},
     Terminal = get_terminal_state(Data#state.driver),
     Tty = {terminal, maps:get(stdout, Terminal)},
-    [Exp,Echo,LineHistory,Bin,Uni,Tty|maps:to_list(Terminal)].
+    [Exp,Echo,LineHistory,Log,Bin,Uni,Tty|maps:to_list(Terminal)].
 
 %% Convert error code to make it look as before
 err_func(io_lib, get_until, {_,F,_}) ->
@@ -1313,3 +1326,82 @@ is_latin1([]) ->
     true;
 is_latin1(_) ->
     false.
+
+server_name() ->
+    case erlang:process_info(self(), registered_name) of
+        [] ->
+            case proc_lib:get_label(self()) of
+                undefined -> [];
+                Name -> Name
+            end;
+        {registered_name, Name} ->
+            Name
+    end.
+
+log_io_request(Request, LogLevel, Name) ->
+    lists:member(LogLevel, [type(Request), all]) andalso
+                ?LOG_INFO(#{ request => Request, server => self(), server_name => Name},
+                          #{ report_cb => fun group:format_io_request_log/1,
+                             domain => [otp, kernel, io, type(Request)]}).
+
+type({io_request, _From, _ReplyAs, Req}) ->
+    type(Req);
+type(getopts) ->
+    ctrl;
+type(Req) ->
+    ReqType = element(1, Req),
+    case {lists:member(ReqType, [put_chars, requests]),
+            lists:member(ReqType, [get_chars, get_line, get_until, get_password])} of
+        {true, false} ->
+            output;
+        {false, true} ->
+            input;
+        {false, false} ->
+            ctrl
+    end.
+
+format_io_request_log(#{ request := {io_request, From, ReplyAs, Request},
+                         server := Server,
+                         server_name := Name }) ->
+    format_io_request_log(normalize_request(Request), From, ReplyAs, Server, Name).
+
+format_io_request_log({put_chars, unicode, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~ts", [From, Name, Data]};
+format_io_request_log({put_chars, latin1, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~s", [From, Name, Data]};
+format_io_request_log(Request, From, ReplyAs, Server, Name) ->
+    {"Request: ~p\n"
+     "  From: ~p\n"
+     "  ReplyAs: ~p\n"
+     "Server: ~p\n"
+     "Name: ~p\n",
+     [Request, From, ReplyAs, Server, Name]}.
+
+normalize_request({put_chars, Chars}) ->
+    normalize_request({put_chars, latin1, Chars});
+normalize_request({put_chars, Mod, Func, Args}) ->
+    normalize_request({put_chars, latin1, Mod, Func, Args});
+normalize_request({put_chars, Enc, Mod, Func, Args} = Req) ->
+    case catch apply(Mod, Func, Args) of
+        Data when is_list(Data); is_binary(Data) ->
+            {put_chars, Enc, unicode:characters_to_list(Data, Enc)};
+        _ -> Req
+    end;
+normalize_request({requests, Reqs}) ->
+    case lists:foldr(
+           fun(Req, []) ->
+                   [normalize_request(Req)];
+              (Req, [{put_chars, Enc, Data} | Acc] = NormReqs) ->
+                   case normalize_request(Req) of
+                       {put_chars, Enc, NewData} ->
+                           [{put_chars, Enc, unicode:characters_to_list([NewData, Data], Enc)} | Acc];
+                       NormReq ->
+                           [NormReq | NormReqs]
+                   end;
+              (Req, Acc) ->
+                   [normalize_request(Req) | Acc]
+           end, [], Reqs) of
+        [Req] -> Req;
+        NormReqs -> {requests, NormReqs}
+    end;
+normalize_request(Req) -> Req.
