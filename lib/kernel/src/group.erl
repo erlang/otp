@@ -33,6 +33,9 @@
 
 -export([server_loop/3]).
 
+%% Logger report format fun
+-export([format_io_request_log/1, log_io_request/3]).
+
 start(Drv, Shell) ->
     start(Drv, Shell, []).
 
@@ -74,6 +77,8 @@ server(Ancestors, Drv, Shell, Options) ->
         end,
 
     put(line_buffer, proplists:get_value(line_buffer, Options, DefaultGroupHistory)),
+
+    put(log, none),
 
     server_loop(Drv, start_shell(Shell), []).
 
@@ -176,8 +181,8 @@ server_loop(Drv, Shell, Buf0) ->
 
 exit_shell(Reason) ->
     case get(shell) of
-	undefined -> true;
-	Pid -> exit(Pid, Reason)
+	undefined -> ok;
+	Pid -> exit(Pid, Reason), ok
     end.
 
 get_tty_geometry(Drv) ->
@@ -219,6 +224,7 @@ get_terminal_state(Drv) ->
     end.
 
 io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
+    log_io_request({io_request, From, ReplyAs, Req}, get(log), server_name()),
     case io_request(Req, Drv, Shell, {From,ReplyAs}, Buf0) of
 	{ok,Reply,Buf} ->
 	    io_reply(From, ReplyAs, Reply),
@@ -236,7 +242,6 @@ io_request(Req, From, ReplyAs, Drv, Shell, Buf0) ->
 	    exit_shell(kill),
 	    exit(R)
     end.
-
 
 %% Put_chars, unicode is the normal message, characters are always in
 %% standard unicode format.
@@ -420,6 +425,11 @@ check_valid_opts([{encoding,Valid}|T]) when Valid =:= unicode;
     check_valid_opts(T);
 check_valid_opts([{echo,Flag}|T]) when is_boolean(Flag) ->
     check_valid_opts(T);
+check_valid_opts([{log,Flag}|T]) ->
+    case lists:member(Flag, [none, output, input, all]) of
+        true -> check_valid_opts(T);
+        false -> false
+    end;
 check_valid_opts([{expand_fun,Fun}|T]) when is_function(Fun, 1);
                                             is_function(Fun, 2) ->
     check_valid_opts(T);
@@ -429,6 +439,7 @@ check_valid_opts(_) ->
 do_setopts(Opts, Drv, Buf) ->
     put(expand_fun, normalize_expand_fun(Opts, get(expand_fun))),
     put(echo, proplists:get_value(echo, Opts, get(echo))),
+    put(log, proplists:get_value(log, Opts, get(log))),
     case proplists:get_value(encoding, Opts) of
 	Valid when Valid =:= unicode; Valid =:= utf8 ->
            set_unicode_state(Drv,true);
@@ -437,6 +448,7 @@ do_setopts(Opts, Drv, Buf) ->
 	undefined ->
 	    ok
     end,
+
     case proplists:get_value(binary, Opts, case get(read_mode) of
 					      binary -> true;
 					      _ -> false
@@ -468,6 +480,7 @@ getopts(Drv,Buf) ->
 		     _ ->
 			 false
 		  end},
+    Log = {log, get(log)},
     Bin = {binary, case get(read_mode) of
 		       binary ->
 			   true;
@@ -478,9 +491,10 @@ getopts(Drv,Buf) ->
 			true -> unicode;
 			_ -> latin1
 		     end},
+
     Terminal = get_terminal_state(Drv),
     Tty = {terminal, maps:get(stdout, Terminal)},
-    {ok,[Exp,Echo,Bin,Uni,Tty|maps:to_list(Terminal)],Buf}.
+    {ok,[Exp,Echo,Bin,Uni,Log,Tty|maps:to_list(Terminal)],Buf}.
 
 %% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function
@@ -1244,3 +1258,79 @@ is_latin1([]) ->
     true;
 is_latin1(_) ->
     false.
+
+server_name() ->
+    case erlang:process_info(self(), registered_name) of
+        [] ->
+            undefined;
+        {registered_name, Name} ->
+            Name
+    end.
+
+log_io_request(Request, LogLevel, Name) ->
+    lists:member(LogLevel, [type(Request), all]) andalso
+                ?LOG_INFO(#{ request => Request, server => self(), server_name => Name},
+                          #{ report_cb => fun group:format_io_request_log/1,
+                             domain => [otp, kernel, io, type(Request)]}).
+
+type({io_request, _From, _ReplyAs, Req}) ->
+    type(Req);
+type(getopts) ->
+    ctrl;
+type(Req) ->
+    ReqType = element(1, Req),
+    case {lists:member(ReqType, [put_chars, requests]),
+            lists:member(ReqType, [get_chars, get_line, get_until, get_password])} of
+        {true, false} ->
+            output;
+        {false, true} ->
+            input;
+        {false, false} ->
+            ctrl
+    end.
+
+format_io_request_log(#{ request := {io_request, From, ReplyAs, Request},
+                         server := Server,
+                         server_name := Name }) ->
+    format_io_request_log(normalize_request(Request), From, ReplyAs, Server, Name).
+
+format_io_request_log({put_chars, unicode, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~ts", [From, Name, Data]};
+format_io_request_log({put_chars, latin1, Data}, From, _ReplyAs, _Server, Name) ->
+    {"~p wrote to ~p~n~s", [From, Name, Data]};
+format_io_request_log(Request, From, ReplyAs, Server, Name) ->
+    {"Request: ~p\n"
+     "  From: ~p\n"
+     "  ReplyAs: ~p\n"
+     "Server: ~p\n"
+     "Name: ~p\n",
+     [Request, From, ReplyAs, Server, Name]}.
+
+normalize_request({put_chars, Chars}) ->
+    normalize_request({put_chars, latin1, Chars});
+normalize_request({put_chars, Mod, Func, Args}) ->
+    normalize_request({put_chars, latin1, Mod, Func, Args});
+normalize_request({put_chars, Enc, Mod, Func, Args} = Req) ->
+    case catch apply(Mod, Func, Args) of
+        Data when is_list(Data); is_binary(Data) ->
+            {put_chars, Enc, unicode:characters_to_list(Data, Enc)};
+        _ -> Req
+    end;
+normalize_request({requests, Reqs}) ->
+    case lists:foldr(
+           fun(Req, []) ->
+                   [normalize_request(Req)];
+              (Req, [{put_chars, Enc, Data} | Acc] = NormReqs) ->
+                   case normalize_request(Req) of
+                       {put_chars, Enc, NewData} ->
+                           [{put_chars, Enc, unicode:characters_to_list([NewData, Data], Enc)} | Acc];
+                       NormReq ->
+                           [NormReq | NormReqs]
+                   end;
+              (Req, Acc) ->
+                   [normalize_request(Req) | Acc]
+           end, [], Reqs) of
+        [Req] -> Req;
+        NormReqs -> {requests, NormReqs}
+    end;
+normalize_request(Req) -> Req.
