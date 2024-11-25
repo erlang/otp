@@ -1181,7 +1181,42 @@ unused_function(Config) when is_list(Config) ->
                 32*X.
            ">>,
 	   {[]},		     %Tuple indicates no 'export_all'.
-	   []}],
+	   []},
+
+          %% Raises a warning that flurb/1 is unused, and that we should
+          %% probably export it because it's referenced in t/0 and u/1.
+          {func4,
+           <<"-export([t/0, u/1]).
+
+              t() ->
+                 fun ?MODULE:flurb/1.
+              u(X) ->
+                 ?MODULE:flurb(X).
+
+              flurb(X) ->
+                32*X.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           {warnings,[{{4,18},erl_lint,{unexported_function,{lint_test,flurb,1}}},
+             {{6,19},erl_lint,{unexported_function,{lint_test,flurb,1}}},
+             {{8,15},erl_lint,{unused_function,{flurb,1}}}]}},
+
+          %% Turn off warnings for unexported functions using a -compile()
+          %% directive.
+          {func5,
+           <<"-export([t/0, u/1]).
+              -compile(nowarn_unexported_function).
+
+              t() ->
+                 fun ?MODULE:flurb/1.
+              u(X) ->
+                 ?MODULE:flurb(X).
+
+              flurb(X) ->
+                32*X.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           {warnings,[{{9,15},erl_lint,{unused_function,{flurb,1}}}]}}],
 
     [] = run(Config, Ts),
     ok.
@@ -2736,7 +2771,7 @@ otp_5644(Config) when is_list(Config) ->
               i(X) ->
                   X.
             ">>,
-           [],
+           [nowarn_unexported_function],
            []}],
     [] = run(Config, Ts),
     ok.
@@ -3185,7 +3220,7 @@ bif_clash(Config) when is_list(Config) ->
               size({N,_}) ->
                 N.
              ">>,
-           [],
+           [nowarn_unexported_function],
 	   {errors,[{{2,19},erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
 	  %% Verify that warnings cannot be turned off in the old way.
