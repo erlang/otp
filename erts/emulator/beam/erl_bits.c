@@ -40,7 +40,7 @@
 
 #define BIT_IS_MACHINE_ENDIAN(x) (((x)&BSF_LITTLE) == BIT_ENDIAN_MACHINE)
 
-#if (SIZEOF__FLOAT16 == 2)
+#if (SIZEOF__FLOAT16 == 2) && defined(FLOAT16_IS_CONVERTIBLE)
 typedef _Float16 erlfp16;
 #define FP16_FROM_FP64(x) ((_Float16) x)
 #define FP16_TO_FP64(x) ((double) x)

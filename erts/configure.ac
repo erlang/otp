@@ -1895,6 +1895,18 @@ AC_CHECK_SIZEOF(time_t)
 AC_CHECK_SIZEOF(suseconds_t)
 AC_CHECK_SIZEOF(_Float16)
 
+dnl Check that _Float16 is not only exists but also is usable. The check is
+dnl mainly for x86 platform which requires -msse2 flag.
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[_Float16 x = 0.0;]],[[]])],
+	[AC_MSG_CHECKING([for _Float16 convertible])
+	AC_MSG_RESULT([yes])
+	AC_DEFINE([FLOAT16_IS_CONVERTIBLE],[1],
+		  [Define to 1 if _Float16 can be converted from/to double.])
+	],
+	[AC_MSG_CHECKING([for _Float16 convertible])
+	AC_MSG_RESULT([no])
+	])
+
 BITS64=
 
 if test $ac_cv_sizeof_void_p = 8; then
