@@ -147,7 +147,7 @@ static ERL_NIF_TERM tty_tgoto_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
 static ErlNifFunc nif_funcs[] = {
     {"isatty", 1, isatty_nif},
-    {"tty_create", 0, tty_create_nif},
+    {"tty_create", 1, tty_create_nif},
     {"tty_init", 2, tty_init_nif},
     {"setlocale", 1, setlocale_nif},
     {"tty_is_open", 2, tty_is_open},
@@ -884,7 +884,9 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 #ifndef __WIN32__
     tty->ifd = 0;
-    tty->ofd = 1;
+    tty->ofd = 0;
+    if (!tty_get_fd(env, argv[0], &tty->ofd) || tty->ofd == 0)
+        return enif_make_badarg(env);
 
 #ifdef HAVE_TERMCAP
     if (tcgetattr(tty->ofd, &tty->tty_rmode) >= 0) {
@@ -899,7 +901,10 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
         tty->ifd = CreateFile("nul", GENERIC_READ, 0,
                               NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
-    tty->ofd = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (enif_is_identical(argv[0], atom_stdin))
+        return enif_make_badarg(env);
+    tty->ofd = tty_get_handle(env, argv[0]);
     if (tty->ofd == INVALID_HANDLE_VALUE || tty->ofd == NULL) {
         tty->ofd = CreateFile("nul", GENERIC_WRITE, 0,
                               NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
