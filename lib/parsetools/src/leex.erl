@@ -2130,10 +2130,10 @@ prep_out_actions(As) ->
             ({A,Code,TokenChars,TokenLen,TokenLine,TokenCol,TokenLoc}) ->
                 Vs = [{TokenChars,"TokenChars"},
                       {TokenLen,"TokenLen"},
-                      {TokenLine or TokenLoc,"TokenLine"},
-                      {TokenCol or TokenLoc,"TokenCol"},
+                      {TokenLine orelse TokenLoc,"TokenLine"},
+                      {TokenCol orelse TokenLoc,"TokenCol"},
                       {TokenChars,"YYtcs"},
-                      {TokenLen or TokenChars,"TokenLen"}],
+                      {TokenLen orelse TokenChars,"TokenLen"}],
                 Vars = [if F -> S; true -> "_" end || {F,S} <- Vs],
                 Name = list_to_atom(lists:concat([yyaction_,A])),
                 [Chars,Len,Line,Col,_,_] = Vars,
