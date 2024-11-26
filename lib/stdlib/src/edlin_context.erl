@@ -116,20 +116,24 @@ get_context([$(|Bef], CR) ->
         [] -> {term}; % parenthesis
         "fun" -> {fun_};
         _ ->
-            {_, Mod} = over_module(Bef1, Fun),
-            case Mod of
-                "shell" -> {term};
-                "shell_default" -> {term};
+            case erl_scan:string(Fun) of
+                {ok, [{var, _, _}], _} -> {term};
                 _ ->
-                    case CR#context.parameter_count+1 == length(CR#context.arguments) of
-                        true ->
-                            %% N arguments N-1 commas, this means that we have an argument
-                            %% still being worked on.
-                            {function, Mod, Fun, lists:droplast(CR#context.arguments),
-                             lists:last(CR#context.arguments),CR#context.nestings};
+                    {_, Mod} = over_module(Bef1, Fun),
+                    case Mod of
+                        "shell" -> {term};
+                        "shell_default" -> {term};
                         _ ->
-                            {function, Mod, Fun, CR#context.arguments,
-                             [], CR#context.nestings}
+                            case CR#context.parameter_count+1 == length(CR#context.arguments) of
+                                true ->
+                                    %% N arguments N-1 commas, this means that we have an argument
+                                    %% still being worked on.
+                                    {function, Mod, Fun, lists:droplast(CR#context.arguments),
+                                    lists:last(CR#context.arguments),CR#context.nestings};
+                                _ ->
+                                    {function, Mod, Fun, CR#context.arguments,
+                                    [], CR#context.nestings}
+                            end
                     end
             end
     end;
@@ -228,8 +232,15 @@ get_context([$:|Bef2], _) ->
     end;
 get_context([$/|Bef1], _) ->
     {Bef2, Fun} = edlin_expand:over_word(Bef1),
-    {_, Mod} = over_module(Bef2, Fun),
-    {fun_, Mod, Fun};
+    case Fun of
+        [] -> {term};
+        _ ->
+            {_, Mod} = over_module(Bef2, Fun),
+            case Mod of
+                [] -> {term};
+                _ -> {fun_, Mod, Fun}
+            end
+    end;
 get_context([$>,$-|_Bef2], #context{arguments = Args} = CR) ->
     %% Inside a function
     case CR#context.parameter_count+1 == length(Args) of
