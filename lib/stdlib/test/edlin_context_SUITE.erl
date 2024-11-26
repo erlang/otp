@@ -190,4 +190,8 @@ get_context(_Config) ->
     {term,[],[]} = edlin_context:get_context(lists:reverse("begin {hej, svej} = {")),
     {fun_} = edlin_context:get_context(lists:reverse("fun(")),
     {fun_} = edlin_context:get_context(lists:reverse("maps:map(fun(")),
+    {term} = edlin_context:get_context(lists:reverse("/")),
+    {term} = edlin_context:get_context(lists:reverse("Foo/")),
+    {fun_, "user_defined", "a"} = edlin_context:get_context(lists:reverse("a/")),
+    {term} = edlin_context:get_context(lists:reverse("Foo(")),
     ok.
