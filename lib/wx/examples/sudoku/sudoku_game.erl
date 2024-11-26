@@ -19,7 +19,7 @@
 
 -module(sudoku_game).
 
--export([init/1,
+-export([init/1, loop/1,
          indx/1, rcm/1, level/1]).
 -include("sudoku.hrl").
 
