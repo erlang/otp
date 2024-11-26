@@ -29,7 +29,7 @@
 
 -export([system_info/1, table_info/1, error_description/1,
          db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
-         checkpoint/1, table_lifecycle/1, storage_options/1,
+         checkpoint/1, checkpoint_del_table/1, table_lifecycle/1, storage_options/1,
          add_copy_conflict/1, add_copy_when_going_down/1, add_copy_when_dst_going_down/1,
          add_copy_with_down/1,
          replica_management/1, clear_table_during_load/1,
@@ -64,7 +64,8 @@ end_per_testcase(Func, Conf) ->
 all() -> 
     [system_info, table_info, error_description,
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
-     checkpoint, table_lifecycle, storage_options, 
+     checkpoint, checkpoint_del_table,
+     table_lifecycle, storage_options,
      add_copy_conflict,
      add_copy_when_going_down, add_copy_when_dst_going_down, add_copy_with_down,
      replica_management,
@@ -459,6 +460,22 @@ checkpoint(NodeConfig, Config) ->
     Fun = fun(Tab) -> ?match({atomic, ok}, mnesia:delete_table(Tab)) end,
     lists:foreach(Fun, Tabs),
     ?verify_mnesia(TabNodes, []).
+
+
+checkpoint_del_table(Config) when is_list(Config) ->
+    [Node1] = ?acquire_nodes(1, Config),
+    [mnesia:create_table(list_to_atom("a_" ++ integer_to_list(I)), []) || I <- lists:seq(1, 1000)],
+
+    Tabs = mnesia:system_info(local_tables),
+
+    spawn(fun() ->
+                  mnesia:activate_checkpoint([{max, Tabs},{ram_overrides_dump, true}])
+          end),
+
+    {atomic, ok} = mnesia:delete_table(a_10),
+    %% Ensure we didn't crash
+
+    ?verify_mnesia([Node1], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Create and delete tables
