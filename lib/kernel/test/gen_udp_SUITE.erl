@@ -155,9 +155,7 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
-     {group, tickets},
-     {group, otp18323},
-     {group, otp19332}
+     {group, tickets}
     ].
 
 recv_and_send_opts_cases() ->
