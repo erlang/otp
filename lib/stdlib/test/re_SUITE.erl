@@ -935,9 +935,9 @@ opt_never_utf(Config) when is_list(Config) ->
 %% Check that the ucp option is passed to PCRE.
 opt_ucp(Config) when is_list(Config) ->
     {match,[{0,1}]} = re:run([$a],"\\w",[unicode]),
-    {match,[{0,2}]} = re:run([229],"\\w",[unicode]), % Latin1 works without UCP, as we have a default 
-    %% Latin1 table
-    nomatch = re:run([1024],"\\w",[unicode]), % Latin1 word characters only, 1024 is not latin1
+    nomatch = re:run([229],"\\w",[unicode]), % Latin1 do not work without UCP anymore, ASCII is default
+    nomatch = re:run([1024],"\\w",[unicode]), % and neither do non Latin1 code points.
+    {match,[{0,2}]} = re:run([229],"\\w",[unicode,ucp]),  % Need ucp for Latin1
     {match,[{0,2}]} = re:run([1024],"\\w",[unicode,ucp]), % Any Unicode word character works with 'ucp'
     ok.
 
