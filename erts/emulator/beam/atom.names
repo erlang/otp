@@ -578,6 +578,8 @@ atom processes
 atom processes_used
 atom process_count
 atom process_display
+atom DollarProcessLabel='$process_label'
+atom process_limit
 atom process_limit
 atom process_dump
 atom procs

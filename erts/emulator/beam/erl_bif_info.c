@@ -782,6 +782,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_PARENT                               36
 #define ERTS_PI_IX_ASYNC_DIST                           37
 #define ERTS_PI_IX_DICTIONARY_LOOKUP                    38
+#define ERTS_PI_IX_LABEL                                39
 
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
@@ -834,6 +835,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_parent, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_dictionary, 3, ERTS_PI_FLAG_FORCE_SIG_SEND|ERTS_PI_FLAG_KEY_TUPLE2, ERTS_PROC_LOCK_MAIN},
+    {am_label, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -966,6 +968,8 @@ pi_arg2ix(Eterm arg, Eterm *extrap)
         return ERTS_PI_IX_PARENT;
     case am_async_dist:
         return ERTS_PI_IX_ASYNC_DIST;
+    case am_label:
+        return ERTS_PI_IX_LABEL;
     default:
         if (is_tuple_arity(arg, 2)) {
             Eterm *tpl = tuple_val(arg);
@@ -2272,6 +2276,22 @@ process_info_aux(Process *c_p,
 
         /* Allocate 3 words extra for key 2-tuple... */
         hp = erts_produce_heap(hfact, sz + 3, reserve_size);
+
+        if (sz)
+            res = copy_struct(res, sz, &hp, hfact->off_heap);
+
+        break;
+    }
+
+    case ERTS_PI_IX_LABEL: {
+        Uint sz;
+
+        res = erts_pd_hash_get(rp, am_DollarProcessLabel);
+        sz = (!(flags & ERTS_PI_FLAG_REQUEST_FOR_OTHER) || is_immed(res)
+              ? 0
+              : size_object(res));
+
+        hp = erts_produce_heap(hfact, sz, reserve_size);
 
         if (sz)
             res = copy_struct(res, sz, &hp, hfact->off_heap);

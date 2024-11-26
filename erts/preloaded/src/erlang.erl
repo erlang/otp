@@ -7663,6 +7663,7 @@ process_flag(_Flag, _Value) ->
       heap_size |
       initial_call |
       links |
+      label |
       last_calls |
       memory |
       message_queue_len |
@@ -7707,6 +7708,7 @@ process_flag(_Flag, _Value) ->
       {heap_size, Size :: non_neg_integer()} |
       {initial_call, mfa()} |
       {links, PidsAndPorts :: [pid() | port()]} |
+      {label, term()} |
       {last_calls, false | (Calls :: [mfa()])} |
       {memory, Size :: non_neg_integer()} |
       {message_queue_len, MessageQueueLen :: non_neg_integer()} |
@@ -7841,6 +7843,11 @@ Valid `InfoTuple`s with corresponding `Item`s:
 
 - **`{links, PidsAndPorts}`** - `PidsAndPorts` is a list of process identifiers
   and port identifiers, with processes or ports to which the process has a link.
+
+- **`{label, Label}`** -
+  `Label` is the label for the process. See `proc_lib:get_label/1`.
+
+   Since: OTP 27.2
 
 - **`{last_calls, false|Calls}`** - The value is `false` if call saving is not
   active for the process (see `process_flag/3`). If call saving is active, a
