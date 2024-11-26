@@ -29,7 +29,6 @@ test(RootDir) ->
     io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,1)]),
     Testfiles0 = ["testoutput1",
                   "testoutput2",
-                  %"testoutput3",  % fr_FR locale
                   "testoutput4",
                   "testoutput5",
                   "mod_testoutput8",
