@@ -488,14 +488,12 @@ send_application_data(Data, From, StateName,
 	    {Msgs, ConnStates} = tls_record:encode_data(Data, Version, ConnStates0),
 	    case tls_socket:send(Transport, Socket, Msgs) of
                 ok when From =:= dist_data ->
-                    ssl_logger:debug(get(log_level), outbound, 'record', Msgs),
                     StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
                     hibernate_after(StateName, StateData, []);
                 Reason when From =:= dist_data ->
                     StateData = StateData0#data{connection_states = ConnStates},
                     death_row_shutdown(Reason, StateData);
                 ok ->
-                    ssl_logger:debug(get(log_level), outbound, 'record', Msgs),
                     gen_statem:reply(From, ok),
                     StateData = StateData0#data{bytes_sent = BytesSent, connection_states = ConnStates},
                     hibernate_after(StateName, StateData, []);
