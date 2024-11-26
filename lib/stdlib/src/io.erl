@@ -390,9 +390,29 @@ The function returns:
 get_line(Io, Prompt) ->
     request(Io, {get_line,unicode,Prompt}).
 
--doc false.
+-doc """
+Reads a password from `t:user/0`. Works just as `get_line/2` except that
+the types characters are not printed to the terminal.
+
+In order for this function to work, the `m:shell` must be in `{noshell, raw}`
+mode. See `shell:start_interactive/1` for details on what that means.
+
+*Example*:
+
+```
+read_password() ->
+    shell:start_interactive({noshell, raw}),
+    try
+        io:get_password()
+    after
+        shell:start_interactive({noshell, cooked})
+    end.
+```
+""".
+-spec get_password() -> Data | server_no_data() when
+    Data :: string() | unicode:unicode_binary().
 get_password() ->
-    get_password(default_input()).
+    get_password(user).
 
 -doc false.
 get_password(Io) ->
