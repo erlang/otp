@@ -25,6 +25,7 @@
 
 -include("public_key.hrl").
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 -export([load/0, load/1, get/0, clear/0, format_error/2]).
 
 -on_load(on_load/0).
@@ -179,11 +180,27 @@ load_win32() ->
     store(lists:foldl(Dec, [], os_cacerts())).
 
 load_darwin() ->
+    SystemRootsKeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
+    case get_darwin_certs(SystemRootsKeyChainFile) of
+         {ok, Bin1} ->
+            SystemKeyChainFile = "/Library/Keychains/System.keychain",
+            case get_darwin_certs(SystemKeyChainFile) of
+                 {ok, Bin2} ->
+                    decode_result(<<Bin1/binary, Bin2/binary>>);
+                  Err ->
+                    ?LOG_WARNING(
+                        "Unable to load additional OS certificates from System.keychain : ~p~n", [Err]),
+                    decode_result(Bin1)
+             end;
+          Err ->
+            Err
+    end.
+
+get_darwin_certs(KeyChainFile) ->
     %% Could/should probably be re-written to use Keychain Access API
-    KeyChainFile = "/System/Library/Keychains/SystemRootCertificates.keychain",
     Args = ["export", "-t",  "certs", "-f", "pemseq", "-k", KeyChainFile],
     try run_cmd("/usr/bin/security", Args) of
-        {ok, Bin} -> decode_result(Bin);
+        {ok, _} = Res -> Res;
         Err -> Err
     catch error:Reason ->
             {error, {eopnotsupp, Reason}}
