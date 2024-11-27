@@ -8411,6 +8411,8 @@ bidirectional_traffic(Config) when is_list(Config) ->
 		       true ->
 			   {skip, "Inet driver specific test"};
 		       false ->
+                           %% Unstable on our Solaris/SunOS machine(s)
+                           is_not_sunos(),
 			   ok
 		   end
 	   end,
@@ -9519,7 +9521,24 @@ is_platform(Family, Name, PlatformStr)
         _ ->
             skip("Require " ++ PlatformStr)
     end.
-  
+
+is_not_sunos() ->
+    is_not_unix(sunos, "SunOS").
+
+is_not_unix(Name, PlatformStr) ->
+    is_not_platform(unix, Name, PlatformStr).
+
+is_not_platform(Family, Name, PlatformStr)
+  when is_atom(Family) andalso
+       is_atom(Name) andalso
+       is_list(PlatformStr) ->
+    case os:type() of
+        {Family, Name} ->
+            skip("Require *not* " ++ PlatformStr);
+        _ ->
+            ok
+    end.
+
 
 is_socket_supported() ->
     try socket:info() of

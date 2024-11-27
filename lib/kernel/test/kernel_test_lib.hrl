@@ -56,6 +56,8 @@
 -define(WHICH_INET_BACKEND(C),   ?LIB:which_inet_backend(C)).
 -define(IS_SOCKET_BACKEND(C),    ?LIB:is_socket_backend(C)).
 
+-define(ENSURE_NOT_DOG_SLOW(C, L), ?LIB:ensure_not_dog_slow((C), (L))).
+
 -define(HAS_SUPPORT_IPV4(),      ?LIB:has_support_ipv4()).
 -define(HAS_SUPPORT_IPV6(),      ?LIB:has_support_ipv6()).
 -define(WHICH_LOCAL_ADDR(D),     ?LIB:which_local_addr((D))).

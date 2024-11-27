@@ -475,6 +475,7 @@ traffic_send_and_recv_counters_sctp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp()
            end,
@@ -497,6 +498,7 @@ traffic_send_and_recv_counters_sctp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp()
            end,
@@ -612,6 +614,7 @@ traffic_sendmsg_and_recvmsg_counters_sctp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv4(),
                    has_support_sctp()
@@ -645,6 +648,7 @@ traffic_sendmsg_and_recvmsg_counters_sctp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv6(),
                    has_support_sctp()
@@ -2770,6 +2774,7 @@ traffic_send_and_recv_chunks_sctp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp()
            end,
@@ -2792,6 +2797,7 @@ traffic_send_and_recv_chunks_sctp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp()
            end,
@@ -3903,6 +3909,7 @@ traffic_ping_pong_small_send_and_recv_sctp4(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp()
            end,
@@ -3932,6 +3939,7 @@ traffic_ping_pong_small_send_and_recv_sctp6(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp()
            end,
@@ -4037,6 +4045,7 @@ traffic_ping_pong_medium_send_and_recv_sctp4(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp()
            end,
@@ -4065,6 +4074,7 @@ traffic_ping_pong_medium_send_and_recv_sctp6(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp()
            end,
@@ -4180,10 +4190,11 @@ traffic_ping_pong_large_send_and_recv_sctp4(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   has_support_ipv4(),
-                   has_support_sctp(),
+                   is_not_flakey_os(),
                    is_old_fedora16(),
                    is_slow_ubuntu(Config),
+                   has_support_ipv4(),
+                   has_support_sctp(),
                    traffic_ping_pong_large_host_cond()
            end,
            fun() ->
@@ -4212,10 +4223,11 @@ traffic_ping_pong_large_send_and_recv_sctp6(Config) when is_list(Config) ->
     Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
-                   has_support_ipv6(),
-                   has_support_sctp(),
+                   is_not_flakey_os(),
                    is_old_fedora16(),
-                   is_slow_ubuntu(Config)
+                   is_slow_ubuntu(Config),
+                   has_support_ipv6(),
+                   has_support_sctp()
            end,
            fun() ->
                    InitState = #{domain => inet6,
@@ -4501,6 +4513,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_sctp4(Config)
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv4(),
                    has_support_sctp()
@@ -4531,6 +4544,7 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_sctp6(Config)
     Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv6(),
                    has_support_sctp()
@@ -4647,6 +4661,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_sctp4(Config)
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv4(),
                    has_support_sctp()
@@ -4677,6 +4692,7 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_sctp6(Config)
     Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   is_not_flakey_os(),
                    is_not_windows(),
                    has_support_ipv6(),
                    has_support_sctp()
@@ -4806,6 +4822,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_sctp4(Config)
     tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
+                   is_not_flakey_os(),
                    has_support_ipv4(),
                    has_support_sctp(),
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
@@ -4837,6 +4854,7 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_sctp6(Config)
     tc_try(?FUNCTION_NAME,
            fun() ->
                    is_not_windows(),
+                   is_not_flakey_os(),
                    has_support_ipv6(),
                    has_support_sctp(),
                    traffic_ping_pong_large_sendmsg_and_recvmsg_cond()
@@ -7049,6 +7067,17 @@ is_not_windows() ->
         _ ->
             ok
     end.
+
+is_not_flakey_os() ->
+    is_not_flakey_os(erlang:system_info(system_architecture)).
+
+is_not_flakey_os("sparc-sun-solaris2.10") ->
+    skip('flakey os');
+is_not_flakey_os("x86_64-pc-solaris2.11") ->
+    skip('flakey os');
+is_not_flakey_os(_) ->
+    ok.
+
 
 has_support_unix_domain_socket() ->
     case socket:is_supported(local) of

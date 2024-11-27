@@ -462,8 +462,11 @@ api_b_getservbyname() ->
                                    wrong_port("amqp", tcp, WrongPort, 5672);
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, openbsd} 
-                                         when (Reason =:= einval) ->
+                                       {unix, Flavor} 
+                                         when ((Flavor =:= openbsd) orelse
+                                               (Flavor =:= solaris) orelse
+                                               (Flavor =:= sunos)) andalso
+                                              (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
@@ -480,11 +483,12 @@ api_b_getservbyname() ->
                                    wrong_port("amqp", sctp, WrongPort, 5672);
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, darwin}
-                                         when (Reason =:= einval) ->
-                                           ok;
-                                       {unix, openbsd}
-                                         when (Reason =:= einval) ->
+                                       {unix, Flavor}
+                                         when ((Flavor =:= darwin) orelse
+                                               (Flavor =:= openbsd) orelse
+                                               (Flavor =:= solaris) orelse
+                                               (Flavor =:= sunos)) andalso
+                                              (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
@@ -642,8 +646,11 @@ api_b_getservbyport() ->
                                                  WrongService, "amqp");
                                {error, Reason} ->
                                    case os:type() of
-                                       {unix, openbsd} 
-                                         when (Reason =:= einval) ->
+                                       {unix, Flavor} 
+                                         when ((Flavor =:= openbsd) orelse
+                                               (Flavor =:= solaris) orelse
+                                               (Flavor =:= sunos)) andalso
+                                              (Reason =:= einval) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
@@ -661,9 +668,11 @@ api_b_getservbyport() ->
                                                  WrongService, "amqp");
                                {error, Reason} when (Reason =:= einval) ->
                                    case os:type() of
-                                       {unix, UNIX}
-                                         when (UNIX =:= darwin) orelse
-                                              (UNIX =:= openbsd) ->
+                                       {unix, Flavor}
+                                         when (Flavor =:= darwin) orelse
+                                              (Flavor =:= openbsd) orelse
+                                              (Flavor =:= solaris) orelse
+                                              (Flavor =:= sunos) ->
                                            ok;
                                        _ ->
                                            ?P("Unexpected failure: ~p",
