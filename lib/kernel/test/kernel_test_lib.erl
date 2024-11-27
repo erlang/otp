@@ -1752,9 +1752,9 @@ analyze_and_print_solaris_host_info(Version) ->
             IS ->
                 IS
         end,
-    PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
+    PrtConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
     SysConf =
-        case lists:keysearch("System Configuration", 1, PtrConf) of
+        case lists:keysearch("System Configuration", 1, PrtConf) of
             {value, {_, SC}} ->
                 SC;
             _ ->
@@ -1792,7 +1792,7 @@ analyze_and_print_solaris_host_info(Version) ->
                 "-"
         end,
     MemSz =
-        case lists:keysearch("Memory size", 1, PtrConf) of
+        case lists:keysearch("Memory size", 1, PrtConf) of
             {value, {_, MS}} ->
                 MS;
             _ ->
