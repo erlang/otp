@@ -110,7 +110,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,60}}].
+     {timetrap,{seconds,15}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -1563,7 +1563,7 @@ try_to_connect(Connect, Host, Port, Pid, Tref, N) ->
 
 %%--------------------------------------------------------------------
 max_sessions_drops_tcp_connects() ->
-    [{timetrap,{minutes,20}}].
+    [{timetrap,{minutes,2}}].
 
 max_sessions_drops_tcp_connects(Config) ->
     MaxSessions = 20,

@@ -9,7 +9,7 @@
 %%-------------------------------------------------------------------------
 %% Timeout time in ms
 %%-------------------------------------------------------------------------
--define(TIMEOUT, 27000).
+-define(TIMEOUT, 15000).
 -define(v(Key, Config), proplists:get_value(Key, Config)).
 -define(v(Key, Config, Default), proplists:get_value(Key, Config, Default)).
 

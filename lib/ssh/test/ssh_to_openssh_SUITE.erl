@@ -60,7 +60,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,60}}].
+    [{timetrap,{seconds,30}}].
 
 all() -> 
     case os:find_executable("ssh") of
