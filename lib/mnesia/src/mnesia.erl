@@ -4158,7 +4158,7 @@ create_table(Arg) ->
 -doc """
 Create a table.
 
-Creates a Mnesia table called `Name` according to argument `TabDef`. This list
+Creates a Mnesia table called `Name` according to argument `Opts`. This list
 must be a list of `{Item, Value}` tuples, where the following values are
 allowed:
 
