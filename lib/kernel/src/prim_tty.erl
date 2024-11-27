@@ -128,8 +128,6 @@
 %% proc_lib exports
 -export([reader/1, writer/1]).
 
--on_load(on_load/0).
-
 %%-define(debug, true).
 -ifdef(debug).
 -define(dbg(Term), dbg(Term)).
@@ -250,6 +248,8 @@ window_size(State = #state{ tty = TTY }) ->
 
 -spec init(options()) -> state().
 init(UserOptions) when is_map(UserOptions) ->
+
+    on_load(),
 
     Options = options(UserOptions),
     {ok, TTY} = tty_create(),
