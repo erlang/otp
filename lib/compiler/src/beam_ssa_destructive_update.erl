@@ -838,8 +838,7 @@ patch_is([I0=#b_set{dst=Dst}|Rest], PD0, Cnt0, Acc, BlockAdditions0)
             {OpArgs0, Other} = splitwith(Splitter, Patches),
             OpArgs = [{Idx,Lit,Element}
                       || {opargs,_D,Idx,Lit,Element} <:- OpArgs0],
-            Ps = keysort(1, OpArgs),
-            {Is,Cnt} = patch_opargs(I0, Ps, Cnt0),
+            {Is,Cnt} = patch_opargs(I0, OpArgs, Cnt0),
             patch_is([hd(Is)|Rest], PD#{Dst=>Other}, Cnt,
                      tl(Is)++Acc, BlockAdditions0);
         [{appendable_binary,Dst,#b_literal{val= <<>>}=Lit}] ->
@@ -915,50 +914,55 @@ aggregate_ret_patches_tuple([]) ->
     [].
 
 %% Should return the instructions in reversed order
-patch_opargs(I0=#b_set{args=Args}, Patches0, Cnt0) ->
+patch_opargs(I0=#b_set{args=Args}, OpArgs, Cnt0) ->
     ?DP("Patching args in ~p~n  Args: ~p~n Patches: ~p~n",
-        [I0,Args,Patches0]),
-    Patches = merge_arg_patches(Patches0),
+        [I0,Args,OpArgs]),
+    Patches = merge_arg_patches(keysort(1, OpArgs), #{}),
     ?DP("  Merged patches: ~p~n", [Patches]),
     {PatchedArgs,Is,Cnt} = patch_opargs(Args, Patches, 0, [], [], Cnt0),
     {[I0#b_set{args=reverse(PatchedArgs)}|Is], Cnt}.
 
-patch_opargs([#b_literal{val=Lit}|Args], [{Idx,Lit,Element}|Patches],
-             Idx, PatchedArgs, Is, Cnt0) ->
+patch_opargs([#b_literal{val=Lit}|Args], Patches,
+             Idx, PatchedArgs, Is, Cnt0) when is_map_key(Idx, Patches) ->
+    #{Idx:=Element} = Patches,
     ?DP("Patching arg idx ~p~n  lit: ~p~n  elem: ~p~n", [Idx,Lit,Element]),
     {Arg,Extra,Cnt} = patch_literal_term(Lit, Element, Cnt0),
     patch_opargs(Args, Patches, Idx + 1, [Arg|PatchedArgs], Extra++Is, Cnt);
 patch_opargs([Arg|Args], Patches, Idx, PatchedArgs, Is, Cnt) ->
     ?DP("Skipping arg idx ~p~n  arg: ~p~n  patches: ~p~n", [Idx,Arg,Patches]),
     patch_opargs(Args, Patches, Idx + 1, [Arg|PatchedArgs], Is, Cnt);
-patch_opargs([], [], _, PatchedArgs, Is, Cnt) ->
+patch_opargs([], _, _, PatchedArgs, Is, Cnt) ->
     {PatchedArgs, Is, Cnt}.
 
 %% The way find_initial_values work, we can end up with multiple
 %% patches patching different parts of a tuple or pair. We merge them
 %% here.
-merge_arg_patches([{Idx,Lit,P0},{Idx,Lit,P1}=Next|Patches]) ->
-    case {P0, P1} of
-        {{tuple_element,I0,E0,_},{tuple_element,I1,E1,_}} ->
-            P = {tuple_elements,[{I0,E0},{I1,E1}]},
-            merge_arg_patches([{Idx,Lit,P}|Patches]);
-        {{tuple_elements,Es},{tuple_element,I,E,_}} ->
-            P = {tuple_elements,[{I,E}|Es]},
-            merge_arg_patches([{Idx,Lit,P}|Patches]);
-        {{self,heap_tuple},_} ->
-            %% P0 forces this argument onto the heap, as P1 patches
-            %% something inside the same tuple, First can be dropped.
-            merge_arg_patches([Next|Patches])
+merge_arg_patches([{Idx,_Lit,E1}|Patches], Acc) ->
+    case Acc of
+        #{Idx:=E0} ->
+            merge_arg_patches(Patches, Acc#{Idx=>merge_patches(E0, E1)});
+        #{} ->
+            merge_arg_patches(Patches, Acc#{Idx=>E1})
     end;
-merge_arg_patches([P|Patches]) ->
-    [P|merge_arg_patches(Patches)];
-merge_arg_patches([]) ->
-    [].
+merge_arg_patches([], Acc) ->
+    Acc.
+
+merge_patches({tuple_element,I,E0,D0}, {tuple_element,I,E1,D1}) ->
+    {tuple_element, I, merge_patches(E0, E1), max(D0,D1)};
+merge_patches({tuple_element,IA,EA,_}, {tuple_element,IB,EB,_}) ->
+    {tuple_elements, [{IA,EA}, {IB,EB}]};
+merge_patches({tuple_element,IA,EA,_}, {tuple_elements,Es}) ->
+    {tuple_elements,[{IA,EA}|Es]};
+merge_patches({tuple_elements,Es}, {tuple_element,IA,EA,_}) ->
+    {tuple_elements,[{IA,EA}|Es]};
+merge_patches({self,heap_tuple}, Other) ->
+    %% We're already patching this element in Other and as it will
+    %% force the term onto the heap, we can ignore the new patch.
+    Other.
 
 patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
-    L2P = foldl(fun(Phi={phi,_,Lbl,_,_}, Acc) ->
-                        Acc#{Lbl => Phi}
-                end, #{}, Patches),
+    ?DP("Patching Phi:~n args: ~p~n  patches: ~p~n", [Args0, Patches]),
+    L2P = foldl(fun merge_phi_patch/2, #{}, Patches),
     {Args, Extra, Cnt} =
         foldr(fun(Arg0={_,Lbl}, {ArgsAcc,ExtraAcc,CntAcc}) ->
                       case L2P of
@@ -973,6 +977,15 @@ patch_phi(I0=#b_set{op=phi,args=Args0}, Patches, Cnt0) ->
               end, {[],[],Cnt0}, Args0),
     I = I0#b_set{op=phi,args=Args},
     {I, Extra, Cnt}.
+
+merge_phi_patch({phi,Var,Lbl,Lit,E}, Acc) ->
+    case Acc of
+        #{Lbl:={phi,Var,Lbl,Lit,Old}} ->
+            Acc#{Lbl => {phi,Var,Lbl,Lit,merge_patches(E, Old)}};
+        #{} ->
+            false = is_map_key(Lbl, Acc), %% Assert
+            Acc#{Lbl => {phi,Var,Lbl,Lit,E}}
+    end.
 
 %% Should return the instructions in reversed order
 patch_literal_term(Tuple, {tuple_elements,Elems}, Cnt) ->
