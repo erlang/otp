@@ -902,7 +902,7 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
                               NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     }
 
-    if (enif_is_identical(env, argv[0], atom_stdin))
+    if (enif_is_identical(argv[0], atom_stdin))
         return enif_make_badarg(env);
     tty->ofd = tty_get_handle(env, argv[0]);
     if (tty->ofd == INVALID_HANDLE_VALUE || tty->ofd == NULL) {
