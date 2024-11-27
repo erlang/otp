@@ -649,7 +649,6 @@ ms() ->
      mnesia_late_loader,
      mnesia_lib,
      mnesia_log,
-     mnesia_registry,
      mnesia_schema,
      mnesia_snmp_hook,
      mnesia_subscr,
