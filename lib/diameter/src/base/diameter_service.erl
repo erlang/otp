@@ -213,6 +213,9 @@ stop(No, _) ->
 %% So, technically, the service is already stopped,
 %% but the cleanup may not have completed...
 %% This is a simple race, so we should not have to wait long...
+
+-doc false.
+
 await_service_cleanup(SvcName) ->
     do_await_service_cleanup(SvcName, 10).
 
