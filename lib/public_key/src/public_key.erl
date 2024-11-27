@@ -1567,7 +1567,7 @@ Available options:
 
   ```erlang
   fun(OtpCert :: #'OTPCertificate'{},
-      Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
+      Event :: {bad_cert, Reason :: bad_cert_reason() | {revoked, atom()}} |
                {extension, #'Extension'{}},
       UserState :: term()) ->
   	{valid, UserState :: term()} |
@@ -1581,7 +1581,7 @@ Available options:
   ```erlang
   fun(OtpCert :: #'OTPCertificate'{},
       DerCert :: der_encoded(),
-      Event :: {bad_cert, Reason :: atom() | {revoked, atom()}} |
+      Event :: {bad_cert, Reason :: bad_cert_reason() | {revoked, atom()}} |
                {extension, #'Extension'{}},
       UserState :: term()) ->
 	{valid, UserState :: term()} |
