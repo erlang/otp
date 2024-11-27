@@ -810,4 +810,4 @@ bif erts_internal:system_monitor/3
 bif erts_internal:processes_next/1
 bif code:get_debug_info/1
 bif erlang:exit/3
-
+bif erlang:link/2

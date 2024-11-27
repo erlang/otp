@@ -291,7 +291,7 @@ the state of the receiving process. Actions taken for the most common signals:
   [process alias](ref_man_processes.md#process-aliases) that is no longer
   active, the message signal will be dropped; otherwise, if the alias is still
   active or the message signal was sent by other means, the message is added to
-  the end of the message queue. When the message has been added to the message
+  the message queue. When the message has been added to the message
   queue, the receiving process can fetch the message from the message queue
   using the [`receive`](expressions.md#receive) expression.
 
@@ -301,7 +301,7 @@ the state of the receiving process. Actions taken for the most common signals:
   the _Distribution Protocol_ chapter of the _ERTS User's Guide_.
 
 - **`exit`** - Set the receiver in an exiting state, drop the signal, or convert
-  the signal into a message and add it to the end of the message queue. If the
+  the signal into a message and add it to the message queue. If the
   receiver is set in an exiting state, no more Erlang code will be executed and
   the process is scheduled for termination. The section
   [_Receiving Exit Signals_](ref_man_processes.md#receiving_exit_signals) below
@@ -312,13 +312,13 @@ the state of the receiving process. Actions taken for the most common signals:
 
 - **`down`, `change`** - Convert into a message if the corresponding monitor is
   still active; otherwise, drop the signal. If the signal is converted into a
-  message, it is also added to the end of the message queue.
+  message, it is also added the message queue.
 
 - **`group_leader`** - Change the group leader of the process.
 
 - **`spawn_reply`** - Convert into a message, or drop the signal depending on
   the reply and how the `spawn_request` signal was configured. If the signal is
-  converted into a message it is also added to the end of the message queue. For
+  converted into a message it is also added to the message queue. For
   more information see the [`spawn_request()`](`erlang:spawn_request/5`) BIF.
 
 - **`alive_request`** - Schedule execution of the _is alive_ test. If the
@@ -340,14 +340,118 @@ This does, however, _not_ violate the
 [signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
 language.
 
-[](){: #message-queue-order } The order of messages in the message queue of a
-process reflects the order in which the signals corresponding to the messages
-has been received since
-[all signals that add messages to the message queue add them at the end of the message queue](ref_man_processes.md#receiving-signals).
-Messages corresponding to signals from the same sender are also ordered in the
-same order as the signals were sent due to the
+[](){: #message-queue-order }
+
+#### Adding Messages to the Message Queue
+
+When a message signal is received, the action taken is to add the message to the
+message queue. The actions of other signals at receptions may also add messages
+to the message queue ([see above](ref_man_processes.md#receiving-signals)).
+Unless the receiving process has enabled priority messages, all messages are
+added to the end of the message queue. In the case that the receiver has not
+enabled priority messages, the order of the messages in the message queue will
+reflect the order in which the signals corresponding to the messages in the queue
+were received. Messages corresponding to signals from the same sender will then
+also be ordered in the same order as the signals were sent due to the
 [signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
 language.
+
+[](){: #priority-messages }
+
+As of OTP @OTP-19198@ a process may
+[enable reception of priority messages](ref_man_processes.md#enable-prio-msg-recv).
+If the receiving process has enabled priority messages, the receiver will at
+reception of a message signal, or another signal that is converted into a
+message, check if it should be accepted as a priority message or not. If
+accepted as a priority message, it will be added after the last accepted priority
+message in the queue; otherwise, it will be treated as an ordinary message and
+will be added at the end of the message queue.
+
+![Priority Message Reception](assets/prio-msg-recv.png "Priority Message Reception")
+
+Figure 1.
+
+When messages that have been accepted as priority messages exist in the message
+queue, the order of the messages in the message queue will *not* reflect the
+order in which the signals corresponding to the messages in the queue were
+received. However, the order of priority messages corresponds to the order in
+which those corresponding signals were received, and the order of ordinary
+messages corresponds to the order in which those corresponding signals
+were received. Thus, two messages sent from the same sender may be in another
+order than the order they were sent.
+
+Note that priority messages *do not* violate the
+[signal ordering guarantee](ref_man_processes.md#signal-delivery) of the
+language. The signals are still delivered in the same order to the receiving
+process. The *only* difference is how messages are added to the message queue
+after the signals have been received by the receiving process.
+
+A [`receive`](expressions.md#receive) expression will select the first message,
+from the start, in the message queue that matches, just as if only ordinary
+messages exist in the message queue. The total message queue length in figure 1
+equals `P+M`. The lengths `P` and `M` are not be visible, only the total message
+queue length can be determined. There is no way for the Erlang code to
+distinguish a priority message from an ordinary message when fetching a message
+from the message queue. Such knowledge needs to be part of the message protocol
+that the process should adhere to.
+
+[](){: #enable-prio-msg-recv }
+#### Enabling Priority Message Reception
+
+[](){: #priority-message-warning }
+
+> #### Warning {: .warning }
+>
+> Priority messages are intended to solve very specific problems where it
+> previously was very hard to solve such problems efficiently using ordinary
+> signaling. You *very seldom* need to resort to usage of priority messages.
+> Receiving processes have *not* been optimized for handling large  amounts of
+> priority messages. If a process accumulate a large amount of priority
+> messages, the design of that message protocol should be redesigned since
+> this is not how priority messages are intended to be used.
+
+A process can enable priority message reception by creating a *priority
+process alias* or shorter *priority alias*. Such an alias is created by
+calling the `erlang:alias/1` BIF with the `priority` option. This priority
+alias then needs to be distributed to processes that are to be able to send
+priority messages to the process that created the alias. In order to send a
+priority message, the priority alias should be passed to the `erlang:send/3`
+BIF at the same time as the option `priority` is passed in the option list.
+Note that both the priority alias as well as the `priority` option need to
+be passed in order for the message to be accepted as a priority message.
+
+The priority alias can also be used for sending exit signals which will be
+handled as priority messages if the receiver is trapping exits. In this case
+the priority alias should be passed as first argument to the `erlang:exit/3`
+BIF and the option `priority` should be passed in the option list. Also in
+this case both the priority alias as well as the `priority` option need to be
+passed in order for the message to be accepted as a priority message. Note that
+this *only* affects how a potential exit message is handled if the receiver is
+trapping exits. The exit signal as such will not get a higher priority.
+
+If the creator of the priority alias deactivates the alias, the signals sent
+using the alias will be dropped the same way as for any
+[process alias](ref_man_processes.md#process-aliases).
+
+Priority message reception can also be enabled for exit signals due to
+broken links and messages triggered due to monitors. Since these signals are
+not sent when a process calls a specific function for sending a signal, but
+instead are sent when specific events occur in the system, a priority alias
+cannot be used for this.
+
+In order to enable priority message reception of messages triggered by a
+monitor, the process that creates the monitor needs to create it using the
+`erlang:monitor/3` BIF and pass the option `priority`. A message received
+due to the the monitor being triggered will then be handled as a priority
+message.
+
+In order to enable priority message reception for an exit signals due to
+broken links, the process that wants the exit signal as a priority message,
+needs to call the `erlang:link/2` BIF with the `priority` option. The
+`priority` option will only enable priority message handling of exit signals
+for the process that called the `erlang:link/2` BIF with the `priority`
+option. Also in this case, this *only* affects how a potential exit message
+is handled if the receiver is trapping exits.
 
 [](){: #visible-resources }
 

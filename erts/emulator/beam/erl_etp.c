@@ -72,11 +72,14 @@ const int etp_lock_check = 0;
 #endif
 const int etp_endianness = ERTS_ENDIANNESS;
 const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
+const Eterm etp_pid_ref_header = ERTS_PID_REF_THING_HEADER;
 #ifdef ERTS_MAGIC_REF_THING_HEADER
 const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
 #else
 const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
 #endif
+const int etp_ref_numbers = ERTS_REF_NUMBERS;
+const int etp_pid_ref_numbers = ERTS_PID_REF_NUMBERS;
 const Eterm etp_the_non_value = THE_NON_VALUE;
 #ifdef TAG_LITERAL_PTR
 const Eterm etp_ptr_mask = (~(Eterm)7);

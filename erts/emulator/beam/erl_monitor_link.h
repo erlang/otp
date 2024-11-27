@@ -455,12 +455,13 @@
 #define ERTS_MON_TYPE_SUSPEND           ((Uint32) 8)
 #define ERTS_MON_TYPE_ALIAS             ERTS_MON_TYPE_MAX
 
-#define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint32) 3))
+#define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint32) 4))
 #define ERTS_LNK_TYPE_MAX               ERTS_MON_LNK_TYPE_MAX
 
 #define ERTS_LNK_TYPE_PROC              (ERTS_MON_TYPE_MAX + ((Uint32) 1))
 #define ERTS_LNK_TYPE_PORT              (ERTS_MON_TYPE_MAX + ((Uint32) 2))
-#define ERTS_LNK_TYPE_DIST_PROC         ERTS_LNK_TYPE_MAX
+#define ERTS_LNK_TYPE_DIST_PROC         (ERTS_MON_TYPE_MAX + ((Uint32) 3))
+#define ERTS_LNK_TYPE_DIST_PORT         ERTS_LNK_TYPE_MAX
 
 #define ERTS_ML_TYPE_BITS               5
 #define ERTS_ML_TYPE_SHIFT              0
@@ -506,6 +507,9 @@
 #define ERTS_ML_FLG_SPAWN_NO_SMSG       (((Uint32) 1) << (ERTS_ML_F_BASE + 9))
 #define ERTS_ML_FLG_SPAWN_NO_EMSG       (((Uint32) 1) << (ERTS_ML_F_BASE + 10))
 #define ERTS_ML_FLG_TAG                 (((Uint32) 1) << (ERTS_ML_F_BASE + 11))
+#define ERTS_ML_FLG_PRIO_ML             (((Uint32) 1) << (ERTS_ML_F_BASE + 12))
+#define ERTS_ML_FLG_PRIO_ALIAS          (((Uint32) 1) << (ERTS_ML_F_BASE + 13))
+#define ERTS_ML_FLG_SPAWN_LINK_PRIO     (((Uint32) 1) << (ERTS_ML_F_BASE + 14))
 
 /* ERTS_ML_FLG_DBG_VISITED in most significant bit... */
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint32) 1) << (ERTS_ML_F_BASE + 24))
@@ -515,7 +519,8 @@
                                          | ERTS_ML_FLG_SPAWN_LINK       \
                                          | ERTS_ML_FLG_SPAWN_ABANDONED  \
                                          | ERTS_ML_FLG_SPAWN_NO_SMSG    \
-                                         | ERTS_ML_FLG_SPAWN_NO_EMSG)
+                                         | ERTS_ML_FLG_SPAWN_NO_EMSG    \
+                                         | ERTS_ML_FLG_SPAWN_LINK_PRIO)
 
 /* Flags that should be the same on both monitor/link halves */
 #define ERTS_ML_FLGS_SAME \
@@ -2548,7 +2553,8 @@ erts_link_dist_delete(ErtsLink *lnk)
     int delete_;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
-    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC
+                   || ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PORT);
 
     elnk = erts_link_to_elink(lnk);
     dist = elnk->dist;
