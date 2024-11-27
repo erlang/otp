@@ -112,12 +112,7 @@
 -type if_type()       :: other | ethernet_csmacd | iso88025_tokenring |
                          fddi | ppp | software_loopback | atm | ieee80211 |
                          tunnel | ieee1394 | ieee80216_wman | wwanpp | wwanpp2.
--type if_admin_status() :: non_operational |
-                           unreachable |
-                           disconnected |
-                           connecting | connected |
-                           operational |
-                           non_neg_integer().
+-type if_admin_status() :: enabled | disabled.
 -type internal_if_oper_status() :: non_operational |
                                    unreachable |
                                    disconnected |

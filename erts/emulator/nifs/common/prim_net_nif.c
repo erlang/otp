@@ -3449,28 +3449,10 @@ ERL_NIF_TERM encode_if_admin_status(ErlNifEnv* env,
 {
     ERL_NIF_TERM estatus;
 
-    switch (status) {
-    case IF_OPER_STATUS_NON_OPERATIONAL:
-        estatus = atom_non_operational;
-        break;
-    case IF_OPER_STATUS_UNREACHABLE:
-        estatus = atom_unreachable;
-        break;
-    case IF_OPER_STATUS_DISCONNECTED:
-        estatus = atom_disconnected;
-        break;
-    case IF_OPER_STATUS_CONNECTING:
-        estatus = esock_atom_connecting;
-        break;
-    case IF_OPER_STATUS_CONNECTED:
-        estatus = esock_atom_connected;
-        break;
-    case IF_OPER_STATUS_OPERATIONAL:
-        estatus = atom_operational;
-        break;
-    default:
-        estatus = MKUI(env, status);
-        break;
+    if (status) {
+        estatus = esock_atom_enabled;
+    } else {
+        estatus = esock_atom_disabled;
     }
 
     return estatus;
