@@ -123,11 +123,13 @@ first encoded to the [Erlang External Format](`e:erts:erl_ext_dist.md`)
 before being sent through a TCP/IP socket. The receiving Erlang node
 decodes the message and distributes it to the correct process.
 
-## Receiving messages
+[](){: #receiving-messages }
+## Fetching Received Messages
 
-The cost of receiving messages depends on how complicated the `receive`
-expression is. A simple expression that matches any message is very cheap
-because it retrieves the first message in the message queue:
+The cost of fetching a received message from the message queue depends on how
+complicated the `receive` expression is. A simple expression that matches any
+message is very cheap because it retrieves the first message in the message
+queue:
 
 **DO**
 
@@ -172,7 +174,7 @@ unique identifier), and that the `receive` only matches messages that contain
 said reference, it will tell the emulator to search only the messages that
 arrived after the call to [`monitor/2`](`monitor/2`).
 
-The above is a simple example where one is but guaranteed that the optimization
+The above is a simple example where one is guaranteed that the optimization
 will take, but what about more complicated code?
 
 [](){: #recv_opt_info }
