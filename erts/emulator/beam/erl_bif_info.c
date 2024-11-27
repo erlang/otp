@@ -378,7 +378,8 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
     Uint sz = 0;
     UWord addr;
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC
+        || lnk->type == ERTS_LNK_TYPE_DIST_PORT)
         addr = (UWord) erts_link_to_elink(lnk);
     else
         addr = (UWord) lnk;
@@ -406,7 +407,8 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     ERTS_DECL_AM(linked);
     ERTS_DECL_AM(unlinking);
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
+    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC
+        || lnk->type == ERTS_LNK_TYPE_DIST_PORT) {
         ErtsELink *elnk = erts_link_to_elink(lnk);
         state = elnk->unlinking ? AM_unlinking : AM_linked;
         addr = (UWord) elnk;
@@ -436,6 +438,11 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     case ERTS_LNK_TYPE_DIST_PROC: {
         ERTS_DECL_AM(dist_process);
         t = AM_dist_process;
+        break;
+    }
+    case ERTS_LNK_TYPE_DIST_PORT: {
+        ERTS_DECL_AM(dist_port);
+        t = AM_dist_port;
         break;
     }
     default:
@@ -561,7 +568,8 @@ do {							\
 static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
-    if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+    if (lnk->type != ERTS_LNK_TYPE_DIST_PROC
+        && lnk->type != ERTS_LNK_TYPE_DIST_PORT) {
         if (((ErtsILink *) lnk)->unlinking)
             return 1;
     }
@@ -783,6 +791,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_ASYNC_DIST                           37
 #define ERTS_PI_IX_DICTIONARY_LOOKUP                    38
 #define ERTS_PI_IX_LABEL                                39
+#define ERTS_PI_IX_PRIORITY_MESSAGES                    40
 
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
@@ -836,6 +845,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_dictionary, 3, ERTS_PI_FLAG_FORCE_SIG_SEND|ERTS_PI_FLAG_KEY_TUPLE2, ERTS_PROC_LOCK_MAIN},
     {am_label, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_priority_messages, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -970,6 +980,8 @@ pi_arg2ix(Eterm arg, Eterm *extrap)
         return ERTS_PI_IX_ASYNC_DIST;
     case am_label:
         return ERTS_PI_IX_LABEL;
+    case am_priority_messages:
+        return ERTS_PI_IX_PRIORITY_MESSAGES;
     default:
         if (is_tuple_arity(arg, 2)) {
             Eterm *tpl = tuple_val(arg);
@@ -2298,6 +2310,10 @@ process_info_aux(Process *c_p,
 
         break;
     }
+
+    case ERTS_PI_IX_PRIORITY_MESSAGES:
+        res = erts_proc_sig_prio_msgs_term(rp, hfact);
+        break;
 
     default:
 	return THE_NON_VALUE; /* will produce badarg */

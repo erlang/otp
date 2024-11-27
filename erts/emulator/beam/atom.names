@@ -288,6 +288,7 @@ atom exact_reductions
 atom exception_from
 atom exception_trace
 atom exclusive
+atom exit_message
 atom exit_status
 atom exited
 atom existing
@@ -424,6 +425,7 @@ atom Lt='<'
 atom machine
 atom magic_ref
 atom major
+atom marked_message
 atom match
 atom match_limit
 atom match_limit_recursion
@@ -460,6 +462,7 @@ atom module
 atom module_info
 atom monitored_by
 atom monitor
+atom monitor_message
 atom monitor_nodes
 atom monitors
 atom monotonic
@@ -571,6 +574,10 @@ atom prepare
 atom prepare_on_load
 atom print
 atom priority
+atom priority_exit_message
+atom priority_marked_message
+atom priority_messages
+atom priority_monitor_message
 atom private
 atom private_append
 atom process
@@ -704,6 +711,7 @@ atom suspending
 atom system
 atom system_flag_scheduler_wall_time
 atom system_limit
+atom system_monitor
 atom system_version
 atom system_architecture
 atom table

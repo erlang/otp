@@ -1477,6 +1477,108 @@ erts_proc_sig_send_dist_altact_msg(Eterm from, Eterm alias,
                                    ErlHeapFragment *hfrag, Eterm token,
                                    int prio);
 
+typedef enum {
+    ERTS_PMSG_TYPE_MRKD,
+    ERTS_PMSG_TYPE_EXIT,
+    ERTS_PMSG_TYPE_MON,
+} ErtsPrioMsgType;
+
+/**
+ * @brief Register messages for priority handling
+ *
+ * A process can register certain types of messages for priority message
+ * handling at reception. Currently the following priority messages can be
+ * registered:
+ * - A priority marked message from a specific process or port. The 'key'
+ *   argument should be an Erlang term of type pid or port. The 'type'
+ *   argument should be ERTS_PMSG_TYPE_MRKD.
+ * - An exit message from a specific process or port.  The 'key' argument should
+ *   be an Erlang term of type pid or port. The 'type' argument should be
+ *   ERTS_PMSG_TYPE_EXIT.
+ * - A monitor message due to a specific monitor. The 'key' argument should be
+ *   a reference corresponding to the monitor. The 'type' argument should be
+ *   ERTS_PMSG_TYPE_MON.
+ *
+ * Remote ports and references for non-existing monitors will silently be
+ * ignored.
+ *
+ * @param c_p[in]                Currently executing process which register
+ *                               priority message types.
+ * @param type[in]               The type of priority message (see above).
+ * @param key[in]                The specific entity that should be accepted
+ *                               for priority handling (see above).
+ * @param update_mon_link[in]    If non-zero, this function will update the
+ *                               monitor structure, for ERTS_PMSG_TYPE_MON, or
+ *                               the link structure, for ERTS_PMSG_TYPE_EXIT. If
+ *                               zero, the caller should already have done this.
+ *
+ * @return                       The old registration state, i.e., non-zero if
+ *                               already registered, and non-zero if not
+ *                               registered.
+ */
+int
+erts_proc_sig_register_prio_message(Process *c_p,
+                                    ErtsPrioMsgType type,
+                                    Eterm key,
+                                    int update_mon_lnk);
+
+/**
+ * @brief Unregister messages for priority handling
+ *
+ * Undo a previous registration made by erts_proc_sig_register_prio_message().
+ *
+ * @param c_p[in]                Currently executing process which unregister
+ *                               priority message types.
+ * @param type[in]               The type of priority message.
+ * @param key[in]                The specific entity.
+ * @param update_mon_link[in]    If non-zero, this function will update the
+ *                               monitor structure, for ERTS_PMSG_TYPE_MON, or
+ *                               the link structure, for ERTS_PMSG_TYPE_EXIT. If
+ *                               zero, the caller should already have done this.
+ *
+ * @return                       The old registration state, i.e., non-zero if
+ *                               already registered, and non-zero if not
+ *                               registered.
+ */
+int
+erts_proc_sig_unregister_prio_message(Process *c_p,
+                                      ErtsPrioMsgType type,
+                                      Eterm key,
+                                      int update_mon_lnk);
+
+/**
+ * @brief Make a term corresponding to all registrations for prio message handling
+ *
+ * @param proc[in]               Process that have the registrations.
+ * @param factory[in,out]        Heap factory to build the term in.
+ *
+ * @return                       The Erlang term corresponding to all current
+ *                               registrations for priority message handling
+ *                               for 'proc'.
+ */
+Eterm
+erts_proc_sig_prio_msgs_term(Process *proc, ErtsHeapFactory* factory);
+
+/**
+ * @brief Check if a message type is registered for priority handling
+ *
+ * @param proc[in]               Process that have the registrations.
+ * @param type[in]               The type of priority message.
+ * @param key[in]                The specific entity.
+ *
+ * @return                       Non-zero if registered; otherwise, zero.
+ */
+ERTS_GLB_INLINE int
+erts_proc_sig_is_registered_prio_msg(Process *c_p,
+                                     ErtsPrioMsgType type,
+                                     Eterm key);
+int
+erts_proc_sig_is_registered_prio_msg__(Process *c_p,
+                                       ErtsPrioMsgType type,
+                                       Eterm key);
+
+
+
 /**
  *
  * @brief Schedule process to handle enqueued signal(s).
@@ -2389,6 +2491,17 @@ erts_proc_sig_check_wait_dirty_handle_signals(Process *c_p,
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     return state;
+}
+
+ERTS_GLB_INLINE int
+erts_proc_sig_is_registered_prio_msg(Process *c_p,
+                                     ErtsPrioMsgType type,
+                                     Eterm key)
+{
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+    if (c_p->sig_qs.flags & FS_PMQ_MSGTS)
+        return erts_proc_sig_is_registered_prio_msg__(c_p, type, key);
+    return 0;
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

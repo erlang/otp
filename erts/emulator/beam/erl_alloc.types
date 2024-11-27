@@ -312,6 +312,7 @@ type    SCHD_SIG_NTFY   SHORT_LIVED     PROCESSES       scheduled_signal_notify
 type	CODE_COVERAGE   STANDARD        SYSTEM          code_coverage
 
 type    PRIOQ_MARKER    STANDARD        PROCESSES       message_prio_queue_marker
+type    PRIO_MSG_TNODE  STANDARD        PROCESSES       prio_message_tree_node
 
 #
 # Types used for special emulators

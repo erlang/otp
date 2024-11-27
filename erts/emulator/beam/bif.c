@@ -108,10 +108,15 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
 /* create a link to the process */
 BIF_RETTYPE link_1(BIF_ALIST_1)
 {
+    Uint16 add_flag;
     if (ERTS_IS_P_TRACED_FL(BIF_P, F_TRACE_PROCS)) {
 	trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN, BIF_P, am_link, BIF_ARG_1);
     }
-    /* check that the pid or port which is our argument is OK */
+    add_flag = (erts_proc_sig_is_registered_prio_msg(BIF_P,
+                                                     ERTS_PMSG_TYPE_EXIT,
+                                                     BIF_ARG_1)
+                ? ERTS_ML_FLG_PRIO
+                : 0);
 
     if (is_internal_pid(BIF_ARG_1)) {
         int created;
@@ -120,13 +125,14 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         if (BIF_P->common.id == BIF_ARG_1)
             BIF_RET(am_true);
 
-        if (!erts_proc_lookup(BIF_ARG_1))
+        if (!erts_proc_lookup(BIF_ARG_1) && !(BIF_P->flags & F_TRAP_EXIT))
             goto res_no_proc;
 
         lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
                                                     &created,
                                                     ERTS_LNK_TYPE_PROC,
                                                     BIF_ARG_1);
+        lnk->flags |= add_flag;
         if (!created) {
             ErtsILink *ilnk = (ErtsILink *) lnk;
             if (!ilnk->unlinking)
@@ -136,15 +142,12 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
         rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
 
-        if (erts_proc_sig_send_link(&BIF_P->common, BIF_P->common.id,
+        if (!erts_proc_sig_send_link(&BIF_P->common, BIF_P->common.id,
                                     BIF_ARG_1, rlnk)) {
-            BIF_RET(am_true);
+            erts_proc_sig_send_link_exit(NULL, BIF_ARG_1, rlnk, am_noproc, NIL);
         }
 
-        erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-        erts_link_internal_release(lnk);
-        erts_link_internal_release(rlnk);
-        goto res_no_proc;
+        BIF_RET(am_true);
     }
 
     if (is_internal_port(BIF_ARG_1)) {
@@ -156,13 +159,14 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 				     (erts_port_synchronous_ops
 				      ? ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
 				      : ERTS_PORT_SFLGS_INVALID_LOOKUP));
-	if (!prt)
-	    goto res_no_proc;
+	if (!prt && !(BIF_P->flags & F_TRAP_EXIT))
+            goto res_no_proc;
 
         lnk = erts_link_internal_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
                                                     &created,
                                                     ERTS_LNK_TYPE_PORT,
                                                     BIF_ARG_1);
+        lnk->flags |= add_flag;
         if (!created) {
             ErtsILink *ilnk = (ErtsILink *) lnk;
             if (!ilnk->unlinking)
@@ -173,12 +177,12 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         rlnk = erts_link_internal_create(ERTS_LNK_TYPE_PROC, BIF_P->common.id);
         refp = erts_port_synchronous_ops ? &ref : NULL;
 
-        switch (erts_port_link(BIF_P, prt, rlnk, refp)) {
+        switch (!prt
+                ? ERTS_PORT_OP_BADARG
+                : erts_port_link(BIF_P, prt, rlnk, refp)) {
         case ERTS_PORT_OP_BADARG:
-            erts_link_internal_release(rlnk);
-            erts_link_tree_delete(&ERTS_P_LINKS(BIF_P), lnk);
-            erts_link_internal_release(lnk);
-            goto res_no_proc;
+            erts_proc_sig_send_link_exit(NULL, BIF_ARG_1, rlnk, am_noproc, NIL);
+            break;
         case ERTS_PORT_OP_DROPPED:
         case ERTS_PORT_OP_SCHEDULED:
             if (refp) {
@@ -192,7 +196,26 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
     else if (is_external_port(BIF_ARG_1)
 	     && external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
-	goto res_no_proc;
+        ErtsLink *lnk;
+        ErtsELink *elnk;
+        int created;
+
+        if (!(BIF_P->flags & F_TRAP_EXIT))
+            goto res_no_proc;
+
+        lnk = erts_link_external_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
+                                                    &created,
+                                                    ERTS_LNK_TYPE_DIST_PORT,
+                                                    BIF_P->common.id,
+                                                    BIF_ARG_1);
+        lnk->flags |= add_flag;
+        elnk = erts_link_to_elink(lnk);
+        elnk->unlinking = 0;
+
+        erts_proc_sig_send_dist_link_exit(erts_this_dist_entry, BIF_ARG_1,
+                                          BIF_P->common.id, NULL, NULL,
+                                          am_noproc, NIL);
+        BIF_RET(am_true);
     }
 
     if (is_external_pid(BIF_ARG_1)) {
@@ -204,7 +227,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
         ErtsDSigSendContext ctx;
 
         dep = external_pid_dist_entry(BIF_ARG_1);
-        if (dep == erts_this_dist_entry)
+        if (dep == erts_this_dist_entry && !(BIF_P->flags & F_TRAP_EXIT))
             goto res_no_proc;
 
         lnk = erts_link_external_tree_lookup_create(&ERTS_P_LINKS(BIF_P),
@@ -212,8 +235,16 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
                                                     ERTS_LNK_TYPE_DIST_PROC,
                                                     BIF_P->common.id,
                                                     BIF_ARG_1);
-
+        lnk->flags |= add_flag;
         elnk = erts_link_to_elink(lnk);
+
+        if (dep == erts_this_dist_entry) {
+            elnk->unlinking = 0;
+            erts_proc_sig_send_dist_link_exit(erts_this_dist_entry, BIF_ARG_1,
+                                              BIF_P->common.id, NULL, NULL,
+                                              am_noproc, NIL);
+            BIF_RET(am_true);
+        }
 
         if (created) {
             pelnk = NULL;
@@ -319,14 +350,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
     BIF_ERROR(BIF_P, BADARG);
 
-res_no_proc:
-    if (BIF_P->flags & F_TRAP_EXIT) {
-        ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
-        erts_deliver_exit_message(BIF_ARG_1, BIF_P, &locks, am_noproc, NIL);
-        erts_proc_unlock(BIF_P, ~ERTS_PROC_LOCK_MAIN & locks);
-        BIF_RET(am_true);
-    }
-    else {
+res_no_proc: {
         /*
          * This behaviour is *really* sad but link/1 has
          * behaved like this for ages (and this behaviour is
@@ -385,7 +409,10 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
        break;
    }
-   
+
+   if (mon->flags & ERTS_ML_FLG_PRIO)
+       erts_proc_sig_unregister_prio_message(c_p, ERTS_PMSG_TYPE_MON, ref, 0);
+
    switch (mon->type) {
 
    case ERTS_MON_TYPE_TIME_OFFSET:
@@ -584,38 +611,45 @@ erts_monitor_opts(Eterm opts, Eterm *tag)
         Eterm *tpl, *cons, opt;
         cons = list_val(opts);
         opt = CAR(cons);
-        if (is_not_tuple(opt))
-	    return (Uint16) ~0;
-        tpl = tuple_val(opt);
-        switch (arityval(tpl[0])) {
-        case 2:
-            switch (tpl[1]) {
-            case am_alias:
-                add_oflags &= ~ERTS_ML_STATE_ALIAS_MASK;
-                switch (tpl[2]) {
-                case am_explicit_unalias:
-                    add_oflags |= ERTS_ML_STATE_ALIAS_UNALIAS;
+        switch (opt) {
+        case am_priority:
+            add_oflags |= ERTS_ML_FLG_PRIO;
+            break;
+        default:
+            if (is_not_tuple(opt))
+                return (Uint16) ~0;
+            tpl = tuple_val(opt);
+            switch (arityval(tpl[0])) {
+            case 2:
+                switch (tpl[1]) {
+                case am_alias:
+                    add_oflags &= ~ERTS_ML_STATE_ALIAS_MASK;
+                    switch (tpl[2]) {
+                    case am_explicit_unalias:
+                        add_oflags |= ERTS_ML_STATE_ALIAS_UNALIAS;
+                        break;
+                    case am_demonitor:
+                        add_oflags |= ERTS_ML_STATE_ALIAS_DEMONITOR;
+                        break;
+                    case am_reply_demonitor:
+                        add_oflags |= ERTS_ML_STATE_ALIAS_ONCE;
+                        break;
+                    default:
+                        return (Uint16) ~0;
+                    }
                     break;
-                case am_demonitor:
-                    add_oflags |= ERTS_ML_STATE_ALIAS_DEMONITOR;
-                    break;
-                case am_reply_demonitor:
-                    add_oflags |= ERTS_ML_STATE_ALIAS_ONCE;
+                case am_tag:
+                    *tag = tpl[2];
                     break;
                 default:
                     return (Uint16) ~0;
                 }
                 break;
-            case am_tag:
-                *tag = tpl[2];
-                break;
             default:
                 return (Uint16) ~0;
             }
             break;
-        default:
-	    return (Uint16) ~0;
-	}
+        }
 	opts = CDR(cons);
     }
     if (is_not_nil(opts))
@@ -836,6 +870,9 @@ badarg:
     ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
     
 done:
+
+    if (add_oflags & ERTS_ML_FLG_PRIO)
+        erts_proc_sig_register_prio_message(c_p, ERTS_PMSG_TYPE_MON, ref, 0);
 
     return ret_val;
 }
@@ -1178,11 +1215,16 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
         BIF_RET(am_true);
     }
 
-    if (is_external_port(BIF_ARG_1)) {
-        if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
-            BIF_RET(am_true);
-        /* Links to Remote ports not supported... */
+    if (is_external_port(BIF_ARG_1)
+        && external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry) {
+        ErtsLink *lnk;
+        ErtsELink *elnk;
+        lnk = erts_link_tree_lookup(ERTS_P_LINKS(BIF_P), BIF_ARG_1);
+        erts_link_to_other(lnk, &elnk);
+        erts_link_release_both(&elnk->ld);
+        BIF_RET(am_true);
     }
+    /* Links to Remote ports not supported... */
 
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -1961,17 +2003,59 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        BIF_RET(old_value);
    }
    else if (is_tuple(BIF_ARG_1)) {
-       /*
-	* This argument is intentionally *not* documented. It is intended
-	* to be used by net_kernel:monitor_nodes/2.
-	*/
        Eterm *tp = tuple_val(BIF_ARG_1);
+
        if (arityval(tp[0]) == 2) {
-	   if (tp[1] == am_monitor_nodes) {
+           ErtsPrioMsgType pm_type;
+           int old;
+           switch (tp[1]) {
+           case am_priority_monitor_message:
+               if (is_not_ref(tp[2]))
+                   goto error;
+               pm_type = ERTS_PMSG_TYPE_MON;
+               goto prio_msg_common;
+
+           case am_priority_exit_message:
+               if (is_not_pid(tp[2]) && is_not_port(tp[2]))
+                   goto error;
+               pm_type = ERTS_PMSG_TYPE_EXIT;
+               goto prio_msg_common;
+
+           case am_priority_marked_message:
+               if (is_not_pid(tp[2]))
+                   goto error;
+               pm_type = ERTS_PMSG_TYPE_MRKD;
+
+           prio_msg_common:
+               if (BIF_ARG_2 == am_true) {
+                   old = erts_proc_sig_register_prio_message(BIF_P,
+                                                             pm_type,
+                                                             tp[2],
+                                                             !0);
+               }
+               else if (BIF_ARG_2 == am_false) {
+                   old = erts_proc_sig_unregister_prio_message(BIF_P,
+                                                               pm_type,
+                                                               tp[2],
+                                                               !0);
+               }
+               else {
+                   goto error;
+               }
+               BIF_RET(old ? am_true : am_false);
+
+           case am_monitor_nodes:
+               /*
+                * This argument is intentionally *not* documented. It is
+                * intended to be used by net_kernel:monitor_nodes/2.
+                */
 	       old_value = erts_monitor_nodes(BIF_P, BIF_ARG_2, tp[2]);
 	       if (old_value == THE_NON_VALUE)
 		   goto error;
 	       BIF_RET(old_value);
+
+           default:
+               goto error;
 	   }
        }
        /* Fall through and try process_flag_aux() ... */

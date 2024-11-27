@@ -466,12 +466,13 @@
 #define ERTS_MON_TYPE_SUSPEND           ((Uint16) 8)
 #define ERTS_MON_TYPE_ALIAS             ERTS_MON_TYPE_MAX
 
-#define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint16) 3))
+#define ERTS_MON_LNK_TYPE_MAX           (ERTS_MON_TYPE_MAX + ((Uint16) 4))
 #define ERTS_LNK_TYPE_MAX               ERTS_MON_LNK_TYPE_MAX
 
 #define ERTS_LNK_TYPE_PROC              (ERTS_MON_TYPE_MAX + ((Uint16) 1))
 #define ERTS_LNK_TYPE_PORT              (ERTS_MON_TYPE_MAX + ((Uint16) 2))
-#define ERTS_LNK_TYPE_DIST_PROC         ERTS_LNK_TYPE_MAX
+#define ERTS_LNK_TYPE_DIST_PROC         (ERTS_MON_TYPE_MAX + ((Uint16) 3))
+#define ERTS_LNK_TYPE_DIST_PORT         ERTS_LNK_TYPE_MAX
 
 #define ERTS_ML_FLG_TARGET              (((Uint16) 1) << 0)
 #define ERTS_ML_FLG_IN_TABLE            (((Uint16) 1) << 1)
@@ -487,6 +488,7 @@
 #define ERTS_ML_FLG_ALIAS_BIT1          (((Uint16) 1) << 11)
 #define ERTS_ML_FLG_ALIAS_BIT2          (((Uint16) 1) << 12)
 #define ERTS_ML_FLG_TAG                 (((Uint16) 1) << 13)
+#define ERTS_ML_FLG_PRIO                (((Uint16) 1) << 14)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
 
@@ -2528,12 +2530,15 @@ erts_link_dist_delete(ErtsLink *lnk)
     int delete_;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
-    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC
+                   || lnk->type == ERTS_LNK_TYPE_DIST_PORT);
 
     elnk = erts_link_to_elink(lnk);
     dist = elnk->dist;
     if (!dist)
         return -1;
+
+    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
 
     erts_mtx_lock(&dist->mtx);
 

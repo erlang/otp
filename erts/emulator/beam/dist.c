@@ -6032,6 +6032,11 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         
         erts_de_runlock(dep);
 
+        if (monitor_oflags & ERTS_ML_FLG_PRIO) {
+            erts_proc_sig_register_prio_message(BIF_P, ERTS_PMSG_TYPE_MON,
+                                                ref, 0);
+        }
+
         ctx.reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
 
         code = dsig_send_spawn_request(&ctx, ref, BIF_P->common.id,

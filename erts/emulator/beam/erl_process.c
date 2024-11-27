@@ -12630,7 +12630,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
 #endif
-    
+
     if (parent_id == ERTS_INVALID_PID) {
         p->parent = am_undefined;
     }
@@ -12815,6 +12815,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
             mdp->origin.flags |= so->monitor_oflags;
             erts_monitor_tree_insert(&ERTS_P_MONITORS(parent), &mdp->origin);
             erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->u.target);
+            if (mdp->origin.flags & ERTS_ML_FLG_PRIO) {
+                erts_proc_sig_register_prio_message(parent, ERTS_PMSG_TYPE_MON,
+                                                    spawn_ref, 0);
+            }
         }
 
         ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
@@ -14010,6 +14014,14 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
         }
         break;
     }
+    case ERTS_LNK_TYPE_DIST_PORT:
+        /*
+         * Process linked an external port and should have a
+         * noproc exit-signal in its signal queue. Just release
+         * the link structure...
+         */
+        erts_link_to_other(lnk, &elnk);
+        break;
     default:
         ERTS_INTERNAL_ERROR("Unexpected link type");
         break;
