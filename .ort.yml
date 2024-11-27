@@ -866,3 +866,14 @@ curations:
         comment: >-
           The scanner mixes up the copyright and license notice
         concluded_license: "Apache-2.0"
+
+        #
+        #
+        # Image files
+        #
+        #
+      - path: "system/doc/reference_manual/assets/prio-msg-recv.png"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner cannot detect this license
+        concluded_license: "Apache-2.0"

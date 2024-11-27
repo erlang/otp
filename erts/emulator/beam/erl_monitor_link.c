@@ -60,6 +60,7 @@ ml_get_key(ErtsMonLnkNode *mln)
     }
     case ERTS_LNK_TYPE_PROC:
     case ERTS_LNK_TYPE_DIST_PROC:
+    case ERTS_LNK_TYPE_DIST_PORT:
     case ERTS_LNK_TYPE_PORT:
     case ERTS_MON_TYPE_NODE:
     case ERTS_MON_TYPE_NODES:
@@ -98,7 +99,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
      * A link key is either a pid, an internal port
      *
      * Order between links with keys of different types:
-     *  internal pid < internal port < external pid
+     *  internal pid < internal port < external pid < external port
      *
      */
     ERTS_ML_ASSERT(is_internal_pid(key1)
@@ -106,6 +107,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_atom(key1)
                    || is_small(key1)
                    || is_external_pid(key1)
+                   || is_external_port(key1)
                    || is_internal_ordinary_ref(key1)
                    || is_internal_pid_ref(key1)
                    || is_external_ref(key1));
@@ -115,6 +117,7 @@ ml_cmp_keys(Eterm key1, Eterm key2)
                    || is_atom(key2)
                    || is_small(key2)
                    || is_external_pid(key2)
+                   || is_external_port(key2)
                    || is_internal_ordinary_ref(key2)
                    || is_internal_pid_ref(key2)
                    || is_external_ref(key2));
@@ -181,12 +184,26 @@ ml_cmp_keys(Eterm key1, Eterm key2)
         if (is_not_external(key2))
             return 1;
         else {
+            Eterm *w2, hdr2;
+            int key1_tag, key2_tag;
             Uint ndw1, ndw2;
             ExternalThing *et1, *et2;
             ErlNode *n1, *n2;
 
-            ERTS_ML_ASSERT((is_external_ref(key1) && is_external_ref(key2))
-                           || (is_external_pid(key1) && is_external_pid(key2)));
+            ERTS_ML_ASSERT((is_external_ref(key1)
+                            && is_external_ref(key2))
+                           || ((is_external_pid(key1)
+                                || is_external_port(key1))
+                               && (is_external_pid(key2)
+                                   || is_external_port(key2))));
+
+            w2 = boxed_val(key2);
+            hdr2 = *w2;
+
+            key1_tag = (int) (hdr1 & _TAG_HEADER_MASK);
+            key2_tag = (int) (hdr2 & _TAG_HEADER_MASK);
+            if (key1_tag != key2_tag)
+                return key1_tag - key2_tag;
 
             et1 = (ExternalThing *) w1;
             et2 = (ExternalThing *) external_val(key2);
@@ -1253,7 +1270,10 @@ link_init(void)
 ErtsLink *
 erts_link_tree_lookup(ErtsLink *root, Eterm key)
 {
-    ASSERT(is_pid(key) || is_internal_port(key));
+    ASSERT(is_pid(key)
+           || is_internal_port(key)
+           || (is_external_port(key)
+               && external_port_dist_entry(key) == erts_this_dist_entry));
     return (ErtsLink *) ml_rbt_lookup((ErtsMonLnkNode *) root, key);
 }
 
@@ -1480,9 +1500,13 @@ erts_link_external_create(Uint16 type, Eterm this_, Eterm other)
     Eterm *hp;
     ErlOffHeap oh;
 
-    ERTS_ML_ASSERT(type == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT((type == ERTS_LNK_TYPE_DIST_PROC
+                    && is_external_pid(other))
+                   || (type == ERTS_LNK_TYPE_DIST_PORT
+                       && is_external_port(other)
+                       && (external_port_dist_entry(other)
+                           == erts_this_dist_entry)));
     ERTS_ML_ASSERT(is_internal_pid(this_));
-    ERTS_ML_ASSERT(is_external_pid(other));
 
     hsz = EXTERNAL_PID_HEAP_SIZE;
 
@@ -1572,7 +1596,9 @@ erts_link_size(ErtsLink *lnk)
         ErtsELink *elnk = erts_link_to_elink(lnk);
 
         ASSERT((ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC
-                && is_external_pid_header(elnk->heap[0])));
+                && is_external_pid_header(elnk->heap[0]))
+               || (ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PORT
+                   && is_external_port_header(elnk->heap[0])));
 
         size = sizeof(ErtsELink);
         size += thing_arityval(elnk->heap[0])*sizeof(Eterm);

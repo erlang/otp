@@ -34,7 +34,7 @@ RELSYS_HTMLDIR= $(RELEASE_PATH)/doc/system
 # Correctly copy assets
 # ----------------------------------------------------
 GUIDES=$(shell awk -F: '{print $$1}' guides)
-ASSETS_SRC=$(foreach guide, $(GUIDES), $(wildcard $(guide)/assets/*.gif) $(wildcard $(guide)/assets/*.svg))
+ASSETS_SRC=$(foreach guide, $(GUIDES), $(wildcard $(guide)/assets/*.gif) $(wildcard $(guide)/assets/*.png) $(wildcard $(guide)/assets/*.svg))
 ASSETS=$(foreach asset, $(ASSETS_SRC), assets/$(notdir $(asset)))
 
 HTML_DEPS=$(foreach guide, $(GUIDES), $(wildcard $(guide)/*.md))

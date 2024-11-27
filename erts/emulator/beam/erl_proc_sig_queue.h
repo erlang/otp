@@ -186,7 +186,7 @@ typedef struct {
 #define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
 #define ERTS_SIG_Q_OP_RPC                       13
 #define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
-#define ERTS_SIG_Q_OP_ALTACT_MSG                 15
+#define ERTS_SIG_Q_OP_ALTACT_MSG                15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
 #define ERTS_SIG_Q_OP_ADJ_MSGQ                  18
@@ -1833,6 +1833,14 @@ ERTS_GLB_INLINE void erts_msgq_set_save_end(Process *c_p);
  */
 void erts_proc_sig_cleanup_queues(Process *c_p);
 
+typedef enum {
+    ERTS_PRIO_ITEM_TYPE_ALIAS,
+    ERTS_PRIO_ITEM_TYPE_LINK,
+    ERTS_PRIO_ITEM_TYPE_MONITOR,
+} ErtsPrioItemType;
+
+void erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type);
+void erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type);
 
 /**
  * @brief Initialize this functionality

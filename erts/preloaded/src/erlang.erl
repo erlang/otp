@@ -446,8 +446,8 @@ A list of binaries. This datatype is useful to use together with
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
--export([is_alive/0, is_builtin/3, is_map_key/2, is_process_alive/1, length/1, link/1]).
--export([list_to_atom/1, list_to_binary/1]).
+-export([is_alive/0, is_builtin/3, is_map_key/2, is_process_alive/1, length/1]).
+-export([link/1, link/2, list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
 -export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
@@ -2048,6 +2048,23 @@ Currently available options for [`alias/1`](`alias/1`):
   sent via the alias is received. The alias can also still be deactivated via a
   call to [`unalias/1`](`unalias/1`).
 
+- **`priority`** - [](){: #priority_alias } Since OTP @OTP-19198@
+
+  The alias can be used for sending
+  [priority messages](`e:system:ref_man_processes.md#priority-messages`) to the
+  process that created this alias. An alias created with this option is also
+  known as a *priority process alias* or shorter *priority alias*.
+
+  > #### Warning {: .warning }
+  >
+  > You *very seldom* need to resort to using priority messages and you may
+  > [cause issues](`e:system:ref_man_processes.md#priority-message-warning`)
+  > instead of solving issues if not used with care.
+
+  For more information see, the
+  [Enabling Priority Message Reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  section of the _Erlang Reference Manual_.
+
 Example:
 
 ```erlang
@@ -2083,11 +2100,12 @@ For more information on process aliases see the
 [_Process Aliases_](`e:system:ref_man_processes.md#process-aliases`) section of
 the _Erlang Reference Manual_.
 """.
+
 -doc #{ category => processes }.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec alias(Opts) -> Alias when
       Alias :: reference(),
-      Opts :: ['explicit_unalias' | 'reply'].
+      Opts :: ['explicit_unalias' | 'reply' | 'priority'].
 
 alias(_Opts) ->
     erlang:nif_error(undefined).
@@ -2404,10 +2422,13 @@ exit(_Reason) ->
 %% exit/2
 -doc """
 Sends an exit signal with exit reason `Reason` to the process or port identified
-by `Pid`.
+by `Dest`. If `Dest` is a reference, the exit signal will *only* affect the
+identified process if the reference is an active
+[process alias](`e:system:ref_man_processes.md#process-aliases`) of a process
+executing on an OTP @OTP-19198@ node or newer.
 
 The following behavior applies if `Reason` is any term, except `normal` or
-`kill`, and `P` is the process or port identified by `Pid`:
+`kill`, and `P` is the process or port identified by `Dest`:
 
 - If `P` is not [trapping exits](`process_flag/2`), `P` exits with exit reason
   `Reason`.
@@ -2416,9 +2437,9 @@ The following behavior applies if `Reason` is any term, except `normal` or
   identifier of the process that sent the exit signal, and delivered to the
   message queue of `P`.
 
-The following behavior applies if `Reason` is the term `normal` and `Pid` is the
+The following behavior applies if `Reason` is the term `normal` and `Dest` is the
 identifier of a process `P` which is not the same as the process that invoked
-`erlang:exit(Pid, normal)` (the behavior when a process sends a signal with the
+`erlang:exit(Dest, normal)` (the behavior when a process sends a signal with the
 `normal` reason to itself is described in the warning):
 
 - If `P` is [trapping exits](`process_flag/2`), the exit signal is transformed
@@ -2427,11 +2448,11 @@ identifier of a process `P` which is not the same as the process that invoked
   message queue.
 - The signal has no effect if `P` is not trapping exits.
 
-If `Reason` is the atom `kill`, that is, if [`exit(Pid, kill)`](`exit/2`) is
+If `Reason` is the atom `kill`, that is, if [`exit(Dest, kill)`](`exit/2`) is
 called, an untrappable exit signal is sent to the process that is identified by
-`Pid`, which unconditionally exits with exit reason `killed`. The exit reason is
+`Dest`, which unconditionally exits with exit reason `killed`. The exit reason is
 changed from `kill` to `killed` to hint to linked processes that the killed
-process got killed by a call to [`exit(Pid, kill)`](`exit/2`).
+process got killed by a call to [`exit(Dest, kill)`](`exit/2`).
 
 > #### Note {: .info }
 >
@@ -2464,24 +2485,62 @@ process got killed by a call to [`exit(Pid, kill)`](`exit/2`).
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
+
 -doc #{ category => processes }.
--spec exit(Pid, Reason) -> true when
-      Pid :: pid() | port(),
+-spec exit(Dest, Reason) -> true when
+      Dest :: pid() | port() | reference(),
       Reason :: term().
-exit(_Pid, _Reason) ->
+exit(_Dest, _Reason) ->
     erlang:nif_error(undefined).
 
--spec exit(Pid, Reason, OptList) -> true when
-      OptList :: [priority],
-      Pid :: pid() | port(),
-      Reason :: term().
-exit(_Pid, _Reason, OptList) ->
+%% exit/3
+-doc """
+Provides an option list for modification of the functionality provided by the
+`exit/2` BIF. The `Dest` and `Reason` arguments has the same meaning as when
+passed to the `exit/2` BIF.
+
+Currently available options:
+
+- **`priority`** -- Since OTP @OTP-19198@
+
+  Send this exit signal as a priority exit signal. In order for
+  the signal to be handled as a
+  [priority `EXIT` message](`e:system:ref_man_processes.md#priority-messages`)
+  by the receiver, this option *must* be passed, `Dest` *must* be an active
+  [*priority alias*](#priority_alias) and the receiver *must* be
+  [trapping exits](#process_flag_trap_exit).
+
+  If `Dest` is an active priority alias, but this option is not passed, the exit
+  signal will be handled as on ordinary exit signal. The same is true, if this
+  option is passed, but `Dest` is not an active priority alias.
+
+  > #### Warning {: .warning }
+  >
+  > You *very seldom* need to resort to using priority messages and you may
+  > [cause issues](`e:system:ref_man_processes.md#priority-message-warning`)
+  > instead of solving issues if not used with care.
+
+  For more information see, the
+  [_Adding Messages to the Message Queue_](`e:system:ref_man_processes.md#message-queue-order`)
+  and the
+  [Enabling Priority Message Reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  sections of the _Erlang Reference Manual_.
+
+""".
+
+-doc #{ category => processes }.
+-doc(#{since => <<"OTP @OTP-19198@">>}).
+-spec exit(Dest, Reason, OptList) -> true when
+      Dest :: pid() | port() | reference(),
+      Reason :: term(),
+      OptList :: [priority].
+exit(_Pid, _Reason, _OptList) ->
     erlang:nif_error(undefined).
 
 %% exit_signal/2
 -doc false.
 -spec exit_signal(Pid, Reason) -> true when
-      Pid :: pid() | port(),
+      Pid :: pid() | port() | reference(),
       Reason :: term().
 exit_signal(_Pid, _Reason) ->
     erlang:nif_error(undefined).
@@ -3654,10 +3713,53 @@ Failure:
 - `noproc` linkee does not exist and it is "cheap" to check if it exists as
   described above.
 """.
+
 -doc #{ category => processes }.
 -spec link(PidOrPort) -> true when
       PidOrPort :: pid() | port().
 link(_PidOrPort) ->
+    erlang:nif_error(undefined).
+
+%% link/2
+-doc """
+Provides an option list for modification of the link functionality provided by
+`link/1`. The `PidOrPort` argument has the same meaning as when passed to
+`link/1`.
+
+Currently available options:
+
+- **`priority`** - Since OTP @OTP-19198@
+
+  [Enables priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  of `EXIT` messages due to the link for the calling process. If the link
+  already exists without priority message reception enabled for the link,
+  priority message reception will be enabled on the existing link. If the link
+  already exists with priority message reception enabled and this option is not
+  passed or `link/1` is called, priority message reception for this link will be
+  disabled.
+
+  Note that priority message reception due to the link is *only* enabled for the
+  process that passed this option. If the linked process also wants to enable
+  priority message reception, it needs to call `link/2` passing the `priority`
+  option itself.
+
+  > #### Warning {: .warning }
+  >
+  > You *very seldom* need to resort to using priority messages and you may
+  > [cause issues](`e:system:ref_man_processes.md#priority-message-warning`)
+  > instead of solving issues if not used with care.
+
+  For more information see the
+  [_Adding Messages to the Message Queue_](`e:system:ref_man_processes.md#message-queue-order`)
+  section of the _Erlang Reference Manual_.
+
+""".
+
+-doc #{ category => processes }.
+-doc(#{since => <<"OTP @OTP-19198@">>}).
+-spec link(PidOrPort, [link_option()]) -> true when
+      PidOrPort :: pid() | port().
+link(_PidOrPort, _OptList) ->
     erlang:nif_error(undefined).
 
 %% list_to_atom/1
@@ -4204,7 +4306,13 @@ module_loaded(_Module) ->
 -type monitor_port_identifier() :: port() | registered_name().
 -doc "See `monitor/3`.".
 -type monitor_option() :: {'alias', 'explicit_unalias' | 'demonitor' | 'reply_demonitor'}
-                        | {'tag', term()}.
+                        | {'tag', term()} | priority.
+-doc """
+See `link/2`.
+
+Since OTP @OTP-19198@"
+""".
+-type link_option() :: priority.
 
 %% monitor/2
 -doc """
@@ -4475,7 +4583,24 @@ Currently available options:
 
   In order for this example to work as intended, the client must be executing on
   at least an OTP 24 system, but the servers may execute on older systems.
+
+- **`priority`** - Since OTP @OTP-19198@
+
+  [Enables priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  of the monitor message(s) sent when this monitor is triggered for the calling
+  process.
+
+  > #### Warning {: .warning }
+  >
+  > You *very seldom* need to resort to using priority messages and you may
+  > [cause issues](`e:system:ref_man_processes.md#priority-message-warning`)
+  > instead of solving issues if not used with care.
+
+  For more information see the
+  [_Adding Messages to the Message Queue_](`e:system:ref_man_processes.md#message-queue-order`)
+  section of the _Erlang Reference Manual_.
 """.
+
 -doc #{ category => processes }.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec monitor
@@ -7751,6 +7876,7 @@ process_flag(_Flag, _Value) ->
       message_queue_data |
       parent |
       priority |
+      priority_messages |
       reductions |
       registered_name |
       sequential_trace_token |
@@ -7799,6 +7925,7 @@ process_flag(_Flag, _Value) ->
       {message_queue_data, MQD :: message_queue_data()} |
       {parent, pid() | undefined} |
       {priority, Level :: priority_level()} |
+      {priority_messages, Enabled :: boolean()} |
       {reductions, Number :: non_neg_integer()} |
       {registered_name, [] | (Atom :: atom())} |
       {sequential_trace_token, [] | (SequentialTraceToken :: term())} |
@@ -7979,6 +8106,17 @@ Valid `InfoTuple`s with corresponding `Item`s:
   process. For more information on priorities, see
   [`process_flag(priority, Level)`](#process_flag_priority).
 
+- **`{priority_messages, Enabled}`** - Since OTP @OTP-19198@
+
+  If `Enabled` equals `true`, the process has
+  [enabled priority message reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  enabled priority message reception for at least one type of messages.
+
+  For more information see the
+  [_Adding Messages to the Message Queue_](`e:system:ref_man_processes.md#message-queue-order`)
+  section of the _Erlang Reference Manual_.
+
+
 - **`{reductions, Number}`** - `Number` is the number of reductions executed by
   the process.
 
@@ -8082,6 +8220,7 @@ unreachable destination `Dest` (of correct type).
 send(_Dest,_Msg) ->
     erlang:nif_error(undefined).
 
+%% send/3
 -doc """
 Either sends a message and returns `ok`, or does not send the message but
 returns something else (see below). Otherwise the same as
@@ -8097,6 +8236,30 @@ Options:
 - **`noconnect`** - If the destination node would have to be auto-connected to
   do the send, `noconnect` is returned instead.
 
+- **`priority`** - Since OTP @OTP-19198@
+
+  Send this message as a priority message. In order for the message to be
+  handled as a
+  [priority message](`e:system:ref_man_processes.md#priority-messages`) by the
+  receiver, this option *must* be passed, and `Dest` *must* be an active
+  [*priority alias*](#priority_alias).
+
+  If `Dest` is an active priority alias, but this option is not passed, the
+  message will be handled as on ordinary message. The same is true, if this
+  option is passed, but `Dest` is not an active priority alias.
+
+  > #### Warning {: .warning }
+  >
+  > You *very seldom* need to resort to using priority messages and you may
+  > [cause issues](`e:system:ref_man_processes.md#priority-message-warning`)
+  > instead of solving issues if not used with care.
+
+  For more information see, the
+  [_Adding Messages to the Message Queue_](`e:system:ref_man_processes.md#message-queue-order`)
+  and the
+  [Enabling Priority Message Reception](`e:system:ref_man_processes.md#enable-prio-msg-recv`)
+  sections of the _Erlang Reference Manual_.
+
 > #### Note {: .info }
 >
 > For some important information about distributed signals, see the
@@ -8111,7 +8274,7 @@ Options:
 -spec send(Dest, Msg, Options) -> Res when
       Dest :: send_destination(),
       Msg :: term(),
-      Options :: [nosuspend | noconnect],
+      Options :: [nosuspend | noconnect | priority],
       Res :: ok | nosuspend | noconnect.
 send(_Dest,_Msg,_Options) ->
     erlang:nif_error(undefined).
@@ -10024,6 +10187,7 @@ Process max heap size configuration. For more info see
 -doc "Options for [`spawn_opt()`](`spawn_opt/4`).".
 -type spawn_opt_option() ::
 	link
+      | {link, LinkOpts :: [link_option()]}
       | monitor
       | {monitor, MonitorOpts :: [monitor_option()]}
       | {priority, Level :: priority_level()}

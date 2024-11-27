@@ -576,6 +576,7 @@ atom prepare
 atom prepare_on_load
 atom print
 atom priority
+atom priority_messages
 atom private
 atom private_append
 atom process

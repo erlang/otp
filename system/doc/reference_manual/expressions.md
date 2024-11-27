@@ -675,21 +675,40 @@ receive
 end
 ```
 
-Fetches a received message present in the message queue of the process. The
-first message in the message queue is matched sequentially against the patterns
-from top to bottom. If no match was found, the matching sequence is repeated for
-the second message in the queue, and so on. Messages are queued in the
-[order they were received](ref_man_processes.md#message-queue-order). If a match
-succeeds, that is, if the `Pattern` matches and the optional guard sequence
-`GuardSeq` is true, then the message is removed from the message queue and the
-corresponding `Body` is evaluated. All other messages in the message queue
-remain unchanged.
+The `receive` expression searches for a message in the message queue that match
+one of the patterns in the clauses of the `receive` expression. The patterns in
+the clauses is matched against a message from top to bottom. The first message,
+from the start of the message queue, that matches will be selected. Messages are
+normally
+[enqueued in the message queue](ref_man_processes.md#message-queue-order) in
+order they were received. However,
+if [reception of priority messages](ref_man_processes.md#enable-prio-msg-recv)
+has been enabled by the receiving process, this is not always the case. When a
+match succeeds and the optional guard sequence `GuardSeq` is true, the matching
+message is fetched from the message queue and the corresponding `Body` is
+evaluated. All other messages in the message queue remain unchanged.
 
 The return value of `Body` is the return value of the `receive` expression.
 
 `receive` never fails. The execution is suspended, possibly indefinitely, until
 a message arrives that matches one of the patterns and with a true guard
 sequence.
+
+[](){: #selective-receive-warning }
+> #### Warning {: .warning }
+> The time complexity of a `receive` expression is `O(N)` where `N` corresponds
+> to the amount of messages preceeding the matching message in the message queue.
+> That is, when the combination of patterns of a `receive` expression only match
+> specific messages and the message queue is huge, executing such a `receive`
+> expression might become very expensive.
+>
+> One type of `receive` expressions matching on only specific patterns can,
+> however, be optimized by the compiler and runtime system. This in the scenario
+> where you create a [*reference*](`e:system:data_types.md#reference`) and
+> match on it in all clauses of a `receive` expression *close* to where the
+> reference was created. In this case only the amount of messages received after
+> the reference was created needs to be inspected. For more information see the
+> [*Fetching Received Messages* section of the *Efficiency Guide*](`e:system:eff_guide_processes.md#fetching-received-messages`).
 
 _Example:_
 
@@ -727,6 +746,15 @@ expression. `ExprT` is to evaluate to an integer, or the atom `infinity`. The
 allowed integer range is from 0 to 4294967295, that is, the longest possible
 timeout is almost 50 days. With a zero value the timeout occurs immediately if
 there is no matching message in the message queue.
+
+> #### Warning {: .warning }
+> It might seem like a `receive` expression with an `after 0` clause (or
+> another short timeout) might be cheap since the timeout is short. This is
+> *not* necessarily the case. If the patterns in the clauses of the `receive`
+> expression only match specific messages and no such messages exist in the
+> message queue, the whole message queue needs to be inspected before the
+> timeout can occur. That is, the same apply as in
+> [the warning above](#selective-receive-warning).
 
 The atom `infinity` will make the process wait indefinitely for a matching
 message. This is the same as not using a timeout. It can be useful for timeout
