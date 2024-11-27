@@ -335,7 +335,7 @@ The user is responsible for any initialization of the process and must call
 `init/1`.
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec enter_loop(State) -> _  when State :: term().
+-spec enter_loop(State) -> no_return() when State :: term().
 enter_loop(State) ->
     gen_server:enter_loop(?MODULE, [], State).
 

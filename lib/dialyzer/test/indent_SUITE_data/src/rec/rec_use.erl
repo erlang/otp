@@ -1,6 +1,6 @@
 -module(rec_use).
 
--export([ok1/0, ok2/0, wrong1/0, wrong2/0, wrong3/0, wrong4/0]).
+-export([ok1/0, ok2/0, wrong1/0, wrong2/0, wrong3/0]).
 
 ok1() ->
     rec_adt:set_a(rec_adt:new(), foo).
@@ -13,7 +13,7 @@ ok2() ->
     B1 =:= B2.
 
 wrong1() ->
-    case rec_adt:new() of
+    case rec_adt:new(42) of
 	{rec, _, 42} -> weird1;
 	R when tuple_size(R) =:= 3 -> weird2
     end.
@@ -25,6 +25,3 @@ wrong2() ->
 wrong3() ->
     R = rec_adt:new(),
     R =:= {rec, gazonk, 42}.
-
-wrong4() ->
-    tuple_size(rec_adt:new()).

@@ -559,6 +559,7 @@ read_disc_schema(Keep, IgnoreFallback) ->
             end
     end.
 
+-dialyzer({no_opaque_union, [do_read_disc_schema/2]}).
 do_read_disc_schema(Fname, Keep) ->
     T =
         case Keep of

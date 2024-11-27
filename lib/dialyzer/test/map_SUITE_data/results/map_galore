@@ -24,5 +24,6 @@ map_galore.erl:2280:50: Cons will produce an improper list since its 2nd argumen
 map_galore.erl:2280:50: The call maps:from_list([{'a', 'b'} | {'b', 'a'}]) will never return since it differs in the 1st argument from the success typing arguments: ([{_,_}])
 map_galore.erl:2281:50: The call maps:from_list('a') will never return since it differs in the 1st argument from the success typing arguments: ([{_,_}])
 map_galore.erl:2282:50: The call maps:from_list(42) will never return since it differs in the 1st argument from the success typing arguments: ([{_,_}])
+map_galore.erl:982:12: The test #{1:='a', 2:='b', 4:='d', 5:='e', float()=>'c' | 'new'} =/= #{1:='a', 2:='b', 3:='right', 4:='d', 5:='e', float()=>'c' | 'new'} can never evaluate to 'false'
 map_galore.erl:997:55: A key of type 'nonexisting' cannot exist in a map of type #{}
 map_galore.erl:998:52: A key of type 'nonexisting' cannot exist in a map of type #{1:='a', 2:='b', 4:='d', 5:='e', float()=>'c'}

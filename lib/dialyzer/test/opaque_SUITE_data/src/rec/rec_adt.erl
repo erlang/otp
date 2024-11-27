@@ -1,6 +1,6 @@
 -module(rec_adt).
 
--export([new/0, get_a/1, get_b/1, set_a/2, set_b/2]).
+-export([new/0, new/1, get_a/1, get_b/1, set_a/2, set_b/2]).
 
 -record(rec, {a :: atom(), b = 0 :: integer()}).
 
@@ -8,6 +8,9 @@
 
 -spec new() -> rec().
 new() -> #rec{a = gazonk, b = 42}.
+
+-spec new(integer()) -> rec().
+new(B) -> #rec{a = gazonk, b = B}.
 
 -spec get_a(rec()) -> atom().
 get_a(#rec{a = A}) -> A.

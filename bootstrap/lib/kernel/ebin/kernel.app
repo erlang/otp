@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2023. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "9.0.2"},
+  {vsn, "10.1.1"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -72,6 +72,7 @@
              logger_filters,
              logger_formatter,
              logger_h_common,
+             logger_handler,
              logger_handler_watcher,
              logger_olp,
              logger_proxy,
@@ -88,6 +89,7 @@
 	     user_drv,
 	     user_sup,
              prim_tty,
+             prim_tty_sighandler,
              disk_log,
              disk_log_1,
              disk_log_server,
@@ -121,6 +123,7 @@
 	     seq_trace,
              socket,
 	     standard_error,
+             trace,
 	     wrap_log_reader]},
   {registered, [application_controller,
 		erl_reply,
@@ -158,10 +161,11 @@
          {net_tickintensity, 4},
          {net_ticktime, 60},
          {prevent_overlapping_partitions, true},
-         {shell_docs_ansi,auto}
+         {shell_docs_ansi,auto},
+         {shell_history_drop,[]}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-14.0", "stdlib-5.0",
+  {runtime_dependencies, ["erts-15.1", "stdlib-6.0",
                           "sasl-3.0", "crypto-5.0"]}
   ]
 }.

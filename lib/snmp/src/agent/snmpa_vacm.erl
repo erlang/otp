@@ -188,6 +188,7 @@ loop_mib_view_get(Indexes) ->
 init(Dir) ->
     init(Dir, terminate).
 
+-dialyzer({no_opaque_union, [init/2]}).
 init(Dir, InitError) ->
     FName = filename:join(Dir, "snmpa_vacm.db"),
     case file:read_file_info(FName) of

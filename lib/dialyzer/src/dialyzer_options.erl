@@ -38,6 +38,7 @@ build(Opts) ->
                   ?WARN_FUN_APP,
                   ?WARN_MATCHING,
                   ?WARN_OPAQUE,
+                  ?WARN_OPAQUE_UNION,
                   ?WARN_CALLGRAPH,
                   ?WARN_FAILING_CALL,
                   ?WARN_BIN_CONSTRUCTION,
@@ -501,7 +502,9 @@ build_warnings([Opt|Opts], Warnings) ->
       no_match ->
 	ordsets:del_element(?WARN_MATCHING, Warnings);
       no_opaque ->
-	ordsets:del_element(?WARN_OPAQUE, Warnings);
+        S = ordsets:from_list([?WARN_OPAQUE,
+                               ?WARN_OPAQUE_UNION]),
+        ordsets:subtract(Warnings, S);
       no_fail_call ->
 	ordsets:del_element(?WARN_FAILING_CALL, Warnings);
       no_contracts ->
@@ -543,6 +546,10 @@ build_warnings([Opt|Opts], Warnings) ->
         ordsets:add_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
       no_missing_return ->
         ordsets:del_element(?WARN_CONTRACT_MISSING_RETURN, Warnings);
+      opaque_union ->
+        ordsets:add_element(?WARN_OPAQUE_UNION, Warnings);
+      no_opaque_union ->
+        ordsets:del_element(?WARN_OPAQUE_UNION, Warnings);
       unknown ->
         ordsets:add_element(?WARN_UNKNOWN, Warnings);
       overlapping_contract ->

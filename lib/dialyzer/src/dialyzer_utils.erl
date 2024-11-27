@@ -176,7 +176,7 @@ get_record_and_type_info([{type, Location, [{{record, Name}, Fields0, []}]}
   get_record_and_type_info(Left, Module, NewRecDict, File);
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, [], Module, FN, RecDict) of
     NewRecDict ->
@@ -186,7 +186,7 @@ get_record_and_type_info([{Attr, Location, [{Name, TypeForm}]}|Left],
   end;
 get_record_and_type_info([{Attr, Location, [{Name, TypeForm, Args}]}|Left],
 			 Module, RecDict, File)
-               when Attr =:= 'type'; Attr =:= 'opaque' ->
+               when Attr =:= 'type'; Attr =:= 'opaque'; Attr =:= 'nominal' ->
   FN = {File, Location},
   try add_new_type(Attr, Name, TypeForm, Args, Module, FN, RecDict) of
     NewRecDict ->
@@ -374,6 +374,8 @@ process_opaque_types(AllModules, CServer, TempExpTypes) ->
                                           RecordTable, VarTable, C2),
                   {{Key, {F, Type}}, C3};
                 {type, _Name, _NArgs} ->
+                  {{Key, Value}, C2};
+                {nominal, _Name, _NArgs} ->
                   {{Key, Value}, C2};
                 {record, _RecName} ->
                   {{Key, Value}, C2}

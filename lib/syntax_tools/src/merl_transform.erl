@@ -281,6 +281,7 @@ is_erlang_var([C|_]) when C >= $A, C =< $Z ; C >= $À, C =< $Þ, C /= $× ->
 is_erlang_var(_) ->
     false.
 
+-dialyzer({no_opaque_union, [get_location/1]}).
 get_location(T) ->
     Pos = erl_syntax:get_pos(T),
     case erl_anno:is_anno(Pos) of

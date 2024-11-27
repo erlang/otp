@@ -402,6 +402,8 @@ lattribute({attribute,_Anno,type,Type}, Opts) ->
     [typeattr(type, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,opaque,Type}, Opts) ->
     [typeattr(opaque, Type, Opts),leaf(".\n")];
+lattribute({attribute,_Anno,nominal,Type}, Opts) ->
+    [typeattr(nominal, Type, Opts),leaf(".\n")];
 lattribute({attribute,_Anno,spec,Arg}, _Opts) ->
     [specattr(spec, Arg),leaf(".\n")];
 lattribute({attribute,_Anno,callback,Arg}, _Opts) ->

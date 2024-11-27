@@ -72,6 +72,7 @@ run(#state{coordinator = Coordinator, job = Job} = State) ->
   ?debug("~w: Done: ~p\n",[self(), Job]),
   dialyzer_coordinator:job_done(Job, Result, Coordinator).
 
+-dialyzer({no_opaque_union, [run_job/1]}).
 run_job(#state{mode = Mode, job = Job, init_data = InitData} = State) ->
   ?debug("~w: ~p: ~p\n", [self(), Mode, Job]),
   StartableJob = dialyzer_coordinator:get_job_input(Mode, Job),

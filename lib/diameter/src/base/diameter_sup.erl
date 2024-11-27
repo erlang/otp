@@ -78,7 +78,8 @@ ets_new(List)
     lists:foreach(fun ets_new/1, List);
 
 ets_new({Table, Opts}) ->
-    ets:new(Table, [named_table, public | Opts]).
+    ets:new(Table, [named_table, public | Opts]),
+    ok.
 
 %% tree/0
 

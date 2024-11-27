@@ -119,8 +119,8 @@ or a list of key-value pairs.
 -type column() :: pos_integer().
 -type generated() :: boolean().
 -type filename() :: file:filename_all().
--type line() :: non_neg_integer().
--type location() :: line() | {line(), column()}.
+-nominal line() :: non_neg_integer().
+-nominal location() :: line() | {line(), column()}.
 -type record() :: boolean().
 -type text() :: string().
 

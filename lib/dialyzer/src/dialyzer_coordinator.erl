@@ -157,6 +157,7 @@ wait_for_success_typings(Labels, {_Collector, _Regulator, JobLabelsToPid}) ->
 %%--------------------------------------------------------------------
 %% Local functions.
 
+-dialyzer({no_opaque_union, [spawn_jobs/4]}).
 spawn_jobs(Mode, Jobs, InitData, Timing) ->
   Collector = self(),
   Regulator = spawn_regulator(),
@@ -215,6 +216,7 @@ job_fun(JobLabelsToPid, Mode, InitData, Coordinator) ->
       ok
   end.
 
+-dialyzer({no_opaque_union, [collect_result/1]}).
 collect_result(#state{mode = Mode, active = Active, result = Result,
 		      next_label = NextLabel, init_data = InitData,
                       jobs = JobsLeft, job_fun = JobFun,
@@ -258,6 +260,7 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
       end
   end.
 
+-dialyzer({no_opaque_union, [update_result/5]}).
 update_result(Mode, InitData, Job, Data, Result) ->
   if
     Mode =:= 'compile' ->

@@ -222,7 +222,7 @@ select_tag(#tag{name = type, line = Line, origin = code} = T,
     TypeAttr = erl_syntax:revert(TypeTree),
     case TypeAttr of
 	{attribute, _, Type, {Name, _, Args}}
-	  when (type =:= Type orelse opaque =:= Type),
+	  when (type =:= Type orelse opaque =:= Type orelse nominal =:= Type),
 	       length(Args) == Arity ->
 	    {true, TypeAttr};
 	_ ->

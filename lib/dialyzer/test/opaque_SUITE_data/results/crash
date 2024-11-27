@@ -1,7 +1,11 @@
 
+crash_1.erl:42:2: Invalid type specification for function crash_1:empty/0.
+ The success typing is crash_1:empty() -> none()
+ But the spec is crash_1:empty() -> targetlist()
+ The return types do not overlap
 crash_1.erl:45:24: Record construction #targetlist{list::[]} violates the declared type of field list::crash_1:target()
 crash_1.erl:48:31: The call crash_1:get_using_branch2(Branch::maybe_improper_list(),L::crash_1:target()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),maybe_improper_list())
 crash_1.erl:50:1: The pattern <_Branch, []> can never match the type <maybe_improper_list(),crash_1:target()>
 crash_1.erl:52:1: The pattern <Branch, [H = {'target', _, _} | _T]> can never match the type <maybe_improper_list(),crash_1:target()>
 crash_1.erl:54:1: The pattern <Branch, [{'target', _, _} | T]> can never match the type <maybe_improper_list(),crash_1:target()>
-crash_2.erl:4:2: The specification for crash_2:crash/0 has an opaque subtype queue:queue(_) which is violated by the success typing () -> {tuple(),queue:queue(_)}
+crash_2.erl:4:2: The specification for crash_2:crash/0 has an opaque subtype {tuple(),integer()} which is violated by the success typing () -> {tuple(),queue:queue(_)}

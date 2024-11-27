@@ -64,8 +64,7 @@ erlang_module() ->
    case code:where_is_file("erlang.beam") of
        non_existing ->
            filename:join([code:root_dir(),
-                         "erts", "preloaded", "ebin",
-                         "erlang.beam"]);
+                         "erts", "ebin", "erlang.beam"]);
       EBeam ->
           EBeam
    end.

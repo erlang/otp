@@ -723,12 +723,6 @@ get_line(Node) ->
 	    L;
 	{L, _} when is_integer(L) ->
 	    L;
-	{_, L} when is_integer(L) ->
-	    L;
-	{L, _, _} when is_integer(L) ->
-	    L;
-	{_, L, _} when is_integer(L) ->
-	    L;
 	Pos ->
             try erl_anno:line(Pos) of
                 Line ->

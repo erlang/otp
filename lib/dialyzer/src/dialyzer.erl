@@ -787,9 +787,10 @@ message_to_string({call, [M, F, Args, ArgNs, FailReason,
 message_to_string({call_to_missing, [M, F, A]}, _I, _E) ->
   io_lib:format("Call to missing or unexported function ~w:~tw/~w\n",
                 [M, F, A]);
-message_to_string({exact_eq, [Type1, Op, Type2]}, I, _E) ->
-  io_lib:format("The test ~ts ~s ~ts can never evaluate to 'true'\n",
-		[t(Type1, I), Op, t(Type2, I)]);
+message_to_string({exact_compare, [Type1, Op, Type2]}, I, _E) ->
+  io_lib:format("The test ~ts ~s ~ts can never evaluate to '~w'\n",
+                [t(Type1, I), Op, t(Type2, I),
+                 (Op =:= '=:=' orelse Op =:= '==')]);
 message_to_string({fun_app_args, [ArgNs, Args, Type]}, I, _E) ->
   PositionString = form_position_string(ArgNs),
   io_lib:format("Fun application with arguments ~ts will fail"
@@ -887,7 +888,8 @@ message_to_string({invalid_contract, [M, F, A, InvalidContractDetails, Contract,
 		" The success typing is ~ts\n"
 		" But the spec is ~ts\n"
 		"~ts",
-    [M, F, A, con(M, F, Sig, I), con(M, F, Contract, I), format_invalid_contract_details(InvalidContractDetails)]);
+    [M, F, A, con(M, F, Sig, I), con(M, F, Contract, I),
+     format_invalid_contract_details(InvalidContractDetails)]);
 message_to_string({contract_with_opaque, [M, F, A, OpaqueType, SigType]},
                  I, _E) ->
   io_lib:format("The specification for ~w:~tw/~w"
@@ -910,18 +912,25 @@ message_to_string({spec_missing_fun, [M, F, A]}, _I, _E) ->
   io_lib:format("Contract for function that does not exist: ~w:~tw/~w\n",
 		[M, F, A]);
 %%----- Warnings for opaque type violations -------------------
-message_to_string({call_with_opaque, [M, F, Args, ArgNs, ExpArgs]}, I, _E) ->
+message_to_string({call_with_opaque,
+                   [M, F, Args, Conflicts, ExpectedTypes]}, I, _E) ->
+  Positions = [N || {N, _T, _TStr} <- Conflicts],
   io_lib:format("The call ~w:~tw~ts contains ~ts when ~ts\n",
-		[M, F, a(Args, I), form_positions(ArgNs),
-                 form_expected(ExpArgs, I)]);
-message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}, I, _E) ->
+                [M, F, a(Args, I), form_positions(Positions),
+                 form_expected(ExpectedTypes, I)]);
+message_to_string({call_without_opaque,
+                   [M, F, Args, Conflicts, _ExpectedTypes]}, I, _E) ->
   io_lib:format("The call ~w:~tw~ts does not have ~ts\n",
-		[M, F, a(Args, I),
-                 form_expected_without_opaque(ExpectedTriples, I)]);
-message_to_string({opaque_eq, [Type, _Op, OpaqueType]}, I, _E) ->
-  io_lib:format("Attempt to test for equality between a term of type ~ts"
-		" and a term of opaque type ~ts\n",
-                [t(Type, I), t(OpaqueType, I)]);
+                [M, F, a(Args, I),
+                 form_expected_without_opaque(Conflicts, I)]);
+message_to_string({opaque_compare, [Type, Op, OpaqueType]}, I, _E) ->
+  Kind = if
+            Op =:= '=:='; Op =:= '==' -> "equality";
+            Op =:= '=/='; Op =:= '/=' -> "inequality"
+         end,
+  io_lib:format("Attempt to test for ~ts between a term of type ~ts"
+                " and a term of opaque type ~ts\n",
+                [Kind, t(Type, I), t(OpaqueType, I)]);
 message_to_string({opaque_guard, [Arg1, Infix, Arg2, ArgNs]}, I, _E) ->
   io_lib:format("Guard test ~ts ~s ~ts contains ~s\n",
 		[a(Arg1, I), Infix, a(Arg2, I), form_positions(ArgNs)]);
@@ -930,15 +939,21 @@ message_to_string({opaque_guard, [Guard, Args]}, I, _E) ->
 		[Guard, a(Args, I)]);
 message_to_string({opaque_match, [Pat, OpaqueType, OpaqueTerm]}, I, _E) ->
   Term = if OpaqueType =:= OpaqueTerm -> "the term";
-	    true -> t(OpaqueTerm, I)
-	 end,
-  io_lib:format("The attempt to match a term of type ~ts against the ~ts"
-		" breaks the opacity of ~ts\n",
-                [t(OpaqueType, I), ps(Pat, I), Term]);
-message_to_string({opaque_neq, [Type, _Op, OpaqueType]}, I, _E) ->
-  io_lib:format("Attempt to test for inequality between a term of type ~ts"
-		" and a term of opaque type ~ts\n",
-                [t(Type, I), t(OpaqueType, I)]);
+            true -> "a term of type " ++ t(OpaqueTerm, I)
+         end,
+  io_lib:format("The attempt to match ~ts against the "
+                "~ts breaks the opacity of the term\n",
+                [Term, ps(Pat, I)]);
+message_to_string({opaque_union, [IsOpaque, Type]}, I, _E) ->
+  TypeString = t(Type, I),
+  case IsOpaque of
+    true ->
+      io_lib:format("Body yields the opaque type ~ts whose opacity is "
+                    "broken by the other clauses.\n", [TypeString]);
+    false ->
+      io_lib:format("Body yields the type ~ts which violates the "
+                    "opacity of the other clauses.\n", [TypeString])
+  end;
 message_to_string({opaque_type_test, [Fun, Args, Arg, ArgType]}, I, _E) ->
   io_lib:format("The type test ~ts~ts breaks the opacity of the term ~ts~ts\n",
                 [Fun, a(Args, I), Arg, t(ArgType, I)]);
@@ -1004,7 +1019,6 @@ format_invalid_contract_details({InvalidArgIdxs, IsRangeInvalid}) ->
       false -> ""
     end,
   case {ArgDesc, RangeDesc} of
-    {"", ""} -> "";
     {"", [_|_]} -> io_lib:format(" The ~ts\n", [RangeDesc]);
     {[_|_], ""} -> io_lib:format(" ~ts\n", [ArgDesc]);
     {[_|_], [_|_]} -> io_lib:format(" ~ts, and the ~ts\n", [ArgDesc, RangeDesc])
@@ -1045,24 +1059,25 @@ form_positions(ArgNs) ->
   case ArgNs of
     [_] -> "an opaque term as ";
     [_,_|_] -> "opaque terms as "
- end ++ form_position_string(ArgNs) ++
-  case ArgNs of
-    [_] -> " argument";
-    [_,_|_] -> " arguments"
-  end.
+  end
+    ++ form_position_string(ArgNs)
+    ++ case ArgNs of
+         [_] -> " argument";
+         [_,_|_] -> " arguments"
+       end.
 
 %% We know which positions N are to blame;
 %% the list of triples will never be empty.
 form_expected_without_opaque([{N, T, TStr}], I) ->
   case erl_types:t_is_opaque(T) of
-    true  ->
+    true ->
       io_lib:format("an opaque term of type ~ts as ", [t(TStr, I)]);
     false ->
       io_lib:format("a term of type ~ts (with opaque subterms) as ",
                     [t(TStr, I)])
   end ++ form_position_string([N]) ++ " argument";
-form_expected_without_opaque(ExpectedTriples, _I) -> %% TODO: can do much better here
-  {ArgNs, _Ts, _TStrs} = lists:unzip3(ExpectedTriples),
+form_expected_without_opaque(Conflicts, _I) -> %% TODO: can do much better here
+  ArgNs = [N || {N, _T, _TStr} <- Conflicts],
   "opaque terms as " ++ form_position_string(ArgNs) ++ " arguments".
 
 form_expected(ExpectedArgs, I) ->

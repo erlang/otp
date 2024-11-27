@@ -403,10 +403,10 @@ filter_and_fix_anno(AST, [{{What, F, A}, _Anno, S, D, M} | T], ModuleDoc)
                 end;
            type ->
                 case lists:search(fun({attribute, _TypeAnno, TO, {FA, _}}) when
-                                            is_tuple(FA), TO =:= type orelse TO =:= opaque ->
+                                            is_tuple(FA), TO =:= type orelse TO =:= nominal ->
                                           {F, A} =:= FA;
                                      ({attribute, _TypeAnno, TO, {Type, _, Args}}) when
-                                            is_atom(Type), TO =:= type orelse TO =:= opaque ->
+                                            is_atom(Type), TO =:= type orelse TO =:= opaque orelse TO =:= nominal->
                                           {F, A} =:= {Type, length(Args)};
                                      (_) ->
                                           false

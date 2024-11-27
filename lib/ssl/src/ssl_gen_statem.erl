@@ -1552,7 +1552,12 @@ read_application_dist_data(_DHandle, [] = Front, BufferSize, [] = Rear) ->
 read_application_dist_data(DHandle, [], BufferSize, Rear) ->
     [Bin|Front] = lists:reverse(Rear),
     read_application_dist_data(DHandle, Front, BufferSize, [], Bin).
-%%
+
+%% We suppress opacity warnings because we've violated the opacity of
+%% `erlang:dist_handle() :: atom()` previously in the code, mixing it with
+%% the magic atom 'undefined' caused the opacity to be removed leading to
+%% warnings in calls to erlang:dist_ctrl_put_data/2
+-dialyzer({no_opaque, [read_application_dist_data/5]}).
 read_application_dist_data(DHandle, Front0, BufferSize, Rear0, Bin0) ->
     case Bin0 of
         %%
