@@ -701,20 +701,10 @@ validate_extensions(Cert, asn1_NOVALUE, ValidationState, ExistBasicCon,
     validate_extensions(Cert, [], ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
 
-validate_extensions(#cert{otp = OtpCert} = Cert,[], ValidationState, basic_constraint, _SelfSigned,
+validate_extensions(Cert,[], ValidationState, basic_constraint, _SelfSigned,
 		    UserState0, VerifyFun) ->
-    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
-    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
-    KeyUseExt = pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions),
-    ExtKeyUseExt =  pubkey_cert:select_extension(?'id-ce-extKeyUsage', Extensions),
-    case compatible_ext_key_usage(KeyUseExt, ExtKeyUseExt) of
-        true ->
-            {ValidationState, UserState0};
-        false ->
-            UserState = verify_fun(Cert, {bad_cert, {key_usage_mismatch, {KeyUseExt, ExtKeyUseExt}}},
-                                   UserState0, VerifyFun),
-            {ValidationState, UserState}
-    end;
+    UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, ca),
+    {ValidationState, UserState};
 validate_extensions(Cert, [], ValidationState =
 			#path_validation_state{max_path_length = Len,
 					       last_cert = Last},
@@ -723,8 +713,9 @@ validate_extensions(Cert, [], ValidationState =
 	true when SelfSigned ->
 	    {ValidationState, UserState0};
 	true  ->
+            UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, endentity),
 	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState0};
+	     UserState};
 	false ->
 	    %% basic_constraint must appear in certs used for digital sign
 	    %% see 4.2.1.10 in rfc 3280
@@ -737,7 +728,6 @@ validate_extensions(Cert, [], ValidationState =
 		    {ValidationState, UserState0}
 	    end
     end;
-
 validate_extensions(Cert,
 		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
 				  extnValue =
@@ -890,6 +880,18 @@ handle_last_cert(Cert, #path_validation_state{last_cert = true,
 handle_last_cert(_, ValidationState) ->
     ValidationState.
 
+validate_ext_key_usage(#cert{otp = OtpCert} = Cert, UserState, VerifyFun, Type) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    KeyUseExt = pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions),
+    ExtKeyUseExt =  pubkey_cert:select_extension(?'id-ce-extKeyUsage', Extensions),
+    case compatible_ext_key_usage(KeyUseExt, ExtKeyUseExt, Type) of
+        true ->
+            UserState;
+        false ->
+            verify_fun(Cert, {bad_cert, {key_usage_mismatch, {KeyUseExt, ExtKeyUseExt}}},
+                       UserState, VerifyFun)
+    end.
 
 %%====================================================================
 %% Policy handling
@@ -1799,9 +1801,11 @@ is_digitally_sign_cert(Cert) ->
 	    lists:member(keyCertSign, KeyUse)
     end.
 
-compatible_ext_key_usage(_, undefined) ->
+compatible_ext_key_usage(undefined, _, endentity) -> %% keyusage (first arg )is mandantory in CAs
     true;
-compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}) ->
+compatible_ext_key_usage(_, undefined, _) ->
+    true;
+compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, _) ->
     case ext_keyusage_includes_any(Purposes) of
         true ->
             true;
@@ -2121,9 +2125,12 @@ add_default_extensions(server, peer, Exts) ->
                             critical = false}
               ],
     add_default_extensions(Default, Exts);
-
 add_default_extensions(client, peer, Exts) ->
-    Exts.
+    Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                            extnValue = [digitalSignature],
+                            critical = false}
+              ],
+    add_default_extensions(Default, Exts).
 
 add_default_extensions(Defaults0, Exts) ->
     Defaults = lists:filtermap(fun(#'Extension'{extnID = ID} = Ext) ->
