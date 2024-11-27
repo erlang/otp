@@ -1725,7 +1725,7 @@ returned.
   latin-1 newline character. The delimiter byte is included in the returned
   packet unless the line was truncated according to option `line_length`.
 
-- **`asn1 | cdr | sunrm | fcgi | tpkt`** - The header is _not_ stripped off.
+- **`asn1 | cdr | sunrm | fcgi | tpkt | mqtt`** - The header is _not_ stripped off.
 
   The meanings of the packet types are as follows:
 
@@ -1738,6 +1738,8 @@ returned.
   - **`fcgi` \- Fast CGI**
 
   - **`tpkt` \- TPKT format \[RFC1006]**
+
+  - **`mqtt` \- MQTT packet \[mqtt-v5.0] / \[mqtt-v3.1.1]**
 
 - **`http | httph | http_bin | httph_bin`** - The Hypertext Transfer Protocol.
   The packets are returned with the format according to `HttpPacket` described

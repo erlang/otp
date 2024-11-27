@@ -1257,12 +1257,12 @@ The following options are available:
 
     The 4-byte header is limited to 2Gb.
 
-  - **`asn1 | cdr | sunrm | fcgi | tpkt | line`** - These packet types only have
-    effect on receiving. When sending a packet, it is the responsibility of the
-    application to supply a correct header. On receiving, however, one message
-    is sent to the controlling process for each complete packet received, and,
-    similarly, each call to `gen_tcp:recv/2,3` returns one complete packet. The
-    header is _not_ stripped off.
+  - **`asn1 | cdr | sunrm | fcgi | tpkt | mqtt | line`** - These packet types only
+    have effect on receiving. When sending a packet, it is the responsibility
+    of the application to supply a correct header. On receiving, however, one
+    message is sent to the controlling process for each complete packet received,
+    and, similarly, each call to `gen_tcp:recv/2,3` returns one complete packet.
+    The header is _not_ stripped off.
 
     The meanings of the packet types are as follows:
 
@@ -1271,6 +1271,7 @@ The following options are available:
     - `cdr` - CORBA (GIOP 1.1)
     - `fcgi` - Fast CGI
     - `tpkt` - TPKT format \[RFC1006]
+    - `mqtt` - MQTT packet \[mqtt-v5.0] / \[mqtt-v3.1.1]
     - `line` - Line mode, a packet is a line-terminated with newline, lines
       longer than the receive buffer are truncated
 
