@@ -18,6 +18,7 @@ ENV CFLAGS="-O2 -g -Werror -DwxSTC_DISABLE_MACRO_DEPRECATIONS=1"
 ## Configure, check that no application are disabled, then make and then build doc chunks
 RUN ./configure --with-ssl --prefix=/otp && \
         if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
+    ./otp_build download_gdb_tools && \
     make && make install
 
 ## Disable -Werror as testcases do not compile with it on
