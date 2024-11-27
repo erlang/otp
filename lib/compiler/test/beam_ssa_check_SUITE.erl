@@ -37,7 +37,8 @@
          private_append_checks/1,
          ret_annotation_checks/1,
          sanity_checks/1,
-         tuple_inplace_checks/1]).
+         tuple_inplace_checks/1,
+         non_throwing_bifs/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -54,7 +55,8 @@ groups() ->
        private_append_checks,
        ret_annotation_checks,
        sanity_checks,
-       tuple_inplace_checks]},
+       tuple_inplace_checks,
+       non_throwing_bifs]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
 
@@ -124,6 +126,9 @@ ret_annotation_checks(Config) when is_list(Config) ->
 
 sanity_checks(Config) when is_list(Config) ->
     run_post_ssa_opt(sanity_checks, Config).
+
+non_throwing_bifs(Config) when is_list(Config) ->
+    run_post_ssa_opt(non_throwing_bifs, Config).
 
 dynamic_workdir(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

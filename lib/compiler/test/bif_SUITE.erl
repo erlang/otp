@@ -295,22 +295,67 @@ num_clamped_add(A) ->
     min(max(A, 0), 10) + 100.
 
 non_throwing(_Config) ->
-    a = try binary_to_atom(<<"a">>)
-        catch _:_ -> []
-        end,
-    l = try list_to_existing_atom([108])
-        catch _:_ -> []
-        end,
-    [] = try list_to_existing_atom([a])
-         catch _:_ -> []
-         end,
-    'Erlang' = try binary_to_atom(<<"Erlang">>, unicode)
-               catch _:_ -> []
-               end,
-    [] = try binary_to_existing_atom(a, unicode)
-         catch _:_ -> []
-         end,
+    abc = thing_to_atom(~"abc"),
+    [] = thing_to_atom(a),
+    [] = thing_to_atom(42),
+    [] = thing_to_atom([a,b,c]),
+    erlang = thing_to_existing_atom(~"erlang"),
+    [] = thing_to_existing_atom(~"not an existing atom"),
+    [] = thing_to_existing_atom(a),
     ok.
+
+thing_to_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
+thing_to_existing_atom(Bin0) ->
+    Bin = id(Bin0),
+    Res = try
+              binary_to_existing_atom(Bin)
+          catch
+              _:_ ->
+                  []
+          end,
+    Res = try
+              binary_to_existing_atom(Bin, utf8)
+          catch
+              _:_ ->
+                  []
+          end,
+    if
+        is_atom(Res) ->
+            List = unicode:characters_to_list(Bin),
+            Res = try
+                      list_to_existing_atom(List)
+                  catch
+                      _:_ ->
+                          []
+                  end;
+        true ->
+            Res
+    end.
 
 %%%
 %%% Common utilities.
