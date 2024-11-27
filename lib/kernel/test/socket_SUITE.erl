@@ -413,6 +413,8 @@ init_per_suite(Config0) ->
                     ?P("init_per_suite -> end when "
                        "~n      Config: ~p", [Config1]),
 
+                    ?ENSURE_NOT_DOG_SLOW(Config1, 15),
+
                     %% We need a monitor on this node also
                     kernel_test_sys_monitor:start(),
 
@@ -12787,8 +12789,12 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             ?SEV_IPRINT("Started node ~p - now (global) sync", [Name]),
             global:sync(), % Again, just in case...
             ?SEV_IPRINT("ping proxy"),
-            pong = ?PPING(Node),
-            {Peer, Node};
+            case ?PPING(Node) of
+                {error, Reason} ->
+                    skip({ping_failed, Reason});
+                pong ->
+                    {Peer, Node}
+            end;
         {error, Reason} ->
             ?SEV_EPRINT("failed starting node ~p (=> SKIP):"
                         "~n   ~p", [Name, Reason]),

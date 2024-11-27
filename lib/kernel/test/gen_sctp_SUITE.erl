@@ -203,7 +203,7 @@ init_per_testcase(api_connectx_init = Case, Config) ->
 init_per_testcase(t_simple_local_sockaddr_in_connectx_init = Case, Config) ->
     check_sctp_connectx(Case, Config);
 init_per_testcase(names_multihoming_ipv4 = Case, Config) ->
-    case lists:keylookup(label, 1, Config) of
+    case lists:keysearch(label, 1, Config) of
         {value, {label, docker}} ->
             {skip, "Unstable/broken on docker"};
         _ ->
@@ -2879,16 +2879,22 @@ s_start(Starter, Timeout) ->
 s_loop(Socket, Timeout, Parent, State) ->
     receive
 	{?MODULE,AMref,{controlling_process, NewParent}} ->
+            ?P("received (new) controlling process: "
+               "~n   ~p", [NewParent]),
 	    AMref ! {?MODULE,AMref,ok},
 	    s_loop(Socket, Timeout, NewParent, State);
 	{?MODULE,AMref,close} -> % socket_close()
+            ?P("received close"),
 	    erlang:send_after(Timeout, self(), {?MODULE,AMref,exit}),
 	    s_loop(Socket, Timeout, Parent, State);
 	{?MODULE,AMref,exit} ->
+            ?P("received exit"),
 	    ok = gen_sctp:close(Socket),
 	    NewState = gb_push(exit, Socket, State),
 	    AMref ! {?MODULE,AMref,{NewState,flush()}};
 	{?MODULE,AMref,{Req}} ->
+            ?P("received request: "
+               "~n   ~p", [Req]),
             Result = s_handle_req(Socket, Req),
 	    NewState = gb_push(req, {Req,Result}, State),
 	    AMref ! {?MODULE, AMref,Result},
@@ -2899,6 +2905,9 @@ s_loop(Socket, Timeout, Parent, State) ->
 	{sctp,Socket,Addr,Port,
 	 {[#sctp_sndrcvinfo{stream=Stream,assoc_id=AssocId}=SRI],Data}}
 	  when not is_tuple(Data) ->
+            ?P("received [sctp] snd/rcv info: "
+               "~n   Stream:  ~p"
+               "~n   AssocId: ~p", [Stream, AssocId]),
 	    case gb_get({assoc_change,AssocId}, State) of
 		[{Addr,Port,
 		  #sctp_assoc_change{
@@ -2914,6 +2923,10 @@ s_loop(Socket, Timeout, Parent, State) ->
 	    s_loop(Socket, Timeout, Parent, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_assoc_change{assoc_id=AssocId,state=St}=SAC}} ->
+            ?P("received [sctp] assoc change: "
+               "~n   AssocId: ~p"
+               "~n   St:      ~p"
+               "~n   SRI:     ~p", [AssocId, St, SRI]),
 	    case SRI of
 		[#sctp_sndrcvinfo{assoc_id=AssocId,stream=0}] -> ok;
 		[] -> ok
@@ -2932,6 +2945,10 @@ s_loop(Socket, Timeout, Parent, State) ->
 	 {SRI,#sctp_paddr_change{assoc_id=AssocId,
 				 addr={_,P},
 				 state=St}=SPC}} ->
+            ?P("received [sctp] paddr change: "
+               "~n   AssocId: ~p"
+               "~n   P:       ~p"
+               "~n   St:      ~p", [AssocId, P, St]),
 	    match_unless_solaris(Port, P),
 	    case SRI of
 		[#sctp_sndrcvinfo{assoc_id=AssocId,stream=0}] -> ok;
@@ -2949,6 +2966,9 @@ s_loop(Socket, Timeout, Parent, State) ->
 	    s_loop(Socket, Timeout, Parent, NewState);
 	{sctp,Socket,Addr,Port,
 	 {SRI,#sctp_shutdown_event{assoc_id=AssocId}=SSE}} ->
+            ?P("received [sctp] shutdown event: "
+               "~n   AssocId: ~p"
+               "~n   SRI:     ~p", [AssocId, SRI]),
 	    case SRI of
 		[#sctp_sndrcvinfo{assoc_id=AssocId,stream=0}] -> ok;
 		[] -> ok
@@ -2963,6 +2983,11 @@ s_loop(Socket, Timeout, Parent, State) ->
 	    again(Socket),
 	    s_loop(Socket, Timeout, Parent, NewState);
 	Unexpected ->
+            ?P("received unexpected message: "
+               "~n                ~p"
+               "~nwhen"
+               "~n   Socket Info: ~p",
+               [Unexpected, inet:info(Socket)]),
 	    erlang:error({unexpected,Unexpected})
     end.
 
