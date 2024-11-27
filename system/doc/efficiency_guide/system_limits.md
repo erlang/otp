@@ -82,7 +82,10 @@ on a 32 bit system at most `2²⁸ - 1`.
 open files and sockets depends on [the maximum number of Erlang ports](#ports)
 available, as well as on operating system-specific settings and limits.
 
-- **Number of arguments to a function or fun** - 255.
+- **Number of arguments to a function** - 255.
+
+- **Number of arguments to a fun** - 255, minus one for each environment
+variable.
 
 - [](){: #unique_references } **Unique References on a Runtime System Instance** -
 Each scheduler thread has its own set of references, and all other threads have
