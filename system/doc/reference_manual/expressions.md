@@ -675,15 +675,18 @@ receive
 end
 ```
 
-Fetches a received message present in the message queue of the process. The
-first message in the message queue is matched sequentially against the patterns
-from top to bottom. If no match was found, the matching sequence is repeated for
-the second message in the queue, and so on. Messages are queued in the
-[order they were received](ref_man_processes.md#message-queue-order). If a match
-succeeds, that is, if the `Pattern` matches and the optional guard sequence
-`GuardSeq` is true, then the message is removed from the message queue and the
-corresponding `Body` is evaluated. All other messages in the message queue
-remain unchanged.
+The `receive` expression searches for a message in the message queue that match
+one of the patterns in the clauses of the `receive` expression. The patterns in
+the clauses is matched against a message from top to bottom. The first message,
+from the start of the message queue, that matches will be selected. Messages are
+normally
+[enqueued in the message queue](ref_man_processes.md#message-queue-order) in
+order they were received. However,
+if [reception of priority messages](ref_man_processes.md#enable-prio-msg-recv)
+has been enabled by the receiving process, this is not always the case. When a
+match succeeds and the optional guard sequence `GuardSeq` is true, the matching
+message is fetched from the message queue and the corresponding `Body` is
+evaluated. All other messages in the message queue remain unchanged.
 
 The return value of `Body` is the return value of the `receive` expression.
 

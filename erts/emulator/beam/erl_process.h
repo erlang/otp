@@ -1513,6 +1513,7 @@ typedef struct {
     Eterm tag;                  /* spawn_request tag (if SPO_ASYNC is set) */
     Eterm monitor_tag;          /* monitor tag (if SPO_MONITOR is set) */
     Uint32 monitor_oflags;      /* flags to bitwise-or onto origin flags */
+    Uint32 link_oflags;         /* flags to bitwise-or onto origin link flags */
     Eterm opts;                 /* Option list for seq-trace... */
 
     /* Input fields used for distributed spawn only */
@@ -1547,6 +1548,7 @@ typedef struct {
         (SOP)->tag = am_spawn_reply;                                    \
         (SOP)->monitor_tag = THE_NON_VALUE;                             \
         (SOP)->monitor_oflags = (Uint32) 0;                             \
+        (SOP)->link_oflags = (Uint32) 0;                                \
     } while (0)
 
 /*

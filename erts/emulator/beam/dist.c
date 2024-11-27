@@ -5808,7 +5808,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm monitor_tag = THE_NON_VALUE;
     Eterm mod, func, alist, new_opts, error, ref,
         ok_result;
-    Uint nargs, nopts, rm_opts, rebuild_opts, add_monitor;
+    Uint nargs, nopts, rm_opts, rebuild_opts, add_monitor, add_link;
     DistEntry *dep = NULL;
     Eterm list;
     ErtsDSigSendContext ctx;
@@ -5816,6 +5816,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Uint32 monitor_oflags = 0, monitor_opts_oflags = 0;
 
     add_monitor = 0;
+    add_link = 0;
     ok_result = THE_NON_VALUE;
     
     if (!is_atom(node))
@@ -5913,10 +5914,26 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                         monitor_opts_oflags |= ERTS_ML_FLG_SPAWN_MONITOR;
                         add_monitor = 1;
                     }
-                    
+
+                    if (0) {
+                        Uint32 link_opts_oflags;
+                    case am_link:
+                        link_opts_oflags = erts_link_opts(tp[2], NULL);
+                        if (link_opts_oflags == (Uint32) ~0) {
+                            if (BIF_ARG_4 != am_spawn_request)
+                                goto badarg;
+                            ok_result = ref = erts_make_ref(BIF_P);
+                            goto badopt;
+                        }
+                        monitor_oflags |= ERTS_ML_FLG_SPAWN_LINK;
+                        if (link_opts_oflags & ERTS_ML_FLG_PRIO_ML)
+                            monitor_oflags |= ERTS_ML_FLG_SPAWN_LINK_PRIO;
+                        add_link = 1;
+                    }
+
                     rm_opts++;
                     new_opts = list;
-                    rebuild_opts = nopts - rm_opts + add_monitor;
+                    rebuild_opts = nopts - rm_opts + add_monitor + add_link;
                     break;
                     
                 default:
@@ -5964,7 +5981,16 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             prev_cp = NULL;
             list = opts;
             rm_cnt = 0;
-            
+
+            if (add_link) {
+#ifdef DEBUG
+                rebuild_opts--;
+#endif
+                CAR(hp) = am_link;
+                prev_cp = hp;
+                hp -= 2;
+                CDR(prev_cp) = make_list(hp);
+            }
             if (add_monitor) {
 #ifdef DEBUG
                 rebuild_opts--;
@@ -6067,6 +6093,9 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ASSERT(inserted); (void)inserted;
         
         erts_de_runlock(dep);
+
+        if (monitor_oflags & ERTS_ML_FLG_PRIO_ML)
+            erts_proc_sig_prio_item_added(BIF_P, ERTS_PRIO_ITEM_TYPE_MONITOR);
 
         ctx.reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
 

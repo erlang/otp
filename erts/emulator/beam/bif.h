@@ -585,6 +585,7 @@ erts_reschedule_bif(Process *proc,
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
+Uint32 erts_link_opts(Eterm opts, Uint32 *rm_flags);
 Uint32 erts_monitor_opts(Eterm opts, Eterm *tag);
 
 #include "erl_bif_table.h"

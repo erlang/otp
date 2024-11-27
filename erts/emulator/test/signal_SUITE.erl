@@ -65,7 +65,8 @@
          simultaneous_signals_recv_exit/1,
          parallel_signal_enqueue_race_1/1,
          parallel_signal_enqueue_race_2/1,
-         dirty_schedule/1]).
+         dirty_schedule/1,
+         priority_messages_basic/1]).
 
 -export([spawn_spammers/3]).
 
@@ -108,7 +109,8 @@ all() ->
      parallel_signal_enqueue_race_1,
      parallel_signal_enqueue_race_2,
      dirty_schedule,
-     {group, adjust_message_queue}].
+     {group, adjust_message_queue},
+     {group, priority_messages}].
 
 groups() ->
     [{adjust_message_queue, [],
@@ -123,7 +125,9 @@ groups() ->
        simultaneous_signals_basic,
        simultaneous_signals_recv,
        simultaneous_signals_exit,
-       simultaneous_signals_recv_exit]}].
+       simultaneous_signals_recv_exit]},
+     {priority_messages, [],
+      [priority_messages_basic]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -1499,9 +1503,227 @@ dirty_schedule_test() ->
     false = is_process_alive(Proc),
     ok.
 
+priority_messages_basic(Config) when is_list(Config) ->
+    ct:log("Testing against local process~n", []),
+    priority_messages_basic_test(node()),
+    ct:log("Testing against local process succeeded~n", []),
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_basic_test(Node),
+    ct:log("Testing against remote process succeeded~n", []),
+    peer:stop(Peer),
+    ok.
+
+priority_messages_basic_test(Node) ->
+    Parent = self(),
+    LinkProc1 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc2 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc3 = spawn(fun () -> receive after infinity -> ok end end),
+    LinkProc4 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc1 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc2 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc3 = spawn(fun () -> receive after infinity -> ok end end),
+    MonProc4 = spawn(fun () -> receive after infinity -> ok end end),
+    Rcvr = spawn_link(Node,
+                      fun () ->
+                              link(LinkProc1, [priority]),
+                              link(LinkProc2, []),
+                              link(LinkProc3, [priority]),
+                              link(LinkProc4),
+                              Mon1 = monitor(process, MonProc1, [priority]),
+                              Mon2 = monitor(process, MonProc2, []),
+                              Mon3 = monitor(process, MonProc3, [priority]),
+                              Mon4 = monitor(process, MonProc4),
+                              Parent ! {monitors, Mon1, Mon2, Mon3, Mon4},
+                              process_flag(trap_exit, true),
+                              PAlias = alias([priority]),
+                              Parent ! {priority_alias, PAlias},
+                              receive {Parent, go} -> ok end,
+                              Msgs = prio_msg_recv_msgs([]),
+                              unalias(PAlias),
+                              Parent ! {self(), messages, Msgs},
+                              receive {Parent, go} -> ok end,
+                              Msgs2 = prio_msg_recv_msgs([]),
+                              Parent ! {self(), messages, Msgs2},
+                              receive after infinity -> ok end
+                      end),
+    {monitors, Mon1, Mon2, Mon3, Mon4}
+        = receive
+              {monitors, _, _, _, _} = Monitors ->
+                  Monitors
+          end,
+
+    {priority_messages, true} = proc_info(Rcvr, priority_messages),
+
+    {priority_alias, PrioAlias} = receive {priority_alias, _} = PA -> PA end,
+
+    {priority_messages, true} = proc_info(Rcvr, priority_messages),
+
+    Rcvr ! {msg, 1},
+    wait_until(fun () -> msg_received(Rcvr, {msg, 1}) end),
+    exit(LinkProc2, link_exit_1),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc2) end),
+    exit(LinkProc1, prio_link_exit_1),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc1) end),
+    exit(MonProc2, down_1),
+    wait_until(fun () -> down_received(Rcvr, MonProc2) end),
+    exit(MonProc1, prio_down_1),
+    wait_until(fun () -> down_received(Rcvr, MonProc1) end),
+    Rcvr ! {msg, 2},
+    Rcvr ! {msg, 3},
+    exit(PrioAlias, func_exit_1),
+    Rcvr ! {msg, 4},
+    exit(PrioAlias, prio_func_exit_1, [priority]),
+    exit(Rcvr, {func_exit, 2}, [priority]),
+    exit(PrioAlias, func_exit_3),
+    Rcvr ! {msg, 5},
+    PrioAlias ! {msg, 6},
+    erlang:send(PrioAlias, {prio_msg, 1}, [priority]),
+    erlang:send(PrioAlias, {msg, 7}, []),
+    erlang:send(PrioAlias, prio_msg_2, [priority]),
+    erlang:send(Rcvr, {msg, 8}, [priority]),
+    wait_until(fun () -> msg_received(Rcvr, {msg, 8}) end),
+    exit(LinkProc4, {link_exit, 2}),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc4) end),
+    exit(LinkProc3, {prio_link_exit, 2}),
+    wait_until(fun () -> exit_received(Rcvr, LinkProc3) end),
+    exit(MonProc4, {down, 2}),
+    wait_until(fun () -> down_received(Rcvr, MonProc4) end),
+    exit(MonProc3, {prio_down, 2}),
+    wait_until(fun () -> down_received(Rcvr, MonProc3) end),
+
+    Expect = [
+              %% Priority messages
+              {'EXIT', LinkProc1, prio_link_exit_1},
+              {'DOWN', Mon1, process, MonProc1, prio_down_1},
+              {'EXIT', Parent, prio_func_exit_1},
+              {prio_msg, 1},
+              prio_msg_2,
+              {'EXIT', LinkProc3, {prio_link_exit, 2}},
+              {'DOWN', Mon3, process, MonProc3, {prio_down, 2}},
+
+              %% Ordinary messages
+              {msg, 1},
+              {'EXIT', LinkProc2, link_exit_1},
+              {'DOWN', Mon2, process, MonProc2, down_1},
+              {msg, 2},
+              {msg, 3},
+              {'EXIT', Parent, func_exit_1},
+              {msg, 4},
+              {'EXIT', Parent, {func_exit, 2}},
+              {'EXIT', Parent, func_exit_3},
+              {msg, 5},
+              {msg, 6},
+              {msg, 7},
+              {msg, 8},
+              {'EXIT', LinkProc4, {link_exit, 2}},
+              {'DOWN', Mon4, process, MonProc4, {down, 2}}],
+
+    {messages, PIMessages} = proc_info(Rcvr, messages),
+
+    case Expect =:= PIMessages of
+        true ->
+            ct:log("Process-info messages as expected!~n", []);
+        false ->
+            ct:log("Expected:~n ~p~n~nGot process info messages:~n ~p~n", [Expect, PIMessages]),
+            ct:fail(invalid_message_queue)
+    end,
+
+    Rcvr ! {self(), go},
+
+    RecvMessages = receive
+                       {Rcvr, messages, Msgs} ->
+                           Msgs
+                   end,
+
+    case Expect =:= RecvMessages of
+        true ->
+            ct:log("Received messages as expected!~n", []);
+        false ->
+            ct:log("Expected:~n ~p~n~nGot received messages:~n ~p~n", [Expect, RecvMessages]),
+            ct:fail(invalid_message_queue)
+    end,
+
+    {priority_messages, false} = proc_info(Rcvr, priority_messages),
+
+    Rcvr ! a_message,
+
+    exit(PrioAlias, {prio_func_exit, 2}, [priority]),
+    exit(PrioAlias, {func_exit, 2}),
+    erlang:send(PrioAlias, {prio_msg, 3}, [priority]),
+    erlang:send(PrioAlias, {msg, 9}, []),
+
+    Rcvr ! {self(), go},
+
+    [a_message] = receive
+                       {Rcvr, messages, Msgs2} ->
+                           Msgs2
+                   end,
+
+    unlink(Rcvr),
+    exit(Rcvr, kill),
+    ok.
+
+prio_msg_recv_msgs(Msgs) ->
+    receive
+        Msg ->
+            prio_msg_recv_msgs([Msg|Msgs])
+    after
+        0 ->
+            lists:reverse(Msgs)
+    end.
+
+
+msg_received(Pid, Msg) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun (M) when M == Msg ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
+exit_received(Pid, From) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun ({'EXIT', P, _}) when P == From ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
+down_received(Pid, From) ->
+    {messages, Msgs} = proc_info(Pid, messages),
+    try
+        lists:foreach(fun ({'DOWN', _, process, P, _}) when P == From ->
+                              throw(true);
+                          (_) ->
+                              ok
+                      end, Msgs),
+        false
+    catch
+        throw:true ->
+            true
+    end.
+
 %%
 %% -- Internal utils --------------------------------------------------------
 %%
+
+proc_info(Pid, What) when node(Pid) == node() ->
+    process_info(Pid, What);
+proc_info(Pid, What) ->
+    erpc:call(node(Pid), erlang, process_info, [Pid, What]).
 
 match(X,X) -> ok.
 

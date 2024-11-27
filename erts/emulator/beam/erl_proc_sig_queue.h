@@ -1822,6 +1822,14 @@ ERTS_GLB_INLINE void erts_msgq_set_save_end(Process *c_p);
  */
 void erts_proc_sig_cleanup_queues(Process *c_p);
 
+typedef enum {
+    ERTS_PRIO_ITEM_TYPE_ALIAS,
+    ERTS_PRIO_ITEM_TYPE_LINK,
+    ERTS_PRIO_ITEM_TYPE_MONITOR,
+} ErtsPrioItemType;
+
+void erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type);
+void erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type);
 
 /**
  * @brief Initialize this functionality
