@@ -53,6 +53,10 @@ $(TYPES) release docs release_docs tests release_tests clean depend static_lib:
 			APP_PWD="$$app_pwd" APP_VSN=$$app_vsn APP=$$app	\
 			TESTROOT="$(TESTROOT)" update)			\
 		|| exit $$?  ;						\
+	    else							\
+		if test clean = $@ && test ! -f SKIP; then		\
+			$(MAKE) dclean;					\
+		fi ;							\
 	    fi	;							\
 	    echo "=== Leaving application" `basename $$app_pwd` ;	\
 	fi
