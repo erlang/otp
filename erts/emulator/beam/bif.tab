@@ -807,3 +807,4 @@ bif erts_trace_cleaner:send_trace_clean_signal/1
 #
 bif erts_internal:system_monitor/1
 bif erts_internal:system_monitor/3
+bif erts_internal:processes_next/1
