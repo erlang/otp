@@ -68,6 +68,17 @@ public:
   //! Gets whether the register is a VEC-V register (128-bit).
   ASMJIT_INLINE_NODEBUG constexpr bool isVecV() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecV>::kSignature; }
 
+  //! Gets whether the register is an 8-bit vector register or view, alias if \ref isVecB().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec8() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecB>::kSignature; }
+  //! Gets whether the register is a 16-bit vector register or view, alias if \ref isVecH().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec16() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecH>::kSignature; }
+  //! Gets whether the register is a 32-bit vector register or view, alias if \ref isVecS().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec32() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecS>::kSignature; }
+  //! Gets whether the register is a 64-bit vector register or view, alias if \ref isVecD().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec64() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecD>::kSignature; }
+  //! Gets whether the register is a 128-bit vector register or view, alias if \ref isVecQ().
+  ASMJIT_INLINE_NODEBUG constexpr bool isVec128() const noexcept { return baseSignature() == RegTraits<RegType::kARM_VecV>::kSignature; }
+
   template<RegType kRegType>
   ASMJIT_INLINE_NODEBUG void setRegT(uint32_t id) noexcept {
     setSignature(RegTraits<kRegType>::kSignature);
@@ -212,7 +223,7 @@ public:
               Signature::fromValue<kSignatureMemShiftValueMask>(shift.value()) |
               signature, base.id(), index.id(), 0) {}
 
-  ASMJIT_INLINE_NODEBUG constexpr Mem(uint64_t base, Signature signature = Signature{0}) noexcept
+  ASMJIT_INLINE_NODEBUG constexpr explicit Mem(uint64_t base, Signature signature = Signature{0}) noexcept
     : BaseMem(Signature::fromOpType(OperandType::kMem) |
               signature, uint32_t(base >> 32), 0, int32_t(uint32_t(base & 0xFFFFFFFFu))) {}
 

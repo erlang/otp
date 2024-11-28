@@ -448,7 +448,7 @@ static inline JitAllocatorPrivateImpl* JitAllocatorImpl_new(const JitAllocator::
   // Setup pool count to [1..3].
   size_t poolCount = 1;
   if (Support::test(options, JitAllocatorOptions::kUseMultiplePools))
-    poolCount = kJitAllocatorMultiPoolCount;;
+    poolCount = kJitAllocatorMultiPoolCount;
 
   // Setup block size [64kB..256MB].
   if (blockSize < 64 * 1024 || blockSize > 256 * 1024 * 1024 || !Support::isPowerOf2(blockSize))
@@ -1399,11 +1399,12 @@ static void test_jit_allocator_alloc_release() noexcept {
 
   using Opt = JitAllocatorOptions;
 
+  VirtMem::HardenedRuntimeInfo hri = VirtMem::hardenedRuntimeInfo();
+
   TestParams testParams[] = {
     { "Default"                                    , Opt::kNone, 0, 0 },
     { "16MB blocks"                                , Opt::kNone, 16 * 1024 * 1024, 0 },
     { "256B granularity"                           , Opt::kNone, 0, 256 },
-    { "kUseDualMapping"                            , Opt::kUseDualMapping , 0, 0 },
     { "kUseMultiplePools"                          , Opt::kUseMultiplePools, 0, 0 },
     { "kFillUnusedMemory"                          , Opt::kFillUnusedMemory, 0, 0 },
     { "kImmediateRelease"                          , Opt::kImmediateRelease, 0, 0 },
@@ -1411,6 +1412,7 @@ static void test_jit_allocator_alloc_release() noexcept {
     { "kUseLargePages"                             , Opt::kUseLargePages, 0, 0 },
     { "kUseLargePages | kFillUnusedMemory"         , Opt::kUseLargePages | Opt::kFillUnusedMemory, 0, 0 },
     { "kUseLargePages | kAlignBlockSizeToLargePage", Opt::kUseLargePages | Opt::kAlignBlockSizeToLargePage, 0, 0 },
+    { "kUseDualMapping"                            , Opt::kUseDualMapping , 0, 0 },
     { "kUseDualMapping | kFillUnusedMemory"        , Opt::kUseDualMapping | Opt::kFillUnusedMemory, 0, 0 }
   };
 
@@ -1427,6 +1429,12 @@ static void test_jit_allocator_alloc_release() noexcept {
   }
 
   for (uint32_t testId = 0; testId < ASMJIT_ARRAY_SIZE(testParams); testId++) {
+    // Don't try to allocate dual-mapping if dual mapping is not possible - it would fail the test.
+    if (Support::test(testParams[testId].options, JitAllocatorOptions::kUseDualMapping) &&
+        !Support::test(hri.flags, VirtMem::HardenedRuntimeFlags::kDualMapping)) {
+      continue;
+    }
+
     INFO("JitAllocator(%s)", testParams[testId].name);
 
     JitAllocator::CreateParams params {};

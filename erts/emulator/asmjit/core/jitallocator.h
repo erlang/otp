@@ -174,7 +174,7 @@ public:
     uint32_t fillPattern = 0;
 
     // Reset the content of `CreateParams`.
-    inline void reset() noexcept { memset(this, 0, sizeof(*this)); }
+    ASMJIT_INLINE_NODEBUG void reset() noexcept { *this = CreateParams{}; }
   };
 
   //! Creates a `JitAllocator` instance.

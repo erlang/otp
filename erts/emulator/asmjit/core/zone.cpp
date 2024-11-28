@@ -16,8 +16,8 @@ ASMJIT_BEGIN_NAMESPACE
 // and should never be modified.
 const Zone::Block Zone::_zeroBlock = { nullptr, nullptr, 0 };
 
-// Zone - Init & Reset
-// ===================
+// Zone - Initialization & Reset
+// =============================
 
 void Zone::_init(size_t blockSize, size_t blockAlignment, const Support::Temporary* temporary) noexcept {
   ASMJIT_ASSERT(blockSize >= kMinBlockSize);
@@ -215,8 +215,8 @@ static bool ZoneAllocator_hasDynamicBlock(ZoneAllocator* self, ZoneAllocator::Dy
 }
 #endif
 
-// ZoneAllocator - Init & Reset
-// ============================
+// ZoneAllocator - Initialization & Reset
+// ======================================
 
 void ZoneAllocator::reset(Zone* zone) noexcept {
   // Free dynamic blocks.
@@ -227,9 +227,9 @@ void ZoneAllocator::reset(Zone* zone) noexcept {
     block = next;
   }
 
-  // Zero the entire class and initialize to the given `zone`.
-  memset(this, 0, sizeof(*this));
   _zone = zone;
+  memset(_slots, 0, sizeof(_slots));
+  _dynamicBlocks = nullptr;
 }
 
 // asmjit::ZoneAllocator - Alloc & Release

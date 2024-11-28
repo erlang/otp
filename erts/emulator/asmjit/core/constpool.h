@@ -27,6 +27,9 @@ enum class ConstPoolScope : uint32_t {
 };
 
 //! Constant pool.
+//!
+//! Constant pool is designed to hold 1, 2, 4, 8, 16, 32, and 64 byte constants. It's not designed to hold constants
+//! having arbitrary length like strings and arrays.
 class ConstPool {
 public:
   ASMJIT_NONCOPYABLE(ConstPool)
@@ -199,9 +202,17 @@ public:
   //! \name Construction & Destruction
   //! \{
 
-  ASMJIT_API ConstPool(Zone* zone) noexcept;
+  //! Creates a new constant pool that would use `zone` as a memory allocator.
+  ASMJIT_API explicit ConstPool(Zone* zone) noexcept;
+  //! Destroys this constant pool.
   ASMJIT_API ~ConstPool() noexcept;
 
+  //! \}
+
+  //! \name Reset
+  //! \{
+
+  //! Resets this constant pool and its allocator to `zone`.
   ASMJIT_API void reset(Zone* zone) noexcept;
 
   //! \}

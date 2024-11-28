@@ -24,7 +24,7 @@ enum class Vendor : uint8_t {
   //! Unknown or uninitialized platform vendor.
   kUnknown = 0,
 
-  //! Maximum value of `PlatformVendor`.
+  //! Maximum value of `Vendor`.
   kMaxValue = kUnknown,
 
   //! Platform vendor detected at compile-time.
@@ -116,7 +116,7 @@ enum class Platform : uint8_t {
 
 //! Platform ABI (application binary interface).
 enum class PlatformABI : uint8_t {
-  //! Unknown or uninitialied environment.
+  //! Unknown or uninitialized environment.
   kUnknown = 0,
   //! Microsoft ABI.
   kMSVC,
@@ -126,6 +126,8 @@ enum class PlatformABI : uint8_t {
   kAndroid,
   //! Cygwin ABI.
   kCygwin,
+  //! Darwin ABI.
+  kDarwin,
 
   //! Maximum value of `PlatformABI`.
   kMaxValue,
@@ -142,8 +144,23 @@ enum class PlatformABI : uint8_t {
     kGNU
 #elif defined(__ANDROID__)
     kAndroid
+#elif defined(__APPLE__)
+    kDarwin
 #else
     kUnknown
+#endif
+};
+
+//! Floating point ABI (ARM).
+enum class FloatABI : uint8_t {
+  kHardFloat = 0,
+  kSoftFloat,
+
+  kHost =
+#if ASMJIT_ARCH_ARM == 32 && defined(__SOFTFP__)
+  kSoftFloat
+#else
+  kHardFloat
 #endif
 };
 
@@ -186,53 +203,56 @@ public:
   //! \{
 
   //! Architecture.
-  Arch _arch;
+  Arch _arch = Arch::kUnknown;
   //! Sub-architecture type.
-  SubArch _subArch;
+  SubArch _subArch = SubArch::kUnknown;
   //! Vendor type.
-  Vendor _vendor;
+  Vendor _vendor = Vendor::kUnknown;
   //! Platform.
-  Platform _platform;
+  Platform _platform = Platform::kUnknown;
   //! Platform ABI.
-  PlatformABI _platformABI;
+  PlatformABI _platformABI = PlatformABI::kUnknown;
   //! Object format.
-  ObjectFormat _objectFormat;
+  ObjectFormat _objectFormat = ObjectFormat::kUnknown;
+  //! Floating point ABI.
+  FloatABI _floatABI = FloatABI::kHardFloat;
   //! Reserved for future use, must be zero.
-  uint8_t _reserved[2];
+  uint8_t _reserved = 0;
 
   //! \}
 
   //! \name Construction & Destruction
   //! \{
 
-  ASMJIT_INLINE_NODEBUG Environment() noexcept :
-    _arch(Arch::kUnknown),
-    _subArch(SubArch::kUnknown),
-    _vendor(Vendor::kUnknown),
-    _platform(Platform::kUnknown),
-    _platformABI(PlatformABI::kUnknown),
-    _objectFormat(ObjectFormat::kUnknown),
-    _reserved { 0, 0 } {}
+  //! Creates a default initialized environment (all values either unknown or set to safe defaults).
+  ASMJIT_INLINE_NODEBUG constexpr Environment() noexcept = default;
+  //! Creates a copy of `other` instance.
+  ASMJIT_INLINE_NODEBUG constexpr Environment(const Environment& other) noexcept = default;
 
-  ASMJIT_INLINE_NODEBUG explicit Environment(
+  //! Creates \ref Environment initialized to `arch`, `subArch`, `vendor`, `platform`, `platformABI`, `objectFormat`,
+  //! and `floatABI`.
+  ASMJIT_INLINE_NODEBUG constexpr explicit Environment(
     Arch arch,
     SubArch subArch = SubArch::kUnknown,
     Vendor vendor = Vendor::kUnknown,
     Platform platform = Platform::kUnknown,
-    PlatformABI abi = PlatformABI::kUnknown,
-    ObjectFormat objectFormat = ObjectFormat::kUnknown) noexcept {
-
-    init(arch, subArch, vendor, platform, abi, objectFormat);
-  }
-
-  ASMJIT_INLINE_NODEBUG Environment(const Environment& other) noexcept = default;
+    PlatformABI platformABI = PlatformABI::kUnknown,
+    ObjectFormat objectFormat = ObjectFormat::kUnknown,
+    FloatABI floatABI = FloatABI::kHardFloat) noexcept
+    : _arch(arch),
+      _subArch(subArch),
+      _vendor(vendor),
+      _platform(platform),
+      _platformABI(platformABI),
+      _objectFormat(objectFormat),
+      _floatABI(floatABI) {}
 
   //! Returns the host environment constructed from preprocessor macros defined by the compiler.
   //!
   //! The returned environment should precisely match the target host architecture, sub-architecture, platform,
   //! and ABI.
   static ASMJIT_INLINE_NODEBUG Environment host() noexcept {
-    return Environment(Arch::kHost, SubArch::kHost, Vendor::kHost, Platform::kHost, PlatformABI::kHost, ObjectFormat::kUnknown);
+    return Environment(Arch::kHost, SubArch::kHost, Vendor::kHost, Platform::kHost, PlatformABI::kHost, ObjectFormat::kUnknown, FloatABI::kHost);
   }
 
   //! \}
@@ -271,20 +291,10 @@ public:
   }
 
   //! Resets all members of the environment to zero / unknown.
-  ASMJIT_INLINE_NODEBUG void reset() noexcept {
-    _arch = Arch::kUnknown;
-    _subArch = SubArch::kUnknown;
-    _vendor = Vendor::kUnknown;
-    _platform = Platform::kUnknown;
-    _platformABI = PlatformABI::kUnknown;
-    _objectFormat = ObjectFormat::kUnknown;
-    _reserved[0] = 0;
-    _reserved[1] = 0;
-  }
+  ASMJIT_INLINE_NODEBUG void reset() noexcept { *this = Environment{}; }
 
-  ASMJIT_INLINE_NODEBUG bool equals(const Environment& other) const noexcept {
-    return _packed() == other._packed();
-  }
+  //! Tests whether this environment is equal to `other`.
+  ASMJIT_INLINE_NODEBUG bool equals(const Environment& other) const noexcept { return _packed() == other._packed(); }
 
   //! Returns the architecture.
   ASMJIT_INLINE_NODEBUG Arch arch() const noexcept { return _arch; }
@@ -298,14 +308,19 @@ public:
   ASMJIT_INLINE_NODEBUG PlatformABI platformABI() const noexcept { return _platformABI; }
   //! Returns target's object format.
   ASMJIT_INLINE_NODEBUG ObjectFormat objectFormat() const noexcept { return _objectFormat; }
+  //! Returns floating point ABI.
+  ASMJIT_INLINE_NODEBUG FloatABI floatABI() const noexcept { return _floatABI; }
 
+  //! Initializes \ref Environment to `arch`, `subArch`, `vendor`, `platform`, `platformABI`, `objectFormat`,
+  //! and `floatABI`.
   inline void init(
     Arch arch,
     SubArch subArch = SubArch::kUnknown,
     Vendor vendor = Vendor::kUnknown,
     Platform platform = Platform::kUnknown,
     PlatformABI platformABI = PlatformABI::kUnknown,
-    ObjectFormat objectFormat = ObjectFormat::kUnknown) noexcept {
+    ObjectFormat objectFormat = ObjectFormat::kUnknown,
+    FloatABI floatABI = FloatABI::kHardFloat) noexcept {
 
     _arch = arch;
     _subArch = subArch;
@@ -313,18 +328,27 @@ public:
     _platform = platform;
     _platformABI = platformABI;
     _objectFormat = objectFormat;
-    _reserved[0] = 0;
-    _reserved[1] = 0;
+    _floatABI = floatABI;
+    _reserved = 0;
   }
 
+  //! Tests whether this environment describes a 32-bit X86.
   ASMJIT_INLINE_NODEBUG bool isArchX86() const noexcept { return _arch == Arch::kX86; }
+  //! Tests whether this environment describes a 64-bit X86.
   ASMJIT_INLINE_NODEBUG bool isArchX64() const noexcept { return _arch == Arch::kX64; }
+  //! Tests whether this environment describes a 32-bit ARM.
   ASMJIT_INLINE_NODEBUG bool isArchARM() const noexcept { return isArchARM(_arch); }
+  //! Tests whether this environment describes a 32-bit ARM in THUMB mode.
   ASMJIT_INLINE_NODEBUG bool isArchThumb() const noexcept { return isArchThumb(_arch); }
+  //! Tests whether this environment describes a 64-bit X86.
   ASMJIT_INLINE_NODEBUG bool isArchAArch64() const noexcept { return isArchAArch64(_arch); }
+  //! Tests whether this environment describes a 32-bit MIPS.
   ASMJIT_INLINE_NODEBUG bool isArchMIPS32() const noexcept { return isArchMIPS32(_arch); }
+  //! Tests whether this environment describes a 64-bit MIPS.
   ASMJIT_INLINE_NODEBUG bool isArchMIPS64() const noexcept { return isArchMIPS64(_arch); }
+  //! Tests whether this environment describes a 32-bit RISC-V.
   ASMJIT_INLINE_NODEBUG bool isArchRISCV32() const noexcept { return _arch == Arch::kRISCV32; }
+  //! Tests whether this environment describes a 64-bit RISC-V.
   ASMJIT_INLINE_NODEBUG bool isArchRISCV64() const noexcept { return _arch == Arch::kRISCV64; }
 
   //! Tests whether the architecture is 32-bit.
@@ -352,13 +376,10 @@ public:
 
   //! Tests whether the environment platform is Windows.
   ASMJIT_INLINE_NODEBUG bool isPlatformWindows() const noexcept { return _platform == Platform::kWindows; }
-
   //! Tests whether the environment platform is Linux.
   ASMJIT_INLINE_NODEBUG bool isPlatformLinux() const noexcept { return _platform == Platform::kLinux; }
-
   //! Tests whether the environment platform is Hurd.
   ASMJIT_INLINE_NODEBUG bool isPlatformHurd() const noexcept { return _platform == Platform::kHurd; }
-
   //! Tests whether the environment platform is Haiku.
   ASMJIT_INLINE_NODEBUG bool isPlatformHaiku() const noexcept { return _platform == Platform::kHaiku; }
 
@@ -382,6 +403,8 @@ public:
   ASMJIT_INLINE_NODEBUG bool isMSVC() const noexcept { return _platformABI == PlatformABI::kMSVC; }
   //! Tests whether the ABI is GNU.
   ASMJIT_INLINE_NODEBUG bool isGNU() const noexcept { return _platformABI == PlatformABI::kGNU; }
+  //! Tests whether the ABI is GNU.
+  ASMJIT_INLINE_NODEBUG bool isDarwin() const noexcept { return _platformABI == PlatformABI::kDarwin; }
 
   //! Returns a calculated stack alignment for this environment.
   ASMJIT_API uint32_t stackAlignment() const noexcept;
@@ -401,6 +424,9 @@ public:
   ASMJIT_INLINE_NODEBUG void setPlatformABI(PlatformABI platformABI) noexcept { _platformABI = platformABI; }
   //! Sets the object format to `objectFormat`.
   ASMJIT_INLINE_NODEBUG void setObjectFormat(ObjectFormat objectFormat) noexcept { _objectFormat = objectFormat; }
+
+  //! Sets floating point ABI to `floatABI`.
+  ASMJIT_INLINE_NODEBUG void setFloatABI(FloatABI floatABI) noexcept { _floatABI = floatABI; }
 
   //! \}
 
@@ -480,7 +506,7 @@ public:
     return isFamilyAArch32(arch) || isFamilyAArch64(arch);
   }
 
-  //! Tests whether the given architecture family is MISP or MIPS64.
+  //! Tests whether the given architecture family is MIPS or MIPS64.
   static ASMJIT_INLINE_NODEBUG bool isFamilyMIPS(Arch arch) noexcept {
     return isArchMIPS32(arch) || isArchMIPS64(arch);
   }

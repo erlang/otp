@@ -47,6 +47,7 @@ class InvokeNode;
 //! Check out architecture specific compilers for more details and examples:
 //!
 //!   - \ref x86::Compiler - X86/X64 compiler implementation.
+//!   - \ref a64::Compiler - AArch64 compiler implementation.
 class ASMJIT_VIRTAPI BaseCompiler : public BaseBuilder {
 public:
   ASMJIT_NONCOPYABLE(BaseCompiler)
@@ -162,6 +163,8 @@ public:
   //!
   //! \note This version accepts a snprintf() format `fmt` followed by a variadic arguments.
   ASMJIT_API Error _newRegFmt(BaseReg* ASMJIT_NONNULL(out), TypeId typeId, const char* fmt, ...);
+  //! \overload
+  inline Error _newRegFmt(BaseReg* ASMJIT_NONNULL(out), TypeId typeId) { return _newRegFmt(out, typeId, nullptr); }
 
   //! Creates a new virtual register compatible with the provided reference register `ref`.
   ASMJIT_API Error _newReg(BaseReg* ASMJIT_NONNULL(out), const BaseReg& ref, const char* name = nullptr);

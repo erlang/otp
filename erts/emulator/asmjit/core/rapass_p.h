@@ -335,6 +335,8 @@ public:
   //! Clears instruction `flags` from  this RAInst.
   ASMJIT_INLINE_NODEBUG void clearFlags(RATiedFlags flags) noexcept { _flags &= ~flags; }
 
+  //! Tests whether one operand of this instruction has been patched from Reg to Mem.
+  ASMJIT_INLINE_NODEBUG bool isRegToMemPatched() const noexcept { return hasFlag(RATiedFlags::kInst_RegToMemPatched); }
   //! Tests whether this instruction can be transformed to another instruction if necessary.
   ASMJIT_INLINE_NODEBUG bool isTransformable() const noexcept { return hasFlag(RATiedFlags::kInst_IsTransformable); }
 

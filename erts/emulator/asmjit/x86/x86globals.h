@@ -53,19 +53,22 @@ enum class CondCode : uint8_t {
   kNLE           = 0x0Fu,       //!< ZF==0 & SF==OF (signed > )
 
   kZero          = kZ,          //!< Zero flag.
-  kNotZero       = kNZ,         //!< Non-zero flag.
-
-  kSign          = kS,          //!< Sign flag.
-  kNotSign       = kNS,         //!< No sign flag.
-
-  kNegative      = kS,          //!< Sign flag.
-  kPositive      = kNS,         //!< No sign flag.
-
-  kOverflow      = kO,          //!< Overflow (signed).
-  kNotOverflow   = kNO,         //!< Not overflow (signed).
+  kNotZero       = kNZ,         //!< Not zero.
 
   kEqual         = kE,          //!< `a == b` (equal).
   kNotEqual      = kNE,         //!< `a != b` (not equal).
+
+  kCarry         = kC,          //!< Carry flag.
+  kNotCarry      = kNC,         //!< Not carry.
+
+  kSign          = kS,          //!< Sign flag.
+  kNotSign       = kNS,         //!< Not sign.
+
+  kNegative      = kS,          //!< Sign flag.
+  kPositive      = kNS,         //!< Not sign.
+
+  kOverflow      = kO,          //!< Overflow (signed).
+  kNotOverflow   = kNO,         //!< Not overflow (signed).
 
   kSignedLT      = kL,          //!< `a <  b` (signed).
   kSignedLE      = kLE,         //!< `a <= b` (signed).
@@ -76,6 +79,9 @@ enum class CondCode : uint8_t {
   kUnsignedLE    = kBE,         //!< `a <= b` (unsigned).
   kUnsignedGT    = kA,          //!< `a >  b` (unsigned).
   kUnsignedGE    = kAE,         //!< `a >= b` (unsigned).
+
+  kBTZero        = kNC,         //!< Tested bit is zero.
+  kBTNotZero     = kC,          //!< Tested bit is non-zero.
 
   kParityEven    = kP,          //!< Even parity flag.
   kParityOdd     = kPO,         //!< Odd parity flag.

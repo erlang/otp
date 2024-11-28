@@ -131,14 +131,18 @@ static constexpr uint32_t kNumVirtGroups = 4;
 struct Init_ {};
 struct NoInit_ {};
 
+//! A decorator used to initialize.
 static const constexpr Init_ Init {};
+//! A decorator used to not initialize.
 static const constexpr NoInit_ NoInit {};
 
 } // {Globals}
 
+//! Casts a `void*` pointer `func` to a function pointer `Func`.
 template<typename Func>
 static ASMJIT_INLINE_NODEBUG Func ptr_as_func(void* func) noexcept { return Support::ptr_cast_impl<Func, void*>(func); }
 
+//! Casts a function pointer `func` to a void pointer `void*`.
 template<typename Func>
 static ASMJIT_INLINE_NODEBUG void* func_as_ptr(Func func) noexcept { return Support::ptr_cast_impl<void*, Func>(func); }
 
@@ -329,6 +333,10 @@ enum ErrorCode : uint32_t {
   //!
   //! \note This is a generic error that is used by internal filesystem API.
   kErrorFailedToOpenFile,
+
+  //! Protection failure can be returned from a virtual memory allocator or when trying to change memory access
+  //! permissions.
+  kErrorProtectionFailure,
 
   // @EnumValuesEnd@
 

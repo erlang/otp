@@ -31,7 +31,7 @@ ASMJIT_FAVOR_SIZE Error FormatterInternal::formatInstruction(
 
   // Format instruction options and instruction mnemonic.
   InstId instId = inst.realId();
-  if (instId < Inst::_kIdCount)
+  if (instId != Inst::kIdNone && instId < Inst::_kIdCount)
     ASMJIT_PROPAGATE(InstInternal::instIdToString(instId, sb));
   else
     ASMJIT_PROPAGATE(sb.appendFormat("[InstId=#%u]", unsigned(instId)));

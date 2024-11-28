@@ -1315,6 +1315,10 @@ Error queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, siz
 
           out->_operands[0].reset(W, size0);
           out->_operands[1].reset(R | MibRead, size1);
+
+          if (BaseReg::isVec(operands[0]))
+            rwZeroExtendAvxVec(out->_operands[0], operands[0].as<Vec>());
+
           return kErrorOk;
         }
 
@@ -1365,6 +1369,9 @@ Error queryRWInfo(Arch arch, const BaseInst& inst, const Operand_* operands, siz
 
         out->_operands[0].reset(W, size0);
         out->_operands[1].reset(R, size1);
+
+        if (BaseReg::isVec(operands[0]))
+          rwZeroExtendAvxVec(out->_operands[0], operands[0].as<Vec>());
 
         if (operands[0].isReg() && operands[1].isReg()) {
           if (instRmInfo.rmOpsMask & 0x1) {

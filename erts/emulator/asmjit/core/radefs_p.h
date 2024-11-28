@@ -67,7 +67,7 @@ public:
         uint32_t registerCount = arch == Arch::kX86 ? 8 : 16;
         _availableRegs[RegGroup::kGp] = Support::lsbMask<RegMask>(registerCount) & ~Support::bitMask(4u);
         _availableRegs[RegGroup::kVec] = Support::lsbMask<RegMask>(registerCount);
-        _availableRegs[RegGroup::kExtraVirt2] = Support::lsbMask<RegMask>(8);
+        _availableRegs[RegGroup::kMask] = Support::lsbMask<RegMask>(8);
         _availableRegs[RegGroup::kExtraVirt3] = Support::lsbMask<RegMask>(8);
         return kErrorOk;
       }
@@ -75,7 +75,7 @@ public:
       case Arch::kAArch64: {
         _availableRegs[RegGroup::kGp] = 0xFFFFFFFFu & ~Support::bitMask(18, 31u);
         _availableRegs[RegGroup::kVec] = 0xFFFFFFFFu;
-        _availableRegs[RegGroup::kExtraVirt2] = 0;
+        _availableRegs[RegGroup::kMask] = 0;
         _availableRegs[RegGroup::kExtraVirt3] = 0;
         return kErrorOk;
       }
@@ -559,7 +559,7 @@ public:
 
   ASMJIT_FORCE_INLINE Error nonOverlappingUnionOf(ZoneAllocator* allocator, const RALiveSpans<T>& x, const RALiveSpans<T>& y, const DataType& yData) noexcept {
     uint32_t finalSize = x.size() + y.size();
-    ASMJIT_PROPAGATE(_data.reserve(allocator, finalSize));
+    ASMJIT_PROPAGATE(_data.growingReserve(allocator, finalSize));
 
     T* dstPtr = _data.data();
     const T* xSpan = x.data();
@@ -694,7 +694,7 @@ typedef RALiveSpans<LiveRegSpan> LiveRegSpans;
 //!   - LEA x{  W|Out}, [x{R|Use} + y{R|Out}]  -> {x:R|W|Use|Out y:R|Use}
 //!
 //! It should be obvious from the example above how these flags get created. Each operand contains READ/WRITE
-//! information, which is then merged to RATiedReg's flags. However, we also need to represent the possitility
+//! information, which is then merged to RATiedReg's flags. However, we also need to represent the possibility
 //! to view the operation as two independent operations - USE and OUT, because the register allocator first
 //! allocates USE registers, and then assigns OUT registers independently of USE registers.
 enum class RATiedFlags : uint32_t {
@@ -766,6 +766,12 @@ enum class RATiedFlags : uint32_t {
 
   // Instruction Flags (Never used by RATiedReg)
   // -------------------------------------------
+
+  //! Instruction has been patched to address a memory location instead of a register.
+  //!
+  //! This is currently only possible on X86 or X86_64 targets. It informs rewriter to rewrite the instruction if
+  //! necessary.
+  kInst_RegToMemPatched = 0x40000000u,
 
   //! Instruction is transformable to another instruction if necessary.
   //!

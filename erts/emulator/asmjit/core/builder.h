@@ -181,6 +181,7 @@ public:
 //! Check out architecture specific builders for more details and examples:
 //!
 //!   - \ref x86::Builder - X86/X64 builder implementation.
+//!   - \ref a64::Builder - AArch64 builder implementation.
 class ASMJIT_VIRTAPI BaseBuilder : public BaseEmitter {
 public:
   ASMJIT_NONCOPYABLE(BaseBuilder)
@@ -813,11 +814,17 @@ public:
   //! \name Instruction Options
   //! \{
 
+  //! Returns instruction options, see \ref InstOptions for more details.
   ASMJIT_INLINE_NODEBUG InstOptions options() const noexcept { return _baseInst.options(); }
+  //! Tests whether instruction has the given \option` set/enabled.
   ASMJIT_INLINE_NODEBUG bool hasOption(InstOptions option) const noexcept { return _baseInst.hasOption(option); }
+  //! Sets instruction `options` to the provided value, resetting all others.
   ASMJIT_INLINE_NODEBUG void setOptions(InstOptions options) noexcept { _baseInst.setOptions(options); }
+  //! Adds instruction `options` to the instruction.
   ASMJIT_INLINE_NODEBUG void addOptions(InstOptions options) noexcept { _baseInst.addOptions(options); }
+  //! Clears instruction `options` of the instruction (disables the given options).
   ASMJIT_INLINE_NODEBUG void clearOptions(InstOptions options) noexcept { _baseInst.clearOptions(options); }
+  //! Resets instruction options to none - disabling all instruction options.
   ASMJIT_INLINE_NODEBUG void resetOptions() noexcept { _baseInst.resetOptions(); }
 
   //! \}
@@ -905,6 +912,7 @@ public:
   //! \name Utilities
   //! \{
 
+  //! Tests whether the given operand type `opType` is used by the instruction.
   inline bool hasOpType(OperandType opType) const noexcept {
     const Operand* ops = operands();
     for (uint32_t i = 0, count = opCount(); i < count; i++)
@@ -913,11 +921,19 @@ public:
     return false;
   }
 
+  //! Tests whether the instruction uses at least one register operand.
   inline bool hasRegOp() const noexcept { return hasOpType(OperandType::kReg); }
+  //! Tests whether the instruction uses at least one memory operand.
   inline bool hasMemOp() const noexcept { return hasOpType(OperandType::kMem); }
+  //! Tests whether the instruction uses at least one immediate operand.
   inline bool hasImmOp() const noexcept { return hasOpType(OperandType::kImm); }
+  //! Tests whether the instruction uses at least one label operand.
   inline bool hasLabelOp() const noexcept { return hasOpType(OperandType::kLabel); }
 
+  //! Returns the index of the given operand type `opType`.
+  //!
+  //! \note If the operand type wa found, the value returned represents its index in \ref operands()
+  //! array, otherwise \ref Globals::kNotFound is returned to signalize that the operand was not found.
   inline uint32_t indexOfOpType(OperandType opType) const noexcept {
     uint32_t i = 0;
     uint32_t count = opCount();
@@ -925,15 +941,18 @@ public:
 
     while (i < count) {
       if (ops[i].opType() == opType)
-        break;
+        return i;
       i++;
     }
 
-    return i;
+    return Globals::kNotFound;
   }
 
+  //! A shortcut that calls `indexOfOpType(OperandType::kMem)`.
   inline uint32_t indexOfMemOp() const noexcept { return indexOfOpType(OperandType::kMem); }
+  //! A shortcut that calls `indexOfOpType(OperandType::kImm)`.
   inline uint32_t indexOfImmOp() const noexcept { return indexOfOpType(OperandType::kImm); }
+  //! A shortcut that calls `indexOfOpType(OperandType::kLabel)`.
   inline uint32_t indexOfLabelOp() const noexcept { return indexOfOpType(OperandType::kLabel); }
 
   //! \}
@@ -942,20 +961,40 @@ public:
   //! \{
 
   //! \cond INTERNAL
+
+  //! Returns uint32_t[] view that represents BaseInst::RegOnly and instruction operands.
   ASMJIT_INLINE_NODEBUG uint32_t* _getRewriteArray() noexcept { return &_baseInst._extraReg._id; }
+  //! \overload
   ASMJIT_INLINE_NODEBUG const uint32_t* _getRewriteArray() const noexcept { return &_baseInst._extraReg._id; }
 
+  //! Maximum value of rewrite id - 6 operands each having 4 slots is 24, one RegOnly having 2 slots => 26.
+  static constexpr uint32_t kMaxRewriteId = 26 - 1;
+
+  //! Returns a rewrite index of the given pointer to `id`.
+  //!
+  //! This function returns a value that can be then passed to `\ref rewriteIdAtIndex() function. It can address
+  //! any id from any operand that is used by the instruction in addition to \ref BaseInst::regOnly field, which
+  //! can also be used by the register allocator.
   inline uint32_t getRewriteIndex(const uint32_t* id) const noexcept {
     const uint32_t* array = _getRewriteArray();
     ASMJIT_ASSERT(array <= id);
 
     size_t index = (size_t)(id - array);
-    ASMJIT_ASSERT(index < 32);
+    ASMJIT_ASSERT(index <= kMaxRewriteId);
 
     return uint32_t(index);
   }
 
+  //! Rewrites the given `index` to the provided identifier `id`.
+  //!
+  //! \note This is an internal function that is used by a \ref BaseCompiler implementation to rewrite virtual
+  //! registers to physical registers. The rewriter in this case sees all operands as array of uint32 values
+  //! and the given `index` describes a position in this array. For example a single \ref Operand would be
+  //! decomposed to 4 uint32_t values, where the first at index 0 would be operand signature, next would be
+  //! base id, etc... This is a comfortable way of patching operands without having to check for their types.
   inline void rewriteIdAtIndex(uint32_t index, uint32_t id) noexcept {
+    ASMJIT_ASSERT(index <= kMaxRewriteId);
+
     uint32_t* array = _getRewriteArray();
     array[index] = id;
   }
@@ -967,10 +1006,19 @@ public:
   //! \{
 
   //! \cond INTERNAL
+
+  //! Returns the capacity required for the given operands count `opCount`.
+  //!
+  //! There are only two capacities used - \ref kBaseOpCapacity and \ref kFullOpCapacity, so this function
+  //! is used to decide between these two. The general rule is that instructions that can be represented with
+  //! \ref kBaseOpCapacity would use this value, and all others would take \ref kFullOpCapacity.
   static ASMJIT_INLINE_NODEBUG constexpr uint32_t capacityOfOpCount(uint32_t opCount) noexcept {
-    return opCount <= kBaseOpCapacity ? kBaseOpCapacity : Globals::kMaxOpCount;
+    return opCount <= kBaseOpCapacity ? kBaseOpCapacity : kFullOpCapacity;
   }
 
+  //! Calculates the size of \ref InstNode required to hold at most `opCapacity` operands.
+  //!
+  //! This function is used internally to allocate \ref InstNode.
   static ASMJIT_INLINE_NODEBUG constexpr size_t nodeSizeOfOpCapacity(uint32_t opCapacity) noexcept {
     return sizeof(InstNode) + opCapacity * sizeof(Operand);
   }

@@ -74,6 +74,9 @@ enum class Arch : uint8_t {
     ASMJIT_ARCH_X86 == 32 ? kX86 :
     ASMJIT_ARCH_X86 == 64 ? kX64 :
 
+    ASMJIT_ARCH_RISCV == 32 ? kRISCV32 :
+    ASMJIT_ARCH_RISCV == 64 ? kRISCV64 :
+
     ASMJIT_ARCH_ARM == 32 && ASMJIT_ARCH_LE ? kARM :
     ASMJIT_ARCH_ARM == 32 && ASMJIT_ARCH_BE ? kARM_BE :
     ASMJIT_ARCH_ARM == 64 && ASMJIT_ARCH_LE ? kAArch64 :
