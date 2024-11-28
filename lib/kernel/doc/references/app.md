@@ -170,7 +170,7 @@ The other keys are ignored by `systools`.
 
   This implies that for an included application, the set of start phases must be
   a subset of the set of phases defined for the primary application. For more
-  information, see [OTP Design Principles](`e:system:applications.md`).
+  information, see [_Application_ in _OTP Design Principles_](`e:system:application.md`).
 
 - **`runtime_dependencies`{: #runtime_dependencies }** - A list of application
   versions that the application depends on. An example of such an application
