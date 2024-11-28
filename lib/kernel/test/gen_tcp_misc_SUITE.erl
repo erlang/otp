@@ -3719,7 +3719,11 @@ do_fill_sendq(Config, Addr) ->
                 case ?CONNECT(Config, Addr, ServerPort,
                               [{ip, Addr}, {active,false},binary,{packet,0}]) of
                     {ok, S} ->
-                        ?P("[client] connected"),
+                        ?P("[client] connected ~p"
+                           "~n   when"
+                           "~n      buffer sz:         ~p"
+                           "~n      receive buffer sz: ~p",
+                           [S, which_buffer(S), which_recbuf(S)]),
                         Master ! {self(), connected},
                         receive
                             {Master, close} ->
@@ -3748,59 +3752,76 @@ do_fill_sendq(Config, Addr) ->
                   fill_sendq_loop(Server, Client, Reader)
           end,
     process_flag(trap_exit, OldFlag),    
-    ?P("[master] done"),
-    Res.
+    ?P("[master] done: ~p", [Res]),
+    case Res of
+        {ok, NumSends} ->
+            {comment, "Num Sends: " ++ integer_to_list(NumSends)};
+        _ ->
+            Res
+    end.
 
 fill_sendq_loop(Server, Client, Reader) ->
+    fill_sendq_loop(Server, Client, Reader, 0).
+
+fill_sendq_loop(Server, Client, Reader, NumSent) ->
     %% Master
     %%
     receive
         {Server, send} ->
-	    fill_sendq_loop(Server, Client, Reader)
+	    fill_sendq_loop(Server, Client, Reader, NumSent + 1)
     after 2000 ->
 	    %% Send queue full, sender blocked -> close client.
-	    ?P("[master] send timeout, closing client"),
+	    ?P("[master] send timeout (~p), closing client", [NumSent]),
 	    Client ! {self(), close},
 	    receive
                 {Server, [{error,closed}] = SErrors} ->
-                    ?P("[master] got expected server closed"),
+                    ?P("[master] got expected server (~p) closed", [Server]),
                     receive
                         {Reader, [{error,closed}]} ->
                             ?P("[master] got expected reader closed"),
-                            ok;
+                            {ok, NumSent};
                         {Reader, RErrors} when is_list(RErrors) ->
-                            ct:fail([{server, SErrors}, {reader, RErrors}])
+                            ct:fail([{server,   SErrors},
+                                     {reader,   RErrors},
+                                     {num_sent, NumSent}])
                     after 3000 ->
-                            ct:fail({timeout,{closed,reader}})
+                            ct:fail({timeout, {closed, reader}, NumSent})
                     end;
 
                 {Server, SErrors} when is_list(SErrors) ->
-                    ?P("UNEXPECTED SERVER ERROR(S): "
+                    ?P("UNEXPECTED SERVER (~p) ERROR(S): "
                        "~n   ~p"
-                       "~n   ~p", [SErrors, flush([])]),
-                    ct:fail([{server, SErrors}, {reader, []}]);
+                       "~n   ~p", [Server, SErrors, flush([])]),
+                    ct:fail([{server,   SErrors},
+                             {reader,   []},
+                             {num_sent, NumSent}]);
 
                 {Reader, [{error,closed}] = RErrors} ->
-                    ?P("[master] got expected reader closed"),
+                    ?P("[master] got expected reader (~p) closed", [Reader]),
                     receive
                         {Server, [{error,closed}]} ->
-                            ?P("[master] got expected server closed"),
-                            ok;
+                            ?P("[master] got expected server (~p) closed",
+                               [Server]),
+                            {ok, NumSent};
                         {Server, SErrors} when is_list(SErrors) ->
-                            ct:fail([{server, SErrors}, {reader, RErrors}])
+                            ct:fail([{server,   SErrors},
+                                     {reader,   RErrors},
+                                     {num_sent, NumSent}])
                     after 3000 ->
-                            ct:fail({timeout,{closed,server}})
+                            ct:fail({timeout, {closed, server}, NumSent})
                     end;
 
                 {Reader, RErrors} when is_list(RErrors) ->
-                    ?P("UNEXPECTED READER ERROR(S): "
+                    ?P("UNEXPECTED READER (~p) ERROR(S): "
                        "~n   ~p"
-                       "~n   ~p", [RErrors, flush([])]),
-                    ct:fail([{server, []}, {reader, RErrors}])
+                       "~n   ~p", [Reader, RErrors, flush([])]),
+                    ct:fail([{server,   []},
+                             {reader,   RErrors},
+                             {num_sent, NumSent}])
 
             after 3000 ->
                     Msgs = flush([]),
-                    ct:fail({timeout,{closed,[server,reader]}, Msgs})
+                    ct:fail({timeout, {closed, [server,reader]}, NumSent, Msgs})
             end
     end.
 
@@ -3810,7 +3831,11 @@ fill_sendq_srv(L, Master) ->
     ?P("[server] await accept"),
     case gen_tcp:accept(L) of
 	{ok, S} ->
-            ?P("[server] accepted ~p", [S]),
+            ?P("[server] accepted ~p"
+               "~n   when"
+               "~n      buffer sz:      ~p"
+               "~n      send buffer sz: ~p",
+               [S, which_buffer(S), which_sndbuf(S)]),
 	    Master ! {self(), reader,
 		      spawn_link(fun () -> fill_sendq_read(S, Master) end)},
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
@@ -3819,6 +3844,23 @@ fill_sendq_srv(L, Master) ->
             Error = flush([E]),
 	    ?P("[server] accept error: ~p", [E]),
 	    Master ! {self(), Error}
+    end.
+
+which_recbuf(S) ->
+    which_optval(S, recbuf, undefined).
+
+which_buffer(S) ->
+    which_optval(S, buffer, undefined).
+
+which_sndbuf(S) ->
+    which_optval(S, sndbuf, undefined).
+
+which_optval(S, Tag, Default) ->
+    case inet:getopts(S, [Tag]) of
+        {ok, [{Tag, Val}]} ->
+            Val;
+        _ ->
+            Default
     end.
 
 fill_sendq_write(S, Master, Msg) ->
@@ -3838,7 +3880,8 @@ fill_sendq_write(S, Master, Msg) ->
 
 fill_sendq_read(S, Master) ->
     %% Reader
-    %%
+    %% The client never send anything, so we should never get anything,
+    %% but just in case...
     ?P("[server,reader] read infinity..."),
     case gen_tcp:recv(S, 0, infinity) of
 	{ok, Data} ->
