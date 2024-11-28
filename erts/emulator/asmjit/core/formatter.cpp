@@ -20,6 +20,10 @@
   #include "../x86/x86formatter_p.h"
 #endif
 
+#if !defined(ASMJIT_NO_AARCH32)
+  #include "../arm/a32formatter_p.h"
+#endif
+
 #if !defined(ASMJIT_NO_AARCH64)
   #include "../arm/a64formatter_p.h"
 #endif
@@ -107,7 +111,7 @@ Error formatFeature(
     return x86::FormatterInternal::formatFeature(sb, featureId);
 #endif
 
-#if !defined(ASMJIT_NO_AARCH64)
+#if !defined(ASMJIT_NO_AARCH32) && !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatFeature(sb, featureId);
 #endif
@@ -165,7 +169,7 @@ Error formatRegister(
     return x86::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
 
-#if !defined(ASMJIT_NO_AARCH64)
+#if !defined(ASMJIT_NO_AARCH32) || !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatRegister(sb, formatFlags, emitter, arch, regType, regId);
 #endif
@@ -185,7 +189,7 @@ Error formatOperand(
     return x86::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
 
-#if !defined(ASMJIT_NO_AARCH64)
+#if !defined(ASMJIT_NO_AARCH32) || !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyARM(arch))
     return arm::FormatterInternal::formatOperand(sb, formatFlags, emitter, arch, op);
 #endif
@@ -286,6 +290,11 @@ Error formatInstruction(
 #if !defined(ASMJIT_NO_AARCH64)
   if (Environment::isFamilyAArch64(arch))
     return a64::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
+#endif
+
+#if !defined(ASMJIT_NO_AARCH32)
+  if (Environment::isFamilyAArch32(arch))
+    return a32::FormatterInternal::formatInstruction(sb, formatFlags, emitter, arch, inst, operands, opCount);
 #endif
 
   return kErrorInvalidArch;

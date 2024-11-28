@@ -467,7 +467,7 @@ static inline bool matchSignature(const Operand_& o0, const Operand_& o1, const 
 }
 
 static inline bool matchSignature(const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_& o3, uint32_t instFlags) noexcept {
-  return matchSignature(o0, o1, instFlags) && o1.signature() == o2.signature() && o2.signature() == o3.signature();;
+  return matchSignature(o0, o1, instFlags) && o1.signature() == o2.signature() && o2.signature() == o3.signature();
 }
 
 // Memory must be either:
