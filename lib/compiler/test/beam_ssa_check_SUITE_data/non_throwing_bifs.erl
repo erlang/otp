@@ -24,25 +24,32 @@
 -export([try_bif1/1, try_bif2/2, try_bif3/1]).
 
 try_bif1(B) ->
-%ssa% () when post_ssa_opt ->
-%ssa% X = bif:binary_to_atom(B),
-%ssa% _ = succeeded:guard(X).
+%ssa% (B) when post_ssa_opt ->
+%ssa% X = bif:binary_to_atom(B, utf8),
+%ssa% Y = succeeded:guard(X),
+%ssa% ret(X).
     try binary_to_atom(B)
     catch _:_ -> []
     end.
 
 try_bif2(A, B) ->
-%ssa% () when post_ssa_opt ->
+%ssa% (A, B) when post_ssa_opt ->
 %ssa% X = bif:binary_to_atom(A, B),
-%ssa% _ = succeeded:guard(X).
+%ssa% Y = succeeded:guard(X),
+%ssa% ret(X).
     try binary_to_atom(A, B)
     catch _:_ -> []
     end.
 
 try_bif3(A) ->
-%ssa% () when post_ssa_opt ->
-%ssa% X = erlang:float_to_list(A),
-%ssa% _ = succeeded:body(X).
+%ssa% (A) when post_ssa_opt ->
+%ssa% X = call(fun erlang:float_to_list/1, A),
+%ssa% Y = succeeded:body(X),
+%ssa% br(Y, Succ, Fail),
+%ssa% label Succ,
+%ssa% ret(X),
+%ssa% label Fail,
+%ssa% ret([]).
     try float_to_list(A)
     catch _:_ -> []
     end.

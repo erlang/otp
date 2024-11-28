@@ -239,7 +239,9 @@ no_side_effect(#b_set{op=Op}) ->
 
 can_be_guard_bif(M, F, A) ->
     case {M,F,A} of
+        {erlang, binary_to_atom, 1} -> true;
         {erlang, binary_to_atom, 2} -> true;
+        {erlang, binary_to_existing_atom, 1} -> true;
         {erlang, binary_to_existing_atom, 2} -> true;
         {erlang, list_to_atom, 1} -> true;
         {erlang, list_to_existing_atom, 1} -> true;
