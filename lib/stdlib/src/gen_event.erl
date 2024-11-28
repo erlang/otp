@@ -28,7 +28,7 @@ event handlers that are added and deleted dynamically.
 An event manager implemented using this module has a standard set of
 interface functions and includes functionality for tracing
 and error reporting.  It also fits into an OTP supervision tree.
-For more information, see [OTP Design Principles](`e:system:events.md`).
+For more information, see [gen_event section in OTP Design Principles](`e:system:events.md`).
 
 Each event handler is implemented as a callback module
 exporting a predefined set of functions. The relationship between
