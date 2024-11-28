@@ -215,7 +215,7 @@ Options:
   the start optimization of PCRE would skip the subject up to "A" and never
   realize that the (*COMMIT) instruction is to have made the matching fail. This
   option is only relevant if you use "start-of-pattern items", as discussed in
-  section [PCRE Regular Expression Details](`m:re#module-pcre-regular-expression-details`).
+  section [PCRE Regular Expression Details](`m:re#module-pcre2-regular-expression-details`).
 
 - **`ucp`** - Specifies that Unicode character properties are to be used when
   resolving \\B, \\b, \\D, \\d, \\S, \\s, \\W and \\w. Without this flag, only
@@ -435,7 +435,7 @@ The following options are relevant for execution:
     occurs before that (each recursive call is also a call, but not conversely).
     Both limits can however be changed, either by setting limits directly in the
     regular expression string (see section
-    [PCRE Regular Eexpression Details](`m:re#module-pcre-regular-expression-details`)) or by
+    [PCRE Regular Expression Details](`m:re#module-pcre2-regular-expression-details`)) or by
     specifying options to [`run/3`](`run/3`).
 
   It is important to understand that what is referred to as "recursion" when
