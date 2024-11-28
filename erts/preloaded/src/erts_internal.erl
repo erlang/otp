@@ -129,6 +129,8 @@
 
 -export([system_monitor/1, system_monitor/3]).
 
+-export([processes_next/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -1165,4 +1167,8 @@ system_monitor(_Session) ->
       Options :: [term()],
       Return :: undefined | ok | {pid(), Options}.
 system_monitor(_Session, _MonitorPid, _Options) ->
+    erlang:nif_error(undefined).
+
+-spec processes_next(integer()) -> {integer(), [pid()]} | 'none'.
+processes_next(_IterRef) ->
     erlang:nif_error(undefined).

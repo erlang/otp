@@ -103,7 +103,8 @@
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
          monitor_tag/1,
-         no_pid_wrap/1]).
+         no_pid_wrap/1,
+         processes_iter/1]).
 
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
@@ -163,7 +164,8 @@ groups() ->
        processes_small_tab, processes_this_tab,
        processes_last_call_trap, processes_apply_trap,
        processes_gc_trap, processes_term_proc_list,
-       processes_send_infant]},
+       processes_send_infant,
+       processes_iter]},
      {process_info_bif, [],
       [t_process_info, process_info_messages,
        process_info_other, process_info_other_msg,
@@ -2513,7 +2515,14 @@ processes_bif_test() ->
 	    processes()
     end,
 
+    IterProcesses =
+        fun () ->
+                erts_debug:set_internal_state(reds_left, WantReds),
+                iter_all_processes()
+        end,
+
     ok = do_processes_bif_test(WantReds, WillTrap, Processes),
+    ok = do_processes_bif_test(WantReds, false, IterProcesses()),
 
     case WillTrap of
 	false ->
@@ -2550,7 +2559,19 @@ processes_bif_test() ->
 	undefined -> ok;
 	Comment -> {comment, Comment}
     end.
-    
+
+iter_all_processes() ->
+    Iter = erlang:processes_iterator(),
+    iter_all_processes(Iter).
+
+iter_all_processes(Iter0) ->
+    case erlang:processes_next(Iter0) of
+        {Pid, Iter} ->
+            [Pid|iter_all_processes(Iter)];
+        none ->
+            none
+    end.
+
 do_processes_bif_test(WantReds, DieTest, Processes) ->
     Tester = self(),
     SpawnProcesses = fun (Prio) ->
@@ -4198,6 +4219,19 @@ processes_term_proc_list(Config) when is_list(Config) ->
     Run(["+MSe", "true", "+Muatags", "true", "+S1"]),
 
     ok.
+
+processes_iter(Config) when is_list(Config) ->
+    ProcessLimit = erlang:system_info(process_limit),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(ProcessLimit + 1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(-1),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 32),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 64),
+    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(abc),
+
+    none = erts_internal:processes_next(ProcessLimit),
+
+    ok.
+
 
 %% OTP-18322: Send msg to spawning process pid returned from processes/0
 processes_send_infant(_Config) ->

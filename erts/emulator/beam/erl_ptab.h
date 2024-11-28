@@ -474,6 +474,9 @@ ERTS_GLB_INLINE int erts_lc_ptab_is_rwlocked(ErtsPTab *ptab)
 
 BIF_RETTYPE erts_ptab_list(struct process *c_p, ErtsPTab *ptab);
 
+BIF_RETTYPE erts_ptab_processes_next(struct process *c_p, ErtsPTab *ptab,
+                                     Uint first);
+
 #endif
 
 #if defined(ERTS_PTAB_WANT_DEBUG_FUNCS__) && !defined(ERTS_PTAB_DEBUG_FUNCS__)
