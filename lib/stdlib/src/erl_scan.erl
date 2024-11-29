@@ -447,6 +447,15 @@ string_quote(_)    -> $". %"
         (is_integer(C) andalso
          (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240))).
 -define(DIGIT(C), (is_integer(C) andalso $0 =< C andalso C =< $9)).
+-define(NAMECHAR(C),
+        (is_integer(C) andalso
+         (C >= $a andalso C =< $z orelse
+          C >= $A andalso C =< $Z orelse
+          C =:= $_ orelse
+          C >= $0 andalso C =< $9 orelse
+          C =:= $@ orelse
+          C >= $ß andalso C =< $ÿ andalso C =/= $÷ andalso
+          C >= $À andalso C =< $Þ andalso C =/= $×))).
 -define(CHAR(C), (is_integer(C) andalso 0 =< C andalso C < 16#110000)).
 -define(UNICODE(C),
         (is_integer(C) andalso
@@ -1806,6 +1815,8 @@ scan_number([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
     scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs], Us);
+scan_number([$.,C|_]=Cs0, _St, Line, Col, _Toks, Ncs, _Us) when ?NAMECHAR(C) ->
+    scan_error({illegal,float}, Line, Col, Line, incr_column(Col, length(Ncs)), Cs0);
 scan_number([$.]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
@@ -1822,6 +1833,8 @@ scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
             %% Extremely unlikely to occur in practice.
             scan_error({illegal,base}, Line, Col, Line, Col, Cs0)
     end;
+scan_number([C|_]=Cs0, _St, Line, Col, _Toks, Ncs, _Us) when ?NAMECHAR(C) ->
+    scan_error({illegal,integer}, Line, Col, Line, incr_column(Col, length(Ncs)), Cs0);
 scan_number([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
 scan_number(Cs, St, Line, Col, Toks, Ncs0, Us) ->
@@ -1861,6 +1874,8 @@ scan_based_int([$_,Next|Cs], St, Line, Col, Toks, B, [Prev|_]=Ncs, Bcs, _Us)
                    with_underscore);
 scan_based_int([$_]=Cs, St, Line, Col, Toks, B, NCs, BCs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int([C|_]=Cs0, _St, Line, Col, _Toks, _B, Ncs, Bcs, _Us) when ?NAMECHAR(C) ->
+    scan_error({illegal,integer}, Line, Col, Line, incr_column(Col, length(Ncs) + length(Bcs)), Cs0);
 scan_based_int([]=Cs, St, Line, Col, Toks, B, NCs, BCs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
 scan_based_int(Cs, _St, Line, Col, _Toks, _B, [], Bcs, _Us) ->
@@ -1893,6 +1908,8 @@ scan_fraction([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
 scan_fraction([E|Cs], St, Line, Col, Toks, Ncs, Us) when E =:= $e; E =:= $E ->
     scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs], Us);
+scan_fraction([C|_]=Cs0, _St, Line, Col, _Toks, Ncs, _Us) when ?NAMECHAR(C) ->
+    scan_error({illegal,float}, Line, Col, Line, incr_column(Col, length(Ncs)), Cs0);
 scan_fraction([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
 scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us) ->
@@ -1919,6 +1936,8 @@ scan_exponent([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _) when
     scan_exponent(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
 scan_exponent([$_]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
+scan_exponent([C|_]=Cs0, _St, Line, Col, _Toks, Ncs, _Us) when ?NAMECHAR(C) ->
+    scan_error({illegal,float}, Line, Col, Line, incr_column(Col, length(Ncs)), Cs0);
 scan_exponent([]=Cs, St, Line, Col, Toks, Ncs, Us) ->
     {more,{Cs,St,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
 scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us) ->

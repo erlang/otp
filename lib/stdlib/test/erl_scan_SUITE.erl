@@ -313,24 +313,37 @@ integers() ->
          fun({S, I}) ->
                  test_string(S, [{integer, {1, 1}, I}])
          end, UnderscoreSamples),
-    UnderscoreErrors =
-        ["123_",
-         "123__",
-         "123_456_",
-         "123__456",
-         "_123",
+    NotIntegers =
+        ["_123",
          "__123"],
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{integer, _, _}], _} ->
+                  {ok, [{integer, _, _}|_], _} ->
                       error({unexpected_integer, S});
-                  _ ->
+                  {ok, _, _} ->
                       ok
               end
-      end, UnderscoreErrors),
-    test_string("_123", [{var,{1,1},'_123'}]),
-    test_string("123_", [{integer,{1,1},123},{var,{1,4},'_'}]),
+      end, NotIntegers),
+    IntegerErrors =
+        ["123_",
+         "123__",
+         "123_456_",
+         "123__456",
+         "123_.456",
+         "123abc",
+         "12@"],
+    lists:foreach(
+      fun(S) ->
+              case erl_scan:string(S) of
+                  {error,{1,erl_scan,{illegal,integer}},_} ->
+                      ok;
+                  {error,Err,_} ->
+                      error({unexpected_error, S, Err});
+                  Succ ->
+                      error({unexpected_success, S, Succ})
+              end
+      end, IntegerErrors),
     ok.
 
 base_integers() ->
@@ -350,8 +363,6 @@ base_integers() ->
     {error,{{1,1},erl_scan,{base,1000}},{1,6}} =
         erl_scan:string("1_000#000", {1,1}, []),
 
-    test_string("12#bc", [{integer,{1,1},11},{atom,{1,5},c}]),
-
     [begin
          Str = BS ++ "#" ++ S,
          E = 2 + length(BS),
@@ -359,12 +370,6 @@ base_integers() ->
              erl_scan:string(Str, {1,1}, [])
      end || {BS,S} <- [{"3","3"},{"15","f"},{"12","c"},
                        {"1_5","f"},{"1_2","c"}] ],
-
-    {ok,[{integer,1,239},{'@',1}],1} = erl_scan_string("16#ef@"),
-    {ok,[{integer,{1,1},239},{'@',{1,6}}],{1,7}} =
-        erl_scan_string("16#ef@", {1,1}, []),
-    {ok,[{integer,{1,1},14},{atom,{1,5},g@}],{1,7}} =
-        erl_scan_string("16#eg@", {1,1}, []),
 
     UnderscoreSamples =
         [{"16#1234_ABCD_EF56", 16#1234abcdef56},
@@ -376,7 +381,7 @@ base_integers() ->
          fun({S, I}) ->
                  test_string(S, [{integer, {1, 1}, I}])
          end, UnderscoreSamples),
-    UnderscoreErrors =
+    IntegerErrors =
         ["16_#123ABC",
          "16#123_",
          "16#_123",
@@ -384,17 +389,23 @@ base_integers() ->
          "16#_ABC",
          "2#_0101",
          "1__6#ABC",
-         "16#AB__CD"],
+         "16#AB__CD",
+         "16#eg",
+         "16#ef@",
+         "10_#",
+         "10#12a4",
+         "10#12A4"],
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{integer, _, _}], _} ->
-                      error({unexpected_integer, S});
-                  _ ->
-                      ok
+                  {error,{1,erl_scan,{illegal,integer}},_} ->
+                      ok;
+                  {error,Err,_} ->
+                      error({unexpected_error, S, Err});
+                  Succ ->
+                      error({unexpected_success, S, Succ})
               end
-      end, UnderscoreErrors),
-    test_string("16#123_", [{integer,{1,1},291},{var,{1,7},'_'}]),
+      end, IntegerErrors),
     test_string("_16#ABC", [{var,{1,1},'_16'},{'#',{1,4}},{var,{1,5},'ABC'}]),
     ok.
 
@@ -405,7 +416,6 @@ floats() ->
          test_string(FS, Ts)
      end || FS <- ["1.0","001.17","3.31200","1.0e0","1.0E17",
                    "34.21E-18", "17.0E+14"]],
-    test_string("1.e2", [{integer,{1,1},1},{'.',{1,2}},{atom,{1,3},e2}]),
 
     {error,{1,erl_scan,{illegal,float}},1} =
         erl_scan:string("1.0e400"),
@@ -430,25 +440,29 @@ floats() ->
          fun({S, I}) ->
                  test_string(S, [{float, {1, 1}, I}])
          end, UnderscoreSamples),
-    UnderscoreErrors =
-        ["123_.456",
-         "123._456",
-         "123.456_",
-         "123._",
-         "1._23e10",
+    FloatErrors =
+        ["123.456_",
+         "1.23_e10",
          "1.23e_10",
-         "1.23e10_"],
+         "1.23e10_",
+         "123.45_e6",
+         "123.45a12",
+         "123.45e23a12",
+         "1.e2",
+         "12._34",
+         "123.a4"
+        ],
     lists:foreach(
       fun(S) ->
               case erl_scan:string(S) of
-                  {ok, [{float, _, _}], _} ->
-                      error({unexpected_float, S});
-                  _ ->
-                      ok
+                  {error,{1,erl_scan,{illegal,float}},_} ->
+                      ok;
+                  {error,Err,_} ->
+                      error({unexpected_error, S, Err});
+                  Succ ->
+                      error({unexpected_success, S, Succ})
               end
-      end, UnderscoreErrors),
-    test_string("123._", [{integer,{1,1},123},{'.',{1,4}},{var,{1,5},'_'}]),
-    test_string("1.23_e10", [{float,{1,1},1.23},{var,{1,5},'_e10'}]),
+      end, FloatErrors),
     ok.
 
 dots() ->
