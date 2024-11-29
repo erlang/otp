@@ -2227,10 +2227,8 @@ t_sup_aux(T1, T2) ->
 
 -spec t_sup_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
-t_sup_lists([T1|Left1], [T2|Left2]) ->
-  [t_sup(T1, T2)|t_sup_lists(Left1, Left2)];
-t_sup_lists([], []) ->
-  [].
+t_sup_lists(Ts1, Ts2) ->
+  [t_sup(T1, T2) || T1 <- Ts1 && T2 <- Ts2].
 
 %% Adds the new nominal `Sup` into the set of nominals `Ns0`. Note that it does
 %% not handle structurals; the caller is expected to normalize the result
@@ -2715,10 +2713,8 @@ t_inf_aux(#c{}, #c{}) ->
 
 -spec t_inf_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
-t_inf_lists([T1 | Left1], [T2 | Left2]) ->
-  [t_inf(T1, T2) | t_inf_lists(Left1, Left2)];
-t_inf_lists([], []) ->
-  [].
+t_inf_lists(Ts1, Ts2) ->
+  [t_inf(T1, T2) || T1 <- Ts1 && T2 <- Ts2].
 
 %% Infimum of lists with strictness.
 %% If any element is the ?none type, the value 'bottom' is returned.
@@ -3344,14 +3340,7 @@ t_subtract_aux(T1, T2) ->
 -spec t_subtract_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
 t_subtract_lists(L1, L2) ->
-  t_subtract_lists(L1, L2, []).
-
--spec t_subtract_lists([erl_type()], [erl_type()], [erl_type()]) -> [erl_type()].
-
-t_subtract_lists([T1|Left1], [T2|Left2], Acc) ->
-  t_subtract_lists(Left1, Left2, [t_subtract(T1, T2)|Acc]);
-t_subtract_lists([], [], Acc) ->
-  lists:reverse(Acc).
+  [t_subtract(T1, T2) || T1 <- L1 && T2 <- L2].
 
 -spec subtract_union([erl_type(),...], [erl_type(),...]) -> erl_type().
 
@@ -3398,10 +3387,12 @@ sns_cartesian_1(A, []) ->
 %% should contain a single element that is not none. That element
 %% will replace the element in the corresponding position in the
 %% first list.
-replace_nontrivial_element([T1|Left1], [?none|Left2]) ->
-  [T1|replace_nontrivial_element(Left1, Left2)];
-replace_nontrivial_element([_|Left1], [T2|_]) ->
-  [T2|Left1].
+
+replace_nontrivial_element(Left, Right) ->
+  [case T2 of
+     ?none -> T1;
+     _ -> T2
+   end || T1 <- Left && T2 <- Right].
 
 subtract_bin(?bitstr(U1, B1), ?bitstr(U1, B1)) ->
   ?none;

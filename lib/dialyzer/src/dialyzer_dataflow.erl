@@ -354,8 +354,7 @@ handle_apply(Tree, Map, State) ->
 	      NewArgs = t_inf_lists(ArgTypes, t_fun_args(OpType1)),
 	      case any_none(NewArgs) of
 		true ->
-                  EnumNewArgs = lists:zip(lists:seq(1, length(NewArgs)),
-                                          NewArgs),
+                  EnumNewArgs = lists:enumerate(NewArgs),
                   ArgNs = [Arg ||
                             {Arg, Type} <- EnumNewArgs, t_is_none(Type)],
 		  Msg = {fun_app_args,
@@ -545,7 +544,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   NewAccArgTypes =
     case FailedConj of
       true -> AccArgTypes;
-      false -> [t_sup(X, Y) || {X, Y} <- lists:zip(NewArgTypes, AccArgTypes)]
+      false -> [t_sup(X, Y) || X <- NewArgTypes && Y <- AccArgTypes]
     end,
   TotalRet =
     case t_is_none(LocalRet) andalso t_is_unit(RetWithoutLocal) of
@@ -642,8 +641,8 @@ get_apply_fail_msg(Fun, Args, ArgTypes, NewArgTypes,
 	 dialyzer_contracts:contract_to_string(C)};
       none -> {false, none}
     end,
-  EnumArgTypes = lists:zip(lists:seq(1, length(NewArgTypes)), NewArgTypes),
-  ArgNs = [Arg || {Arg, Type} <- EnumArgTypes, t_is_none(Type)],
+  ArgNs = [Arg || Arg <- lists:seq(1, length(NewArgTypes)) &&
+                    Type <- NewArgTypes, t_is_none(Type)],
   case state__lookup_name(Fun, State) of
     {M, F, _A} ->
       {call, [M, F, ArgStrings,
@@ -1162,7 +1161,7 @@ opaque_clauses(Clauses, ClauseTypes, #state{module=Module}=State) ->
                [erl_types:t_is_opaque(Type, Module),
                 format_type(Type, State)]},
         clause_error_warning(Msg, false, Clause)
-     end || {Clause, Type} <- lists:zip(Clauses, ClauseTypes),
+     end || Clause <- Clauses && Type <- ClauseTypes,
             not erl_types:t_is_impossible(Type),
             not erl_types:t_is_any(Type)]
   else
@@ -3249,7 +3248,7 @@ forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
 	{ArgTypes, OldOut0, false};
       {ok, {OldArgTypes0, OldOut0}} ->
         NewArgTypes0 = [t_sup(X, Y) ||
-                         {X, Y} <- lists:zip(ArgTypes, OldArgTypes0)],
+                         X <- ArgTypes && Y <- OldArgTypes0],
 	{NewArgTypes0, OldOut0,
          t_is_equal(t_product(NewArgTypes0), t_product(OldArgTypes0))}
     end,

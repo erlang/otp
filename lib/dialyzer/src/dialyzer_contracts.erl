@@ -321,8 +321,8 @@ locate_invalid_elems([Contract], SuccType) ->
 
   ProblematicArgs =
     [erl_types:t_is_none(erl_types:t_inf(Cont, Succ)) andalso
-      (not erl_types:t_is_none(Cont))
-      || {Cont, Succ} <- lists:zip(CArgs, SArgs)],
+      (not erl_types:t_is_none(Cont)) ||
+      Cont <- CArgs && Succ <- SArgs],
 
   ProblematicRange =
     erl_types:t_is_impossible(erl_types:t_inf(CRange, SRange))
