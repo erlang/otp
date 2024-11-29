@@ -257,14 +257,22 @@ on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
     on_tc_skip(Suite,ConfigFunc, Res, State);
 on_tc_skip(Suite,Tc, Res, State0) ->
     TcStr = atom_to_list(Tc),
-    State =
+    State1 =
 	case State0#state.test_cases of
 	    [#testcase{name=TcStr}|TCs] ->
 		State0#state{test_cases=TCs};
 	    _ ->
 		State0
 	end,
-    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(set_suite(Suite,State),[]))).
+    State2 = end_tc(Tc,[],Res,init_tc(set_suite(Suite,State1),[])),
+    State =
+        case Tc of
+            end_per_group ->
+                State2#state{curr_group = tl(State2#state.curr_group)};
+            _ ->
+                State2
+        end,
+    do_tc_skip(Res, State).
 
 do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
