@@ -1862,7 +1862,7 @@ unix_domain_socket(Config) when is_list(Config) ->
 invalid_ipfamily_unix_socket() ->
     [{doc, "Test that httpc profile can't end up having invalid combination of ipfamily and unix_socket options"}].
 invalid_ipfamily_unix_socket(Config) when is_list(Config) ->
-    Profile = ?profile(Config),
+    Profile = proplists:get_value(profile, Config, httpc:default_profile()),
 
     ct:log("Using profile ~w", [Profile]),
     {ok,[{unix_socket,?UNIX_SOCKET}, {ipfamily, local}]} =
