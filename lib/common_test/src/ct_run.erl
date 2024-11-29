@@ -307,7 +307,7 @@ script_start1(Parent, Args) ->
     AbortIfMissing = get_start_opt(abort_if_missing_suites,
 				   fun([]) -> true;
 				      ([Bool]) -> list_to_atom(Bool)
-				   end, false, Args),
+				   end, true, Args),
     %% silent connections
     SilentConns =
 	get_start_opt(silent_connections,
@@ -1036,7 +1036,7 @@ run_test2(StartOpts) ->
 	end,
 
     %% abort test run if some suites can't be compiled
-    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, false,
+    AbortIfMissing = get_start_opt(abort_if_missing_suites, value, true,
 				   StartOpts),
 
     %% decrypt config file
