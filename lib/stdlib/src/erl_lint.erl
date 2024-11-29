@@ -412,7 +412,6 @@ format_error_1(illegal_zip_generator) ->
 %% --- patterns and guards ---
 format_error_1(illegal_map_assoc_in_pattern) -> ~"illegal pattern, did you mean to use `:=`?";
 format_error_1(illegal_pattern) -> ~"illegal pattern";
-format_error_1(illegal_map_key) -> ~"illegal map key in pattern";
 format_error_1(illegal_expr) -> ~"illegal expression";
 format_error_1({illegal_guard_local_call, {F,A}}) ->
     {~"call to local/imported function ~tw/~w is illegal in guard",
@@ -759,114 +758,9 @@ start() ->
     start("nofile", []).
 
 start(File, Opts) ->
-    Enabled0 =
-	[{unused_vars,
-	  bool_option(warn_unused_vars, nowarn_unused_vars,
-		      true, Opts)},
-	 {underscore_match,
-	  bool_option(warn_underscore_match, nowarn_underscore_match,
-		      true, Opts)},
-	 {export_all,
-	  bool_option(warn_export_all, nowarn_export_all,
-		      true, Opts)},
-	 {export_vars,
-	  bool_option(warn_export_vars, nowarn_export_vars,
-		      false, Opts)},
-	 {shadow_vars,
-	  bool_option(warn_shadow_vars, nowarn_shadow_vars,
-		      true, Opts)},
-	 {unused_import,
-	  bool_option(warn_unused_import, nowarn_unused_import,
-		      false, Opts)},
-	 {unused_function,
-	  bool_option(warn_unused_function, nowarn_unused_function,
-		      true, Opts)},
-	 {unused_type,
-	  bool_option(warn_unused_type, nowarn_unused_type,
-		      true, Opts)},
-	 {bif_clash,
-	  bool_option(warn_bif_clash, nowarn_bif_clash,
-		      true, Opts)},
-	 {unused_record,
-	  bool_option(warn_unused_record, nowarn_unused_record,
-		      true, Opts)},
-	 {deprecated_function,
-	  bool_option(warn_deprecated_function, nowarn_deprecated_function,
-		      true, Opts)},
-	 {deprecated_type,
-	  bool_option(warn_deprecated_type, nowarn_deprecated_type,
-		      true, Opts)},
-	 {deprecated_callback,
-	  bool_option(warn_deprecated_callback, nowarn_deprecated_callback,
-		      true, Opts)},
-         {obsolete_guard,
-          bool_option(warn_obsolete_guard, nowarn_obsolete_guard,
-                      true, Opts)},
-	 {untyped_record,
-	  bool_option(warn_untyped_record, nowarn_untyped_record,
-		      false, Opts)},
-	 {missing_spec,
-	  bool_option(warn_missing_spec, nowarn_missing_spec,
-		      false, Opts)},
-	 {missing_spec_documented,
-	  bool_option(warn_missing_spec_documented, nowarn_missing_spec_documented,
-		      false, Opts)},
-	 {missing_spec_all,
-	  bool_option(warn_missing_spec_all, nowarn_missing_spec_all,
-		      false, Opts)},
-         {removed,
-          bool_option(warn_removed, nowarn_removed,
-                      true, Opts)},
-         {nif_inline,
-          bool_option(warn_nif_inline, nowarn_nif_inline,
-                      true, Opts)},
-         {keyword_warning,
-          bool_option(warn_keywords, nowarn_keywords,
-                      false, Opts)},
-         {redefined_builtin_type,
-          bool_option(warn_redefined_builtin_type, nowarn_redefined_builtin_type,
-                      true, Opts)},
-         {match_float_zero,
-          bool_option(warn_match_float_zero, nowarn_match_float_zero,
-                      true, Opts)},
-         {update_literal,
-          bool_option(warn_update_literal, nowarn_update_literal,
-                      true, Opts)},
-         %% Behaviour warnings.
-         {behaviours,
-          bool_option(warn_behaviours,
-                      nowarn_behaviours,
-                      true, Opts)},
-         {conflicting_behaviours,
-          bool_option(warn_conflicting_behaviours,
-                      nowarn_conflicting_behaviours,
-                      true, Opts)},
-         {undefined_behaviour_func,
-          bool_option(warn_undefined_behaviour_func,
-                      nowarn_undefined_behaviour_func,
-                      true, Opts)},
-         {undefined_behaviour,
-          bool_option(warn_undefined_behaviour,
-                      nowarn_undefined_behaviour,
-                      true, Opts)},
-         {undefined_behaviour_callbacks,
-          bool_option(warn_undefined_behaviour_callbacks,
-                      nowarn_undefined_behaviour_callbacks,
-                      true, Opts)},
-         {ill_defined_behaviour_callbacks,
-          bool_option(warn_ill_defined_behaviour_callbacks,
-                      nowarn_ill_defined_behaviour_callbacks,
-                      true, Opts)},
-         {ill_defined_optional_callbacks,
-          bool_option(warn_ill_defined_optional_callbacks,
-                      nowarn_ill_defined_optional_callbacks,
-                      true, Opts)},
-         {unexported_function,
-          bool_option(warn_unexported_function, nowarn_unexported_function,
-                      true, Opts)}
-	],
-    Enabled1 = [Category || {Category,true} <- Enabled0],
-    Enabled = ordsets:from_list(Enabled1),
+    Enabled0 = [Category || {Category,true} <- bool_options()],
+    Enabled1 = ordsets:from_list(Enabled0),
+    Enabled = parse_options(Opts, Enabled1),
     Calls = case ordsets:is_element(unused_function, Enabled) of
 		true ->
 		    #{{module_info,1} => pseudolocals()};
@@ -886,6 +780,75 @@ start(File, Opts) ->
           nowarn_bif_clash = nowarn_function(nowarn_bif_clash, Opts),
           file = File
          }.
+
+parse_options([Opt0|Opts], Enabled0) when is_atom(Opt0) ->
+    {Opt2,Enable} = case atom_to_binary(Opt0) of
+                        <<"warn_",Opt1/binary>> ->
+                            {Opt1,true};
+                        <<"nowarn_",Opt1/binary>> ->
+                            {Opt1,false};
+                        _ ->
+                            {none,none}
+                    end,
+    Opt = try
+              binary_to_existing_atom(Opt2)
+          catch
+              _:_ ->
+                  []
+          end,
+    Enabled =
+        maybe
+            true ?= is_atom(Opt),
+            true ?= lists:keymember(Opt, 1, bool_options()),
+            if
+                Enable ->
+                    ordsets:add_element(Opt, Enabled0);
+                not Enable ->
+                    ordsets:del_element(Opt, Enabled0)
+            end
+        else
+            _ ->
+                Enabled0
+        end,
+    parse_options(Opts, Enabled);
+parse_options([_|Opts], Enabled) ->
+    parse_options(Opts, Enabled);
+parse_options([], Enabled) ->
+    Enabled.
+
+bool_options() ->
+    [{unused_vars,true},
+     {underscore_match,true},
+     {export_all,true},
+     {export_vars,false},
+     {shadow_vars,true},
+     {unused_import,false},
+     {unused_function,true},
+     {unused_type,true},
+     {bif_clash,true},
+     {unused_record,true},
+     {deprecated_function,true},
+     {deprecated_type,true},
+     {deprecated_callback,true},
+     {obsolete_guard,true},
+     {untyped_record,false},
+     {missing_spec,false},
+     {missing_spec_documented,false},
+     {missing_spec_all,false},
+     {removed,true},
+     {nif_inline,true},
+     {keywords,false},
+     {redefined_builtin_type,true},
+     {match_float_zero,true},
+     {update_literal,true},
+     {behaviours,true},
+     {conflicting_behaviours,true},
+     {undefined_behaviour_func,true},
+     {undefined_behaviour,true},
+     {undefined_behaviour_callbacks,true},
+     {ill_defined_behaviour_callbacks,true},
+     {ill_defined_optional_callbacks,true},
+     {unexported_function,true}].
 
 %% is_warn_enabled(Category, St) -> boolean().
 %%  Check whether a warning of category Category is enabled.
@@ -947,6 +910,18 @@ add_warning(Anno, W, St) ->
 
 add_lint_warning(W, File, St) ->
     St#lint{warnings=[{File,W}|St#lint.warnings]}.
+
+maybe_add_warning(Anno, W, St) ->
+    Tag = if
+              is_tuple(W) -> element(1, W);
+              is_atom(W) -> W
+          end,
+    case is_warn_enabled(Tag, St) of
+        true ->
+            add_warning(Anno, W, St);
+        false ->
+            St
+    end.
 
 loc(Anno, St) ->
     Location = erl_anno:location(Anno),
@@ -1310,13 +1285,7 @@ all_behaviour_callbacks([{Anno,B}|Bs], Acc, St0) ->
 all_behaviour_callbacks([], Acc, St) -> {reverse(Acc),St}.
 
 add_behaviour_warning(Anno, Warning, St) when is_tuple(Warning) ->
-    Tag = element(1, Warning),
-    case is_warn_enabled(Tag, St) of
-        true ->
-            add_warning(Anno, Warning, St);
-        false ->
-            St
-    end.
+    maybe_add_warning(Anno, Warning, St).
 
 behaviour_callbacks(Anno, B, St0) ->
     try B:behaviour_info(callbacks) of
@@ -1374,12 +1343,7 @@ behaviour_deprecated(Anno, B, [{F, A} | T], Exports, St0) ->
             true ->
                 case otp_internal:obsolete_callback(B, F, A) of
                     {deprecated, String} when is_list(String) ->
-                        case is_warn_enabled(deprecated_callback, St0) of
-                            true ->
-                                add_warning(Anno, {deprecated_callback, {B, F, A}, String}, St0);
-                            false ->
-                                St0
-                        end;
+                        maybe_add_warning(Anno, {deprecated_callback, {B, F, A}, String}, St0);
                     {removed, String} ->
                         add_warning(Anno, {removed_callback, {B, F, A}, String}, St0);
                     no ->
@@ -2058,9 +2022,11 @@ pattern({var,Anno,V}, _Vt, Old, St) ->
 pattern({char,_Anno,_C}, _Vt, _Old, St) -> {[],[],St};
 pattern({integer,_Anno,_I}, _Vt, _Old, St) -> {[],[],St};
 pattern({float,Anno,F}, _Vt, _Old, St0) ->
-    St = case F == 0 andalso is_warn_enabled(match_float_zero, St0) of
-             true -> add_warning(Anno, match_float_zero, St0);
-             false -> St0
+    St = if
+             F == 0 ->
+                 maybe_add_warning(Anno, match_float_zero, St0);
+             true ->
+                 St0
          end,
     {[], [], St};
 pattern({atom,Anno,A}, _Vt, _Old, St) ->
@@ -2834,58 +2800,7 @@ expr({call,Anno,{remote,_Ar,M,F},As}, Vt, St0) ->
 expr({call,Anno,{atom,Aa,F},As}, Vt, St0) ->
     St1 = keyword_warning(Aa, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
-    A = length(As),
-    IsLocal = is_local_function(St2#lint.locals,{F,A}),
-    IsAutoBif = erl_internal:bif(F, A),
-    AutoSuppressed = is_autoimport_suppressed(St2#lint.no_auto,{F,A}),
-    Warn = is_warn_enabled(bif_clash, St2) and (not bif_clash_specifically_disabled(St2,{F,A})),
-    Imported = imported(F, A, St2),
-    case ((not IsLocal) andalso (Imported =:= no) andalso
-	  IsAutoBif andalso (not AutoSuppressed)) of
-        true ->
-	    St3 = deprecated_function(Anno, erlang, F, As, St2),
-	    {Asvt,St3};
-        false ->
-            {Asvt,case Imported of
-                      {yes,M} ->
-                          St3 = check_remote_function(Anno, M, F, As, St2),
-                          U0 = St3#lint.usage,
-                          Imp = ordsets:add_element({{F,A},M},U0#usage.imported),
-                          St3#lint{usage=U0#usage{imported = Imp}};
-                      no ->
-			  case {F,A} of
-			      {record_info,2} ->
-                                  check_record_info_call(Anno,Aa,As,St2);
-                              N ->
-				  %% BifClash - function call
-				  %% Issue these warnings/errors even if it's a recursive call
-				  St3 = if
-					    (not AutoSuppressed) andalso IsAutoBif andalso Warn ->
-						case erl_internal:old_bif(F,A) of
-						    true ->
-							add_error
-							  (Anno,
-							   {call_to_redefined_old_bif, {F,A}},
-							   St2);
-						    false ->
-							add_warning
-							  (Anno,
-							   {call_to_redefined_bif, {F,A}},
-							   St2)
-						end;
-					    true ->
-						St2
-					end,
-				  %% ...but don't lint recursive calls
-				  if
-				      N =:= St3#lint.func ->
-					  St3;
-				      true ->
-					  call_function(Anno, F, A, St3)
-				  end
-                          end
-                  end}
-    end;
+    {Asvt, check_call(Anno, F, As, Aa, St2)};
 expr({call,Anno,F,As}, Vt, St0) ->
     St = warn_invalid_call(Anno,F,St0),
     expr_list([F|As], Vt, St);                  %They see the same variables
@@ -2952,13 +2867,70 @@ expr({executable_line,_,_}, _Vt, St) ->
 expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
     {[], St}.
 
+%% Check a call to function without a module name. This can be a call
+%% to a BIF or a local function.
+check_call(Anno, record_info, As, Aa, St0) ->
+    check_record_info_call(Anno, Aa, As, St0);
+check_call(Anno, F, As, _Aa, St0) ->
+    A = length(As),
+    case imported(F, A, St0) of
+        {yes,M} ->
+            St = check_remote_function(Anno, M, F, As, St0),
+            U0 = St#lint.usage,
+            Imp = ordsets:add_element({{F,A},M}, U0#usage.imported),
+            St#lint{usage=U0#usage{imported = Imp}};
+        no ->
+            IsLocal = is_local_function(St0#lint.locals, {F,A}),
+            IsAutoBif = erl_internal:bif(F, A),
+            AutoSuppressed = is_autoimport_suppressed(St0#lint.no_auto, {F,A}),
+            if
+                not IsLocal andalso IsAutoBif andalso not AutoSuppressed ->
+                    %% This is is remote call to erlang:F/A. Check whether
+                    %% this function is deprecated.
+                    deprecated_function(Anno, erlang, F, As, St0);
+                true ->
+                    FA = {F,A},
+                    %% Clash between a local function and a BIF.
+                    %% Issue these diagnostics even for recursive calls...
+                    St = maybe
+                             true ?= IsAutoBif,
+                             true ?= IsLocal,
+                             false ?= AutoSuppressed,
+                             true ?= is_warn_enabled(bif_clash, St0),
+                             false ?= bif_clash_specifically_disabled(St0, {F,A}),
+                             case erl_internal:old_bif(F, A) of
+                                 true ->
+                                     add_error(Anno,
+                                               {call_to_redefined_old_bif, {F,A}},
+                                               St0);
+                                 false ->
+                                     add_warning(Anno,
+                                                 {call_to_redefined_bif, {F,A}},
+                                                 St0)
+                             end
+                         else
+                             _ ->
+                                 St0
+                         end,
+                    %% ...but don't lint recursive calls.
+                    if
+                        FA =:= St#lint.func ->
+                            St;
+                        true ->
+                            call_function(Anno, F, A, St)
+                    end
+            end
+    end.
+
 %% Checks whether 0.0 occurs naked in the LHS or RHS of an equality check. Note
 %% that we do not warn when it's being used as arguments for expressions in
 %% in general: `A =:= abs(0.0)` is fine.
 expr_check_match_zero({float,Anno,F}, St) ->
-    case F == 0 andalso is_warn_enabled(match_float_zero, St) of
-        true -> add_warning(Anno, match_float_zero, St);
-        false -> St
+    if
+        F == 0 ->
+            maybe_add_warning(Anno, match_float_zero, St);
+        true ->
+            St
     end;
 expr_check_match_zero({cons,_Anno,H,T}, St) ->
     expr_check_match_zero(H, expr_check_match_zero(T, St));
@@ -4696,12 +4668,7 @@ deprecated_type(Anno, M, N, As, St) ->
     NAs = length(As),
     case otp_internal:obsolete_type(M, N, NAs) of
         {deprecated, String} when is_list(String) ->
-            case is_warn_enabled(deprecated_type, St) of
-                true ->
-                    add_warning(Anno, {deprecated_type, {M,N,NAs}, String}, St);
-                false ->
-                    St
-            end;
+            maybe_add_warning(Anno, {deprecated_type, {M,N,NAs}, String}, St);
         {removed, String} ->
             add_warning(Anno, {removed_type, {M,N,NAs}, String}, St);
         no ->
@@ -4714,12 +4681,7 @@ obsolete_guard({call,Anno,{atom,Ar,F},As}, St0) ->
 	false ->
 	    deprecated_function(Anno, erlang, F, As, St0);
 	true ->
-	    St = case is_warn_enabled(obsolete_guard, St0) of
-		     true ->
-			 add_warning(Ar, {obsolete_guard, {F, Arity}}, St0);
-		     false ->
-			 St0
-		 end,
+	    St = maybe_add_warning(Ar, {obsolete_guard, {F, Arity}}, St0),
 	    test_overriden_by_local(Ar, F, Arity, St)
     end;
 obsolete_guard(_G, St) ->
@@ -4747,7 +4709,7 @@ feature_keywords() ->
 %%  Add warning for atoms that will be reserved keywords in the future.
 %%  (Currently, no such keywords to warn for.)
 keyword_warning(Anno, Atom, St) ->
-    case is_warn_enabled(keyword_warning, St) of
+    case is_warn_enabled(keywords, St) of
         true ->
             case erl_anno:text(Anno) of
                 [$'| _] ->
