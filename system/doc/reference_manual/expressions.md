@@ -1991,16 +1991,17 @@ is either a **generator** or a **filter**.
 >
 > Map comprehensions and map generators were introduced in Erlang/OTP 26.
 
-There are three kinds of generators, each with a relaxed and a strict
-variant.
+There are four kinds of generators. Three of them have a relaxed and a strict
+variant. The fourth kind of generator, zip generator, is composed by two or
+more non-zip generators.
 
 > #### Change {: .info }
 >
-> Strict generators were introduced in Erlang/OTP 28.
+> Strict generators and zip generators were introduced in Erlang/OTP 28.
+> Using strict generators is a better practice when either strict or relaxed
+> generators work. More details are in
+> [Programming Examples.](`e:system:list_comprehensions.md`)
 
-Relaxed generators ignore terms in the right-hand side expression that
-do not match the left-hand side pattern. Strict generators on the other
-hand fail with exception `badmatch`.
 
 A _list generator_ has the following syntax for relaxed:
 
@@ -2045,6 +2046,15 @@ KeyPattern := ValuePattern <:- MapExpression
 where `MapExpr` is an expression that evaluates to a map, or a map iterator
 obtained by calling `maps:iterator/1` or `maps:iterator/2`.
 
+A _zip generator_ has the following syntax:
+
+```
+Generator_1 && ... && Generator_n
+```
+
+where every `Generator_i` is a non-zip generator. Generators within a zip
+generator are treated as one generator and evaluated in parallel.
+
 A _filter_ is an expression that evaluates to `true` or `false`.
 
 The variables in the generator patterns shadow previously bound variables,
@@ -2076,49 +2086,49 @@ occurrence is stored in the map.
 Multiplying each element in a list by two:
 
 ```
-1> [X*2 || X <- [1,2,3]].
+1> [X*2 || X <:- [1,2,3]].
 [2,4,6]
 ```
 
 Multiplying each byte in a binary by two, returning a list:
 
 ```
-1> [X*2 || <<X>> <= <<1,2,3>>].
+1> [X*2 || <<X>> <:= <<1,2,3>>].
 [2,4,6]
 ```
 
 Multiplying each byte in a binary by two:
 
 ```
-1> << <<(X*2)>> || <<X>> <= <<1,2,3>> >>.
+1> << <<(X*2)>> || <<X>> <:= <<1,2,3>> >>.
 <<2,4,6>>
 ```
 
 Multiplying each element in a list by two, returning a binary:
 
 ```
-1> << <<(X*2)>> || X <- [1,2,3] >>.
+1> << <<(X*2)>> || X <:- [1,2,3] >>.
 <<2,4,6>>
 ```
 
 Creating a mapping from an integer to its square:
 
 ```
-1> #{X => X*X || X <- [1,2,3]}.
+1> #{X => X*X || X <:- [1,2,3]}.
 #{1 => 1,2 => 4,3 => 9}
 ```
 
 Multiplying the value of each element in a map by two:
 
 ```
-1> #{K => 2*V || K := V <- #{a => 1,b => 2,c => 3}}.
+1> #{K => 2*V || K := V <:- #{a => 1,b => 2,c => 3}}.
 #{a => 2,b => 4,c => 6}
 ```
 
 Filtering a list, keeping odd numbers:
 
 ```
-1> [X || X <- [1,2,3,4,5], X rem 2 =:= 1].
+1> [X || X <:- [1,2,3,4,5], X rem 2 =:= 1].
 [1,3,5]
 ```
 
@@ -2129,11 +2139,40 @@ Filtering a list, keeping only elements that match:
 [{a,b},{1,2}]
 ```
 
+Filtering a list, crashing when the element is not a 2-tuple:
+
+```
+1> [X || {_,_}=X <:- [{a,b}, [a], {x,y,z}, {1,2}]].
+** exception error: no match of right hand side value [a]
+```
+
 Combining elements from two list generators:
 
 ```
-1> [{P,Q} || P <- [a,b,c], Q <- [1,2]].
+1> [{P,Q} || P <:- [a,b,c], Q <:- [1,2]].
 [{a,1},{a,2},{b,1},{b,2},{c,1},{c,2}]
+```
+
+Combining elements from two list generators, using a zip generator:
+
+```
+1> [{P,Q} || P <:- [a,b,c] && Q <:- [1,2,3]].
+[{a,1},{b,2},{c,3}]
+```
+
+Combining elements from two list generators using a zip generator, filtering
+out odd numbers:
+
+```
+1> [{P,Q} || P <:- [a,b,c] && Q <:- [1,2,3], Q rem 2 =:= 0].
+[{a,1},{b,2},{c,3}]
+```
+
+Filtering out non-matching elements from two lists.
+
+```
+1> [X || X <- [1,2,3,5] && X <- [1,4,3,6]].
+[1,3]
 ```
 
 More examples are provided in
@@ -2169,9 +2208,9 @@ depends on the expression:
 ```
 1> List = [1,2,a,b,c,3,4].
 [1,2,a,b,c,3,4]
-2> [E || E <- List, E rem 2].
+2> [E || E <:- List, E rem 2].
 []
-3> [E || E <- List, E rem 2 =:= 0].
+3> [E || E <:- List, E rem 2 =:= 0].
 [2,4]
 ```
 
@@ -2182,15 +2221,15 @@ depends on the expression:
 [1,2,a,b,c,3,4]
 2> FaultyIsEven = fun(E) -> E rem 2 end.
 #Fun<erl_eval.42.17316486>
-3> [E || E <- List, FaultyIsEven(E)].
+3> [E || E <:- List, FaultyIsEven(E)].
 ** exception error: bad filter 1
 4> IsEven = fun(E) -> E rem 2 =:= 0 end.
 #Fun<erl_eval.42.17316486>
-5> [E || E <- List, IsEven(E)].
+5> [E || E <:- List, IsEven(E)].
 ** exception error: an error occurred when evaluating an arithmetic expression
      in operator  rem/2
         called as a rem 2
-6> [E || E <- List, is_integer(E), IsEven(E)].
+6> [E || E <:- List, is_integer(E), IsEven(E)].
 [2,4]
 ```
 
