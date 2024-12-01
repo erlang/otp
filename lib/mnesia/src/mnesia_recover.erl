@@ -777,7 +777,9 @@ handle_call(Msg, _From, State) ->
     {noreply, State}.
 
 do_log_mnesia_up(Node) ->
-    Yoyo = {mnesia_up, Node, Date = date(), Time = time()},
+    Date = date(),
+    Time = time(),
+    Yoyo = {mnesia_up, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
 	    mnesia_log:append(latest_log, Yoyo),
@@ -788,7 +790,9 @@ do_log_mnesia_up(Node) ->
     note_up(Node, Date, Time).
 
 do_log_mnesia_down(Node) ->
-    Yoyo = {mnesia_down, Node, Date = date(), Time = time()},
+    Date = date(),
+    Time = time(),
+    Yoyo = {mnesia_down, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
 	    mnesia_log:append(latest_log, Yoyo),
