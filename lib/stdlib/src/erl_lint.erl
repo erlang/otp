@@ -2814,16 +2814,16 @@ expr({'try',Anno,Es,Scs,Ccs,As}, Vt, St0) ->
                              vtupdate(Evt0, Vt), Uvt, St1),
     Evt1 = vtupdate(Uvt, Evt0),
     Rvt0 = Sccs,
-    Rvt1 = vtupdate(vtunsafe(TryAnno, Rvt0, Vt), Rvt0),
+    Rvt1 = vtupd_unsafe(TryAnno, Rvt0, Vt),
     Evt2 = vtmerge(Evt1, Rvt1),
     {Avt0,St} = exprs(As, vtupdate(Evt2, Vt), St2),
-    Avt1 = vtupdate(vtunsafe(TryAnno, Avt0, Vt), Avt0),
+    Avt1 = vtupd_unsafe(TryAnno, Avt0, Vt),
     Avt = vtmerge(Evt2, Avt1),
     {Avt,St};
 expr({'catch',Anno,E}, Vt, St0) ->
     %% No new variables added, flag new variables as unsafe.
     {Evt,St} = expr(E, Vt, St0),
-    {vtupdate(vtunsafe({'catch',Anno}, Evt, Vt), Evt),St};
+    {vtupd_unsafe({'catch', Anno}, Evt, Vt), St};
 expr({match,_Anno,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Pnew,St} = pattern(P, vtupdate(Evt, Vt), St1),
@@ -2852,7 +2852,7 @@ expr({op,Anno,Op,L,R}, Vt, St0) when Op =:= 'orelse'; Op =:= 'andalso' ->
     {Evt1,St1} = expr(L, Vt, St0),
     Vt1 = vtupdate(Evt1, Vt),
     {Evt2,St2} = expr(R, Vt1, St1),
-    Evt3 = vtupdate(vtunsafe({Op,Anno}, Evt2, Vt1), Evt2),
+    Evt3 = vtupd_unsafe({Op, Anno}, Evt2, Vt1),
     {vtmerge(Evt1, Evt3),St2};
 expr({op,_Anno,EqOp,L,R}, Vt, St0) when EqOp =:= '=:='; EqOp =:= '=/=' ->
     St = expr_check_match_zero(R, expr_check_match_zero(L, St0)),
@@ -4438,6 +4438,9 @@ vtupdate(Uvt, Vt0) ->
 vtunsafe({Tag,Anno}, Uvt, Vt) ->
     Location = erl_anno:location(Anno),
     [{V,{{unsafe,{Tag,Location}},U,As}} || {V,{_,U,As}} <- vtnew(Uvt, Vt)].
+
+vtupd_unsafe(Where, NewVt, OldVt) ->
+    vtupdate(vtunsafe(Where, NewVt, OldVt), NewVt).
 
 %% vtmerge(VarTable, VarTable) -> VarTable.
 %%  Merge two variables tables generating a new vartable. Give priority to
