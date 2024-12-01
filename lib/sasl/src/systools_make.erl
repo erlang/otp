@@ -1896,9 +1896,16 @@ add_appl(Name, Vsn, App, Tar, Variables, Flags, Var) ->
 		    ok
 	    end,
 	    BinDir = filename:join(ToDir, "ebin"),
-	    add_to_tar(Tar,
-		       filename:join(AppDir, Name ++ ".app"),
-		       filename:join(BinDir, Name ++ ".app")),
+	    AppBase = filename:join(AppDir, Name),
+	    BinBase = filename:join(BinDir, Name),
+	    add_to_tar(Tar, AppBase ++ ".app", BinBase ++ ".app"),
+	    AppUp = AppBase ++ ".appup",
+	    case filelib:is_regular(AppUp) of
+		true ->
+		    add_to_tar(Tar, AppUp, BinBase ++ ".appup");
+		false ->
+		    ok
+	    end,
 	    add_modules(map(fun(Mod) -> to_list(Mod) end,
 			    App#application.modules),
 			Tar,
