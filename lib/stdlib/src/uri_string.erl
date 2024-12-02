@@ -807,7 +807,7 @@ _Example:_
       URI :: uri_string() | uri_map(),
       Result :: uri_string() |
                 uri_map() |
-                {error, {invalid, {atom(), {term(), term()}}}}.
+                {error, {invalid, {atom(), {term(), term()}}}} | error().
 percent_decode(URIMap) when is_map(URIMap)->
     Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
                          K =:= query; K =:= fragment ->
