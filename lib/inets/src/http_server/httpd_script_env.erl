@@ -87,6 +87,21 @@ which_method(#mod{method = Method}) ->
 which_request_uri(#mod{request_uri = RUri}) ->
     RUri.
 
+which_connect_addr(#mod{socket = Socket, socket_type = SocketType}) when
+      SocketType == ip_comm;
+      element(1, SocketType) == ip_comm ->
+    maybe
+        {ok, {Addr, _Port}} ?= inet:sockname(Socket),
+        inet:ntoa(Addr)
+    end;
+which_connect_addr(#mod{socket = Socket, socket_type = SocketType}) when
+      SocketType == ssl;
+      element(1, SocketType) == ssl ->
+    maybe
+        {ok, {Addr, _Port}} ?= ssl:sockname(Socket),
+        inet:ntoa(Addr)
+    end.
+
 create_basic_elements(esi, ModData) ->
     [{server_software,   which_server(ModData)},
      {server_name,       which_name(ModData)},
@@ -96,6 +111,7 @@ create_basic_elements(esi, ModData) ->
      {server_port,       which_port(ModData)},
      {request_method,    which_method(ModData)},
      {remote_addr,       which_peername(ModData)},
+     {connect_addr,      which_connect_addr(ModData)},
      {peer_cert,         which_peercert(ModData)},
      {script_name,       which_request_uri(ModData)}];
 
@@ -108,6 +124,7 @@ create_basic_elements(cgi, ModData) ->
      {"SERVER_PORT",       integer_to_list(which_port(ModData))},
      {"REQUEST_METHOD",    which_method(ModData)},
      {"REMOTE_ADDR",       which_peername(ModData)},
+     {"CONNECT_ADDR",      which_connect_addr(ModData)},
      {"SCRIPT_NAME",       which_request_uri(ModData)}].
 
 create_http_header_elements(ScriptType, Headers) ->
