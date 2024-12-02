@@ -17,8 +17,8 @@
    {applications, [asn1, crypto, kernel, stdlib]},
    {registered, []},
    {env, []},
-   {runtime_dependencies, ["stdlib-3.5","kernel-3.0","erts-6.0","crypto-4.6",
-			   "asn1-3.0"]}
+   {runtime_dependencies, ["stdlib-4.0","kernel-8.0","erts-13.0",
+                           "crypto-5.0","asn1-5.0"]}
   ]
 }.
 
