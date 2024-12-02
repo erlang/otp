@@ -154,7 +154,8 @@ real_requests_esi() ->
     [slow_connection].
 
 simulated_unix_socket() ->
-    [unix_domain_socket].
+    [unix_domain_socket,
+    invalid_ipfamily_unix_socket].
 
 only_simulated() ->
     [
@@ -2005,6 +2006,20 @@ unix_domain_socket(Config) when is_list(Config) ->
 	= httpc:request(put, {URL, [], [], ""}, [], [], Profile),
     {ok, {{_,200,_}, [_ | _], _}}
         = httpc:request(get, {URL, []}, [], [], Profile).
+
+invalid_ipfamily_unix_socket() ->
+    [{doc, "Test that httpc profile can't end up having invalid combination of ipfamily and unix_socket options"}].
+invalid_ipfamily_unix_socket(Config) when is_list(Config) ->
+    Profile = proplists:get_value(profile, Config, httpc:default_profile()),
+
+    ct:log("Using profile ~w", [Profile]),
+    {ok,[{unix_socket,?UNIX_SOCKET}, {ipfamily, local}]} =
+        httpc:get_options([unix_socket, ipfamily], Profile),
+    ?assertMatch({error, _}, httpc:set_option(unix_socket, undefined, Profile)),
+    ?assertMatch({error, _}, httpc:set_option(ipfamily, inet, Profile)),
+    ?assertMatch({error, _}, httpc:set_option(ipfamily, inetv6, Profile)),
+    ok = httpc:set_options([{unix_socket, undefined}, {ipfamily, inet}], Profile),
+    ?assertMatch({error, _}, httpc:set_option(unix_socket, ?UNIX_SOCKET, Profile)).
 
 %%-------------------------------------------------------------------------
 delete_no_body() ->
