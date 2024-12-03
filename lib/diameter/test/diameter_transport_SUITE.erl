@@ -204,6 +204,8 @@ reconnect({listen, Ref}) ->
     ?TL("reconnect(listen) -> entry with"
         "~n   Ref: ~p", [Ref]),
     SvcName = make_ref(),
+    ?TL("reconnect(listen) -> start event logger"),
+    Logger = ?DEL_START("reconnect(listen)", SvcName),
     ?TL("reconnect(listen) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
     ?TL("reconnect(listen) -> connect"),
@@ -225,6 +227,9 @@ reconnect({listen, Ref}) ->
     ?TL("reconnect(listen) -> abort: wait for partner again"),
     Res = abort(SvcName, LRef, Ref),
 
+    ?TL("reconnect(listen) -> stop event logger"),
+    ?DEL_STOP(Logger),
+
     ?TL("reconnect(listen) -> done when"
         "~n   Res: ~p", [Res]),
     ok;
@@ -234,15 +239,30 @@ reconnect({connect, Ref}) ->
         "~n   Ref: ~p", [Ref]),
 
     SvcName = make_ref(),
-    ?TL("reconnect(connect) -> subscribe"),
+    ?TL("reconnect(connect) -> start event logger"),
+    Logger = ?DEL_START("reconnect(connect)", SvcName),
+    ?TL("reconnect(connect) -> subscribe to service ~p", [SvcName]),
     true = diameter:subscribe(SvcName),
-    ?TL("reconnect(connect) -> start service (~p)", [SvcName]),
+    ?TL("reconnect(connect) -> start service ~p", [SvcName]),
     ok = start_service(SvcName),
-    ?TL("reconnect(connect) -> wait"),
+    ?TL("reconnect(connect) -> wait when"
+        "~n   Svc transports:  ~p"
+        "~n   Svc connections: ~p",
+        [diameter:service_info(SvcName, transport),
+         diameter:service_info(SvcName, connections)]),
     [{{_, _, LRef}, Pid}] = diameter_reg:wait({?MODULE, Ref, '_'}),
-    ?TL("reconnect(connect) -> connect"),
+    ?TL("reconnect(connect) -> connect when"
+        "~n   Svc transports:  ~p"
+        "~n   Svc connections: ~p",
+        [diameter:service_info(SvcName, transport),
+         diameter:service_info(SvcName, connections)]),
     CRef = ?CONNECT(SvcName, tcp, LRef, [{connect_timer, 2000},
                                          {watchdog_timer, 6000}]),
+    ?TL("reconnect(connect) -> connected when"
+        "~n   Svc transports:  ~p"
+        "~n   Svc connections: ~p",
+        [diameter:service_info(SvcName, transport),
+         diameter:service_info(SvcName, connections)]),
 
     %% Tell partner to kill transport after seeing that there are no
     %% reconnection attempts.
@@ -266,6 +286,9 @@ reconnect({connect, Ref}) ->
     MRef = erlang:monitor(process, Pid),
     Res = ?RECV({'DOWN', MRef, process, _, _}),
 
+    ?TL("reconnect(connect) -> stop event logger"),
+    ?DEL_STOP(Logger),
+
     ?TL("reconnect(connect) -> done when"
         "~n   Res: ~p", [Res]),
     ok;
@@ -281,6 +304,7 @@ reconnect(Prot) ->
     ?TL("reconnect -> done when"
         "~n   Res: ~p", [Res]),
     ok.
+
 
 start_service(SvcName) ->
     OH = diameter_util:unique_string(),
@@ -506,9 +530,45 @@ gen_accept(tcp, LSock) ->
 
 gen_send(sctp, Sock, Bin) ->
     {OS, _IS, Id} = getr(assoc),
-    gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin);
+    case gen_sctp:send(Sock, Id, erlang:unique_integer([positive]) rem OS, Bin) of
+        ok ->
+            ok;
+        {error, Reason} = ERROR ->
+            Info = try inet:info(Sock) of
+                       I ->
+                           I
+                   catch
+                       C:E:S ->
+                           [{class,  C},
+                            {error,  E},
+                            {stack,  S}]
+                   end,
+            ?TL("Failed (sctp) sending message: "
+                "~n   Reason:        ~p"
+                "~n   Socket:        ~p"
+                "~n   (Socket) Info: ~p", [Reason, Sock, Info]),
+            ERROR
+    end;
 gen_send(tcp, Sock, Bin) ->
-    gen_tcp:send(Sock, Bin).
+    case gen_tcp:send(Sock, Bin) of
+        ok ->
+            ok;
+        {error, Reason} = ERROR ->
+            Info = try inet:info(Sock) of
+                       I ->
+                           I
+                   catch
+                       C:E:S ->
+                           [{class,  C},
+                            {error,  E},
+                            {stack,  S}]
+                   end,
+            ?TL("Failed (tcp) sending message: "
+                "~n   Reason:        ~p"
+                "~n   Socket:        ~p"
+                "~n   (Socket) Info: ~p", [Reason, Sock, Info]),
+            ERROR
+    end.
 
 %% gen_recv/2
 
