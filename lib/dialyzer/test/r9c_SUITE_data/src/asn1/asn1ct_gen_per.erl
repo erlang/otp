@@ -48,7 +48,7 @@ pgen(OutFile,Erules,Module,TypeOrVal) ->
 %%****************************************x
 
 
-gen_encode(Erules,Type) when record(Type,typedef) ->
+gen_encode(Erules,Type) when is_record(Type,typedef) ->
     gen_encode_user(Erules,Type).
 %%    case Type#typedef.typespec of
 %%	Def when record(Def,type) ->
@@ -63,7 +63,7 @@ gen_encode(Erules,Typename,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTypename = [Cname|Typename],
     gen_encode(Erules,NewTypename,Type);
 
-gen_encode(Erules,Typename,Type) when record(Type,type) ->
+gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     ObjFun =
 	case lists:keysearch(objfun,1,Type#type.tablecinf) of
@@ -95,7 +95,7 @@ gen_encode(Erules,Typename,Type) when record(Type,type) ->
     end.
 
 
-gen_encode_user(Erules,D) when record(D,typedef) ->
+gen_encode_user(Erules,D) when is_record(D,typedef) ->
     CurrMod = get(currmod),
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
@@ -137,7 +137,7 @@ gen_encode_prim(Erules,D,DoTag) ->
 	    end,
     gen_encode_prim(Erules,D,DoTag,Value).
 
-gen_encode_prim(_Erules,D,_DoTag,Value) when record(D,type) ->
+gen_encode_prim(_Erules,D,_DoTag,Value) when is_record(D,type) ->
     Constraint = D#type.constraint,
     case D#type.def of
 	'INTEGER' ->
@@ -232,7 +232,7 @@ emit_enc_enumerated_cases(C, [H1,H2|T], Count) ->
 
 emit_enc_enumerated_case(_C, {asn1_enum,High}, _) ->
     emit([
-	  "{asn1_enum,EnumV} when integer(EnumV), EnumV > ",High," -> ",
+          "{asn1_enum,EnumV} when is_integer(EnumV), EnumV > ",High," -> ",
 	  "[{bit,1},?RT_PER:encode_small_number(EnumV)]"]);
 emit_enc_enumerated_case(_C, 'EXT_MARK', _Count) ->
     true;
@@ -247,7 +247,7 @@ emit_enc_enumerated_case(C, EnumName, Count) ->
 %% Object code generating for encoding and decoding
 %% ------------------------------------------------
 
-gen_obj_code(Erules,_Module,Obj) when record(Obj,typedef) ->
+gen_obj_code(Erules,_Module,Obj) when is_record(Obj,typedef) ->
     ObjName = Obj#typedef.name,
     Def = Obj#typedef.typespec,
     #'Externaltypereference'{module=Mod,type=ClassName} =
@@ -269,7 +269,7 @@ gen_obj_code(Erules,_Module,Obj) when record(Obj,typedef) ->
     emit(nl),
     gen_decode_constr_type(Erules,DecConstructed),
     emit(nl);
-gen_obj_code(_,_,Obj) when record(Obj,pobjectdef) ->
+gen_obj_code(_,_,Obj) when is_record(Obj,pobjectdef) ->
     ok.
 
 
@@ -413,7 +413,7 @@ gen_encode_objectfields(_,[],_,_,Acc) ->
 %     InnerType = asn1ct_gen:get_inner(Def#type.def),
 %     asn1ct_gen:gen_encode_constructed(Erules,Name,InnerType,Def),
 %     gen_encode_constr_type(Erules,Rest);
-gen_encode_constr_type(Erules,[TypeDef|Rest]) when record(TypeDef,typedef) ->
+gen_encode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(enc,TypeDef#typedef.name) of
 	true -> ok;
 	_ ->
@@ -648,7 +648,7 @@ gen_decode_constr_type(Erules,[{Name,Def}|Rest]) ->
     InnerType = asn1ct_gen:get_inner(Def#type.def),
     asn1ct_gen:gen_decode_constructed(Erules,Name,InnerType,Def),
     gen_decode_constr_type(Erules,Rest);
-gen_decode_constr_type(Erules,[TypeDef|Rest]) when record(TypeDef,typedef) ->
+gen_decode_constr_type(Erules,[TypeDef|Rest]) when is_record(TypeDef,typedef) ->
     case is_already_generated(dec,TypeDef#typedef.name) of
 	true -> ok;
 	_ ->
@@ -773,12 +773,12 @@ gen_objset_enc(_,_,[],_,_,_,Acc) ->
 gen_inlined_enc_funs(Fields,[{typefield,Name,_}|Rest],ObjSetName,NthObj) ->
     InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
     case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when record(Type,type) ->
+        {value,{_,Type}} when is_record(Type,type) ->
 	    emit({indent(3),"fun(Type, Val, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    {Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 	    gen_inlined_enc_funs1(Fields,Rest,ObjSetName,NthObj+N,Ret);
-	{value,{_,Type}} when record(Type,typedef) ->
+        {value,{_,Type}} when is_record(Type,typedef) ->
 	    emit({indent(3),"fun(Type, Val, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    emit({indent(9),{asis,Name}," ->",nl}),
@@ -797,11 +797,11 @@ gen_inlined_enc_funs1(Fields,[{typefield,Name,_}|Rest],ObjSetName,
     InternalDefFunName = asn1ct_gen:list2name([NthObj,Name,ObjSetName]),
     {Acc2,NAdd}=
 	case lists:keysearch(Name,1,Fields) of
-	    {value,{_,Type}} when record(Type,type) ->
+            {value,{_,Type}} when is_record(Type,type) ->
 		emit({";",nl}),
 		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 		{Ret++Acc,N};
-	    {value,{_,Type}} when record(Type,typedef) ->
+            {value,{_,Type}} when is_record(Type,typedef) ->
 		emit({";",nl,indent(9),{asis,Name}," ->",nl}),
 		{Ret,N}=emit_inner_of_fun(Type,InternalDefFunName),
 		{Ret++Acc,N};
@@ -834,13 +834,13 @@ emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 emit_inner_of_fun(#typedef{name=Name},_) ->
     emit({indent(12),"'enc_",Name,"'(Val)"}),
     {[],0};
-emit_inner_of_fun(Type,_) when record(Type,type) ->
+emit_inner_of_fun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
     case Type#type.def of
-	Def when atom(Def) ->
+        Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_encode_prim(erules,Type,dotag,"Val");
-	TRef when record(TRef,typereference) ->
+        TRef when is_record(TRef,typereference) ->
 	    T = TRef#typereference.val,
 	    emit({indent(9),T," ->",nl,indent(12),"'enc_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
@@ -902,12 +902,12 @@ gen_inlined_dec_funs(Fields,[{typefield,Name,_}|Rest],
 		    ObjSetName,NthObj) ->
     InternalDefFunName = [NthObj,Name,ObjSetName],
     case lists:keysearch(Name,1,Fields) of
-	{value,{_,Type}} when record(Type,type) ->
+        {value,{_,Type}} when is_record(Type,type) ->
 	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    N=emit_inner_of_decfun(Type,InternalDefFunName),
 	    gen_inlined_dec_funs1(Fields,Rest,ObjSetName,NthObj+N);
-	{value,{_,Type}} when record(Type,typedef) ->
+        {value,{_,Type}} when is_record(Type,typedef) ->
 	    emit({indent(3),"fun(Type, Val, _, _) ->",nl,
 		  indent(6),"case Type of",nl}),
 	    emit({indent(9),{asis,Name}," ->",nl}),
@@ -925,10 +925,10 @@ gen_inlined_dec_funs1(Fields,[{typefield,Name,_}|Rest],
 		      ObjSetName,NthObj) ->
     InternalDefFunName = [NthObj,Name,ObjSetName],
     N=case lists:keysearch(Name,1,Fields) of
-	  {value,{_,Type}} when record(Type,type) ->
+          {value,{_,Type}} when is_record(Type,type) ->
 	      emit({";",nl}),
 	      emit_inner_of_decfun(Type,InternalDefFunName);
-	  {value,{_,Type}} when record(Type,typedef) ->
+          {value,{_,Type}} when is_record(Type,typedef) ->
 	      emit({";",nl,indent(9),{asis,Name}," ->",nl}),
 	      emit_inner_of_decfun(Type,InternalDefFunName);
 	  false ->
@@ -960,13 +960,13 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},
 emit_inner_of_decfun(#typedef{name=Name},_) ->
     emit({indent(12),"'dec_",Name,"'(Val, telltype)"}),
     0;
-emit_inner_of_decfun(Type,_) when record(Type,type) ->
+emit_inner_of_decfun(Type,_) when is_record(Type,type) ->
     CurrMod = get(currmod),
     case Type#type.def of
-	Def when atom(Def) ->
+        Def when is_atom(Def) ->
 	    emit({indent(9),Def," ->",nl,indent(12)}),
 	    gen_dec_prim(erules,Type,"Val");
-	TRef when record(TRef,typereference) ->
+        TRef when is_record(TRef,typereference) ->
 	    T = TRef#typereference.val,
 	    emit({indent(9),T," ->",nl,indent(12),"'dec_",T,"'(Val)"});
 	#'Externaltypereference'{module=CurrMod,type=T} ->
@@ -992,7 +992,7 @@ gen_internal_funcs(Erules,[TypeDef|Rest]) ->
 %%***************************************
 
 
-gen_decode(Erules,Type) when record(Type,typedef) ->
+gen_decode(Erules,Type) when is_record(Type,typedef) ->
     D = Type,
     emit({nl,nl}),
     emit({"'dec_",Type#typedef.name,"'(Bytes,_) ->",nl}),
@@ -1003,7 +1003,7 @@ gen_decode(Erules,Tname,#'ComponentType'{name=Cname,typespec=Type}) ->
     NewTname = [Cname|Tname],
     gen_decode(Erules,NewTname,Type);
 
-gen_decode(Erules,Typename,Type) when record(Type,type) ->
+gen_decode(Erules,Typename,Type) when is_record(Type,type) ->
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     case asn1ct_gen:type(InnerType) of
 	{constructed,bif} ->
@@ -1022,12 +1022,12 @@ gen_decode(Erules,Typename,Type) when record(Type,type) ->
 	    true
     end.
 
-dbdec(Type) when list(Type)->
+dbdec(Type) when is_list(Type)->
     demit({"io:format(\"decoding: ",asn1ct_gen:list2name(Type),"~w~n\",[Bytes]),",nl});
 dbdec(Type) ->
     demit({"io:format(\"decoding: ",{asis,Type},"~w~n\",[Bytes]),",nl}).
 
-gen_decode_user(Erules,D) when record(D,typedef) ->
+gen_decode_user(Erules,D) when is_record(D,typedef) ->
     CurrMod = get(currmod),
     Typename = [D#typedef.name],
     Def = D#typedef.typespec,
@@ -1187,3 +1187,26 @@ get_object_field(Name,ObjectFields) ->
 	{value,Field} -> Field;
 	false -> false
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

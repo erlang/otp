@@ -325,7 +325,7 @@ tab_receiver(Node, Tab, Storage, Cs, PConv, OrigTabRec) ->
 	    finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec);
 
 	%% Protocol conversion hack
-	{SenderPid, {no_more, DatBin}} when pid(PConv) ->
+        {SenderPid, {no_more, DatBin}} when is_pid(PConv) ->
 	    PConv ! {SenderPid, no_more},
 	    receive
 		{old_init_table_complete, ok} ->
@@ -339,7 +339,7 @@ tab_receiver(Node, Tab, Storage, Cs, PConv, OrigTabRec) ->
 	{actual_tabrec, Pid} ->
 	    tab_receiver(Node, Tab, Storage, Cs, Pid,OrigTabRec);
 
-	{SenderPid, {more, [Recs]}} when pid(PConv) ->
+        {SenderPid, {more, [Recs]}} when is_pid(PConv) ->
 	    PConv ! {SenderPid, {more, Recs}}, %% Forward Msg to OldNodes
 	    tab_receiver(Node, Tab, Storage, Cs, PConv,OrigTabRec);
 
@@ -542,7 +542,7 @@ handle_last({disc_only_copies, Tab}, Type, nobin) ->
 		    {repair, mnesia_monitor:get_env(auto_repair)}],
 	    mnesia_monitor:open_dets(Tab, Args),
 	    ok;
-	L when list(L) ->
+        L when is_list(L) ->
 	    {error, {"Cannot swap tmp files", Tab, L}}
     end;
 
@@ -714,7 +714,7 @@ send_more(Pid, N, Chunk, DataState, Tab, OldNode) ->
     receive
 	{NewPid, more} ->
 	    case send_packet(N - 1, NewPid, Chunk, DataState, OldNode) of
-		New when integer(New) ->
+                New when is_integer(New) ->
 		    New - 1;
 		NewData ->
 		    send_more(NewPid, ?MAX_NOPACKETS, Chunk, NewData, Tab, OldNode)
@@ -803,3 +803,27 @@ handle_exit(Pid, Reason) when node(Pid) == node() ->
     exit(Reason);
 handle_exit(_Pid, _Reason) ->  %% Not from our node, this will be handled by
     ignore.                  %% mnesia_down soon.
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

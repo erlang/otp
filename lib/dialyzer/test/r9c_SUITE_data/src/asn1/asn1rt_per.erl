@@ -71,9 +71,9 @@ cindex(Ix,Val,Cname) ->
     end.
 
 % converts a list to a record if necessary
-list_to_record(Name,List) when list(List) ->
+list_to_record(Name,List) when is_list(List) ->
     list_to_tuple([Name|List]);
-list_to_record(_Name,Tuple) when tuple(Tuple) ->
+list_to_record(_Name,Tuple) when is_tuple(Tuple) ->
     Tuple.
 
 %%--------------------------------------------------------
@@ -95,10 +95,10 @@ setext(true) ->
 setext(false) ->
     [{debug,ext},{bit,0}].
 
-fixoptionals(OptList,Val) when tuple(Val) ->
+fixoptionals(OptList,Val) when is_tuple(Val) ->
     fixoptionals(OptList,Val,[]);
 
-fixoptionals(OptList,Val) when list(Val) ->
+fixoptionals(OptList,Val) when is_list(Val) ->
     fixoptionals(OptList,Val,1,[],[]).
 
 fixoptionals([],Val,Acc) ->
@@ -133,9 +133,9 @@ setoptionals([H|T]) ->
 setoptionals([]) ->
     [{debug,optionals}].
 
-getext(Bytes) when tuple(Bytes) ->
+getext(Bytes) when is_tuple(Bytes) ->
     getbit(Bytes);
-getext(Bytes) when list(Bytes) ->
+getext(Bytes) when is_list(Bytes) ->
     getbit({0,Bytes}).
 
 getextension(0, Bytes) ->
@@ -186,7 +186,7 @@ getchoice(Bytes,_NumChoices,1) ->
 getchoice(Bytes,NumChoices,0) ->
     decode_integer(Bytes,[{'ValueRange',{0,NumChoices-1}}]).
 
-getoptionals(Bytes,L,NumComp) when list(L) ->
+getoptionals(Bytes,L,NumComp) when is_list(L) ->
     {Blist,Bytes1} = getbits_as_list(length(L),Bytes),
     {list_to_tuple(comptuple(Blist,L,NumComp,1)),Bytes1}.
 
@@ -216,7 +216,7 @@ getbit1({7,[H|T]}) ->
     {H band 1,{0,T}};
 getbit1({Pos,[H|T]}) ->
     {(H bsr (7-Pos)) band 1,{(Pos+1) rem 8,[H|T]}};
-getbit1(Bytes) when list(Bytes) ->
+getbit1(Bytes) when is_list(Bytes) ->
     getbit1({0,Bytes}).
 
 %% This could be optimized
@@ -231,7 +231,7 @@ getbits(Buffer,Num,Acc) ->
     getbits(NewBuffer,Num-1,B + (Acc bsl 1)).
 
 
-getoctet(Bytes) when list(Bytes) ->
+getoctet(Bytes) when is_list(Bytes) ->
     getoctet({0,Bytes});
 getoctet(Bytes) ->
 %    io:format("getoctet:Buffer = ~p~n",[Bytes]),
@@ -279,15 +279,15 @@ getoctets_as_list(Buffer,Num,Acc) ->
 %%
 set_choice(Alt,{L1,L2},{Len1,_Len2}) ->
     case set_choice_tag(Alt,L1) of
-	N when integer(N), Len1 > 1 ->
+        N when is_integer(N), Len1 > 1 ->
 	    [{bit,0}, % the value is in the root set
 	     encode_integer([{'ValueRange',{0,Len1-1}}],N)];
-	N when integer(N) ->
+        N when is_integer(N) ->
 	    [{bit,0}]; % no encoding if only 0 or 1 alternative
 	false ->
 	    [{bit,1}, % extension value
 	     case set_choice_tag(Alt,L2) of
-		 N2 when integer(N2) ->
+                 N2 when is_integer(N2) ->
 		     encode_small_number(N2);
 		 false ->
 		     unknown_choice_alt
@@ -295,9 +295,9 @@ set_choice(Alt,{L1,L2},{Len1,_Len2}) ->
     end;
 set_choice(Alt,L,Len) ->
     case set_choice_tag(Alt,L) of
-	N when integer(N), Len > 1 ->
+        N when is_integer(N), Len > 1 ->
 	    encode_integer([{'ValueRange',{0,Len-1}}],N);
-	N when integer(N) ->
+        N when is_integer(N) ->
 	    []; % no encoding if only 0 or 1 alternative
 	false ->
 	    [unknown_choice_alt]
@@ -319,10 +319,10 @@ set_choice_tag(_,[],_) ->
 %%         | binary
 %% Contraint = not used in this version
 %%
-encode_open_type(_Constraint, Val) when list(Val) ->
+encode_open_type(_Constraint, Val) when is_list(Val) ->
     [encode_length(undefined,length(Val)),align,
 	     {octets,Val}];
-encode_open_type(_Constraint, Val) when binary(Val) ->
+encode_open_type(_Constraint, Val) when is_binary(Val) ->
     [encode_length(undefined,size(Val)),align,
 	     {octets,binary_to_list(Val)}].
 %% the binary_to_list is not optimal but compatible with the current solution
@@ -345,17 +345,17 @@ decode_open_type(Bytes, _Constraint) ->
 %% encode_integer(Constraint,{Name,Value}) -> CompleteList
 %%
 %%
-encode_integer(C,V,NamedNumberList) when atom(V) ->
+encode_integer(C,V,NamedNumberList) when is_atom(V) ->
     case lists:keysearch(V,1,NamedNumberList) of
 	{value,{_,NewV}} ->
 	    encode_integer(C,NewV);
 	_ ->
 	    exit({error,{asn1,{namednumber,V}}})
     end;
-encode_integer(C,V,_NamedNumberList) when integer(V) ->
+encode_integer(C,V,_NamedNumberList) when is_integer(V) ->
     encode_integer(C,V).
 
-encode_integer(C,{Name,Val}) when atom(Name) ->
+encode_integer(C,{Name,Val}) when is_atom(Name) ->
     encode_integer(C,Val);
 
 encode_integer({Rc,_Ec},Val) ->
@@ -365,13 +365,13 @@ encode_integer({Rc,_Ec},Val) ->
 	Encoded ->
 	    [{bit,0},Encoded]
     end;
-encode_integer(C,Val ) when list(C) ->
+encode_integer(C,Val ) when is_list(C) ->
     case get_constraint(C,'SingleValue') of
 	no ->
 	    encode_integer1(C,Val);
-	V when integer(V),V == Val ->
+        V when is_integer(V),V == Val ->
 	    []; % a type restricted to a single value encodes to nothing
-	V when list(V) ->
+        V when is_list(V) ->
 	    case lists:member(Val,V) of
 		true ->
 		    encode_integer1(C,Val);
@@ -411,9 +411,9 @@ decode_integer(Buffer,undefined) ->
     decode_unconstrained_number(Buffer);
 decode_integer(Buffer,C) ->
     case get_constraint(C,'SingleValue') of
-	V when integer(V) ->
+        V when is_integer(V) ->
 	    {V,Buffer};
-	V when list(V) ->
+        V when is_list(V) ->
 	    {Val,Buffer2} = decode_integer1(Buffer,C),
 	    case lists:member(Val,V) of
 		true ->
@@ -438,7 +438,7 @@ decode_integer1(Buffer,C) ->
 % X.691:10.6 Encoding of a normally small non-negative whole number
 % Use this for encoding of CHOICE index if there is an extension marker in
 % the CHOICE
-encode_small_number({Name,Val}) when atom(Name) ->
+encode_small_number({Name,Val}) when is_atom(Name) ->
     encode_small_number(Val);
 encode_small_number(Val) when Val =< 63 ->
     [{bit,0},{bits,6,Val}];
@@ -456,7 +456,7 @@ decode_small_number(Bytes) ->
 
 % X.691:10.7 Encoding of a semi-constrained whole number
 %% might be an optimization encode_semi_constrained_number(0,Val) ->
-encode_semi_constrained_number(C,{Name,Val}) when atom(Name) ->
+encode_semi_constrained_number(C,{Name,Val}) when is_atom(Name) ->
     encode_semi_constrained_number(C,Val);
 encode_semi_constrained_number({Lb,'MAX'},Val) ->
     encode_semi_constrained_number(Lb,Val);
@@ -472,7 +472,7 @@ decode_semi_constrained_number(Bytes,Lb) ->
     {V,Bytes3} = getoctets(Bytes2,Len),
     {V+Lb,Bytes3}.
 
-encode_constrained_number(Range,{Name,Val}) when atom(Name) ->
+encode_constrained_number(Range,{Name,Val}) when is_atom(Name) ->
     encode_constrained_number(Range,Val);
 encode_constrained_number({Lb,Ub},Val) when Val >= Lb, Ub >= Val ->
     Range = Ub - Lb + 1,
@@ -668,7 +668,7 @@ encode_length({0,'MAX'},Len) ->
     encode_length(undefined,Len);
 encode_length({Lb,Ub},Len) when Ub =< 65535 ,Lb >= 0 -> % constrained
     encode_constrained_number({Lb,Ub},Len);
-encode_length(SingleValue,_Len) when integer(SingleValue) ->
+encode_length(SingleValue,_Len) when is_integer(SingleValue) ->
     [].
 
 encode_small_length(Len) when Len =< 64 ->
@@ -713,12 +713,12 @@ decode_length(Buffer,{_,_Lb,_Ub}) -> %when Len =< 127 -> % Unconstrained or larg
 	    {Val,Remain2} = getoctets(Buffer,2),
 	    {Val band 2#0111111111111111, Remain2}
     end;
-decode_length(Buffer,SingleValue) when integer(SingleValue) ->
+decode_length(Buffer,SingleValue) when is_integer(SingleValue) ->
     {SingleValue,Buffer}.
 
 
 % X.691:11
-encode_boolean({Name,Val}) when atom(Name) ->
+encode_boolean({Name,Val}) when is_atom(Name) ->
     encode_boolean(Val);
 encode_boolean(true) ->
     {bit,1};
@@ -728,7 +728,7 @@ encode_boolean(Val) ->
     exit({error,{asn1,{encode_boolean,Val}}}).
 
 
-decode_boolean(Buffer) -> %when record(Buffer,buffer)
+decode_boolean(Buffer) -> %when is_record(Buffer,buffer)
     case getbit(Buffer) of
 	{1,Remain} -> {true,Remain};
 	{0,Remain} -> {false,Remain}
@@ -744,7 +744,7 @@ decode_boolean(Buffer) -> %when record(Buffer,buffer)
 %%
 
 encode_enumerated(C,{Name,Value},NamedNumberList) when
-  atom(Name),list(NamedNumberList) ->
+  is_atom(Name),is_list(NamedNumberList) ->
     encode_enumerated(C,Value,NamedNumberList);
 
 %% ENUMERATED with extension mark
@@ -752,20 +752,20 @@ encode_enumerated(_C,{asn1_enum,Value},{_Nlist1,Nlist2}) when Value >= length(Nl
     [{bit,1},encode_small_number(Value)];
 encode_enumerated(C,Value,{Nlist1,Nlist2}) ->
     case enum_search(Value,Nlist1,0) of
-	NewV when integer(NewV) ->
+        NewV when is_integer(NewV) ->
 	    [{bit,0},encode_integer(C,NewV)];
 	false ->
 	    case enum_search(Value,Nlist2,0) of
-		ExtV when integer(ExtV) ->
+                ExtV when is_integer(ExtV) ->
 		    [{bit,1},encode_small_number(ExtV)];
 		false ->
 		    exit({error,{asn1,{encode_enumerated,Value}}})
 	    end
     end;
 
-encode_enumerated(C,Value,NamedNumberList) when list(NamedNumberList) ->
+encode_enumerated(C,Value,NamedNumberList) when is_list(NamedNumberList) ->
     case enum_search(Value,NamedNumberList,0) of
-	NewV when integer(NewV) ->
+        NewV when is_integer(NewV) ->
 	    encode_integer(C,NewV);
 	false ->
 	    exit({error,{asn1,{encode_enumerated,Value}}})
@@ -782,27 +782,27 @@ enum_search(_,[],_) ->
     false. % name not found !error
 
 %% ENUMERATED with extension marker
-decode_enumerated(Buffer,C,{Ntup1,Ntup2}) when tuple(Ntup1), tuple(Ntup2) ->
+decode_enumerated(Buffer,C,{Ntup1,Ntup2}) when is_tuple(Ntup1), is_tuple(Ntup2) ->
     {Ext,Buffer2} = getext(Buffer),
     case Ext of
 	0 -> % not an extension value
 	    {Val,Buffer3} = decode_integer(Buffer2,C),
 	    case catch (element(Val+1,Ntup1)) of
-		NewVal when atom(NewVal) -> {NewVal,Buffer3};
+                NewVal when is_atom(NewVal) -> {NewVal,Buffer3};
 		_Error -> exit({error,{asn1,{decode_enumerated,{Val,[Ntup1,Ntup2]}}}})
 	    end;
 	1 -> % this an extension value
 	    {Val,Buffer3} = decode_small_number(Buffer2),
 	    case catch (element(Val+1,Ntup2)) of
-		NewVal when atom(NewVal) -> {NewVal,Buffer3};
+                NewVal when is_atom(NewVal) -> {NewVal,Buffer3};
 		_ -> {{asn1_enum,Val},Buffer3}
 	    end
     end;
 
-decode_enumerated(Buffer,C,NamedNumberTup) when tuple(NamedNumberTup) ->
+decode_enumerated(Buffer,C,NamedNumberTup) when is_tuple(NamedNumberTup) ->
     {Val,Buffer2} = decode_integer(Buffer,C),
     case catch (element(Val+1,NamedNumberTup)) of
-	NewVal when atom(NewVal) -> {NewVal,Buffer2};
+        NewVal when is_atom(NewVal) -> {NewVal,Buffer2};
 	_Error -> exit({error,{asn1,{decode_enumerated,{Val,NamedNumberTup}}}})
     end.
 
@@ -831,7 +831,7 @@ decode_enumerated(Buffer,C,NamedNumberTup) when tuple(NamedNumberTup) ->
 %% C is constraint Len, only valid when identifiers
 
 %% when the value is a list of named bits
-encode_bit_string(C, [FirstVal | RestVal], NamedBitList) when atom(FirstVal) ->
+encode_bit_string(C, [FirstVal | RestVal], NamedBitList) when is_atom(FirstVal) ->
     ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
     BitList = make_and_set_list(ToSetPos,0),
     encode_bit_string(C,BitList,NamedBitList);
@@ -843,18 +843,18 @@ encode_bit_string(C, [{bit,No} | RestVal], NamedBitList) ->
 
 %% when the value is a list of ones and zeroes
 
-encode_bit_string(C, BitListValue, _NamedBitList) when list(BitListValue) ->
+encode_bit_string(C, BitListValue, _NamedBitList) when is_list(BitListValue) ->
     %% first remove any trailing zeroes
     Bl1 = lists:dropwhile(fun(0)->true;(1)->false end,lists:reverse(BitListValue)),
     BitList = [{bit,X} || X <- lists:reverse(Bl1)],
     case get_constraint(C,'SizeConstraint') of
 	0 -> % fixed length
 	    []; % nothing to encode
-	V when integer(V),V=<16 -> % fixed length 16 bits or less
+        V when is_integer(V),V=<16 -> % fixed length 16 bits or less
 	    pad_list(V,BitList);
-	V when integer(V) -> % fixed length more than 16 bits
+        V when is_integer(V) -> % fixed length more than 16 bits
 	    [align,pad_list(V,BitList)];
-	{Lb,Ub} when integer(Lb),integer(Ub) ->
+        {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
 	    [encode_length({Lb,Ub},length(BitList)),align,BitList];
 	no ->
 	    [encode_length(undefined,length(BitList)),align,BitList]
@@ -876,12 +876,12 @@ decode_bit_string(Buffer, C, NamedNumberList) ->
     case get_constraint(C,'SizeConstraint') of
 	0 -> % fixed length
 	    {[],Buffer}; % nothing to encode
-	V when integer(V),V=<16 -> % fixed length 16 bits or less
+        V when is_integer(V),V=<16 -> % fixed length 16 bits or less
 	    bit_list_to_named(Buffer,V,NamedNumberList);
-	V when integer(V) -> % fixed length 16 bits or less
+        V when is_integer(V) -> % fixed length 16 bits or less
 	    Bytes2 = align(Buffer),
 	    bit_list_to_named(Bytes2,V,NamedNumberList);
-	{Lb,Ub} when integer(Lb),integer(Ub) ->
+        {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
 	    {Len,Bytes2} = decode_length(Buffer,{Lb,Ub}),
 	    Bytes3 = align(Bytes2),
 	    bit_list_to_named(Bytes3,Len,NamedNumberList);
@@ -926,7 +926,7 @@ bit_list_to_named1(_Pos,[],_Names,Acc) ->
 
 int_to_bitlist(0) ->
     [];
-int_to_bitlist(Int) when integer(Int), Int >= 0 ->
+int_to_bitlist(Int) when is_integer(Int), Int >= 0 ->
     [Int band 1 | int_to_bitlist(Int bsr 1)].
 
 
@@ -981,7 +981,7 @@ pad_list(N,[]) ->
 %% encode_octet_string(Constraint,ExtensionMarker,Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-encode_octet_string(C,{Name,Val}) when atom(Name) ->
+encode_octet_string(C,{Name,Val}) when is_atom(Name) ->
     encode_octet_string(C,false,Val);
 encode_octet_string(C,Val) ->
     encode_octet_string(C,false,Val).
@@ -1003,7 +1003,7 @@ encode_octet_string(C,false,Val) ->
 	{Lb,Ub}  ->
 	    [encode_length({Lb,Ub},length(Val)),align,
 	     {octets,Val}];
-	Sv when list(Sv) ->
+        Sv when is_list(Sv) ->
 	    [encode_length({hd(Sv),lists:max(Sv)},length(Val)),align,
 	     {octets,Val}];
 	no  ->
@@ -1027,14 +1027,14 @@ decode_octet_string(Bytes,C,false) ->
 	    {[B1,B2],Bytes3};
 	{_,0} ->
 	    {[],Bytes};
-	Sv when integer(Sv), Sv =<65535 -> % fixed length
+        Sv when is_integer(Sv), Sv =<65535 -> % fixed length
 	    Bytes2 = align(Bytes),
 	    getoctets_as_list(Bytes2,Sv);
 	{Lb,Ub}  ->
 	    {Len,Bytes2} = decode_length(Bytes,{Lb,Ub}),
 	    Bytes3 = align(Bytes2),
 	    getoctets_as_list(Bytes3,Len);
-	Sv when list(Sv) ->
+        Sv when is_list(Sv) ->
 	    {Len,Bytes2} = decode_length(Bytes,{hd(Sv),lists:max(Sv)}),
 	    Bytes3 = align(Bytes2),
 	    getoctets_as_list(Bytes3,Len);
@@ -1054,13 +1054,13 @@ encode_restricted_string(aligned,StringType,C,Val) ->
 encode_restricted_string(aligned,StringType,C,false,Val).
 
 
-encode_restricted_string(aligned,StringType,C,_Ext,{Name,Val}) when atom(Name) ->
+encode_restricted_string(aligned,StringType,C,_Ext,{Name,Val}) when is_atom(Name) ->
     encode_restricted_string(aligned,StringType,C,false,Val);
 encode_restricted_string(aligned,StringType,C,_Ext,Val) ->
     Result = chars_encode(C,StringType,Val),
     NumBits = get_NumBits(C,StringType),
     case get_constraint(C,'SizeConstraint') of
-	Ub when integer(Ub), Ub*NumBits =< 16  ->
+        Ub when is_integer(Ub), Ub*NumBits =< 16  ->
 	    case {StringType,Result} of
 		{'BMPString',{octets,Ol}} ->
 		    [{bits,8,Oct}||Oct <- Ol];
@@ -1069,11 +1069,11 @@ encode_restricted_string(aligned,StringType,C,_Ext,Val) ->
 	    end;
 	0 ->
 	    [];
-	Ub when integer(Ub),Ub =<65535 -> % fixed length
+        Ub when is_integer(Ub),Ub =<65535 -> % fixed length
 	    [align,Result];
 	{Ub,Lb} ->
 	    [encode_length({Ub,Lb},length(Val)),align,Result];
-	Vl when list(Vl) ->
+        Vl when is_list(Vl) ->
 	    [encode_length({lists:min(Vl),lists:max(Vl)},length(Val)),align,Result];
 	no  ->
 	    [encode_length(undefined,length(Val)),align,Result]
@@ -1085,14 +1085,14 @@ decode_restricted_string(Bytes,aligned,StringType,C) ->
 decode_restricted_string(Bytes,aligned,StringType,C,_Ext) ->
     NumBits = get_NumBits(C,StringType),
     case get_constraint(C,'SizeConstraint') of
-	Ub when integer(Ub), Ub*NumBits =< 16  ->
+        Ub when is_integer(Ub), Ub*NumBits =< 16  ->
 	    chars_decode(Bytes,NumBits,StringType,C,Ub);
-	Ub when integer(Ub),Ub =<65535 -> % fixed length
+        Ub when is_integer(Ub),Ub =<65535 -> % fixed length
 	    Bytes1 = align(Bytes),
 	    chars_decode(Bytes1,NumBits,StringType,C,Ub);
 	0 ->
 	    {[],Bytes};
-	Vl when list(Vl) ->
+        Vl when is_list(Vl) ->
 	    {Len,Bytes1} = decode_length(Bytes,{hd(Vl),lists:max(Vl)}),
 	    Bytes2 = align(Bytes1),
 	    chars_decode(Bytes2,NumBits,StringType,C,Len);
@@ -1373,7 +1373,7 @@ charbits(NumOfChars) when NumOfChars =< 8192 -> 13;
 charbits(NumOfChars) when NumOfChars =< 16384 -> 14;
 charbits(NumOfChars) when NumOfChars =< 32768 -> 15;
 charbits(NumOfChars) when NumOfChars =< 65536 -> 16;
-charbits(NumOfChars) when integer(NumOfChars) ->
+charbits(NumOfChars) when is_integer(NumOfChars) ->
     16 + charbits1(NumOfChars bsr 16).
 
 charbits1(0) ->
@@ -1421,7 +1421,7 @@ chars_decode2(Bytes,{Min,Max,CharInTab},NumBits,Len,Acc) ->
 
 
 			% X.691:17
-encode_null({Name,Val}) when atom(Name) ->
+encode_null({Name,Val}) when is_atom(Name) ->
     encode_null(Val);
 encode_null(_) -> []. % encodes to nothing
 
@@ -1446,11 +1446,11 @@ encode_object_identifier(Val) ->
 
 e_object_identifier({'OBJECT IDENTIFIER',V},DoTag) ->
     e_object_identifier(V,DoTag);
-e_object_identifier({Cname,V},DoTag) when atom(Cname),tuple(V) ->
+e_object_identifier({Cname,V},DoTag) when is_atom(Cname),is_tuple(V) ->
     e_object_identifier(tuple_to_list(V),DoTag);
-e_object_identifier({Cname,V},DoTag) when atom(Cname),list(V) ->
+e_object_identifier({Cname,V},DoTag) when is_atom(Cname),is_list(V) ->
     e_object_identifier(V,DoTag);
-e_object_identifier(V,DoTag) when tuple(V) ->
+e_object_identifier(V,DoTag) when is_tuple(V) ->
     e_object_identifier(tuple_to_list(V),DoTag);
 
 % E1 = 0|1|2 and (E2 < 40 when E1 = 0|1)
@@ -1512,18 +1512,18 @@ get_constraint(C,Key) ->
 %% Takes a coded list with bits and bytes and converts it to a list of bytes
 %% Should be applied as the last step at encode of a complete ASN.1 type
 %%
-complete(InList) when list(InList) ->
+complete(InList) when is_list(InList) ->
     complete(InList,[],0);
 complete(InList) ->
     complete([InList],[],0).
 
 complete([{debug,_}|T], Acc, Acclen) ->
     complete(T,Acc,Acclen);
-complete([H|T],Acc,Acclen) when list(H) ->
+complete([H|T],Acc,Acclen) when is_list(H) ->
     complete(lists:concat([H,T]),Acc,Acclen);
 
 
-complete([{octets,N,Val}|T],Acc,Acclen) when N =< 4 ,integer(Val) ->
+complete([{octets,N,Val}|T],Acc,Acclen) when N =< 4 ,is_integer(Val) ->
     Newval = case N of
 	1 ->
 	    Val4 = Val band 16#FF,
@@ -1546,9 +1546,9 @@ complete([{octets,N,Val}|T],Acc,Acclen) when N =< 4 ,integer(Val) ->
     end,
     complete([{octets,Newval}|T],Acc,Acclen);
 
-complete([{octets,Oct}|T],[],_Acclen) when list(Oct) ->
+complete([{octets,Oct}|T],[],_Acclen) when is_list(Oct) ->
     complete(T,lists:reverse(Oct),0);
-complete([{octets,Oct}|T],[Hacc|Tacc],Acclen) when list(Oct) ->
+complete([{octets,Oct}|T],[Hacc|Tacc],Acclen) when is_list(Oct) ->
     Rest = 8 - Acclen,
     if
 	Rest == 8 ->
@@ -1583,7 +1583,7 @@ complete([align|T],Acc,0) ->
 complete([align|T],[Hacc|Tacc],Acclen) ->
     Rest = 8 - Acclen,
     complete(T,[Hacc bsl Rest|Tacc],0);
-complete([{octets,_N,Val}|T],Acc,Acclen) when list(Val) -> % no security check here
+complete([{octets,_N,Val}|T],Acc,Acclen) when is_list(Val) -> % no security check here
     complete([{octets,Val}|T],Acc,Acclen);
 complete([],Acc,0) ->
     lists:reverse(Acc);

@@ -166,7 +166,7 @@ reverse_test(Num) ->
 %% at a time.
 %% This test case depends on lists1:reverse() to work,
 %% which is tested in a separate test case.
-member(Config) when list(Config) ->
+member(Config) when is_list(Config) ->
     ok=member_test(0),
     ok=member_test(1),
     ok=member_test(100),

@@ -1,4 +1,13 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,17 +19,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
+%% %CopyrightEnd%
 %%
-%%     $Id: mnesia_schema.erl,v 1.2 2010/03/04 13:54:20 maria Exp $
-%% In this module we provide a number of explicit functions
-%% to maninpulate the schema. All these functions are called
-%% within a special schema transaction.
-%%
-%% We also have an init/1 function defined here, this func is
-%% used by mnesia:start() to initialize the entire schema.
 
 -module(mnesia_schema).
 
@@ -306,7 +306,7 @@ delete_cstruct(Tid, Cs) ->
 %% Delete the Mnesia directory on all given nodes
 %% Requires that Mnesia is not running anywhere
 %% Returns ok | {error,Reason}
-delete_schema(Ns) when list(Ns), Ns /= [] ->
+delete_schema(Ns) when is_list(Ns), Ns /= [] ->
     RunningNs = mnesia_lib:running_nodes(Ns),
     Reason = "Cannot delete schema on all nodes",
     if
@@ -350,7 +350,7 @@ delete_schema2() ->
 	    {error, Reason}
     end.
 
-ensure_no_schema([H|T]) when atom(H) ->
+ensure_no_schema([H|T]) when is_atom(H) ->
     case rpc:call(H, ?MODULE, remote_read_schema, []) of
         {badrpc, Reason} ->
             {H, {"All nodes not running", H, Reason}};
@@ -558,7 +558,7 @@ read_cstructs_from_disc() ->
 get_tid_ts_and_lock(Tab, Intent) ->
     TidTs = get(mnesia_activity_state),
     case TidTs of
-	{_Mod, Tid, Ts} when record(Ts, tidstore)->
+        {_Mod, Tid, Ts} when is_record(Ts, tidstore)->
 	    Store = Ts#tidstore.store,
 	    case Intent of
 		read -> mnesia_locker:rlock_table(Tid, Store, Tab);
@@ -591,7 +591,7 @@ schema_coordinator(Client, _Fun, undefined) ->
     Client ! {transaction_done, Res, self()},
     unlink(Client);
 
-schema_coordinator(Client, Fun, Controller) when pid(Controller) ->
+schema_coordinator(Client, Fun, Controller) when is_pid(Controller) ->
     %% Do not trap exit in order to automatically die
     %% when the controller dies
 
@@ -618,10 +618,10 @@ do_insert_schema_ops(Store, [Head | Tail]) ->
 do_insert_schema_ops(_Store, []) ->
     ok.
 
-cs2list(Cs) when record(Cs, cstruct) ->
+cs2list(Cs) when is_record(Cs, cstruct) ->
     Tags = record_info(fields, cstruct),
     rec2list(Tags, 2, Cs);
-cs2list(CreateList) when list(CreateList) ->
+cs2list(CreateList) when is_list(CreateList) ->
     CreateList.
 
 rec2list([Tag | Tags], Pos, Rec) ->
@@ -630,7 +630,7 @@ rec2list([Tag | Tags], Pos, Rec) ->
 rec2list([], _Pos, _Rec) ->
     [].
 
-list2cs(List) when list(List) ->
+list2cs(List) when is_list(List) ->
     Name = pick(unknown, name, List, must),
     Type = pick(Name, type, List, set),
     Rc0 = pick(Name, ram_copies, List, []),
@@ -694,15 +694,15 @@ pick(Tab, Key, List, Default) ->
     end.
 
 %% Convert attribute name to integer if neccessary
-attr_tab_to_pos(_Tab, Pos) when integer(Pos) ->
+attr_tab_to_pos(_Tab, Pos) when is_integer(Pos) ->
     Pos;
 attr_tab_to_pos(Tab, Attr) ->
     attr_to_pos(Attr, val({Tab, attributes})).
 
 %% Convert attribute name to integer if neccessary
-attr_to_pos(Pos, _Attrs) when integer(Pos) ->
+attr_to_pos(Pos, _Attrs) when is_integer(Pos) ->
     Pos;
-attr_to_pos(Attr, Attrs) when atom(Attr) ->
+attr_to_pos(Attr, Attrs) when is_atom(Attr) ->
     attr_to_pos(Attr, Attrs, 2);
 attr_to_pos(Attr, _) ->
     mnesia:abort({bad_type, Attr}).
@@ -739,7 +739,7 @@ has_duplicates([]) ->
     false.
 
 %% This is the only place where we check the validity of data
-verify_cstruct(Cs) when record(Cs, cstruct) ->
+verify_cstruct(Cs) when is_record(Cs, cstruct) ->
     verify_nodes(Cs),
 
     Tab = Cs#cstruct.name,
@@ -787,7 +787,7 @@ verify_cstruct(Cs) when record(Cs, cstruct) ->
         fun(Pos) ->
                 verify(true, fun() ->
                                      if
-					 integer(Pos),
+                                         is_integer(Pos),
                                          Pos > 2,
                                          Pos =< Arity ->
                                              true;
@@ -809,22 +809,22 @@ verify_cstruct(Cs) when record(Cs, cstruct) ->
     verify(true, mnesia_snmp_hook:check_ustruct(Snmp),
 	   {badarg, Tab, {snmp, Snmp}}),
 
-    CheckProp = fun(Prop) when tuple(Prop), size(Prop) >= 1 -> ok;
+    CheckProp = fun(Prop) when is_tuple(Prop), size(Prop) >= 1 -> ok;
 		   (Prop) -> mnesia:abort({bad_type, Tab, {user_properties, [Prop]}})
 		end,
     lists:foreach(CheckProp, Cs#cstruct.user_properties),
 
     case Cs#cstruct.cookie of
 	{{MegaSecs, Secs, MicroSecs}, _Node}
-	when integer(MegaSecs), integer(Secs),
-	     integer(MicroSecs), atom(node) ->
+        when is_integer(MegaSecs), is_integer(Secs),
+             is_integer(MicroSecs), is_atom(node) ->
             ok;
         Cookie ->
             mnesia:abort({bad_type, Tab, {cookie, Cookie}})
     end,
     case Cs#cstruct.version of
         {{Major, Minor}, _Detail}
-                when integer(Major), integer(Minor) ->
+                when is_integer(Major), is_integer(Minor) ->
             ok;
         Version ->
             mnesia:abort({bad_type, Tab, {version, Version}})
@@ -860,7 +860,7 @@ verify_nodes(Cs) ->
     AtomCheck = fun(N) -> verify(atom, mnesia_lib:etype(N), {bad_type, Tab, N}) end,
     lists:foreach(AtomCheck, Nodes).
 
-verify(Expected, Fun, Error) when function(Fun) ->
+verify(Expected, Fun, Error) when is_function(Fun) ->
     do_verify(Expected, catch Fun(), Error);
 verify(Expected, Actual, Error) ->
     do_verify(Expected, Actual, Error).
@@ -1035,7 +1035,7 @@ make_delete_table2(Tab) ->
 change_table_frag(Tab, Change) ->
     schema_transaction(fun() -> do_change_table_frag(Tab, Change) end).
 
-do_change_table_frag(Tab, Change) when atom(Tab), Tab /= schema ->
+do_change_table_frag(Tab, Change) when is_atom(Tab), Tab /= schema ->
     TidTs = get_tid_ts_and_lock(schema, write),
     Ops = mnesia_frag:change_table_frag(Tab, Change),
     [insert_schema_ops(TidTs, Op) || Op <- Ops],
@@ -1068,7 +1068,7 @@ make_clear_table(Tab) ->
 add_table_copy(Tab, Node, Storage) ->
     schema_transaction(fun() -> do_add_table_copy(Tab, Node, Storage) end).
 
-do_add_table_copy(Tab, Node, Storage) when atom(Tab), atom(Node) ->
+do_add_table_copy(Tab, Node, Storage) when is_atom(Tab), is_atom(Node) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     insert_schema_ops(TidTs, make_add_table_copy(Tab, Node, Storage));
 do_add_table_copy(Tab,Node,_) ->
@@ -1108,7 +1108,7 @@ make_add_table_copy(Tab, Node, Storage) ->
 del_table_copy(Tab, Node) ->
     schema_transaction(fun() -> do_del_table_copy(Tab, Node) end).
 
-do_del_table_copy(Tab, Node) when atom(Node)  ->
+do_del_table_copy(Tab, Node) when is_atom(Node)  ->
     TidTs = get_tid_ts_and_lock(schema, write),
 %%    get_tid_ts_and_lock(Tab, write),
     insert_schema_ops(TidTs, make_del_table_copy(Tab, Node));
@@ -1192,7 +1192,7 @@ move_table(Tab, FromNode, ToNode) ->
 
 do_move_table(schema, _FromNode, _ToNode) ->
     mnesia:abort({bad_type, schema});
-do_move_table(Tab, FromNode, ToNode) when atom(FromNode), atom(ToNode) ->
+do_move_table(Tab, FromNode, ToNode) when is_atom(FromNode), is_atom(ToNode) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     insert_schema_ops(TidTs, make_move_table(Tab, FromNode, ToNode));
 do_move_table(Tab, FromNode, ToNode) ->
@@ -1226,7 +1226,7 @@ make_move_table(Tab, FromNode, ToNode) ->
 change_table_copy_type(Tab, Node, ToS) ->
     schema_transaction(fun() -> do_change_table_copy_type(Tab, Node, ToS) end).
 
-do_change_table_copy_type(Tab, Node, ToS) when atom(Node) ->
+do_change_table_copy_type(Tab, Node, ToS) when is_atom(Node) ->
     TidTs = get_tid_ts_and_lock(schema, write),
     get_tid_ts_and_lock(Tab, write), % ensure global sync
     %% get_tid_ts_and_lock(Tab, read),
@@ -1355,11 +1355,11 @@ make_del_snmp(Tab) ->
 %%
 
 transform_table(Tab, Fun, NewAttrs, NewRecName)
-  when function(Fun), list(NewAttrs), atom(NewRecName) ->
+  when is_function(Fun), is_list(NewAttrs), is_atom(NewRecName) ->
     schema_transaction(fun() -> do_transform_table(Tab, Fun, NewAttrs, NewRecName) end);
 
 transform_table(Tab, ignore, NewAttrs, NewRecName)
-  when list(NewAttrs), atom(NewRecName) ->
+  when is_list(NewAttrs), is_atom(NewRecName) ->
     schema_transaction(fun() -> do_transform_table(Tab, ignore, NewAttrs, NewRecName) end);
 
 transform_table(Tab, Fun, NewAttrs, NewRecName) ->
@@ -1449,7 +1449,7 @@ make_change_table_load_order(Tab, LoadOrder) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-write_table_property(Tab, Prop) when tuple(Prop), size(Prop) >= 1 ->
+write_table_property(Tab, Prop) when is_tuple(Prop), size(Prop) >= 1 ->
     schema_transaction(fun() -> do_write_table_property(Tab, Prop) end);
 write_table_property(Tab, Prop) ->
     {aborted, {bad_type, Tab, Prop}}.
@@ -2361,14 +2361,14 @@ get_table_properties(Tab) ->
 
 restore(Opaque) ->
     restore(Opaque, [], mnesia_monitor:get_env(backup_module)).
-restore(Opaque, Args) when list(Args) ->
+restore(Opaque, Args) when is_list(Args) ->
     restore(Opaque, Args, mnesia_monitor:get_env(backup_module));
 restore(_Opaque, BadArg) ->
     {aborted, {badarg, BadArg}}.
-restore(Opaque, Args, Module) when list(Args), atom(Module) ->
+restore(Opaque, Args, Module) when is_list(Args), is_atom(Module) ->
     InitR = #r{opaque = Opaque, module = Module},
     case catch lists:foldl(fun check_restore_arg/2, InitR, Args) of
-	R when record(R, r) ->
+        R when is_record(R, r) ->
 	    case mnesia_bup:read_schema(Module, Opaque) of
 		{error, Reason} ->
 		    {aborted, Reason};
@@ -2381,10 +2381,10 @@ restore(Opaque, Args, Module) when list(Args), atom(Module) ->
 restore(_Opaque, Args, Module) ->
     {aborted, {badarg, Args, Module}}.
 
-check_restore_arg({module, Mod}, R) when atom(Mod) ->
+check_restore_arg({module, Mod}, R) when is_atom(Mod) ->
     R#r{module = Mod};
 
-check_restore_arg({clear_tables, List}, R) when list(List) ->
+check_restore_arg({clear_tables, List}, R) when is_list(List) ->
     case lists:member(schema, List) of
 	false ->
 	    TableList = [{Tab, clear_tables} || Tab <- List],
@@ -2392,7 +2392,7 @@ check_restore_arg({clear_tables, List}, R) when list(List) ->
 	true ->
 	    exit({badarg, {clear_tables, schema}})
     end;
-check_restore_arg({recreate_tables, List}, R) when list(List) ->
+check_restore_arg({recreate_tables, List}, R) when is_list(List) ->
     case lists:member(schema, List) of
 	false ->
 	    TableList = [{Tab, recreate_tables} || Tab <- List],
@@ -2400,10 +2400,10 @@ check_restore_arg({recreate_tables, List}, R) when list(List) ->
 	true ->
 	    exit({badarg, {recreate_tables, schema}})
     end;
-check_restore_arg({keep_tables, List}, R) when list(List) ->
+check_restore_arg({keep_tables, List}, R) when is_list(List) ->
     TableList = [{Tab, keep_tables} || Tab <- List],
     R#r{table_options = R#r.table_options ++ TableList};
-check_restore_arg({skip_tables, List}, R) when list(List) ->
+check_restore_arg({skip_tables, List}, R) when is_list(List) ->
     TableList = [{Tab, skip_tables} || Tab <- List],
     R#r{table_options = R#r.table_options ++ TableList};
 check_restore_arg({default_op, Op}, R) ->
@@ -2526,7 +2526,7 @@ skip_tab_items(Recs, _) ->
     Recs.
 
 %%%%%%%%% Dump tables %%%%%%%%%%%%%
-dump_tables(Tabs) when list(Tabs) ->
+dump_tables(Tabs) when is_list(Tabs) ->
     schema_transaction(fun() -> do_dump_tables(Tabs) end);
 dump_tables(Tabs) ->
     {aborted, {bad_type, Tabs}}.
@@ -2761,7 +2761,7 @@ merge_cstructs(Cs, RemoteCs, Force) ->
 	    Cs;
 	{'EXIT', Reason} ->
 	    exit(Reason);
-	MergedCs when record(MergedCs, cstruct) ->
+        MergedCs when is_record(MergedCs, cstruct) ->
 	    MergedCs;
 	Other ->
 	    throw(Other)

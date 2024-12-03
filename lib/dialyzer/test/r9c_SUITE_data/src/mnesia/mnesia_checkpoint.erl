@@ -121,7 +121,7 @@ stop() ->
 		  checkpoints()),
     ok.
 
-tm_prepare(Cp) when record(Cp, checkpoint_args) ->
+tm_prepare(Cp) when is_record(Cp, checkpoint_args) ->
     Name = Cp#checkpoint_args.name,
     case lists:member(Name, checkpoints()) of
 	false ->
@@ -129,7 +129,7 @@ tm_prepare(Cp) when record(Cp, checkpoint_args) ->
 	true ->
 	    {error, {already_exists, Name, node()}}
     end;
-tm_prepare(Cp) when record(Cp, checkpoint) ->
+tm_prepare(Cp) when is_record(Cp, checkpoint) ->
     %% Node with old protocol sent an old checkpoint record
     %% and we have to convert it
     case convert_cp_record(Cp) of
@@ -369,7 +369,7 @@ activate(Args) ->
 	    {error, Reason}
     end.
 
-args2cp(Args) when list(Args)->
+args2cp(Args) when is_list(Args)->
     case catch lists:foldl(fun check_arg/2, #checkpoint_args{}, Args) of
 	{'EXIT', Reason} ->
 	    {error, Reason};
@@ -390,7 +390,7 @@ check_arg({name, Name}, Cp) ->
 	    exit({already_exists, Name});
 	false ->
 	    case catch tab2retainer({foo, Name}) of
-		List when list(List) ->
+                List when is_list(List) ->
 		    Cp#checkpoint_args{name = Name};
 		_ ->
 		    exit({badarg, Name})
@@ -404,13 +404,13 @@ check_arg({ram_overrides_dump, true}, Cp) ->
     Cp#checkpoint_args{ram_overrides_dump = true};
 check_arg({ram_overrides_dump, false}, Cp) ->
     Cp#checkpoint_args{ram_overrides_dump = false};
-check_arg({ram_overrides_dump, Tabs}, Cp) when list(Tabs) ->
+check_arg({ram_overrides_dump, Tabs}, Cp) when is_list(Tabs) ->
     Cp#checkpoint_args{ram_overrides_dump = Tabs};
-check_arg({min, Tabs}, Cp) when list(Tabs) ->
+check_arg({min, Tabs}, Cp) when is_list(Tabs) ->
     Cp#checkpoint_args{min = Tabs};
-check_arg({max, Tabs}, Cp) when list(Tabs) ->
+check_arg({max, Tabs}, Cp) when is_list(Tabs) ->
     Cp#checkpoint_args{max = Tabs};
-check_arg({ignore_new, Tids}, Cp) when list(Tids) ->
+check_arg({ignore_new, Tids}, Cp) when is_list(Tids) ->
     Cp#checkpoint_args{ignore_new = Tids};
 check_arg(Arg, _) ->
     exit({badarg, Arg}).
@@ -432,7 +432,7 @@ check_tables(Cp) ->
 	    {ok, [], AllTabs};
 	Overriders == true ->
 	    {ok, AllTabs, AllTabs};
-	list(Overriders) ->
+        is_list(Overriders) ->
 	    case [T || T <- Overriders, not lists:member(T, Min)] of
 		[] ->
 		    case [T || T <- Overriders, not lists:member(T, Max)] of
@@ -583,7 +583,7 @@ cast(Name, Msg) ->
 	{'EXIT', _} ->
 	    {error, {no_exists, Name}};
 
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    Pid ! {self(), Msg},
 	    {ok, Pid}
     end.
@@ -740,7 +740,7 @@ prepare_ram_tab(_, _, _, ReallyRetain, _) ->
     ReallyRetain.
 
 traverse_dcd({Cont, [LogH | Rest]}, Log, Fun)
-  when record(LogH, log_header),
+  when is_record(LogH, log_header),
        LogH#log_header.log_kind == dcd_log,
        LogH#log_header.log_version >= "1.0" ->
     traverse_dcd({Cont, Rest}, Log, Fun);   %% BUGBUG Error handling repaired files
@@ -775,7 +775,7 @@ retainer_next({dets, Store}, Key) -> dets:next(Store, Key).
 %% retainer_slot({ets, Store}, Pos) -> ?ets_next(Store, Pos);
 %% retainer_slot({dets, Store}, Pos) -> dets:slot(Store, Pos).
 
-retainer_fixtable(Tab, Bool) when atom(Tab) ->
+retainer_fixtable(Tab, Bool) when is_atom(Tab) ->
     mnesia_lib:db_fixtable(val({Tab, storage_type}), Tab, Bool);
 retainer_fixtable({ets, Tab}, Bool) ->
     mnesia_lib:db_fixtable(ram_copies, Tab, Bool);
@@ -864,7 +864,7 @@ retainer_loop(Cp) ->
 	    retainer_loop(Cp#checkpoint_args{iterators = Iters});
 
 	{_From, {exit_pending, Tid}}
-	    when list(Cp#checkpoint_args.wait_for_old) ->
+            when is_list(Cp#checkpoint_args.wait_for_old) ->
 	    StillPending = lists:delete(Tid, Cp#checkpoint_args.wait_for_old),
 	    Cp2 = Cp#checkpoint_args{wait_for_old = StillPending},
 	    Cp3 = maybe_activate(Cp2),
@@ -1215,7 +1215,7 @@ system_terminate(_Reason, _Parent,_Debug, Cp) ->
 system_code_change(Cp, _Module, _OldVsn, _Extra) ->
     {ok, Cp}.
 
-convert_cp_record(Cp) when record(Cp, checkpoint) ->
+convert_cp_record(Cp) when is_record(Cp, checkpoint) ->
     ROD =
 	case Cp#checkpoint.ram_overrides_dump of
 	    true -> Cp#checkpoint.min ++ Cp#checkpoint.max;
@@ -1240,7 +1240,7 @@ convert_cp_record(Cp) when record(Cp, checkpoint) ->
 			  supervisor = Cp#checkpoint.supervisor,
 			  pid = Cp#checkpoint.pid
 			 }};
-convert_cp_record(Cp) when record(Cp, checkpoint_args) ->
+convert_cp_record(Cp) when is_record(Cp, checkpoint_args) ->
     AllTabs = Cp#checkpoint_args.min ++ Cp#checkpoint_args.max,
     ROD = case Cp#checkpoint_args.ram_overrides_dump of
 	      [] ->
@@ -1281,3 +1281,27 @@ val(Var) ->
 	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
 	_VaLuE_ -> _VaLuE_
     end.
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

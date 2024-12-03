@@ -43,9 +43,9 @@ check_bool(_Bool1,Bool2) ->
 
 check_int(_,asn1_DEFAULT,_) ->
     true;
-check_int(Value,Value,_) when integer(Value) ->
+check_int(Value,Value,_) when is_integer(Value) ->
     true;
-check_int(DefValue,Value,NNL) when atom(Value) ->
+check_int(DefValue,Value,NNL) when is_atom(Value) ->
     case lists:keysearch(Value,1,NNL) of
 	{value,{_,DefValue}} ->
 	    true;
@@ -65,27 +65,27 @@ check_bitstring(_,asn1_DEFAULT,_) ->
 check_bitstring(V,V,_) ->
     true;
 %% Default value as a list of 1 and 0 and user value as an integer
-check_bitstring(L=[H|T],Int,_) when integer(Int),integer(H) ->
+check_bitstring(L=[H|T],Int,_) when is_integer(Int),is_integer(H) ->
     case bit_list_to_int(L,length(T)) of
 	Int -> true;
 	_ -> throw({error,L,Int})
     end;
 %% Default value as an integer, val as list
-check_bitstring(Int,Val,NBL) when integer(Int),list(Val) ->
+check_bitstring(Int,Val,NBL) when is_integer(Int),is_list(Val) ->
     BL = int_to_bit_list(Int,[],length(Val)),
     check_bitstring(BL,Val,NBL);
 %% Default value and user value as lists of ones and zeros
-check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL=[_H|_T]) when integer(H1),integer(H2) ->
+check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL=[_H|_T]) when is_integer(H1),is_integer(H2) ->
     L2new = remove_trailing_zeros(L2),
     check_bitstring(L1,L2new,NBL);
 %% Default value as a list of 1 and 0 and user value as a list of atoms
-check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL) when integer(H1),atom(H2) ->
+check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL) when is_integer(H1),is_atom(H2) ->
     case bit_list_to_nbl(L1,NBL,0,[]) of
 	L3 -> check_bitstring(L3,L2,NBL);
 	_ -> throw({error,L2})
     end;
 %% Both default value and user value as a list of atoms
-check_bitstring(L1=[H1|T1],L2=[H2|_T2],_) when atom(H1),atom(H2) ->
+check_bitstring(L1=[H1|T1],L2=[H2|_T2],_) when is_atom(H1),is_atom(H2) ->
     length(L1) == length(L2),
     case lists:member(H1,L2) of
 	true ->
@@ -93,7 +93,7 @@ check_bitstring(L1=[H1|T1],L2=[H2|_T2],_) when atom(H1),atom(H2) ->
 	false -> throw({error,L2})
     end;
 %% Default value as a list of atoms and user value as a list of 1 and 0
-check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL) when atom(H1),integer(H2) ->
+check_bitstring(L1=[H1|_T1],L2=[H2|_T2],NBL) when is_atom(H1),is_integer(H2) ->
     case bit_list_to_nbl(L2,NBL,0,[]) of
 	L3 ->
 	    check_bitstring(L1,L3,NBL);
@@ -162,7 +162,7 @@ check_octetstring(_,asn1_DEFAULT) ->
     true;
 check_octetstring(L,L) ->
     true;
-check_octetstring(L,Int) when list(L),integer(Int) ->
+check_octetstring(L,Int) when is_list(L),is_integer(Int) ->
     case integer_to_octetlist(Int) of
 	L -> true;
 	V -> throw({error,V})
@@ -188,7 +188,7 @@ check_objectidentifier(_,asn1_DEFAULT) ->
     true;
 check_objectidentifier(OI,OI) ->
     true;
-check_objectidentifier(DOI,OI) when tuple(DOI),tuple(OI) ->
+check_objectidentifier(DOI,OI) when is_tuple(DOI),is_tuple(OI) ->
     check_objectidentifier1(tuple_to_list(DOI),tuple_to_list(OI));
 check_objectidentifier(_,OI) ->
     throw({error,OI}).
@@ -256,7 +256,7 @@ check_enum(_,asn1_DEFAULT,_) ->
     true;
 check_enum(Val,Val,_) ->
     true;
-check_enum(Int,Atom,Enumerations) when integer(Int),atom(Atom) ->
+check_enum(Int,Atom,Enumerations) when is_integer(Int),is_atom(Atom) ->
     case lists:keysearch(Atom,1,Enumerations) of
 	{value,{_,Int}} -> true;
 	_ -> throw({error,{enumerated,Int,Atom}})
@@ -285,14 +285,14 @@ check_restrictedstring({V1,V2,V3,V4},[V1,V2,V3,V4]) ->
 check_restrictedstring([V1,V2,V3,V4],{V1,V2,V3,V4}) ->
     true;
 %% character string list
-check_restrictedstring(V1,V2) when list(V1),tuple(V2) ->
+check_restrictedstring(V1,V2) when is_list(V1),is_tuple(V2) ->
     check_restrictedstring(V1,tuple_to_list(V2));
 check_restrictedstring(V1,V2) ->
     throw({error,{restricted,string,V1,V2}}).
 
-transform_to_EXTERNAL1990(Val) when tuple(Val),size(Val) == 4 ->
+transform_to_EXTERNAL1990(Val) when is_tuple(Val),size(Val) == 4 ->
     transform_to_EXTERNAL1990(tuple_to_list(Val),[]);
-transform_to_EXTERNAL1990(Val) when tuple(Val) ->
+transform_to_EXTERNAL1990(Val) when is_tuple(Val) ->
     %% Data already in ASN1 1990 format
     Val.
 
@@ -307,10 +307,10 @@ transform_to_EXTERNAL1990([{'context-negotiation',Context_negot}|Rest],Acc) ->
     transform_to_EXTERNAL1990(Rest,[Transfer_syntax,Presentation_Cid|Acc]);
 transform_to_EXTERNAL1990([asn1_NOVALUE|Rest],Acc) ->
     transform_to_EXTERNAL1990(Rest,[asn1_NOVALUE|Acc]);
-transform_to_EXTERNAL1990([Data_val_desc,Data_value],Acc) when list(Data_value)->
+transform_to_EXTERNAL1990([Data_val_desc,Data_value],Acc) when is_list(Data_value)->
     list_to_tuple(lists:reverse([{'octet-aligned',Data_value},
 				 Data_val_desc|Acc]));
-transform_to_EXTERNAL1990([Data_value],Acc) when list(Data_value)->
+transform_to_EXTERNAL1990([Data_value],Acc) when is_list(Data_value)->
     list_to_tuple(lists:reverse([{'octet-aligned',Data_value}|Acc])).
 
 
@@ -326,8 +326,31 @@ transform_to_EXTERNAL1994(V={'EXTERNAL',DRef,IndRef,Data_v_desc,Encoding}) ->
 		 {'EXTERNAL_identification_context-negotiation',IndRef,DRef}}
 	end,
     case Encoding of
-	{_,Val} when list(Val) ->
+        {_,Val} when is_list(Val) ->
 	    {'EXTERNAL',Identification,Data_v_desc,Val};
 	_  ->
 	    V
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,15 +17,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: global.erl,v 1.4 2009/09/17 09:46:19 kostis Exp $
-%%
+%% %CopyrightEnd%
 -module(global).
 -behaviour(gen_server).
-
 %%  A Global register that allows the global registration of pid's and
 %% name's, that dynamically keeps up to date with the entire network.
 %% global can operate in two modes; in a fully connected network, or
@@ -41,7 +42,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	 code_change/3, timer/2, sync_init/2, init_locker/5, resolve_it/4,
 	 init_the_locker/1]).
-
 -export([info/0]).
 
 
@@ -143,7 +143,7 @@ sync(Nodes) ->
 
 send(Name, Msg) ->
     case whereis_name(Name) of
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    Pid ! Msg,
 	    Pid;
 	undefined ->
@@ -176,9 +176,9 @@ node_disconnected(Node) ->
 %% Method is blocking, i.e. when it is called, no calls to whereis/
 %% send is let through until it has returned.
 %%-----------------------------------------------------------------
-register_name(Name, Pid) when pid(Pid) ->
+register_name(Name, Pid) when is_pid(Pid) ->
     register_name(Name, Pid, {global, random_exit_name}).
-register_name(Name, Pid, Method) when pid(Pid) ->
+register_name(Name, Pid, Method) when is_pid(Pid) ->
     trans_all_known(fun(Nodes) ->
 		  case where(Name) of
 		      undefined ->
@@ -203,9 +203,9 @@ unregister_name(Name) ->
 		  end)
     end.
 
-re_register_name(Name, Pid) when pid(Pid) ->
+re_register_name(Name, Pid) when is_pid(Pid) ->
     re_register_name(Name, Pid, {global, random_exit_name}).
-re_register_name(Name, Pid, Method) when pid(Pid) ->
+re_register_name(Name, Pid, Method) when is_pid(Pid) ->
     trans_all_known(fun(Nodes) ->
 		  gen_server:multi_call(Nodes,
 					global_name_server,
@@ -225,9 +225,9 @@ registered_names() -> lists:map(fun({Name, _Pid, _Method}) -> Name end,
 %% removed, because the registered process is not supervised any more,
 %% (i.e there is no link to the registered Pid).
 %%-----------------------------------------------------------------
-register_name_external(Name, Pid) when pid(Pid) ->
+register_name_external(Name, Pid) when is_pid(Pid) ->
     register_name_external(Name, Pid, {global, random_exit_name}).
-register_name_external(Name, Pid, Method) when pid(Pid) ->
+register_name_external(Name, Pid, Method) when is_pid(Pid) ->
     trans_all_known(fun(Nodes) ->
 		  case where(Name) of
 		      undefined ->
@@ -300,11 +300,11 @@ set_lock({ResourceId, LockRequesterId}, Nodes, Retries, Times) ->
 	false ->
 	    random_sleep(Times),
 	    set_lock(Id, Nodes, dec(Retries), Times+1);
-	N when integer(N) ->
+        N when is_integer(N) ->
 	    ?P({sleeping, N}),
 	    timer:sleep(N*500),
 	    set_lock(Id, Nodes, Retries, Times);
-	Pid when pid(Pid) ->
+        Pid when is_pid(Pid) ->
 	    ?P({waiting_for, Pid}),
 	    Ref = erlang:monitor(process, Pid),
 	    receive
@@ -577,7 +577,7 @@ handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
 	{HisVsn, HisTag} ->
 	    init_connect(HisVsn, Node, InitMsg, HisTag, S#state.lockers, S);
 	%% To be future compatible
-	Tuple when tuple(Tuple) ->
+        Tuple when is_tuple(Tuple) ->
 	    List = tuple_to_list(Tuple),
 	    [_HisVsn, HisTag | _] = List,
 	    %% use own version handling if his is newer.
@@ -762,7 +762,7 @@ handle_cast({async_del_lock, _ResourceId, Pid}, S) ->
 handle_info({'EXIT', Deleter, _Reason}=Exit, #state{the_deleter=Deleter}=S) ->
     {stop, {deleter_died,Exit}, S#state{the_deleter=undefined}};
 handle_info({'EXIT', Pid, _Reason}, #state{the_deleter=Deleter}=S)
-  when pid(Pid) ->
+  when is_pid(Pid) ->
     ?P2({global, exit, node(), Pid, node(Pid)}),
     check_exit(Deleter, Pid),
     Syncers = lists:delete(Pid, S#state.syncers),

@@ -1,4 +1,12 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -9,12 +17,8 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
-%%     $Id$
+%%
+%% %CopyrightEnd%
 %%
 -module(foo).
 
@@ -22,7 +26,7 @@
 
 
 
-create_file_slow(Name, N) when integer(N), N >= 0 ->
+create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
         file:open(Name, [raw, write, delayed_write, binary]),
     if N > 256 ->

@@ -188,10 +188,10 @@ async_dump_log(InitBy) ->
 %% If Mnesia stops, we will wait for Mnesia to restart
 %% We will wait even if the list of tables is empty
 %%
-wait_for_tables(Tabs, Timeout) when list(Tabs), Timeout == infinity ->
+wait_for_tables(Tabs, Timeout) when is_list(Tabs), Timeout == infinity ->
     do_wait_for_tables(Tabs, Timeout);
-wait_for_tables(Tabs, Timeout) when list(Tabs),
-                                    integer(Timeout), Timeout >= 0 ->
+wait_for_tables(Tabs, Timeout) when is_list(Tabs),
+                                    is_integer(Timeout), Timeout >= 0 ->
     do_wait_for_tables(Tabs, Timeout);
 wait_for_tables(Tabs, Timeout) ->
     {error, {badarg, Tabs, Timeout}}.
@@ -217,7 +217,7 @@ reply_wait(Tabs) ->
     case catch mnesia_lib:active_tables() of
 	{'EXIT', _} ->
 	    {error, {node_not_running, node()}};
-	Active when list(Active) ->
+        Active when is_list(Active) ->
 	    case Tabs -- Active of
 		[] ->
 		    ok;
@@ -238,7 +238,7 @@ wait_for_init(From, Tabs, Init) ->
 	{'EXIT', _} ->
 	    %% Mnesia is not started
 	    {error, {node_not_running, node()}};
-	true when pid(Init) ->
+        true when is_pid(Init) ->
 	    cast({sync_tabs, Tabs, self()}),
 	    rec_tabs(Tabs, Tabs, From, Init)
     end.
@@ -328,7 +328,7 @@ get_disc_copy(Tab) ->
     disc_load_table(Tab, {dumper,change_table_copy_type}, undefined).
 
 %% Returns ok instead of yes
-force_load_table(Tab) when atom(Tab), Tab /= schema ->
+force_load_table(Tab) when is_atom(Tab), Tab /= schema ->
     case ?catch_val({Tab, storage_type}) of
 	ram_copies ->
 	    do_force_load_table(Tab);
@@ -413,7 +413,7 @@ connect_nodes(Ns) ->
 		ok ->
 		    mnesia_lib:add_list(extra_db_nodes, New),
 		    {ok, New};
-		{aborted, {throw, Str}} when list(Str) ->
+                {aborted, {throw, Str}} when is_list(Str) ->
 		    %%mnesia_recover:disconnect_nodes(New),
 		    {error, {merge_schema_failed, lists:flatten(Str)}};
 		Else ->
@@ -432,7 +432,7 @@ merge_schema() ->
     case try_merge_schema(AllNodes) of
 	ok ->
 	    schema_is_merged();
-	{aborted, {throw, Str}} when list(Str) ->
+        {aborted, {throw, Str}} when is_list(Str) ->
 	    fatal("Failed to merge schema: ~s~n", [Str]);
 	Else ->
 	    fatal("Failed to merge schema: ~p~n", [Else])
@@ -696,11 +696,11 @@ handle_call(Msg, _From, State) ->
     error("~p got unexpected call: ~p~n", [?SERVER_NAME, Msg]),
     noreply(State).
 
-disc_load_intents([H | T]) when record(H, disc_load) ->
+disc_load_intents([H | T]) when is_record(H, disc_load) ->
     [H#disc_load.table | disc_load_intents(T)];
-disc_load_intents([H | T]) when record(H, late_load) ->
+disc_load_intents([H | T]) when is_record(H, late_load) ->
     [H#late_load.table | disc_load_intents(T)];
-disc_load_intents( [H | T]) when record(H, net_load) ->
+disc_load_intents( [H | T]) when is_record(H, net_load) ->
     disc_load_intents(T);
 disc_load_intents([]) ->
     [].
@@ -824,7 +824,7 @@ handle_cast(unblock_controller, State) ->
     if
 	State#state.is_stopping == true ->
 	    {stop, shutdown, State};
-	record(hd(State#state.dumper_queue), block_controller) ->
+        is_record(hd(State#state.dumper_queue), block_controller) ->
 	    [_Worker | Rest] = State#state.dumper_queue,
 	    State2 = State#state{dumper_pid = undefined,
 				 dumper_queue = Rest},
@@ -840,11 +840,11 @@ handle_cast({mnesia_down, Node}, State) ->
     State2 = reconfigure_tables(Node, State, Alltabs),
     case State#state.sender_pid of
 	undefined -> ignore;
-	Pid when pid(Pid) -> Pid ! {copier_done, Node}
+        Pid when is_pid(Pid) -> Pid ! {copier_done, Node}
     end,
     case State#state.loader_pid of
 	undefined -> ignore;
-	Pid2 when pid(Pid2) -> Pid2 ! {copier_done, Node}
+        Pid2 when is_pid(Pid2) -> Pid2 ! {copier_done, Node}
     end,
     NewSenders =
 	case State#state.sender_queue of
@@ -878,7 +878,7 @@ handle_cast({disc_load, Tab, Reason}, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
-handle_cast(Worker, State) when record(Worker, send_table) ->
+handle_cast(Worker, State) when is_record(Worker, send_table) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
@@ -991,7 +991,7 @@ handle_info({async_dump_log, InitBy}, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
-handle_info(Done, State) when record(Done, dumper_done) ->
+handle_info(Done, State) when is_record(Done, dumper_done) ->
     Pid = Done#dumper_done.worker_pid,
     Res = Done#dumper_done.worker_res,
     if
@@ -1009,7 +1009,7 @@ handle_info(Done, State) when record(Done, dumper_done) ->
 	    {stop, fatal, State}
     end;
 
-handle_info(Done, State) when record(Done, loader_done) ->
+handle_info(Done, State) when is_record(Done, loader_done) ->
     if
 	%% Assertion
 	Done#loader_done.worker_pid == State#state.loader_pid -> ok
@@ -1077,7 +1077,7 @@ handle_info(Done, State) when record(Done, loader_done) ->
     State3 = opt_start_worker(State2),
     noreply(State3);
 
-handle_info(Done, State) when record(Done, sender_done) ->
+handle_info(Done, State) when is_record(Done, sender_done) ->
     Pid = Done#sender_done.worker_pid,
     Res = Done#sender_done.worker_res,
     if
@@ -1170,10 +1170,10 @@ sync_tab_timeout(_Pid, []) ->
 pick_next(Queue) ->
     pick_next(Queue, none, none, []).
 
-pick_next([Head | Tail], Load, Order, Rest) when record(Head, net_load) ->
+pick_next([Head | Tail], Load, Order, Rest) when is_record(Head, net_load) ->
     Tab = Head#net_load.table,
     select_best(Head, Tail, val({Tab, load_order}), Load, Order, Rest);
-pick_next([Head | Tail], Load, Order, Rest) when record(Head, disc_load) ->
+pick_next([Head | Tail], Load, Order, Rest) when is_record(Head, disc_load) ->
     Tab = Head#disc_load.table,
     select_best(Head, Tail, val({Tab, load_order}), Load, Order, Rest);
 pick_next([], Load, _Order, Rest) ->
@@ -1491,7 +1491,7 @@ drop_loaders(_, _, []) ->
 add_active_replica(Tab, Node) ->
     add_active_replica(Tab, Node, val({Tab, cstruct})).
 
-add_active_replica(Tab, Node, Cs) when record(Cs, cstruct) ->
+add_active_replica(Tab, Node, Cs) when is_record(Cs, cstruct) ->
     Storage = mnesia_lib:schema_cs_to_storage_type(Node, Cs),
     AccessMode = Cs#cstruct.access_mode,
     add_active_replica(Tab, Node, Storage, AccessMode).
@@ -1515,9 +1515,9 @@ unblock_table(Tab) ->
 	end,
     set(Var, New). % where_to_commit
 
-is_tab_blocked(W2C) when list(W2C) ->
+is_tab_blocked(W2C) when is_list(W2C) ->
     {false, W2C};
-is_tab_blocked({blocked, W2C}) when list(W2C) ->
+is_tab_blocked({blocked, W2C}) when is_list(W2C) ->
     {true, W2C}.
 
 mark_blocked_tab(true, Value) ->
@@ -1622,7 +1622,7 @@ get_info(Timeout) ->
 	Pid ->
 	    Pid ! {self(), get_state},
 	    receive
-		{?SERVER_NAME, State} when record(State, state) ->
+                {?SERVER_NAME, State} when is_record(State, state) ->
 		    {info,State}
 	    after Timeout ->
 		    {timeout, Timeout}
@@ -1636,7 +1636,7 @@ get_workers(Timeout) ->
 	Pid ->
 	    Pid ! {self(), get_state},
 	    receive
-		{?SERVER_NAME, State} when record(State, state) ->
+                {?SERVER_NAME, State} when is_record(State, state) ->
 		    {workers, State#state.loader_pid, State#state.sender_pid, State#state.dumper_pid}
 	    after Timeout ->
 		    {timeout, Timeout}
@@ -1711,7 +1711,7 @@ reply(ReplyTo, Reply) ->
 %% Worker management
 
 %% Returns new State
-add_worker(Worker, State) when record(Worker, dump_log) ->
+add_worker(Worker, State) when is_record(Worker, dump_log) ->
     InitBy = Worker#dump_log.initiated_by,
     Queue = State#state.dumper_queue,
     case lists:keymember(InitBy, #dump_log.initiated_by, Queue) of
@@ -1728,25 +1728,25 @@ add_worker(Worker, State) when record(Worker, dump_log) ->
     Queue2 = Queue ++ [Worker],
     State2 = State#state{dumper_queue = Queue2},
     opt_start_worker(State2);
-add_worker(Worker, State) when record(Worker, schema_commit_lock) ->
+add_worker(Worker, State) when is_record(Worker, schema_commit_lock) ->
     Queue = State#state.dumper_queue,
     Queue2 = Queue ++ [Worker],
     State2 = State#state{dumper_queue = Queue2},
     opt_start_worker(State2);
-add_worker(Worker, State) when record(Worker, net_load) ->
+add_worker(Worker, State) when is_record(Worker, net_load) ->
     Queue = State#state.loader_queue,
     State2 = State#state{loader_queue = Queue ++ [Worker]},
     opt_start_worker(State2);
-add_worker(Worker, State) when record(Worker, send_table) ->
+add_worker(Worker, State) when is_record(Worker, send_table) ->
     Queue = State#state.sender_queue,
     State2 = State#state{sender_queue = Queue ++ [Worker]},
     opt_start_worker(State2);
-add_worker(Worker, State) when record(Worker, disc_load) ->
+add_worker(Worker, State) when is_record(Worker, disc_load) ->
     Queue = State#state.loader_queue,
     State2 = State#state{loader_queue = Queue ++ [Worker]},
     opt_start_worker(State2);
 % Block controller should be used for upgrading mnesia.
-add_worker(Worker, State) when record(Worker, block_controller) ->
+add_worker(Worker, State) when is_record(Worker, block_controller) ->
     Queue = State#state.dumper_queue,
     Queue2 = [Worker | Queue],
     State2 = State#state{dumper_queue = Queue2},
@@ -1770,13 +1770,13 @@ opt_start_worker(State) ->
 
 	    %% Start worker but keep him in the queue
 	    if
-		record(Worker, schema_commit_lock) ->
+                is_record(Worker, schema_commit_lock) ->
 		    ReplyTo = Worker#schema_commit_lock.owner,
 		    reply(ReplyTo, granted),
 		    {Owner, _Tag} = ReplyTo,
 		    State#state{dumper_pid = Owner};
 
-		record(Worker, dump_log) ->
+                is_record(Worker, dump_log) ->
 		    Pid = spawn_link(?MODULE, dump_and_reply, [self(), Worker]),
 		    State2 = State#state{dumper_pid = Pid},
 
@@ -1786,7 +1786,7 @@ opt_start_worker(State) ->
 		    State3 = opt_start_sender(State2),
 		    opt_start_loader(State3);
 
-		record(Worker, block_controller) ->
+                is_record(Worker, block_controller) ->
 		    case {State#state.sender_pid, State#state.loader_pid} of
 			{undefined, undefined} ->
 			    ReplyTo = Worker#block_controller.owner,
@@ -1897,7 +1897,7 @@ load_and_reply(ReplyTo, Worker) ->
 
 %% Now it is time to load the table
 %% but first we must check if it still is neccessary
-load_table(Load) when record(Load, net_load) ->
+load_table(Load) when is_record(Load, net_load) ->
     Tab = Load#net_load.table,
     ReplyTo = Load#net_load.opt_reply_to,
     Reason =  Load#net_load.reason,
@@ -1941,7 +1941,7 @@ load_table(Load) when record(Load, net_load) ->
 	    end
     end;
 
-load_table(Load) when record(Load, disc_load) ->
+load_table(Load) when is_record(Load, disc_load) ->
     Tab = Load#disc_load.table,
     Reason =  Load#disc_load.reason,
     ReplyTo = Load#disc_load.opt_reply_to,

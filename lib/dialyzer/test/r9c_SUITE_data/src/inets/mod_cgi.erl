@@ -245,7 +245,7 @@ parsed_header(List) ->
 
 parsed_header([], SoFar) ->
     SoFar;
-parsed_header([{Name,[Value|R1]}|R2], SoFar) when list(Value)->
+parsed_header([{Name,[Value|R1]}|R2], SoFar) when is_list(Value)->
     NewName=lists:map(fun(X) -> if X == $- -> $_; true -> X end end,Name),
     Env = env("HTTP_"++httpd_util:to_upper(NewName),
 	      multi_value([Value|R1])),
@@ -281,7 +281,7 @@ exec_script(true, Info, Script, AfterScript, RequestURI) ->
     Port = (catch open_port({spawn,Script},[stream,{cd, Dir},{env, Env}])),
     ?vtrace("exec_script -> Port: ~w",[Port]),
     case Port of
-	P when port(P) ->
+        P when is_port(P) ->
 	    %% Send entity_body to port.
 	    Res = case Info#mod.entity_body of
 		      [] ->
@@ -348,7 +348,7 @@ proxy(Info, Port, Size, StatusCode, AccResponse, Timeout) ->
 	    "~n   Timeout:   ~p",
 	    [Size, StatusCode, Timeout]),
     receive
-	{Port, {data, Response}} when port(Port) ->
+        {Port, {data, Response}} when is_port(Port) ->
 	    ?vtrace("proxy -> got some data from the port",[]),
 
 	    NewStatusCode = update_status_code(StatusCode, Response),
@@ -383,19 +383,19 @@ proxy(Info, Port, Size, StatusCode, AccResponse, Timeout) ->
 			  "nonempty", Timeout)
 	    end;
 
-	{'EXIT', Port, normal} when port(Port) ->
+        {'EXIT', Port, normal} when is_port(Port) ->
 	    ?vtrace("proxy -> exit signal from port: normal",[]),
 	    NewStatusCode = update_status_code(StatusCode,AccResponse),
 	    final_send(Info,NewStatusCode,Size,AccResponse),
 	    process_flag(trap_exit,false),
 	    {proceed, [{response,{already_sent,200,Size}}|Info#mod.data]};
 
-	{'EXIT', Port, Reason} when port(Port) ->
+        {'EXIT', Port, Reason} when is_port(Port) ->
 	    ?vtrace("proxy -> exit signal from port: ~p",[Reason]),
 	    process_flag(trap_exit, false),
 	    {proceed, [{status,{400,none,reason(Reason)}}|Info#mod.data]};
 
-	{'EXIT', Pid, Reason} when pid(Pid) ->
+        {'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    %% This is the case that a linked process has died,
 	    %% It would be nice to response with a server error
 	    %% but since the heade alredy is sent
@@ -634,8 +634,8 @@ extract_status_code([_|Rest]) ->
   extract_status_code(Rest).
 
 
-sz(B) when binary(B) -> {binary,size(B)};
-sz(L) when list(L)   -> {list,length(L)};
+sz(B) when is_binary(B) -> {binary,size(B)};
+sz(L) when is_list(L)   -> {list,length(L)};
 sz(_)                -> undefined.
 
 
@@ -684,9 +684,32 @@ load([$S,$c,$r,$i,$p,$t,$N,$o,$C,$a,$c,$h,$e |CacheArg],[])->
 
 load([$S,$c,$r,$i,$p,$t,$T,$i,$m,$e,$o,$u,$t,$ |Timeout],[])->
     case catch list_to_integer(httpd_conf:clean(Timeout)) of
-	TimeoutSec when integer(TimeoutSec)  ->
+        TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {script_timeout,TimeoutSec*1000}};
 	_ ->
 	   {error, ?NICE(httpd_conf:clean(Timeout)++
 			 " is an invalid ScriptTimeout")}
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

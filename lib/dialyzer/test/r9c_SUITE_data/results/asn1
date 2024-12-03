@@ -26,8 +26,8 @@ asn1ct_check.erl:4150:1: The pattern <_, [_]> can never match the type <_,[]>
 asn1ct_check.erl:4314:1: The pattern <S, Type, {Rlist, ExtList}> can never match the type <#state{},_,[any()]>
 asn1ct_check.erl:4360:1: The pattern <S, Type, {Rlist, ExtList}> can never match the type <#state{},_,[any()]>
 asn1ct_check.erl:4719:14: The call asn1ct_check:error({'type',{'asn1',[1..255,...],[any(),...]}}) will never return since it differs in the 1st argument from the success typing arguments: ({'ObjectSet' | 'class' | 'export' | 'ptype' | 'type' | 'value',_,#state{}})
-asn1ct_check.erl:5120:2: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
-asn1ct_check.erl:5128:2: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
+asn1ct_check.erl:5120:9: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
+asn1ct_check.erl:5128:9: Guard test is_record(Type::{_,_} | {'fixedtypevaluefield',_,_},'type',6) can never succeed
 asn1ct_check.erl:540:1: The pattern <_S, {'poc', _ObjSet, _Params}> can never match since previous clauses completely covered the type <#state{},_>
 asn1ct_check.erl:5517:1: The pattern <_, []> can never match the type <_,[{'ABSTRACT-SYNTAX',{_,_,_}} | {'TYPE-IDENTIFIER',{_,_,_}},...]>
 asn1ct_constructed_ber.erl:1075:2: The pattern {{{'ObjectClassFieldType', _, _, _, {'objectfield', PrimFieldName1, PFNList}}, _}, {'componentrelation', _, _}} can never match the type {#type{},_}

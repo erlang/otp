@@ -7,7 +7,7 @@
 %%
 %% %CopyrightEnd%
 
-mnesia.erl:1319:50: Guard test size(Spec::[{_,_,_},...]) can never succeed
+mnesia.erl:1319:53: Guard test size(Spec::[{_,_,_},...]) can never succeed
 mnesia.erl:1498:27: The call mnesia:bad_info_reply(Tab::atom(),Item::'type') will never return since it differs in the 2nd argument from the success typing arguments: (atom(),'memory' | 'size')
 mnesia_backup.erl:49:2: Callback info about the mnesia_backup behaviour is not available
 mnesia_bup.erl:111:13: The created fun has no local return

@@ -169,7 +169,7 @@ patch_record(Tab, Obj) ->
 
 what(Tab, Tid, {RecName, Key}, delete, undefined) ->
     case catch mnesia_lib:db_get(Tab, Key) of
-	Old when list(Old) -> %% Op only allowed for set table.
+        Old when is_list(Old) -> %% Op only allowed for set table.
 	    {mnesia_table_event, {delete, Tab, {RecName, Key}, Old, Tid}};
 	_ ->
 	    %% Record just deleted by a dirty_op or
@@ -182,7 +182,7 @@ what(Tab, Tid, Obj, delete_object, _Old) ->
     {mnesia_table_event, {delete, Tab, Obj, [Obj], Tid}};
 what(Tab, Tid, Obj, write, undefined) ->
     case catch mnesia_lib:db_get(Tab, element(2, Obj)) of
-	Old when list(Old) ->
+        Old when is_list(Old) ->
 	    {mnesia_table_event, {write, Tab, Obj, Old, Tid}};
 	{'EXIT', _} ->
 	    ignore
@@ -296,10 +296,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-do_change({activate, ClientPid, system}, SubscrTab) when pid(ClientPid) ->
+do_change({activate, ClientPid, system}, SubscrTab) when is_pid(ClientPid) ->
     Var = subscribers,
     activate(ClientPid, system, Var, subscribers(), SubscrTab);
-do_change({activate, ClientPid, {table, Tab, How}}, SubscrTab) when pid(ClientPid) ->
+do_change({activate, ClientPid, {table, Tab, How}}, SubscrTab) when is_pid(ClientPid) ->
     case ?catch_val({Tab, where_to_read}) of
 	Node when Node == node() ->
 	    Var = {Tab, commit_work},
@@ -416,7 +416,7 @@ add_subscr({Tab, commit_work}, What, Pid) ->
 deactivate(ClientPid, What, Var, SubscrTab) ->
     ?ets_match_delete(SubscrTab, {ClientPid, What}),
     case catch ?ets_lookup_element(SubscrTab, ClientPid, 1) of
-	List when list(List) ->
+        List when is_list(List) ->
 	    ignore;
 	{'EXIT', _} ->
 	    unlink(ClientPid)
@@ -490,3 +490,27 @@ do_prepare_stop(ClientPid, SubscrTab) ->
     handle_exit(ClientPid, SubscrTab),
     unlink(ClientPid),
     do_prepare_stop(Next, SubscrTab).
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

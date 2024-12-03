@@ -141,7 +141,7 @@ do_next_connection(ConfigDB, InitData, SocketType, Socket, NrOfRequests,
 		      SocketType, Socket, ConfigDB, Peername, String);
         {error, Reason} ->
             handle_read_error(Reason,SocketType,Socket,ConfigDB,Peername);
-        Info when record(Info, mod) ->
+        Info when is_record(Info, mod) ->
             case Info#mod.connection of
                 true ->
                     ReqTimeout = httpd_util:lookup(ConfigDB,
@@ -363,7 +363,7 @@ hsplit(MaxHdrSz, Accu, D) ->
 %%----------------------------------------------------------------------
 
 read_entity_body(SocketType, Socket, Timeout, Max, Length, BodyPart, Info,
-		 ConfigDB) when integer(Max) ->
+                 ConfigDB) when is_integer(Max) ->
     case expect(Info#mod.http_version, Info#mod.parsed_header, ConfigDB) of
 	continue when Max > Length ->
 	    ?DEBUG("read_entity_body()->100 Continue  ~n", []),
@@ -674,7 +674,7 @@ read_chunked_entity(SocketType, Socket, Timeout, Max, Length, ChunkedData,
 		    Body, ConfigDB, Info) ->
     T = t(),
     case get_chunk_size(SocketType,Socket,Timeout,[]) of
-	Size when integer(Size), Size>0 ->
+        Size when is_integer(Size), Size>0 ->
 	    case read_chunked_entity_body(SocketType, Socket,
 					  Timeout-(t()-T),
 					  Max, length(Body), Size) of
@@ -692,7 +692,7 @@ read_chunked_entity(SocketType, Socket, Timeout, Max, Length, ChunkedData,
 		    httpd_socket:close(SocketType,Socket),
 		    {socket_closed,error}
 	    end;
-	Size when integer(Size), Size == 0 ->
+        Size when is_integer(Size), Size == 0 ->
 	    %% Must read in any trailer fields here
 	    read_chunk_trailer(SocketType, Socket, Timeout,
 			       Max, Info, ChunkedData, Body, ConfigDB);
@@ -727,7 +727,7 @@ read_chunk_trailer(SocketType, Socket, Timeout, Max, Info, ChunkedData,
     end.
 
 read_chunked_entity_body(SocketType, Socket, Timeout, Max, Length, Size)
-  when integer(Max) ->
+  when is_integer(Max) ->
     read_entity_body(SocketType, Socket, Timeout, Max-Length, Size, []);
 
 read_chunked_entity_body(SocketType, Socket, Timeout, Max, _Length, Size) ->
@@ -945,9 +945,9 @@ error_log(Mod, SocketType, Socket, ConfigDB, Peername, String) ->
     end.
 
 
-sz(L) when list(L) ->
+sz(L) when is_list(L) ->
     length(L);
-sz(B) when binary(B) ->
+sz(B) when is_binary(B) ->
     size(B);
 sz(O) ->
     {unknown_size,O}.
@@ -973,7 +973,7 @@ close_sleep(_, _) ->
 sleep(T) -> receive after T -> ok end.
 
 
-dec(N) when integer(N) ->
+dec(N) when is_integer(N) ->
     N-1;
 dec(N) ->
     N.
@@ -992,3 +992,26 @@ newline($\n) ->
     true;
 newline(_Sign) ->
     false.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

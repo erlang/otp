@@ -1,4 +1,11 @@
-%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
 %%
@@ -10,14 +17,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%%
-%%     $Id: beam_dict.erl,v 1.1 2008/12/17 09:53:41 mikpe Exp $
-%%
-%% Purpose : Maintain atom, import, and export tables for assembler.
-
+%% %CopyrightEnd%
 -module(beam_dict).
 
 -export([new/0, opcode/2, highest_opcode/1,
@@ -53,7 +53,7 @@ highest_opcode(#asm_dict{highest_opcode=Op}) -> Op.
 %% Returns the index for an atom (adding it to the atom table if necessary).
 %%    atom(Atom, Dict) -> {Index, Dict'}
 
-atom(Atom, Dict) when atom(Atom) ->
+atom(Atom, Dict) when is_atom(Atom) ->
     NextIndex = Dict#asm_dict.next_atom,
     case lookup_store(Atom, Dict#asm_dict.atoms, NextIndex) of
 	{Index, _, NextIndex} ->
@@ -65,21 +65,21 @@ atom(Atom, Dict) when atom(Atom) ->
 %% Remembers an exported function.
 %%    export(Func, Arity, Label, Dict) -> Dict'
 
-export(Func, Arity, Label, Dict0) when atom(Func), integer(Arity), integer(Label) ->
+export(Func, Arity, Label, Dict0) when is_atom(Func), is_integer(Arity), is_integer(Label) ->
     {Index, Dict1} = atom(Func, Dict0),
     Dict1#asm_dict{exports = [{Index, Arity, Label}| Dict1#asm_dict.exports]}.
 
 %% Remembers a local function.
 %%    local(Func, Arity, Label, Dict) -> Dict'
 
-local(Func, Arity, Label, Dict0) when atom(Func), integer(Arity), integer(Label) ->
+local(Func, Arity, Label, Dict0) when is_atom(Func), is_integer(Arity), is_integer(Label) ->
     {Index,Dict1} = atom(Func, Dict0),
     Dict1#asm_dict{locals = [{Index,Arity,Label}| Dict1#asm_dict.locals]}.
 
 %% Returns the index for an import entry (adding it to the import table if necessary).
 %%    import(Mod, Func, Arity, Dict) -> {Index, Dict'}
 
-import(Mod, Func, Arity, Dict) when atom(Mod), atom(Func), integer(Arity) ->
+import(Mod, Func, Arity, Dict) when is_atom(Mod), is_atom(Func), is_integer(Arity) ->
     NextIndex = Dict#asm_dict.next_import,
     case lookup_store({Mod, Func, Arity}, Dict#asm_dict.imports, NextIndex) of
 	{Index, _, NextIndex} ->
@@ -94,7 +94,7 @@ import(Mod, Func, Arity, Dict) when atom(Mod), atom(Func), integer(Arity) ->
 %% table if necessary).
 %%    string(String, Dict) -> {Offset, Dict'}
 
-string(Str, Dict) when list(Str) ->
+string(Str, Dict) when is_list(Str) ->
     #asm_dict{strings = Strings, string_offset = NextOffset} = Dict,
     case old_string(Str, Strings) of
 	{true, Offset} ->
@@ -164,7 +164,7 @@ lambda_table(#asm_dict{locals=Loc0,lambdas=Lambdas0}) ->
 
 lookup_store(Key, Dict, NextIndex) ->
     case catch lookup_store1(Key, Dict, NextIndex) of
-	Index when integer(Index) ->
+        Index when is_integer(Index) ->
 	    {Index, Dict, NextIndex};
 	{Index, NewDict} ->
 	    {Index, NewDict, NextIndex+1}

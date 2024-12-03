@@ -247,11 +247,11 @@ control_response(Response,Info,Mod,Func)->
 
 parsed_header([]) ->
     [];
-parsed_header([{Name,[Value|R1]}|R2]) when list(Value) ->
+parsed_header([{Name,[Value|R1]}|R2]) when is_list(Value) ->
     NewName=lists:map(fun(X) -> if X == $- -> $_; true -> X end end,Name),
     [{list_to_atom("http_"++httpd_util:to_lower(NewName)),
       multi_value([Value|R1])}|parsed_header(R2)];
-parsed_header([{Name,Value}|Rest]) when list(Value)->
+parsed_header([{Name,Value}|Rest]) when is_list(Value)->
     {ok,NewName,_}=regexp:gsub(Name,"-","_"),
     [{list_to_atom("http_"++httpd_util:to_lower(NewName)),Value}|
      parsed_header(Rest)].
@@ -383,7 +383,7 @@ load([$E,$v,$a,$l,$S,$c,$r,$i,$p,$t,$A,$l,$i,$a,$s,$ |EvalScriptAlias],[]) ->
     end;
 load([$E,$r,$l,$S,$c,$r,$i,$p,$t,$T,$i,$m,$e,$o,$u,$t,$ |Timeout],[])->
     case catch list_to_integer(httpd_conf:clean(Timeout)) of
-	TimeoutSec when integer(TimeoutSec)  ->
+        TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {erl_script_timeout,TimeoutSec*1000}};
 	_ ->
 	   {error, ?NICE(httpd_conf:clean(Timeout)++
@@ -415,7 +415,7 @@ load([$E,$r,$l,$S,$c,$r,$i,$p,$t,$N,$o,$C,$a,$c,$h,$e |CacheArg],[])->
 %%client
 %%----------------------------------------------------------------------
 
-deliver(SessionID,Data)when pid(SessionID) ->
+deliver(SessionID,Data)when is_pid(SessionID) ->
     SessionID ! {ok,Data},
     ok;
 deliver(SessionID,Data) ->
@@ -465,7 +465,7 @@ receive_response_data(Info,Pid,Size,StatusCode,AccResponse,Timeout) ->
 	    end;
 	{'EXIT', Pid, Reason} when AccResponse==[] ->
 	    {error,not_new_method};
-	{'EXIT', Pid, Reason} when pid(Pid) ->
+        {'EXIT', Pid, Reason} when is_pid(Pid) ->
 	    NewStatusCode=mod_cgi:update_status_code(StatusCode,AccResponse),
 	    mod_cgi:final_send(Info,NewStatusCode,Size,AccResponse),
 	    {proceed, [{response,{already_sent,200,Size}}|Info#mod.data]};
@@ -480,3 +480,26 @@ receive_response_data(Info,Pid,Size,StatusCode,AccResponse,Timeout) ->
 	    httpd_socket:close(Info#mod.socket_type,Info#mod.socket),
 	    {proceed,[{response,{already_sent,200,Size}}|Info#mod.data]}
     end.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

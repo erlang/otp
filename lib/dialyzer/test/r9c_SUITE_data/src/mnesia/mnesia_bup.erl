@@ -201,7 +201,7 @@ do_read_schema_section(R, {ok, B, _C, Rest}, Acc) ->
 do_read_schema_section(_R, {error, Reason}, _Acc) ->
     {error, Reason}.
 
-verify_header([H | RawSchema])  when record(H, log_header) ->
+verify_header([H | RawSchema])  when is_record(H, log_header) ->
     Current = mnesia_log:backup_log_header(),
     if
 	H#log_header.log_kind == Current#log_header.log_kind ->
@@ -309,7 +309,7 @@ schema2bup({schema, Tab, TableDef}) ->
 %% Returns ok | {error, Reason}
 create_schema([]) ->
     create_schema([node()]);
-create_schema(Ns) when list(Ns) ->
+create_schema(Ns) when is_list(Ns) ->
     case is_set(Ns) of
 	true ->
 	    create_schema(Ns, mnesia_schema:ensure_no_schema(Ns));
@@ -319,7 +319,7 @@ create_schema(Ns) when list(Ns) ->
 create_schema(Ns) ->
     {error, {badarg, Ns}}.
 
-is_set(List) when list(List) ->
+is_set(List) when is_list(List) ->
     ordsets:is_set(lists:sort(List));
 is_set(_) ->
     false.
@@ -408,9 +408,9 @@ install_fallback(Opaque, Args) ->
 	    {error, Reason}
     end.
 
-do_install_fallback(Opaque,  Mod) when atom(Mod) ->
+do_install_fallback(Opaque,  Mod) when is_atom(Mod) ->
     do_install_fallback(Opaque, [{module, Mod}]);
-do_install_fallback(Opaque, Args) when list(Args) ->
+do_install_fallback(Opaque, Args) when is_list(Args) ->
     case check_fallback_args(Args, #fallback_args{opaque = Opaque}) of
 	{ok, FA} ->
 	    do_install_fallback(FA);
@@ -454,7 +454,7 @@ check_fallback_arg_type(Arg, FA) ->
 	    FA#fallback_args{default_op = skip_tables}
     end.
 
-atom_list([H | T]) when atom(H) ->
+atom_list([H | T]) when is_atom(H) ->
     atom_list(T);
 atom_list([]) ->
     ok.
@@ -527,7 +527,7 @@ get_fallback_nodes(FA, Ns) ->
 	    throw({error, {"No disc resident schema on local node", Ns}})
     end.
 
-send_fallback(Pids, Msg) when list(Pids), Pids /= [] ->
+send_fallback(Pids, Msg) when is_list(Pids), Pids /= [] ->
     lists:foreach(fun(Pid) -> Pid ! {self(), Msg} end, Pids),
     rec_answers(Pids, []).
 
@@ -746,7 +746,7 @@ restore_tables([Rec | Recs], Header, Schema, {new, LocalTabs}) ->
 	[] ->
 	    State = {not_local, LocalTabs, Tab},
 	    restore_tables(Recs, Header, Schema, State);
-	[L] when record(L, local_tab) ->
+        [L] when is_record(L, local_tab) ->
 	    (L#local_tab.open)(Tab, L),
 	    State = {local, LocalTabs, L},
 	    restore_tables([Rec | Recs], Header, Schema, State)
@@ -973,7 +973,7 @@ uninstall_fallback_master(ClientPid, FA) ->
 	{ok, fallback, List} ->
 	    Cs = mnesia_schema:list2cs(List),
 	    case catch get_fallback_nodes(FA, Cs#cstruct.disc_copies) of
-		Ns when list(Ns) ->
+                Ns when is_list(Ns) ->
 		    do_uninstall(ClientPid, Ns, FA);
 		{error, Reason} ->
 		    local_fallback_error(ClientPid, Reason)
@@ -1158,7 +1158,7 @@ trav_apply(Recs, Header, Schema, {start, Fun, Acc, Mod, Iter}) ->
 
 filter_foldl(Fun, Acc, [Head|Tail]) ->
     case Fun(Head, Acc) of
-	{HeadItems, HeadAcc} when list(HeadItems) ->
+        {HeadItems, HeadAcc} when is_list(HeadItems) ->
 	    {TailItems, TailAcc} = filter_foldl(Fun, HeadAcc, Tail),
 	    {HeadItems ++ TailItems, TailAcc};
 	Other ->
@@ -1166,3 +1166,27 @@ filter_foldl(Fun, Acc, [Head|Tail]) ->
     end;
 filter_foldl(_Fun, Acc, []) ->
     {[], Acc}.
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

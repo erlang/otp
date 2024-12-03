@@ -248,7 +248,7 @@ delete_transient_index(Tab, Pos, _Storage) ->
 %% assuming that the file exists.
 init_disc_index(_Tab, []) ->
     done;
-init_disc_index(Tab, [Pos | Tail]) when integer(Pos) ->
+init_disc_index(Tab, [Pos | Tail]) when is_integer(Pos) ->
     Fn = tab2filename(Tab, Pos),
     IxTag = {Tab, index, Pos},
     file:delete(Fn),
@@ -295,7 +295,7 @@ make_ram_index(Tab, [Pos | Tail]) ->
     add_ram_index(Tab, Pos),
     make_ram_index(Tab, Tail).
 
-add_ram_index(Tab, Pos) when integer(Pos) ->
+add_ram_index(Tab, Pos) when is_integer(Pos) ->
     verbose("Creating index for ~w ~n", [Tab]),
     Index = mnesia_monitor:mktab(mnesia_index, [bag, public]),
     Insert = fun(Rec, _Acc) ->
@@ -377,3 +377,27 @@ get_index_table(Tab, disc_only_copies, Pos) ->
     {dets, val({Tab, {index, Pos}})};
 get_index_table(_Tab, unknown, _Pos) ->
     unknown.
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

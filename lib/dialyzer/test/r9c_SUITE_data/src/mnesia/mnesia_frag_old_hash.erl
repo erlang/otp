@@ -49,7 +49,7 @@ init_state(_Tab, InitialState) when InitialState == undefined ->
     #old_hash_state{n_fragments     = 1,
 		    next_n_to_split = 1,
 		    n_doubles       = 0};
-init_state(_Tab, FH) when record(FH, frag_hash) ->
+init_state(_Tab, FH) when is_record(FH, frag_hash) ->
     %% Old style. Kept for backwards compatibility.
     #old_hash_state{n_fragments     = FH#frag_hash.n_fragments,
 		    next_n_to_split = FH#frag_hash.next_n_to_split,
@@ -57,7 +57,7 @@ init_state(_Tab, FH) when record(FH, frag_hash) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-add_frag(State) when record(State, old_hash_state) ->
+add_frag(State) when is_record(State, old_hash_state) ->
     SplitN = State#old_hash_state.next_n_to_split,
     P = SplitN + 1,
     L = State#old_hash_state.n_doubles,
@@ -75,7 +75,7 @@ add_frag(State) when record(State, old_hash_state) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-del_frag(State) when record(State, old_hash_state) ->
+del_frag(State) when is_record(State, old_hash_state) ->
     P = State#old_hash_state.next_n_to_split - 1,
     L = State#old_hash_state.n_doubles,
     N = State#old_hash_state.n_fragments,
@@ -96,7 +96,7 @@ del_frag(State) when record(State, old_hash_state) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-key_to_frag_number(State, Key) when record(State, old_hash_state) ->
+key_to_frag_number(State, Key) when is_record(State, old_hash_state) ->
     L = State#old_hash_state.n_doubles,
     A = erlang:hash(Key, trunc(math:pow(2, L))),
     P = State#old_hash_state.next_n_to_split,
@@ -109,9 +109,9 @@ key_to_frag_number(State, Key) when record(State, old_hash_state) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-match_spec_to_frag_numbers(State, MatchSpec) when record(State, old_hash_state) ->
+match_spec_to_frag_numbers(State, MatchSpec) when is_record(State, old_hash_state) ->
     case MatchSpec of
-	[{HeadPat, _, _}] when tuple(HeadPat), size(HeadPat) > 2 ->
+        [{HeadPat, _, _}] when is_tuple(HeadPat), size(HeadPat) > 2 ->
 	    KeyPat = element(2, HeadPat),
 	    case has_var(KeyPat) of
 		false ->
@@ -125,3 +125,27 @@ match_spec_to_frag_numbers(State, MatchSpec) when record(State, old_hash_state) 
 
 has_var(Pat) ->
     mnesia:has_var(Pat).
+
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

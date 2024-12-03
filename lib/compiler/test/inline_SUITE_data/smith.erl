@@ -1,10 +1,16 @@
-% file: "smith.erl"
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: NOASSERTION
+%%
+%% Copyright Marc Feeley 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2026. All Rights Reserved.
+%% Copyright Richard Carlsson 2026. All Rights Reserved.
+%%
+%% %CopyrightEnd%
+%%
 
--ifdef(ETOS).
 -define(IS_INTEGER(X),is_integer(X)).
--else.
--define(IS_INTEGER(X),integer(X)).
--endif.
 
 -module(smith).
 -export([?MODULE/0]).

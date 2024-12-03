@@ -204,7 +204,7 @@ sort_commit2([], Acc) -> Acc.
 
 is_string([H|T]) ->
     if
-	0 =< H, H < 256, integer(H)  -> is_string(T);
+        0 =< H, H < 256, is_integer(H)  -> is_string(T);
 	true -> false
     end;
 is_string([]) -> true.
@@ -231,7 +231,7 @@ uniq1(Old, [H|R], Ack) ->
 uniq1(Old, [], Ack) ->
     [Old| Ack].
 
-to_list(X) when list(X) -> X;
+to_list(X) when is_list(X) -> X;
 to_list(X) -> atom_to_list(X).
 
 all_nodes() ->
@@ -250,7 +250,7 @@ is_running_remote() ->
     IsRunning = is_running(),
     {IsRunning == yes, node()}.
 
-is_running(Node) when atom(Node) ->
+is_running(Node) when is_atom(Node) ->
     case rpc:call(Node, ?MODULE, is_running, []) of
 	{badrpc, _} -> no;
 	X -> X
@@ -454,11 +454,11 @@ active_tables() ->
 	end,
     lists:filtermap(F, Tabs).
 
-etype(X) when integer(X) -> integer;
+etype(X) when is_integer(X) -> integer;
 etype([]) -> nil;
-etype(X) when list(X) -> list;
-etype(X) when tuple(X) -> tuple;
-etype(X) when atom(X) -> atom;
+etype(X) when is_list(X) -> list;
+etype(X) when is_tuple(X) -> tuple;
+etype(X) when is_atom(X) -> atom;
 etype(_) -> othertype.
 
 remote_copy_holders(Cs) ->
@@ -637,7 +637,7 @@ workers({workers, Loader, Sender, Dumper}) ->
 	   end,
     lists:filtermap(Info, [{loader, Loader}, {sender, Sender}, {dumper, Dumper}]).
 
-locking_procs(LockList) when list(LockList) ->
+locking_procs(LockList) when is_list(LockList) ->
     Tids = [element(1, Lock) || Lock <- LockList],
     UT = uniq(Tids),
     Info = fun(Tid) ->
@@ -700,7 +700,7 @@ vcore() ->
 	    Error
     end.
 
-vcore(Bin) when binary(Bin) ->
+vcore(Bin) when is_binary(Bin) ->
     Core = binary_to_term(Bin),
     Fun = fun({Item, Info}) ->
 		  show("***** ~p *****~n", [Item]),
@@ -757,8 +757,8 @@ fix_error(X) ->
     case X of
 	{aborted, Reason} -> Reason;
 	{abort, Reason} -> Reason;
-	Y when atom(Y) -> Y;
-	{'EXIT', {_Reason, {Mod, _, _}}} when atom(Mod) ->
+        Y when is_atom(Y) -> Y;
+        {'EXIT', {_Reason, {Mod, _, _}}} when is_atom(Mod) ->
 	    save(X),
 	    case atom_to_list(Mod) of
 		[$m, $n, $e|_] -> badarg;
@@ -800,7 +800,7 @@ error_desc({error, Reason}) ->
     error_desc(Reason);
 error_desc({aborted, Reason}) ->
     error_desc(Reason);
-error_desc(Reason) when tuple(Reason), size(Reason) > 0 ->
+error_desc(Reason) when is_tuple(Reason), size(Reason) > 0 ->
     setelement(1, Reason, error_desc(element(1, Reason)));
 error_desc(Reason) ->
     Reason.

@@ -36,17 +36,17 @@ t() ->
 		2 end(2),
     3 = rec_call(fun(A) when (A#r2.a)#r1.a =:= 3 -> 3 end, #r2{a = #r1{a = 3}}),
     ok = fun() ->
-                 F = fun(A) when record(A#r.a, r1) -> 4;
-                        (A) when record(A#r1.a, r1) -> 5
+                 F = fun(A) when is_record(A#r.a, r1) -> 4;
+                        (A) when is_record(A#r1.a, r1) -> 5
                      end,
                  5 = F(#r1{a = #r1{}}),
                  4 = F(#r{a = #r1{}}),
                  ok
          end(),
-    3 = rec_call(fun(A) when record(A#r1.a, r),
+    3 = rec_call(fun(A) when is_record(A#r1.a, r),
 			     (A#r1.a)#r.a > 3 -> 3
 		 end, #r1{a = #r{a = 4}}),
-    7 = fun(A) when record(A#r3.a, r1) -> 7 end(#r3{}),
+    7 = fun(A) when is_record(A#r3.a, r1) -> 7 end(#r3{}),
     [#r1{a = 2,b = 1}] = 
         fun() ->
                 [A || A <- [#r1{a = 1, b = 3}, 
@@ -76,7 +76,7 @@ t() ->
     o = rec_call(fun(A) when (A#r1.a =:= 2) orelse (A#r2.a =:= 1) -> o end, #r1{a = 2}),
     o = rec_call(fun(A) when A#r1.a =:= 2; A#r2.a =:= 1 -> o end, #r2{a = 1}),
 
-    3 = rec_call(fun(A) when A#r1.a > 3, record(A, r1) -> 3 end, #r1{a = 5}),
+    3 = rec_call(fun(A) when A#r1.a > 3, is_record(A, r1) -> 3 end, #r1{a = 5}),
 
     ok = fun() ->
                  F = fun(A) when (A#r2.a =:= 1) orelse (A#r2.a) -> 2;
@@ -108,7 +108,7 @@ t() ->
                  ok
          end(),
 
-    a = rec_call(fun(A) when record(A, r),
+    a = rec_call(fun(A) when is_record(A, r),
 			     A#r.a =:= 1,
 			     A#r.b =:= 2 -> a
 		 end, #r{a = 1, b = 2}),
