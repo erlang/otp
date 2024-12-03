@@ -110,6 +110,7 @@
          stop_listener/1,
          trap_exit_connect/1,
          trap_exit_daemon/1,
+         handler_down_before_open/1,
          ssh_exec_echo/2 % called as an MFA
         ]).
 
@@ -181,7 +182,8 @@ all() ->
      stop_listener,
      no_sensitive_leak,
      start_subsystem_on_closed_channel,
-     max_channels_option
+     max_channels_option,
+     handler_down_before_open
     ].
 groups() ->
     [{openssh, [], payload() ++ ptty() ++ sock()}].
@@ -1822,6 +1824,134 @@ max_channels_option(Config) when is_list(Config) ->
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
+
+handler_down_before_open(Config) ->
+    %% Start echo subsystem with a delay in init() - until a signal is received
+    %% One client opens a channel on the connection
+    %% the other client requests the echo subsystem on the second channel and then immediately goes down
+    %% the test monitors the client and when receiving 'DOWN' signals 'echo' to proceed
+    %% a) there should be no crash after 'channel-open-confirmation'
+    %% b) there should be proper 'channel-close' exchange
+    %% c) the 'exec' channel should not be affected after the 'echo' channel goes down
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+    Parent = self(),
+    EchoSS_spec = {ssh_echo_server, [8, [{dbg, true}, {parent, Parent}]]},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {exec, fun ssh_exec_echo/1},
+					     {subsystems, [{"echo_n",EchoSS_spec}]}]),
+    ct:log("~p:~p connect", [?MODULE,?LINE]),
+    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+						      {user, "foo"},
+						      {password, "morot"},
+						      {user_interaction, false},
+						      {user_dir, UserDir}]),
+    ct:log("~p:~p connected", [?MODULE,?LINE]),
+
+    ExecChannelPid = spawn(
+        fun() ->
+            {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+
+            %% This is to get peer's connection handler PID ({conn_peer ...} below) and suspend it
+            {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+            ssh_connection:subsystem(ConnectionRef, ChannelId1, "echo_n", infinity),
+            ssh_connection:close(ConnectionRef, ChannelId1),
+            receive
+                {ssh_cm, ConnectionRef, {closed, 1}} -> ok
+            end,
+
+            Parent ! {self(), channelId, ChannelId0},
+            Result = receive
+                cmd ->
+                    ct:log("~p:~p Channel ~p executing", [?MODULE, ?LINE, ChannelId0]),
+                    success = ssh_connection:exec(ConnectionRef, ChannelId0, "testing", infinity),
+                    Expect = <<"echo testing\n">>,
+                    ExpSz = size(Expect),
+                    receive
+                        {ssh_cm, ConnectionRef, {data, ChannelId0, 0,
+                                                 <<Expect:ExpSz/binary, _/binary>>}} = R ->
+                            ct:log("~p:~p Got expected ~p",[?MODULE,?LINE, R]),
+                            ok;
+                        Other ->
+                            ct:log("~p:~p Got unexpected ~p~nExpect: ~p~n",
+                                   [?MODULE,?LINE, Other, {ssh_cm, ConnectionRef,
+                                                           {data, ChannelId0, 0, Expect}}]),
+                            {fail, "Unexpected data"}
+                    after 5000 ->
+                            {fail, "Exec Timeout"}
+                    end;
+                    stop -> {fail, "Stopped"}
+            end,
+            Parent ! {self(), Result}
+      end),
+    try
+        TestResult = receive
+            {ExecChannelPid, channelId, ExId} ->
+                ct:log("~p:~p Channel that should stay: ~p pid ~p", [?MODULE, ?LINE, ExId, ExecChannelPid]),
+                ConnPeer = receive {conn_peer, CM} -> CM end,
+                %% The sole purpose of this channel is to go down before the opening procedure is complete
+                DownChannelPid = spawn(
+                    fun() ->
+                        ct:log("~p:~p open channel (incomplete)",[?MODULE,?LINE]),
+                        Parent ! {self(), channelId, ok},
+                        %% This is to prevent the peer from answering our 'channel-open' in time
+                        sys:suspend(ConnPeer),
+                        {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+                        ct:log("~p:~p open incomplete channel done - should not have happened",[?MODULE,?LINE]),
+                        Parent ! {self(), {fail, "Unexpected channel success"}}
+                    end),
+                MonRef = erlang:monitor(process, DownChannelPid),
+                receive
+                    {DownChannelPid, channelId, ok} ->
+                        ct:log("~p:~p Channel handler that won't continue: pid ~p", [?MODULE, ?LINE, DownChannelPid]),
+                        ensure_channels(ConnectionRef, 2),
+                        channel_down_sequence(DownChannelPid, ExecChannelPid, ExId, MonRef, ConnectionRef, ConnPeer)
+                end
+        end,
+        ensure_channels(ConnectionRef, 0)
+    after
+        ssh:close(ConnectionRef),
+        ssh:stop_daemon(Pid)
+    end.
+
+ensure_channels(ConnRef, Expected) ->
+    {ok, ChannelList} = ssh_connection_handler:info(ConnRef),
+    do_ensure_channels(ConnRef, Expected, length(ChannelList)).
+
+do_ensure_channels(_ConnRef, NumExpected, NumExpected) ->
+    ok;
+do_ensure_channels(ConnRef, NumExpected, _ChannelListLen) ->
+    receive after 100 -> ok end,
+    {ok, ChannelList} = ssh_connection_handler:info(ConnRef),
+    do_ensure_channels(ConnRef, NumExpected, length(ChannelList)).
+
+channel_down_sequence(DownChannelPid, ExecChannelPid, ExecChannelId, MonRef, ConnRef, Peer) ->
+    ct:log("~p:~p sending order to go down", [?MODULE, ?LINE]),
+    exit(DownChannelPid, die),
+    receive {'DOWN', MonRef, _, _, _} -> ok end,
+    ct:log("~p:~p order executed, sending order to proceed", [?MODULE, ?LINE]),
+    %% Resume the peer connection to let it clean up among its channels
+    sys:resume(Peer),
+    ensure_channels(ConnRef, 1),
+    ExecChannelPid ! cmd,
+    try
+        receive
+            {ExecChannelPid, ok} ->
+                ct:log("~p:~p expected exec result: ~p", [?MODULE, ?LINE, ok]),
+                ok;
+            {ExecChannelPid, Result} ->
+                ct:log("~p:~p Unexpected exec result: ~p", [?MODULE, ?LINE, Result]),
+                {fail, "Unexpected exec result"}
+        after 5000 ->
+            {fail, "Exec result timeout"}
+        end
+    after
+        ssh_connection:close(ConnRef, ExecChannelId)
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
