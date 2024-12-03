@@ -57,23 +57,10 @@ cb_info() ->
     %% {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive}
     {?MODULE, '$socket', '$socket_closed', '$socket', '$socket_passive'}.
 
-setopts(Socket, [{active, N}]) when is_integer(N) ->
-    if N > 1 ->
-            ?CT_LOG("~p Set active ~w~n ~p", [self(), N, process_info(self(), current_stacktrace)]),
-            self() ! {'$socket', Socket, select, nowait},
-            socket:setopt(Socket, {otp,select_read}, true);
-       N == 1 ->
-            ?CT_LOG("Send socket select", [1]),
-            self() ! {'$socket', Socket, select, nowait},
-            ok;
-       true ->
-            ?CT_LOG("ignore active ~w", [N]),
-            ok
-    end;
 setopts(Socket, List) ->
     try
         Opts = check_opts(List),
-        [ok = socket:setopt(Socket, Opt, Val) || {_,_}=Opt := Val <- Opts],
+        [ok = setopt(Socket, Opt, Val) || Opt := Val <- Opts],
         ok
     catch _:Err ->
             Err
@@ -81,12 +68,18 @@ setopts(Socket, List) ->
 
 getopts(Socket, Keys) ->
     try
-        Get = fun(Key) ->
-                      SocketKey = maps:get(Key, socket_opts()),
-                      {ok, Val} = socket:getopt(Socket, SocketKey),
-                      Val
+        Get = fun(Key, Acc) ->
+                      case maps:get(Key, socket_opts(), not_existing_opt) of
+                          not_existing_opt ->
+                              throw({error, {not_supported, Key}});
+                          inet_option_only ->
+                              Acc;
+                          SocketKey ->
+                              {ok, Val} = socket:getopt(Socket, SocketKey),
+                              [{Key, Val}|Acc]
+                      end
               end,
-        {ok, [{Key, Get(Key)} || Key <- Keys]}
+        {ok, lists:foldr(Get, [], Keys)}
     catch _:Err ->
             Err
     end.
@@ -196,42 +189,75 @@ send(Socket, Data) ->
     end.
 
 %% Note: returns the reverse list of packets
-data_available(Socket, _select, Handle, Activate) ->
-    ?CT_LOG("~w recv ~w ~p",[get(role), Activate, Handle]),
-    Res = case socket:recv(Socket, 0, Handle) of
-              {ok, Data0} when Activate ->
-                  ?CT_LOG("~w data", [get(role)]),
-                  self() ! {'$socket', Socket, select, nowait},
-                  Data0;
-              {ok, Data0} ->  %% Activate is false, fake passive message
-                  socket:setopt(Socket, {otp,select_read}, false),
-                  self() ! {'$socket_passive', Socket},
-                  ?CT_LOG("~w passive", [get(role)]),
-                  Data0;
-              {select_read, {select_info, _, _Handle}} ->   %% Fix windows handles
-                  %% First time data may not be available
-                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
-                  [];
-              {select_read, {{select_info, _, _Handle}, Data}} ->
-                  %% First time data may not be available
-                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
-                  Data;
-              {select, {select_info, _, _Handle}} ->   %% Fix windows handles
-                  %% First time data may not be available
-                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
-                  [];
-              {select, {{select_info, _, _Handle}, Data}} ->
-                  %% First time data may not be available
-                  ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
-                  Data;
-              {error, Reason} ->
-                  ?SSL_LOG(debug, socket_error, [{error, Reason}]),
-                  ?CT_LOG("~w error", [get(role)]),
-                  self() ! {'$socket_closed', Socket},
-                  []
-          end,
-    ?CT_LOG("~w recv res ~w", [get(role), iolist_size(Res)]),
-    Res.
+data_available(Socket, completion, {Handle, Res}, Activate) ->
+    data_available_result(Res, Socket, Handle, Activate andalso once, []);
+data_available(Socket, select, Handle, Activate) ->
+    data_available_recv(Socket, Handle, Activate andalso once, []).
+
+data_available_recv(Socket, Handle, Activate, Acc) ->
+    data_available_result(socket:recv(Socket, 0, Handle), Socket, Handle, Activate, Acc).
+
+data_available_result(Res, Socket, Handle, Activate, Acc) ->
+    case Res of
+        {ok, Data} ->
+            case Activate of
+                once ->
+                    %% Loop once to try to get a request in the pipe
+                    %% should only happen on windows where
+                    %% {otp,select_read} is not implemented
+                    data_available_recv(Socket, Handle, true, [Data|Acc]);
+                true ->
+                    ?CT_LOG("~w data", [get(role)]),
+                    self() ! {'$socket', Socket, select, nowait},
+                    [Data|Acc];
+                false -> %% Activate is false, fake passive message
+                    socket:setopt(Socket, {otp,select_read}, false),
+                    self() ! {'$socket_passive', Socket},
+                    ?CT_LOG("~w passive", [get(role)]),
+                    [Data|Acc]
+            end;
+        {select_read, {{select_info, _, _Handle}, Data}} ->
+            ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+            [Data|Acc];
+        {completion, {_, recv, _Handle}} ->
+            %% Windows
+            ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+            Acc;
+        {select, {_, recv, _Handle}} ->
+            %% First time
+            ?CT_LOG("~w wait_select ~p", [get(role), _Handle]),
+            Acc;
+        {error, Reason} ->
+            ?SSL_LOG(debug, socket_error, [{error, Reason}]),
+            ?CT_LOG("~w error", [get(role)]),
+            _ = socket:close(Socket),
+            self() ! {'$socket_closed', Socket},
+            Acc
+    end.
+
+%% Helpers
+
+setopt(Socket, active, N) ->
+    if
+        N == true; N == 1 ->
+            ?CT_LOG("Send socket select", [1]),
+            self() ! {'$socket', Socket, select, nowait},
+            ok;
+        N == false ->
+            socket:setopt(Socket, {otp,select_read}, false);
+        N > 1 ->
+            ?CT_LOG("~p Set active ~w", [self(), N]),
+            self() ! {'$socket', Socket, select, nowait},
+            socket:setopt(Socket, {otp,select_read}, true);
+        true ->
+            ?CT_LOG("ignore active ~w", [N]),
+            ok
+    end;
+setopt(Socket, {_,_}=Opt, Val) ->
+    ok = socket:setopt(Socket, Opt, Val);
+setopt(_Socket, _Opt, _Val) ->
+    ?CT_LOG("setopt: Ignore: ~p ~p", [_Opt, _Val]),
+    ok.
 
 connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
     Family = which_family(IP),
@@ -289,8 +315,12 @@ check_opts(Opts0) ->
     Def = #{
             tcp_module => inet_tcp
            },
+    ?CT_LOG("Opts: ~p~n", [Opts0]),
     lists:foldr(fun check_opts_1/2, Def, Opts0).
 
+
+check_opts_1({active, Val}, Opts) ->
+    Opts#{active => Val};
 check_opts_1(inet, Opts) ->
     Opts#{tcp_module => inet_tcp};
 check_opts_1(inet6, Opts) ->
@@ -326,6 +356,12 @@ check_opts_1(Opt, Opts) ->
 
 socket_opts() ->
     #{
+      mode   => inet_option_only,
+      active => inet_option_only,
+      header => inet_option_only,
+      packet => inet_option_only,
+      packet_size => inet_option_only,
+
       %% Level: otp
       buffer => {otp, rcvbuf},
       debug  => {otp, debug},

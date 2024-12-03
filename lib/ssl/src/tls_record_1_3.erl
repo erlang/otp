@@ -360,13 +360,13 @@ decipher_aead(Handle, CipherFragment, Seq, IV) ->
 	    Content when is_binary(Content) ->
 		Content;
 	    Reason ->
-                ?SSL_LOG(debug, decrypt_error, [{reason,Reason},
-                                                {stacktrace, process_info(self(), current_stacktrace)}]),
+                ?SSL_LOG(info, decrypt_error, [{reason,Reason},
+                                               {stacktrace, process_info(self(), current_stacktrace)}]),
                 ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
 	end
     catch
 	_:Reason2:ST ->
-            ?SSL_LOG(debug, decrypt_error, [{reason,Reason2}, {stacktrace, ST}]),
+            ?SSL_LOG(info, decrypt_error, [{reason,Reason2}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, decryption_failed)
     end.
 

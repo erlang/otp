@@ -209,7 +209,7 @@ traffic and upgrading it to use TLS.
 
 Both sides needs to agree on the upgrade.
 """.
--type socket()                   :: gen_tcp:socket(). % exported
+-type socket()                   :: gen_tcp:socket() | socket:socket(). % exported
 
 -doc(#{title => <<"Socket">>}).
 -doc """

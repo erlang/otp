@@ -92,7 +92,8 @@ all() ->
 groups() ->
     [{'dtlsv1.2', [], renegotiate_tests()},
      {'dtlsv1',   [], renegotiate_tests()},
-     {'tlsv1.2',  [], renegotiate_tests()},
+     {'tlsv1.2',  [], [{group, transport_socket}]},
+     {transport_socket, [], renegotiate_tests()},
      {'tlsv1.1',  [], renegotiate_tests()},
      {'tlsv1',    [], renegotiate_tests()}
     ].

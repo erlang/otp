@@ -258,7 +258,8 @@ handle_info({Protocol, Socket, Type, Handle}, StateName,
                                             data_tag = Protocol,
                                             transport_cb = Transport},
                    protocol_specific = #{socket_active := N}=PS}
-            = State0) ->
+            = State0)
+  when Type =:= select; Type =:= completion ->
     Data = Transport:data_available(Socket, Type, Handle, N > 0),
     State1 = State0#state{protocol_specific = PS#{socket_active := N-1}},
     case next_tls_record(Data, StateName, State1) of
