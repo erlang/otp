@@ -1273,14 +1273,19 @@ handle_event(info, {'DOWN', _Ref, process, ChannelPid, _Reason}, _, D) ->
       end, [], Cache),
     %% Then for each channel where 'channel-close' has not been sent yet
     %% we send 'channel-close' and(!) update the cache so that we remember
-    %% what we've done
+    %% what we've done.
+    %% Also set user as 'undefined' as there is no such process anyway
     D2 = lists:foldl(
-      fun(#channel{remote_id = Id, sent_close = false} = Channel, D0) ->
+      fun(#channel{remote_id = Id, sent_close = false} = Channel, D0) when Id /= undefined ->
           D1 = send_msg(ssh_connection:channel_close_msg(Id), D0),
           ssh_client_channel:cache_update(cache(D1),
-                                          Channel#channel{sent_close = true}),
+                                          Channel#channel{sent_close = true,
+                                                          user = undefined}),
           D1;
-         (_, D0) -> D0
+         (Channel, D0) ->
+          ssh_client_channel:cache_update(cache(D0),
+                                          Channel#channel{user = undefined}),
+          D0
       end, D, Channels),
     {keep_state, D2, cond_set_idle_timer(D2)};
 

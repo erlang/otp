@@ -783,17 +783,25 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 					      maximum_packet_size = PacketSz}, 
 	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     
-    #channel{remote_id = undefined} = Channel =
+    #channel{remote_id = undefined, user = U} = Channel =
 	ssh_client_channel:cache_lookup(Cache, ChannelId), 
     
-    ssh_client_channel:cache_update(Cache, Channel#channel{
-				     remote_id = RemoteId,
-				     recv_packet_size = max(32768, % rfc4254/5.2
-							    min(PacketSz, Channel#channel.recv_packet_size)
-							   ),
-				     send_window_size = WindowSz,
-				     send_packet_size = PacketSz}),
-    reply_msg(Channel, Connection0, {open, ChannelId});
+    if U /= undefined ->
+            ssh_client_channel:cache_update(Cache, Channel#channel{
+                                             remote_id = RemoteId,
+                                             recv_packet_size = max(32768, % rfc4254/5.2
+                                                                    min(PacketSz, Channel#channel.recv_packet_size)
+                                                                   ),
+                                             send_window_size = WindowSz,
+                                             send_packet_size = PacketSz}),
+            reply_msg(Channel, Connection0, {open, ChannelId});
+        true ->
+            %% There is no user process so nobody cares about the channel
+            %% close it
+            CloseMsg = channel_close_msg(RemoteId),
+            ssh_client_channel:cache_update(Cache, Channel#channel{sent_close = true}),
+            {[{connection_reply, CloseMsg}], Connection0}
+    end;
  
 handle_msg(#ssh_msg_channel_open_failure{recipient_channel = ChannelId,
 					 reason = Reason,
