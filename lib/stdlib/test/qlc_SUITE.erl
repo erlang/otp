@@ -858,7 +858,7 @@ eval_unique(Config) when is_list(Config) ->
              true = length(qlc:eval(Q1, {unique_all, true})) =:= 5,
              Q2 = qlc:q([X || {_, X} <- ets:table(E)]),
              true = length(qlc:eval(Q2, {unique_all, true})) =:= 4,
-             Q3 = qlc:q([element(2, X) || X <- ets:table(E)]),
+             Q3 = qlc:q([X[2] || X <- ets:table(E)]),
              true = length(qlc:eval(Q3, {unique_all, true})) =:= 4,
              Q4 = qlc:q([1 || _X <- ets:table(E)]),
              true = length(qlc:eval(Q4, {unique_all, true})) =:= 1,
@@ -1356,7 +1356,7 @@ table(Config) when is_list(Config) ->
           ets:delete(E)">>,
 
        begin
-       MS = ets:fun2ms(fun(X) when element(1, X) > 1 -> X end),
+       MS = ets:fun2ms(fun(X) when X[1] > 1 -> X end),
        [<<"E = ets:new(test, []),
            true = ets:insert(E, [{1,a},{2,b},{3,c}]),
            MS = ">>, io_lib:format("~w", [MS]), <<",
@@ -1369,7 +1369,7 @@ table(Config) when is_list(Config) ->
        end,
 
        begin % a short table
-       MS = ets:fun2ms(fun(X) when element(1, X) > 1 -> X end),
+       MS = ets:fun2ms(fun(X) when X[1] > 1 -> X end),
        [<<"E = ets:new(test, []),
            true = ets:insert(E, [{0,b}]),
            MS =  ">>, io_lib:format("~w", [MS]), <<",
@@ -1438,9 +1438,9 @@ table(Config) when is_list(Config) ->
           ets:delete(E)">>,
 
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(2, X) || X <- qlc_SUITE:table(L, [2]),
-                                       (element(1, X) =:= 1)
-                                        or (2 =:= element(1, X))]),
+          QH = qlc:q([X[2] || X <- qlc_SUITE:table(L, [2]),
+                                       (X[1] =:= 1)
+                                        or (2 =:= X[1])]),
           [a,b] = lists:sort(qlc:e(QH))">>,
 
        <<"etsc(fun(E) ->
@@ -2099,9 +2099,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% No temporary file.
           L = [{I,a} || I <- lists:seq(1, 10)],
           Q0 = qlc:q([X || X <- qlc_SUITE:table_error(L, 1, err),
-                           begin element(1, X) > 5 end],
+                           begin X[1] > 5 end],
                      {cache,list}),
-          Q = qlc:q([{X, element(1,Y)} || 
+          Q = qlc:q([{X, Y[1]} || 
                         X <- lists:seq(1, 5),
                         Y <- Q0]),
           err = qlc:e(Q)">>,
@@ -2109,9 +2109,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% Sort internally.
           L = [{I,a} || I <- lists:seq(1, 10)],
           Q0 = qlc:q([X || X <- qlc_SUITE:table_error(L, 1, err),
-                           begin element(1, X) > 5 end],
+                           begin X[1] > 5 end],
                      [unique,{cache,list}]),
-          Q = qlc:q([{X, element(1,Y)} || 
+          Q = qlc:q([{X, Y[1]} || 
                         X <- lists:seq(1, 5),
                         Y <- Q0]),
           err = qlc:e(Q, {max_list_size,0})">>,
@@ -2119,9 +2119,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% No temporary file.
           etsc(fun(E) ->
                        Q0 = qlc:q([X || X <- ets:table(E),
-                                        begin element(1, X) > 5 end],
+                                        begin X[1] > 5 end],
                                   {cache,list}),
-                       Q = qlc:q([{X, element(1,Y)} || X <- lists:seq(1, 5),
+                       Q = qlc:q([{X, Y[1]} || X <- lists:seq(1, 5),
                                                        Y <- Q0]),
                        R = [{X,Y} || X <- lists:seq(1, 5), 
                                      Y <- lists:seq(6, 10)],
@@ -2131,9 +2131,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% Sort internally
           etsc(fun(E) ->
                        Q0 = qlc:q([X || X <- ets:table(E),
-                                        begin element(1, X) > 5 end],
+                                        begin X[1] > 5 end],
                                   [{cache,list},unique]),
-                       Q = qlc:q([{X, element(1,Y)} || X <- lists:seq(1, 5),
+                       Q = qlc:q([{X, Y[1]} || X <- lists:seq(1, 5),
                                                        Y <- Q0]),
                        R = [{X,Y} || X <- lists:seq(1, 5), 
                                      Y <- lists:seq(6, 10)],
@@ -2243,9 +2243,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% Temporary file employed.
           etsc(fun(E) ->
                        Q0 = qlc:q([X || X <- ets:table(E),
-                                        begin element(1, X) > 5 end],
+                                        begin X[1] > 5 end],
                                   {cache,list}),
-                       Q = qlc:q([{X, element(1,Y)} || X <- lists:seq(1, 5),
+                       Q = qlc:q([{X, Y[1]} || X <- lists:seq(1, 5),
                                                        Y <- Q0]),
                        R = [{X,Y} || X <- lists:seq(1, 5), 
                                      Y <- lists:seq(6, 10)],
@@ -2256,9 +2256,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% Temporary file employed. The file is removed after error.
           L = [{I,a,lists:duplicate(100000,1)} || I <- lists:seq(1, 10)],
           Q0 = qlc:q([X || X <- qlc_SUITE:table_error(L, 1, err),
-                           begin element(1, X) > 5 end],
+                           begin X[1] > 5 end],
                      {cache,list}),
-          Q = qlc:q([{X, element(1,Y)} || 
+          Q = qlc:q([{X, Y[1]} || 
                         X <- lists:seq(1, 5),
                         Y <- Q0]),
           err = qlc:e(Q)">>,
@@ -2266,9 +2266,9 @@ cache_list(Config) when is_list(Config) ->
        <<"%% Temporary file employed. The file is removed after error.
           L = [{I,a,lists:duplicate(100000,1)} || I <- lists:seq(1, 10)],
           Q0 = qlc:q([X || X <- qlc_SUITE:table(L, 1, []),
-                           begin element(1, X) > 5 end],
+                           begin X[1] > 5 end],
                      {cache,list}),
-          Q = qlc:q([{X, element(1,Y)} || 
+          Q = qlc:q([{X, Y[1]} || 
                         X <- lists:seq(1, 5),
                         Y <- Q0]),
           {error, _, {file_error,_,_}} = qlc:e(Q, {tmpdir, \"/a/b/c\"})">>,
@@ -2919,14 +2919,14 @@ lookup1(Config) when is_list(Config) ->
 
        <<"A = 3,
           etsc(fun(E) ->
-                Q = qlc:q([X || X <- ets:table(E), A =:= element(1, X)]),
+                Q = qlc:q([X || X <- ets:table(E), A =:= X[]1]),
                 [{3,3}] = qlc:e(Q),
                 [3] = lookup_keys(Q)
         end, [{1,a},{3,3}])">>,
 
        <<"A = 3,
           etsc(fun(E) ->
-                Q = qlc:q([X || X <- ets:table(E), A =:= erlang:element(1, X)]),
+                Q = qlc:q([X || X <- ets:table(E), A =:= erlang:X[]1]),
                 [{3,3}] = qlc:e(Q),
                 [3] = lookup_keys(Q)
         end, [{1,a},{3,3}])">>,
@@ -2934,8 +2934,8 @@ lookup1(Config) when is_list(Config) ->
        <<"etsc(fun(E) ->
                 A = 3,
                 Q = qlc:q([X || X <- ets:table(E), 
-                                A == element(1,X), 
-                                element(1,X) =:= a]),
+                                A == X[1], 
+                                X[1] =:= a]),
                 [] = qlc:e(Q),
                 [a] = lookup_keys(Q)
         end, [{a},{b},{c}])">>,
@@ -3165,20 +3165,20 @@ lookup2(Config) when is_list(Config) ->
 
        <<"etsc(fun(E) ->
                  Q = qlc:q([X || {X}=Y <- ets:table(E), 
-                                 element(2, Y) == b, 
+                                 Y[2] == b, 
                                  X =:= 1]),
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
         end, [{1,b},{2,3}])">>,
 
        <<"etsc(fun(E) ->
-                Q = qlc:q([X || {X} <- ets:table(E), element(1,{X}) =:= 1]),
+                Q = qlc:q([X || {X} <- ets:table(E), {X}[1] =:= 1]),
                 [1] = qlc:e(Q),
                 [1] = lookup_keys(Q)
         end, [{1}, {2}])">>,
 
        <<"etsc(fun(E) ->
-                Q = qlc:q([X || {X} <- ets:table(E), 1 =:= element(1,{X})]),
+                Q = qlc:q([X || {X} <- ets:table(E), 1 =:= {X}[]1]),
                 [1] = qlc:e(Q),
                 [1] = lookup_keys(Q)
         end, [{1}, {2}])">>,
@@ -3187,7 +3187,7 @@ lookup2(Config) when is_list(Config) ->
         <<"etsc(fun(E) ->
                  Q = qlc:q([X || {X} <- ets:table(E), 
                                  X =:= {1}, 
-                                 element(1,X) =:= 2]),
+                                 X[1] =:= 2]),
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
@@ -3198,7 +3198,7 @@ lookup2(Config) when is_list(Config) ->
         <<"etsc(fun(E) ->
                  Q = qlc:q([X || {X} <- ets:table(E), 
                                  X =:= {1}, 
-                                 element(1,X) =:= element(1, {2})]),
+                                 X[1] =:= {2}[]1]),
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{{1}},{{2}}])">>,
@@ -3207,22 +3207,22 @@ lookup2(Config) when is_list(Config) ->
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E),
-                                element(1,X) =:= 1, X =:= {1}]),
+                                X[1] =:= 1, X =:= {1}]),
                 [{1}] = qlc:e(Q),
                 [{1}] = lookup_keys(Q)
         end, [{{1}},{{2}}])">>,
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E),
-                                {{element(1,element(1,{{1}}))}} =:= {X}]),
+                                {{{{1}}[1][1]}} =:= {X}]),
                 [{1}] = qlc:e(Q),
                 [{1}] = lookup_keys(Q)
         end, [{{1}},{{2}}])">>,
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X <- ets:table(E),
-                                {element(1,element(1, {{1}}))} =:= 
-                                      {element(1,X)}]),
+                                {{{1}}[1][1]} =:= 
+                                      {X[1]}]),
                 [{1}] = qlc:e(Q),
                 [1] = lookup_keys(Q)
         end, [{1},{2}])">>,
@@ -3333,14 +3333,14 @@ lookup2(Config) when is_list(Config) ->
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X={_,_,_} <- ets:table(E), 
-                                element(1, X) =:= 3, element(2, X) == a]),
+                                X[1] =:= 3, X[2] == a]),
                 [{3,a,s}] = qlc:e(Q),
                 [3] = lookup_keys(Q)
         end, [{1,c,q},{2,b,r},{3,a,s}])">>,
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X <- ets:table(E), 
-                                element(0, X) =:= 3]),
+                                X[0] =:= 3]),
                 [] = qlc:e(Q),
                 false = lookup_keys(Q)
         end, [{1},{2}])">>,
@@ -3391,33 +3391,25 @@ lookup2(Config) when is_list(Config) ->
     TsR = [
        %% is_record/2,3:
        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
+                Q = qlc:q([X[1] || X <- ets:table(E), 
                                             erlang:is_record(X, r, 2)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
+                Q = qlc:q([X[1] || X <- ets:table(E), 
                                             is_record(X, r, 2)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
-       {cres,
-        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
-                                            record(X, r)]),
-                 [r] = qlc:e(Q),
-                 [r] = lookup_keys(Q)
-         end, [{keypos,1}], [#r{}])">>,
-        {warnings,[{{4,45},erl_lint,{obsolete_guard,{record,2}}}]}},
        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
+                Q = qlc:q([X[1] || X <- ets:table(E), 
                                             erlang:is_record(X, r)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
        <<"etsc(fun(E) ->
-                Q = qlc:q([element(1, X) || X <- ets:table(E), 
+                Q = qlc:q([X[1] || X <- ets:table(E), 
                                             is_record(X, r)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
@@ -3431,8 +3423,8 @@ lookup2(Config) when is_list(Config) ->
        <<"etsc(fun(E) ->
                  Q0 = qlc:q([X || 
                                 X <- ets:table(E),
-                                (element(1, X) =:= 1) or 
-                                  (element(1, X) =:= 2)],
+                                (X[1] =:= 1) or 
+                                  (X[1] =:= 2)],
                            {cache,ets}),
                  Q = qlc:q([{X,Y} ||
                                X <- [1,2],
@@ -3446,8 +3438,8 @@ lookup2(Config) when is_list(Config) ->
        <<"etsc(fun(E) ->
                  Q0 = qlc:q([X || 
                                 X <- ets:table(E),
-                                (element(1, X) =:= 1) or 
-                                  (element(1, X) =:= 2)]),
+                                (X[1] =:= 1) or 
+                                  (X[1] =:= 2)]),
                  Q = qlc:q([{X,Y} ||
                                X <- [1,2],
                                Y <- Q0],
@@ -3490,8 +3482,8 @@ lookup2(Config) when is_list(Config) ->
                        Q = qlc:q([{X,Y} ||
                                      X <- [1,2],
                                      Y <- ets:table(E),
-                                     (element(1, Y) =:= 1) 
-                                      or (element(1, Y) =:= 2)],
+                                     (Y[1] =:= 1) 
+                                      or (Y[1] =:= 2)],
                                  []),
                        [{1,{1}},{1,{2}},{2,{1}},{2,{2}}] = qlc:e(Q),
                        {qlc,_,[{generate,_,{list,[1,2]}},
@@ -3504,8 +3496,8 @@ lookup2(Config) when is_list(Config) ->
                        Q = qlc:q([{X,Y} ||
                                      X <- [1,2],
                                      Y <- ets:table(E),
-                                     (element(1, Y) =:= 1) 
-                                      or (element(1, Y) =:= 2)],
+                                     (Y[1] =:= 1) 
+                                      or (Y[1] =:= 2)],
                                  [cache]),
                        {qlc,_,[{generate,_,{list,[1,2]}},
                                {generate,_,{table,_}}],[]} = i(Q),
@@ -3618,7 +3610,7 @@ lookup2(Config) when is_list(Config) ->
     LTs = [
        <<"etsc(fun(E) ->
                        Q  = qlc:q([X || X <- ets:table(E), 
-                                        element(1, X) =:= 1],
+                                        X[1] =:= 1],
                                   {lookup,true}),
                        {table,L} = i(Q),
                        true = is_list(L),
@@ -3628,7 +3620,7 @@ lookup2(Config) when is_list(Config) ->
        <<"%% No lookup, use the match spec for traversal instead.
           etsc(fun(E) ->
                        Q  = qlc:q([X || X <- ets:table(E), 
-                                        element(1, X) =:= 1],
+                                        X[1] =:= 1],
                                   {lookup,false}),
                        {table,{ets,table,_}} = i(Q),
                        [{1,a}] = qlc:e(Q),
@@ -3637,7 +3629,7 @@ lookup2(Config) when is_list(Config) ->
        <<"%% As last one. {max_lookup,0} has the same effect.
           etsc(fun(E) ->
                        Q  = qlc:q([X || X <- ets:table(E), 
-                                        element(1, X) =:= 1],
+                                        X[1] =:= 1],
                                   {max_lookup,0}),
                        {table,{ets,table,_}} = i(Q),
                        [{1,a}] = qlc:e(Q),
@@ -3725,32 +3717,32 @@ lookup_rec(Config) when is_list(Config) ->
 indices(Config) when is_list(Config) ->
     Ts = [
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(1, X) || X <- qlc_SUITE:table(L, [2]),
-                                       (element(2, X) =:= a)
-                                           or (b =:= element(2, X))]),
+          QH = qlc:q([X[1] || X <- qlc_SUITE:table(L, [2]),
+                                       (X[2] =:= a)
+                                           or (b =:= X[2])]),
           {list, {table,{qlc_SUITE,list_keys,[[a,b],2,L]}}, _MS} = i(QH),
           [1,2] = qlc:eval(QH)">>,
 
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(1, X) || X <- qlc_SUITE:table(L, [2]),
-                                       begin (element(2, X) =:= a)
-                                           or (b =:= element(2, X)) end]),
+          QH = qlc:q([X[1] || X <- qlc_SUITE:table(L, [2]),
+                                       begin (X[2] =:= a)
+                                           or (b =:= X[2]) end]),
           {qlc,_,[{generate,_,{table,{call,_,
                                {remote,_,_,{atom,_,the_list}},_}}},_],[]}
                   = i(QH),
           [1,2] = qlc:eval(QH)">>,
 
        <<"L = [{1,a,q},{2,b,r},{3,c,s}],
-          QH = qlc:q([element(1, X) || X <- qlc_SUITE:table(L, [2,3]),
-                                       (element(3, X) =:= q)
-                                           or (r =:= element(3, X))]),
+          QH = qlc:q([X[1] || X <- qlc_SUITE:table(L, [2,3]),
+                                       (X[3] =:= q)
+                                           or (r =:= X[3])]),
           {list, {table,{qlc_SUITE,list_keys, [[q,r],3,L]}}, _MS} = i(QH),
           [1,2] = qlc:eval(QH)">>,
 
        <<"L = [{1,a,q},{2,b,r},{3,c,s}],
-          QH = qlc:q([element(1, X) || X <- qlc_SUITE:table(L, 1, [2]),
-                                       (element(3, X) =:= q)
-                                           or (r =:= element(3, X))]),
+          QH = qlc:q([X[1] || X <- qlc_SUITE:table(L, 1, [2]),
+                                       (X[3] =:= q)
+                                           or (r =:= X[3])]),
           {qlc,_,[{generate,_,{table,{call,_,_,_}}},
                   _],[]} = i(QH),
           [1,2] = qlc:eval(QH)">>,
@@ -3793,10 +3785,10 @@ pre_fun(Config) when is_list(Config) ->
           %% cursor: table killing parent
           L = [{1,a},{2,b},{3,c}],
           F1 = fun() ->
-                   QH = qlc:q([element(1, X) || 
+                   QH = qlc:q([X[1] || 
                                 X <- qlc_SUITE:table_kill_parent(L, [2]),
-                                (element(2, X) =:= a)
-                                    or (b =:= element(2, X))]),
+                                (X[2] =:= a)
+                                    or (b =:= X[2])]),
                    _ = qlc:info(QH),
                    _ = qlc:cursor(QH)
                end,
@@ -3811,10 +3803,10 @@ pre_fun(Config) when is_list(Config) ->
           %% eval without cursor: table killing parent
           L = [{1,a},{2,b},{3,c}],
           F2 = fun() ->
-                 QH = qlc:q([element(1, X) || 
+                 QH = qlc:q([X[1] || 
                                 X <- qlc_SUITE:table_kill_parent(L, [2]),
-                                (element(2, X) =:= a)
-                                    or (b =:= element(2, X))]),
+                                (X[2] =:= a)
+                                    or (b =:= X[2])]),
                  _ = qlc:eval(QH)
                end,
           Pid2 = spawn_link(F2),
@@ -3824,28 +3816,28 @@ pre_fun(Config) when is_list(Config) ->
           process_flag(trap_exit, PF)">>,
 
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(1, X) || 
+          QH = qlc:q([X[1] || 
                         X <- qlc_SUITE:table_parent_throws(L, [2]),
-                        (element(2, X) =:= a)
-                            or (b =:= element(2, X))]),
+                        (X[2] =:= a)
+                            or (b =:= X[2])]),
           _ = qlc:info(QH),
           {throw,thrown} = (catch {any_term,qlc:cursor(QH)}),
           {throw,thrown} = (catch {any_term,qlc:eval(QH)})">>,
 
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(1, X) || 
+          QH = qlc:q([X[1] || 
                         X <- qlc_SUITE:table_parent_exits(L, [2]),
-                        (element(2, X) =:= a)
-                            or (b =:= element(2, X))]),
+                        (X[2] =:= a)
+                            or (b =:= X[2])]),
           _ = qlc:info(QH),
           {'EXIT', {badarith,_}} = (catch qlc:cursor(QH)),
           {'EXIT', {badarith,_}} = (catch qlc:eval(QH))">>,
 
        <<"L = [{1,a},{2,b},{3,c}],
-          QH = qlc:q([element(1, X) || 
+          QH = qlc:q([X[1] || 
                         X <- qlc_SUITE:table_bad_parent_fun(L, [2]),
-                        (element(2, X) =:= a)
-                            or (b =:= element(2, X))]),
+                        (X[2] =:= a)
+                            or (b =:= X[2])]),
           {'EXIT', {badarg,_}} = (catch qlc:cursor(QH)),
           {'EXIT', {badarg,_}} = (catch qlc:eval(QH))">>,
 
@@ -3872,7 +3864,7 @@ skip_filters(Config) when is_list(Config) ->
        %% Cannot skip the filter.
        <<"etsc(fun(E) ->
                 H = qlc:q([X || X <- ets:table(E), 
-                          (element(1, X) =:= 1) xor (element(1, X) =:= 1)]),
+                          (X[1] =:= 1) xor (X[1] =:= 1)]),
                 [] = qlc:eval(H),
                 [1] = lookup_keys(H)
                end, [{keypos,1}], [{1},{2}])">>,
@@ -3880,7 +3872,7 @@ skip_filters(Config) when is_list(Config) ->
        %% The filter can be skipped. Just a lookup remains.
        <<"etsc(fun(E) ->
                 H = qlc:q([X || X <- ets:table(E), 
-                          (element(1, X) =:= 1) or (element(1, X) =:= 1)]),
+                          (X[1] =:= 1) or (X[1] =:= 1)]),
                 [{1}] = qlc:eval(H),
                 {table, _} = i(H),
                 [1] = lookup_keys(H)
@@ -3889,7 +3881,7 @@ skip_filters(Config) when is_list(Config) ->
        %% safe_unify fails on 3 and <<X:32>>
        <<"etsc(fun(E) ->
                 H = qlc:q([X || X <- ets:table(E), 
-                     (element(1, X) =:= 1) and (3 =:= <<X:32>>)]),
+                     (X[1] =:= 1) and (3 =:= <<X:32>>)]),
                 [] = qlc:eval(H),
                 [1] = lookup_keys(H)
                end, [{keypos,1}], [{1},{2}])">>,
@@ -3918,7 +3910,7 @@ skip_filters(Config) when is_list(Config) ->
        %% Lookup. No match spec, no filter.
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || X <- ets:table(E), 
-                               element(1, X) =:= 1]),
+                               X[1] =:= 1]),
                 {table, _} = i(Q),
                 [{1}] = qlc:e(Q),
                 [1] = lookup_keys(Q)
@@ -3926,7 +3918,7 @@ skip_filters(Config) when is_list(Config) ->
 
        <<"etsc(fun(E) ->
                  Q = qlc:q([{X,Y} || X <- ets:table(E), 
-                                     element(1, X) =:= 1,
+                                     X[1] =:= 1,
                                      Y <- [1,2]]),
                  {qlc,_,[{generate,_,{table,_}},{generate,_,{list,_}}],[]}
                       = i(Q),
@@ -3950,8 +3942,8 @@ skip_filters(Config) when is_list(Config) ->
        <<"etsc(fun(E) ->
                  A = 3,
                  Q = qlc:q([X || X <- ets:table(E), 
-                                 A == element(1,X),
-                                 element(1,X) =:= a]),
+                                 A == X[1],
+                                 X[1] =:= a]),
                  [] = qlc:e(Q),
                  [a] = lookup_keys(Q)
           end, [{a},{b},{c}])">>,
@@ -4011,7 +4003,7 @@ skip_filters(Config) when is_list(Config) ->
 
        <<"etsc(fun(E) ->
                  H = qlc:q([X || X <- ets:table(E),
-                                 (element(1,X) =:= 2) and (X =:= {2,b})]),
+                                 (X[1] =:= 2) and (X =:= {2,b})]),
                  {list,{table,_},_} = i(H),
                  [{2,b}] = qlc:e(H)
          end, [{1,a},{2,b}])">>,
@@ -4099,10 +4091,10 @@ skip_filters(Config) when is_list(Config) ->
                                                  Z > 2,
                                                  X <- ets:table(E1),
                                                  Y <- ets:table(E2),
-                                                 (element(1, X) =:= 1) or
-                                                 (element(1, X) =:= 2),
-                                                 (element(1, Y) =:= a) or
-                                                 (element(1, Y) =:= b)]
+                                                 (X[1] =:= 1) or
+                                                 (X[1] =:= 2),
+                                                 (Y[1] =:= a) or
+                                                 (Y[1] =:= b)]
                                              ,{lookup,true}
                                             ),
                                   {qlc,_,[_,{generate,_,{table,_}},
@@ -4682,7 +4674,7 @@ join_lookup(Config) when is_list(Config) ->
           etsc(fun(E) ->
                        Q = qlc:q([X || {X,_} <- ets:table(E), 
                                        Y <- [{a,b},{c,d},{1,2},{3,4}], 
-                                       X =:= element(1, Y)]),
+                                       X =:= Y[]1]),
                        {0,1,0,0} = join_info_count(Q),
                        [1] = qlc:e(Q)
                end, [{1,2},{3}])">>,
@@ -4821,7 +4813,7 @@ join_merge(Config) when is_list(Config) ->
 
        <<"QH = qlc:q([X || X <- [{1,2,3},{4,5,6}], 
                            Y <- [{1,2},{3,4}], 
-                           element(1, X) =:= element(2, Y)]),
+                           X[1] =:= Y[]2]),
           {1,0,0,2} = join_info_count(QH),
           [{4,5,6}] = qlc:e(QH)">>,
 
@@ -4857,7 +4849,7 @@ join_merge(Config) when is_list(Config) ->
           Q2 = qlc:q([X || X <- ets:table(E2)]),
           F = fun(J) -> qlc:q([{X,Y} || X <- Q1,
                                         Y <- Q2,
-                                        element(1,X) =:= element(1,Y)], 
+                                        X[1] =:= Y[]1], 
                               [{join,J}])
               end,
           {'EXIT',{cannot_carry_out_join,_}} = (catch qlc:e(F(lookup))),
@@ -4873,7 +4865,7 @@ join_merge(Config) when is_list(Config) ->
           E2 = create_ets(5, 15),
           Q = qlc:q([{X,Y} || X <- ets:table(E1),
                               Y <- ets:table(E2),
-                              element(1,X) =:= element(1,Y)], 
+                              X[1] =:= Y[]1], 
                     [{join,merge}]),
           {1,0,0,2} = join_info(Q),
           R = lists:sort(qlc:e(Q)),
@@ -4893,7 +4885,7 @@ join_merge(Config) when is_list(Config) ->
           F = fun(J) ->
                       qlc:q([{X,Y} || X <- Q1,
                                       Y <- Q2,
-                                      element(1,X) =:= element(1,Y)],
+                                      X[1] =:= Y[]1],
                             [{join,J}])
               end,
           {'EXIT',{cannot_carry_out_join,_}} = (catch qlc:e(F(lookup))),
@@ -4968,14 +4960,14 @@ join_merge(Config) when is_list(Config) ->
        <<"Q = qlc:q([{G1,G2} || 
                         G1<- [{1}],
                         G2 <- [{1}],
-                        element(1, G1) =:= element(1, G2)]),
+                        G1[1] =:= G2[]1]),
           {1,0,0,2} = join_info(Q),
           [{{1},{1}}] = qlc:e(Q)">>,
 
        <<"Q = qlc:q([{X,Y} || 
                          X <- [{1}], 
                          Y <- [{1}], 
-                         element(1, X) =:= element(1, Y)], 
+                         X[1] =:= Y[]1], 
                      {join,merge}),
           {1,0,0,2} = join_info(Q),
           [{{1},{1}}] = qlc:e(Q)">>,
@@ -5145,24 +5137,24 @@ join_merge(Config) when is_list(Config) ->
                         {join,merge}),
               [{a,a},{a,aa},{a,aaa},{a,aaaa}]= qlc:e(Q)">>,
 
-       <<"Q = qlc:q([{element(1, X), element(2, Y)} ||
+       <<"Q = qlc:q([{X[1], Y[2]} ||
                             X <- [{a,1},{aa,1}],
                             Y <- [{1,a},{1,aa}],
-                            element(2, X) =:= element(1, Y)],
+                            X[2] =:= Y[]1],
                         {join,merge}),
               [{a,a},{a,aa},{aa,a},{aa,aa}] = qlc:e(Q)">>,
 
-       <<"Q = qlc:q([{element(1, X), element(2, Y)} ||
+       <<"Q = qlc:q([{X[1], Y[2]} ||
                             X <- [{a,1},{aa,1}],
                             Y <- qlc_SUITE:table_error([], 1, err),
-                            element(2, X) =:= element(1, Y)],
+                            X[2] =:= Y[]1],
                         {join,merge}),
               err = qlc:e(Q)">>,
 
-       <<"Q = qlc:q([{element(1, X), element(2, Y)} ||
+       <<"Q = qlc:q([{X[1], Y[2]} ||
                             X <- qlc_SUITE:table_error([{a,1}], 2, err),
                             Y <- [{2,b}],
-                            element(2, X) =:= element(1, Y)],
+                            X[2] =:= Y[]1],
                         {join,merge}),
               err = qlc:e(Q)">>,
 
@@ -5401,7 +5393,7 @@ join_sort(Config) when is_list(Config) ->
 
        <<"QH = qlc:q([X || X <- [{1,2,3},{4,5,6}], 
                            Y <- qlc:sort([{1,2},{3,4}]), 
-                           element(1, X) =:= element(2, Y)]),
+                           X[1] =:= Y[]2]),
           {1,0,0,2} = join_info_count(QH),
           [{4,5,6}] = qlc:e(QH)">>,
 
@@ -5568,14 +5560,14 @@ join_sort(Config) when is_list(Config) ->
           {{3,0,0,4},{3,0,0,6}} = join_info(Q),
           [{1,1},{2,2}] = qlc:e(Q)">>,
 
-       <<"%% There is an extra test (_C1, element(1, X) =:= 1) that is not
+       <<"%% There is an extra test (_C1, X[1] =:= 1) that is not
           %% necessary since the match spec does the same check. This can be
           %% improved upon.
           Q = qlc:q([{X,Y} ||
                         X <- [{2},{1}],
-                        element(1, X) =:= 1,
+                        X[1] =:= 1,
                         Y=_ <- [{2},{1}],
-                        element(1, X) =:= element(1, Y)]),
+                        X[1] =:= Y[]1]),
           {qlc,_,
               [{generate,_,{qlc,_,
                               [{generate,_,{qlc,_,
@@ -5595,12 +5587,12 @@ join_sort(Config) when is_list(Config) ->
                                         X =:= 1,
                                         Z =:= a,
                                         P1 =:= Y, 
-                                        X =:= element(1, Y)]),
+                                        X =:= Y[]1]),
                        {1,0,0,0} = join_info_count(Q),
                        [{1,2,a}] = qlc:e(Q)
                end, [{1,2,a},{3,4,b}])">>,
 
-       %% Merge join on Z and element(3, Y). No need to sort!
+       %% Merge join on Z and Y[3]. No need to sort!
        <<"etsc(fun(E) ->
                        L = [{a,b,a},{c,d,b},{1,2,a},{3,4,b}],
                        Q = qlc:q([P1 || {X,2,Z}=P1 <- ets:table(E), 
@@ -5608,7 +5600,7 @@ join_sort(Config) when is_list(Config) ->
                                         (X =:= 1) or (X =:= 2),
                                         Z =:= a,
                                         P1 =:= Y, 
-                                        X =:= element(1, Y)]),
+                                        X =:= Y[]1]),
                        {1,0,0,0} = join_info_count(Q),
                        [{1,2,a}] = qlc:e(Q)
                end, [{1,2,a},{3,4,b}])">>,
@@ -5619,7 +5611,7 @@ join_sort(Config) when is_list(Config) ->
                        Q = qlc:q([X || {1,2}=X <- ets:table(E), 
                                        Y <- [{a,b},{c,d},{1,2},{3,4}], 
                                        X =:= Y, 
-                                       element(1, X) =:= element(1, Y)]),
+                                       X[1] =:= Y[]1]),
                        {1,0,0,0} = join_info_count(Q),
                        [{1,2}] = qlc:e(Q)
                end, [{1,2},{3,4}])">>
@@ -6126,9 +6118,9 @@ otp_6964(Config) when is_list(Config) ->
        <<"%% cache list
           etsc(fun(E) ->
                        Q0 = qlc:q([X || X <- ets:table(E),
-                                        begin element(1, X) > 5 end],
+                                        begin X[1] > 5 end],
                                   {cache,list}),
-                       Q = qlc:q([{X, element(1,Y)} || X <- lists:seq(1, 5),
+                       Q = qlc:q([{X, Y[1]} || X <- lists:seq(1, 5),
                                                        Y <- Q0]),
                        R = [{X,Y} || X <- lists:seq(1, 5), 
                                      Y <- lists:seq(6, 10)],
@@ -6546,7 +6538,7 @@ otp_7238(Config) when is_list(Config) ->
 otp_7114(Config) when is_list(Config) ->
     Ts = [<<"T = ets:new(t, [bag]),
              [ets:insert(T, {t, I, I div 2}) || I <- lists:seq(1,10)],
-             Q1 = qlc:q([element(3, E) || E <- ets:table(T)]),
+             Q1 = qlc:q([E[3] || E <- ets:table(T)]),
              [0,1,1,2,2,3,3,4,4,5] = lists:sort(qlc:e(Q1)),
              [0,1,2,3,4,5] = qlc:e(Q1, unique_all),
              [0,1,2,3,4,5] = qlc:e(qlc:sort(Q1), unique_all),
@@ -6762,7 +6754,7 @@ otp_6674(Config) when is_list(Config) ->
        <<"etsc(fun(E) ->
                  A = 3,
                  Q = qlc:q([X || X <- ets:table(E),
-                                 A == element(1,X)]),
+                                 A == X[1]]),
                  {table, _} = i(Q),
                  case qlc:e(Q) of
                        [{3},{3.0}] -> ok;
@@ -7139,7 +7131,7 @@ manpage(Config) when is_list(Config) ->
               \"               [G1 | G2] ||\n\"
               \"                   G2 <- V1,\n\"
               \"                   G1 <- ets:table(_),\n\"
-              \"                   element(2, G1) =:= element(1, G2)\n\"
+              \"                   G1[2] =:= G2[1]\n\"
               \"              ],\n\"
               \"              [{join, lookup}]),\n\"
               \"    qlc:q([ \n\"
@@ -7184,7 +7176,7 @@ manpage(Config) when is_list(Config) ->
        \"               [G1 | G2] ||\n\"
        \"                   G1 <- V1,\n\"
        \"                   G2 <- V2,\n\"
-       \"                   element(1, G1) == element(2, G2)\n\"
+       \"                   G1[1] == G2[2]\n\"
        \"              ],\n\"
        \"              [{join, merge}, {cache, list}]),\n\"
        \"    qlc:q([ \n\"
