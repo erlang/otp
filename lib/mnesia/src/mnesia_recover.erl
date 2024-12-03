@@ -767,8 +767,7 @@ handle_call(Msg, _From, State) ->
     {noreply, State}.
 
 do_log_mnesia_up(Node) ->
-    Date = date(),
-    Time = time(),
+    {Date, Time} = erlang:localtime(),
     Yoyo = {mnesia_up, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
@@ -780,8 +779,7 @@ do_log_mnesia_up(Node) ->
     note_up(Node, Date, Time).
 
 do_log_mnesia_down(Node) ->
-    Date = date(),
-    Time = time(),
+    {Date, Time} = erlang:localtime(),
     Yoyo = {mnesia_down, Node, Date, Time},
     case mnesia_monitor:use_dir() of
 	true ->
