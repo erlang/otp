@@ -46,7 +46,8 @@
          have_sctp/0,
          eprof/1,
          log/4,
-         proxy_call/4
+         proxy_call/4,
+         f/2
         ]).
 
 %% diameter-specific
@@ -55,11 +56,13 @@
          listen/2, listen/3,
          connect/3, connect/4,
          disconnect/4,
-         info/0
+         info/0,
+         diameter_event_logger_start/2, diameter_event_logger_stop/1
         ]).
 
 -export([analyze_and_print_host_info/0]).
 
+-include("diameter.hrl").
 -include("diameter_util.hrl").
 
 
@@ -200,14 +203,18 @@ await_down(ParentMRef, WorkerPid, N) ->
                 "~n   Initial Call:         ~p"
                 "~n   Current Function:     ~p"
                 "~n   Message Queue Length: ~p"
+                "~n   (Process) Dictionary: ~p"
                 "~n   Reductions:           ~p"
-                "~n   Status:               ~p",
+                "~n   Status:               ~p"
+                "~n   Monitors:             ~p",
                 [WorkerPid, N,
                  pi(WorkerPid, initial_call),
                  pi(WorkerPid, current_function),
                  pi(WorkerPid, message_queue_len),
+                 pi(WorkerPid, dictionary),
                  pi(WorkerPid, reductions),
-                 pi(WorkerPid, status)]),
+                 pi(WorkerPid, status),
+                 pi(WorkerPid, monitors)]),
             timer:send_after(1000, self(), check_worker_status),
             await_down(ParentMRef, WorkerPid, N+1);
 
@@ -237,17 +244,41 @@ await_down(ParentMRef, WorkerPid, N) ->
     end.
 
 
+mq() -> 
+    mq(self()).
+
+mq(Pid) when is_pid(Pid) ->
+    pi(Pid, messages).
+
 pi(Pid, Key) ->
     try
         begin
             {Key, Value} = process_info(Pid, Key),
-            Value
+            process_pi_value(Key, Value)
         end
     catch
         _:_:_ ->
             undefined
     end.
-        
+
+
+process_pi_value(monitors, Value) ->
+    process_monitors(Value);
+process_pi_value(_, Value) ->
+    Value.
+
+process_monitors(Mons) ->
+    [process_monitor(Mon) || Mon <- Mons].
+
+process_monitor({process, Pid})
+  when is_pid(Pid) andalso (node(Pid) =:= node()) ->
+    {Pid, process_info(Pid, [initial_call, current_function, message_queue_len,
+                             dictionary, reductions, status])};
+process_monitor({process, Pid}) ->
+    {Pid, undefined};
+process_monitor({port, Port}) ->
+    {Port, undefined}.
+
 
 %% ---------------------------------------------------------------------------
 %% fold/3
@@ -266,20 +297,24 @@ fold(Fun, Acc0, L)
 
 fold(_, Acc, Map)
   when 0 == map_size(Map) ->
+    ?UL("fold -> done when"
+        "~n   Acc: ~p", [Acc]),
     Acc;
 
 fold(Fun, Acc, #{} = Map) ->
     receive
         check_worker_status ->
+            ?UL("~w -> check worker status when: "
+                "~n   MQ: ~p", [?FUNCTION_NAME, mq()]),
             fold_display_workers_status(Map),
             timer:send_after(1000, self(), check_worker_status),
             fold(Fun, Acc, Map);
 
         {'DOWN', MRef, process, Pid, Info} when is_map_key(MRef, Map) ->
-            ?UL("fold -> process ~p terminated:"
-                "~n   Info:   ~p"
+            ?UL("~w -> process ~p terminated:"
+                "~n   Info: ~p"
                 "~nwhen"
-                "~n   Map Sz: ~p", [Pid, Info, maps:size(Map)]),
+                "~n   Map:  ~p", [?FUNCTION_NAME, Pid, Info, Map]),
             fold(Fun, Fun(Info, Acc), maps:remove(MRef, Map))
     end.
 
@@ -300,13 +335,15 @@ fold_display_worker_status(W) ->
         "~n      Current Function:     ~p"
         "~n      Message Queue Length: ~p"
         "~n      Reductions:           ~p"
-        "~n      Status:               ~p",
+        "~n      Status:               ~p"
+        "~n      Monitors:             ~p",
         [W,
          pi(W, initial_call),
          pi(W, current_function),
          pi(W, message_queue_len),
          pi(W, reductions),
-         pi(W, status)]),
+         pi(W, status),
+         pi(W, monitors)]),
     ok.
 
 %% spawn_eval/1
@@ -419,6 +456,8 @@ have_sctp() ->
 
 have_sctp("sparc-sun-solaris2.10") ->
     false;
+have_sctp("x86_64-pc-solaris2.11") ->
+    false;
 
 have_sctp(_) ->
     case gen_sctp:open() of
@@ -442,7 +481,7 @@ eval({F, Tmo})
     ?UL("eval(~p) -> entry", [Tmo]),
     %% Since this function is used for all kinds of functions,
     %% a timeout is not very informative, so include the "function".
-    {ok, _} = timer:exit_after(Tmo, {timeout, F}),
+    {ok, _} = timer:exit_after(Tmo, {timeout, F, Tmo}),
     eval(F);
 
 eval({M,[F|A]})
@@ -538,11 +577,13 @@ connect(Client, ProtOpts, LRef, Opts) ->
             ?UL("no name: "
                 "~n   Services:             ~p"
                 "~n   Service:              ~p"
+                "~n   Events:               ~p"
                 "~n   'all' Service Info:   ~p"
                 "~n   'info' Service Info:  ~p"
                 "~n   'stats' Service Info: ~p",
                 [diameter:services(),
                  Client,
+                 diameter_events(Client),
                  diameter:service_info(Client, all),
                  diameter:service_info(Client, info),
                  diameter:service_info(Client, statistics)]),
@@ -574,6 +615,18 @@ connect(Client, ProtOpts, LRef, Opts) ->
     ?UL("~w -> done", [?FUNCTION_NAME]),
     Ref.
 
+diameter_events(Svc) ->
+    diameter_events(Svc, []).
+
+diameter_events(Svc, Acc) ->
+    receive
+        #diameter_event{service = Svc} = Event ->
+            diameter_events(Svc, [Event | Acc])
+    after 100 ->
+            lists:reverse(Acc)
+    end.
+        
+
 head([T|_]) ->
     T;
 head(T) ->
@@ -585,8 +638,18 @@ up(Client, Ref, Prot, PortNr) ->
             ?UL("~w -> received 'up' event regarding ~p for service ~p",
                 [?FUNCTION_NAME, Ref, Client]),
             ok
+        
     after 10000 ->
-            {Client, Prot, PortNr, process_info(self(), messages)}
+            receive
+                {diameter_event, Client, {closed, Ref, Reason, _}} ->
+                    ?UL("~w -> received unexpected 'closed' event "
+                        "regarding ~p for service ~p: "
+                        "~n   Reason: ~p",
+                        [?FUNCTION_NAME, Ref, Client, Reason]),
+                    {error, {closed, Ref, Reason}}
+            after 0 ->
+                    {Client, Prot, PortNr, process_info(self(), messages)}
+            end
     end.
 
 transport(SvcName, Ref) ->
@@ -2988,6 +3051,8 @@ pcall_loop(Pid, MRef, Timeout, PTimeout, TRef, Default) ->
                  pinfo(Pid, reductions)]),
             Timeout2 =
                 if
+                    (Timeout =:= infinity) ->
+                        Timeout;
                     (Timeout < PTimeout) ->
                         0;
                     true ->
@@ -3029,6 +3094,132 @@ pinfo(P, Key) when is_pid(P) ->
             undefined
     end.
 
+
+%% ---------------------------------------------------------------------------
+
+diameter_event_logger_start(Name, SvcName) ->
+    Self = self(),
+    Logger = {Pid, _MRef} =
+        spawn_monitor(fun() ->
+                              diameter_event_logger_init(Name, SvcName, Self)
+                      end),
+    receive
+        {?MODULE, del, Pid, started} ->
+            Logger
+    end.
+
+diameter_event_logger_stop({Pid, MRef} = _Logger) ->
+    Pid ! {?MODULE, del, self(), stop},
+    receive
+        {'DOWN', MRef, process, Pid, _} ->
+            ok
+    end.
+    
+diameter_event_logger_init(Name, SvcName, Parent) ->
+    MRef = erlang:monitor(process, Parent),
+    diameter:subscribe(SvcName),
+    Parent ! {?MODULE, del, self(), started},
+    diameter_event_logger_loop(Name, SvcName, Parent, MRef).
+
+diameter_event_logger_loop(Name, SvcName, Parent, MRef) ->
+    receive
+        {'DOWN', MRef, process, Parent, Reason} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received DOWN regarding parent: "
+                               "~n   Reason: ~p",
+                               [Reason]),
+            diameter:unsubscribe(SvcName),
+            exit({parent_died, Reason});
+
+        {?MODULE, del, Parent, stop} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received 'stop' from parent", []),
+            diameter:unsubscribe(SvcName),
+            erlang:demonitor(MRef, [flush]),
+            exit(normal);
+
+        #diameter_event{service = SvcName, info = Info} ->
+            diameter_event_msg(Name, SvcName,
+                               "(diameter) event logger "
+                               "received event: "
+                               "~n~s",
+                               [format_diameter_event_info("   ", Info)]),
+            diameter_event_logger_loop(Name, SvcName, Parent, MRef)
+    end.
+
+diameter_event_msg(Name, SvcName, F, A) ->
+    io:format("==== DIAMETER EVENT ==== ~s ====~n"
+              "[~s, ~p] " ++ F ++ "~n",
+              [formated_timestamp(), Name, SvcName | A]).
+
+
+format_diameter_event_info(Indent, Event)
+  when (Event =:= start) orelse (Event =:= stop) ->
+    ?F("~s~w", [Indent, Event]);
+format_diameter_event_info(Indent,
+                           {up, Ref, Peer, _Config, _Pkt}) ->
+    ?F("~sup: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {up, Ref, Peer, _Config}) ->
+    ?F("~sup: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {down, Ref, Peer, _Config}) ->
+    ?F("~sdown: "
+       "~n~s   Ref:  ~p"
+       "~n~s   Peer: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Peer]);
+format_diameter_event_info(Indent,
+                           {reconnect, Ref, _Opts}) ->
+    ?F("~sreconnect: "
+       "~n~s   Ref: ~p",
+       [Indent,
+        Indent, Ref]);
+format_diameter_event_info(Indent,
+                           {closed, Ref, Reason, _Config}) ->
+    ?F("~sclosed: "
+       "~n~s   Ref:    ~p"
+       "~n~s   Reason: ~p",
+       [Indent,
+        Indent, Ref,
+        Indent, Reason]);
+format_diameter_event_info(Indent,
+                           {watchdog, Ref, PeerRef, {From, To}, _Config}) ->
+    ?F("~swatchdog: ~w -> ~w"
+       "~n~s   Ref:     ~p"
+       "~n~s   PeerRef: ~p",
+       [Indent, From, To,
+        Indent, Ref,
+        Indent, PeerRef]);
+format_diameter_event_info(Indent, Event) ->
+    ?F("~s~p", [Indent, Event]).
+
+    
+
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    {Hour, Min, Sec} = Time,
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w.~.3.0w",
+                             [Hour, Min, Sec, N3 div 1000]),  
+    lists:flatten(FormatTS).
+   
 
 %% ---------------------------------------------------------------------------
 

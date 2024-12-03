@@ -220,25 +220,27 @@ send_dpr(Config) ->
         "~n   Config: ~p"
         "~n   => try listen", [?FUNCTION_NAME, Config]),
     LRef = ?LISTEN(?SERVER, tcp),
-    ?DL("~w -> try listen", [?FUNCTION_NAME]),
+    ?DL("~w -> try connect", [?FUNCTION_NAME]),
     Ref  = ?CONNECT(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
     ?DL("~w -> get sender", [?FUNCTION_NAME]),
     Svc  = sender(group(Config)),
     ?DL("~w -> get connections for ~p", [?FUNCTION_NAME, Svc]),
-    Info = case diameter:service_info(Svc, connections) of
-               [I] ->
-                   I;
-               [] ->
-                   ?DL("send_dpr -> no connections found: "
+    Info = case sdpr_await_connections(Svc) of
+               no_connections ->
+                   ?DL("~w -> no connections found: "
                        "~n   Svc:      ~p"
                        "~n   Svc info: ~p"
                        "~n   Services: ~p",
-                       [Svc,
+                       [?FUNCTION_NAME,
+                        Svc,
                         diameter:service_info(Svc, all),
                         diameter:services()]),
-                   ct:fail({no_connections, Svc})
+                   ct:fail({no_connections, Svc});
+               I ->
+                   I
            end,
     {_, {TPid, _}} = lists:keyfind(peer, 1, Info),
+    ?DL("~w -> make a call (expect result 2001)", [?FUNCTION_NAME]),
     #diameter_base_DPA{'Result-Code' = 2001}
         = diameter:call(Svc,
                         common,
@@ -246,12 +248,39 @@ send_dpr(Config) ->
                          {'Origin-Realm', "erlang.org"},
                          {'Disconnect-Cause', 0}],
                         [{peer, TPid}]),
+    ?DL("~w -> await down event", [?FUNCTION_NAME]),
     ok =  receive  %% ensure the transport dies on DPA
               #diameter_event{service = ?CLIENT, info = {down, Ref, _, _}} ->
+                  ?DL("~w -> received down event", [?FUNCTION_NAME]),
                   ok
           after 5000 ->
-                  erlang:process_info(self(), messages)
-          end.
+                  MSGs = erlang:process_info(self(), messages),
+                  ?DL("~w -> (down) event timeout: "
+                      "~n   ~p", [?FUNCTION_NAME, MSGs]),
+                  MSGs
+          end,
+    ?DL("~w -> done", [?FUNCTION_NAME]),
+    ok.
+
+
+-define(SDPR_AWAIT_CONN_N, 10).
+
+sdpr_await_connections(Svc) ->
+    sdpr_await_connections(Svc, ?SDPR_AWAIT_CONN_N).
+
+sdpr_await_connections(_Svc, 0) ->
+    no_connections;
+sdpr_await_connections(Svc, N) ->
+    case diameter:service_info(Svc, connections) of
+        [I] when (N =:= ?SDPR_AWAIT_CONN_N) ->
+            I;
+        [I] when (N =/= ?SDPR_AWAIT_CONN_N) ->
+            ?DL("sdpr_await_connections -> connections found at ~w", [N]),
+            I;
+        [] ->
+            timer:sleep(500),
+            sdpr_await_connections(Svc, N-1)
+    end.
 
 %% sender/1
 
