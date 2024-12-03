@@ -124,7 +124,7 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
-#ifdef have_x448
+#ifdef HAVE_X448
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
 #endif
