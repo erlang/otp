@@ -288,10 +288,12 @@
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
 # ifdef HAVE_DH
-#   define HAVE_EDDH
+#   define HAVE_X25519
+#   define HAVE_X448
 # endif
 # if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
-#   define HAVE_EDDSA
+#   define HAVE_ED25519
+#   define HAVE_ED448
 # endif
 #endif
 
@@ -342,6 +344,8 @@
 # if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
 #   define HAVE_CHACHA20_POLY1305
 #   define HAVE_CHACHA20
+#   define HAVE_ED25519
+#   define HAVE_X25519
 # endif
 #endif
 
@@ -502,6 +506,14 @@ do {                                                    \
 #  define FIPS_MODE() (FIPS_mode() ? 1 : 0)
 #else
 # define FIPS_MODE() 0
+#endif
+
+#if defined(HAVE_ED448) || defined(HAVE_ED25519)
+#  define HAVE_EDDSA
+#endif
+
+#if defined(HAVE_X448) || defined(HAVE_X25519)
+#  define HAVE_EDDH
 #endif
 
 #ifdef HAS_3_0_API

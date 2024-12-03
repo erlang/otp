@@ -604,12 +604,16 @@ int init_curves(ErlNifEnv* env, int fips) {
 #endif
 
     if (!fips) {
-#ifdef HAVE_EDDSA
+#ifdef HAVE_ED25519
         algo_curve[fips][cnt++] = enif_make_atom(env,"ed25519");
+#endif
+#ifdef HAVE_ED448
         algo_curve[fips][cnt++] = enif_make_atom(env,"ed448");
 #endif
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
         algo_curve[fips][cnt++] = enif_make_atom(env,"x25519");
+#endif
+#ifdef HAVE_X448
         algo_curve[fips][cnt++] = enif_make_atom(env,"x448");
 #endif
     }

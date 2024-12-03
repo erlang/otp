@@ -40,8 +40,10 @@ int get_eddsa_key(ErlNifEnv* env, int public, ERL_NIF_TERM key, EVP_PKEY **pkey)
 
     if (algo == atom_ed25519) {
         type = EVP_PKEY_ED25519;
+#ifdef HAVE_ED448
     } else if (algo == atom_ed448) {
         type = EVP_PKEY_ED448;
+#endif
     } else {
         goto err;
     }

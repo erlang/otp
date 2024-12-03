@@ -37,8 +37,10 @@ ERL_NIF_TERM evp_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     /* Arg 0, Curve */
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
+#ifdef HAVE_X448
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
+#endif
     else
         assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 0, "Bad curve"));
 
@@ -122,12 +124,16 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 
     if (argv[0] == atom_x25519)
         type = EVP_PKEY_X25519;
+#ifdef HAVE_X448
     else if (argv[0] == atom_x448)
         type = EVP_PKEY_X448;
+#endif
     else if (argv[0] == atom_ed25519)
         type = EVP_PKEY_ED25519;
+#ifdef HAVE_ED448
     else if (argv[0] == atom_ed448)
         type = EVP_PKEY_ED448;
+#endif
     else
         assign_goto(ret, bad_arg, EXCP_BADARG_N(env, 0, "Bad curve"));
 
