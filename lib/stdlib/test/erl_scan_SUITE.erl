@@ -319,7 +319,7 @@ integers() ->
          "__123"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {ok, [{integer, _, _}|_], _} ->
                       error({unexpected_integer, S});
                   {ok, _, _} ->
@@ -336,7 +336,7 @@ integers() ->
          "12@"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,integer}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -398,7 +398,7 @@ base_integers() ->
          "10#12A4"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,integer}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -455,7 +455,7 @@ floats() ->
         ],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,float}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -508,9 +508,9 @@ base_floats() ->
                        ]],
 
     [begin
-         {error,{1,erl_scan,{illegal,float}},1} = erl_scan:string(S),
+         {error,{1,erl_scan,{illegal,float}},1} = erl_scan_string(S),
          {error,{{1,1},erl_scan,{illegal,float}},{1,_}} =
-             erl_scan:string(S, {1,1}, [])
+             erl_scan_string(S, {1,1}, [])
      end || S <- ["1.14Ea"]],
 
     UnderscoreSamples =
@@ -535,7 +535,7 @@ base_floats() ->
         ],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,float}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -545,15 +545,15 @@ base_floats() ->
               end
       end, FloatErrors),
     {error,{{1,1},erl_scan,{float_base,3}},{1,6}} =
-        erl_scan:string("3#102.12", {1,1}, []),
+        erl_scan_string("3#102.12", {1,1}, []),
     {error,{{1,1},erl_scan,{exponent,10}},{1,13}} =
-        erl_scan:string("10#12345.625p3", {1,1}, []),
+        erl_scan_string("10#12345.625p3", {1,1}, []),
     {error,{{1,1},erl_scan,{exponent,10}},{1,13}} =
-        erl_scan:string("10#12345.625P3", {1,1}, []),
+        erl_scan_string("10#12345.625P3", {1,1}, []),
     {error,{{1,1},erl_scan,{exponent,2}},{1,8}} =
-        erl_scan:string("2#10.01e3", {1,1}, []),
+        erl_scan_string("2#10.01e3", {1,1}, []),
     {error,{{1,1},erl_scan,{exponent,2}},{1,8}} =
-        erl_scan:string("2#10.01E3", {1,1}, []),
+        erl_scan_string("2#10.01E3", {1,1}, []),
     ok.
 
 dots() ->
@@ -1683,8 +1683,9 @@ erl_scan_string(String, StartLocation, Options) ->
     case erl_scan:string(String, StartLocation, Options) of
         {ok, Tokens, EndLocation} ->
             {ok, unopaque_tokens(Tokens), EndLocation};
-        Else ->
-            Else
+        {error,{_,Mod,Reason},_}=Error ->
+            Mod:format_error(Reason),
+            Error
     end.
 
 erl_scan_tokens(C, S, L) ->
