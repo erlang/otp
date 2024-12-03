@@ -74,6 +74,7 @@
 	 user_dir_option/1,
 	 user_dir_fun_option/1,
 	 connectfun_disconnectfun_server/1,
+	 connectfun4_server/1,
 	 hostkey_fingerprint_check/1,
 	 hostkey_fingerprint_check_md5/1,
 	 hostkey_fingerprint_check_sha/1,
@@ -114,6 +115,7 @@ suite() ->
 
 all() -> 
     [connectfun_disconnectfun_server,
+     connectfun4_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -770,6 +772,44 @@ connectfun_disconnectfun_server(Config) ->
 		    end,
 		    {fail, "No disconnectfun action"}
 	    end
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail, "No connectfun action"}
+    end.
+
+
+%%--------------------------------------------------------------------
+connectfun4_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    ConnFun = fun(User,_,Method,ConnInfo) -> Parent ! {connect,Ref,User,Method,ConnInfo} end,
+    DiscFun = fun(R) -> Parent ! {disconnect,Ref,R} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {connectfun, ConnFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{connect,Ref,User,Method,ConnInfo} ->
+            "foo" = User,
+            "keyboard-interactive" = Method,
+            Keys = [client_version, server_version, peer, sockname, options, algorithms],
+            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+	    ssh:close(ConnectionRef),
+            ssh:stop_daemon(Pid)
     after 10000 ->
 	    receive
 		X -> ct:log("received ~p",[X])
