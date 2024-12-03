@@ -72,7 +72,7 @@ run(0, L) -> L;
 run(N, L) -> run(N-1, reverse(L)).
 
 reverse([]) -> [];
-reverse([H|R]) when record(H, commit) ->
+reverse([H|R]) when is_record(H, commit) ->
     [H#commit{
        ram_copies       =  lists:reverse(H#commit.ram_copies),
        disc_copies      =  lists:reverse(H#commit.disc_copies),

@@ -34,45 +34,45 @@ guards() ->
     ok = multi(3).
 
 %% The following tests are always true.
-t() when integer(42) ->
+t() when is_integer(42) ->
     ok;
-t() when float(2.0) ->
+t() when is_float(2.0) ->
     ok;
-t() when number(7) ->
+t() when is_number(7) ->
     ok;
-t() when number(3.14) ->
+t() when is_number(3.14) ->
     ok;
-t() when atom(error) ->
+t() when is_atom(error) ->
     ok;
-t() when list([a]) ->
+t() when is_list([a]) ->
     ok;
-t() when tuple({}) ->
+t() when is_tuple({}) ->
     ok;
-t() when tuple({1, 2}) ->
+t() when is_tuple({1, 2}) ->
     ok.
 
 %% The following tests are always false.
-f() when integer(a) ->
+f() when is_integer(a) ->
     ok;
-f() when float(b) ->
+f() when is_float(b) ->
     ok;
-f() when number(c) ->
+f() when is_number(c) ->
     ok;
-f() when atom(42) ->
+f() when is_atom(42) ->
     ok;
-f() when list(33) ->
+f() when is_list(33) ->
     ok;
-f() when list({}) ->
+f() when is_list({}) ->
     ok;
-f() when list({1, 2}) ->
+f() when is_list({1, 2}) ->
     ok;
-f() when tuple(33) ->
+f() when is_tuple(33) ->
     ok;
-f() when tuple([a]) ->
+f() when is_tuple([a]) ->
     ok;
-f() when tuple([]) ->
+f() when is_tuple([]) ->
     ok;
-f() when tuple(35) ->
+f() when is_tuple(35) ->
     ok;
 f() ->
     ok.
@@ -80,31 +80,31 @@ f() ->
 %% The following tests are always true.
 ct(X) ->
     case X of
-	Y when integer(42) ->
+	Y when is_integer(42) ->
 	    ok;
-	Y when float(2.0) ->
+	Y when is_float(2.0) ->
 	    ok;
-	Y when number(7) ->
+	Y when is_number(7) ->
 	    ok;
-	Y when number(3.14) ->
+	Y when is_number(3.14) ->
 	    ok;
-	Y when atom(error) ->
+	Y when is_atom(error) ->
 	    ok;
-	Y when list([a]) ->
+	Y when is_list([a]) ->
 	    ok;
-	Y when tuple({}) ->
+	Y when is_tuple({}) ->
 	    ok;
-	Y when tuple({1, 2}) ->
+	Y when is_tuple({1, 2}) ->
 	    ok
     end.
 
 multi(X) ->
     case X of
-	Y when float(Y) ; integer(Y) ->
+	Y when is_float(Y) ; is_integer(Y) ->
 	    ok;
-	Y when Y > 1, Y < 10 ; atom(Y) ->
+	Y when Y > 1, Y < 10 ; is_atom(Y) ->
 	    ok;
-	Y when Y == 4, number(Y) ; list(Y) ->
+	Y when Y == 4, is_number(Y) ; is_list(Y) ->
 	    pannkaka;
 	Y when Y==3 ; Y==5 ; Y==6 ->
 	    ok

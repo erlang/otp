@@ -28,21 +28,21 @@
 chunk_request_body(Body,_ChunkSize,Acc) when Body == <<>>; Body == [] ->
     LastChunk = "0\r\n",
     lists:reverse(["\r\n",LastChunk|Acc]);
-chunk_request_body(Body,ChunkSize,Acc) when binary(Body), size(Body) >= ChunkSize ->
+chunk_request_body(Body,ChunkSize,Acc) when is_binary(Body), size(Body) >= ChunkSize ->
     <<ChunkBody:ChunkSize/binary,
       Rest/binary>> = Body,
     Chunk = [ibrowse_lib:dec2hex(4,ChunkSize),"\r\n",ChunkBody,"\r\n"],
     chunk_request_body(Rest,ChunkSize,[Chunk|Acc]);
-chunk_request_body(Body,_ChunkSize,Acc) when binary(Body) ->
+chunk_request_body(Body,_ChunkSize,Acc) when is_binary(Body) ->
     BodySize = size(Body),
     Chunk = [ibrowse_lib:dec2hex(4,BodySize),"\r\n",Body,"\r\n"],
     LastChunk = "0\r\n",
     lists:reverse(["\r\n",LastChunk,Chunk|Acc]);
-chunk_request_body(Body,ChunkSize,Acc) when list(Body), length(Body) >= ChunkSize ->
+chunk_request_body(Body,ChunkSize,Acc) when is_list(Body), length(Body) >= ChunkSize ->
     {ChunkBody,Rest} = ?MODULE:split_list_at(Body,ChunkSize),
     Chunk = [ibrowse_lib:dec2hex(4,ChunkSize),"\r\n",ChunkBody,"\r\n"],
     chunk_request_body(Rest,ChunkSize,[Chunk|Acc]);
-chunk_request_body(Body,_ChunkSize,Acc) when list(Body) ->
+chunk_request_body(Body,_ChunkSize,Acc) when is_list(Body) ->
     BodySize = length(Body),
     Chunk = [ibrowse_lib:dec2hex(4,BodySize),"\r\n",Body,"\r\n"],
     LastChunk = "0\r\n",

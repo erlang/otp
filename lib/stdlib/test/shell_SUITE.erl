@@ -165,8 +165,6 @@ comm_err(<<"begin a+b end.">>),
 "exception exit: restricted shell does not allow - b" =
 comm_err(<<"begin -b end.">>),
 "exception exit: restricted shell does not allow 1 + 2" =
-comm_err(<<"begin if atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
-"exception exit: restricted shell does not allow 1 + 2" =
 comm_err(<<"begin if is_atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
 "exception exit: restricted shell does not allow - 2" =
 comm_err(<<"begin if - 2 -> 1; true -> 2 end end.">>),
@@ -180,8 +178,6 @@ comm_err(<<"begin if 1 + 2 > 0 -> 1; true -> 2 end end.">>),
 comm_err(<<"begin if erlang:is_atom(1 + 2> 0) -> 1; true -> 2 end end.">>),
 "exception exit: restricted shell does not allow is_integer(1)" =
 comm_err(<<"begin if is_integer(1) -> 1; true -> 2 end end.">>),
-"exception exit: restricted shell does not allow is_integer(1)" =
-comm_err(<<"begin if integer(1) -> 1; true -> 2 end end.">>),
 "exception exit: "
 "restricted shell module returned bad value non_conforming_reply" =
 comm_err(<<"ugly().">>),
@@ -592,7 +588,7 @@ records(Config) when is_list(Config) ->
     [true] = scan(<<"rd(foo,{bar}), is_record(#foo{}, foo).">>),
     [true] = scan(<<"rd(foo,{bar}), erlang:is_record(#foo{}, foo).">>),
     [true] = scan(<<"rd(foo,{bar}),
-                     fun() when record(#foo{},foo) -> true end().">>),
+                     fun() when is_record(#foo{},foo) -> true end().">>),
     [2] = scan(<<"rd(foo,{bar}), #foo.bar.">>),
     "#foo{bar = 17}.\n" =
         t(<<"rd(foo,{bar}), A = #foo{}, A#foo{bar = 17}.">>),
@@ -951,17 +947,17 @@ otp_5915(Config) when is_list(Config) ->
 		      2 end(2),
 	  3 = fun(A) when (A#r2.a)#r1.a =:= 3 -> 3 end(#r2{a = #r1{a = 3}}),
 	  ok = fun() ->
-		       F = fun(A) when record(A#r.a, r1) -> 4;
-			      (A) when record(A#r1.a, r1) -> 5
+		       F = fun(A) when is_record(A#r.a, r1) -> 4;
+			      (A) when is_record(A#r1.a, r1) -> 5
 			   end,
 		       5 = F(#r1{a = #r1{}}),
 		       4 = F(#r{a = #r1{}}),
 		       ok
 	       end(),
-	  3 = fun(A) when record(A#r1.a, r),
+	  3 = fun(A) when is_record(A#r1.a, r),
 			  (A#r1.a)#r.a > 3 -> 3
 	      end(#r1{a = #r{a = 4}}),
-	  7 = fun(A) when record(A#r3.a, r1) -> 7 end(#r3{}),
+	  7 = fun(A) when is_record(A#r3.a, r1) -> 7 end(#r3{}),
 	  [#r1{a = 2,b = 1}] =
 	  fun() ->
 		  [A || A <- [#r1{a = 1, b = 3},
@@ -989,7 +985,7 @@ otp_5915(Config) when is_list(Config) ->
 	      end(#r1{a = 2}),
 
 	  3 = fun(A) when A#r1.a > 3,
-			  record(A, r1) -> 3
+			  is_record(A, r1) -> 3
 	      end(#r1{a = 5}),
 
 	  ok = fun() ->
@@ -1020,10 +1016,6 @@ otp_5915(Config) when is_list(Config) ->
 		       ok
 	       end(),
 
-	  a = fun(A) when record(A, r),
-			  A#r.a =:= 1,
-			  A#r.b =:= 2 ->a
-	      end(#r{a = 1, b = 2}),
 	  a = fun(A) when erlang:is_record(A, r),
 			  A#r.a =:= 1,
 			  A#r.b =:= 2 -> a
@@ -1480,7 +1472,7 @@ bs_match_tail_SUITE(Config) when is_list(Config) ->
 				     A
                              end,
 
-          Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+          Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 
           TestZeroTail = fun(<<A:8>>) -> A end,
 
@@ -1548,7 +1540,7 @@ bs_match_bin_SUITE(Config) when is_list(Config) ->
 		     Fun(L, B, Pos-1, Fun);
 		(L, B, _, _Fun) -> ok
              end,
-	  Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+	  Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 	  L = lists:seq(0, 57),
 	  B = Mkbin(L),
 	  ByteSplit(L, B, size(B), ByteSplit),
@@ -1567,7 +1559,7 @@ bs_match_bin_SUITE(Config) when is_list(Config) ->
     [ok] = scan(ByteSplitBinary),
 ok = evaluate(ByteSplitBinary, []),
 BitSplitBinary =
-<<"Mkbin = fun(L) when list(L) -> list_to_binary(L) end,
+<<"Mkbin = fun(L) when is_list(L) -> list_to_binary(L) end,
 
            MakeInt =
   fun(List, 0, Acc, _F) -> Acc;
@@ -2110,7 +2102,7 @@ print(#person{name = Name, age = Age,
     io:format(\"Name: ~s, Age: ~w, Phone: ~w ~n\"
                         \"Dictionary: ~w.~n\", [Name, Age, Phone, Dict]).
 
-          birthday(P) when record(P, person) ->
+          birthday(P) when is_record(P, person) ->
 		     P#person{age = P#person.age + 1}.
 
 register_two_hackers() ->
@@ -2134,7 +2126,7 @@ progex_lc(Config) when is_list(Config) ->
 
 t() ->
     [a,4,b,5,6] = [X || X <- [1,2,a,3,4,b,5,6], X > 3],
-    [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], integer(X), X > 3],
+    [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3],
     [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}] =
 	[{X, Y} || X <- [1,2,3], Y <- [a,b]],
 
@@ -2195,7 +2187,7 @@ select2(X, L) ->  [Y || {X1, Y} <- L, X == X1].
 
 Test1_shell =
 <<"[a,4,b,5,6] = [X || X <- [1,2,a,3,4,b,5,6], X > 3],
-          [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], integer(X), X > 3],
+          [4,5,6] = [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3],
   [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}] =
   [{X, Y} || X <- [1,2,3], Y <- [a,b]],
 
@@ -2309,9 +2301,9 @@ t3() -> map({?MODULE, double3}, [1,2,3,4,5]).
 
 double3(X) -> X * 2.
 
-f(F, Args) when function(F) ->
+f(F, Args) when is_function(F) ->
     apply(F, Args);
-f(N, _) when integer(N) ->
+f(N, _) when is_integer(N) ->
     N.
 
 print_list3(File, List) ->
@@ -2524,7 +2516,7 @@ otp_5990(Config) when is_list(Config) ->
     [true] =
         scan(<<"rd('OrdSet', {orddata = {},ordtype = type}), "
                "S = #'OrdSet'{ordtype = {}}, "
-               "if tuple(S#'OrdSet'.ordtype) -> true; true -> false end.">>),
+               "if is_tuple(S#'OrdSet'.ordtype) -> true; true -> false end.">>),
     ok.
 
 %% OTP-6166. Order of record definitions.

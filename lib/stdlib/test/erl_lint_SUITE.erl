@@ -1694,18 +1694,6 @@ guard(Config) when is_list(Config) ->
     %% Well, these could be plain code...
     Ts = [{guard1,
            <<"-record(apa, {}).
-              t(A) when atom(A) ->
-                  atom;
-              t(A) when binary(A) ->
-                  binary;
-              t(A) when constant(A) ->
-                  constant;
-              t(A) when float(A) ->
-                  float;
-              t(A) when function(A) ->
-                  function;
-              t(A) when integer(A) ->
-                  integer;
               t(A) when is_atom(A) ->
                   is_atom;
               t(A) when is_binary(A) ->
@@ -1733,41 +1721,14 @@ guard(Config) when is_list(Config) ->
               t(A) when is_reference(A) ->
                   is_reference;
               t(A) when is_tuple(A) ->
-                  is_tuple;
-              t(A) when list(A) ->
-                  list;
-              t(A) when number(A) ->
-                  number;
-              t(A) when pid(A) ->
-                  pid;
-              t(A) when port(A) ->
-                  port;
-              t(A) when record(A, apa) ->
-                  record;
-              t(A) when reference(A) ->
-                  reference;
-              t(A) when tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
            {errors,
-	    [{{6,25},erl_lint,illegal_guard_expr},
-             {{18,25},erl_lint,illegal_guard_expr}],
+	    [{{6,25},erl_lint,illegal_guard_expr}],
 	    []}},
           {guard2,
            <<"-record(apa,{}).
-              t1(A) when atom(A), atom(A) ->
-                  atom;
-              t1(A) when binary(A), binary(A) ->
-                  binary;
-              t1(A) when constant(A), constant(A) ->
-                  constant;
-              t1(A) when float(A), float(A) ->
-                  float;
-              t1(A) when function(A), function(A) ->
-                  function;
-              t1(A) when integer(A), integer(A) ->
-                  integer;
               t1(A) when is_atom(A), is_atom(A) ->
                   is_atom;
               t1(A) when is_binary(A), is_binary(A) ->
@@ -1795,40 +1756,14 @@ guard(Config) when is_list(Config) ->
               t1(A) when is_reference(A), is_reference(A) ->
                   is_reference;
               t1(A) when is_tuple(A), is_tuple(A) ->
-                  is_tuple;
-              t1(A) when list(A), list(A) ->
-                  list;
-              t1(A) when number(A), number(A) ->
-                  number;
-              t1(A) when pid(A), pid(A) ->
-                  pid;
-              t1(A) when port(A), port(A) ->
-                  port;
-              t1(A) when record(A, apa), record(A, apa) ->
-                  record;
-              t1(A) when reference(A), reference(A) ->
-                  reference;
-              t1(A) when tuple(A), tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
 	   {errors,[{{6,26},erl_lint,illegal_guard_expr},
-		    {{6,39},erl_lint,illegal_guard_expr},
-		    {{18,26},erl_lint,illegal_guard_expr},
-		    {{18,42},erl_lint,illegal_guard_expr}],
+		    {{6,42},erl_lint,illegal_guard_expr}],
 	    []}},
           {guard3,
            <<"-record(apa,{}).
-              t2(A) when atom(A); atom(A) ->
-                  atom;
-              t2(A) when binary(A); binary(A) ->
-                  binary;
-              t2(A) when float(A); float(A) ->
-                  float;
-              t2(A) when function(A); function(A) ->
-                  function;
-              t2(A) when integer(A); integer(A) ->
-                  integer;
               t2(A) when is_atom(A); is_atom(A) ->
                   is_atom;
               t2(A) when is_binary(A); is_binary(A) ->
@@ -1854,21 +1789,7 @@ guard(Config) when is_list(Config) ->
               t2(A) when is_reference(A); is_reference(A) ->
                   is_reference;
               t2(A) when is_tuple(A); is_tuple(A) ->
-                  is_tuple;
-              t2(A) when list(A); list(A) ->
-                  list;
-              t2(A) when number(A); number(A) ->
-                  number;
-              t2(A) when pid(A); pid(A) ->
-                  pid;
-              t2(A) when port(A); port(A) ->
-                  port;
-              t2(A) when record(A, apa); record(A, apa) ->
-                  record;
-              t2(A) when reference(A); reference(A) ->
-                  reference;
-              t2(A) when tuple(A); tuple(A) ->
-                  tuple.
+                  is_tuple.
            ">>,
            [nowarn_obsolete_guard],
 	   []},
@@ -1908,8 +1829,6 @@ guard(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     Ts1 = [{guard5,
             <<"-record(apa, {}).
-               t3(A) when record(A, {apa}) ->
-                   foo;
                t3(A) when is_record(A, {apa}) ->
                    foo;
                t3(A) when erlang:is_record(A, {apa}) ->
@@ -1922,8 +1841,6 @@ guard(Config) when is_list(Config) ->
                    foo;
                t3(A) when erlang:is_record(A, apa, []) ->
                    foo;
-               t3(A) when record(A, apa) ->
-                   foo;
                t3(A) when is_record(A, apa) ->
                    foo;
                t3(A) when erlang:is_record(A, apa) ->
@@ -1935,8 +1852,7 @@ guard(Config) when is_list(Config) ->
 		     {{6,27},erl_lint,illegal_guard_expr},
 		     {{8,27},erl_lint,illegal_guard_expr},
 		     {{10,27},erl_lint,illegal_guard_expr},
-		     {{12,27},erl_lint,illegal_guard_expr},
-		     {{14,27},erl_lint,illegal_guard_expr}],
+		     {{12,27},erl_lint,illegal_guard_expr}],
 	     []}},
            {guard6,
             <<"-record(apa,{a=a,b=foo:bar()}).
@@ -1976,13 +1892,13 @@ guard(Config) when is_list(Config) ->
                      {{2,29},erl_lint,illegal_guard_expr}],
              []}},
            {guard10,
-            <<"is_port(_) -> false.
+            <<"port(_) -> false.
                t(P) when port(P) -> ok.
             ">>,
             [],
-            {error,
-	     [{{2,26},erl_lint,{obsolete_guard_overridden,port}}],
-	     [{{2,26},erl_lint,{obsolete_guard,{port,1}}}]}},
+            {errors,
+             [{{2,26},erl_lint,{illegal_guard_local_call,{port,1}}}],
+             []}},
            {guard11,
             <<"-record(bar, {a = mk_a()}).
                mk_a() -> 1.
@@ -2307,7 +2223,7 @@ otp_5917(Config) when is_list(Config) ->
     [] = run(Config, Ts),
     ok.
 
-%% OTP-6585. Check the deprecated guards list/1, pid/1, ....
+%% OTP-6585. Check that deprecated guards list/1, pid/1, etc. are no longer recognized
 otp_6585(Config) when is_list(Config) ->
     Ts = [{otp_6585_1,
           <<"-export([t/0]).
@@ -2316,15 +2232,18 @@ otp_6585(Config) when is_list(Config) ->
 
              f(A) when list(A) -> list;
              f(R) when record(R, r) -> rec;
-             f(P) when pid(P) -> pid.
+             f(P) when pid(P) -> pid;
+             f(A) when float(A) -> float.
 
              t() ->
                  f([]).
             ">>,
-           [warn_obsolete_guard],
-           {warnings,[{{5,24},erl_lint,{obsolete_guard,{list,1}}},
-                      {{6,24},erl_lint,{obsolete_guard,{record,2}}},
-                      {{7,24},erl_lint,{obsolete_guard,{pid,1}}}]}}],
+           [],
+           {error,[{{5,24},erl_lint,illegal_guard_expr},
+                   {{6,24},erl_lint,illegal_guard_expr},
+                   {{7,24},erl_lint,illegal_guard_expr},
+                   {{8,24},erl_lint,{illegal_type_test,{float,1}}}],
+            [{{3,15},erl_lint,{unused_record,r}}]}}],
     [] = run(Config, Ts),
     ok.
 
