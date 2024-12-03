@@ -71,6 +71,7 @@
          retrieve/2,
 	 info/1, info/2,
 	 connection_info/2,
+	 connection_info_server/1,
 	 channel_info/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
@@ -310,6 +311,17 @@ connection_info(ConnectionHandler, Key) when is_atom(Key) ->
     end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
+
+%%--------------------------------------------------------------------
+connection_info_server(D) when is_tuple(D) ->
+    Keys = [client_version,
+            server_version,
+            peer,
+            sockname,
+            options,
+            algorithms
+           ],
+    fold_keys(Keys, fun conn_info/2, D).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(),

@@ -586,7 +586,9 @@ default(server) ->
 
       connectfun =>
           #{default => fun(_,_,_) -> void end,
-            chk => fun(V) -> check_function3(V) end,
+            chk => fun(V) -> check_function3(V) orelse
+                                 check_function4(V) %% Adds ssh connection info
+                   end,
             class => user_option
            },
 

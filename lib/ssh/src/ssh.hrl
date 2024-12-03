@@ -1207,8 +1207,10 @@ in the User's Guide chapter.
 -doc(#{group => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)}
+      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)
+        | fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string(), Info::proplists:proplist()) ->_)}
       | {bannerfun, fun((User::string()) -> binary())}.
+
 
 -doc """
 Experimental options that should not to be used in products.
