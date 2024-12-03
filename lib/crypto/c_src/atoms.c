@@ -236,7 +236,7 @@ int init_atoms(ErlNifEnv *env) {
     atom_x448= enif_make_atom(env,"x448");
 #endif
 #ifdef HAVE_ED448
-    atom_ed25519 = enif_make_atom(env,"ed448");
+    atom_ed448 = enif_make_atom(env,"ed448");
 #endif
 
     atom_eddsa = enif_make_atom(env,"eddsa");
