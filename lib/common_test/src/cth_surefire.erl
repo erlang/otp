@@ -265,10 +265,11 @@ on_tc_skip(Suite,Tc, Res, State0) ->
 		State0
 	end,
     State2 = end_tc(Tc,[],Res,init_tc(set_suite(Suite,State1),[])),
+    CurrGroup = State2#state.curr_group,
     State =
-        case Tc of
-            end_per_group ->
-                State2#state{curr_group = tl(State2#state.curr_group)};
+        case {Tc, is_list(CurrGroup) andalso length(CurrGroup)>0}of
+            {end_per_group, true} ->
+                State2#state{curr_group = tl(CurrGroup)};
             _ ->
                 State2
         end,
