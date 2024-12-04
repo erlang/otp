@@ -98,6 +98,7 @@
               key_params/0,
               digest_type/0,
               issuer_name/0,
+              bad_cert_reason/0,
               cert/0,
               combined_cert/0,
               cert_id/0,
@@ -159,7 +160,7 @@
 -type oid()                  :: tuple().
 -type cert_id()              :: {SerialNr::integer(), issuer_name()} .
 -type issuer_name()          :: {rdnSequence,[[#'AttributeTypeAndValue'{}]]} .
--type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {revoked, crl_reason()} | atom().
+-type bad_cert_reason()      :: cert_expired | invalid_issuer | invalid_signature | name_not_permitted | missing_basic_constraint | invalid_key_usage | {key_usage_mismatch, term()} | {revoked, crl_reason()} | atom().
 
 -type combined_cert()        :: #cert{}.
 -type cert()                 :: der_cert() | otp_cert().

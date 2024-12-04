@@ -332,7 +332,7 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 
 %%--------------------------------------------------------------------
--spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
+-spec verify_fun(#'OTPCertificate'{}, {bad_cert, public_key:bad_cert_reason()} | {extension, #'Extension'{}}|
 		 valid | valid_peer, term(), fun()) -> term() | no_return().
 %%
 %% Description: Gives the user application the opportunity handle path
@@ -577,6 +577,204 @@ extract_email2([_|Rest]) ->
     extract_email2(Rest);
 extract_email2([]) -> [].
 
+
+%% No extensions present
+validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert,[], ValidationState, basic_constraint, _SelfSigned,
+		    UserState0, VerifyFun) ->
+    UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, ca),
+    {ValidationState, UserState};
+validate_extensions(OtpCert, [], ValidationState =
+			#path_validation_state{max_path_length = Len,
+					       last_cert = Last},
+		    no_basic_constraint, SelfSigned, UserState0, VerifyFun) ->
+    case Last of
+	true when SelfSigned ->
+	    {ValidationState, UserState0};
+	true  ->
+            UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, endentity),
+	    {ValidationState#path_validation_state{max_path_length = Len - 1},
+	     UserState};
+	false ->
+	    %% basic_constraint must appear in certs used for digital sign
+	    %% see 4.2.1.10 in rfc 3280
+	    case is_digitally_sign_cert(OtpCert) of
+		true ->
+		    missing_basic_constraints(OtpCert, SelfSigned,
+					      ValidationState, VerifyFun,
+					      UserState0, Len);
+		false -> %% Example CRL signer only
+                    UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, endentity),
+		    {ValidationState, UserState}
+	    end
+    end;
+
+validate_extensions(OtpCert,
+		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
+				  extnValue =
+				      #'BasicConstraints'{cA = true,
+							  pathLenConstraint = N}} |
+		     Rest],
+		    ValidationState =
+			#path_validation_state{max_path_length = Len}, _,
+		    SelfSigned, UserState, VerifyFun) ->
+    Length = if SelfSigned -> erlang:min(N, Len);
+		true -> erlang:min(N, Len-1)
+	     end,
+    validate_extensions(OtpCert, Rest,
+			ValidationState#path_validation_state{max_path_length =
+								  Length},
+			basic_constraint, SelfSigned,
+			UserState, VerifyFun);
+%% The pathLenConstraint field is meaningful only if cA is set to
+%% TRUE.
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
+					   extnValue =
+					       #'BasicConstraints'{cA = false}} |
+			      Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
+					   extnValue = KeyUse
+					  } | Rest],
+		    #path_validation_state{last_cert=Last} = ValidationState,
+		    ExistBasicCon, SelfSigned,
+		    UserState0, VerifyFun) ->
+    case Last orelse is_valid_key_usage(KeyUse, keyCertSign) of
+	true ->
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState0, VerifyFun);
+	false ->
+	    UserState = verify_fun(OtpCert, {bad_cert, invalid_key_usage},
+				   UserState0, VerifyFun),
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState, VerifyFun)
+    end;
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
+					   extnValue = Names,
+					   critical = true} = Ext | Rest],
+		    ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun)  ->
+    case validate_subject_alt_names(Names) of
+	true  ->
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState0, VerifyFun);
+	false ->
+	    UserState = verify_fun(OtpCert, {extension, Ext},
+				   UserState0, VerifyFun),
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState, VerifyFun)
+    end;
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
+				  extnValue = NameConst} | Rest],
+		    ValidationState,
+		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
+    Permitted = NameConst#'NameConstraints'.permittedSubtrees,
+    Excluded = NameConst#'NameConstraints'.excludedSubtrees,
+
+    NewValidationState = add_name_constraints(Permitted, Excluded,
+					      ValidationState),
+
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
+					   critical = true} = Ext| Rest], ValidationState,
+		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
+    %% TODO: Remove this clause when policy handling is
+    %% fully implemented
+    UserState = verify_fun(OtpCert, {extension, Ext},
+			   UserState0, VerifyFun),
+    validate_extensions(OtpCert,Rest, ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
+					   extnValue = #'PolicyInformation'{
+					     policyIdentifier = Id,
+					     policyQualifiers = Qualifier}}
+			      | Rest], #path_validation_state{valid_policy_tree = Tree}
+		    = ValidationState,
+		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
+
+    %% TODO: Policy imp incomplete
+    NewTree = process_policy_tree(Id, Qualifier, Tree),
+
+    validate_extensions(OtpCert, Rest,
+			ValidationState#path_validation_state{
+			  valid_policy_tree = NewTree},
+			ExistBasicCon, SelfSigned, UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
+					   critical = true} = Ext | Rest], ValidationState,
+		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
+    %% TODO: Remove this clause when policy handling is
+    %% fully implemented
+    UserState = verify_fun(OtpCert, {extension, Ext},
+			   UserState0, VerifyFun),
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
+					   extnValue = #'PolicyConstraints'{
+					     requireExplicitPolicy = ExpPolicy,
+					     inhibitPolicyMapping = MapPolicy}}
+			      | Rest], ValidationState, ExistBasicCon,
+		    SelfSigned, UserState, VerifyFun) ->
+
+    %% TODO: Policy imp incomplete
+    NewValidationState = add_policy_constraints(ExpPolicy, MapPolicy,
+						ValidationState),
+
+    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
+			SelfSigned, UserState, VerifyFun);
+
+validate_extensions(Cert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                           critical = true,
+                                           extnValue = ExtKeyUse} = Extension | Rest],
+		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun) ->
+    UserState =
+        case ext_keyusage_includes_any(ExtKeyUse) of
+            true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
+                verify_fun(Cert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
+            false ->
+                case ca_known_extend_key_use(ExtKeyUse) of
+                    true ->
+                        UserState0;
+                    false ->
+                        verify_fun(Cert, {extension, Extension}, UserState0, VerifyFun)
+                end
+        end,
+    validate_extensions(Cert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+			UserState, VerifyFun);
+
+validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
+		    ValidationState, ExistBasicCon,
+		    SelfSigned, UserState0, VerifyFun) ->
+    UserState = verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun),
+    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
+			UserState, VerifyFun).
+
+validate_ext_key_usage(OtpCert, UserState0, VerifyFun, Type) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    KeyUseExt = pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions),
+    ExtKeyUseExt =  pubkey_cert:select_extension(?'id-ce-extKeyUsage', Extensions),
+    case compatible_ext_key_usage(KeyUseExt, ExtKeyUseExt, Type) of
+        true ->
+            UserState0;
+        false ->
+            verify_fun(OtpCert, {bad_cert, {key_usage_mismatch, {KeyUseExt, ExtKeyUseExt}}},
+                                   UserState0, VerifyFun)
+    end.
+
 extensions_list(asn1_NOVALUE) ->
     [];
 extensions_list(Extensions) ->
@@ -770,183 +968,14 @@ strip_many_spaces(Strings, KeepDeep) ->
         false -> unicode:characters_to_list(DeepList)
     end.
 
-%% No extensions present
-validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
-		    UserState, _) ->
-    {ValidationState, UserState};
-validate_extensions(OtpCert, [], ValidationState =
-			#path_validation_state{max_path_length = Len,
-					       last_cert = Last},
-		    no_basic_constraint, SelfSigned, UserState0, VerifyFun) ->
-    case Last of
-	true when SelfSigned ->
-	    {ValidationState, UserState0};
-	true  ->
-	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState0};
-	false ->
-	    %% basic_constraint must appear in certs used for digital sign
-	    %% see 4.2.1.10 in rfc 3280
-	    case is_digitally_sign_cert(OtpCert) of
-		true ->
-		    missing_basic_constraints(OtpCert, SelfSigned,
-					      ValidationState, VerifyFun,
-					      UserState0, Len);
-		false -> %% Example CRL signer only
-		    {ValidationState, UserState0}
-	    end
-    end;
-
-validate_extensions(OtpCert,
-		    [#'Extension'{extnID = ?'id-ce-basicConstraints',
-				  extnValue = 
-				      #'BasicConstraints'{cA = true,
-							  pathLenConstraint = N}} |
-		     Rest],
-		    ValidationState =
-			#path_validation_state{max_path_length = Len}, _,
-		    SelfSigned, UserState, VerifyFun) ->
-    Length = if SelfSigned -> erlang:min(N, Len);
-		true -> erlang:min(N, Len-1)
-	     end,
-    validate_extensions(OtpCert, Rest,
-			ValidationState#path_validation_state{max_path_length =
-								  Length},
-			basic_constraint, SelfSigned,
-			UserState, VerifyFun);
-%% The pathLenConstraint field is meaningful only if cA is set to
-%% TRUE.
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-basicConstraints',
-					   extnValue =
-					       #'BasicConstraints'{cA = false}} |
-			      Rest], ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
-					   extnValue = KeyUse
-					  } | Rest],
-		    #path_validation_state{last_cert=Last} = ValidationState,
-		    ExistBasicCon, SelfSigned,
-		    UserState0, VerifyFun) ->
-    case Last orelse is_valid_key_usage(KeyUse, keyCertSign) of
-	true ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState0, VerifyFun);
-	false ->
-	    UserState = verify_fun(OtpCert, {bad_cert, invalid_key_usage},
-				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState, VerifyFun)
-    end;
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
-					   extnValue = Names,
-					   critical = true} = Ext | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun)  ->
-    case validate_subject_alt_names(Names) of
-	true  ->
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState0, VerifyFun);
-	false ->
-	    UserState = verify_fun(OtpCert, {extension, Ext},
-				   UserState0, VerifyFun),
-	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UserState, VerifyFun)
-    end;
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
-				  extnValue = NameConst} | Rest], 
-		    ValidationState, 
-		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-    Permitted = NameConst#'NameConstraints'.permittedSubtrees, 
-    Excluded = NameConst#'NameConstraints'.excludedSubtrees,
-    
-    NewValidationState = add_name_constraints(Permitted, Excluded, 
-					      ValidationState),
-    
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
-					   critical = true} = Ext| Rest], ValidationState,
-		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
-    %% TODO: Remove this clause when policy handling is
-    %% fully implemented
-    UserState = verify_fun(OtpCert, {extension, Ext},
-			   UserState0, VerifyFun),
-    validate_extensions(OtpCert,Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
-					   extnValue = #'PolicyInformation'{
-					     policyIdentifier = Id,
-					     policyQualifiers = Qualifier}}
-			      | Rest], #path_validation_state{valid_policy_tree = Tree}
-		    = ValidationState,
-		    ExistBasicCon, SelfSigned, UserState, VerifyFun) ->
-
-    %% TODO: Policy imp incomplete
-    NewTree = process_policy_tree(Id, Qualifier, Tree),
-    
-    validate_extensions(OtpCert, Rest,
-			ValidationState#path_validation_state{
-			  valid_policy_tree = NewTree}, 
-			ExistBasicCon, SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
-					   critical = true} = Ext | Rest], ValidationState,
-		    ExistBasicCon, SelfSigned, UserState0, VerifyFun) ->
-    %% TODO: Remove this clause when policy handling is
-    %% fully implemented
-    UserState = verify_fun(OtpCert, {extension, Ext},
-			   UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-policyConstraints',
-					   extnValue = #'PolicyConstraints'{
-					     requireExplicitPolicy = ExpPolicy,
-					     inhibitPolicyMapping = MapPolicy}}
-			      | Rest], ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    
-    %% TODO: Policy imp incomplete
-    NewValidationState = add_policy_constraints(ExpPolicy, MapPolicy,
-						ValidationState),
-
-    validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
-                                           critical = true,
-                                           extnValue = KeyUse} = Extension | Rest],
-		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun) ->
-    UserState =
-        case ext_keyusage_includes_any(KeyUse) of
-            true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
-                verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
-            false ->
-                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
-        end,
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
-			UserState, VerifyFun);
-validate_extensions(OtpCert, [#'Extension'{} = Extension | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState0, VerifyFun) ->
-    UserState = verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun),
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
-			UserState, VerifyFun).
 
 is_valid_key_usage(KeyUse, Use) ->
     lists:member(Use, KeyUse).
+
+ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
+    lists:member(?anyExtendedKeyUsage, KeyUse);
+ext_keyusage_includes_any(_) ->
+    false.
  
 validate_subject_alt_names([]) ->
     false;
@@ -1216,6 +1245,57 @@ is_digitally_sign_cert(OtpCert) ->
 	#'Extension'{extnValue = KeyUse} ->
 	    lists:member(keyCertSign, KeyUse)
     end.
+
+compatible_ext_key_usage(undefined, _, endentity) -> %% keyusage (first arg )is mandantory in CAs
+    true;
+compatible_ext_key_usage(_, undefined, _) ->
+    true;
+compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, _) ->
+    case ext_keyusage_includes_any(Purposes) of
+        true ->
+            true;
+        false ->
+            is_compatible_purposes(KeyUse, Purposes)
+    end.
+
+is_compatible_purposes(_, []) ->
+    true;
+is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(keyAgreement, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse)
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest]) ->
+    lists:member(digitalSignature, KeyUse) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest]) ->
+    ((lists:member(digitalSignature, KeyUse) orelse
+      lists:member(nonRepudiation, KeyUse))
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [Id| Rest]) when Id == ?'id-kp-timeStamping';
+                                                Id == ?'id-kp-OCSPSigning'->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(nonRepudiation, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [_| Rest]) -> %% Unknown purposes are for user verify_fun to care about
+    is_compatible_purposes(KeyUse, Rest).
+
+ca_known_extend_key_use(ExtKeyUse) ->
+    CAExtSet = ca_known_ext_key_usage(),
+    Intersertion = sets:intersection(CAExtSet, sets:from_list(ExtKeyUse)),
+    not sets:is_empty(Intersertion).
+
+ca_known_ext_key_usage() ->
+    %% Following extended key usages are known
+    sets:from_list([?'id-kp-serverAuth', ?'id-kp-clientAuth',
+                    ?'id-kp-codeSigning', ?'id-kp-emailProtection',
+                    ?'id-kp-timeStamping', ?'id-kp-OCSPSigning']).
 
 missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
     UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
@@ -1516,9 +1596,3 @@ verify_options(#'RSASSA-PSS-params'{saltLength = SaltLen,
     [{rsa_padding, rsa_pkcs1_pss_padding},
      {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
-
-
-ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
-    lists:member(?anyExtendedKeyUsage, KeyUse);
-ext_keyusage_includes_any(_) ->
-    false.
