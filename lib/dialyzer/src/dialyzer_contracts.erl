@@ -905,7 +905,7 @@ invalid_contract_warning({M, F, A}, WarningInfo, ProblemDetails, Contract, SuccT
 contract_opaque_warning({M, F, A}, WarningInfo, OpType, SuccType, RecDict) ->
   OpaqueStr = erl_types:t_to_string(OpType),
   SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
-  {?WARN_CONTRACT_TYPES, WarningInfo,
+  {?WARN_CONTRACT_OPAQUE, WarningInfo,
    {contract_with_opaque, [M, F, A, OpaqueStr, SuccTypeStr]}}.
 
 overlapping_contract_warning({M, F, A}, WarningInfo) ->
