@@ -33,6 +33,23 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.24.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>With this change, cth_surefire hook module handles
+	    group path reduction for a skipped group. This fixes a
+	    bug manifesting with improper group path for a group
+	    executed after a group which was skipped.</p>
+          <p>
+	    Own Id: OTP-19365 Aux Id: ERIERL-1157, PR-9080 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

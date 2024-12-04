@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 13.2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix lock order violation if a NIF monitor <c>down</c>
+	    callback calls <c>enif_whereis_pid</c>. Would cause debug
+	    emulator to crash but could potentially lead to deadlocks
+	    in optimized emulator.</p>
+          <p>
+	    Own Id: OTP-19330 Aux Id: GH-8983, PR-9008 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 13.2.2.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
