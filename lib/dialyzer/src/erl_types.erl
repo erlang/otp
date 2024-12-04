@@ -2148,6 +2148,8 @@ t_sup_aux(?nominal(LHS_Name, ?nominal(LHS_InnerName, _)=LHS_Inner)=LHS,
       ?nominal(RHS_Name, Sup);
     ?nominal(RHS_InnerName = LHS_Name, _)=Sup ->
       ?nominal(LHS_Name, Sup);
+    ?nominal(_,_)=Sup ->
+      Sup;
     ?nominal_set(_, ?none) when LHS_Name < RHS_Name ->
       ?nominal_set([LHS, RHS], ?none);
     ?nominal_set(_, ?none) ->
