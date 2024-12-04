@@ -9313,12 +9313,27 @@ do_otp_18357(#{name := Name, addr := Addr}) ->
     {ok, L}      = gen_tcp:listen(0, [{ifaddr, Addr}]),
     {ok, PortNo} = inet:port(L),
 
+    %% Need this for the error handling
+    OS = case os:type() of
+             {unix, darwin = Flavor} ->
+                 Flavor;
+             _ ->
+                 other % We do not really care...
+         end,
+
     ?P("try connect (with bind-to-device)"),
     C = case gen_tcp:connect(Addr, PortNo,
                              [{inet_backend,   socket},
+                              {debug,          true},
                               {bind_to_device, list_to_binary(Name)}]) of
             {ok, CSock} ->
                 CSock;
+            {error, einval = Reason} when (OS =:= darwin) ->
+                %% This is a failure to set the bind_to_device option
+                %% (usually...)
+                ?P("Failed connecting (on ~w), ~p, skipping", [OS, Reason]),
+                (catch gen_tcp:close(L)),
+                skip(Reason);
             {error, eperm = Reason} ->
                 ?P("Failed connecting, ~p, skipping", [Reason]),
                 (catch gen_tcp:close(L)),
