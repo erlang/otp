@@ -61,7 +61,6 @@ jobs:
         changes: ${{ steps.changes.outputs.changes }}
         c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
-        added_files: ${{ steps.cache.outputs.added_files }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
       - uses: ./.github/actions/build-base-image
@@ -131,8 +130,6 @@ jobs:
                   - deleted: '**/*.h'
               deleted:
                   - deleted: '**'
-              added:
-                  - added: '**'
               bootstrap:
                   - 'bootstrap/**'
               configure:
