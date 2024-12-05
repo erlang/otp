@@ -700,6 +700,7 @@ validate_extensions(Cert, asn1_NOVALUE, ValidationState, ExistBasicCon,
 		    SelfSigned, UserState, VerifyFun) ->
     validate_extensions(Cert, [], ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
+
 validate_extensions(Cert, [], ValidationState, basic_constraint, _SelfSigned,
 		    UserState0, VerifyFun) ->
     UserState = validate_ext_key_usage(Cert, UserState0, VerifyFun, ca),
