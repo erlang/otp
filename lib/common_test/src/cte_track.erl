@@ -163,10 +163,11 @@ handle_event(#event{name = test_done},
 handle_event(#event{name = Name, data = Data}, State = #{device := D}) ->
     NotInteresting = [start_logging, start_write_file, finished_write_file,
                       test_stats, start_make, finished_make, tc_logfile,
-                      test_start, start_info, tc_start, stop_logging],
+                      test_start, start_info, tc_start, stop_logging,
+                      benchmark_data],
     case lists:member(Name, NotInteresting) of
         false ->
-            print(D, "~n~nUnhandled interesting event:~nName = ~p~nData = ~p~n~n",
+            print(D, "~n~n[cte_track] Unhandled interesting event:~nName = ~p~nData = ~p~n~n",
                   [Name, Data]);
         _ ->
             ok
@@ -186,7 +187,7 @@ terminate(stop, #{device := Device}) ->
     file:close(Device),
     ok;
 terminate(Reason, #{device := D}) ->
-    print(D, "~n > Interesting terminate reason = ~p~n", [Reason]),
+    print(D, "~n[cte_track]  > Interesting terminate reason = ~p~n", [Reason]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

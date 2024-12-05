@@ -33,8 +33,8 @@ terminate(Reason, State, Data) ->
 format_status(#{ data := Fun } = S) when is_function(Fun) ->
     Fun(S);
 format_status(#{ reason := _, state := State, data := Data } = Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state := {formatted, State},  data := {formatted, Data}};
 format_status(Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ data := format_data, state := format_status_called }.

@@ -742,7 +742,7 @@ wait_message(Ref, Action, Group, Pids, Msg) ->
             ok
     after 1000 ->
         {messages, Msgs} = process_info(self(), messages),
-        ct:pal("Message queue: ~0p", [Msgs]),
+        ct:log("Message queue: ~0p", [Msgs]),
         ?assert(false, lists:flatten(io_lib:format("Expected ~s ~s for ~p", [Msg, Action, Group])))
     end.
 

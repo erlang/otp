@@ -4828,10 +4828,10 @@ run_large_file_test(Config, Run, Name) ->
                     {skip, "Failed to query disk space for priv_dir. "
                            "Is it on a remote file system?~n"};
                 N when N >= 5 * (1 bsl 20) ->
-                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    ct:log("Free disk: ~w KByte~n", [N]),
                     do_run_large_file_test(Config, Run, Name);
                 N when N < 5 * (1 bsl 20) ->
-                    ct:pal("Free disk: ~w KByte~n", [N]),
+                    ct:log("Free disk: ~w KByte~n", [N]),
                     {skip,"Less than 5 GByte free"}
             end;
 	_ ->

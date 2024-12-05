@@ -1678,7 +1678,7 @@ loop_it(N, Config) -> loop_it(N,N, Config).
 
 loop_it(0,_, _Config) -> ok;
 loop_it(N,M, Config) ->
-    ct:pal(?HI_VERBOSITY, "Round: ~w", [M-N]),
+    ct:log(?HI_VERBOSITY, "Round: ~w", [M-N]),
     ring(Config),
     line(Config),
     loop_it(N-1,M, Config).
@@ -3482,7 +3482,7 @@ global_groups_change(Config) ->
 	Info1ok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [Info1ok, Info1]),
 	    ct:fail({{"could not change the global groups"
@@ -3493,7 +3493,7 @@ global_groups_change(Config) ->
 	Info2ok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [Info2ok, Info2]),
 	    ct:fail({{"could not change the global groups"
@@ -3504,7 +3504,7 @@ global_groups_change(Config) ->
 	Info3ok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [Info3ok, Info3]),
 	    ct:fail({{"could not change the global groups"
@@ -3515,7 +3515,7 @@ global_groups_change(Config) ->
 	InfoAok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [InfoAok, InfoA]),
 	    ct:fail({{"could not change the global groups"
@@ -3526,7 +3526,7 @@ global_groups_change(Config) ->
 	InfoBok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [InfoBok, InfoB]),
 	    ct:fail({{"could not change the global groups"
@@ -3538,7 +3538,7 @@ global_groups_change(Config) ->
 	InfoCok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [InfoCok, InfoC]),
 	    ct:fail({{"could not change the global groups"
@@ -3549,7 +3549,7 @@ global_groups_change(Config) ->
 	InfoDok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [InfoDok, InfoD]),
 	    ct:fail({{"could not change the global groups"
@@ -3560,7 +3560,7 @@ global_groups_change(Config) ->
 	InfoEok ->
 	    ok;
 	_ ->
-            ct:pal("Expected: ~p~n"
+            ct:log("Expected: ~p~n"
                    "Got     : ~p~n",
                    [InfoEok, InfoE]),
 	    ct:fail({{"could not change the global groups"
@@ -3588,7 +3588,7 @@ gg_wait(Node, Synced, SyncError, NoContact) ->
     receive after 100 -> ok end,
     try
         GGInfo = rpc:call(Node, global_group, info, []),
-        ct:pal("GG info: ~p~n", [GGInfo]),
+        ct:log("GG info: ~p~n", [GGInfo]),
         case proplists:lookup(synced_nodes, GGInfo) of
             {synced_nodes, Synced} -> ok;
             _ -> throw(wait)
@@ -3903,7 +3903,7 @@ pr_diff(Str, T0, T1) ->
 	       {_, {H,M,S}} = calendar:time_difference(T0, T1),
 	       ((H*60+M)*60)+S
 	   end,
-    ct:pal(?HI_VERBOSITY,"~13s: ~w (diff: ~w)",[Str, T1, Diff]),
+    ct:log(?HI_VERBOSITY,"~13s: ~w (diff: ~w)",[Str, T1, Diff]),
     if
 	Diff > 100 ->
 	    io:format(1,"~s: ** LARGE DIFF ~w~n", [Str, Diff]);
@@ -4922,7 +4922,7 @@ node_tracker_loop(Nodes) ->
                           stopped ->
                               ok;
                           alive ->
-                              ct:pal("WARNING: The node ~p was not "
+                              ct:log("WARNING: The node ~p was not "
                                      "stopped by the test case!", [N])
                       end,
                       %% We try to kill every node, even those reported as
@@ -4931,13 +4931,13 @@ node_tracker_loop(Nodes) ->
                           {badrpc,nodedown} ->
                               ok;
                           {badrpc,timeout} ->
-                              ct:pal("WARNING: Failed to kill node: ~p~n"
+                              ct:log("WARNING: Failed to kill node: ~p~n"
                                      "         Disconnecting it, but it may "
                                      "still be alive!", [N]),
                               erlang:disconnect_node(N),
                               ok;
                           Unexpected ->
-                              ct:pal("WARNING: Failed to kill node: ~p~n"
+                              ct:log("WARNING: Failed to kill node: ~p~n"
                                      "         Got response: ~p~n"
                                      "         Disconnecting it, but it may "
                                      "still be alive!", [N, Unexpected]),
@@ -4976,7 +4976,7 @@ stop_node_tracker(Config) ->
                     NTFailure;
                 _ ->
                     %% Don't fail due to node tracker...
-                    ct:pal("WARNING: Node tracker failure: ~p", [NTFailure]),
+                    ct:log("WARNING: Node tracker failure: ~p", [NTFailure]),
                     ok
             end
     end.

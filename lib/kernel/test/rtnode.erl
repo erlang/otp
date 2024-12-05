@@ -310,7 +310,7 @@ start_peer_runerl_node(RunErl,Erl,Tempdir,Nodename,Args) ->
                     args => ["-connect_all","false"|Args] }),
     Self = self(),
     TraceLog = filename:join(Tempdir,Nodename++".trace"),
-    ct:pal("Link to trace: file://~ts",[TraceLog]),
+    ct:log("Link to trace: file://~ts",[TraceLog]),
 
     spawn(Node,
           fun() ->

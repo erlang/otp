@@ -513,7 +513,7 @@ basic_stats_normal(Config) when is_list(Config) ->
         lists:filter(
           fun (R) -> R =/= [] end,
           [begin
-               ct:pal(
+               ct:log(
                  "Testing normal(~.2f, ~.2f)~n",
                  [float(IntendedMean), float(IntendedVariance)]),
                lists:filter(
@@ -757,7 +757,7 @@ stats_standard_normal(Fun, S, Retries) ->
     P0 = math:erf(1 / W),
     Rounds = TargetHits * ceil(1.0 / P0),
     Histogram = array:new({default, 0}),
-    ct:pal(
+    ct:log(
       "Running standard normal test against ~w std devs for ~w seconds...",
       [StdDevs, Seconds]),
     StopTime = erlang:monotonic_time(second) + Seconds,
@@ -770,7 +770,7 @@ stats_standard_normal(Fun, S, Retries) ->
     TopPrecision = math:sqrt(TotalRounds * TopP) / StdDevs,
     OutlierProbability = math:erfc(Outlier / Sqrt2) * TotalRounds,
     InvOP = 1.0 / OutlierProbability,
-    ct:pal(
+    ct:log(
       "Total rounds: ~w, tolerance: 1/~.2f..1/~.2f, "
       "outlier: ~.2f, probability 1/~.2f.",
       [TotalRounds, Precision, TopPrecision, Outlier, InvOP]),
@@ -798,7 +798,7 @@ stats_standard_normal(Fun, S, Retries, Failure) ->
         0 ->
             ct:fail(Failure);
         NewRetries ->
-            ct:pal("Retry due to TC glitch: ~p", [Failure]),
+            ct:log("Retry due to TC glitch: ~p", [Failure]),
             stats_standard_normal(Fun, S, NewRetries)
     end.
 %%
@@ -887,7 +887,7 @@ check_histogram(
 
 uniform_real_conv(Config) when is_list(Config) ->
     [begin
-%%         ct:pal("~13.16.0bx~3.16.0b: ~p~n", [M,E,Gen]),
+%%         ct:log("~13.16.0bx~3.16.0b: ~p~n", [M,E,Gen]),
          uniform_real_conv_check(M, E, Gen)
      end || {M, E, Gen} <- uniform_real_conv_data()],
     uniform_real_scan(0),
@@ -982,14 +982,14 @@ uniform_real_conv_check(M, E, Gen) ->
     try uniform_real_gen(Gen) of
         F -> F;
         FF ->
-            ct:pal(
+            ct:log(
               "~s =/= ~s: ~s~n",
               [rand:float2str(FF), rand:float2str(F),
                [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
             ct:fail({neq, FF, F})
     catch
         Error:Reason:Stacktrace ->
-            ct:pal(
+            ct:log(
               "~w:~p ~s: ~s~n",
               [Error, Reason, rand:float2str(F),
                [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
@@ -1110,7 +1110,7 @@ do_measure(Iterations) ->
                 algs()
         end,
     %%
-    ct:pal("~nRNG uniform integer range 10000 performance~n",[]),
+    ct:log("~nRNG uniform integer range 10000 performance~n",[]),
     [TMarkUniformRange10000,OverheadUniformRange1000|_] =
         measure_1(
           fun (Mod, _State) ->
@@ -1271,7 +1271,7 @@ do_measure(Iterations) ->
           system_time, Iterations,
           TMarkUniformRange10000, OverheadUniformRange1000),
     %%
-    ct:pal("~nRNG uniform integer 32 bit performance~n",[]),
+    ct:log("~nRNG uniform integer 32 bit performance~n",[]),
     [TMarkUniform32Bit,OverheadUniform32Bit|_] =
         measure_1(
           fun (Mod, _State) ->
@@ -1372,7 +1372,7 @@ do_measure(Iterations) ->
           system_time, Iterations,
           TMarkUniform32Bit, OverheadUniform32Bit),
     %%
-    ct:pal("~nRNG uniform integer half range performance~n",[]),
+    ct:log("~nRNG uniform integer half range performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1385,7 +1385,7 @@ do_measure(Iterations) ->
           end,
           Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer half range + 1 performance~n",[]),
+    ct:log("~nRNG uniform integer half range + 1 performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1397,7 +1397,7 @@ do_measure(Iterations) ->
                   end
           end, Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer full range - 1 performance~n",[]),
+    ct:log("~nRNG uniform integer full range - 1 performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1409,7 +1409,7 @@ do_measure(Iterations) ->
                   end
           end, Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer full range performance~n",[]),
+    ct:log("~nRNG uniform integer full range performance~n",[]),
     [TMarkUniformFullRange,OverheadUniformFullRange|_] =
         measure_1(
           fun (Mod, State) ->
@@ -1538,7 +1538,7 @@ do_measure(Iterations) ->
           {mwc59,procdict}, Iterations,
           TMarkUniformFullRange, OverheadUniformFullRange),
     %%
-    ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
+    ct:log("~nRNG uniform integer full range + 1 performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1550,7 +1550,7 @@ do_measure(Iterations) ->
                   end
           end, Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer double range performance~n",[]),
+    ct:log("~nRNG uniform integer double range performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1562,7 +1562,7 @@ do_measure(Iterations) ->
                   end
           end, Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer double range + 1  performance~n",[]),
+    ct:log("~nRNG uniform integer double range + 1  performance~n",[]),
     _ =
         measure_1(
           fun (Mod, State) ->
@@ -1574,7 +1574,7 @@ do_measure(Iterations) ->
                   end
           end, Algs, Iterations),
     %%
-    ct:pal("~nRNG uniform integer 64 bit performance~n",[]),
+    ct:log("~nRNG uniform integer 64 bit performance~n",[]),
     [TMarkUniform64Bit, OverheadUniform64Bit | _] =
         measure_1(
           fun (Mod, _State) ->
@@ -1601,7 +1601,7 @@ do_measure(Iterations) ->
           TMarkUniform64Bit, OverheadUniform64Bit),
     %%
     ByteSize = 16, % At about 100 bytes crypto_bytes breaks even to exsss
-    ct:pal("~nRNG ~w bytes performance~n",[ByteSize]),
+    ct:log("~nRNG ~w bytes performance~n",[ByteSize]),
     [TMarkBytes1,OverheadBytes1|_] =
         measure_1(
           fun (Mod, _State) ->
@@ -1628,7 +1628,7 @@ do_measure(Iterations) ->
           TMarkBytes1, OverheadBytes1),
     %%
     ByteSize2 = 1000, % At about 100 bytes crypto_bytes breaks even to exsss
-    ct:pal("~nRNG ~w bytes performance~n",[ByteSize2]),
+    ct:log("~nRNG ~w bytes performance~n",[ByteSize2]),
     [TMarkBytes2,OverheadBytes2|_] =
         measure_1(
           fun (Mod, _State) ->
@@ -1654,7 +1654,7 @@ do_measure(Iterations) ->
           end, {mwc59,bytes}, Iterations div 50,
           TMarkBytes2, OverheadBytes2),
     %%
-    ct:pal("~nRNG uniform float performance~n",[]),
+    ct:log("~nRNG uniform float performance~n",[]),
     [TMarkUniformFloat,OverheadUniformFloat|_] =
         measure_1(
           fun (Mod, _State) ->
@@ -1691,7 +1691,7 @@ do_measure(Iterations) ->
           {exsp,float}, Iterations,
           TMarkUniformFloat, OverheadUniformFloat),
     %%
-    ct:pal("~nRNG uniform_real float performance~n",[]),
+    ct:log("~nRNG uniform_real float performance~n",[]),
     _ =
         measure_1(
           fun (Mod, _State) ->
@@ -1702,7 +1702,7 @@ do_measure(Iterations) ->
           end,
           Algs, Iterations),
     %%
-    ct:pal("~nRNG normal float performance~n",[]),
+    ct:log("~nRNG normal float performance~n",[]),
     [TMarkNormalFloat, OverheadNormalFloat|_] =
         measure_1(
           fun (Mod, _State) ->

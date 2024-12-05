@@ -287,9 +287,9 @@ measure_handler_time(Module,N,FA,Unit,HCfg,FCfg,Config) ->
             second -> 1000
         end,
     IOPS = M*N/T,
-    ct:pal("N: ~p~nT: ~p~nIOPS: ~.2f events pr ~w",[N,T,IOPS,Unit]),
+    ct:log("N: ~p~nT: ~p~nIOPS: ~.2f events pr ~w",[N,T,IOPS,Unit]),
     %% Stats = rpc:call(Node,logger_olp,info,[?name_to_reg_name(Module,default)]),
-    %% ct:pal("Stats: ~p",[Stats]),
+    %% ct:log("Stats: ~p",[Stats]),
     ct_event:notify(#event{name = benchmark_data,
                            data = [{value,IOPS}]}),
     {comment,io_lib:format("~.2f events written pr ~w",[IOPS,Unit])}.
