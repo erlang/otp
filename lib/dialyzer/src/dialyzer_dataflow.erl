@@ -1760,13 +1760,13 @@ bind_guard(Guard, Map, Env, Eval, State0) ->
     values ->
       Es = cerl:values_es(Guard),
       {Types, State1} = lists:mapfoldl(fun(V, StateAcc0) ->
-                                          {_, Type, StateAcc0} =
+                                          {_, Type, StateAcc} =
                                             bind_guard(V,
                                                        Map,
                                                        Env,
                                                        dont_know,
                                                        StateAcc0),
-                                          {Type, StateAcc0}
+                                          {Type, StateAcc}
                                       end, State0, Es),
       {Map, t_product(Types), State1};
     var ->
