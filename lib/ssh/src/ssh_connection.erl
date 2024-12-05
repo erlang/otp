@@ -1019,21 +1019,25 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "exit-signal",
 				    want_reply = false,
-				    data = Data},  
+				    data = Data},
            #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
     <<?DEC_BIN(SigName, _SigLen),
-      ?BOOLEAN(_Core), 
+      ?BOOLEAN(_Core),
       ?DEC_BIN(Err, _ErrLen),
       ?DEC_BIN(Lang, _LangLen)>> = Data,
-    Channel = ssh_client_channel:cache_lookup(Cache, ChannelId),
-    RemoteId =  Channel#channel.remote_id,
-    {Reply, Connection} =  reply_msg(Channel, Connection0, 
-				     {exit_signal, ChannelId,
-				      binary_to_list(SigName),
-				      binary_to_list(Err),
-				      binary_to_list(Lang)}),
-    CloseMsg = channel_close_msg(RemoteId),
-    {[{connection_reply, CloseMsg}|Reply], Connection};
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{remote_id = RemoteId} = Channel ->
+            {Reply, Connection} =  reply_msg(Channel, Connection0,
+                                             {exit_signal, ChannelId,
+                                              binary_to_list(SigName),
+                                              binary_to_list(Err),
+                                              binary_to_list(Lang)}),
+            ChannelCloseMsg = channel_close_msg(RemoteId),
+            {[{connection_reply, ChannelCloseMsg}|Reply], Connection};
+        _ ->
+            %% Channel already closed by peer
+            {[], Connection0}
+    end;
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = "xon-xoff",
