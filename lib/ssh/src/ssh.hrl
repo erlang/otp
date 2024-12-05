@@ -1147,7 +1147,8 @@ in the User's Guide chapter.
 -doc(#{title => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
+      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)}
+      | {bannerfun, fun((User::string()) -> binary())}.
 
 -doc(#{title => <<"Other data types">>}).
 -type opaque_daemon_options()  ::
@@ -1246,7 +1247,8 @@ in the User's Guide chapter.
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,
-	  authenticated = false
+	  authenticated = false,
+	  userauth_banner_sent = false
 	 }).
 
 -record(alg,
