@@ -282,6 +282,7 @@ since_1_2() ->
      no_common_signature_algs,
      versions_option_based_on_sni,
      ciphers_option_based_on_sni,
+     select_best_cert,
      root_any_sign
     ].
 
@@ -310,7 +311,6 @@ gen_api_tests() ->
     [
      peercert,
      peercert_with_client_cert,
-     select_best_cert,
      select_sha1_cert,
      connection_information,
      secret_connection_info,
@@ -1004,9 +1004,9 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                    {options, ssl_test_lib:ssl_options([{reuseaddr, true},
                                                                        {verify, verify_peer},
                                                                        {ciphers, SCiphers},
-                                                                      {handshake, hello} | ServerOpts
+                                                                       {handshake, hello} | ServerOpts
                                                                       ],
-                                                                     Config)},
+                                                                      Config)},
                                    {continue_options, proplists:delete(reuseaddr, ServerOpts)}
                                   ]),
 
@@ -1034,23 +1034,25 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
     %% Send dummy session ticket to trigger sending of pre_shared_key and
     %% psk_key_exchange_modes extensions.
     Client =
-        ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-                                   {host, Hostname},
-                                   {from, self()},
-                                   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                   {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                       {session_tickets, manual},
-                                                                       {use_ticket, [DummyTicket]},
-                                                                       {versions, ['tlsv1.3',
-                                                                                   'tlsv1.2',
-                                                                                   'tlsv1.1',
-                                                                                   'tlsv1'
-                                                                                  ]},
-                                                                       {ciphers, ssl:cipher_suites(all, 'tlsv1.3')},
-                                                                       {verify, verify_peer} | ClientOpts
-                                                                      ],
-                                                                      Config)},
-                                   {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+        ssl_test_lib:start_client(
+          [{node, ClientNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {ssl_test_lib, send_recv_result_active, []}},
+           {options, ssl_test_lib:ssl_options([{handshake, hello},
+                                               {session_tickets, manual},
+                                               {use_ticket, [DummyTicket]},
+                                               {versions, ['tlsv1.3',
+                                                           'tlsv1.2',
+                                                           'tlsv1.1',
+                                                           'tlsv1'
+                                                          ]},
+                                               {ciphers, ssl:cipher_suites(all, 'tlsv1.3')},
+                                               {verify, verify_peer} |
+                                               proplists:delete(versions, ClientOpts)
+                                              ],
+                                              Config)},
+           {continue_options, proplists:delete(versions, proplists:delete(reuseaddr, ClientOpts))}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1228,7 +1230,8 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
     Fun = fun(ServerName) ->
               case ServerName of
                   SNI ->
-                      [{versions, [Version]}, {ciphers, Ciphers} | ServerOpts];
+                      [{versions, [Version]}, {ciphers, Ciphers} |
+                       proplists:delete(versions, ServerOpts)];
                   _ ->
                       ServerOpts
               end
@@ -1238,7 +1241,8 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {?MODULE, protocol_version_check, [Version]}},
 					{options, [{sni_fun, Fun},
-                                                   {versions, Versions} | ServerOpts]}]),
+                                                   {versions, Versions} |
+                                                   proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -1246,7 +1250,7 @@ versions_option_based_on_sni(Config) when is_list(Config) ->
 					{mfa, {ssl_test_lib, no_result, []}},
 					{options, [{server_name_indication, SNI}, {versions, Versions},
                                                    {ciphers, Ciphers}
-                                                  | ClientOpts]}]),
+                                                  | proplists:delete(versions, ClientOpts)]}]),
 
     ssl_test_lib:check_result(Server, ok),
     ssl_test_lib:close(Server),
@@ -3856,7 +3860,7 @@ check_random_nonce(Config) when is_list(Config) ->
             RndThreshold   = 10000,
             true = MeanDelta > RndThreshold;
         _Vsn ->
-            ct:log("Using Version: ~p", [_Vsn]),
+            ?CT_LOG("Using Version: ~p", [_Vsn]),
             %% 4 epoch based bytes expected pre TLS1.3
             EpochThreshold = 10,
             true = MeanDelta < EpochThreshold
@@ -4358,7 +4362,7 @@ cookie_extension(Config, Cookie) ->
     ssl_test_lib:close(Client).
 
 start_client_negative(Config, Options, Error) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ClientOpts = proplists:delete(versions, ssl_test_lib:ssl_options(client_rsa_opts, Config)),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Port = ssl_test_lib:inet_port(ServerNode),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -4371,7 +4375,7 @@ start_client_negative(Config, Options, Error) ->
     {connect_failed, Error} = Client.
 
 start_server_negative(Config, Options, Error) ->
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = proplists:delete(versions, ssl_test_lib:ssl_options(server_rsa_opts, Config)),
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},

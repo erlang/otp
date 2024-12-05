@@ -107,11 +107,15 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 init_per_group(no_next_update, Config) ->
     Config;
+init_per_group('tlsv1.3_issuer_nonce', Config) ->
+    ssl_test_lib:init_per_group_openssl('tlsv1.3', Config);
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(no_next_update, Config) ->
     Config;
+end_per_group('tlsv1.3_issuer_nonce', Config) ->
+    ssl_test_lib:end_per_group('tlsv1.3', Config);
 end_per_group(GroupName, Config) ->
     ssl_test_lib:end_per_group(GroupName, Config).
 

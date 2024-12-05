@@ -329,7 +329,7 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                 {transport, proplists:get_value(transport, Config)},
                 {ssl_options, [{versions, [Version |NewVersions]},
                                {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}
-                              | ServerEcdsaOpts]}]),
+                              | proplists:delete(versions, ServerEcdsaOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client(
                [{node, ClientNode},
@@ -341,7 +341,8 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                 {transport, proplists:get_value(transport, Config)},
                 {ssl_options,  [{versions,  [Version |NewVersions]},
                                 {ciphers, Ciphers},
-                                {server_name_indication, Hostname} | ClientOpts]}]),
+                                {server_name_indication, Hostname} |
+                                proplists:delete(versions, ClientOpts)]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -875,10 +876,12 @@ tls_reject_warning_alert_in_initial_hs(Config) when is_list(Config) ->
                          Other ->
                              Other
                      end,
+
     Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					 {from, self()},
 					 {mfa, {ssl_test_lib, no_result, []}},
-					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} |
+                                                    proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
     NoRenegotiateAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?WARNING), ?BYTE(?NO_RENEGOTIATION)>>,

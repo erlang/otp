@@ -2959,24 +2959,27 @@ openssl_tls_version_support(Proto, Opts, Port, Exe, Args0) ->
 init_protocol_version(Version, Config)
   when Version == 'dtlsv1.2'; Version == 'dtlsv1' ->
     ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, dtls_protocol_version, [Version]),
     ssl:start(),
+    Group0 = proplists:get_value(group_opts, Config, []),
+    Group = proplists:delete(version, proplists:delete(protocol, Group0)),
     NewConfig = proplists:delete(group_opts, proplists:delete(protocol, Config)),
-    [{protocol, dtls}, {group_opts, [{protocol, dtls}]} | NewConfig];
+    [{protocol, dtls}, {group_opts, [{protocol, dtls}, {versions, [Version]} | Group]} | NewConfig];
 
 init_protocol_version(Version, Config) ->
     ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, protocol_version, [Version]),
     ssl:start(),
+    Group0 = proplists:get_value(group_opts, Config, []),
+    Group  = proplists:delete(version, proplists:delete(protocol, Group0)),
     NewConfig = proplists:delete(group_opts, proplists:delete(protocol, Config)),
-    [{protocol, tls} | NewConfig].
+    [{protocol, tls}, {group_opts, [{versions, [Version]} | Group]} | NewConfig].
 
 clean_protocol_version(Config) ->
     application:unset_env(ssl, protocol_version),
     application:unset_env(ssl, dtls_protocol_version),
-    proplists:delete(version, proplists:delete(group_opts, proplists:delete(protocol, Config))).
+    Group0 = proplists:get_value(group_opts, Config, []),
+    Group  = proplists:delete(versions, proplists:delete(protocol, Group0)),
+    NewConfig = proplists:delete(version, proplists:delete(group_opts, proplists:delete(protocol, Config))),
+    [{group_opts, Group} | NewConfig].
 
 add_transport(transport_socket, Config0) ->
     PO = proplists:get_value(group_opts, Config0, []),
@@ -3770,17 +3773,22 @@ protocol_version(Config) ->
            Version
    end.
 protocol_version(Config, tuple) ->
-    case proplists:get_value(protocol, Config) of
-	dtls ->
-	    dtls_record:highest_protocol_version(dtls_record:supported_protocol_versions());
-	_ ->
-	    tls_record:highest_protocol_version(tls_record:supported_protocol_versions())
-   end;
+    Protocol = proplists:get_value(protocol, Config),
+    case proplists:get_value(version, Config, undefined) of
+        undefined when Protocol == dtls ->
+            dtls_record:highest_protocol_version(dtls_record:supported_protocol_versions());
+        undefined ->
+            tls_record:highest_protocol_version(tls_record:supported_protocol_versions());
+        Version when Protocol == dtls ->
+            dtls_record:protocol_version_name(Version);
+        Version ->
+            tls_record:protocol_version_name(Version)
+    end;
 
 protocol_version(Config, atom) ->
     case proplists:get_value(protocol, Config) of
 	dtls ->
-	   dtls_record:protocol_version(protocol_version(Config, tuple));
+            dtls_record:protocol_version(protocol_version(Config, tuple));
 	_ ->
             tls_record:protocol_version(protocol_version(Config, tuple))
    end.
@@ -4261,14 +4269,8 @@ sanity_check(ErlangPeer, OpenSSLPort) ->
     Data = check_active_receive(ErlangPeer, Data).
 
 default_tls_version(Config) ->
-    case proplists:get_value(protocol, Config, tls) of
-        tls ->
-            {ok, Versions} = application:get_env(ssl, protocol_version),
-            Versions;
-        dtls ->
-            {ok, Versions} = application:get_env(ssl, dtls_protocol_version),
-            Versions
-    end.
+    Version = proplists:get_value(version, Config),
+    [Version].
 
 openssl_maxfraglen_support() ->
     case portable_cmd("openssl", ["version"]) of
