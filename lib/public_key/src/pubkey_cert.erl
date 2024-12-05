@@ -686,8 +686,9 @@ validate_extensions(OtpCert, asn1_NOVALUE, ValidationState, ExistBasicCon,
     validate_extensions(OtpCert, [], ValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
 
-validate_extensions(_,[], ValidationState, basic_constraint, _SelfSigned,
-		    UserState, _) ->
+validate_extensions(OtpCert,[], ValidationState, basic_constraint, _SelfSigned,
+		    UserState0, VerifyFun) ->
+    UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, ca),
     {ValidationState, UserState};
 validate_extensions(OtpCert, [], ValidationState =
 			#path_validation_state{max_path_length = Len,
@@ -697,8 +698,9 @@ validate_extensions(OtpCert, [], ValidationState =
 	true when SelfSigned ->
 	    {ValidationState, UserState0};
 	true  ->
+            UserState = validate_ext_key_usage(OtpCert, UserState0, VerifyFun, endentity),
 	    {ValidationState#path_validation_state{max_path_length = Len - 1},
-	     UserState0};
+	     UserState};
 	false ->
 	    %% basic_constraint must appear in certs used for digital sign
 	    %% see 4.2.1.10 in rfc 3280
@@ -817,15 +819,20 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-inhibitAnyPolicy'} =
 			SelfSigned, UserState, VerifyFun);
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-extKeyUsage',
                                            critical = true,
-                                           extnValue = KeyUse} = Extension | Rest],
+                                           extnValue = ExtKeyUse} = Extension | Rest],
 		    #path_validation_state{last_cert = false} = ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun) ->
     UserState =
-        case ext_keyusage_includes_any(KeyUse) of
+        case ext_keyusage_includes_any(ExtKeyUse) of
             true -> %% CA cert that specifies ?anyExtendedKeyUsage should not be marked critical
                 verify_fun(OtpCert, {bad_cert, invalid_ext_key_usage}, UserState0, VerifyFun);
             false ->
-                verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
+                case ca_known_extend_key_use(ExtKeyUse) of
+                    true ->
+                        UserState0;
+                    false ->
+                        verify_fun(OtpCert, {extension, Extension}, UserState0, VerifyFun)
+                end
         end,
     validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon, SelfSigned,
 			UserState, VerifyFun);
@@ -858,6 +865,18 @@ handle_last_cert(OtpCert, #path_validation_state{last_cert = true,
 handle_last_cert(_, ValidationState) ->
     ValidationState.
 
+validate_ext_key_usage(OtpCert, UserState, VerifyFun, Type) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    KeyUseExt = pubkey_cert:select_extension(?'id-ce-keyUsage', Extensions),
+    ExtKeyUseExt =  pubkey_cert:select_extension(?'id-ce-extKeyUsage', Extensions),
+    case compatible_ext_key_usage(KeyUseExt, ExtKeyUseExt, Type) of
+        true ->
+            UserState;
+        false ->
+            verify_fun(OtpCert, {bad_cert, {key_usage_mismatch, {KeyUseExt, ExtKeyUseExt}}},
+                       UserState, VerifyFun)
+    end.
 
 %%====================================================================
 %% Policy handling
@@ -1461,6 +1480,14 @@ cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer =
 					   SerialNr}) ->
     {ok, {SerialNr, decode_general_name(AuthCertIssuer)}}.
 
+is_valid_key_usage(KeyUse, Use) ->
+    lists:member(Use, KeyUse).
+
+ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
+    lists:member(?anyExtendedKeyUsage, KeyUse);
+ext_keyusage_includes_any(_) ->
+    false.
+ 
 validate_subject_alt_names([]) ->
     false;
 validate_subject_alt_names([AltName | Rest]) ->
@@ -1766,6 +1793,57 @@ is_digitally_sign_cert(OtpCert) ->
 	    lists:member(keyCertSign, KeyUse)
     end.
 
+compatible_ext_key_usage(undefined, _, endentity) -> %% keyusage (first arg )is mandantory in CAs
+     true;
+compatible_ext_key_usage(_, undefined, _) ->
+    true;
+compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, _) ->
+    case ext_keyusage_includes_any(Purposes) of
+        true ->
+            true;
+        false ->
+            is_compatible_purposes(KeyUse, Purposes)
+    end.
+
+is_compatible_purposes(_, []) ->
+    true;
+is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(keyAgreement, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest]) ->
+    (lists:member(digitalSignature, KeyUse)
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest]) ->
+    lists:member(digitalSignature, KeyUse) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest]) ->
+    ((lists:member(digitalSignature, KeyUse) orelse
+      lists:member(nonRepudiation, KeyUse))
+     orelse
+       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
+        andalso is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [Id| Rest]) when Id == ?'id-kp-timeStamping';
+                                                Id == ?'id-kp-OCSPSigning'->
+    (lists:member(digitalSignature, KeyUse) orelse
+     lists:member(nonRepudiation, KeyUse)) andalso
+        is_compatible_purposes(KeyUse, Rest);
+is_compatible_purposes(KeyUse, [_| Rest]) -> %% Unknown purposes are for user verify_fun to care about
+    is_compatible_purposes(KeyUse, Rest).
+
+ca_known_extend_key_use(ExtKeyUse) ->
+    CAExtSet = ca_known_ext_key_usage(),
+    Intersertion = sets:intersection(CAExtSet, sets:from_list(ExtKeyUse)),
+    not sets:is_empty(Intersertion).
+
+ca_known_ext_key_usage() ->
+    %% Following extended key usages are known
+    sets:from_list([?'id-kp-serverAuth', ?'id-kp-clientAuth',
+                    ?'id-kp-codeSigning', ?'id-kp-emailProtection',
+                    ?'id-kp-timeStamping', ?'id-kp-OCSPSigning']).
+
 missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserState0,Len) ->
     UserState = verify_fun(OtpCert, {bad_cert, missing_basic_constraint},
 			   UserState0, VerifyFun),
@@ -1777,9 +1855,6 @@ missing_basic_constraints(OtpCert, SelfSigned, ValidationState, VerifyFun, UserS
 						       Len - 1},
 	     UserState}
     end.
-
-is_valid_key_usage(KeyUse, Use) ->
-    lists:member(Use, KeyUse).
 
 %%====================================================================
 %% Generate test data
@@ -2022,7 +2097,7 @@ extensions(Role, Type, Opts) ->
 
 add_default_extensions(_, ca, Exts) ->
     Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
-                            extnValue = [keyCertSign, cRLSign],
+                            extnValue = [keyCertSign, digitalSignature, cRLSign],
                             critical = false},
                #'Extension'{extnID = ?'id-ce-basicConstraints',
                             extnValue = #'BasicConstraints'{cA = true},
@@ -2041,7 +2116,11 @@ add_default_extensions(server, peer, Exts) ->
     add_default_extensions(Default, Exts);
 
 add_default_extensions(client, peer, Exts) ->
-    Exts.
+    Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
+                            extnValue = [digitalSignature],
+                            critical = false}
+               ],
+    add_default_extensions(Default, Exts).
 
 add_default_extensions(Defaults0, Exts) ->
     Defaults = lists:filtermap(fun(#'Extension'{extnID = ID} = Ext) ->
@@ -2074,9 +2153,4 @@ verify_options(
     [{rsa_padding, rsa_pkcs1_pss_padding},
      {rsa_pss_saltlen, SaltLen},
      {rsa_mgf1_md, HashAlgo}].
-
-ext_keyusage_includes_any(KeyUse) when is_list(KeyUse) ->
-    lists:member(?anyExtendedKeyUsage, KeyUse);
-ext_keyusage_includes_any(_) ->
-    false.
 
