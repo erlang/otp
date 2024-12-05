@@ -1005,7 +1005,7 @@ match(Prefix, Alts, Extra0) ->
     Len = string:length(Prefix),
     Matches = lists:sort(
                 [{S, A} || {H, A} <- Alts2,
-                           lists:prefix(Prefix, S=flat_write(H))]),
+                           S <- [flat_write(H)], lists:prefix(Prefix, S)]),
     Matches2 = lists:usort(
                  case Extra0 of
                      [] -> [{S,[]} || {S,_} <- Matches];
