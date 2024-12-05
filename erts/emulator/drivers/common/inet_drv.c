@@ -1342,6 +1342,10 @@ static struct erl_drv_entry tcp_inet_driver_entry =
 
 
 #ifdef HAVE_UDP
+
+/* "IS_UDP": tells the difference between a UDP and an SCTP socket: */
+#   define IS_UDP(desc)((desc)->sprotocol==IPPROTO_UDP)
+
 static int        packet_inet_init(void);
 static void       packet_inet_stop(ErlDrvData);
 static void       packet_inet_command(ErlDrvData, char*, ErlDrvSizeT);
@@ -1392,6 +1396,11 @@ static struct erl_drv_entry udp_inet_driver_entry =
     inet_stop_select,
     inet_emergency_close
 };
+
+#else
+
+#   define IS_UDP(desc) 0
+
 #endif
 
 #ifdef HAVE_SCTP
@@ -14703,17 +14712,43 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
     long code;
     inet_address other;
 
+    DDBG(desc,
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+          "packet_inet_command -> entry"
+          "\r\n",
+          __LINE__,
+          desc->s, driver_caller(desc->port)) );
+
     if (! init_caller(&desc->caller, &desc->caller_ref,
                       desc->port, &buf, &len)) {
+
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "packet_inet_command -> init caller failed"
+              "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+
         driver_failure_posix(desc->port, EINVAL);
 	return;
     }
     ptr = buf;
 
     if (!IS_OPEN(desc)) {
+
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "packet_inet_command -> not open"
+              "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+
 	inet_reply_error(desc, EINVAL);
 	return;
     }
+
+    DDBG(desc,
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+          "packet_inet_command -> data size: %u"
+          "\r\n",
+          __LINE__,
+          desc->s, driver_caller(desc->port), len) );
 
 #ifdef HAVE_SCTP
     if (IS_SCTP(desc))
@@ -14757,6 +14792,12 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	inet_output_count(desc, data_len);
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
+
+        DDBG(desc,
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+              "packet_inet_command -> try sendmsg"
+              "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+            
 	code = sock_sendmsg(desc->s, &mhdr, 0);
 
         goto check_result_code;
@@ -14789,9 +14830,21 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
             inet_output_count(desc, len);
             if (desc->state & INET_F_ACTIVE) {
                 /* connected (ignore address) */
+
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "packet_inet_command -> try send (connected)"
+                      "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+            
                 code = sock_send(desc->s, ptr, len, 0);
             }
             else {
+
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "packet_inet_command -> try sendto"
+                      "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+            
                 code = sock_sendto(desc->s, ptr, len, 0, &other.sa, sz);
             }
         }
@@ -14832,6 +14885,12 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
             mhdr.msg_iovlen = 1;
             mhdr.msg_flags = 0;
             inet_output_count(desc, len);
+
+            DDBG(desc,
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                  "packet_inet_command -> try sendmsg"
+                  "\r\n", __LINE__, desc->s, driver_caller(desc->port)) );
+            
             code = sock_sendmsg(desc->s, &mhdr, 0);
 #endif
         }
@@ -14848,48 +14907,50 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 
         DDBG(desc,
              ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-              "packet_inet_command -> send failed"
-              "\r\n   error: %d (%T)"
-              "\r\n",
-              __LINE__,
-              desc->s, driver_caller(desc->port),
-              err, error_atom(err)) );
-        
-        if ((err != ERRNO_BLOCK) && (err != EINTR)) {
+              "packet_inet_command -> error: %d (%s)"
+              "\r\n", __LINE__,
+              desc->s, driver_caller(desc->port), err, errno_str(err)) );
+
+        if (IS_UDP(desc)) {
+
             inet_reply_error(desc, err);
             return;
-        }
-        // else if (desc->nonBlockSend) {
-        else if (IS_NON_BLOCK_SEND(desc)) {
 
-            DDBG(desc,
-                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-                  "packet_inet_command -> block|intr when non-block send"
-                  "\r\n",
-                  __LINE__,
-                  desc->s, driver_caller(desc->port)) );
-        
-            inet_reply_error(desc, err);
-            return;
-        }
-        else {
+        } else {
 
-            DDBG(desc,
-                 ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
-                  "packet_inet_command -> block|intr send"
-                  "\r\n",
-                  __LINE__,
-                  desc->s, driver_caller(desc->port)) );
+            if ((err != ERRNO_BLOCK) && (err != EINTR)) {
 
-            /* XXX if(! INET_IGNORED(INETP(desc))) */
-            sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
-            set_busy_port(desc->port, 1);
-            /* XXX add_multi_timer(... desc->send_timeout, ...); */
-            inet_reply_caller_ref(desc);
-            return;
+                inet_reply_error(desc, err);
+                return;
+
+            } else if (IS_NON_BLOCK_SEND(desc)) {
+
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "packet_inet_command -> [sctp] block|intr when non-block send"
+                      "\r\n",
+                      __LINE__, desc->s, driver_caller(desc->port)) );
+
+                inet_reply_error(desc, err);
+                return;
+
+            } else {
+
+                DDBG(desc,
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR ",%T] "
+                      "packet_inet_command -> [sctp] block|intr send"
+                      "\r\n",
+                      __LINE__, desc->s, driver_caller(desc->port)) );
+
+                sock_select(desc, (FD_WRITE|FD_CLOSE), 1);
+                set_busy_port(desc->port, 1);
+                /* XXX add_multi_timer(... desc->send_timeout, ...); */
+                inet_reply_caller_ref(desc);
+                return;
+
+            }
         }
-    }
-    else {
+    } else {
         inet_reply_ok(desc);
         return;
     }
