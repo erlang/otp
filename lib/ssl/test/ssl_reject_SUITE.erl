@@ -194,7 +194,8 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {options, [{versions, Allversions}, 
-                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} | ServerOpts]}]),
+                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} |
+                                                   proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version
@@ -237,7 +238,8 @@ reject_prev(Config) when is_list(Config) ->
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
-					      {options,[{versions, [PrevVersion]} | ClientOpts]}]),
+					      {options,[{versions, [PrevVersion]} |
+                                                        proplists:delete(versions, ClientOpts)]}]),
     ssl_test_lib:check_client_alert(Server, Client, protocol_version).
 
 %%--------------------------------------------------------------------

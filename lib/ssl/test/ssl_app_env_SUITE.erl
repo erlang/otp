@@ -151,8 +151,8 @@ internal_active_1() ->
     [{doc,"Test internal active 1 (behave as internal active once)"}].
 
 internal_active_1(Config) when is_list(Config) ->
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = proplists:delete(versions, ssl_test_lib:ssl_options(client_rsa_opts, Config)),
+    ServerOpts = proplists:delete(versions, ssl_test_lib:ssl_options(server_rsa_opts, Config)),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
     
 %%--------------------------------------------------------------------
@@ -160,8 +160,8 @@ protocol_versions() ->
     [{doc,"Test to set a list of protocol versions in app environment."}].
 
 protocol_versions(Config) when is_list(Config) -> 
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = proplists:delete(versions, ssl_test_lib:ssl_options(client_rsa_opts, Config)),
+    ServerOpts = proplists:delete(versions, ssl_test_lib:ssl_options(server_rsa_opts, Config)),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
@@ -173,8 +173,8 @@ empty_protocol_versions(Config) when is_list(Config) ->
     VersionsR =  ssl:versions(),
     Supported = proplists:get_value(supported, VersionsR) ++
         proplists:get_value(supported_dtls, VersionsR),
-    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = proplists:delete(versions, ssl_test_lib:ssl_options(client_rsa_opts, Config)),
+    ServerOpts = proplists:delete(versions, ssl_test_lib:ssl_options(server_rsa_opts, Config)),
     case lists:member(Version, Supported) of
         true ->
             ssl_test_lib:basic_test([{versions, [Version]} | ClientOpts], ServerOpts, Config);
