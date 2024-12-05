@@ -68,6 +68,9 @@
 
 -include("kernel_test_lib.hrl").
 
+-define(DBG(F, A), dbg(F, A)).
+-define(DBG(F),    ?DBG(F, [])).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2739,7 +2742,7 @@ has_support_unix_domain_socket() ->
 
 %% This gets the local "proper" address
 %% (not {127, ...} or {169,254, ...} or {0, ...} or {16#fe80, ...})
-%% We should really implement this using the (new) net module,
+%% We should really implement this using the ("new") net module,
 %% but until that gets the necessary functionality...
 which_local_addr(Domain) ->
     case which_local_host_info(false, Domain) of
@@ -2771,8 +2774,13 @@ which_local_host_info(Domain) ->
 which_local_host_info(LinkLocal, Domain)
   when is_boolean(LinkLocal) andalso
        ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    ?DBG("~w -> entry with"
+         "~n   LinkLocal: ~p"
+         "~n   Domain:    ~p", [?FUNCTION_NAME, LinkLocal, Domain]),
     case inet:getifaddrs() of
         {ok, IFL} ->
+            ?DBG("~w -> "
+                 "~n   IFL: ~p", [?FUNCTION_NAME, IFL]),
             which_local_host_info(LinkLocal, Domain, IFL, []);
         {error, _} = ERROR ->
             ERROR
@@ -2825,17 +2833,29 @@ which_local_host_info(LinkLocal, Domain, [{"stf" ++ _, _}|IFL], Acc) ->
 which_local_host_info(LinkLocal, Domain, [{"XHCZ" ++ _, _}|IFL], Acc) ->
     which_local_host_info(LinkLocal, Domain, IFL, Acc);
 which_local_host_info(LinkLocal, Domain, [{Name, IFO}|IFL], Acc) ->
+    ?DBG("~w -> entry with"
+         "~n   LinkLocal: ~p"
+         "~n   Domain:    ~p"
+         "~n   Name:      ~p"
+         "~n   IFO:       ~p",
+         [?FUNCTION_NAME, LinkLocal, Domain, Name, IFO]),    
     case if_is_running_and_not_loopback(IFO) of
         true ->
+            ?DBG("~w -> running and not loopback", [?FUNCTION_NAME]),    
             try which_local_host_info2(LinkLocal, Domain, IFO) of
                 Info ->
+                    ?DBG("~w -> "
+                         "~n   Info: ~p", [?FUNCTION_NAME, Info]),
                     which_local_host_info(LinkLocal, Domain, IFL,
                                           [Info#{name => Name}|Acc])
             catch
                 throw:_E:_ ->
+                    ?DBG("~w -> catch"
+                         "~n   E: ~p", [?FUNCTION_NAME, _E]),
                     which_local_host_info(LinkLocal, Domain, IFL, Acc)
             end;
         false ->
+            ?DBG("~w -> not running or is loopback", [?FUNCTION_NAME]),    
             which_local_host_info(LinkLocal, Domain, IFL, Acc)
     end;
 which_local_host_info(LinkLocal, Domain, [_|IFL], Acc) ->
@@ -2851,6 +2871,8 @@ if_is_running_and_not_loopback(If) ->
 
 
 which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
+    ?DBG("~w(~w, ~w) -> entry with"
+         "~n   IFO: ~p", [?FUNCTION_NAME, LinkLocal, _Domain, IFO]),    
     Addr      = which_local_host_info3(
                   addr,  IFO,
                   fun({A, _, _, _}) when (A =:= 127) -> false;
@@ -2885,13 +2907,58 @@ which_local_host_info2(LinkLocal, inet = _Domain, IFO) ->
       broadaddr => BroadAddr,
       netmask   => NetMask};
 which_local_host_info2(LinkLocal, inet6 = _Domain, IFO) ->
+    ?DBG("~w(~w, ~w) -> entry with"
+         "~n   IFO: ~p", [?FUNCTION_NAME, LinkLocal, _Domain, IFO]),    
     Addr    = which_local_host_info3(addr,  IFO,
-                                     fun({A, _, _, _, _, _, _, _}) 
-                                           when (A =:= 0) -> false;
-                                        ({A, _, _, _, _, _, _, _})
-                                           when (A =:= 16#fe80) -> LinkLocal;
-                                        ({_, _, _, _, _, _, _, _}) -> not LinkLocal;
-                                        (_) -> false
+                                     fun({A, _, _, _, _, _, _, _} = _Address) 
+                                           when (A =:= 0) ->
+                                             ?DBG("~w:fun(1) -> no match: "
+                                                  "~n   Address: ~p",
+                                                  [?FUNCTION_NAME, _Address]),
+                                             false;
+                                        ({A, _, _, _, _, _, _, _} = _Address)
+                                           when (A =:= 16#fe80) ->
+                                             if
+                                                 LinkLocal ->
+                                                     ?DBG("~w:fun(2) -> "
+                                                          "link local address "
+                                                          "accepted: "
+                                                          "~n   ~p",
+                                                          [?FUNCTION_NAME,
+                                                           _Address]);
+                                                 true ->
+                                                     ?DBG("~w:fun(2) -> "
+                                                          "link local address "
+                                                          "rejected: "
+                                                          "~n   ~p",
+                                                          [?FUNCTION_NAME,
+                                                           _Address])
+                                             end,
+                                             LinkLocal;
+                                        ({_, _, _, _, _, _, _, _} = _Address) ->
+                                             if
+                                                 (not LinkLocal) ->
+                                                     ?DBG("~w:fun(3) -> "
+                                                          "'normal'"
+                                                          "local address "
+                                                          "accepted: "
+                                                          "~n   ~p",
+                                                          [?FUNCTION_NAME,
+                                                           _Address]);
+                                                 true ->
+                                                     ?DBG("~w:fun(3) -> "
+                                                          "'normal' address "
+                                                          "rejected: "
+                                                          "~n   ~p",
+                                                          [?FUNCTION_NAME,
+                                                           _Address])
+                                             end,
+                                             not LinkLocal;
+                                        (_Address) ->
+                                             ?DBG("~w:fun(4) -> no match: "
+                                                  "~n   Address: ~p",
+                                                  [?FUNCTION_NAME, _Address]),
+                                             false
                                      end),
     NetMask = which_local_host_info3(netmask,  IFO,
                                        fun({_, _, _, _, _, _, _, _}) -> true;
@@ -2903,15 +2970,22 @@ which_local_host_info2(LinkLocal, inet6 = _Domain, IFO) ->
       netmask => NetMask}.
 
 which_local_host_info3(_Key, [], _) ->
+    ?DBG("~w -> no address", [?FUNCTION_NAME]),    
     throw({error, no_address});
 which_local_host_info3(Key, [{Key, Val}|IFO], Check) ->
+    ?DBG("~w -> entry with"
+         "~n   Key: ~p"
+         "~n   Val: ~p", [?FUNCTION_NAME, Key, Val]),    
     case Check(Val) of
         true ->
+            ?DBG("~w -> validated", [?FUNCTION_NAME]),    
             Val;
         false ->
+            ?DBG("~w -> not validated", [?FUNCTION_NAME]),    
             which_local_host_info3(Key, IFO, Check)
     end;
 which_local_host_info3(Key, [_|IFO], Check) ->
+    ?DBG("~w -> key (~w) not found - continue", [?FUNCTION_NAME, Key]),    
     which_local_host_info3(Key, IFO, Check).
 
 
@@ -2957,4 +3031,17 @@ print(F) ->
     print(F, []).
 
 print(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [formated_timestamp(), self() | A]).
+    print("", F, A).
+
+print(Prefix, F, A) ->
+    io:format("~s[~s , ~p] " ++ F ++ "~n",
+              [Prefix, formated_timestamp(), self() | A]).
+
+dbg(F, A) ->
+    dbg(get(debug), F, A).
+
+dbg(true, F, A) ->
+    print("DEBUG", F, A);
+dbg(_, _, _) ->
+    ok.
+

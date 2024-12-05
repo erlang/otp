@@ -77,14 +77,14 @@
          t_simple_link_local_sockaddr_in6_send_recv/1,
 
          otp_18323_opts_processing/1,
-         otp_18323_open/1
+         otp_18323_open/1,
+         otp_19357_open_with_ipv6_option/1
 
 	]).
 
 -include_lib("kernel/src/inet_int.hrl").
+-include("kernel_test_lib.hrl").
 
--define(TRY_TC(F), try_tc(F)).
-               
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
@@ -152,7 +152,8 @@ all_cases() ->
      {group, socket_monitor},
      otp_17492,
      {group, sockaddr},
-     {group, otp18323}
+     {group, otp18323},
+     otp_19357_open_with_ipv6_option
     ].
 
 recv_and_send_opts_cases() ->
@@ -3230,6 +3231,65 @@ do_otp_18323_open(#{local_addr := Addr}) ->
 
     ?P("attempt to receive data on specified format binary)"),
     {ok, {_,_,<<"aaaaa">>}} = gen_udp:recv(R, 0, 200),
+
+    ?P("done"),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp_19357_open_with_ipv6_option(Config) when is_list(Config) ->
+    ct:timetrap(?MINS(1)),
+    Cond = fun() ->
+                   ?P("cond check: do we support socket"),
+                   case ?LIB:is_socket_supported() of
+                       true ->
+                           ?P("cond check: do we support ipv6"),
+                           ?LIB:has_support_ipv6();
+                       false ->
+                           ?SKIPT("SOCKET not supported")
+                   end
+           end,
+    Pre  = fun() ->
+                   {ok, Addr} = ?LIB:which_local_addr(inet6),
+                   #{local_addr => Addr}
+           end,
+    Case = fun(State) -> do_otp_19357_open_with_ipv6_option(State) end,
+    Post = fun(_) -> ok end,
+    ?TC_TRY(?FUNCTION_NAME, Cond, Pre, Case, Post).
+
+do_otp_19357_open_with_ipv6_option(#{local_addr := Addr}) ->
+    %% First without specifying the (bind) address:
+    TryOpen = fun(No, Opts) ->
+                      try gen_udp:open(0, Opts) of
+                          {ok, Sock} ->
+                              ?P("success ~w", [No]),
+                              (catch gen_udp:close(Sock));
+                          {error, Reason} ->
+                              ?P("FAILED open socket ~w: "
+                                 "~n   ~p", [No, Reason]),
+                              exit({Reason, No})
+                      catch
+                          C:E ->
+                              ?P("CATCHED open socket ~w: "
+                                 "~n   Error Class: ~p"
+                                 "~n   Error:       ~p"
+                                 "~n   ~p", [No, C, E]),
+                              exit({C, E, No, Opts})
+                      end
+              end,
+    ?P("try wo address (1)"),
+    TryOpen(1, [{inet_backend, socket},
+                binary,
+                inet6, {ipv6_v6only, true},
+                {reuseaddr, true}]),
+
+    ?P("try w address (2)"),
+    TryOpen(2, [{inet_backend, socket},
+                binary,
+                inet6, {ipv6_v6only, true},
+                {ip, Addr},
+                {reuseaddr, true}]),
 
     ?P("done"),
     ok.
