@@ -2003,6 +2003,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(default_send_params);             \
     GLOBAL_ATOM_DECL(delayed_ack_time);                \
     GLOBAL_ATOM_DECL(dgram);                           \
+    GLOBAL_ATOM_DECL(disabled);                        \
     GLOBAL_ATOM_DECL(disable_fragments);               \
     GLOBAL_ATOM_DECL(dlci);                            \
     GLOBAL_ATOM_DECL(dma);                             \
@@ -2021,6 +2022,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(eether);                          \
     GLOBAL_ATOM_DECL(efile);                           \
     GLOBAL_ATOM_DECL(egp);                             \
+    GLOBAL_ATOM_DECL(enabled);                         \
     GLOBAL_ATOM_DECL(enotsup);                         \
     GLOBAL_ATOM_DECL(eor);                             \
     GLOBAL_ATOM_DECL(error);                           \

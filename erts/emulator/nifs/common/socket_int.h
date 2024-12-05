@@ -281,6 +281,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(default_send_params);      \
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
+    GLOBAL_ATOM_DEF(disabled);                 \
     GLOBAL_ATOM_DEF(disable_fragments);        \
     GLOBAL_ATOM_DEF(dlci);                     \
     GLOBAL_ATOM_DEF(dma);                      \
@@ -299,6 +300,7 @@ typedef long ssize_t;
     GLOBAL_ATOM_DEF(eether);                   \
     GLOBAL_ATOM_DEF(efile);                    \
     GLOBAL_ATOM_DEF(egp);                      \
+    GLOBAL_ATOM_DEF(enabled);                  \
     GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
     GLOBAL_ATOM_DEF(error);                    \
