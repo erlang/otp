@@ -3519,7 +3519,7 @@ static int sctp_parse_async_event
 
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddr_change);
             PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
-	    i = load_inet_get_address(spec, i, desc, &sptr->spc_aaddr);
+	    i = load_inet_get_address(spec, i, desc, (struct sockaddr_storage *)&sptr->spc_aaddr);
             POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 
 	    switch (sptr->spc_state)
@@ -9608,7 +9608,7 @@ static int load_paddrinfo (ErlDrvTermData * spec, int i,
     i = LOAD_ATOM	(spec, i, am_sctp_paddrinfo);
     i = LOAD_ASSOC_ID	(spec, i, pai->spinfo_assoc_id);
     PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
-    i = load_inet_get_address(spec, i, desc, &pai->spinfo_address);
+    i = load_inet_get_address(spec, i, desc, (struct sockaddr_storage *)&pai->spinfo_address);
     POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
     switch(pai->spinfo_state)
     {
@@ -10224,7 +10224,7 @@ form_result:
 	    }
 	    i = LOAD_ASSOC_ID	(spec, i, sp.sspp_assoc_id);
             PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
-	    i = load_inet_get_address(spec, i, desc, &sp.sspp_addr);
+	    i = load_inet_get_address(spec, i, desc, (struct sockaddr_storage *)&sp.sspp_addr);
             POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = LOAD_TUPLE	(spec, i, 3);
 	    i = LOAD_TUPLE	(spec, i, 2);
@@ -10286,7 +10286,7 @@ form_result:
 	    i = LOAD_ATOM	(spec, i, am_sctp_paddrparams);
 	    i = LOAD_ASSOC_ID	(spec, i, ap.spp_assoc_id);
             PUSH_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
-	    i = load_inet_get_address(spec, i, desc, &ap.spp_address);
+	    i = load_inet_get_address(spec, i, desc, (struct sockaddr_storage *)&ap.spp_address);
             POP_SUPPRESS_ADDRESS_OF_PACKED_MEMBER();
 	    i = LOAD_INT	(spec, i, ap.spp_hbinterval);
 	    i = LOAD_INT	(spec, i, ap.spp_pathmaxrxt);
