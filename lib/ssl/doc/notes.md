@@ -21,6 +21,35 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.5
+
+### Fixed Bugs and Malfunctions
+
+- Avoid generating an internal alert for case that should have been an orderly shutdown by the supervisor.
+
+  Own Id: OTP-19311 Aux Id: [PR-8980]
+
+- If present, extended key-usage TLS (SSL) role check (`pk-clientAuth`, `pk-serverAuth`) should always be performed for peer-cert. An intermediate CA cert may relax the requirement if `AnyExtendedKeyUsage` purpose is present.
+  
+  In OTP-25.3.2.8, OTP-26.2 and OTP-27.0 these requirements became too relaxed. There where two problems, firstly the peer cert extension was only checked if it was marked critical, and secondly the CA cert check did not assert the relaxed `AnyExtendedKeyUsage` purpose.
+  
+  This could result in that certificates might be misused for purposes not intended by the certificate authority.
+  
+  Thanks to Bryan Paxton for reporting the issue.
+
+  Own Id: OTP-19352 Aux Id: [PR-9130], CVE-2024-53846, OTP-19240
+
+[PR-8980]: https://github.com/erlang/otp/pull/8980
+[PR-9130]: https://github.com/erlang/otp/pull/9130
+
+### Improvements and New Features
+
+- Back port certificate_authorities option for TLS-1.3 servers to pre TLS-1.3 servers to enable them to disable the sending of certificate authorities in their certificate request. This will have same affect as the the TLS-1.3 server option although it is handled by a different mechanism in these versions, where the functionality is described to be more of a guidance, although some pre TLS clients have proven to make it mandatory as in TLS-1.3 extension handling.
+
+  Own Id: OTP-19325 Aux Id: [PR-9001], ERIERL-1147
+
+[PR-9001]: https://github.com/erlang/otp/pull/9001
+
 ## SSL 11.2.4
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,22 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.16.4
+
+### Fixed Bugs and Malfunctions
+
+- If both `ext-key-usage` and `key-usage` are defined for a certificate it should be checked that these usages are consistent with each other. This will have the affect that such certificates where the `ext-key-usages` is marked as critical and the usages is consistent with the `key-use` it can be considered valid without mandatory application specific checks for the `ext-key-useage` extension.
+
+  Own Id: OTP-19240 Aux Id: [PR-8840], OTP-19532
+
+- Handle decoding of EDDSA key properly, when decoding a PEM file that contains only the public EDDSA key.
+
+  Own Id: OTP-19350 Aux Id: [GH-9009], [PR-9053]
+
+[PR-8840]: https://github.com/erlang/otp/pull/8840
+[GH-9009]: https://github.com/erlang/otp/issues/9009
+[PR-9053]: https://github.com/erlang/otp/pull/9053
+
 ## Public_Key 1.16.3
 
 ### Fixed Bugs and Malfunctions
