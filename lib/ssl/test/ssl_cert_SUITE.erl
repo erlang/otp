@@ -131,6 +131,8 @@
          signature_algorithms_bad_curve_secp521r1/1,
          server_certificate_authorities_disabled/0,
          server_certificate_authorities_disabled/1,
+         legacy_server_certificate_authorities_disabled/0,
+         legacy_server_certificate_authorities_disabled/1,
          cert_auth_in_first_ca/0,
          cert_auth_in_first_ca/1
          ]).
@@ -207,7 +209,8 @@ tls_1_3_tests() ->
 
 pre_tls_1_3_rsa_tests() ->
     [
-     key_auth_ext_sign_only
+     key_auth_ext_sign_only,
+     legacy_server_certificate_authorities_disabled
     ].
 
 rsa_tests() ->
@@ -1404,6 +1407,19 @@ server_certificate_authorities_disabled(Config) ->
                   {verify_fun, FunAndState} | ServerOpts0],
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required),
     ssl_test_lib:basic_test(ClientOpts, [{certificate_authorities, false} | ServerOpts], Config).
+
+%%--------------------------------------------------------------------
+legacy_server_certificate_authorities_disabled() ->
+     [{doc,"Test that code pre TLS-1.3 can send an empty list for certificate authorities in the certificate request"
+       "will be run and not fail, black box verification is not possible without strict legacy client, but code coverage will show that right thing happens"}].
+
+legacy_server_certificate_authorities_disabled(Config) ->
+    Version = proplists:get_value(version,Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+    ssl_test_lib:basic_test([{versions, [Version]} | ClientOpts], [{versions, [Version]}, {verify, verify_peer},
+                                                                  {fail_if_no_peer_cert, true},
+                                                                  {certificate_authorities, false} | ServerOpts], Config).
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
