@@ -269,6 +269,14 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.8
+
+### Fixed Bugs and Malfunctions
+
+* With this change, ssh connection does not crash upon receiving exit-signal message for an already terminated channel.
+
+  Own Id: OTP-19326 Aux Id: PR-8995, GH-8929
+
 ## Ssh 4.15.3.7
 
 ### Fixed Bugs and Malfunctions

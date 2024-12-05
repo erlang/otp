@@ -1520,6 +1520,14 @@ This document describes the changes made to the ERTS application.
 
   Own Id: OTP-18574
 
+## Erts 13.2.2.12
+
+### Fixed Bugs and Malfunctions
+
+* Fix lock order violation if a NIF monitor `down` callback calls `enif_whereis_pid`. Would cause debug emulator to crash but could potentially lead to deadlocks in optimized emulator.
+
+  Own Id: OTP-19330 Aux Id: GH-8983, PR-9008
+
 ## Erts 13.2.2.11
 
 ### Fixed Bugs and Malfunctions
