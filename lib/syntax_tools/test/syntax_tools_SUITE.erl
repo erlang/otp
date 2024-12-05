@@ -28,7 +28,8 @@
          wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
-         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
+         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
+         test_maybe_match_expr_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -402,6 +403,17 @@ test_named_fun_bind_ann(Config) when is_list(Config) ->
     {'env',[Name]} = CEnv,
     {'bound',['Test']} = CBound,
     {'free', []} = CFree.
+
+test_maybe_match_expr_ann(Config) when is_list(Config) ->
+    MaybeMatch = erl_syntax:maybe_match_expr(
+                    erl_syntax:atom(ok),
+                    erl_syntax:variable('Test')),
+    Maybe = erl_syntax:maybe_expr([MaybeMatch]),
+    AnnT = erl_syntax_lib:annotate_bindings(Maybe, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(AnnT),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',[]} = Free.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
