@@ -272,6 +272,14 @@ limitations under the License.
 
   Own Id: OTP-18478 Aux Id: GH-6903
 
+## Common_Test 1.24.0.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change, cth_surefire hook module handles group path reduction for a skipped group. This fixes a bug manifesting with improper group path for a group executed after a group which was skipped.
+
+  Own Id: OTP-19365 Aux Id: ERIERL-1157, PR-9080
+
 ## Common_Test 1.24.0.4
 
 ### Fixed Bugs and Malfunctions

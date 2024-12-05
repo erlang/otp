@@ -1140,6 +1140,14 @@ This document describes the changes made to the STDLIB application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## STDLIB 4.3.1.6
+
+### Fixed Bugs and Malfunctions
+
+* Fixed an error in uri_string:percent_decode spec
+
+  Own Id: OTP-19380 Aux Id: GH-8755
+
 ## STDLIB 4.3.1.5
 
 ### Fixed Bugs and Malfunctions

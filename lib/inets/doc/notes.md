@@ -233,6 +233,14 @@ limitations under the License.
 
   Own Id: OTP-18544 Aux Id: GH-5276
 
+## Inets 8.3.1.5
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where calling httpc:set_options/2 when one of keys: *ipfamily* or *unix_socket*, was not present, would cause the other value to get overriden by the default value. The validation of these options was also improved.
+
+  Own Id: OTP-19379 Aux Id: PR-8878, GH-8829
+
 ## Inets 8.3.1.4
 
 ### Fixed Bugs and Malfunctions
