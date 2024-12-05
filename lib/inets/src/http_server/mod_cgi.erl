@@ -212,7 +212,7 @@ deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
 		{ok, HTTPHeaders, Status} when is_binary(Body)->
 		    IsDisableChunkedSend = 
 			httpd_response:is_disable_chunked_send(Db),
-		    case (ModData#mod.http_version =/= "HTTP/1.1") or 
+		    case (ModData#mod.http_version =/= "HTTP/1.1") orelse
 			(IsDisableChunkedSend) of
 			true ->
 			    send_headers(ModData, Status, 
