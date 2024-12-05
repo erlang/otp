@@ -846,6 +846,20 @@ Common certificate related options to both client and server.
 
     The chain consisted only of one self-signed certificate.
 
+  - **{invalid_ext_keyusage, [public_key:oid()]} **
+
+   If the peer certificate specifies the extended keyusage extension and does
+   not include the purpose for either being a TLS server (id-kp-ServerAuth) or
+   TLS client (id-kp-ClientAuth) depending on the peers role.
+
+  - **{ca_invalid_ext_keyusage, [public_key:oid()]} **
+
+   If a CA certificate specifies the extended keyusage extension and does
+   not include the purpose for either being a TLS server
+   (id-kp-ServerAuth) or TLS client (id-kp-ClientAuth) depending
+   on the role of the peer chained with this CA, or the option allow_any_ca_purpose is set to `true`
+   but the special any-value (anyExtendedKeyUsage) is not included in the CA cert purposes.
+
   - **`PKIX X-509-path validation error`**
 
     For possible reasons, see `public_key:pkix_path_validation/3`.
@@ -855,6 +869,13 @@ Common certificate related options to both client and server.
   Configure X.509 certificate policy handling for the certificate path validation process;
   see [public_key:pkix_path_validation/3](`public_key:pkix_path_validation/3`) for
   more details.
+
+- **`{allow_any_ca_purpose, boolean()}`** - Handle certificate extended key usages extension
+
+  If a CA certificate has an extended key usage extension but it does not want to
+  restrict the usages of the key it can include a special `anyExtendedKeyUsage` purpose.
+  If this is option is set to `true` all key usage purposes is automatically
+  accepted for a CA that include that purpose, the options default to false.
 
 - **`{cerl_check, Check}`**  - Handle certificate revocation lists.
 
@@ -891,6 +912,7 @@ Common certificate related options to both client and server.
                                                               {explicit_policy, boolean()} |
                                                               {inhibit_policy_mapping, boolean()} |
                                                               {inhibit_any_policy, boolean()}]} |
+                              {allow_any_ca_purpose, Allow::boolean()} |
                               {crl_check, Check::boolean() | peer | best_effort} |
                               {crl_cache, crl_cache_opts()} |
                               {partial_chain, anchor_fun()}.
@@ -3760,6 +3782,7 @@ ssl_options() ->
      use_srtp,
      user_lookup_fun,
      verify, verify_fun, cert_policy_opts,
+     allow_any_ca_purpose,
      versions
     ].
 
@@ -3928,7 +3951,7 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
 
     Opts3 = set_opt_int(depth, 0, 255, ?DEFAULT_DEPTH, UserOpts, Opts2),
 
-    Opts = case Role of
+    Opts4 = case Role of
                client ->
                    opt_verify_fun(UserOpts, Opts3#{partial_chain => PartialChain},
                                   Env);
@@ -3937,7 +3960,8 @@ opt_verification(UserOpts, Opts0, #{role := Role} = Env) ->
                                                    fail_if_no_peer_cert => FailNoPeerCert},
                                   Env)
            end,
-    opt_policies(UserOpts, Opts).
+    Opts = opt_policies(UserOpts, Opts4),
+    opt_extend_keyusage(UserOpts, Opts).
 
 default_verify(client) ->
     %% Server authenication is by default requiered
@@ -4000,6 +4024,16 @@ opt_policies(UserOpts, Opts) ->
         {_, POpts} ->
             validate_policy_opts(POpts),
             Opts#{cert_policy_opts => POpts}
+    end.
+
+opt_extend_keyusage(UserOpts, Opts) ->
+    case get_opt_bool(allow_any_ca_purpose, false, UserOpts, Opts) of
+        {default, Value} ->
+            Opts#{allow_any_ca_purpose => Value};
+        {old, _OldValue} ->
+            Opts;
+        {new, NewValue} ->
+            Opts#{allow_any_ca_purpose => NewValue}
     end.
 
 validate_policy_opts([]) ->
