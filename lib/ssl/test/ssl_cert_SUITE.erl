@@ -93,6 +93,16 @@
          extended_key_usage_auth/1,
          extended_key_usage_client_auth/0,
          extended_key_usage_client_auth/1,
+         extended_key_usage_mixup_client/0,
+         extended_key_usage_mixup_client/1,
+         extended_key_usage_mixup_server/0,
+         extended_key_usage_mixup_server/1,
+         extended_key_usage_ca/0,
+         extended_key_usage_ca/1,
+         extended_key_usage_ca_invalid/0,
+         extended_key_usage_ca_invalid/1,
+         extended_key_usage_ca_any/0,
+         extended_key_usage_ca_any/1,
          cert_expired/0,
          cert_expired/1,
          no_auth_key_identifier_ext/0,
@@ -259,6 +269,11 @@ all_version_tests() ->
      critical_extension_no_auth,
      extended_key_usage_auth,
      extended_key_usage_client_auth,
+     extended_key_usage_mixup_client,
+     extended_key_usage_mixup_server,
+     extended_key_usage_ca,
+     extended_key_usage_ca_invalid,
+     extended_key_usage_ca_any,
      cert_expired,
      no_auth_key_identifier_ext,
      no_auth_key_identifier_ext_keyEncipherment
@@ -873,33 +888,14 @@ extended_key_usage_auth(Config) when is_list(Config) ->
     DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(proplists:get_value(name, Prop)),
     Ext = x509_test:extensions([{?'id-ce-extKeyUsage',
                                  [?'id-kp-serverAuth'], true}]),
-    #{client_config := ClientOpts0,
-      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
-                                                                        [{server_chain, 
-                                                                          [[],[], [{extensions, Ext}]]},
-                                                                         {client_chain, DefaultCertConf}
-                                                                        ]),
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
-    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
-
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Version = proplists:get_value(version, Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
-			   {options, no_reuse(ssl_test_lib:n_version(Version)) ++ [{verify, verify_none} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{verify, verify_peer} |
-						   ClientOpts]}]),
-    
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{server_chain,
+                                            [[],[], [{extensions, Ext}]]},
+                                           {client_chain, DefaultCertConf}
+                                          ]),
+    positive_extended_keyusage(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 extended_key_usage_client_auth() ->
@@ -910,30 +906,134 @@ extended_key_usage_client_auth(Config) when is_list(Config) ->
                                        [?'id-kp-serverAuth'], true}]),
     ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
                                        [?'id-kp-clientAuth'], true}]),
-    #{client_config := ClientOpts0,
-      server_config := ServerOpts0} = ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
-                                                                        [{client_chain, [[],[],[{extensions, ClientExt}]]},
-                                                                         {server_chain, [[],[],[{extensions, ServerExt}]]}]),
-    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
-    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
-   
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Version = proplists:get_value(version, Config),
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					{from, self()},
-                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options, no_reuse(ssl_test_lib:n_version(Version)) ++ [{verify, verify_peer} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-			   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{verify, verify_peer} | ClientOpts]}]),
-    
-    ssl_test_lib:check_result(Server, ok, Client, ok),
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[],[{extensions, ClientExt}]]},
+                                           {server_chain, [[],[],[{extensions, ServerExt}]]}]),
 
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    positive_extended_keyusage(ClientOpts, ServerOpts, Config).
+   
+%%--------------------------------------------------------------------
+extended_key_usage_mixup_server() ->
+    [{doc,"Test cert extended_key_usage extension is always verified by having server use client extension"}].
+
+extended_key_usage_mixup_server(Config) when is_list(Config) ->
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], false}]),
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[],[{extensions, ClientExt}]]},
+                                           {server_chain, [[],[],[{extensions, ClientExt}]]}]),
+
+    ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                      [{client_chain, [[],[],[{extensions, ClientExt}]]},
+                                       {server_chain, [[],[],[{extensions, ClientExt}]]}]),
+    
+
+    negative_extended_keyusage(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+
+extended_key_usage_mixup_client() ->
+    [{doc,"Test cert extended_key_usage extension is always verified by having client use server extension"}].
+
+extended_key_usage_mixup_client(Config) when is_list(Config) ->
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], false}]),
+
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[],[{extensions, ServerExt}]]},
+                                           {server_chain, [[],[],[{extensions, ServerExt}]]}]),
+    negative_extended_keyusage(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+extended_key_usage_ca() ->
+    [{doc,"Test extended key usage in CA cert"}].
+
+extended_key_usage_ca(Config) when is_list(Config) ->
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], true}]),
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], true}]),
+    CAExt = x509_test:extensions([{?'id-ce-keyUsage',
+                                   [keyCertSign, digitalSignature], true}]),
+    
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[{extensions, CAExt ++ ClientExt}],
+                                                           [{extensions, ClientExt}]]},
+                                           {server_chain, [[],[{extensions, CAExt ++ ServerExt}],
+                                                           [{extensions, ServerExt}]]}]),
+
+
+    positive_extended_keyusage(ClientOpts0, ServerOpts0, Config),
+
+    CAExt1 =  x509_test:extensions([{?'id-ce-extKeyUsage',
+                                    [?'id-kp-OCSPSigning', ?'id-kp-serverAuth'], true}]),
+
+    #{client_config := ClientOpts1,
+      server_config := ServerOpts1} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[{extensions, CAExt ++ ClientExt}],
+                                                           [{extensions, ClientExt}]]},
+                                           {server_chain, [[],[{extensions, CAExt ++ CAExt1}],
+                                                           [{extensions, ServerExt}]]}]),
+
+    positive_extended_keyusage(ClientOpts1, ServerOpts1, Config).
+
+%%--------------------------------------------------------------------
+extended_key_usage_ca_invalid() ->
+    [{doc,"Test extended key usage in CA cert that will not validate"}].
+
+extended_key_usage_ca_invalid(Config) when is_list(Config) ->
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], true}]),
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], true}]),
+    CAExt =  x509_test:extensions([{?'id-ce-keyUsage', [keyCertSign, cRLSign], false},
+                                   {?'id-ce-extKeyUsage',
+                                    [?'id-kp-OCSPSigning'], true}]),
+
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[{extensions, ClientExt}],
+                                                           [{extensions, ClientExt}]]},
+                                           {server_chain, [[],[{extensions, CAExt ++ ServerExt}],
+                                                           [{extensions, ServerExt}]]}]),
+
+    negative_extended_keyusage(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+
+extended_key_usage_ca_any() ->
+    [{doc,"Test extended key usage in CA cert"}].
+
+extended_key_usage_ca_any(Config) when is_list(Config) ->
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], true}]),
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], true}]),
+    CAExt =  x509_test:extensions([{?'id-ce-extKeyUsage',
+                                    [?anyExtendedKeyUsage, ?'id-kp-OCSPSigning'], false}]),
+
+    #{client_config := ClientOpts,
+      server_config := ServerOpts} =
+        ssl_test_lib:make_cert_chains_der(proplists:get_value(cert_key_alg, Config),
+                                          [{client_chain, [[],[],
+                                                           [{extensions, ClientExt}]]},
+                                           {server_chain, [[],[{extensions, CAExt}],
+                                                           [{extensions, ServerExt}]]}]),
+
+    positive_extended_keyusage([{allow_any_ca_purpose, true} | ClientOpts],
+                               ServerOpts, Config),
+
+    negative_extended_keyusage(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
 cert_expired() ->
@@ -1442,3 +1542,48 @@ chain_and_root(Config) ->
     {ok, Root, Chain} = ssl_certificate:certificate_chain(OwnCert, ets:new(foo, []), ExtractedCAs, [], encoded),
     {Chain, Root}.
 
+
+positive_extended_keyusage(ClientOpts0, ServerOpts0, Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, no_reuse(ssl_test_lib:n_version(Version)) ++
+                                             [{verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+					{options, [{verify, verify_peer} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+negative_extended_keyusage(ClientOpts0, ServerOpts0, Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(extra_client, ClientOpts0, Config),
+    ServerOpts = ssl_test_lib:ssl_options(extra_server, ServerOpts0, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = proplists:get_value(version, Config),
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                              {from, self()},
+                                              {mfa, {ssl_test_lib, no_result, []}},
+                                              {options, [{verify, verify_peer},
+                                                         {fail_if_no_peer_cert, true}] ++
+                                                   no_reuse(ssl_test_lib:n_version(Version)) ++ ServerOpts
+                                              }]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()},
+                                              {mfa, {ssl_test_lib, no_result, []}},
+                                              {options, [{verify, verify_peer} | ClientOpts]}]),
+
+    ssl_test_lib:check_server_alert(Server, Client, unsupported_certificate).

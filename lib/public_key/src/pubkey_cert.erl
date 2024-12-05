@@ -2108,7 +2108,7 @@ extensions(Role, Type, Opts) ->
 
 add_default_extensions(_, ca, Exts) ->
     Default = [#'Extension'{extnID = ?'id-ce-keyUsage',
-                            extnValue = [keyCertSign, cRLSign],
+                            extnValue = [keyCertSign, digitalSignature, cRLSign],
                             critical = false},
                #'Extension'{extnID = ?'id-ce-basicConstraints',
                             extnValue = #'BasicConstraints'{cA = true},
