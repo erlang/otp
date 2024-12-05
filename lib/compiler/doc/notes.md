@@ -21,6 +21,23 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5.3
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the destructive tuple update optimization could be applied when it was unsafe.
+
+  Own Id: OTP-19340 Aux Id: [GH-9014], [PR-9024]
+
+- In rare circumstances involving appending to multiple binaries, the compile could emit unsafe code that would crash the runtime system.
+
+  Own Id: OTP-19374 Aux Id: [GH-9100], [PR-9111]
+
+[GH-9014]: https://github.com/erlang/otp/issues/9014
+[PR-9024]: https://github.com/erlang/otp/pull/9024
+[GH-9100]: https://github.com/erlang/otp/issues/9100
+[PR-9111]: https://github.com/erlang/otp/pull/9111
+
 ## Compiler 8.5.2
 
 ### Fixed Bugs and Malfunctions
