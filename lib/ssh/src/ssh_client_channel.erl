@@ -486,14 +486,12 @@ handle_info({ssh_cm, ConnectionManager, {closed, ChannelId}},
     (catch ssh_connection:close(ConnectionManager, ChannelId)),
     {stop, normal, State#state{close_sent = true}};
 
-handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module, 
-                                         channel_state = ChannelState0} = State) ->
+handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module,
+			channel_state = ChannelState0} = State) ->
     try Module:handle_ssh_msg(Msg, ChannelState0) of
 	{ok, ChannelState} ->
-	    adjust_window(Msg),
 	    {noreply, State#state{channel_state = ChannelState}};
 	{ok, ChannelState, Timeout} ->
-	    adjust_window(Msg),
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
 	{stop, ChannelId, ChannelState} ->
             do_the_close(Msg, ChannelId, State#state{channel_state = ChannelState})
@@ -615,13 +613,6 @@ handle_cb_result({stop, Reason, Reply, ChannelState}, State) ->
     {stop, Reason, Reply,  State#state{channel_state = ChannelState}};
 handle_cb_result({stop, Reason, ChannelState}, State) ->
     {stop, Reason, State#state{channel_state = ChannelState}}.
-
-adjust_window({ssh_cm, ConnectionManager,
-	       {data, ChannelId, _, Data}}) ->
-    ssh_connection:adjust_window(ConnectionManager, ChannelId, byte_size(Data));
-adjust_window(_) ->
-    ok.
-    
 
 %%%################################################################
 %%%#
