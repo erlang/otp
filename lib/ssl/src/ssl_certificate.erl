@@ -202,25 +202,42 @@ file_to_crls(File, DbHandle) ->
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
-validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-                                    critical = Critical,
-				    extnValue = KeyUse}}, #{path_len := 1} = UserState,
-        _LogLevel) ->
-    %% If extension in peer, check for TLS server/client usage
-    case is_valid_extkey_usage(KeyUse, Critical, UserState) of
-	true ->
-	    {valid, UserState};
-	false ->
-	    {unknown, UserState}
+validate(_, {extension, #'Extension'{extnID = ?'id-ce-extKeyUsage'} = Ext}, #{path_len := 1} = UserState, _) ->
+    case verify_extkeyusage(Ext, UserState) of
+        valid ->
+            {valid, UserState};
+        KeyUses ->
+            {fail, {bad_cert, {invalid_ext_keyusage, KeyUses}}}
     end;
-validate(_, {extension, _}, UserState, _LogLevel) ->
+validate(_, {extension, #'Extension'{extnID = ?'id-ce-extKeyUsage'} = Ext}, UserState, _) ->
+     case verify_extkeyusage(Ext, UserState) of
+         valid ->
+             {valid, UserState};
+         KeyUses ->
+             {fail, {bad_cert, {ca_invalid_ext_keyusage, KeyUses}}}
+     end;
+validate(_, {extension, _}, UserState, _) ->
     {unknown, UserState};
-validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}, _LogLevel) ->
+validate(Issuer, {bad_cert, cert_expired}, #{issuer := Issuer}, _) ->
     {fail, {bad_cert, root_cert_expired}};
-validate(_, {bad_cert, _} = Reason, _, _LogLevel) ->
+validate(_, {bad_cert, _} = Reason, _, _) ->
     {fail, Reason};
-validate(Cert, valid, #{path_len := N} = UserState, LogLevel) ->
-    case verify_sign_support(Cert, UserState) of
+validate(Cert, valid, UserState, LogLevel) ->
+    common_cert_validation(Cert, UserState, LogLevel);
+validate(Cert, valid_peer, UserState0 = #{role := client, server_name := Hostname,
+                                          customize_hostname_check := Customize},
+         LogLevel) when Hostname =/= disable ->
+    case verify_hostname(Hostname, Customize, Cert, UserState0) of
+        {valid, UserState} ->
+            common_cert_validation(Cert, UserState, LogLevel);
+        Error ->
+            Error
+    end;
+validate(Cert, valid_peer,  UserState, LogLevel) ->
+    common_cert_validation(Cert, UserState, LogLevel).
+
+common_cert_validation(Cert, #{path_len := N} = UserState, LogLevel) ->
+     case verify_sign_support(Cert, UserState) of
         true ->
             case maps:get(cert_ext, UserState, undefined) of
                 undefined ->
@@ -231,19 +248,7 @@ validate(Cert, valid, #{path_len := N} = UserState, LogLevel) ->
             end;
         false ->
             {fail, {bad_cert, unsupported_signature}}
-    end;
-validate(Cert, valid_peer, UserState = #{role := client, server_name := Hostname, 
-                                         customize_hostname_check := Customize},
-         LogLevel) when Hostname =/= disable ->
-    case verify_hostname(Hostname, Customize, Cert, UserState) of
-        {valid, UserState} ->
-            validate(Cert, valid, UserState, LogLevel);
-        Error ->
-            Error
-    end;
-validate(Cert, valid_peer, UserState, LogLevel) ->
-    validate(Cert, valid, UserState, LogLevel).
-
+    end.
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
 %%
@@ -500,19 +505,34 @@ do_find_issuer(IssuerFun, CertDbHandle, CertDb) ->
 	    Return
     end.
 
-is_valid_extkey_usage(KeyUse, true, #{role := Role}) when is_list(KeyUse) ->
-    is_valid_key_usage(KeyUse, ext_keysage(Role));
-is_valid_extkey_usage(KeyUse, true, #{role := Role}) ->
-    is_valid_key_usage([KeyUse], ext_keysage(Role));
-is_valid_extkey_usage(_, false, _) ->
-    false.
+verify_extkeyusage( #'Extension'{extnValue = KeyUses}, UserState)->
+    case is_valid_extkey_usage(KeyUses, UserState) of
+        true ->
+            valid;
+        false ->
+            KeyUses
+    end.
 
-ext_keysage(client) ->
+is_valid_extkey_usage(KeyUses, #{path_len := PathNum,
+                                 role := Role,
+                                 allow_any_ca_purpose := Allow}) ->
+    case PathNum of
+        1 -> %% Peer Cert
+            is_valid_key_usage(KeyUses, ext_keyusage(Role));
+        _ -> %% CA cert
+            is_valid_key_usage(KeyUses, ext_keyusage(Role))
+                orelse (Allow andalso ext_keyusage_includes_any(KeyUses))
+    end.
+
+ext_keyusage(client) ->
     %% Client wants to verify server
     ?'id-kp-serverAuth';
-ext_keysage(server) ->
+ext_keyusage(server) ->
     %% Server wants to verify client
     ?'id-kp-clientAuth'.
+
+ext_keyusage_includes_any(KeyUse) ->
+    lists:member(?anyExtendedKeyUsage, KeyUse).
 
 verify_cert_signer(BinCert, SignerTBSCert) ->
     PublicKey = public_key(SignerTBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo),
