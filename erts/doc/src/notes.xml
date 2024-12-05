@@ -31,6 +31,35 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix lock order violation if a NIF monitor <c>down</c>
+	    callback calls <c>enif_whereis_pid</c>. Would cause debug
+	    emulator to crash but could potentially lead to deadlocks
+	    in optimized emulator.</p>
+          <p>
+	    Own Id: OTP-19330 Aux Id: GH-8983, PR-9008 </p>
+        </item>
+        <item>
+	    <p>gen_udp:send on domain local can leak inet_reply
+	    messages.</p>
+          <p>
+	    Own Id: OTP-19332 Aux Id: #8989 </p>
+        </item>
+        <item>
+	    <p>net:getifaddrs does not properly report the running
+	    flag on windows.</p>
+          <p>
+	    Own Id: OTP-19366 Aux Id: OTP-19061, ERIERL-1134 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

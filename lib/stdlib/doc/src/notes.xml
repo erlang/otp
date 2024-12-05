@@ -31,6 +31,20 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 5.2.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed an error in uri_string:percent_decode spec</p>
+          <p>
+	    Own Id: OTP-19380 Aux Id: GH-8755 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 5.2.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
