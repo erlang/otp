@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.1.3
+
+### Fixed Bugs and Malfunctions
+
+- gen_udp:send on domain local can leak inet_reply messages.
+
+  Own Id: OTP-19332 Aux Id: [#8989]
+
+- net:getifaddrs does not properly report the running flag on windows.
+
+  Own Id: OTP-19366 Aux Id: OTP-19061, ERIERL-1134
+
+[#8989]: https://github.com/erlang/otp/issues/8989
+
 ## Erts 15.1.2
 
 ### Fixed Bugs and Malfunctions

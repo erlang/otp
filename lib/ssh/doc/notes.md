@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.4
+
+### Fixed Bugs and Malfunctions
+
+- With this change, ssh connection does not crash upon receiving exit-signal message for an already terminated channel.
+
+  Own Id: OTP-19326 Aux Id: [PR-8995], [GH-8929]
+
+[PR-8995]: https://github.com/erlang/otp/pull/8995
+[GH-8929]: https://github.com/erlang/otp/issues/8929
+
 ## Ssh 5.2.3
 
 ### Fixed Bugs and Malfunctions

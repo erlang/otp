@@ -21,6 +21,28 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.1.2
+
+### Fixed Bugs and Malfunctions
+
+- On windows the socket:recv could return with success ({ok, Data}) even though not all data had been read.
+
+  Own Id: OTP-19328
+
+- gen_udp:send on domain local can leak inet_reply messages.
+
+  Own Id: OTP-19332 Aux Id: [#8989]
+
+- Failure to create an UDP IPv6 socket when inet_backend = socket with certain IPv6 socket options.
+
+  Own Id: OTP-19357
+
+- net:getifaddrs does not properly report the running flag on windows.
+
+  Own Id: OTP-19366 Aux Id: OTP-19061, ERIERL-1134
+
+[#8989]: https://github.com/erlang/otp/issues/8989
+
 ## Kernel 10.1.1
 
 ### Fixed Bugs and Malfunctions
