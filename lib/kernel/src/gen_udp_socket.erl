@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -218,16 +218,28 @@ do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
     %% ?DBG(['try start server', {socket, SocketOpts}, {start, StartOpts}]),
     case start_server(Mod, Domain, start_opts(StartOpts), ExtraOpts) of
         {ok, Server} ->
-            {SetOpts0, _} = setopts_split(#{socket       => [],
-                                            server_read  => [],
-                                            server_write => []},
-                                          OpenOpts),
+            {PreBindSetOpts, OpenOpts2} = setopts_split(pre_bind, OpenOpts),
+            %% ?DBG([{pre_bind_open_opts, PreBindSetOpts},
+            %%       {open_opts_2, OpenOpts2}]),
+
+            {SetOpts0, _DroppedOpts} =
+                setopts_split(#{socket       => [],
+                                server_read  => [],
+                                server_write => []},
+                              OpenOpts2),
+            %% ?DBG([{set_opts_0, SetOpts0}, {dropped_opts, _DroppedOpts}]),
             SetOpts =
                 default_active_true(
                   [{start_opts, StartOpts}] ++ SocketOpts ++ SetOpts0),
+            %% ?DBG([{set_opts, SetOpts}]),
 
             ErrRef = make_ref(),
             try
+                %% Set pre-bind opts
+                %% ?DBG(['maybe pre bind setopts']),
+                PreBindSetOpts =/= [] andalso
+                    ok(ErrRef, call(Server, {setopts, PreBindSetOpts})),
+
                 %% ?DBG(['maybe try bind', {bind_addr, BindAddr}]),
                 ok(ErrRef, call_bind(Server,
                                      default_any(Domain, ExtraOpts, BindAddr))),
@@ -1018,8 +1030,9 @@ getopt_categories(Opt) ->
 %% setopt and getopt category
 opt_categories(Tag) when is_atom(Tag) ->
     case Tag of
-        sys_debug -> #{start => []};
-        debug     -> #{socket => [], start => []};
+        sys_debug   -> #{start => []};
+        debug       -> #{socket => [], start    => []};
+        ipv6_v6only -> #{socket => [], pre_bind => []};
 
         %% Some options may trigger us to choose recvmsg (instead of recvfrom)
         %% Or trigger us to choose recvfrom *if* was previously selected
@@ -1123,7 +1136,7 @@ socket_opt() ->
       %%
       %% Level: ipv6
       recvtclass  => {ipv6, recvtclass},
-      ipv6_v6only => {ipv6, v6only},
+      ipv6_v6only => {ipv6, v6only}, % pre_bind
       tclass      => {ipv6, tclass},
 
       %%
