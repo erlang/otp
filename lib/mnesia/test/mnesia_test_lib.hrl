@@ -116,6 +116,7 @@
 	mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
 					   delete_schema,
 					   create_schema,
+					   start_ext_test_server,
 					   {start_appls, [mnesia]}],
 					  N, Config, ?FILE, ?LINE)).
 
@@ -151,4 +152,4 @@
 -define(verify_mnesia(Ups, Downs),
 	mnesia_test_lib:verify_mnesia(Ups, Downs, ?FILE, ?LINE)).
 
--define(BACKEND, [{backend_types, [{ext_ets, ext_test},{ext_dets, ext_test}]}]).
+-define(BACKEND, [{backend_types, [{ext_ram_copies, ext_test}, {ext_disc_only_copies, ext_test}]}]).
