@@ -92,6 +92,14 @@ limitations under the License.
 [PR-8029]: https://github.com/erlang/otp/pull/8029
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Inets 9.1.0.2
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a bug where calling httpc:set_options/2 when one of keys: *ipfamily* or *unix_socket*, was not present, would cause the other value to get overriden by the default value. The validation of these options was also improved.
+
+  Own Id: OTP-19379 Aux Id: PR-8878, GH-8829
+
 ## Inets 9.1.0.1
 
 ### Fixed Bugs and Malfunctions

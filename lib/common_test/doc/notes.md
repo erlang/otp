@@ -122,6 +122,14 @@ limitations under the License.
 [GH-7972]: https://github.com/erlang/otp/issues/7972
 [PR-8112]: https://github.com/erlang/otp/pull/8112
 
+## Common_Test 1.26.2.3
+
+### Fixed Bugs and Malfunctions
+
+* With this change, cth_surefire hook module handles group path reduction for a skipped group. This fixes a bug manifesting with improper group path for a group executed after a group which was skipped.
+
+  Own Id: OTP-19365 Aux Id: ERIERL-1157, PR-9080
+
 ## Common_Test 1.26.2.2
 
 ### Improvements and New Features

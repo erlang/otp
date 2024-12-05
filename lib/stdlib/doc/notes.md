@@ -521,6 +521,14 @@ This document describes the changes made to the STDLIB application.
 [PR-8205]: https://github.com/erlang/otp/pull/8205
 [PR-8111]: https://github.com/erlang/otp/pull/8111
 
+## STDLIB 5.2.3.3
+
+### Fixed Bugs and Malfunctions
+
+* Fixed an error in uri_string:percent_decode spec
+
+  Own Id: OTP-19380 Aux Id: GH-8755
+
 ## STDLIB 5.2.3.2
 
 ### Fixed Bugs and Malfunctions

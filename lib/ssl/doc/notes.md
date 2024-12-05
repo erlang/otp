@@ -207,6 +207,20 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.6
+
+### Fixed Bugs and Malfunctions
+
+* If present, extended key-usage TLS (SSL) role check (`pk-clientAuth`, `pk-serverAuth`) should always be performed for peer-cert. An intermediate CA cert may relax the requirement if `AnyExtendedKeyUsage` purpose is present.
+
+  In OTP-25.3.2.8, OTP-26.2 and OTP-27.0 these requirements became too relaxed. There where two problems, firstly the peer cert extension was only checked if it was marked critical, and secondly the CA cert check did not assert the relaxed `AnyExtendedKeyUsage` purpose.
+
+  This could result in that certificates might be misused for purposes not intended by the certificate authority.
+
+  Thanks to Bryan Paxton for reporting the issue.
+
+  Own Id: OTP-19352 Aux Id: PR-9130, CVE-2024-53846, OTP-19240
+
 ## SSL 11.1.4.5
 
 ### Fixed Bugs and Malfunctions

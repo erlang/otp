@@ -41,6 +41,14 @@ is the version number of Mnesia.
 
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Mnesia 4.23.1.1
+
+### Fixed Bugs and Malfunctions
+
+* Mnesia could crash if table was deleted during checkpoint initialization.
+
+  Own Id: OTP-19368 Aux Id: ERIERL-1154, PR-9093
+
 ## Mnesia 4.23.1
 
 ### Fixed Bugs and Malfunctions

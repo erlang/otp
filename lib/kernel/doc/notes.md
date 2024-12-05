@@ -310,6 +310,20 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.4
+
+### Fixed Bugs and Malfunctions
+
+* gen_udp:send on domain local can leak inet_reply messages.
+
+  Own Id: OTP-19332 Aux Id: #8989
+* Failure to create an UDP IPv6 socket when inet_backend = socket with certain IPv6 socket options.
+
+  Own Id: OTP-19357
+* net:getifaddrs does not properly report the running flag on windows.
+
+  Own Id: OTP-19366 Aux Id: OTP-19061, ERIERL-1134
+
 ## Kernel 9.2.4.3
 
 ### Fixed Bugs and Malfunctions
