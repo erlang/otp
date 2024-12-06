@@ -190,6 +190,9 @@ extern BOOLEAN_T esock_decode_timeval(ErlNifEnv*      env,
                                       struct timeval* timeP);
 
 extern
+char* esock_domain_to_string(int domain);
+
+extern
 void esock_encode_domain(ErlNifEnv*    env,
                          int           domain,
                          ERL_NIF_TERM* eDomain);
@@ -197,6 +200,9 @@ extern
 int esock_decode_domain(ErlNifEnv*   env,
                         ERL_NIF_TERM eDomain,
                         int*         domain);
+
+extern
+char* esock_protocol_to_string(int domain);
 
 extern
 BOOLEAN_T esock_decode_type(ErlNifEnv*   env,
