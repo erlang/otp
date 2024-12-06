@@ -53,7 +53,7 @@ groups() ->
     [
      %%{openssl_server, [{group, 'tlsv1.3'}]},
      {openssl_client, [{group, 'tlsv1.3'}]},
-     {'tlsv1.3', [], cert_groups()},
+     {'tlsv1.3', [parallel], cert_groups()},
      {rsa, [], tests()},
      {ecdsa, [], tests()}
     ].
