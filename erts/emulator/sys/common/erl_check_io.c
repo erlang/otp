@@ -45,12 +45,16 @@
 
 #if 0
 #define DEBUG_PRINT(FMT, ...) do { erts_printf(FMT "\r\n", ##__VA_ARGS__); fflush(stdout); } while(0)
-#define DEBUG_PRINT_FD(FMT, STATE, ...)                                 \
-    DEBUG_PRINT("%d: " FMT " (ev=%s, ac=%s, flg=%s)",                   \
-                (STATE) ? (STATE)->fd : (ErtsSysFdType)-1, ##__VA_ARGS__, \
-                ev2str((STATE) ? (STATE)->events : ERTS_POLL_EV_NONE),  \
-                ev2str((STATE) ? (STATE)->active_events : ERTS_POLL_EV_NONE), \
-                (STATE) ? flag2str((STATE)->flags) : ERTS_EV_FLAG_CLEAR)
+#define DEBUG_PRINT_FD(FMT, STATE, ...)                                                 \
+    do {                                                                                \
+        const char buff[128];                                                           \
+        DEBUG_PRINT("%d: " FMT " (ev=%s, ac=%s, flg=%s)",                               \
+                (STATE) ? (STATE)->fd : (ErtsSysFdType)-1, ##__VA_ARGS__,               \
+                ev2str((STATE) ? (STATE)->events : ERTS_POLL_EV_NONE),                  \
+                ev2str((STATE) ? (STATE)->active_events : ERTS_POLL_EV_NONE),           \
+                event_state_flag_to_str((STATE) ? (STATE)->flags : ERTS_EV_FLAG_CLEAR,  \
+                            buff, sizeof(buff)));                                       \
+    } while(0)
 #define DEBUG_PRINT_MODE
 #else
 #define DEBUG_PRINT(...)
@@ -74,20 +78,20 @@ typedef enum {
 } EventStateType;
 
 typedef enum {
-    ERTS_EV_FLAG_CLEAR         = 0,
-    ERTS_EV_FLAG_USED          = 1,   /* ERL_DRV_USE has been turned on */
+    ERTS_EV_FLAG_CLEAR         = 0x0,
+    ERTS_EV_FLAG_USED          = 0x1,   /* ERL_DRV_USE has been turned on */
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    ERTS_EV_FLAG_SCHEDULER     = 2,   /* Set when the fd has been migrated
-                                         to scheduler pollset */
-    ERTS_EV_FLAG_IN_SCHEDULER  = 4,   /* Set when the fd is currently in
-                                         scheduler pollset */
+    ERTS_EV_FLAG_SCHEDULER     = 0x2,   /* Set when the fd has been migrated
+                                           to scheduler pollset */
+    ERTS_EV_FLAG_IN_SCHEDULER  = 0x4,   /* Set when the fd is currently in
+                                           scheduler pollset */
 #else
     ERTS_EV_FLAG_SCHEDULER     = ERTS_EV_FLAG_CLEAR,
     ERTS_EV_FLAG_IN_SCHEDULER  = ERTS_EV_FLAG_CLEAR,
 #endif
 #ifdef ERTS_POLL_USE_FALLBACK
-    ERTS_EV_FLAG_FALLBACK      = 8,   /* Set when kernel poll rejected fd
-                                         and it was put in the nkp version */
+    ERTS_EV_FLAG_FALLBACK      = 0x8,   /* Set when kernel poll rejected fd
+                                           and it was put in the nkp version */
 #else
     ERTS_EV_FLAG_FALLBACK      = ERTS_EV_FLAG_CLEAR,
 #endif
@@ -102,7 +106,7 @@ typedef enum {
 } EventStateFlags;
 
 
-static const char* event_state_flag_to_str(EventStateFlags f)
+static const char* event_state_flag_to_str(EventStateFlags f, const char *buff, int len)
 {
     switch ((int)f) {
     case ERTS_EV_FLAG_CLEAR: return "CLEAR";
@@ -117,7 +121,9 @@ static const char* event_state_flag_to_str(EventStateFlags f)
     case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_IN_SCHEDULER
         | ERTS_EV_FLAG_USED: return "USED|IN_SCHD";
 #endif
-    default: return "ERROR";
+    default:
+        snprintf((char *)buff, len, "ERROR(%d)", f);
+        return buff;
     }
 }
 
@@ -162,8 +168,18 @@ typedef struct {
             ErtsResource* resource;   /* ERTS_EV_TYPE_STOP_NIF */
         } stop;
     } driver;
-    ErtsPollEvents events;        /* The events that have been selected upon */
-    ErtsPollEvents active_events; /* The events currently active in the pollset */
+    /* The events that have been selected upon, that is the events that
+     * driver_select/enif_select has been issued for. */
+    ErtsPollEvents events;
+    /* The events currently active in the pollset. This can be both fewer and more
+     * events than what are in the `events` fields, but normally they are the same.
+     *
+     * The scenarios when they differ are:
+     *   - When a driver_select has triggered, but ready_input has not yet been called.
+     *     In this scenario `events` will have the event, but it will not be active
+     *     until erts_io_notify_port_task_executed has been called.
+     */
+    ErtsPollEvents active_events;
     EventStateType type;
     EventStateFlags flags;
     int count;                    /* Number of times this fd has triggered
@@ -414,19 +430,23 @@ get_fallback_pollset(void)
 }
 #endif
 
-static ERTS_INLINE ErtsPollSet *
-get_scheduler_pollset(ErtsSysFdType fd)
-{
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    return sched_pollset ? sched_pollset : get_pollset(fd);
-#else
-    return get_pollset(fd);
-#endif
+static ERTS_INLINE ErtsPollSet *
+get_scheduler_pollset(void)
+{
+    return sched_pollset;
 }
+#endif
 
 /*
  * Place a fd within a pollset. This will automatically use
- * the fallback ps if needed.
+ * the fallback ps if needed and update the scheduler pollset
+ * if used.
+ * 
+ * Note that for simplicity this function does not add a new fd to
+ * the scheduler pollset. That is done by the functions that manage
+ * the pollset migration.
+ * 
  */
 static ERTS_INLINE ErtsPollEvents
 erts_io_control_wakeup(ErtsDrvEventState *state, ErtsPollOp op,
@@ -440,16 +460,36 @@ erts_io_control_wakeup(ErtsDrvEventState *state, ErtsPollOp op,
 
     if (!(flags & ERTS_EV_FLAG_FALLBACK)) {
 
-        if (op == ERTS_POLL_OP_DEL && (flags & ERTS_EV_FLAG_SCHEDULER)) {
-            erts_poll_control(get_scheduler_pollset(fd), fd, op, pe, wake_poller);
-            flags &= ~ERTS_EV_FLAG_IN_SCHEDULER;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+        if (flags & ERTS_EV_FLAG_SCHEDULER) {
+            ASSERT(op != ERTS_POLL_OP_ADD);
+            if (op == ERTS_POLL_OP_MOD && (flags & ERTS_EV_FLAG_IN_SCHEDULER) && (pe & ERTS_POLL_EV_IN)) {
+                /* The FD already is enabled in scheduler pollset and we are trying to re-insert */
+                res |= ERTS_POLL_EV_IN;
+            } else if (op == ERTS_POLL_OP_MOD && !(flags & ERTS_EV_FLAG_IN_SCHEDULER) && !(pe & ERTS_POLL_EV_IN)) {
+                /* The FD already is disabled in scheduler pollset and we are trying to disable it */
+                res |= 0;
+            } else {
+                res |= erts_poll_control(get_scheduler_pollset(), fd, op, pe & ERTS_POLL_EV_IN, wake_poller);
+                if (op == ERTS_POLL_OP_DEL) {
+                    state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
+                } else if (pe & ERTS_POLL_EV_IN) {
+                    state->flags |= ERTS_EV_FLAG_IN_SCHEDULER;
+                } else {
+                    state->flags &= ~ERTS_EV_FLAG_IN_SCHEDULER;
+                }
+            }
+            pe &= ~ERTS_POLL_EV_IN;
+            if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
+                ERTS_ASSERT(state->active_events & ERTS_POLL_EV_IN);
+            } else {
+                ERTS_ASSERT(!(state->active_events & ERTS_POLL_EV_IN));
+            }
         }
-        if (!(flags & ERTS_EV_FLAG_IN_SCHEDULER) || (pe & ERTS_POLL_EV_OUT)) {
-            res = erts_poll_control(get_pollset(fd), fd, op, pe, wake_poller);
-        } else {
-            res = erts_poll_control(get_scheduler_pollset(fd), fd, op, pe, wake_poller);
-        }
+#endif
 
+        res |= erts_poll_control(get_pollset(fd), fd, op, pe, wake_poller);
+        
 #if ERTS_POLL_USE_FALLBACK
         if (op == ERTS_POLL_OP_ADD && res == ERTS_POLL_EV_NVAL) {
             /* When an add fails with NVAL, the poll/kevent operation could not
@@ -482,7 +522,6 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
     ErtsIoTask *itp = ErtsContainerStruct(pthp, ErtsIoTask, task);
     ErtsSysFdType fd = itp->fd;
     erts_mtx_t *mtx = fd_mtx(fd);
-    ErtsPollOp op = ERTS_POLL_OP_MOD;
     int active_events, new_events = 0;
     ErtsDrvEventState *state;
     ErtsDrvSelectDataState *free_select = NULL;
@@ -503,21 +542,29 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
 
             DEBUG_PRINT_FD("executed ready_input", state);
 
-            if (!(state->flags & ERTS_EV_FLAG_IN_SCHEDULER)
-                && !(active_events & ERTS_POLL_EV_IN)
+            if (!(active_events & ERTS_POLL_EV_IN)
                 && (state->events & ERTS_POLL_EV_IN)) {
 
+                ASSERT(!(state->flags & ERTS_EV_FLAG_SCHEDULER) &&
+                    "active_events should always have ERTS_POLL_EV_IN if we are in scheduler");
+
                 active_events |= ERTS_POLL_EV_IN;
-                if (state->count > 10 && erts_sched_poll_enabled()) {
-                    if (!(state->flags & ERTS_EV_FLAG_SCHEDULER))
-                        op = ERTS_POLL_OP_ADD;
-                    state->flags |= ERTS_EV_FLAG_IN_SCHEDULER|ERTS_EV_FLAG_SCHEDULER;
-                    new_events = ERTS_POLL_EV_IN;
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+                if (erts_sched_poll_enabled() &&
+                    !(state->flags & ERTS_EV_FLAG_FALLBACK) &&
+                    state->count++ > 10) {
+                    int wake_poller = 0;
                     DEBUG_PRINT_FD("moving to scheduler ps", state);
+                    new_events = erts_poll_control(get_scheduler_pollset(), fd, ERTS_POLL_OP_ADD,
+                        ERTS_POLL_EV_IN, &wake_poller);
+                    state->flags |= ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER;
+                    state->active_events = active_events;
                 } else
+#endif
+                {
                     new_events = active_events;
-                if (!(state->flags & ERTS_EV_FLAG_FALLBACK) && erts_sched_poll_enabled())
-                    state->count++;
+                }
             }
             break;
         case ERTS_PORT_TASK_OUTPUT:
@@ -528,10 +575,8 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
                 && (state->events & ERTS_POLL_EV_OUT)) {
 
                 active_events |= ERTS_POLL_EV_OUT;
-                if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER && active_events & ERTS_POLL_EV_IN)
-                    new_events = ERTS_POLL_EV_OUT;
-                else
-                    new_events = active_events;
+
+                new_events = active_events;
             }
             break;
         default:
@@ -542,7 +587,7 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
         if (state->active_events != active_events) {
             ASSERT(new_events);
             state->active_events = active_events;
-            new_events = erts_io_control(state, op, new_events);
+            new_events = erts_io_control(state, ERTS_POLL_OP_MOD, new_events);
         }
 
         /* We were unable to re-insert the fd into the pollset, signal the callback. */
@@ -553,6 +598,13 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
                 oready(state->driver.select->outport, state);
             state->active_events = 0;
             active_events = 0;
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+            /* The error has only happened for scheduler or normal pollset,
+               so when cleaning up we should also delete it from the other pollset.
+            */
+            erts_io_control(state, ERTS_POLL_OP_DEL, 0);
+#endif
         }
     }
 
@@ -747,7 +799,7 @@ deselect(ErtsDrvEventState *state, int mode)
 	    break;
 	}
 	state->type = ERTS_EV_TYPE_NONE;
-	state->flags = 0;
+	state->flags = ERTS_EV_FLAG_CLEAR;
     } else {
         ErtsPollEvents new_events =
             erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
@@ -794,7 +846,7 @@ check_fd_cleanup(ErtsDrvEventState *state,
     if (((state->type != ERTS_EV_TYPE_NONE)
          | (state->driver.nif != NULL)
 	 | (state->driver.select != NULL)) == 0) {
-
+        state->flags = ERTS_EV_FLAG_CLEAR;
 	erase_drv_ev_state(state);
     }
 }
@@ -819,6 +871,7 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
     ErtsDrvEventState *state;
     int wake_poller = 0;
     int ret;
+    int is_scheduler;
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
 #ifdef USE_VM_PROBES
@@ -920,6 +973,8 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
 
     old_events = state->events;
 
+    is_scheduler = state->flags & ERTS_EV_FLAG_SCHEDULER;
+
     if (on) {
         ctl_events &= ~old_events;
         state->events |= ctl_events;
@@ -931,21 +986,12 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
             ctl_op = ERTS_POLL_OP_ADD;
         }
         new_events = state->active_events;
-        if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER)
-            new_events &= ~ERTS_POLL_EV_IN;
     }
     else {
         ctl_events &= old_events;
         state->events &= ~ctl_events;
         state->active_events &= ~ctl_events;
         new_events = state->active_events;
-
-        if (ctl_events & ERTS_POLL_EV_IN) {
-            state->count = 0;
-            if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
-                new_events = 0;
-            }
-        }
 
         if (!state->events) {
             if (!(state->flags & ERTS_EV_FLAG_USED) || mode & ERL_DRV_USE)
@@ -988,7 +1034,7 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
             if (ctl_events & ERTS_POLL_EV_IN) {
                 abort_tasks(state, ERL_DRV_READ);
                 state->driver.select->inport = NIL;
-                state->flags &= ~ERTS_EV_FLAG_IN_SCHEDULER;
+                ASSERT(!(state->flags & ERTS_EV_FLAG_IN_SCHEDULER));
             }
             if (ctl_events & ERTS_POLL_EV_OUT) {
                 abort_tasks(state, ERL_DRV_WRITE);
@@ -997,9 +1043,9 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
             if (state->events == 0) {
                 if ((mode & ERL_DRV_USE) || !(state->flags & ERTS_EV_FLAG_USED)) {
                     state->type = ERTS_EV_TYPE_NONE;
-                    if (state->flags & ERTS_EV_FLAG_SCHEDULER)
+                    if (is_scheduler)
                         erts_atomic32_read_bor_nob(&prt->state, ERTS_PORT_SFLG_CHECK_FD_CLEANUP);
-                    state->flags = 0;
+                    state->flags &= ERTS_EV_FLAG_NIF_SELECT;
                 }
                 /*else keep it, as fd will probably be selected upon again */
             }
@@ -1793,10 +1839,16 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
             revents = state->active_events;
             state->active_events = 0;
 
-            if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
-                erts_io_control(state, ERTS_POLL_OP_MOD, 0);
-                state->flags &= ~ERTS_EV_FLAG_IN_SCHEDULER;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+            if (psi->ps == get_scheduler_pollset() && state->flags & ERTS_EV_FLAG_SCHEDULER) {
+                /* In the poll thread, this fd would have been disabled due to ONESHOT,
+                   but in the scheduler pollset it needs to be disabled. */
+                int wake_poller = 0;
+                erts_poll_control(psi->ps, fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
+                state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
+                state->count = 0;
             }
+#endif
         } else {
 
             /* Disregard any events that are not active at the moment,
@@ -1804,14 +1856,27 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                select/deselect in rapid succession. */
             revents &= state->active_events | ERTS_POLL_EV_NVAL;
 
-            if (psi->ps != get_scheduler_pollset(fd) || !erts_sched_poll_enabled()) {
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+            if (psi->ps == get_scheduler_pollset()) {
+                if (!(state->events & ERTS_POLL_EV_IN) && state->flags & ERTS_EV_FLAG_SCHEDULER) {
+                    /* If we triggered in a scheduler pollset and EV_IN is not set,
+                       then we should just remove it from the scheduler pollset.
+                    */
+                    int wake_poller = 0;
+                    erts_poll_control(psi->ps, fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
+                    state->flags &= ~(ERTS_EV_FLAG_IN_SCHEDULER|ERTS_EV_FLAG_SCHEDULER);
+                    state->active_events &= ~ERTS_POLL_EV_IN;
+                    state->count = 0;
+                }
+            } else
+#endif
+            {
                 ErtsPollEvents reactive_events;
                 state->active_events &= ~revents;
 
                 reactive_events = state->active_events;
 
                 if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
-                    reactive_events &= ~ERTS_POLL_EV_IN;
                     state->active_events |= ERTS_POLL_EV_IN;
                 }
 
@@ -1914,6 +1979,10 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
         }
 
         case ERTS_EV_TYPE_STOP_USE: {
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+            if (psi->ps == get_scheduler_pollset())
+                break;
+#endif
 #if ERTS_POLL_USE_FALLBACK
             ASSERT(psi->ps == get_fallback_pollset());
 #endif
@@ -1963,7 +2032,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
     /* The entire pollres array was filled with events,
      * grow it for the next call. We do this for two reasons:
-     * 1. Pulling out more events in on go will increase throughput
+     * 1. Pulling out more events in one go will increase throughput
      * 2. If the polling implementation is not fair, this will make
      *    sure that we get all fds that we can. i.e. if 12 fds are
      *    constantly active, but we only have a pollres_len of 10,
@@ -2293,13 +2362,15 @@ erts_init_check_io(int *argc, char **argv)
     psiv++;
 #endif
 
+#if ERTS_POLL_USE_SCHEDULER_POLLING
     if (erts_sched_poll_enabled()) {
         psiv[0].pollres_len = ERTS_CHECK_IO_POLL_RES_LEN;
         psiv[0].pollres = erts_alloc(ERTS_ALC_T_POLLSET,
                                      sizeof(ErtsPollResFd) * ERTS_CHECK_IO_POLL_RES_LEN);
-        psiv[0].ps = get_scheduler_pollset(0);
+        psiv[0].ps = get_scheduler_pollset();
         psiv++;
     }
+#endif
 
     for (j = 0; j < erts_no_poll_threads; j++) {
         psiv[j].pollres_len = ERTS_CHECK_IO_POLL_RES_LEN;
@@ -2564,11 +2635,12 @@ print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 static ERTS_INLINE void
 print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
+    const char buff[64];
     if (f & ERTS_EV_FLAG_WANT_ERROR) {
         erts_dsprintf(dsbufp, "WANTERR|");
         f &= ~ERTS_EV_FLAG_WANT_ERROR;
     }
-    erts_dsprintf(dsbufp, "%s", event_state_flag_to_str(f));
+    erts_dsprintf(dsbufp, "%s", event_state_flag_to_str(f, buff, sizeof(buff)));
 }
 
 #ifdef DEBUG_PRINT_MODE
@@ -2603,6 +2675,10 @@ nifmode2str(enum ErlNifSelectFlags mode) {
     case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_WRITE: return "CANCEL|WRITE";
     case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE:
         return "CANCEL|READ|WRITE";
+    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_READ: return "CUSTOM|READ";
+    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_WRITE: return "CUSTOM|WRITE";
+    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE:
+        return "CUSTOM|READ|WRITE";
     default: return "UNKNOWN";
     }
 }
@@ -2892,6 +2968,9 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters,
 	if (erts_debug_print_checkio_state(dsbufp, state, ep_events, internal)) {
 	    counters->num_errors++;
 	}
+    } else {
+        if (state->driver.select || state->driver.nif)
+            erts_debug_print_checkio_state(dsbufp, state, ep_events, internal);
     }
 }
 
