@@ -483,7 +483,7 @@ See `t:gen_tcp:socket/0` and `t:gen_udp:socket/0`.
 -doc """
 Implementation backend selector for `t:socket/0`.
 
-Selects the implementation backend for [sockets](`t:socket/0`.
+Selects the implementation backend for [sockets](`t:socket/0`).
 The current default is `inet` which uses `inet_drv.c` to call
 the platform's socket API. The value `socket` instead uses
 the `m:socket` module and its NIF implementation.
