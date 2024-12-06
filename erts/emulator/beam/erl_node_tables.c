@@ -2038,7 +2038,7 @@ setup_reference_table(void)
     hash_foreach(&erts_dist_table, init_referred_dist, NULL);
     ASSERT(no_referred_dists == hi.objs);
 
-    /* Go through the hole system, and build a table of all references
+    /* Go through the whole system, and build a table of all references
        to ErlNode and DistEntry structures */
 
     erts_debug_callback_timer_foreach(try_delete_node,
