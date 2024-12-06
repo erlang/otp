@@ -54,6 +54,7 @@ MODULES= \
 	mnesia_cost \
 	mnesia_dbn_meters \
 	ext_test \
+	ext_test_server \
 	mnesia_index_plugin_test \
 	mnesia_external_backend_test
 
