@@ -83,7 +83,18 @@ iterate(Mod, Fun, Opaque, Acc) ->
     R = #restore{bup_module = Mod, bup_data = Opaque},
     try read_schema_section(R) of
 	{R2, {Header, Schema, Rest}} ->
-            Ext = get_ext_types(Schema),
+        Ext = get_ext_types(Schema),
+        case mnesia:system_info(is_running) of
+            Status when Status == yes orelse Status == starting ->
+                dbg_out("Status is ~p, initializing external backends.~n", [Status]),
+                Backends = mnesia_schema:get_backends_to_initialize(Ext),
+                mnesia_schema:init_backends(Backends);
+            Status ->
+                %% Do not initialize external backends if the system is not running
+                %% We can land here, if system is stopped and we're creating a schema
+                %% this triggers an implicit backup and fallback install
+                dbg_out("Status is ~p, skipping external backends initialization.~n", [Status])
+        end,
 	    try iter(R2, Header, Schema, Ext, Fun, Acc, Rest) of
 		{ok, R3, Res} ->
 		    close_read(R3),
@@ -745,12 +756,12 @@ do_fallback_start(true, false) ->
             ?SAFE(dets:close(schema)),
             TmpSchema = mnesia_lib:tab2tmp(schema),
             DatSchema = mnesia_lib:tab2dat(schema),
-	    AllLT  = ?ets_match_object(LocalTabs, '_'),
-	    ?ets_delete_table(LocalTabs),
+            AllLT  = ?ets_match_object(LocalTabs, '_'),
+            ?ets_delete_table(LocalTabs),
             case file:rename(TmpSchema, DatSchema) of
                 ok ->
-		    [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
-			LT <- AllLT, LT#local_tab.name =/= schema],
+                    [(LT#local_tab.swap)(LT#local_tab.name, LT) ||
+                    LT <- AllLT, LT#local_tab.name =/= schema],
                     file:delete(BupFile),
                     ok;
                 {error, Reason} ->
