@@ -37,8 +37,8 @@
          t_load_race/1,
          t_call_nif_early/1,
          load_traced_nif/1,
-         select/1, select_steal/1,
-	 select_error/1,
+         select/1, select_scheduler/1,
+         select_steal/1, select_error/1,
          monitor_process_a/1,
          monitor_process_b/1,
          monitor_process_c/1,
@@ -154,6 +154,7 @@
        select_nif/6,
        dupe_resource_nif/1,
        pipe_nif/0,
+       socketpair_nif/0,
        write_nif/2,
        read_nif/2,
        close_nif/1,
@@ -268,6 +269,7 @@ groups() ->
                     monitor_process_purge,
                     demonitor_process]},
      {select, [], [select,
+                   select_scheduler,
 		   select_error,
 		   select_steal]}].
 
@@ -298,7 +300,8 @@ init_per_testcase(nif_whereis_threaded, Config) ->
         false -> {skip, "No thread support"}
     end;
 init_per_testcase(Select, Config) when Select =:= select;
-                                       Select =:= select_steal ->
+                                       Select =:= select_steal;
+                                       Select =:= select_scheduler ->
     case os:type() of
         {win32,_} ->
             {skip, "Test not yet implemented for windows"};
@@ -318,6 +321,7 @@ end_per_testcase(_Func, _Config) ->
     testcase_cleanup().
 
 testcase_cleanup() ->
+    driver_SUITE:check_io_debug(),
     P1 = code:purge(nif_mod),
     Del = code:delete(nif_mod),
     P2 = code:purge(nif_mod),
@@ -1003,6 +1007,7 @@ select_2(Flag, Ref1, Ref2, MSG_ENV) ->
 select_3() ->
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
+
     ok.
 
 receive_ready(R, Ref, IOatom) when is_reference(Ref) ->
@@ -1011,6 +1016,177 @@ receive_ready(_, Msg, _) ->
     [Got] = flush(),
     {true,_,_} = {Got=:=Msg, Got, Msg}.
 
+select_scheduler(Config) ->
+    ensure_lib_loaded(Config),
+
+    RefBin = list_to_binary(lists:duplicate(100, $x)),
+
+    select_scheduler_do(0, make_ref(), null),
+    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
+    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env),
+
+    case has_scheduler_pollset() of
+        true ->
+            {ok, Peer, Node} = ?CT_PEER(#{ args => ["+IOs","false"]}),
+
+            erpc:call(Node, fun() ->
+                                    ensure_lib_loaded(Config),
+                                    select_scheduler_do(0, make_ref(), null),
+                                    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], null),
+                                    select_scheduler_do(?ERL_NIF_SELECT_CUSTOM_MSG, [a, "list", RefBin], alloc_env)
+                            end),
+
+            peer:stop(Peer);
+        _ ->
+            ok
+    end.
+
+%% This testcase tests so that scheduler polling works as it should for NIFs
+select_scheduler_do(Flag, Ref, MSG_ENV) ->
+
+    OriginalSchedPollFds = get_scheduler_pollset_size(),
+    SchedulerFDs = case has_scheduler_pollset() of
+            true -> 1;
+            false -> 0
+    end,
+
+    {{R, _R_ptr}, {W, W_ptr}} = socketpair_nif(),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_nif(R, 3),
+
+    %% Fill the output buffers and setup a select
+    FullData = write_full(R, $a),
+    select_nif(R, ?ERL_NIF_SELECT_WRITE bor Flag, R, self(), Ref, MSG_ENV),
+
+    eagain = read_nif(R, 3),
+
+    %% Move FD to scheduler pollset
+    move_fd_to_scheduler_pollset(W, R, Flag, Ref, MSG_ENV),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+    
+    %% Write without select, means migrate back to poll thread
+    ok = write_nif(W, <<"hej">>),
+    %% Make sure schedulers sleeps, triggering migration back to poll thread
+    timer:sleep(10),
+    <<"hej">> = read_all_nif(R, 3),
+
+    ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
+
+    %% Move FD to scheduler pollset again
+    move_fd_to_scheduler_pollset(W, R, Flag, Ref, MSG_ENV),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+
+    %% Check that we get WRITE select event if read FullData
+    FullData = read_all_nif(W, byte_size(FullData)),
+    receive_ready(R, Ref, ready_output),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+
+    %% Check that we can do a WRITE select when READ is on scheduler pollset
+    FullDataAgain = write_full(R, $b),
+    select_nif(R, ?ERL_NIF_SELECT_WRITE bor Flag, R, self(), Ref, MSG_ENV),
+    FullDataAgain = read_nif(W, byte_size(FullDataAgain)),
+    receive_ready(R, Ref, ready_output),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+
+    %% Check that we can de-select on READ when in scheduler pollset
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref, MSG_ENV),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+    ?ERL_NIF_SELECT_READ_CANCELLED =
+        select_nif(R, ?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL, R, self(), Ref, MSG_ENV),
+    ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
+    ok = write_nif(W, <<"hej">>),
+    <<"hej">> = read_all_nif(R, 3),
+    [] = flush(0),
+
+    %% Close write side, while read side is in scheduler pollset
+    check_stop_ret(select_nif(W, ?ERL_NIF_SELECT_STOP, W, null, Ref, null)),
+    [{fd_resource_stop, W_ptr, _}] = flush(),
+    {1, {W_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(W),
+    [] = flush(0),
+    0 = select_nif(R, ?ERL_NIF_SELECT_READ bor Flag, R, self(), Ref, MSG_ENV),
+    receive_ready(R, Ref, ready_input),
+    eof = read_nif(R,1),
+
+    check_stop_ret(select_nif(R, ?ERL_NIF_SELECT_STOP, R, null, Ref, null)),
+    [{fd_resource_stop, R_ptr, _}] = flush(),
+    {1, {R_ptr,_}} = last_fd_stop_call(),
+    true = is_closed_nif(R),
+    [] = flush(0),
+
+    ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
+
+    %% We setup 10 fds in parallel to make sure all end up in scheduler pollset
+    NumberOfFds = 10,
+    Parent = self(),
+    Pids = [spawn_monitor(fun() ->
+                link(Parent),
+                {{R1, _R1_ptr}, {W1, _W1_ptr}} = socketpair_nif(),
+                move_fd_to_scheduler_pollset(W1, R1, Flag, Ref, MSG_ENV),
+                Parent ! self(),
+                receive stop -> ok end,
+                check_stop_ret(select_nif(W1, ?ERL_NIF_SELECT_STOP, W1, null, Ref, null)),
+                check_stop_ret(select_nif(R1, ?ERL_NIF_SELECT_STOP, R1, null, Ref, null))
+            end) || _ <- lists:seq(1,NumberOfFds)],
+    [receive P -> ok end || {P, _} <- Pids],
+    ?assertEqual(OriginalSchedPollFds + NumberOfFds*SchedulerFDs, get_scheduler_pollset_size()),
+    [begin P ! stop, receive {'DOWN', Ref1, _, _, _} -> ok end end || {P, Ref1} <- Pids],
+
+    NumberOfClosedFds = NumberOfFds * 2,
+    %% Sleep a bit to let all callback trigger
+    timer:sleep(1000),
+    {NumberOfClosedFds, {_,_}} = last_fd_stop_call(),
+
+    timer:sleep(1000),
+
+    %% Sleep a bit to let the pollset clear out
+    ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
+
+    ok.
+
+move_fd_to_scheduler_pollset(W, R, Flag, Ref, MSG_ENV) ->
+    [begin
+        0 = select_nif(R,?ERL_NIF_SELECT_READ bor Flag, R,null,Ref,MSG_ENV),
+        Buf = integer_to_binary(I),
+        ok = write_nif(W, Buf),
+        %% NOTE: If the testcase gets stuck here while running rr, that is
+        %% because the rr looses events for some reason and does not deliver
+        %% them as it is supposed to... so you will have to use good old fashioned
+        %% printf debugging...
+        receive
+            {select, R, Ref, ready_input} ->
+                ok;
+            Msg when Ref =:= Msg ->
+                ok
+        end,
+        Buf = read_all_nif(R, byte_size(Buf))
+     end || I <- lists:seq(1,30)],
+     ok.
+
+read_all_nif(Fd, Count) ->
+    case read_nif(Fd, Count) of
+        Res when byte_size(Res) =:= Count ->
+            Res;
+        Res when byte_size(Res) < Count ->
+            <<Res/binary, (read_all_nif(Fd, Count - byte_size(Res)))/binary>>
+    end.
+
+has_scheduler_pollset() ->
+    lists:search(fun(PS) ->
+        proplists:get_value(fallback, PS) =:= false andalso
+        proplists:get_value(poll_threads, PS) =:= 0
+    end, erlang:system_info(check_io)) =/= false.
+get_scheduler_pollset_size() ->
+    CIO = erlang:system_info(check_io),
+    case lists:search(fun(PS) ->
+            proplists:get_value(fallback, PS) =:= false andalso
+            proplists:get_value(poll_threads, PS) =:= 0
+        end, CIO) of
+        {value, PS} ->
+            proplists:get_value(total_poll_set_size, PS);
+        false ->
+            0
+    end.
 
 select_error(Config) when is_list(Config) ->
     ensure_lib_loaded(Config),
@@ -4431,6 +4607,7 @@ format_term_nif(_,_) -> ?nif_stub.
 select_nif(_,_,_,_,_,_) -> ?nif_stub.
 dupe_resource_nif(_) -> ?nif_stub.
 pipe_nif() -> ?nif_stub.
+socketpair_nif() -> ?nif_stub.
 write_nif(_,_) -> ?nif_stub.
 read_nif(_,_) -> ?nif_stub.
 close_nif(_) -> ?nif_stub.

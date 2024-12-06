@@ -89,6 +89,7 @@
 -export([bin_prefix/2]).
 
 -export([get_check_io_total/1]).   % for z_SUITE.erl
+-export([check_io_debug/0]). %% For nif_SUITE.erl
 
 -include_lib("common_test/include/ct.hrl").
 
