@@ -1062,13 +1062,13 @@ mk_bytes(N) when N > 4 ->
     end.
 
 get_list(File, Log) ->
-    ct:pal(?HI_VERBOSITY, "File ~p~n", [File]),
+    ct:log(?HI_VERBOSITY, "File ~p~n", [File]),
     ok = disk_log:sync(Log),
     {ok, B} = file:read_file(File),
     binary_to_list(B).
 
 get_list(File, Log, rotate) ->
-    ct:pal(?HI_VERBOSITY, "File ~p~n", [File]),
+    ct:log(?HI_VERBOSITY, "File ~p~n", [File]),
     ok = disk_log:sync(Log),
     DFile = filename:rootname(File,".gz"),
     decompress_file(File, DFile),

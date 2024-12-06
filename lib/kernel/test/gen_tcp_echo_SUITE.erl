@@ -245,7 +245,7 @@ echo_packet(Config, SockOpts, EchoFun, EchoOpts) ->
     {ok, Echo} =
         kernel_test_lib:connect(Config, localhost, EchoPort, SockOpts),
 
-    ct:pal("Echo socket: ~w", [Echo]),
+    ct:log("Echo socket: ~w", [Echo]),
 
     SlowEcho = lists:member(slow_echo, EchoOpts),
 

@@ -1062,7 +1062,7 @@ hidden_node(DCfg, Config) ->
     ok.
 
 hidden_node(DCfg, HArgs, _Config) ->
-    ct:pal("--- Hidden argument(s): ~s~n", [HArgs]),
+    ct:log("--- Hidden argument(s): ~s~n", [HArgs]),
     {ok, V} = start_node(DCfg, visible_node),
     VMN = start_monitor_nodes_proc(V),
     {ok, H} = start_node(DCfg, hidden_node, HArgs),
@@ -1488,8 +1488,8 @@ monitor_nodes_misc(DCfg, _Config) ->
     {N1, #{connection_id := N1CId}} = lists:keyfind(N1, 1, NodesInfo),
     {N2, #{connection_id := N2CId}} = lists:keyfind(N2, 1, NodesInfo),
 
-    ct:pal("N1: ~p ~p~n", [N1, N1CId]),
-    ct:pal("N2: ~p ~p~n", [N2, N2CId]),
+    ct:log("N1: ~p ~p~n", [N1, N1CId]),
+    ct:log("N2: ~p ~p~n", [N2, N2CId]),
 
     receive {nodeup, N1, #{node_type := visible, connection_id := N1CId}} -> ok end,
     receive {nodeup, N2, #{node_type := hidden, connection_id := N2CId}} -> ok end,

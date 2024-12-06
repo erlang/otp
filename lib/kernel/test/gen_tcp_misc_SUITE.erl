@@ -8130,7 +8130,7 @@ otp_13939(Config) when is_list(Config) ->
             timer:sleep(100),
 
             {error, Code} = gen_tcp:send(Accepted, <<0:(10*1024*1024*8)>>),
-            ct:pal("gen_tcp:send returned ~p~n", [Code])
+            ct:log("gen_tcp:send returned ~p~n", [Code])
         end, [link, monitor]),
 
     receive

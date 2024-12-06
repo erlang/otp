@@ -1382,8 +1382,8 @@ otp_3002(Conf) when is_list(Conf) ->
     %% Create the boot script
     {{KernelVer,StdlibVer}, {LatestDir, LatestName}} =
 	create_script_3002("script_3002"),
-    ct:pal(?HI_VERBOSITY, "LatestDir = ~p~n", [LatestDir]),
-    ct:pal(?HI_VERBOSITY, "LatestName = ~p~n", [LatestName]),
+    ct:log(?HI_VERBOSITY, "LatestDir = ~p~n", [LatestDir]),
+    ct:log(?HI_VERBOSITY, "LatestName = ~p~n", [LatestName]),
 
     case is_real_system(KernelVer, StdlibVer) of
 	      true ->
@@ -3214,7 +3214,7 @@ start_node_args(Name, Args) ->
 
 start_node_boot_3002(Name, Boot) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ct:pal(?HI_VERBOSITY, "start_node_boot ~p~n",
+    ct:log(?HI_VERBOSITY, "start_node_boot ~p~n",
 	   [" -pa " ++ Pa ++ " -env ERL_CRASH_DUMP erl_crash_dump." ++
 		atom_to_list(Name) ++ " -boot " ++ Boot ++
 		" -sasl dummy \"missing "]),
@@ -3230,7 +3230,7 @@ start_node_boot_config(Name, SysConfigFun, Conf, Boot) ->
 
 start_node_boot(Name, Config, Boot) ->
     Pa = filename:dirname(code:which(?MODULE)),
-    ct:pal(?HI_VERBOSITY,
+    ct:log(?HI_VERBOSITY,
 	   "start_node_boot ~p~n",[" -pa " ++ Pa ++ " -config " ++ Config ++
 				       " -boot " ++ atom_to_list(Boot)]),
     test_server:start_node(Name, slave,

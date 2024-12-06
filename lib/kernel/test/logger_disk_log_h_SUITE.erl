@@ -141,7 +141,7 @@ create_log(Config) ->
                        #{file=>LogFile1}),
     logger:notice("hello", ?domain),
     logger_disk_log_h:filesync(Name1),
-    ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
+    ct:log("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"hello\n">>}, 5000),
     
     %% test second handler
@@ -154,7 +154,7 @@ create_log(Config) ->
                        #{file=>LogFile2}),
     logger:notice("dummy", ?domain),
     logger_disk_log_h:filesync(Name2),
-    ct:pal("Checking contents of ~p", [?log_no(LogFile2,1)]),
+    ct:log("Checking contents of ~p", [?log_no(LogFile2,1)]),
     try_read_file(?log_no(LogFile2,1), {ok,<<"dummy\n">>}, 5000),
 
     remove_and_stop(Name1),    
@@ -175,7 +175,7 @@ open_existing_log(Config) ->
                        #{file=>LogFile1}),
     logger:notice("one", ?domain),
     logger_disk_log_h:filesync(HName),
-    ct:pal("Checking contents of ~p", [?log_no(LogFile1,1)]),
+    ct:log("Checking contents of ~p", [?log_no(LogFile1,1)]),
     try_read_file(?log_no(LogFile1,1), {ok,<<"one\n">>}, 5000),
     logger:notice("two", ?domain),
     ok = remove_and_stop(HName),
@@ -271,7 +271,7 @@ default_formatter(Config) ->
     LogFile = filename:join(PrivDir,atom_to_list(?FUNCTION_NAME)),
     HandlerConfig = #{config => #{file=>LogFile},
                       filter_default=>log},
-    ct:pal("Log: ~p", [LogFile]),
+    ct:log("Log: ~p", [LogFile]),
     ok = logger:add_handler(?MODULE, logger_disk_log_h, HandlerConfig),
     ok = logger:set_handler_config(?MODULE,formatter,
                                    {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}),
@@ -295,7 +295,7 @@ logging(Config) ->
     MsgFormatter = fun(Term) -> {"Term:~p",[Term]} end,
     logger:notice([{x,y}], #{report_cb => MsgFormatter}),
     logger:notice([{x,y}], #{}),
-    ct:pal("Checking contents of ~p", [?log_no(LogFile,1)]),   
+    ct:log("Checking contents of ~p", [?log_no(LogFile,1)]),   
     try_read_file(?log_no(LogFile,1), {ok,<<"Term:[{x,y}]\n    x: y\n">>}, 5000).
 
 logging(cleanup, _Config) ->
@@ -366,7 +366,7 @@ formatter_fail(Config) ->
     PrivDir = ?config(priv_dir,Config),
     Name = ?FUNCTION_NAME,
     LogFile = filename:join(PrivDir,Name),
-    ct:pal("Log = ~p", [LogFile]),
+    ct:log("Log = ~p", [LogFile]),
     HandlerConfig = #{config => #{file=>LogFile},
                       filter_default=>stop,
                       filters=>?DEFAULT_HANDLER_FILTERS([?MODULE])},
@@ -681,7 +681,7 @@ disk_log_wrap(Config) ->
     Get = fun(Key, PL) -> proplists:get_value(Key, PL) end,
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, ?FUNCTION_NAME),
-    ct:pal("Log = ~p", [File]),
+    ct:log("Log = ~p", [File]),
     MaxFiles = 3,
     MaxBytes = 5,
     ok = logger:add_handler(?MODULE,
@@ -707,13 +707,13 @@ disk_log_wrap(Config) ->
     {ok,_} = dbg:tp(logger_disk_log_h, handle_info, 3, []),
 
     Text = [34 + rand:uniform(126-34) || _ <- lists:seq(1,MaxBytes)],
-    ct:pal("String = ~p (~w)", [Text, erts_debug:size(Text)]),
+    ct:log("String = ~p (~w)", [Text, erts_debug:size(Text)]),
     %% fill first file
     lists:foreach(fun(N) ->
                           Log = lists:concat([File,".",N]),
                           logger:notice(Text, ?domain),
                           wait_until_written(Log),
-                          ct:pal("N = ~w",
+                          ct:log("N = ~w",
                                  [N = Get(current_file,
                                           disk_log:info(?MODULE))])
                   end, lists:seq(1,MaxFiles)),
@@ -727,7 +727,7 @@ disk_log_wrap(Config) ->
                                 ({log,_}) ->
                                      []
                              end, test_server:messages_get()),
-    ct:pal("Trace =~n~p", [Received]),
+    ct:log("Trace =~n~p", [Received]),
     Received = [{trace,{wrap,0}} || _ <- lists:seq(1,MaxFiles-1)],
     ok.
 
@@ -738,7 +738,7 @@ disk_log_wrap(cleanup,_Config) ->
 disk_log_full(Config) ->
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, ?FUNCTION_NAME),
-    ct:pal("Log = ~p", [File]),
+    ct:log("Log = ~p", [File]),
     MaxBytes = 50,
     ok = logger:add_handler(?MODULE,
                             logger_disk_log_h,
@@ -773,7 +773,7 @@ disk_log_full(Config) ->
                                 ({log,_}) ->
                                      []
                              end, test_server:messages_get()),
-    ct:pal("Trace =~n~p", [Received]),
+    ct:log("Trace =~n~p", [Received]),
 
     %% The tail here could be an error_status notification, if the
     %% last write was synchronous, but in most cases it will not be
@@ -820,7 +820,7 @@ disk_log_events(_Config) ->
     Received = lists:map(fun({trace,_M,handle_info,
                               [_,Got,_]}) -> Got
                          end, test_server:messages_get()),
-    ct:pal("Trace =~n~p", [Received]),
+    ct:log("Trace =~n~p", [Received]),
     NoOfEvents = length(Events),
     NoOfEvents = length(Received),
     lists:foreach(fun(Event) ->
@@ -835,7 +835,7 @@ write_failure(Config) ->
     Dir = ?config(priv_dir, Config),
     File = filename:join(Dir, ?FUNCTION_NAME),
     Log = lists:concat([File,".1"]),
-    ct:pal("Log = ~p", [Log]),
+    ct:log("Log = ~p", [Log]),
 
     Node = start_h_on_new_node(Config, File),
     false = (undefined == rpc:call(Node, ets, whereis, [?TEST_HOOKS_TAB])),
@@ -846,7 +846,7 @@ write_failure(Config) ->
     LogOpts = maps:get(log_opts,
                        maps:get(handler_state,
                                 maps:get(cb_state,HState))),
-    ct:pal("LogOpts = ~p", [LogOpts]),
+    ct:log("LogOpts = ~p", [LogOpts]),
            
     %% ?check and ?check_no_log in this test only check for internal log events
     ok = log_on_remote_node(Node, "Logged1"),
@@ -1012,7 +1012,7 @@ op_switch_to_drop(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                ct:pal("Number of messages dropped = ~w (~w)",
+                ct:log("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
                 true = (Logged > 0),
@@ -1064,7 +1064,7 @@ op_switch_to_flush(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok= stop_handler(?MODULE),
-                ct:pal("Number of messages flushed/dropped = ~w (~w)",
+                ct:log("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
                 true = (Logged > 0),
@@ -1095,7 +1095,7 @@ limit_burst_disabled(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     NumOfReqs = Logged,
     ok = file_delete(Log),
     ok.
@@ -1115,7 +1115,7 @@ limit_burst_enabled_one(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     ReqLimit = Logged,
     ok = file_delete(Log),
     ok.
@@ -1137,7 +1137,7 @@ limit_burst_enabled_period(Config) ->
     Windows = 3,
     Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
+    ct:log("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
     true = (Logged > (ReqLimit*Windows)) andalso
            (Logged < (ReqLimit*(Windows+2))),
@@ -1156,7 +1156,7 @@ kill_disabled(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
     true = is_pid(whereis(h_proc_name())),
     ok.
@@ -1185,9 +1185,9 @@ qlen_kill_new(Config) ->
         {'DOWN', MRef, _, _, Info} ->
            case Info of
                 {shutdown,{overloaded,QLen,Mem}} ->
-                    ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
+                    ct:log("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
-                    ct:pal("Slow shutdown, handler process was killed!", [])
+                    ct:log("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
             {ok,_} = wait_for_process_up(RestartAfter * 3),
@@ -1195,7 +1195,7 @@ qlen_kill_new(Config) ->
     after
         5000 ->
             Info = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info]),
+            ct:log("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
 qlen_kill_new(cleanup, _Config) ->
@@ -1222,9 +1222,9 @@ mem_kill_new(Config) ->
         {'DOWN', MRef, _, _, Info} ->
             case Info of
                 {shutdown,{overloaded,QLen,Mem}} ->
-                    ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
+                    ct:log("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
-                    ct:pal("Slow shutdown, handler process was killed!", [])
+                    ct:log("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
             {ok,_} = wait_for_process_up(RestartAfter * 3),
@@ -1232,7 +1232,7 @@ mem_kill_new(Config) ->
     after
         5000 ->
             Info = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info]),
+            ct:log("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
 mem_kill_new(cleanup, _Config) ->
@@ -1258,7 +1258,7 @@ restart_after(Config) ->
     after
         5000 ->
             Info1 = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info1]),
+            ct:log("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     
@@ -1282,7 +1282,7 @@ restart_after(Config) ->
     after
         5000 ->
             Info2 = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info2]),
+            ct:log("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     ok.
@@ -1316,7 +1316,7 @@ handler_requests_under_load(Config) ->
     Pid ! {self(),finish},
     ReqResult = receive {Pid,Result} -> Result end,
     Logged = count_lines(Log),
-    ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
+    ct:log("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
     FindError = fun(Res) ->
                         [E || E <- Res,
@@ -1325,7 +1325,7 @@ handler_requests_under_load(Config) ->
     Errors = [{Func,FindError(Res)} || {_,Func,_,Res} <- ReqResult],
     NoOfReqs = lists:foldl(fun({_,_,_,Res}, N) -> N + length(Res) end,
                            0, ReqResult),
-    ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
+    ct:log("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file_delete(Log).
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -1345,7 +1345,7 @@ send_requests(TO, Reqs = [{Mod,Func,Args,Res}|Rs]) ->
 start_handler(Name, FuncName, Config) ->
     Dir = ?config(priv_dir,Config),
     File = filename:join(Dir, FuncName),
-    ct:pal("Logging to ~tp", [File]),
+    ct:log("Logging to ~tp", [File]),
     FullFile = lists:concat([File,".1"]),
     _ = file_delete(FullFile),
     ok = logger:add_handler(Name,
@@ -1360,7 +1360,7 @@ start_handler(Name, FuncName, Config) ->
     {FullFile,HConfig,DLHConfig}.
     
 stop_handler(Name) ->
-    ct:pal("Stopping handler ~p!", [Name]),
+    ct:log("Stopping handler ~p!", [Name]),
     Res = logger:remove_handler(Name),
     RegName = ?name_to_reg_name(logger_disk_log_h, Name),
     erlang:monitor(process, RegName),
@@ -1388,7 +1388,7 @@ send_burst(NorT, Type, {chars,Sz}, Class) ->
             %% process_flag(priority, normal),
             N;
         {t,T} ->
-            ct:pal("Sending messages sequentially for ~w ms", [T]),
+            ct:log("Sending messages sequentially for ~w ms", [T]),
             T0 = erlang:monotonic_time(millisecond),
             send_t_burst(T0, T, Text, Class, 0)
     end.
@@ -1399,7 +1399,7 @@ send_n_burst(N, seq, Text, Class) ->
     ok = logger:Class(Text, ?domain),
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
-    ct:pal("~w processes each sending ~w messages", [Ps,N]),
+    ct:log("~w processes each sending ~w messages", [Ps,N]),
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
                    monitor(process,spawn_link(per_proc_fun(N,Text,Class,X)))
              end || X <- lists:seq(1,Ps)],
@@ -1409,7 +1409,7 @@ send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
                                   ok
                           end
                   end, MRefs),
-    ct:pal("Message burst sent", []),
+    ct:log("Message burst sent", []),
     ok.
 
 send_t_burst(T0, T, Text, Class, N) ->
@@ -1475,7 +1475,7 @@ start_and_add(Name, Config, LogOpts) ->
     HConfig = maps:get(config, Config, #{}),
     HConfig1 = maps:merge(HConfig, LogOpts),
     Config1 = Config#{config=>HConfig1},
-    ct:pal("Adding handler ~w with: ~p", [Name,Config1]),
+    ct:log("Adding handler ~w with: ~p", [Name,Config1]),
     ok = logger:add_handler(Name, logger_disk_log_h, Config1),
     Pid = whereis(h_proc_name(Name)),
     true = is_pid(Pid),
@@ -1498,13 +1498,13 @@ try_read_file(FileName, Expected, Time, _) when Time > 0 ->
         Error = {error,_Reason} ->
             erlang:error(Error);
         SomethingElse ->
-            ct:pal("try_read_file read unexpected: ~p~n", [SomethingElse]),
+            ct:log("try_read_file read unexpected: ~p~n", [SomethingElse]),
             timer:sleep(500),
             try_read_file(FileName, Expected, Time-500, SomethingElse)
     end;
 
 try_read_file(_, _, _, Incorrect) ->
-    ct:pal("try_read_file got incorrect pattern: ~p~n", [Incorrect]),
+    ct:log("try_read_file got incorrect pattern: ~p~n", [Incorrect]),
     erlang:error({error,not_matching_pattern,Incorrect}).
 
 try_match_file(FileName, Pattern, Time) ->
@@ -1524,7 +1524,7 @@ try_match_file(FileName, Pattern, Time, _) when Time > 0 ->
             erlang:error(Error)
     end;
 try_match_file(_,Pattern,_,Incorrect) ->
-    ct:pal("try_match_file did not match pattern: ~p~nGot: ~p~n",
+    ct:log("try_match_file did not match pattern: ~p~nGot: ~p~n",
            [Pattern,Incorrect]),
     erlang:error({error,not_matching_pattern,Pattern,Incorrect}).
 
@@ -1581,7 +1581,7 @@ repeat_until_ok(Fun, C, Stop, FirstReason) ->
             {ok,{C,Result}}
     catch
         _:Reason:Stack ->
-            ct:pal("Test fails: ~p (~p)~n", [Reason,hd(Stack)]),
+            ct:log("Test fails: ~p (~p)~n", [Reason,hd(Stack)]),
             if FirstReason == undefined ->
                     repeat_until_ok(Fun, C+1, Stop, {Reason,Stack});
                true ->
@@ -1674,13 +1674,13 @@ wait_for_process_up1(Name, RegName, N) ->
         Pid when is_pid(Pid) ->
             case logger:get_handler_config(Name) of
                 {ok,_} ->
-                    %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
+                    %% ct:log("Process ~p up (~p tries left)",[Name,N]),
                     {ok,Pid};
                 _ ->
                     wait_for_process_up1(Name, RegName, N-1)
             end;
         undefined ->
-            %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
+            %% ct:log("Waiting for process ~p (~p tries left)",[Name,N]),
             wait_for_process_up1(Name, RegName, N-1)
     end.
 

@@ -1169,7 +1169,7 @@ error_format_status(Module) when is_atom(Module) ->
 			       FmtState, _]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     after 5000 ->
 	    ct:fail({exit_gen_event,flush()})

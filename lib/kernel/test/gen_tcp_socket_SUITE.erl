@@ -79,7 +79,7 @@ testcases(direct) ->
 init_per_suite(Config) ->
     case socket:is_supported(protocols, tcp) of
         true ->
-            ct:pal("socket:info():~n    ~p~n", [socket:info()]),
+            ct:log("socket:info():~n    ~p~n", [socket:info()]),
             {ok, BindAddr} = kernel_test_lib:which_local_addr(?DOMAIN),
             [{bind_addr, #{ family => ?DOMAIN, addr   => BindAddr }}
             | Config];
@@ -88,7 +88,7 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(_Config) ->
-    ct:pal("socket:info():~n    ~p~n", [socket:info()]),
+    ct:log("socket:info():~n    ~p~n", [socket:info()]),
     ok.
 
 
@@ -140,7 +140,7 @@ init_per_group_size(K, Adj, Config) ->
      %%
     {MeanSize, SizeSuffix} = size_and_suffix(1 bsl K),
     {PacketCount, CountSuffix} = size_and_suffix(N),
-    ct:pal("Packet mean size: ~w ~sByte, packet count: ~w ~s",
+    ct:log("Packet mean size: ~w ~sByte, packet count: ~w ~s",
            [MeanSize, SizeSuffix, PacketCount, CountSuffix]),
     %%
     [{testdata_server, StopTag},
@@ -262,7 +262,7 @@ run_xfer(
                       send_loop(A, Iovecs),
                       ok = gen_tcp:close(A)
                   catch Class : Reason : Stacktrace ->
-                          ct:pal(
+                          ct:log(
                             "Sender crash [~w] ~w : ~p~n    ~p~n",
                             [self(), Class, Reason, Stacktrace]),
                           erlang:raise(Class, Reason, Stacktrace)
@@ -270,7 +270,7 @@ run_xfer(
           end, [monitor]),
     receive
         {Tag, Sockaddr} ->
-            ct:pal("try connect to ~p"
+            ct:log("try connect to ~p"
                    "~n   TC:      ~p"
                    "~n", [Sockaddr, TC]),
             C = case connect(Params, Sockaddr, TC) of
@@ -288,7 +288,7 @@ run_xfer(
                 T = erlang:convert_time_unit(T2 - T1, native, millisecond),
                 report_MByte_s(Params, TC, TotalSize, T)
             catch Class : Reason : Stacktrace ->
-                    ct:pal(
+                    ct:log(
                       "Receiver crash [~w] ~w : ~p~n    ~p~n",
                       [self(), Class, Reason, Stacktrace]),
                     exit(Sender, receiver_crash),
@@ -697,7 +697,7 @@ recv_loop_active_n(S, Sizes, M, N) ->
 %% -------
 
 report(Name, Value, Suffix) ->
-    ct:pal("### ~s: ~w ~s", [Name, Value, Suffix]),
+    ct:log("### ~s: ~w ~s", [Name, Value, Suffix]),
     ct_event:notify(
       #event{
          name = benchmark_data,

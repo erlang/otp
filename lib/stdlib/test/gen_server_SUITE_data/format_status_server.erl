@@ -48,8 +48,8 @@ format_status(#{ state := {_,_,Fun} } = S) when is_function(Fun) ->
 format_status(#{ message := Msg } = S) when not is_map_key(state, S) ->
     S#{message := {message,Msg}};
 format_status(#{ reason := _, state := State } = Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state => {formatted, State}};
 format_status(Map) ->
-    ct:pal("format_status(~p)",[Map]),
+    ct:log("format_status(~p)",[Map]),
     Map#{ state => format_status_called }.

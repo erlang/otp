@@ -105,7 +105,7 @@ do_token_set_get(TsType) ->
         monotonic_timestamp ->
             BaseOpts bor ?SEQ_TRACE_MON_TIMESTAMP
         end,
-    ct:pal("Type ~p, flags = ~p~n", [TsType, Flags]),
+    ct:log("Type ~p, flags = ~p~n", [TsType, Flags]),
     Self = self(),
     seq_trace:reset_trace(),
     %% Test that initial seq_trace is disabled

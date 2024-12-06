@@ -442,7 +442,7 @@ crash_std_h(Config,Func,Var,Type,Log) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = lists:concat([?MODULE,"_",Func]),
     Args = lists:concat([" -config ",filename:rootname(SysConfig)," -pa ",Pa]),
-    ct:pal("Starting ~p with ~tp", [Name,Args]),
+    ct:log("Starting ~p with ~tp", [Name,Args]),
     %% Start a node which prints kernel logs to the destination specified by Type
     {ok,Node} = test_server:start_node(Name, peer, [{args, Args}]),
     HProcName =
@@ -1005,7 +1005,7 @@ op_switch_to_drop_file(Config) ->
                     _ <- lists:seq(1, Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                ct:pal("Number of messages dropped = ~w (~w)",
+                ct:log("Number of messages dropped = ~w (~w)",
                        [Procs*NumOfReqs*Bursts-Logged,Procs*NumOfReqs*Bursts]),
                 true = (Logged < (Procs*NumOfReqs*Bursts)),
                 true = (Logged > 0),
@@ -1073,7 +1073,7 @@ op_switch_to_flush_file(Config) ->
                     _ <- lists:seq(1,Bursts)],
                 Logged = count_lines(Log),
                 ok = stop_handler(?MODULE),
-                ct:pal("Number of messages flushed/dropped = ~w (~w)",
+                ct:log("Number of messages flushed/dropped = ~w (~w)",
                        [NumOfReqs*Procs*Bursts-Logged,NumOfReqs*Procs*Bursts]),
                 true = (Logged < (NumOfReqs*Procs*Bursts)),
                 true = (Logged > 0),
@@ -1125,7 +1125,7 @@ limit_burst_disabled(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     NumOfReqs = Logged,
     ok = file_delete(Log),
     ok.
@@ -1145,7 +1145,7 @@ limit_burst_enabled_one(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     ReqLimit = Logged,
     ok = file_delete(Log),
     ok.
@@ -1167,7 +1167,7 @@ limit_burst_enabled_period(Config) ->
     Windows = 3,
     Sent = send_burst({t,BurstTWin*Windows}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
+    ct:log("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
     true = (Logged > (ReqLimit*Windows)) andalso
            (Logged < (ReqLimit*(Windows+2))),
@@ -1186,7 +1186,7 @@ kill_disabled(Config) ->
     NumOfReqs = 100,
     send_burst({n,NumOfReqs}, seq, {chars,79}, notice),
     Logged = count_lines(Log),
-    ct:pal("Number of messages logged = ~w", [Logged]),
+    ct:log("Number of messages logged = ~w", [Logged]),
     ok = file_delete(Log),
     true = is_pid(whereis(h_proc_name())),
     ok.
@@ -1213,9 +1213,9 @@ qlen_kill_new(Config) ->
         {'DOWN', MRef, _, _, Info} ->
            case Info of
                 {shutdown,{overloaded,QLen,Mem}} ->
-                    ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
+                    ct:log("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
-                    ct:pal("Slow shutdown, handler process was killed!", [])
+                    ct:log("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
             {ok,_} = wait_for_process_up(RestartAfter * 3),
@@ -1223,7 +1223,7 @@ qlen_kill_new(Config) ->
     after
         5000 ->
             Info = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info]),
+            ct:log("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
 qlen_kill_new(cleanup, _Config) ->
@@ -1264,9 +1264,9 @@ mem_kill_new(Config) ->
         {'DOWN', MRef, _, _, Info} ->
             case Info of
                 {shutdown,{overloaded,QLen,Mem}} ->
-                    ct:pal("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
+                    ct:log("Terminated with qlen = ~w, mem = ~w", [QLen,Mem]);
                 killed ->
-                    ct:pal("Slow shutdown, handler process was killed!", [])
+                    ct:log("Slow shutdown, handler process was killed!", [])
             end,
             file_delete(Log),
             {ok,_} = wait_for_process_up(RestartAfter * 3),
@@ -1274,7 +1274,7 @@ mem_kill_new(Config) ->
     after
         5000 ->
             Info = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info]),
+            ct:log("Handler state = ~p", [Info]),
             ct:fail("Handler not dead! It should not have survived this!")
     end.
 mem_kill_new(cleanup, _Config) ->
@@ -1305,7 +1305,7 @@ restart_after(Config) ->
     after
         5000 ->
             Info1 = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info1]),
+            ct:log("Handler state = ~p", [Info1]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
 
@@ -1330,7 +1330,7 @@ restart_after(Config) ->
     after
         5000 ->
             Info2 = logger_olp:info(h_proc_name()),
-            ct:pal("Handler state = ~p", [Info2]),
+            ct:log("Handler state = ~p", [Info2]),
             ct:fail("Handler not dead! It should not have survived this!")
     end,
     ok.
@@ -1364,7 +1364,7 @@ handler_requests_under_load(Config) ->
     Pid ! {self(),finish},
     ReqResult = receive {Pid,Result} -> Result end,
     Logged = count_lines(Log),
-    ct:pal("Number of messages sent = ~w~nNumber of messages logged = ~w",
+    ct:log("Number of messages sent = ~w~nNumber of messages logged = ~w",
            [Sent,Logged]),
     FindError = fun(Res) ->
                         [E || E <- Res,
@@ -1373,7 +1373,7 @@ handler_requests_under_load(Config) ->
     Errors = [{Func,FindError(Res)} || {_,Func,_,Res} <- ReqResult],
     NoOfReqs = lists:foldl(fun({_,_,_,Res}, N) -> N + length(Res) end,
                            0, ReqResult),
-    ct:pal("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
+    ct:log("~w requests made. Errors: ~n~p", [NoOfReqs,Errors]),
     ok = file_delete(Log).
 handler_requests_under_load(cleanup, _Config) ->
     ok = stop_handler(?MODULE).
@@ -1587,7 +1587,7 @@ rotate_on_start_compressed(Config) ->
 
     case file_SUITE:disc_free(?config(priv_dir, Config)) of
         N when N >= 5 * (1 bsl 30), is_integer(N) ->
-            ct:pal("Free disk: ~w KByte~n", [N]),
+            ct:log("Free disk: ~w KByte~n", [N]),
             Log = get_handler_log_name(rotate_on_start_compressed, Config),
 
             %% Write a 1 GB file to disk
@@ -1866,7 +1866,7 @@ start_handler(Name, TTY, _Config) when TTY == standard_io;
 
 start_handler(Name, FuncName, Config) ->
     Log = get_handler_log_name(FuncName, Config),
-    ct:pal("Logging to ~tp", [Log]),
+    ct:log("Logging to ~tp", [Log]),
     Type = {file,Log},
     _ = file_delete(Log),
     ok = logger:add_handler(Name,
@@ -1889,7 +1889,7 @@ filter_only_this_domain(Name) ->
 
 stop_handler(Name) ->
     R = logger:remove_handler(Name),
-    ct:pal("Handler ~p stopped! Result: ~p", [Name,R]),
+    ct:log("Handler ~p stopped! Result: ~p", [Name,R]),
     R.
 
 count_lines(File) ->
@@ -1938,7 +1938,7 @@ send_burst(NorT, Type, {chars,Sz}, Class) ->
             %% process_flag(priority, normal),
             N;
         {t,T} ->
-            ct:pal("Sending messages sequentially for ~w ms", [T]),
+            ct:log("Sending messages sequentially for ~w ms", [T]),
             T0 = erlang:monotonic_time(millisecond),
             send_t_burst(T0, T, Text, Class, 0)
     end.
@@ -1949,7 +1949,7 @@ send_n_burst(N, seq, Text, Class) ->
     ok = logger:Class(Text, ?domain),
     send_n_burst(N-1, seq, Text, Class);
 send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
-    ct:pal("~w processes each sending ~w messages", [Ps,N]),
+    ct:log("~w processes each sending ~w messages", [Ps,N]),
     MRefs = [begin if TO == 0 -> ok; true -> timer:sleep(TO) end,
                    monitor(process,spawn_link(per_proc_fun(N,Text,Class,X)))
              end || X <- lists:seq(1,Ps)],
@@ -1959,7 +1959,7 @@ send_n_burst(N, {spawn,Ps,TO}, Text, Class) ->
                                   ok
                           end
                   end, MRefs),
-    ct:pal("Message burst sent", []),
+    ct:log("Message burst sent", []),
     ok.
 
 send_t_burst(T0, T, Text, Class, N) ->
@@ -2045,15 +2045,15 @@ try_read_file(FileName, Expected, Time) when Time > 0 ->
         Expected ->
             ok;
         Error = {error,_Reason} ->
-            ct:pal("Can't read ~tp: ~tp", [FileName,Error]),
+            ct:log("Can't read ~tp: ~tp", [FileName,Error]),
             erlang:error(Error);
         Got ->
-            ct:pal("try_read_file got ~tp", [Got]),
+            ct:log("try_read_file got ~tp", [Got]),
             timer:sleep(500),
             try_read_file(FileName, Expected, Time-500)
     end;
 try_read_file(FileName, Expected, _) ->
-    ct:pal("Missing pattern ~tp in ~tp", [Expected,FileName]),
+    ct:log("Missing pattern ~tp in ~tp", [Expected,FileName]),
     erlang:error({error,missing_expected_pattern}).
 
 try_match_file(FileName, Pattern, Time) ->
@@ -2073,7 +2073,7 @@ try_match_file(FileName, Pattern, Time, _) when Time > 0 ->
             erlang:error(Error)
     end;
 try_match_file(_,Pattern,_,Incorrect) ->
-    ct:pal("try_match_file did not match pattern: ~p~nGot: ~p~n",
+    ct:log("try_match_file did not match pattern: ~p~nGot: ~p~n",
            [Pattern,Incorrect]),
     erlang:error({error,not_matching_pattern,Pattern,Incorrect}).
 
@@ -2092,7 +2092,7 @@ repeat_until_ok(Fun, C, Stop, FirstReason) ->
             {ok,{C,Result}}
     catch
         _:Reason:Stack ->
-            ct:pal("Test fails: ~p (~p)~n", [Reason,hd(Stack)]),
+            ct:log("Test fails: ~p (~p)~n", [Reason,hd(Stack)]),
             if FirstReason == undefined ->
                     repeat_until_ok(Fun, C+1, Stop, {Reason,Stack});
                true ->
@@ -2125,7 +2125,7 @@ start_op_trace() ->
     MS2 = dbg:fun2ms(fun([_,mode]) -> return_trace() end),
     {ok,_} = dbg:tpl(ets, lookup, 2, MS2),
 
-    ct:pal("Tracing started!", []),
+    ct:log("Tracing started!", []),
     TRecvPid.
     
 stop_op_trace(TRecvPid) ->
@@ -2165,7 +2165,7 @@ analyse_trace(TRecvPid, TestFun) ->
 
 trace_receiver(IdleT) ->
     Msgs = receive_until_idle(IdleT, 5, []),
-    ct:pal("~w trace events generated", [length(Msgs)]),
+    ct:log("~w trace events generated", [length(Msgs)]),
     analyse(Msgs).
 
 receive_until_idle(IdleT, WaitN, Msgs) ->
@@ -2299,13 +2299,13 @@ wait_for_process_up1(Name, RegName, N) ->
         Pid when is_pid(Pid) ->
             case logger:get_handler_config(Name) of
                 {ok,_} ->
-                    %% ct:pal("Process ~p up (~p tries left)",[Name,N]),
+                    %% ct:log("Process ~p up (~p tries left)",[Name,N]),
                     {ok,Pid};
                 _ ->
                     wait_for_process_up1(Name, RegName, N-1)
             end;
         undefined ->
-            %% ct:pal("Waiting for process ~p (~p tries left)",[Name,N]),
+            %% ct:log("Waiting for process ~p (~p tries left)",[Name,N]),
             wait_for_process_up1(Name, RegName, N-1)
     end.
 
