@@ -149,8 +149,6 @@ tc_api_profile(Config) ->
                 tls_server_connection, initial_hello},
                {"    (client) <- tls_client_connection:initial_hello/3 returned",
                 tls_client_connection, initial_hello},
-               {"    (client) <- ssl_gen_statem:connect/8 returned",
-                ssl_gen_statem, connect},
                {"    (client) <- ssl:connect/3 returned", ssl, connect},
                {"    (server) <- ssl:handshake/2 returned", ssl, handshake},
                {"    (client) <- tls_sender:init/3 returned", tls_sender, init},
@@ -161,8 +159,7 @@ tc_api_profile(Config) ->
                "rle ('?') -> ssl:listen/2 (*server) Args",
                "rle ('?') -> ssl:connect/3 (*client) Args",
                "rle ('?') -> tls_sender:init/3 (*server)",
-               "rle ('?') -> tls_sender:init/3 (*client)",
-               "api (client) -> ssl_gen_statem:connect/8"]},
+               "rle ('?') -> tls_sender:init/3 (*client)"]},
     TracesAfterDisconnect =
         #{
           call =>

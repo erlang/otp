@@ -114,29 +114,41 @@ accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
 
 upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
 			ssl = SslOptions,
-			emulated = EmOpts, connection_cb = ConnectionCb}, Timeout) ->
+			emulated = EmOpts}, Timeout) ->
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
     case peername(Transport, Socket) of
-	{ok, {Address, Port}} ->
-	    ssl_gen_statem:connect(ConnectionCb, Address, Port, Socket,
-				   {SslOptions, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
+	{ok, {Host, Port}} ->
+	    try tls_gen_connection:start_fsm(client, Host, Port, Socket,
+                                             {SslOptions,
+                                              emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                             self(), CbInfo, Timeout) of
+                Result ->
+                    Result
+            catch
+                exit:{noproc, _} ->
+                    {error, ssl_not_started}
+            end;
 	{error, Error} ->
 	    {error, Error}
     end.
 
-connect(Address, Port,
+connect(Host, Port,
 	#config{transport_info = CbInfo, inet_user = UserOpts, ssl = SslOpts,
-		emulated = EmOpts, inet_ssl = SocketOpts, connection_cb = ConnetionCb},
+		emulated = EmOpts, inet_ssl = SocketOpts},
 	Timeout) ->
     {Transport, _, _, _, _} = CbInfo,
-    try Transport:connect(Address, Port,  SocketOpts, Timeout) of
+    try Transport:connect(Host, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnetionCb, Address, Port, Socket,
-				   {SslOpts, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
+	    try tls_gen_connection:start_fsm(client, Host, Port, Socket,
+                                             {SslOpts,
+                                              emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                             self(), CbInfo, Timeout) of
+                Result ->
+                    Result
+            catch
+                exit:{noproc, _} ->
+                    {error, ssl_not_started}
+            end;
 	{error, Reason} ->
 	    {error, Reason}
     catch

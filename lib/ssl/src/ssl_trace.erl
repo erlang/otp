@@ -422,7 +422,7 @@ trace_profiles() ->
       [{ssl,
         [{listen,2}, {connect,3}, {handshake,2}, {close, 1}]},
        {ssl_gen_statem,
-        [{connect, 8}, {close, 2}, {terminate_alert, 1}]},
+        [{close, 2}, {terminate_alert, 1}]},
        {tls_client_connection,
         [{initial_hello, 3}]},
        {tls_server_connection,

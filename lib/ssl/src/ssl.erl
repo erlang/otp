@@ -2245,8 +2245,10 @@ connect(Host, Port, Options, Timeout)
 		dtls_socket:connect(Host,Port,Config,Timeout)
 	end
     catch
-	throw:Error ->
-	    Error
+        exit:{noproc, _} ->
+            {error, ssl_not_started};
+        throw:Error ->
+            Error
     end.
 
 %%--------------------------------------------------------------------
@@ -2456,11 +2458,11 @@ handshake(Socket, SslOptions, Timeout)
         ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
         {ok, Port} = tls_socket:port(Transport, Socket),
         {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-        ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
-                                 {SslOpts, 
-                                  tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
-                                  [{session_id_tracker, SessionIdHandle}]},
-                                 self(), CbInfo, Timeout)
+        ConnetionCb:start_fsm(server, "localhost", Port, Socket,
+                              {SslOpts,
+                               tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+                               [{session_id_tracker, SessionIdHandle}]},
+                              self(), CbInfo, Timeout)
     catch
         Error = {error, _Reason} -> Error
     end.   
