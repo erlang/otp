@@ -81,12 +81,13 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], sni_tests()},
-     {'tlsv1.2', [], sni_tests()},
-     {'tlsv1.1', [], sni_tests()},
-     {'tlsv1', [], sni_tests()},
-     {'dtlsv1.2', [], sni_tests()},
-     {'dtlsv1', [], sni_tests()}
+     {'tlsv1.3', [], [{group, sni_tests}]},
+     {'tlsv1.2', [], [{group, sni_tests}]},
+     {'tlsv1.1', [], [{group, sni_tests}]},
+     {'tlsv1', [], [{group, sni_tests}]},
+     {'dtlsv1.2', [], [{group, sni_tests}]},
+     {'dtlsv1', [], [{group, sni_tests}]},
+     {sni_tests, [parallel], sni_tests()}
     ].
 
 sni_tests() ->
@@ -136,7 +137,6 @@ end_per_suite(_) ->
 
 init_per_testcase(customize_hostname_check, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ssl_test_lib:clean_start(keep_version),
     ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->

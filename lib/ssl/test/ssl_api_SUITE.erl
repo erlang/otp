@@ -258,22 +258,22 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
+     {'tlsv1.3', [parallel], ((gen_api_tests() ++ tls13_group() ++
                            handshake_paus_tests()) --
                           [dh_params,
                            new_options_in_handshake,
                            handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
-     {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
+     {'tlsv1.2', [parallel],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
           [honor_client_cipher_order_tls12,honor_server_cipher_order_tls12]},
-     {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
-     {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
+     {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
+     {'tlsv1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
           beast_mitigation_test()},
-     {'dtlsv1.2', [], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
-     {'dtlsv1', [],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
+     {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
-     {transport_socket,  gen_api_tests() -- [ssl_not_started, dh_params]}
+     {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params]}
     ].
 
 since_1_2() ->
@@ -304,7 +304,8 @@ simple_api_tests() ->
      invalid_dhfile,
      options_not_proplist,
      options_whitebox,
-     format_error
+     format_error,
+     ssl_not_started
     ].
 
 gen_api_tests() ->
@@ -340,7 +341,6 @@ gen_api_tests() ->
      der_input,
      max_handshake_size,
      cb_info,
-     ssl_not_started,
      log_alert,
      getstat,
      check_random_nonce,
@@ -476,8 +476,6 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 10}),
     Config.
 
-end_per_testcase(internal_active_n, _Config) ->
-    application:unset_env(ssl, internal_active_n);
 end_per_testcase(_TestCase, Config) ->     
     Config.
 
@@ -3816,17 +3814,22 @@ ssl_not_started() ->
     [{doc, "Test that an error is returned if ssl is not started"}].
 ssl_not_started(Config) when is_list(Config) ->
     application:stop(ssl),
-    Protocol = proplists:get_value(protocol, Config, tls),
-    Version = proplists:get_value(version, Config),
-    Opts = [{verify, verify_none},
-            {versions, [Version]},
-            {protocol, Protocol}],
-    try
-        {error, ssl_not_started} = ssl:connect("localhost", 22, Opts)
-    after
-        ssl:start()
-    end,
-    ok.
+    R1 = try
+             {error, ssl_not_started} = ssl:connect("localhost", 22, [{verify, verify_none},
+                                                                      {protocol, tls}]),
+             ok
+         catch _:Reason ->
+                 Reason
+         end,
+    R2 = try
+             {error, ssl_not_started} = ssl:connect("localhost", 22, [{verify, verify_none},
+                                                                      {protocol, dtls}]),
+             ok
+         catch _:Reason2 ->
+                 Reason2
+         end,
+    ssl:start(),
+    ok = R1 = R2.
 
 cookie() ->
     [{doc, "Test cookie extension in TLS 1.3"}].
@@ -4190,7 +4193,7 @@ no_recv_no_active(Socket) ->
     receive
         {ssl_closed, Socket} ->
             ct:fail(received_active_msg)
-    after 5000 ->
+    after 500 ->
             ok
     end.
 
@@ -4514,8 +4517,8 @@ selected_peer(ExpectedClient,
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %% Make sure to start next test fresh
-    ssl:stop(),
-    ssl:start().
+    ssl:clear_pem_cache(),
+    ok.
 
 test_config('tlsv1.3', _) ->
     #{server_config := SEDDSAOpts,

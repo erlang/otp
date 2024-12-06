@@ -72,11 +72,11 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.2', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.1', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1', [], all_tls_version_tests()},
-     {'dtlsv1.2', [], [reject_prev]}
+    [{'tlsv1.3', [parallel], [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.2', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.1', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1', [parallel], all_tls_version_tests()},
+     {'dtlsv1.2', [parallel], [reject_prev]}
     ].
 
 all_tls_version_tests() ->

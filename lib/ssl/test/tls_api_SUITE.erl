@@ -148,12 +148,15 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [],  (api_tests() ++  [tls_13_reject_change_cipher_spec_as_first_msg,
-                                        tls_13_middlebox_reject_change_cipher_spec_as_first_msg]) -- [sockname]},
-     {'tlsv1.2', [],  api_tests()},
-     {'tlsv1.1', [],  api_tests()},
-     {'tlsv1', [],  api_tests()},
-     {transport_socket, [], api_tests()}
+     {'tlsv1.3', [], [{group, api_tests},
+                      tls_13_reject_change_cipher_spec_as_first_msg,
+                      tls_13_middlebox_reject_change_cipher_spec_as_first_msg
+                     ] ++ seq_test()},
+     {'tlsv1.2', [], [{group, api_tests}] ++ seq_test()},
+     {'tlsv1.1', [], [{group, api_tests}] ++ seq_test()},
+     {'tlsv1', [],  [{group, api_tests}] ++ seq_test()},
+     {transport_socket, [], [{group, api_tests}] ++ seq_test()},
+     {api_tests, [parallel], api_tests()}
     ].
 
 api_tests() ->
@@ -175,7 +178,6 @@ api_tests() ->
      tls_client_closes_socket,
      tls_closed_in_active_once,
      tls_reset_in_active_once,
-     tls_monitor_listener,
      tls_tcp_msg,
      tls_tcp_msg_big,
      tls_dont_crash_on_handshake_garbage,
@@ -187,11 +189,14 @@ api_tests() ->
      sockname,
      tls_server_handshake_timeout,
      transport_close,
-     transport_close_in_inital_hello,
      emulated_options,
      accept_pool,
      reuseaddr
     ].
+
+seq_test() ->
+    [transport_close_in_inital_hello,tls_monitor_listener].
+
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),

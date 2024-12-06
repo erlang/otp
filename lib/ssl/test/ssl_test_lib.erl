@@ -1652,8 +1652,9 @@ make_ec_cert_chains(UserConf, ClientChainType, ServerChainType, Config, Curve) -
     ClientChain = proplists:get_value(client_chain, UserConf, default_cert_chain_conf()),
     ServerChain = proplists:get_value(server_chain, UserConf, default_cert_chain_conf()),
     CertChainConf = gen_conf(ClientChainType, ServerChainType, ClientChain, ServerChain, Curve),
-    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ClientChainType)]),
-    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(ServerChainType)]),
+    Number = integer_to_list(erlang:unique_integer()),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), Number ++ atom_to_list(ClientChainType)]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), Number ++ atom_to_list(ServerChainType)]),
     GenCertData = public_key:pkix_test_data(CertChainConf),
     [{server_config, ServerConf}, 
      {client_config, ClientConf}] = 

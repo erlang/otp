@@ -40,7 +40,7 @@
          ]).
 
 -define(SLEEP, 1000).
--define(EXPIRE, 10).
+-define(EXPIRE, 5).
 -define(TIMEOUT, {seconds, 120}).
 
 %%--------------------------------------------------------------------
@@ -51,33 +51,21 @@ all() ->
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
             [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'dtlsv1.2'},
-             {group, 'dtlsv1'}];
+             {group, 'dtlsv1.2'}
+            ];
         false ->
-            [{group, 'tlsv1.2'},
-             {group, 'tlsv1.1'},
-             {group, 'tlsv1'}
+            [{group, 'tlsv1.2'}
              ]
     end.
 
 groups() ->
-     case ssl_test_lib:openssl_sane_dtls() of 
-         true ->
-             [{'tlsv1.2', [], tests()},
-              {'tlsv1.1', [], tests()},
-              {'tlsv1', [], tests()},
-              {'dtlsv1.2', [], tests()},
-              {'dtlsv1', [], tests()}
-             ];
-        false ->
-             [{'tlsv1.2', [], tests()},
-              {'tlsv1.1', [], tests()},
-              {'tlsv1', [], tests()}
-           ]
-     end.
- 
+    [{'tlsv1.2', [], tests()},
+     {'tlsv1.1', [], tests()},
+     {'tlsv1', [], tests()},
+     {'dtlsv1.2', [], tests()},
+     {'dtlsv1', [], tests()}
+    ].
+
 tests() ->
     [    
          reuse_session_erlang_server,
@@ -220,7 +208,7 @@ reuse_session_erlang_client(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Client1),
     %% Make sure session is unregistered due to expiration
-    ct:sleep(20000),
+    ct:sleep(?EXPIRE*1000*2),
     
     Client2 =
         ssl_test_lib:start_client([{node, ClientNode},

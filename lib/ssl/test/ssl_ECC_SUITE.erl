@@ -78,11 +78,11 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.2', [], [mix_sign | test_cases()]},
-     {'tlsv1.1', [], test_cases()},
-     {'tlsv1', [], test_cases()},
-     {'dtlsv1.2', [], [mix_sign | test_cases()]},
-     {'dtlsv1', [], test_cases()}
+     {'tlsv1.2', [parallel], [mix_sign | test_cases()]},
+     {'tlsv1.1', [parallel], test_cases()},
+     {'tlsv1', [parallel], test_cases()},
+     {'dtlsv1.2', [parallel], [mix_sign | test_cases()]},
+     {'dtlsv1', [parallel], test_cases()}
     ].
 
 test_cases()->
@@ -126,6 +126,7 @@ init_per_suite(Config0) ->
 
 end_per_suite(_Config) ->
     application:stop(ssl),
+    ssl_test_lib:clean_env(),
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
@@ -146,15 +147,13 @@ end_per_group(GroupName, Config) ->
 
 %%--------------------------------------------------------------------
 
-init_per_testcase(TestCase, Config) ->
+init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    end_per_testcase(TestCase, Config),
-    ssl:start(),
     ct:timetrap({seconds, 5}),
+    ssl:clear_pem_cache(),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
-    application:stop(ssl),
     Config.
 
 %%--------------------------------------------------------------------
@@ -166,8 +165,8 @@ end_per_testcase(_TestCase, Config) ->
 client_ecdsa_server_ecdsa_with_raw_key(Config)  when is_list(Config) ->
      Default = ssl_test_lib:default_cert_chain_conf(),
     {COpts0, SOpts0} = ssl_test_lib:make_ec_cert_chains([{server_chain, Default},
-                                                       {client_chain, Default}]
-                                                     , ecdhe_ecdsa, ecdhe_ecdsa, Config),
+                                                         {client_chain, Default}]
+                                                       , ecdhe_ecdsa, ecdhe_ecdsa, Config),
     COpts = ssl_test_lib:ssl_options(COpts0, Config),
     SOpts = ssl_test_lib:ssl_options(SOpts0, Config),
     ServerKeyFile = proplists:get_value(keyfile, SOpts),

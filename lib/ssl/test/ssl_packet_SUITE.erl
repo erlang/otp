@@ -253,10 +253,10 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
      %% We will not support any packet types if the transport is
      %% not reliable. We might support it for DTLS over SCTP in the future 
      {'dtlsv1.2', [], [reject_packet_opt]},
