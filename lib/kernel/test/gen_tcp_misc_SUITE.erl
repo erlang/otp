@@ -9310,15 +9310,24 @@ otp_18357(Config) when is_list(Config) ->
 
 do_otp_18357(#{name := Name, addr := Addr}) ->
     ?P("try create listen socket"),
-    {ok, L}      = gen_tcp:listen(0, [{ifaddr, Addr}]),
+    {ok, L}      = gen_tcp:listen(0,
+                                  [{inet_backend, socket},
+                                   {debug,        true},
+                                   {ifaddr,       Addr}]),
     {ok, PortNo} = inet:port(L),
 
     ?P("try connect (with bind-to-device)"),
+    OS = which_os(),
     C = case gen_tcp:connect(Addr, PortNo,
                              [{inet_backend,   socket},
+                              {debug,          true},
                               {bind_to_device, list_to_binary(Name)}]) of
             {ok, CSock} ->
                 CSock;
+            {error, einval = Reason} when (OS =:= darwin) ->
+                ?P("Failed connecting, ~p, skipping", [Reason]),
+                (catch gen_tcp:close(L)),
+                skip(Reason);
             {error, eperm = Reason} ->
                 ?P("Failed connecting, ~p, skipping", [Reason]),
                 (catch gen_tcp:close(L)),
@@ -9619,6 +9628,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 messages() ->
     pi(messages).
