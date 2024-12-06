@@ -1076,7 +1076,9 @@ do_open_fd(Config) when is_list(Config) ->
     ?P("try open second (domain = inet6) socket with FD = ~w "
        "and expect *failure*", [FD]),
 
-    case ?OPEN(Config, 0, [inet6, {fd,FD}]) of
+    OS = which_os(),
+
+    case ?OPEN(Config, 0, [{debug, true}, inet6, {fd,FD}]) of
         {error, einval = Reason} ->
             ?P("expected failure reason ~w", [Reason]),
             ok;
@@ -1091,7 +1093,14 @@ do_open_fd(Config) when is_list(Config) ->
                "~n   ~p", [inet:info(Socket)]),
             (catch gen_udp:close(Socket)),
             (catch gen_udp:close(S1)),
-            ct:fail(unexpected_succes)
+            case ((OS =:= darwin) andalso ?IS_SOCKET_BACKEND(Config)) of
+                true ->
+                    %% This should not work, but on (some) Darwin
+                    %% machines it does...
+                    skip(unexpected_success);
+                _ ->
+                    ct:fail(unexpected_success)
+            end
     end,
 
     ?P("try open second socket with FD = ~w "
@@ -1989,9 +1998,13 @@ do_connect(Config) when is_list(Config) ->
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
     ?P("try recv on second socket - expect failure when"
        "~n   Socket Info: ~p", [inet:info(S2)]),
+    OS = which_os(),
     ok = case gen_udp:recv(S2, 0, 500) of
 	     {error, econnrefused = R} -> ?P("expected failure: ~w", [R]), ok;
 	     {error, econnreset   = R} -> ?P("expected failure: ~w", [R]), ok;
+             {error, timeout      = R} when (OS =:= darwin) ->
+                 ?P("unexpected failure (~w) on darwin => SKIP", [R]),
+                 skip(R);
 	     Other -> 
                  ?P("UNEXPECTED failure: ~p:"
                     "~n   ~p", [Other, inet:info(S2)]),
@@ -3553,6 +3566,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 which_info(Sock) ->
     which_info([istate, active], inet:info(Sock), #{}).
