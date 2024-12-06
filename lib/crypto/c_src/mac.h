@@ -26,6 +26,7 @@
 int init_mac_ctx(ErlNifEnv *env, ErlNifBinary* rt_buf);
 
 void init_mac_types(ErlNifEnv* env);
+void fini_mac_types(void);
 
 ERL_NIF_TERM mac_types_as_list(ErlNifEnv* env);
 
