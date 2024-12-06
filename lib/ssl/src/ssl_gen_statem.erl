@@ -42,8 +42,6 @@
 -export([opposite_role/1,
          init_ssl_config/3,
          ssl_config/3,
-         connect/8,
-         handshake/7,
          handshake/2,
          handshake/3,
          handshake_continue/3,
@@ -268,43 +266,6 @@ ssl_config(Opts, Role, #state{static_env = InitStatEnv0,
                      HsEnv#handshake_env{diffie_hellman_params = DHParams},
                  connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
                  ssl_options = Opts}.
-
-%%--------------------------------------------------------------------
--spec connect(tls_gen_connection | dtls_gen_connection,
-	      ssl:host(), inet:port_number(),
-	      port() | {tuple(), port()}, %% TLS | DTLS
-	      {ssl_options(), #socket_options{},
-	       %% Tracker only needed on server side
-	       undefined},
-	      pid(), tuple(), timeout()) ->
-		     {ok, #sslsocket{}} | {error, ssl:reason()}.
-%%
-%% Description: Connect to an ssl server.
-%%--------------------------------------------------------------------
-connect(Connection, Host, Port, Socket, Options, User, CbInfo, Timeout) ->
-    try Connection:start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
-			     Timeout)
-    catch
-	exit:{noproc, _} ->
-	    {error, ssl_not_started}
-    end.
-%%--------------------------------------------------------------------
--spec handshake(tls_gen_connection | dtls_gen_connection,
-		 inet:port_number(), port(),
-		 {ssl_options(), #socket_options{}, list()},
-		 pid(), tuple(), timeout()) ->
-			{ok, #sslsocket{}} | {error, ssl:reason()}.
-%%
-%% Description: Performs accept on an ssl listen socket. e.i. performs
-%%              ssl handshake.
-%%--------------------------------------------------------------------
-handshake(Connection, Port, Socket, Opts, User, CbInfo, Timeout) ->
-    try Connection:start_fsm(server, "localhost", Port, Socket, Opts, User,
-		  CbInfo, Timeout)
-    catch
-	exit:{noproc, _} ->
-	    {error, ssl_not_started}
-    end.
 
 %%--------------------------------------------------------------------
 -spec handshake(#sslsocket{}, timeout()) ->  {ok, #sslsocket{}} |

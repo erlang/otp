@@ -2171,13 +2171,14 @@ connect(Host, Port, TLSOptions, infinity).
 
 connect(TCPSocket, TLSOptions, Timeout)
   when is_list(TLSOptions), ?IS_TIMEOUT(Timeout) ->
-
     try
+        tls_gen_connection = connection_cb(TLSOptions),
         {ok, Config} = ssl_config:handle_options(TCPSocket, TLSOptions, client, undefined),
         tls_socket:upgrade(TCPSocket, Config, Timeout)
     catch
-        _:{error, Reason} ->
-            {error, Reason}
+        error:{badmatch, _} ->
+            {error, {dtls_upgrade, notsup}};
+        throw:Error = {error, _Reason} -> Error
     end;
 connect(Host, Port, TLSOptions)
   when is_integer(Port), is_list(TLSOptions) ->
@@ -2241,8 +2242,10 @@ connect(Host, Port, Options, Timeout)
 		dtls_socket:connect(Host,Port,Config,Timeout)
 	end
     catch
-	throw:Error ->
-	    Error
+        exit:{noproc, _} ->
+            {error, ssl_not_started};
+        throw:Error ->
+            Error
     end.
 
 %%--------------------------------------------------------------------
@@ -2444,20 +2447,22 @@ handshake(#sslsocket{socket_handle = {Controller,_}, connection_cb = dtls_gen_co
 handshake(Socket, SslOptions, Timeout)
   when is_list(SslOptions), ?IS_TIMEOUT(Timeout) ->
     try       
-        ConnetionCb = connection_cb(SslOptions),
+        tls_gen_connection = connection_cb(SslOptions),
         {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} =
             ssl_config:handle_options(Socket, SslOptions, server, undefined),
         Transport = element(1, CbInfo),
         ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
         {ok, Port} = tls_socket:port(Transport, Socket),
         {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-        ssl_gen_statem:handshake(ConnetionCb, Port, Socket,
-                                 {SslOpts, 
-                                  tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
-                                  [{session_id_tracker, SessionIdHandle}]},
-                                 self(), CbInfo, Timeout)
+        tls_gen_connection:start_fsm(server, "localhost", Port, Socket,
+                                     {SslOpts,
+                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
+                                      [{session_id_tracker, SessionIdHandle}]},
+                                     self(), CbInfo, Timeout)
     catch
-        Error = {error, _Reason} -> Error
+        error:{badmatch, _} ->
+            {error, {dtls_upgrade, notsup}};
+        throw:Error = {error, _Reason} -> Error
     end.   
 
 %%--------------------------------------------------------------------
