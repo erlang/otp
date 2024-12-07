@@ -595,7 +595,14 @@ format_error_1({deprecated_builtin_type, {Name, Arity},
            end,
     {~"type ~w/~w is deprecated and will be removed in ~s; use ~s",
      [Name, Arity, Rel, UseS]};
-format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
+format_error_1(deprecated_catch) ->
+    ~"""
+     'catch ...' is deprecated and will be removed in a
+     future version of Erlang/OTP; please use 'try ... catch ... end' instead.
+     Compile directive 'nowarn_deprecated_catch' can be used to suppress
+     warnings in selected modules.
+     """;
+ format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
     {~"opaque type ~tw~s is not exported",
                   [TypeName, gen_type_paren(Arity)]};
 format_error_1({bad_dialyzer_attribute,Term}) ->
@@ -830,6 +837,7 @@ bool_options() ->
      {deprecated_function,true},
      {deprecated_type,true},
      {deprecated_callback,true},
+     {deprecated_catch,false},
      {obsolete_guard,true},
      {untyped_record,false},
      {missing_spec,false},
@@ -2823,7 +2831,11 @@ expr({'try',Anno,Es,Scs,Ccs,As}, Vt, St0) ->
 expr({'catch',Anno,E}, Vt, St0) ->
     %% No new variables added, flag new variables as unsafe.
     {Evt,St} = expr(E, Vt, St0),
-    {vtupdate(vtunsafe({'catch',Anno}, Evt, Vt), Evt),St};
+    St1 = case is_warn_enabled(deprecated_catch, St) of
+              true -> add_warning(Anno, deprecated_catch, St);
+              false -> St
+          end,
+    {vtupdate(vtunsafe({'catch',Anno}, Evt, Vt), Evt),St1};
 expr({match,_Anno,P,E}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Pvt,Pnew,St} = pattern(P, vtupdate(Evt, Vt), St1),
