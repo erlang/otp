@@ -20,6 +20,8 @@
 -module(disk_log_1).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Efficient file based log - implementation part
 
 -export([int_open/4, ext_open/4, logl/1, close/3, truncate/3, chunk/5, 

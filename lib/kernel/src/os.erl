@@ -33,6 +33,8 @@ a program to run on most platforms.
 > Types" section.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% Provides a common operating system interface.
 
 -export([type/0, version/0, cmd/1, cmd/2, find_executable/1, find_executable/2]).

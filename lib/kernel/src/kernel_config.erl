@@ -20,6 +20,8 @@
 -module(kernel_config).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_server).
 
 %% External exports

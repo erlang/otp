@@ -21,6 +21,8 @@
 -moduledoc false.
 -behaviour(supervisor_bridge).
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/logger.hrl").
 
 %% Basic standard i/o server for standard_error.

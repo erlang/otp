@@ -42,6 +42,9 @@ _Example:_
 ^ (new line)
 ```
 """.
+
+-compile(nowarn_deprecated_catch).
+
 -export([host_file/0,
 	 localhost/0,
 	 names/0, names/1,

@@ -20,6 +20,8 @@
 -module(dist_ac).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_server).
 
 %% External exports
