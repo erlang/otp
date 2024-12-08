@@ -22,6 +22,8 @@
 -moduledoc false.
 -behaviour(gen_statem).
 
+-compile(nowarn_deprecated_catch).
+
 -compile({no_auto_import, [monitor/1]}).
 
 %% gen_udp

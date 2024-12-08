@@ -66,6 +66,8 @@ Module:format_error(ErrorDescriptor)
 ```
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -export([put_chars/1,put_chars/2,nl/0,nl/1,
 	 get_chars/2,get_chars/3,get_line/1,get_line/2,
 	 get_password/0, get_password/1,

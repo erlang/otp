@@ -67,6 +67,8 @@ global group as the local node.
 `m:global`, [`erl`](`e:erts:erl_cmd.md`)
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% Groups nodes into global groups with an own global name space.
 
 -behaviour(gen_server).
