@@ -69,6 +69,8 @@ functions are flat, they can be deep lists. Function `lists:flatten/1` can be
 used for flattening deep lists.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
 -export([print/1,print/4,indentation/2]).

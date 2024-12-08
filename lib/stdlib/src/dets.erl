@@ -86,6 +86,8 @@ message.
 `m:ets`, `m:mnesia`, `m:qlc`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% Disk based linear hashing lookup dictionary.
 
 %% Public.

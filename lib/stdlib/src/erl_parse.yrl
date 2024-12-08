@@ -778,6 +778,8 @@ This function is usually called implicitly when an ErrorInfo structure is
 processed (see section [Error Information](#module-error-information)).
 """).
 
+-compile(nowarn_deprecated_catch).
+
 -export([parse_form/1,parse_exprs/1,parse_term/1]).
 -export([normalise/1,abstract/1,tokens/1,tokens/2]).
 -export([abstract/2]).
