@@ -35,6 +35,8 @@ one file called `index`, and report files `1, 2, ...`.
 `m:gen_event`, `m:rb`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_event).
 
 -export([init/3, init/4]).

@@ -148,6 +148,8 @@ providing one key for module `t` and another key for all other modules:
 """.
 -behaviour(gen_server).
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/eep48.hrl").
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.

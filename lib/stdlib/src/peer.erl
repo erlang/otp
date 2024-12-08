@@ -52,6 +52,8 @@
 -moduledoc(#{since => "OTP 25.0"}).
 -endif.
 
+-compile(nowarn_deprecated_catch).
+
 %% API
 -export([
          start_link/0,

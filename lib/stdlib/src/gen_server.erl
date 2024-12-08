@@ -182,6 +182,8 @@ using exit signals.
 %%%
 %%% ---------------------------------------------------
 
+-compile(nowarn_deprecated_catch).
+
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,

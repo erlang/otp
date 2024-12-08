@@ -359,6 +359,8 @@ that implements the state machine.
 %%%
 %%% ---------------------------------------------------
 
+-compile(nowarn_deprecated_catch).
+
 -include("logger.hrl").
 
 -export([start/3, start/4,

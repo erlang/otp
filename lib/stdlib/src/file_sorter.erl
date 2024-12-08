@@ -172,6 +172,8 @@ The possible values of `Reason` returned when an error occurs are:
   term.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).
 -export([sort/1, sort/2, sort/3, 

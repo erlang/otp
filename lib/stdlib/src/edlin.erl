@@ -177,6 +177,8 @@ supports multiple lines.
 """.
 -moduledoc(#{since => "OTP 26.1"}).
 
+-compile(nowarn_deprecated_catch).
+
 %% A simple Emacs-like line editor.
 %% About Latin-1 characters: see the beginning of erl_scan.erl.
 
