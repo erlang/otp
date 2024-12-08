@@ -28,6 +28,8 @@
 -module(erl_comment_scan).
 -moduledoc "Functions for reading comment lines from Erlang source code.".
 
+-compile(nowarn_deprecated_catch).
+
 -export([file/1, join_lines/1, scan_lines/1, string/1]).
 
 -export_type([comment/0]).
