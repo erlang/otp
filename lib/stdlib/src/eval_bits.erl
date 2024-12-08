@@ -21,6 +21,8 @@
 -module(eval_bits).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 -export([expr_grp/3,expr_grp/4,match_bits/6,

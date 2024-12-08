@@ -34,6 +34,8 @@ commands.
 `m:filename`, `m:compile`, `m:erlang`, `m:yecc`, `m:xref`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/eep48.hrl").
 
 %% Utilities to use from shell.

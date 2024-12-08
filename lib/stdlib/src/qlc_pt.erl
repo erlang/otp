@@ -20,6 +20,8 @@
 -module(qlc_pt).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %%% Purpose: Implements the qlc Parse Transform.
 
 -export([parse_transform/2, transform_from_evaluator/2,
