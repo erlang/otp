@@ -243,6 +243,8 @@ way, option `send_timeout` comes in handy.
 """.
 
 
+-compile(nowarn_deprecated_catch).
+
 -export([connect/2, connect/3, connect/4,
          listen/2,
          accept/1, accept/2,

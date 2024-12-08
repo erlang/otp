@@ -68,6 +68,8 @@ in the Erlang Reference Manual.
 > for details on how to setup a secure distributed node.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_server).
 
 -define(nodedown(N, State), verbose({?MODULE, ?LINE, nodedown, N}, 1, State)).

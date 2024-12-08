@@ -55,6 +55,8 @@ logged items in the log file, as the opened index file was truncated by
 -define(FORMAT(P, A), ok).
 -endif.
 
+-compile(nowarn_deprecated_catch).
+
 -export([open/1, open/2, chunk/1, chunk/2, close/1]).
 
 -export_type([continuation/0]).

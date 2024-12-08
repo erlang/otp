@@ -116,6 +116,8 @@ network problem.
 """.
 -behaviour(gen_server).
 
+-compile(nowarn_deprecated_catch).
+
 %% Global provides global registration of process names. The names are
 %% dynamically kept up to date with the entire network. Global can
 %% operate in two modes: in a fully connected network, or in a

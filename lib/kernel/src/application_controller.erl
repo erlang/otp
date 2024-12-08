@@ -20,6 +20,8 @@
 -module(application_controller).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% External exports
 -export([start/1, 
 	 load_application/1, unload_application/1, 
