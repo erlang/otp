@@ -20,6 +20,8 @@
 -module(group).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/logger.hrl").
 
 %% A group leader process for user io.
