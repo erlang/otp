@@ -70,6 +70,8 @@
 
 -module(edoc_wiki).
 
+-compile(nowarn_deprecated_catch).
+
 -export([parse_xml/2, expand_text/2]).
 
 -include("edoc.hrl").

@@ -34,6 +34,8 @@
 %% `tokens' function *always* returns `{more, Continuation}' unless an
 %% error occurs.
 
+-compile(nowarn_deprecated_catch).
+
 -export([string/1,string/2,format_error/1]).
 
 -import(lists, [reverse/1]).
