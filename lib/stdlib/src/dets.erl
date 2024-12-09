@@ -3225,8 +3225,8 @@ fopen_existing_file(Tab, OpenArgs) ->
                Auto, access = Acc, debug = Debug} =
         OpenArgs,
     {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
-    MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
-    MaxF = (MaxSlots =:= default) or (MaxSlots =:= FH#fileheader.max_no_slots),
+    MinF = (MinSlots =:= default) orelse (MinSlots =:= FH#fileheader.min_no_slots),
+    MaxF = (MaxSlots =:= default) orelse (MaxSlots =:= FH#fileheader.max_no_slots),
     Wh = case dets_v9:check_file_header(FH, Fd) of
 	     {ok, Head} when Rep =:= force, Acc =:= read_write,
                              FH#fileheader.no_colls =/= undefined,

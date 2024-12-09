@@ -528,7 +528,7 @@ onMenuAction(#wx{id=?menuID_MENU_APPEND_SUB, obj=Frame}, #state{} = State) ->
 
     State;
 
-onMenuAction(#wx{id=Id, obj=Frame}, #state{}=State) when ((Id >= ?menuID_DUMMY_FIRST) and (Id =< ?menuID_DUMMY_LAST)) ->
+onMenuAction(#wx{id=Id, obj=Frame}, #state{}=State) when ((Id >= ?menuID_DUMMY_FIRST) andalso (Id =< ?menuID_DUMMY_LAST)) ->
     logMessage(Frame, "Dummy item #~p ~n", [Id - ?menuID_DUMMY_FIRST + 1]),
     State;
 
