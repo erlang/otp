@@ -1246,7 +1246,15 @@ in the User's Guide chapter.
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,
-	  authenticated = false
+	  authenticated = false,
+
+          %% Keep-alive
+          alive_interval = infinity           :: non_neg_integer() | infinity,
+          alive_count = 0                     :: non_neg_integer(),
+          alive_started = false               :: boolean(),
+          last_alive_at = 0                   :: non_neg_integer(),
+          awaiting_keepalive_response = false :: boolean(),
+          alive_sent_probes = 0               :: non_neg_integer()
 	 }).
 
 -record(alg,
