@@ -68,6 +68,7 @@
          retrieve/2,
 	 info/1, info/2,
 	 connection_info/2,
+	 connection_info_server/1,
 	 channel_info/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
@@ -307,6 +308,17 @@ connection_info(ConnectionHandler, Key) when is_atom(Key) ->
     end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
+
+%%--------------------------------------------------------------------
+connection_info_server(D) when is_tuple(D) ->
+    Keys = [client_version,
+            server_version,
+            peer,
+            sockname,
+            options,
+            algorithms
+           ],
+    fold_keys(Keys, fun conn_info/2, D).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(),
@@ -1842,7 +1854,8 @@ conn_info_keys() ->
      sockname,
      options,
      algorithms,
-     channels
+     channels,
+     user_auth
     ].
 
 conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
@@ -1864,7 +1877,8 @@ conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) ->
     ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
 				    [Id | Acc]
-			    end, [], cache(D)).
+                                   end, [], cache(D));
+conn_info(user_auth, #data{ssh_params=#ssh{last_userauth_tried=UserAuth}}) -> UserAuth.
 
 conn_info_chans(Chs) ->
     Fs = record_info(fields, channel),
