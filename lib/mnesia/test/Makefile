@@ -54,6 +54,7 @@ MODULES= \
 	mnesia_cost \
 	mnesia_dbn_meters \
 	ext_test \
+	ext_test_server \
 	mnesia_index_plugin_test \
 	mnesia_external_backend_test
 
@@ -76,7 +77,7 @@ ExampleModules = \
 
 ERL_FILES= $(MODULES:%=%.erl) $(DocExampleModules:%=$(DocExamplesDir)/%.erl) $(ExampleModules:%=$(ExamplesDir)/%.erl)
 
-HRL_FILES= mnesia_test_lib.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
+HRL_FILES= mnesia_test_lib.hrl ext_test_server.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
 
 TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(DocExampleModules:%=$(EBIN)/%.$(EMULATOR)) $(ExampleModules:%=$(EBIN)/%.$(EMULATOR))
