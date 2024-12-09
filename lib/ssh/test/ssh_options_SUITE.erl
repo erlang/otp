@@ -610,6 +610,8 @@ auth_none(Config) ->
 					  {password, "wrong-pwd"},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
+    [{user_auth, "none"}] =
+        ssh:connection_info(ClientConnRef1, [user_auth]),
     "some-other-user" =
         proplists:get_value(user, ssh:connection_info(ClientConnRef1, [user])),
     ok = ssh:close(ClientConnRef1),
@@ -677,12 +679,14 @@ user_dir_fun_option(Config) ->
                                                                     UserDir
                                                             end},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    _ConnectionRef =
+    ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user, "foo"},
 					  {user_dir, UserDir},
                                           {auth_methods,"publickey"},
 					  {user_interaction, false}]),
+    [{user_auth, "publickey"}] =
+        ssh:connection_info(ConnectionRef, [user_auth]),
     receive
         {user,Ref,"foo"} ->
             ssh:stop_daemon(Pid),
@@ -801,6 +805,9 @@ connectfun4_server(Config) ->
 					  {password, "morot"},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
+    [{user_auth, "keyboard-interactive"}] =
+	ssh:connection_info(ConnectionRef, [user_auth]),
+
     receive
 	{connect,Ref,User,Method,ConnInfo} ->
             "foo" = User,
