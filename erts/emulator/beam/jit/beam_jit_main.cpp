@@ -482,6 +482,8 @@ extern "C"
          * Note that this barrier need not be executed on other cores, it's
          * enough for them to issue an instruction synchronization barrier. */
         __asm__ __volatile__("dsb ish\n" ::: "memory");
+#elif defined(__arm__) && defined(__linux__)
+        __builtin___clear_cache((char *)address, ((char*)address) + size);
 #elif (defined(__x86_64__) || defined(_M_X64)) &&                              \
         defined(ERTS_THR_INSTRUCTION_BARRIER)
         /* We don't need to invalidate cache on this platform, but since we
