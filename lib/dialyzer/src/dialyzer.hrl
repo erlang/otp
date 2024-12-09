@@ -39,6 +39,7 @@
 -define(WARN_CONTRACT_EXTRA_RETURN, warn_contract_extra_return).
 -define(WARN_CONTRACT_MISSING_RETURN, warn_contract_missing_return).
 -define(WARN_CONTRACT_NOT_EQUAL, warn_contract_not_equal).
+-define(WARN_CONTRACT_OPAQUE, warn_contract_opaque).
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CONTRACT_SUBTYPE, warn_contract_subtype).
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
@@ -67,6 +68,7 @@
 -type dial_warn_tag() :: ?WARN_BEHAVIOUR | ?WARN_BIN_CONSTRUCTION
                        | ?WARN_CALLGRAPH | ?WARN_CONTRACT_EXTRA_RETURN
                        | ?WARN_CONTRACT_MISSING_RETURN | ?WARN_CONTRACT_NOT_EQUAL
+                       | ?WARN_CONTRACT_OPAQUE
                        | ?WARN_CONTRACT_RANGE | ?WARN_CONTRACT_SUBTYPE
                        | ?WARN_CONTRACT_SUPERTYPE | ?WARN_CONTRACT_SYNTAX
                        | ?WARN_CONTRACT_TYPES | ?WARN_FAILING_CALL

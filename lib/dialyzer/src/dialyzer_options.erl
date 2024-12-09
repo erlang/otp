@@ -43,6 +43,7 @@ build(Opts) ->
                   ?WARN_FAILING_CALL,
                   ?WARN_BIN_CONSTRUCTION,
                   ?WARN_MAP_CONSTRUCTION,
+                  ?WARN_CONTRACT_OPAQUE,
                   ?WARN_CONTRACT_RANGE,
                   ?WARN_CONTRACT_TYPES,
                   ?WARN_CONTRACT_SYNTAX,
@@ -502,15 +503,18 @@ build_warnings([Opt|Opts], Warnings) ->
       no_match ->
 	ordsets:del_element(?WARN_MATCHING, Warnings);
       no_opaque ->
-        S = ordsets:from_list([?WARN_OPAQUE,
+        S = ordsets:from_list([?WARN_CONTRACT_OPAQUE,
+                               ?WARN_OPAQUE,
                                ?WARN_OPAQUE_UNION]),
         ordsets:subtract(Warnings, S);
       no_fail_call ->
 	ordsets:del_element(?WARN_FAILING_CALL, Warnings);
       no_contracts ->
-        Warnings1 = ordsets:del_element(?WARN_CONTRACT_SYNTAX, Warnings),
-        Warnings2 = ordsets:del_element(?WARN_OVERLAPPING_CONTRACT, Warnings1),
-	ordsets:del_element(?WARN_CONTRACT_TYPES, Warnings2);
+        S = ordsets:from_list([?WARN_CONTRACT_OPAQUE,
+                               ?WARN_CONTRACT_SYNTAX,
+                               ?WARN_CONTRACT_TYPES,
+                               ?WARN_OVERLAPPING_CONTRACT]),
+        ordsets:subtract(Warnings, S);
       no_behaviours ->
 	ordsets:del_element(?WARN_BEHAVIOUR, Warnings);
       no_undefined_callbacks ->
