@@ -2901,6 +2901,21 @@ AS_IF([test ${enable_jit} != no],
               ;;
            esac
            ;;
+        arm)
+           case "$OPSYS" in
+              linux)
+                # These platforms have dedicated system calls for clearing
+                # instruction cache, and don't require us to manually issue
+                # instruction barriers on all threads.
+                JIT_ARCH=arm
+                JIT_ARCH_BITS=32
+              ;;
+              *)
+                enable_jit=no
+                AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
+              ;;
+           esac
+           ;;
         *)
            if test ${enable_jit} = yes; then
              AC_MSG_ERROR([JIT only works on x86 64-bit and ARM 64-bit])
