@@ -783,6 +783,9 @@ usage(Config) when is_list(Config) ->
         "  --safe       safe atom (existing atom)\n"
         "  -foobar      foobaring option\n",
     ?assertEqual(Usage, unicode:characters_to_list(argparse:help(Cmd,
+        #{progname => "erl", command => ["erl", "start"]}))),
+    %% Same assertion for the backward-compatible way of calling `argparse:help/2'.
+    ?assertEqual(Usage, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["start"]}))),
     FullCmd = "Usage:\n  erl"
         " <command> [-rfv] [--force] [-i <interval>] [--req <weird>] [--float <float>]\n\n"
@@ -812,7 +815,7 @@ usage(Config) when is_list(Config) ->
         "  --float     floating-point long form argument (float), default: 3.14\n"
         "  ---extra    extra option very deep\n",
     ?assertEqual(CrawlerStatus, unicode:characters_to_list(argparse:help(Cmd,
-        #{progname => "erl", command => ["status", "crawler"]}))),
+        #{progname => "erl", command => ["erl", "status", "crawler"]}))),
     ok.
 
 usage_required_args() ->
@@ -821,7 +824,7 @@ usage_required_args() ->
 usage_required_args(Config) when is_list(Config) ->
     Cmd = #{commands => #{"test" => #{arguments => [#{name => required, required => true, long => "-req"}]}}},
     Expected = "Usage:\n  " ++ prog() ++ " test --req <required>\n\nOptional arguments:\n  --req required\n",
-    ?assertEqual(Expected, unicode:characters_to_list(argparse:help(Cmd, #{command => ["test"]}))).
+    ?assertEqual(Expected, unicode:characters_to_list(argparse:help(Cmd, #{command => ["erl", "test"]}))).
 
 usage_template() ->
     [{doc, "Tests templates in help/usage"}].
@@ -888,7 +891,7 @@ usage_args_ordering(Config) when is_list(Config) ->
         "  second second\n"
         "  third  third\n"
         "  fourth fourth\n",
-        unicode:characters_to_list(argparse:help(Cmd, #{command => ["cmd"]}))),
+        unicode:characters_to_list(argparse:help(Cmd, #{command => ["erl", "cmd"]}))),
     ok.
 
 parser_error_usage() ->
