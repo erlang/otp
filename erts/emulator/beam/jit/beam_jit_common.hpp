@@ -250,7 +250,7 @@ struct BeamModuleAssemblerCommon {
 
     auto getClampedRange(const ArgSource &arg) const {
         if (arg.isSmall()) {
-            Sint value = arg.as<ArgSmall>().getSigned();
+             Sint64 value = arg.as<ArgSmall>().getSigned();
             return std::make_pair(value, value);
         } else {
             const auto &entry = getTypeEntry(arg);
