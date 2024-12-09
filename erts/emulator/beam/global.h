@@ -1183,15 +1183,6 @@ extern int erts_do_net_exits(DistEntry*, Eterm);
 extern int distribution_info(fmtfn_t, void *);
 extern int is_node_name_atom(Eterm a);
 
-extern int erts_net_message(Port *prt,
-                            DistEntry *dep,
-                            Uint32 conn_id,
-                            byte *hbuf,
-                            ErlDrvSizeT hlen,
-                            Binary *bin,
-                            const byte *buf,
-                            ErlDrvSizeT len);
-
 int erts_dist_pend_spawn_exit_delete(ErtsMonitor *mon);
 int erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon);
 int erts_dist_pend_spawn_exit_parent_wait(Process *c_p,

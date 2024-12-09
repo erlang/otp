@@ -181,6 +181,7 @@ int erts_dist_buf_busy_limit;
 Uint64 erts_dflags_test_remove_hopefull_flags;
 
 Export spawn_request_yield_export;
+Export multisend_yield_export;
 
 /* distribution trap functions */
 Export* dmonitor_node_trap = NULL;
@@ -1118,6 +1119,7 @@ trap_function(Eterm func, int arity)
 }
 
 static BIF_RETTYPE spawn_request_yield_3(BIF_ALIST_3);
+static BIF_RETTYPE multisend_yield_2(BIF_ALIST_2);
 
 void init_dist(void)
 {
@@ -1147,6 +1149,9 @@ void init_dist(void)
     erts_init_trap_export(&spawn_request_yield_export,
                           am_erts_internal, am_spawn_request_yield,
                           3, spawn_request_yield_3);
+    erts_init_trap_export(&multisend_yield_export,
+                          am_erts_internal, am_multisend_yield,
+                          2, multisend_yield_2);
     {
         Eterm *hp_start, *hp, **hpp = NULL, tuple;
         Uint sz = 0, *szp = &sz;
@@ -1425,6 +1430,20 @@ Eterm erts_dsend_export_trap_context(Process* p, ErtsDSigSendContext* ctx)
 	sys_memcpy(&dst->acm, ctx->acmp, sizeof(ErtsAtomCacheMap));
 	dst->ctx.acmp = &dst->acm;
     }
+    return erts_mk_magic_ref(&hp, &MSO(p), ctx_bin);
+}
+
+int erts_drecv_context_dtor(Binary* ctx_bin)
+{
+    return 1;
+}
+
+Eterm erts_drecv_trap_context(Process* p, ErtsDSigRecvContext* ctx)
+{
+    Binary* ctx_bin = erts_create_magic_binary(sizeof(ErtsDSigRecvContext), erts_drecv_context_dtor);
+    ErtsDSigRecvContext* dst = ERTS_MAGIC_BIN_DATA(ctx_bin);
+    Eterm* hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+    sys_memcpy(dst, ctx, sizeof(ErtsDSigRecvContext));
     return erts_mk_magic_ref(&hp, &MSO(p), ctx_bin);
 }
 
@@ -1998,7 +2017,7 @@ erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
 **   assert  hlen == 0 !!!
 */
 
-int erts_net_message(Port *prt,
+int erts_net_message(ErtsDSigRecvContext *context,
 		     DistEntry *dep,
                      Uint32 conn_id,
 		     byte *hbuf,
@@ -2033,18 +2052,16 @@ int erts_net_message(Port *prt,
 
     ERTS_CHK_NO_PROC_LOCKS;
 
-    ERTS_LC_ASSERT(!prt || erts_lc_is_port_locked(prt));
-
     if (!erts_is_alive) {
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-	return 0;
+	return ERTS_DSIG_RECV_OK;
     }
 
     ASSERT(hlen == 0);
 
     if (len == 0) {  /* HANDLE TICK !!! */
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-	return 0;
+	return ERTS_DSIG_RECV_OK;
     }
 
 #ifdef ERTS_RAW_DIST_MSG_DBG
@@ -2058,7 +2075,7 @@ int erts_net_message(Port *prt,
 
     switch (res) {
     case ERTS_PREP_DIST_EXT_CLOSED:
-        return 0; /* Connection not alive; ignore signal... */
+        return ERTS_DSIG_RECV_OK; /* Connection not alive; ignore signal... */
     case ERTS_PREP_DIST_EXT_FAILED:
 #ifdef ERTS_DIST_MSG_DBG
 	erts_fprintf(dbg_file, "DIST MSG DEBUG: erts_prepare_dist_ext() failed:\n");
@@ -2114,7 +2131,7 @@ int erts_net_message(Port *prt,
 
             if (ede.data->frag_id > 1) {
                 seq->cnt--;
-                return 0;
+                return ERTS_DSIG_RECV_OK;
             }
         }
 
@@ -2146,7 +2163,7 @@ int erts_net_message(Port *prt,
         /* Check if this was the last fragment */
         if (ede.data->frag_id > 1) {
             erts_de_runlock(dep);
-            return 0;
+            return ERTS_DSIG_RECV_OK;
         }
 
         /* Last fragment arrived, time to dispatch the signal */
@@ -2524,6 +2541,10 @@ int erts_net_message(Port *prt,
 #endif
         from = tuple[2];
         to = tuple[3];
+        if (is_list(to)) {
+            erts_drecv_prepare(context, from, to, edep, ede_hfrag);
+            goto yield;
+        }
         if (is_not_pid(to))
             goto invalid_message;
         rp = erts_proc_lookup(to);
@@ -3017,13 +3038,17 @@ int erts_net_message(Port *prt,
     }
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_CHK_NO_PROC_LOCKS;
-    return 0;
- invalid_message:
+    return ERTS_DSIG_RECV_OK;
+invalid_message:
     {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
 	erts_send_error_to_logger_nogl(dsbufp);
     }
+yield:
+    UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+    ERTS_CHK_NO_PROC_LOCKS;
+    return ERTS_DSIG_RECV_YIELD;
 decode_error:
     VALGRIND_MSG("data error");
     if (ede_hfrag == NULL) {
@@ -3039,10 +3064,61 @@ data_error:
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_kill_dist_connection(dep, conn_id);
     ERTS_CHK_NO_PROC_LOCKS;
-    return -1;
+    return ERTS_DSIG_RECV_ERROR;
 data_error_runlock:
     erts_de_runlock(dep);
     goto data_error;
+}
+
+static BIF_RETTYPE multisend_yield_2(BIF_ALIST_2)
+{
+    BIF_RETTYPE ret_val = am_ok;
+    Binary* bin = erts_magic_ref2bin(BIF_ARG_1);
+    ErtsDSigRecvContext *recv_ctx = (ErtsDSigRecvContext*) ERTS_MAGIC_BIN_DATA(bin);
+
+    UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+    ERTS_CHK_NO_PROC_LOCKS;
+
+    switch (multisend_step(recv_ctx, MULTISEND_LOOP_FACTOR)) {
+        case ERTS_DSIG_RECV_YIELD:
+            BUMP_ALL_REDS(BIF_P);
+            ERTS_BIF_PREP_TRAP2(ret_val, &multisend_yield_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
+
+    UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
+    ERTS_CHK_NO_PROC_LOCKS;
+
+    return ret_val;
+}
+
+int multisend_step(ErtsDSigRecvContext *ctx, Uint it)
+{
+    Process* rp;
+    Eterm pid;
+
+    while (is_list(ctx->to) && it--) {
+        pid = CAR(list_val(ctx->to));
+        if (is_not_pid(pid))
+            continue; // Whether these are pids was already checked in erts_internal:multisend/2
+        rp = erts_proc_lookup(pid);
+        if (rp) {
+            erts_queue_dist_message(rp, 0, ctx->edep, ctx->ede_hfrag, NIL, ctx->from);
+        }
+        ctx->to = CDR(list_val(ctx->to));
+    }
+
+    /* We still have receivers to send, trap again */
+    if (is_list(ctx->to))
+        return ERTS_DSIG_RECV_YIELD;
+
+    if (ctx->ede_hfrag != NULL) {
+        erts_free_dist_ext_copy(erts_get_dist_ext(ctx->ede_hfrag));
+        free_message_buffer(ctx->ede_hfrag);
+    }
+
+    erts_drecv_prepare(ctx, THE_NON_VALUE, THE_NON_VALUE, NULL, NULL);
+
+    return ERTS_DSIG_RECV_OK;
 }
 
 static int dsig_send_exit(ErtsDSigSendContext *ctx, Eterm ctl, Eterm msg)
@@ -3087,6 +3163,18 @@ notify_dist_data(Process *c_p, Eterm pid)
         ErtsMessage *mp = erts_alloc_message(0, NULL);
         erts_queue_message(rp, rp_locks, mp, am_dist_data, am_system);
     }
+}
+
+void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
+                               Eterm from,
+                               Eterm to,
+                               ErtsDistExternal *edep,
+                               ErlHeapFragment *ede_hfrag)
+{
+    ctx->from = from;
+    ctx->to = to;
+    ctx->edep = edep;
+    ctx->ede_hfrag = ede_hfrag;
 }
 
 int
@@ -4210,6 +4298,9 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
     Eterm input_handler;
     Uint32 conn_id;
     Binary *bin = NULL;
+    ErtsDSigRecvContext recv_ctx;
+    Eterm ctx_term = THE_NON_VALUE;
+    BIF_RETTYPE ret_val = am_ok;
 
     if (is_list(BIF_ARG_2)) {
         BIF_TRAP2(dist_ctrl_put_data_trap,
@@ -4259,24 +4350,33 @@ dist_ctrl_put_data_2(BIF_ALIST_2)
 
         erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-        (void) erts_net_message(NULL, dep, conn_id, NULL, 0, bin, data, size);
         /*
          * We ignore any decode failures. On fatal failures the
          * connection will be taken down by killing the
-         * distribution channel controller...
+         * distribution channel controller.
+         * We only respond here to an operation not finished, that is, that requires trapping.
          */
+        switch (erts_net_message(&recv_ctx, dep, conn_id, NULL, 0, bin, data, size)) {
+            case ERTS_DSIG_RECV_YIELD:
+                // TODO
+                ctx_term = erts_drecv_trap_context(BIF_P, &recv_ctx);
+                BUMP_ALL_REDS(BIF_P);
+                ERTS_BIF_PREP_TRAP2(ret_val, &multisend_yield_export, BIF_P, ctx_term, BIF_ARG_2);
+            default:
+                break;
+        }
 
         erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
-        BUMP_REDS(BIF_P, 5);
-
         erts_free_aligned_binary_bytes(temp_alloc);
+
+        BUMP_REDS(BIF_P, 5);
 
     } else if (is_not_nil(BIF_ARG_2)) {
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    BIF_RET(am_ok);
+    return ret_val;
 }
 
 BIF_RETTYPE
@@ -5170,6 +5270,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
 
         erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, dep);
         erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, (void*)(UWord)dep->connection_id);
+        erts_prtsd_set(pp, ERTS_PRTSD_CONTEXT, NULL);
 
         ASSERT(pp->drv_ptr->outputv || pp->drv_ptr->output);
 
@@ -5188,6 +5289,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_3(BIF_ALIST_3)
             erts_atomic32_read_band_nob(&pp->state, ~ERTS_PORT_SFLG_DISTRIBUTION);
             erts_prtsd_set(pp, ERTS_PRTSD_DIST_ENTRY, NULL);
             erts_prtsd_set(pp, ERTS_PRTSD_CONN_ID, NULL);
+            erts_prtsd_set(pp, ERTS_PRTSD_CONTEXT, NULL);
             goto badarg;
         }
         de_locked = 0;
