@@ -164,7 +164,7 @@ is to be preferred since the extra type information can be used by tools to
 produce documentation or find discrepancies.
 
 Read more about behaviours and callback modules in
-[OTP Design Principles](`e:system:spec_proc.md#behaviours`).
+[OTP Design Principles](`e:system:design_principles.md#behaviours`).
 
 ### Record Definitions
 

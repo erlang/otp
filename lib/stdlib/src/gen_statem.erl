@@ -30,7 +30,7 @@ A generic state machine server process (`gen_statem`) implemented
 using this module has a standard set of interface functions
 and includes functionality for tracing and error reporting.
 It also fits into an OTP supervision tree.  For more information,
-see [OTP Design Principles](`e:system:statem.md`).
+see [gen_statem section in OTP Design Principles](`e:system:statem.md`).
 
 > #### Note {: .info }
 >
@@ -1739,7 +1739,7 @@ its internal state during a release upgrade/downgrade, that is,
 when the instruction `{update, Module, Change, ...}`,
 where `Change = {advanced, Extra}`, is specified in
 the [`appup`](`e:sasl:appup.md`) file.  For more information, see
-[OTP Design Principles](`e:system:release_handling.md#instr`).
+[Release Handling Instructions in OTP Design Principles](`e:system:release_handling.md#instr`).
 
 For an upgrade, `OldVsn` is `Vsn`, and for a downgrade, `OldVsn` is
 `{down, Vsn}`. `Vsn` is defined by the `vsn` attribute(s)
