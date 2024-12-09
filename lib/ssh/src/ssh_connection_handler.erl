@@ -1893,7 +1893,8 @@ conn_info_keys() ->
      sockname,
      options,
      algorithms,
-     channels
+     channels,
+     user_auth
     ].
 
 conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
@@ -1915,7 +1916,8 @@ conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) ->
     ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
 				    [Id | Acc]
-			    end, [], cache(D)).
+                                   end, [], cache(D));
+conn_info(user_auth, #data{ssh_params=#ssh{last_userauth_tried=UserAuth}}) -> UserAuth.
 
 conn_info_chans(Chs) ->
     Fs = record_info(fields, channel),

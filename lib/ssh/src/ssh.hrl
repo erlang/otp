@@ -1280,7 +1280,8 @@ Experimental options that should not to be used in products.
 	  available_host_keys,
 	  pwdfun_user_state,
 	  authenticated = false,
-	  userauth_banner_sent = false
+	  userauth_banner_sent = false,
+	  last_userauth_tried = "none" %% Not used for server role
 	 }).
 
 -record(alg,
