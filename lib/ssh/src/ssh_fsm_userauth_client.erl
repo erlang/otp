@@ -103,10 +103,12 @@ handle_event(internal, #ssh_msg_userauth_failure{authentications = Methods}, Sta
                                  io_lib:format("User auth failed for: ~p",[D0#data.auth_user]),
                                  StateName, D0#data{ssh_params = Ssh}),
 	    {stop, Shutdown, D};
-	{"keyboard-interactive", {Msg, Ssh}} ->
+	{"keyboard-interactive", {Msg, Ssh2}} ->
+            Ssh = Ssh2#ssh{last_userauth_tried = "keyboard-interactive"},
             D = ssh_connection_handler:send_msg(Msg, D0#data{ssh_params = Ssh}),
 	    {next_state, {userauth_keyboard_interactive,client}, D};
-	{_Method, {Msg, Ssh}} ->
+	{Method, {Msg, Ssh2}} ->
+            Ssh = Ssh2#ssh{last_userauth_tried = Method},
             D = ssh_connection_handler:send_msg(Msg, D0#data{ssh_params = Ssh}),
 	    {keep_state, D}
     end;
