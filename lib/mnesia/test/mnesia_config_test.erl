@@ -730,8 +730,8 @@ backend_plugin_registration(doc) ->
 backend_plugin_registration(Config) when is_list(Config) ->
     Nodes = ?acquire_schema(1, [{default_properties, []} | Config]),
     ?match(ok, mnesia:start()),
-    ?match({atomic,ok}, mnesia:add_backend_type(ext_ets, ext_test)),
-    ?match({atomic,ok}, mnesia:add_backend_type(ext_dets, ext_test)),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_ram_copies, ext_test)),
+    ?match({atomic,ok}, mnesia:add_backend_type(ext_disc_only_copies, ext_test)),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config).
 
