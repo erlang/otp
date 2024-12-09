@@ -39,6 +39,10 @@ ERTS = erts-@ERTS_VSN@
 # Include verbose output variables
 include $(ERL_TOP)/make/output.mk
 
+# Export the name of the actual make(1) command for executed scripts that
+# execute make again.
+export MAKE
+
 # ----------------------------------------------------------------------
 
 #
