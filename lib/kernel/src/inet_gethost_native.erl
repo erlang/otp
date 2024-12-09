@@ -21,6 +21,8 @@
 -moduledoc false.
 -behaviour(supervisor_bridge).
 
+-compile(nowarn_deprecated_catch).
+
 %% Supervisor bridge exports
 -export([start_link/0, init/1, terminate/2]).
 

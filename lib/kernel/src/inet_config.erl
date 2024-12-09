@@ -20,6 +20,8 @@
 -module(inet_config).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -include("inet_config.hrl").
 -include("inet.hrl").
 

@@ -23,6 +23,8 @@
 
 -export_type([mp/0, compile_options/0, options/0]).
 
+-compile(nowarn_deprecated_catch).
+
 -doc """
 Opaque data type containing a compiled regular expression.
 

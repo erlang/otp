@@ -28,6 +28,8 @@
 -module(file_server).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_server).
 
 %% External exports

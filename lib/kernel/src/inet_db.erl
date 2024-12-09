@@ -21,6 +21,8 @@
 -module(inet_db).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Store info about ip addresses, names, aliases host files resolver
 %% options.
 %% Also miscellaneous "stuff" related to sockets.

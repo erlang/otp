@@ -277,6 +277,8 @@ but the map is preferred.
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -behaviour(gen_server).
 
 %% External exports

@@ -20,6 +20,8 @@
 -module(io_lib_format).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Formatting functions of io library.
 
 -export([fwrite/2,fwrite/3,fwrite_g/1,indentation/2,scan/2,unscan/1,

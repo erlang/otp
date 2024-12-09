@@ -20,6 +20,8 @@
 -module(code_server).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% This file holds the server part of the code_server.
 
 -export([start_link/1,

@@ -104,6 +104,8 @@ In the following descriptions, all functions fail with reason `badarg` if
 `heart` is not started.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %%%--------------------------------------------------------------------
 %%% This is a rewrite of pre_heart from BS.3.
 %%%
