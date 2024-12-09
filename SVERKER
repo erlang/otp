@@ -13,7 +13,7 @@ sudo apt install libtool
 export ERL_PCRE2_DIR=/home/uabseri/src/pcre2-10.44
 
 ./autogen.sh
-./configure --prefix=$ERL_PCRE2_DIR
+CFLAGS='-g -O0' ./configure --prefix=$ERL_PCRE2_DIR
 make
 make install
 

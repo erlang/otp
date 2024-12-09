@@ -38,19 +38,16 @@
 
 #define LOOP_FACTOR 10
 
-#define SVERKER_SKIP_TRAP
-
-#ifndef SVERKER_SKIP_TRAP
 static const unsigned char *default_table;
 static Uint max_loop_limit;
 static Export re_exec_trap_export;
 static BIF_RETTYPE re_exec_trap(BIF_ALIST_3);
-#endif
 static Export *grun_trap_exportp = NULL;
 static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static pcre2_general_context* the_general_ctx;
+static pcre2_compile_context* the_default_compile_ctx;
 
 static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first);
 
@@ -64,22 +61,11 @@ static void our_pcre2_free(void *ptr, void* null)
     erts_free(ERTS_ALC_T_RE_HEAP, ptr);
 }
 
-#if 0  // ToDo: Do we need to care about stack use?
-
-static void *erts_erts_pcre_stack_malloc(size_t size) {
-    return erts_alloc(ERTS_ALC_T_RE_STACK,size);
-}
-
-static void erts_erts_pcre_stack_free(void *ptr) {
-    erts_free(ERTS_ALC_T_RE_STACK,ptr);
-}
-
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
-
-#  define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
+#define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
 
 static int
-stack_guard_downwards(void)
+stack_guard_downwards(uint32_t depth, void* null)
 {
     char *limit = ERTS_STACK_LIMIT;
     char c;
@@ -90,7 +76,7 @@ stack_guard_downwards(void)
 }
 
 static int
-stack_guard_upwards(void)
+stack_guard_upwards(uint32_t depth, void* null)
 {
     char *limit = ERTS_STACK_LIMIT;
     char c;
@@ -99,10 +85,12 @@ stack_guard_upwards(void)
 
     return erts_check_above_limit(&c, limit - ERTS_PCRE_STACK_MARGIN);
 }
-#endif
 
 void erts_init_bif_re(void)
 {
+    char c;
+    int (*stack_guard)(uint32_t, void *);
+
     /* We use value 0 as newline/bsr option not specified */
     ERTS_CT_ASSERT(PCRE2_NEWLINE_CR && PCRE2_NEWLINE_LF && PCRE2_NEWLINE_CRLF
                    && PCRE2_NEWLINE_ANY && PCRE2_NEWLINE_ANYCRLF
@@ -110,21 +98,20 @@ void erts_init_bif_re(void)
     ERTS_CT_ASSERT(PCRE2_BSR_ANYCRLF && PCRE2_BSR_UNICODE);
 
 
-    the_general_ctx = pcre2_general_context_create(our_pcre2_malloc, our_pcre2_free, NULL);
-    // ToDo:
-    //char c;
-    //erts_pcre_stack_malloc = &erts_erts_pcre_stack_malloc;
-    //erts_pcre_stack_free = &erts_erts_pcre_stack_free;
-    //if (erts_check_if_stack_grows_downwards(&c))
-    //    erts_pcre_stack_guard = stack_guard_downwards;
-    //else
-    //    erts_pcre_stack_guard = stack_guard_upwards;
-#ifndef SVERKER_SKIP_TRAP
+    the_general_ctx = pcre2_general_context_create(our_pcre2_malloc,
+                                                   our_pcre2_free,
+                                                   NULL);
+    if (erts_check_if_stack_grows_downwards(&c))
+        stack_guard = stack_guard_downwards;
+    else
+        stack_guard = stack_guard_upwards;
+    the_default_compile_ctx = pcre2_compile_context_create(the_general_ctx);
+    pcre2_set_compile_recursion_guard(the_default_compile_ctx, stack_guard, NULL);
+
     default_table = NULL; /* ISO8859-1 default, forced into pcre */
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
     erts_init_trap_export(&re_exec_trap_export, am_erlang, am_re_run_trap, 3,
 			  &re_exec_trap);
-#endif
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);
     ucompile_trap_exportp =  erts_export_put(am_re,am_ucompile,2);
@@ -134,7 +121,6 @@ void erts_init_bif_re(void)
 
 Sint erts_re_set_loop_limit(Sint limit) 
 {
-#ifndef SVERKER_SKIP_TRAP
     Sint save = (Sint) max_loop_limit;
     if (limit <= 0) {
 	max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
@@ -142,9 +128,6 @@ Sint erts_re_set_loop_limit(Sint limit)
 	max_loop_limit = (Uint) limit;
     }
     return save;
-#else
-    return 666;
-#endif
 }
 
 /*
@@ -452,25 +435,25 @@ static pcre2_code *compile(const char* expr,
                            int *errcode,
                            PCRE2_SIZE *errofset)
 {
-    pcre2_compile_context* compile_context;
+    pcre2_compile_context* compile_ctx;
     pcre2_code *result;
 
     if (opts->newline | opts->bsr) {
-        compile_context = pcre2_compile_context_create(the_general_ctx);
+        compile_ctx = pcre2_compile_context_copy(the_default_compile_ctx);
         if (opts->newline) {
-            pcre2_set_newline(compile_context, opts->newline);
+            pcre2_set_newline(compile_ctx, opts->newline);
         }
         if (opts->bsr) {
-            pcre2_set_bsr(compile_context, opts->bsr);
+            pcre2_set_bsr(compile_ctx, opts->bsr);
         }
     }
     else {
-        compile_context = NULL;
+        compile_ctx = the_default_compile_ctx;
     }
     result = pcre2_compile((const PCRE2_UCHAR8 *)expr, slen, opts->compile,
-                           errcode, errofset, compile_context);
-    if (compile_context) {
-        pcre2_compile_context_free(compile_context);
+                           errcode, errofset, compile_ctx);
+    if (compile_ctx != the_default_compile_ctx) {
+        pcre2_compile_context_free(compile_ctx);
     }
     return result;
 }
@@ -633,10 +616,7 @@ typedef struct _return_info {
 #define RESTART_FLAG_REPORT_MATCH_LIMIT 0x2
 
 typedef struct _restart_context {
-#ifndef SVERKER_SKIP_TRAP
-    erts_pcre_extra extra;
     void *restart_data;
-#endif
     Uint32 flags;
     PCRE2_UCHAR8* subject; /* to be able to free it when done */
     pcre2_code *code; /* Keep a copy */
@@ -651,12 +631,10 @@ typedef struct _restart_context {
 
 static void cleanup_restart_context(RestartContext *rc) 
 {
-#ifndef SVERKER_SKIP_TRAP
     if (rc->restart_data != NULL) {
-	erts_pcre_free_restart_data(rc->restart_data);
+	pcre2_free_restart_data(rc->match_data);
 	rc->restart_data = NULL;
     }
-#endif
     if (rc->match_data != NULL) {
         pcre2_match_data_free(rc->match_data);
         rc->match_data = NULL;
@@ -680,16 +658,12 @@ static void cleanup_restart_context(RestartContext *rc)
     }
 }
 
-#ifndef SVERKER_SKIP_TRAP
-
 static int cleanup_restart_context_bin(Binary *bp)
 {
     RestartContext *rc = ERTS_MAGIC_BIN_DATA(bp);
     cleanup_restart_context(rc);
     return 1;
 }
-#endif // SVERKER_SKIP_TRAP
-
 
 /*
  * Build the return value for Erlang from result and restart context
@@ -1145,12 +1119,11 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     int rc;
     Eterm res;
     size_t code_size;
-#ifndef SVERKER_SKIP_TRAP
-    Uint loop_limit_tmp;
-    unsigned long loop_count;
-#endif
+    Sint32 loop_limit;
     int is_list_cap;
     struct parsed_options opts;
+    const Sint32 reds_initial = ERTS_BIF_REDS_LEFT(p);
+    Sint32 reds_consumed;
 
     if (!parse_options(arg3, &opts)) {
         p->fvalue = am_badopt;
@@ -1311,21 +1284,13 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 
     restart.match_data = pcre2_match_data_create(ovsize, the_general_ctx);
     restart.ovector = pcre2_get_ovector_pointer(restart.match_data);
-#ifndef SVERKER_SKIP_TRAP
-    restart.extra.flags = PCRE2_EXTRA_TABLES | PCRE2_EXTRA_LOOP_LIMIT;
-    restart.extra.tables = default_table;
-    restart.extra.loop_limit = ERTS_BIF_REDS_LEFT(p) * LOOP_FACTOR;
-    loop_limit_tmp = max_loop_limit; /* To lesser probability of race in debug
-					situation (erts_debug) */
-    if (restart.extra.loop_limit > loop_limit_tmp) {
-	restart.extra.loop_limit = loop_limit_tmp;
-    }
-    restart.restart_data = NULL;
-    restart.extra.restart_data = &restart.restart_data;
-    restart.extra.restart_flags = 0;
-    restart.extra.loop_counter_return = &loop_count;
-#endif
 
+//    restart.extra.flags = PCRE2_EXTRA_TABLES | PCRE2_EXTRA_LOOP_LIMIT;
+    loop_limit = MIN(reds_initial * LOOP_FACTOR, max_loop_limit);
+    pcre2_set_loops_left(restart.match_data, loop_limit);
+    restart.restart_data = NULL;
+    pcre2_set_restart_data(restart.match_data, &restart.restart_data);
+    pcre2_set_restart_flags(restart.match_data, 0);
 
     restart.ret_info = NULL;
     if (opts.flags & PARSE_FLAG_CAPTURE_OPT) {
@@ -1394,15 +1359,14 @@ handle_iodata:
 	restart.flags |= RESTART_FLAG_REPORT_MATCH_LIMIT;
     }
 
-#if !defined(SVERKER_SKIP_TRAP) && defined(DEBUG)
-    loop_count = 0xFFFFFFFF;
-#endif
-
     rc = pcre2_match(restart.code, restart.subject,
                      slength, opts.startoffset,
                      opts.match,
                      restart.match_data,
                      restart.match_ctx);
+
+    reds_consumed = (loop_limit - pcre2_get_loops_left(restart.match_data)) / LOOP_FACTOR;
+
     if (rc < 0) {
         switch (rc) {
             /* No match... */
@@ -1412,7 +1376,6 @@ handle_iodata:
         case PCRE2_ERROR_HEAPLIMIT:
             break;
 
-#ifndef SVERKER_SKIP_TRAP
             /* Yield... */
         case PCRE2_ERROR_LOOP_LIMIT: {
             /* Trap */
@@ -1421,8 +1384,7 @@ handle_iodata:
             RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
             Eterm magic_ref;
             Eterm *hp;
-            ASSERT(loop_count != 0xFFFFFFFF);
-            BUMP_REDS(p, loop_count / LOOP_FACTOR);
+            BUMP_REDS(p, reds_consumed);
             sys_memcpy(restartp,&restart,sizeof(RestartContext));
             ERTS_VBUMP_ALL_REDS(p);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
@@ -1437,15 +1399,13 @@ handle_iodata:
             /* Recursive loop detected in pattern... */
         case PCRE2_ERROR_RECURSELOOP:
 #if 1
-            loop_count = CONTEXT_REDS*LOOP_FACTOR; /* Unknown amount of work done... */
+            reds_consumed = CONTEXT_REDS; /* Unknown amount of work done... */
             break; /* nomatch for backwards compatibility reasons for now... */
 #else
             BUMP_ALL_REDS(p); /* Unknown amount of work done... */
             cleanup_restart_context(&restart);
             BIF_ERROR(p, BADARG);
 #endif
-
-#endif // SVERKER_SKIP_TRAP
             
             /* Bad utf8 in subject... */
         case PCRE2_ERROR_BADUTFOFFSET:
@@ -1489,10 +1449,7 @@ handle_iodata:
         }
     }
     
-#ifndef SVERKER_SKIP_TRAP
-    ASSERT(loop_count != 0xFFFFFFFF);
-    BUMP_REDS(p, loop_count / LOOP_FACTOR);
-#endif
+    BUMP_REDS(p, reds_consumed);
 
     res = build_exec_return(p, rc, &restart, arg1);
  
@@ -1526,8 +1483,6 @@ re_run_2(BIF_ALIST_2)
     return re_run(BIF_P,BIF_ARG_1, BIF_ARG_2, NIL, !0);
 }
 
-
-#ifndef SVERKER_SKIP_TRAP
 /*
  * The "magic" trap target, continue a re:run
  */
@@ -1539,9 +1494,10 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     Binary *mbp;
     RestartContext *restartp;
     int rc;
-    unsigned long loop_count;
-    Uint loop_limit_tmp;
+    Sint32 loop_limit;
     Eterm res;
+    const Sint32 reds_initial = ERTS_BIF_REDS_LEFT(BIF_P);
+    Sint32 reds_consumed;
 
     mbp = erts_magic_ref2bin(BIF_ARG_3);
 
@@ -1549,24 +1505,15 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
 	   == cleanup_restart_context_bin);
 
     restartp = (RestartContext *) ERTS_MAGIC_BIN_DATA(mbp);
-
-    restartp->extra.loop_limit = ERTS_BIF_REDS_LEFT(BIF_P) * LOOP_FACTOR;
-    loop_limit_tmp = max_loop_limit; /* To lesser probability of race in debug
-					situation (erts_debug) */
-    if (restartp->extra.loop_limit > loop_limit_tmp) {
-	restartp->extra.loop_limit = loop_limit_tmp;
-    }
-    restartp->extra.loop_counter_return = &loop_count;
-    restartp->extra.restart_data = &restartp->restart_data;
-    restartp->extra.restart_flags = 0;
+    loop_limit = MIN(reds_initial * LOOP_FACTOR, max_loop_limit);
+    pcre2_set_loops_left(restartp->match_data, loop_limit);
+    pcre2_set_restart_data(restartp->match_data, &restartp->restart_data);
+    pcre2_set_restart_flags(restartp->match_data,  0);
     
-#ifdef DEBUG
-    loop_count = 0xFFFFFFFF;
-#endif
-    rc = erts_pcre_exec(NULL, &(restartp->extra), NULL, 0, 0, 0, NULL, 0);
+    rc = pcre2_match(NULL, NULL, 0, 0, 0, restartp->match_data, NULL);
 
-    ASSERT(loop_count != 0xFFFFFFFF);
-    BUMP_REDS(BIF_P, loop_count / LOOP_FACTOR);
+    reds_consumed = (loop_limit - pcre2_get_loops_left(restartp->match_data)) / LOOP_FACTOR;
+
     if (rc < 0) {
         switch (rc) {
             /* No match... */
@@ -1574,16 +1521,39 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
         case PCRE2_ERROR_MATCHLIMIT:
         case PCRE2_ERROR_RECURSIONLIMIT:
             break;
-#ifndef SVERKER_SKIP_TRAP
         case PCRE2_ERROR_LOOP_LIMIT:
             /* Trap */
-            BUMP_ALL_REDS(BIF_P);
+            BUMP_REDS(BIF_P, reds_consumed);
+            ERTS_VBUMP_ALL_REDS(BIF_P);
             BIF_TRAP3(&re_exec_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-#endif
             /* Bad utf8 in subject... */
-        case PCRE2_ERROR_SHORTUTF8:
-        case PCRE2_ERROR_BADUTF8:
-        case PCRE2_ERROR_BADUTF8_OFFSET:
+        case PCRE2_ERROR_BADUTFOFFSET:
+        case PCRE2_ERROR_UTF8_ERR1:
+        case PCRE2_ERROR_UTF8_ERR2:
+        case PCRE2_ERROR_UTF8_ERR3:
+        case PCRE2_ERROR_UTF8_ERR4:
+        case PCRE2_ERROR_UTF8_ERR5:
+        case PCRE2_ERROR_UTF8_ERR6:
+        case PCRE2_ERROR_UTF8_ERR7:
+        case PCRE2_ERROR_UTF8_ERR8:
+        case PCRE2_ERROR_UTF8_ERR9:
+        case PCRE2_ERROR_UTF8_ERR10:
+        case PCRE2_ERROR_UTF8_ERR11:
+        case PCRE2_ERROR_UTF8_ERR12:
+        case PCRE2_ERROR_UTF8_ERR13:
+        case PCRE2_ERROR_UTF8_ERR14:
+        case PCRE2_ERROR_UTF8_ERR15:
+        case PCRE2_ERROR_UTF8_ERR16:
+        case PCRE2_ERROR_UTF8_ERR17:
+        case PCRE2_ERROR_UTF8_ERR18:
+        case PCRE2_ERROR_UTF8_ERR19:
+        case PCRE2_ERROR_UTF8_ERR20:
+        case PCRE2_ERROR_UTF8_ERR21:
+            BUMP_ALL_REDS(BIF_P); /* Unknown amount of work done... */
+            /* Fall through for badarg... */
+        case PCRE2_ERROR_BADOFFSET:
+        case PCRE2_ERROR_BADMAGIC:
+        case PCRE2_ERROR_BADMODE:
             cleanup_restart_context(restartp);
             BIF_ERROR(BIF_P, BADARG);
         default:
@@ -1593,6 +1563,8 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
             BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
         }
     }
+    BUMP_REDS(BIF_P, reds_consumed);
+
     res = build_exec_return(BIF_P, rc, restartp, BIF_ARG_1);
  
     cleanup_restart_context(restartp);
@@ -1600,8 +1572,6 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
     BIF_RET(res);
 }
     
-#endif // SVERKER_SKIP_TRAP
-
 BIF_RETTYPE
 re_inspect_2(BIF_ALIST_2) 
 {
