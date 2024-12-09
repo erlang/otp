@@ -386,6 +386,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_engine_mutex(env);
 
 #ifdef HAS_3_0_API
+        fini_mac_types();
         while (prov_cnt > 0) {
             OSSL_PROVIDER_unload(prov[--prov_cnt]);
         }
