@@ -1247,7 +1247,8 @@ in the User's Guide chapter.
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,
-	  authenticated = false
+	  authenticated = false,
+	  last_userauth_tried = "none" %% Not used for server role
 	 }).
 
 -record(alg,
