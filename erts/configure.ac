@@ -2846,6 +2846,7 @@ AC_CHECK_PROG(M4, m4, m4)
 
 dnl Test if JIT can be enabled
 JIT_ARCH=
+JIT_ARCH_BITS=
 AS_IF([test ${enable_jit} != no],
   [
    case "$ARCH" in
@@ -2883,6 +2884,7 @@ AS_IF([test ${enable_jit} != no],
                 # instruction cache, and don't require us to manually issue
                 # instruction barriers on all threads.
                 JIT_ARCH=arm
+                JIT_ARCH_BITS=64
               ;;
               *)
                 # We need to use `DC CVAU`, `IC IVAU`, and `ISB SY` to clear
@@ -2891,6 +2893,7 @@ AS_IF([test ${enable_jit} != no],
 
                 if test "$ethr_arm_isb_sy_instr_val$ethr_arm_dc_cvau_instr_val$ethr_arm_ic_ivau_instr_val" = "111"; then
                   JIT_ARCH=arm
+                  JIT_ARCH_BITS=64
                 else
                   enable_jit=no
                   AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
@@ -3105,6 +3108,7 @@ fi
 
 AC_SUBST(JIT_ENABLED)
 AC_SUBST(JIT_ARCH)
+AC_SUBST(JIT_ARCH_BITS)
 AC_SUBST(PRIMARY_FLAVOR)
 AC_SUBST(FLAVORS)
 
