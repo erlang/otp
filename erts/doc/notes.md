@@ -21,6 +21,90 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2
+
+### Fixed Bugs and Malfunctions
+
+- `gen_sctp:peeloff/2` has been fixed to inherit socket options to the peeled off socket more like `gen_tcp:accept/1`, for example the options `tos` or `tclass`.
+  
+  When setting SCTP options that are unsupported on the platform, some should be silently ignored, but a bug caused the option parsing to derail so the options after could bail out and cause an error instead.  This has been fixed.
+
+  Own Id: OTP-19225 Aux Id: [PR-8789]
+
+- Fixed a bug where Erlang would corrupt the terminal settings if stdin was a TTY but stdout was not.
+
+  Own Id: OTP-19232 Aux Id: [PR-8794], [GH-8487]
+
+- Fixed a bug in the non-JIT VM when loading a NIF over a function that is already traced by more than one session. This caused a VM crash. This bug has existed since OTP-27.0, where multiple trace sessions were introduced.
+
+  Own Id: OTP-19248 Aux Id: [PR-8856]
+
+- Fixed a bug where the loading of modules with extremely large binary construction instructions crashed the emulator on AArch64.
+
+  Own Id: OTP-19261 Aux Id: [GH-8815], [PR-8816]
+
+- [`inet:getifaddrs/0,1`](`inet:getifaddrs/1`) is improved when using
+  inet_backend = socket.
+
+  Own Id: OTP-19264
+
+- `win32reg:value/2` will no longer crash the emulator when the value is an unterminated REG_SZ of size 0.
+
+  Own Id: OTP-19283 Aux Id: [GH-8903], [PR-8912]
+
+- `Makefile` dependency generation on Windows in WSL 2 has been corrected.
+
+  Own Id: OTP-19300 Aux Id: [PR-8955]
+
+- Fix lock order violation if a NIF monitor `down` callback calls `enif_whereis_pid`. Would cause debug emulator to crash but could potentially lead to deadlocks in optimized emulator.
+
+  Own Id: OTP-19330 Aux Id: [GH-8983], [PR-9008]
+
+- Fixed compilation faults when compiling using `--enable-vm-probes`.
+
+  Own Id: OTP-19333
+
+- Fixed `erl_nif.h` on Windows to compile when gcc or clang is used.
+
+  Own Id: OTP-19341 Aux Id: [PR-9016]
+
+- Fixed a minor issue in the JIT debug information that confused tools like GDB and perf.
+
+  Own Id: OTP-19362 Aux Id: [PR-9003]
+
+[PR-8789]: https://github.com/erlang/otp/pull/8789
+[PR-8794]: https://github.com/erlang/otp/pull/8794
+[GH-8487]: https://github.com/erlang/otp/issues/8487
+[PR-8856]: https://github.com/erlang/otp/pull/8856
+[GH-8815]: https://github.com/erlang/otp/issues/8815
+[PR-8816]: https://github.com/erlang/otp/pull/8816
+[GH-8903]: https://github.com/erlang/otp/issues/8903
+[PR-8912]: https://github.com/erlang/otp/pull/8912
+[PR-8955]: https://github.com/erlang/otp/pull/8955
+[GH-8983]: https://github.com/erlang/otp/issues/8983
+[PR-9008]: https://github.com/erlang/otp/pull/9008
+[PR-9016]: https://github.com/erlang/otp/pull/9016
+[PR-9003]: https://github.com/erlang/otp/pull/9003
+
+### Improvements and New Features
+
+- Improved documentation of [timers](time_correction.md#timers).
+
+  Own Id: OTP-19360 Aux Id: ERIERL-1149, [PR-9062]
+
+- The label for a process can now be retrieved also using `process_info(Pid, label)` in addition to `proc_lib:get_label/1`.
+  
+  This new option is useful when one wants to retrieve more than one process info item. For example:
+  
+  ```
+  process_info(Pid, [label,registered_name])
+  ```
+
+  Own Id: OTP-19373 Aux Id: [PR-9108]
+
+[PR-9062]: https://github.com/erlang/otp/pull/9062
+[PR-9108]: https://github.com/erlang/otp/pull/9108
+
 ## Erts 15.1.3
 
 ### Fixed Bugs and Malfunctions

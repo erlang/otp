@@ -25,6 +25,22 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.3
+
+### Fixed Bugs and Malfunctions
+
+- Mnesia table converted from `ext_copies` to `disc_copies` will now be properly saved to disk.
+
+  Own Id: OTP-19292 Aux Id: [PR-8921], [GH-8706]
+
+- Mnesia could crash if table was deleted during checkpoint initialization.
+
+  Own Id: OTP-19368 Aux Id: ERIERL-1154, [PR-9093]
+
+[PR-8921]: https://github.com/erlang/otp/pull/8921
+[GH-8706]: https://github.com/erlang/otp/issues/8706
+[PR-9093]: https://github.com/erlang/otp/pull/9093
+
 ## Mnesia 4.23.2
 
 ### Fixed Bugs and Malfunctions

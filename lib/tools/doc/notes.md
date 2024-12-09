@@ -21,6 +21,27 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed some deprecated errors on emacs-29.
+
+  Own Id: OTP-19273 Aux Id: [PR-8879]
+
+- The `cover` tool could sometimes wrongly report lines as uncovered.
+
+  Own Id: OTP-19289 Aux Id: [GH-8867], [PR-8919]
+
+- Fixed `tprof:format(IoDevice, ...)` to not demand unicode encoding supported by `IoDevice`.
+
+  Own Id: OTP-19299 Aux Id: [PR-8949]
+
+[PR-8879]: https://github.com/erlang/otp/pull/8879
+[GH-8867]: https://github.com/erlang/otp/issues/8867
+[PR-8919]: https://github.com/erlang/otp/pull/8919
+[PR-8949]: https://github.com/erlang/otp/pull/8949
+
 ## Tools 4.1
 
 ### Fixed Bugs and Malfunctions

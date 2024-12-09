@@ -21,6 +21,23 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.5.2
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:strong_rand_bytes/2` fixed to work on Ubuntu pro with installed FIPS support.
+
+  Own Id: OTP-19223 Aux Id: [PR-8800], [GH-8769]
+
+- Fixed `crypto:hash_final/1` for digest types `shake128` and `shake256` when using OpenSSL 3.4 or newer.
+
+  Own Id: OTP-19329 Aux Id: [GH-8997], [PR-9002]
+
+[PR-8800]: https://github.com/erlang/otp/pull/8800
+[GH-8769]: https://github.com/erlang/otp/issues/8769
+[GH-8997]: https://github.com/erlang/otp/issues/8997
+[PR-9002]: https://github.com/erlang/otp/pull/9002
+
 ## Crypto 5.5.1
 
 ### Fixed Bugs and Malfunctions

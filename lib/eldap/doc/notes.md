@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Eldap application.
 
+## Eldap 1.2.14
+
+### Fixed Bugs and Malfunctions
+
+- Corrected dialyzer spec for usage of TLS options. The incorrect usage for the options in `eldap` could cause dialyzer warnings in user code referring to `eldap` specs.
+
+  Own Id: OTP-19281 Aux Id: [PR-8906]
+
+[PR-8906]: https://github.com/erlang/otp/pull/8906
+
 ## Eldap 1.2.13
 
 ### Improvements and New Features

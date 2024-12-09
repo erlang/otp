@@ -25,6 +25,18 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.7
+
+### Improvements and New Features
+
+- Erlang/OTP type specifications has been updated to eliminate overlapping domains.
+
+  Own Id: OTP-19310 Aux Id: [GH-8810], [GH-8821], [PR-8986]
+
+[GH-8810]: https://github.com/erlang/otp/issues/8810
+[GH-8821]: https://github.com/erlang/otp/issues/8821
+[PR-8986]: https://github.com/erlang/otp/pull/8986
+
 ## Megaco 4.6
 
 ### Improvements and New Features

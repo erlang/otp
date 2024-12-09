@@ -21,6 +21,48 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash in the common sub-expression elimination pass.
+
+  Own Id: OTP-19243 Aux Id: [GH-8818], [PR-8838]
+
+- Fixed a bug where bogus code was generated for consecutive calls to `erlang:setelement/2`, potentially crashing the runtime system.
+
+  Own Id: OTP-19270 Aux Id: [GH-8783], [PR-8898]
+
+- When the `line_coverage` option was used, exceptions could show the wrong line for where the exception was raised.
+
+  Own Id: OTP-19282 Aux Id: [PR-8907]
+
+- The `line_coverage` option would be ignored if given in a `compile()` attribute within a module.
+
+  Own Id: OTP-19309 Aux Id: [GH-8942], [PR-8970]
+
+- A segment matching a float in a binary generator will now skip any invalid float (such as a NaN) and continue matching the rest of the binary. Before this correction, the comprehension would stop as soon as an invalid float was encountered.
+  
+  Example:
+  
+  ```
+  1> BadFloat = <<-1:64>>.
+  <<"ÿÿÿÿÿÿÿÿ">>
+  2> [X || <<X:64/float>> <= <<0.0/float,BadFloat/binary,42.0/float>>].
+  [0.0,42.0]
+  ```
+
+  Own Id: OTP-19331 Aux Id: [PR-8978]
+
+[GH-8818]: https://github.com/erlang/otp/issues/8818
+[PR-8838]: https://github.com/erlang/otp/pull/8838
+[GH-8783]: https://github.com/erlang/otp/issues/8783
+[PR-8898]: https://github.com/erlang/otp/pull/8898
+[PR-8907]: https://github.com/erlang/otp/pull/8907
+[GH-8942]: https://github.com/erlang/otp/issues/8942
+[PR-8970]: https://github.com/erlang/otp/pull/8970
+[PR-8978]: https://github.com/erlang/otp/pull/8978
+
 ## Compiler 8.5.3
 
 ### Fixed Bugs and Malfunctions

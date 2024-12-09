@@ -21,6 +21,44 @@ limitations under the License.
 
 This document describes the changes made to the Debugger application.
 
+## Debugger 5.5
+
+### Fixed Bugs and Malfunctions
+
+- Defining a fun in the shell using the syntax `fun Name/Arity` would fail. This has been corrected so that the following now works:
+  
+  ```
+  1> F = fun is_atom/1.
+  #Fun.erl.42.18682967>
+  > F(a).
+  true
+  3> Id = fun id/1.
+  #Fun.erl.42.18682967>
+  4> Id(42).
+  ** exception error: undefined shell command id/1
+  5> id(I) -> I.
+  ok
+  6> Id(42).
+  42
+  ```
+  
+  The Debugger has also been corrected to correctly handle this syntax for a BIF.
+
+  Own Id: OTP-19322 Aux Id: [GH-8963], [PR-8987]
+
+[GH-8963]: https://github.com/erlang/otp/issues/8963
+[PR-8987]: https://github.com/erlang/otp/pull/8987
+
+### Improvements and New Features
+
+- Erlang/OTP type specifications has been updated to eliminate overlapping domains.
+
+  Own Id: OTP-19310 Aux Id: [GH-8810], [GH-8821], [PR-8986]
+
+[GH-8810]: https://github.com/erlang/otp/issues/8810
+[GH-8821]: https://github.com/erlang/otp/issues/8821
+[PR-8986]: https://github.com/erlang/otp/pull/8986
+
 ## Debugger 5.4
 
 ### Fixed Bugs and Malfunctions

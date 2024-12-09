@@ -21,6 +21,24 @@ limitations under the License.
 
 This document describes the changes made to the Observer application.
 
+## Observer 2.17
+
+### Fixed Bugs and Malfunctions
+
+- In the Memory tab of `crashdump_viewer`, the blocks sizes in `Allocator Summary` would all be `N/A`.
+
+  Own Id: OTP-19353 Aux Id: [PR-8532]
+
+[PR-8532]: https://github.com/erlang/otp/pull/8532
+
+### Improvements and New Features
+
+- The Kernel application now recognizes the `epmd_module` and `erl_epmd_listen_port` parameters, similar to `-kernel:connect_all`.
+
+  Own Id: OTP-19253 Aux Id: [PR-8671]
+
+[PR-8671]: https://github.com/erlang/otp/pull/8671
+
 ## Observer 2.16
 
 ### Fixed Bugs and Malfunctions

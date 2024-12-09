@@ -21,6 +21,99 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.2
+
+### Fixed Bugs and Malfunctions
+
+- Made it possible to expand help text displayed by pressing ^[h by pressing ^[h again.
+
+  Own Id: OTP-19260 Aux Id: [PR-8884]
+
+- Defining a fun in the shell using the syntax `fun Name/Arity` would fail. This has been corrected so that the following now works:
+  
+  ```
+  1> F = fun is_atom/1.
+  #Fun.erl.42.18682967>
+  > F(a).
+  true
+  3> Id = fun id/1.
+  #Fun.erl.42.18682967>
+  4> Id(42).
+  ** exception error: undefined shell command id/1
+  5> id(I) -> I.
+  ok
+  6> Id(42).
+  42
+  ```
+  
+  The Debugger has also been corrected to correctly handle this syntax for a BIF.
+
+  Own Id: OTP-19322 Aux Id: [GH-8963], [PR-8987]
+
+- Fixed a bug where completion of 'fun(' would cause the shell to crash.
+
+  Own Id: OTP-19351 Aux Id: [PR-9043]
+
+- Fixed a bug causing the shell to crash while trying to complete an expression starting with a '/' or a variable followed by '(' or '/'. E.g. Foo/ and Foo(.
+
+  Own Id: OTP-19361 Aux Id: [PR-9078]
+
+- `zip:extract/2` with `keep_old_files` now respects the `cwd` option.
+
+  Own Id: OTP-19370 Aux Id: [PR-9097], [GH-9087]
+
+- Fixed an error in uri_string:percent_decode spec
+
+  Own Id: OTP-19380 Aux Id: [GH-8755]
+
+[PR-8884]: https://github.com/erlang/otp/pull/8884
+[GH-8963]: https://github.com/erlang/otp/issues/8963
+[PR-8987]: https://github.com/erlang/otp/pull/8987
+[PR-9043]: https://github.com/erlang/otp/pull/9043
+[PR-9078]: https://github.com/erlang/otp/pull/9078
+[PR-9097]: https://github.com/erlang/otp/pull/9097
+[GH-9087]: https://github.com/erlang/otp/issues/9087
+[GH-8755]: https://github.com/erlang/otp/issues/8755
+
+### Improvements and New Features
+
+- Updated shell docs to display the type spec, that is, [`h(erlang, min, 2)`](`\c:h/2`) now prints the type spec and documentation in the shell.
+  
+  ```
+  > h(erlang,min,2).
+  
+    -spec min(Term1, Term2) -> Minimum
+                 when Term1 :: term(), Term2 :: term(), Minimum :: term().
+  
+    Returns the smallest of Term1 and Term2. If the terms compare equal with the == operator, Term1 is returned.
+  ```
+
+  Own Id: OTP-19234 Aux Id: [GH-8544], [PR-8833]
+
+- The `t:file:io_device/0` type has been updated to clearly show the difference between a `raw` and `cooked` IoDevice.
+
+  Own Id: OTP-19301 Aux Id: [PR-8956]
+
+- Added `json:format_key_value_list/3` and
+  `json:format_key_value_list_checked/3`.
+
+  Own Id: OTP-19320 Aux Id: [PR-8889]
+
+- Improved documentation of [timers](`e:erts:time_correction.md#timers`).
+
+  Own Id: OTP-19360 Aux Id: ERIERL-1149, [PR-9062]
+
+- Added logging support to `t:io:user/0`, `t:io:standard_io/0` and `t:io:standard_error/0`. See `io:setopts/2` for more details.
+
+  Own Id: OTP-19372 Aux Id: [PR-8947]
+
+[GH-8544]: https://github.com/erlang/otp/issues/8544
+[PR-8833]: https://github.com/erlang/otp/pull/8833
+[PR-8956]: https://github.com/erlang/otp/pull/8956
+[PR-8889]: https://github.com/erlang/otp/pull/8889
+[PR-9062]: https://github.com/erlang/otp/pull/9062
+[PR-8947]: https://github.com/erlang/otp/pull/8947
+
 ## STDLIB 6.1.2
 
 ### Fixed Bugs and Malfunctions
