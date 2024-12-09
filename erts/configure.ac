@@ -2912,7 +2912,7 @@ AS_IF([test ${enable_jit} != no],
               ;;
               *)
                 enable_jit=no
-                AC_MSG_WARN([JIT disabled due to lack of cache-clearing instructions])
+                AC_MSG_WARN([JIT disabled due to lack of support on $ARCH-$OPSYS])
               ;;
            esac
            ;;
