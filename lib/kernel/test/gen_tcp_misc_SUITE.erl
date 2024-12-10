@@ -3804,6 +3804,11 @@ fill_sendq_loop(Server, Client, Reader, NumSent) ->
                                [Server]),
                             {ok, NumSent};
                         {Server, SErrors} when is_list(SErrors) ->
+                            ?P("[master] got unexpected server (~p) error(s):"
+                               "~n      ~p"
+                               "~n.  when"
+                               "~n      Num Sent: ~p",
+                               [Server, SErrors, NumSent]),
                             ct:fail([{server,   SErrors},
                                      {reader,   RErrors},
                                      {num_sent, NumSent}])
