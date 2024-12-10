@@ -614,7 +614,8 @@ handle_event(cast, socket_control, {wait_for_socket, Role},
 handle_event(internal, socket_ready, {hello,_}=StateName, #data{ssh_params = Ssh0} = D) ->
     VsnMsg = ssh_transport:hello_version_msg(string_version(Ssh0)),
     send_bytes(VsnMsg, D),
-    case inet:getopts(Socket=D#data.socket, [recbuf]) of
+    Socket = D#data.socket,
+    case inet:getopts(Socket, [recbuf]) of
 	{ok, [{recbuf,Size}]} ->
 	    %% Set the socket to the hello text line handling mode:
 	    inet:setopts(Socket, [{packet, line},
