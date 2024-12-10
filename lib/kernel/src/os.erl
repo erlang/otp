@@ -557,7 +557,9 @@ The possible options are:
   _Example_:
 
   ```erlang
-  > catch os:cmd("true && false", #{ exception_on_failure => true }).
+  > catch os:cmd("echo hello && exit 123", #{ exception_on_failure => true }).
+  {'EXIT',{{command_failed,"hello\n",123},
+           [{os,cmd,2,[{file,"os.erl"},{line,579}]},
   ...
   ```
 
@@ -573,6 +575,8 @@ cmd(Cmd, Opts) ->
     try
         do_cmd(Cmd, Opts)
     catch
+        throw:{command_failed, Result, ExitStatus} ->
+            error({command_failed, Result, ExitStatus});
         throw:badopt ->
             badarg_with_cause([Cmd, Opts], badopt);
         throw:{open_port, Reason} ->
@@ -601,7 +605,7 @@ do_cmd(Cmd, Opts) ->
             true -> binary_to_list(iolist_to_binary(Bytes))
         end,
     if ExceptionOnFailure, ExitStatus =/= 0 ->
-            error({command_failed, Result, ExitStatus});
+            throw({command_failed, Result, ExitStatus});
        true -> Result
     end.
 
