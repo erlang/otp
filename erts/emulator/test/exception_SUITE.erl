@@ -1108,6 +1108,10 @@ error_info(_Config) ->
          {process_display, [ExternalPid, whatever]},
          {process_display, [DeadProcess, backtrace]},
 
+         {processes_next, [{a, []}]},
+         {processes_next, [{-1, []}]},
+         {processes_next, [a]},
+
          {process_flag, [trap_exit, some_value]},
          {process_flag, [bad_flag, some_value]},
 

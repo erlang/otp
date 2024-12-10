@@ -3827,6 +3827,24 @@ BIF_RETTYPE processes_0(BIF_ALIST_0)
 
 /**********************************************************************/
 /*
+ * The erts_internal:processes_next/1 BIF.
+ */
+
+BIF_RETTYPE erts_internal_processes_next_1(BIF_ALIST_1)
+{
+    Eterm res;
+    if (is_not_small(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    res = erts_ptab_processes_next(BIF_P, &erts_proc, unsigned_val(BIF_ARG_1));
+    if (is_non_value(res)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(res);
+}
+
+/**********************************************************************/
+/*
  * The erlang:ports/0 BIF.
  */
 
