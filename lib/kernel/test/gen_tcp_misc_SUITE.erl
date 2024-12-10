@@ -2447,6 +2447,11 @@ craasa_verify(default, Client, Payload) ->
                        "~n      ~p", [Other1]),
 		    ct:fail({unexpected, tcp_closed, Other1})
 	    end;
+
+        {tcp_closed, Client} ->
+            ?P("[verify-default] client awaiting socket data - unexpected close"),
+            ct:fail({unexpected, tcp_closed, Client});
+
 	Other2 ->
             ?P("[verify-default] "
                "awaiting client socket data - received upexpected: "
@@ -2482,11 +2487,16 @@ craasa_verify(true, Client, Payload) ->
                        "~n      ~p", [Other2]),
 		    ct:fail({unexpected, tcp_error, Other2})
 	    end;
+
+        {tcp_closed, Client} ->
+            ?P("[verify-true] client awaiting socket data - unexpected close"),
+            ct:fail({unexpected, tcp_closed, Client});
+
 	Other3 ->
             ?P("[verify-true] "
                "client awaiting socket data - received upexpected: "
                "~n      ~p", [Other3]),
-	    ct:fail({unexpected, tcp, Other3})
+            ct:fail({unexpected, tcp, Other3})
     end.
 
 
