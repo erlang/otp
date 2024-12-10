@@ -28,7 +28,8 @@
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1, error_info/1, os_cmd_shell/1,os_cmd_shell_peer/1]).
+         cmd_exception/1, os_cmd_shell/1,os_cmd_shell_peer/1,
+         perf_counter_api/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +44,8 @@ all() ->
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
-     error_info, os_cmd_shell, os_cmd_shell_peer].
+     error_info, os_cmd_shell, os_cmd_shell_peer,
+     cmd_exception].
 
 groups() ->
     [].
@@ -203,6 +205,22 @@ bad_command(Config) when is_list(Config) ->
     os:cmd("xxxxx"),
 
     ok.
+
+cmd_exception(Config) when is_list(Config) ->
+
+    {"abc\n", 2} = cmd_exception_test("echo \"abc\" && exit 2"),
+    {_, 2} = cmd_exception_test("("),
+    ok.
+
+cmd_exception_test(Cmd) ->
+    os:cmd(Cmd), %% Check that no exception is generated when the option is not given
+    try
+        os:cmd(Cmd, #{ exception_on_failure => true}),
+        ct:fail("Should not succeed")
+    catch error:{command_failed, Out, Reason} ->
+            {Out, Reason}
+    end.
+
 
 find_executable(Config) when is_list(Config) ->
     case os:type() of
