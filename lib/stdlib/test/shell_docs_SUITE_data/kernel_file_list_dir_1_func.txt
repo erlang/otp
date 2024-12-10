@@ -1,13 +1,5 @@
 
-  [;1m-spec list_dir(Dir) -> {ok, Filenames} | {error, Reason}[0m
-  [;1m                  when[0m
-  [;1m                      Dir :: name_all(),[0m
-  [;1m                      Filenames :: [filename()],[0m
-  [;1m                      Reason ::[0m
-  [;1m                          posix() |[0m
-  [;1m                          badarg |[0m
-  [;1m                          {no_translation,[0m
-  [;1m                           Filename :: unicode:latin1_binary()}.[0m
+[;1m  list_dir(Dir)[0m
 
   Lists all files in a directory, except files with raw filenames.
   Returns [;;4m{ok, Filenames}[0m if successful, otherwise [;;4m{error,[0m

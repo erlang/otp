@@ -1,5 +1,5 @@
 
-  [;1m-type file_descriptor() :: #file_descriptor{}.[0m
+[;1m  file_descriptor()[0m
 
   The documentation for file_descriptor/0 is hidden. This probably
   means that it is internal and not to be used by other

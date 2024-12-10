@@ -1,6 +1,5 @@
 
-  [;1m-spec port_set_data(Port, Data) -> true[0m
-  [;1m                       when Port :: port() | atom(), Data :: term().[0m
+[;1m  port_set_data(Port, Data)[0m
 
   The documentation for port_set_data/2 is hidden. This probably
   means that it is internal and not to be used by other

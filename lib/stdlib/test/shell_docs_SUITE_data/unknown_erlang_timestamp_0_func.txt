@@ -1,5 +1,5 @@
 
-  [;1m-spec timestamp() -> Timestamp when Timestamp :: timestamp().[0m
+[;1m  timestamp()[0m
 
 [;;4mSince[0m:
   OTP 18.0

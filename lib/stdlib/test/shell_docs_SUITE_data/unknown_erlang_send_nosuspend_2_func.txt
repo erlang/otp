@@ -1,6 +1,5 @@
 
-  [;1m-spec send_nosuspend(Dest, Msg) -> boolean()[0m
-  [;1m                        when Dest :: send_destination(), Msg :: term().[0m
+[;1m  send_nosuspend(Dest, Msg)[0m
 
   Send a message without suspending the caller.
 

@@ -1,5 +1,5 @@
 
-  [;1m-spec delete_module(Module) -> true | undefined when Module :: module().[0m
+[;1m  delete_module(Module)[0m
 
   Makes the current code for [;;4mModule[0m become old code and deletes
   all references for this module from the export table. Returns [;;4m[0m

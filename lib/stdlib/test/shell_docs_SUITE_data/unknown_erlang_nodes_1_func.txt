@@ -1,10 +1,5 @@
 
-  [;1m-spec nodes(Arg) -> Nodes[0m
-  [;1m               when[0m
-  [;1m                   Arg :: NodeType | [NodeType],[0m
-  [;1m                   NodeType ::[0m
-  [;1m                       visible | hidden | connected | this | known,[0m
-  [;1m                   Nodes :: [node()].[0m
+[;1m  nodes(Arg)[0m
 
   Returns a list of nodes according to the argument specified. The
   returned result, when the argument is a list, is the list of nodes

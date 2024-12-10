@@ -1,5 +1,5 @@
 
-  [;1m-spec localtime() -> DateTime when DateTime :: calendar:datetime().[0m
+[;1m  localtime()[0m
 
   Returns the current local date and time, [;;4m{{Year, Month, Day},[0m
   [;;4m{Hour, Minute, Second}}[0m.

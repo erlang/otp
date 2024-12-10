@@ -1,12 +1,5 @@
 
-  [;1m-spec load_nif(Path, LoadInfo) -> ok | Error[0m
-  [;1m                  when[0m
-  [;1m                      Path :: string(),[0m
-  [;1m                      LoadInfo :: term(),[0m
-  [;1m                      Error :: {error, {Reason, Text :: string()}},[0m
-  [;1m                      Reason ::[0m
-  [;1m                          load_failed | bad_lib | load | reload |[0m
-  [;1m                          upgrade | old_code.[0m
+[;1m  load_nif(Path, LoadInfo)[0m
 
   Loads and links a dynamic library containing native implemented
   functions (NIFs) for a module.

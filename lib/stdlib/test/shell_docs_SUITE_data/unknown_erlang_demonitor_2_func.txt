@@ -1,9 +1,5 @@
 
-  [;1m-spec demonitor(MonitorRef, OptionList) -> boolean()[0m
-  [;1m                   when[0m
-  [;1m                       MonitorRef :: reference(),[0m
-  [;1m                       OptionList :: [Option],[0m
-  [;1m                       Option :: flush | info.[0m
+[;1m  demonitor(MonitorRef, OptionList)[0m
 
   The returned value is [;;4mtrue[0m unless [;;4minfo[0m is part of [;;4mOptionList[0m.
 

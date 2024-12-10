@@ -1,5 +1,5 @@
 
-  [;1m-spec unalias(Alias) -> boolean() when Alias :: reference().[0m
+[;1m  unalias(Alias)[0m
 
 [;;4mSince[0m:
   OTP 24.0

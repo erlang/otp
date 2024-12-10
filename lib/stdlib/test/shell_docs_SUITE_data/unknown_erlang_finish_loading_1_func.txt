@@ -1,12 +1,5 @@
 
-  [;1m-spec finish_loading(PreparedCodeList) -> ok | Error[0m
-  [;1m                        when[0m
-  [;1m                            PreparedCodeList :: [PreparedCode],[0m
-  [;1m                            PreparedCode :: prepared_code(),[0m
-  [;1m                            ModuleList :: [module()],[0m
-  [;1m                            Error ::[0m
-  [;1m                                {not_purged, ModuleList} |[0m
-  [;1m                                {on_load, ModuleList}.[0m
+[;1m  finish_loading(PreparedCodeList)[0m
 
   The documentation for finish_loading/1 is hidden. This probably
   means that it is internal and not to be used by other

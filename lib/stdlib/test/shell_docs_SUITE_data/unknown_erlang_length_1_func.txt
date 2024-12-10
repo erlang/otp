@@ -1,5 +1,5 @@
 
-  [;1m-spec length(List) -> non_neg_integer() when List :: [term()].[0m
+[;1m  length(List)[0m
 
   Returns the length of [;;4mList[0m.
 

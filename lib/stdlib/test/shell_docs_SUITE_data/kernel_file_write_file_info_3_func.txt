@@ -1,10 +1,5 @@
 
-  [;1m-spec write_file_info(Filename, FileInfo, Opts) -> ok | {error, Reason}[0m
-  [;1m                         when[0m
-  [;1m                             Filename :: name_all(),[0m
-  [;1m                             Opts :: [file_info_option()],[0m
-  [;1m                             FileInfo :: file_info(),[0m
-  [;1m                             Reason :: posix() | badarg.[0m
+[;1m  write_file_info(Filename, FileInfo, Opts)[0m
 
 [;;4mSince[0m:
   OTP R15B

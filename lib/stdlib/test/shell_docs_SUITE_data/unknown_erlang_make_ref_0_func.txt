@@ -1,5 +1,5 @@
 
-  [;1m-spec make_ref() -> reference().[0m
+[;1m  make_ref()[0m
 
   Returns a unique reference. The reference is unique among
   connected nodes.

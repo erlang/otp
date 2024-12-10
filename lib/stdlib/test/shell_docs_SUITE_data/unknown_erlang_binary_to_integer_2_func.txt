@@ -1,6 +1,5 @@
 
-  [;1m-spec binary_to_integer(Binary, Base) -> integer()[0m
-  [;1m                           when Binary :: binary(), Base :: 2..36.[0m
+[;1m  binary_to_integer(Binary, Base)[0m
 
 [;;4mSince[0m:
   OTP R16B

@@ -1,25 +1,5 @@
 
-  [;1m-spec run(Subject, RE, Options) ->[0m
-  [;1m             {match, Captured} | match | nomatch | {error, ErrType}[0m
-  [;1m             when[0m
-  [;1m                 Subject :: iodata() | unicode:charlist(),[0m
-  [;1m                 RE :: mp() | iodata() | unicode:charlist(),[0m
-  [;1m                 Options :: options(),[0m
-  [;1m                 Captured :: [CaptureData] | [[CaptureData]],[0m
-  [;1m                 CaptureData ::[0m
-  [;1m                     {integer(), integer()} |[0m
-  [;1m                     ListConversionData |[0m
-  [;1m                     binary(),[0m
-  [;1m                 ListConversionData ::[0m
-  [;1m                     string() |[0m
-  [;1m                     {error, string(), binary()} |[0m
-  [;1m                     {incomplete, string(), binary()},[0m
-  [;1m                 ErrType ::[0m
-  [;1m                     match_limit | match_limit_recursion |[0m
-  [;1m                     {compile, CompileErr},[0m
-  [;1m                 CompileErr ::[0m
-  [;1m                     {ErrString :: string(),[0m
-  [;1m                      Position :: non_neg_integer()}.[0m
+[;1m  run(Subject, RE, Options)[0m
 
   Executes a regular expression matching, and returns [;;4mmatch/{match,[0m
   [;;4mCaptured}[0m or [;;4mnomatch[0m.

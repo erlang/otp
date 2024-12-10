@@ -1,6 +1,5 @@
 
-  [;1m-spec split_binary(Bin, Pos) -> {binary(), binary()}[0m
-  [;1m                      when Bin :: binary(), Pos :: non_neg_integer().[0m
+[;1m  split_binary(Bin, Pos)[0m
 
   Returns a tuple containing the binaries that are the result of
   splitting [;;4mBin[0m into two parts at position [;;4mPos[0m.

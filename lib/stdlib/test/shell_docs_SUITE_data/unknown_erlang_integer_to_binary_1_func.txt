@@ -1,5 +1,5 @@
 
-  [;1m-spec integer_to_binary(Integer) -> binary() when Integer :: integer().[0m
+[;1m  integer_to_binary(Integer)[0m
 
 [;;4mSince[0m:
   OTP R16B

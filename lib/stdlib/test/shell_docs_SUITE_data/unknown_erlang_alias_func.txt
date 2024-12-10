@@ -1,15 +1,12 @@
 
-  [;1m-spec alias() -> Alias when Alias :: reference().[0m
+[;1m  alias()[0m
 
 [;;4mSince[0m:
   OTP 24.0
 
   There is no documentation for alias([])
 
-  [;1m-spec alias(Opts) -> Alias[0m
-  [;1m               when[0m
-  [;1m                   Alias :: reference(),[0m
-  [;1m                   Opts :: [explicit_unalias | reply].[0m
+[;1m  alias(Opts)[0m
 
 [;;4mSince[0m:
   OTP 24.0

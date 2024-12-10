@@ -1,6 +1,5 @@
 
-  [;1m-spec rel2fam(BinRel) -> Family[0m
-  [;1m                 when Family :: family(), BinRel :: binary_relation().[0m
+[;1m  rel2fam(BinRel)[0m
 
   The documentation for rel2fam/1 is hidden. This probably means
   that it is internal and not to be used by other applications.

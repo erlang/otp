@@ -1,6 +1,5 @@
 
-  [;1m-spec send(Dest, Msg) -> Msg[0m
-  [;1m              when Dest :: send_destination(), Msg :: term().[0m
+[;1m  send(Dest, Msg)[0m
 
   Sends a message and returns [;;4mMsg[0m. This is the same as using the
   send operator: [;;4mDest ! Msg[0m.

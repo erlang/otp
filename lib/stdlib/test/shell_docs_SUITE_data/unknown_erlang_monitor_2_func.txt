@@ -1,10 +1,5 @@
 
-  [;1m-spec monitor(process, monitor_process_identifier()) -> MonitorRef[0m
-  [;1m                 when MonitorRef :: reference();[0m
-  [;1m             (port, monitor_port_identifier()) -> MonitorRef[0m
-  [;1m                 when MonitorRef :: reference();[0m
-  [;1m             (time_offset, clock_service) -> MonitorRef[0m
-  [;1m                 when MonitorRef :: reference().[0m
+[;1m  monitor(Type, Item)[0m
 
   Sends a monitor request of type [;;4mType[0m to the entity identified by [;;4m[0m
   [;;4mItem[0m.

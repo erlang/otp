@@ -1,6 +1,5 @@
 
-  [;1m-spec process_display(Pid, Type) -> true[0m
-  [;1m                         when Pid :: pid(), Type :: backtrace.[0m
+[;1m  process_display(Pid, Type)[0m
 
   Writes information about the local process [;;4mPid[0m on standard
   error.

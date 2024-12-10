@@ -1,5 +1,5 @@
 
-  [;1m-spec link(PidOrPort) -> true when PidOrPort :: pid() | port().[0m
+[;1m  link(PidOrPort)[0m
 
   Sets up and activates a link between the calling process and
   another process or a port identified by [;;4mPidOrPort[0m.

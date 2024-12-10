@@ -1,4 +1,4 @@
 
-  [;1m-type relation() :: a_set().[0m
+[;1m  relation()[0m
 
   An n-ary relation.

@@ -1,7 +1,5 @@
 
-  [;1m-type iolist() ::[0m
-  [;1m          maybe_improper_list(byte() | binary() | iolist(),[0m
-  [;1m                              binary() | []).[0m
+[;1m  iolist()[0m
 
   A list containing bytes and/or iodata.
 

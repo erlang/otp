@@ -1,54 +1,5 @@
 
-  [;1m-spec port_info(Port, Item :: connected) -> {connected, Pid} | undefined[0m
-  [;1m                   when Port :: port() | atom(), Pid :: pid();[0m
-  [;1m               (Port, Item :: id) -> {id, Index} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Index :: non_neg_integer();[0m
-  [;1m               (Port, Item :: input) -> {input, Bytes} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Bytes :: non_neg_integer();[0m
-  [;1m               (Port, Item :: links) -> {links, Pids} | undefined[0m
-  [;1m                   when Port :: port() | atom(), Pids :: [pid()];[0m
-  [;1m               (Port, Item :: locking) -> {locking, Locking} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Locking :: false | port_level | driver_level;[0m
-  [;1m               (Port, Item :: memory) -> {memory, Bytes} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Bytes :: non_neg_integer();[0m
-  [;1m               (Port, Item :: monitors) ->[0m
-  [;1m                   {monitors, Monitors} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Monitors :: [{process, pid()}];[0m
-  [;1m               (Port, Item :: monitored_by) ->[0m
-  [;1m                   {monitored_by, MonitoredBy} | undefined[0m
-  [;1m                   when Port :: port() | atom(), MonitoredBy :: [pid()];[0m
-  [;1m               (Port, Item :: name) -> {name, Name} | undefined[0m
-  [;1m                   when Port :: port() | atom(), Name :: string();[0m
-  [;1m               (Port, Item :: os_pid) -> {os_pid, OsPid} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       OsPid :: non_neg_integer() | undefined;[0m
-  [;1m               (Port, Item :: output) -> {output, Bytes} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Bytes :: non_neg_integer();[0m
-  [;1m               (Port, Item :: parallelism) ->[0m
-  [;1m                   {parallelism, Boolean} | undefined[0m
-  [;1m                   when Port :: port() | atom(), Boolean :: boolean();[0m
-  [;1m               (Port, Item :: queue_size) ->[0m
-  [;1m                   {queue_size, Bytes} | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Bytes :: non_neg_integer();[0m
-  [;1m               (Port, Item :: registered_name) ->[0m
-  [;1m                   {registered_name, RegisteredName} | [] | undefined[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(), RegisteredName :: atom().[0m
+[;1m  port_info(Port, Item)[0m
 
   Returns information about [;;4mPort[0m.
 

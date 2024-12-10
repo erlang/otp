@@ -1,13 +1,9 @@
 
-  [;1m-spec from_term(Term) -> AnySet when AnySet :: anyset(), Term :: term().[0m
+[;1m  from_term(Term)[0m
 
   There is no documentation for from_term(Term, '_')
 
-  [;1m-spec from_term(Term, Type) -> AnySet[0m
-  [;1m                   when[0m
-  [;1m                       AnySet :: anyset(),[0m
-  [;1m                       Term :: term(),[0m
-  [;1m                       Type :: type().[0m
+[;1m  from_term(Term, Type)[0m
 
   Creates an element of Sets by traversing term [;;4mTerm[0m, sorting
   lists, removing duplicates, and deriving or verifying a valid type

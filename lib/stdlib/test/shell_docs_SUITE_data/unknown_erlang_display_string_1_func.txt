@@ -1,5 +1,5 @@
 
-  [;1m-spec display_string(P1) -> true when P1 :: string() | binary().[0m
+[;1m  display_string(P1)[0m
 
   The documentation for display_string/1 is hidden. This probably
   means that it is internal and not to be used by other

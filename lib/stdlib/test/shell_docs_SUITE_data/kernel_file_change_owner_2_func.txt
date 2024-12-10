@@ -1,8 +1,4 @@
 
-  [;1m-spec change_owner(Filename, Uid) -> ok | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Filename :: name_all(),[0m
-  [;1m                          Uid :: integer(),[0m
-  [;1m                          Reason :: posix() | badarg.[0m
+[;1m  change_owner(Filename, Uid)[0m
 
   Changes owner of a file. See [;;4mwrite_file_info/2[0m.

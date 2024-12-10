@@ -1,5 +1,5 @@
 
-  [;1m-spec erase() -> [{Key, Val}] when Key :: term(), Val :: term().[0m
+[;1m  erase()[0m
 
   Returns the process dictionary and deletes it.
 

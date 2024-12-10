@@ -1,5 +1,5 @@
 
-  [;1m-spec system_time() -> integer().[0m
+[;1m  system_time()[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -15,7 +15,7 @@
     general case. For more information, see the documentation of
     time warp modes in the User's Guide.
 
-  [;1m-spec system_time(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  system_time(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0

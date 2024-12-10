@@ -1,4 +1,4 @@
 
-  [;1m-opaque ordset() [0m
+[;1m  ordset()[0m
 
   An ordered set.

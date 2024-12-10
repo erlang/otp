@@ -1,5 +1,5 @@
 
-  [;1m-spec size(Item) -> non_neg_integer() when Item :: tuple() | binary().[0m
+[;1m  size(Item)[0m
 
   Returns the number of elements in a tuple or the number of bytes
   in a binary or bitstring.

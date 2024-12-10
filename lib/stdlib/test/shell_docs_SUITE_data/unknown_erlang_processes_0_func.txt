@@ -1,5 +1,5 @@
 
-  [;1m-spec processes() -> [pid()].[0m
+[;1m  processes()[0m
 
   Returns a list of process identifiers corresponding to all the
   processes currently existing on the local node.

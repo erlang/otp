@@ -1,5 +1,5 @@
 
-  [;1m-spec map_size(Map) -> non_neg_integer() when Map :: map().[0m
+[;1m  map_size(Map)[0m
 
 [;;4mSince[0m:
   OTP 17.0

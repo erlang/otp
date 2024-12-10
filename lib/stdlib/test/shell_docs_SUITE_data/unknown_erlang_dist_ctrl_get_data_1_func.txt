@@ -1,9 +1,5 @@
 
-  [;1m-spec dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | none[0m
-  [;1m                            when[0m
-  [;1m                                Size :: non_neg_integer(),[0m
-  [;1m                                DHandle :: dist_handle(),[0m
-  [;1m                                Data :: iovec().[0m
+[;1m  dist_ctrl_get_data(DHandle)[0m
 
 [;;4mSince[0m:
   OTP 21.0

@@ -1,5 +1,5 @@
 
-  [;1m-spec port_close(Port) -> true when Port :: port() | atom().[0m
+[;1m  port_close(Port)[0m
 
   Closes an open port. Roughly the same as [;;4mPort ! {self(), close}[0m
   except for the error behavior (see below), being synchronous, and

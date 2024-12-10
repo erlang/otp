@@ -1,22 +1,9 @@
 
-  [;1m-spec check_process_code(Pid, Module) -> CheckResult[0m
-  [;1m                            when[0m
-  [;1m                                Pid :: pid(),[0m
-  [;1m                                Module :: module(),[0m
-  [;1m                                CheckResult :: boolean().[0m
+[;1m  check_process_code(Pid, Module)[0m
 
   There is no documentation for check_process_code(Pid, Module, [])
 
-  [;1m-spec check_process_code(Pid, Module, OptionList) -> CheckResult | async[0m
-  [;1m                            when[0m
-  [;1m                                Pid :: pid(),[0m
-  [;1m                                Module :: module(),[0m
-  [;1m                                RequestId :: term(),[0m
-  [;1m                                Option ::[0m
-  [;1m                                    {async, RequestId} |[0m
-  [;1m                                    {allow_gc, boolean()},[0m
-  [;1m                                OptionList :: [Option],[0m
-  [;1m                                CheckResult :: boolean() | aborted.[0m
+[;1m  check_process_code(Pid, Module, OptionList)[0m
 
 [;;4mSince[0m:
   OTP 17.0

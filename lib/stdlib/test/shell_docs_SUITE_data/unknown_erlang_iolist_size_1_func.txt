@@ -1,6 +1,5 @@
 
-  [;1m-spec iolist_size(Item) -> non_neg_integer()[0m
-  [;1m                     when Item :: iolist() | binary().[0m
+[;1m  iolist_size(Item)[0m
 
   Returns an integer, that is the size in bytes, of the binary that
   would be the result of [;;4miolist_to_binary(Item)[0m.

@@ -1,6 +1,5 @@
 
-  [;1m-spec port_connect(Port, Pid) -> true[0m
-  [;1m                      when Port :: port() | atom(), Pid :: pid().[0m
+[;1m  port_connect(Port, Pid)[0m
 
   Sets the port owner (the connected port) to [;;4mPid[0m. Roughly the
   same as [;;4mPort ! {Owner, {connect, Pid}}[0m except for the following:

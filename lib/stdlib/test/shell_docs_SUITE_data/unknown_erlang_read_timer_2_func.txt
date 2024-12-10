@@ -1,12 +1,5 @@
 
-  [;1m-spec read_timer(TimerRef, Options) -> Result | ok[0m
-  [;1m                    when[0m
-  [;1m                        TimerRef :: reference(),[0m
-  [;1m                        Async :: boolean(),[0m
-  [;1m                        Option :: {async, Async},[0m
-  [;1m                        Options :: [Option],[0m
-  [;1m                        Time :: non_neg_integer(),[0m
-  [;1m                        Result :: Time | false.[0m
+[;1m  read_timer(TimerRef, Options)[0m
 
 [;;4mSince[0m:
   OTP 18.0

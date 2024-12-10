@@ -1,8 +1,5 @@
 
-  [;1m-spec dt_prepend_vm_tag_data(IoData) -> IoDataRet[0m
-  [;1m                                when[0m
-  [;1m                                    IoData :: iodata(),[0m
-  [;1m                                    IoDataRet :: iodata().[0m
+[;1m  dt_prepend_vm_tag_data(IoData)[0m
 
   The documentation for dt_prepend_vm_tag_data/1 is hidden. This
   probably means that it is internal and not to be used by other

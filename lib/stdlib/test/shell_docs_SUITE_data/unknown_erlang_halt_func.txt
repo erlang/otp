@@ -1,5 +1,5 @@
 
-  [;1m-spec halt() -> no_return().[0m
+[;1m  halt()[0m
 
   Equivalent to calling [;;4mhalt(0, [])[0m.
 
@@ -8,9 +8,7 @@
     > halt().
     os_prompt%
 
-  [;1m-spec halt(Status :: non_neg_integer()) -> no_return();[0m
-  [;1m          (Abort :: abort) -> no_return();[0m
-  [;1m          (CrashDumpSlogan :: string()) -> no_return().[0m
+[;1m  halt(HaltType)[0m
 
   Equivalent to calling [;;4mhalt(HaltType, [])[0m.
 
@@ -21,11 +19,7 @@
     17
     os_prompt%
 
-  [;1m-spec halt(Status :: non_neg_integer(), Options :: halt_options()) ->[0m
-  [;1m              no_return();[0m
-  [;1m          (Abort :: abort, Options :: halt_options()) -> no_return();[0m
-  [;1m          (CrashDumpSlogan :: string(), Options :: halt_options()) ->[0m
-  [;1m              no_return().[0m
+[;1m  halt/2[0m
 
 [;;4mSince[0m:
   OTP R15B01

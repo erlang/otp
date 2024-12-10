@@ -1,4 +1,4 @@
 
-  [;1m-type type() :: term().[0m
+[;1m  type()[0m
 
   A type.

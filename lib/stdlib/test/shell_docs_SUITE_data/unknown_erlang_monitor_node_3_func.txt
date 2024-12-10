@@ -1,10 +1,5 @@
 
-  [;1m-spec monitor_node(Node, Flag, Options) -> true[0m
-  [;1m                      when[0m
-  [;1m                          Node :: node(),[0m
-  [;1m                          Flag :: boolean(),[0m
-  [;1m                          Options :: [Option],[0m
-  [;1m                          Option :: allow_passive_connect.[0m
+[;1m  monitor_node(Node, Flag, Options)[0m
 
   Behaves as [;;4mmonitor_node/2[0m except that it allows an extra option
   to be specified, namely [;;4mallow_passive_connect[0m.

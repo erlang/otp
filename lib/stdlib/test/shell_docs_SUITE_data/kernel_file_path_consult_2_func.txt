@@ -1,18 +1,5 @@
 
-  [;1m-spec path_consult(Path, Filename) ->[0m
-  [;1m                      {ok, Terms, FullName} | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Path :: [Dir],[0m
-  [;1m                          Dir :: name_all(),[0m
-  [;1m                          Filename :: name_all(),[0m
-  [;1m                          Terms :: [term()],[0m
-  [;1m                          FullName :: filename_all(),[0m
-  [;1m                          Reason ::[0m
-  [;1m                              posix() |[0m
-  [;1m                              badarg | terminated | system_limit |[0m
-  [;1m                              {Line :: integer(),[0m
-  [;1m                               Mod :: module(),[0m
-  [;1m                               Term :: term()}.[0m
+[;1m  path_consult(Path, Filename)[0m
 
   Searches the path [;;4mPath[0m (a list of directory names) until the
   file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m

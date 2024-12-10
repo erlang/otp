@@ -1,6 +1,5 @@
 
-  [;1m-spec bitstring_to_list(Bitstring) -> [byte() | bitstring()][0m
-  [;1m                           when Bitstring :: bitstring().[0m
+[;1m  bitstring_to_list(Bitstring)[0m
 
   Returns a list of integers corresponding to the bytes of [;;4m[0m
   [;;4mBitstring[0m.

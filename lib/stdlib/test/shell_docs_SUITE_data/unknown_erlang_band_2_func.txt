@@ -1,5 +1,5 @@
 
-  [;1m-spec 'band'(integer(), integer()) -> integer().[0m
+[;1m  'band'(A, B)[0m
 
   The documentation for 'band'/2 is hidden. This probably means
   that it is internal and not to be used by other applications.

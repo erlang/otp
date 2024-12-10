@@ -1,5 +1,5 @@
 
-  [;1m-spec time_offset() -> integer().[0m
+[;1m  time_offset()[0m
 
 [;;4mSince[0m:
   OTP 18.0

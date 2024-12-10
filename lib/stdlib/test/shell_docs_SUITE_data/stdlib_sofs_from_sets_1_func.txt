@@ -1,10 +1,5 @@
 
-  [;1m-spec from_sets(ListOfSets) -> Set[0m
-  [;1m                   when Set :: a_set(), ListOfSets :: [anyset()];[0m
-  [;1m               (TupleOfSets) -> Ordset[0m
-  [;1m                   when[0m
-  [;1m                       Ordset :: ordset(),[0m
-  [;1m                       TupleOfSets :: tuple_of(anyset()).[0m
+[;1m  from_sets/1[0m
 
   Returns the unordered set containing the sets of list [;;4mListOfSets[0m.
 

@@ -1,9 +1,5 @@
 
-  [;1m-spec process_info(Pid) -> Info[0m
-  [;1m                      when[0m
-  [;1m                          Pid :: pid(),[0m
-  [;1m                          Info :: [InfoTuple] | undefined,[0m
-  [;1m                          InfoTuple :: process_info_result_item().[0m
+[;1m  process_info(Pid)[0m
 
   Returns a list containing [;;4mInfoTuple[0ms with miscellaneous
   information about the process identified by [;;4mPid[0m, or [;;4mundefined[0m

@@ -1,5 +1,5 @@
 
-  [;1m-spec floor(Number) -> integer() when Number :: number().[0m
+[;1m  floor(Number)[0m
 
 [;;4mSince[0m:
   OTP 20.0

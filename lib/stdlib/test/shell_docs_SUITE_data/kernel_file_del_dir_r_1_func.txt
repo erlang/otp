@@ -1,6 +1,5 @@
 
-  [;1m-spec del_dir_r(File) -> ok | {error, Reason}[0m
-  [;1m                   when File :: name_all(), Reason :: posix() | badarg.[0m
+[;1m  del_dir_r(File)[0m
 
 [;;4mSince[0m:
   OTP 23.0

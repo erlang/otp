@@ -1,8 +1,5 @@
 
-  [;1m-spec family_intersection(Family1) -> Family2[0m
-  [;1m                             when[0m
-  [;1m                                 Family1 :: family(),[0m
-  [;1m                                 Family2 :: family().[0m
+[;1m  family_intersection(Family1)[0m
 
   If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a set of sets for
   every i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the

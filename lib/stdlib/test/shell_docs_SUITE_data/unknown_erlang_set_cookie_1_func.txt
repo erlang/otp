@@ -1,5 +1,5 @@
 
-  [;1m-spec set_cookie(Cookie) -> true when Cookie :: atom().[0m
+[;1m  set_cookie(Cookie)[0m
 
 [;;4mSince[0m:
   OTP 24.1

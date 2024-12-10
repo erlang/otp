@@ -1,6 +1,5 @@
 
-  [;1m-spec iolist_to_binary(IoListOrBinary) -> binary()[0m
-  [;1m                          when IoListOrBinary :: iolist() | binary().[0m
+[;1m  iolist_to_binary(IoListOrBinary)[0m
 
   Returns a binary that is made from the integers and binaries in [;;4m[0m
   [;;4mIoListOrBinary[0m.

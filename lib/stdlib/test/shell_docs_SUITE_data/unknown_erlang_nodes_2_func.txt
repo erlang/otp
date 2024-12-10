@@ -1,18 +1,5 @@
 
-  [;1m-spec nodes(Arg, InfoOpts) -> [NodeInfo][0m
-  [;1m               when[0m
-  [;1m                   NodeType ::[0m
-  [;1m                       visible | hidden | connected | this | known,[0m
-  [;1m                   Arg :: NodeType | [NodeType],[0m
-  [;1m                   InfoOpts ::[0m
-  [;1m                       #{connection_id => boolean(),[0m
-  [;1m                         node_type => boolean()},[0m
-  [;1m                   NodeTypeInfo :: visible | hidden | this | known,[0m
-  [;1m                   ConnectionId :: undefined | integer(),[0m
-  [;1m                   Info ::[0m
-  [;1m                       #{connection_id => ConnectionId,[0m
-  [;1m                         node_type => NodeTypeInfo},[0m
-  [;1m                   NodeInfo :: {node(), Info}.[0m
+[;1m  nodes(Arg, InfoOpts)[0m
 
 [;;4mSince[0m:
   OTP 25.1

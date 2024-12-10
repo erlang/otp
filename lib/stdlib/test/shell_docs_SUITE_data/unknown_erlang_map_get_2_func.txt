@@ -1,6 +1,5 @@
 
-  [;1m-spec map_get(Key, Map) -> Value[0m
-  [;1m                 when Map :: map(), Key :: any(), Value :: any().[0m
+[;1m  map_get(Key, Map)[0m
 
 [;;4mSince[0m:
   OTP 21.0

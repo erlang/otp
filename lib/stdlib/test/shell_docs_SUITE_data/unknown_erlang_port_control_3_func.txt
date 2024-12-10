@@ -1,9 +1,5 @@
 
-  [;1m-spec port_control(Port, Operation, Data) -> iodata() | binary()[0m
-  [;1m                      when[0m
-  [;1m                          Port :: port() | atom(),[0m
-  [;1m                          Operation :: integer(),[0m
-  [;1m                          Data :: iodata().[0m
+[;1m  port_control(Port, Operation, Data)[0m
 
   Performs a synchronous control operation on a port. The meaning of [;;4m[0m
   [;;4mOperation[0m and [;;4mData[0m depends on the port, that is, on the port

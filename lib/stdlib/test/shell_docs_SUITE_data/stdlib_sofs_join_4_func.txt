@@ -1,11 +1,5 @@
 
-  [;1m-spec join(Relation1, I, Relation2, J) -> Relation3[0m
-  [;1m              when[0m
-  [;1m                  Relation1 :: relation(),[0m
-  [;1m                  Relation2 :: relation(),[0m
-  [;1m                  Relation3 :: relation(),[0m
-  [;1m                  I :: pos_integer(),[0m
-  [;1m                  J :: pos_integer().[0m
+[;1m  join(Relation1, I, Relation2, J)[0m
 
   Returns the natural join of the relations [;;4mRelation1[0m and [;;4m[0m
   [;;4mRelation2[0m on coordinates [;;4mI[0m and [;;4mJ[0m.

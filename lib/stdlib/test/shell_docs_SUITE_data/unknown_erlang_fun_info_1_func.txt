@@ -1,11 +1,5 @@
 
-  [;1m-spec fun_info(Fun) -> [{Item, Info}][0m
-  [;1m                  when[0m
-  [;1m                      Fun :: function(),[0m
-  [;1m                      Item ::[0m
-  [;1m                          arity | env | index | name | module |[0m
-  [;1m                          new_index | new_uniq | pid | type | uniq,[0m
-  [;1m                      Info :: term().[0m
+[;1m  fun_info(Fun)[0m
 
   Returns a list with information about the fun [;;4mFun[0m. Each list
   element is a tuple. The order of the tuples is undefined, and more

@@ -1,6 +1,5 @@
 
-  [;1m-spec hd(List) -> Head[0m
-  [;1m            when List :: nonempty_maybe_improper_list(), Head :: term().[0m
+[;1m  hd(List)[0m
 
   Returns the head of [;;4mList[0m, that is, the first element.
 

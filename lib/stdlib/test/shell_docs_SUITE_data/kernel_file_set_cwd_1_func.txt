@@ -1,9 +1,5 @@
 
-  [;1m-spec set_cwd(Dir) -> ok | {error, Reason}[0m
-  [;1m                 when[0m
-  [;1m                     Dir :: name() | EncodedBinary,[0m
-  [;1m                     EncodedBinary :: binary(),[0m
-  [;1m                     Reason :: posix() | badarg | no_translation.[0m
+[;1m  set_cwd(Dir)[0m
 
   Sets the current working directory of the file server to [;;4mDir[0m.
   Returns [;;4mok[0m if successful.

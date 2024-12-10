@@ -1,13 +1,5 @@
 
-  [;1m-spec monitor(process, monitor_process_identifier(), [monitor_option()]) ->[0m
-  [;1m                 MonitorRef[0m
-  [;1m                 when MonitorRef :: reference();[0m
-  [;1m             (port, monitor_port_identifier(), [monitor_option()]) ->[0m
-  [;1m                 MonitorRef[0m
-  [;1m                 when MonitorRef :: reference();[0m
-  [;1m             (time_offset, clock_service, [monitor_option()]) ->[0m
-  [;1m                 MonitorRef[0m
-  [;1m                 when MonitorRef :: reference().[0m
+[;1m  monitor(Type, Item, Opts)[0m
 
 [;;4mSince[0m:
   OTP 24.0

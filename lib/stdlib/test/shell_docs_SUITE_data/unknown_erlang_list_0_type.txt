@@ -1,4 +1,4 @@
 
-  [;1m-type list() :: [any()].[0m
+[;1m  list()[0m
 
   An Erlang list containing terms of any type.

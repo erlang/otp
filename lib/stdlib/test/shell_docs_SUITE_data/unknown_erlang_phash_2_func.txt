@@ -1,9 +1,5 @@
 
-  [;1m-spec phash(Term, Range) -> Hash[0m
-  [;1m               when[0m
-  [;1m                   Term :: term(),[0m
-  [;1m                   Range :: pos_integer(),[0m
-  [;1m                   Hash :: pos_integer().[0m
+[;1m  phash(Term, Range)[0m
 
 [;;4mDeprecated[0m:
   erlang:phash/2 is deprecated; use erlang:phash2/2 instead

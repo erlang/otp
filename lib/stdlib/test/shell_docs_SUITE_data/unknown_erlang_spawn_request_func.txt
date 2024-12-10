@@ -1,6 +1,5 @@
 
-  [;1m-spec spawn_request(Fun) -> ReqId[0m
-  [;1m                       when Fun :: function(), ReqId :: reference().[0m
+[;1m  spawn_request(Fun)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -8,22 +7,7 @@
   Equivalent to the call [;;4mspawn_request(node(),Fun,[])[0m. That is, a
   spawn request on the local node with no options.
 
-  [;1m-spec spawn_request(Fun, Options) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Fun :: function(),[0m
-  [;1m                           Option ::[0m
-  [;1m                               {reply_tag, ReplyTag} |[0m
-  [;1m                               {reply, Reply} |[0m
-  [;1m                               spawn_opt_option(),[0m
-  [;1m                           ReplyTag :: term(),[0m
-  [;1m                           Reply :: yes | no | error_only | success_only,[0m
-  [;1m                           Options :: [Option],[0m
-  [;1m                           ReqId :: reference();[0m
-  [;1m                   (Node, Fun) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Node :: node(),[0m
-  [;1m                           Fun :: function(),[0m
-  [;1m                           ReqId :: reference().[0m
+[;1m  spawn_request(FunOrNode, OptionsOrFun)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -37,28 +21,7 @@
 
    • spawn request with no options.
 
-  [;1m-spec spawn_request(Node, Fun, Options) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Node :: node(),[0m
-  [;1m                           Fun :: function(),[0m
-  [;1m                           Options :: [Option],[0m
-  [;1m                           Option ::[0m
-  [;1m                               monitor |[0m
-  [;1m                               {monitor, [monitor_option()]} |[0m
-  [;1m                               link |[0m
-  [;1m                               {reply_tag, ReplyTag} |[0m
-  [;1m                               {reply, Reply} |[0m
-  [;1m                               OtherOption,[0m
-  [;1m                           ReplyTag :: term(),[0m
-  [;1m                           Reply :: yes | no | error_only | success_only,[0m
-  [;1m                           OtherOption :: term(),[0m
-  [;1m                           ReqId :: reference();[0m
-  [;1m                   (Module, Function, Args) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Module :: module(),[0m
-  [;1m                           Function :: atom(),[0m
-  [;1m                           Args :: [term()],[0m
-  [;1m                           ReqId :: reference().[0m
+[;1m  spawn_request(NodeOrModule, FunOrFunction, OptionsOrArgs)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -83,26 +46,8 @@
 
    • [;;4mOptions[0m is not a proper list of terms.
 
-  [;1m-spec spawn_request(Node, Module, Function, Args) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Node :: node(),[0m
-  [;1m                           Module :: module(),[0m
-  [;1m                           Function :: atom(),[0m
-  [;1m                           Args :: [term()],[0m
-  [;1m                           ReqId :: reference();[0m
-  [;1m                   (Module, Function, Args, Options) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Module :: module(),[0m
-  [;1m                           Function :: atom(),[0m
-  [;1m                           Args :: [term()],[0m
-  [;1m                           Option ::[0m
-  [;1m                               {reply_tag, ReplyTag} |[0m
-  [;1m                               {reply, Reply} |[0m
-  [;1m                               spawn_opt_option(),[0m
-  [;1m                           ReplyTag :: term(),[0m
-  [;1m                           Reply :: yes | no | error_only | success_only,[0m
-  [;1m                           Options :: [Option],[0m
-  [;1m                           ReqId :: reference().[0m
+[;1m  spawn_request(NodeOrModule, ModuleOrFunction, FunctionOrArgs,[0m
+[;1mArgsOrOptions)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -117,24 +62,7 @@
 
    • spawn request on the local node.
 
-  [;1m-spec spawn_request(Node, Module, Function, Args, Options) -> ReqId[0m
-  [;1m                       when[0m
-  [;1m                           Node :: node(),[0m
-  [;1m                           Module :: module(),[0m
-  [;1m                           Function :: atom(),[0m
-  [;1m                           Args :: [term()],[0m
-  [;1m                           Options :: [Option],[0m
-  [;1m                           Option ::[0m
-  [;1m                               monitor |[0m
-  [;1m                               {monitor, [monitor_option()]} |[0m
-  [;1m                               link |[0m
-  [;1m                               {reply_tag, ReplyTag} |[0m
-  [;1m                               {reply, Reply} |[0m
-  [;1m                               OtherOption,[0m
-  [;1m                           ReplyTag :: term(),[0m
-  [;1m                           Reply :: yes | no | error_only | success_only,[0m
-  [;1m                           OtherOption :: term(),[0m
-  [;1m                           ReqId :: reference().[0m
+[;1m  spawn_request(Node, Module, Function, Args, Options)[0m
 
 [;;4mSince[0m:
   OTP 23.0

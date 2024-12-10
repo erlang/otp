@@ -1,9 +1,5 @@
 
-  [;1m-spec relative_product1(BinRel1, BinRel2) -> BinRel3[0m
-  [;1m                           when[0m
-  [;1m                               BinRel1 :: binary_relation(),[0m
-  [;1m                               BinRel2 :: binary_relation(),[0m
-  [;1m                               BinRel3 :: binary_relation().[0m
+[;1m  relative_product1(BinRel1, BinRel2)[0m
 
   Returns the relative product of the converse of the binary
   relation [;;4mBinRel1[0m and the binary relation [;;4mBinRel2[0m.

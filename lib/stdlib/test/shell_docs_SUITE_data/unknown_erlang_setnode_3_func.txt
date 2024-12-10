@@ -1,9 +1,5 @@
 
-  [;1m-spec setnode(Node, DistCtrlr, Opts) -> dist_handle()[0m
-  [;1m                 when[0m
-  [;1m                     Node :: atom(),[0m
-  [;1m                     DistCtrlr :: port() | pid(),[0m
-  [;1m                     Opts :: {integer(), pos_integer()}.[0m
+[;1m  setnode(Node, DistCtrlr, Opts)[0m
 
   The documentation for setnode/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

@@ -1,13 +1,5 @@
 
-  [;1m-spec eval(Filename) -> ok | {error, Reason}[0m
-  [;1m              when[0m
-  [;1m                  Filename :: name_all(),[0m
-  [;1m                  Reason ::[0m
-  [;1m                      posix() |[0m
-  [;1m                      badarg | terminated | system_limit |[0m
-  [;1m                      {Line :: integer(),[0m
-  [;1m                       Mod :: module(),[0m
-  [;1m                       Term :: term()}.[0m
+[;1m  eval(Filename)[0m
 
   Reads and evaluates Erlang expressions, separated by [;;4m.[0m (or [;;4m,[0m,
   a sequence of expressions is also an expression) from [;;4mFilename[0m.

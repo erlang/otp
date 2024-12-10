@@ -1,5 +1,5 @@
 
-  [;1m-spec spawn_request_abandon(ReqId :: reference()) -> boolean().[0m
+[;1m  spawn_request_abandon(ReqId)[0m
 
 [;;4mSince[0m:
   OTP 23.0

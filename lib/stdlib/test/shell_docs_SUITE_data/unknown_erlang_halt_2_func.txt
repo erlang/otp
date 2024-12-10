@@ -1,9 +1,5 @@
 
-  [;1m-spec halt(Status :: non_neg_integer(), Options :: halt_options()) ->[0m
-  [;1m              no_return();[0m
-  [;1m          (Abort :: abort, Options :: halt_options()) -> no_return();[0m
-  [;1m          (CrashDumpSlogan :: string(), Options :: halt_options()) ->[0m
-  [;1m              no_return().[0m
+[;1m  halt/2[0m
 
 [;;4mSince[0m:
   OTP R15B01

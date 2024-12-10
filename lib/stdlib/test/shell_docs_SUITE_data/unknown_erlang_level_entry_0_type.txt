@@ -1,8 +1,4 @@
 
-  [;1m-type level_entry() ::[0m
-  [;1m          {LevelTag :: level_tag(), SubLevel :: sub_level()} |[0m
-  [;1m          {LevelTag :: level_tag(),[0m
-  [;1m           InfoList :: info_list(),[0m
-  [;1m           SubLevel :: sub_level()}.[0m
+[;1m  level_entry()[0m
 
 

@@ -1,9 +1,5 @@
 
-  [;1m-spec make_link(Existing, New) -> ok | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Existing :: name_all(),[0m
-  [;1m                       New :: name_all(),[0m
-  [;1m                       Reason :: posix() | badarg.[0m
+[;1m  make_link(Existing, New)[0m
 
   Makes a hard link from [;;4mExisting[0m to [;;4mNew[0m on platforms supporting
   links (Unix and Windows). This function returns [;;4mok[0m if the link

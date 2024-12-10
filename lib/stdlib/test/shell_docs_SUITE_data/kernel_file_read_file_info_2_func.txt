@@ -1,10 +1,5 @@
 
-  [;1m-spec read_file_info(File, Opts) -> {ok, FileInfo} | {error, Reason}[0m
-  [;1m                        when[0m
-  [;1m                            File :: name_all() | io_device(),[0m
-  [;1m                            Opts :: [file_info_option()],[0m
-  [;1m                            FileInfo :: file_info(),[0m
-  [;1m                            Reason :: posix() | badarg.[0m
+[;1m  read_file_info(File, Opts)[0m
 
 [;;4mSince[0m:
   OTP R15B

@@ -1,9 +1,5 @@
 
-  [;1m-spec make_fun(Module, Function, Arity) -> function()[0m
-  [;1m                  when[0m
-  [;1m                      Module :: atom(),[0m
-  [;1m                      Function :: atom(),[0m
-  [;1m                      Arity :: arity().[0m
+[;1m  make_fun(Module, Function, Arity)[0m
 
   The documentation for make_fun/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

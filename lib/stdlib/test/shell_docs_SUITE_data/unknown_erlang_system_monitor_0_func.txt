@@ -1,10 +1,5 @@
 
-  [;1m-spec system_monitor() -> MonSettings[0m
-  [;1m                        when[0m
-  [;1m                            MonSettings ::[0m
-  [;1m                                undefined | {MonitorPid, Options},[0m
-  [;1m                            MonitorPid :: pid(),[0m
-  [;1m                            Options :: [system_monitor_option()].[0m
+[;1m  system_monitor()[0m
 
   Returns the current system monitoring settings set by [;;4m[0m
   [;;4merlang:system_monitor/2[0m as [;;4m{MonitorPid, Options}[0m, or [;;4mundefined[0m

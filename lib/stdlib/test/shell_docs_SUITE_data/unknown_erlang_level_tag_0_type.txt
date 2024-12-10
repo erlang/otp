@@ -1,4 +1,4 @@
 
-  [;1m-type level_tag() :: core | node | processor | thread.[0m
+[;1m  level_tag()[0m
 
 

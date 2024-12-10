@@ -1,5 +1,5 @@
 
-  [;1m-spec get(Key) -> Val | undefined when Key :: term(), Val :: term().[0m
+[;1m  get(Key)[0m
 
   Returns the value [;;4mVal[0m associated with [;;4mKey[0m in the process
   dictionary, or [;;4mundefined[0m if [;;4mKey[0m does not exist.

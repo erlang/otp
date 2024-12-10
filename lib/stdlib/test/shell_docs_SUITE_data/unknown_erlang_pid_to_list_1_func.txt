@@ -1,5 +1,5 @@
 
-  [;1m-spec pid_to_list(Pid) -> string() when Pid :: pid().[0m
+[;1m  pid_to_list(Pid)[0m
 
   Returns a string corresponding to the text representation of [;;4mPid[0m.
 
