@@ -1,0 +1,163 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2020-2024. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+pred.is_mfa_bif(M, F, A) {
+    Export *e;
+
+    ASSERT(M.type == TAG_a && F.type == TAG_a && A.type == TAG_u);
+    e = erts_active_export_entry(M.val, F.val, A.val);
+
+    if (e != NULL) {
+        return e->bif_number != -1;
+    }
+
+    return 0;
+}
+
+pred.never_fails(Bif) {
+    static Eterm nofail_bifs[] =
+	{am_Neqeq,
+	 am_Lt,
+	 am_Neq,
+	 am_Eq,
+	 am_Le,
+	 am_Eqeq,
+	 am_Gt,
+	 am_Ge,
+	 am_is_atom,
+	 am_is_boolean,
+	 am_is_binary,
+	 am_is_bitstring,
+	 am_is_float,
+	 am_is_integer,
+	 am_is_list,
+	 am_is_map,
+	 am_is_number,
+	 am_is_pid,
+	 am_is_port,
+	 am_is_reference,
+	 am_is_tuple,
+	};
+
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+	int i;
+
+	if (entry->module != am_erlang) {
+	    return 0;
+	}
+
+	if (entry->function == am_is_function) {
+	    /* Note that is_function/2 may fail. */
+	    return entry->arity == 1;
+	}
+
+	for (i = 0; i < sizeof(nofail_bifs) / sizeof(nofail_bifs[0]); i++) {
+	    if (entry->function == nofail_bifs[i]) {
+		return 1;
+	    }
+	}
+    }
+    return 0;
+}
+
+pred.consecutive_xregs(A1, A2) {
+    /* The following value must be the same as in beam_asm.hpp. */
+    const Uint num_register_backed_xregs = 6;
+    return A1.type == TAG_x && A2.type == TAG_x &&
+        A1.val + 1 == A2.val && A1.val >= num_register_backed_xregs;
+}
+
+pred.consecutive_words(A1, A2) {
+    return A1.type == A2.type && A1.val + 1 == A2.val;
+}
+
+pred.is_eq_exact_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Eq && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_ne_exact_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Neq && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_ge_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Ge && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_lt_bif(Bif) {
+    Uint index = Bif.val;
+
+    if (Bif.type == TAG_u && index < S->beam.imports.count) {
+	BeamFile_ImportEntry *entry = &S->beam.imports.entries[index];
+
+	return entry->module == am_erlang && entry->function == am_Lt && entry->arity == 2;
+    }
+    return 0;
+}
+
+pred.is_exit_bif(Bif) {
+    BeamFile_ImportEntry *import;
+
+    if (Bif.type != TAG_u || Bif.val >= S->beam.imports.count) {
+        return 0;
+    }
+
+    import = &S->beam.imports.entries[Bif.val];
+    if (import->module != am_erlang) {
+        return 0;
+    } else {
+        switch (import->function) {
+        case am_error:
+            return 1 <= import->arity && import->arity <= 3;
+        case am_exit:
+            return import->arity == 1;
+        case am_throw:
+            return import->arity == 1;
+        case am_nif_error:
+            return import->arity == 1 || import->arity == 2;
+        default:
+            return 0;
+        }
+    }
+}

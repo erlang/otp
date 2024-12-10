@@ -1,0 +1,631 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2020-2023. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+gen.select_tuple_arity(Src, Fail, Size, Rest) {
+    BeamOp* op;
+    BeamOpArg *tmp;
+    int size = Size.val / 2;
+    int arity = Size.val + 3;
+    int i, j;
+
+    /* Verify the validity of the list. */
+    if (Size.val % 2 != 0) {
+        return NULL;
+    }
+
+    for (i = 0; i < Size.val; i += 2) {
+        if (Rest[i].type != TAG_u || Rest[i+1].type != TAG_f) {
+            return NULL;
+        }
+    }
+
+    /*
+     * Generate the generic instruction.
+     * Assumption:
+     *   Few different tuple arities to select on (fewer than 20).
+     *   Use linear scan approach.
+     */
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_select_tuple_arity, 3);
+    $BeamOpArity(op, arity);
+    op->next = NULL;
+    op->a[0] = Src;
+    op->a[1] = Fail;
+
+    /* Variable argument count */
+    op->a[2].type = TAG_u;
+    op->a[2].val = Size.val;
+
+    tmp = (BeamOpArg*)erts_alloc(ERTS_ALC_T_LOADER_TMP,
+                                sizeof(BeamOpArg) * arity);
+
+    for (i = 3; i < arity; i += 2) {
+        tmp[i - 2]      = Rest[i - 2];
+        tmp[i - 3].type = TAG_v;
+        tmp[i - 3].val  = make_arityval_unchecked(Rest[i - 3].val);
+    }
+
+    /* Sort the values to make them useful for a binary or sentinel search. */
+    beam_load_sort_select_vals(tmp, size);
+
+    j = 3;
+    for (i = 3; i < arity; i += 2) {
+        op->a[j + size] = tmp[i - 2];
+        op->a[j]        = tmp[i - 3];
+        j++;
+    }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+    return op;
+}
+
+gen.split_values(Src, TypeFail, Fail, Size, Rest) {
+    BeamOp* op1;
+    BeamOp* op2;
+    BeamOp* is_integer;
+    int i;
+
+    ASSERT(Size.val >= 2 && Size.val % 2 == 0);
+
+    $NewBeamOp(S, is_integer);
+    $BeamOpNameArity(is_integer, is_integer, 2);
+    is_integer->a[0] = TypeFail;
+    is_integer->a[1] = Src;
+
+    $NewBeamOp(S, op1);
+    $BeamOpNameArity(op1, select_val, 3);
+    $BeamOpArity(op1, 3 + Size.val);
+    op1->a[0] = Src;
+    /* We use [] instead of a failure label to indicate a fallthrough
+     * to next instruction if none of the values match. That way, we
+     * don't have to create a new label dynamically, which would be
+     * tricky in BeamAsm. */
+    op1->a[1].type = TAG_n;
+    op1->a[1].val = 0;
+    op1->a[2].type = TAG_u;
+    op1->a[2].val = 0;
+
+    $NewBeamOp(S, op2);
+    $BeamOpNameArity(op2, select_val, 3);
+    $BeamOpArity(op2, 3 + Size.val);
+    op2->a[0] = Src;
+    op2->a[1] = Fail;
+    op2->a[2].type = TAG_u;
+    op2->a[2].val = 0;
+
+    /*
+     * Split the list.
+     */
+
+    ASSERT(Size.type == TAG_u);
+    for (i = 0; i < Size.val; i += 2) {
+        BeamOp* op = (Rest[i].type == TAG_q) ? op2 : op1;
+        int dst = 3 + op->a[2].val;
+
+        ASSERT(Rest[i+1].type == TAG_f);
+        op->a[dst] = Rest[i];
+        op->a[dst+1] = Rest[i+1];
+        op->arity += 2;
+        op->a[2].val += 2;
+    }
+    ASSERT(op1->a[2].val > 0);
+    ASSERT(op2->a[2].val > 0);
+
+    /*
+     * Order the instruction sequence appropriately.
+     */
+
+    if (TypeFail.val == Fail.val) {
+        /*
+         * select_val Src [] S ... (small numbers)
+         * is_integer Fail S
+         * select_val Src Fail S ... (bignums)
+         */
+        op1->next = is_integer;
+        is_integer->next = op2;
+    } else {
+        /*
+         * is_integer TypeFail S
+         * select_val Src [] S ... (small numbers)
+         * select_val Src Fail S ... (bignums)
+         */
+        is_integer->next = op1;
+        op1->next = op2;
+	op1 = is_integer;
+    }
+    op2->next = NULL;
+
+    return op1;
+}
+
+//
+// Generate a select_val instruction.  We know that a jump table
+// is not suitable, and that all values are of the same type
+// (integer or atoms).
+//
+gen.select_val(Src, Fail, Size, Rest) {
+    BeamOp* op;
+    BeamOpArg *tmp;
+    int arity = Size.val + 3;
+    int size = Size.val / 2;
+    int i, j;
+
+    $NewBeamOp(S, op);
+    op->next = NULL;
+
+    /* Use linear search for small search spaces */
+    if (size <= 10) {
+        $BeamOpNameArity(op, i_select_val_lins, 3);
+    } else {
+        $BeamOpNameArity(op, i_select_val_bins, 3);
+    }
+
+    $BeamOpArity(op, arity);
+    op->a[0] = Src;
+    op->a[1] = Fail;
+
+    /* Variable argument count */
+    op->a[2].type = TAG_u;
+    op->a[2].val = Size.val;
+
+    tmp = (BeamOpArg *) erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(BeamOpArg)*(arity));
+
+    for (i = 3; i < arity; i++) {
+        tmp[i-3] = Rest[i-3];
+    }
+
+    /* Sort the values to make them useful for a binary or sentinel search. */
+    beam_load_sort_select_vals(tmp, size);
+
+    j = 3;
+    for (i = 3; i < arity; i += 2) {
+        op->a[j]      = tmp[i-3];
+        op->a[j+size] = tmp[i-2];
+        j++;
+    }
+
+    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
+
+#ifdef DEBUG
+    for (i = 0; i < size - 1; i++) {
+        ASSERT(op->a[i+3].val <= op->a[i+4].val);
+    }
+#endif
+
+    return op;
+}
+
+//
+// Generate a select_val instruction for big numbers.
+//
+gen.select_literals(Src, Fail, Size, Rest) {
+    BeamOp* op;
+    BeamOp* jump;
+    BeamOp** prev_next = &op;
+
+    int i;
+
+    for (i = 0; i < Size.val; i += 2) {
+        BeamOp* op;
+        ASSERT(Rest[i].type == TAG_q);
+
+        $NewBeamOp(S, op);
+        $BeamOpNameArity(op, is_ne_exact, 3);
+        op->a[0] = Rest[i+1];
+        op->a[1] = Src;
+        op->a[2] = Rest[i];
+        *prev_next = op;
+        prev_next = &op->next;
+    }
+
+    $NewBeamOp(S, jump);
+    $BeamOpNameArity(jump, jump, 1);
+    jump->next = NULL;
+    jump->a[0] = Fail;
+    *prev_next = jump;
+    return op;
+}
+
+gen.new_small_map_lit(Dst, Live, Size, Rest) {
+    unsigned size = Size.val;
+    Uint lit;
+    unsigned i;
+    BeamOp* op;
+    BeamOpArg* dst;
+    Eterm* tmp;
+    Eterm* thp;
+    Eterm keys;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_new_small_map_lit, 4);
+    $BeamOpArity(op, 4 + size/2);
+    op->next = NULL;
+
+    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
+    if (size == 0) {
+        keys = erts_get_global_literal(ERTS_LIT_EMPTY_TUPLE);
+    } else {
+        keys = make_tuple(thp);
+        *thp++ = make_arityval(size/2);
+    }
+
+    dst = op->a+4;
+
+    for (i = 0; i < size; i += 2) {
+        switch (Rest[i].type) {
+        case TAG_a:
+            *thp++ = Rest[i].val;
+            ASSERT(is_atom(Rest[i].val));
+            break;
+        case TAG_i:
+            *thp++ = make_small(Rest[i].val);
+            break;
+        case TAG_n:
+            *thp++ = NIL;
+            break;
+        case TAG_q:
+            *thp++ = beamfile_get_literal(&S->beam, Rest[i].val);
+            break;
+        }
+        *dst++ = Rest[i + 1];
+    }
+
+    lit = beamfile_add_literal(&S->beam, keys, 1);
+    erts_free(ERTS_ALC_T_LOADER_TMP, tmp);
+
+    op->a[0] = Dst;
+    op->a[1] = Live;
+    op->a[2].type = TAG_q;
+    op->a[2].val = lit;
+    op->a[3].type = TAG_u;
+    op->a[3].val = size / 2;
+
+    return op;
+}
+
+// Generate the fastest instruction to fetch a binary from a binary.
+gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
+    BeamOp* op;
+
+    $NewBeamOp(S, op);
+    $NativeEndian(Flags);
+
+    if (Size.type == TAG_a && Size.val == am_all) {
+        $BeamOpNameArity(op, i_bs_get_binary_all2, 5);
+        op->a[0] = Ms;
+        op->a[1] = Fail;
+        op->a[2] = Live;
+        op->a[3] = Unit;
+        op->a[4] = Dst;
+    } else {
+        $BeamOpNameArity(op, i_bs_get_binary2, 6);
+        op->a[0] = Ms;
+        op->a[1] = Fail;
+        op->a[2] = Live;
+        op->a[3] = Size;
+        op->a[4].type = TAG_u;
+        op->a[4].val = (Unit.val << 3) | Flags.val;
+        op->a[5] = Dst;
+    }
+
+    op->next = NULL;
+    return op;
+}
+
+gen.skip_utf16(Fail, Ms, Flags) {
+    BeamOp* op;
+    $NewBeamOp(S, op);
+
+    $NativeEndian(Flags);
+    $BeamOpNameArity(op, i_bs_skip_utf16, 3);
+    op->a[0] = Ms;
+    op->a[1] = Fail;
+    op->a[2] = Flags;
+    return op;
+}
+
+gen.jump_tab(Src, Fail, Size, Rest) {
+    Sint min, max;
+    Sint i;
+    Sint size;
+    Sint arity;
+    int fixed_args;
+    BeamOp* op;
+
+    /*
+     * The rule in ops.tab must ensure that there are more than
+     * two values.
+     */
+    ASSERT(Size.val > 2);
+    ASSERT(Size.val % 2 == 0);
+
+    /* Calculate the minimum and maximum values and size of jump table. */
+    ASSERT(Rest[0].type == TAG_i);
+    min = max = Rest[0].val;
+    for (i = 2; i < Size.val; i += 2) {
+        ASSERT(Rest[i].type == TAG_i && Rest[i+1].type == TAG_f);
+        if (Rest[i].val < min) {
+            min = Rest[i].val;
+        } else if (max < Rest[i].val) {
+            max = Rest[i].val;
+        }
+    }
+    size = max - min + 1;
+
+    /* Allocate structure and fill in the fixed fields. */
+    $NewBeamOp(S, op);
+    op->next = NULL;
+    $BeamOpNameArity(op, i_jump_on_val, 4);
+    fixed_args = op->arity;
+    arity = fixed_args + size;
+    $BeamOpArity(op, arity);
+    op->a[0] = Src;
+    op->a[1] = Fail;
+    op->a[2].type = TAG_u;
+    op->a[2].val = min;
+    op->a[3].type = TAG_u;
+    op->a[3].val = size;
+
+    /* Fill in the jump table. */
+    for (i = fixed_args; i < arity; i++) {
+        op->a[i] = Fail;
+    }
+
+    for (i = 0; i < Size.val; i += 2) {
+        Sint index = fixed_args + Rest[i].val - min;
+        ASSERT(fixed_args <= index && index < arity);
+        op->a[index] = Rest[i+1];
+    }
+
+    return op;
+}
+
+gen.func_end(Func_Label, Entry_Label) {
+    BeamOp *op = NULL;
+
+    if (S->labels[Entry_Label.val].lambda_index != -1) {
+        int index = S->labels[Entry_Label.val].lambda_index;
+        BeamFile_LambdaEntry *lambda_entry;
+
+        lambda_entry = &S->beam.lambdas.entries[index];
+
+        if (lambda_entry->num_free > 0) {
+            BeamOp *lambda;
+
+            $NewBeamOp(S, lambda);
+            $BeamOpNameArity(lambda, i_lambda_trampoline, 4);
+
+            lambda->a[0].type = TAG_u;
+            lambda->a[0].val = index;
+            lambda->a[1] = Entry_Label;
+            lambda->a[2].type = TAG_u;
+            lambda->a[2].val = lambda_entry->arity;
+            lambda->a[3].type = TAG_u;
+            lambda->a[3].val = lambda_entry->num_free;
+
+            lambda->next = op;
+            op = lambda;
+        }
+    }
+
+    if (S->may_load_nif && (S->load_hdr->are_nifs == NULL ||
+                            S->load_hdr->are_nifs[S->function_number-1])) {
+        BeamOp *padding;
+
+        $NewBeamOp(S, padding);
+        $BeamOpNameArity(padding, i_nif_padding, 0);
+
+        padding->next = op;
+        op = padding;
+    }
+
+    if (op == NULL) {
+        /* Workaround for the fact that we have to return an instruction from
+         * generators. The loader will remove this dummy instruction. */
+        $NewBeamOp(S, op);
+        $BeamOpNameArity(op, delete_me, 0);
+
+        op->next = NULL;
+    }
+
+    return op;
+}
+
+gen.init_yregs_move(Size, Rest) {
+    BeamOp* op;
+
+    ASSERT(Size.val == 1);
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, move, 2);
+    op->next = NULL;
+    op->a[0].type = TAG_n;
+    op->a[0].val = 0;
+    op->a[1] = Rest[0];
+
+    return op;
+}
+
+gen.create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments) {
+    BeamOp* op;
+    int fixed_args;
+    int i;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_bs_create_bin, 4);
+    fixed_args = op->arity;
+    $BeamOpArity(op, (N.val + fixed_args));
+
+    op->a[0] = Fail;
+    op->a[1] = Alloc;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+
+    for (i = 0; i < N.val; i += 6) {
+        BeamOpArg Flags;
+        Uint flags = 0;
+
+        /* Copy all but flags. */
+        op->a[i+fixed_args+0] = Segments[i+0];
+        op->a[i+fixed_args+1] = Segments[i+1];
+        op->a[i+fixed_args+2] = Segments[i+2];
+        op->a[i+fixed_args+4] = Segments[i+4];
+        op->a[i+fixed_args+5] = Segments[i+5];
+
+        /* Translate flags. */
+        Flags = Segments[i+3];              /* Flags */
+        if (Flags.type != TAG_n) {
+            if (Flags.type == TAG_q) {
+                Eterm term = beamfile_get_literal(&S->beam, Flags.val);
+                while (is_list(term)) {
+                    Eterm* consp = list_val(term);
+                    Eterm elem = CAR(consp);
+                    switch (elem) {
+                    case am_little:
+                        flags |= BSF_LITTLE;
+                        break;
+                    case am_native:
+                        flags |= BSF_NATIVE;
+                        break;
+                    }
+                    term = CDR(consp);
+                }
+                ASSERT(is_nil(term));
+            }
+        }
+        Flags.type = TAG_u;
+        Flags.val = flags;
+        $NativeEndian(Flags);
+        op->a[i+fixed_args+3] = Flags;
+
+        /*
+         * Replace short string segments with integer segments.
+         * Integer segments can be combined with adjacent integer
+         * segments for better performance.
+         */
+        if (op->a[i+fixed_args+0].val == am_string) {
+            Sint num_chars = op->a[i+fixed_args+5].val;
+            if (num_chars <= 4) {
+                Sint index = op->a[i+fixed_args+4].val;
+                const byte* s = S->beam.strings.data + index;
+                Uint num = 0;
+                op->a[i+fixed_args+0].val = am_integer;
+                op->a[i+fixed_args+2].val = 8;
+                op->a[i+fixed_args+5].val = num_chars;
+                while (num_chars-- > 0) {
+                    num = num << 8 | *s++;
+                }
+                op->a[i+fixed_args+4].type = TAG_i;
+                op->a[i+fixed_args+4].val = num;
+            }
+        }
+    }
+
+    if (op->a[4].val == am_private_append && Alloc.val != 0) {
+        BeamOp* th;
+        $NewBeamOp(S, th);
+        $BeamOpNameArity(th, test_heap, 2);
+        th->a[0] = Alloc;
+        th->a[1] = Live;
+        th->next = op;
+
+        op->a[1].val = 0;
+
+        op = th;
+    }
+
+    return op;
+}
+
+gen.bs_match(Fail, Ctx, N, List) {
+    BeamOp* op;
+    int fixed_args;
+    int i;
+
+    /*
+     * If a BEAM file produced by a later version of Erlang/OTP
+     * is accidentally loaded into an earlier version, ensure
+     * that the loading fails (as opposed to crashing the runtime)
+     * if there are any unknown sub commands.
+     */
+    i = 0;
+    while (i < N.val) {
+        BeamOpArg current = List[i++];
+
+        if (current.type != TAG_a) {
+            goto error;
+        }
+
+        switch (current.val) {
+        case am_ensure_exactly:
+        case am_skip:
+            i += 1;
+            break;
+        case am_ensure_at_least:
+            i += 2;
+            break;
+        case am_get_tail:
+        case am_Eq:
+            i += 3;
+            break;
+        case am_binary:
+        case am_integer:
+            i += 5;
+            break;
+        default: {
+            error:
+            $NewBeamOp(S, op);
+            $BeamOpNameArity(op, bad_bs_match, 1);
+            op->a[0] = current;
+            return op;
+        }
+        }
+    }
+
+    /*
+     * Make sure that we don't attempt to pass any overflow tags to the JIT.
+     */
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_bs_match, 2);
+    fixed_args = op->arity;
+    $BeamOpArity(op, (N.val + fixed_args));
+
+    op->a[0] = Fail;
+    op->a[1] = Ctx;
+
+    for (i = 0; i < N.val; i++) {
+        BeamOpArg current;
+
+        current = List[i];
+        if (current.type == TAG_o) {
+            /* An overflow tag (in ensure_at_least or ensure_exactly)
+             * means that the match will always fail. */
+            $BeamOpNameArity(op, jump, 1);
+            op->a[0] = Fail;
+            return op;
+        }
+        op->a[i+fixed_args] = current;
+    }
+
+    return op;
+}

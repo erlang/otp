@@ -1,0 +1,1491 @@
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 1997-2024. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# %CopyrightEnd%
+#
+
+#
+# Types that should never be used in specific operations.
+#
+
+FORBIDDEN_TYPES=hQ
+
+#
+# The instructions that follows are only known by the loader and the emulator.
+# They can be changed without recompiling old Beam files.
+#
+# Instructions starting with a "i_" prefix are instructions produced by
+# instruction transformations; thus, they never occur in BEAM files.
+#
+
+func_info a a u | never() => _
+
+%cold
+# An unaligned label. The address of an unaligned label must never be saved
+# on the stack or used in a context where it can be confused with an Erlang term.
+
+label L
+
+# An label aligned to a certain boundary. This is used in two cases:
+#
+# * When the label points to the start of a function, as the ErtsCodeInfo
+#   struct must be word-aligned.
+# * When the address is stored on the stack or otherwise needs to be properly
+#   tagged as a continuation pointer.
+aligned_label L t
+
+i_func_info I a a I
+int_code_end
+nif_start
+
+i_generic_breakpoint
+i_debug_breakpoint
+i_call_trace_return
+i_return_to_trace
+trace_jump W
+i_yield
+%hot
+
+return
+
+#
+# A tail call will not refer to the current function on error unless it's a
+# BIF, so we can omit the line instruction for non-BIFs.
+#
+
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D =>
+    move S X0 | call_ext_last Ar Func D
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif =>
+    move S X0 | call_ext_only Ar Func
+
+move S X0=x==0 | line Loc | call_last Ar Func D =>
+    move S X0 | call_last Ar Func D
+move S X0=x==0 | line Loc | call_only Ar Func =>
+    move S X0 | call_only Ar Func
+
+# The line number in int_func_start/5 can be NIL.
+func_line n => empty_func_line
+
+empty_func_line
+func_line I
+
+line n => _
+line I
+
+executable_line I I
+
+allocate t t
+allocate_heap t I t
+
+deallocate t
+
+trim t t
+
+test_heap I t
+
+# Use a move instruction for initializating a single Y register, since
+# that can open up more optimizations (for example, combining a move +
+# trim to move_trim).
+init_yregs Size=u==1 Regs=* => init_yregs_move(Size, Regs)
+
+init_yregs I *
+
+# Selecting values.
+
+# The size of the dispatch code for a jump table is at least 40 bytes
+# (8 instructions + one 64-bit word for the pointer to the
+# table). Therefore we shouldn't use a jump table if there are too few
+# values.
+
+select_val S Fail=fn Size=u Rest=* | use_jump_tab(Size, Rest, 6) =>
+    jump_tab(S, Fail, Size, Rest)
+
+is_integer Fail=f S=s | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  use_jump_tab(Size, Rest, 6) =>
+    jump_tab(S, Fail, Size, Rest)
+
+is_integer TypeFail=f S=s | select_val S2 Fail=fn Size=u Rest=* |
+  equal(S, S2) |
+  mixed_types(Size, Rest) =>
+    split_values(S, TypeFail, Fail, Size, Rest)
+
+select_val S Fail=fn Size=u Rest=* | mixed_types(Size, Rest) =>
+    split_values(S, Fail, Fail, Size, Rest)
+
+is_integer Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
+
+is_atom Fail=f S=d | select_val S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) |
+  fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
+
+select_val S Fail=fn Size=u Rest=* | floats_or_bignums(Size, Rest) =>
+    select_literals(S, Fail, Size, Rest)
+
+select_val S Fail=fn Size=u Rest=* | fixed_size_values(Size, Rest) =>
+    select_val(S, Fail, Size, Rest)
+
+is_tuple Fail=f S=d | select_tuple_arity S2 Fail2 Size=u Rest=* |
+  equal(Fail, Fail2) | equal(S, S2) =>
+    select_tuple_arity(S, Fail, Size, Rest)
+
+select_tuple_arity S=d Fail=f Size=u Rest=* =>
+    select_tuple_arity(S, Fail, Size, Rest)
+
+i_select_val_bins s fn I *
+
+i_select_val_lins s fn I *
+
+i_select_tuple_arity S f I *
+
+i_jump_on_val s fn W I *
+
+is_number f s
+
+jump f
+
+#
+# List matching instructions.
+#
+is_nonempty_list Fail nqia => jump Fail
+
+is_nonempty_list f S
+
+get_list S d d
+get_hd S d
+get_tl S d
+
+# Old-style catch.
+catch y H
+catch_end y
+
+# Try/catch.
+try Y F => catch Y F
+
+try_case y
+try_end y
+
+try_case_end s
+
+try_end Y | deallocate N => try_end_deallocate N
+try_end Y | move Src Dst | deallocate N => try_end_move_deallocate Src Dst N
+
+try_end_deallocate t
+try_end_move_deallocate s d t
+
+move y==0 x==0 | deallocate u==1 | return =>
+    move_deallocate_return
+
+move_deallocate_return
+
+# Destructive set tuple element
+
+set_tuple_element s S P
+
+#
+# Get tuple element. Since this instruction is frequently used, we will try
+# to only fetch the pointer to the tuple once for a sequence of BEAM
+# instructions that fetch multiple elements from the same tuple.
+#
+
+current_tuple/1
+current_tuple/2
+
+is_tuple Fail=f Src | test_arity Fail2 Src2 Arity |
+  equal(Fail, Fail2) | equal(Src, Src) =>
+    i_is_tuple_of_arity Fail Src Arity | current_tuple Src
+
+is_tuple Fail1=f Src | test_arity Fail2 Src2 Arity |
+  equal(Src, Src) =>
+    i_is_tuple_of_arity_ff Fail1 Fail2 Src Arity | current_tuple Src
+
+test_arity Fail Src Arity => i_test_arity Fail Src Arity | current_tuple Src
+
+is_tuple NotTupleFail Src |
+  is_tagged_tuple WrongRecordFail Tuple Arity Atom |
+  equal(Src, Tuple) =>
+    i_is_tagged_tuple_ff NotTupleFail WrongRecordFail Src Arity Atom |
+    current_tuple Src
+
+is_tagged_tuple Fail Tuple Arity Atom =>
+    i_is_tagged_tuple Fail Tuple Arity Atom | current_tuple Tuple
+
+is_tuple Fail=f Src => i_is_tuple Fail Src | current_tuple Src
+
+i_is_tuple_of_arity f s A
+i_is_tuple_of_arity_ff f f s A
+i_test_arity f s A
+
+i_is_tagged_tuple f s A a
+i_is_tagged_tuple_ff f f s A a
+
+i_is_tuple f s
+
+# Generate instruction sequence for fetching the tuple element and remember
+# that we have a current tuple pointer.
+
+get_tuple_element Tuple Pos Dst =>
+    load_tuple_ptr Tuple |
+    i_get_tuple_element Tuple Pos Dst |
+    current_tuple Tuple
+
+current_tuple Tuple | get_tuple_element Tuple2 Pos Dst |
+  equal(Tuple, Tuple2) =>
+    i_get_tuple_element Tuple Pos Dst |
+    current_tuple Tuple
+
+# Drop the current_tuple instruction if the tuple is overwritten.
+i_get_tuple_element Tuple Pos Tuple2 | current_tuple Tuple3 |
+  equal(Tuple, Tuple2) | equal(Tuple, Tuple3) =>
+    i_get_tuple_element Tuple Pos Tuple
+
+# This is a current_tuple instruction not followed by
+# get_tuple_element. Invalidate the current tuple pointer.
+
+current_tuple Tuple => _
+
+i_get_tuple_element Tuple Pos Dst | current_tuple d | swap R1 R2 =>
+    i_get_tuple_element Tuple Pos Dst | swap R1 R2
+
+load_tuple_ptr s
+
+# If positions are in consecutive memory, fetch and store two words at
+# once.
+## FIXME: Fix this bug in maint, too.
+i_get_tuple_element Tuple Pos1 Dst1 |
+  current_tuple Tuple2 |
+  get_tuple_element Tuple3 Pos2 Dst2 |
+  equal(Tuple, Tuple2) | equal(Tuple, Tuple3) |
+  consecutive_words(Pos1, Pos2) | distinct(Dst1, Dst2) =>
+    get_two_tuple_elements Tuple Pos1 Dst1 Dst2 |
+    current_tuple Tuple Dst2
+
+# Drop the current_tuple instruction if the tuple is overwritten.
+current_tuple Tuple Tuple2 | equal(Tuple, Tuple2) => _
+current_tuple Tuple Dst => current_tuple Tuple
+
+# The first operand will only be used in the debug-compiled runtime
+# system to verify that the register holding the tuple pointer agrees
+# with the source tuple operand.
+i_get_tuple_element s P S
+get_two_tuple_elements s P S S
+
+i_get_tuple_element Tuple Pos Dst | swap Reg1 Reg2 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+i_get_tuple_element Tuple Pos Dst | swap Reg2 Reg1 | equal(Dst, Reg1) =>
+    get_tuple_element_swap Tuple Pos Dst Reg2
+
+get_tuple_element_swap s P d d
+
+#
+# Exception raising instructions. Infrequently executed.
+#
+
+%cold
+case_end s
+
+badmatch s
+
+if_end
+
+badrecord s
+
+raise s s
+
+# Workaround the limitation that generators must always return at least one
+# instruction.
+delete_me/0
+delete_me => _
+
+system_limit/1
+system_limit p => system_limit_body
+system_limit Fail=f => jump Fail
+
+system_limit_body
+
+%hot
+
+#
+# Optimize moves of consecutive memory addresses.
+#
+move Src SrcDst | move SrcDst2 Dst |
+  equal(SrcDst, SrcDst2) =>
+    i_move Src SrcDst | move SrcDst Dst
+
+# Optimize two moves from Y registers to X registers when source Y
+# registers are consecutive.
+
+move S1=y D1=x | move S2=y D2=x |
+  consecutive_words(S1, S2) |
+  distinct(D1, D2) =>
+    load_two_xregs S1 D1 S2 D2
+
+move S1=x D1=x | move S2=x D2=x |
+  consecutive_xregs(S1, S2) |
+  distinct(D1, D2) =>
+    load_two_xregs S1 D1 S2 D2
+
+move S1=y D1=x | move S2=y D2=x |
+  consecutive_words(S2, S1) |
+  distinct(D1, S2) |
+  distinct(D1, D2) =>
+    load_two_xregs S2 D2 S1 D1
+
+move S1=x D1=x | move S2=x D2=x |
+  consecutive_xregs(S2, S1) |
+  distinct(D1, S2) |
+  distinct(D1, D2) =>
+    load_two_xregs S2 D2 S1 D1
+
+# Optimize storing two values in Y registers when destination Y
+# registers are consecutive.
+
+move S1 D1=y | move S2 D2=y | consecutive_words(D1, D2) | distinct(D1, S2) =>
+    store_two_values S1 D1 S2 D2
+move S1 D1=y | move S2 D2=y | consecutive_words(D2, D1) | distinct(D1, S2) =>
+    store_two_values S2 D2 S1 D1
+
+move S1=y D1 | move S2=y D2 | consecutive_words(S1, S2) | trim N u =>
+    move_two_trim S1 D1 S2 D2 N
+
+move S2=y D2 | move S1=y D1 | consecutive_words(S1, S2) | trim N u =>
+    move_two_trim S1 D1 S2 D2 N
+
+move S1 D1=x | move S2 D2=x | consecutive_xregs(D1, D2) | distinct(D1, S2) =>
+    store_two_values S1 D1 S2 D2
+
+move S1 D1=x | move S2 D2=x | consecutive_xregs(D2, D1) | distinct(D1, S2) =>
+    store_two_values S2 D2 S1 D1
+
+move Src Dst | trim N u => move_trim Src Dst N
+
+move_two_trim y d y d t
+
+move_trim s d t
+
+move Src Dst => i_move Src Dst
+
+i_move s d
+store_two_values s d s d
+load_two_xregs d x d x
+
+#
+# Swap instructions.
+#
+
+swap R1 R2 | swap R2Other R3 | equal(R2, R2Other) => swap2 R1 R2 R3
+swap R1 R2 | swap R1Other R3 | equal(R1, R1Other) => swap2 R2 R1 R3
+swap R1 R2 | swap R3 R1Other | equal(R1, R1Other) => swap2 R2 R1 R3
+swap R1 R2 | swap R3 R2Other | equal(R2, R2Other) => swap2 R1 R2 R3
+
+swap2 R1 R2 R3 | swap R3Other R4 |
+  equal(R3, R3Other) =>
+    swap3 R1 R2 R3 R4
+swap2 R1 R2 R3 | swap R4 R3Other |
+  equal(R3, R3Other) =>
+    swap3 R1 R2 R3 R4
+
+swap3 R1 R2 R3 R4 | swap R4Other R5 |
+  equal(R4, R4Other) =>
+    swap4 R1 R2 R3 R4 R5
+swap3 R1 R2 R3 R4 | swap R5 R4Other |
+  equal(R4, R4Other) =>
+    swap4 R1 R2 R3 R4 R5
+
+swap d d
+swap2 d d d
+swap3 d d d d
+swap4 d d d d d
+
+#
+# Receive operations. We conservatively align all labels before any
+# of the receive instructions.
+#
+# As the labels may be stored in the process structure, we must align them to
+# the nearest 4-byte boundary to ensure they're properly tagged as continuation
+# pointers.
+#
+
+label L | loop_rec Fail Reg =>
+    aligned_label L u=4 | loop_rec Fail Reg
+label L | wait_timeout Fail Src =>
+    aligned_label L u=4 | wait_timeout Fail Src
+label L | wait Fail =>
+    aligned_label L u=4 | wait Fail
+label L | timeout =>
+    aligned_label L u=4 | timeout
+
+loop_rec Fail x==0 | smp_mark_target_label(Fail) => i_loop_rec Fail
+
+aligned_label L A | wait_timeout Fail Src | smp_already_locked(L) =>
+    aligned_label L A | wait_timeout_locked Src Fail
+wait_timeout Fail Src => wait_timeout_unlocked Src Fail
+
+aligned_label L A | wait Fail | smp_already_locked(L) =>
+    aligned_label L A | wait_locked Fail
+wait Fail => wait_unlocked Fail
+
+aligned_label L A | timeout | smp_already_locked(L) =>
+    aligned_label L A | timeout_locked
+
+remove_message
+timeout
+timeout_locked
+i_loop_rec f
+loop_rec_end f
+wait_locked f
+wait_unlocked f
+
+# Note that a timeout value must fit in 32 bits.
+wait_timeout_unlocked s f
+wait_timeout_locked s f
+
+send
+
+#
+# Optimized comparisons with one immediate/literal operand.
+#
+
+is_eq_exact Lbl LHS RHS | equal(LHS, RHS) => _
+is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
+
+is_eq_exact Lbl R=xy n => is_nil Lbl R
+
+is_ne_exact Lbl LHS RHS | equal(LHS, RHS) => jump Lbl
+is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
+
+is_eq_exact f s s
+
+is_ne_exact f s s
+
+is_integer NotInt N0 | is_ge Small N1=xy Min=i | is_ge Large Max=i N2=xy |
+  equal(N0, N1) | equal(N1, N2) |
+  equal(NotInt, Small) | equal(Small, Large) =>
+    is_int_in_range NotInt N0 Min Max
+
+is_integer NotInt N0 | is_ge Large Max=i N2=xy | is_ge Small N1=xy Min=i |
+  equal(N0, N1) | equal(N1, N2) |
+  equal(NotInt, Small) | equal(Small, Large) =>
+    is_int_in_range NotInt N0 Min Max
+
+is_integer NotInt N0 | is_ge Fail N1=xy Min=i |
+  equal(N0, N1) | equal(NotInt, Fail) =>
+    is_int_ge NotInt N0 Min
+
+is_int_in_range f S c c
+is_int_ge f S c
+
+is_ge Small N1=xy Min=i | is_ge Large Max=i N2=xy | equal(N1, N2) =>
+    is_in_range Small Large N1 Min Max
+
+is_ge Large Max=i N2=xy | is_ge Small N1=xy Min=i | equal(N1, N2) =>
+    is_in_range Small Large N2 Min Max
+
+is_in_range f f S c c
+
+is_ge Small N1=xy A=i | is_lt Large B=i N2=xy | equal(N1, N2) =>
+    is_ge_lt Small Large N1 A B
+
+is_ge_lt f f S c c
+
+is_ge Fail1 N1=xy A=i | is_ge Fail2 N2=xy B=i | equal(N1, N2) =>
+    is_ge_ge Fail1 Fail2 N1 A B
+
+is_ge_ge f f S c c
+
+is_lt f s s
+is_ge f s s
+
+is_eq Fail=f Const=c Reg=xy => is_eq Fail Reg Const
+is_eq f s s
+
+is_ne Fail=f Const=c Reg=xy => is_ne Fail Reg Const
+is_ne f s s
+
+#
+# Putting tuples.
+#
+# Code compiled with OTP 22 and later uses put_tuple2 to
+# to construct a tuple.
+#
+
+put_tuple2 S A *
+
+#
+# Putting lists.
+#
+
+put_list Hd1=y Tl Dst | put_list Hd2=y Dst2 Dst3 |
+  equal(Dst, Dst2) | equal(Dst, Dst3) |
+  consecutive_words(Hd1, Hd2) =>
+    put_list2 Hd1 Hd2 Tl Dst
+
+put_list Hd Tl Dst | deallocate N =>
+    put_list_deallocate Hd Tl Dst N
+
+put_list_deallocate s s d t
+put_list s s d
+put_list2 s s s d
+
+#
+# Some more only used by the emulator
+#
+
+%cold
+normal_exit
+continue_exit
+call_bif W
+call_bif_mfa a a I
+call_nif W W W
+call_error_handler
+return_trace
+%hot
+
+#
+# Type tests. Note that the operands for most type tests are `s` to
+# ensure that literal operands will work. The BEAM compiler starting
+# from OTP 22 will never emit type tests with literal operands even if
+# all optimizations are turned off, but loading unoptimized code from
+# older releases and code generated by alternative code generators.
+#
+
+is_integer f s
+is_list f s
+is_atom f s
+is_float f s
+
+is_nil Fail=f n => _
+is_nil Fail=f qia => jump Fail
+is_nil f S
+
+# XXX Deprecated.
+is_bitstr Fail Term => is_bitstring Fail Term
+
+is_binary f s
+is_bitstring f s
+
+is_reference f s
+is_pid f s
+is_port f s
+
+is_boolean f s
+
+is_function2 f s s
+
+#################################################################
+# External function and bif calls.
+#################################################################
+
+# Expands into call_light_bif/2
+call_light_bif/1
+
+#
+# The load_nif/2 BIF is an instruction.
+#
+
+call_ext u==2 u$func:erlang:load_nif/2 =>
+    i_load_nif
+call_ext_last u==2 u$func:erlang:load_nif/2 D =>
+    i_load_nif | deallocate D | return
+call_ext_only u==2 u$func:erlang:load_nif/2 =>
+    i_load_nif | return
+
+%cold
+i_load_nif
+%hot
+
+#
+# The call_on_load_function/1 BIF is an instruction.
+#
+
+call_ext u==1 u$func:erlang:call_on_load_function/1 =>
+    i_call_on_load_function
+call_ext_last u==1 u$func:erlang:call_on_load_function/1 D =>
+    i_call_on_load_function | deallocate D | return
+call_ext_only u==1 u$func:erlang:call_on_load_function/1 =>
+    i_call_on_load_function | return
+
+%cold
+i_call_on_load_function
+%hot
+
+#
+# apply/2 is an instruction, not a BIF.
+#
+
+call_ext u==2 u$func:erlang:apply/2 => i_apply_fun
+call_ext_last u==2 u$func:erlang:apply/2 D => i_apply_fun_last D
+call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
+
+#
+# The apply/3 BIF is an instruction.
+#
+
+call_ext u==3 u$func:erlang:apply/3 => i_apply
+call_ext_last u==3 u$func:erlang:apply/3 D => i_apply_last D
+call_ext_only u==3 u$func:erlang:apply/3 => i_apply_only
+
+#
+# The yield/0 BIF is an instruction
+#
+
+call_ext u==0 u$func:erlang:yield/0 => i_yield
+call_ext_last u==0 u$func:erlang:yield/0 D => i_yield | deallocate D | return
+call_ext_only u==0 u$func:erlang:yield/0 => i_yield | return
+
+#
+# The hibernate/3 BIF is an instruction.
+#
+call_ext u==3 u$func:erlang:hibernate/3 => i_hibernate
+call_ext_last u==3 u$func:erlang:hibernate/3 D => i_hibernate
+call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
+
+call_ext u==0 u$func:os:perf_counter/0 =>
+    i_perf_counter
+call_ext_last u==0 u$func:os:perf_counter/0 D =>
+    i_perf_counter | deallocate D | return
+call_ext_only u==0 u$func:os:perf_counter/0 =>
+    i_perf_counter | return
+
+#
+# BIFs like process_info/1,2 require up-to-date information about the current
+# emulator state, which the ordinary call_light_bif instruction doesn't save.
+#
+
+call_ext u Bif=u$is_bif | is_heavy_bif(Bif) =>
+    i_call_ext Bif
+call_ext_last u Bif=u$is_bif D | is_heavy_bif(Bif) =>
+    i_call_ext Bif | deallocate D | return
+call_ext_only Ar=u Bif=u$is_bif | is_heavy_bif(Bif) =>
+    allocate u Ar | i_call_ext Bif | deallocate u | return
+
+#
+# BIFs that always raise an exception need no trailing deallocate and
+# return instructions.
+#
+call_ext_last u Bif u | is_exit_bif(Bif) =>
+    call_light_bif Bif | mark_unreachable
+call_ext_only Ar=u Bif | is_exit_bif(Bif) =>
+    allocate u Ar | call_light_bif Bif | mark_unreachable
+
+mark_unreachable
+
+#
+# The general case for BIFs that have no special requirements.
+#
+
+call_ext u Bif=u$is_bif =>
+    call_light_bif Bif
+call_ext_last u Bif=u$is_bif D =>
+    call_light_bif Bif | deallocate D | return
+call_ext_only Ar=u Bif=u$is_bif =>
+    allocate u Ar | call_light_bif Bif | deallocate u | return
+
+#
+# Any remaining calls are calls to Erlang functions, not BIFs.
+# We rename the instructions to internal names.  This is necessary,
+# to avoid an end-less loop, because we want to call a few BIFs
+# with call instructions.
+#
+
+call_ext Ar Func        => i_call_ext Func
+call_ext_last Ar Func D => i_call_ext_last Func D
+call_ext_only Ar Func   => i_call_ext_only Func
+
+i_validate t
+
+i_apply
+i_apply_last t
+i_apply_only
+
+i_apply_fun
+i_apply_fun_last t
+i_apply_fun_only
+
+call_light_bif Bif => call_light_bif Bif Bif
+call_light_bif b e
+
+%cold
+
+i_hibernate
+i_perf_counter
+
+%hot
+
+#
+# Calls to non-building and guard BIFs.
+#
+
+bif0 u$bif:erlang:self/0 Dst=d => self Dst
+bif0 u$bif:erlang:node/0 Dst=d => node Dst
+
+bif1 Fail=f Bif=u$bif:erlang:hd/1 Src=xy Dst =>
+    is_nonempty_list Fail Src | get_hd Src Dst
+bif1 Fail=p Bif=u$bif:erlang:hd/1 Src Dst =>
+    bif_hd Src Dst
+
+bif_hd s d
+
+bif1 Fail=f Bif=u$bif:erlang:tl/1 Src=xy Dst =>
+    is_nonempty_list Fail Src | get_tl Src Dst
+bif1 Fail=p Bif=u$bif:erlang:tl/1 Src Dst =>
+    bif_tl Src Dst
+
+bif_tl s d
+
+bif1 Fail Bif=u$bif:erlang:get/1 Src=s Dst=d => get(Src, Dst)
+
+bif2 Fail u$bif:erlang:element/2 S1 S2 Dst => bif_element Fail S1 S2 Dst
+bif_element j s s d
+
+bif2 Fail Bif=u$bif:erlang:and/2 Src1 Src2 Dst=d => bif_and Fail Src1 Src2 Dst
+bif_and j s s d
+
+bif2 Fail Bif=u$bif:erlang:or/2 Src1 Src2 Dst=d => bif_or Fail Src1 Src2 Dst
+bif_or j s s d
+
+bif1 Fail Bif=u$bif:erlang:not/1 Src=d Dst=d => bif_not Fail Src Dst
+bif_not j S d
+
+bif1 Fail Bif=u$bif:erlang:node/1 Src=d Dst=d => bif_node Fail Src Dst
+bif_node j S d
+
+gc_bif1 Fail Live Bif=u$bif:erlang:bit_size/1 Src Dst=d =>
+    bif_bit_size Fail Src Dst
+bif_bit_size j s d
+
+gc_bif1 Fail Live Bif=u$bif:erlang:byte_size/1 Src Dst=d =>
+    bif_byte_size Fail Src Dst
+bif_byte_size j s d
+
+bif1 Fail Bif=u$bif:erlang:tuple_size/1 Src=d Dst=d =>
+    bif_tuple_size Fail Src Dst
+bif_tuple_size j S d
+
+bif2 Fail Bif=u$bif:erlang:map_get/2 Src1 Src2=xy Dst=d =>
+    bif_map_get Fail Src1 Src2 Dst
+bif_map_get j s s d
+
+bif2 Fail Bif=u$bif:erlang:is_map_key/2 Key Map=xy Dst=d =>
+    bif_is_map_key Bif Fail Key Map Dst
+bif_is_map_key b j s s d
+
+bif2 Fail Bif=u$bif:erlang:max/2 Src1 Src2 Dst =>
+    bif_max Src1 Src2 Dst
+bif2 Fail Bif=u$bif:erlang:min/2 Src1 Src2 Dst =>
+    bif_min Src1 Src2 Dst
+bif_max s s d
+bif_min s s d
+
+bif1 Fail Bif S1 Dst | never_fails(Bif) => nofail_bif1 S1 Bif Dst
+bif2 Fail Bif S1 S2 Dst | never_fails(Bif) => nofail_bif2 S1 S2 Bif Dst
+
+bif1 Fail Bif S1 Dst    => i_bif1 S1 Fail Bif Dst
+bif2 Fail Bif S1 S2 Dst => i_bif2 S1 S2 Fail Bif Dst
+
+nofail_bif2 S1=d S2 Bif Dst | is_eq_exact_bif(Bif) => bif_is_eq_exact S1 S2 Dst
+nofail_bif2 S1=d S2 Bif Dst | is_ne_exact_bif(Bif) => bif_is_ne_exact S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_ge_bif(Bif) => bif_is_ge S1 S2 Dst
+nofail_bif2 S1 S2 Bif Dst | is_lt_bif(Bif) => bif_is_lt S1 S2 Dst
+
+i_get_hash c W d
+i_get s d
+
+self d
+
+node d
+
+nofail_bif1 s b d
+nofail_bif2 s s b d
+
+i_bif1 s j b d
+i_bif2 s s j b d
+i_bif3 s s s j b d
+
+bif_is_eq_exact S s d
+bif_is_ne_exact S s d
+bif_is_ge s s d
+bif_is_lt s s d
+
+#
+# Internal calls.
+#
+
+i_move S=y Dst | call_last Ar P D => move_call_last S Dst P D
+i_move S=y Dst | call_ext_last Ar P=u$is_not_bif D => move_call_ext_last S Dst P D
+
+move_call_last y d f t
+move_call_ext_last y d e t
+
+call Ar Func        => i_call Func
+call_last Ar Func D => i_call_last Func D
+call_only Ar Func   => i_call_only Func
+
+i_call f
+i_call_last f t
+i_call_only f
+
+i_call_ext e
+i_call_ext_last e t
+i_call_ext_only e
+
+# Fun calls.
+
+call_fun Arity | deallocate D | return => i_call_fun_last Arity D
+call_fun Arity => i_call_fun Arity
+
+i_call_fun t
+i_call_fun_last t t
+
+call_fun2 Safe Arity Func | deallocate D | return =>
+    i_call_fun2_last Safe Arity Func D
+call_fun2 Safe Arity Func =>
+    i_call_fun2 Safe Arity Func
+
+i_call_fun2 aF t S
+i_call_fun2_last aF t S t
+
+#
+# A fun with an empty environment can be converted to a literal.
+#
+
+make_fun3 OldIndex=u Dst=d NumFree=u Env=* =>
+    make_fun3(OldIndex, Dst, NumFree, Env)
+
+%cold
+
+i_make_fun3 F S t t *
+
+# Psuedo-instruction for signalling lambda load errors. Never actually runs.
+i_lambda_error t
+
+%hot
+
+is_function f S
+is_function Fail=f c => jump Fail
+
+# The start and end of a function.
+int_func_start/5
+int_func_end/2
+
+func_prologue/2
+
+int_func_start Func_Label Func_Line M F A |
+  label Entry_Label | line Entry_Line =>
+    int_func_start Func_Label Func_Line M F A |
+    func_prologue Entry_Label Entry_Line
+
+int_func_start Func_Label Func_Line M F A |
+  label Entry_Label =>
+    int_func_start Func_Label Func_Line M F A |
+    func_prologue Entry_Label n
+
+int_func_start Func_Label Func_Line M F A |
+  func_prologue Entry_Label Entry_Line |
+  is_mfa_bif(M, F, A) =>
+    i_flush_stubs |
+    func_line Func_Line |
+    aligned_label Func_Label u=8 |
+    i_func_info Func_Label M F A |
+      aligned_label Entry_Label u=4 |
+      i_breakpoint_trampoline |
+      line Entry_Line |
+      call_bif_mfa M F A
+
+int_func_start Func_Label Func_Line M F A |
+  func_prologue Entry_Label Entry_Line =>
+    i_flush_stubs |
+    func_line Func_Line |
+    aligned_label Func_Label u=8 |
+    i_func_info Func_Label M F A |
+      aligned_label Entry_Label u=4 |
+      i_breakpoint_trampoline |
+      line Entry_Line |
+      i_test_yield
+
+int_func_end Func_Label Entry_Label =>
+    func_end(Func_Label, Entry_Label)
+
+# Handles yielding on function ingress (rather than on each call).
+i_test_yield
+
+# Ensures that the prior function is large enough to allow NIF patching.
+i_nif_padding
+
+# Flushes veneers prior to entering a new function so we don't have to worry
+# about them being emitted in the prologue or NIF padding.
+i_flush_stubs
+
+# Handles tracing, early NIF calls, and so on.
+i_breakpoint_trampoline
+
+# ================================================================
+# New bit syntax matching for fixed sizes (from OTP 26).
+# ================================================================
+
+bs_match Fail Ctx Size Rest=* => bs_match(Fail, Ctx, Size, Rest)
+
+i_bs_match Fail Ctx Rest=* | test_heap Need Live =>
+    i_bs_match_test_heap Fail Ctx Need Live Rest
+
+i_bs_match f S *
+i_bs_match_test_heap f S I t *
+
+#
+# The following instruction is specially handled in beam_load.c
+# to produce a user-friendly message if a bad bs_match instruction
+# is encountered.
+#
+bad_bs_match/1
+bad_bs_match A | never() => _
+
+# ================================================================
+# Bit syntax matching (from R11B).
+# ================================================================
+
+%warm
+
+# Matching integers.
+bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
+
+i_bs_match_string S f W M
+
+# Fetching integers from binaries.
+bs_get_integer2 f S t s t t d
+
+# Fetching binaries from binaries.
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
+    get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+
+i_bs_get_binary2 S f t s t d
+i_bs_get_binary_all2 S f t t d
+
+# Fetching float from binaries.
+bs_get_float2 Fail=f Ms=xy Live=u Sz=s Unit=u Flags=u Dst=d =>
+    get_float2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+
+bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
+
+i_bs_get_float2 S f t s t d
+
+# Miscellaneous
+
+bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
+    skip_bits2(Fail, Ms, Sz, Unit, Flags)
+
+i_bs_skip_bits_imm2 f S W
+i_bs_skip_bits2 S S f t
+
+bs_test_tail2 Fail=f Ms=xy o => jump Fail
+
+bs_test_tail2 f S W
+
+bs_test_unit f S t
+
+# Gets a bitstring from the tail of a context.
+bs_get_tail S d t
+
+# New bs_start_match variant for contexts with external position storage.
+#
+# bs_get/set_position is used to save positions into registers instead of
+# "slots" in the context itself, which lets us continue matching even after
+# we've passed it off to another function.
+
+bs_start_match4 a==am_no_fail Live=u Src=xy Ctx=d =>
+    bs_start_match3 p Src Live Ctx
+bs_start_match4 Fail=f Live=u Src=xy Ctx=d =>
+    bs_start_match3 Fail Src Live Ctx
+
+%if ARCH_64
+
+# This instruction nops on 64-bit platforms
+bs_start_match4 a==am_resume Live Ctx Dst | equal(Ctx, Dst) => _
+bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
+
+%else
+
+bs_start_match4 a==am_resume Live Ctx Dst =>
+    bs_start_match4 a=am_no_fail Live Ctx Dst
+
+%endif
+
+bs_start_match3 Fail=j ica Live Dst => jump Fail
+bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
+
+i_bs_start_match3 S t j d
+
+# Match context position instructions. 64-bit assumes that all positions can
+# fit into an unsigned small.
+
+%if ARCH_64
+    bs_get_position Src Dst Live => i_bs_get_position Src Dst
+    i_bs_get_position S S
+    bs_set_position S S
+%else
+    bs_get_position S d t
+    bs_set_position S S
+%endif
+
+#
+# Utf8/utf16/utf32 support. (R12B-5)
+#
+bs_get_utf8 Fail=f Ms=xy u u Dst=d => i_bs_get_utf8 Ms Fail Dst
+i_bs_get_utf8 S f d
+
+bs_skip_utf8 Fail=f Ms=xy u u => i_bs_skip_utf8 Ms Fail
+i_bs_skip_utf8 S f
+
+bs_get_utf16 Fail=f Ms=xy u Flags=u Dst=d => get_utf16(Fail, Ms, Flags, Dst)
+bs_skip_utf16 Fail=f Ms=xy u Flags=u => skip_utf16(Fail, Ms, Flags)
+
+i_bs_get_utf16 S f t d
+i_bs_skip_utf16 S f t
+
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst | equal(Ms, Dst) =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags x |
+    i_bs_validate_unicode_retract Fail x Ms |
+    move x Dst
+bs_get_utf32 Fail=f Ms=xy Live=u Flags=u Dst=d =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst |
+    i_bs_validate_unicode_retract Fail Dst Ms
+bs_skip_utf32 Fail=f Ms=xy Live=u Flags=u =>
+    bs_get_integer2 Fail Ms Live i=32 u=1 Flags x |
+    i_bs_validate_unicode_retract Fail x Ms
+
+i_bs_validate_unicode_retract j s S
+%hot
+
+# ================================================================
+# New binary construction (OTP 25).
+# ================================================================
+
+bs_create_bin Fail=j Alloc=u Live=u Unit=u Dst=xy N=u Segments=* =>
+    create_bin(Fail, Alloc, Live, Unit, Dst, N, Segments)
+
+i_bs_create_bin j I t d *
+
+# ================================================================
+# Old instruction for constructing binaries (up to OTP 24).
+# ================================================================
+
+%warm
+
+bs_init2 Fail Sz Words Regs Flags Dst | binary_too_big(Sz) => system_limit Fail
+
+bs_init2 Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init Sz Regs Dst
+
+bs_init2 Fail Sz=u Words Regs Flags Dst =>
+    i_bs_init_heap Sz Words Regs Dst
+
+bs_init2 Fail Sz Words=u==0 Regs Flags Dst =>
+    i_bs_init_fail Sz Fail Regs Dst
+bs_init2 Fail Sz Words Regs Flags Dst =>
+    i_bs_init_fail_heap Sz Words Fail Regs Dst
+
+i_bs_init_fail S j t S
+
+i_bs_init_fail_heap s I j t S
+
+i_bs_init W t S
+
+i_bs_init_heap W I t S
+
+
+bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
+
+bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst =>
+    i_bs_init_bits Sz Regs Dst
+bs_init_bits Fail Sz=u Words Regs Flags Dst =>
+    i_bs_init_bits_heap Sz Words Regs Dst
+
+bs_init_bits Fail Sz Words=u==0 Regs Flags Dst =>
+    i_bs_init_bits_fail Sz Fail Regs Dst
+bs_init_bits Fail Sz Words Regs Flags Dst =>
+    i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
+
+i_bs_init_bits_fail S j t S
+
+i_bs_init_bits_fail_heap s I j t S
+
+i_bs_init_bits W t S
+i_bs_init_bits_heap W I t S
+
+bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
+
+bs_add j s s t x
+
+bs_append Fail Size Extra Live Unit Bin Flags Dst =>
+    i_bs_append Fail Extra Live Unit Size Bin Dst
+
+bs_private_append Fail Size Unit Bin Flags Dst =>
+    i_bs_private_append Fail Unit Size Bin Dst
+
+i_bs_private_append Fail Unit Size Bin Dst=y =>
+    i_bs_private_append Fail Unit Size Bin x | move x Dst
+
+bs_init_writable
+
+i_bs_append j I t t s s S
+i_bs_private_append j t s S x
+
+#
+# Storing integers into binaries.
+#
+
+bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s =>
+    put_integer(Fail, Sz, Unit, Flags, Src)
+
+i_new_bs_put_integer j S t s
+i_new_bs_put_integer_imm s j W t
+
+#
+# Utf8/utf16/utf32 support. (R12B-5)
+#
+
+bs_utf8_size j Src Dst=d => i_bs_utf8_size Src Dst
+bs_utf16_size j Src Dst=d => i_bs_utf16_size Src Dst
+
+bs_put_utf8 Fail u Src => i_bs_put_utf8 Fail Src
+bs_put_utf16 Fail Flags Src => put_utf16(Fail, Flags, Src)
+
+bs_put_utf32 Fail=j Flags=u Src=s =>
+    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
+
+i_bs_utf8_size s x
+i_bs_utf16_size s x
+
+i_bs_put_utf8 j s
+i_bs_put_utf16 j t s
+
+i_bs_validate_unicode j s
+
+#
+# Storing floats into binaries.
+#
+
+# Will fail. No need to keep the instruction, because bs_add or
+# bs_init* would already have raised an exception.
+bs_put_float Fail Sz=q Unit Flags Val => _
+
+bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s =>
+    put_float(Fail, Sz, Unit, Flags, Src)
+
+i_new_bs_put_float j S t s
+i_new_bs_put_float_imm j W t s
+
+#
+# Storing binaries into binaries.
+#
+
+bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s =>
+    put_binary(Fail, Sz, Unit, Flags, Src)
+
+i_new_bs_put_binary j s t s
+i_new_bs_put_binary_imm j W s
+i_new_bs_put_binary_all s j t
+
+#
+# Warning: The i_bs_put_string and i_new_bs_put_string instructions
+# are specially treated in the loader.
+# Don't change the instruction format unless you change the loader too.
+#
+
+bs_put_string W M
+
+#
+# New floating point instructions (R8).
+#
+
+fadd p FR1 FR2 FR3 => i_fadd FR1 FR2 FR3
+fsub p FR1 FR2 FR3 => i_fsub FR1 FR2 FR3
+fmul p FR1 FR2 FR3 => i_fmul FR1 FR2 FR3
+fdiv p FR1 FR2 FR3 => i_fdiv FR1 FR2 FR3
+fnegate p FR1 FR2 => i_fnegate FR1 FR2
+
+fmove Arg=l Dst=d => fstore Arg Dst
+fmove Arg=dq Dst=l => fload Arg Dst
+
+fstore l d
+fload Sq l
+
+fconv s l
+
+i_fadd l l l
+i_fsub l l l
+i_fmul l l l
+i_fdiv l l l
+i_fnegate l l
+
+%hot
+
+#
+# New apply instructions in R10B.
+#
+
+apply t
+apply_last t t
+
+#
+# Map instructions. First introduced in R17.
+#
+
+# We KNOW that in OTP 18 and higher, a put_map_assoc instruction is
+# always preceded by an is_map test. That means that put_map_assoc can
+# never fail and does not need any failure label.
+
+put_map_assoc Fail Map Dst Live Size Rest=* =>
+    i_put_map_assoc Map Dst Live Size Rest
+i_put_map_assoc/4
+
+sorted_put_map_assoc/4
+i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) =>
+    sorted_put_map_assoc Map Dst Live Size Rest
+
+sorted_put_map_exact/5
+put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) =>
+    sorted_put_map_exact F Map Dst Live Size Rest
+
+sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) =>
+    new_map Dst Live Size Rest
+sorted_put_map_assoc Src=s Dst Live Size Rest=* =>
+    update_map_assoc Src Dst Live Size Rest
+
+sorted_put_map_exact Fail Src Dst Live Size Rest=* =>
+    update_map_exact Src Fail Dst Live Size Rest
+
+new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) =>
+    new_small_map_lit(Dst, Live, Size, Rest)
+
+new_map d t I *
+i_new_small_map_lit d t q I *
+update_map_assoc s d t I *
+update_map_exact s j d t I *
+
+is_map f s
+
+## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
+
+has_map_fields Fail Src Size Rest=* =>
+    has_map_fields(Fail, Src, Size, Rest)
+
+## Transform get_map_elements(s) #{ K1 := V1, K2 := V2 }
+
+get_map_elements Fail Src Size=u==2 Rest=* =>
+    get_map_element(Fail, Src, Size, Rest)
+get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) =>
+    get_map_elements(Fail, Src, Size, Rest)
+
+i_get_map_elements f s I *
+
+i_get_map_element_hash Fail Src=c Key Hash Dst =>
+    move Src x | i_get_map_element_hash Fail x Key Hash Dst
+i_get_map_element_hash f S c W S
+
+i_get_map_element Fail Src=c Key Dst =>
+    move Src x | i_get_map_element Fail x Key Dst
+i_get_map_element f S S S
+
+#
+# Arithmetic instructions.
+#
+
+gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
+  gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
+  equal(Dst1, S3) |
+  equal(Dst1, Dst2) |
+  equal(Fail1, Fail2) =>
+    i_mul_add Fail1 S1 S2 S3 S4 Dst1
+
+gc_bif2 Fail1 Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
+  gc_bif2 Fail2 Live2 u$bif:erlang:splus/2 S3 S4 Dst2 |
+  equal(Dst1, S4) |
+  equal(Dst1, Dst2) |
+  equal(Fail1, Fail2) =>
+    i_mul_add Fail1 S1 S2 S4 S3 Dst1
+
+gc_bif2 Fail Live u$bif:erlang:stimes/2 S1 S2 Dst =>
+    i_mul_add Fail S1 S2 Dst i Dst
+
+gc_bif2 Fail Live u$bif:erlang:splus/2 Src1 Src2 Dst =>
+    i_plus Fail Live Src1 Src2 Dst
+
+gc_bif1 Fail Live u$bif:erlang:sminus/1 Src Dst =>
+    i_unary_minus Fail Live Src Dst
+
+gc_bif2 Fail Live u$bif:erlang:sminus/2 Src1 Src2 Dst =>
+    i_minus Fail Live Src1 Src2 Dst
+
+gc_bif2 Fail Live u$bif:erlang:div/2 S1 S2 Dst =>
+    i_m_div Fail Live S1 S2 Dst
+
+# Fused 'rem'/'div' pair.
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder |
+  gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Remainder) |
+  distinct(RHS1, Remainder) =>
+    i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
+
+# As above but with a `line` in between
+gc_bif2 Fail Live u$bif:erlang:rem/2 LHS1 RHS1 Remainder |
+  line Loc |
+  gc_bif2 A B u$bif:erlang:intdiv/2 LHS2 RHS2 Quotient |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Remainder) |
+  distinct(RHS1, Remainder) =>
+    i_rem_div Fail Live LHS1 RHS1 Remainder Quotient
+
+# Fused 'div'/'rem' pair
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient |
+  gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Quotient) |
+  distinct(RHS1, Quotient) =>
+    i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
+
+# As above but with a `line` in between
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 LHS1 RHS1 Quotient |
+  line Loc |
+  gc_bif2 A B u$bif:erlang:rem/2 LHS2 RHS2 Remainder |
+  equal(LHS1, LHS2) |
+  equal(RHS1, RHS2) |
+  distinct(LHS1, Quotient) |
+  distinct(RHS1, Quotient) =>
+    i_div_rem Fail Live LHS1 RHS1 Quotient Remainder
+
+gc_bif2 Fail Live u$bif:erlang:intdiv/2 S1 S2 Dst =>
+    i_int_div Fail Live S1 S2 Dst
+gc_bif2 Fail Live u$bif:erlang:rem/2 S1 S2 Dst =>
+    i_rem Fail Live S1 S2 Dst
+
+gc_bif2 Fail Live u$bif:erlang:band/2 S1 S2 Dst =>
+    i_band Fail Live S1 S2 Dst
+
+gc_bif2 Fail Live u$bif:erlang:bor/2 S1 S2 Dst =>
+    i_bor Fail Live S1 S2 Dst
+
+gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst =>
+    i_bxor Fail Live S1 S2 Dst
+
+gc_bif1 Fail Live u$bif:erlang:bnot/1 Src Dst =>
+    i_bnot Fail Live Src Dst
+
+gc_bif2 Fail Live u$bif:erlang:bsr/2 S1 S2 Dst =>
+    i_bsr Fail Live S1 S2 Dst
+
+gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst =>
+    i_bsl Fail Live S1 S2 Dst
+
+i_mul_add j s s s s d
+
+i_plus j I s s d
+i_unary_minus j I s d
+i_minus j I s s d
+
+i_m_div j I s s d
+
+i_rem_div j I s s d d
+i_div_rem j I s s d d
+i_int_div j I s s d
+i_rem j I s s d
+
+i_band j I s s d
+i_bor j I s s d
+i_bxor j I s s d
+
+i_bnot j I s d
+
+i_bsr j I s s d
+i_bsl j I s s d
+
+#
+# Handle the length/1 guard BIF specially to make it trappable.
+#
+
+gc_bif1 Fail=j Live u$bif:erlang:length/1 Src Dst =>
+    i_length_setup Fail Live Src | i_length Fail Live Dst
+
+i_length_setup j t s
+i_length j t d
+
+#
+# Specialized guard BIFs.
+#
+
+gc_bif1 Fail Live Bif=u$bif:erlang:map_size/1 Src Dst=d => bif_map_size Fail Src Dst
+bif_map_size j s d
+
+#
+# Guard BIFs.
+#
+gc_bif1 Fail Live Bif Src Dst      => i_bif1 Src Fail Bif Dst
+gc_bif2 Fail Live Bif S1 S2 Dst    => i_bif2 S1 S2 Fail Bif Dst
+gc_bif3 Fail Live Bif S1 S2 S3 Dst => i_bif3 S1 S2 S3 Fail Bif Dst
+
+#
+# The following instruction is specially handled in beam_load.c
+# to produce a user-friendly message if an unsupported guard BIF is
+# encountered.
+#
+unsupported_guard_bif/3
+unsupported_guard_bif A B C | never() => _
+
+#
+# R13B03
+#
+on_load
+
+#
+# OTP 21.
+#
+
+build_stacktrace
+raw_raise
+
+#
+# OTP 24
+#
+
+recv_marker_reserve S
+recv_marker_bind S S
+recv_marker_clear S
+recv_marker_use S
+
+#
+# Mark all intentionally unused macros, predicates, and generators.
+#
+
+# Landing pad for fun calls/apply where we set up arguments and check errors
+i_lambda_trampoline F f W W
+
+#
+# OTP 26
+#
+
+update_record a==am_inplace Size Src=d Dst N Updates=* =>
+    update_record_in_place Size Src Dst N Updates
+
+update_record a I s d I *
+update_record_in_place I s d I *
