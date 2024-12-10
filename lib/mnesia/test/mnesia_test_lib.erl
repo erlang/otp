@@ -103,6 +103,7 @@
 	 start_mnesia/2,
 	 start_appls/2,
 	 start_appls/3,
+	 start_ext_test_server/0,
 	 start_wait/2,
 	 storage_type/2,
 	 stop_mnesia/1,
@@ -130,7 +131,8 @@
 	 struct/1,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
-	 kill_tc/2
+	 kill_tc/2,
+	 get_ext_test_server_name/0
 	]).
 
 -include("mnesia_test_lib.hrl").
@@ -681,6 +683,10 @@ do_prepare([{start_appls, Appls} | Actions], Selected, All, Config, File, Line) 
     do_prepare(Actions, Selected, All, Config, File, Line);
 do_prepare([{reload_appls, Appls} | Actions], Selected, All, Config, File, Line) ->
     reload_appls(Appls, Selected),
+    do_prepare(Actions, Selected, All, Config, File, Line);
+do_prepare([start_ext_test_server | Actions], Selected, All, Config, File, Line) ->
+    Expected = lists:duplicate(length(Selected), ok),
+    {Expected, []} = rpc:multicall(Selected, ?MODULE, start_ext_test_server, []),
     do_prepare(Actions, Selected, All, Config, File, Line).
 
 set_kill_timer(Config) ->
@@ -794,6 +800,20 @@ start_appls([Appl | Appls], Nodes, Config, Tabs) ->
     Bad ++ start_appls(Appls, Nodes, Config, Tabs);
 start_appls([], _Nodes, _Config, _Tabs) ->
     [].
+
+start_ext_test_server() ->
+    case global:whereis_name(get_ext_test_server_name()) of
+        Pid when is_pid(Pid) ->
+            gen_server:stop({global, get_ext_test_server_name()});
+        _ ->
+            ignore
+    end,
+    {ok, _} = gen_server:start({global, get_ext_test_server_name()}, ext_test_server,
+                                    [self()],
+                                    [{timeout, infinity}
+                                     %%, {debug, [trace]}
+                                    ]),
+    ok.
 
 remote_start(mnesia, Config, Nodes) ->
     case diskless(Config) of
@@ -1031,9 +1051,10 @@ verify_replica_location(Tab, DiscOnly0, Ram0, Disc0, AliveNodes0) ->
     timer:sleep(100),
 
     S1 = ?match(AliveNodes, lists:sort(mnesia:system_info(running_db_nodes))),
-    S2 = ?match(DiscOnly, lists:sort(mnesia:table_info(Tab, disc_only_copies))),
+    S2 = ?match(DiscOnly, lists:sort(mnesia:table_info(Tab, disc_only_copies) ++
+                    mnesia:table_info(Tab, ext_disc_only_copies))),
     S3 = ?match(Ram, lists:sort(mnesia:table_info(Tab, ram_copies) ++
-				    mnesia:table_info(Tab, ext_ets))),
+                    mnesia:table_info(Tab, ext_ram_copies))),
     S4 = ?match(Disc, lists:sort(mnesia:table_info(Tab, disc_copies))),
     S5 = ?match(Write, lists:sort(mnesia:table_info(Tab, where_to_write))),
     S6 = case lists:member(This, Read) of
@@ -1070,3 +1091,6 @@ sort({ok, L}) when is_list(L) ->
     {ok, lists:sort(L)};
 sort(W) ->
     W.
+
+get_ext_test_server_name() ->
+    list_to_atom("ext_test_server_" ++ atom_to_list(node())).
