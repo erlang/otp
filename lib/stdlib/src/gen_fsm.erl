@@ -206,7 +206,7 @@ A generic finite state machine process (`gen_fsm`) implemented
 using this module has a standard set of interface functions
 and includes functionality for tracing and error reporting.
 It also fits into an OTP supervision tree.  For more information,
-see [OTP Design Principles](`e:system:design_principles`).
+see [OTP Design Principles](`e:system:design_principles.md`).
 
 A `gen_fsm` process assumes all specific parts to be located
 in a callback module exporting a predefined set of functions.
@@ -679,8 +679,7 @@ its internal [*state data*](#state-data)
 during a release upgrade/downgrade, that is,
 when instruction `{update, Module, Change, ...}`,
 where `Change = {advanced, Extra}`, is given in the appup file;
-see section Release Handling Instructions in OTP Design Principles.
-[OTP Design Principles](`e:system:release_handling.md#instr`).
+see [Release Handling Instructions in OTP Design Principles](`e:system:release_handling.md#instr`).
 
 For an upgrade, `OldVsn` is `Vsn`, and for a downgrade,
 `OldVsn` is `{down, Vsn}`. `Vsn` is defined by the vsn attribute(s)

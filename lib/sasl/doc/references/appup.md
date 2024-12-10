@@ -78,9 +78,8 @@ this example works for, for example, `2.1.1`, but not for `2.1.1.1`.
 ## Release Upgrade Instructions
 
 Release upgrade instructions are interpreted by the release handler when an
-upgrade or downgrade is made. For more information about release handling, see
-[OTP Design Principles](`e:system:release_handling.md`) in _System
-Documentation_.
+upgrade or downgrade is made. For more information, see
+[_Release Handling_ in _OTP Design Principles_](`e:system:release_handling.md`).
 
 A process is said to _use_ a module `Mod` if `Mod` is listed in the `Modules`
 part of the child specification used to start the process, see `m:supervisor`.

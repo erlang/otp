@@ -138,7 +138,7 @@ This requires that the source code is structured as applications
 according to the OTP design principles.
 
 For more information about `.rel` files, see
-[OTP Design Principles](`e:system:release_handling.md`) and the
+[Release Handling](`e:system:release_handling.md`) and the
 [rel](`e:sasl:rel.md`) page in SASL.
 
 To generate the binary boot script file `Name.boot` the boot script file

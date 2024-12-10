@@ -25,9 +25,8 @@ The _release handler_ process belongs to the SASL application, which is
 responsible for _release handling_, that is, unpacking, installation, and
 removal of release packages.
 
-An introduction to release handling and an example is provided in
-[OTP Design Principles](`e:system:release_handling.md`) in _System
-Documentation_.
+An introduction to release handling and an example is provided by
+[Release Handling section in OTP Design Principles](`e:system:release_handling.md`).
 
 A _release package_ is a compressed tar file containing code for a certain
 version of a release, created by calling
