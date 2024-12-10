@@ -452,7 +452,7 @@ trace_profiles() ->
                       {is_responder_cert, 2}, {find_single_response, 3},
                       {status, 2}, {match_single_response, 4},
                       {designated_for_ocsp_signing, 1}]},
-       {ssl, [{opt_stapling, 3}]},
+       {ssl_config, [{opt_stapling, 3}]},
        {ssl_certificate, [{verify_cert_extensions, 5}]},
        {ssl_test_lib, [{init_openssl_server, 3}, {openssl_server_loop, 3}]},
        {tls_client_connection, [{wait_stapling, 3}]},

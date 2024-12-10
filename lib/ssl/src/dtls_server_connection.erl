@@ -196,12 +196,11 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
                      ssl_options = OrigSSLOptions,
                      socket_options = SockOpts} = State0) ->
     try
-        SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
+        SslOpts = ssl_config:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_gen_statem:ssl_config(SslOpts, Role, State0),
 	initial_hello({call, From}, {start, Timeout},
-	     State#state{ssl_options = SslOpts,
-                         socket_options =
-                             ssl_config:new_emulated(EmOpts, SockOpts)})
+                      State#state{socket_options =
+                                      ssl_config:new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
             {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;

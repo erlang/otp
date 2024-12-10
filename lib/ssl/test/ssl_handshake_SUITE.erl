@@ -127,7 +127,7 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
     Version = ?SSL_3_0,
-    DefOpts = ssl:update_options([{verify, verify_none}], client, #{}),
+    DefOpts = ssl_config:update_options([{verify, verify_none}], client, #{}),
     {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
 
     {Hello, _Data} = hd(Records),

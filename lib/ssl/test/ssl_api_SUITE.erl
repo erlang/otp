@@ -2352,10 +2352,10 @@ customize_defaults(Opts, Role, Host) ->
                end,
     case proplists:get_value(protocol, Opts, tls) of
         dtls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options([{protocol, dtls}|NoVerify], Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl_config:handle_options([{protocol, dtls}|NoVerify], Role, Host),
             {DOpts, DefOpts ++ Opts};
         tls ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl_config:handle_options(NoVerify, Role, Host),
             case proplists:get_value(versions, Opts) of
                 undefined ->
                     {DOpts, DefOpts ++ [{versions, ['tlsv1.2','tlsv1.3']}|Opts]};
@@ -2363,7 +2363,7 @@ customize_defaults(Opts, Role, Host) ->
                     {DOpts, DefOpts ++ Opts}
             end;
         _ ->
-            {ok, #config{ssl=DOpts}} = ssl:handle_options(NoVerify, Role, Host),
+            {ok, #config{ssl=DOpts}} = ssl_config:handle_options(NoVerify, Role, Host),
             {DOpts, DefOpts ++ Opts}
     end.
 
@@ -2372,32 +2372,32 @@ customize_defaults(Opts, Role, Host) ->
         fun() ->
                 Host = "dummy.host.org",
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
+                try ssl_config:handle_options(__Opts, Role, Host) of
                     {ok, #config{ssl=EXP = __ALL}} ->
                         check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL)),
-                        check_expected(__ALL, ssl:update_options([], Role, __ALL));
+                        check_expected(__ALL, ssl_config:update_options([], Role, __ALL));
                     Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
                 catch
                     throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
                     C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, C, Other,ST})
                 end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
+                try ssl_config:update_options(__Opts, Role, __DefOpts) of
                     EXP = __ALL2 ->
                         check_expected(ShouldBeMissing, ShouldBeMissing -- maps:keys(__ALL2));
                     Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~w,~w, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                               "ssl_config:update_options(~w,~w, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected2, Other2})
                 catch
                     throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
                     C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                               "ssl_config:update_options(~p,~p, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected, C2, Other2, ST2})
                 end
@@ -2407,22 +2407,22 @@ customize_defaults(Opts, Role, Host) ->
         fun() ->
                 Host = "dummy.host.org",
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
+                try ssl_config:handle_options(__Opts, Role, Host) of
                     Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
                 catch
                     throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
                     throw:{error, {options, EXP}} -> ok;
                     throw:{error, EXP} -> ok;
                     C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, C, Other,ST})
                 end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
+                try ssl_config:update_options(__Opts, Role, __DefOpts) of
                     Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                               "ssl_config:update_options(~p,~p, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected, Other2})
                 catch
@@ -2430,8 +2430,8 @@ customize_defaults(Opts, Role, Host) ->
                     throw:{error, {options, EXP}} -> ok;
                     throw:{error, EXP} -> ok;
                     C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                               "ssl:update_options(~p,~p, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                               "ssl_config:update_options(~p,~p, element(2,Cfg)).",
                                [Role,Host,__Opts,Role]),
                         error({unexpected, C2, Other2,ST2})
                 end
@@ -2441,22 +2441,22 @@ customize_defaults(Opts, Role, Host) ->
         fun() ->
                 Host = "dummy.host.org",
                 {__DefOpts, __Opts} = customize_defaults(Opts, Role, Host),
-                try ssl:handle_options(__Opts, Role, Host) of
+                try ssl_config:handle_options(__Opts, Role, Host) of
                     {ok, #config{}} ->
                         ok;
                     Other ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, Other})
                 catch
                     throw:{error,{options,{insufficient_crypto_support,{'tlsv1.3',_}}}} -> ignored;
                     C:Other:ST ->
-                        ?CT_PAL("ssl:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
+                        ?CT_PAL("ssl_config:handle_options(~0p,~0p,~0p).",[__Opts,Role,Host]),
                         error({unexpected, C, Other,ST})
                 end,
-                try ssl:update_options(__Opts, Role, __DefOpts) of
+                try ssl_config:update_options(__Opts, Role, __DefOpts) of
                     Other2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                                "ssl:update_options(~p,~p, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                                "ssl_config:update_options(~p,~p, element(2,Cfg)).",
                                 [Role,Host,__Opts,Role]),
                         error({unexpected, Other2})
                 catch
@@ -2464,8 +2464,8 @@ customize_defaults(Opts, Role, Host) ->
                     throw:{error, {options, EXP}} -> ok;
                     throw:{error, EXP} -> ok;
                     C2:Other2:ST2 ->
-                        ?CT_PAL("{ok,Cfg} = ssl:handle_options([],~p,~p),"
-                                "ssl:update_options(~p,~p, element(2,Cfg)).",
+                        ?CT_PAL("{ok,Cfg} = ssl_config:handle_options([],~p,~p),"
+                                "ssl_config:update_options(~p,~p, element(2,Cfg)).",
                                 [Role,Host,__Opts,Role]),
                         error({unexpected, C2, Other2,ST2})
                 end
@@ -2941,7 +2941,7 @@ options_eccs(_Config) ->
 
 options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_chain
     Cert = proplists:get_value(cert, ssl_test_lib:ssl_options(server_rsa_der_opts, Config)),
-    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl:handle_options([{verify, verify_none}], client, "dummy.host.org"),
+    {ok, #config{ssl = DefOpts = #{verify_fun := {DefVerify,_}}}} = ssl_config:handle_options([{verify, verify_none}], client, "dummy.host.org"),
 
     ?OK(#{fail_if_no_peer_cert := false, verify := verify_none, verify_fun := {DefVerify, []}, partial_chain := _},
         [], server),
@@ -2971,8 +2971,8 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
 
 
     %% check verify_fun in update_options case
-    #{verify_fun := undefined} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
-    #{verify_fun := {NewF3, bar}} = ssl:update_options([{verify, verify_peer}, {cacerts, [Cert]},
+    #{verify_fun := undefined} = ssl_config:update_options([{verify, verify_peer}, {cacerts, [Cert]}], client, DefOpts),
+    #{verify_fun := {NewF3, bar}} = ssl_config:update_options([{verify, verify_peer}, {cacerts, [Cert]},
                                                         {verify_fun, {NewF3, bar}}],
                                                        client, DefOpts),
 
