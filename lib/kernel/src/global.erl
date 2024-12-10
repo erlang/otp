@@ -1555,7 +1555,8 @@ init_connect(Vsn, Node, InitMsg, HisTag, HisVsn,
 
                              send_cancel_connect_message(Node, HisTag),
                              MyOldTag = get({sync_tag_my, Node}),
-                             restart_connect(Node, MyOldTag, S0)
+                             throw({return,
+                                    restart_connect(Node, MyOldTag, S0)})
                      end
              end,
 
