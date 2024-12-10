@@ -390,7 +390,9 @@ collecting visited vertices in preorder.
       Vertices :: [digraph:vertex()].
 
 preorder(G) ->
-    lists:reverse(revpreorder(G)).
+    T = sets:new(),
+    {_, Acc} = ptraverse(roots(G), fun out/3, G, T, [], []),
+    lists:reverse(lists:append(Acc)).
 
 -doc """
 Returns all vertices of digraph `Digraph`. The order is given by a
@@ -405,11 +407,18 @@ vertices.
       Vertices :: [digraph:vertex()].
 
 postorder(G) ->
-    lists:reverse(revpostorder(G)).
+    T = sets:new(),
+    {Acc, _} = posttraverse(roots(G), G, T, []),
+    lists:reverse(Acc).
 
 %%
 %%  Local functions
 %%
+
+roots(G) ->
+    R1 = [V || V <- digraph:vertices(G), digraph:in_degree(G, V) =:= 0],
+    R2 = [X || [X|_] <- components(G)],
+    R1 ++ R2.
 
 forest(G, SF) ->
     forest(G, SF, digraph:vertices(G)).
@@ -418,53 +427,48 @@ forest(G, SF, Vs) ->
     forest(G, SF, Vs, first).
 
 forest(G, SF, Vs, HandleFirst) ->
-    T = ets:new(forest, [set]),
-    F = fun(V, LL) -> pretraverse(HandleFirst, V, SF, G, T, LL) end,
-    LL = lists:foldl(F, [], Vs),
-    ets:delete(T),
+    T = sets:new(),
+    F = fun(V, {T0, LL}) -> pretraverse(HandleFirst, V, SF, G, T0, LL) end,
+    {_, LL} = lists:foldl(F, {T, []}, Vs),
     LL.
 
 pretraverse(first, V, SF, G, T, LL) ->
     ptraverse([V], SF, G, T, [], LL);
 pretraverse(not_first, V, SF, G, T, LL) ->
-    case ets:member(T, V) of
+    case sets:is_element(V, T) of
 	false -> ptraverse(SF(G, V, []), SF, G, T, [], LL);
-	true  -> LL
+	true  -> {T, LL}
     end.
 
-ptraverse([V | Vs], SF, G, T, Rs, LL) ->
-    case ets:member(T, V) of
+ptraverse([V | Vs], SF, G, T0, Rs, LL) ->
+    case sets:is_element(V, T0) of
 	false ->
-	    ets:insert(T, {V}),
-	    ptraverse(SF(G, V, Vs), SF, G, T, [V | Rs], LL);
+	    T1 = sets:add_element(V, T0),
+	    ptraverse(SF(G, V, Vs), SF, G, T1, [V | Rs], LL);
 	true ->
-	    ptraverse(Vs, SF, G, T, Rs, LL)
+	    ptraverse(Vs, SF, G, T0, Rs, LL)
     end;
-ptraverse([], _SF, _G, _T, [], LL) ->
-    LL;
-ptraverse([], _SF, _G, _T, Rs, LL) ->
-    [Rs | LL].
-
-revpreorder(G) ->
-    lists:append(forest(G, fun out/3)).
+ptraverse([], _SF, _G, T, [], LL) ->
+    {T, LL};
+ptraverse([], _SF, _G, T, Rs, LL) ->
+    {T, [Rs | LL]}.
 
 revpostorder(G) ->
-    T = ets:new(forest, [set]),
-    L = posttraverse(digraph:vertices(G), G, T, []),
-    ets:delete(T),
+    T = sets:new(),
+    {L, _} = posttraverse(digraph:vertices(G), G, T, []),
     L.
 
-posttraverse([V | Vs], G, T, L) ->
-    L1 = case ets:member(T, V) of
-	     false ->
-		 ets:insert(T, {V}),
-		 [V | posttraverse(out(G, V, []), G, T, L)];
-	     true ->
-		 L
-	 end,
-    posttraverse(Vs, G, T, L1);
-posttraverse([], _G, _T, L) ->
-    L.
+posttraverse([V | Vs], G, T0, Acc0) ->
+    case sets:is_element(V, T0) of
+        false ->
+            T1 = sets:add_element(V, T0),
+            {Acc1, T2} = posttraverse(out(G, V, []), G, T1, Acc0),
+            posttraverse(Vs, G, T2, [V|Acc1]);
+        true ->
+            posttraverse(Vs, G, T0, Acc0)
+    end;
+posttraverse([], _G, T, Acc) ->
+    {Acc, T}.
 
 in(G, V, Vs) ->
     digraph:in_neighbours(G, V) ++ Vs.
