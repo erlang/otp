@@ -195,7 +195,14 @@ display_app_info() ->
 display_megaco_info() ->
     MI = megaco:module_info(),
     {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
-    {value, {app_vsn,    Ver}}  = lists:keysearch(app_vsn, 1, Attr),
+    {value, {app_vsn,    MVer}} = lists:keysearch(app_vsn, 1, Attr),
+    Ver =
+        case MVer of
+            "megaco-" ++ VStr ->
+                VStr;
+            _ ->
+                MVer
+        end,
     FlexStr = 
 	case megaco_flex_scanner:is_enabled() of
 	    true ->
@@ -361,8 +368,8 @@ measure(_Factor, _Opts, _Dir, _Codec, _Conf, [], Res, _MCount) ->
     io:format("~n[~s] Measurment on ~p messages:"
 	      "~n  Average:"
               "~n      Size:   ~w bytes, "
-	      "~n      Encode: ~w microsec, "
-	      "~n      Decode: ~w microsec~n~n", 
+	      "~n      Encode: ~w nanosec, "
+	      "~n      Decode: ~w nanosec~n~n", 
 	      [?FTS(), length(Res), Savg, Eavg, Davg]),
 
     {ok, lists:reverse(Res)};
@@ -485,7 +492,8 @@ do_measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount) ->
     {ok, Count} = measure_warmup(Codec, Func, Conf, Version, Bin, MCount),
     Count2      = Count div Factor,
     Res = timer:tc(?MODULE, do_measure_codec_loop, 
-		   [Codec, Func, Conf, Version, Bin, Count2, dummy]),
+		   [Codec, Func, Conf, Version, Bin, Count2, dummy],
+                   nanosecond),
     case Res of
 	{Time, {ok, M}} ->
 	    exit({measure_result, {M, Count2, Time}});
