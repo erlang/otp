@@ -564,6 +564,8 @@ interpret_options(<<"dupnames,",Rest/binary>>) ->
 interpret_options(<<"no_start_optimize,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {[no_start_optimize | Olist], NRest};
+interpret_options(<<"BUGSKIP,">>) ->
+    {[], ["BUGSKIP"]};
 interpret_options(<<Bin/binary>>) ->
     [FirstWord, Rest] = binary:split(Bin, <<",">>),
     {Olist, Failed1} = interpret_options(Rest),
