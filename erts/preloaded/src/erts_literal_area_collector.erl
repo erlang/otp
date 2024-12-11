@@ -126,27 +126,33 @@ switch_area() ->
             %% processes when responses comes back until
             %% all processes have been handled...
 	    Area = make_ref(),
-            Pids = erlang:processes(),
+            Iter = erlang:processes_iterator(),
             OReqLim = erlang:system_info(outstanding_system_requests_limit),
-	    msg_loop(Area, send_copy_reqs(Pids, Area, OReqLim), 0, [])
+	    msg_loop(Area, send_copy_reqs(Iter, Area, OReqLim), 0, [])
     end.
 
 check_send_copy_req(_Area, Ongoing, []) ->
     {Ongoing, []};
-check_send_copy_req(Area, Ongoing, [Pid|Pids]) ->
-    send_copy_req(Pid, Area, init),
-    {Ongoing+1, Pids}.
+check_send_copy_req(Area, Ongoing, Iter0) ->
+    case erlang:processes_next(Iter0) of
+        none -> {Ongoing, []};
+        {Pid, Iter1} ->
+            send_copy_req(Pid, Area, init),
+            {Ongoing+1, Iter1}
+    end.
 
-send_copy_reqs(Ps, Area, OReqLim) ->
-    send_copy_reqs(Ps, Area, OReqLim, 0).
+send_copy_reqs(Iter, Area, OReqLim) ->
+    send_copy_reqs(Iter, Area, OReqLim, 0).
 
-send_copy_reqs([], _Area, _OReqLim, N) ->
-    {N, []};
-send_copy_reqs(Ps, _Area, OReqLim, N) when N >= OReqLim ->
-    {N, Ps};
-send_copy_reqs([P|Ps], Area, OReqLim, N) ->
-    send_copy_req(P, Area, init),
-    send_copy_reqs(Ps, Area, OReqLim, N+1).
+send_copy_reqs(Iter, _Area, OReqLim, N) when N >= OReqLim ->
+    {N, Iter};
+send_copy_reqs(Iter0, Area, OReqLim, N) ->
+    case erlang:processes_next(Iter0) of
+        none -> {N, []};
+        {Pid, Iter1} ->
+            send_copy_req(Pid, Area, init),
+            send_copy_reqs(Iter1, Area, OReqLim, N+1)
+    end.
 
 send_copy_req(P, Area, How) ->
     erts_literal_area_collector:send_copy_request(P, Area, How).
