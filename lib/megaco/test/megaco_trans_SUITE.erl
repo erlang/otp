@@ -9615,25 +9615,62 @@ make_node_name(Name) ->
 
 await_completion(Ids) ->
     case megaco_test_generator_lib:await_completion(Ids) of
-        {ok, Reply} ->
-            d("OK => Reply: ~n~p", [Reply]),
+        {ok, Result} ->
+            d("OK => "
+              "~n      Result: ~p", [Result]),
             ok;
-        {error, Reply} ->
-            e("await completion failed: "
-              "~n   ~p", [Reply]),
-            ?ERROR({failed, Reply})
+
+        {error, {OKs, Errs}} ->
+            e("completion failed: "
+              "~n      OKs:  ~p"
+              "~n      Errs: ~p"
+              "~n   when"
+              "~n      Ids:  ~p", [OKs, Errs, Ids]),
+            ?ERROR({failed, Errs});
+
+        %% The above should really cover it...
+        {error, Reason} ->
+            e("completion failed: "
+              "~n      Reason: ~p"
+              "~n   when"
+              "~n      Ids: ~p", [Reason, Ids]),
+            ?ERROR({failed, Reason})
     end.
 
 await_completion(Ids, Timeout) ->
     case megaco_test_generator_lib:await_completion(Ids, Timeout) of
-        {ok, Reply} ->
-            d("OK => Reply: ~n~p", [Reply]),
+        {ok, Result} ->
+            d("OK => "
+              "~n      Result: ~p", [Result]),
             ok;
-        {error, Reply} ->
-            e("await completion failed: "
-              "~n   ~p"
-              "~n   ~p", [Timeout, Reply]),
-            ?ERROR({failed, Reply})
+
+        {error, {timeout, Ts, OKs, Errs} = Reason} ->
+            e("completion failed: timeout"
+              "~n      Ts:      ~p"
+              "~n      OKs:     ~p"
+              "~n      Errs:    ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [Ts, OKs, Errs, Ids, Timeout]),
+            ?ERROR({failed, Reason});
+
+        {error, {OKs, Errs}} ->
+            e("completion failed: "
+              "~n      OKs:     ~p"
+              "~n      Errs:    ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [OKs, Errs, Ids, Timeout]),
+            ?ERROR({failed, Errs});
+
+        %% The above should really cover it...
+        {error, Reason} ->
+            e("completion failed: "
+              "~n      Reason:  ~p"
+              "~n   when"
+              "~n      Ids:     ~p"
+              "~n      Timeout: ~p", [Reason, Ids, Timeout]),
+            ?ERROR({failed, Reason})
     end.
 
 
