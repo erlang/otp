@@ -733,6 +733,7 @@ struct ErtsMonitorSuspend__ {
     ErtsMonitorData md; /* origin = suspender; target = suspendee */
     ErtsMonitorSuspend *next;
     erts_atomic_t state;
+    int ptimer_count;
 };
 #define ERTS_MSUSPEND_STATE_FLG_ACTIVE ((erts_aint_t) (((Uint) 1) << (sizeof(Uint)*8 - 1)))
 #define ERTS_MSUSPEND_STATE_COUNTER_MASK (~ERTS_MSUSPEND_STATE_FLG_ACTIVE)

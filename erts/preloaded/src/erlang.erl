@@ -467,7 +467,7 @@ A list of binaries. This datatype is useful to use together with
 -export([process_flag/3, process_info/1, processes/0, purge_module/1]).
 -export([put/2, raise/3, read_timer/1, read_timer/2, ref_to_list/1, register/2]).
 -export([send_after/3, send_after/4, start_timer/3, start_timer/4]).
--export([registered/0, resume_process/1, round/1, self/0]).
+-export([registered/0, resume_process/1, resume_process/2, round/1, self/0]).
 -export([seq_trace/2, seq_trace_print/1, seq_trace_print/2, setnode/2]).
 -export([setnode/3, size/1, spawn/3, spawn_link/3, split_binary/2]).
 -export([suspend_process/2, system_monitor/0]).
@@ -5471,6 +5471,21 @@ registered() ->
 %% resume_process/1
 -doc """
 Decreases the suspend count on the process identified by `Suspendee`.
+Equivalent to calling [`erlang:resume_process(Suspendee, [])`](`resume_process/2`).
+
+> #### Warning {: .warning }
+>
+> This BIF is intended for debugging only.
+""".
+-doc #{ group => processes }.
+-spec resume_process(Suspendee) -> true when
+      Suspendee :: pid().
+resume_process(Suspendee) ->
+    resume_process(Suspendee, []).
+
+%% resume_process/2
+-doc """
+Decreases the suspend count on the process identified by `Suspendee`.
 
 `Suspendee` is previously to have been suspended through
 [`erlang:suspend_process/2`](`suspend_process/2`) or
@@ -5478,6 +5493,11 @@ Decreases the suspend count on the process identified by `Suspendee`.
 `erlang:resume_process(Suspendee)`. When the suspend count on `Suspendee`
 reaches zero, `Suspendee` is resumed, that is, its state is changed from
 suspended into the state it had before it was suspended.
+
+Options (`Opt`s):
+
+- **`resume_proc_timer`** - Decrease the paused time count. If it reaches
+  zero, the timer will be resumed.
 
 > #### Warning {: .warning }
 >
@@ -5491,13 +5511,24 @@ Failures:
   previously increased the suspend count on the process identified by
   `Suspendee`.
 
+- **`badarg`** - If the `resume_proc_timer` `Opt` is given, but the paused
+  timer count is already 0; or if it was not given and the paused timer
+  counte equals the suspended count. Intuitively, the usages of the
+  `pause_proc_timer` option of  [`suspend_process/2`] and `resume_proc_timer`
+  need to balance out.
+
 - **`badarg`** - If the process identified by `Suspendee` is not alive.
+
+- **`badarg`** - If `OptList` is not a proper list of valid `Opt`s.
 """.
 -doc #{ group => processes }.
--spec resume_process(Suspendee) -> true when
-      Suspendee :: pid().
-resume_process(_Suspendee) ->
+-spec resume_process(Suspendee, OptList) -> true when
+      Suspendee :: pid(),
+      OptList :: [Opt],
+      Opt :: resume_proc_timer.
+resume_process(_Suspendee, _OptList) ->
     erlang:nif_error(undefined).
+
 
 %% round/1
 %% Shadowed by erl_bif_types: erlang:round/1
@@ -5850,6 +5881,11 @@ Options (`Opt`s):
   Apart from the reply message, the `{asynchronous, ReplyTag}` option behaves
   exactly the same as the `asynchronous` option without reply tag.
 
+- **`pause_proc_timer`** - If `Suspendee` is waiting on a message, pause the timer
+  associated with the `after` clause. The paused timer count is increased, so
+  a corresponding call to [`resume_process/2`] will need to use the `resume_proc_timer`
+  option to decrease it.
+
 - **`unless_suspending`** - The process identified by `Suspendee` is suspended
   unless the calling process already is suspending `Suspendee`. If
   `unless_suspending` is combined with option `asynchronous`, a suspend request
@@ -5896,7 +5932,8 @@ Failures:
 -spec suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
       OptList :: [Opt],
-      Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
+      Opt :: unless_suspending | pause_proc_timer
+           | asynchronous | {asynchronous, term()}.
 suspend_process(Suspendee, OptList) ->
     case case erts_internal:suspend_process(Suspendee, OptList) of
 	     Ref when erlang:is_reference(Ref) ->
