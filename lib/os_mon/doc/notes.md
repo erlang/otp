@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.10.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed the `m:memsup` memory alarm to use `available_memory` when available, instead of always using `free_memory`.
+
+  Own Id: OTP-19304 Aux Id: [PR-8776], [GH-8759]
+
+[PR-8776]: https://github.com/erlang/otp/pull/8776
+[GH-8759]: https://github.com/erlang/otp/issues/8759
+
 ## Os_Mon 2.10
 
 ### Improvements and New Features

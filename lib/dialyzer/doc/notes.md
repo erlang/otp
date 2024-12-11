@@ -21,6 +21,33 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed type inference for `erlang:system_info(logical_processors)`.
+
+  Own Id: OTP-19307 Aux Id: [PR-8954], [GH-8948]
+
+- Dialyzer would crash when attempting to analyze a module compiled with the `line_coverage` option.
+
+  Own Id: OTP-19344 Aux Id: [GH-9027], [PR-9034]
+
+[PR-8954]: https://github.com/erlang/otp/pull/8954
+[GH-8948]: https://github.com/erlang/otp/issues/8948
+[GH-9027]: https://github.com/erlang/otp/issues/9027
+[PR-9034]: https://github.com/erlang/otp/pull/9034
+
+### Improvements and New Features
+
+- Erlang/OTP type specifications has been updated to eliminate overlapping domains.
+
+  Own Id: OTP-19310 Aux Id: [GH-8810], [GH-8821], [PR-8986]
+
+[GH-8810]: https://github.com/erlang/otp/issues/8810
+[GH-8821]: https://github.com/erlang/otp/issues/8821
+[PR-8986]: https://github.com/erlang/otp/pull/8986
+
 ## Dialyzer 5.2.1
 
 ### Fixed Bugs and Malfunctions

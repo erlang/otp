@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where the sum of testcases' execution time in HTML logs was sometimes miscalculated, and the table was not fully printed.
+
+  Own Id: OTP-19284 Aux Id: ERIERL-1093, [PR-8909]
+
+[PR-8909]: https://github.com/erlang/otp/pull/8909
+
 ## Common_Test 1.27.4
 
 ### Fixed Bugs and Malfunctions

@@ -19,6 +19,18 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.18
+
+### Improvements and New Features
+
+- Erlang/OTP type specifications has been updated to eliminate overlapping domains.
+
+  Own Id: OTP-19310 Aux Id: [GH-8810], [GH-8821], [PR-8986]
+
+[GH-8810]: https://github.com/erlang/otp/issues/8810
+[GH-8821]: https://github.com/erlang/otp/issues/8821
+[PR-8986]: https://github.com/erlang/otp/pull/8986
+
 ## SNMP 5.17
 
 ### Fixed Bugs and Malfunctions

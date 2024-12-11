@@ -19,6 +19,37 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3.1
+
+### Fixed Bugs and Malfunctions
+
+- The HTTP client now correctly takes into account the `full_result` option when returning an asynchronous request.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19158
+
+- A synchronous httpc:request now timeouts after the `Timeout` specified in `HttpOption {timeout, Timeout}`.
+
+  Own Id: OTP-19221 Aux Id: ERIERL-1091, [PR-8788], [PR-8801]
+
+- Fixed a bug where calling httpc:set_options/2 when one of keys: *ipfamily* or *unix_socket*, was not present, would cause the other value to get overriden by the default value. The validation of these options was also improved.
+
+  Own Id: OTP-19379 Aux Id: [PR-8878], [GH-8829]
+
+[PR-8788]: https://github.com/erlang/otp/pull/8788
+[PR-8801]: https://github.com/erlang/otp/pull/8801
+[PR-8878]: https://github.com/erlang/otp/pull/8878
+[GH-8829]: https://github.com/erlang/otp/issues/8829
+
+### Improvements and New Features
+
+- The variable `Env` in the `mod_esi` callback will now have an additional property `{connect_addr, Addr}` indicating on which address the server received a connection.
+
+  Own Id: OTP-19377 Aux Id: ERIERL-1152, [PR-9127]
+
+[PR-9127]: https://github.com/erlang/otp/pull/9127
+
 ## Inets 9.3
 
 ### Improvements and New Features

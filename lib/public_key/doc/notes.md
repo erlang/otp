@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.17
+
+### Improvements and New Features
+
+- `public_key:cacerts_load/1` can now be configured via the application environment.
+
+  Own Id: OTP-19321 Aux Id: [PR-8920]
+
+- On MacOS, CA certificates are now also loaded from the system keychain.
+
+  Own Id: OTP-19375 Aux Id: [PR-8844]
+
+[PR-8920]: https://github.com/erlang/otp/pull/8920
+[PR-8844]: https://github.com/erlang/otp/pull/8844
+
 ## Public_Key 1.16.4
 
 ### Fixed Bugs and Malfunctions

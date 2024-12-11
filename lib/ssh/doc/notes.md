@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.2.5
+
+### Fixed Bugs and Malfunctions
+
+- Documentation is polished after OTP-27 migration to markdown.
+
+  Own Id: OTP-19335 Aux Id: [PR-9021]
+
+[PR-9021]: https://github.com/erlang/otp/pull/9021
+
 ## Ssh 5.2.4
 
 ### Fixed Bugs and Malfunctions

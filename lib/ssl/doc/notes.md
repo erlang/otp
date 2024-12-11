@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.6
+
+### Improvements and New Features
+
+- Enhanced return value spec for active messages from the TLS connection socket.
+
+  Own Id: OTP-19387 Aux Id: [PR-9067]
+
+[PR-9067]: https://github.com/erlang/otp/pull/9067
+
 ## SSL 11.2.5
 
 ### Fixed Bugs and Malfunctions

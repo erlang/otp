@@ -21,6 +21,78 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2
+
+### Fixed Bugs and Malfunctions
+
+- `gen_sctp:peeloff/2` has been fixed to inherit socket options to the peeled off socket more like `gen_tcp:accept/1`, for example the options `tos` or `tclass`.
+  
+  When setting SCTP options that are unsupported on the platform, some should be silently ignored, but a bug caused the option parsing to derail so the options after could bail out and cause an error instead.  This has been fixed.
+
+  Own Id: OTP-19225 Aux Id: [PR-8789]
+
+- Made it possible to expand help text displayed by pressing ^[h by pressing ^[h again.
+
+  Own Id: OTP-19260 Aux Id: [PR-8884]
+
+- [`inet:getifaddrs/0,1`](`inet:getifaddrs/1`) is improved when using
+  inet_backend = socket.
+
+  Own Id: OTP-19264
+
+- Fixed `t:logger:report/0` to mandate at least one element in the report. This fixes an issue with overlapping `spec` domains in all `m:logger` functions that use `t:logger:report/0`.
+
+  Own Id: OTP-19302 Aux Id: [PR-8959]
+
+- Fixed deadlock on `code_server`. Multiple calls loading the same module with an `on_load` function loading call would create a deadlock.
+
+  Own Id: OTP-19305 Aux Id: [PR-8744], [GH-7466], [GH-8510]
+
+[PR-8789]: https://github.com/erlang/otp/pull/8789
+[PR-8884]: https://github.com/erlang/otp/pull/8884
+[PR-8959]: https://github.com/erlang/otp/pull/8959
+[PR-8744]: https://github.com/erlang/otp/pull/8744
+[GH-7466]: https://github.com/erlang/otp/issues/7466
+[GH-8510]: https://github.com/erlang/otp/issues/8510
+
+### Improvements and New Features
+
+- The Kernel application now recognizes the `epmd_module` and `erl_epmd_listen_port` parameters, similar to `-kernel:connect_all`.
+
+  Own Id: OTP-19253 Aux Id: [PR-8671]
+
+- The `inetrc` kernel argument will now tolerate atoms again to improve compatibility with old configurations that relied on atoms working by accident.
+  
+  The expected type always was, and still remains, a string.
+
+  Own Id: OTP-19280 Aux Id: [GH-8899], [PR-8902]
+
+- The `t:file:io_device/0` type has been updated to clearly show the difference between a `raw` and `cooked` IoDevice.
+
+  Own Id: OTP-19301 Aux Id: [PR-8956]
+
+- Erlang/OTP type specifications has been updated to eliminate overlapping domains.
+
+  Own Id: OTP-19310 Aux Id: [GH-8810], [GH-8821], [PR-8986]
+
+- Added the kernel parameter [`os_cmd_shell`](kernel_app.md#os_cmd_shell) that controls which shell should be used by `os:cmd/1`.
+
+  Own Id: OTP-19342 Aux Id: [PR-8972]
+
+- Added logging support to `t:io:user/0`, `t:io:standard_io/0` and `t:io:standard_error/0`. See `io:setopts/2` for more details.
+
+  Own Id: OTP-19372 Aux Id: [PR-8947]
+
+[PR-8671]: https://github.com/erlang/otp/pull/8671
+[GH-8899]: https://github.com/erlang/otp/issues/8899
+[PR-8902]: https://github.com/erlang/otp/pull/8902
+[PR-8956]: https://github.com/erlang/otp/pull/8956
+[GH-8810]: https://github.com/erlang/otp/issues/8810
+[GH-8821]: https://github.com/erlang/otp/issues/8821
+[PR-8986]: https://github.com/erlang/otp/pull/8986
+[PR-8972]: https://github.com/erlang/otp/pull/8972
+[PR-8947]: https://github.com/erlang/otp/pull/8947
+
 ## Kernel 10.1.2
 
 ### Fixed Bugs and Malfunctions
