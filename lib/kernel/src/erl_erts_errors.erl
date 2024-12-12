@@ -733,6 +733,8 @@ format_erlang_error(process_display, [Pid,_], Cause) ->
         _ ->
             [must_be_local_pid(Pid, dead_process)]
     end;
+format_erlang_error(processes_next, [_], _Cause) ->
+    [~"invalid processes iterator"];
 format_erlang_error(process_flag, [_,_], Cause) ->
     case Cause of
         badopt ->

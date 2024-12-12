@@ -265,6 +265,7 @@ A timeout value that can be passed to a
 -export_type([message_queue_data/0]).
 -export_type([monitor_option/0]).
 -export_type([stacktrace/0]).
+-export_type([processes_iter_ref/0]).
 
 -type stacktrace_extrainfo() ::
         {line, pos_integer()} |
@@ -465,6 +466,7 @@ A list of binaries. This datatype is useful to use together with
 -export([time_offset/0, time_offset/1, timestamp/0]).
 -export([process_display/2]).
 -export([process_flag/3, process_info/1, processes/0, purge_module/1]).
+-export([processes_iterator/0, processes_next/1]).
 -export([put/2, raise/3, read_timer/1, read_timer/2, ref_to_list/1, register/2]).
 -export([send_after/3, send_after/4, start_timer/3, start_timer/4]).
 -export([registered/0, resume_process/1, round/1, self/0]).
@@ -5218,6 +5220,72 @@ Example:
 -spec processes() -> [pid()].
 processes() ->
     erlang:nif_error(undefined).
+
+%% The process iterator is a 2-tuple, consisting of an index to the process
+%% table and a list of process identifiers that existed when the last scan of
+%% the process table took place. The index is the starting place for the next
+%% scan of the process table.
+-opaque processes_iter_ref() :: {integer(), [pid()]}.
+
+%% processes_iterator/0
+-doc """
+Returns a processes iterator that can be used in
+[`processes_next/1`](`processes_next/1`).
+""".
+-doc #{ group => processes, since => <<"OTP @OTP-19369@">> }.
+-spec processes_iterator() -> processes_iter_ref().
+processes_iterator() ->
+    {0, []}.
+
+%% processes_next/1
+-doc """
+Returns a 2-tuple, consisting of one process identifier and a new processes
+iterator. If the process iterator has run out of processes in the process table,
+`none` will be returned.
+
+The two major benefits of using the `processes_iterator/0`/`processes_next/1`
+BIFs instead of using the `processes/0` BIF are that they scale better since
+no locking is needed, and you do not risk getting a huge list allocated on the
+heap if there are a huge amount of processes alive in the system.
+
+Example:
+
+```erlang
+> I0 = erlang:processes_iterator(), ok.
+ok
+> {Pid1, I1} = erlang:processes_next(I0), Pid1.
+<0.0.0>,
+> {Pid2, I2} = erlang:processes_next(I1), Pid2.
+<0.1.0>
+```
+
+> #### Note {: .info }
+>
+> This BIF has less consistency guarantee than [`processes/0`](`processes/0`).
+> Process identifiers returned from consecutive calls of this BIF may not be a
+> consistent snapshot of all elements existing in the table during any of the
+> calls. The process identifier of a process that is alive before
+> `processes_iterator/0` is called and continues to be alive until
+> `processes_next/1` returns `none` is guaranteed to be part of the result
+> returned from one of the calls to `processes_next/1`.
+""".
+-doc #{ group => processes, since => <<"OTP @OTP-19369@">> }.
+-spec processes_next(Iter) -> {Pid, NewIter} | 'none' when
+      Iter :: processes_iter_ref(),
+      NewIter :: processes_iter_ref(),
+      Pid :: pid().
+processes_next({IterRef, [Pid|Pids]}) ->
+    {Pid, {IterRef, Pids}};
+processes_next({IterRef0, []}=Arg) ->
+    try erts_internal:processes_next(IterRef0) of
+        none -> none;
+        {IterRef, [Pid|Pids]} -> {Pid, {IterRef, Pids}};
+        {IterRef, []} -> processes_next({IterRef, []})
+    catch error:badarg ->
+            badarg_with_info([Arg])
+    end;
+processes_next(Arg) ->
+    badarg_with_info([Arg]).
 
 %% purge_module/1
 -doc """
