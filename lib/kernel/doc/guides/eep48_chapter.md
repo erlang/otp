@@ -145,14 +145,19 @@ information to each entry. This EEP documents the following metadata keys:
   deprecated with a binary that represents the reason for deprecation and a
   recommendation to replace the deprecated code.
 
+- **`group := binary()`** - when present, it allows tooling, such as shell
+  autocompletion and documentation generators, to list all entries within the
+  same group together, often using the group name as an indicator. It currently
+  only applies to doc entries, not for module metadata.
+
 - **`since := binary()`** - a binary representing the version such entry was
   added, such as `<<"1.3.0">>` or `<<"20.0">>`.
 
-- **`source_path := binary()`** - the absolute location of the source file for
-  this module. Applies only to the module metadata.
-
 - **`source_annos := [erl_anno:anno()]`** - a list of source code locations.
   You may either store one for each clause or only for the first clause.
+
+- **`source_path := binary()`** - the absolute location of the source file for
+  this module. Applies only to the module metadata.
 
 Any key may be added to Metadata at any time. Keys that are frequently used by
 the community can be standardized in future versions.
