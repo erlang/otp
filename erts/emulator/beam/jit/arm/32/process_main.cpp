@@ -57,4 +57,57 @@ void BeamGlobalAssembler::emit_process_main() {
             getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
 
     // TODO
+    a.bind(do_schedule_local);
+    a.bind(context_switch_local);
+    comment("Context switch, unknown arity/MFA");
+    a.bind(context_switch_simplified_local);
+    comment("Context switch, known arity and MFA");
+    a.bind(schedule_next);
+    comment("schedule_next");
+    /* Processes may jump to the exported entry points below, executing on the
+     * Erlang stack when entering. These are separate from the `_local` labels
+     * above as we don't want to worry about which stack we're on when the
+     * cases overlap. */
+
+    /* `ga->get_context_switch()`
+     *
+     * The *next* instruction pointer is provided in ARG3, and must be preceded
+     * by an ErtsCodeMFA.
+     *
+     * The X registers are expected to be in CPU registers.
+     */
+    a.bind(labels[context_switch]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+
+        a.b(context_switch_local);
+    }
+
+    /* `ga->get_context_switch_simplified()`
+     *
+     * The next instruction pointer is provided in ARG3, which does not need to
+     * point past an ErtsCodeMFA as the process structure has already been
+     * updated.
+     *
+     * The X registers are expected to be in CPU registers.
+     */
+    a.bind(labels[context_switch_simplified]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+
+        a.b(context_switch_simplified_local);
+    }
+
+    /* `ga->get_do_schedule()`
+     *
+     * `c_p->i` must be set prior to jumping here.
+     *
+     * The X registers are expected to be in CPU registers.
+     */
+    a.bind(labels[do_schedule]);
+    {
+        emit_enter_runtime<Update::eStack | Update::eHeap | Update::eXRegs>();
+
+        a.b(do_schedule_local);
+    }
 }
