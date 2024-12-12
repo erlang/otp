@@ -1,41 +1,5 @@
 
-  [;1m-spec process_flag(async_dist, Boolean) -> OldBoolean[0m
-  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean();[0m
-  [;1m                  (trap_exit, Boolean) -> OldBoolean[0m
-  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean();[0m
-  [;1m                  (error_handler, Module) -> OldModule[0m
-  [;1m                      when Module :: atom(), OldModule :: atom();[0m
-  [;1m                  (fullsweep_after, FullsweepAfter) -> OldFullsweepAfter[0m
-  [;1m                      when[0m
-  [;1m                          FullsweepAfter :: non_neg_integer(),[0m
-  [;1m                          OldFullsweepAfter :: non_neg_integer();[0m
-  [;1m                  (min_heap_size, MinHeapSize) -> OldMinHeapSize[0m
-  [;1m                      when[0m
-  [;1m                          MinHeapSize :: non_neg_integer(),[0m
-  [;1m                          OldMinHeapSize :: non_neg_integer();[0m
-  [;1m                  (min_bin_vheap_size, MinBinVHeapSize) ->[0m
-  [;1m                      OldMinBinVHeapSize[0m
-  [;1m                      when[0m
-  [;1m                          MinBinVHeapSize :: non_neg_integer(),[0m
-  [;1m                          OldMinBinVHeapSize :: non_neg_integer();[0m
-  [;1m                  (max_heap_size, MaxHeapSize) -> OldMaxHeapSize[0m
-  [;1m                      when[0m
-  [;1m                          MaxHeapSize :: max_heap_size(),[0m
-  [;1m                          OldMaxHeapSize :: max_heap_size();[0m
-  [;1m                  (message_queue_data, MQD) -> OldMQD[0m
-  [;1m                      when[0m
-  [;1m                          MQD :: message_queue_data(),[0m
-  [;1m                          OldMQD :: message_queue_data();[0m
-  [;1m                  (priority, Level) -> OldLevel[0m
-  [;1m                      when[0m
-  [;1m                          Level :: priority_level(),[0m
-  [;1m                          OldLevel :: priority_level();[0m
-  [;1m                  (save_calls, N) -> OldN[0m
-  [;1m                      when N :: 0..10000, OldN :: 0..10000;[0m
-  [;1m                  (sensitive, Boolean) -> OldBoolean[0m
-  [;1m                      when Boolean :: boolean(), OldBoolean :: boolean();[0m
-  [;1m                  ({monitor_nodes, term()}, term()) -> term();[0m
-  [;1m                  (monitor_nodes, term()) -> term().[0m
+[;1m  process_flag(Flag, Value)[0m
 
   Sets the process flag indicated to the specified value. Returns
   the previous value of the flag.

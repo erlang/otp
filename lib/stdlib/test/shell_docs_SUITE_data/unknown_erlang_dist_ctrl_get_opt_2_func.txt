@@ -1,8 +1,5 @@
 
-  [;1m-spec dist_ctrl_get_opt(DHandle, get_size) -> Value[0m
-  [;1m                           when[0m
-  [;1m                               DHandle :: dist_handle(),[0m
-  [;1m                               Value :: boolean().[0m
+[;1m  dist_ctrl_get_opt(DHandle, Opt)[0m
 
 [;;4mSince[0m:
   OTP 22.0

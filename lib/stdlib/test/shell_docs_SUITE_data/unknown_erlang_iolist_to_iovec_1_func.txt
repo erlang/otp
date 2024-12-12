@@ -1,6 +1,5 @@
 
-  [;1m-spec iolist_to_iovec(IoListOrBinary) -> iovec()[0m
-  [;1m                         when IoListOrBinary :: iolist() | binary().[0m
+[;1m  iolist_to_iovec(IoListOrBinary)[0m
 
 [;;4mSince[0m:
   OTP 20.1

@@ -1,5 +1,5 @@
 
-  [;1m-spec dt_get_tag() -> binary() | undefined.[0m
+[;1m  dt_get_tag()[0m
 
   The documentation for dt_get_tag/0 is hidden. This probably
   means that it is internal and not to be used by other

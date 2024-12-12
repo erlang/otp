@@ -1,11 +1,5 @@
 
-  [;1m-spec trace_pattern(MFA, MatchSpec) -> non_neg_integer()[0m
-  [;1m                       when[0m
-  [;1m                           MFA :: trace_pattern_mfa() | send | 'receive',[0m
-  [;1m                           MatchSpec ::[0m
-  [;1m                               (MatchSpecList :: trace_match_spec()) |[0m
-  [;1m                               boolean() |[0m
-  [;1m                               restart | pause.[0m
+[;1m  trace_pattern(MFA, MatchSpec)[0m
 
   Equivalent to [;;4merlang:trace_pattern(Event, MatchSpec, [])[0m,
   retained for backward compatibility.

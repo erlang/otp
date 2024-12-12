@@ -1,8 +1,5 @@
 
-  [;1m-spec dist_ctrl_input_handler(DHandle, InputHandler) -> ok[0m
-  [;1m                                 when[0m
-  [;1m                                     DHandle :: dist_handle(),[0m
-  [;1m                                     InputHandler :: pid().[0m
+[;1m  dist_ctrl_input_handler(DHandle, InputHandler)[0m
 
 [;;4mSince[0m:
   OTP 21.0

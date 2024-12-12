@@ -1,17 +1,10 @@
 
-  [;1m-spec digraph_to_family(Graph) -> Family[0m
-  [;1m                           when[0m
-  [;1m                               Graph :: digraph:graph(),[0m
-  [;1m                               Family :: family().[0m
+[;1m  digraph_to_family(Graph)[0m
 
   There is no documentation for digraph_to_family(Graph, [{atom,
   [atom]}])
 
-  [;1m-spec digraph_to_family(Graph, Type) -> Family[0m
-  [;1m                           when[0m
-  [;1m                               Graph :: digraph:graph(),[0m
-  [;1m                               Family :: family(),[0m
-  [;1m                               Type :: type().[0m
+[;1m  digraph_to_family(Graph, Type)[0m
 
   Creates a family from the directed graph [;;4mGraph[0m. Each vertex a of [;;4m[0m
   [;;4mGraph[0m is represented by a pair (a, {b[1], ..., b[n]}), where the

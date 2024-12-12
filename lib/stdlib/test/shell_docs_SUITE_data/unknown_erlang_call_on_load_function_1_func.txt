@@ -1,5 +1,5 @@
 
-  [;1m-spec call_on_load_function(P1) -> term() when P1 :: atom().[0m
+[;1m  call_on_load_function(P1)[0m
 
   The documentation for call_on_load_function/1 is hidden. This
   probably means that it is internal and not to be used by other

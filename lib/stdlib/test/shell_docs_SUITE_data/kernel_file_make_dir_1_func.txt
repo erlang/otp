@@ -1,6 +1,5 @@
 
-  [;1m-spec make_dir(Dir) -> ok | {error, Reason}[0m
-  [;1m                  when Dir :: name_all(), Reason :: posix() | badarg.[0m
+[;1m  make_dir(Dir)[0m
 
   Tries to create directory [;;4mDir[0m. Missing parent directories are 
   not created. Returns [;;4mok[0m if successful.

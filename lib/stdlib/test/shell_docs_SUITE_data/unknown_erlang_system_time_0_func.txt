@@ -1,5 +1,5 @@
 
-  [;1m-spec system_time() -> integer().[0m
+[;1m  system_time()[0m
 
 [;;4mSince[0m:
   OTP 18.0

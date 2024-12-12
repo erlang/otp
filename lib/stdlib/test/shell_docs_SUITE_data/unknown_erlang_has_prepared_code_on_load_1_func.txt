@@ -1,6 +1,5 @@
 
-  [;1m-spec has_prepared_code_on_load(PreparedCode) -> boolean()[0m
-  [;1m                                   when PreparedCode :: prepared_code().[0m
+[;1m  has_prepared_code_on_load(PreparedCode)[0m
 
   The documentation for has_prepared_code_on_load/1 is hidden.
   This probably means that it is internal and not to be used by

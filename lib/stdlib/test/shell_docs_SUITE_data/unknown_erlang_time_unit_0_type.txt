@@ -1,9 +1,5 @@
 
-  [;1m-type time_unit() ::[0m
-  [;1m          pos_integer() |[0m
-  [;1m          second | millisecond | microsecond | nanosecond | native |[0m
-  [;1m          perf_counter |[0m
-  [;1m          deprecated_time_unit().[0m
+[;1m  time_unit()[0m
 
   The time unit used by erlang time APIs.
 

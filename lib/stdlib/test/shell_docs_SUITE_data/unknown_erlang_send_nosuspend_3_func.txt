@@ -1,9 +1,5 @@
 
-  [;1m-spec send_nosuspend(Dest, Msg, Options) -> boolean()[0m
-  [;1m                        when[0m
-  [;1m                            Dest :: send_destination(),[0m
-  [;1m                            Msg :: term(),[0m
-  [;1m                            Options :: [noconnect].[0m
+[;1m  send_nosuspend(Dest, Msg, Options)[0m
 
   Equivalent to [;;4merlang:send(Dest, Msg, [nosuspend | Options])[0m, but
   with a Boolean return value.

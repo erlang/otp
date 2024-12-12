@@ -1,16 +1,11 @@
 
-  [;1m-spec nodes() -> Nodes when Nodes :: [node()].[0m
+[;1m  nodes()[0m
 
   Returns a list of all nodes connected to this node through normal
   connections (that is, hidden nodes are not listed). Same as
   nodes(visible).
 
-  [;1m-spec nodes(Arg) -> Nodes[0m
-  [;1m               when[0m
-  [;1m                   Arg :: NodeType | [NodeType],[0m
-  [;1m                   NodeType ::[0m
-  [;1m                       visible | hidden | connected | this | known,[0m
-  [;1m                   Nodes :: [node()].[0m
+[;1m  nodes(Arg)[0m
 
   Returns a list of nodes according to the argument specified. The
   returned result, when the argument is a list, is the list of nodes
@@ -38,20 +33,7 @@
   Some equalities: [;;4m[node()] = nodes(this)[0m, [;;4mnodes(connected) =[0m
   [;;4mnodes([visible, hidden])[0m, and [;;4mnodes() = nodes(visible)[0m.
 
-  [;1m-spec nodes(Arg, InfoOpts) -> [NodeInfo][0m
-  [;1m               when[0m
-  [;1m                   NodeType ::[0m
-  [;1m                       visible | hidden | connected | this | known,[0m
-  [;1m                   Arg :: NodeType | [NodeType],[0m
-  [;1m                   InfoOpts ::[0m
-  [;1m                       #{connection_id => boolean(),[0m
-  [;1m                         node_type => boolean()},[0m
-  [;1m                   NodeTypeInfo :: visible | hidden | this | known,[0m
-  [;1m                   ConnectionId :: undefined | integer(),[0m
-  [;1m                   Info ::[0m
-  [;1m                       #{connection_id => ConnectionId,[0m
-  [;1m                         node_type => NodeTypeInfo},[0m
-  [;1m                   NodeInfo :: {node(), Info}.[0m
+[;1m  nodes(Arg, InfoOpts)[0m
 
 [;;4mSince[0m:
   OTP 25.1

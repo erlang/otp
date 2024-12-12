@@ -1,9 +1,5 @@
 
-  [;1m-spec raise(Class, Reason, Stacktrace) -> badarg[0m
-  [;1m               when[0m
-  [;1m                   Class :: error | exit | throw,[0m
-  [;1m                   Reason :: term(),[0m
-  [;1m                   Stacktrace :: raise_stacktrace().[0m
+[;1m  raise(Class, Reason, Stacktrace)[0m
 
   Raises an exception of the specified class, reason, and call stack
   backtrace (stacktrace).

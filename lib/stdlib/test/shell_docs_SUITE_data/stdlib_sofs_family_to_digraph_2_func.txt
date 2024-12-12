@@ -1,9 +1,5 @@
 
-  [;1m-spec family_to_digraph(Family, GraphType) -> Graph[0m
-  [;1m                           when[0m
-  [;1m                               Graph :: digraph:graph(),[0m
-  [;1m                               Family :: family(),[0m
-  [;1m                               GraphType :: [digraph:d_type()].[0m
+[;1m  family_to_digraph(Family, GraphType)[0m
 
   Creates a directed graph from family [;;4mFamily[0m. For each pair
   (a, {b[1], ..., b[n]}) of [;;4mFamily[0m, vertex a and the edges

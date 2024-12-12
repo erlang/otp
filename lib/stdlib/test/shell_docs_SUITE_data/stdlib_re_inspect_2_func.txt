@@ -1,6 +1,5 @@
 
-  [;1m-spec inspect(MP, Item) -> {namelist, [binary()]}[0m
-  [;1m                 when MP :: mp(), Item :: namelist.[0m
+[;1m  inspect(MP, Item)[0m
 
 [;;4mSince[0m:
   OTP 17.0

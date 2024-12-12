@@ -1,14 +1,5 @@
 
-  [;1m-spec consult(Filename) -> {ok, Terms} | {error, Reason}[0m
-  [;1m                 when[0m
-  [;1m                     Filename :: name_all(),[0m
-  [;1m                     Terms :: [term()],[0m
-  [;1m                     Reason ::[0m
-  [;1m                         posix() |[0m
-  [;1m                         badarg | terminated | system_limit |[0m
-  [;1m                         {Line :: integer(),[0m
-  [;1m                          Mod :: module(),[0m
-  [;1m                          Term :: term()}.[0m
+[;1m  consult(Filename)[0m
 
   Reads Erlang terms, separated by [;;4m.[0m, from [;;4mFilename[0m. Returns one
   of the following:

@@ -1,8 +1,5 @@
 
-  [;1m-spec canonical_relation(SetOfSets) -> BinRel[0m
-  [;1m                            when[0m
-  [;1m                                BinRel :: binary_relation(),[0m
-  [;1m                                SetOfSets :: set_of_sets().[0m
+[;1m  canonical_relation(SetOfSets)[0m
 
   Returns the binary relation containing the elements (E, Set) such
   that Set belongs to [;;4mSetOfSets[0m and E belongs to Set.

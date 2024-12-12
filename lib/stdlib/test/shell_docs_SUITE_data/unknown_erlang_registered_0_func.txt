@@ -1,5 +1,5 @@
 
-  [;1m-spec registered() -> [RegName] when RegName :: atom().[0m
+[;1m  registered()[0m
 
   Returns a list of names that have been registered using [;;4m[0m
   [;;4mregister/2[0m.

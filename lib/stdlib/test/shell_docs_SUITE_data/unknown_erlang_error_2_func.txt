@@ -1,6 +1,5 @@
 
-  [;1m-spec error(Reason, Args) -> no_return()[0m
-  [;1m               when Reason :: term(), Args :: [term()] | none.[0m
+[;1m  error(Reason, Args)[0m
 
   Raises an exception of class [;;4merror[0m with the reason [;;4mReason[0m. [;;4m[0m
   [;;4mArgs[0m is expected to be the list of arguments for the current

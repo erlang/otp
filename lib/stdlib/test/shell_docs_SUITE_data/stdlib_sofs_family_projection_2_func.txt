@@ -1,9 +1,5 @@
 
-  [;1m-spec family_projection(SetFun, Family1) -> Family2[0m
-  [;1m                           when[0m
-  [;1m                               SetFun :: set_fun(),[0m
-  [;1m                               Family1 :: family(),[0m
-  [;1m                               Family2 :: family().[0m
+[;1m  family_projection(SetFun, Family1)[0m
 
   If [;;4mFamily1[0m is a family, then [;;4mFamily2[0m is the family with the
   same index set as [;;4mFamily1[0m such that [;;4mFamily2[0m[i] is the result

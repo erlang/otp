@@ -1,10 +1,5 @@
 
-  [;1m-spec convert_time_unit(Time, FromUnit, ToUnit) -> ConvertedTime[0m
-  [;1m                           when[0m
-  [;1m                               Time :: integer(),[0m
-  [;1m                               ConvertedTime :: integer(),[0m
-  [;1m                               FromUnit :: time_unit(),[0m
-  [;1m                               ToUnit :: time_unit().[0m
+[;1m  convert_time_unit(Time, FromUnit, ToUnit)[0m
 
 [;;4mSince[0m:
   OTP 18.0

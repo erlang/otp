@@ -1,4 +1,4 @@
 
-  [;1m-type bitstring() :: <<_:_*1>>.[0m
+[;1m  bitstring()[0m
 
   An Erlang bitstring.

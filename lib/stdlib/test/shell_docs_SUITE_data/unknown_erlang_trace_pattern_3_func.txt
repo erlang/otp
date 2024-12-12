@@ -1,22 +1,5 @@
 
-  [;1m-spec trace_pattern(send, MatchSpec, []) -> non_neg_integer()[0m
-  [;1m                       when[0m
-  [;1m                           MatchSpec ::[0m
-  [;1m                               (MatchSpecList :: trace_match_spec()) |[0m
-  [;1m                               boolean();[0m
-  [;1m                   ('receive', MatchSpec, []) -> non_neg_integer()[0m
-  [;1m                       when[0m
-  [;1m                           MatchSpec ::[0m
-  [;1m                               (MatchSpecList :: trace_match_spec()) |[0m
-  [;1m                               boolean();[0m
-  [;1m                   (MFA, MatchSpec, FlagList) -> non_neg_integer()[0m
-  [;1m                       when[0m
-  [;1m                           MFA :: trace_pattern_mfa(),[0m
-  [;1m                           MatchSpec ::[0m
-  [;1m                               (MatchSpecList :: trace_match_spec()) |[0m
-  [;1m                               boolean() |[0m
-  [;1m                               restart | pause,[0m
-  [;1m                           FlagList :: [trace_pattern_flag()].[0m
+[;1m  trace_pattern(MFA, MatchSpec, FlagList)[0m
 
   Set trace pattern for call, send and receive tracing on the static
   legacy trace session.

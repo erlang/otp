@@ -1,5 +1,5 @@
 
-  [;1m-spec list_to_float(String) -> float() when String :: string().[0m
+[;1m  list_to_float(String)[0m
 
   Returns the float whose text representation is [;;4mString[0m.
 

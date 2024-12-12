@@ -1,15 +1,10 @@
 
-  [;1m-spec port_call(Port, Data) -> term()[0m
-  [;1m                   when Port :: port() | atom(), Data :: term().[0m
+[;1m  port_call(Port, Data)[0m
 
   The documentation for port_call/2 is hidden. This probably means
   that it is internal and not to be used by other applications.
 
-  [;1m-spec port_call(Port, Operation, Data) -> term()[0m
-  [;1m                   when[0m
-  [;1m                       Port :: port() | atom(),[0m
-  [;1m                       Operation :: integer(),[0m
-  [;1m                       Data :: term().[0m
+[;1m  port_call(Port, Operation, Data)[0m
 
   Performs a synchronous call to a port. The meaning of [;;4mOperation[0m
   and [;;4mData[0m depends on the port, that is, on the port driver. Not

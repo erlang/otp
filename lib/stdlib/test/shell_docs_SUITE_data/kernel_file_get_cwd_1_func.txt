@@ -1,9 +1,5 @@
 
-  [;1m-spec get_cwd(Drive) -> {ok, Dir} | {error, Reason}[0m
-  [;1m                 when[0m
-  [;1m                     Drive :: string(),[0m
-  [;1m                     Dir :: filename(),[0m
-  [;1m                     Reason :: posix() | badarg.[0m
+[;1m  get_cwd(Drive)[0m
 
   Returns [;;4m{ok, Dir}[0m or [;;4m{error, Reason}[0m, where [;;4mDir[0m is the
   current working directory of the specified drive.

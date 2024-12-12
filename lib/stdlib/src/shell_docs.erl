@@ -614,6 +614,8 @@ extract_type_specs(Module) ->
 -spec find_path(Mod :: module()) -> non_existing | file:filename_all().
 find_path(Module) ->
     maybe
+      %% This is set to non_existing by tests to generate docs without any specs
+      undefined ?= get({?MODULE, nospecs}),
       preloaded ?= code:which(Module),
       PreloadedPath = filename:join(code:lib_dir(erts),"ebin"),
       filename:join(PreloadedPath, atom_to_list(Module) ++ ".beam")

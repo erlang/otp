@@ -1,5 +1,5 @@
 
-  [;1m-spec garbage_collect() -> true.[0m
+[;1m  garbage_collect()[0m
 
   Forces an immediate garbage collection of the executing process.
 

@@ -1,5 +1,5 @@
 
-  [;1m-spec list_to_integer(String) -> integer() when String :: string().[0m
+[;1m  list_to_integer(String)[0m
 
   Returns an integer whose text representation is [;;4mString[0m.
 
@@ -22,8 +22,7 @@
   Failure: [;;4mbadarg[0m if [;;4mString[0m contains a bad representation of an
   integer.
 
-  [;1m-spec list_to_integer(String, Base) -> integer()[0m
-  [;1m                         when String :: string(), Base :: 2..36.[0m
+[;1m  list_to_integer(String, Base)[0m
 
   Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
   [;;4mString[0m.

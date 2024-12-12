@@ -1,5 +1,5 @@
 
-  [;1m-spec yield() -> true.[0m
+[;1m  yield()[0m
 
   Tries to give other processes with the same or higher priority (if
   any) a chance to execute before returning. There is no guarantee

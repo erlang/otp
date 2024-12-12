@@ -1,4 +1,4 @@
 
-  [;1m-type nonempty_list(ContentType) :: [ContentType, ...].[0m
+[;1m  nonempty_list(ContentType)[0m
 
   A list(ContentType) that contains some items.

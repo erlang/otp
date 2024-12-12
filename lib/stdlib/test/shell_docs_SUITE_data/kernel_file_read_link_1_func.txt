@@ -1,9 +1,5 @@
 
-  [;1m-spec read_link(Name) -> {ok, Filename} | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Name :: name_all(),[0m
-  [;1m                       Filename :: filename(),[0m
-  [;1m                       Reason :: posix() | badarg.[0m
+[;1m  read_link(Name)[0m
 
   Returns [;;4m{ok, Filename}[0m if [;;4mName[0m refers to a symbolic link that
   is not a raw filename, or [;;4m{error, Reason}[0m otherwise. On

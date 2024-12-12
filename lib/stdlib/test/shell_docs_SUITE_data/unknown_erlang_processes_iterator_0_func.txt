@@ -1,0 +1,7 @@
+
+[;1m  processes_iterator()[0m
+
+[;;4mSince[0m:
+  OTP @OTP-19369@
+
+  Returns a processes iterator that can be used in [;;4mprocesses_next/1[0m.

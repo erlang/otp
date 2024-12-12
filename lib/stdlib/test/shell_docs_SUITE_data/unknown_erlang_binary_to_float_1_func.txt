@@ -1,5 +1,5 @@
 
-  [;1m-spec binary_to_float(Binary) -> float() when Binary :: binary().[0m
+[;1m  binary_to_float(Binary)[0m
 
 [;;4mSince[0m:
   OTP R16B

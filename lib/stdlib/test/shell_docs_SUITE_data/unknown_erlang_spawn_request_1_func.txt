@@ -1,6 +1,5 @@
 
-  [;1m-spec spawn_request(Fun) -> ReqId[0m
-  [;1m                       when Fun :: function(), ReqId :: reference().[0m
+[;1m  spawn_request(Fun)[0m
 
 [;;4mSince[0m:
   OTP 23.0

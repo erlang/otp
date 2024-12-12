@@ -470,6 +470,7 @@ render_all(Dir) ->
             end).
 
 render_module(Mod, #docs_v1{ docs = Docs } = D) ->
+    put({shell_docs, nospecs}, non_existing),
     Opts = #{ ansi => true, columns => 80, encoding => unicode },
     case application:get_application(Mod) of
         {ok, App} ->

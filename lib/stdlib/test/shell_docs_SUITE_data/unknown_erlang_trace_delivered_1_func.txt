@@ -1,6 +1,5 @@
 
-  [;1m-spec trace_delivered(Tracee) -> Ref[0m
-  [;1m                         when Tracee :: pid() | all, Ref :: reference().[0m
+[;1m  trace_delivered(Tracee)[0m
 
   Calling this function makes sure all trace messages have been
   delivered.

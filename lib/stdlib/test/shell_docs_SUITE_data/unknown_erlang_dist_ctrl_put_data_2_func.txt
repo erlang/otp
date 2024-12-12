@@ -1,8 +1,5 @@
 
-  [;1m-spec dist_ctrl_put_data(DHandle, Data) -> ok[0m
-  [;1m                            when[0m
-  [;1m                                DHandle :: dist_handle(),[0m
-  [;1m                                Data :: iodata().[0m
+[;1m  dist_ctrl_put_data(DHandle, Data)[0m
 
 [;;4mSince[0m:
   OTP 21.0

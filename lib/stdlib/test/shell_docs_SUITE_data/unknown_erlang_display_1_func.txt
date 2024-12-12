@@ -1,5 +1,5 @@
 
-  [;1m-spec display(Term) -> true when Term :: term().[0m
+[;1m  display(Term)[0m
 
   Prints a text representation of [;;4mTerm[0m on the standard output.
 

@@ -1,6 +1,5 @@
 
-  [;1m-spec bit_size(Bitstring) -> non_neg_integer()[0m
-  [;1m                  when Bitstring :: bitstring().[0m
+[;1m  bit_size(Bitstring)[0m
 
   Returns an integer that is the size in bits of [;;4mBitstring[0m.
 

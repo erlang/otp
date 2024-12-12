@@ -1,4 +1,4 @@
 
-  [;1m-spec type(AnySet) -> Type when AnySet :: anyset(), Type :: type().[0m
+[;1m  type(AnySet)[0m
 
   Returns the type of an atomic, ordered, or unordered set.

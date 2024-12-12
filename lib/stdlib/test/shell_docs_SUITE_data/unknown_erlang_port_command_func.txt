@@ -1,6 +1,5 @@
 
-  [;1m-spec port_command(Port, Data) -> true[0m
-  [;1m                      when Port :: port() | atom(), Data :: iodata().[0m
+[;1m  port_command(Port, Data)[0m
 
   Sends data to a port. Same as [;;4mPort ! {PortOwner, {command, Data}}[0m
   except for the error behavior and being synchronous (see below).
@@ -43,12 +42,7 @@
     possible (including node crash) depending on how the port
     driver interprets the data.
 
-  [;1m-spec port_command(Port, Data, OptionList) -> boolean()[0m
-  [;1m                      when[0m
-  [;1m                          Port :: port() | atom(),[0m
-  [;1m                          Data :: iodata(),[0m
-  [;1m                          Option :: force | nosuspend,[0m
-  [;1m                          OptionList :: [Option].[0m
+[;1m  port_command(Port, Data, OptionList)[0m
 
   Sends data to a port. [;;4mport_command(Port, Data, [])[0m equals [;;4m[0m
   [;;4mport_command(Port, Data)[0m.

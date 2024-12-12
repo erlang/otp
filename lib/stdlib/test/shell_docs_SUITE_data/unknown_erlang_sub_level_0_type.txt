@@ -1,6 +1,4 @@
 
-  [;1m-type sub_level() ::[0m
-  [;1m          [LevelEntry :: level_entry()] |[0m
-  [;1m          (LogicalCpuId :: {logical, non_neg_integer()}).[0m
+[;1m  sub_level()[0m
 
 

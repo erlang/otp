@@ -1,6 +1,5 @@
 
-  [;1m-spec spawn_monitor(Node, Fun) -> {pid(), reference()}[0m
-  [;1m                       when Node :: node(), Fun :: function().[0m
+[;1m  spawn_monitor(Node, Fun)[0m
 
 [;;4mSince[0m:
   OTP 23.0

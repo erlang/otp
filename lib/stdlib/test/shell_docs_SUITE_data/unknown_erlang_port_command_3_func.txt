@@ -1,10 +1,5 @@
 
-  [;1m-spec port_command(Port, Data, OptionList) -> boolean()[0m
-  [;1m                      when[0m
-  [;1m                          Port :: port() | atom(),[0m
-  [;1m                          Data :: iodata(),[0m
-  [;1m                          Option :: force | nosuspend,[0m
-  [;1m                          OptionList :: [Option].[0m
+[;1m  port_command(Port, Data, OptionList)[0m
 
   Sends data to a port. [;;4mport_command(Port, Data, [])[0m equals [;;4m[0m
   [;;4mport_command(Port, Data)[0m.

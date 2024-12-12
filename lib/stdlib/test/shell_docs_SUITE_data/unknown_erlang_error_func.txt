@@ -1,5 +1,5 @@
 
-  [;1m-spec error(Reason) -> no_return() when Reason :: term().[0m
+[;1m  error(Reason)[0m
 
   Raises an exception of class [;;4merror[0m with the reason [;;4mReason[0m.
 
@@ -20,8 +20,7 @@
                      {shell,eval_exprs,7,[{file,"shell.erl"},{line,642}]},
                      {shell,eval_loop,3,[{file,"shell.erl"},{line,627}]}]}}
 
-  [;1m-spec error(Reason, Args) -> no_return()[0m
-  [;1m               when Reason :: term(), Args :: [term()] | none.[0m
+[;1m  error(Reason, Args)[0m
 
   Raises an exception of class [;;4merror[0m with the reason [;;4mReason[0m. [;;4m[0m
   [;;4mArgs[0m is expected to be the list of arguments for the current
@@ -55,16 +54,7 @@
          in function  test:example_fun/2
              called as test:example_fun(arg1,"this is the second argument")
 
-  [;1m-spec error(Reason, Args, Options) -> no_return()[0m
-  [;1m               when[0m
-  [;1m                   Reason :: term(),[0m
-  [;1m                   Args :: [term()] | none,[0m
-  [;1m                   Options :: [Option],[0m
-  [;1m                   Option :: {error_info, ErrorInfoMap},[0m
-  [;1m                   ErrorInfoMap ::[0m
-  [;1m                       #{cause => term(),[0m
-  [;1m                         module => module(),[0m
-  [;1m                         function => atom()}.[0m
+[;1m  error(Reason, Args, Options)[0m
 
 [;;4mSince[0m:
   OTP 24.0

@@ -1,5 +1,5 @@
 
-  [;1m-spec is_process_alive(Pid) -> boolean() when Pid :: pid().[0m
+[;1m  is_process_alive(Pid)[0m
 
   [;;4mPid[0m must refer to a process at the local node.
 

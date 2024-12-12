@@ -1,5 +1,5 @@
 
-  [;1m-spec disconnect_node(Node) -> boolean() | ignored when Node :: node().[0m
+[;1m  disconnect_node(Node)[0m
 
   Forces the disconnection of a node.
 

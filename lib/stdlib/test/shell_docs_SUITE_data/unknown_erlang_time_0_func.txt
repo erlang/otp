@@ -1,5 +1,5 @@
 
-  [;1m-spec time() -> Time when Time :: calendar:time().[0m
+[;1m  time()[0m
 
   Returns the current time as [;;4m{Hour, Minute, Second}[0m.
 

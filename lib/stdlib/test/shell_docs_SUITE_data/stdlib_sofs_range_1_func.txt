@@ -1,6 +1,5 @@
 
-  [;1m-spec range(BinRel) -> Set[0m
-  [;1m               when BinRel :: binary_relation(), Set :: a_set().[0m
+[;1m  range(BinRel)[0m
 
   Returns the range of the binary relation [;;4mBinRel[0m.
 

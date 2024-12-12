@@ -1,6 +1,5 @@
 
-  [;1m-spec memory() -> [{Type, Size}][0m
-  [;1m                when Type :: memory_type(), Size :: non_neg_integer().[0m
+[;1m  memory()[0m
 
   Returns a list with information about memory dynamically allocated
   by the Erlang emulator.

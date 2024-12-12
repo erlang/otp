@@ -1,5 +1,5 @@
 
-  [;1m-spec purge_module(Module) -> true when Module :: atom().[0m
+[;1m  purge_module(Module)[0m
 
   Removes old code for [;;4mModule[0m. Before this BIF is used, [;;4m[0m
   [;;4mcheck_process_code/2[0m is to be called to check that no processes

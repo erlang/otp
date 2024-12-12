@@ -1,5 +1,5 @@
 
-  [;1m-spec external_size(Term) -> non_neg_integer() when Term :: term().[0m
+[;1m  external_size(Term)[0m
 
 [;;4mSince[0m:
   OTP R14B04

@@ -1,9 +1,5 @@
 
-  [;1m-spec localtime_to_universaltime(Localtime) -> Universaltime[0m
-  [;1m                                    when[0m
-  [;1m                                        Localtime :: calendar:datetime(),[0m
-  [;1m                                        Universaltime ::[0m
-  [;1m                                            calendar:datetime().[0m
+[;1m  localtime_to_universaltime(Localtime)[0m
 
   Converts local date and time to Universal Time Coordinated (UTC),
   if supported by the underlying OS. Otherwise no conversion is done

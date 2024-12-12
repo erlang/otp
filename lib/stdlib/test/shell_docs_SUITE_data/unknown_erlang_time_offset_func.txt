@@ -1,5 +1,5 @@
 
-  [;1m-spec time_offset() -> integer().[0m
+[;1m  time_offset()[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -24,7 +24,7 @@
     operation this is to be detected within a minute, but during
     heavy load it can take longer time.
 
-  [;1m-spec time_offset(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  time_offset(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0

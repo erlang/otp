@@ -1,6 +1,5 @@
 
-  [;1m-spec family_union(Family1) -> Family2[0m
-  [;1m                      when Family1 :: family(), Family2 :: family().[0m
+[;1m  family_union(Family1)[0m
 
   If [;;4mFamily1[0m is a family and [;;4mFamily1[0m[i] is a set of sets for
   each i in the index set of [;;4mFamily1[0m, then [;;4mFamily2[0m is the family
@@ -15,11 +14,7 @@
   [;;4mfamily_union(F)[0m is equivalent to [;;4mfamily_projection(fun[0m
   [;;4msofs:union/1, F)[0m.
 
-  [;1m-spec family_union(Family1, Family2) -> Family3[0m
-  [;1m                      when[0m
-  [;1m                          Family1 :: family(),[0m
-  [;1m                          Family2 :: family(),[0m
-  [;1m                          Family3 :: family().[0m
+[;1m  family_union(Family1, Family2)[0m
 
   If [;;4mFamily1[0m and [;;4mFamily2[0m are families, then [;;4mFamily3[0m is the
   family such that the index set is the union of [;;4mFamily1[0m:s and [;;4m[0m

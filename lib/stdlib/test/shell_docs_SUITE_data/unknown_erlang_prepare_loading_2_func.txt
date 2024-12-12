@@ -1,10 +1,5 @@
 
-  [;1m-spec prepare_loading(Module, Code) -> PreparedCode | {error, Reason}[0m
-  [;1m                         when[0m
-  [;1m                             Module :: module(),[0m
-  [;1m                             Code :: binary(),[0m
-  [;1m                             PreparedCode :: prepared_code(),[0m
-  [;1m                             Reason :: badfile.[0m
+[;1m  prepare_loading(Module, Code)[0m
 
   The documentation for prepare_loading/2 is hidden. This probably
   means that it is internal and not to be used by other

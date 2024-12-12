@@ -1,9 +1,5 @@
 
-  [;1m-spec drestriction(BinRel1, Set) -> BinRel2[0m
-  [;1m                      when[0m
-  [;1m                          BinRel1 :: binary_relation(),[0m
-  [;1m                          BinRel2 :: binary_relation(),[0m
-  [;1m                          Set :: a_set().[0m
+[;1m  drestriction(BinRel1, Set)[0m
 
   Returns the difference between the binary relation [;;4mBinRel1[0m and
   the restriction of [;;4mBinRel1[0m to [;;4mSet[0m.
@@ -17,12 +13,7 @@
   [;;4mdrestriction(R, S)[0m is equivalent to [;;4m[0m
   [;;4mdifference(R, restriction(R, S))[0m.
 
-  [;1m-spec drestriction(SetFun, Set1, Set2) -> Set3[0m
-  [;1m                      when[0m
-  [;1m                          SetFun :: set_fun(),[0m
-  [;1m                          Set1 :: a_set(),[0m
-  [;1m                          Set2 :: a_set(),[0m
-  [;1m                          Set3 :: a_set().[0m
+[;1m  drestriction(SetFun, Set1, Set2)[0m
 
   Returns a subset of [;;4mSet1[0m containing those elements that do not
   give an element in [;;4mSet2[0m as the result of applying [;;4mSetFun[0m.

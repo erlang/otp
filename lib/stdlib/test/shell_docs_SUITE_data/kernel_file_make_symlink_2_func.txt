@@ -1,9 +1,5 @@
 
-  [;1m-spec make_symlink(Existing, New) -> ok | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Existing :: name_all(),[0m
-  [;1m                          New :: name_all(),[0m
-  [;1m                          Reason :: posix() | badarg.[0m
+[;1m  make_symlink(Existing, New)[0m
 
   Creates a symbolic link [;;4mNew[0m to the file or directory [;;4mExisting[0m
   on platforms supporting symbolic links (most Unix systems and

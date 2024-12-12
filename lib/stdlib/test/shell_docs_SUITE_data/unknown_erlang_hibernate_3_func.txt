@@ -1,9 +1,5 @@
 
-  [;1m-spec hibernate(Module, Function, Args) -> no_return()[0m
-  [;1m                   when[0m
-  [;1m                       Module :: module(),[0m
-  [;1m                       Function :: atom(),[0m
-  [;1m                       Args :: [term()].[0m
+[;1m  hibernate(Module, Function, Args)[0m
 
   Puts the calling process into a wait state where its memory
   allocation has been reduced as much as possible. This is useful if

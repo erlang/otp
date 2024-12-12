@@ -1,12 +1,5 @@
 
-  [;1m-spec system_profile(ProfilerPid, Options) -> ProfilerSettings[0m
-  [;1m                        when[0m
-  [;1m                            ProfilerPid :: pid() | port() | undefined,[0m
-  [;1m                            Options :: [system_profile_option()],[0m
-  [;1m                            ProfilerSettings ::[0m
-  [;1m                                undefined |[0m
-  [;1m                                {pid() | port(),[0m
-  [;1m                                 [system_profile_option()]}.[0m
+[;1m  system_profile(ProfilerPid, Options)[0m
 
   Sets system profiler options. [;;4mProfilerPid[0m is a local process
   identifier (pid) or port receiving profiling messages. The

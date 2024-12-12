@@ -1,26 +1,5 @@
 
-  [;1m-spec replace(Subject, RE, Replacement, Options) ->[0m
-  [;1m                 iodata() | unicode:charlist()[0m
-  [;1m                 when[0m
-  [;1m                     Subject :: iodata() | unicode:charlist(),[0m
-  [;1m                     RE :: mp() | iodata() | unicode:charlist(),[0m
-  [;1m                     Replacement ::[0m
-  [;1m                         iodata() | unicode:charlist() | replace_fun(),[0m
-  [;1m                     Options :: [Option],[0m
-  [;1m                     Option ::[0m
-  [;1m                         anchored | global | notbol | noteol |[0m
-  [;1m                         notempty | notempty_atstart |[0m
-  [;1m                         {offset, non_neg_integer()} |[0m
-  [;1m                         {newline, NLSpec} |[0m
-  [;1m                         bsr_anycrlf |[0m
-  [;1m                         {match_limit, non_neg_integer()} |[0m
-  [;1m                         {match_limit_recursion, non_neg_integer()} |[0m
-  [;1m                         bsr_unicode |[0m
-  [;1m                         {return, ReturnType} |[0m
-  [;1m                         CompileOpt,[0m
-  [;1m                     ReturnType :: iodata | list | binary,[0m
-  [;1m                     CompileOpt :: compile_option(),[0m
-  [;1m                     NLSpec :: cr | crlf | lf | anycrlf | any.[0m
+[;1m  replace(Subject, RE, Replacement, Options)[0m
 
   Replaces the matched part of the [;;4mSubject[0m string with [;;4m[0m
   [;;4mReplacement[0m.

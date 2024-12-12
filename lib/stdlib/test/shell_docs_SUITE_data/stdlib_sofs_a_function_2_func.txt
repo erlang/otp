@@ -1,9 +1,5 @@
 
-  [;1m-spec a_function(Tuples, Type) -> Function[0m
-  [;1m                    when[0m
-  [;1m                        Function :: a_function(),[0m
-  [;1m                        Tuples :: [tuple()],[0m
-  [;1m                        Type :: type().[0m
+[;1m  a_function(Tuples, Type)[0m
 
   Creates a function.
 

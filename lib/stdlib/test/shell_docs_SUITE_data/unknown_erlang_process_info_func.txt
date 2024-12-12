@@ -1,9 +1,5 @@
 
-  [;1m-spec process_info(Pid) -> Info[0m
-  [;1m                      when[0m
-  [;1m                          Pid :: pid(),[0m
-  [;1m                          Info :: [InfoTuple] | undefined,[0m
-  [;1m                          InfoTuple :: process_info_result_item().[0m
+[;1m  process_info(Pid)[0m
 
   Returns a list containing [;;4mInfoTuple[0ms with miscellaneous
   information about the process identified by [;;4mPid[0m, or [;;4mundefined[0m
@@ -57,18 +53,7 @@
 
   Failure: [;;4mbadarg[0m if [;;4mPid[0m is not a local process.
 
-  [;1m-spec process_info(Pid, Item) -> InfoTuple | [] | undefined[0m
-  [;1m                      when[0m
-  [;1m                          Pid :: pid(),[0m
-  [;1m                          Item :: process_info_item(),[0m
-  [;1m                          InfoTuple :: process_info_result_item();[0m
-  [;1m                  (Pid, ItemList) -> InfoTupleList | [] | undefined[0m
-  [;1m                      when[0m
-  [;1m                          Pid :: pid(),[0m
-  [;1m                          ItemList :: [Item],[0m
-  [;1m                          Item :: process_info_item(),[0m
-  [;1m                          InfoTupleList :: [InfoTuple],[0m
-  [;1m                          InfoTuple :: process_info_result_item().[0m
+[;1m  process_info(Pid, ItemSpec)[0m
 
   Returns information about the process identified by [;;4mPid[0m, as
   specified by [;;4mItem[0m or [;;4mItemList[0m. Returns [;;4mundefined[0m if the
@@ -175,6 +160,11 @@
    • [;;4m{links, PidsAndPorts}[0m - [;;4mPidsAndPorts[0m is a list of process
      identifiers and port identifiers, with processes or ports to
      which the process has a link.
+
+   • [;;4m{label, Label}[0m - [;;4mLabel[0m is the label for the process. See [;;4m[0m
+     [;;4mproc_lib:get_label/1[0m.
+
+     Since: OTP 27.2
 
    • [;;4m{last_calls, false|Calls}[0m - The value is [;;4mfalse[0m if call
      saving is not active for the process (see [;;4mprocess_flag/3[0m).

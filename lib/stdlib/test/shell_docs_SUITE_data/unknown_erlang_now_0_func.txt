@@ -1,5 +1,5 @@
 
-  [;1m-spec now() -> Timestamp when Timestamp :: timestamp().[0m
+[;1m  now()[0m
 
 [;;4mDeprecated[0m:
   erlang:now/0 is deprecated; see the "Time and Time Correction in

@@ -1,14 +1,5 @@
 
-  [;1m-spec script(Filename) -> {ok, Value} | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    Filename :: name_all(),[0m
-  [;1m                    Value :: term(),[0m
-  [;1m                    Reason ::[0m
-  [;1m                        posix() |[0m
-  [;1m                        badarg | terminated | system_limit |[0m
-  [;1m                        {Line :: integer(),[0m
-  [;1m                         Mod :: module(),[0m
-  [;1m                         Term :: term()}.[0m
+[;1m  script(Filename)[0m
 
   Reads and evaluates Erlang expressions, separated by [;;4m.[0m (or [;;4m,[0m,
   a sequence of expressions is also an expression), from the file.
@@ -30,17 +21,7 @@
   The encoding of [;;4mFilename[0m can be set by a comment as described in [;;4m[0m
   [;;4mepp[0m.
 
-  [;1m-spec script(Filename, Bindings) -> {ok, Value} | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    Filename :: name_all(),[0m
-  [;1m                    Bindings :: erl_eval:binding_struct(),[0m
-  [;1m                    Value :: term(),[0m
-  [;1m                    Reason ::[0m
-  [;1m                        posix() |[0m
-  [;1m                        badarg | terminated | system_limit |[0m
-  [;1m                        {Line :: integer(),[0m
-  [;1m                         Mod :: module(),[0m
-  [;1m                         Term :: term()}.[0m
+[;1m  script(Filename, Bindings)[0m
 
   The same as [;;4mscript/1[0m but the variable bindings [;;4mBindings[0m are
   used in the evaluation. See [;;4merl_eval[0m about variable bindings.

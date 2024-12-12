@@ -1,6 +1,5 @@
 
-  [;1m-spec exit(Pid, Reason) -> true[0m
-  [;1m              when Pid :: pid() | port(), Reason :: term().[0m
+[;1m  exit(Pid, Reason)[0m
 
   Sends an exit signal with exit reason [;;4mReason[0m to the process or
   port identified by [;;4mPid[0m.

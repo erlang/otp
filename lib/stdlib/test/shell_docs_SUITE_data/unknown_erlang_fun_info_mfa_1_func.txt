@@ -1,10 +1,5 @@
 
-  [;1m-spec fun_info_mfa(Fun) -> {Mod, Name, Arity}[0m
-  [;1m                      when[0m
-  [;1m                          Fun :: function(),[0m
-  [;1m                          Mod :: atom(),[0m
-  [;1m                          Name :: atom(),[0m
-  [;1m                          Arity :: non_neg_integer().[0m
+[;1m  fun_info_mfa(Fun)[0m
 
   The documentation for fun_info_mfa/1 is hidden. This probably
   means that it is internal and not to be used by other

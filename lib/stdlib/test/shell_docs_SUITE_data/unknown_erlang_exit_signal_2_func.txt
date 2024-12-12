@@ -1,6 +1,5 @@
 
-  [;1m-spec exit_signal(Pid, Reason) -> true[0m
-  [;1m                     when Pid :: pid() | port(), Reason :: term().[0m
+[;1m  exit_signal(Pid, Reason)[0m
 
   The documentation for exit_signal/2 is hidden. This probably
   means that it is internal and not to be used by other

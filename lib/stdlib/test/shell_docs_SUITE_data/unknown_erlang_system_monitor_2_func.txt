@@ -1,12 +1,5 @@
 
-  [;1m-spec system_monitor(MonitorPid, Options) -> MonSettings[0m
-  [;1m                        when[0m
-  [;1m                            MonitorPid :: pid(),[0m
-  [;1m                            Options :: [system_monitor_option()],[0m
-  [;1m                            MonSettings ::[0m
-  [;1m                                undefined | {OldMonitorPid, OldOptions},[0m
-  [;1m                            OldMonitorPid :: pid(),[0m
-  [;1m                            OldOptions :: [system_monitor_option()].[0m
+[;1m  system_monitor(MonitorPid, Options)[0m
 
   Sets the system event monitoring options. [;;4mMonitorPid[0m is a local
   process identifier (pid) receiving system monitor messages.

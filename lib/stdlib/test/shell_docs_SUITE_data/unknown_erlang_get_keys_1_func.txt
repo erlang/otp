@@ -1,5 +1,5 @@
 
-  [;1m-spec get_keys(Val) -> [Key] when Val :: term(), Key :: term().[0m
+[;1m  get_keys(Val)[0m
 
   Returns a list of keys that are associated with the value [;;4mVal[0m in
   the process dictionary. The items in the returned list can be in

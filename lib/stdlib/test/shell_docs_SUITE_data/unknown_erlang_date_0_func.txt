@@ -1,5 +1,5 @@
 
-  [;1m-spec date() -> Date when Date :: calendar:date().[0m
+[;1m  date()[0m
 
   Returns the current date as [;;4m{Year, Month, Day}[0m.
 

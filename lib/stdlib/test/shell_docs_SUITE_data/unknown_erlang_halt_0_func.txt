@@ -1,5 +1,5 @@
 
-  [;1m-spec halt() -> no_return().[0m
+[;1m  halt()[0m
 
   Equivalent to calling [;;4mhalt(0, [])[0m.
 

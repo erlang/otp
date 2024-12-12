@@ -1,5 +1,5 @@
 
-  [;1m-spec binary_to_existing_atom(Binary) -> atom() when Binary :: binary().[0m
+[;1m  binary_to_existing_atom(Binary)[0m
 
 [;;4mSince[0m:
   OTP 23.0
@@ -7,10 +7,7 @@
   There is no documentation for binary_to_existing_atom(Binary,
   utf8)
 
-  [;1m-spec binary_to_existing_atom(Binary, Encoding) -> atom()[0m
-  [;1m                                 when[0m
-  [;1m                                     Binary :: binary(),[0m
-  [;1m                                     Encoding :: latin1 | unicode | utf8.[0m
+[;1m  binary_to_existing_atom(Binary, Encoding)[0m
 
   As [;;4mbinary_to_atom/2[0m, but the atom must exist.
 

@@ -1,5 +1,5 @@
 
-  [;1m-spec trunc(Number) -> integer() when Number :: number().[0m
+[;1m  trunc(Number)[0m
 
   Truncates the decimals of [;;4mNumber[0m.
 

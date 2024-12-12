@@ -1,4 +1,4 @@
 
-  [;1m-type dynamic() :: dynamic().[0m
+[;1m  dynamic()[0m
 
-  The dynamic type.
+  The dynamic type, which represents a statically unknown type

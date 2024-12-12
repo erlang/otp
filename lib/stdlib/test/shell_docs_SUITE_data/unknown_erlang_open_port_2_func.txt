@@ -1,37 +1,5 @@
 
-  [;1m-spec open_port(PortName, PortSettings) -> port()[0m
-  [;1m                   when[0m
-  [;1m                       PortName ::[0m
-  [;1m                           {spawn, Command :: string() | binary()} |[0m
-  [;1m                           {spawn_driver,[0m
-  [;1m                            Command :: string() | binary()} |[0m
-  [;1m                           {spawn_executable,[0m
-  [;1m                            FileName :: file:name_all()} |[0m
-  [;1m                           {fd,[0m
-  [;1m                            In :: non_neg_integer(),[0m
-  [;1m                            Out :: non_neg_integer()},[0m
-  [;1m                       PortSettings :: [Opt],[0m
-  [;1m                       Opt ::[0m
-  [;1m                           {packet, N :: 1 | 2 | 4} |[0m
-  [;1m                           stream |[0m
-  [;1m                           {line, L :: non_neg_integer()} |[0m
-  [;1m                           {cd, Dir :: string() | binary()} |[0m
-  [;1m                           {env,[0m
-  [;1m                            Env ::[0m
-  [;1m                                [{Name :: os:env_var_name(),[0m
-  [;1m                                  Val :: os:env_var_value() | [] | false}]} |[0m
-  [;1m                           {args, [string() | binary()]} |[0m
-  [;1m                           {arg0, string() | binary()} |[0m
-  [;1m                           exit_status | use_stdio | nouse_stdio |[0m
-  [;1m                           stderr_to_stdout | in | out | binary | eof |[0m
-  [;1m                           {parallelism, Boolean :: boolean()} |[0m
-  [;1m                           hide |[0m
-  [;1m                           {busy_limits_port,[0m
-  [;1m                            {non_neg_integer(), non_neg_integer()} |[0m
-  [;1m                            disabled} |[0m
-  [;1m                           {busy_limits_msgq,[0m
-  [;1m                            {non_neg_integer(), non_neg_integer()} |[0m
-  [;1m                            disabled}.[0m
+[;1m  open_port(PortName, PortSettings)[0m
 
   Returns a port identifier as the result of opening a new Erlang
   port. A port can be seen as an external Erlang process.

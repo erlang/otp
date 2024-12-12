@@ -1,5 +1,5 @@
 
-  [;1m-type iodata() :: iolist() | binary().[0m
+[;1m  iodata()[0m
 
   A binary or list containing bytes and/or iodata.
 

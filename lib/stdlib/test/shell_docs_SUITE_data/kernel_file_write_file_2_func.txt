@@ -1,10 +1,5 @@
 
-  [;1m-spec write_file(Filename, Bytes) -> ok | {error, Reason}[0m
-  [;1m                    when[0m
-  [;1m                        Filename :: name_all(),[0m
-  [;1m                        Bytes :: iodata(),[0m
-  [;1m                        Reason ::[0m
-  [;1m                            posix() | badarg | terminated | system_limit.[0m
+[;1m  write_file(Filename, Bytes)[0m
 
   Writes the contents of the [;;4miodata[0m term [;;4mBytes[0m to file [;;4mFilename[0m.
   The file is created if it does not exist. If it exists, the

@@ -1,5 +1,5 @@
 
-  [;1m-spec integer_to_binary(Integer) -> binary() when Integer :: integer().[0m
+[;1m  integer_to_binary(Integer)[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -12,8 +12,7 @@
     > integer_to_binary(77).
     <<"77">>
 
-  [;1m-spec integer_to_binary(Integer, Base) -> binary()[0m
-  [;1m                           when Integer :: integer(), Base :: 2..36.[0m
+[;1m  integer_to_binary(Integer, Base)[0m
 
 [;;4mSince[0m:
   OTP R16B

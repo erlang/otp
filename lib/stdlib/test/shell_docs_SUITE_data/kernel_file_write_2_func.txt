@@ -1,9 +1,5 @@
 
-  [;1m-spec write(IoDevice, Bytes) -> ok | {error, Reason}[0m
-  [;1m               when[0m
-  [;1m                   IoDevice :: io_device() | io:device(),[0m
-  [;1m                   Bytes :: iodata(),[0m
-  [;1m                   Reason :: posix() | badarg | terminated.[0m
+[;1m  write(IoDevice, Bytes)[0m
 
   Writes [;;4mBytes[0m to the file referenced by [;;4mIoDevice[0m. This function
   is the only way to write to a file opened in [;;4mraw[0m mode (although

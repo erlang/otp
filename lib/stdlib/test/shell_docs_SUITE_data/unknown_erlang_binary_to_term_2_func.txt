@@ -1,10 +1,5 @@
 
-  [;1m-spec binary_to_term(Binary, Opts) -> term() | {term(), Used}[0m
-  [;1m                        when[0m
-  [;1m                            Binary :: ext_binary(),[0m
-  [;1m                            Opt :: safe | used,[0m
-  [;1m                            Opts :: [Opt],[0m
-  [;1m                            Used :: pos_integer().[0m
+[;1m  binary_to_term(Binary, Opts)[0m
 
 [;;4mSince[0m:
   OTP R13B04

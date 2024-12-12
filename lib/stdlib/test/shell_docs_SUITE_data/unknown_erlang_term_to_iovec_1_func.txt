@@ -1,5 +1,5 @@
 
-  [;1m-spec term_to_iovec(Term) -> ext_iovec() when Term :: term().[0m
+[;1m  term_to_iovec(Term)[0m
 
 [;;4mSince[0m:
   OTP 23.0

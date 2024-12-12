@@ -1,5 +1,5 @@
 
-  [;1m-spec exit(Reason) -> no_return() when Reason :: term().[0m
+[;1m  exit(Reason)[0m
 
   Raises an exception of class [;;4mexit[0m with exit reason [;;4mReason[0m.
 
@@ -36,8 +36,7 @@
     untrappable if a process sends such a signal to another
     process with [;;4merlang:exit/2[0m.
 
-  [;1m-spec exit(Pid, Reason) -> true[0m
-  [;1m              when Pid :: pid() | port(), Reason :: term().[0m
+[;1m  exit(Pid, Reason)[0m
 
   Sends an exit signal with exit reason [;;4mReason[0m to the process or
   port identified by [;;4mPid[0m.

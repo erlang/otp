@@ -1,5 +1,5 @@
 
-  [;1m-spec get_keys() -> [Key] when Key :: term().[0m
+[;1m  get_keys()[0m
 
 [;;4mSince[0m:
   OTP 18.0

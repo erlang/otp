@@ -1,5 +1,5 @@
 
-  [;1m-spec list_to_ref(String) -> reference() when String :: string().[0m
+[;1m  list_to_ref(String)[0m
 
 [;;4mSince[0m:
   OTP 20.0

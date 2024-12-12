@@ -1,5 +1,5 @@
 
-  [;1m-spec suspend_process(Suspendee) -> true when Suspendee :: pid().[0m
+[;1m  suspend_process(Suspendee)[0m
 
   Suspends the process identified by [;;4mSuspendee[0m. Equivalent to
   calling [;;4merlang:suspend_process(Suspendee, [])[0m.

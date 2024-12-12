@@ -1,5 +1,5 @@
 
-  [;1m-spec universaltime() -> DateTime when DateTime :: calendar:datetime().[0m
+[;1m  universaltime()[0m
 
   Returns the current date and time according to Universal Time
   Coordinated (UTC) in the form [;;4m{{Year, Month, Day}, {Hour, Minute,[0m

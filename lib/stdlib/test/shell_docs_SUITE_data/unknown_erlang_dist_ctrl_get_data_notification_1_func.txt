@@ -1,6 +1,5 @@
 
-  [;1m-spec dist_ctrl_get_data_notification(DHandle) -> ok[0m
-  [;1m                                         when DHandle :: dist_handle().[0m
+[;1m  dist_ctrl_get_data_notification(DHandle)[0m
 
 [;;4mSince[0m:
   OTP 21.0

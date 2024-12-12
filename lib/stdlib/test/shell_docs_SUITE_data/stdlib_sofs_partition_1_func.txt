@@ -1,6 +1,5 @@
 
-  [;1m-spec partition(SetOfSets) -> Partition[0m
-  [;1m                   when SetOfSets :: set_of_sets(), Partition :: a_set().[0m
+[;1m  partition(SetOfSets)[0m
 
   Returns the partition of the union of the set of sets [;;4mSetOfSets[0m
   such that two elements are considered equal if they belong to the

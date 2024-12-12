@@ -1,11 +1,5 @@
 
-  [;1m-spec multiple_relative_product(TupleOfBinRels, BinRel1) -> BinRel2[0m
-  [;1m                                   when[0m
-  [;1m                                       TupleOfBinRels ::[0m
-  [;1m                                           tuple_of(BinRel),[0m
-  [;1m                                       BinRel :: binary_relation(),[0m
-  [;1m                                       BinRel1 :: binary_relation(),[0m
-  [;1m                                       BinRel2 :: binary_relation().[0m
+[;1m  multiple_relative_product(TupleOfBinRels, BinRel1)[0m
 
   If [;;4mTupleOfBinRels[0m is a non-empty tuple {R[1], ..., R[n]} of
   binary relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m

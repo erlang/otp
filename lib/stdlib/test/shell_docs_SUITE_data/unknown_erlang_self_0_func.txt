@@ -1,5 +1,5 @@
 
-  [;1m-spec self() -> pid().[0m
+[;1m  self()[0m
 
   Returns the process identifier of the calling process.
 

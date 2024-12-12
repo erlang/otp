@@ -1,5 +1,5 @@
 
-  [;1m-spec suspend_process(Suspendee) -> true when Suspendee :: pid().[0m
+[;1m  suspend_process(Suspendee)[0m
 
   Suspends the process identified by [;;4mSuspendee[0m. Equivalent to
   calling [;;4merlang:suspend_process(Suspendee, [])[0m.
@@ -8,13 +8,7 @@
 
     This BIF is intended for debugging only.
 
-  [;1m-spec suspend_process(Suspendee, OptList) -> boolean()[0m
-  [;1m                         when[0m
-  [;1m                             Suspendee :: pid(),[0m
-  [;1m                             OptList :: [Opt],[0m
-  [;1m                             Opt ::[0m
-  [;1m                                 unless_suspending | asynchronous |[0m
-  [;1m                                 {asynchronous, term()}.[0m
+[;1m  suspend_process(Suspendee, OptList)[0m
 
   Increases the suspend count on the process identified by [;;4m[0m
   [;;4mSuspendee[0m and puts it in the suspended state if it is not already

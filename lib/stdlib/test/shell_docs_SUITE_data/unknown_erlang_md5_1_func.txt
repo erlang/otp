@@ -1,5 +1,5 @@
 
-  [;1m-spec md5(Data) -> Digest when Data :: iodata(), Digest :: binary().[0m
+[;1m  md5(Data)[0m
 
   Computes an MD5 message digest from [;;4mData[0m, where the length of
   the digest is 128 bits (16 bytes). [;;4mData[0m is a binary or a list of
