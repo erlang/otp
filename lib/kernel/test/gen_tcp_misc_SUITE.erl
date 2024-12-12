@@ -1108,7 +1108,7 @@ otp_3924(Config) when is_list(Config) ->
                   ?P("~w:tc -> done", [?FUNCTION_NAME]),
                   Res
           end,
-    Post = fun({Node, _}) ->
+    Post = fun(#{node := Node}) ->
                    ?P("~w:post -> try stop node ~p", [?FUNCTION_NAME, Node]),
                    ?STOP_NODE(Node)
            end,
@@ -4732,32 +4732,39 @@ sets_eq(L1, L2) ->
 millis() ->
     erlang:monotonic_time(millisecond).
 	
-collect_accepts(0, _) -> [];
+collect_accepts(0, _Tmo) ->
+    ?P("~w(~w) -> done (when rest tmo = ~p)", [?FUNCTION_NAME, 0, _Tmo]),
+    [];
 collect_accepts(N, Tmo) ->
     A = millis(),
     receive
 	{accepted, P, {error, eaddrnotavail = Reason}} ->
-            ?P("~p Failed accept: ~p", [P, Reason]),
+            ?P("~w(~w) -> ~p unacceptable accept failure: ~p",
+               [?FUNCTION_NAME, N, P, Reason]),
             ?SKIPT(accept_failed_str(Reason));
 
         {accepted, P, Msg} ->
-            ?P("received 'accepted' from ~p: "
-               "~n      ~p", [P, Msg]),
+            ?P("~w(~w) -> received accept result from ~p: "
+               "~n   ~p", [?FUNCTION_NAME, N, P, Msg]),
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
 
     after Tmo ->
-            ?P("accept timeout (~w)", [Tmo]),
+            ?P("~w(~w) -> collection done (~w)", [?FUNCTION_NAME, N, Tmo]),
 	    []
     end.
 
 -define(EXPECT_ACCEPTS(Pattern,N,Timeout),
 	(fun() ->
+                 ?P("EXPECT_ACCEPTS(~w) -> begin collecting accepts with"
+                    "~n   N:       ~p"
+                    "~n   Timeout: ~p",
+                    [?FUNCTION_NAME, N, Timeout]),
                  case collect_accepts((N), (Timeout)) of
 		     Pattern ->
 			 ok;
-		     Other__ ->
-			 {error, {unexpected, {Other__, messages()}}}
+		     UnexPattern__ ->
+			 {error, {unexpected, {UnexPattern__, messages()}}}
 		 end
 	 end)()).
 	
@@ -5023,8 +5030,29 @@ do_accept_timeouts_in_order4(Config, Addr) ->
     P2 = spawn(mktmofun(400,Parent,LS)),
     P3 = spawn(mktmofun(1000,Parent,LS)),
     P4 = spawn(mktmofun(600,Parent,LS)),
-    ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
-			  {P4,{error,timeout}},{P3,{error,timeout}}],infinity,2000).
+    Pattern = [{P1, {error, timeout}},
+               {P2, {error, timeout}},
+               {P4, {error, timeout}},
+               {P3, {error, timeout}}],
+    case ?EXPECT_ACCEPTS(Pattern, infinity, 2000) of
+        ok ->
+            ?P("expected pattern"),
+            ok;
+        {error, {unexpected, UnexPattern, Msgs}} ->
+            %% Wrong order?
+            ?P("unexpected: "
+               "~n   Expected:   ~p"
+               "~n   Unexpected: ~p"
+               "~n   Msgs:       ~p", [Pattern, UnexPattern, Msgs]),
+            case lists:keysort(1, Pattern) =:= lists:keysort(1, UnexPattern) of
+                true ->
+                    %% Yes, wrong order
+                    ct:fail(wrong_order);
+                false ->
+                    ct:fail(unexpected_result)
+            end
+    end.
+            
 
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (more).
@@ -5135,10 +5163,15 @@ do_accept_timeouts_in_order7(Config, Addr) ->
     P6 = spawn(mktmofun(800,Parent,LS)),
     P7 = spawn(mktmofun(1600,Parent,LS)),
     P8 = spawn(mktmofun(1400,Parent,LS)),
-    ok = ?EXPECT_ACCEPTS([{P2,{error,timeout}},{P5,{error,timeout}},
-			  {P4,{error,timeout}},{P6,{error,timeout}},
-			  {P1,{error,timeout}},{P3,{error,timeout}},
-			  {P8,{error,timeout}},{P7,{error,timeout}}],infinity,2000).
+    ok = ?EXPECT_ACCEPTS([{P2,{error,timeout}},
+                          {P5,{error,timeout}},
+			  {P4,{error,timeout}},
+                          {P6,{error,timeout}},
+			  {P1,{error,timeout}},
+                          {P3,{error,timeout}},
+			  {P8,{error,timeout}},
+                          {P7,{error,timeout}}],
+                         infinity,2000).
 
 %% Check that multi-accept timeouts behave correctly when
 %% mixed with successful timeouts.
@@ -5213,10 +5246,11 @@ do_accept_timeouts_mixed(Config, Addr) ->
     end,
 
     ?P("expect accept from 2 (~p) with success", [P2]),
-    if is_port(LS) ->
+    if
+        is_port(LS) ->
             ok = ?EXPECT_ACCEPTS([{P2,{ok,Port0}}] when is_port(Port0),
                                                         infinity,100);
-       true ->
+        true ->
             case ?EXPECT_ACCEPTS([{P2,{ok,_}}],infinity,100) of
 		ok ->
 		    ok;
