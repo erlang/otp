@@ -647,24 +647,24 @@ signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
     lists:reverse(lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
-                        case scheme_to_components(Alg) of
-                            {Hash, Sign = rsa_pss_pss,_} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign = rsa_pss_rsae,_} ->
-                                [{Hash, Sign} | Acc];
-                            %% TLS-1.2 do not constrian the
-                            %% curve, however must be one
-                            %% present in "supported groups" (eccs)
-                            {Hash, ecdsa = Sign, _} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign, undefined} ->
-                                [{Hash, format_sign(Sign)} | Acc];
-                            {_, _, _} ->
-                                Acc
-                        end;
-                   (Alg, Acc) ->
-                        [Alg| Acc]
-                end, [], SigAlgs)).
+                                      case scheme_to_components(Alg) of
+                                          {Hash, Sign = rsa_pss_pss,_} ->
+                                              [{Hash, Sign} | Acc];
+                                          {Hash, Sign = rsa_pss_rsae,_} ->
+                                              [{Hash, Sign} | Acc];
+                                          %% TLS-1.2 do not constrian the
+                                          %% curve, however must be one
+                                          %% present in "supported groups" (eccs)
+                                          {Hash, ecdsa = Sign, _} ->
+                                              [{Hash, Sign} | Acc];
+                                          {Hash, Sign, undefined} ->
+                                              [{Hash, format_sign(Sign)} | Acc];
+                                          {_, _, _} ->
+                                              Acc
+                                      end;
+                                 (Alg, Acc) ->
+                                      [Alg| Acc]
+                              end, [], SigAlgs)).
 
 %% TODO: reserved code points?
 
