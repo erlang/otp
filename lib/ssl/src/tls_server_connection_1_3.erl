@@ -471,10 +471,10 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
 
         Opts = State2#state.ssl_options,
         State3 = case maps:get(keep_secrets, Opts, false) of
-                     true ->
-                         tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random);
                      false ->
-                         State2
+                         State2;
+                     _ -> %% true or fun
+                         tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random)
                  end,
 
         State4 = tls_handshake_1_3:update_start_state(State3,

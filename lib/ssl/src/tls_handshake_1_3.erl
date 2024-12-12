@@ -976,7 +976,8 @@ calculate_client_early_traffic_secret(
 
 
 
-maybe_store_early_data_secret(#{keep_secrets := true}, EarlySecret, State) ->
+maybe_store_early_data_secret(#{keep_secrets := Keep}, EarlySecret, State) when Keep == true;
+                                                                                is_function(Keep) ->
     #{security_parameters := SecParams0} = State,
     SecParams = SecParams0#security_parameters{client_early_data_secret = EarlySecret},
     State#{security_parameters := SecParams};
@@ -1177,8 +1178,9 @@ overwrite_client_random(ConnectionState = #{security_parameters := SecurityParam
 
 maybe_store_handshake_traffic_secret(#state{connection_states =
                                                 #{pending_read := PendingRead} = CS,
-                                            ssl_options = #{keep_secrets := true}} = State,
-                                     ClientHSTrafficSecret, ServerHSTrafficSecret) ->
+                                            ssl_options = #{keep_secrets := Keep}} = State,
+                                     ClientHSTrafficSecret, ServerHSTrafficSecret) when Keep == true;
+                                                                                        is_function(Keep) ->
     PendingRead1 = store_handshake_traffic_secret(PendingRead, ClientHSTrafficSecret, ServerHSTrafficSecret),
     State#state{connection_states = CS#{pending_read => PendingRead1}};
 maybe_store_handshake_traffic_secret(State, _, _) ->
