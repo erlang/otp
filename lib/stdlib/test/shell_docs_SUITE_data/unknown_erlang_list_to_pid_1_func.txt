@@ -1,5 +1,5 @@
 
-  [;1m-spec list_to_pid(String) -> pid() when String :: string().[0m
+[;1m  list_to_pid(String)[0m
 
   Returns a process identifier whose text representation is a [;;4m[0m
   [;;4mString[0m.

@@ -1,5 +1,5 @@
 
-  [;1m-type cpu_topology() :: [LevelEntry :: level_entry()] | undefined.[0m
+[;1m  cpu_topology()[0m
 
   The current cpu topology.
 

@@ -1,9 +1,5 @@
 
-  [;1m-spec delete(Filename, Opts) -> ok | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    Filename :: name_all(),[0m
-  [;1m                    Opts :: [delete_option()],[0m
-  [;1m                    Reason :: posix() | badarg.[0m
+[;1m  delete(Filename, Opts)[0m
 
 [;;4mSince[0m:
   OTP 24.0

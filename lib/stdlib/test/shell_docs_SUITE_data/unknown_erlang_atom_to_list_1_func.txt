@@ -1,5 +1,5 @@
 
-  [;1m-spec atom_to_list(Atom) -> string() when Atom :: atom().[0m
+[;1m  atom_to_list(Atom)[0m
 
   Returns a list of unicode code points corresponding to the text
   representation of [;;4mAtom[0m.

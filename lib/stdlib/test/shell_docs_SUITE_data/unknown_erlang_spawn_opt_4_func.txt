@@ -1,13 +1,5 @@
 
-  [;1m-spec spawn_opt(Module, Function, Args, Options) ->[0m
-  [;1m                   Pid | {Pid, MonitorRef}[0m
-  [;1m                   when[0m
-  [;1m                       Module :: module(),[0m
-  [;1m                       Function :: atom(),[0m
-  [;1m                       Args :: [term()],[0m
-  [;1m                       Options :: [spawn_opt_option()],[0m
-  [;1m                       Pid :: pid(),[0m
-  [;1m                       MonitorRef :: reference().[0m
+[;1m  spawn_opt(Module, Function, Args, Options)[0m
 
   Works as [;;4mspawn/3[0m, except that an extra option list is specified
   when creating the process.

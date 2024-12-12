@@ -1,7 +1,4 @@
 
-  [;1m-type raise_stacktrace() ::[0m
-  [;1m          [{module(), atom(), arity() | [term()]} |[0m
-  [;1m           {function(), arity() | [term()]}] |[0m
-  [;1m          stacktrace().[0m
+[;1m  raise_stacktrace()[0m
 
   A extended [;;4mstacktrace/0[0m that can be passed to [;;4mraise/3[0m.

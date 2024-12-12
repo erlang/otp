@@ -1,11 +1,5 @@
 
-  [;1m-spec advise(IoDevice, Offset, Length, Advise) -> ok | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    IoDevice :: io_device(),[0m
-  [;1m                    Offset :: integer(),[0m
-  [;1m                    Length :: integer(),[0m
-  [;1m                    Advise :: posix_file_advise(),[0m
-  [;1m                    Reason :: posix() | badarg.[0m
+[;1m  advise(IoDevice, Offset, Length, Advise)[0m
 
 [;;4mSince[0m:
   OTP R14B

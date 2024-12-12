@@ -1,6 +1,5 @@
 
-  [;1m-spec set(Terms, Type) -> Set[0m
-  [;1m             when Set :: a_set(), Terms :: [term()], Type :: type().[0m
+[;1m  set(Terms, Type)[0m
 
   Creates an unordered set. [;;4mset(L, T)[0m is equivalent to [;;4m[0m
   [;;4mfrom_term(L, T)[0m, if the result is an unordered set.

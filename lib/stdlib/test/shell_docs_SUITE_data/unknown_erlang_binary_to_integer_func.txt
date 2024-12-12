@@ -1,5 +1,5 @@
 
-  [;1m-spec binary_to_integer(Binary) -> integer() when Binary :: binary().[0m
+[;1m  binary_to_integer(Binary)[0m
 
 [;;4mSince[0m:
   OTP R16B
@@ -17,8 +17,7 @@
   Failure: [;;4mbadarg[0m if [;;4mBinary[0m contains a bad representation of an
   integer.
 
-  [;1m-spec binary_to_integer(Binary, Base) -> integer()[0m
-  [;1m                           when Binary :: binary(), Base :: 2..36.[0m
+[;1m  binary_to_integer(Binary, Base)[0m
 
 [;;4mSince[0m:
   OTP R16B

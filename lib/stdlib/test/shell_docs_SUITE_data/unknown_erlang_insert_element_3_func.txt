@@ -1,10 +1,5 @@
 
-  [;1m-spec insert_element(Index, Tuple1, Term) -> Tuple2[0m
-  [;1m                        when[0m
-  [;1m                            Index :: pos_integer(),[0m
-  [;1m                            Tuple1 :: tuple(),[0m
-  [;1m                            Tuple2 :: tuple(),[0m
-  [;1m                            Term :: term().[0m
+[;1m  insert_element(Index, Tuple1, Term)[0m
 
 [;;4mSince[0m:
   OTP R16B

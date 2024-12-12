@@ -1,9 +1,5 @@
 
-  [;1m-spec apply(Module, Function, Args) -> term()[0m
-  [;1m               when[0m
-  [;1m                   Module :: module(),[0m
-  [;1m                   Function :: atom(),[0m
-  [;1m                   Args :: [term()].[0m
+[;1m  apply(Module, Function, Args)[0m
 
   Returns the result of applying [;;4mFunction[0m in [;;4mModule[0m to [;;4mArgs[0m.
   The applied function must be exported from [;;4mModule[0m. The arity of

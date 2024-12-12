@@ -1,9 +1,5 @@
 
-  [;1m-spec composite(Function1, Function2) -> Function3[0m
-  [;1m                   when[0m
-  [;1m                       Function1 :: a_function(),[0m
-  [;1m                       Function2 :: a_function(),[0m
-  [;1m                       Function3 :: a_function().[0m
+[;1m  composite(Function1, Function2)[0m
 
   Returns the composite of the functions [;;4mFunction1[0m and [;;4mFunction2[0m.
 

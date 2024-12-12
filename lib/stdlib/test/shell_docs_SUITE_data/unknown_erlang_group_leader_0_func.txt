@@ -1,5 +1,5 @@
 
-  [;1m-spec group_leader() -> pid().[0m
+[;1m  group_leader()[0m
 
   Returns the process identifier of the group leader for the process
   evaluating the function.

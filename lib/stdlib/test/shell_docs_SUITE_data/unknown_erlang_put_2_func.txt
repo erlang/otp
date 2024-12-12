@@ -1,5 +1,5 @@
 
-  [;1m-spec put(Key, Val) -> term() when Key :: term(), Val :: term().[0m
+[;1m  put(Key, Val)[0m
 
   Adds a new [;;4mKey[0m to the process dictionary, associated with the
   value [;;4mVal[0m, and returns [;;4mundefined[0m. If [;;4mKey[0m exists, the old

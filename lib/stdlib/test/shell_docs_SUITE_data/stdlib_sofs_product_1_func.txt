@@ -1,8 +1,5 @@
 
-  [;1m-spec product(TupleOfSets) -> Relation[0m
-  [;1m                 when[0m
-  [;1m                     Relation :: relation(),[0m
-  [;1m                     TupleOfSets :: tuple_of(a_set()).[0m
+[;1m  product(TupleOfSets)[0m
 
   Returns the Cartesian product of the non-empty tuple of sets [;;4m[0m
   [;;4mTupleOfSets[0m. If (x[1], ..., x[n]) is an element of the n-ary

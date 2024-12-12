@@ -1,7 +1,5 @@
 
-  [;1m-spec halt(Status :: non_neg_integer()) -> no_return();[0m
-  [;1m          (Abort :: abort) -> no_return();[0m
-  [;1m          (CrashDumpSlogan :: string()) -> no_return().[0m
+[;1m  halt(HaltType)[0m
 
   Equivalent to calling [;;4mhalt(HaltType, [])[0m.
 

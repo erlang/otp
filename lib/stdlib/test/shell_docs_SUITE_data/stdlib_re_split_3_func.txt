@@ -1,27 +1,5 @@
 
-  [;1m-spec split(Subject, RE, Options) -> SplitList[0m
-  [;1m               when[0m
-  [;1m                   Subject :: iodata() | unicode:charlist(),[0m
-  [;1m                   RE :: mp() | iodata() | unicode:charlist(),[0m
-  [;1m                   Options :: [Option],[0m
-  [;1m                   Option ::[0m
-  [;1m                       anchored | notbol | noteol | notempty |[0m
-  [;1m                       notempty_atstart |[0m
-  [;1m                       {offset, non_neg_integer()} |[0m
-  [;1m                       {newline, nl_spec()} |[0m
-  [;1m                       {match_limit, non_neg_integer()} |[0m
-  [;1m                       {match_limit_recursion, non_neg_integer()} |[0m
-  [;1m                       bsr_anycrlf | bsr_unicode |[0m
-  [;1m                       {return, ReturnType} |[0m
-  [;1m                       {parts, NumParts} |[0m
-  [;1m                       group | trim | CompileOpt,[0m
-  [;1m                   NumParts :: non_neg_integer() | infinity,[0m
-  [;1m                   ReturnType :: iodata | list | binary,[0m
-  [;1m                   CompileOpt :: compile_option(),[0m
-  [;1m                   SplitList :: [RetData] | [GroupedRetData],[0m
-  [;1m                   GroupedRetData :: [RetData],[0m
-  [;1m                   RetData ::[0m
-  [;1m                       iodata() | unicode:charlist() | binary() | list().[0m
+[;1m  split(Subject, RE, Options)[0m
 
   Splits the input into parts by finding tokens according to the
   regular expression supplied.

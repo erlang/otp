@@ -1,5 +1,5 @@
 
-  [;1m-spec erase(Key) -> Val | undefined when Key :: term(), Val :: term().[0m
+[;1m  erase(Key)[0m
 
   Returns the value [;;4mVal[0m associated with [;;4mKey[0m and deletes it from
   the process dictionary. Returns [;;4mundefined[0m if no value is

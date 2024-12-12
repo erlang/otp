@@ -1,9 +1,5 @@
 
-  [;1m-spec localtime_to_universaltime(Localtime) -> Universaltime[0m
-  [;1m                                    when[0m
-  [;1m                                        Localtime :: calendar:datetime(),[0m
-  [;1m                                        Universaltime ::[0m
-  [;1m                                            calendar:datetime().[0m
+[;1m  localtime_to_universaltime(Localtime)[0m
 
   Converts local date and time to Universal Time Coordinated (UTC),
   if supported by the underlying OS. Otherwise no conversion is done
@@ -16,13 +12,7 @@
 
   Failure: [;;4mbadarg[0m if [;;4mLocaltime[0m denotes an invalid date and time.
 
-  [;1m-spec localtime_to_universaltime(Localtime, IsDst) -> Universaltime[0m
-  [;1m                                    when[0m
-  [;1m                                        Localtime :: calendar:datetime(),[0m
-  [;1m                                        Universaltime ::[0m
-  [;1m                                            calendar:datetime(),[0m
-  [;1m                                        IsDst ::[0m
-  [;1m                                            true | false | undefined.[0m
+[;1m  localtime_to_universaltime(Localtime, IsDst)[0m
 
   Converts local date and time to Universal Time Coordinated (UTC)
   as [;;4merlang:localtime_to_universaltime/1[0m, but the caller decides

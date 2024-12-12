@@ -1,6 +1,5 @@
 
-  [;1m-spec memory() -> [{Type, Size}][0m
-  [;1m                when Type :: memory_type(), Size :: non_neg_integer().[0m
+[;1m  memory()[0m
 
   Returns a list with information about memory dynamically allocated
   by the Erlang emulator.
@@ -104,9 +103,7 @@
   Failure: [;;4mnotsup[0m if an [;;4merts_alloc(3)[0m allocator has been
   disabled.
 
-  [;1m-spec memory(Type :: memory_type()) -> non_neg_integer();[0m
-  [;1m            (TypeList :: [memory_type()]) ->[0m
-  [;1m                [{memory_type(), non_neg_integer()}].[0m
+[;1m  memory/1[0m
 
   Returns the memory size in bytes allocated for memory of type [;;4m[0m
   [;;4mType[0m. The argument can also be specified as a list of [;;4m[0m

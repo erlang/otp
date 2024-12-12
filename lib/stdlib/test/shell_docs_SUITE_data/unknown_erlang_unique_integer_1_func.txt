@@ -1,8 +1,5 @@
 
-  [;1m-spec unique_integer(ModifierList) -> integer()[0m
-  [;1m                        when[0m
-  [;1m                            ModifierList :: [Modifier],[0m
-  [;1m                            Modifier :: positive | monotonic.[0m
+[;1m  unique_integer(ModifierList)[0m
 
 [;;4mSince[0m:
   OTP 18.0

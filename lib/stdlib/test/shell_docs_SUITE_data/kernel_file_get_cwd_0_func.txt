@@ -1,6 +1,5 @@
 
-  [;1m-spec get_cwd() -> {ok, Dir} | {error, Reason}[0m
-  [;1m                 when Dir :: filename(), Reason :: posix().[0m
+[;1m  get_cwd()[0m
 
   Returns [;;4m{ok, Dir}[0m, where [;;4mDir[0m is the current working directory
   of the file server.

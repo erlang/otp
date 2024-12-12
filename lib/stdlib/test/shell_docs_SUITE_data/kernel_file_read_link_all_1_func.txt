@@ -1,9 +1,5 @@
 
-  [;1m-spec read_link_all(Name) -> {ok, Filename} | {error, Reason}[0m
-  [;1m                       when[0m
-  [;1m                           Name :: name_all(),[0m
-  [;1m                           Filename :: filename_all(),[0m
-  [;1m                           Reason :: posix() | badarg.[0m
+[;1m  read_link_all(Name)[0m
 
 [;;4mSince[0m:
   OTP R16B

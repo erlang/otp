@@ -1,5 +1,5 @@
 
-  [;1m-type mfa() :: {module(), atom(), arity()}.[0m
+[;1m  mfa()[0m
 
   A three-tuple representing a [;;4mModule:Function/Arity[0m function
   signature.

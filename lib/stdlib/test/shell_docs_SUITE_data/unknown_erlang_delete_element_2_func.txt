@@ -1,9 +1,5 @@
 
-  [;1m-spec delete_element(Index, Tuple1) -> Tuple2[0m
-  [;1m                        when[0m
-  [;1m                            Index :: pos_integer(),[0m
-  [;1m                            Tuple1 :: tuple(),[0m
-  [;1m                            Tuple2 :: tuple().[0m
+[;1m  delete_element(Index, Tuple1)[0m
 
 [;;4mSince[0m:
   OTP R16B

@@ -1,5 +1,5 @@
 
-  [;1m-spec unlink(Id) -> true when Id :: pid() | port().[0m
+[;1m  unlink(Id)[0m
 
   Removes a link between the calling process and another process or
   a port identified by [;;4mId[0m.

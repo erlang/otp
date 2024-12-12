@@ -1,5 +1,5 @@
 
-  [;1m-spec float(Number) -> float() when Number :: number().[0m
+[;1m  float(Number)[0m
 
   Returns a float by converting [;;4mNumber[0m to a float.
 

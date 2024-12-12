@@ -1,15 +1,5 @@
 
-  [;1m-spec copy(Source, Destination, ByteCount) ->[0m
-  [;1m              {ok, BytesCopied} | {error, Reason}[0m
-  [;1m              when[0m
-  [;1m                  Source :: io_device() | Filename | {Filename, Modes},[0m
-  [;1m                  Destination ::[0m
-  [;1m                      io_device() | Filename | {Filename, Modes},[0m
-  [;1m                  Filename :: name_all(),[0m
-  [;1m                  Modes :: [mode()],[0m
-  [;1m                  ByteCount :: non_neg_integer() | infinity,[0m
-  [;1m                  BytesCopied :: non_neg_integer(),[0m
-  [;1m                  Reason :: posix() | badarg | terminated.[0m
+[;1m  copy(Source, Destination, ByteCount)[0m
 
   Copies [;;4mByteCount[0m bytes from [;;4mSource[0m to [;;4mDestination[0m. [;;4mSource[0m
   and [;;4mDestination[0m refer to either filenames or IO devices from,

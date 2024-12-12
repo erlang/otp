@@ -1,12 +1,5 @@
 
-  [;1m-spec float_to_binary(Float, Options) -> binary()[0m
-  [;1m                         when[0m
-  [;1m                             Float :: float(),[0m
-  [;1m                             Options :: [Option],[0m
-  [;1m                             Option ::[0m
-  [;1m                                 {decimals, Decimals :: 0..253} |[0m
-  [;1m                                 {scientific, Decimals :: 0..249} |[0m
-  [;1m                                 compact | short.[0m
+[;1m  float_to_binary(Float, Options)[0m
 
 [;;4mSince[0m:
   OTP R16B

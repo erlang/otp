@@ -1,9 +1,5 @@
 
-  [;1m-spec list_dir_all(Dir) -> {ok, Filenames} | {error, Reason}[0m
-  [;1m                      when[0m
-  [;1m                          Dir :: name_all(),[0m
-  [;1m                          Filenames :: [filename_all()],[0m
-  [;1m                          Reason :: posix() | badarg.[0m
+[;1m  list_dir_all(Dir)[0m
 
 [;;4mSince[0m:
   OTP R16B

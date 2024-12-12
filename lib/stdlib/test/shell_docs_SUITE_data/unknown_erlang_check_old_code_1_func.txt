@@ -1,5 +1,5 @@
 
-  [;1m-spec check_old_code(Module) -> boolean() when Module :: module().[0m
+[;1m  check_old_code(Module)[0m
 
 [;;4mSince[0m:
   OTP R14B04

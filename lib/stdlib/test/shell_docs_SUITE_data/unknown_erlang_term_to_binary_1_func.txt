@@ -1,5 +1,5 @@
 
-  [;1m-spec term_to_binary(Term) -> ext_binary() when Term :: term().[0m
+[;1m  term_to_binary(Term)[0m
 
   Returns a binary data object that is the result of encoding [;;4mTerm[0m
   according to the Erlang external term format.

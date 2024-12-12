@@ -1,14 +1,5 @@
 
-  [;1m-spec error(Reason, Args, Options) -> no_return()[0m
-  [;1m               when[0m
-  [;1m                   Reason :: term(),[0m
-  [;1m                   Args :: [term()] | none,[0m
-  [;1m                   Options :: [Option],[0m
-  [;1m                   Option :: {error_info, ErrorInfoMap},[0m
-  [;1m                   ErrorInfoMap ::[0m
-  [;1m                       #{cause => term(),[0m
-  [;1m                         module => module(),[0m
-  [;1m                         function => atom()}.[0m
+[;1m  error(Reason, Args, Options)[0m
 
 [;;4mSince[0m:
   OTP 24.0

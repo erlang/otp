@@ -1,14 +1,5 @@
 
-  [;1m-spec trace(PidPortSpec, How, FlagList) -> integer()[0m
-  [;1m               when[0m
-  [;1m                   PidPortSpec ::[0m
-  [;1m                       pid() |[0m
-  [;1m                       port() |[0m
-  [;1m                       all | processes | ports | existing |[0m
-  [;1m                       existing_processes | existing_ports | new |[0m
-  [;1m                       new_processes | new_ports,[0m
-  [;1m                   How :: boolean(),[0m
-  [;1m                   FlagList :: [trace_flag()].[0m
+[;1m  trace(PidPortSpec, How, FlagList)[0m
 
   Turn on or off trace flags on processes or ports for the static
   legacy trace session.

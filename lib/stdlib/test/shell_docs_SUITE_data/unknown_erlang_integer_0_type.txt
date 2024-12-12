@@ -1,4 +1,4 @@
 
-  [;1m-type integer() :: integer().[0m
+[;1m  integer()[0m
 
   An Erlang integer.

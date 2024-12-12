@@ -1,8 +1,5 @@
 
-  [;1m-spec atom_to_binary(Atom, Encoding) -> binary()[0m
-  [;1m                        when[0m
-  [;1m                            Atom :: atom(),[0m
-  [;1m                            Encoding :: latin1 | unicode | utf8.[0m
+[;1m  atom_to_binary(Atom, Encoding)[0m
 
   Returns a binary corresponding to the text representation of [;;4mAtom[0m.
 

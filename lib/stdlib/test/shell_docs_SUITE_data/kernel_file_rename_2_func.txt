@@ -1,9 +1,5 @@
 
-  [;1m-spec rename(Source, Destination) -> ok | {error, Reason}[0m
-  [;1m                when[0m
-  [;1m                    Source :: name_all(),[0m
-  [;1m                    Destination :: name_all(),[0m
-  [;1m                    Reason :: posix() | badarg.[0m
+[;1m  rename(Source, Destination)[0m
 
   Tries to rename the file [;;4mSource[0m to [;;4mDestination[0m. It can be used
   to move files (and directories) between directories, but it is not

@@ -1,5 +1,5 @@
 
-  [;1m-spec dt_spread_tag(boolean()) -> TagData when TagData :: term().[0m
+[;1m  dt_spread_tag(Bool)[0m
 
   The documentation for dt_spread_tag/1 is hidden. This probably
   means that it is internal and not to be used by other

@@ -1,15 +1,5 @@
 
-  [;1m-spec path_eval(Path, Filename) -> {ok, FullName} | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Path :: [Dir :: name_all()],[0m
-  [;1m                       Filename :: name_all(),[0m
-  [;1m                       FullName :: filename_all(),[0m
-  [;1m                       Reason ::[0m
-  [;1m                           posix() |[0m
-  [;1m                           badarg | terminated | system_limit |[0m
-  [;1m                           {Line :: integer(),[0m
-  [;1m                            Mod :: module(),[0m
-  [;1m                            Term :: term()}.[0m
+[;1m  path_eval(Path, Filename)[0m
 
   Searches the path [;;4mPath[0m (a list of directory names) until the
   file [;;4mFilename[0m is found. If [;;4mFilename[0m is an absolute filename, [;;4m[0m
@@ -39,19 +29,7 @@
   The encoding of [;;4mFilename[0m can be set by a comment as described in [;;4m[0m
   [;;4mepp[0m.
 
-  [;1m-spec path_eval(Path, Filename, Bindings) ->[0m
-  [;1m                   {ok, FullName} | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Path :: [Dir :: name_all()],[0m
-  [;1m                       Filename :: name_all(),[0m
-  [;1m                       Bindings :: erl_eval:binding_struct(),[0m
-  [;1m                       FullName :: filename_all(),[0m
-  [;1m                       Reason ::[0m
-  [;1m                           posix() |[0m
-  [;1m                           badarg | terminated | system_limit |[0m
-  [;1m                           {Line :: integer(),[0m
-  [;1m                            Mod :: module(),[0m
-  [;1m                            Term :: term()}.[0m
+[;1m  path_eval(Path, Filename, Bindings)[0m
 
   The documentation for path_eval/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

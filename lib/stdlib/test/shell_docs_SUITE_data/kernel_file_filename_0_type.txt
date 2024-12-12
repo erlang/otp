@@ -1,5 +1,5 @@
 
-  [;1m-type filename() :: string().[0m
+[;1m  filename()[0m
 
   A file name as returned from [;;4mfile[0m API functions.
 

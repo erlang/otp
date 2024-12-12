@@ -1,15 +1,5 @@
 
-  [;1m-spec seq_trace_info(send) -> {send, boolean()};[0m
-  [;1m                    ('receive') -> {'receive', boolean()};[0m
-  [;1m                    (print) -> {print, boolean()};[0m
-  [;1m                    (timestamp) -> {timestamp, boolean()};[0m
-  [;1m                    (monotonic_timestamp) -> {timestamp, boolean()};[0m
-  [;1m                    (strict_monotonic_timestamp) ->[0m
-  [;1m                        {strict_monotonic_timestamp, boolean()};[0m
-  [;1m                    (label) -> [] | {label, term()};[0m
-  [;1m                    (serial) ->[0m
-  [;1m                        [] |[0m
-  [;1m                        {serial, {non_neg_integer(), non_neg_integer()}}.[0m
+[;1m  seq_trace_info(What)[0m
 
   The documentation for seq_trace_info/1 is hidden. This probably
   means that it is internal and not to be used by other

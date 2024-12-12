@@ -1,6 +1,5 @@
 
-  [;1m-spec apply(Fun, Args) -> term()[0m
-  [;1m               when Fun :: function(), Args :: [term()].[0m
+[;1m  apply(Fun, Args)[0m
 
   Calls a fun, passing the elements in [;;4mArgs[0m as arguments.
 

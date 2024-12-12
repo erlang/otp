@@ -1,20 +1,9 @@
 
-  [;1m-spec read_file(Filename) -> {ok, Binary} | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Filename :: name_all(),[0m
-  [;1m                       Binary :: binary(),[0m
-  [;1m                       Reason ::[0m
-  [;1m                           posix() | badarg | terminated | system_limit.[0m
+[;1m  read_file(Filename)[0m
 
   There is no documentation for read_file(Filename, [])
 
-  [;1m-spec read_file(Filename, Opts) -> {ok, Binary} | {error, Reason}[0m
-  [;1m                   when[0m
-  [;1m                       Filename :: name_all(),[0m
-  [;1m                       Opts :: [read_file_option()],[0m
-  [;1m                       Binary :: binary(),[0m
-  [;1m                       Reason ::[0m
-  [;1m                           posix() | badarg | terminated | system_limit.[0m
+[;1m  read_file(Filename, Opts)[0m
 
 [;;4mSince[0m:
   OTP 27.0

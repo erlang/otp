@@ -1,8 +1,5 @@
 
-  [;1m-spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()}[0m
-  [;1m                   when[0m
-  [;1m                       Fun :: function(),[0m
-  [;1m                       Options :: [spawn_opt_option()].[0m
+[;1m  spawn_opt(Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mFun[0m to the empty list [;;4m[][0m. Otherwise works
@@ -12,15 +9,7 @@
   monitored, and both the pid and reference for the monitor are
   returned.
 
-  [;1m-spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()}[0m
-  [;1m                   when[0m
-  [;1m                       Node :: node(),[0m
-  [;1m                       Fun :: function(),[0m
-  [;1m                       Options ::[0m
-  [;1m                           [monitor |[0m
-  [;1m                            {monitor, [monitor_option()]} |[0m
-  [;1m                            link | OtherOption],[0m
-  [;1m                       OtherOption :: term().[0m
+[;1m  spawn_opt(Node, Fun, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mFun[0m to the empty list [;;4m[][0m on [;;4mNode[0m. If [;;4m[0m
@@ -32,15 +21,7 @@
   local node of current OTP version can be found in the
   documentation of [;;4mspawn_opt/4[0m.
 
-  [;1m-spec spawn_opt(Module, Function, Args, Options) ->[0m
-  [;1m                   Pid | {Pid, MonitorRef}[0m
-  [;1m                   when[0m
-  [;1m                       Module :: module(),[0m
-  [;1m                       Function :: atom(),[0m
-  [;1m                       Args :: [term()],[0m
-  [;1m                       Options :: [spawn_opt_option()],[0m
-  [;1m                       Pid :: pid(),[0m
-  [;1m                       MonitorRef :: reference().[0m
+[;1m  spawn_opt(Module, Function, Args, Options)[0m
 
   Works as [;;4mspawn/3[0m, except that an extra option list is specified
   when creating the process.
@@ -148,18 +129,7 @@
      This option will override the default value set by the
      command line argument [;;4m+pad <boolean>[0m.
 
-  [;1m-spec spawn_opt(Node, Module, Function, Args, Options) ->[0m
-  [;1m                   pid() | {pid(), reference()}[0m
-  [;1m                   when[0m
-  [;1m                       Node :: node(),[0m
-  [;1m                       Module :: module(),[0m
-  [;1m                       Function :: atom(),[0m
-  [;1m                       Args :: [term()],[0m
-  [;1m                       Options ::[0m
-  [;1m                           [monitor |[0m
-  [;1m                            {monitor, [monitor_option()]} |[0m
-  [;1m                            link | OtherOption],[0m
-  [;1m                       OtherOption :: term().[0m
+[;1m  spawn_opt(Node, Module, Function, Args, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
   the application of [;;4mModule:Function[0m to [;;4mArgs[0m on [;;4mNode[0m. If [;;4mNode[0m

@@ -1,4 +1,4 @@
 
-  [;1m-type binary_relation() :: relation().[0m
+[;1m  binary_relation()[0m
 
   A binary relation.

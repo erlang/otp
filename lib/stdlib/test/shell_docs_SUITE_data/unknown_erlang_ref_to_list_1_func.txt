@@ -1,5 +1,5 @@
 
-  [;1m-spec ref_to_list(Ref) -> string() when Ref :: reference().[0m
+[;1m  ref_to_list(Ref)[0m
 
   Returns a string corresponding to the text representation of [;;4mRef[0m.
 

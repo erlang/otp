@@ -1,6 +1,5 @@
 
-  [;1m-spec register(RegName, PidOrPort) -> true[0m
-  [;1m                  when RegName :: atom(), PidOrPort :: port() | pid().[0m
+[;1m  register(RegName, PidOrPort)[0m
 
   Registers the name [;;4mRegName[0m with a process identifier (pid) or a
   port identifier in the [;;4mname registry[0m. [;;4mRegName[0m, which must be

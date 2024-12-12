@@ -1,6 +1,5 @@
 
-  [;1m-spec send(Dest, Msg) -> Msg[0m
-  [;1m              when Dest :: send_destination(), Msg :: term().[0m
+[;1m  send(Dest, Msg)[0m
 
   Sends a message and returns [;;4mMsg[0m. This is the same as using the
   send operator: [;;4mDest ! Msg[0m.
@@ -20,12 +19,7 @@
     the Blocking Signaling Over Distribution section in the 
     Processes chapter of the Erlang Reference Manual.
 
-  [;1m-spec send(Dest, Msg, Options) -> Res[0m
-  [;1m              when[0m
-  [;1m                  Dest :: send_destination(),[0m
-  [;1m                  Msg :: term(),[0m
-  [;1m                  Options :: [nosuspend | noconnect],[0m
-  [;1m                  Res :: ok | nosuspend | noconnect.[0m
+[;1m  send(Dest, Msg, Options)[0m
 
   Either sends a message and returns [;;4mok[0m, or does not send the
   message but returns something else (see below). Otherwise the same

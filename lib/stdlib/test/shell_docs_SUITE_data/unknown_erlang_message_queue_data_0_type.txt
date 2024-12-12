@@ -1,5 +1,5 @@
 
-  [;1m-type message_queue_data() :: off_heap | on_heap.[0m
+[;1m  message_queue_data()[0m
 
   See [;;4mprocess_flag(message_queue_data, MQD)[0m.
 

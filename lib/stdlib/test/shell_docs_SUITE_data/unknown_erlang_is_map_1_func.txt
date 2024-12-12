@@ -1,5 +1,5 @@
 
-  [;1m-spec is_map(Term) -> boolean() when Term :: term().[0m
+[;1m  is_map(Term)[0m
 
 [;;4mSince[0m:
   OTP 17.0

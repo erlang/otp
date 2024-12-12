@@ -1,5 +1,5 @@
 
-  [;1m-spec round(Number) -> integer() when Number :: number().[0m
+[;1m  round(Number)[0m
 
   Returns an integer by rounding [;;4mNumber[0m.
 

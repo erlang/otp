@@ -1,13 +1,5 @@
 
-  [;1m-spec garbage_collect(Pid, OptionList) -> GCResult | async[0m
-  [;1m                         when[0m
-  [;1m                             Pid :: pid(),[0m
-  [;1m                             RequestId :: term(),[0m
-  [;1m                             Option ::[0m
-  [;1m                                 {async, RequestId} |[0m
-  [;1m                                 {type, major | minor},[0m
-  [;1m                             OptionList :: [Option],[0m
-  [;1m                             GCResult :: boolean().[0m
+[;1m  garbage_collect(Pid, OptionList)[0m
 
 [;;4mSince[0m:
   OTP 17.0

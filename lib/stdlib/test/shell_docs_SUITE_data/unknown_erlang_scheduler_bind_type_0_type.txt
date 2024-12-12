@@ -1,7 +1,4 @@
 
-  [;1m-type scheduler_bind_type() ::[0m
-  [;1m          no_node_processor_spread | no_node_thread_spread | no_spread |[0m
-  [;1m          processor_spread | spread | thread_spread |[0m
-  [;1m          thread_no_node_processor_spread | unbound.[0m
+[;1m  scheduler_bind_type()[0m
 
   The requested scheduler bind type.

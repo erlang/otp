@@ -1,14 +1,11 @@
 
-  [;1m-spec display_string(P1) -> true when P1 :: string() | binary().[0m
+[;1m  display_string(P1)[0m
 
   The documentation for display_string/1 is hidden. This probably
   means that it is internal and not to be used by other
   applications.
 
-  [;1m-spec display_string(Device, P1) -> true[0m
-  [;1m                        when[0m
-  [;1m                            Device :: stdin | stdout | stderr,[0m
-  [;1m                            P1 :: string().[0m
+[;1m  display_string(Device, P1)[0m
 
   The documentation for display_string/2 is hidden. This probably
   means that it is internal and not to be used by other

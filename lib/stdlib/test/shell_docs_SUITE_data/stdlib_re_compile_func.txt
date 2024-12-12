@@ -1,23 +1,9 @@
 
-  [;1m-spec compile(Regexp) -> {ok, MP} | {error, ErrSpec}[0m
-  [;1m                 when[0m
-  [;1m                     Regexp :: iodata(),[0m
-  [;1m                     MP :: mp(),[0m
-  [;1m                     ErrSpec ::[0m
-  [;1m                         {ErrString :: string(),[0m
-  [;1m                          Position :: non_neg_integer()}.[0m
+[;1m  compile(Regexp)[0m
 
   The same as [;;4mcompile(Regexp,[])[0m
 
-  [;1m-spec compile(Regexp, Options) -> {ok, MP} | {error, ErrSpec}[0m
-  [;1m                 when[0m
-  [;1m                     Regexp :: iodata() | unicode:charlist(),[0m
-  [;1m                     Options :: [Option],[0m
-  [;1m                     Option :: compile_option(),[0m
-  [;1m                     MP :: mp(),[0m
-  [;1m                     ErrSpec ::[0m
-  [;1m                         {ErrString :: string(),[0m
-  [;1m                          Position :: non_neg_integer()}.[0m
+[;1m  compile(Regexp, Options)[0m
 
   Compiles a regular expression, with the syntax described below,
   into an internal format to be used later as a parameter to [;;4mrun/2[0m

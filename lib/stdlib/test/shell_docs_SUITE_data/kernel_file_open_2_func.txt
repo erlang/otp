@@ -1,11 +1,5 @@
 
-  [;1m-spec open(File, Modes) -> {ok, IoDevice} | {error, Reason}[0m
-  [;1m              when[0m
-  [;1m                  File :: Filename | iodata(),[0m
-  [;1m                  Filename :: name_all(),[0m
-  [;1m                  Modes :: [mode() | ram | directory],[0m
-  [;1m                  IoDevice :: io_device(),[0m
-  [;1m                  Reason :: posix() | badarg | system_limit.[0m
+[;1m  open(File, Modes)[0m
 
   Opens file [;;4mFile[0m in the mode determined by [;;4mModes[0m, which can
   contain one or more of the following options:

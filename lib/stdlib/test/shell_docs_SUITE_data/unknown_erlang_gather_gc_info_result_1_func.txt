@@ -1,6 +1,5 @@
 
-  [;1m-spec gather_gc_info_result(Ref) -> {number(), number(), 0}[0m
-  [;1m                               when Ref :: reference().[0m
+[;1m  gather_gc_info_result(Ref)[0m
 
   The documentation for gather_gc_info_result/1 is hidden. This
   probably means that it is internal and not to be used by other

@@ -1,5 +1,5 @@
 
-  [;1m-spec throw(Any) -> no_return() when Any :: term().[0m
+[;1m  throw(Any)[0m
 
   Raises an exception of class [;;4mthrow[0m. Intended to be used to do
   non-local returns from functions.

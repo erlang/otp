@@ -1,5 +1,5 @@
 
-  [;1m-spec demonitor(MonitorRef) -> true when MonitorRef :: reference().[0m
+[;1m  demonitor(MonitorRef)[0m
 
   If [;;4mMonitorRef[0m is a reference that the calling process obtained
   by calling [;;4mmonitor/2[0m, this monitoring is turned off. If the

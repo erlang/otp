@@ -1,6 +1,5 @@
 
-  [;1m-spec nif_error(Reason, Args) -> no_return()[0m
-  [;1m                   when Reason :: term(), Args :: [term()].[0m
+[;1m  nif_error(Reason, Args)[0m
 
 [;;4mSince[0m:
   OTP R14B

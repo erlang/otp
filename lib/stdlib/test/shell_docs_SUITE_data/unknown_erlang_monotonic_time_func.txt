@@ -1,5 +1,5 @@
 
-  [;1m-spec monotonic_time() -> integer().[0m
+[;1m  monotonic_time()[0m
 
 [;;4mSince[0m:
   OTP 18.0
@@ -25,7 +25,7 @@
     start can be retrieved by calling [;;4m[0m
     [;;4merlang:system_info(start_time)[0m.
 
-  [;1m-spec monotonic_time(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  monotonic_time(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0

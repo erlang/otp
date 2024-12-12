@@ -1,5 +1,5 @@
 
-  [;1m-type mp() :: {re_pattern, _, _, _, _}.[0m
+[;1m  mp()[0m
 
   Opaque data type containing a compiled regular expression.
 

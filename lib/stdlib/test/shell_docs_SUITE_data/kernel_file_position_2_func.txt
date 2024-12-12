@@ -1,11 +1,5 @@
 
-  [;1m-spec position(IoDevice, Location) ->[0m
-  [;1m                  {ok, NewPosition} | {error, Reason}[0m
-  [;1m                  when[0m
-  [;1m                      IoDevice :: io_device(),[0m
-  [;1m                      Location :: location(),[0m
-  [;1m                      NewPosition :: integer(),[0m
-  [;1m                      Reason :: posix() | badarg | terminated.[0m
+[;1m  position(IoDevice, Location)[0m
 
   Sets the position of the file referenced by [;;4mIoDevice[0m to [;;4m[0m
   [;;4mLocation[0m. Returns [;;4m{ok, NewPosition}[0m (as absolute offset) if

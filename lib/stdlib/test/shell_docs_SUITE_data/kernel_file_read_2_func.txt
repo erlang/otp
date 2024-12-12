@@ -1,13 +1,5 @@
 
-  [;1m-spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason}[0m
-  [;1m              when[0m
-  [;1m                  IoDevice :: io_device() | io:device(),[0m
-  [;1m                  Number :: non_neg_integer(),[0m
-  [;1m                  Data :: string() | binary(),[0m
-  [;1m                  Reason ::[0m
-  [;1m                      posix() |[0m
-  [;1m                      badarg | terminated |[0m
-  [;1m                      {no_translation, unicode, latin1}.[0m
+[;1m  read(IoDevice, Number)[0m
 
   Reads [;;4mNumber[0m bytes/characters from the file referenced by [;;4m[0m
   [;;4mIoDevice[0m.

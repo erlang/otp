@@ -1,5 +1,5 @@
 
-  [;1m-spec time_offset(Unit) -> integer() when Unit :: time_unit().[0m
+[;1m  time_offset(Unit)[0m
 
 [;;4mSince[0m:
   OTP 18.0

@@ -1,7 +1,5 @@
 
-  [;1m-spec posixtime_to_universaltime(P1) ->[0m
-  [;1m                                    {calendar:date(), calendar:time()}[0m
-  [;1m                                    when P1 :: integer().[0m
+[;1m  posixtime_to_universaltime(P1)[0m
 
   The documentation for posixtime_to_universaltime/1 is hidden.
   This probably means that it is internal and not to be used by

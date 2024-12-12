@@ -1,4 +1,4 @@
 
-  [;1m-type any() :: any().[0m
+[;1m  any()[0m
 
   All possible Erlang terms. Synonym for [;;4mterm/0[0m.

@@ -1,6 +1,5 @@
 
-  [;1m-spec bump_reductions(Reductions) -> true[0m
-  [;1m                         when Reductions :: pos_integer().[0m
+[;1m  bump_reductions(Reductions)[0m
 
   This implementation-dependent function increments the reduction
   counter for the calling process.

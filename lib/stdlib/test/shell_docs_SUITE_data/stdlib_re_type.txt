@@ -2,39 +2,18 @@
 
 These types are documented in this module:
 
-  [;1m-type replace_fun() ::[0m
-  [;1m          fun((binary(), [binary()]) -> iodata() | unicode:charlist()).[0m
+[;1m  replace_fun()[0m
 
-  [;1m-type capture() ::[0m
-  [;1m          all | all_but_first | all_names | first | none |[0m
-  [;1m          (ValueList :: [integer() | string() | atom()]).[0m
+[;1m  capture()[0m
 
-  [;1m-type option() ::[0m
-  [;1m          anchored | global | notbol | noteol | notempty |[0m
-  [;1m          notempty_atstart | report_errors |[0m
-  [;1m          {offset, non_neg_integer()} |[0m
-  [;1m          {match_limit, non_neg_integer()} |[0m
-  [;1m          {match_limit_recursion, non_neg_integer()} |[0m
-  [;1m          {newline, NLSpec :: nl_spec()} |[0m
-  [;1m          bsr_anycrlf | bsr_unicode |[0m
-  [;1m          {capture, ValueSpec :: capture()} |[0m
-  [;1m          {capture,[0m
-  [;1m           ValueSpec :: capture(),[0m
-  [;1m           Type :: index | list | binary} |[0m
-  [;1m          compile_option().[0m
+[;1m  option()[0m
 
-  [;1m-type options() :: [option()].[0m
+[;1m  options()[0m
 
-  [;1m-type compile_option() ::[0m
-  [;1m          unicode | anchored | caseless | dollar_endonly | dotall |[0m
-  [;1m          extended | firstline | multiline | no_auto_capture |[0m
-  [;1m          dupnames | ungreedy |[0m
-  [;1m          {newline, nl_spec()} |[0m
-  [;1m          bsr_anycrlf | bsr_unicode | no_start_optimize | ucp |[0m
-  [;1m          never_utf.[0m
+[;1m  compile_option()[0m
 
-  [;1m-type compile_options() :: [compile_option()].[0m
+[;1m  compile_options()[0m
 
-  [;1m-type nl_spec() :: cr | crlf | lf | anycrlf | any.[0m
+[;1m  nl_spec()[0m
 
-  [;1m-type mp() :: {re_pattern, _, _, _, _}.[0m
+[;1m  mp()[0m

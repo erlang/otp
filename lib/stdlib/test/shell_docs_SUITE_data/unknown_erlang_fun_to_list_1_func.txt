@@ -1,5 +1,5 @@
 
-  [;1m-spec fun_to_list(Fun) -> String :: string() when Fun :: function().[0m
+[;1m  fun_to_list(Fun)[0m
 
   Returns [;;4mString[0m that represents the code that created [;;4mFun[0m.
 

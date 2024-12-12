@@ -1,5 +1,5 @@
 
-  [;1m-type io_device() :: io_server() | fd().[0m
+[;1m  io_device()[0m
 
   An IO device as returned by [;;4mopen/2[0m.
 

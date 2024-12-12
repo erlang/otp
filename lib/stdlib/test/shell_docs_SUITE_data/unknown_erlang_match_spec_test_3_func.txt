@@ -1,15 +1,5 @@
 
-  [;1m-spec match_spec_test(MatchAgainst, MatchSpec, Type) -> TestResult[0m
-  [;1m                         when[0m
-  [;1m                             MatchAgainst :: [term()] | tuple(),[0m
-  [;1m                             MatchSpec :: term(),[0m
-  [;1m                             Type :: table | trace,[0m
-  [;1m                             TestResult ::[0m
-  [;1m                                 {ok,[0m
-  [;1m                                  term(),[0m
-  [;1m                                  [return_trace],[0m
-  [;1m                                  [{error | warning, string()}]} |[0m
-  [;1m                                 {error, [{error | warning, string()}]}.[0m
+[;1m  match_spec_test(MatchAgainst, MatchSpec, Type)[0m
 
 [;;4mSince[0m:
   OTP 19.0

@@ -1,23 +1,9 @@
 
-  [;1m-spec relative_product(ListOfBinRels) -> BinRel2[0m
-  [;1m                          when[0m
-  [;1m                              ListOfBinRels :: [BinRel, ...],[0m
-  [;1m                              BinRel :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation().[0m
+[;1m  relative_product(ListOfBinRels)[0m
 
   There is no documentation for relative_product/2
 
-  [;1m-spec relative_product(ListOfBinRels, BinRel1) -> BinRel2[0m
-  [;1m                          when[0m
-  [;1m                              ListOfBinRels :: [BinRel, ...],[0m
-  [;1m                              BinRel :: binary_relation(),[0m
-  [;1m                              BinRel1 :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation();[0m
-  [;1m                      (BinRel1, BinRel2) -> BinRel3[0m
-  [;1m                          when[0m
-  [;1m                              BinRel1 :: binary_relation(),[0m
-  [;1m                              BinRel2 :: binary_relation(),[0m
-  [;1m                              BinRel3 :: binary_relation().[0m
+[;1m  relative_product/2[0m
 
   If [;;4mListOfBinRels[0m is a non-empty list [R[1], ..., R[n]] of binary
   relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m is

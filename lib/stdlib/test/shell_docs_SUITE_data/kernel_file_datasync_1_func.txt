@@ -1,8 +1,5 @@
 
-  [;1m-spec datasync(IoDevice) -> ok | {error, Reason}[0m
-  [;1m                  when[0m
-  [;1m                      IoDevice :: io_device(),[0m
-  [;1m                      Reason :: posix() | badarg | terminated.[0m
+[;1m  datasync(IoDevice)[0m
 
 [;;4mSince[0m:
   OTP R14B

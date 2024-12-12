@@ -1,6 +1,5 @@
 
-  [;1m-spec tl(List) -> Tail[0m
-  [;1m            when List :: nonempty_maybe_improper_list(), Tail :: term().[0m
+[;1m  tl(List)[0m
 
   Returns the tail of [;;4mList[0m, that is, the list minus the first
   element

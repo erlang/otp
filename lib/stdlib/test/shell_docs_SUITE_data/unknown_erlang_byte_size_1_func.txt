@@ -1,6 +1,5 @@
 
-  [;1m-spec byte_size(Bitstring) -> non_neg_integer()[0m
-  [;1m                   when Bitstring :: bitstring().[0m
+[;1m  byte_size(Bitstring)[0m
 
   Returns an integer that is the number of bytes needed to contain [;;4m[0m
   [;;4mBitstring[0m. That is, if the number of bits in [;;4mBitstring[0m is not

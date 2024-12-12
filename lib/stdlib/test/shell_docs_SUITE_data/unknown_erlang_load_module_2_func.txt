@@ -1,11 +1,5 @@
 
-  [;1m-spec load_module(Module, Binary) -> {module, Module} | {error, Reason}[0m
-  [;1m                     when[0m
-  [;1m                         Module :: module(),[0m
-  [;1m                         Binary :: binary(),[0m
-  [;1m                         Reason ::[0m
-  [;1m                             badfile | not_purged | on_load |[0m
-  [;1m                             {features_not_allowed, [atom()]}.[0m
+[;1m  load_module(Module, Binary)[0m
 
   Loads [;;4mModule[0m described by the object code contained within [;;4m[0m
   [;;4mBinary[0m.

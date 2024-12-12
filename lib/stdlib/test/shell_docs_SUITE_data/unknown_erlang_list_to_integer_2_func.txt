@@ -1,6 +1,5 @@
 
-  [;1m-spec list_to_integer(String, Base) -> integer()[0m
-  [;1m                         when String :: string(), Base :: 2..36.[0m
+[;1m  list_to_integer(String, Base)[0m
 
   Returns an integer whose text representation in base [;;4mBase[0m is [;;4m[0m
   [;;4mString[0m.

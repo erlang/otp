@@ -1,5 +1,5 @@
 
-  [;1m-type name() :: string() | atom() | deep_list().[0m
+[;1m  name()[0m
 
   A restricted file name used as input into [;;4mfile[0m API functions.
 

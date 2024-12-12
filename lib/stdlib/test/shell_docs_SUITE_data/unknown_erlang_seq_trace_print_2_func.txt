@@ -1,6 +1,5 @@
 
-  [;1m-spec seq_trace_print(P1, P2) -> boolean()[0m
-  [;1m                         when P1 :: atom() | integer(), P2 :: term().[0m
+[;1m  seq_trace_print(P1, P2)[0m
 
   The documentation for seq_trace_print/2 is hidden. This probably
   means that it is internal and not to be used by other
