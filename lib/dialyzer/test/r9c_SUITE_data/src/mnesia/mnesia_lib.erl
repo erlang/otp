@@ -840,11 +840,11 @@ random_time(Retries, _Counter0) ->
 	undefined ->
 	    {X, Y, Z} = erlang:now(), %% time()
 	    random:seed(X, Y, Z),
-	    Time = Dup + random:uniform(MaxIntv),
+	    Time = Dup + rand:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time;
 	_ ->
-	    Time = Dup + random:uniform(MaxIntv),
+	    Time = Dup + rand:uniform(MaxIntv),
 	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
 	    Time
     end.

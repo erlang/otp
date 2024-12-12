@@ -259,7 +259,7 @@ c_string(C,Default) ->
 random(Upper) ->
     {A1,A2,A3} = erlang:now(),
     random:seed(A1,A2,A3),
-    random:uniform(Upper).
+    rand:uniform(Upper).
 
 size_random(C) ->
     case get_constraint(C,'SizeConstraint') of
