@@ -167,7 +167,7 @@ user_hello({call, From}, cancel, State) ->
 user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, ?SERVER_ROLE, Options0) of
+    try ssl_config:update_options(NewOptions, ?SERVER_ROLE, Options0) of
         Options = #{versions := Versions} ->
             State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             #state{handshake_env = HsEnv0} = State1,

@@ -1330,7 +1330,7 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun} = OrigSSLOptions, SNIHostname) 
         SSLOptions ->
             VersionsOpt = proplists:get_value(versions, SSLOptions, []),
             FallBackOptions = filter_for_versions(VersionsOpt, OrigSSLOptions),
-            ssl:update_options(SSLOptions, server, FallBackOptions)
+            ssl_config:update_options(SSLOptions, server, FallBackOptions)
     end.
 
 filter_for_versions([], OrigSSLOptions) ->

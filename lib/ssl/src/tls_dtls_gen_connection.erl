@@ -266,7 +266,7 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   handshake_env = HSEnv,
                   ssl_options = Options0} = State0) ->
-    try ssl:update_options(NewOptions, Role, Options0) of
+    try ssl_config:update_options(NewOptions, Role, Options0) of
         Options ->
             State = ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,

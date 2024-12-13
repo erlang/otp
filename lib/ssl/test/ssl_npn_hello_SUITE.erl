@@ -169,4 +169,4 @@ create_connection_states() ->
      }.
 
 default_options_map() ->
-    ssl:update_options([{verify, verify_none}], client, #{}).
+    ssl_config:update_options([{verify, verify_none}], client, #{}).

@@ -438,16 +438,16 @@ client_restarts(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun(#sslsocket{connection_cb = dtls_gen_connection,
+        fun(#sslsocket{connection_cb = dtls_gen_connection = ConnectionCb,
                        connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
                 ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
 
-                {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
+                {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
-                    ssl:handle_options(ClientOpts, client, Address),
+                    ssl_config:handle_options(ClientOpts, client, Address),
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
 
                 ct:sleep(250),
@@ -523,15 +523,15 @@ client_restarts_multiple_acceptors(Config) ->
     Msgs = lists:sort(flush()),
 
     ReConnect =  %% Whitebox re-connect test
-        fun(#sslsocket{connection_cb = dtls_gen_connection,
+        fun(#sslsocket{connection_cb = dtls_gen_connection = ConnectionCb,
                        connection_handler = Pid} = Socket, ssl) ->
                 ?CT_LOG("Client Socket: ~p ~n", [Socket]),
                 {ok, IntSocket} = gen_statem:call(Pid, {downgrade, self()}),
                 {{Address,CPort},UDPSocket}=IntSocket,
                 ?CT_LOG("Info: ~p~n", [inet:info(UDPSocket)]),
-                {ok, #config{transport_info = CbInfo, connection_cb = ConnectionCb,
+                {ok, #config{transport_info = CbInfo,
                              ssl = SslOpts0}} =
-                    ssl:handle_options(ClientOpts, client, Address),
+                    ssl_config:handle_options(ClientOpts, client, Address),
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
