@@ -1598,7 +1598,21 @@ is_valid_command_help(_) ->
 
 format_help({ProgName, Root}, Format) ->
     Prefix = hd(maps:get(prefixes, Format, [$-])),
-    Nested = maps:get(command, Format, []),
+    Nested0 = maps:get(command, Format, [ProgName]),
+    %% The command path should always start with the progname, that's why it is
+    %% dropped here to keep the command and sub-commands only.
+    %%
+    %% However, earlier versions of this function did not drop that progname.
+    %% The function thus used to crash with a badkey excception if the caller
+    %% passed the `CmdPath' returned by `parse/2' to this function's `command'.
+    %% Therefore, to keep backward compatibility, if the command path does not
+    %% start with the progname, it uses the entire list untouched.
+    Nested = case Nested0 of
+                 [ProgName | Tail] ->
+                     Tail;
+                 _ ->
+                     Nested0
+             end,
     %% descent into commands collecting all options on the way
     {_CmdName, Cmd, AllArgs} = collect_options(ProgName, Root, Nested, []),
     %% split arguments into Flags, Options, Positional, and create help lines
