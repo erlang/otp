@@ -234,7 +234,32 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
 }
 
 void BeamModuleAssembler::emit_int_code_end() {
-    // TODO
+    /* This label is used to figure out the end of the last function */
+    code_end = a.newLabel();
+    a.bind(code_end);
+
+    emit_nyi("int_code_end");
+
+    /* We emit the dispatch table before all remaining stubs to bind veneers
+     * directly in the table itself, avoiding a painful extra jump.
+     *
+     * Since the table is potentially very large, we'll emit all stubs that are
+     * due within it so we won't have to check on every iteration. */
+    mark_unreachable();
+    flush_pending_stubs(_dispatchTable.size() * sizeof(Uint32[8]) +
+                        dispUnknown);
+
+    for (auto pair : _dispatchTable) {
+        bind_veneer_target(pair.second);
+
+        // a.mov(SUPER_TMP, imm(pair.first));
+        // a.br(SUPER_TMP);
+    }
+
+    mark_unreachable();
+
+    /* Emit all remaining stubs. */
+    flush_pending_stubs(dispMax);
 }
 
 void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
