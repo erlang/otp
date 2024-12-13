@@ -3757,9 +3757,9 @@ do_fill_sendq(Config, Addr) ->
     receive {Client, connected} -> ok end,
     ?P("[master] await reader"),
     Res = receive
-              {Server, reader, Reader} ->
+              {Server, reader, ServerSock, Reader} ->
                   ?P("[master] reader: ~p", [Reader]),
-                  fill_sendq_loop(Server, Client, Reader)
+                  fill_sendq_loop(ServerSock, Server, Reader, Client)
           end,
     process_flag(trap_exit, OldFlag),    
     ?P("[master] done: ~p", [Res]),
@@ -3770,18 +3770,22 @@ do_fill_sendq(Config, Addr) ->
             Res
     end.
 
-fill_sendq_loop(Server, Client, Reader) ->
-    fill_sendq_loop(Server, Client, Reader, 0).
+fill_sendq_loop(ServerSock, Server, Reader, Client) ->
+    fill_sendq_loop(ServerSock, Server, Reader, Client, 0).
 
-fill_sendq_loop(Server, Client, Reader, NumSent) ->
+%% Server: Writer
+%% Client: Connects and then just waits
+%% Reader: Reader spawned by the Server
+fill_sendq_loop(ServerSock, Server, Reader, Client, NumSent) ->
     %% Master
     %%
     receive
         {Server, send} ->
-	    fill_sendq_loop(Server, Client, Reader, NumSent + 1)
+	    fill_sendq_loop(ServerSock, Server, Reader, Client, NumSent + 1)
     after 2000 ->
 	    %% Send queue full, sender blocked -> close client.
 	    ?P("[master] send timeout (~p), closing client", [NumSent]),
+            _ = inet:setopts(ServerSock, [{debug, true}]),
 	    Client ! {self(), close},
 	    receive
                 {Server, [{error,closed}] = SErrors} ->
@@ -3816,7 +3820,7 @@ fill_sendq_loop(Server, Client, Reader, NumSent) ->
                         {Server, SErrors} when is_list(SErrors) ->
                             ?P("[master] got unexpected server (~p) error(s):"
                                "~n      ~p"
-                               "~n.  when"
+                               "~n   when"
                                "~n      Num Sent: ~p",
                                [Server, SErrors, NumSent]),
                             ct:fail([{server,   SErrors},
@@ -3851,7 +3855,7 @@ fill_sendq_srv(L, Master) ->
                "~n      buffer sz:      ~p"
                "~n      send buffer sz: ~p",
                [S, which_buffer(S), which_sndbuf(S)]),
-	    Master ! {self(), reader,
+	    Master ! {self(), reader, S,
 		      spawn_link(fun () -> fill_sendq_read(S, Master) end)},
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
 	    fill_sendq_write(S, Master, [Msg,Msg,Msg,Msg,Msg,Msg,Msg,Msg]);
@@ -3889,13 +3893,16 @@ fill_sendq_write(S, Master, Msg) ->
 	    fill_sendq_write(S, Master, Msg);
 	{error, _} = E ->
 	    Error = flush([E]),
-	    ?P("[server,writer] send error: ~p", [Error]),
+	    ?P("[server,writer] send error"
+               "~n      Errors:      ~p"
+               "~n   when"
+               "~n      Socket info: ~p", [Error, inet:info(S)]),
 	    Master ! {self(), Error}
     end.
 
 fill_sendq_read(S, Master) ->
     %% Reader
-    %% The client never send anything, so we should never get anything,
+    %% The client never send anything, so we should never receive anything,
     %% but just in case...
     ?P("[server,reader] read infinity..."),
     case gen_tcp:recv(S, 0, infinity) of
@@ -3904,7 +3911,10 @@ fill_sendq_read(S, Master) ->
 	    fill_sendq_read(S, Master);
 	E ->
 	    Error = flush([E]),
-	    ?P("[server,reader] recv error: ~p", [Error]),
+	    ?P("[server,reader] recv error"
+               "~n      Errors:      ~p"
+               "~n   when"
+               "~n      Socket info: ~p", [Error, inet:info(S)]),
 	    Master ! {self(), Error}
     end.
 
