@@ -178,8 +178,8 @@ use_connection(Socket) ->
     end.
 
 soft_start_connection(Config, ResulProxy) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
 			   {from, ResulProxy},
@@ -195,19 +195,19 @@ soft_start_connection(Config, ResulProxy) ->
     {Server, Client}.
 
 restart_start_connection(Config, ResulProxy) ->
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = start_server([{node, ServerNode}, {port, 0},
-					{from, ResulProxy},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ServerOpts}]),
+                           {from, ResulProxy},
+                           {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                           {options, ServerOpts}]),
     Port = inet_port(ResulProxy, Server),
     Client = start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-					{from, ResulProxy},
-					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, ClientOpts}]),
+                           {host, Hostname},
+                           {from, ResulProxy},
+                           {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                           {options, ClientOpts}]),
     {Server, Client}.
 
 is_soft([{restart_application, ssl}]) ->	       
