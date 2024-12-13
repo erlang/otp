@@ -1061,10 +1061,10 @@ do_download_gdb_tools ()
 set_common_vars() {
     GDB_TOOLS_INSTALL_PATH="$ERL_TOP/erts/etc/unix/gdb-tools"
     GDB_TOOLS_VSN_PATH="$ERL_TOP/make"
-    GDB_REPO=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_link")
+    GDB_REPO=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_link" | tail -n1)
 
     # Version of gdb-tools to download
-    GDB_TOOLS_VSN=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_vsn")
+    GDB_TOOLS_VSN=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_vsn" | tail -n1)
 
     # SHASUM_FORMAT has values: sha256sum, sha1sum, shasum
     SHASUM_FORMAT=
@@ -1119,7 +1119,11 @@ do_update_gdb_tools ()
             cd "$GDB_TOOLS_INSTALL_PATH" && \
                 git fetch $GDB_REPO && \
                 GDB_TOOLS_VSN=$(git log gdb_tools/master --oneline --no-abbrev-commit -n1 | cut -d" " -f1) && \
-                echo "$GDB_TOOLS_VSN" > "$ERL_TOP/make/gdb_tools_vsn"
+                cat <<EOF > "$ERL_TOP/make/gdb_tools_vsn"
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2024 Ericsson and the Erlang/OTP contributors
+$GDB_TOOLS_VSN
+EOF
         else
             echo "Please, download gdb_tools invoking the command: \`otp_build download_gdb_tools\`"
             exit 1
@@ -1143,14 +1147,6 @@ do_update_gdb_tools ()
         git commit -m  "Updated gdb_tools version to $GDB_TOOLS_VSN" > /dev/null
     fi
     echo "Run \`otp_build download_gdb_tools\` to complete the installation of the update"
-}
-
-# $1: jit-reader.c, jit-reader.h, etc
-# $2: DGB_TOOLS_VSN, e.g., maint-28, foo, etc it is guaranteed to be an existing branch
-#     that lives in "$ERL_TOP/make/$1.$SHASUM_FORMAT"
-create_shasum_file() {
-    cat "$GDB_TOOLS_INSTALL_PATH/$1.$SHASUM_FORMAT" > "$GDB_TOOLS_VSN_PATH/$1.$SHASUM_FORMAT"
-    echo "$GDB_TOOLS_VSN" > "$ERL_TOP/make/gdb_tools_vsn"
 }
 
 choose_available_shasum ()
