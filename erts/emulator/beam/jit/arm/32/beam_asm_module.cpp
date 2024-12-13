@@ -158,6 +158,12 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
+
+    /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
+     * label is always encoded as a word, even though the signature ought to
+     * be `op_i_func_info_LaaI`. */
+    functions.push_back(Label.get());
+
     // TODO
 }
 
