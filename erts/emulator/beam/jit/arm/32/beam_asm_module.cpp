@@ -158,42 +158,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Module,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
-    ErtsCodeInfo info = {};
-
-    /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
-     * label is always encoded as a word, even though the signature ought to
-     * be `op_i_func_info_LaaI`. */
-    functions.push_back(Label.get());
-
-    info.mfa.module = Module.get();
-    info.mfa.function = Function.get();
-    info.mfa.arity = Arity.get();
-
-    comment("%T:%T/%d", info.mfa.module, info.mfa.function, info.mfa.arity);
-
-    /* This is an ErtsCodeInfo structure that has a valid ARM opcode as its `op`
-     * field, which *calls* the `raise_function_clause` fragment so we can trace
-     * it back to this particular function.
-     *
-     * We also use this field to store the current breakpoint flag, as ARM is a
-     * bit more strict about modifying code than x86: only branch instructions
-     * can be safely modified without issuing an ISB. By storing the flag here
-     * and reading it in the fragment, we don't have to change any code other
-     * than the branch instruction. */
-    if (code_header.isValid()) {
-        /* We avoid using the `fragment_call` helper to ensure a constant
-         * layout, as it adds code in certain debug configurations. */
-        a.bl(resolve_fragment(ga->get_i_func_info_shared(), disp128MB));
-    } else {
-        a.udf(0xF1F0);
-    }
-
-    ERTS_CT_ASSERT(ERTS_ASM_BP_FLAG_NONE == 0);
-    a.embedUInt32(0);
-
-    ASSERT(a.offset() % sizeof(UWord) == 0);
-    a.embed(&info.gen_bp, sizeof(info.gen_bp));
-    a.embed(&info.mfa, sizeof(info.mfa));
+    // TODO
 }
 
 void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
