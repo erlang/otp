@@ -525,7 +525,7 @@ jobs:
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/$DIR/make_test_dir/${{ matrix.type }}_junit.xml\"}]" \
             -v "$PWD/make_test_dir:/buildroot/otp/$DIR/make_test_dir" \
             -v "$PWD/scripts:/buildroot/otp/scripts" \
-            otp "make TYPE=${TYPE} && make ${APP}_test TYPE=${TYPE}"
+            otp "./otp_build download_gdb_tools && make emulator && make TYPE=${TYPE} && make ${APP}_test TYPE=${TYPE}"
           ## Rename os_mon to debug for debug build
           if [ "$APP" != "${{ matrix.type }}" ]; then
             mv make_test_dir/${APP}_test "make_test_dir/${{ matrix.type }}_test"

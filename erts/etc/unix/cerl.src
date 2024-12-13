@@ -54,6 +54,30 @@
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
 # FIXME For GDB you can also point out your own .gdbini......
 
+install_gdb_tools ()
+{
+    if [ -z "$(find $ERL_TOP -name jit-reader.c)" ]
+    then
+        printf "%s" "Do you want to install gdb-tools? (Y/n) "
+        read -r confirm
+        case "$confirm" in
+            "Y"|"y"|"")
+                "$ERL_TOP"/otp_build download_gdb_tools
+                build_gdb_tools
+                ;;
+        esac
+    else
+        ## Check that correct version is present
+        "$ERL_TOP"/otp_build download_gdb_tools
+        build_gdb_tools
+    fi
+}
+
+build_gdb_tools ()
+{
+    (cd "$ERL_TOP"/erts/etc/common && make)
+}
+
 # These are marked for export
 export ROOTDIR
 export PROGNAME
@@ -435,6 +459,9 @@ if [ "x$GDB" = "x" ]; then
 	exec $EXEC $xargs ${1+"$@"}
     fi
 elif [ "x$GDB" = "xgdb" ]; then
+
+    install_gdb_tools
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
@@ -474,7 +501,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
     fi
-    
+
+    install_gdb_utils
+
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
@@ -513,6 +542,9 @@ elif [ "x$GDB" = "xegdb" ]; then
     EVAL="(progn (gdb \"gdb $GDBARGS -x $cmdfile\"))"
     exec $EMACS --eval "$EVAL"
 elif [ "x$GDB" = "xdump" ]; then
+
+    install_gdb_tools
+
     cmdfile="/tmp/.cerlgdb.$$"
     ## Examine the result of "file $core" in case it is not the emulator
     ## that created the dump

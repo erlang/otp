@@ -73,6 +73,10 @@ usage ()
     echo "    download_ex_doc             - download the correct ExDoc version from github"
     echo "    update_ex_doc [--no-commit] - update and maybe commit new ex_doc version"
     echo ""
+    echo "Special targets for setting up gdb tooling:"
+    echo "    download_gdb_tools             - download the correct gdb tooling version from github"
+    echo "    update_gdb_tools [--no-commit] - update and maybe commit new gdb tooling version"
+    echo ""
     echo "Special targets for Windows(tm) build:"
     echo "    debuginfo_win32 <dir> - adds debug emulator and pdb files to <dir>"
     echo "    installer_win32 <dir> - creates a windows installer from <dir>" 
@@ -1035,30 +1039,180 @@ do_check ()
 
 do_download_ex_doc ()
 {
+    SHASUM_FORMAT=
+
     ## Download ex_doc and place in $ERL_TOP/bin folder
     curl -s -L "$(cat "$ERL_TOP/make/ex_doc_link")" > "$ERL_TOP/bin/ex_doc"
     chmod +x "$ERL_TOP/bin/ex_doc"
-    if command -v sha256sum > /dev/null; then
-        if ! (cd "$ERL_TOP/make" && sha256sum --status -c "ex_doc.sha256sum"); then
-            echo "The sha256sum check of $ERL_TOP/bin/ex_doc failed!" >&2
-            exit 1
-        fi
-    elif command -v sha1sum > /dev/null; then
-        if ! (cd "$ERL_TOP/make" && sha1sum --status -c "ex_doc.sha1sum"); then
-            echo "The sha1sum check of $ERL_TOP/bin/ex_doc failed!" >&2
-            exit 1
-        fi
-    elif command -v shasum > /dev/null; then
-        if ! (cd "$ERL_TOP/make" && shasum -a 1 --status -c "ex_doc.sha1sum"); then
-            echo "The shasum check of $ERL_TOP/bin/ex_doc failed!" >&2
+
+    choose_available_shasum     # sets the SHASUM_FORMAT
+    check_shasum "ex_doc" "$ERL_TOP/bin" "$ERL_TOP/make"
+
+    echo "Downloaded ex_doc to $ERL_TOP/bin/ex_doc"
+}
+
+do_download_gdb_tools ()
+{
+    set_common_vars
+
+    if [ ! -d "$GDB_TOOLS_INSTALL_PATH" ]
+    then
+        clone_gdb_tools
+    fi
+
+    cwd=$(pwd);
+
+    cd "$GDB_TOOLS_INSTALL_PATH" || exit 1
+
+    CURRENT_GDB_VERSION=$(git log HEAD --oneline --no-abbrev-commit -n1 | cut -d" " -f1)
+
+    if [ "$CURRENT_GDB_VERSION" != "$GDB_TOOLS_VSN" ]; then
+        echo "Setting up gdb_tools"
+        git fetch gdb_tools > /dev/null || exit 1
+        git checkout "$GDB_TOOLS_VSN" > /dev/null || exit 1
+    else
+        exit 0
+    fi
+
+    cd "$cwd" || exit 1
+    
+    echo "Downloaded gdb-tools for Erlang/OTP $OTP_VERSION"
+
+    exit 0
+}
+
+set_common_vars() {
+    GDB_TOOLS_INSTALL_PATH="$ERL_TOP/erts/etc/unix/gdb-tools"
+    GDB_TOOLS_VSN_PATH="$ERL_TOP/make"
+    GDB_REPO=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_link" | grep -v "^//")
+
+    # Version of gdb-tools to download
+    GDB_TOOLS_VSN=$(cat "$GDB_TOOLS_VSN_PATH/gdb_tools_vsn" | grep -v "^//")
+
+    # SHASUM_FORMAT has values: sha256sum, sha1sum, shasum
+    SHASUM_FORMAT=
+
+    OTP_VERSION=
+    set_otp_version
+}
+
+clone_gdb_tools ()
+{
+    echo "Downloading gdb-tools for Erlang/OTP $OTP_VERSION"
+    echo "git clone --origin gdb_tools $GDB_REPO $GDB_TOOLS_INSTALL_PATH"
+    (git clone --origin gdb_tools "$GDB_REPO" "$GDB_TOOLS_INSTALL_PATH" > /dev/null 2>&1)  || {
+        echo "Downloading gdb_tools failed. Please check your source tree, and report this error."
+        exit 1
+        }
+}
+
+clean_file ()
+{
+    rm -rf "$1"
+}
+
+set_otp_version ()
+{
+    OTP_VERSION=$(cat $ERL_TOP/OTP_VERSION | cut -d. -f1)
+    if [ $OTP_VERSION -le 24 ]
+    then
+        echo "OTP version $OTP_VERSION is too old. Please update to a newer OTP version"
+        exit 1
+    fi
+}
+
+do_update_gdb_tools ()
+{
+    get_do_commit $1
+    set_common_vars
+
+    if [ $do_commit = true ] && test -n "$(git status --porcelain --untracked-files=no)"
+    then
+        echo "'otp_build update_gdb_tools' will create a commit."
+        echo "Git's working directory is not clean."
+        echo "Please stash or commit the working directory before proceeding."
+        exit 1
+    fi
+
+
+    if grep "rc" "$ERL_TOP/OTP_VERSION" > /dev/null
+    then
+        if [ -d "$GDB_TOOLS_INSTALL_PATH" ]
+        then
+            cd "$GDB_TOOLS_INSTALL_PATH" && \
+                git fetch $GDB_REPO && \
+                GDB_TOOLS_VSN=$(git log gdb_tools/master --oneline --no-abbrev-commit -n1 | cut -d" " -f1) && \
+                cat <<EOF > "$ERL_TOP/make/gdb_tools_vsn"
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2024 Ericsson and the Erlang/OTP contributors
+$GDB_TOOLS_VSN
+EOF
+        else
+            echo "Please, download gdb_tools invoking the command: \`otp_build download_gdb_tools\`"
             exit 1
         fi
     else
-        echo "Neither sha1sum nor sha256sum nor shasum found to verify $ERL_TOP/bin/ex_doc" >&2
-        echo "Please check manually that the correct ex_doc was downloaded." >&2
+        echo "Please look in repo: $GDB_REPO the commit sha you are interested."
+        echo "Copy that commit into $ERL_TOP/make/gdb_tools_vsn and run \`otp_build download_gdb_tools\`"
         exit 1
     fi
-    echo "Downloaded ex_doc to $ERL_TOP/bin/ex_doc"
+
+    out_files=  # why is this needed. it was needed for elixir
+
+    echo "Successfully updated gdb_tools"
+    if [ $do_commit != true ]; then
+        echo "Updated: make/gdb_tools_vsn make/jit-reader.c.sha256sum"
+    else
+        set_common_vars
+        git add "$ERL_TOP/make/gdb_tools_vsn" \
+                "$GDB_TOOLS_VSN_PATH/jit-reader.c.sha256sum" \
+                "$GDB_TOOLS_VSN_PATH/jit-reader.h.sha256sum" > /dev/null
+        git commit -m  "Updated gdb_tools version to $GDB_TOOLS_VSN" > /dev/null
+    fi
+    echo "Run \`otp_build download_gdb_tools\` to complete the installation of the update"
+}
+
+choose_available_shasum ()
+{
+    if command -v sha256sum > /dev/null; then
+        SHASUM_FORMAT="sha256sum"
+    elif command -v sha1sum > /dev/null; then
+        SHASUM_FORMAT="sha1sum"
+    elif command -v shasum > /dev/null; then
+        # shasum produces the same sha as sha1sum.
+        SHASUM_FORMAT="sha1sum"
+    else
+        echo "Neither sha1sum nor sha256sum nor shasum found" >&2
+        exit 1
+    fi
+}
+
+# $1: expected file,
+#     e.g., `jit-reader.c`, `ex_doc`
+# $2: path to expeted file,
+#     e.g., `$ERL_TOP/bin`, which is where `ex_doc` is found.
+#     makes easy to find errors in the path.
+# $3: path where shasum lives
+#     e.g., `$ERL_TOP/make` in case of sha256sum and sha1sum files.
+check_shasum()
+{
+    case $SHASUM_FORMAT in
+        "sha256sum" )
+            if ! (cd "$3" && sha256sum --status -c "$1.$SHASUM_FORMAT"); then
+                echo "The sha256sum check of $2/$1 failed!" >&2
+                exit 1
+            fi;;
+        "sha1sum" )
+            if ! (cd "$3" && sha1sum --status -c "$1.$SHASUM_FORMAT"); then
+                echo "The sha1sum check of $2/$1 failed!" >&2
+                exit 1
+            fi;;
+        "shasum" )
+            if ! (cd "$3" && shasum -a 1 --status -c "$1.$SHASUM_FORMAT"); then
+                echo "The shasum check of $2/$1 failed!" >&2
+                exit 1
+            fi
+    esac
 }
 
 ## Update make/ex_doc_link, make/ex_doc.sha256sum and make/ex_doc.sha1sum
@@ -1357,10 +1511,14 @@ case "$1" in
 		do_save_bootstrap;;
         copy_primary_bootstrap)
 	        do_copy_primary_bootstrap $2 $3;;
+        download_gdb_tools)
+            do_download_gdb_tools;;
+        update_gdb_tools)
+            do_update_gdb_tools $2;;
         download_ex_doc)
                 do_download_ex_doc;;
         update_ex_doc)
-                do_update_ex_doc;;
+                do_update_ex_doc $2;;
 	installer_win32)
 		if [ $minus_x_flag = true ]; then
 		    shift
