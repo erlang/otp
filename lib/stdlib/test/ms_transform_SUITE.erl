@@ -778,12 +778,12 @@ float_1_function(Config) when is_list(Config) ->
     MS1 = compile_and_run
                   (<<"ets:fun2ms(fun(X) -> float(X) end)">>),
     [F1] = RunMS([3], MS1),
-    true = is_float(F1) and (F1 == 3),
+    true = is_float(F1) andalso F1 == 3,
                   
     MS1b = compile_and_run
                   (<<"dbg:fun2ms(fun(X) -> float(X) end)">>),
     [F2] = RunMS([3], MS1b),
-    true = is_float(F2) and (F2 == 3),
+    true = is_float(F2) andalso F2 == 3,
                   
     MS2 = compile_and_run
             (<<"ets:fun2ms(fun(X) when is_pid(X) or float(X) -> true end)">>),

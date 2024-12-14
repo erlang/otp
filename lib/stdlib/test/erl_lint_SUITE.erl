@@ -616,7 +616,7 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                   E;
               a([A,B,C,D,E]) -> % E unused.
                   fun() ->
-                          (C == <<A:A>>) andalso (<<17:B>> == D)
+                          C == <<A:A>> andalso <<17:B>> == D
                   end.
            ">>,
            [warn_unused_vars],
@@ -1925,8 +1925,8 @@ guard(Config) when is_list(Config) ->
            {guard7,
             <<"-record(apa,{}).
                t() ->
-               [X || X <- [1,#apa{},3], (3+is_record(X, apa)) orelse 
-                                        (is_record(X, apa)*2)].
+               [X || X <- [1,#apa{},3], 3+is_record(X, apa) orelse
+                                        is_record(X, apa)*2].
             ">>,
             [],
             []},
