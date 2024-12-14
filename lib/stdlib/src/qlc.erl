@@ -2182,7 +2182,7 @@ join_merge_info(QNum, QInfo, Code, G, ExtraConstants) ->
                        A = anno0(),
                        Call = {call,A,{atom,A,element},[{integer,A,Col},EPV]},
                        F = list2op([{op,A,Op,abstract_term(Con),Call}
-                                      || {Con,Op} <- ConstOps], 'or', A),
+                                      || {Con,Op} <- ConstOps], 'orelse', A),
                        term_to_binary(F)
                    end ||
                       {Col,ConstOps} <- ExtraConstants],
