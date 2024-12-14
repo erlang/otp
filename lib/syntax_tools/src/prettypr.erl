@@ -783,7 +783,7 @@ rewrite(#text{s = S}, C) ->
 		    end;
 		#c_best_nest_or{w = W, r = R, i = N, d = D} ->
 		    L = width(S),
-		    case ((L + N) > W) or (L > R) of
+		    case (L + N) > W orelse L > R of
 			true ->
 			    %% The first line of the LHS layout is
 			    %% not nice, so select the RHS.
@@ -853,7 +853,7 @@ rewrite(#text{s = S}, C) ->
 		    end;
 		#c_best_nest_or{w = W, r = R, i = N, d = D} ->
 		    L = width(S),
-		    case ((L + N) > W) or (L > R) of
+		    case (L + N) > W orelse L > R of
 			true ->
 			    %% The first line of the LHS layout is
 			    %% not nice, so select the RHS.
@@ -905,7 +905,7 @@ rewrite(#text{s = S}, C) ->
 	    end;
 	#c_best_nest_or{w = W, r = R, i = N, d = D} ->
 	    L = width(S),
-	    case ((L + N) > W) or (L > R) of
+	    case (L + N) > W orelse L > R of
 		true ->
 		    %% The first line of the LHS layout is not
 		    %% nice, so select the RHS (which contains

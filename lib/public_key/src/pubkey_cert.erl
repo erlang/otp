@@ -183,7 +183,7 @@ parse_and_check_validity_dates(OtpCert) ->
         
         % Expiration check
         if
-            ((NotBefore =< Now) and (Now =< NotAfter)) -> ok;
+            NotBefore =< Now, Now =< NotAfter -> ok;
             true -> expired
         end
 
