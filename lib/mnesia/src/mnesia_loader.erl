@@ -432,7 +432,7 @@ create_table(Tab, TabSize, Storage, Cs) ->
 		    mnesia_lib:unlock_table(Tab),
 		    {error, {mktab, Reason}}
 	    end;
-	(Storage == ram_copies) or (Storage == disc_copies) ->
+	Storage == ram_copies ; Storage == disc_copies ->
 	    EtsOpts = proplists:get_value(ets, StorageProps, []),
 	    Args = [{keypos, 2}, public, named_table, Cs#cstruct.type | EtsOpts],
 	    case mnesia_monitor:unsafe_mktab(Tab, Args) of

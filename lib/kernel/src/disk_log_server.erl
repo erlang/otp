@@ -88,8 +88,8 @@ handle_info({pending_reply, Pid, Result0}, State) ->
         lists:keysearch(Pid, #pending.pid, State#state.pending),
     NP = lists:keydelete(Pid, #pending.pid, State#state.pending),
     State1 = State#state{pending = NP},
-    if 
-        Attach and (Result0 =:= {error, no_such_log}) ->
+    if
+        Attach, Result0 =:= {error, no_such_log} ->
             %% The disk_log process has terminated. Try again.
             open([{Request,From} | Clients], State1);
         true -> 
