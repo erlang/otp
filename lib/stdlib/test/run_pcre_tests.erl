@@ -446,7 +446,7 @@ contains_lang_sens(<<_,R/binary>>) ->
 
 interpret_options_x(Options,RE) ->
     {O,R,E} = interpret_options(<<Options/binary, $,>>),
-    case (contains_lang_sens(RE) or lists:member(caseless,O)) of
+    case (contains_lang_sens(RE) orelse lists:member(caseless,O)) of
 	false ->
 	    {[{exec_option,accept_nonascii}|O],R,E};
 	true ->
@@ -976,7 +976,7 @@ escape2(Any,_) ->
     Any.
 
 
-trx(N) when ((N >= $0) and (N =< $9)) ->
+trx(N) when N >= $0, N =< $9 ->
     N - $0;
 trx($A) -> 10;
 trx($B) -> 11;
