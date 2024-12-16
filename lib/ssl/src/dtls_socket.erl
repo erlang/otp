@@ -80,19 +80,19 @@ accept({Listener,_}, #config{}, _Timeout) ->
 	    {error, Reason}
     end.
 
-connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo,
-                               connection_cb = ConnectionCb,
+connect(Host, Port, #config{transport_info = CbInfo,
                                ssl = SslOpts,
                                emulated = EmOpts,
                                inet_ssl = SocketOpts,
                                tab = _Tab
                               }, Timeout) ->
+    Transport = element(1, CbInfo),
     case Transport:open(0, SocketOpts ++ internal_inet_values()) of
 	{ok, Socket} ->
-	    ssl_gen_statem:connect(ConnectionCb, Address, Port, {{Address, Port},Socket},
-				   {SslOpts, 
-				    emulated_socket_options(EmOpts, #socket_options{}), undefined},
-				   self(), CbInfo, Timeout);
+	    dtls_gen_connection:start_fsm(client, Host, Port, {{Host, Port}, Socket},
+                                          {SslOpts,
+                                           emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                          self(), CbInfo, Timeout);
 	{error, _} = Error->	
 	    Error
     end.

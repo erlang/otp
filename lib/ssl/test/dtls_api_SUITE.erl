@@ -452,8 +452,8 @@ client_restarts(Config) ->
 
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
-                {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
-                                                         SslOpts, self(), CbInfo, infinity),
+                {ok, NewSocket} = dtls_gen_connection:start_fsm(client, Address, CPort, IntSocket,
+                                                                SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
         end,
 
@@ -535,8 +535,8 @@ client_restarts_multiple_acceptors(Config) ->
                 SslOpts = {SslOpts0, #socket_options{}, undefined},
                 ct:sleep(250),
                 ?CT_LOG("Client second connect: ~p ~p~n", [Socket, CbInfo]),
-                {ok, NewSocket} = ssl_gen_statem:connect(ConnectionCb, Address, CPort, IntSocket,
-                                                         SslOpts, self(), CbInfo, infinity),
+                {ok, NewSocket} = dtls_gen_connection:start_fsm(client, Address, CPort, IntSocket,
+                                                                SslOpts, self(), CbInfo, infinity),
                 {replace, NewSocket}
         end,
  
