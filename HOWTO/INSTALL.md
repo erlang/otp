@@ -598,7 +598,7 @@ On Linux, a static library is built as follows:
     $ make && sudo make install
     $ export PATH=/usr/local/bin:$PATH
 
-On macOs, a static library compatible with macOS 13 (Ventura) and later is built
+On macOS, a static library compatible with macOS 13 (Ventura) and later is built
 as follows:
 
     $ ./configure --prefix=/usr/local --with-macosx-version-min=13.0 --disable-shared
