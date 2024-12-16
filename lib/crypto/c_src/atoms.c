@@ -94,18 +94,23 @@ ERL_NIF_TERM atom_rsa;
 ERL_NIF_TERM atom_dss;
 ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
 ERL_NIF_TERM atom_x25519;
-ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED25519
 ERL_NIF_TERM atom_ed25519;
+#endif
+
+#ifdef HAVE_X448
+ERL_NIF_TERM atom_x448;
+#endif
+
+#ifdef HAVE_ED448
 ERL_NIF_TERM atom_ed448;
 #endif
 
 ERL_NIF_TERM atom_eddsa;
-#ifdef HAVE_EDDSA
-ERL_NIF_TERM atom_ed25519;
-ERL_NIF_TERM atom_ed448;
-#endif
 
 ERL_NIF_TERM atom_rsa_mgf1_md;
 ERL_NIF_TERM atom_rsa_oaep_label;
@@ -221,17 +226,20 @@ int init_atoms(ErlNifEnv *env) {
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
 
-#ifdef HAVE_EDDH
+#ifdef HAVE_X25519
     atom_x25519 = enif_make_atom(env,"x25519");
-    atom_x448 = enif_make_atom(env,"x448");
+#endif
+#ifdef HAVE_ED25519
     atom_ed25519 = enif_make_atom(env,"ed25519");
+#endif
+#ifdef HAVE_X448
+    atom_x448= enif_make_atom(env,"x448");
+#endif
+#ifdef HAVE_ED448
     atom_ed448 = enif_make_atom(env,"ed448");
 #endif
+
     atom_eddsa = enif_make_atom(env,"eddsa");
-#ifdef HAVE_EDDSA
-    atom_ed25519 = enif_make_atom(env,"ed25519");
-    atom_ed448 = enif_make_atom(env,"ed448");
-#endif
     atom_rsa_mgf1_md = enif_make_atom(env,"rsa_mgf1_md");
     atom_rsa_oaep_label = enif_make_atom(env,"rsa_oaep_label");
     atom_rsa_oaep_md = enif_make_atom(env,"rsa_oaep_md");
