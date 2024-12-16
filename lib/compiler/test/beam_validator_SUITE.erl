@@ -44,7 +44,7 @@
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
          inert_update_type/1,range_inference/1,
-         bif_inference/1]).
+         bif_inference/1,too_many_arguments/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -82,7 +82,7 @@ groups() ->
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
        inert_update_type,range_inference,
-       bif_inference]}].
+       bif_inference,too_many_arguments]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -342,7 +342,7 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},no_entry_label}] = Errors,
+     {{undef_label,x,1},invalid_function_header}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
@@ -1159,6 +1159,29 @@ bif_inference_is_function(A, A)  when A orelse ok; is_function(A) ->
     ok;
 bif_inference_is_function(_, _) ->
     error.
+
+%% GH-9113: We didn't reject funs, comprehensions, and the likes which exceeded
+%% the argument limit.
+too_many_arguments(_Config) ->
+    M = {too_many_arguments,
+         [{t,256},{t,0}],
+         [],
+         [{function,t,256,2,
+           [{label,1},
+            {func_info,{atom,too_many_arguments},{atom,t},256},
+            {label,2},
+            return]},
+          {function,t,0,4,
+           [{label,3},
+            %% Mismatching arity.
+            {func_info,{atom,too_many_arguments},{atom,t},5},
+            {label,4},
+            return]}],
+         5},
+    Errors = beam_val(M),
+    [{{too_many_arguments,t,256},too_many_arguments},
+     {{too_many_arguments,t,0},invalid_function_header}] = Errors,
+    ok.
 
 id(I) ->
     I.

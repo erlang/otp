@@ -82,6 +82,12 @@ format_error({{_M,F,A},{I,Off,Desc}}) ->
       "  Internal consistency check failed - please report this bug.~n"
       "  Instruction: ~p~n"
       "  Error:       ~p:~n", [F,A,Off,I,Desc]);
+format_error({{_M,F,A},too_many_arguments}) ->
+    %% The linter rejects user-provided functions that violate this, leaving
+    %% only generated functions like funs or comprehensions. This is not
+    %% super-helpful but it's better than nothing.
+    io_lib:format("System limit reached: generated function ~p/~p has too "
+                  "many arguments.", [F, A]);
 format_error(Error) ->
     io_lib:format("~p~n", [Error]).
 
@@ -279,17 +285,13 @@ validate_1(Is, MFA0, Entry, Level, Ft) ->
 
     validate_branches(MFA, Vst).
 
-extract_header([{func_info, {atom,Mod}, {atom,Name}, Arity}=I | Is],
-               MFA0, Entry, Offset, Acc) ->
-    {_, Name, Arity} = MFA0,                    %Assertion.
-    MFA = {Mod, Name, Arity},
-
-    case Is of
-        [{label, Entry} | _] ->
-            Header = reverse(Acc, [I]),
-            {Offset + 1, MFA, Header, Is};
-        _ ->
-            error({MFA, no_entry_label})
+extract_header([{func_info, {atom, Mod}, {atom,Name}, Arity}=I |
+                [{label, Entry} | _]=Is],
+               {_, Name, Arity}, Entry, Offset, Acc) ->
+    MFA = {Mod, Name, Arity} ,
+    case Arity =< ?MAX_FUNC_ARGS of
+        true -> {Offset + 1, MFA, reverse(Acc, [I]), Is};
+        false -> error({MFA, too_many_arguments})
     end;
 extract_header([{label,_}=I | Is], MFA, Entry, Offset, Acc) ->
     extract_header(Is, MFA, Entry, Offset + 1, [I | Acc]);
