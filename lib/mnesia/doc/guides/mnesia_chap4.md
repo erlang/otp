@@ -637,13 +637,13 @@ To check if your code is executed within a transaction, use the function
 `mnesia:is_transaction/0`. It returns `true` when called inside a transaction
 context, otherwise `false`.
 
-`Mnesia` tables with storage type `RAM_copies` and `disc_copies` are implemented
+`Mnesia` tables with storage type `ram_copies` and `disc_copies` are implemented
 internally as `ets` tables. Applications can access the these tables directly.
 This is only recommended if all options have been weighed and the possible
 outcomes are understood. By passing the earlier mentioned "fun" to the function
 [`mnesia:ets(Fun [, Args])`](`mnesia:ets/1`), it is performed but in a raw
 context. The operations are performed directly on the local `ets` tables,
-assuming that the local storage type is `RAM_copies` and that the table is not
+assuming that the local storage type is `ram_copies` and that the table is not
 replicated on other nodes.
 
 Subscriptions are not triggered and no checkpoints are updated, but this

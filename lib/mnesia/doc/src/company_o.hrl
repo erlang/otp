@@ -19,15 +19,14 @@
 
 %0
 -record(employee, {emp_no,
-		   name,
-		   salary,
-		   sex,
-		   phone,
-		   room_no,
-		   dept,
-		   projects,
-		   manager}).
-		   
+                   name,
+                   salary,
+                   sex,
+                   phone,
+                   room_no,
+                   dept,
+                   projects,
+                   manager}).
 
 -record(dept, {id, 
                name}).

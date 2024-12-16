@@ -178,7 +178,7 @@ The following code illustrates how a `Mnesia` table is converted to be a
 fragmented table and how more fragments are added later:
 
 ```erlang
-Eshell V4.7.3.3  (abort with ^G)
+Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
 (a@sam)1> mnesia:start().
 ok
 (a@sam)2> mnesia:system_info(running_db_nodes).
@@ -196,9 +196,9 @@ ok
 (a@sam)8> mnesia:table_info(Tab, frag_properties).
 [{base_table,dictionary},
  {foreign_key,undefined},
- {n_doubles,0},
+ {hash_module,mnesia_frag_hash},
+ {hash_state,{hash_state,1,1,0,phash2}},
  {n_fragments,1},
- {next_n_to_split,1},
  {node_pool,[a@sam,b@sam,c@sam]}]
 (a@sam)9> Info = fun(Item) -> mnesia:table_info(Tab, Item) end.
 #Fun<erl_eval>
@@ -219,10 +219,10 @@ ok
 (a@sam)17> mnesia:activity(transaction, Read, [12], mnesia_frag).
 [{dictionary,12,-12}]
 (a@sam)18> mnesia:activity(sync_dirty, Info, [frag_size], mnesia_frag).
-[{dictionary,64},
- {dictionary_frag2,64},
- {dictionary_frag3,64},
- {dictionary_frag4,64}]
+[{dictionary,57},
+ {dictionary_frag2,63},
+ {dictionary_frag3,62},
+ {dictionary_frag4,74}]
 (a@sam)19>
 ```
 
@@ -285,20 +285,20 @@ table as fragmented. The fragmentation properties are as follows:
   Default is `undefined`.
 
   ```erlang
-  Eshell V4.7.3.3  (abort with ^G)
+  Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
   (a@sam)1> mnesia:start().
   ok
   (a@sam)2> PrimProps = [{n_fragments, 7}, {node_pool, [node()]}].
   [{n_fragments,7},{node_pool,[a@sam]}]
   (a@sam)3> mnesia:create_table(prim_dict,
                                 [{frag_properties, PrimProps},
-                                 {attributes,[prim_key,prim_val]}]).
+                                 {attributes, [prim_key, prim_val]}]).
   {atomic,ok}
   (a@sam)4> SecProps = [{foreign_key, {prim_dict, sec_val}}].
   [{foreign_key,{prim_dict,sec_val}}]
   (a@sam)5> mnesia:create_table(sec_dict,
                                 [{frag_properties, SecProps},
-  (a@sam)5>                      {attributes, [sec_key, sec_val]}]).
+                                 {attributes, [sec_key, sec_val]}]).
   {atomic,ok}
   (a@sam)6> Write = fun(Rec) -> mnesia:write(Rec) end.
   #Fun<erl_eval>
@@ -326,8 +326,8 @@ table as fragmented. The fragmentation properties are as follows:
                              [prim_dict, frag_size], mnesia_frag).
   [{prim_dict,0},
    {prim_dict_frag2,0},
-   {prim_dict_frag3,0},
-   {prim_dict_frag4,1},
+   {prim_dict_frag3,1},
+   {prim_dict_frag4,0},
    {prim_dict_frag5,0},
    {prim_dict_frag6,0},
    {prim_dict_frag7,0},
@@ -336,8 +336,8 @@ table as fragmented. The fragmentation properties are as follows:
                              [sec_dict, frag_size], mnesia_frag).
   [{sec_dict,0},
    {sec_dict_frag2,0},
-   {sec_dict_frag3,0},
-   {sec_dict_frag4,1},
+   {sec_dict_frag3,1},
+   {sec_dict_frag4,0},
    {sec_dict_frag5,0},
    {sec_dict_frag6,0},
    {sec_dict_frag7,0},
@@ -940,35 +940,36 @@ database:
 
 ```erlang
 % erl
-Erlang (BEAM) emulator version 4.9
+Erlang/OTP 27 [erts-15.1.2]
 
-Eshell V4.9  (abort with ^G)
-1> mnesia:load_textfile("FRUITS").
+Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
+1> mnesia:load_textfile("fruits.txt").
 New table fruit
 New table vegetable
 {atomic,ok}
 2> mnesia:info().
----> Processes holding locks <---
----> Processes waiting for locks <---
----> Pending (remote) transactions <---
----> Active (local) transactions <---
----> Uncertain transactions <---
----> Active tables <---
-vegetable      : with 2 records occuping 299 words of mem
-fruit          : with 2 records occuping 291 words of mem
-schema         : with 3 records occuping 401 words of mem
-===> System info in version "1.1", debug level = none <===
+---> Processes holding locks <--- 
+---> Processes waiting for locks <--- 
+---> Participant transactions <--- 
+---> Coordinator transactions <---
+---> Uncertain transactions <--- 
+---> Active tables <--- 
+vegetable      : with 2        records occupying 329      words of mem
+fruit          : with 2        records occupying 323      words of mem
+schema         : with 3        records occupying 658      words of mem
+===> System info in version "4.23.2", debug level = none <===
 opt_disc. Directory "/var/tmp/Mnesia.nonode@nohost" is used.
 use fallback at restart = false
-running db nodes = [nonode@nohost]
-stopped db nodes = []
-remote           = []
-ram_copies       = [fruit,vegetable]
-disc_copies      = [schema]
-disc_only_copies = []
+running db nodes   = [nonode@nohost]
+stopped db nodes   = []
+master node tables = []
+remote             = []
+ram_copies         = [fruit,vegetable]
+disc_copies        = [schema]
+disc_only_copies   = []
 [{nonode@nohost,disc_copies}] = [schema]
 [{nonode@nohost,ram_copies}] = [fruit,vegetable]
-3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
+5 transactions committed, 0 aborted, 0 restarted, 4 logged to disc
 0 held locks, 0 in queue; 0 local transactions, 0 remote
 0 transactions waits for other nodes: []
 ok
@@ -993,8 +994,8 @@ one project can easily be removed, as the following example illustrates:
 remove_proj(ProjName) ->
     F = fun() ->
                 Ip = qlc:e(qlc:q([X || X <- mnesia:table(in_proj),
-				       X#in_proj.proj_name == ProjName]
-				)),
+                                       X#in_proj.proj_name == ProjName]
+                                )),
                 mnesia:delete({project, ProjName}),
                 del_in_projs(Ip)
         end,
@@ -1029,14 +1030,14 @@ The following record definitions can be created:
 
 ```erlang
 -record(employee, {emp_no,
-		   name,
-		   salary,
-		   sex,
-		   phone,
-		   room_no,
-		   dept,
-		   projects,
-		   manager}).
+                   name,
+                   salary,
+                   sex,
+                   phone,
+                   room_no,
+                   dept,
+                   projects,
+                   manager}).
 
 
 -record(dept, {id,
@@ -1089,7 +1090,7 @@ get_emps(Salary, Dep) ->
           [E || E <- mnesia:table(employee),
                 E#employee.salary > Salary,
                 E#employee.dept == Dep]
-	 ),
+         ),
     F = fun() -> qlc:e(Q) end,
     transaction(F).
 ```

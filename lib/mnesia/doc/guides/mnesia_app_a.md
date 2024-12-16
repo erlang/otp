@@ -55,16 +55,16 @@ limitations under the License.
 -include_lib("kernel/include/file.hrl").
 
 -export([
-	 %% Write access
+         %% Write access
          open_write/1,
-	 write/2,
-	 commit_write/1,
-	 abort_write/1,
+         write/2,
+         commit_write/1,
+         abort_write/1,
 
-	 %% Read access
+         %% Read access
          open_read/1,
-	 read/1,
-	 close_read/1
+         read/1,
+         close_read/1
         ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -79,13 +79,13 @@ open_write(OpaqueData) ->
     Tmp = lists:concat([File,".BUPTMP"]),
     file:delete(Tmp),
     case disk_log:open([{name, make_ref()},
-			{file, Tmp},
-			{repair, false},
-			{linkto, self()}]) of
-	{ok, Fd} ->
-	    {ok, #backup{tmp_file = Tmp, file = File, file_desc = Fd}};
-	{error, Reason} ->
-	    {error, Reason}
+                        {file, Tmp},
+                        {repair, false},
+                        {linkto, self()}]) of
+        {ok, Fd} ->
+            {ok, #backup{tmp_file = Tmp, file = File, file_desc = Fd}};
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 %% Writes BackupItems to the backup media
@@ -111,14 +111,14 @@ commit_write(OpaqueData) ->
             case disk_log:close(B#backup.file_desc) of
                 ok ->
                     file:delete(B#backup.file),
-		    case file:rename(B#backup.tmp_file, B#backup.file) of
-		       ok ->
-			    {ok, B#backup.file};
-		       {error, Reason} ->
-			    {error, Reason}
-		    end;
+                    case file:rename(B#backup.tmp_file, B#backup.file) of
+                        ok ->
+                            {ok, B#backup.file};
+                        {error, Reason} ->
+                            {error, Reason}
+                    end;
                 {error, Reason} ->
-		    {error, Reason}
+                    {error, Reason}
             end;
         {error, Reason} ->
             {error, Reason}
@@ -148,23 +148,23 @@ abort_write(BackupRef) ->
 open_read(OpaqueData) ->
     File = OpaqueData,
     case file:read_file_info(File) of
-	{error, Reason} ->
-	    {error, Reason};
-	_FileInfo -> %% file exists
-	    case disk_log:open([{file, File},
-				{name, make_ref()},
-				{repair, false},
-				{mode, read_only},
-				{linkto, self()}]) of
-		{ok, Fd} ->
-		    {ok, #restore{file = File, file_desc = Fd, cont = start}};
-		{repaired, Fd, _, {badbytes, 0}} ->
-		    {ok, #restore{file = File, file_desc = Fd, cont = start}};
-		{repaired, Fd, _, _} ->
-		    {ok, #restore{file = File, file_desc = Fd, cont = start}};
-		{error, Reason} ->
-		    {error, Reason}
-	    end
+        {error, Reason} ->
+            {error, Reason};
+        _FileInfo -> %% file exists
+            case disk_log:open([{file, File},
+                                {name, make_ref()},
+                                {repair, false},
+                                {mode, read_only},
+                                {linkto, self()}]) of
+                {ok, Fd} ->
+                    {ok, #restore{file = File, file_desc = Fd, cont = start}};
+                {repaired, Fd, _, {badbytes, 0}} ->
+                    {ok, #restore{file = File, file_desc = Fd, cont = start}};
+                {repaired, Fd, _, _} ->
+                    {ok, #restore{file = File, file_desc = Fd, cont = start}};
+                {error, Reason} ->
+                    {error, Reason}
+            end
     end.
 
 %% Reads BackupItems from the backup media
