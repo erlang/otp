@@ -47,6 +47,8 @@
 -define(INFO(),                       ?DUTIL:info()).
 -define(SCRAMBLE(SS),                 ?DUTIL:scramble(SS)).
 
+-define(CHOOSE(L),                    ?DUTIL:choose(L)).
+
 -define(UNIQUE_STRING(),              ?DUTIL:unique_string()).
 
 -define(PCALL(F), 
