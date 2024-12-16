@@ -465,15 +465,16 @@ default values.
       | {options, client_options()}
       | {algorithms, conn_info_algs()}
       | {channels, conn_info_channels()}.
-        
+
 -doc(#{equiv => connection_info/2}).
 -doc(#{since => <<"OTP 22.1">>}).
--spec connection_info(ConnectionRef) -> InfoTupleList when
+-spec connection_info(ConnectionRef) ->
+          InfoTupleList | {error, term()} when
       ConnectionRef :: connection_ref(),
       InfoTupleList :: [InfoTuple],
       InfoTuple :: connection_info_tuple().
 
-connection_info(ConnectionRef) ->                                      
+connection_info(ConnectionRef) ->
     connection_info(ConnectionRef, []).
 
 -doc """
@@ -481,7 +482,8 @@ Returns information about a connection intended for e.g debugging or logging.
 
 When the `Key` is a single `Item`, the result is a single `InfoTuple`
 """.
--spec connection_info(ConnectionRef, ItemList|Item) ->  InfoTupleList|InfoTuple when
+-spec connection_info(ConnectionRef, ItemList|Item) ->
+          InfoTupleList | InfoTuple | {error, term()} when
       ConnectionRef :: connection_ref(),
       ItemList :: [Item],
       Item :: client_version | server_version | user | peer | sockname | options | algorithms | sockname,
