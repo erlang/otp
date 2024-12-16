@@ -148,6 +148,12 @@ typedef struct tms SysTimes;
 
 #define sys_times(Arg) times(Arg)
 
+#if !HAVE_DECL_DAYLIGHT
+extern int sys_daylight;
+#else
+#define sys_daylight daylight
+#endif
+
 #if SIZEOF_LONG == 8
 typedef long ErtsMonotonicTime;
 typedef long ErtsSysHrTime;

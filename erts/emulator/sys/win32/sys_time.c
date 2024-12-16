@@ -76,6 +76,7 @@
 
 static TIME_ZONE_INFORMATION static_tzi;
 static int have_static_tzi = 0;
+int sys_daylight = 0;
 
 static int days_in_month[2][13] = {
     {0,31,28,31,30,31,30,31,31,30,31,30,31},
@@ -406,10 +407,10 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     init_resp->os_system_time_info.resolution = 100;
     init_resp->os_system_time_info.locked_use = 0;
 
-    if(GetTimeZoneInformation(&static_tzi) && 
-       static_tzi.StandardDate.wMonth != 0 &&
-       static_tzi.DaylightDate.wMonth != 0) {
+    if(GetTimeZoneInformation(&static_tzi)) {
 	have_static_tzi = 1;
+        sys_daylight = static_tzi.StandardDate.wMonth != 0 &&
+                    static_tzi.DaylightDate.wMonth != 0;
     }
 }
 
