@@ -20,7 +20,7 @@ false_or() ->
   false or false.
 
 wips() ->
-  case new_execute_cmd(random:uniform(2)) of
+  case new_execute_cmd(rand:uniform(2)) of
     ok -> mostly_good;
     _ -> and_here_we_are
   end.
