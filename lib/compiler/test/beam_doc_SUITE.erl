@@ -7,7 +7,7 @@
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
          docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1,
-         no_doc_attributes/1]).
+         no_doc_attributes/1, converted_metadata/1, converted_metadata_warnings/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -53,7 +53,9 @@ documentation_generation_tests() ->
      docs_from_ast,
      user_defined_type,
      skip_doc,
-     no_doc_attributes
+     no_doc_attributes,
+     converted_metadata,
+     converted_metadata_warnings
     ].
 
 singleton_moduledoc(Conf) ->
@@ -130,7 +132,7 @@ docformat(Conf) ->
     Doc = #{<<"en">> => <<"Doc test module">>},
     {ok, {docs_v1, _,_, <<"text/asciidoc">>, ModuleDoc, Meta,
           [{{function, main,_},_, _, Doc, _}]}} = code:get_doc(ModName),
-    #{format := "text/asciidoc", deprecated := "Use something else", otp_doc_vsn := {1,0,0}, since := "1.0"} = Meta,
+    #{format := ~"text/asciidoc", deprecated := ~"Use something else", otp_doc_vsn := {1,0,0}, since := ~"1.0"} = Meta,
     ok.
 
 singleton_docformat(Conf) ->
@@ -244,7 +246,7 @@ types_and_opaques(Conf) ->
      #{equiv := <<"non_neg_integer()">>, exported := true}} = Unnamed,
     {{type, param,1},_,[<<"param(X)">>], GenericsDoc,
      #{equiv := <<"madeup()">>, exported := true}} = Param,
-    {{type, natural_number,0},_,[<<"natural_number()">>], none, #{since := "1.0", equiv := <<"non_neg_integer/0">>, exported := true}} = NatNumber,
+    {{type, natural_number,0},_,[<<"natural_number()">>], none, #{since := ~"1.0", equiv := <<"non_neg_integer/0">>, exported := true}} = NatNumber,
     {{type, name,1},_,[<<"name(_)">>], TypeDoc, #{exported := true}} = Name,
     {{type, hidden_included_type, 0}, _, _, hidden, #{exported := false }} = HiddenIncludedType,
 
@@ -636,6 +638,60 @@ docs_from_ast(_Conf) ->
                           _, #{ <<"en">> := <<"main">> }, _}]},
        DocsWSource),
     check_no_doc_attributes(BeamCodeWSource),
+    ok.
+
+%% Test that EEP-48 standardized metadata keys are converted from chardata to binary
+converted_metadata(Config) ->
+    ModuleName = ?get_name(),
+    {ok, ModName, []} = default_compile_file(Config, ModuleName, [return_warnings, report]),
+
+    {ok, {docs_v1, _ModuleAnno,_, _, _, DocMetadata,
+          [Test]}} = code:get_doc(ModName),
+    ?assertMatch(#{ format := ~"custom" }, DocMetadata),
+    ?assertMatch(#{ since := ~"1.0" }, DocMetadata),
+    ?assertMatch(#{ deprecated := ~"yes" }, DocMetadata),
+    ?assertMatch(#{ authors := [~"me",~"myself",~"I"] }, DocMetadata),
+    {{function,test,0}, _, [_], none,TestMetadata} = Test,
+    ?assertMatch(#{ since := ~"1.0" }, TestMetadata),
+    ?assertMatch(#{ deprecated := ~"yes" }, TestMetadata),
+    ?assertMatch(#{ equiv := ~"other" }, TestMetadata),
+    ?assertMatch(#{ group := ~"collection" }, TestMetadata),
+
+    ok.
+
+converted_metadata_warnings(Config) ->
+    ModuleName = ?get_name(),
+    {ok, ModName, Ws} = default_compile_file(Config, ModuleName, [return_warnings, report]),
+
+    {ok, {docs_v1, _ModuleAnno,_, _, _, DocMetadata,
+          [Test]}} = code:get_doc(ModName),
+    ?assertMatch(#{ format := custom }, DocMetadata),
+    ?assertMatch(#{ since := 1.0 }, DocMetadata),
+    ?assertMatch(#{ deprecated := yes }, DocMetadata),
+    ?assertMatch(#{ authors := [me,[myself],{'I'}] }, DocMetadata),
+
+    {{function,test,0}, _, [_], none,TestMetadata} = Test,
+    ?assertMatch(#{ since := 1.0 }, TestMetadata),
+    ?assertMatch(#{ deprecated := yes }, TestMetadata),
+    ?assertMatch(#{ equiv := other }, TestMetadata),
+    ?assertMatch(#{ group := collection }, TestMetadata),
+
+    [{_File,
+        [Authors, ModDocDeprecated, Format, ModDocSince,
+         DocDeprecated, Equiv, Group, DocSinse]}] = Ws,
+
+    ModDocAnno = {3,2},
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, authors}}, Authors),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, deprecated}}, ModDocDeprecated),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, format}}, Format),
+    ?assertMatch({ModDocAnno, beam_doc, {invalid_metadata, since}}, ModDocSince),
+
+    DocAnno = {9,2},
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, deprecated}}, DocDeprecated),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, equiv}}, Equiv),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, group}}, Group),
+    ?assertMatch({DocAnno, beam_doc, {invalid_metadata, since}}, DocSinse),
+
     ok.
 
 scan_and_parse(Code) ->

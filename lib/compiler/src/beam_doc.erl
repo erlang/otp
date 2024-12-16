@@ -37,7 +37,7 @@
 -include_lib("kernel/include/eep48.hrl").
 
 -define(DEFAULT_MODULE_DOC_LOC, 1).
--define(DEFAULT_FORMAT, <<"text/markdown">>).
+-define(DEFAULT_FORMAT, ~"text/markdown").
 
 
 -record(docs, {%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,7 +60,7 @@
                anno = none         :: none | erl_anno:anno(),
                deprecated = #{}    :: map(),
 
-               docformat = ?DEFAULT_FORMAT :: binary(),
+               docformat :: binary(),
                moduledoc = {erl_anno:new(?DEFAULT_MODULE_DOC_LOC), none} :: {erl_anno:anno(), none | map() | hidden},
                moduledoc_meta = none :: none | #{ _ := _ },
 
@@ -231,7 +231,7 @@
 -type kfa() :: {Kind :: function | type | callback, Name :: atom(), Arity :: arity()}.
 -type warnings() :: [{file:filename(),
                       [{erl_anno:location(), beam_doc, warning()}]}].
--type warning() :: {missing_doc, kfa()} | missing_moduledoc |
+-type warning() :: {missing_doc, kfa()} | missing_moduledoc | invalid_metadata |
                    {hidden_type_used_in_exported_fun | hidden_callback, {Name :: atom(), arity()}}.
 
 
@@ -252,8 +252,8 @@ main(Dirname, Filename, AST, CmdLineOpts) ->
                 source_anno => Docs#docs.anno,
                 behaviours => Behaviours}),
             Metadata = maybe_add_source_path_meta(Metadata0, Docs, CmdLineOpts),
-            DocV1 = #docs_v1{},
-            Result = DocV1#docs_v1{ format = Docs#docs.docformat,
+            DocFormat = maps:get(format, Metadata, ?DEFAULT_FORMAT),
+            Result = #docs_v1{ format = DocFormat,
                                     anno = ModuleDocAnno,
                                     metadata = Metadata,
                                     module_doc = ModuleDoc,
@@ -318,7 +318,11 @@ format_error({hidden_callback, {Name, Arity}}) ->
 format_error({missing_doc, {Kind, Name, Arity}}) ->
     io_lib:format("missing -doc for ~w ~tw/~w", [Kind, Name, Arity]);
 format_error(missing_moduledoc) ->
-    io_lib:format("missing -moduledoc", []).
+    io_lib:format("missing -moduledoc", []);
+format_error({invalid_metadata, authors}) ->
+    "authors should be a list of unicode strings, that is [unicode:chardata/0]";
+format_error({invalid_metadata, Key}) ->
+    io_lib:format("~p should be a unicode string, that is unicode:chardata/0",[Key]).
 
 process_docs(#docs{ast_callbacks = AstCallbacks, ast_fns = AstFns, ast_types = AstTypes}) ->
     AstTypes ++ AstCallbacks ++ AstFns.
@@ -333,9 +337,7 @@ preprocessing(AST, State) ->
                                      fun extract_signature_from_spec0/2,
                                      fun track_documentation/2,      %must be before upsert_documentation_from_terminal_item/2
                                      fun upsert_documentation_from_terminal_item/2,
-                                     fun extract_docformat0/2,
                                      fun extract_moduledoc0/2,
-                                     fun extract_module_meta/2,
                                      fun extract_exported_funs/2,
                                      fun extract_file/2,
                                      fun extract_record/2,
@@ -435,17 +437,8 @@ update_signature0(#docs{signatures = Signatures}=State, _Anno, {FunName, Vars, A
 %% Documentation tracking is a two-step (stateful phase).
 %% First phase (this one) saves documentation attributes to fields
 %% until reaching a terminal element where the docs are gathered globally.
-track_documentation({attribute, _Anno, doc, Meta0}, State) when is_map(Meta0) ->
-   Meta1 = case Meta0 of
-              #{ equiv := {call,_,_Equiv,_Args}=Equiv} ->
-                 Meta0#{ equiv := unicode:characters_to_binary(erl_pp:expr(Equiv)) };
-              #{ equiv := {Func,Arity}} ->
-                 Meta0#{ equiv := unicode:characters_to_binary(io_lib:format("~p/~p",[Func,Arity])) };
-              _ ->
-                 Meta0
-           end,
-   State1 = update_meta(State, Meta1),
-   update_doc(State1, none);
+track_documentation({attribute, Anno, doc, Meta}, State) when is_map(Meta) ->
+    update_doc(update_meta(doc, State, Anno, Meta), none);
 track_documentation({attribute, Anno, doc, DocStatus}, State)
   when DocStatus =:= hidden; DocStatus =:= false ->
    update_docstatus(State, {hidden, set_file_anno(Anno, State)});
@@ -509,15 +502,6 @@ upsert_meta(Meta0, Meta1) ->
    maps:merge(Meta0, Meta1).
 
 
-extract_docformat0({attribute, _ModuleDocAnno, moduledoc, MetaFormat}, State) when is_map(MetaFormat) ->
-    case maps:get(format, MetaFormat, not_found) of
-        not_found -> State;
-        Format when is_list(Format) -> State#docs{docformat = unicode:characters_to_binary(Format)};
-        Format when is_binary(Format) -> State#docs{docformat = Format}
-    end;
-extract_docformat0(_, State) ->
-    State.
-
 %%
 %% Sets module documentation attributes
 %%
@@ -528,12 +512,9 @@ extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, hidden}, State) ->
 extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, ModuleDoc}, State) when is_list(ModuleDoc) ->
    Doc = unicode:characters_to_binary(string:trim(ModuleDoc)),
    State#docs{moduledoc = {set_file_anno(ModuleDocAnno, State), create_module_doc(Doc)}};
+extract_moduledoc0({attribute, ModuleDocAnno, moduledoc, Meta}, State) when is_map(Meta) ->
+    update_meta(moduledoc, State, ModuleDocAnno, Meta);
 extract_moduledoc0(_, State) ->
-   State.
-
-extract_module_meta({attribute, _ModuleDocAnno, moduledoc, MetaDoc}, State) when is_map(MetaDoc) ->
-   State#docs{moduledoc_meta = maps:merge(State#docs.moduledoc_meta, MetaDoc)};
-extract_module_meta(_, State) ->
    State.
 
 extract_exported_funs({attribute,_ANNO,export,ExportedFuns}, State) ->
@@ -644,7 +625,8 @@ create_module_doc(Lang, ModuleDoc) ->
                 Opts :: [opt()]) -> internal_docs().
 new_state(Dirname, Filename, Opts) ->
     DocsV1 = #docs_v1{},
-    reset_state(#docs{cwd = Dirname, filename = Filename,
+    reset_state(#docs{docformat = ?DEFAULT_FORMAT,
+                      cwd = Dirname, filename = Filename,
                       curr_filename = Filename, opts = Opts,
                       moduledoc_meta = DocsV1#docs_v1.metadata}).
 
@@ -666,9 +648,42 @@ update_ast(Type,#docs{ast_types=AST}=State, Fn) when Type =:= type; Type =:= opa
 update_ast(callback, #docs{ast_callbacks = AST}=State, Fn) ->
     State#docs{ast_callbacks = [Fn | AST]}.
 
--spec update_meta(State :: internal_docs(), Meta :: map()) -> internal_docs().
-update_meta(#docs{meta = Meta0}=State, Meta1) ->
-    State#docs{meta = maps:merge(Meta0, Meta1)}.
+-spec update_meta(doc | moduledoc, State :: internal_docs(), Anno :: erl_anno:anno(), Meta :: map()) -> internal_docs().
+update_meta(Scope, State0, Anno, Meta1) ->
+    {Meta2, State1} =
+        maps:fold(fun(equiv, {call,_,_Equiv,_Args}=Equiv, {Meta, State}) when Scope =:= doc ->
+                          {Meta#{ equiv := unicode:characters_to_binary(erl_pp:expr(Equiv))}, State};
+                     (equiv, {Func, Arity}, {Meta, State}) when Scope =:= doc->
+                          {Meta#{ equiv := unicode:characters_to_binary(io_lib:format("~p/~p",[Func,Arity]))}, State};
+                     (authors, Authors, {Meta, State}) when Scope =:= moduledoc ->
+                          try
+                              BinaryAuthors = lists:map(fun unicode:characters_to_binary/1, Authors),
+                              {Meta#{ authors := BinaryAuthors }, State}
+                          catch _:_ ->
+                                  Warning = {invalid_metadata, authors},
+                                  {Meta, add_warning(Anno, Warning, State)}
+                          end;
+                     (Key, Value, {Meta, State}) ->
+                          Keys = if Scope =:= doc ->
+                                         [group, since, deprecated, equiv];
+                                    Scope =:= moduledoc ->
+                                         [since, deprecated, format]
+                                 end,
+                          case lists:member(Key, Keys) of
+                              true ->
+                                  try {Meta#{ Key := unicode:characters_to_binary(Value) }, State}
+                                  catch _:_ ->
+                                          Warning = {invalid_metadata, Key},
+                                          {Meta, add_warning(Anno, Warning, State)}
+                                  end;
+                              false -> {Meta, State}
+                          end
+                  end, {Meta1, State0}, Meta1),
+    if Scope =:= doc ->
+            State1#docs{meta = maps:merge(State0#docs.meta, Meta2)};
+       Scope =:= moduledoc ->
+            State1#docs{moduledoc_meta = maps:merge(State0#docs.moduledoc_meta, Meta2)}
+    end.
 
 -spec update_user_defined_types({type | callback | function, term(), integer()},
                                 State :: internal_docs()) -> internal_docs().
@@ -691,7 +706,7 @@ update_doc(#docs{doc_status = DocStatus}=State, Doc0) ->
     %% This is because we need to export private types that are used on public
     %% functions, or the documentation will create dead links.
     State1 = update_docstatus(State, set_doc_status(DocStatus)),
-    State2 = update_meta(State1, #{exported => true}),
+    State2 = update_meta(doc, State1, erl_anno:new(0), #{exported => true}),
     case Doc0 of
         none ->
             State2;
@@ -790,8 +805,7 @@ warn_hidden_callback(State) ->
                           case member({Name, Arity}, NoWarn) of
                               false ->
                                   Warning = {hidden_callback, {Name, Arity}},
-                                  W = create_warning(Anno, Warning, State0),
-                                  State0#docs{ warnings = [W | State0#docs.warnings] };
+                                  add_warning(Anno, Warning, State0);
                               true ->
                                   State0
                           end;
@@ -836,12 +850,16 @@ create_warning(Anno, Warning, State) ->
    Location = erl_anno:location(Anno),
    {Filename, [{Location, ?MODULE, Warning}]}.
 
+add_warning(Anno, Warning, State) ->
+   W = create_warning(Anno, Warning, State),
+   State#docs{ warnings = [W | State#docs.warnings] }.
+
 warn_missing_docs({{Kind, _, _} = KFA, Anno, _, Doc, MD}, State)
   when Doc =:= none, not is_map_key(equiv, MD) ->
     case lists:member(Kind, proplists:get_value(warn_missing_doc, State#docs.opts, [])) of
         true ->
             Warning = {missing_doc, KFA},
-            State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
+            add_warning(Anno, Warning, State);
         false ->
             State
     end;
@@ -855,7 +873,7 @@ warn_missing_moduledoc(State) ->
       [_|_] when ModuleDoc =:= none ->
          Anno = erl_anno:new(?DEFAULT_MODULE_DOC_LOC),
          Warning = missing_moduledoc,
-         State#docs{ warnings = [create_warning(Anno, Warning, State) | State#docs.warnings] };
+         add_warning(Anno, Warning, State);
       _false ->
          State
    end.
@@ -1045,8 +1063,8 @@ maybe_add_since(Meta, #docs{ moduledoc_meta = #{ since := ModuleDocSince } }) ->
 maybe_add_since(Meta, _State) ->
     Meta.
 
-maybe_add_deprecation(_KNA, #{ deprecated := Deprecated } = Meta, _State) ->
-    Meta#{ deprecated := unicode:characters_to_binary(Deprecated) };
+maybe_add_deprecation(_KNA, #{ deprecated := _ } = Meta, _) ->
+    Meta;
 maybe_add_deprecation({Kind, Name, Arity}, Meta, #docs{ module = Module,
                                                         deprecated = Deprecations }) ->
     maybe
