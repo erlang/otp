@@ -98,6 +98,8 @@ while test -n "$1" ; do
     case "$x" in
 	-Wall)
 	    ;;
+        -Werror)
+	    CMD="$CMD /WX";;
 	-c)
 	    LINKING=false;;
 	    #CMD="$CMD -c";;
