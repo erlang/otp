@@ -106,7 +106,10 @@ handle_event(internal, #ssh_msg_userauth_failure{authentications = Methods}, Sta
     end;
 
 %%---- banner to client
-handle_event(internal, #ssh_msg_userauth_banner{message = Msg}, {userauth,client}, D) ->
+handle_event(internal, #ssh_msg_userauth_banner{message = Msg}, {S,client}, D)
+  when S == userauth; S == userauth_keyboard_interactive;
+       S == userauth_keyboard_interactive_extra;
+       S == userauth_keyboard_interactive_info_response ->
     case D#data.ssh_params#ssh.userauth_quiet_mode of
 	false -> io:format("~s", [Msg]);
 	true -> ok

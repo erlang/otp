@@ -48,6 +48,7 @@
          bad_service_name_then_correct/1,
          bad_very_long_service_name/1,
          client_handles_keyboard_interactive_0_pwds/1,
+         client_handles_banner_keyboard_interactive/1,
          client_info_line/1,
          do_gex_client_init/3,
          do_gex_client_init_old/3,
@@ -143,7 +144,8 @@ groups() ->
 			     empty_service_name,
 			     bad_service_name_then_correct
 			    ]},
-     {authentication, [], [client_handles_keyboard_interactive_0_pwds
+     {authentication, [], [client_handles_keyboard_interactive_0_pwds,
+                           client_handles_banner_keyboard_interactive
 			  ]},
      {ext_info, [], [no_ext_info_s1,
                      no_ext_info_s2,
@@ -682,7 +684,82 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
                                                 ]}]
 			).
 
+%%%--------------------------------------------------------------------
+%%% SSH_MSG_USERAUTH_BANNER can be sent at any time during user auth.
+%%% The following test mimics a SSH server implementation that sends the banner
+%%% immediately before sending SSH_MSG_USERAUTH_SUCCESS.
+client_handles_banner_keyboard_interactive(Config) ->
+    {User,_Pwd} = server_user_password(Config),
 
+    %% Create a listening socket as server socket:
+    {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+
+    %% Start a process handling one connection on the server side:
+    spawn_link(
+      fun() ->
+	      {ok,_} =
+		  ssh_trpt_test_lib:exec(
+		    [{set_options, [print_ops, print_messages]},
+		     {accept, [{system_dir, system_dir(Config)},
+			       {user_dir, user_dir(Config)}]},
+		     receive_hello,
+		     {send, hello},
+
+		     {send, ssh_msg_kexinit},
+		     {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_kexdh_init{_='_'}, receive_msg},
+		     {send, ssh_msg_kexdh_reply},
+
+		     {send, #ssh_msg_newkeys{}},
+		     {match,  #ssh_msg_newkeys{_='_'}, receive_msg},
+
+		     {match, #ssh_msg_service_request{name="ssh-userauth"}, receive_msg},
+		     {send, #ssh_msg_service_accept{name="ssh-userauth"}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="none",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_failure{authentications = "keyboard-interactive",
+						      partial_success = false}},
+
+		     {match, #ssh_msg_userauth_request{service="ssh-connection",
+						       method="keyboard-interactive",
+						       user=User,
+						       _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_info_request{name = "",
+							   instruction = "",
+							   language_tag = "",
+							   num_prompts = 1,
+							   data = <<0,0,0,10,80,97,115,115,119,111,114,100,58,32,0>>
+							  }},
+		     {match, #ssh_msg_userauth_info_response{num_responses = 1,
+							     _='_'}, receive_msg},
+		     {send, #ssh_msg_userauth_info_request{name = "",
+							   instruction = "",
+							   language_tag = "",
+							   num_prompts = 0,
+							   data = <<>>
+							  }},
+		     {match, #ssh_msg_userauth_info_response{num_responses = 0,
+							     data = <<>>,
+							     _='_'}, receive_msg},
+                     {send, #ssh_msg_userauth_banner{message = "Banner\n"}},
+		     {send, #ssh_msg_userauth_success{}},
+		     close_socket,
+		     print_state
+		    ],
+		    InitialState)
+      end),
+
+    %% and finally connect to it with a regular Erlang SSH client:
+    {ok,_} = std_connect(HostPort, Config,
+			 [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                                 {cipher,?DEFAULT_CIPHERS}
+                                                ]}]
+			).
 
 %%%--------------------------------------------------------------------
 client_info_line(Config) ->
