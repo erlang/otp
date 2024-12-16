@@ -32,7 +32,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/3,
+-export([start_link/2,
          stop_listener/1,
 	 stop_system/1,
          start_system/2,
@@ -62,7 +62,7 @@ start_system(Address0, Options) ->
         {error,not_found} ->
             supervisor:start_child(sshd_sup,
                                    #{id       => {?MODULE,Address0},
-                                     start    => {?MODULE, start_link, [server, Address0, Options]},
+                                     start    => {?MODULE, start_link, [Address0, Options]},
                                      restart  => temporary,
                                      type     => supervisor
                                     })
@@ -147,8 +147,8 @@ do_start_connection(Role, SupPid, Significant, Socket, Options0) ->
     end.
 
 %%%----------------------------------------------------------------
-start_link(Role, Address, Options) ->
-    supervisor:start_link(?MODULE, [Role, Address, Options]).
+start_link(Address, Options) ->
+    supervisor:start_link(?MODULE, [Address, Options]).
 
 %%%----------------------------------------------------------------
 addresses(#address{address=Address, port=Port, profile=Profile}) ->
@@ -189,16 +189,16 @@ restart_acceptor(SysPid, Options0) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([Role, Address, Options]) ->
-    ssh_lib:set_label(Role, system_sup),
+init([Address, Options]) ->
+    ssh_lib:set_label(server, system_sup),
     SupFlags = #{strategy      => one_for_one,
                  auto_shutdown => all_significant,
                  intensity =>    0,
                  period    => 3600
                 },
     ChildSpecs =
-        case {Role, is_socket_server(Options)} of
-            {server, false} ->
+        case is_socket_server(Options) of
+            false ->
                 [acceptor_sup_child_spec(_SysSup=self(), Address, Options)];
             _ ->
                 []
@@ -273,8 +273,6 @@ start_acceptor(SysPid, Address, Options) ->
             ChildSpec = acceptor_sup_child_spec(SysPid, Address, Options),
             case supervisor:start_child(SysPid, ChildSpec) of
                 {ok,_ChildPid} ->
-                    {ok,SysPid}; % sic!
-                {ok,_ChildPid,_Info} ->
                     {ok,SysPid}; % sic!
                 {error,Error} ->
                     {error,Error}
