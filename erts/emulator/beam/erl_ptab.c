@@ -1478,7 +1478,12 @@ erts_ptab_processes_next(Process *c_p, ErtsPTab *ptab, Uint first)
     Eterm* hp;
     Eterm *hp_end;
 
+#ifdef DEBUG
+    int max_pids = 1;
+#else
     int max_pids = MAX(ERTS_BIF_REDS_LEFT(c_p), 1);
+#endif
+
     int num_pids = 0;
     int n = max_pids * ERTS_PTAB_REDS_MULTIPLIER;
     limit = MIN(ptab->r.o.max, first+n);
@@ -1500,7 +1505,7 @@ erts_ptab_processes_next(Process *c_p, ErtsPTab *ptab, Uint first)
         return THE_NON_VALUE;
     }
 
-    need = n * 2;
+    need = 3 + max_pids * 2;
     hp = HAlloc(c_p, need); /* we need two heap words for each id */
     hp_end = hp + need;
     res = make_list(hp);
@@ -1524,6 +1529,7 @@ erts_ptab_processes_next(Process *c_p, ErtsPTab *ptab, Uint first)
     scanned = (i - first) / ERTS_PTAB_REDS_MULTIPLIER + 1;
 
     res = TUPLE2(hp, make_small(i), res);
+    hp += 3;
     HRelease(c_p, hp_end, hp);
 
     BUMP_REDS(c_p, scanned);
