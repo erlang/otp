@@ -320,8 +320,7 @@ locate_invalid_elems([Contract], SuccType) ->
   SRange = erl_types:t_fun_range(SuccType),
 
   ProblematicArgs =
-    [erl_types:t_is_none(erl_types:t_inf(Cont, Succ)) andalso
-      (not erl_types:t_is_none(Cont)) ||
+    [erl_types:t_is_none(erl_types:t_inf(Cont, Succ)) ||
       Cont <- CArgs && Succ <- SArgs],
 
   ProblematicRange =
