@@ -2443,6 +2443,7 @@ AC_CACHE_CHECK([if __after_morecore_hook can track malloc()s core memory use],
 		erts_cv___after_morecore_hook_can_track_malloc,
 		[AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdlib.h>
+#include <unistd.h>
 #ifdef HAVE_MALLOC_H
 #  include <malloc.h>
 #endif
@@ -3137,8 +3138,10 @@ poll_works=no
 [
 
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <fcntl.h>
 #include <poll.h>
-main()
+#include <stdlib.h>
+int main()
 {
 #ifdef _POLL_EMUL_H_
   exit(1); /* Implemented using select() -- fail */
