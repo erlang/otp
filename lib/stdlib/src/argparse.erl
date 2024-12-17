@@ -1674,6 +1674,8 @@ collect_options(CmdName, Command, [Cmd|Tail], Args) ->
     collect_options(CmdName ++ " " ++ Cmd, SubCmd, Tail, Args ++ maps:get(arguments, Command, [])).
 
 %% gets help for sub-command
+get_help(#{help := hidden}, []) ->
+    "";
 get_help(Command, []) ->
     maps:get(help, Command, "");
 get_help(Command, [Cmd|Tail]) ->
