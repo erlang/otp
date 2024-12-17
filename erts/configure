@@ -20934,6 +20934,7 @@ else $as_nop
 /* end confdefs.h.  */
 
 #include <stdlib.h>
+#include <unistd.h>
 #ifdef HAVE_MALLOC_H
 #  include <malloc.h>
 #endif
@@ -24889,8 +24890,10 @@ else $as_nop
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
+#include <fcntl.h>
 #include <poll.h>
-main()
+#include <stdlib.h>
+int main()
 {
 #ifdef _POLL_EMUL_H_
   exit(1); /* Implemented using select() -- fail */
