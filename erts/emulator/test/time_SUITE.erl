@@ -107,28 +107,22 @@ end_per_group(_GroupName, Config) ->
 
 %% Test that DST = true on timezones without DST is ignored
 local_to_univ_utc(Config) when is_list(Config) ->
-    case os:type() of
-	{unix,_} ->
-	    %% TZ variable has a meaning
-	    {ok, Peer, Node} = ?CT_PEER(["-env", "TZ", "UTC"]),
-	    {{2008,8,1},{0,0,0}} =
-		rpc:call(Node,
-			 erlang,localtime_to_universaltime,
-			 [{{2008, 8, 1}, {0, 0, 0}},
-			  false]),
-	    {{2008,8,1},{0,0,0}} =
-		rpc:call(Node,
-			 erlang,localtime_to_universaltime,
-			 [{{2008, 8, 1}, {0, 0, 0}},
-			  true]),
-	    [{{2008,8,1},{0,0,0}}] =
-		rpc:call(Node,
-			 calendar,local_time_to_universal_time_dst,
-			 [{{2008, 8, 1}, {0, 0, 0}}]),
-	    peer:stop(Peer);
-	_ ->
-	    {skip,"Only valid on Unix"}
-    end.
+    {ok, Peer, Node} = ?CT_PEER(["-env", "TZ", "UTC"]),
+    {{2008,8,1},{0,0,0}} =
+        rpc:call(Node,
+                 erlang,localtime_to_universaltime,
+                 [{{2008, 8, 1}, {0, 0, 0}},
+                  false]),
+    {{2008,8,1},{0,0,0}} =
+        rpc:call(Node,
+                 erlang,localtime_to_universaltime,
+                 [{{2008, 8, 1}, {0, 0, 0}},
+                  true]),
+    [{{2008,8,1},{0,0,0}}] =
+        rpc:call(Node,
+                 calendar,local_time_to_universal_time_dst,
+                 [{{2008, 8, 1}, {0, 0, 0}}]),
+    peer:stop(Peer).
 
 
 %% Tests conversion from universal to local time.
