@@ -2717,6 +2717,7 @@ This is automagically called by the user level function `indent-region'."
       (goto-char beg)
       (beginning-of-line)
       (setq indent-point (point))
+      (erlang-string-start)
       (erlang-beginning-of-clause)
       ;; Parse the Erlang code from the beginning of the clause to
       ;; the beginning of the region.
@@ -2797,7 +2798,6 @@ This is automagically called by the user level function `indent-region'."
 (defmacro erlang-push (x stack) (list 'setq stack (list 'cons x stack)))
 (defmacro erlang-pop (stack) (list 'setq stack (list 'cdr stack)))
 
-
 (defun erlang-calculate-indent (&optional parse-start)
   "Compute appropriate indentation for current line as Erlang code.
 Return nil if line starts inside string, t if in a comment."
@@ -2806,7 +2806,8 @@ Return nil if line starts inside string, t if in a comment."
           (case-fold-search nil)
           (state nil))
       (if parse-start
-          (goto-char parse-start)
+        (goto-char parse-start)
+        (erlang-string-start)
         (erlang-beginning-of-clause))
       (while (< (point) indent-point)
         (let ((pt (point)))
@@ -2823,7 +2824,8 @@ Return nil if line starts inside string, t if in a comment."
   (save-excursion
     (let ((starting-point (point))
           (case-fold-search nil)
-          (state nil))
+           (state nil))
+      (erlang-string-start)
       (erlang-beginning-of-clause)
       (while (< (point) starting-point)
         (setq state (erlang-partial-parse (point) starting-point state)))
@@ -2836,12 +2838,24 @@ Value is list (stack token-start token-type in-what)."
   (goto-char from)                      ; Start at the beginning
   (erlang-skip-blank to)
   (let ((cs (char-syntax (following-char)))
-        (stack (car state))
-        (token (point))
-        in-what)
+         (stack (car state))
+         (token (point))
+         in-what)
     (cond
+      ((and stack (eq (car (car stack)) 'string))
+        (goto-char (car (cdr (car stack))))  ;; String start
+        (condition-case nil
+          (progn
+            (forward-sexp 1)
+            (if (<= (point) to)
+              (erlang-pop stack)
+              (setq in-what 'string)
+              ))
+          (error
+            (setq in-what 'string)
+            (goto-char to))))
 
-     ;; Done: Return previous state.
+      ;; Done: Return previous state.
      ((>= token to)
       (setq token (nth 1 state))
       (setq cs (nth 2 state))
@@ -2924,16 +2938,18 @@ Value is list (stack token-start token-type in-what)."
       (forward-sexp 1))
      ;; String: Try to skip over it. (Catch error if not complete.)
      ((= cs ?\")
-      (condition-case nil
-          (progn
-            (forward-sexp 1)
-            (if (> (point) to)
-                (progn
-                  (setq in-what 'string)
-                  (goto-char to))))
-        (error
-         (setq in-what 'string)
-         (goto-char to))))
+       (condition-case nil
+         (progn
+           (forward-sexp 1)
+           (if (> (point) to)
+             (progn
+               (erlang-push (list 'string token (current-column)) stack)
+               (setq in-what 'string)
+               (goto-char to))
+             ))
+         (error
+           (setq in-what 'string)
+           (goto-char to))))
 
      ;; Expression prefix e.i. $ or ^ (Note ^ can be in the character
      ;; literal $^ or part of string and $ outside of a string denotes
@@ -3494,6 +3510,18 @@ commands."
 ;; The current implementation makes it hopeless to use the functions as
 ;; subroutines in more complex commands.   /andersl
 
+(defun erlang-string-start ()
+  "If inside a string (or comment), move to the beginning of the string"
+
+  ;; This is not perfect because of erlang.el handling of multiline strings but better than before
+  (beginning-of-line)
+  (let ((string-start-pos (nth 8 (syntax-ppss))))
+    (while string-start-pos
+      (goto-char string-start-pos)
+      (beginning-of-line)  ;; Hack to handle "" inside """  """
+      (setq string-start-pos (nth 8 (syntax-ppss)))
+      )))
+
 (defun erlang-beginning-of-clause (&optional arg)
   "Move backward to previous start of clause.
 With argument, do this that many times.
@@ -3510,11 +3538,11 @@ Return t unless search stops due to end of buffer."
               (forward-char 1))
         (forward-char -1)
         (if (looking-at "\\`\n")
-            (forward-char 1))))
+          (forward-char 1))))
   ;; The regexp matches a function header that isn't
   ;; included in a string.
   (and (re-search-forward "\\(\\`\\|\\`\n\\|[^\\]\n\\)\\(-?[a-z]\\|'\\|-\\)"
-                          nil 'move (- arg))
+         nil 'move (- arg))
        (let ((beg (match-beginning 2)))
          (and beg (goto-char beg))
          t)))
