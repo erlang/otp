@@ -60,6 +60,7 @@ static Export await_exit_trap;
 static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
+static Export* multisend_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
 #ifndef DEBUG
 static
@@ -2127,6 +2128,8 @@ ebif_bang_2(BIF_ALIST_2)
 #define SEND_AWAIT_RESULT	(-7)
 #define SEND_YIELD_CONTINUE     (-8)
 #define SEND_SYSTEM_LIMIT	(-9)
+#define SEND_MULTISEND          (-10)
+#define SEND_NOMULTISEND        (-11)
 
 
 static Sint remote_send(Process *p, DistEntry *dep,
@@ -2137,7 +2140,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     Sint res;
     int code;
     ErtsDSigSendContext ctx;
-    ASSERT(is_atom(to) || is_external_pid(to) || is_external_ref(to));
+    ASSERT(is_atom(to) || is_external_pid(to) || is_external_ref(to) || is_list(to));
 
     code = erts_dsig_prepare(&ctx, dep, p, ERTS_PROC_LOCK_MAIN,
 			     ERTS_DSP_NO_LOCK,
@@ -2165,6 +2168,10 @@ static Sint remote_send(Process *p, DistEntry *dep,
         }
         /* Fall through... */
     case ERTS_DSIG_PREP_PENDING: {
+        if (!(ctx.dflags & DFLAG_MULTISEND) && is_list(to)) {
+            res = SEND_NOMULTISEND;
+            break;
+        }
 
 	if (is_atom(to))
 	    code = erts_dsig_send_reg_msg(&ctx, to, full_to, msg);
@@ -2220,7 +2227,10 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm return_term, Eterm *refp,
     DistEntry *dep;
     Eterm* tp;
 
-    if (is_internal_pid(to)) {
+    if (is_list(to)) {
+        return SEND_MULTISEND;
+    }
+    else if (is_internal_pid(to)) {
         if (ERTS_IS_P_TRACED_FL(p, F_TRACE_SEND))
 	    trace_send(p, to, msg);
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
@@ -2518,6 +2528,9 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	BUMP_ALL_REDS(p);
 	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
+    case SEND_MULTISEND:
+	ERTS_BIF_PREP_TRAP2(retval, multisend_trap, p, to, msg);
+        break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "send_3 invalid result %d\n", (int)result);
 	break;
@@ -2530,6 +2543,81 @@ done:
 BIF_RETTYPE send_2(BIF_ALIST_2)
 {
     return erl_send(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+BIF_RETTYPE erts_internal_multisend_bif_2(BIF_ALIST_2)
+{
+
+    Eterm retval;
+    Eterm ref;
+    Sint result;
+    Eterm ctx;
+    Process *p;
+    Eterm pids;
+    Eterm msg;
+    DistEntry *dep;
+
+    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_SEND);
+
+    p = BIF_P;
+    pids = BIF_ARG_1;
+    msg = BIF_ARG_2;
+    ref = NIL;
+
+    dep = external_dist_entry(CAR(list_val(pids)));
+    result = remote_send(p, dep, pids, dep->sysname, pids, msg, msg, &ctx, 1, 1);
+
+    ERTS_MSACC_POP_STATE_M_X();
+
+    if (result >= 0) {
+        ERTS_VBUMP_REDS(p, 4);
+        if (ERTS_IS_PROC_OUT_OF_REDS(p))
+            goto yield_return;
+        ERTS_BIF_PREP_RET(retval, msg);
+        goto done;
+    }
+
+    switch (result) {
+    case SEND_NOCONNECT:
+        ERTS_BIF_PREP_RET(retval, msg);
+        break;
+    case SEND_YIELD:
+        ERTS_BIF_PREP_YIELD2(retval, BIF_TRAP_EXPORT(BIF_erts_internal_multisend_bif_2), p, pids, msg);
+        break;
+    case SEND_YIELD_RETURN:
+    yield_return:
+        ERTS_BIF_PREP_YIELD_RETURN(retval, p, msg);
+        break;
+    case SEND_AWAIT_RESULT:
+        ASSERT(is_internal_ordinary_ref(ref));
+        ERTS_BIF_PREP_TRAP3(retval, await_port_send_result_trap, p, ref, msg, msg);
+        break;
+    case SEND_BADARG:
+        ERTS_BIF_PREP_ERROR(retval, p, BADARG);
+        break;
+    case SEND_SYSTEM_LIMIT:
+        ERTS_BIF_PREP_ERROR(retval, p, SYSTEM_LIMIT);
+        break;
+    case SEND_USER_ERROR:
+        ERTS_BIF_PREP_ERROR(retval, p, EXC_ERROR);
+        break;
+    case SEND_INTERNAL_ERROR:
+        ERTS_BIF_PREP_ERROR(retval, p, EXC_INTERNAL_ERROR);
+        break;
+    case SEND_YIELD_CONTINUE:
+        BUMP_ALL_REDS(p);
+        ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
+        break;
+    case SEND_NOMULTISEND:
+        ERTS_BIF_PREP_RET(retval, am_nomultisend);
+        break;
+    default:
+        erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
+        break;
+    }
+
+done:
+    return retval;
 }
 
 static BIF_RETTYPE dsend_continue_trap_1(BIF_ALIST_1)
@@ -2627,6 +2715,9 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	BUMP_ALL_REDS(p);
 	ERTS_BIF_PREP_TRAP1(retval, &dsend_continue_trap_export, p, ctx);
 	break;
+    case SEND_MULTISEND:
+	ERTS_BIF_PREP_TRAP2(retval, multisend_trap, p, to, msg);
+        break;
     default:
 	erts_exit(ERTS_ABORT_EXIT, "invalid send result %d\n", (int)result);
 	break;
@@ -5275,6 +5366,8 @@ void erts_init_bif(void)
     flush_monitor_messages_trap = erts_export_put(am_erts_internal,
 						  am_flush_monitor_messages,
 						  3);
+
+    multisend_trap = erts_export_put(am_erts_internal, am_multisend, 2);
 
     erts_convert_time_unit_trap = erts_export_put(am_erlang,
 						  am_convert_time_unit,

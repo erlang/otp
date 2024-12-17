@@ -52,6 +52,7 @@
 #define DFLAG_HANDSHAKE_23        ((Uint64)0x1000000)
 #define DFLAG_UNLINK_ID           ((Uint64)0x2000000)
 #define DFLAG_MANDATORY_25_DIGEST ((Uint64)0x4000000)
+#define DFLAG_MULTISEND           ((Uint64)0x8000000)
 #define DFLAG_RESERVED           ((Uint64)0xf8000000)
 
 /*
@@ -114,7 +115,8 @@
                             | DFLAG_FRAGMENTS                 \
                             | DFLAG_SPAWN                     \
                             | DFLAG_ALIAS		      \
-                            | DFLAG_MANDATORY_25_DIGEST)
+                            | DFLAG_MANDATORY_25_DIGEST       \
+                            | DFLAG_MULTISEND)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -215,6 +217,8 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_NOT_ALIVE	3
 /* Pending connection; signals can be enqueued */
 #define ERTS_DSIG_PREP_PENDING	        4
+/* Number of messages to send before trapping in a multisend */
+#define MULTISEND_LOOP_FACTOR 1
 
 /* dist_ctrl_{g,s}et_option/2 */
 #define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
@@ -351,6 +355,10 @@ enum erts_dsig_send_phase {
     ERTS_DSIG_SEND_PHASE_SEND
 };
 
+#define ERTS_DSIG_RECV_ERROR -1
+#define ERTS_DSIG_RECV_OK    0
+#define ERTS_DSIG_RECV_YIELD 1
+
 typedef struct erts_dsig_send_context {
     int connect;
     int no_suspend;
@@ -386,6 +394,14 @@ typedef struct erts_dsig_send_context {
     }u;
 
 } ErtsDSigSendContext;
+
+typedef struct erts_dsig_recv_context {
+    Eterm from;
+    Eterm to;
+    ErtsDistExternal *edep;
+    ErlHeapFragment *ede_hfrag;
+    ErlDrvBinary *drv_bin;
+} ErtsDSigRecvContext;
 
 typedef struct dist_sequences DistSeqNode;
 
@@ -425,7 +441,9 @@ extern int erts_dsig_send_spawn_reply(ErtsDSigSendContext *, Eterm, Eterm, Eterm
 
 extern int erts_dsig_send(ErtsDSigSendContext *dsdp);
 extern int erts_dsend_context_dtor(Binary*);
+extern int erts_drecv_context_dtor(Binary*);
 extern Eterm erts_dsend_export_trap_context(Process* p, ErtsDSigSendContext* ctx);
+extern Eterm erts_drecv_trap_context(Process* p, ErtsDSigRecvContext* ctx);
 
 extern int erts_dist_command(Port *prt, int reds);
 extern void erts_dist_port_not_busy(Port *prt);
@@ -447,6 +465,23 @@ extern int erts_dsig_prepare(ErtsDSigSendContext *,
                              int,
                              int,
                              int);
+
+extern void erts_drecv_prepare(ErtsDSigRecvContext *ctx,
+                               Eterm from,
+                               Eterm to,
+                               ErtsDistExternal *edep,
+                               ErlHeapFragment *ede_hfrag);
+
+extern int erts_net_message(ErtsDSigRecvContext *context,
+                            DistEntry *dep,
+                            Uint32 conn_id,
+                            byte *hbuf,
+                            ErlDrvSizeT hlen,
+                            Binary *bin,
+                            const byte *buf,
+                            ErlDrvSizeT len);
+
+extern int multisend_step(ErtsDSigRecvContext *ctx, Uint it);
 
 void erts_dist_print_procs_suspended_on_de(fmtfn_t to, void *to_arg);
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);

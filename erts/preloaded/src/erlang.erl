@@ -8068,8 +8068,8 @@ unreachable destination `Dest` (of correct type).
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
 -doc #{ group => processes }.
--spec send(Dest, Msg) -> Msg when
-      Dest :: send_destination(),
+-spec erlang:send(Dest, Msg) -> Msg when
+      Dest :: send_destination() | [pid()],
       Msg :: term().
 send(_Dest,_Msg) ->
     erlang:nif_error(undefined).

@@ -12304,6 +12304,7 @@ static void tcp_inet_timeout(ErlDrvData e)
 {
     tcp_descriptor* desc = (tcp_descriptor*)e;
     int state = desc->inet.state;
+    int code = driver_continue(INETP(desc)->port);
 
     DEBUGF(("tcp_inet_timeout(%p) {s=%d\r\n", 
 	    desc->inet.port, desc->inet.s)); 
