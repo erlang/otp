@@ -8583,7 +8583,8 @@ do_bidirectional_traffic(Config, #{lsock       := LSock,
     ?P("case -> listen socket port number ~w", [Port]),
     Control = self(),
     ?P("case -> create ~w receivers", [NumWorkers]),
-    Receivers = [spawn_link(fun () -> 
+    Receivers = [spawn_link(fun () ->
+                                    erlang:process_flag(trap_exit, true),
 				    exchange(Config,
                                              Info#{port => Port,
                                                    ctrl => Control})
@@ -8615,7 +8616,7 @@ do_bidirectional_traffic(Config, #{lsock       := LSock,
 %% get a chance to "tell us" what they are up to...
 bt_terminate_receivers(Recvs) ->
     bt_terminate_receivers_nice(Recvs),
-    ?SLEEP(?SECS(1)),
+    ?SLEEP(?SECS(5)),
     bt_terminate_receivers_force(Recvs).
 
 bt_terminate_receivers_nice(Recvs) ->
@@ -8634,23 +8635,26 @@ exchange(Config, #{lsock    := LSock,
                    ctrl     := Control,
                    active_n := ActiveN}) ->
     %% spin up client
-    _ClntRcv = spawn_link(
-        fun () ->
-                ?P("exchange:client -> connect"),
-                {ok, Client} =
-                    ?CONNECT(Config,
-			     Addr,
-			     Port,
-			     [binary,
-			      {ip, Addr}, {packet, 0}, {active, ActiveN}]),
-                ?P("exchange:client -> connected: ~p"
-                   "~n      PeerName: ~p"
-                   "~n      SockName: ~p",
-                   [Client,
-                    oki(inet:peername(Client)), oki(inet:sockname(Client))]),
-                put(role, connected),
-                send_recv_loop(Client, Payload, Control, ActiveN)
-        end),
+    ClientRcv =
+        spawn_link(
+          fun () ->
+                  erlang:process_flag(trap_exit, true),
+                  ?P("exchange:client -> connect"),
+                  {ok, Client} =
+                      ?CONNECT(Config,
+                               Addr,
+                               Port,
+                               [binary,
+                                {ip, Addr}, {packet, 0}, {active, ActiveN}]),
+                  ?P("exchange:client -> connected: ~p"
+                     "~n      PeerName: ~p"
+                     "~n      SockName: ~p",
+                     [Client,
+                      oki(inet:peername(Client)), oki(inet:sockname(Client))]),
+                  put(role, connected),
+                  send_recv_loop(undefined,
+                                 Client, Payload, Control, ActiveN)
+          end),
     ?P("exchange -> accept"),
     {ok, Socket} = gen_tcp:accept(LSock),
     ?P("exchange -> accepted: ~p"
@@ -8659,16 +8663,19 @@ exchange(Config, #{lsock    := LSock,
        [Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket))]),
     %% sending process
     put(role, accepted),
-    send_recv_loop(Socket, Payload, Control, ActiveN).
+    send_recv_loop(ClientRcv,
+                   Socket, Payload, Control, ActiveN).
 
-send_recv_loop(Socket, Payload, Control, ActiveN) ->
+%% ClientPid: pid() | undefined
+send_recv_loop(ClientPid,
+               Socket, Payload, Control, ActiveN) ->
     %% {active, N} must be set to active > 12 to trigger the issue
     %% {active, 30} seems to trigger it quite often & reliably
     Role = get(role),
     ?P("[~w] set (initial) active: ~p", [Role, ActiveN]),
     inet:setopts(Socket, [{active, ActiveN}]),
     ?P("[~w] spawn sender", [Role]),
-    _Snd = spawn_link(
+    SenderPid = spawn_link(
         fun Sender() ->
             case gen_tcp:send(Socket, Payload) of
                 ok ->
@@ -8676,16 +8683,29 @@ send_recv_loop(Socket, Payload, Control, ActiveN) ->
                 {error, closed} ->
                     ?P("[~w,sender] Socket closed", [Role]),
                     exit(normal);
+
+                %% This happens at least for connected sender
+                {error, einval = Reason} ->
+                    ?P("[~w,sender] Send failed: "
+                       "~n      Reason: ~p"
+                       "~n      Links:  ~p", [Role, Reason, links()]),
+                    exit(normal);
+
                 {error, Reason} ->
                     ?P("[~w,sender] Send failed: "
-                       "~n      ~p", [Role, Reason]),
+                       "~n      Reason: ~p"
+                       "~n      Links:  ~p", [Role, Reason, links()]),
                     exit({send_failed, Reason})
             end
         end),
-    ?P("[~w] begin recv", [Role]),
-    recv(Socket, 0, 0, 0, Control, ActiveN).
+    ?P("[~w] begin recv when"
+       "~n   Sender: ~p"
+       "~n   Links:  ~p", [Role, SenderPid, links()]),
+    recv(ClientPid, SenderPid,
+         Socket, 0, 0, 0, Control, ActiveN).
 
-recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
+recv(ClientPid, SenderPid,
+     Socket, Total, TotIter, TotAct, Control, ActiveN) ->
     receive
         terminate ->
             ?P("[~w,recv] received terminate message when"
@@ -8697,16 +8717,21 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                [get(role),
                 Total, TotIter, TotAct,
                 Socket, (catch inet:info(Socket))]),
+            maybe_stop_client(ClientPid),
+            ?P("~w[~w,recv] -> close socket", [?FUNCTION_NAME, get(role)]),
             (catch gen_tcp:close(Socket)),
+            await_sender_exit(SenderPid),
             exit(normal);
 
         {tcp, Socket, Data} ->
-            recv(Socket,
+            recv(ClientPid, SenderPid,
+                 Socket,
                  Total + byte_size(Data), TotIter + 1, TotAct,
                  Control, ActiveN);
         {tcp_passive, Socket} ->
             inet:setopts(Socket, [{active, ActiveN}]),
-            recv(Socket, Total, TotIter, TotAct + 1, Control, ActiveN);
+            recv(ClientPid, SenderPid,
+                 Socket, Total, TotIter, TotAct + 1, Control, ActiveN);
         {tcp_closed, Socket} ->
             ?P("[~w,recv] closed when"
                "~n      Total received:    ~w"
@@ -8732,7 +8757,9 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
+            maybe_stop_client(ClientPid),
             (catch gen_tcp:close(Socket)),
+            await_sender_exit(SenderPid),
             Control ! {error, Socket, Other}
 
     after 2000 ->
@@ -8749,9 +8776,52 @@ recv(Socket, Total, TotIter, TotAct, Control, ActiveN) ->
                 Total, TotIter, TotAct,
                 Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
                 (catch inet:info(Socket))]),
+            maybe_stop_client(ClientPid),
             (catch gen_tcp:close(Socket)),
+            await_sender_exit(SenderPid),
             Control ! {timeout, Socket, Total}
     end.
+
+%% The accepted (send and recv) process has a pid.
+%% But the connected (client) process does not.
+maybe_stop_client(ClientPid) when is_pid(ClientPid) ->
+    ?P("~w -> forward terminate to client process ~p",
+       [?FUNCTION_NAME, ClientPid]),
+    ClientPid ! terminate,
+    receive
+        {'EXIT', ClientPid, _} ->
+            ?P("~w -> received exit signal from client process ~p",
+               [?FUNCTION_NAME, ClientPid]),
+            ok
+    after 2000 ->
+            %% We need to give the client time to wait for *its*
+            %% sender to terminate (therefor 2000 here).
+            ?P("~w -> client process ~p did not die in time - give up"
+               "~n   Info:  ~p"
+               "~n   Links: ~p",
+               [?FUNCTION_NAME, ClientPid, pi(ClientPid), links()]),
+            ok
+    end;
+maybe_stop_client(_) ->
+    ok.
+
+await_sender_exit(SenderPid) ->
+    ?P("~w[~w,recv] -> await sender (~p) exit when"
+       "~n   Links: ~p",
+       [?FUNCTION_NAME, get(role), SenderPid, links()]),
+    receive
+        {'EXIT', SenderPid, _Reason} ->
+            ?P("~w -> received exit signal from sender process ~p",
+               [?FUNCTION_NAME, SenderPid]),
+            ok
+    after 1000 ->
+            ?P("~w -> sender process ~p did not die in time - give up"
+               "~n   Info:  ~p"
+               "~n   Links: ~p",
+               [?FUNCTION_NAME, SenderPid, pi(SenderPid), links()]),
+            ok
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
