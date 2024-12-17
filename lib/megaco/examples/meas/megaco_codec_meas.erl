@@ -64,6 +64,10 @@ application.
 
 -include_lib("kernel/include/file.hrl").
 
+%% We are not mstone but the (mstone) lib module has general
+%% functions that we can use.
+-define(LIB, megaco_codec_mstone_lib).
+
 -define(V3, v3).
 
 -define(MEASURE_TIMEOUT, 100000). % 100 sec
@@ -179,56 +183,7 @@ display_system_info() ->
     
     
 display_app_info() ->
-    display_megaco_info(),
-    display_asn1_info().
-
-%% The instruction, nowarn_function, is because I can't figure out
-%% how to suppress the warnings about
-%% megaco_flex_scanner:is_enabled/0 and
-%% megaco_flex_scanner:is_reentrant_enabled/0:
-%%
-%%      "The pattern 'false' can never match the type 'true'"
-%%
-%% This is because the result of calling these function(s) is
-%% basically decided at compile time (true or false).
--dialyzer({nowarn_function, display_megaco_info/0}).
-display_megaco_info() ->
-    MI = megaco:module_info(),
-    {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
-    {value, {app_vsn,    MVer}} = lists:keysearch(app_vsn, 1, Attr),
-    Ver =
-        case MVer of
-            "megaco-" ++ VStr ->
-                VStr;
-            _ ->
-                MVer
-        end,
-    FlexStr = 
-	case megaco_flex_scanner:is_enabled() of
-	    true ->
-		case megaco_flex_scanner:is_reentrant_enabled() of
-		    true ->
-			"reentrant flex";
-		    false ->
-			"non-reentrant flex"
-		end;
-	    false ->
-		"no flex"
-	end,
-    io:format("Megaco version:      ~s (~s)~n", [Ver, FlexStr]).
-
-display_asn1_info() ->
-    AI = megaco_ber_media_gateway_control_v1:info(),
-    Vsn = 
-	case lists:keysearch(vsn, 1, AI) of
-	    {value, {vsn, V}} when is_atom(V) ->
-		atom_to_list(V);
-	    {value, {vsn, V}} when is_list(V) ->
-		V;
-	    _ ->
-		"unknown"
-	end,
-    io:format("ASN.1 version:       ~s~n", [Vsn]).
+    ?LIB:display_app_info().
 
 
 %% {MegaSec, Sec, MicroSec}
