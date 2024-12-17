@@ -1680,6 +1680,8 @@ collect_options(CmdName, Command, [Cmd|Tail], Args) ->
     collect_options(CmdName ++ " " ++ Cmd, SubCmd, Tail, Args ++ maps:get(arguments, Command, [])).
 
 %% gets help for sub-command
+get_help(#{help := hidden}, []) ->
+    "";
 get_help(Command, []) ->
     case maps:get(help, Command, "") of
         Help when is_binary(Help) -> unicode:characters_to_list(Help);

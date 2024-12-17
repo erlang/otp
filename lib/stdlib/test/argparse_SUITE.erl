@@ -828,6 +828,22 @@ usage(Config) when is_list(Config) ->
         "  ---extra    extra option very deep\n",
     ?assertEqual(CrawlerStatus, unicode:characters_to_list(argparse:help(Cmd,
         #{progname => "erl", command => ["erl", "status", "crawler"]}))),
+    RestartCmd = "Usage:\n  erl restart [-rfv] [--force] [-i <interval>] [--req <weird>] [--float <float>]\n"
+        "      [-d <duo>] [--duo <duo>] <server>\n"
+        "\n"
+        "Arguments:\n"
+        "  server      server to restart\n"
+        "\n"
+        "Optional arguments:\n"
+        "  -r          recursive\n"
+        "  -f, --force force\n"
+        "  -v          verbosity level\n"
+        "  -i          interval set (int >= 1)\n"
+        "  --req       required optional, right?\n"
+        "  --float     floating-point long form argument (float), default: 3.14\n"
+        "  -d, --duo   dual option\n",
+    ?assertEqual(RestartCmd, unicode:characters_to_list(argparse:help(Cmd,
+        #{progname => "erl", command => ["restart"]}))),
     ok.
 
 usage_help_binary() ->
