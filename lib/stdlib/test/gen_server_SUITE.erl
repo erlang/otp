@@ -1723,13 +1723,13 @@ multicall_recv_opt_test(Type) ->
     _Warmup = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops div 10),
 
     Empty = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops),
-    ct:pal("Time with empty message queue: ~p microsecond~n",
+    ct:log("Time with empty message queue: ~p microsecond~n",
            [erlang:convert_time_unit(Empty, native, microsecond)]),
 
     make_msgq(HugeMsgQ),
 
     Huge = time_multicall(ExpRes, Nodes, Name, Req, Tmo, Loops),
-    ct:pal("Time with huge message queue: ~p microsecond~n",
+    ct:log("Time with huge message queue: ~p microsecond~n",
            [erlang:convert_time_unit(Huge, native, microsecond)]),
 
     lists:foreach(fun ({_Node, {Ctrl, _Srv}}) -> unlink(Ctrl) end, SrvList),
@@ -2070,7 +2070,7 @@ error_format_status(Module) when is_atom(Module) ->
 			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     end,
     receive
@@ -2135,7 +2135,7 @@ crash_in_format_status(Module, Match) when is_atom(Module) ->
            ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),
@@ -2174,7 +2174,7 @@ throw_in_format_status(Module, Match) when is_atom(Module) ->
            ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),
@@ -2234,7 +2234,7 @@ format_all_status(Config) when is_list(Config) ->
            ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
-	    ct:pal("Unexpected: ~p", [Other]),
+	    ct:log("Unexpected: ~p", [Other]),
 	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),
@@ -2255,7 +2255,7 @@ format_all_status(Config) when is_list(Config) ->
            ClientPid, [_|_] = _ClientStack2]}} ->
 	    ok;
 	Other2 ->
-	    ct:pal("Unexpected: ~p", [Other2]),
+	    ct:log("Unexpected: ~p", [Other2]),
 	    ct:fail(failed)
     after 5000 ->
 	    io:format("Timeout: expected error logger msg", []),

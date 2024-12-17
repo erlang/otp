@@ -948,9 +948,7 @@ unicode_options_gen(Config) when is_list(Config) ->
     DoOneFile1 =
 	fun(Encoding, N, M) ->
 		?dbg({Encoding,M,N}),
-		io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-		io:format(standard_error,
-			  "Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		ct:log("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
 		Fname = filename:join(Dir,
 				      "genfile_"++enc2str(Encoding)++
 					  "_"++integer_to_list(N)),
@@ -1003,9 +1001,7 @@ unicode_options_gen(Config) when is_list(Config) ->
     DoOneFile2 =
 	fun(Encoding,N,M) ->
 		?dbg({Encoding,M,N}),
-		io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-		io:format(standard_error,
-			  "Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		ct:log("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
 		Fname = filename:join(Dir,
 				      "genfile_"++enc2str(Encoding)++
 					  "_"++integer_to_list(N)),
