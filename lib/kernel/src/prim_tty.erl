@@ -113,7 +113,7 @@
 -export([reader_stop/1, disable_reader/1, enable_reader/1, read/1, read/2,
          is_reader/2, is_writer/2, output_mode/1]).
 
--nifs([isatty/1, tty_create/0, tty_init/2, setlocale/1,
+-nifs([isatty/1, tty_create/1, tty_init/2, setlocale/1,
        tty_select/2, tty_window_size/1,
        tty_encoding/1, tty_is_open/2, write_nif/2, read_nif/3, isprint/1,
        wcwidth/1, wcswidth/1,
@@ -127,8 +127,6 @@
 
 %% proc_lib exports
 -export([reader/1, writer/1]).
-
--on_load(on_load/0).
 
 %%-define(debug, true).
 -ifdef(debug).
@@ -170,7 +168,8 @@
                }).
 
 -type options() :: #{ input := cooked | raw | disabled,
-                      output := raw | cooked }.
+                      output := raw | cooked,
+                      ofd => stdout | stderr }.
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
@@ -251,8 +250,10 @@ window_size(State = #state{ tty = TTY }) ->
 -spec init(options()) -> state().
 init(UserOptions) when is_map(UserOptions) ->
 
+    on_load(),
+
     Options = options(UserOptions),
-    {ok, TTY} = tty_create(),
+    {ok, TTY} = tty_create(maps:get(ofd, Options)),
 
     %% Initialize the locale to see if we support utf-8 or not
     UnicodeSupported =
@@ -295,7 +296,7 @@ init_term(State = #state{ tty = TTY, options = Options }) ->
 
     WriterState =
         if TTYState#state.writer =:= undefined ->
-                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [State#state.tty]),
+                {ok, Writer} = proc_lib:start_link(?MODULE, writer, [[State#state.tty, self()]]),
                 TTYState#state{ writer = Writer };
            true ->
                 TTYState
@@ -356,7 +357,7 @@ reinit(State = #state{ options = OldOptions }, UserOptions) ->
     end.
 
 options(UserOptions) ->
-    maps:merge(#{ input => raw, output => cooked }, UserOptions).
+    maps:merge(#{ input => raw, output => cooked, ofd => stdout }, UserOptions).
 
 init(State, ssh) ->
     State#state{ xn = true };
@@ -541,7 +542,7 @@ call(Pid, Msg) ->
     end.
 
 reader([TTY, Encoding, Parent]) ->
-    register(user_drv_reader, self()),
+    set_name(Parent, "reader"),
     ReaderRef = make_ref(),
 
     ok = tty_select(TTY, ReaderRef),
@@ -638,8 +639,8 @@ flush_unicode_state(FromEnc) ->
             FromEnc
     end.
 
-writer(TTY) ->
-    register(user_drv_writer, self()),
+writer([TTY, Parent]) ->
+    set_name(Parent, "writer"),
     WriterRef = make_ref(),
     proc_lib:init_ack({ok, {self(), WriterRef}}),
     writer_loop(TTY, WriterRef).
@@ -672,6 +673,10 @@ writer_loop(TTY, WriterRef) ->
                     exit(self(), Reason)
             end
     end.
+
+set_name(Parent, Postfix) ->
+    {registered_name, Name} = erlang:process_info(Parent, registered_name),
+    register(list_to_atom(atom_to_list(Name) ++ "_" ++ Postfix), self()).
 
 -spec handle_request(state(), request()) -> {erlang:iovec(), state()}.
 handle_request(State = #state{ options = #{ output := raw } }, Request) ->
@@ -1467,8 +1472,8 @@ dbg(_) ->
 -spec isatty(stdin | stdout | stderr | tty()) -> boolean() | ebadf.
 isatty(_Fd) ->
     erlang:nif_error(undef).
--spec tty_create() -> {ok, tty()}.
-tty_create() ->
+-spec tty_create(stdout | stderr) -> {ok, tty()}.
+tty_create(_Fd) ->
     erlang:nif_error(undef).
 tty_init(_TTY, _Options) ->
     erlang:nif_error(undef).
