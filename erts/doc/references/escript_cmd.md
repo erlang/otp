@@ -276,4 +276,4 @@ symbolic links from a `bin` directory in the path.
 >
 > The configuration of the Erlang emulator invoked by `escript` can also be
 > controlled using the
-> [environment variables understood by `erl`](erl_cmd.md#environment_variables).
+> [environment variables understood by `erl`](erl_cmd.md#environment-variables).

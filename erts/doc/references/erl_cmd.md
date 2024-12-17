@@ -42,13 +42,12 @@ Starts an Erlang runtime system.
 The arguments can be divided into _emulator flags_, _flags_, and _plain
 arguments_:
 
-- Any argument starting with character `+` is interpreted as an
-  [emulator flag](erl_cmd.md#emu_flags).
+- Any argument starting with character `+` is interpreted as an [emulator flag](#emulator-flags).
 
   As indicated by the name, emulator flags control the behavior of the emulator.
 
 - Any argument starting with character `-` (hyphen) is interpreted as a
-  [flag](erl_cmd.md#init_flags), which is to be passed to the Erlang part of the
+  [flag](#flags), which is to be passed to the Erlang part of the
   runtime system, more specifically to the `init` system process, see `m:init`.
 
   The `init` process itself interprets some of these flags, the _init flags_. It
@@ -89,8 +88,6 @@ arguments.
 
 Here the user flag `-myflag 1` is passed to and stored by the `init` process. It
 is a user-defined flag, presumably used by some user-defined application.
-
-[](){: #init_flags }
 
 ## Flags
 
@@ -222,7 +219,7 @@ described in the corresponding application documentation.
 - **`-dist_listen true|false`{: #dist_listen }** - Specifies whether this node
   should be listening for incoming distribution connections or not. By default a
   node will listen for incoming connections. Setting this option to `false`
-  implies [`-hidden`](erl_cmd.md#hidden).
+  implies [`-hidden`](#hidden).
 
 - **`-emu_args`** - Useful for debugging. Prints the arguments sent to the
   emulator.
@@ -331,8 +328,8 @@ described in the corresponding application documentation.
   distributed node. This flag invokes all network servers necessary for a node
   to become distributed; see `m:net_kernel`. It also ensures that `epmd` runs on
   the current host before Erlang is started (see [`epmd(1)`](epmd_cmd.md) and
-  the [`-start_epmd`](erl_cmd.md#start_epmd) option) and that a magic cookie has
-  been set (see [\-setcookie](erl_cmd.md#setcookie)).
+  the [`-start_epmd`](#start_epmd) option) and that a magic cookie has
+  been set (see [\-setcookie](#setcookie)).
 
   The node name will be `Name@Host`, where `Host` is the fully qualified host
   name of the current host. For short names, use flag `-sname` instead.
@@ -345,7 +342,7 @@ described in the corresponding application documentation.
   > #### Warning {: .warning }
   >
   > Starting a distributed node without also specifying
-  > [`-proto_dist inet_tls`](erl_cmd.md#proto_dist) will expose the node to
+  > [`-proto_dist inet_tls`](#proto_dist) will expose the node to
   > attacks that may give the attacker complete access to the node and in
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
@@ -358,7 +355,7 @@ described in the corresponding application documentation.
   distribution either.
 
   This option only works if Erlang is started as a distributed node with the
-  [\-proto_dist](erl_cmd.md#proto_dist) option using an alternative protocol for
+  [\-proto_dist](#proto_dist) option using an alternative protocol for
   Erlang distribution which does not rely on epmd for node registration and
   discovery. For more information, see
   [How to implement an Alternative Carrier for the Erlang Distribution](alt_dist.md).
@@ -390,7 +387,7 @@ described in the corresponding application documentation.
 - **`-path Dir1 Dir2 ...`** - Replaces the path specified in the boot script;
   see [`script(4)`](`e:sasl:script.md`).
 
-- **`-proto_dist Proto`** - [](){: #proto_dist } Specifies a protocol for Erlang
+- **`-proto_dist Proto`**{: #proto_dist } -  Specifies a protocol for Erlang
   distribution:
 
   - **`inet_tcp`** - TCP over IPv4 (the default)
@@ -462,7 +459,7 @@ described in the corresponding application documentation.
   are killed. Defaults to `infinity`.
 
 - **`-sname Name`{: #sname }** - Makes the Erlang runtime system into a
-  distributed node, similar to [`-name`](erl_cmd.md#name), but the host name
+  distributed node, similar to [`-name`](#name), but the host name
   portion of the node name `Name@Host` will be the short name, not fully
   qualified.
 
@@ -479,7 +476,7 @@ described in the corresponding application documentation.
   > #### Warning {: .warning }
   >
   > Starting a distributed node without also specifying
-  > [`-proto_dist inet_tls`](erl_cmd.md#proto_dist) will expose the node to
+  > [`-proto_dist inet_tls`](#proto_dist) will expose the node to
   > attacks that may give the attacker complete access to the node and in
   > extension the cluster. When using un-secure distributed nodes, make sure
   > that the network is configured to keep potential attackers out.
@@ -497,12 +494,11 @@ described in the corresponding application documentation.
 - **`-version` (emulator flag)** - Makes the emulator print its version number.
   The same as `erl +V`.
 
-[](){: #emu_flags }
-
 ## Emulator Flags
 
 `erl` invokes the code for the Erlang emulator (virtual machine), which supports
-the following flags:
+the following flags. The flags are read from left to right and later flags override the
+behavior of earlier flags.
 
 - **`+a size`{: #async_thread_stack_size }** - Suggested stack size, in
   kilowords, for threads in the async thread pool. Valid range is 16-8192
@@ -578,7 +574,7 @@ the following flags:
   in each counter.
 
   Note that a runtime system using decentralized counter groups benefits from
-  [binding schedulers to logical processors](erl_cmd.md#%2Bsbt), as the groups
+  [binding schedulers to logical processors](#%2Bsbt), as the groups
   are distributed better between schedulers with this option.
 
   This option only affects decentralized counters used for the counters that are
@@ -691,12 +687,12 @@ the following flags:
   is. If it is high it could be a good idea to add more threads.
 
 - **`+IOPp PollSetsPercentage`{: #+IOPp }** - Similar to
-  [`+IOp`](erl_cmd.md#%2BIOp) but uses percentages to set the number of IO
+  [`+IOp`](#%2BIOp) but uses percentages to set the number of IO
   pollsets to create, based on the number of poll threads configured. If both
   `+IOPp` and `+IOp` are used, `+IOPp` is ignored.
 
 - **`+IOPt PollThreadsPercentage`{: #+IOPt }** - Similar to
-  [`+IOt`](erl_cmd.md#%2BIOt) but uses percentages to set the number of IO poll
+  [`+IOt`](#%2BIOt) but uses percentages to set the number of IO poll
   threads to create, based on the number of schedulers configured. If both
   `+IOPt` and `+IOt` are used, `+IOPt` is ignored.
 
@@ -779,7 +775,7 @@ the following flags:
   physical pages, where one region is executable but not writable, and the other
   writable but not executable. As some tools, such as QEMU user mode emulation,
   cannot deal with the dual mapping, this flags allows it to be disabled. This
-  flag is automatically enabled by the [`+JPperf`](erl_cmd.md#%2BJPperf) flag.
+  flag is automatically enabled by the [`+JPperf`](#%2BJPperf) flag.
 
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
@@ -885,7 +881,7 @@ the following flags:
   reader group consumes 64 byte in each read/write lock.
 
   Notice that a runtime system using shared reader groups benefits from
-  [binding schedulers to logical processors](erl_cmd.md#%2Bsbt), as the reader
+  [binding schedulers to logical processors](#%2Bsbt), as the reader
   groups are distributed better between schedulers.
 
 - **`+S Schedulers:SchedulerOnline`{: #+S }** - Sets the number of scheduler
@@ -911,7 +907,7 @@ the following flags:
   value.
 
 - **`+SP SchedulersPercentage:SchedulersOnlinePercentage`{: #+SP }** - Similar
-  to [`+S`](erl_cmd.md#%2BS) but uses percentages to set the number of scheduler
+  to [`+S`](#%2BS) but uses percentages to set the number of scheduler
   threads to create, based on logical processors configured, and scheduler
   threads to set online, based on logical processors available. Specified values
   must be > 0. For example, `+SP 50:25` sets the number of scheduler threads to
@@ -921,7 +917,7 @@ the following flags:
   of schedulers online can be changed at runtime through
   [`erlang:system_flag(schedulers_online, SchedulersOnline)`](`m:erlang#system_flag_schedulers_online`).
 
-  This option interacts with [`+S`](erl_cmd.md#%2BS) settings. For example, on a
+  This option interacts with [`+S`](#%2BS) settings. For example, on a
   system with 8 logical cores configured and 8 logical cores available, the
   combination of the options `+S 4:4 +SP 50:25` (in either order) results in 2
   scheduler threads (50% of 4) and 1 scheduler thread online (25% of 4).
@@ -936,7 +932,7 @@ the following flags:
   - The number of dirty CPU scheduler threads online cannot exceed the number of
     normal scheduler threads online.
 
-  For details, see [`+S`](erl_cmd.md#%2BS) and [`+SP`](erl_cmd.md#%2BSP). By
+  For details, see [`+S`](#%2BS) and [`+SP`](#%2BSP). By
   default, the number of dirty CPU scheduler threads created equals the number
   of normal scheduler threads created, and the number of dirty CPU scheduler
   threads online equals the number of normal scheduler threads online.
@@ -957,7 +953,7 @@ the following flags:
   schedulers threads and adjust the number used accordingly.
 
 - **`+SDPcpu DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage`{:
-  #+SDPcpu }** - Similar to [`+SDcpu`](erl_cmd.md#%2BSDcpu) but uses percentages
+  #+SDPcpu }** - Similar to [`+SDcpu`](#%2BSDcpu) but uses percentages
   to set the number of dirty CPU scheduler threads to create and the number of
   dirty CPU scheduler threads to set online. Specified values must be > 0. For
   example, `+SDPcpu 50:25` sets the number of dirty CPU scheduler threads to 50%
@@ -968,7 +964,7 @@ the following flags:
   dirty CPU schedulers online can be changed at runtime through
   [`erlang:system_flag(dirty_cpu_schedulers_online, DirtyCPUSchedulersOnline)`](`m:erlang#system_flag_dirty_cpu_schedulers_online`).
 
-  This option interacts with [`+SDcpu`](erl_cmd.md#%2BSDcpu) settings. For
+  This option interacts with [`+SDcpu`](#%2BSDcpu) settings. For
   example, on a system with 8 logical cores configured and 8 logical cores
   available, the combination of the options `+SDcpu 4:4 +SDPcpu 50:25` (in
   either order) results in 2 dirty CPU scheduler threads (50% of 4) and 1 dirty
@@ -979,7 +975,7 @@ the following flags:
   dirty I/O scheduler threads created is 10.
 
   The amount of dirty IO schedulers is not limited by the amount of normal
-  schedulers [like the amount of dirty CPU schedulers](erl_cmd.md#%2BSDcpu).
+  schedulers [like the amount of dirty CPU schedulers](#%2BSDcpu).
   This since only I/O bound work is expected to execute on dirty I/O schedulers.
   If the user should schedule CPU bound jobs on dirty I/O schedulers, these jobs
   might starve ordinary jobs executing on ordinary schedulers.
@@ -993,14 +989,14 @@ the following flags:
 
   - **`+sbt BindType`{: #+sbt }** - Sets scheduler bind type.
 
-    Schedulers can also be bound using flag [`+stbt`](erl_cmd.md#%2Bstbt). The
+    Schedulers can also be bound using flag [`+stbt`](#%2Bstbt). The
     only difference between these two flags is how the following errors are
     handled:
 
     - Binding of schedulers is not supported on the specific platform.
     - No available CPU topology. That is, the runtime system was not able to
       detect the CPU topology automatically, and no
-      [user-defined CPU topology](erl_cmd.md#%2Bsct) was set.
+      [user-defined CPU topology](#%2Bsct) was set.
 
     If any of these errors occur when `+sbt` has been passed, the runtime system
     prints an error message, and refuses to start. If any of these errors occur
@@ -1050,7 +1046,7 @@ the following flags:
 
     If no CPU topology is available when flag `+sbt` is processed and `BindType`
     is any other type than `u`, the runtime system fails to start. CPU topology
-    can be defined using flag [`+sct`](erl_cmd.md#%2Bsct). Notice that flag
+    can be defined using flag [`+sct`](#%2Bsct). Notice that flag
     `+sct` can have to be passed before flag `+sbt` on the command line (if no
     CPU topology has been automatically detected).
 
@@ -1090,7 +1086,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+sbwtdcpu none|very_short|short|medium|long|very_long`{: #+sbwtdcpu }** -
-    As [`+sbwt`](erl_cmd.md#%2Bsbwt) but affects dirty CPU schedulers. Defaults
+    As [`+sbwt`](#%2Bsbwt) but affects dirty CPU schedulers. Defaults
     to `short`.
 
     > #### Note {: .info }
@@ -1098,7 +1094,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+sbwtdio none|very_short|short|medium|long|very_long`{: #+sbwtdio }** -
-    As [`+sbwt`](erl_cmd.md#%2Bsbwt) but affects dirty IO schedulers. Defaults
+    As [`+sbwt`](#%2Bsbwt) but affects dirty IO schedulers. Defaults
     to `short`.
 
     > #### Note {: .info }
@@ -1114,13 +1110,14 @@ the following flags:
     out of work. When disabled, the frequency with which schedulers run out of
     work is not taken into account by the load balancing logic.
 
-    `+scl false` is similar to [`+sub true`](erl_cmd.md#%2Bsub), but `+sub true`
+    `+scl false` is similar to [`+sub true`](#%2Bsub), but `+sub true`
     also balances scheduler utilization between schedulers.
 
   - **`+sct CpuTopology`{: #+sct }** - Sets a user-defined CPU topology.
     The user-defined CPU topology overrides
     any automatically detected CPU topology. The CPU topology is used when
-    [binding schedulers to logical processors](erl_cmd.md#%2Bsbt).
+    [binding schedulers to logical processors](#%2Bsbt). This option must be before
+    [`+sbt`](#%2Bsbt) on the command-line.
 
     ```
     <Id> = integer(); when 0 =< <Id> =< 65535
@@ -1274,8 +1271,8 @@ the following flags:
     kilowords. The default suggested stack size is 40 kilowords.
 
   - **`+stbt BindType`{: #+stbt }** - Tries to set the scheduler bind type. The
-    same as flag [`+sbt`](erl_cmd.md#%2Bsbt) except how some errors are handled.
-    For more information, see [`+sbt`](erl_cmd.md#%2Bsbt).
+    same as flag [`+sbt`](#%2Bsbt) except how some errors are handled.
+    For more information, see [`+sbt`](#%2Bsbt).
 
   - **`+sub true|false`{: #+sub }** - Enables or disables
     [scheduler utilization](`m:erlang#statistics_scheduler_wall_time`) balancing
@@ -1291,7 +1288,7 @@ the following flags:
     and uses a monotonically increasing high-resolution clock. On other systems,
     the runtime system fails to start.
 
-    `+sub true` implies [`+scl false`](erl_cmd.md#%2Bscl). The difference
+    `+sub true` implies [`+scl false`](#%2Bscl). The difference
     between `+sub true` and `+scl false` is that `+scl false` does not try to
     balance the scheduler utilization.
 
@@ -1328,7 +1325,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+swtdcpu very_low|low|medium|high|very_high`{: #+swtdcpu }** - As
-    [`+swt`](erl_cmd.md#%2Bswt) but affects dirty CPU schedulers. Defaults to
+    [`+swt`](#%2Bswt) but affects dirty CPU schedulers. Defaults to
     `medium`.
 
     > #### Note {: .info }
@@ -1336,7 +1333,7 @@ the following flags:
     > This flag can be removed or changed at any time without prior notice.
 
   - **`+swtdio very_low|low|medium|high|very_high`{: #+swtdio }** - As
-    [`+swt`](erl_cmd.md#%2Bswt) but affects dirty IO schedulers. Defaults to
+    [`+swt`](#%2Bswt) but affects dirty IO schedulers. Defaults to
     `medium`.
 
     > #### Note {: .info }
@@ -1436,8 +1433,6 @@ the following flags:
     timeout value in effect.
 
     Since: OTP 27.0
-
-[](){: #environment_variables }
 
 ## Environment Variables
 
