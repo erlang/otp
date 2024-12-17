@@ -745,12 +745,13 @@ encode_decode_loop(Range, X) ->
     R = binary:decode_unsigned(make_unaligned(PaddedLittle),little),
     S = binref:decode_unsigned(PaddedLittle,little),
     T = binref:decode_unsigned(PaddedBig),
-    case (((A =:= B) and (B =:= C) and (C =:= D)) and
-						    ((E =:= F)) and
-								  ((N =:= G) and (G =:= H) and (H =:= I) and
-													   (I =:= J) and (J =:= K) and (K =:= L) and (L =:= M)) and
-																				  ((M =:= O) and (O =:= P) and (P =:= Q) and (Q =:= R) and
-																											 (R =:= S) and (S =:= T)))of
+    case (A =:= B andalso B =:= C andalso C =:= D)
+        andalso (E =:= F) andalso (N =:= G andalso G =:= H andalso H =:= I
+                                   andalso I =:= J andalso J =:= K
+                                   andalso K =:= L andalso L =:= M)
+        andalso (M =:= O andalso O =:= P andalso P =:= Q
+                 andalso Q =:= R andalso R =:= S andalso S =:= T)
+    of
 	true ->
 	    encode_decode_loop(Range,X-1);
 	_ ->
@@ -1302,7 +1303,7 @@ do_split_comp(N,H,Opts) ->
     A = ?MASK_ERROR(binref:split(H,N,Opts)),
     D = ?MASK_ERROR(binary:split(H,binary:compile_pattern(N),Opts)),
     if
-	(A =/= [N]) and is_list(A) ->
+	A =/= [N] andalso is_list(A) ->
 	    put(success_counter,get(success_counter)+1);
 	true ->
 	    ok
@@ -1350,7 +1351,7 @@ do_replace_comp(N,H,R,Opts) ->
     A = ?MASK_ERROR(binref:replace(H,N,R,Opts)),
     D = ?MASK_ERROR(binary:replace(H,binary:compile_pattern(N),R,Opts)),
     if
-	(A =/= N) and is_binary(A) ->
+	A =/= N andalso is_binary(A) ->
 	    put(success_counter,get(success_counter)+1);
 	true ->
 	    ok

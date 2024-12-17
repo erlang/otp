@@ -1514,7 +1514,7 @@ cipher_info_prop_aead_attr(Config) when is_list(Config) ->
     case lists:foldl(fun(C,Ok) ->
                         case crypto:cipher_info(C) of
                             #{prop_aead := true} ->
-                                true and Ok;
+                                true andalso Ok;
                             _ ->
                                 false
                         end
@@ -1532,7 +1532,7 @@ cipher_info_prop_aead_attr(Config) when is_list(Config) ->
     case lists:foldl(fun(C,Ok) ->
                         case crypto:cipher_info(C) of
                             #{prop_aead := false} ->
-                                true and Ok;
+                                true andalso Ok;
                             _ ->
                                 false
                         end
@@ -2075,7 +2075,7 @@ rand_uniform_aux_test(N) ->
 
 crypto_rand_uniform(L,H) ->
     R1 = (L-1) + rand:uniform(H-L),
-    case (R1 >= L) and (R1 < H) of
+    case R1 >= L andalso R1 < H of
 	true  ->
 	    ok;
 	false ->

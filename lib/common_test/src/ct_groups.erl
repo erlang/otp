@@ -58,7 +58,8 @@ find_groups1(Mod, GrNames, TCs, GroupDefs) ->
 	    Path ->
 		{Path,true}
 	end,
-    TCs1 = if (is_atom(TCs) and (TCs /= all)) or is_tuple(TCs) ->
+    TCs1 = if is_atom(TCs), TCs /= all ;
+              is_tuple(TCs) ->
 		   [TCs];
 	      true -> 
 		   TCs 
