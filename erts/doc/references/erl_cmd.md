@@ -42,13 +42,12 @@ Starts an Erlang runtime system.
 The arguments can be divided into _emulator flags_, _flags_, and _plain
 arguments_:
 
-- Any argument starting with character `+` is interpreted as an
-  [emulator flag](erl_cmd.md#emu_flags).
+- Any argument starting with character `+` is interpreted as an [emulator flag](#emulator-flags).
 
   As indicated by the name, emulator flags control the behavior of the emulator.
 
 - Any argument starting with character `-` (hyphen) is interpreted as a
-  [flag](erl_cmd.md#init_flags), which is to be passed to the Erlang part of the
+  [flag](#flags), which is to be passed to the Erlang part of the
   runtime system, more specifically to the `init` system process, see `m:init`.
 
   The `init` process itself interprets some of these flags, the _init flags_. It
@@ -89,8 +88,6 @@ arguments.
 
 Here the user flag `-myflag 1` is passed to and stored by the `init` process. It
 is a user-defined flag, presumably used by some user-defined application.
-
-[](){: #init_flags }
 
 ## Flags
 
@@ -390,7 +387,7 @@ described in the corresponding application documentation.
 - **`-path Dir1 Dir2 ...`** - Replaces the path specified in the boot script;
   see [`script(4)`](`e:sasl:script.md`).
 
-- **`-proto_dist Proto`** - [](){: #proto_dist } Specifies a protocol for Erlang
+- **`-proto_dist Proto`**{: #proto_dist } -  Specifies a protocol for Erlang
   distribution:
 
   - **`inet_tcp`** - TCP over IPv4 (the default)
@@ -497,12 +494,11 @@ described in the corresponding application documentation.
 - **`-version` (emulator flag)** - Makes the emulator print its version number.
   The same as `erl +V`.
 
-[](){: #emu_flags }
-
 ## Emulator Flags
 
 `erl` invokes the code for the Erlang emulator (virtual machine), which supports
-the following flags:
+the following flags. The flags are read from left to right and later flags override the
+behavior of earlier flags.
 
 - **`+a size`{: #async_thread_stack_size }** - Suggested stack size, in
   kilowords, for threads in the async thread pool. Valid range is 16-8192
@@ -1120,7 +1116,8 @@ the following flags:
   - **`+sct CpuTopology`{: #+sct }** - Sets a user-defined CPU topology.
     The user-defined CPU topology overrides
     any automatically detected CPU topology. The CPU topology is used when
-    [binding schedulers to logical processors](erl_cmd.md#%2Bsbt).
+    [binding schedulers to logical processors](#%2Bsbt). This option must be before
+    [`+sbt`](#%2Bsbt) on the command-line.
 
     ```
     <Id> = integer(); when 0 =< <Id> =< 65535
@@ -1436,8 +1433,6 @@ the following flags:
     timeout value in effect.
 
     Since: OTP 27.0
-
-[](){: #environment_variables }
 
 ## Environment Variables
 
