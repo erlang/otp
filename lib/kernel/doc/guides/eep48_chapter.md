@@ -156,7 +156,7 @@ information to each entry. This EEP documents the following metadata keys:
 - **`source_annos := [erl_anno:anno()]`** - a list of source code locations.
   You may either store one for each clause or only for the first clause.
 
-- **`source_path := binary()`** - the absolute location of the source file for
+- **`source_path := file:filename()`** - the absolute location of the source file for
   this module. Applies only to the module metadata.
 
 Any key may be added to Metadata at any time. Keys that are frequently used by

@@ -643,7 +643,7 @@ A extended `t:stacktrace/0` that can be passed to `raise/3`.
 %% Specs and stubs
 %% adler32/1
 -doc "Computes and returns the adler32 checksum for `Data`.".
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec adler32(Data) -> non_neg_integer() when
       Data :: iodata().
 adler32(_Data) ->
@@ -667,7 +667,7 @@ assigns the same value to `Y` as this:
 Y = erlang:adler32([Data1,Data2]).
 ```
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec adler32(OldAdler, Data) -> non_neg_integer() when
       OldAdler :: non_neg_integer(),
       Data :: iodata().
@@ -696,7 +696,7 @@ Y = erlang:adler32(Data2),
 Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
 ```
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec adler32_combine(FirstAdler, SecondAdler, SecondSize) -> non_neg_integer() when
       FirstAdler :: non_neg_integer(),
       SecondAdler :: non_neg_integer(),
@@ -720,7 +720,7 @@ For example:
 {one,two,three}
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec append_element(Tuple1, Term) -> Tuple2 when
       Tuple1 :: tuple(),
       Tuple2 :: tuple(),
@@ -731,7 +731,7 @@ append_element(_Tuple1, _Term) ->
 %% atom_to_binary/1
 -doc(#{ equiv => atom_to_binary(Atom, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec atom_to_binary(Atom) -> binary() when
       Atom :: atom().
 atom_to_binary(Atom) ->
@@ -763,7 +763,7 @@ Example:
 <<"Erlang">>
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec atom_to_binary(Atom, Encoding) -> binary() when
       Atom :: atom(),
       Encoding :: latin1 | unicode | utf8.
@@ -789,7 +789,7 @@ For example:
 
 See `m:unicode` for how to convert the resulting list to different formats.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec atom_to_list(Atom) -> string() when
       Atom :: atom().
 atom_to_list(_Atom) ->
@@ -822,7 +822,7 @@ Failure: `badarg` if `PosLen` in any way references outside the binary.
 
 For details about the `PosLen` semantics, see `m:binary`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -doc(#{since => <<"OTP R14B">>}).
 -spec binary_part(Subject, PosLen) -> binary() when
       Subject :: binary(),
@@ -834,7 +834,7 @@ binary_part(_Subject, _PosLen) ->
 %% Shadowed by erl_bif_types: erlang:binary_part/3
 -doc( #{ equiv =>  binary_part(Subject, {Start, Length}) }).
 -doc(#{since => <<"OTP R14B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_part(Subject, Start, Length) -> binary() when
       Subject :: binary(),
       Start :: non_neg_integer(),
@@ -845,7 +845,7 @@ binary_part(_Subject, _Start, _Length) ->
 %% binary_to_atom/1
 -doc(#{ equiv => binary_to_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_atom(Binary) -> atom() when
       Binary :: binary().
 binary_to_atom(Binary) ->
@@ -892,7 +892,7 @@ Examples:
 'Ѐ'
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_atom(Binary, Encoding) -> atom() when
       Binary :: binary(),
       Encoding :: latin1 | unicode | utf8.
@@ -902,7 +902,7 @@ binary_to_atom(_Binary, _Encoding) ->
 %% binary_to_existing_atom/1
 -doc(#{ equiv => binary_to_existing_atom(Binary, utf8) }).
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_existing_atom(Binary) -> atom() when
       Binary :: binary().
 binary_to_existing_atom(Binary) ->
@@ -947,7 +947,7 @@ Failure: `badarg` if the atom does not exist.
 > default limits can be found in the
 > [Efficiency Guide (section System Limits)](`e:system:system_limits.md`).
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_existing_atom(Binary, Encoding) -> atom() when
       Binary :: binary(),
       Encoding :: latin1 | unicode | utf8.
@@ -972,7 +972,7 @@ are not permitted.
 Failure: `badarg` if `Binary` contains a bad representation of a float.
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_float(Binary) -> float() when
       Binary :: binary().
 binary_to_float(_Binary) ->
@@ -995,7 +995,7 @@ as `list_to_integer/1`.
 Failure: `badarg` if `Binary` contains a bad representation of an integer.
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_integer(Binary) -> integer() when
       Binary :: binary().
 binary_to_integer(Binary) ->
@@ -1029,7 +1029,7 @@ as `list_to_integer/2`.
 
 Failure: `badarg` if `Binary` contains a bad representation of an integer.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -doc(#{since => <<"OTP R16B">>}).
 -spec binary_to_integer(Binary, Base) -> integer() when
       Binary :: binary(),
@@ -1193,7 +1193,7 @@ radix(WordSize, Base) ->
 
 %% binary_to_list/1
 -doc "Returns a list of integers corresponding to the bytes of `Binary`.".
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_list(Binary) -> [byte()] when
       Binary :: binary().
 binary_to_list(_Binary) ->
@@ -1211,7 +1211,7 @@ The positions in the binary are numbered starting from 1.
 > code is to use `binary:bin_to_list/3` in STDLIB instead. All functions in
 > module `binary` consistently use zero-based indexing.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_list(Binary, Start, Stop) -> [byte()] when
       Binary :: binary(),
       Start :: pos_integer(),
@@ -1242,7 +1242,7 @@ hello
 
 See also `term_to_binary/1` and `binary_to_term/2`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_term(Binary) -> term() when
       Binary :: ext_binary().
 binary_to_term(_Binary) ->
@@ -1301,7 +1301,7 @@ Failure: `badarg` if `safe` is specified and unsafe data is decoded.
 See also `term_to_binary/1`, `binary_to_term/1`, and `list_to_existing_atom/1`.
 """.
 -doc(#{since => <<"OTP R13B04">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec binary_to_term(Binary, Opts) -> term() | {term(), Used} when
       Binary :: ext_binary(),
       Opt :: safe | used,
@@ -1324,7 +1324,7 @@ For example:
 24
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec bit_size(Bitstring) -> non_neg_integer() when
       Bitstring :: bitstring().
 bit_size(_Bitstring) ->
@@ -1349,7 +1349,7 @@ For example:
 [1,177,<<3:3>>]
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec bitstring_to_list(Bitstring) -> [byte() | bitstring()] when
       Bitstring :: bitstring().
 bitstring_to_list(_Bitstring) ->
@@ -1369,7 +1369,7 @@ the maximum number of reductions for a process (4000 reductions in Erlang/OTP 19
 > This BIF can be removed in a future version of the Beam machine without prior
 > warning. It is unlikely to be implemented in other Erlang implementations.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec bump_reductions(Reductions) -> true when
       Reductions :: pos_integer().
 bump_reductions(_Reductions) ->
@@ -1391,7 +1391,7 @@ For example:
 3
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec byte_size(Bitstring) -> non_neg_integer() when
       Bitstring :: bitstring().
 byte_size(_Bitstring) ->
@@ -1406,7 +1406,7 @@ call_on_load_function(_P1) ->
 
 %% cancel_timer/1
 -doc( #{ equiv =>  erlang:cancel_timer(TimerRef, []) }).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec cancel_timer(TimerRef) -> Result when
       TimerRef :: reference(),
       Time :: non_neg_integer(),
@@ -1467,7 +1467,7 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:read_timer/2`](`read_timer/2`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec cancel_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
       Async :: boolean(),
@@ -1493,7 +1493,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec ceil(Number) -> integer() when
       Number :: number().
 ceil(_) ->
@@ -1507,7 +1507,7 @@ Returns `true` if `Module` has
 See also `m:code`.
 """.
 -doc(#{since => <<"OTP R14B04">>}).
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec check_old_code(Module) -> boolean() when
       Module :: module().
 check_old_code(_Module) ->
@@ -1515,7 +1515,7 @@ check_old_code(_Module) ->
 
 %% check_process_code/2
 -doc(#{ equiv => check_process_code(Pid, Module, []) }).
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec check_process_code(Pid, Module) -> CheckResult when
       Pid :: pid(),
       Module :: module(),
@@ -1592,7 +1592,7 @@ Failures:
 
 - **`badarg`** - If `OptionList` is an invalid list of options.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -doc(#{since => <<"OTP 17.0">>}).
 -spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
       Pid :: pid(),
@@ -1613,7 +1613,7 @@ check_process_code(Pid, Module, OptionList)  ->
 
 %% crc32/1
 -doc "Computes and returns the crc32 (IEEE 802.3 style) checksum for `Data`.".
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec crc32(Data) -> non_neg_integer() when
       Data :: iodata().
 crc32(_Data) ->
@@ -1637,7 +1637,7 @@ assigns the same value to `Y` as this:
 Y = erlang:crc32([Data1,Data2]).
 ```
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec crc32(OldCrc, Data) -> non_neg_integer() when
       OldCrc :: non_neg_integer(),
       Data :: iodata().
@@ -1666,7 +1666,7 @@ Y = erlang:crc32(Data2),
 Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
 ```
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec crc32_combine(FirstCrc, SecondCrc, SecondSize) -> non_neg_integer() when
       FirstCrc :: non_neg_integer(),
       SecondCrc :: non_neg_integer(),
@@ -1689,7 +1689,7 @@ For example:
 {1995,2,19}
 ```
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec date() -> Date when
       Date :: calendar:date().
 date() ->
@@ -1787,7 +1787,7 @@ Examples:
 {more,6}
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec decode_packet(Type, Bin, Options) ->
                                   {ok, Packet, Rest} |
                                   {more, Length} |
@@ -1896,7 +1896,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec delete_element(Index, Tuple1) -> Tuple2 when
       Index  :: pos_integer(),
       Tuple1 :: tuple(),
@@ -1917,7 +1917,7 @@ not exist, otherwise `true`.
 
 Failure: `badarg` if there already is an old version of `Module`.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec delete_module(Module) -> true | undefined when
       Module :: module().
 delete_module(_Module) ->
@@ -1962,7 +1962,7 @@ the call fails with `badarg`, for example if `MonitorRef` is a remote reference.
 """.
 -spec demonitor(MonitorRef) -> true when
       MonitorRef :: reference().
--doc #{ group => processes }.
+-doc #{ category => processes }.
 demonitor(_MonitorRef) ->
     erlang:nif_error(undefined).
 
@@ -2016,7 +2016,7 @@ Failures:
 
 - **`badarg`** - The same failure as for `demonitor/1`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec demonitor(MonitorRef, OptionList) -> boolean() when
       MonitorRef :: reference(),
       OptionList :: [Option],
@@ -2026,7 +2026,7 @@ demonitor(_MonitorRef, _OptionList) ->
 
 -doc(#{equiv => alias([])}).
 -doc(#{since => <<"OTP 24.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec alias() -> Alias when
       Alias :: reference().
 alias() ->
@@ -2082,7 +2082,7 @@ For more information on process aliases see the
 [_Process Aliases_](`e:system:ref_man_processes.md#process-aliases`) section of
 the _Erlang Reference Manual_.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec alias(Opts) -> Alias when
       Alias :: reference(),
@@ -2106,7 +2106,7 @@ For more information on process aliases see the
 the _Erlang Reference Manual_.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec unalias(Alias) -> boolean() when
       Alias :: reference().
 
@@ -2123,7 +2123,7 @@ Prints a text representation of `Term` on the standard output.
 > contain internal details that do not match the high-level representation of
 > the term in Erlang.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec display(Term) -> true when
       Term :: term().
 display(_Term) ->
@@ -2210,7 +2210,7 @@ erase().
 [{key1,{1,2,3}},{key2,[a,b,c]}]
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec erase() -> [{Key, Val}] when
       Key :: term(),
       Val :: term().
@@ -2235,7 +2235,7 @@ X = erase(key1),
 {{merry,lambs,are,playing},undefined}
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec erase(Key) -> Val | undefined when
       Key :: term(),
       Val :: term().
@@ -2266,7 +2266,7 @@ Example:
                  {shell,eval_loop,3,[{file,"shell.erl"},{line,627}]}]}}
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec error(Reason) -> no_return() when
       Reason :: term().
 error(_Reason) ->
@@ -2314,7 +2314,7 @@ Erlang shell:
 -spec error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()] | none.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
@@ -2346,7 +2346,7 @@ incorrect type). See the guide about
 [errors and error handling](`e:system:errors.md`) for additional information.
 """.
 -doc(#{since => <<"OTP 24.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec error(Reason, Args, Options) -> no_return() when
       Reason :: term(),
       Args :: [term()] | none,
@@ -2394,7 +2394,7 @@ Example:
 > they are sent because the signal will be untrappable if a process sends such a
 > signal to another process with [`erlang:exit/2`](`exit/2`).
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec exit(Reason) -> no_return() when
       Reason :: term().
 exit(_Reason) ->
@@ -2463,7 +2463,7 @@ process got killed by a call to [`exit(Pid, kill)`](`exit/2`).
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec exit(Pid, Reason) -> true when
       Pid :: pid() | port(),
       Reason :: term().
@@ -2499,7 +2499,7 @@ erlang:external_size(Term, [])
 ```
 """.
 -doc(#{since => <<"OTP R14B04">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec external_size(Term) -> non_neg_integer() when
       Term :: term().
 external_size(_Term) ->
@@ -2522,7 +2522,7 @@ true
 Option `{minor_version, Version}` specifies how floats are encoded. For a
 detailed description, see `term_to_binary/2`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -doc(#{since => <<"OTP R14B04">>}).
 -spec external_size(Term, Options) -> non_neg_integer() when
       Term :: term(),
@@ -2572,7 +2572,7 @@ For example:
 > When [`float/1`](`float/1`) is used in an expression in a guard, such as
 > '`float(A) == 4.0`', it converts a number as described earlier.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec float(Number) -> float() when
       Number :: number().
 float(_Number) ->
@@ -2581,7 +2581,7 @@ float(_Number) ->
 %% float_to_binary/1
 -doc(#{ equiv => float_to_binary(Float,[{scientific,20}]) }).
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec float_to_binary(Float) -> binary() when
       Float :: float().
 float_to_binary(_Float) ->
@@ -2612,7 +2612,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec float_to_binary(Float, Options) -> binary() when
       Float :: float(),
       Options :: [Option],
@@ -2625,7 +2625,7 @@ float_to_binary(_Float, _Options) ->
 
 %% float_to_list/1
 -doc(#{ equiv => float_to_list(Float,[{scientific,20}]) }).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec float_to_list(Float) -> string() when
       Float :: float().
 float_to_list(_Float) ->
@@ -2676,7 +2676,7 @@ In the last example, [`float_to_list(0.1+0.2)`](`float_to_list/1`) evaluates to
 [Representation of Floating Point Numbers](`e:system:data_types.md#float_representation_problem`).
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec float_to_list(Float, Options) -> string() when
       Float :: float(),
       Options :: [Option],
@@ -2700,7 +2700,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec floor(Number) -> integer() when
       Number :: number().
 floor(_) ->
@@ -2720,7 +2720,7 @@ items is always the atom `undefined`.
 
 See [`erlang:fun_info/1`](`fun_info/1`).
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec fun_info(Fun, Item) -> {Item, Info} when
       Fun :: function(),
       Item :: fun_info_item(),
@@ -2816,7 +2816,7 @@ Explanation: All funs created from fun expressions of this form in uncompiled
 code with the same arity are mapped to the same list by
 [`fun_to_list/1`](`fun_to_list/1`).
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec fun_to_list(Fun) -> String :: string() when
       Fun :: function().
 fun_to_list(_Fun) ->
@@ -2829,7 +2829,7 @@ Returns `true` if the module `Module` is
 function `Function/Arity`, or if there is a BIF (a built-in function implemented
 in C) with the specified name, otherwise returns `false`.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec function_exported(Module, Function, Arity) -> boolean() when
       Module :: module(),
       Function :: atom(),
@@ -2849,14 +2849,14 @@ or not at all.
 >
 > Improper use can seriously degrade system performance.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec garbage_collect() -> true.
 garbage_collect() ->
     erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
 -doc(#{ equiv => garbage_collect(Pid, []) }).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec garbage_collect(Pid) -> GCResult when
       Pid :: pid(),
       GCResult :: boolean().
@@ -2913,7 +2913,7 @@ Failures:
 - **`badarg`** - If `OptionList` is an invalid list of options.
 """.
 -doc(#{since => <<"OTP 17.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec garbage_collect(Pid, OptionList) -> GCResult | async when
       Pid :: pid(),
       RequestId :: term(),
@@ -2979,7 +2979,7 @@ get().
 [{key1,merry},{key2,lambs},{key3,{are,playing}}]
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec get() -> [{Key, Val}] when
       Key :: term(),
       Val :: term().
@@ -3005,7 +3005,7 @@ get({any, [valid, term]}).
 {are,playing}
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec get(Key) -> Val | undefined when
       Key :: term(),
       Val :: term().
@@ -3028,7 +3028,7 @@ get_keys().
 ```
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec get_keys() -> [Key] when
       Key :: term().
 get_keys() ->
@@ -3052,7 +3052,7 @@ get_keys({1, 2}).
 [mary,had,a,little,lamb]
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec get_keys(Val) -> [Key] when
       Val :: term(),
       Key :: term().
@@ -3088,7 +3088,7 @@ where this is done are:
   `m:eunit` set the group leader in order to capture any I/O from the testcase.
 - The [interactive shell](`m:shell`) sets the group leader to intercept I/O.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec group_leader() -> pid().
 group_leader() ->
     erlang:nif_error(undefined).
@@ -3117,7 +3117,7 @@ and stopping applications.
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec group_leader(GroupLeader, Pid) -> true when
       GroupLeader :: pid(),
       Pid :: pid().
@@ -3148,7 +3148,7 @@ For example:
 os_prompt%
 ```
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec halt() -> no_return().
 halt() ->
     erlang:halt(0, []).
@@ -3167,7 +3167,7 @@ os_prompt% echo $?
 os_prompt%
 ```
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec halt(Status :: non_neg_integer()) ->
           no_return();
           (Abort :: abort) ->
@@ -3285,7 +3285,7 @@ Halt the runtime system.
   >   slogan. Now any Unicode string is valid.
 """.
 -doc(#{since => <<"OTP R15B01">>}).
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec halt(Status :: non_neg_integer(), Options :: halt_options()) ->
           no_return();
           (Abort :: abort, Options :: halt_options()) ->
@@ -3336,7 +3336,7 @@ processes started using `proc_lib` (also indirectly, such as `gen_server`
 processes), are to use `proc_lib:hibernate/3` instead, to ensure that the
 exception handler continues to work when the process wakes up.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
       Function :: atom(),
@@ -3358,7 +3358,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec insert_element(Index, Tuple1, Term) -> Tuple2 when
       Index  :: pos_integer(),
       Tuple1 :: tuple(),
@@ -3379,7 +3379,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec integer_to_binary(Integer) -> binary() when
       Integer :: integer().
 integer_to_binary(_Integer) ->
@@ -3396,7 +3396,7 @@ For example:
 "77"
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec integer_to_list(Integer) -> string() when
       Integer :: integer().
 integer_to_list(_Integer) ->
@@ -3414,7 +3414,7 @@ For example:
 4
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec iolist_size(Item) -> non_neg_integer() when
       Item :: iolist() | binary().
 iolist_size(_Item) ->
@@ -3438,7 +3438,7 @@ For example:
 <<1,2,3,1,2,3,4,5,4,6>>
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec iolist_to_binary(IoListOrBinary) -> binary() when
       IoListOrBinary :: iolist() | binary().
 iolist_to_binary(_IoListOrBinary) ->
@@ -3477,7 +3477,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP 20.1">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec iolist_to_iovec(IoListOrBinary) -> iovec() when
       IoListOrBinary :: iolist() | binary().
 iolist_to_iovec(_IoListOrBinary) ->
@@ -3494,7 +3494,7 @@ distributed system), otherwise `false`. A node is alive if it is started with:
 A node can also be alive if it has got a name from a call to
 `net_kernel:start/2` and has not been stopped by a call to `net_kernel:stop/0`.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec is_alive() -> boolean().
 is_alive() ->
     erlang:node() =/= nonode@nohost orelse erts_internal:dynamic_node_name().
@@ -3506,7 +3506,7 @@ This BIF is useful for builders of cross-reference tools.
 Returns `true` if `Module:Function/Arity` is a BIF implemented in C, otherwise
 `false`.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec is_builtin(Module, Function, Arity) -> boolean() when
       Module :: module(),
       Function :: atom(),
@@ -3533,7 +3533,7 @@ false
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_map_key(Key, Map) -> boolean() when
     Key :: term(),
     Map :: map().
@@ -3568,7 +3568,7 @@ See the documentation about [signals](`e:system:ref_man_processes.md#signals`)
 and [erlang:exit/2](`exit/2`) for more information about signals and exit
 signals.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec is_process_alive(Pid) -> boolean() when
       Pid :: pid().
 is_process_alive(_Pid) ->
@@ -3586,7 +3586,7 @@ For example:
 9
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec length(List) -> non_neg_integer() when
       List :: [term()].
 length(_List) ->
@@ -3646,7 +3646,7 @@ Failure:
 - `noproc` linkee does not exist and it is "cheap" to check if it exists as
   described above.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec link(PidOrPort) -> true when
       PidOrPort :: pid() | port().
 link(_PidOrPort) ->
@@ -3682,7 +3682,7 @@ Example:
 'Erlang'
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_atom(String) -> atom() when
       String :: string().
 list_to_atom(_String) ->
@@ -3705,7 +3705,7 @@ For example:
 <<1,2,3,1,2,3,4,5,4,6>>
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_binary(IoList) -> binary() when
       IoList :: iolist().
 list_to_binary(_IoList) ->
@@ -3730,7 +3730,7 @@ For example:
 <<1,2,3,1,2,3,4,5,4,6,7:4>>
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_bitstring(BitstringList) -> bitstring() when
       BitstringList :: bitstring_list().
 list_to_bitstring(_BitstringList) ->
@@ -3754,7 +3754,7 @@ representation is `String`.
 > subsequent call to
 > [`list_to_existing_atom("some_atom")`](`list_to_existing_atom/1`) will fail.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_existing_atom(String) -> atom() when
       String :: string().
 list_to_existing_atom(_String) ->
@@ -3777,7 +3777,7 @@ are not permitted.
 
 Failure: `badarg` if `String` contains a bad representation of a float.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_float(String) -> float() when
       String :: string().
 list_to_float(_String) ->
@@ -3810,7 +3810,7 @@ match the regular expression `"^[+-]?[0-9]+$"`).
 
 Failure: `badarg` if `String` contains a bad representation of an integer.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_integer(String) -> integer() when
       String :: string().
 list_to_integer(String) ->
@@ -3871,7 +3871,7 @@ For example, when `Base` is 16, `String` must match the regular expression
 
 Failure: `badarg` if `String` contains a bad representation of an integer.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_integer(String, Base) -> integer() when
       String :: string(),
       Base :: 2..36.
@@ -3915,7 +3915,7 @@ identifier.
 > This BIF is intended for debugging and is not to be used in application
 > programs.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_pid(String) -> pid() when
       String :: string().
 list_to_pid(_String) ->
@@ -3941,7 +3941,7 @@ identifier.
 > programs.
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_port(String) -> port() when
       String :: string().
 list_to_port(_String) ->
@@ -3966,7 +3966,7 @@ Failure: `badarg` if `String` contains a bad representation of a reference.
 > programs.
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_ref(String) -> reference() when
       String :: string().
 list_to_ref(_String) ->
@@ -3983,7 +3983,7 @@ Returns a tuple corresponding to `List`, for example
 
 `List` can contain any Erlang terms.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec list_to_tuple(List) -> tuple() when
       List :: [term()].
 list_to_tuple(_List) ->
@@ -3996,7 +3996,7 @@ preloaded modules.
 
 See also `m:code`.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec loaded() -> [Module] when
       Module :: module().
 loaded() ->
@@ -4018,7 +4018,7 @@ The time zone and Daylight Saving Time correction depend on the underlying OS.
 The return value is based on the
 [OS System Time](time_correction.md#os-system-time).
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec localtime() -> DateTime when
       DateTime :: calendar:datetime().
 localtime() ->
@@ -4035,7 +4035,7 @@ reference is unique among connected nodes.
 > references created on a newer node can be mistaken for a reference created on
 > an older node with the same node name.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec make_ref() -> reference().
 make_ref() ->
     erlang:nif_error(undefined).
@@ -4052,7 +4052,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP 17.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec map_size(Map) -> non_neg_integer() when
       Map :: map().
 map_size(_Map) ->
@@ -4075,7 +4075,7 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec map_get(Key, Map) -> Value when
       Map :: map(),
       Key :: any(),
@@ -4115,7 +4115,7 @@ match specifications.
 See also `ets:test_ms/2`.
 """.
 -doc(#{since => <<"OTP 19.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec match_spec_test(MatchAgainst, MatchSpec, Type) -> TestResult when
       MatchAgainst :: [term()] | tuple(),
       MatchSpec :: term(),
@@ -4138,7 +4138,7 @@ For more information about MD5, see
 > The MD5 Message-Digest Algorithm is _not_ considered safe for code-signing or
 > software-integrity purposes.
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec md5(Data) -> Digest when
       Data :: iodata(),
       Digest :: binary().
@@ -4150,7 +4150,7 @@ md5(_Data) ->
 Finishes the update of an MD5 `Context` and returns the computed `MD5` message
 digest.
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec md5_final(Context) -> Digest when
       Context :: binary(),
       Digest :: binary().
@@ -4162,7 +4162,7 @@ md5_final(_Context) ->
 Creates an MD5 context, to be used in the following calls to
 [`md5_update/2`](`md5_update/2`).
 """.
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec md5_init() -> Context when
       Context :: binary().
 md5_init() ->
@@ -4170,7 +4170,7 @@ md5_init() ->
 
 %% md5_update/2
 -doc "Update an MD5 `Context` with `Data` and returns a `NewContext`.".
--doc #{ group => checksum }.
+-doc #{ category => checksum }.
 -spec md5_update(Context, Data) -> NewContext when
       Context :: binary(),
       Data :: iodata(),
@@ -4184,7 +4184,7 @@ Returns `true` if the module `Module` is loaded as
 [_current code_](`e:system:code_loading.md#code-replacement`); otherwise,
 `false`. It does not attempt to load the module.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec module_loaded(Module) -> boolean() when
       Module :: module().
 module_loaded(_Module) ->
@@ -4339,7 +4339,7 @@ The monitor functionality is expected to be extended. That is, other `Type`s and
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec monitor
       (process, monitor_process_identifier()) -> MonitorRef
 	  when MonitorRef :: reference();
@@ -4468,7 +4468,7 @@ Currently available options:
   In order for this example to work as intended, the client must be executing on
   at least an OTP 24 system, but the servers may execute on older systems.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec monitor
       (process, monitor_process_identifier(), [monitor_option()]) -> MonitorRef
@@ -4506,7 +4506,7 @@ Nodes connected through hidden connections can be monitored as any other nodes.
 
 Failure: `notalive` if the local node is not alive.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec monitor_node(Node, Flag) -> true when
       Node :: node(),
       Flag :: boolean().
@@ -4533,7 +4533,7 @@ If that option is not used, option `allow_passive_connect` has no effect.
 Failure: `badarg` if the local node is not alive or the option list is
 malformed.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec monitor_node(Node, Flag, Options) -> true when
       Node :: node(),
       Flag :: boolean(),
@@ -4550,7 +4550,7 @@ arbitrary term. When used in a stub function for a NIF to generate an exception
 when the NIF library is not loaded, Dialyzer does not generate false warnings.
 """.
 -doc(#{since => <<"OTP R14B">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec nif_error(Reason) -> no_return() when
       Reason :: term().
 nif_error(_Reason) ->
@@ -4564,7 +4564,7 @@ arbitrary term. When used in a stub function for a NIF to generate an exception
 when the NIF library is not loaded, Dialyzer does not generate false warnings.
 """.
 -doc(#{since => <<"OTP R14B">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec nif_error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()].
@@ -4577,7 +4577,7 @@ nif_error(_Reason, _Args) ->
 Returns the name of the local node. If the node is not alive, `nonode@nohost` is
 returned instead.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec node() -> Node when
       Node :: node().
 node() ->
@@ -4590,7 +4590,7 @@ Returns the node where `Arg` originates. `Arg` can be a process identifier, a
 reference, or a port. If `Arg` originates from the local node and the local node
 is not alive, `nonode@nohost` is returned.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec node(Arg) -> Node when
       Arg :: pid() | port() | reference(),
       Node :: node().
@@ -4619,7 +4619,7 @@ skewed.
 Can only be used to check the local time of day if the time-zone information of
 the underlying OS is properly configured.
 """.
--doc #{ group => deprecated }.
+-doc #{ category => deprecated }.
 -spec now() -> Timestamp when
       Timestamp :: timestamp().
 now() ->
@@ -4638,7 +4638,7 @@ regardless of machine architecture and ERTS version (the BIF was introduced in
 ERTS 4.9.1.1). The function returns a hash value for `Term` within the range
 `1..Range`. The maximum value for `Range` is 2^32.
 """.
--doc #{ group => deprecated }.
+-doc #{ category => deprecated }.
 -spec phash(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
@@ -4648,7 +4648,7 @@ phash(_Term, _Range) ->
 
 %% phash2/1
 -doc(#{equiv => phash2/2}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec phash2(Term) -> Hash when
       Term :: term(),
       Hash :: non_neg_integer().
@@ -4670,7 +4670,7 @@ better than [`phash/2`](`phash/2`), and it is faster for bignums and binaries.
 Notice that the range `0..Range-1` is different from the range of
 [`phash/2`](`phash/2`), which is `1..Range`.
 """.
--doc(#{ group => terms }).
+-doc(#{ category => terms }).
 -spec phash2(Term, Range) -> Hash when
       Term :: term(),
       Range :: pos_integer(),
@@ -4695,7 +4695,7 @@ For example:
 > representation of `Pid`. This means that processes in different incarnations
 > of a node with a specific name can get the same list representation.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec pid_to_list(Pid) -> string() when
       Pid :: pid().
 pid_to_list(_Pid) ->
@@ -4706,7 +4706,7 @@ pid_to_list(_Pid) ->
 Returns a string corresponding to the text representation of the port identifier
 `Port`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
@@ -4719,7 +4719,7 @@ the local node.
 
 Notice that an exiting port exists, but is not open.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec ports() -> [port()].
 ports() ->
     erlang:nif_error(undefined).
@@ -4788,7 +4788,7 @@ Failures:
 
 - **`badarg`** - if `Modifier` is not a valid modifier.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec unique_integer(ModifierList) -> integer() when
       ModifierList :: [Modifier],
@@ -4803,7 +4803,7 @@ Generates and returns an
 Equivalent to calling [`erlang:unique_integer([])`](`unique_integer/1`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec unique_integer() -> integer().
 
 unique_integer() ->
@@ -4835,7 +4835,7 @@ since some unspecified point in time.
 > [`erlang:system_info(start_time)`](#system_info_start_time).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec monotonic_time() -> integer().
 
 monotonic_time() ->
@@ -4851,7 +4851,7 @@ Same as calling
 however optimized for commonly used `Unit`s.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec monotonic_time(Unit) -> integer() when
       Unit :: time_unit().
 
@@ -4872,7 +4872,7 @@ Calling `erlang:system_time()` is equivalent to
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec system_time() -> integer().
 
 system_time() ->
@@ -4892,7 +4892,7 @@ Calling `erlang:system_time(Unit)` is equivalent to
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec system_time(Unit) -> integer() when
       Unit :: time_unit().
 
@@ -4911,7 +4911,7 @@ Converts the `Time` value of time unit `FromUnit` to the corresponding
 > conversion on the end result.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec convert_time_unit(Time, FromUnit, ToUnit) -> ConvertedTime when
       Time :: integer(),
       ConvertedTime :: integer(),
@@ -4986,7 +4986,7 @@ The time offset may or may not change during operation depending on the
 > heavy load it can take longer time.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec time_offset() -> integer().
 
 time_offset() ->
@@ -5003,7 +5003,7 @@ Same as calling
 however optimized for commonly used `Unit`s.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec time_offset(Unit) -> integer() when
       Unit :: time_unit().
 
@@ -5041,7 +5041,7 @@ heap and with slightly better performance.
 > [time warp modes](time_correction.md#time-warp-modes) in the User's Guide.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec timestamp() -> Timestamp when
       Timestamp :: timestamp().
 
@@ -5092,7 +5092,7 @@ Pre-loaded modules are Erlang modules that are needed to bootstrap the system to
 load the first Erlang modules from either disk or by using `m:erl_boot_server`.
 """.
 -spec pre_loaded() -> [module()].
--doc #{ group => code }.
+-doc #{ category => code }.
 pre_loaded() ->
     erlang:nif_error(undefined).
 
@@ -5104,7 +5104,7 @@ The only allowed value for the atom `Type` is `backtrace`, which shows the conte
 the call stack, including information about the call chain, with the current
 function printed first. The format of the output is not further defined.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec process_display(Pid, Type) -> true when
       Pid :: pid(),
       Type :: backtrace.
@@ -5135,7 +5135,7 @@ namely `save_calls`.
 
 Failure: `badarg` if `Pid` is not a local process.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec process_flag(Pid, Flag, Value) -> OldValue when
       Pid :: pid(),
       Flag :: save_calls,
@@ -5191,7 +5191,7 @@ For information about specific `InfoTuple`s, see `process_info/2`.
 
 Failure: `badarg` if `Pid` is not a local process.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec process_info(Pid) -> Info when
       Pid :: pid(),
       Info :: [InfoTuple] | undefined,
@@ -5216,7 +5216,7 @@ Example:
 [<0.0.0>,<0.2.0>,<0.4.0>,<0.5.0>,<0.7.0>,<0.8.0>]
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec processes() -> [pid()].
 processes() ->
     erlang:nif_error(undefined).
@@ -5232,7 +5232,7 @@ processes() ->
 Returns a processes iterator that can be used in
 [`processes_next/1`](`processes_next/1`).
 """.
--doc #{ group => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
 -spec processes_iterator() -> processes_iter_ref().
 processes_iterator() ->
     {0, []}.
@@ -5269,7 +5269,7 @@ ok
 > `processes_next/1` returns `none` is guaranteed to be part of the result
 > returned from one of the calls to `processes_next/1`.
 """.
--doc #{ group => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
 -spec processes_next(Iter) -> {Pid, NewIter} | 'none' when
       Iter :: processes_iter_ref(),
       NewIter :: processes_iter_ref(),
@@ -5305,7 +5305,7 @@ is to be called to check that no processes execute old code in the module.
 
 Failure: `badarg` if there is no old code for `Module`.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec purge_module(Module) -> true when
       Module :: atom().
 purge_module(Module) when erlang:is_atom(Module) ->
@@ -5343,7 +5343,7 @@ Z = get(name),
 > The values stored when `put` is evaluated within the scope of a `catch` are
 > not retracted if a `throw` is evaluated, or if an error occurs.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec put(Key, Val) -> term() when
       Key :: term(),
       Val :: term().
@@ -5393,7 +5393,7 @@ distinguish exceptions later.
 See the reference manual about [errors and error handling](`e:system:errors.md`)
 for more information about exception classes and how to catch exceptions.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec raise(Class, Reason, Stacktrace) -> 'badarg' when
       Class :: 'error' | 'exit' | 'throw',
       Reason :: term(),
@@ -5403,7 +5403,7 @@ raise(_Class, _Reason, _Stacktrace) ->
 
 %% read_timer/1
 -doc( #{ equiv =>  erlang:read_timer(TimerRef, []) }).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec read_timer(TimerRef) -> Result when
       TimerRef :: reference(),
       Time :: non_neg_integer(),
@@ -5454,7 +5454,7 @@ See also [`erlang:send_after/4`](`send_after/4`),
 [`erlang:cancel_timer/2`](`cancel_timer/2`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec read_timer(TimerRef, Options) -> Result | ok when
       TimerRef :: reference(),
       Async :: boolean(),
@@ -5475,7 +5475,7 @@ Returns a string corresponding to the text representation of `Ref`.
 > This BIF is intended for debugging and is not to be used in application
 > programs.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
@@ -5512,7 +5512,7 @@ Failures:
 
 - **`badarg`** - If `RegName` is the atom `undefined`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec register(RegName, PidOrPort) -> true when
       RegName :: atom(),
       PidOrPort :: port() | pid().
@@ -5530,7 +5530,7 @@ For example:
 [code_server, file_server, init, user, my_db]
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec registered() -> [RegName] when
       RegName :: atom().
 registered() ->
@@ -5561,7 +5561,7 @@ Failures:
 
 - **`badarg`** - If the process identified by `Suspendee` is not alive.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec resume_process(Suspendee) -> true when
       Suspendee :: pid().
 resume_process(_Suspendee) ->
@@ -5602,7 +5602,7 @@ number that can be represented exactly as a float value. See
 [Representation of Floating Point Numbers](`e:system:data_types.md#float_representation_problem`)
 for additional information.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec round(Number) -> integer() when
       Number :: number().
 round(_Number) ->
@@ -5620,14 +5620,14 @@ For example:
 <0.26.0>
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec self() -> pid().
 self() ->
     erlang:nif_error(undefined).
 
 %% send_after/3
 -doc( #{ equiv => erlang:send_after(Time, Dest, Msg, [])} ).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec send_after(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
       Dest :: pid() | atom(),
@@ -5644,7 +5644,7 @@ identified by `Dest`. Apart from the format of the time-out message, this
 function works exactly as [`erlang:start_timer/4`](`start_timer/4`).
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec send_after(Time, Dest, Msg, Options) -> TimerRef when
       Time :: integer(),
       Dest :: pid() | atom(),
@@ -5730,7 +5730,7 @@ rounded _down_.
 
 See also `tuple_size/1`, `byte_size/1`, and `bit_size/1`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec size(Item) -> non_neg_integer() when
       Item :: tuple() | binary().
 size(_Item) ->
@@ -5756,7 +5756,7 @@ Example:
 <0.13.1>
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn(Module, Function, Args) -> pid() when
       Module :: module(),
       Function :: atom(),
@@ -5770,7 +5770,7 @@ Returns the process identifier of a new process started by the application of
 `Module:Function` to `Args`. A link is created between the calling process and
 the new process, atomically. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_link(Module, Function, Args) -> pid() when
       Module :: module(),
       Function :: atom(),
@@ -5800,7 +5800,7 @@ For example:
 7
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec split_binary(Bin, Pos) -> {binary(), binary()} when
       Bin :: binary(),
       Pos :: non_neg_integer().
@@ -5809,7 +5809,7 @@ split_binary(_Bin, _Pos) ->
 
 %% start_timer/3
 -doc( #{ equiv =>  erlang:start_timer(Time, Dest, Msg, []) }).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec start_timer(Time, Dest, Msg) -> TimerRef when
       Time :: non_neg_integer(),
       Dest :: pid() | atom(),
@@ -5864,7 +5864,7 @@ Failure: `badarg` if the arguments do not satisfy the requirements specified
 here.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
--doc #{ group => timer }.
+-doc #{ category => timer }.
 -spec start_timer(Time, Dest, Msg, Options) -> TimerRef when
       Time :: integer(),
       Dest :: pid() | atom(),
@@ -5960,7 +5960,7 @@ Failures:
   currently used internal data structures. The system limit is greater than
   2,000,000,000 suspends and will never be lower.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
       OptList :: [Opt],
@@ -5985,7 +5985,7 @@ Suspends the process identified by `Suspendee`. Equivalent to calling
 >
 > This BIF is intended for debugging only.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec suspend_process(Suspendee) -> 'true' when
       Suspendee :: pid().
 suspend_process(Suspendee) ->
@@ -6008,7 +6008,7 @@ Returns the current system monitoring settings set by
 
 The order of the options can be different from the one that was set.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_monitor() -> MonSettings when
       MonSettings :: undefined | { MonitorPid, Options },
       MonitorPid :: pid(),
@@ -6027,7 +6027,7 @@ calling [`erlang:system_monitor(MonitorPid, Options)`](`system_monitor/2`).
 Returns the previous system monitor settings just like
 [`erlang:system_monitor/0`](`system_monitor/0`).
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_monitor(Arg) -> MonSettings when
       Arg :: undefined | { MonitorPid, Options },
       MonSettings :: undefined | { MonitorPid, Options },
@@ -6099,7 +6099,7 @@ Failures:
 
 - **`badarg`** - If `MonitorPid` is not a local process.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_monitor(MonitorPid, Options) -> MonSettings when
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ],
@@ -6121,7 +6121,7 @@ Returns the current system profiling settings set by
 `undefined` if there are no settings. The order of the options can be different
 from the one that was set.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_profile() -> ProfilerSettings when
       ProfilerSettings :: undefined | { ProfilerPid, Options},
       ProfilerPid :: pid() | port(),
@@ -6172,7 +6172,7 @@ profiling. The second argument is a list of profiling options:
 >
 > `erlang:system_profile` behavior can change in a future release.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_profile(ProfilerPid, Options) -> ProfilerSettings when
       ProfilerPid :: pid() | port() | undefined,
       Options :: [ system_profile_option() ],
@@ -6216,7 +6216,7 @@ Failure: `nocatch` if not caught by an exception handler.
 See the guide about [errors and error handling](`e:system:errors.md`) for
 additional information.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec throw(Any) -> no_return() when
       Any :: term().
 throw(_Any) ->
@@ -6237,7 +6237,7 @@ For example:
 {9,42,44}
 ```
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec time() -> Time when
       Time :: calendar:time().
 time() ->
@@ -6268,7 +6268,7 @@ messages. The legacy trace session has no specified tracer.
 
 For further documentation see `trace:process/4` and `trace:port/4`.
 """.
--doc #{ group => trace }.
+-doc #{ category => trace }.
 -spec trace(PidPortSpec, How, FlagList) -> integer() when
       PidPortSpec :: pid() | port()
                    | all | processes | ports
@@ -6324,7 +6324,7 @@ and wait for message `{trace_delivered, A, Ref}` before closing `B`.
 Failure: `badarg` if `Tracee` does not refer to a process (dead or alive) on the
 same node as the caller of `erlang:trace_delivered(Tracee)` resides on.
 """.
--doc #{ group => trace }.
+-doc #{ category => trace }.
 -spec trace_delivered(Tracee) -> Ref when
       Tracee :: pid() | all,
       Ref :: reference().
@@ -6341,7 +6341,7 @@ static legacy trace session.
   > This function is superseded by `trace:info/3` that operates on dynamic trace
   > sessions.
 """.
--doc #{ group => trace }.
+-doc #{ category => trace }.
 -spec trace_info(PidPortFuncEvent, Item) -> Res when
       PidPortFuncEvent :: pid() | port() | new | new_processes | new_ports
                      | {Module, Function, Arity} | on_load | send | 'receive',
@@ -6389,7 +6389,7 @@ number that can be represented exactly as a float value. See
 [Representation of Floating Point Numbers](`e:system:data_types.md#float_representation_problem`)
 for additional information.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec trunc(Number) -> integer() when
       Number :: number().
 trunc(_Number) ->
@@ -6407,7 +6407,7 @@ For example:
 3
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec tuple_size(Tuple) -> non_neg_integer() when
       Tuple :: tuple().
 tuple_size(_Tuple) ->
@@ -6428,7 +6428,7 @@ For example:
 {{1996,11,6},{14,18,43}}
 ```
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec universaltime() -> DateTime when
       DateTime :: calendar:datetime().
 universaltime() ->
@@ -6491,7 +6491,7 @@ _Distribution Protocol_ chapter of the _ERTS User's Guide_.
 
 Failure: `badarg` if `Id` does not identify a process or a node local port.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec unlink(Id) -> true when
       Id :: pid() | port().
 unlink(_Id) ->
@@ -6518,7 +6518,7 @@ Users are advised not to unregister system processes.
 
 Failure: `badarg` if `RegName` is not a registered name.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec unregister(RegName) -> true when
       RegName :: atom().
 unregister(_RegName) ->
@@ -6538,7 +6538,7 @@ For example:
 <0.43.0>
 ```
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec whereis(RegName) -> pid() | port() | undefined when
       RegName :: atom().
 whereis(_RegName) ->
@@ -6566,7 +6566,7 @@ For example:
 3
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec abs(Float) -> float() when
       Float :: float();
          (Int) -> non_neg_integer() when
@@ -6594,7 +6594,7 @@ For example:
 b
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec element(N, Tuple) -> term() when
     N :: pos_integer(),
     Tuple :: tuple().
@@ -6632,7 +6632,7 @@ first
 
 Failure: `badarg` if `List` is an empty list `[]`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec hd(List) -> Head when
       List :: nonempty_maybe_improper_list(),
       Head :: term().
@@ -6645,7 +6645,7 @@ hd(_List) ->
 -doc """
 Returns `true` if `Term` is an atom, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_atom(Term) -> boolean() when
       Term :: term().
 is_atom(_Term) ->
@@ -6657,7 +6657,7 @@ Returns `true` if `Term` is a binary, otherwise `false`.
 
 A binary always contains a complete number of bytes.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_binary(Term) -> boolean() when
       Term :: term().
 is_binary(_Term) ->
@@ -6667,7 +6667,7 @@ is_binary(_Term) ->
 -doc """
 Returns `true` if `Term` is a bitstring (including a binary), otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_bitstring(Term) -> boolean() when
       Term :: term().
 is_bitstring(_Term) ->
@@ -6678,7 +6678,7 @@ is_bitstring(_Term) ->
 Returns `true` if `Term` is the atom `true` or the atom `false` (that is, a
 boolean). Otherwise returns `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_boolean(Term) -> boolean() when
       Term :: term().
 is_boolean(_Term) ->
@@ -6688,7 +6688,7 @@ is_boolean(_Term) ->
 -doc """
 Returns `true` if `Term` is a floating point number, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_float(Term) -> boolean() when
       Term :: term().
 is_float(_Term) ->
@@ -6698,7 +6698,7 @@ is_float(_Term) ->
 -doc """
 Returns `true` if `Term` is a fun, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_function(Term) -> boolean() when
       Term :: term().
 is_function(_Term) ->
@@ -6709,7 +6709,7 @@ is_function(_Term) ->
 Returns `true` if `Term` is a fun that can be applied with `Arity` number of
 arguments, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_function(Term, Arity) -> boolean() when
       Term :: term(),
       Arity :: arity().
@@ -6720,7 +6720,7 @@ is_function(_Term, _Arity) ->
 -doc """
 Returns `true` if `Term` is an integer, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_integer(Term) -> boolean() when
       Term :: term().
 is_integer(_Term) ->
@@ -6731,7 +6731,7 @@ is_integer(_Term) ->
 Returns `true` if `Term` is a list with zero or more elements, otherwise
 `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_list(Term) -> boolean() when
       Term :: term().
 is_list(_Term) ->
@@ -6742,7 +6742,7 @@ is_list(_Term) ->
 Returns `true` if `Term` is an integer or a floating point number. Otherwise
 returns `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_number(Term) -> boolean() when
       Term :: term().
 is_number(_Term) ->
@@ -6752,7 +6752,7 @@ is_number(_Term) ->
 -doc """
 Returns `true` if `Term` is a process identifier, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_pid(Term) -> boolean() when
       Term :: term().
 is_pid(_Term) ->
@@ -6763,7 +6763,7 @@ is_pid(_Term) ->
 Returns `true` if `Term` is a map, otherwise `false`.
 """.
 -doc(#{since => <<"OTP 17.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_map(Term) -> boolean() when
       Term :: term().
 is_map(_Term) ->
@@ -6773,7 +6773,7 @@ is_map(_Term) ->
 -doc """
 Returns `true` if `Term` is a port identifier, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_port(Term) -> boolean() when
       Term :: term().
 is_port(_Term) ->
@@ -6794,7 +6794,7 @@ Otherwise returns `false`.
 
 Allowed in guard tests, if `RecordTag` is a literal atom.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_record(Term,RecordTag) -> boolean() when
       Term :: term(),
       RecordTag :: atom().
@@ -6816,7 +6816,7 @@ integer.
 > This BIF is documented for completeness. Usually
 > [`is_record/2`](`is_record/2`) is to be used.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_record(Term,RecordTag,Size) -> boolean() when
       Term :: term(),
       RecordTag :: atom(),
@@ -6828,7 +6828,7 @@ is_record(_Term,_RecordTag,_Size) ->
 -doc """
 Returns `true` if `Term` is a reference, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_reference(Term) -> boolean() when
       Term :: term().
 is_reference(_Term) ->
@@ -6838,7 +6838,7 @@ is_reference(_Term) ->
 -doc """
 Returns `true` if `Term` is a tuple, otherwise `false`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec is_tuple(Term) -> boolean() when
       Term :: term().
 is_tuple(_Term) ->
@@ -6873,7 +6873,7 @@ Returns either `{module, Module}`, or `{error, Reason}` if loading fails.
 > This BIF is intended for the code server (see `m:code`) and is not to be used
 > elsewhere.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec load_module(Module, Binary) -> {module, Module} | {error, Reason} when
       Module :: module(),
       Binary :: binary(),
@@ -6938,7 +6938,7 @@ dynamic library. This allows a target independent Erlang file to contain
 fallback implementations for functions that may lack NIF support depending on
 target OS/hardware platform.
 """.
--doc #{ group => code }.
+-doc #{ category => code }.
 -spec load_nif(Path, LoadInfo) ->  ok | Error when
       Path :: string(),
       LoadInfo :: term(),
@@ -6970,7 +6970,7 @@ Examples:
 
 Failure: `badarg` if `Localtime` denotes an invalid date and time.
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec localtime_to_universaltime(Localtime, IsDst) -> Universaltime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime(),
@@ -7002,7 +7002,7 @@ For example:
 {[],[],[],[]}
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec make_tuple(Arity, InitialValue) -> tuple() when
       Arity :: arity(),
       InitialValue :: term().
@@ -7026,7 +7026,7 @@ For example:
 {[],aa,[],[],zz}
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec make_tuple(Arity, DefaultValue, InitList) -> tuple() when
       Arity :: arity(),
       DefaultValue :: term(),
@@ -7325,7 +7325,7 @@ reported to the owning process using signals of the form
 The maximum number of ports that can be open at the same time can be configured
 by passing command-line flag [`+Q`](erl_cmd.md#max_ports) to [erl](erl_cmd.md).
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec open_port(PortName, PortSettings) -> port() when
       PortName :: {spawn, Command :: string() | binary()} |
                   {spawn_driver, Command :: string() | binary()} |
@@ -7673,7 +7673,7 @@ of the flag.
   the call saving list. (The call saving list is not cleared. Also, send, receive,
   and time-out events are still added to the list.)
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec process_flag(async_dist, Boolean) -> OldBoolean when
       Boolean :: boolean(),
       OldBoolean :: boolean();
@@ -8034,7 +8034,7 @@ Failures:
 
 - **`badarg`** - If `Item` is an invalid item.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec process_info(Pid, Item) ->
                           InfoTuple | [] | undefined when
       Pid :: pid(),
@@ -8067,7 +8067,7 @@ unreachable destination `Dest` (of correct type).
 > [_Blocking Signaling Over Distribution_](`e:system:ref_man_processes.md#blocking-signaling-over-distribution`)
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec send(Dest, Msg) -> Msg when
       Dest :: send_destination(),
       Msg :: term().
@@ -8099,7 +8099,7 @@ Options:
 >
 > As with `erlang:send_nosuspend/2,3`: use with extreme care.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec send(Dest, Msg, Options) -> Res when
       Dest :: send_destination(),
       Msg :: term(),
@@ -8134,7 +8134,7 @@ For example:
 {10,red,bottles}
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec setelement(Index, Tuple1, Value) -> Tuple2 when
       Index :: pos_integer(),
       Tuple1 :: tuple(),
@@ -8697,7 +8697,7 @@ The possible flags are:
   manner as `runtime`, except that real time is measured as opposed to runtime or
   CPU time.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec statistics(active_tasks) -> [ActiveTasks] when
       ActiveTasks :: non_neg_integer();
 		(active_tasks_all) -> [ActiveTasks] when
@@ -9237,7 +9237,7 @@ The possible flags to set are:
 
   Available since OTP 18.0
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_flag(backtrace_depth, Depth) -> OldDepth when
       Depth :: non_neg_integer(),
       OldDepth :: non_neg_integer();
@@ -9325,7 +9325,7 @@ See also `binary_to_term/1`.
 > There is no guarantee that this function will return the same encoded
 > representation for the same term.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec term_to_binary(Term) -> ext_binary() when
       Term :: term().
 term_to_binary(_Term) ->
@@ -9458,7 +9458,7 @@ Currently supported options:
 
 See also `binary_to_term/1`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec term_to_binary(Term, Options) -> ext_binary() when
       Term :: term(),
       Options :: [compressed |
@@ -9486,7 +9486,7 @@ instead of copying the binary data into the result.
 See also `term_to_binary/1`.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec term_to_iovec(Term) -> ext_iovec() when
       Term :: term().
 term_to_iovec(_Term) ->
@@ -9511,7 +9511,7 @@ instead of copying the binary data into the result.
 See also `term_to_binary/2`.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec term_to_iovec(Term, Options) -> ext_iovec() when
       Term :: term(),
       Options :: [compressed |
@@ -9552,7 +9552,7 @@ improper_end
 
 Failure: `badarg` if `List` is an empty list `[]`.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec tl(List) -> Tail when
       List :: nonempty_maybe_improper_list(),
       Tail :: term().
@@ -9569,7 +9569,7 @@ tl(_List) ->
 Equivalent to [`erlang:trace_pattern(Event, MatchSpec, [])`](`trace_pattern/3`),
 retained for backward compatibility.
 """.
--doc #{ group => trace }.
+-doc #{ category => trace }.
 -spec trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
       MFA :: trace_pattern_mfa() | send | 'receive',
       MatchSpec :: (MatchSpecList :: trace_match_spec())
@@ -9610,7 +9610,7 @@ Argument `FlagList` can contain two additional options for call tracing:
 For further documentation see `trace:function/4` , `trace:send/3` and
 `trace:recv/3`.
 """.
--doc #{ group => trace }.
+-doc #{ category => trace }.
 -spec trace_pattern(send, MatchSpec, []) -> non_neg_integer() when
       MatchSpec :: (MatchSpecList :: trace_match_spec())
                  | boolean();
@@ -9643,7 +9643,7 @@ Example:
 [share,{'Ericsson_B',163}]
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec tuple_to_list(Tuple) -> [term()] when
       Tuple :: tuple().
 tuple_to_list(_Tuple) ->
@@ -9691,7 +9691,7 @@ the `CpuTopology` type to change.
 
 %% Note: changing the ordering number of a clause will change the docs!
 %% Shadowed by erl_bif_types: erlang:system_info/1
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec system_info
          (allocated_areas) -> [ tuple() ];
          (allocator) ->
@@ -9809,7 +9809,7 @@ For example:
 
 Failure: `badarg` if `Universaltime` denotes an invalid date and time.
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec universaltime_to_localtime(Universaltime) ->  Localtime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime().
@@ -9836,7 +9836,7 @@ is better written as `Fun(Arg1, Arg2, ... ArgN)`.
 > [`apply(Module, Function, Args)`](`apply/3`). _This use is deprecated and will
 > stop working in a future release._
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec apply(Fun, Args) -> term() when
       Fun :: function(),
       Args :: [term()].
@@ -9867,7 +9867,7 @@ is not exported. The error handler can be redefined (see `process_flag/2`). If
 `error_handler` so the replacement module is undefined, an error with reason
 `undef` is generated.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec apply(Module, Function, Args) -> term() when
       Module :: module(),
       Function :: atom(),
@@ -9881,7 +9881,7 @@ apply(Mod, Name, Args) ->
 Returns the process identifier of a new process started by the application of
 `Fun` to the empty list `[]`. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn(Fun) -> pid() when
       Fun :: function().
 spawn(F) when erlang:is_function(F) ->
@@ -9896,7 +9896,7 @@ Returns the process identifier of a new process started by the application of
 `Fun` to the empty list `[]` on `Node`. If `Node` does not exist, a useless pid
 is returned. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -9914,7 +9914,7 @@ Returns the process identifier of a new process started by the application of
 `Fun` to the empty list `[]`. A link is created between the calling process and
 the new process, atomically. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_link(Fun) -> pid() when
       Fun :: function().
 spawn_link(F) when erlang:is_function(F) ->
@@ -9931,7 +9931,7 @@ process and the new process, atomically. If `Node` does not exist, a useless pid
 is returned and an exit signal with reason `noconnection` is sent to the calling
 process. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_link(Node, Fun) -> pid() when
       Node :: node(),
       Fun :: function().
@@ -9951,7 +9951,7 @@ Returns the process identifier of a new process, started by the application of
 `Fun` to the empty list `[]`, and a reference for a monitor created to the new
 process. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_monitor(Fun) -> {pid(), reference()} when
       Fun :: function().
 spawn_monitor(F) when erlang:is_function(F, 0) ->
@@ -9968,7 +9968,7 @@ If the node identified by `Node` does not support distributed `spawn_monitor()`,
 the call will fail with a `notsup` exception.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_monitor(Node, Fun) -> {pid(), reference()} when
       Node :: node(),
       Fun :: function().
@@ -9988,7 +9988,7 @@ A new process is started by the application of `Module:Function` to `Args`. The
 process is monitored at the same time. Returns the process identifier and a
 reference for the monitor. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_monitor(Module, Function, Args) -> {pid(), reference()} when
       Module :: module(),
       Function :: atom(),
@@ -10033,7 +10033,7 @@ of `Fun` to the empty list `[]`. Otherwise works like `spawn_opt/4`.
 If option `monitor` is specified, the newly created process is monitored, and
 both the pid and reference for the monitor are returned.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
       Options :: [spawn_opt_option()].
@@ -10058,7 +10058,7 @@ Valid options depends on what options are supported by the node identified by
 `Node`. A description of valid `Option`s for the local node of current OTP
 version can be found in the documentation of `spawn_opt/4`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
@@ -10092,7 +10092,7 @@ Returns the process identifier (pid) of a new process started by the application
 of `Module:Function` to `Args` on `Node`. If `Node` does not exist, a useless
 pid is returned. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn(Node, Module, Function, Args) -> pid() when
       Node :: node(),
       Module :: module(),
@@ -10122,7 +10122,7 @@ process and the new process, atomically. If `Node` does not exist, a useless pid
 is returned and an exit signal with reason `noconnection` is sent to the calling
 process. Otherwise works like `spawn/3`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_link(Node, Module, Function, Args) -> pid() when
       Node :: node(),
       Module :: module(),
@@ -10154,7 +10154,7 @@ If the node identified by `Node` does not support distributed `spawn_monitor()`,
 the call will fail with a `notsup` exception.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_monitor(Node, Module, Function, Args) -> {pid(), reference()} when
       Node :: node(),
       Module :: module(),
@@ -10290,7 +10290,7 @@ Options:
   spawned process. This option will override the default value set by the
   command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad).
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_opt(Module, Function, Args, Options) ->
           Pid | {Pid, MonitorRef} when
       Module :: module(),
@@ -10312,7 +10312,7 @@ Valid options depends on what options are supported by the node identified by
 `Node`. A description of valid `Option`s for the local node of current OTP
 version can be found in the documentation of `spawn_opt/4`.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_opt(Node, Module, Function, Args, Options) ->
                        pid() | {pid(), reference()} when
       Node :: node(),
@@ -10373,7 +10373,7 @@ Equivalent to the call [`spawn_request(node(),Fun,[])`](`spawn_request/3`). That
 is, a spawn request on the local node with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request(Fun) -> ReqId when
       Fun :: function(),
       ReqId :: reference().
@@ -10403,7 +10403,7 @@ That is either:
 - a spawn request with no options.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request(Fun, Options) -> ReqId when
       Fun :: function(),
       Option :: {reply_tag, ReplyTag}
@@ -10459,7 +10459,7 @@ This function will fail with a `badarg` exception if:
 - `Options` is not a proper list of terms.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request(Node, Fun, Options) -> ReqId when
       Node :: node(),
       Fun :: function(),
@@ -10513,7 +10513,7 @@ That is either:
 - a spawn request on the local node.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request(Node, Module, Function, Args) ->
                            ReqId when
       Node :: node(),
@@ -10702,7 +10702,7 @@ A spawn request can be abandoned by calling `spawn_request_abandon/1`.
 > section in the _Processes_ chapter of the _Erlang Reference Manual_.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request(Node, Module, Function, Args, Options) ->
                            ReqId when
       Node :: node(),
@@ -10779,7 +10779,7 @@ Return values:
 This function fail with a `badarg` exception if `ReqId` is not a reference.
 """.
 -doc(#{since => <<"OTP 23.0">>}).
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec spawn_request_abandon(ReqId :: reference()) -> boolean().
 
 spawn_request_abandon(_ReqId) ->
@@ -10802,7 +10802,7 @@ the current process sleep for a specific number of milliseconds.
 > the current scheduler's queue for processes of the same priority as the
 > current process.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec yield() -> 'true'.
 yield() ->
     % This is not an infinite loop because erlang:yield() is
@@ -10814,7 +10814,7 @@ Returns a list of all nodes connected to this node through normal connections
 (that is, [hidden nodes](`e:system:distributed.md#hidden-nodes`) are not
 listed). Same as [nodes(visible)](#nodes_visible).
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec nodes() -> Nodes when
       Nodes :: [node()].
 nodes() ->
@@ -10845,7 +10845,7 @@ disjunction(s) of the list elements.
 Some equalities: `[node()] = nodes(this)`,
 `nodes(connected) = nodes([visible, hidden])`, and `nodes() = nodes(visible)`.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec nodes(Arg) -> Nodes when
       Arg :: NodeType | [NodeType],
       NodeType :: visible | hidden | connected | this | known,
@@ -10911,7 +10911,7 @@ Example:
 ```
 """.
 -doc(#{since => <<"OTP 25.1">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec nodes(Arg, InfoOpts) -> [NodeInfo] when
       NodeType :: visible | hidden | connected | this | known,
       Arg :: NodeType | [NodeType],
@@ -10940,7 +10940,7 @@ is not alive, `ignored` is returned.
 > This function may return before [`nodedown` messages](`monitor_node/2`) have
 > been delivered.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec disconnect_node(Node) -> boolean() | ignored when
       Node :: node().
 disconnect_node(Node) ->
@@ -11021,7 +11021,7 @@ The following elements are only present in the list if `Fun` is local:
   entire module. Before Erlang/OTP R15, this integer was based on only the body
   of the fun.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec fun_info(Fun) -> [{Item, Info}] when
       Fun :: function(),
       Item :: arity | env | index | name
@@ -11092,7 +11092,7 @@ the function returns `false` are application- and hardware-specific.
 >
 > Use with extreme care.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec send_nosuspend(Dest, Msg) -> boolean() when
       Dest :: send_destination(),
       Msg :: term().
@@ -11125,7 +11125,7 @@ is guaranteed _not_ to have been sent.
 >
 > Use with extreme care.
 """.
--doc #{ group => processes }.
+-doc #{ category => processes }.
 -spec send_nosuspend(Dest, Msg, Options) -> boolean() when
       Dest :: send_destination(),
       Msg :: term(),
@@ -11153,7 +11153,7 @@ For example:
 
 Failure: `badarg` if `Localtime` denotes an invalid date and time.
 """.
--doc #{ group => time }.
+-doc #{ category => time }.
 -spec localtime_to_universaltime(Localtime) -> Universaltime when
       Localtime :: calendar:datetime(),
       Universaltime :: calendar:datetime().
@@ -11225,7 +11225,7 @@ Failures:
 > Do not send data to an unknown port. Any undefined behavior is possible
 > (including node crash) depending on how the port driver interprets the data.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_command(Port, Data) -> 'true' when
       Port :: port() | atom(),
       Data :: iodata().
@@ -11282,7 +11282,7 @@ Failures:
 > Do not send data to an unknown port. Any undefined behavior is possible
 > (including node crash) depending on how the port driver interprets the data.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_command(Port, Data, OptionList) -> boolean() when
       Port :: port() | atom(),
       Data :: iodata(),
@@ -11341,7 +11341,7 @@ Failures:
 - **`badarg`** - If the process identified by `Pid` is not an existing local
   process.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_connect(Port, Pid) -> 'true' when
       Port :: port() | atom(),
       Pid :: pid().
@@ -11386,7 +11386,7 @@ registered name of an open port. If the calling process was previously linked to
 the closed port, identified by `Port`, the exit signal from the port is
 guaranteed to be delivered before this `badarg` exception occurs.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_close(Port) -> 'true' when
       Port :: port() | atom().
 
@@ -11426,7 +11426,7 @@ Failures:
   > (including node crash) depending on how the port driver interprets the
   > supplied arguments.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_control(Port, Operation, Data) -> iodata() | binary() when
       Port :: port() | atom(),
       Operation :: integer(),
@@ -11491,7 +11491,7 @@ Failures:
   > `badarg` exception. Any undefined behavior is possible (including node
   > crash) depending on how the port driver interprets the supplied arguments.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_call(Port, Operation, Data) -> term() when
       Port :: port() | atom(),
       Operation :: integer(),
@@ -11529,7 +11529,7 @@ For more information about the different `Item`s, see `port_info/2`.
 
 Failure: `badarg` if `Port` is not a local port identifier, or an atom.
 """.
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_info(Port) -> Result when
       Port :: port() | atom(),
       ResultItem :: {registered_name, RegisteredName :: atom()}
@@ -11551,7 +11551,7 @@ port_info(Port) ->
 	Result -> Result
     end.
 
--doc #{ group => ports }.
+-doc #{ category => ports }.
 -spec port_info(Port, Item :: connected) -> {connected, Pid} | 'undefined' when
       Port :: port() | atom(),
       Pid :: pid();
@@ -11650,7 +11650,7 @@ information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_input_handler(DHandle, InputHandler) -> 'ok' when
       DHandle :: dist_handle(),
       InputHandler :: pid().
@@ -11677,7 +11677,7 @@ information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_put_data(DHandle, Data) -> 'ok' when
       DHandle :: dist_handle(),
       Data :: iodata().
@@ -11711,7 +11711,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_get_data(DHandle) -> {Size, Data} | Data | 'none' when
       Size :: non_neg_integer(),
       DHandle :: dist_handle(),
@@ -11742,7 +11742,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_get_data_notification(DHandle) -> 'ok' when
       DHandle :: dist_handle().
 
@@ -11780,7 +11780,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_set_opt(DHandle, 'get_size', Value) -> OldValue when
       DHandle :: dist_handle(),
       Value :: boolean(),
@@ -11807,7 +11807,7 @@ More information can be found in the documentation of
 [ERTS User's Guide ➜ How to implement an Alternative Carrier for the Erlang Distribution ➜ Distribution Module](alt_dist.md#distribution-module).
 """.
 -doc(#{since => <<"OTP 22.0">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec dist_ctrl_get_opt(DHandle, 'get_size') -> Value when
       DHandle :: dist_handle(),
       Value :: boolean().
@@ -11866,7 +11866,7 @@ You can get this value using `get_cookie/0`.
 Failure: `function_clause` if the local node is not alive.
 """.
 -doc(#{since => <<"OTP 24.1">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec set_cookie(Cookie) -> true when
       Cookie :: atom().
 set_cookie(C) when erlang:is_atom(C) ->
@@ -11886,7 +11886,7 @@ You can get this value using `get_cookie/1`.
 
 Failure: `function_clause` if the local node is not alive.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec set_cookie(Node, Cookie) -> true when
       Node :: node(),
       Cookie :: atom().
@@ -11901,7 +11901,7 @@ set_cookie(Node, C) ->
 Returns the magic cookie of the local node if the node is alive, otherwise the
 atom `nocookie`. This value is set by `set_cookie/1`.
 """.
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec get_cookie() -> Cookie | nocookie when
       Cookie :: atom().
 get_cookie() ->
@@ -11912,7 +11912,7 @@ Returns the magic cookie for node `Node` if the local node is alive, otherwise
 the atom `nocookie`. This value is set by `set_cookie/2`.
 """.
 -doc(#{since => <<"OTP 24.1">>}).
--doc #{ group => distribution }.
+-doc #{ category => distribution }.
 -spec get_cookie(Node) -> Cookie | nocookie when
       Node :: node(),
       Cookie :: atom().
@@ -11933,7 +11933,7 @@ For example:
 "3FF"
 ```
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),
       Base :: 2..36.
@@ -11952,7 +11952,7 @@ For example:
 ```
 """.
 -doc(#{since => <<"OTP R16B">>}).
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec integer_to_binary(Integer, Base) -> binary() when
       Integer :: integer(),
       Base :: 2..36.
@@ -12139,7 +12139,7 @@ Examples:
 >
 > Allowed in guards tests from Erlang/OTP 26.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec min(Term1, Term2) -> Minimum when
       Term1 :: term(),
       Term2 :: term(),
@@ -12183,7 +12183,7 @@ Examples:
 >
 > Allowed in guards tests from Erlang/OTP 26.
 """.
--doc #{ group => terms }.
+-doc #{ category => terms }.
 -spec max(Term1, Term2) -> Maximum when
       Term1 :: term(),
       Term2 :: term(),
@@ -12315,7 +12315,7 @@ More tuples in the returned list can be added in a future release.
 Failure: `notsup` if an [`erts_alloc(3)`](erts_alloc.md) allocator has been
 disabled.
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec memory() -> [{Type, Size}] when
       Type :: memory_type(),
       Size :: non_neg_integer().
@@ -12359,7 +12359,7 @@ Failures:
 
 See also [`erlang:memory/0`](`memory/0`).
 """.
--doc #{ group => system }.
+-doc #{ category => system }.
 -spec memory(Type :: memory_type()) -> non_neg_integer();
                    (TypeList :: [memory_type()]) -> [{memory_type(), non_neg_integer()}].
 memory(Type) when erlang:is_atom(Type) ->

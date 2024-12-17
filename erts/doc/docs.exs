@@ -30,44 +30,44 @@
      end},
     {"Checksum",
      fn a ->
-       a[:group] == :checksum
+       a[:category] == :checksum
      end},
     {"Code",
      fn a ->
-       a[:group] == :code
+       a[:category] == :code
      end},
     {"Distributed Erlang",
      fn a ->
-       a[:group] == :distribution
+       a[:category] == :distribution
      end},
     {"Erlang Terms",
      fn a ->
-       a[:group] == :terms
+       a[:category] == :terms
      end},
     {"Processes and Ports",
      fn a ->
-       a[:group] == :processes || a[:group] == :ports
+       a[:category] == :processes || a[:category] == :ports
      end},
     {"System",
      fn a ->
-       a[:group] == :system
+       a[:category] == :system
      end},
     {"Time and timers",
      fn a ->
-       a[:group] == :time || a[:group] == :timer
+       a[:category] == :time || a[:category] == :timer
      end},
     {"Tracing",
      fn a ->
-       a[:group] == :trace
+       a[:category] == :trace
      end},
     {"Deprecated functions",
      fn a ->
-       a[:group] == :deprecated
+       a[:category] == :deprecated
      end},
     {"Functions without group",
      fn a ->
        if a.module == :erlang do
-         IO.puts(:stderr, "Undefined group #{a[:group]} for #{a.module}:#{a.name}/#{a.arity}")
+         IO.puts(:stderr, "Undefined group #{a[:category]} for #{a.module}:#{a.name}/#{a.arity}")
          true
        else
          false
