@@ -842,6 +842,13 @@ if the connection fails to the remote `Node` where the supervisor runs.
 > Calling this function from a (sub-)child process of the given supervisor
 > will result in a deadlock which will last until either the shutdown timeout
 > of the child or the timeout given to `stop/3` has expired.
+
+> #### Note {: .info }
+>
+> If the `supervisor` `SupRef` is a permanent child of another
+> supervisor, it will be restarted. If it is a transient child, it will
+> be restarted if the given `Reason` is not `normal`, `shutdown` or
+> `{shutdown, Term}`.
 """.
 -doc(#{since => <<"OTP 28.0">>}).
 -spec stop(SupRef :: sup_ref(), Reason :: term(), Timeout :: timeout()) -> ok.
