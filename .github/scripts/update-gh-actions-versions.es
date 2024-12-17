@@ -83,7 +83,7 @@ run(Opts) ->
 
     continue(Opts, "This command will clean the contents of ~ts, "
              "approve and merge all open dependabot PRs, "
-             "forward merge them to the local maint+master branches and push those to ~ts."
+             "forward merge them to the local maint+master branches and push those to ~ts. "
              "Do you want to want to proceed?", [Cwd, Upstream]),
 
     %% Get this for dependabot update before we start switching branches and other shenanigans
@@ -110,7 +110,7 @@ run(Opts) ->
                         orelse string:equal(State, "SKIPPED")
                     end, json_cmd(Opts, ["gh pr checks ", No, " --required --json \"name,state\""])) of
                         true -> true;
-                        false -> io:format("Skipping ~ts as it has checks that are not done",[No]),
+                        false -> io:format("Skipping ~ts as it has checks that are not done~n",[No]),
                         false
                     end
                 end,
