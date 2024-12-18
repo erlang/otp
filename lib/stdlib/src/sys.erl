@@ -77,6 +77,8 @@ the process itself to format these events.
                  [{function,<<"Process Implementation Functions">>},
                   {callback,<<"Process Implementation Functions">>}]}).
 
+-compile(nowarn_deprecated_catch).
+
 %% External exports
 -export([suspend/1, suspend/2, resume/1, resume/2,
 	 get_status/1, get_status/2,

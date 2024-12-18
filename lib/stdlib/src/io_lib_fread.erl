@@ -20,6 +20,8 @@
 -module(io_lib_fread).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Formatted input functions of io library.
 
 -export([fread/2,fread/3]).

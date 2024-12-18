@@ -154,6 +154,8 @@ follows:
 [`erl_driver(4)`](`e:erts:erl_driver.md`), [`driver_entry(4)`](`e:erts:driver_entry.md`)
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -export([load_driver/2, load/2, 
 	 unload_driver/1, unload/1, reload/2, reload_driver/2, 
 	 format_error/1,info/1,info/0, start/0, stop/0]).

@@ -46,6 +46,8 @@
 -module(core_scan).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -export([string/1, string/2, format_error/1]).
 
 -import(lists, [reverse/1]).
