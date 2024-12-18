@@ -184,16 +184,10 @@ handle_connection(Address, Port, _Peer, Options, Socket,
     Pid ! {start,Ref},
     ok.
 
-handle_connection(Address, Port, Options0, Socket) ->
-    Options = ?PUT_INTERNAL_OPT([{user_pid, self()}
-                                ], Options0),
-    ssh_system_sup:start_connection(server,
-                                   #address{address = Address,
-                                            port = Port,
-                                            profile = ?GET_OPT(profile,Options)
-                                           },
-                                   Socket,
-                                   Options).
+handle_connection(Address, Port, Options, Socket) ->
+    AddressR = #address{address = Address, port = Port,
+                        profile = ?GET_OPT(profile,Options)},
+    ssh_system_sup:start_connection(server, AddressR, Socket, Options).
 
 %%%----------------------------------------------------------------
 handle_error(Reason, ToAddress, ToPort, {ok, {FromIP,FromPort}}) ->

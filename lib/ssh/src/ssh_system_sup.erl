@@ -109,7 +109,7 @@ start_connection(Role = server, Address=#address{}, Socket, Options) ->
 
 do_start_connection(Role, SupPid, Significant, Socket, Options0) ->
     Id = make_ref(),
-    Options = ?PUT_INTERNAL_OPT([{user_pid, self()}], Options0),
+    Options = ?PUT_INTERNAL_OPT({user_pid, self()}, Options0),
     case supervisor:start_child(SupPid,
                                 #{id          => Id,
                                   start       => {ssh_connection_sup, start_link,
