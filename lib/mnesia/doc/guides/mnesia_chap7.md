@@ -172,14 +172,14 @@ database:
 ```
 
 ```erlang
-Erlang (BEAM) emulator version 4.9
+Erlang/OTP 27 [erts-15.1.2]
 
-Eshell V4.9  (abort with ^G)
+Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
 (klacke@gin)1> mnesia:create_schema([node()]).
 ok
 (klacke@gin)2>
-^Z
-Suspended
+Ctrl+Z
+[1]+  Stopped                 erl
 ```
 
 _Step 2:_ You can inspect the `Mnesia` directory to see what files have been
@@ -198,7 +198,7 @@ would have been created on all nodes.
 _Step 3:_ Start `Mnesia`:
 
 ```erlang
-(klacke@gin)3>mnesia:start( ).
+(klacke@gin)3> mnesia:start().
 ok
 ```
 
@@ -524,9 +524,9 @@ network (as described earlier).
 The following functions are used to back up data, to install a backup as
 fallback, and for disaster recovery:
 
-- [`mnesia:backup_checkpoint(Name, Opaque, [Mod])`](`mnesia:backup_checkpoint/2`)
+- [`mnesia:backup_checkpoint(Name, Opaque [,Mod])`](`mnesia:backup_checkpoint/2`)
   performs a backup of the tables included in the checkpoint.
-- [`mnesia:backup(Opaque, [Mod])`](`mnesia:backup/1`) activates a new checkpoint
+- [`mnesia:backup(Opaque [,Mod])`](`mnesia:backup/1`) activates a new checkpoint
   that covers all `Mnesia` tables and performs a backup. It is performed with
   maximum degree of redundancy (see also the function
   [`mnesia:activate_checkpoint(Args)`](mnesia_chap7.md#checkpoints),
@@ -539,7 +539,7 @@ fallback, and for disaster recovery:
   previously installed fallback files.
 - [`mnesia:restore(Opaque, Args)`](`mnesia:restore/2`) restores a set of tables
   from a previous backup.
-- [`mnesia:install_fallback(Opaque, [Mod])`](`mnesia:install_fallback/1`) can be
+- [`mnesia:install_fallback(Opaque [,Mod])`](`mnesia:install_fallback/1`) can be
   configured to restart `Mnesia` and the reload data tables, and possibly the
   schema tables, from an existing backup. This function is typically used for
   disaster recovery purposes, when data or schema tables are corrupted.
@@ -552,8 +552,8 @@ used to activate and deactivate checkpoints.
 
 Backup operation are performed with the following functions:
 
-- [`mnesia:backup_checkpoint(Name, Opaque, [Mod])`](`mnesia:backup_checkpoint/2`)
-- [`mnesia:backup(Opaque, [Mod])`](`mnesia:backup/1`)
+- [`mnesia:backup_checkpoint(Name, Opaque [,Mod])`](`mnesia:backup_checkpoint/2`)
+- [`mnesia:backup(Opaque [,Mod])`](`mnesia:backup/1`)
 - [`mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun,
   Acc)`](`mnesia:traverse_backup/4`)
 
@@ -567,7 +567,7 @@ does not know about, possibly on hosts where Erlang is not running. Use
 configuration parameter `-mnesia backup_module <module>` for this purpose.
 
 The source for a backup is an activated checkpoint. The backup function
-[`mnesia:backup_checkpoint(Name, Opaque,[Mod])`](`mnesia:backup_checkpoint/2`) is
+[`mnesia:backup_checkpoint(Name, Opaque [,Mod])`](`mnesia:backup_checkpoint/2`) is
 most commonly used and returns `ok` or `{error,Reason}`. It has the following
 arguments:
 
@@ -645,9 +645,7 @@ change_node_name(Mod, From, To, Source, Target) ->
            (Node) -> Node
         end,
     Convert =
-        fun({schema, db_nodes, Nodes}, Acc) ->
-                {[{schema, db_nodes, lists:map(Switch,Nodes)}], Acc};
-           ({schema, version, Version}, Acc) ->
+        fun({schema, version, Version}, Acc) ->
                 {[{schema, version, Version}], Acc};
            ({schema, cookie, Cookie}, Acc) ->
                 {[{schema, cookie, Cookie}], Acc};
@@ -681,7 +679,7 @@ restore is performed with the function
 [`mnesia:restore(Opaque, Args)`](`mnesia:restore/2`), where `Args` can contain the
 following tuples:
 
-- `{module,Mod}`. The backup module `Mod` is used to access the backup media. If
+- `{module, Mod}`. The backup module `Mod` is used to access the backup media. If
   omitted, the default backup module is used.
 - `{skip_tables, TableList}`, where `TableList` is a list of tables, which is
   not to be read from the backup.
@@ -716,9 +714,9 @@ installing a fallback, followed by a restart.
 
 ### Fallback
 
-The function [`mnesia:install_fallback(Opaque,
-[Mod])`](`mnesia:install_fallback/2`) installs a backup as fallback. It uses the
-backup module `Mod`, or the default backup module, to access the backup media.
+The function [`mnesia:install_fallback(Opaque [, Mod])`](`mnesia:install_fallback/2`)
+installs a backup as fallback. It uses the backup module `Mod`,
+or the default backup module, to access the backup media.
 The function returns `ok` if successful, or `{error, Reason}` if there is an
 error.
 

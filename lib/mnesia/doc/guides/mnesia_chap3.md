@@ -191,20 +191,20 @@ enter the following commands:
  gin % erl -sname a  -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
-1. On the node `b@skeppet`:
+2. On the node `b@skeppet`:
 
 ```text
 skeppet % erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'
 ```
 
-1. On one of the two nodes:
+3. On one of the two nodes:
 
 ```erlang
 (a@gin)1> mnesia:create_schema([a@gin, b@skeppet]).
 ```
 
-1. The function [`mnesia:start()`](`mnesia:start/0`) is called on both nodes.
-1. To initialize the database, execute the following code on one of the two
+4. The function [`mnesia:start()`](`mnesia:start/0`) is called on both nodes.
+5. To initialize the database, execute the following code on one of the two
    nodes:
 
 ```erlang
@@ -212,7 +212,7 @@ dist_init() ->
     mnesia:create_table(employee,
                          [{ram_copies, [a@gin, b@skeppet]},
                           {attributes, record_info(fields,
-						   employee)}]),
+                                                   employee)}]),
     mnesia:create_table(dept,
                          [{ram_copies, [a@gin, b@skeppet]},
                           {attributes, record_info(fields, dept)}]),
@@ -222,7 +222,7 @@ dist_init() ->
     mnesia:create_table(manager, [{type, bag},
                                   {ram_copies, [a@gin, b@skeppet]},
                                   {attributes, record_info(fields,
-							   manager)}]),
+                                                           manager)}]),
     mnesia:create_table(at_dep,
                          [{ram_copies, [a@gin, b@skeppet]},
                           {attributes, record_info(fields, at_dep)}]),
@@ -324,7 +324,7 @@ information about the start failure, use command-line arguments
 
 ## Create Tables
 
-The function [`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`)
+The function [`mnesia:create_table(Name, Opts)`](`mnesia:create_table/2`)
 creates tables. When executing this function, it returns one of the following
 responses:
 
@@ -335,7 +335,7 @@ The function arguments are as follows:
 
 - `Name` is the name of the table. It is usually the same name as the name of
   the records that constitute the table. For details, see `record_name`.
-- `ArgList` is a list of `{Key,Value}` tuples. The following arguments are
+- `Opts` is a list of `{Key,Value}` tuples. The following options are
   valid:
 
   - `{type, Type}`, where `Type` must be either of the atoms `set`,
@@ -406,8 +406,8 @@ The function arguments are as follows:
     representation of the record.
 
   - `{snmp, SnmpStruct}`. `SnmpStruct` is described in the
-    [SNMP](`e:snmp:index.html`) User's Guide. Basically, if this attribute is
-    present in `ArgList` of `mnesia:create_table/2`, the table is immediately
+    [SNMP](`e:snmp:index.html`) User's Guide. Basically, if this option is
+    present in `Opts` of `mnesia:create_table/2`, the table is immediately
     accessible the SNMP.
 
     It is easy to design applications that use SNMP to manipulate and control
