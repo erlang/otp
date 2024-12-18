@@ -39,11 +39,10 @@ This section provides a simplified demonstration of a `Mnesia` system startup.
 The dialogue from the Erlang shell is as follows:
 
 ```erlang
-unix> erl -mnesia dir '"/tmp/funky"'
-Erlang (BEAM) emulator version 4.9
+% erl -mnesia dir '"/tmp/funky"'
+Erlang/OTP 27 [erts-15.1.2]
 
-Eshell V4.9  (abort with ^G)
-1>
+Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
 1> mnesia:create_schema([node()]).
 ok
 2> mnesia:start().
@@ -51,26 +50,27 @@ ok
 3> mnesia:create_table(funky, []).
 {atomic,ok}
 4> mnesia:info().
----> Processes holding locks <---
----> Processes waiting for locks <---
----> Pending (remote) transactions <---
----> Active (local) transactions <---
----> Uncertain transactions <---
----> Active tables <---
-funky          : with 0 records occupying 269 words of mem
-schema         : with 2 records occupying 353 words of mem
-===> System info in version "1.0", debug level = none <===
+---> Processes holding locks <--- 
+---> Processes waiting for locks <--- 
+---> Participant transactions <--- 
+---> Coordinator transactions <---
+---> Uncertain transactions <--- 
+---> Active tables <--- 
+funky          : with 0        records occupying 305      words of mem
+schema         : with 2        records occupying 533      words of mem
+===> System info in version "4.23.2", debug level = none <===
 opt_disc. Directory "/tmp/funky" is used.
-use fall-back at restart = false
-running db nodes = [nonode@nohost]
-stopped db nodes = []
-remote           = []
-ram_copies       = [funky]
-disc_copies      = [schema]
-disc_only_copies = []
+use fallback at restart = false
+running db nodes   = [nonode@nohost]
+stopped db nodes   = []
+master node tables = []
+remote             = []
+ram_copies         = [funky]
+disc_copies        = [schema]
+disc_only_copies   = []
 [{nonode@nohost,disc_copies}] = [schema]
 [{nonode@nohost,ram_copies}] = [funky]
-1 transactions committed, 0 aborted, 0 restarted, 1 logged to disc
+3 transactions committed, 0 aborted, 0 restarted, 2 logged to disc
 0 held locks, 0 in queue; 0 local transactions, 0 remote
 0 transactions waits for other nodes: []
 ok
@@ -130,7 +130,7 @@ erDiagram
         int number
     }
 
-    Dept ||--|| Employee: Manager
+    Dept }|--|| Employee: Manager
     Employee }|--|| Dept: At_dep
     Employee }|--|{ Project: in_proj
 ```
@@ -142,8 +142,8 @@ The database model is as follows:
 - There are three relationships between these entities:
 
   1. A department is managed by an employee, hence the `manager` relationship.
-  1. An employee works at a department, hence the `at_dep` relationship.
-  1. Each employee works on a number of projects, hence the `in_proj`
+  2. An employee works at a department, hence the `at_dep` relationship.
+  3. Each employee works on a number of projects, hence the `in_proj`
      relationship.
 
 ### Defining Structure and Content
@@ -177,7 +177,7 @@ This file defines the following structure for the example database:
 ```
 
 The structure defines six tables in the database. In `Mnesia`, the function
-[`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`) creates tables.
+[`mnesia:create_table(Name, Opts)`](`mnesia:create_table/2`) creates tables.
 `Name` is the table name.
 
 > #### Note {: .info }
@@ -188,7 +188,7 @@ The structure defines six tables in the database. In `Mnesia`, the function
 
 For example, the table for employees is created with the function
 `mnesia:create_table(employee, [{attributes, record_info(fields, employee)}])`.
-The table name `employee` matches the name for records specified in `ArgList`.
+The table name `employee` matches the name for records specified in `Opts`.
 The expression `record_info(fields, RecordName)` is processed by the Erlang
 preprocessor and evaluates to a list containing the names of the different
 fields for a record.
@@ -200,9 +200,9 @@ the `Company` database:
 
 ```erlang
 % erl -mnesia dir '"/ldisc/scratch/Mnesia.Company"'
-Erlang (BEAM) emulator version 4.9
+Erlang/OTP 27 [erts-15.1.2]
 
-Eshell V4.9  (abort with ^G)
+Eshell V15.1.2 (press Ctrl+G to abort, type help(). for help)
 1> mnesia:create_schema([node()]).
 ok
 2> mnesia:start().
@@ -252,41 +252,40 @@ Continuing the dialogue with the Erlang shell produces the following:
 3> company:init().
 {atomic,ok}
 4> mnesia:info().
----> Processes holding locks <---
----> Processes waiting for locks <---
----> Pending (remote) transactions <---
----> Active (local) transactions <---
----> Uncertain transactions <---
----> Active tables <---
-in_proj        : with 0 records occuping 269 words of mem
-at_dep         : with 0 records occuping 269 words of mem
-manager        : with 0 records occuping 269 words of mem
-project        : with 0 records occuping 269 words of mem
-dept           : with 0 records occuping 269 words of mem
-employee       : with 0 records occuping 269 words of mem
-schema         : with 7 records occuping 571 words of mem
-===> System info in version "1.0", debug level = none <===
+---> Processes holding locks <--- 
+---> Processes waiting for locks <--- 
+---> Participant transactions <--- 
+---> Coordinator transactions <---
+---> Uncertain transactions <--- 
+---> Active tables <--- 
+in_proj        : with 0        records occupying 305      words of mem
+at_dep         : with 0        records occupying 305      words of mem
+manager        : with 0        records occupying 305      words of mem
+project        : with 0        records occupying 305      words of mem
+dept           : with 0        records occupying 305      words of mem
+employee       : with 0        records occupying 305      words of mem
+schema         : with 7        records occupying 1136     words of mem
+===> System info in version "4.23.2", debug level = none <===
 opt_disc. Directory "/ldisc/scratch/Mnesia.Company" is used.
-use fall-back at restart = false
-running db nodes = [nonode@nohost]
-stopped db nodes = []
-remote           = []
-ram_copies       =
-    [at_dep,dept,employee,in_proj,manager,project]
-disc_copies      = [schema]
-disc_only_copies = []
+use fallback at restart = false
+running db nodes   = [nonode@nohost]
+stopped db nodes   = []
+master node tables = []
+remote             = []
+ram_copies         = [at_dep,dept,employee,in_proj,manager,project]
+disc_copies        = [schema]
+disc_only_copies   = []
 [{nonode@nohost,disc_copies}] = [schema]
-[{nonode@nohost,ram_copies}] =
-    [employee,dept,project,manager,at_dep,in_proj]
-6 transactions committed, 0 aborted, 0 restarted, 6 logged to disc
+[{nonode@nohost,ram_copies}] = [employee,dept,project,manager,at_dep,in_proj]
+8 transactions committed, 0 aborted, 0 restarted, 12 logged to disc
 0 held locks, 0 in queue; 0 local transactions, 0 remote
 0 transactions waits for other nodes: []
 ok
 ```
 
 A set of tables is created. The function
-[`mnesia:create_table(Name, ArgList)`](`mnesia:create_table/2`) creates the
-required database tables. The options available with `ArgList` are explained in
+[`mnesia:create_table(Name, Opts)`](`mnesia:create_table/2`) creates the
+required database tables. The options available with `Opts` are explained in
 [Create New Tables](mnesia_chap3.md#create_tables).
 
 The function `company:init/0` creates the tables. Two tables are of type `bag`.
@@ -326,8 +325,8 @@ mk_projs(_, []) -> ok.
 - The `insert_emp/3` arguments are as follows:
 
   1. `Emp` is an employee record.
-  1. `DeptId` is the identity of the department where the employee works.
-  1. `ProjNames` is a list of the names of the projects where the employee
+  2. `DeptId` is the identity of the department where the employee works.
+  3. `ProjNames` is a list of the names of the projects where the employee
      works.
 
 The function `insert_emp/3` creates a Functional Object (Fun). `Fun` is passed
@@ -551,8 +550,8 @@ following function can be constructed to call from the shell:
 ```erlang
 all_females() ->
     F = fun() ->
-		Female = #employee{sex = female, name = '$1', _ = '_'},
-		mnesia:select(employee, [{Female, [], ['$1']}])
+                Female = #employee{sex = female, name = '$1', _ = '_'},
+                mnesia:select(employee, [{Female, [], ['$1']}])
         end,
     mnesia:transaction(F).
 ```
@@ -592,10 +591,10 @@ within a transaction. Consider the following function:
 ```erlang
 females() ->
     F = fun() ->
-		Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
-					      E#employee.sex == female]),
-		qlc:e(Q)
-	end,
+                Q = qlc:q([E#employee.name || E <- mnesia:table(employee),
+                                              E#employee.sex == female]),
+                qlc:e(Q)
+        end,
     mnesia:transaction(F).
 ```
 
@@ -630,7 +629,7 @@ raise_females(Amount) ->
     F = fun() ->
                 Q = qlc:q([E || E <- mnesia:table(employee),
                                 E#employee.sex == female]),
-		Fs = qlc:e(Q),
+                Fs = qlc:e(Q),
                 over_write(Fs, Amount)
         end,
     mnesia:transaction(F).

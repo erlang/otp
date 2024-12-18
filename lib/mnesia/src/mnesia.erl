@@ -3366,7 +3366,7 @@ mini_info() ->
     Running = system_info(running_db_nodes),
     io:format("running db nodes   = ~w~n", [Running]),
     All = mnesia_lib:all_nodes(),
-    io:format("stopped db nodes   = ~w ~n", [All -- Running]).
+    io:format("stopped db nodes   = ~w~n", [All -- Running]).
 
 display_system_info(Held, Queued, TmInfo, Uncertain) ->
     mini_info(),
