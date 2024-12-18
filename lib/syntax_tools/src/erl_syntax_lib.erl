@@ -470,8 +470,14 @@ vann(Tree, Env) ->
             {ann_bindings(Tree, Env, Bound, Free), Bound, Free};
         match_expr ->
             vann_match_expr(Tree, Env);
+        maybe_expr ->
+            vann_maybe_expr(Tree, Env);
+        maybe_match_expr ->
+            vann_maybe_match_expr(Tree, Env);
         case_expr ->
             vann_case_expr(Tree, Env);
+        else_expr ->
+            vann_else_expr(Tree, Env);
         if_expr ->
             vann_if_expr(Tree, Env);
         receive_expr ->
@@ -564,6 +570,27 @@ vann_match_expr(Tree, Env) ->
     Tree1 = rewrite(Tree, erl_syntax:match_expr(P1, E1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
+vann_maybe_expr(Tree, Env) ->
+    Body = erl_syntax:maybe_expr_body(Tree),
+    {B1, {_, Free1}} = vann_body(Body, Env),
+    Else = erl_syntax:maybe_expr_else(Tree),
+    {Else1, _, Free2} = vann_else_expr(Else, Env),
+    Free = ordsets:union(Free1, Free2),
+    Tree1 = rewrite(Tree, erl_syntax:maybe_expr(B1, Else1)),
+    Bound = [],
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_maybe_match_expr(Tree, Env) ->
+    E = erl_syntax:maybe_match_expr_body(Tree),
+    {E1, Bound1, Free1} = vann(E, Env),
+    Env1 = ordsets:union(Env, Bound1),
+    P = erl_syntax:maybe_match_expr_pattern(Tree),
+    {P1, Bound2, Free2} = vann_pattern(P, Env1),
+    Bound = ordsets:union(Bound1, Bound2),
+    Free = ordsets:union(Free1, Free2),
+    Tree1 = rewrite(Tree, erl_syntax:maybe_match_expr(P1, E1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
 vann_case_expr(Tree, Env) ->
     E = erl_syntax:case_expr_argument(Tree),
     {E1, Bound1, Free1} = vann(E, Env),
@@ -573,6 +600,13 @@ vann_case_expr(Tree, Env) ->
     Bound = ordsets:union(Bound1, Bound2),
     Free = ordsets:union(Free1, Free2),
     Tree1 = rewrite(Tree, erl_syntax:case_expr(E1, Cs1)),
+    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
+
+vann_else_expr(Tree, Env) ->
+    Cs = erl_syntax:else_expr_clauses(Tree),
+    {Cs1, {_, Free}} = vann_clauses(Cs, Env),
+    Bound = [],
+    Tree1 = rewrite(Tree, erl_syntax:else_expr(Cs1)),
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
 vann_if_expr(Tree, Env) ->
@@ -852,6 +886,16 @@ vann_pattern(Tree, Env) ->
             Bound = ordsets:union(Bound1, Bound2),
             Free = ordsets:union(Free1, Free2),
             Tree1 = rewrite(Tree, erl_syntax:match_expr(P1, E1)),
+            {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
+        maybe_match_expr ->
+            %% Alias pattern
+            P = erl_syntax:maybe_match_expr_pattern(Tree),
+            {P1, Bound1, Free1} = vann_pattern(P, Env),
+            E = erl_syntax:maybe_match_expr_body(Tree),
+            {E1, Bound2, Free2} = vann_pattern(E, Env),
+            Bound = ordsets:union(Bound1, Bound2),
+            Free = ordsets:union(Free1, Free2),
+            Tree1 = rewrite(Tree, erl_syntax:maybe_match_expr(P1, E1)),
             {ann_bindings(Tree1, Env, Bound, Free), Bound, Free};
         macro ->
             %% The macro name must be ignored. The arguments are treated

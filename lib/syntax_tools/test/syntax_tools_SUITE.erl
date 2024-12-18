@@ -28,7 +28,8 @@
          wrapped_subtrees/1,
          t_abstract_type/1,t_erl_parse_type/1,t_type/1,
          t_epp_dodger/1,t_epp_dodger_clever/1,
-         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1]).
+         t_comment_scan/1,t_prettypr/1,test_named_fun_bind_ann/1,
+         test_maybe_expr_ann/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -38,7 +39,8 @@ all() ->
      wrapped_subtrees,
      t_abstract_type,t_erl_parse_type,t_type,
      t_epp_dodger,t_epp_dodger_clever,
-     t_comment_scan,t_prettypr,test_named_fun_bind_ann].
+     t_comment_scan,t_prettypr,test_named_fun_bind_ann,
+     test_maybe_expr_ann].
 
 groups() ->
     [].
@@ -413,6 +415,58 @@ test_named_fun_bind_ann(Config) when is_list(Config) ->
     {'env',[Name]} = CEnv,
     {'bound',['Test']} = CBound,
     {'free', []} = CFree.
+
+%% Test annotation of maybe_expr, maybe_match_expr and else_expr (PR #8811)
+test_maybe_expr_ann(Config) when is_list(Config) ->
+    %% maybe
+    %%  ok ?= Test,
+    %%  What ?= ok,
+    %%  Var = What,
+    %% else
+    %%  Error -> Error
+    %% end.
+    MaybeMatch1 = erl_syntax:maybe_match_expr(
+                    erl_syntax:atom(ok),
+                    erl_syntax:variable('Test')),
+    MaybeMatch2 = erl_syntax:maybe_match_expr(
+                    erl_syntax:variable('What'),
+                    erl_syntax:atom(ok)),
+    Match1 = erl_syntax:maybe_match_expr(
+                    erl_syntax:variable('Var'),
+                    erl_syntax:variable('What')),
+    Else = erl_syntax:else_expr(
+             [erl_syntax:clause(
+                [erl_syntax:variable('Err')],
+                'none',
+               [erl_syntax:variable('Err')])
+             ]),
+    Maybe = erl_syntax:maybe_expr([MaybeMatch1, MaybeMatch2, Match1], Else),
+
+    MaybeAnn = erl_syntax_lib:annotate_bindings(Maybe, []),
+    [Env, Bound, Free] = erl_syntax:get_ann(MaybeAnn),
+    {'env',[]} = Env,
+    {'bound',[]} = Bound,
+    {'free',['Test']} = Free,
+
+    [MaybeMatchAnn1, MaybeMatchAnn2, MatchAnn1] = erl_syntax:maybe_expr_body(MaybeAnn),
+    [Env1, Bound1, Free1] = erl_syntax:get_ann(MaybeMatchAnn1),
+    {'env',[]} = Env1,
+    {'bound',[]} = Bound1,
+    {'free',['Test']} = Free1,
+    [Env2, Bound2, Free2] = erl_syntax:get_ann(MaybeMatchAnn2),
+    {'env',[]} = Env2,
+    {'bound',['What']} = Bound2,
+    {'free',[]} = Free2,
+    [Env3, Bound3, Free3] = erl_syntax:get_ann(MatchAnn1),
+    {'env',['What']} = Env3,
+    {'bound',['Var']} = Bound3,
+    {'free',['What']} = Free3,
+
+    ElseAnn = erl_syntax:maybe_expr_else(MaybeAnn),
+    [Env4, Bound4, Free4] = erl_syntax:get_ann(ElseAnn),
+    {'env',[]} = Env4,
+    {'bound',[]} = Bound4,
+    {'free',[]} = Free4.
 
 test_files(Config) ->
     DataDir = ?config(data_dir, Config),
