@@ -59,8 +59,11 @@ Options for [`os:cmd/2`](`cmd/2`).
 
 - **`max_size`** - The maximum size of the data returned by the `os:cmd/2` call.
   See the [`os:cmd/2`](`cmd/2`) documentation for more details.
+- **`exception_on_failure`** - If set to true, `cmd/2` will throw an error exception if
+  the command exits with a non-zero exit code.
 """.
--type os_command_opts() :: #{ max_size => non_neg_integer() | infinity }.
+-type os_command_opts() :: #{ max_size => non_neg_integer() | infinity,
+                              exception_on_failure => boolean() }.
 
 -export_type([os_command/0, os_command_opts/0]).
 
@@ -521,10 +524,6 @@ cmd(Cmd) ->
 Executes `Command` in a command shell of the target OS, captures the standard
 output and standard error of the command, and returns this result as a string.
 
-The command shell can be set using the
-[kernel configuration parameter](kernel_app.md#os_cmd_shell), by default the
-shell is detected upon system startup.
-
 _Examples:_
 
 ```erlang
@@ -538,14 +537,35 @@ directly from an OS command shell.
 
 The possible options are:
 
-- **`max_size`** - The maximum size of the data returned by the `os:cmd` call.
+- **`max_size`** - The maximum size of the data returned by the `os:cmd/2` call.
   This option is a safety feature that should be used when the command executed
   can return a very large, possibly infinite, result.
+
+  _Example_:
 
   ```erlang
   > os:cmd("cat /dev/zero", #{ max_size => 20 }).
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
   ```
+
+- **`exception_on_failure`** - If set to true, `os:cmd/2` will throw an error
+  exception if the command exits with a non-zero exit code. The exception reason
+  looks like this: `{command_failed, ResultBeforeFailure, ExitCode}` where
+  `ResultBeforeFailure` is the result written to stdout by the command before
+  the error happened and `ExitCode` is the exit code from the command.
+
+  _Example_:
+
+  ```erlang
+  > catch os:cmd("echo hello && exit 123", #{ exception_on_failure => true }).
+  {'EXIT',{{command_failed,"hello\n",123},
+           [{os,cmd,2,[{file,"os.erl"},{line,579}]},
+  ...
+  ```
+
+The command shell can be set using the
+[kernel configuration parameter](kernel_app.md#os_cmd_shell), by default the
+shell is detected upon system startup.
 """.
 -doc(#{since => <<"OTP 20.2.3">>}).
 -spec cmd(Command, Options) -> string() when
@@ -555,6 +575,8 @@ cmd(Cmd, Opts) ->
     try
         do_cmd(Cmd, Opts)
     catch
+        throw:{command_failed, Result, ExitStatus} ->
+            error({command_failed, Result, ExitStatus});
         throw:badopt ->
             badarg_with_cause([Cmd, Opts], badopt);
         throw:{open_port, Reason} ->
@@ -565,7 +587,8 @@ cmd(Cmd, Opts) ->
 
 do_cmd(Cmd, Opts) ->
     MaxSize = get_option(max_size, Opts, infinity),
-    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
+    ExceptionOnFailure = get_option(exception_on_failure, Opts, false),
+    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd), ExceptionOnFailure),
     Port = try open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
                                              stream, in, hide | SpawnOpts])
            catch error:Reason ->
@@ -573,12 +596,17 @@ do_cmd(Cmd, Opts) ->
            end,
     MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, MonRef, Eot, [], 0, MaxSize),
+    {Bytes, ExitStatus} = get_data(Port, MonRef, Eot, [], 0, MaxSize, ExceptionOnFailure),
     demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
-    if  %% Convert to unicode list if possible otherwise return bytes
-	is_list(String) -> String;
-	true -> binary_to_list(Bytes)
+    Result =
+        if  %% Convert to unicode list if possible otherwise return bytes
+            is_list(String) -> String;
+            true -> binary_to_list(iolist_to_binary(Bytes))
+        end,
+    if ExceptionOnFailure, ExitStatus =/= 0 ->
+            throw({command_failed, Result, ExitStatus});
+       true -> Result
     end.
 
 get_option(Opt, Options, Default) ->
@@ -590,15 +618,16 @@ get_option(Opt, Options, Default) ->
 
 -define(KERNEL_OS_CMD_SHELL_KEY, kernel_os_cmd_shell).
 
-mk_cmd({win32,_}, Cmd) ->
+mk_cmd({win32,_}, Cmd, ExitStatus) ->
     Shell = persistent_term:get(?KERNEL_OS_CMD_SHELL_KEY),
     Command = lists:concat([Shell, " /c", Cmd]),
-    {Command, [], [], <<>>};
-mk_cmd(_,Cmd) ->
+    {Command, [exit_status || ExitStatus], [], <<>>};
+mk_cmd(_,Cmd, ExitStatus) ->
     %% Have to send command in like this in order to make sh commands like
     %% cd and ulimit available.
     Shell = persistent_term:get(?KERNEL_OS_CMD_SHELL_KEY),
-    {Shell ++ " -s unix:cmd", [out],
+    EchoExitStatus = ["$?\^D" || ExitStatus],
+    {Shell ++ " -s unix:cmd", [out] ++ [exit_status || ExitStatus],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
      %%
@@ -613,7 +642,8 @@ mk_cmd(_,Cmd) ->
      %%
      %% I tried changing this to be "better", but got bombarded with
      %% backwards incompatibility bug reports, so leave this as it is.
-     ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
+     ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; "
+      "echo \"\^D",EchoExitStatus,"\"\n"],
      <<$\^D>>}.
 
 -doc false.
@@ -686,31 +716,45 @@ validate3([List|Rest]) when is_list(List) ->
     validate3(List),
     validate3(Rest).
 
-get_data(Port, MonRef, Eot, Sofar, Size, Max) ->
+get_data(Port, MonRef, Eot, Sofar, Size, Max, ExitStatus) ->
     receive
 	{Port, {data, Bytes}} ->
             case eot(Bytes, Eot, Size, Max) of
                 more ->
                     get_data(Port, MonRef, Eot, [Sofar, Bytes],
-                             Size + byte_size(Bytes), Max);
-                Last ->
+                             Size + byte_size(Bytes), Max, ExitStatus);
+                {Last, Remain} ->
                     catch port_close(Port),
                     flush_until_down(Port, MonRef),
-                    iolist_to_binary([Sofar, Last])
+                    Result = [Sofar, Last],
+                    case ExitStatus andalso eot(Remain, Eot, byte_size(Remain), Max) of
+                        {ExitCode, _} ->
+                            {Result, binary_to_integer(ExitCode)};
+                        _ ->
+                            {Result, 0}
+                    end
             end;
+        {Port, {exit_status, N}} ->
+            %% exit_status will always arrive before 'DOWN' and 'EXIT'
+            flush_until_down(Port, MonRef), 
+            flush_exit(Port), 
+            {Sofar, N};
         {'DOWN', MonRef, _, _, _} ->
+            %% We get 'DOWN' if someone does exit/2 on the port... we treat this
+            %% as if a SIGKILL was sent to the command
 	    flush_exit(Port),
-	    iolist_to_binary(Sofar)
+	    {Sofar, 128 + 9}
     end.
 
 eot(Bs, <<>>, Size, Max) when Size + byte_size(Bs) < Max ->
     more;
 eot(Bs, <<>>, Size, Max) ->
-    binary:part(Bs, {0, Max - Size});
+    {binary:part(Bs, {0, Max - Size}), <<>>};
 eot(Bs, Eot, Size, Max) ->
     case binary:match(Bs, Eot) of
         {Pos, _} when Size + Pos < Max ->
-            binary:part(Bs,{0, Pos});
+            {binary:part(Bs, 0, Pos), %% Everything until Eot
+             binary:part(Bs, Pos + 1, byte_size(Bs) - (Pos + 1))}; %% Everything after Eot
         _ ->
             eot(Bs, <<>>, Size, Max)
     end.

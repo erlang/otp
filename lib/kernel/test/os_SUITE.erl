@@ -28,9 +28,11 @@
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, max_size_command/1,
-         perf_counter_api/1, error_info/1, os_cmd_shell/1,os_cmd_shell_peer/1]).
+         cmd_exception/1, os_cmd_shell/1, os_cmd_shell_peer/1,
+         perf_counter_api/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -43,7 +45,8 @@ all() ->
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, max_size_command, perf_counter_api,
-     error_info, os_cmd_shell, os_cmd_shell_peer].
+     error_info, os_cmd_shell, os_cmd_shell_peer,
+     cmd_exception].
 
 groups() ->
     [].
@@ -203,6 +206,35 @@ bad_command(Config) when is_list(Config) ->
     os:cmd("xxxxx"),
 
     ok.
+
+cmd_exception(Config) when is_list(Config) ->
+
+    {Osfamily, Ostype} = os:type(),
+
+    %% command failed
+    {Res, 3} = cmd_exception_test("echo abc && exit 3"),
+    Osfamily =:= unix andalso ?assertEqual("abc\n", Res),
+    Osfamily =:= win32 andalso ?assertEqual("abc \r\n", Res),
+
+    %% Syntax error
+    {_, ExitCode} = cmd_exception_test("{)"),
+    Osfamily =:= unix andalso Ostype =/= sunos andalso ?assertEqual(2, ExitCode),
+    Osfamily =:= unix andalso Ostype =:= sunos andalso ?assertEqual(3, ExitCode),
+    Osfamily =:= win32 andalso ?assertEqual(1, ExitCode),
+
+    ok.
+
+cmd_exception_test(Cmd) ->
+    Out = os:cmd(Cmd), %% Check that no exception is generated when the option is not given
+    try
+        os:cmd(Cmd, #{ exception_on_failure => true}),
+        ct:fail("Should not succeed")
+    catch error:{command_failed, ErrorOut, Reason} ->
+            %% Check that the output is the same
+            ?assertEqual(Out, ErrorOut),
+            {ErrorOut, Reason}
+    end.
+
 
 find_executable(Config) when is_list(Config) ->
     case os:type() of
