@@ -554,6 +554,9 @@ decode(<<?BYTE(?SSH_MSG_DISCONNECT), ?UINT32(Code), ?DEC_BIN(Desc,__0)>>) ->
 decode(<<?SSH_MSG_NEWKEYS>>) ->
     #ssh_msg_newkeys{};
 
+%% Accept SSH_MSG_IGNORE without data to have feature parity with other implementations like openssh
+decode(<<?BYTE(?SSH_MSG_IGNORE)>>) ->
+    #ssh_msg_ignore{};
 decode(<<?BYTE(?SSH_MSG_IGNORE), ?DEC_BIN(Data,__0)>>) ->
     #ssh_msg_ignore{data = Data};
 
