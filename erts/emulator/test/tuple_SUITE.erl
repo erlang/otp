@@ -127,8 +127,8 @@ ludicrous_tuple_size(_) -> error.
 %% Tests element/2.
 
 t_element(Config) when is_list(Config) ->
-    a = element(1, {a}),
-    a = element(1, {a, b}),
+    a = {a}[1],
+    a = {a, b}[1],
 
     List = lists:seq(1, 16384),
     Tuple = list_to_tuple(List),
@@ -141,39 +141,39 @@ t_element(Config) when is_list(Config) ->
      2047,2048, 4095,4096, 8191,8192, 16383, 16384} =
         get_literal_tuple_element_pairs(Tuple),
 
-    {'EXIT', {badarg, _}} = (catch element(0, id({a,b}))),
-    {'EXIT', {badarg, _}} = (catch element(3, id({a,b}))),
-    {'EXIT', {badarg, _}} = (catch element(1, id({}))),
-    {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
-    {'EXIT', {badarg, _}} = (catch element(1, id(42))),
-    {'EXIT', {badarg, _}} = (catch element(false, id({a,b}))),
-    {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
+    {'EXIT', {badarg, _}} = (catch id({a,b})[0]),
+    {'EXIT', {badarg, _}} = (catch id({a,b})[3]),
+    {'EXIT', {badarg, _}} = (catch id({})[1]),
+    {'EXIT', {badarg, _}} = (catch id([a,b])[1]),
+    {'EXIT', {badarg, _}} = (catch id(42)[1]),
+    {'EXIT', {badarg, _}} = (catch id({a,b})[false]),
+    {'EXIT', {badarg, _}} = (catch id({a,b})[id(1.5)]),
 
     %% Make sure that the loader does not reject the module when
     %% huge literal index values are used.
-    {'EXIT', {badarg, _}} = (catch element((1 bsl 24)-1, id({a,b,c}))),
-    {'EXIT', {badarg, _}} = (catch element(1 bsl 24, id({a,b,c}))),
-    {'EXIT', {badarg, _}} = (catch element(1 bsl 32, id({a,b,c}))),
-    {'EXIT', {badarg, _}} = (catch element(1 bsl 64, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch id({a,b,c})[(1 bsl 24)-1]),
+    {'EXIT', {badarg, _}} = (catch id({a,b,c})[1 bsl 24]),
+    {'EXIT', {badarg, _}} = (catch id({a,b,c})[1 bsl 32]),
+    {'EXIT', {badarg, _}} = (catch id({a,b,c})[1 bsl 64]),
 
     %% Test known tuple and unknown position.
     true = is_tuple(Tuple),
-    {'EXIT', {badarg, _}} = catch element(id(false), Tuple),
-    {'EXIT', {badarg, _}} = catch element(id(-1), Tuple),
-    {'EXIT', {badarg, _}} = catch element(id(0), Tuple),
-    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), Tuple),
+    {'EXIT', {badarg, _}} = catch Tuple[id(false)],
+    {'EXIT', {badarg, _}} = catch Tuple[id(-1)],
+    {'EXIT', {badarg, _}} = catch Tuple[id(0)],
+    {'EXIT', {badarg, _}} = catch Tuple[id(1 bsl 64)],
 
     %% Test a known tuple and position that is a known integer.
-    {'EXIT', {badarg, _}} = catch element(known_integer(-1), Tuple),
-    {'EXIT', {badarg, _}} = catch element(known_integer(0), Tuple),
-    {'EXIT', {badarg, _}} = catch element(known_integer(1 bsl 64), Tuple),
-    {'EXIT', {badarg, _}} = catch element(known_integer(tuple_size(Tuple)+1), Tuple),
+    {'EXIT', {badarg, _}} = catch Tuple[known_integer(-1)],
+    {'EXIT', {badarg, _}} = catch Tuple[known_integer(0)],
+    {'EXIT', {badarg, _}} = catch Tuple[known_integer(1 bsl 64)],
+    {'EXIT', {badarg, _}} = catch Tuple[known_integer(tuple_size(Tuple)+1)],
 
     %% Test unknown tuple and unknown position.
-    {'EXIT', {badarg, _}} = catch element(id(false), id(Tuple)),
-    {'EXIT', {badarg, _}} = catch element(id(-1), id(Tuple)),
-    {'EXIT', {badarg, _}} = catch element(id(0), id(Tuple)),
-    {'EXIT', {badarg, _}} = catch element(id(1 bsl 64), id(Tuple)),
+    {'EXIT', {badarg, _}} = catch id(Tuple)[id(false)],
+    {'EXIT', {badarg, _}} = catch id(Tuple)[id(-1)],
+    {'EXIT', {badarg, _}} = catch id(Tuple)[id(0)],
+    {'EXIT', {badarg, _}} = catch id(Tuple)[id(1 bsl 64)],
 
     ok.
 
@@ -181,41 +181,41 @@ known_integer(I) when is_integer(I) ->
     I.
 
 get_elements([Element|Rest], Tuple, Pos) ->
-    Element = element(Pos, Tuple),
+    Element = Tuple[Pos],
     get_elements(Rest, Tuple, Pos+1);
 get_elements([], _Tuple, _Pos) ->
     ok.
 
 get_literal_elements(Tuple) ->
-    31 = element(31, Tuple),
-    32 = element(32, Tuple),
+    31 = Tuple[31],
+    32 = Tuple[32],
 
-    63 = element(63, Tuple),
-    64 = element(64, Tuple),
+    63 = Tuple[63],
+    64 = Tuple[64],
 
-    127 = element(127, Tuple),
-    128 = element(128, Tuple),
+    127 = Tuple[127],
+    128 = Tuple[128],
 
-    255 = element(255, Tuple),
-    256 = element(256, Tuple),
+    255 = Tuple[255],
+    256 = Tuple[256],
 
-    511 = element(511, Tuple),
-    512 = element(512, Tuple),
+    511 = Tuple[511],
+    512 = Tuple[512],
 
-    1023 = element(1023, Tuple),
-    1024 = element(1024, Tuple),
+    1023 = Tuple[1023],
+    1024 = Tuple[1024],
 
-    2047 = element(2047, Tuple),
-    2048 = element(2048, Tuple),
+    2047 = Tuple[2047],
+    2048 = Tuple[2048],
 
-    4095 = element(4095, Tuple),
-    4096 = element(4096, Tuple),
+    4095 = Tuple[4095],
+    4096 = Tuple[4096],
 
-    8191 = element(8191, Tuple),
-    8192 = element(8192, Tuple),
+    8191 = Tuple[8191],
+    8192 = Tuple[8192],
 
-    16383 = element(16383, Tuple),
-    16384 = element(16384, Tuple),
+    16383 = Tuple[16383],
+    16384 = Tuple[16384],
 
     ok.
 
@@ -223,35 +223,35 @@ get_literal_tuple_elements(Tuple) when tuple_size(Tuple) =:= 16384 ->
     %% Since the tuple size is known, the element/2 calls will be
     %% rewritten to get_tuple_element instructions.
 
-    31 = element(31, Tuple),
-    32 = element(32, Tuple),
+    31 = Tuple[31],
+    32 = Tuple[32],
 
-    63 = element(63, Tuple),
-    64 = element(64, Tuple),
+    63 = Tuple[63],
+    64 = Tuple[64],
 
-    127 = element(127, Tuple),
-    128 = element(128, Tuple),
+    127 = Tuple[127],
+    128 = Tuple[128],
 
-    255 = element(255, Tuple),
-    256 = element(256, Tuple),
+    255 = Tuple[255],
+    256 = Tuple[256],
 
-    511 = element(511, Tuple),
-    512 = element(512, Tuple),
+    511 = Tuple[511],
+    512 = Tuple[512],
 
-    1023 = element(1023, Tuple),
-    1024 = element(1024, Tuple),
+    1023 = Tuple[1023],
+    1024 = Tuple[1024],
 
-    2047 = element(2047, Tuple),
-    2048 = element(2048, Tuple),
+    2047 = Tuple[2047],
+    2048 = Tuple[2048],
 
-    4095 = element(4095, Tuple),
-    4096 = element(4096, Tuple),
+    4095 = Tuple[4095],
+    4096 = Tuple[4096],
 
-    8191 = element(8191, Tuple),
-    8192 = element(8192, Tuple),
+    8191 = Tuple[8191],
+    8192 = Tuple[8192],
 
-    16383 = element(16383, Tuple),
-    16384 = element(16384, Tuple),
+    16383 = Tuple[16383],
+    16384 = Tuple[16384],
 
     ok.
 
@@ -259,35 +259,35 @@ get_literal_tuple_element_pairs(Tuple) when tuple_size(Tuple) =:= 16384 ->
     %% Since the tuple size is known, the element/2 calls will be
     %% rewritten to get_tuple_element instructions.
 
-    {element(31, Tuple),
-     element(32, Tuple),
+    {Tuple[31],
+     Tuple[32],
 
-     element(63, Tuple),
-     element(64, Tuple),
+     Tuple[63],
+     Tuple[64],
 
-     element(127, Tuple),
-     element(128, Tuple),
+     Tuple[127],
+     Tuple[128],
 
-     element(255, Tuple),
-     element(256, Tuple),
+     Tuple[255],
+     Tuple[256],
 
-     element(511, Tuple),
-     element(512, Tuple),
+     Tuple[511],
+     Tuple[512],
 
-     element(1023, Tuple),
-     element(1024, Tuple),
+     Tuple[1023],
+     Tuple[1024],
 
-     element(2047, Tuple),
-     element(2048, Tuple),
+     Tuple[2047],
+     Tuple[2048],
 
-     element(4095, Tuple),
-     element(4096, Tuple),
+     Tuple[4095],
+     Tuple[4096],
 
-     element(8191, Tuple),
-     element(8192, Tuple),
+     Tuple[8191],
+     Tuple[8192],
 
-     element(16383, Tuple),
-     element(16384, Tuple)}.
+     Tuple[16383],
+     Tuple[16384]}.
 
 %% Tests set_element/3.
 
@@ -368,10 +368,10 @@ set_literal_tuple_elements(Tuple0) when tuple_size(Tuple0) =:= 16385 ->
     setelement(1, Tuple27, -1).
 
 verify_set_elements(16385, Tuple) ->
-    -16385 = element(16385, Tuple),
+    -16385 = Tuple[16385],
     ok;
 verify_set_elements(N, Tuple) ->
-    El = element(N, Tuple),
+    El = Tuple[N],
     if
         El =:= N + 7 ->
             true = not (is_power_of_two(N + 1) andalso is_power_of_two(N)),
@@ -597,14 +597,14 @@ tuple_in_guard(Config) when is_list(Config) ->
     Tuple1 = id({a,b}),
     Tuple2 = id({a,b,c}),
     if
-	Tuple1 == {element(1, Tuple2),element(2, Tuple2)} ->
+	Tuple1 == {Tuple2[1],Tuple2[2]} ->
 	    ok;
 	true ->
 	    ct:fail("failed")
     end,
     if
-	Tuple2 == {element(1, Tuple2),element(2, Tuple2),
-	    element(3, Tuple2)} ->
+	Tuple2 == {Tuple2[1],Tuple2[2],
+	    Tuple2[3]} ->
 	    ok;
 	true ->
 	    ct:fail("failed")
