@@ -136,9 +136,8 @@ acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
                 PeerName = inet:peername(Socket),
                 MaxSessions = ?GET_OPT(max_sessions, Opts),
                 NumSessions = number_of_connections(SystemSup),
-                ParallelLogin = ?GET_OPT(parallel_login, Opts),
                 case handle_connection(Address, Port, PeerName, Opts, Socket,
-                                       MaxSessions, NumSessions, ParallelLogin) of
+                                       MaxSessions, NumSessions) of
                     {error,Error} ->
                         catch close(Socket, Opts),
                         handle_error(Error, Address, Port, PeerName);
@@ -156,33 +155,15 @@ acceptor_loop(Port, Address, Opts, ListenSocket, AcceptTimeout, SystemSup) ->
 
 %%%----------------------------------------------------------------
 handle_connection(_Address, _Port, _Peer, _Options, _Socket,
-                  MaxSessions, NumSessions, _ParallelLogin)
+                  MaxSessions, NumSessions)
   when NumSessions >= MaxSessions->
     {error,{max_sessions,MaxSessions}};
 handle_connection(_Address, _Port, {error,Error}, _Options, _Socket,
-                  _MaxSessions, _NumSessions, _ParallelLogin) ->
+                  _MaxSessions, _NumSessions) ->
     {error,Error};
 handle_connection(Address, Port, _Peer, Options, Socket,
-                  _MaxSessions, _NumSessions, ParallelLogin)
-  when ParallelLogin == false ->
-    handle_connection(Address, Port, Options, Socket);
-handle_connection(Address, Port, _Peer, Options, Socket,
-                  _MaxSessions, _NumSessions, ParallelLogin)
-  when ParallelLogin == true ->
-    Ref = make_ref(),
-    Pid = spawn_link(
-            fun() ->
-                    process_flag(trap_exit, true),
-                    receive
-                        {start,Ref} ->
-                            handle_connection(Address, Port, Options, Socket)
-                    after 10000 ->
-                            {error, timeout2}
-                    end
-            end),
-    catch gen_tcp:controlling_process(Socket, Pid),
-    Pid ! {start,Ref},
-    ok.
+                  _MaxSessions, _NumSessions) ->
+    handle_connection(Address, Port, Options, Socket).
 
 handle_connection(Address, Port, Options, Socket) ->
     AddressR = #address{address = Address, port = Port,
