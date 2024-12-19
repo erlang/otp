@@ -136,7 +136,8 @@ takeover(ConnPid, Role, Socket, Options) ->
                                            Options,
                                            ?GET_OPT(negotiation_timeout, Options)
                                           ),
-            handshake(ConnPid, Role, Ref, NegTimeout);
+            ParallelLogin = ?GET_OPT(parallel_login, Options, disabled),
+            handshake(ConnPid, Role, Ref, NegTimeout, ParallelLogin);
         {error, Reason}	->
             {error, Reason}
     end.
@@ -491,7 +492,11 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
 		  }
     end.
 
-handshake(ConnPid, server, Ref, Timeout) ->
+handshake(ConnPid, server, Ref, _Timeout, true) ->
+    %% FIXME how ssh_connected messages should be cleaned, flushed?
+    erlang:demonitor(Ref, [flush]),
+    {ok, ConnPid};
+handshake(ConnPid, server, Ref, Timeout, _) ->
     receive
 	{ConnPid, ssh_connected} ->
 	    erlang:demonitor(Ref, [flush]),
@@ -511,7 +516,7 @@ handshake(ConnPid, server, Ref, Timeout) ->
 	    ssh_connection_handler:stop(ConnPid),
 	    {error, timeout}
     end;
-handshake(ConnPid, client, Ref, Timeout) ->
+handshake(ConnPid, client, Ref, Timeout, _) ->
     receive
 	{ConnPid, ssh_connected} ->
 	    erlang:demonitor(Ref, [flush]),
