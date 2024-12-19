@@ -69,6 +69,7 @@
 	 info/1, info/2,
 	 connection_info/2,
 	 channel_info/3,
+	 set_window_handling_mode/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
 	 get_print_info/1,
@@ -94,6 +95,10 @@
 
 -define(call_disconnectfun_and_log_cond(LogMsg, DetailedText, StateName, D),
         call_disconnectfun_and_log_cond(LogMsg, DetailedText, ?MODULE, ?LINE, StateName, D)).
+
+%% Minimum number of bytes reported by the "upper layer" that cause
+%% #ssh_msg_channel_adjust_window to be sent to the SSH peer
+-define(MIN_ADJUST, 64).
 
 %%====================================================================
 %% Start / stop
@@ -316,6 +321,12 @@ connection_info(ConnectionHandler, Options) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 channel_info(ConnectionHandler, ChannelId, Options) ->
     call(ConnectionHandler, {channel_info, ChannelId, Options}).
+
+-spec set_window_handling_mode(connection_ref(),
+                               channel_id(),
+                               auto | manual) -> ok.
+set_window_handling_mode(ConnectionHandler, Channel, Mode) ->
+    cast(ConnectionHandler, {set_window_handling_mode, Channel, Mode}).
 
 %%--------------------------------------------------------------------
 -spec adjust_window(connection_ref(),
@@ -840,6 +851,16 @@ handle_event({call,From}, get_alg, _, D) ->
 handle_event(cast, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
 
+handle_event(cast, {set_window_handling_mode, ChannelId, NewMode}, StateName, D) when ?CONNECTED(StateName) ->
+    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
+        #channel{window_handling_mode = OldMode} = Channel when OldMode /= NewMode ->
+            ssh_client_channel:cache_update(cache(D),
+                                    Channel#channel{window_handling_mode = NewMode});
+        _ ->
+            ok
+    end,
+    keep_state_and_data;
+
 handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
 	#channel{recv_window_size = WinSize,
@@ -849,6 +870,17 @@ handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTE
 	    %% The peer can send at least two more *full* packet, no hurry.
 	    ssh_client_channel:cache_update(cache(D),
 				     Channel#channel{recv_window_pending = Pending + Bytes}),
+	    keep_state_and_data;
+
+        #channel{recv_window_size = WinSize,
+                 recv_window_pending = Pending,
+                 recv_packet_size = _PktSize} = Channel
+            when ((Bytes + Pending) < ?MIN_ADJUST andalso (WinSize > 0)) ->
+            %% It does not make sense to send updates of e.g. 1 byte
+            %% if we are still able to receive something
+	    ssh_client_channel:cache_update(cache(D),
+				     Channel#channel{recv_window_pending =
+                                                            Pending + Bytes}),
 	    keep_state_and_data;
 
 	#channel{recv_window_size = WinSize,
