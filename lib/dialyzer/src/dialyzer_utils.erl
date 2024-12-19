@@ -505,7 +505,7 @@ get_optional_callbacks(Tuples, ModName) ->
 
 get_spec_info([{Contract, Ln, [{Id, TypeSpec}]}|Left],
 	      SpecMap, CallbackMap, RecordsMap, ModName, OptCb, File)
-  when ((Contract =:= 'spec') or (Contract =:= 'callback')),
+  when Contract =:= 'spec' orelse Contract =:= 'callback',
        is_list(TypeSpec) ->
   MFA = case Id of
 	  {_, _, _} = T -> T;
@@ -971,11 +971,11 @@ pp_flags([Flag|Flags]) ->
 				  pp_flags(Flags))).
 
 keep_endian(Flags) ->
-  [cerl:c_atom(X) || X <- Flags, (X =:= little) or (X =:= native)].
+  [cerl:c_atom(X) || X <- Flags, X =:= little orelse X =:= native].
 
 keep_all(Flags) ->
   [cerl:c_atom(X) || X <- Flags,
-		     (X =:= little) or (X =:= native) or (X =:= signed)].
+		     X =:= little orelse X =:= native orelse X =:= signed].
 
 pp_unit(Unit, Ctxt, Cont) ->
   case cerl:concrete(Unit) of
@@ -1107,8 +1107,9 @@ refold_concrete_pat(Val) ->
 	false -> label(cerl:c_tuple_skel(Els))
       end;
     [H|T] ->
-      case  cerl:is_literal(HP=refold_concrete_pat(H))
-	and cerl:is_literal(TP=refold_concrete_pat(T))
+      HP=refold_concrete_pat(H),
+      TP=refold_concrete_pat(T),
+      case cerl:is_literal(HP) andalso cerl:is_literal(TP)
       of
 	true -> cerl:abstract(Val);
 	false -> label(cerl:c_cons_skel(HP, TP))

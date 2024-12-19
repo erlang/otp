@@ -1869,7 +1869,7 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	    {[{channel_request_reply, From, Reply}],
 	     Connection#connection{requests = 
 				       lists:keydelete(ChannelId, 1, Requests)}};
-	false when (Reply == success) or (Reply == failure) ->
+	false when Reply == success ; Reply == failure ->
 	    {[], Connection};
 	false ->
 	    {[{channel_data, ChannelPid, Reply}], Connection}
