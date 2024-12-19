@@ -212,7 +212,7 @@ Eterm erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits*
 
 /* These will create heap binaries when appropriate, so they require free space
  * up to BUILD_SUB_BITSTRING_HEAP_NEED. */
-Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits* sb);
+Eterm erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits* sb);
 Eterm erts_bs_get_binary_all_2(Process *p, ErlSubBits* sb);
 
 /* Binary construction, new instruction set. */

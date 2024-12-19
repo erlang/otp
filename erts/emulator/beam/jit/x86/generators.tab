@@ -372,35 +372,6 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
     return op;
 }
 
-// Generate the fastest instruction to fetch a binary from a binary.
-gen.get_binary2(Fail, Ms, Live, Size, Unit, Flags, Dst) {
-    BeamOp* op;
-
-    $NewBeamOp(S, op);
-    $NativeEndian(Flags);
-
-    if (Size.type == TAG_a && Size.val == am_all) {
-        $BeamOpNameArity(op, i_bs_get_binary_all2, 5);
-        op->a[0] = Ms;
-        op->a[1] = Fail;
-        op->a[2] = Live;
-        op->a[3] = Unit;
-        op->a[4] = Dst;
-    } else {
-        $BeamOpNameArity(op, i_bs_get_binary2, 6);
-        op->a[0] = Ms;
-        op->a[1] = Fail;
-        op->a[2] = Live;
-        op->a[3] = Size;
-        op->a[4].type = TAG_u;
-        op->a[4].val = (Unit.val << 3) | Flags.val;
-        op->a[5] = Dst;
-    }
-
-    op->next = NULL;
-    return op;
-}
-
 gen.skip_utf16(Fail, Ms, Flags) {
     BeamOp* op;
     $NewBeamOp(S, op);
