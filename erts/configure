@@ -19754,6 +19754,37 @@ printf "%s\n" "#define SIZEOF__FLOAT16 $ac_cv_sizeof__Float16" >>confdefs.h
 
 
 
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+_Float16 x = 0.0;
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for _Float16 convertible" >&5
+printf %s "checking for _Float16 convertible... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+printf "%s\n" "#define FLOAT16_IS_CONVERTIBLE 1" >>confdefs.h
+
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for _Float16 convertible" >&5
+printf %s "checking for _Float16 convertible... " >&6; }
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+	 ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+
 BITS64=
 
 if test $ac_cv_sizeof_void_p = 8; then

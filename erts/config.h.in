@@ -438,6 +438,9 @@
 /* Define if x86/x86_64 out of order instructions should be synchronized */
 #undef ETHR_X86_OUT_OF_ORDER
 
+/* Define to 1 if _Float16 can be converted from/to double. */
+#undef FLOAT16_IS_CONVERTIBLE
+
 /* Define to 1 if you have the <arpa/nameser.h> header file. */
 #undef HAVE_ARPA_NAMESER_H
 
