@@ -547,7 +547,7 @@ endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifeq ($(TARGET),win32)
-	$(INSTALL_DATA) $(INSTALL_PROGS: %.exe, %.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_DATA) $(INSTALL_PROGS:.exe=.pdb) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 endif
 ifneq ($(INSTALL_TOP),)
