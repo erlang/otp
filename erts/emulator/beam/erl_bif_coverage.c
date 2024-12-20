@@ -374,6 +374,7 @@ get_cover_id_line(Process* c_p, const BeamCodeHeader* hdr)
     for (i = hdr->line_coverage_len - 1; i >= 0; i--) {
         Eterm coverage = am_error;
         Uint* coverage_array = hdr->coverage;
+        Sint coverage_data;
         unsigned cover_id;
 
         if (!hdr->line_coverage_valid[i]) {
@@ -388,7 +389,8 @@ get_cover_id_line(Process* c_p, const BeamCodeHeader* hdr)
         if (location == LINE_INVALID_LOCATION) {
             continue;
         }
-        coverage = make_small(MIN(coverage_array[i], MAX_SMALL));
+        coverage_data = coverage_array[i];
+        coverage = make_small(MIN(coverage_data, MAX_SMALL));
         cover_id = loc2id[i];
         tmp = TUPLE2(hp, make_small(cover_id), coverage);
         hp += 3;
