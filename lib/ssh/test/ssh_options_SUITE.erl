@@ -818,8 +818,9 @@ connectfun4_server(Config) ->
     receive
 	{connect,Ref,User,Method,ConnInfo} ->
             "foo" = User,
+            "foo" = proplists:get_value(user, ConnInfo),
             "keyboard-interactive" = Method,
-            Keys = [client_version, server_version, peer, sockname, options, algorithms],
+            Keys = [client_version, server_version, peer, user, sockname, options, algorithms],
             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
 	    ssh:close(ConnectionRef),
             ssh:stop_daemon(Pid)

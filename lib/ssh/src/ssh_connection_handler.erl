@@ -317,6 +317,7 @@ connection_info_server(D) when is_tuple(D) ->
     Keys = [client_version,
             server_version,
             peer,
+            user,
             sockname,
             options,
             algorithms
