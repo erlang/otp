@@ -1562,6 +1562,13 @@ If the process does not exist,
 the call exits the calling process with reason `noproc`,
 and with reason `{nodedown, Node}` if the connection fails
 to the remote `Node` where the server runs.
+
+> #### Note {: .info }
+>
+> If the event manager `EventMgrRef` is a permanent child of a
+> supervisor, it will be restarted. If it is a transient child, it will
+> be restarted if the given `Reason` is not `normal`, `shutdown` or
+> `{shutdown, Term}`.
 """.
 -doc(#{since => <<"OTP 18.0">>}).
 -spec stop(EventMgrRef :: emgr_ref(), Reason :: term(), Timeout :: timeout()) -> 'ok'.
