@@ -459,8 +459,8 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
                 StatusCode =:= 204 orelse                      %% No Content
                 StatusCode =:= 304 orelse                      %% Not Modified
                 (100 =< StatusCode andalso StatusCode =< 199), %% Informational
-            case (ModData#mod.http_version =/= "HTTP/1.1") or
-                (IsDisableChunkedSend) of
+            case ModData#mod.http_version =/= "HTTP/1.1" orelse
+                IsDisableChunkedSend of
                 true ->
                     send_headers(ModData, StatusCode, 
                                  [{"connection", "close"} | 

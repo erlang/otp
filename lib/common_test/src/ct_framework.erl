@@ -409,8 +409,8 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo) ->
 		    %% find and save require terms found in suite info
 		    SuiteReqs = 
 			[SDDef || SDDef <- SuiteInfo,
-				  ((require == element(1,SDDef))
-				   or (default_config == element(1,SDDef)))],
+				  require == element(1,SDDef)
+                                   orelse default_config == element(1,SDDef)],
 		    case check_for_clashes(TestCaseInfo, GroupPathInfo,
 					   SuiteReqs) of
 			[] ->
@@ -461,13 +461,13 @@ remove_info_in_prev(Terms, [[] | Rest]) ->
     [[] | remove_info_in_prev(Terms, Rest)];
 remove_info_in_prev(Terms, [Info | Rest]) ->
     UniqueInInfo = [U || U <- Info,
-			  ((timetrap == element(1,U)) and
-			   (not lists:keymember(timetrap,1,Terms))) or 
-			  ((require == element(1,U)) and
-			   (not lists:member(U,Terms))) or
-			  ((default_config == element(1,U)) and
-                           (not keysmember([default_config,1,
-					    element(2,U),2], Terms)))],
+			  (timetrap == element(1,U) andalso
+			   not lists:keymember(timetrap,1,Terms)) orelse
+			  (require == element(1,U) andalso
+			   not lists:member(U,Terms)) orelse
+			  (default_config == element(1,U) andalso
+                           not keysmember([default_config,1,
+                                           element(2,U),2], Terms))],
     OtherTermsInInfo = [T || T <- Info,
 			     timetrap /= element(1,T),
 			     require /= element(1,T),

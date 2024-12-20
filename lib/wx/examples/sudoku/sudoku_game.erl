@@ -240,10 +240,10 @@ solve([Index|Rest],All, St, S, US, Orig) ->
 
 solve_1(RCM={R,C,_M}, Avail, St) ->
     All = all(RCM),
-    Poss = fun({RI,CI},Acc) when (RI == R) and (CI == C) -> Acc;
+    Poss = fun({RI,CI},Acc) when RI == R, CI == C -> Acc;
 	      ({RI,CI},Acc) -> gb_sets:union(poss(rcm({RI,CI}),St),Acc)
 	   end, 
-    D = fun({RI,CI},Acc) when (RI == R) and (CI == C) -> 
+    D = fun({RI,CI},Acc) when RI == R, CI == C -> 
 		io:format("~p:~p: ignore~n",[RI,CI]), 
 		Acc;	      
 	   ({RI,CI},Acc) -> 

@@ -728,7 +728,7 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
     
     %% And create new ones..
     if
-	(InitBy == startup) or (Semantics == unknown) ->
+	InitBy == startup ; Semantics == unknown ->
 	    ignore;
 	Semantics == ram_copies ->
 	    EtsProps = proplists:get_value(ets, StorageProps, []),
