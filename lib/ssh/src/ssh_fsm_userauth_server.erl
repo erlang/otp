@@ -89,9 +89,9 @@ handle_event(internal,
 			{authorized, User, {Reply, Ssh1}} ->
                             D = connected_state(Reply, Ssh1, User, Method, D0),
                             {next_state, {connected,server}, D,
-                             [set_max_initial_idle_timeout(D),
+                             start_alive(D, [set_max_initial_idle_timeout(D),
                               {change_callback_module,ssh_connection_handler}
-                             ]};
+                             ])};
 			{not_authorized, {User, Reason}, {Reply, Ssh}} when Method == "keyboard-interactive" ->
 			    retry_fun(User, Reason, D0),
                             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
@@ -125,9 +125,9 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
 	{authorized, User, {Reply, Ssh1}} ->
             D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
             {next_state, {connected,server}, D,
-             [set_max_initial_idle_timeout(D),
+             start_alive(D, [set_max_initial_idle_timeout(D),
               {change_callback_module,ssh_connection_handler}
-             ]};
+             ])};
 	{not_authorized, {User, Reason}, {Reply, Ssh}} ->
 	    retry_fun(User, Reason, D0),
             D = ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh}),
@@ -143,9 +143,9 @@ handle_event(internal, #ssh_msg_userauth_info_response{} = Msg, {userauth_keyboa
         ssh_auth:handle_userauth_info_response({extra,Msg}, D0#data.ssh_params),
     D = connected_state(Reply, Ssh1, User, "keyboard-interactive", D0),
     {next_state, {connected,server}, D,
-     [set_max_initial_idle_timeout(D),
+     start_alive(D, [set_max_initial_idle_timeout(D),
       {change_callback_module,ssh_connection_handler}
-     ]
+     ])
     };
 
 
@@ -213,3 +213,6 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
 	    ok
     end.
 
+start_alive(#data{ssh_params = #ssh{alive_interval = AliveInterval}},
+            Actions) ->
+    [{{timeout, alive}, AliveInterval, none} | Actions].
