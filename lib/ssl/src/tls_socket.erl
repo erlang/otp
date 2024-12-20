@@ -41,7 +41,8 @@
          close/2]).
 
 -export([split_options/1, 
-         get_socket_opts/3]).
+         get_socket_opts/3,
+         start_tls_server_connection/6]).
 
 -export([emulated_options/0, 
          emulated_options/1, 
@@ -118,16 +119,7 @@ upgrade(Socket, #config{transport_info = {Transport,_,_,_,_}= CbInfo,
     ok = setopts(Transport, Socket, tls_socket:internal_inet_values()),
     case peername(Transport, Socket) of
 	{ok, {Host, Port}} ->
-	    try tls_gen_connection:start_fsm(client, Host, Port, Socket,
-                                             {SslOptions,
-                                              emulated_socket_options(EmOpts, #socket_options{}), undefined},
-                                             self(), CbInfo, Timeout) of
-                Result ->
-                    Result
-            catch
-                exit:{noproc, _} ->
-                    {error, ssl_not_started}
-            end;
+            start_tls_client_connection(Host, Port, Socket, SslOptions, EmOpts, CbInfo, Timeout);
 	{error, Error} ->
 	    {error, Error}
     end.
@@ -139,16 +131,7 @@ connect(Host, Port,
     {Transport, _, _, _, _} = CbInfo,
     try Transport:connect(Host, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
-	    try tls_gen_connection:start_fsm(client, Host, Port, Socket,
-                                             {SslOpts,
-                                              emulated_socket_options(EmOpts, #socket_options{}), undefined},
-                                             self(), CbInfo, Timeout) of
-                Result ->
-                    Result
-            catch
-                exit:{noproc, _} ->
-                    {error, ssl_not_started}
-            end;
+	    start_tls_client_connection(Host, Port, Socket, SslOpts, EmOpts, CbInfo, Timeout);
 	{error, Reason} ->
 	    {error, Reason}
     catch
@@ -420,19 +403,27 @@ call(Pid, Msg) ->
     gen_server:call(Pid, Msg, infinity).
 
 start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo) ->
-    try
-        {ok, DynSup} = tls_connection_sup:start_child([]),
-        SenderOpts = maps:get(sender_spawn_opts, SslOpts, []),
-        {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
-        ConnArgs = [server, Sender, "localhost", Port, Socket,
-                    {SslOpts, emulated_socket_options(EmOpts, #socket_options{}), Trackers}, self(), CbInfo],
-        {ok, Pid} = tls_dyn_connection_sup:start_child(DynSup, receiver, ConnArgs),
-        receive {Pid, user_socket, UserSocket} ->
-                ssl_gen_statem:socket_control(UserSocket)
-        end
+    try tls_gen_connection:start_fsm(Port, Socket,
+                                     {SslOpts,
+                                      emulated_socket_options(EmOpts, #socket_options{}), Trackers},
+                                     self(), CbInfo, infinity) of
+        Result ->
+            Result
     catch
-	error:{badmatch, {error, _} = Error} ->
-            Error
+        exit:{noproc, _} ->
+            {error, ssl_not_started}
+    end.
+
+start_tls_client_connection(Host, Port, Socket, SslOpts, EmOpts, CbInfo, Timeout) ->
+    try tls_gen_connection:start_fsm(Host, Port, Socket,
+                                     {SslOpts,
+                                      emulated_socket_options(EmOpts, #socket_options{}), undefined},
+                                     self(), CbInfo, Timeout) of
+        Result ->
+            Result
+    catch
+        exit:{noproc, _} ->
+            {error, ssl_not_started}
     end.
 
 split_options(Opts) ->
