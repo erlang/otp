@@ -92,7 +92,7 @@ We have a list of [Help Wanted](https://github.com/erlang/otp/issues?q=is%3Aissu
 
 ## Awesome-Erlang
 
-You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/drobakowski/awesome-erlang). Add your project there.
+You can find more projects, tools and articles related to Erlang/OTP on the [awesome-erlang list](https://github.com/erlang-punch/awesome-erlang). Add your project there.
 
 ## License
 
