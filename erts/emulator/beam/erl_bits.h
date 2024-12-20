@@ -26,6 +26,18 @@
 /** @brief returns the number of bits there are in \c x bytes. */
 #define NBITS(x)  ((Uint64)(x) << 3)
 
+/*
+ * Here is how many bits we can copy in each reduction.
+ *
+ * At the time of writing of this comment, CONTEXT_REDS was 4000 and
+ * ERL_BITS_PER_REDUCTION was 1 KiB (8192 bits). The time for copying an
+ * unaligned 4000 KiB binary on my computer (which has a 4,2 GHz Intel
+ * i7 CPU) was about 5 ms. The time was approximately 4 times lower if
+ * the source and destinations binaries were aligned.
+ */
+
+#define ERL_BITS_PER_REDUCTION (8*1024)
+
 #define BYTE_OFFSET(offset_in_bits) ((Uint)(offset_in_bits) >> 3)
 #define BIT_OFFSET(offset_in_bits) ((offset_in_bits) & 7)
 

@@ -1323,6 +1323,12 @@ protected:
                           x86::Gp size_reg);
     bool need_mask(const ArgVal Val, Sint size);
     void set_zero(Sint effectiveSize);
+    void emit_accumulate(ArgVal src,
+                         Sint effectiveSize,
+                         x86::Gp bin_data,
+                         x86::Gp tmp,
+                         x86::Gp value,
+                         bool isFirst);
     bool bs_maybe_enter_runtime(bool entered);
     void bs_maybe_leave_runtime(bool entered);
     void emit_construct_utf8_shared();
