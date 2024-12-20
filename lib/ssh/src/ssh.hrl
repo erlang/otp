@@ -469,7 +469,9 @@ where `...` are arguments to `F` as in `m:ssh_client_key_api` and/or
 -doc "Provides a fun to implement your own logging or other handling at disconnects.".
 -doc(#{group => <<"Common Options">>}).
 -type disconnectfun_common_option()     ::
-        {disconnectfun, fun((Reason::term()) -> void | any()) }.
+        {disconnectfun, fun((Reason::term()) -> void | any()) |
+        fun((Reason::term(), #{details := undefined | Details::string(),
+                               connection_info := Info::proplists:proplist()}) -> void | any())}.
 -doc """
 Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but

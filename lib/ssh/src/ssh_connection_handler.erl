@@ -2127,8 +2127,24 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-%%disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
-disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
+disconnect_fun(Reason, D) -> disconnect_fun(Reason, D, undefined).
+disconnect_fun(Reason, D, Details) ->
+    case ?CALL_FUN(disconnectfun, D) of
+        Fun1 when is_function(Fun1, 1) ->
+            Fun1(Reason);
+        Fun2 when is_function(Fun2, 2) ->
+            Keys = [client_version,
+                    server_version,
+                    peer,
+                    user,
+                    sockname,
+                    options,
+                    algorithms,
+                    user_auth
+                   ],
+            ConnInfo = fold_keys(Keys, fun conn_info/2, D),
+            Fun2(Reason, #{details => Details, connection_info => ConnInfo})
+    end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
     ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).

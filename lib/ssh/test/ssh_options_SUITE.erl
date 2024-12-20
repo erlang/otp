@@ -78,6 +78,8 @@
 	 user_dir_fun_option/1,
 	 connectfun_disconnectfun_server/1,
 	 connectfun4_server/1,
+	 disconnectfun2_client/1,
+	 disconnectfun2_server/1,
 	 hostkey_fingerprint_check/1,
 	 hostkey_fingerprint_check_md5/1,
 	 hostkey_fingerprint_check_sha/1,
@@ -121,6 +123,8 @@ all() ->
     [connectfun_disconnectfun_server,
      bannerfun_server,
      connectfun4_server,
+     disconnectfun2_client,
+     disconnectfun2_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -897,6 +901,73 @@ connectfun_disconnectfun_client(Config) ->
     receive
 	{disconnect,Ref,R} ->
 	    ct:log("Disconnect result: ~p",[R])
+    after 2000 ->
+	    {fail, "No disconnectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+disconnectfun2_client(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    DiscFun = fun(R, Extra) -> Parent ! {disconnect,Ref,R,Extra} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {disconnectfun, DiscFun},
+					  {user_interaction, false}]),
+    ssh:stop_daemon(Pid),
+    receive
+	{disconnect,Ref,R,Extra} ->
+            %% Details is undefined for this particular case
+            #{details := _Details, connection_info := ConnInfo} = Extra,
+            Keys = [client_version, server_version, peer, user, sockname, options,
+                    algorithms, user_auth],
+            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+	    ct:log("Disconnect result: ~p ~p",[R, Extra])
+    after 2000 ->
+	    {fail, "No disconnectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+disconnectfun2_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    DiscFun = fun(R, Extra) -> Parent ! {disconnect,Ref,R,Extra} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+                                             {disconnectfun, DiscFun}]),
+    {error, Reason} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
+                                 {user, "foo"},
+                                 {password, "wrong_password"},
+                                 {user_dir, UserDir},
+                                 {user_interaction, false}]),
+	    ct:log("Error reason: ~p", [Reason]),
+    receive
+	{disconnect,Ref,R,Extra} ->
+            %% Details is undefined for this particular case
+            #{details := _Details, connection_info := ConnInfo} = Extra,
+             Keys = [client_version, server_version, peer, user, sockname, options,
+                     algorithms, user_auth],
+             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+             ct:log("Disconnect result: ~p ~p",[R, Extra]),
+            ssh:stop_daemon(Pid)
     after 2000 ->
 	    {fail, "No disconnectfun action"}
     end.
