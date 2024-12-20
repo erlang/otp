@@ -1275,8 +1275,9 @@ For the various options recognized by `table/1,2` in respective module, see
       Args :: [term()],
       QH :: query_handle().
 table(TraverseFun, Options) when is_function(TraverseFun) ->
-    case {is_function(TraverseFun, 0), 
-          IsFun1 = is_function(TraverseFun, 1)} of
+    IsFun0 = is_function(TraverseFun, 0),
+    IsFun1 = is_function(TraverseFun, 1),
+    case {IsFun0, IsFun1} of
         {false, false} ->
             erlang:error(badarg, [TraverseFun, Options]);
         _ ->
@@ -2503,10 +2504,12 @@ qlc_sort_info(Qdata0, QOpt) ->
 
 sort_info(#prepared{sort_info = SI, sorted = S} = Prep, QNum, QOpt) ->
     SI1 = [{{C,Ord},[]} || 
-              S =/= no, 
-              is_integer(Sz = size_of_qualifier(QOpt, QNum)), 
+              S =/= no,
+              Sz <- [size_of_qualifier(QOpt, QNum)],
+              is_integer(Sz), 
               Sz > 0, % the size of the pattern
-              (NConstCols = size_of_constant_prefix(QOpt, QNum)) < Sz, 
+              NConstCols <- [size_of_constant_prefix(QOpt, QNum)],
+              NConstCols < Sz, 
               C <- [NConstCols+1],
               Ord <- orders(S)]
        ++ [{{Pos,Ord},[]} || Pos <- constant_columns(QOpt, QNum),
@@ -2588,7 +2591,8 @@ pos_vals(_Pos, _KeyEquality, _T, _Max) ->
 nub([]) ->
     [];
 nub([E | L]) ->
-    case lists:member(E, Es=nub(L)) of
+    Es=nub(L),
+    case lists:member(E, Es) of
         true ->
             Es;
         false ->
