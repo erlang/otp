@@ -2454,11 +2454,9 @@ handshake(Socket, SslOptions, Timeout)
         ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
         {ok, Port} = tls_socket:port(Transport, Socket),
         {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-        tls_gen_connection:start_fsm(server, "localhost", Port, Socket,
-                                     {SslOpts,
-                                      tls_socket:emulated_socket_options(EmOpts, #socket_options{}),
-                                      [{session_id_tracker, SessionIdHandle}]},
-                                     self(), CbInfo, Timeout)
+        Trackers = [{session_id_tracker, SessionIdHandle}],
+        {ok, SSocket} = tls_socket:start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo),
+        ssl_gen_statem:handshake(SSocket, Timeout)
     catch
         error:{badmatch, _} ->
             {error, {dtls_upgrade, notsup}};
