@@ -173,12 +173,12 @@ connected_state(Reply, Ssh1, User, Method, D0) ->
     D1 = #data{ssh_params=Ssh} =
         ssh_connection_handler:send_msg(Reply, D0#data{ssh_params = Ssh1}),
     ssh_connection_handler:handshake(ssh_connected, D1),
-    connected_fun(User, Method, D1),
-    D1#data{auth_user=User,
-            %% Note: authenticated=true MUST NOT be sent
-            %% before send_msg!
-            ssh_params = Ssh#ssh{authenticated = true}}.
-
+    D = D1#data{auth_user=User,
+                %% Note: authenticated=true MUST NOT be sent
+                %% before send_msg!
+                ssh_params = Ssh#ssh{authenticated = true}},
+    connected_fun(User, Method, D),
+    D.
 
 set_max_initial_idle_timeout(#data{ssh_params = #ssh{opts=Opts}}) ->
     {{timeout,max_initial_idle_time}, ?GET_OPT(max_initial_idle_time,Opts), none}.
