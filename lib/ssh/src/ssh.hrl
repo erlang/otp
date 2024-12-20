@@ -433,7 +433,9 @@ where `...` are arguments to `F` as in `m:ssh_client_key_api` and/or
 -doc "Provides a fun to implement your own logging or other handling at disconnects.".
 -doc(#{title => <<"Common Options">>}).
 -type disconnectfun_common_option()     ::
-        {disconnectfun, fun((Reason::term()) -> void | any()) }.
+        {disconnectfun, fun((Reason::term()) -> void | any()) |
+        fun((Reason::term(), #{details := undefined | Details::string(),
+                               connection_info := Info::proplists:proplist()}) -> void | any())}.
 -doc """
 Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but
@@ -1147,7 +1149,8 @@ in the User's Guide chapter.
 -doc(#{title => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
+      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)
+        | fun((User::string(), PeerAddress::inet:ip_address(), Method::string(), Info::proplists:proplist()) ->_)} .
 
 -doc(#{title => <<"Other data types">>}).
 -type opaque_daemon_options()  ::
@@ -1246,7 +1249,8 @@ in the User's Guide chapter.
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,
-	  authenticated = false
+	  authenticated = false,
+	  last_userauth_tried = "none" %% Not used for server role
 	 }).
 
 -record(alg,
