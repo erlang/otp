@@ -366,14 +366,34 @@ expr({'receive',Anno,Cs0,To0,ToEs0}, St0) ->
     {Cs,St3} = clauses(Cs0, St2),
     {{'receive',Anno,Cs,To,ToEs},St3};
 expr({'fun',Anno,{function,F,A}}=Fun0, St0) ->
-    case erl_internal:bif(F, A) of
-        true ->
-	    {As,St1} = new_vars(A, Anno, St0),
-	    Cs = [{clause,Anno,As,[],[{call,Anno,{atom,Anno,F},As}]}],
-	    Fun = {'fun',Anno,{clauses,Cs}},
-	    expr(Fun,  St1);
-	false ->
-	    {Fun0,St0}
+    FA = {F,A},
+    case St0#exprec.calltype of
+	#{FA := local} ->
+	    {Fun0,St0};
+	#{FA := {imported,M}} ->
+            %% refers to another module, so keep it symbolic; do not create
+            %% a local fun which is subject to dynamic code replacement
+	    MAtom = {atom,Anno,M},
+	    FAtom = {atom,Anno,F},
+            AInt = {integer,Anno,A},
+            {{'fun',Anno,{function,MAtom,FAtom,AInt}},St0};
+	_ ->
+            case erl_internal:bif(F, A) of
+                true ->
+                    %% auto-imported from the 'erlang' module;
+                    %% handle like other imports above
+                    MAtom = {atom,Anno,erlang},
+                    FAtom = {atom,Anno,F},
+                    AInt = {integer,Anno,A},
+                    {{'fun',Anno,{function,MAtom,FAtom,AInt}},St0};
+                false ->
+                    %% a generated function like module_info/0/1 or a
+                    %% pseudo function; create a local fun wrapper
+                    {As,St1} = new_vars(A, Anno, St0),
+                    Cs = [{clause,Anno,As,[],[{call,Anno,{atom,Anno,F},As}]}],
+                    Fun = {'fun',Anno,{clauses,Cs}},
+                    expr(Fun,  St1)
+            end
     end;
 expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
     {Fun,St};
