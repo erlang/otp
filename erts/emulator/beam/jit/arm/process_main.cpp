@@ -152,7 +152,7 @@ void BeamGlobalAssembler::emit_process_main() {
         comment("Copy out X registers");
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_out_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_out_registers>();
 
         /* Restore reds_used from FCALLS */
         a.mov(ARG3.w(), FCALLS);
@@ -178,7 +178,8 @@ void BeamGlobalAssembler::emit_process_main() {
             a.str(ARG3, start_time);
 
             a.ldr(ARG3, start_time_i);
-            runtime_call<3>(check_monitor_long_schedule);
+            runtime_call<void (*)(Process *, Uint64, ErtsCodePtr),
+                         check_monitor_long_schedule>();
 
             /* Restore reds_used */
             a.ldr(ARG3, start_time);
@@ -188,15 +189,17 @@ void BeamGlobalAssembler::emit_process_main() {
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
-        runtime_call<3>(erts_debug_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_debug_schedule>();
 #else
-        runtime_call<3>(erts_schedule);
+        runtime_call<Process *(*)(ErtsSchedulerData *, Process *, int),
+                     erts_schedule>();
 #endif
         a.mov(c_p, ARG1);
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
         lea(ARG1, erts_msacc_cache);
-        runtime_call<1>(erts_msacc_update_cache);
+        runtime_call<void (*)(ErtsMsAcc **), erts_msacc_update_cache>();
 #endif
 
         a.str(ZERO, start_time);
@@ -206,7 +209,7 @@ void BeamGlobalAssembler::emit_process_main() {
 
         {
             /* Enable long schedule test */
-            runtime_call<0>(erts_timestamp_millis);
+            runtime_call<Uint64 (*)(), erts_timestamp_millis>();
             a.str(ARG1, start_time);
             a.ldr(TMP1, arm::Mem(c_p, offsetof(Process, i)));
             a.str(TMP1, start_time_i);
@@ -218,7 +221,7 @@ void BeamGlobalAssembler::emit_process_main() {
         /* Copy arguments */
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
-        runtime_call<2>(copy_in_registers);
+        runtime_call<void (*)(Process *, Eterm *), copy_in_registers>();
 
         /* Setup reduction counting */
         a.ldr(FCALLS, arm::Mem(c_p, offsetof(Process, fcalls)));
@@ -231,7 +234,7 @@ void BeamGlobalAssembler::emit_process_main() {
         comment("check whether save calls is on");
         a.mov(ARG1, c_p);
         mov_imm(ARG2, ERTS_PSD_SAVED_CALLS_BUF);
-        runtime_call<2>(erts_psd_get);
+        runtime_call<void *(*)(Process *, int), erts_psd_get>();
 
         /* Read the active code index, overriding it with
          * ERTS_SAVE_CALLS_CODE_IX when save_calls is enabled (ARG1 != 0). */

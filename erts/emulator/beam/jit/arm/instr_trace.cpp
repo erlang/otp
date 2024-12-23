@@ -43,7 +43,8 @@ void BeamGlobalAssembler::emit_generic_bp_global() {
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -78,7 +79,8 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     a.mov(ARG1, c_p);
     /* ARG2 is already set above */
     load_x_reg_array(ARG3);
-    runtime_call<3>(erts_generic_breakpoint);
+    runtime_call<BeamInstr (*)(Process *, ErtsCodeInfo *, Eterm *),
+                 erts_generic_breakpoint>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -107,7 +109,9 @@ void BeamGlobalAssembler::emit_debug_bp() {
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG3);
     a.mov(ARG4, imm(am_breakpoint));
-    runtime_call<4>(call_error_handler);
+    runtime_call<
+            const Export *(*)(Process *, const ErtsCodeMFA *, Eterm *, Eterm),
+            call_error_handler>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -152,7 +156,8 @@ void BeamModuleAssembler::emit_return_trace() {
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<5>(return_trace);
+    runtime_call<void (*)(Process *, ErtsCodeMFA *, Eterm, ErtsTracer, Eterm),
+                 return_trace>();
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
@@ -175,7 +180,8 @@ void BeamModuleAssembler::emit_i_call_trace_return() {
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(erts_call_trace_return);
+    runtime_call<void (*)(Process *, const ErtsCodeInfo *, Eterm, Eterm),
+                 erts_call_trace_return>();
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
@@ -192,7 +198,8 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
     emit_enter_runtime<Update::eHeapAlloc>(1);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(beam_jit_return_to_trace);
+    runtime_call<void (*)(Process *, Eterm, Eterm *),
+                 beam_jit_return_to_trace>();
 
     emit_leave_runtime<Update::eHeapAlloc>(1);
 
@@ -208,7 +215,7 @@ void BeamModuleAssembler::emit_i_hibernate() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<2>(erts_hibernate);
+    runtime_call<int (*)(Process *, Eterm *), erts_hibernate>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>(3);
