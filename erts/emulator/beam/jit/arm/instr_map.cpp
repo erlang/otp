@@ -64,7 +64,8 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
     a.str(ARG4, TMP_MEM3q);
 
     a.mov(ARG1, ARG3);
-    runtime_call<2>(erts_dbg_hashmap_collision_bonanza);
+    runtime_call<erts_ihash_t (*)(erts_ihash_t, Eterm),
+                 erts_dbg_hashmap_collision_bonanza>();
     a.mov(ARG3, ARG1);
 
     a.ldp(ARG1, ARG2, TMP_MEM1q);
@@ -229,7 +230,12 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_new_map);
+    runtime_call<Eterm (*)(Process * p,
+                           Eterm * reg,
+                           Uint live,
+                           Uint n,
+                           const Eterm *ptr),
+                 erts_gc_new_map>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -332,7 +338,7 @@ void BeamGlobalAssembler::emit_i_get_map_element_shared() {
         emit_enter_runtime_frame();
 
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         a.cmp(ARG1, imm(THE_NON_VALUE));
@@ -368,7 +374,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -468,7 +474,8 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
 
         mov_imm(ARG4, args.size() / 3);
         load_x_reg_array(ARG2);
-        runtime_call<5>(beam_jit_get_map_elements);
+        runtime_call<Eterm (*)(Eterm, Eterm *, Eterm *, Uint, Eterm *),
+                     beam_jit_get_map_elements>();
 
         emit_leave_runtime<Update::eXRegs>();
 
@@ -515,7 +522,8 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         emit_enter_runtime();
-        runtime_call<3>(get_map_element_hash);
+        runtime_call<Eterm (*)(Eterm, Eterm, erts_ihash_t),
+                     get_map_element_hash>();
         emit_leave_runtime();
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -538,7 +546,8 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_update_map_assoc);
+    runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, const Eterm *),
+                 erts_gc_update_map_assoc>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -556,7 +565,7 @@ void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
     emit_enter_runtime<Update::eHeapAlloc>();
 
     a.mov(ARG1, c_p);
-    runtime_call<4>(erts_maps_put);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm), erts_maps_put>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
     emit_leave_runtime_frame();
@@ -598,7 +607,8 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_update_map_exact);
+    runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, const Eterm *),
+                 erts_gc_update_map_exact>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -619,7 +629,8 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<5>(erts_gc_update_map_exact);
+    runtime_call<Eterm (*)(Process *, Eterm *, Uint, Uint, const Eterm *),
+                 erts_gc_update_map_exact>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
@@ -650,7 +661,8 @@ void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
 
     a.mov(ARG1, c_p);
     lea(ARG5, TMP_MEM1q);
-    runtime_call<5>(erts_maps_update);
+    runtime_call<int (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
+                 erts_maps_update>();
 
     emit_leave_runtime<Update::eHeapAlloc>();
     emit_leave_runtime_frame();
