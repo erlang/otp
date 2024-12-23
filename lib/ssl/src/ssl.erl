@@ -3171,15 +3171,6 @@ getopts(#sslsocket{}, OptionTags) ->
 setopts(#sslsocket{connection_handler = Controller}, [{active, _}] = Active)
   when is_pid(Controller) ->
     ssl_gen_statem:set_opts(Controller, Active);
-setopts(#sslsocket{connection_handler = Controller, connection_cb = tls_gen_connection}, Options0)
-  when is_pid(Controller), is_list(Options0)  ->
-    try proplists:expand([{binary, [{mode, binary}]}, {list, [{mode, list}]}], Options0) of
-        Options ->
-            ssl_gen_statem:set_opts(Controller, Options)
-    catch
-        _:_ ->
-            {error, {options, {not_a_proplist, Options0}}}
-    end;
 setopts(#sslsocket{connection_handler = Controller}, Options0)
   when is_pid(Controller), is_list(Options0)  ->
     try proplists:expand([{binary, [{mode, binary}]}, {list, [{mode, list}]}], Options0) of
@@ -3466,21 +3457,19 @@ reading and writing keys are updated.
 %%
 %% Description: Initiate a key update.
 %%--------------------------------------------------------------------
-update_keys(#sslsocket{connection_handler = Controller,
-                       payload_sender = Sender,
-                       connection_cb = tls_gen_connection}, Type0) when is_pid(Controller) andalso
-                                                                        is_pid(Sender) andalso
-                                                                        (Type0 =:= write orelse
-                                                                         Type0 =:= read_write) ->
-    Type = case Type0 of
-               write ->
-                   update_not_requested;
-               read_write ->
-                   update_requested
-           end,
-    tls_gen_connection_1_3:send_key_update(Sender, Type);
-update_keys(_, Type) ->
-    {error, {illegal_parameter, Type}}.
+update_keys(#sslsocket{connection_handler = Controller, payload_sender = Sender,
+                       connection_cb = tls_gen_connection}, Type)
+  when is_pid(Controller) ->
+    case Type of
+        write ->
+            tls_gen_connection_1_3:send_key_update(Sender, update_not_requested);
+        read_write ->
+            tls_gen_connection_1_3:send_key_update(Sender, update_requested);
+        _ ->
+            {error, {illegal_parameter, Type}}
+    end;
+update_keys(_, _) ->
+    {error, not_supported}.
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => export_key_materials(TLSSocket, Labels, Contexts,

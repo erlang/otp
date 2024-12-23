@@ -1548,53 +1548,34 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite,
 			       #{secure_renegotiate := SecureRenegotation} =
                                    SslOpts,
 			       ConnectionStates0, Renegotiation, IsNew) ->
-    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
-                                                      maps:get(renegotiation_info, Exts, undefined), Random, 
+    ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,
+                                                      maps:get(renegotiation_info, Exts, undefined), Random,
 						      CipherSuite, undefined,
 						      ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
-
-    %% RFC 6066: handle received/expected maximum fragment length
-    if IsNew ->
-            ServerMaxFragEnum = maps:get(max_frag_enum, Exts, undefined),
-            ConnMaxFragLen = maps:get(max_fragment_length, ConnectionStates0, undefined),
-            ClientMaxFragEnum = max_frag_enum(ConnMaxFragLen),
-
-            if ServerMaxFragEnum == ClientMaxFragEnum ->
-                    ok;
-               true ->
-                    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
-            end;
-       true ->
-            ok
-    end,
-
-    case handle_cert_status_extension(SslOpts, Exts) of
-        #alert{} = Alert ->
-            Alert;
-        StaplingState ->
-            %% If we receive an ALPN extension then this is the protocol selected,
-            %% otherwise handle the NPN extension.
-            ALPN = maps:get(alpn, Exts, undefined),
-            case decode_alpn(ALPN) of
-                %% ServerHello contains exactly one protocol: the one selected.
-                %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
-                [Protocol] when not Renegotiation ->
-                    {ConnectionStates, alpn, Protocol, StaplingState};
-                [_] when Renegotiation ->
-                    {ConnectionStates, alpn, undefined, StaplingState};
-                undefined ->
-                    NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
-                    NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
-                    Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtocolSelector, Renegotiation),
-                    {ConnectionStates, npn, Protocol, StaplingState};
-                {error, Reason} ->
-                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
-                [] ->
-                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello);
-                [_|_] ->
-                    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello)
-            end
+    assert_max_frag_length(IsNew, Exts, ConnectionStates0),
+    StaplingState = handle_cert_status_extension(SslOpts, Exts),
+    %% If we receive an ALPN extension then this is the protocol selected,
+    %% otherwise handle the NPN extension.
+    ALPN = maps:get(alpn, Exts, undefined),
+    case decode_alpn(ALPN) of
+        %% ServerHello contains exactly one protocol: the one selected.
+        %% We also ignore the ALPN extension during renegotiation (see encode_alpn/2).
+        [Protocol] when not Renegotiation ->
+            {ConnectionStates, alpn, Protocol, StaplingState};
+        [_] when Renegotiation ->
+            {ConnectionStates, alpn, undefined, StaplingState};
+        undefined ->
+            NextProtocolNegotiation = maps:get(next_protocol_negotiation, Exts, undefined),
+            NextProtocolSelector = maps:get(next_protocol_selector, SslOpts, undefined),
+            Protocol = handle_next_protocol(NextProtocolNegotiation, NextProtocolSelector, Renegotiation),
+            {ConnectionStates, npn, Protocol, StaplingState};
+        {error, Reason} ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason));
+        [] ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, no_protocols_in_server_hello));
+        [_|_] ->
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, too_many_protocols_in_server_hello))
     end.
 
 select_curve(Client, Server) ->
@@ -2019,7 +2000,7 @@ handle_cert_status_extension(#{stapling := _Stapling}, Extensions) ->
             #{configured => true,
               status => not_negotiated};
         _Else ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty)
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty))
     end;
 handle_cert_status_extension(_SslOpts, Extensions) ->
     case maps:get(status_request, Extensions, false) of
@@ -2027,7 +2008,7 @@ handle_cert_status_extension(_SslOpts, Extensions) ->
             #{configured => false,
               status => not_negotiated};
         _Else -> %% unsolicited status_request
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request)
+            throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request))
     end.
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
@@ -3495,6 +3476,19 @@ handle_renegotiation_extension(Role, RecordCB, Version, Info, Random, Negotiated
                                     NegotiatedCipherSuite,
                                     Random,
                                     ConnectionStates).
+
+assert_max_frag_length(true, Exts, ConnectionStates) ->
+    %% RFC 6066: handle received/expected maximum fragment length
+    ServerMaxFragEnum = maps:get(max_frag_enum, Exts, undefined),
+    ConnMaxFragLen = maps:get(max_fragment_length, ConnectionStates, undefined),
+    ClientMaxFragEnum = max_frag_enum(ConnMaxFragLen),
+    if ServerMaxFragEnum == ClientMaxFragEnum ->
+            ok;
+       true ->
+            throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+    end;
+assert_max_frag_length(_, _, _) ->
+    ok.
 
 %% Receive protocols, choose one from the list, return it.
 handle_alpn_extension(_, {error, Reason}) ->
