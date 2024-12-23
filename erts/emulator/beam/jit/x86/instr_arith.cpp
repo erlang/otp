@@ -132,7 +132,7 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
     a.mov(TMP_MEM2q, ARG3);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -160,7 +160,7 @@ void BeamGlobalAssembler::emit_plus_guard_shared() {
 
     a.mov(ARG1, c_p);
     /* ARG2 and ARG3 were set by the caller */
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -269,7 +269,7 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
     a.mov(TMP_MEM2q, ARG3);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_minus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -297,7 +297,7 @@ void BeamGlobalAssembler::emit_minus_guard_shared() {
 
     a.mov(ARG1, c_p);
     /* ARG2 and ARG3 were set by the caller */
-    runtime_call<3>(erts_mixed_minus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -401,7 +401,7 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     a.mov(TMP_MEM1q, ARG2);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_unary_minus);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -427,7 +427,7 @@ void BeamGlobalAssembler::emit_unary_minus_guard_shared() {
 
     a.mov(ARG1, c_p);
     /* ARG2 was set by the caller */
-    runtime_call<2>(erts_unary_minus);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -543,7 +543,8 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
         a.lea(ARG4, TMP_MEM1q);
         a.lea(ARG5, TMP_MEM2q);
         a.mov(ARG1, c_p);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
 
@@ -629,7 +630,8 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         a.lea(ARG4, TMP_MEM4q);
         a.lea(ARG5, TMP_MEM5q);
         a.mov(ARG1, c_p);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
         emit_leave_frame();
@@ -880,7 +882,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
 
     /* Must be set last since mov_arg() may clobber ARG1 */
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_div);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_div>();
 
     emit_leave_runtime();
 
@@ -917,7 +919,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     a.mov(TMP_MEM1q, ARG4);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_times);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
     emit_test_the_non_value(RET);
     a.short_().je(done);
 
@@ -926,7 +928,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     a.mov(ARG1, c_p);
     a.cmp(ARG3, imm(make_small(0)));
     a.short_().je(done);
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     a.bind(done);
     emit_leave_runtime();
@@ -958,7 +960,8 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     a.mov(TMP_MEM4q, ARG4);
 
     a.lea(ARG5, TMP_MEM3q);
-    runtime_call<5>(erts_mul_add);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
+                 erts_mul_add>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -970,7 +973,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
 
     a.bind(mul_only);
     {
-        runtime_call<3>(erts_mixed_times);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
 
         emit_leave_runtime();
         emit_leave_frame();
@@ -1209,15 +1212,15 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 /* ARG2 (!) = LHS, RET (!) = RHS
  *
  * Result is returned in RET. Error is indicated by ZF. */
-template<typename T>
-void BeamGlobalAssembler::emit_bitwise_fallback_guard(T(*func_ptr)) {
+template<typename T, T Func>
+void BeamGlobalAssembler::emit_bitwise_fallback_guard() {
     emit_enter_frame();
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
     /* ARG2 is already set to LHS */
     a.mov(ARG3, RET);
-    runtime_call<3>(func_ptr);
+    runtime_call<T, Func>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -1229,9 +1232,8 @@ void BeamGlobalAssembler::emit_bitwise_fallback_guard(T(*func_ptr)) {
 /* ARG2 (!) = LHS, RET (!) = RHS
  *
  * Result is returned in RET. */
-template<typename T>
-void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
-                                                     const ErtsCodeMFA *mfa) {
+template<typename T, T Func>
+void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
     Label error = a.newLabel();
 
     emit_enter_frame();
@@ -1244,7 +1246,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
     a.mov(ARG1, c_p);
     /* ARG2 is already set to LHS */
     a.mov(ARG3, RET);
-    runtime_call<3>(func_ptr);
+    runtime_call<T, Func>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -1267,12 +1269,14 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
 }
 
 void BeamGlobalAssembler::emit_i_band_guard_shared() {
-    emit_bitwise_fallback_guard(erts_band);
+    emit_bitwise_fallback_guard<Eterm (*)(Process *, Eterm, Eterm),
+                                erts_band>();
 }
 
 void BeamGlobalAssembler::emit_i_band_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_band, 2};
-    emit_bitwise_fallback_body(erts_band, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_band>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
@@ -1336,7 +1340,7 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bor_guard_shared() {
-    emit_bitwise_fallback_guard(erts_bor);
+    emit_bitwise_fallback_guard<Eterm (*)(Process *, Eterm, Eterm), erts_bor>();
 }
 
 /* ARG2 (!) = LHS, RET (!) = RHS
@@ -1344,7 +1348,8 @@ void BeamGlobalAssembler::emit_i_bor_guard_shared() {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bor, 2};
-    emit_bitwise_fallback_body(erts_bor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
@@ -1393,7 +1398,8 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bxor_guard_shared() {
-    emit_bitwise_fallback_guard(erts_bxor);
+    emit_bitwise_fallback_guard<Eterm (*)(Process *, Eterm, Eterm),
+                                erts_bxor>();
 }
 
 /* ARG2 (!) = LHS, RET (!) = RHS
@@ -1401,7 +1407,8 @@ void BeamGlobalAssembler::emit_i_bxor_guard_shared() {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bxor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bxor, 2};
-    emit_bitwise_fallback_body(erts_bxor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
@@ -1472,7 +1479,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -1501,7 +1508,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
 
     a.mov(ARG1, c_p);
     a.mov(ARG2, RET);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime();
     emit_leave_frame();
@@ -1559,7 +1566,7 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bsr_guard_shared() {
-    emit_bitwise_fallback_guard(erts_bsr);
+    emit_bitwise_fallback_guard<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>();
 }
 
 /* ARG2 (!) = LHS, RET (!) = RHS
@@ -1567,7 +1574,8 @@ void BeamGlobalAssembler::emit_i_bsr_guard_shared() {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bsr_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsr, 2};
-    emit_bitwise_fallback_body(erts_bsr, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
@@ -1649,7 +1657,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgSource &LHS,
  *
  * Result is returned in RET. Error is indicated by ZF. */
 void BeamGlobalAssembler::emit_i_bsl_guard_shared() {
-    emit_bitwise_fallback_guard(erts_bsl);
+    emit_bitwise_fallback_guard<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>();
 }
 
 /* ARG2 (!) = LHS, RET (!) = RHS
@@ -1657,7 +1665,8 @@ void BeamGlobalAssembler::emit_i_bsl_guard_shared() {
  * Result is returned in RET. */
 void BeamGlobalAssembler::emit_i_bsl_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
-    emit_bitwise_fallback_body(erts_bsl, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>(
+            &bif_mfa);
 }
 
 static int count_leading_zeroes(UWord value) {

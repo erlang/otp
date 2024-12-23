@@ -60,6 +60,9 @@ extern "C"
 
 using namespace asmjit;
 
+#define ERTS_CCONV_ERTS
+#define ERTS_CCONV_JIT
+
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);
@@ -338,23 +341,24 @@ protected:
         a.blr(TMP1);
     }
 
-    void runtime_call(a64::Gp func, unsigned args) {
-        ASSERT(args < 5);
-        a.blr(func);
+    template<typename T, typename = void>
+    struct function_traits;
+
+    template<typename Range, typename... Domain>
+    struct function_traits<Range (*)(Domain...)> {
+        static constexpr size_t Arity = sizeof...(Domain);
+    };
+
+    template<typename T, T Func>
+    void runtime_call() {
+        a.mov(TMP1, Func);
+        a.blr(TMP1);
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
-        a.mov(TMP1, func);
-        a.blr(TMP1);
+    template<int Arity>
+    void dynamic_runtime_call(a64::Gp func) {
+        ERTS_CT_ASSERT(Arity <= 4);
+        a.blr(func);
     }
 
     /* Explicitly position-independent absolute jump, for use in fragments that
@@ -1421,20 +1425,12 @@ protected:
         a.bind(next);
 #endif
 
-        a.bl(resolve_fragment((void (*)())target, disp128MB));
+        a.bl(resolve_fragment(reinterpret_cast<void (*)()>(target), disp128MB));
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
-        a.bl(resolve_fragment((void (*)())func, disp128MB));
+    template<typename T, T Func>
+    void runtime_call() {
+        a.bl(resolve_fragment(reinterpret_cast<void (*)()>(Func), disp128MB));
     }
 
     bool isRegisterBacked(const ArgVal &arg) {

@@ -38,7 +38,9 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
     load_x_reg_array(ARG2);
     a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
     /* ARG4 has already been set. */
-    runtime_call<4>(beam_jit_handle_unloaded_fun);
+
+    runtime_call<const Export *(*)(Process *, Eterm *, int, Eterm),
+                 beam_jit_handle_unloaded_fun>();
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions |
                        Update::eCodeIndex>();
@@ -98,7 +100,8 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
         a.mov(ARG1, c_p);
         load_x_reg_array(ARG2);
         a.shr(ARG3, imm(FUN_HEADER_ARITY_OFFS));
-        runtime_call<3>(beam_jit_build_argument_list);
+        runtime_call<Eterm (*)(Process *, const Eterm *, int),
+                     beam_jit_build_argument_list>();
 
         emit_leave_runtime<Update::eHeapAlloc>();
 

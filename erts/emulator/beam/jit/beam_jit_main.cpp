@@ -403,7 +403,7 @@ void init_emulator(void) {
 }
 
 void process_main(ErtsSchedulerData *esdp) {
-    typedef void (*pmain_type)(ErtsSchedulerData *);
+    typedef void(ERTS_CCONV_JIT * pmain_type)(ErtsSchedulerData *);
 
     pmain_type pmain = (pmain_type)bga->get_process_main();
     pmain(esdp);
