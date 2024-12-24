@@ -112,8 +112,8 @@ populate_subscriber(Wlock, C) ->
 do_populate_subscriber(Wlock, Id, C) when Id >= 0 ->
     Suffix = bench_trans:number_to_suffix(Id),
     SubscrId = bench_trans:number_to_key(Id, C),
-    Name = list_to_binary([random:uniform(26) + $A - 1]),
-    GroupId = random:uniform(C#config.n_groups) - 1,
+    Name = list_to_binary([rand:uniform(26) + $A - 1]),
+    GroupId = rand:uniform(C#config.n_groups) - 1,
     Subscr = #subscriber{subscriber_number = SubscrId,
                          subscriber_name   = Name,
                          group_id          = GroupId,
@@ -158,7 +158,7 @@ init_allow(C) ->
     do_init_allow(0, C#config.n_servers - 1).
 
 do_init_allow(Allow, NS) when NS >= 0 ->
-    case random:uniform(100) < (90 + 1) of
+    case rand:uniform(100) < (90 + 1) of
         true ->
 	    ServerBit = 1 bsl NS,
             do_init_allow(Allow bor ServerBit, NS - 1);
