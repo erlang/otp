@@ -283,9 +283,6 @@
 
 -define(MAXBUD, 32).
 
-%%-define(DEBUGF(X,Y), io:format(X, Y)).
--define(DEBUGF(X,Y), void).
-
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],

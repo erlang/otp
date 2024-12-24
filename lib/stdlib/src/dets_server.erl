@@ -47,9 +47,6 @@
 -define(OWNERS, dets_owners).      % {TablePid, Table}
 -define(STORE, dets).              % {User, Table} and {{links,User}, NoLinks}
 
-%%-define(DEBUGF(X,Y), io:format(X, Y)).
--define(DEBUGF(X,Y), void).
-
 -compile({inline, [{pid2name_1,1}]}).
 
 %%%----------------------------------------------------------------------
@@ -336,8 +333,6 @@ handle_close(State, Req, {FromPid,_Tag}=From, Tab) ->
             Store = State#state.store,
             case ets:match_object(Store, {FromPid, Tab}) of
                 [] -> 
-                    ?DEBUGF("DETS: Table ~w close attempt by non-owner~w~n",
-                            [Tab, FromPid]),
                     {{error, not_owner}, State};
                 [_ | Keep] ->
                     case ets:lookup(?REGISTRY, Tab) of

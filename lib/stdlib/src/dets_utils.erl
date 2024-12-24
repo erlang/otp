@@ -463,9 +463,6 @@ new_cache({Delay, Size}) ->
 -define(MAXBUD, 32).             % 2 GB is maximum file size
 -define(MAXFREELISTS, 50000000). % Bytes reserved for the free lists (at end).
 
-%%-define(DEBUG(X, Y), io:format(X, Y)).
--define(DEBUG(X, Y), true).
-
 %%% Algorithm : We use a buddy system on each file. This is nicely described
 %%%             in i.e. the last chapter of the first-grade text book 
 %%%             Data structures and algorithms by Aho, Hopcroft and
@@ -538,7 +535,6 @@ alloc_many2(Ftab, Pos, Size, A0, H) ->
 
 %% -> {NewHead, Addr, Log2} | throw(Error)
 alloc(Head, Sz) when Head#head.fixed =/= false -> % when Sz > 0
-    ?DEBUG("alloc of size ~p (fixed)", [Sz]),
     Pos = sz2pos(Sz),
     {Frozen, Ftab} = Head#head.freelists,
     {FPos, Addr} = find_first_free(Frozen, Pos, Pos, Head),
@@ -548,7 +544,6 @@ alloc(Head, Sz) when Head#head.fixed =/= false -> % when Sz > 0
     NewFreelists = {NewFrozen, NewFtab},
     {Head#head{freelists = NewFreelists}, Addr, Pos};
 alloc(Head, Sz) when Head#head.fixed =:= false -> % when Sz > 0
-    ?DEBUG("alloc of size ~p", [Sz]),
     Pos = sz2pos(Sz),
     Ftab = Head#head.freelists,
     {FPos, Addr} = find_first_free(Ftab, Pos, Pos, Head),
@@ -591,8 +586,6 @@ reserve_buddy(Ftab, Pos, Pos0, Addr) ->
     move_down(NewFtab, Pos, Pos0, Addr).
 
 move_down(Ftab, Pos, Pos, _Addr) ->
-    ?DEBUG(" to address ~p, table ~p (~p bytes)~n", 
-	    [_Addr, Pos, ?POW(Pos-1)]),
     Ftab;
 move_down(Ftab, Pos, Pos0, Addr) ->
     Pos_1 = Pos - 1,
@@ -604,7 +597,6 @@ move_down(Ftab, Pos, Pos0, Addr) ->
 
 %% -> {Head, Log2}
 free(Head, Addr, Sz) ->
-    ?DEBUG("free of size ~p at address ~p~n", [Sz, Addr]),
     Ftab = get_freelists(Head),
     Pos = sz2pos(Sz),
     {set_freelists(Head, free_in_pos(Ftab, Addr, Pos, Head#head.base)), Pos}.
@@ -616,12 +608,10 @@ free_in_pos(Ftab, Addr, Pos, Base) ->
     {BuddyAddr, MoveUpAddr} = my_buddy(Addr, ?POW(Pos-1), Base),
     case bplus_lookup(PosTab, BuddyAddr) of
 	undefined -> % no buddy found
-	    ?DEBUG("  table ~p, no buddy~n", [Pos]),
 	    setelement(Pos, Ftab, bplus_insert(PosTab, Addr));
 	{ok, BuddyAddr} -> % buddy found
 	    PosTab1 = bplus_delete(PosTab, Addr),
 	    PosTab2 = bplus_delete(PosTab1, BuddyAddr),
-	    ?DEBUG("  table ~p, with buddy ~p~n", [Pos, BuddyAddr]),
 	    NewFtab = setelement(Pos, Ftab, PosTab2),
 	    free_in_pos(NewFtab, MoveUpAddr, Pos+1, Base)
     end.
