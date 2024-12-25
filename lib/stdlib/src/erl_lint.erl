@@ -346,6 +346,8 @@ format_error_1({redefine_function,{F,A}}) ->
     {~"function ~tw/~w already defined", [F,A]};
 format_error_1({define_import,{F,A}}) ->
     {~"defining imported function ~tw/~w", [F,A]};
+format_error_1({fun_import,{F,A}}) ->
+    {~"creating a fun from imported name ~tw/~w is not allowed", [F,A]};
 format_error_1({unused_function,{F,A}}) ->
     {~"function ~tw/~w is unused", [F,A]};
 format_error_1({unexported_function, MFA}) ->
@@ -2751,13 +2753,23 @@ expr({'fun',Anno,Body}, Vt, St) ->
             %% It is illegal to call record_info/2 with unknown arguments.
             {[],add_error(Anno, illegal_record_info, St)};
         {function,F,A} ->
-            %% BifClash - Fun expression
-            %% N.B. Only allows BIFs here as well, NO IMPORTS!!
-            case ((not is_local_function(St#lint.locals,{F,A})) andalso
-		  (erl_internal:bif(F, A) andalso
-		   (not is_autoimport_suppressed(St#lint.no_auto,{F,A})))) of
-                true -> {[],St};
-                false -> {[],call_function(Anno, F, A, St)}
+            St1 = case is_imported_function(St#lint.imports,{F,A}) of
+                      true ->
+                          add_error(Anno, {fun_import,{F,A}}, St);
+                      false ->
+                          %% check function use like for a call
+                          As = lists:duplicate(A, undefined), % dummy args
+                          check_call(Anno, F, As, Anno, St)
+                  end,
+            %% do not mark as used as a local function if listed as
+            %% imported (either auto-imported or explicitly)
+            case not is_local_function(St1#lint.locals,{F,A}) andalso
+                (is_imported_function(St1#lint.imports,{F,A})
+                 orelse
+                   (erl_internal:bif(F, A) andalso
+                    not is_autoimport_suppressed(St1#lint.no_auto,{F,A}))) of
+                true -> {[],St1};
+                false -> {[],call_function(Anno, F, A, St1)}
             end;
         {function, {atom, _, M}, {atom, _, F}, {integer, _, A}} ->
             {[], check_unexported_function(Anno, M, F, A, St)};
