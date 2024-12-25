@@ -3375,7 +3375,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
           %% Not from erlang and not from anywhere else
 	  {clash13,
            <<"-export([x/1]).
@@ -3385,7 +3385,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
 	  %% ...while real auto-import is OK.
 	  {clash14,
            <<"-export([x/1]).
