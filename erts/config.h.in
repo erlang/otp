@@ -916,9 +916,6 @@
 /* Define to 1 if you have the 'ppoll' function. */
 #undef HAVE_PPOLL
 
-/* Define to 1 if you have the 'pread' function. */
-#undef HAVE_PREAD
-
 /* Define if you have processor_bind functionality */
 #undef HAVE_PROCESSOR_BIND
 
@@ -933,9 +930,6 @@
 
 /* Define if you have putc_unlocked */
 #undef HAVE_PUTC_UNLOCKED
-
-/* Define to 1 if you have the 'pwrite' function. */
-#undef HAVE_PWRITE
 
 /* Define to 1 if you have the 'res_gethostbyname' function. */
 #undef HAVE_RES_GETHOSTBYNAME

@@ -325,7 +325,7 @@ position_1(Fd, Mark, Offset) ->
 
 pread(Fd, Offset, Size) ->
     try
-        #{ handle := FRef } = get_fd_data(Fd),
+        #{ handle := FRef } = Fd#file_descriptor.data,
         pread_nif(FRef, Offset, Size)
     catch
         error:badarg -> {error, badarg}
@@ -333,7 +333,7 @@ pread(Fd, Offset, Size) ->
 
 pread(Fd, LocNums) ->
     try
-        #{ handle := FRef } = get_fd_data(Fd),
+        #{ handle := FRef } = Fd#file_descriptor.data,
         pread_list(FRef, LocNums, [])
     catch
         error:badarg -> {error, badarg}

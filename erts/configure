@@ -20756,16 +20756,16 @@ then :
 
 fi
 ac_fn_c_check_func "$LINENO" "pread" "ac_cv_func_pread"
-if test "x$ac_cv_func_pread" = xyes
+if test "x$ac_cv_func_pread" != xyes
 then :
-  printf "%s\n" "#define HAVE_PREAD 1" >>confdefs.h
-
+  printf "%s\n" "$0: pread function not available"
+  exit 1
 fi
 ac_fn_c_check_func "$LINENO" "pwrite" "ac_cv_func_pwrite"
-if test "x$ac_cv_func_pwrite" = xyes
+if test "x$ac_cv_func_pwrite" != xyes
 then :
-  printf "%s\n" "#define HAVE_PWRITE 1" >>confdefs.h
-
+  printf "%s\n" "$0: pwrite function not available"
+  exit 1
 fi
 ac_fn_c_check_func "$LINENO" "memmove" "ac_cv_func_memmove"
 if test "x$ac_cv_func_memmove" = xyes

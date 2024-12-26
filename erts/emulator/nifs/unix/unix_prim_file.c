@@ -393,18 +393,6 @@ Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
     Uint64 bytes_read;
     Sint64 result;
 
-#if !defined(HAVE_PREADV) && !defined(HAVE_PREAD)
-    /* This function is documented as leaving the file position undefined, but
-     * the old driver always reset it so there's probably code in the wild that
-     * relies on this behavior. */
-    off_t original_position = lseek(u->fd, 0, SEEK_CUR);
-
-    if(original_position < 0 || lseek(u->fd, offset, SEEK_SET) < 0) {
-        u->common.posix_errno = errno;
-        return -1;
-    }
-#endif
-
     bytes_read = 0;
 
     do {
@@ -415,10 +403,8 @@ Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
 
 #if defined(HAVE_PREADV)
         result = preadv(u->fd, iov, MIN(IOV_MAX, iovlen), offset);
-#elif defined(HAVE_PREAD)
-        result = pread(u->fd, iov->iov_base, iov->iov_len, offset);
 #else
-        result = read(u->fd, iov->iov_base, iov->iov_len);
+        result = pread(u->fd, iov->iov_base, iov->iov_len, offset);
 #endif
 
         if(result > 0) {
@@ -429,15 +415,6 @@ Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
     } while(result > 0 || (result < 0 && errno == EINTR));
 
     u->common.posix_errno = errno;
-
-#if !defined(HAVE_PREADV) && !defined(HAVE_PREAD)
-    if(result >= 0) {
-        if(lseek(u->fd, original_position, SEEK_SET) < 0) {
-            u->common.posix_errno = errno;
-            return -1;
-        }
-    }
-#endif
 
     if(result == 0 && bytes_read > 0) {
         return bytes_read;
@@ -452,15 +429,6 @@ Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) 
     Sint64 bytes_written;
     ssize_t result;
 
-#if !defined(HAVE_PWRITEV) && !defined(HAVE_PWRITE)
-    off_t original_position = lseek(u->fd, 0, SEEK_CUR);
-
-    if(original_position < 0 || lseek(u->fd, offset, SEEK_SET) < 0) {
-        u->common.posix_errno = errno;
-        return -1;
-    }
-#endif
-
     bytes_written = 0;
 
     do {
@@ -471,10 +439,8 @@ Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) 
 
 #if defined(HAVE_PWRITEV)
         result = pwritev(u->fd, iov, MIN(IOV_MAX, iovlen), offset);
-#elif defined(HAVE_PWRITE)
-        result = pwrite(u->fd, iov->iov_base, iov->iov_len, offset);
 #else
-        result = write(u->fd, iov->iov_base, iov->iov_len);
+        result = pwrite(u->fd, iov->iov_base, iov->iov_len, offset);
 #endif
 
         if(result > 0) {
@@ -485,15 +451,6 @@ Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) 
     } while(result > 0 || (result < 0 && errno == EINTR));
 
     u->common.posix_errno = errno;
-
-#if !defined(HAVE_PWRITEV) && !defined(HAVE_PWRITE)
-    if(result >= 0) {
-        if(lseek(u->fd, original_position, SEEK_SET) < 0) {
-            u->common.posix_errno = errno;
-            return -1;
-        }
-    }
-#endif
 
     if(result == 0 && bytes_written > 0) {
         return bytes_written;
