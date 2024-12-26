@@ -52,18 +52,6 @@ typedef Uint16 erlfp16;
 #endif
 
 /*
- * Here is how many bits we can copy in each reduction.
- *
- * At the time of writing of this comment, CONTEXT_REDS was 4000 and
- * BITS_PER_REDUCTION was 1 KiB (8192 bits). The time for copying an
- * unaligned 4000 KiB binary on my computer (which has a 4,2 GHz Intel
- * i7 CPU) was about 5 ms. The time was approximately 4 times lower if
- * the source and destinations binaries were aligned.
- */
-
-#define BITS_PER_REDUCTION (8*1024)
-
-/*
  * MAKE_MASK(n) constructs a mask with n bits.
  * Example: MAKE_MASK(3) returns the binary number 00000111.
  */
@@ -1198,7 +1186,7 @@ erts_bs_put_binary(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint num_bits)
                           base, offset, num_bits);
     EBS->erts_bin_offset += num_bits;
 
-    BUMP_REDS(c_p, num_bits / BITS_PER_REDUCTION);
+    BUMP_REDS(c_p, num_bits / ERL_BITS_PER_REDUCTION);
     return 1;
 }
 
@@ -1222,7 +1210,7 @@ erts_bs_put_binary_all(ErlBitsState *EBS, Process *c_p, Eterm arg, Uint unit)
                           base, offset, size);
     EBS->erts_bin_offset += size;
 
-    BUMP_REDS(c_p, size / BITS_PER_REDUCTION);
+    BUMP_REDS(c_p, size / ERL_BITS_PER_REDUCTION);
     return 1;
 }
 
@@ -1710,7 +1698,7 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
         binp = erts_bin_realloc(binp, new_size);
         br->val = binp;
 
-        BUMP_REDS(c_p, position / BITS_PER_REDUCTION);
+        BUMP_REDS(c_p, position / ERL_BITS_PER_REDUCTION);
     }
 
     binp->intern.apparent_size = NBYTES(used_size_in_bits);
@@ -1805,7 +1793,7 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
                               src_bytes,
                               src_offset,
                               src_size);
-        BUMP_REDS(c_p, src_size / BITS_PER_REDUCTION);
+        BUMP_REDS(c_p, src_size / ERL_BITS_PER_REDUCTION);
 
         return make_bitstring(sb);
     }
@@ -1858,7 +1846,7 @@ erts_bs_private_append_checked(ErlBitsState* EBS, Process* p,
             refc_binary = erts_bin_realloc(refc_binary, new_size);
             br->val = refc_binary;
 
-            BUMP_REDS(p, EBS->erts_bin_offset / BITS_PER_REDUCTION);
+            BUMP_REDS(p, EBS->erts_bin_offset / ERL_BITS_PER_REDUCTION);
         }
 
         ASSERT(sb->start == 0);
@@ -1894,7 +1882,7 @@ erts_bs_private_append_checked(ErlBitsState* EBS, Process* p,
                    refc_binary->orig_bytes,
                    MIN(refc_binary->orig_size, new_size));
 
-        BUMP_REDS(p, EBS->erts_bin_offset / BITS_PER_REDUCTION);
+        BUMP_REDS(p, EBS->erts_bin_offset / ERL_BITS_PER_REDUCTION);
         refc_binary = new_binary;
     }
 
