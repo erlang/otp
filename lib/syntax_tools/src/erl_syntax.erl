@@ -7462,12 +7462,8 @@ _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
 -spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
-    case is_tree(Node) of
-	false ->
-	    %% Just remove any wrapper. `erl_parse' nodes never contain
-	    %% abstract syntax tree nodes as subtrees.
-	    unwrap(Node);
-	true ->
+    case Node of
+	#tree{} ->
 	    case is_leaf(Node) of
 		true ->
 		    revert_root(Node);
@@ -7482,7 +7478,18 @@ revert(Node) ->
 		    %% parts, and revert the node itself.
 		    Node1 = update_tree(Node, Gs),
 		    revert_root(Node1)
-	    end
+	    end;
+	#wrapper{tree = Node1, attr = Attr} ->
+	    %% Just remove the wrapper. The wrapped `erl_parse' nodes never
+	    %% contain abstract syntax tree nodes as subtrees. Carry over
+	    %% the position information, unless it is a warning/error marker
+            case Node1 of
+                {error, _} -> Node1;
+                {warning, _} -> Node1;
+                _ -> setelement(2, Node1, Attr#attr.pos)
+            end;
+        _ ->
+            Node
     end.
 
 %% Note: The concept of "compatible root node" is not strictly defined.
@@ -7679,10 +7686,10 @@ revert_forms_1([T | Ts]) ->
 	    revert_forms_1(Ts);
 	_ ->
 	    T1 = revert(T),
-	    case is_tree(T1) of
-		true ->
+	    case T1 of
+		#tree{} ->
 		    throw({error, T1});
-		false ->
+		_ ->
 		    [T1 | revert_forms_1(Ts)]
 	    end
     end;
