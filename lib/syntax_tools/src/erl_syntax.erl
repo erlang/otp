@@ -830,18 +830,14 @@ _See also: _`copy_pos/2`, `get_pos/1`.
 
 set_pos(Node, Pos) ->
     case Node of
-        #tree{attr = Attr} ->
-            Node#tree{attr = Attr#attr{pos = Pos}};
-        #wrapper{attr = Attr, tree = {error, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {error, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = {warning, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {warning, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = Tree} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = setelement(2, Tree, Pos)};
-        _ ->
-            %% We then assume we have an `erl_parse' node, and create a
-            %% wrapper around it to make things more uniform.
-            set_pos(wrap(Node), Pos)
+	#tree{attr = Attr} ->
+	    Node#tree{attr = Attr#attr{pos = Pos}};
+	#wrapper{attr = Attr} ->
+	    Node#wrapper{attr = Attr#attr{pos = Pos}};
+	_ ->
+	    %% We then assume we have an `erl_parse' node, and create a
+	    %% wrapper around it to make things more uniform.
+	    set_pos(wrap(Node), Pos)
     end.
 
 
@@ -7466,7 +7462,13 @@ _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
 -spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
-    case is_leaf(Node) of
+    case is_tree(Node) of
+	false ->
+	    %% Just remove any wrapper. `erl_parse' nodes never contain
+	    %% abstract syntax tree nodes as subtrees.
+	    unwrap(Node);
+	true ->
+	    case is_leaf(Node) of
 		true ->
 		    revert_root(Node);
 		false ->
@@ -7480,6 +7482,7 @@ revert(Node) ->
 		    %% parts, and revert the node itself.
 		    Node1 = update_tree(Node, Gs),
 		    revert_root(Node1)
+	    end
     end.
 
 %% Note: The concept of "compatible root node" is not strictly defined.
