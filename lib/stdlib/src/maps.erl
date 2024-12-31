@@ -785,11 +785,25 @@ filtermap_1(_Fun, none, _ErrorTag) ->
     [].
 
 -doc """
-Calls `fun F(Key, Value)` for every `Key` to value `Value` association in
+Calls `fun Fun(Key, Value)` for every `Key` to value `Value` association in
 `MapOrIter` in any order.
 
 The call fails with a `{badmap,Map}` exception if `MapOrIter` is not a map or
 valid iterator, or with `badarg` if `Fun` is not a function of arity 2.
+
+_Example:_
+
+```erlang
+> Fun = fun(K,V) -> io:format("~p:~p~n",[K,V]) end.
+#Fun<erl_eval.41.18682967>
+> Map = #{"x" => 10, "y" => 20, "z" => 30}.
+#{"x" => 10,"y" => 20,"z" => 30}
+> maps:foreach(Fun,Map).
+"x":10
+"y":20
+"z":30
+ok
+```
 """.
 -doc(#{since => <<"OTP 24.0">>}).
 -spec foreach(Fun,MapOrIter) -> ok when
