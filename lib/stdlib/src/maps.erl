@@ -829,8 +829,8 @@ foreach_1(_Fun, none, _ErrorTag) ->
     ok.
 
 -doc """
-Calls `F(Key, Value, AccIn)` for every `Key` to value `Value` association in
-`MapOrIter` in any order. Function `fun F/3` must return a new accumulator,
+Calls `Fun(Key, Value, AccIn)` for every `Key` to value `Value` association in
+`MapOrIter` in any order. Function `fun Fun/3` must return a new accumulator,
 which is passed to the next successive call. This function returns the final
 value of the accumulator. The initial accumulator value `Init` is returned if
 the map is empty.
@@ -873,7 +873,7 @@ fold_1(_Fun, Acc, none, _ErrorTag) ->
     Acc.
 
 -doc """
-Produces a new map `Map` by calling function `fun F(Key, Value1)` for every
+Produces a new map `Map` by calling function `fun Fun(Key, Value1)` for every
 `Key` to value `Value1` association in `MapOrIter` in any order. Function
 `fun Fun/2` must return value `Value2` to be associated with key `Key` for the
 new map `Map`.
