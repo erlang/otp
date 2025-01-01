@@ -2303,22 +2303,39 @@ list(Elements, Tail) when Elements =/= [] ->
 revert_list(Node) ->
     Pos = get_pos(Node),
     Prefix = list_prefix(Node),
-    Suffix = case list_suffix(Node) of
+    Suffix =
+        case list_suffix(Node) of
 	    none ->
-            LastPos = get_pos(lists:last(Prefix)),
-            LastLocation = case erl_anno:end_location(LastPos) of
-                undefined -> erl_anno:location(LastPos);
-                Location -> Location
-            end,
-            revert_nil(set_pos(nil(), erl_anno:set_location(LastLocation, Pos)));
+                %% there is no explicit `| Tail]` part, just a plain list
+                %% `[X1,...XN]`, so we must invent a nil node
+                case erl_anno:end_location(Pos) of
+                    undefined ->
+                        LastPos = get_pos(lists:last(Prefix)),
+                        case erl_anno:end_location(LastPos) of
+                            undefined ->
+                                %% use a zero location rather than a wrong one
+                                {nil, erl_anno:new(0)};
+                            EndLoc ->
+                                %% if the last element has an end location,
+                                %% we take that as both start and end
+                                {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                        end;
+                    EndLoc ->
+                        %% if the whole list node has an end location, we
+                        %% take that as both start and end of the nil
+                        {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                end;
 	    Suffix1 ->
-            Suffix1
+                Suffix1
 	end,
-    lists:foldr(fun (Head, Tail) ->
-        HeadPos = get_pos(Head),
-        HeadLocation = erl_anno:location(HeadPos),
-        {cons, erl_anno:set_location(HeadLocation, Pos), Head, Tail}
-    end, Suffix, Prefix).
+    F = fun (Head, Tail) ->
+                %% the nested conses get the location from the list
+                %% elements, but other annotations must not be copied
+                HeadLoc = erl_anno:location(get_pos(Head)),
+                {cons, erl_anno:new(HeadLoc), Head, Tail}
+        end,
+    %% the outermost cons gets the full annotations of the list
+    setelement(2, lists:foldr(F, Suffix, Prefix), Pos).
 
 
 -doc """
