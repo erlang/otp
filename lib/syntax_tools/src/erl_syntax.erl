@@ -830,18 +830,14 @@ _See also: _`copy_pos/2`, `get_pos/1`.
 
 set_pos(Node, Pos) ->
     case Node of
-        #tree{attr = Attr} ->
-            Node#tree{attr = Attr#attr{pos = Pos}};
-        #wrapper{attr = Attr, tree = {error, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {error, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = {warning, {_, Module, Reason}}} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = {warning, {Pos, Module, Reason}}};
-        #wrapper{attr = Attr, tree = Tree} ->
-            Node#wrapper{attr = Attr#attr{pos = Pos}, tree = setelement(2, Tree, Pos)};
-        _ ->
-            %% We then assume we have an `erl_parse' node, and create a
-            %% wrapper around it to make things more uniform.
-            set_pos(wrap(Node), Pos)
+	#tree{attr = Attr} ->
+	    Node#tree{attr = Attr#attr{pos = Pos}};
+	#wrapper{attr = Attr} ->
+	    Node#wrapper{attr = Attr#attr{pos = Pos}};
+	_ ->
+	    %% We then assume we have an `erl_parse' node, and create a
+	    %% wrapper around it to make things more uniform.
+	    set_pos(wrap(Node), Pos)
     end.
 
 
@@ -2307,22 +2303,39 @@ list(Elements, Tail) when Elements =/= [] ->
 revert_list(Node) ->
     Pos = get_pos(Node),
     Prefix = list_prefix(Node),
-    Suffix = case list_suffix(Node) of
+    Suffix =
+        case list_suffix(Node) of
 	    none ->
-            LastPos = get_pos(lists:last(Prefix)),
-            LastLocation = case erl_anno:end_location(LastPos) of
-                undefined -> erl_anno:location(LastPos);
-                Location -> Location
-            end,
-            revert_nil(set_pos(nil(), erl_anno:set_location(LastLocation, Pos)));
+                %% there is no explicit `| Tail]` part, just a plain list
+                %% `[X1,...XN]`, so we must invent a nil node
+                case erl_anno:end_location(Pos) of
+                    undefined ->
+                        LastPos = get_pos(lists:last(Prefix)),
+                        case erl_anno:end_location(LastPos) of
+                            undefined ->
+                                %% use a zero location rather than a wrong one
+                                {nil, erl_anno:new(0)};
+                            EndLoc ->
+                                %% if the last element has an end location,
+                                %% we take that as both start and end
+                                {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                        end;
+                    EndLoc ->
+                        %% if the whole list node has an end location, we
+                        %% take that as both start and end of the nil
+                        {nil, erl_anno:set_end_location(EndLoc, erl_anno:new(EndLoc))}
+                end;
 	    Suffix1 ->
-            Suffix1
+                Suffix1
 	end,
-    lists:foldr(fun (Head, Tail) ->
-        HeadPos = get_pos(Head),
-        HeadLocation = erl_anno:location(HeadPos),
-        {cons, erl_anno:set_location(HeadLocation, Pos), Head, Tail}
-    end, Suffix, Prefix).
+    F = fun (Head, Tail) ->
+                %% the nested conses get the location from the list
+                %% elements, but other annotations must not be copied
+                HeadLoc = erl_anno:location(get_pos(Head)),
+                {cons, erl_anno:new(HeadLoc), Head, Tail}
+        end,
+    %% the outermost cons gets the full annotations of the list
+    setelement(2, lists:foldr(F, Suffix, Prefix), Pos).
 
 
 -doc """
@@ -7466,7 +7479,9 @@ _See also: _[//stdlib/erl_parse](`m:erl_parse`), `revert_forms/1`.
 -spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
-    case is_leaf(Node) of
+    case Node of
+	#tree{} ->
+	    case is_leaf(Node) of
 		true ->
 		    revert_root(Node);
 		false ->
@@ -7480,6 +7495,18 @@ revert(Node) ->
 		    %% parts, and revert the node itself.
 		    Node1 = update_tree(Node, Gs),
 		    revert_root(Node1)
+	    end;
+	#wrapper{tree = Node1, attr = Attr} ->
+	    %% Just remove the wrapper. The wrapped `erl_parse' nodes never
+	    %% contain abstract syntax tree nodes as subtrees. Carry over
+	    %% the position information, unless it is a warning/error marker
+            case Node1 of
+                {error, _} -> Node1;
+                {warning, _} -> Node1;
+                _ -> setelement(2, Node1, Attr#attr.pos)
+            end;
+        _ ->
+            Node
     end.
 
 %% Note: The concept of "compatible root node" is not strictly defined.
@@ -7676,10 +7703,10 @@ revert_forms_1([T | Ts]) ->
 	    revert_forms_1(Ts);
 	_ ->
 	    T1 = revert(T),
-	    case is_tree(T1) of
-		true ->
+	    case T1 of
+		#tree{} ->
 		    throw({error, T1});
-		false ->
+		_ ->
 		    [T1 | revert_forms_1(Ts)]
 	    end
     end;
