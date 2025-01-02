@@ -75,9 +75,10 @@
 start_fsm(Role, Host, Port, Socket, {SSLOpts, _, _Trackers} = Opts,
 	  User, CbInfo, Timeout) ->
     ErlDist = maps:get(erl_dist, SSLOpts, false),
+    SupOpts = maps:to_list(maps:with([timeout, debug, hibernate_after, spawn_opt], SSLOpts)),
     SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
-    Starter = start_connection_tree(User, ErlDist, SenderOptions,
+    Starter = start_connection_tree(User, ErlDist, SenderOptions, SupOpts,
                                     Role, [Host, Port, Socket, Opts, User, CbInfo]),
     receive
         {Starter, {ok, SockReceiver}} ->
@@ -96,10 +97,10 @@ handle_sender_options(ErlDist, SpawnOpts) ->
             [[{spawn_opt, SpawnOpts}]]
     end.
 
-start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
+start_connection_tree(User, IsErlDist, SenderOpts, SupOpts, Role, ReceiverOpts) ->
     StartConnectionTree =
         fun() ->
-                try start_dyn_connection_sup(IsErlDist) of
+                try start_dyn_connection_sup(IsErlDist, SupOpts) of
                     {ok, DynSup} ->
                         case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
                             {ok, Sender} ->
@@ -126,10 +127,10 @@ start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
         end,
     spawn(StartConnectionTree).
 
-start_dyn_connection_sup(true) ->
-    tls_connection_sup:start_child_dist([]);
-start_dyn_connection_sup(false) ->
-    tls_connection_sup:start_child([]).
+start_dyn_connection_sup(true, Opts) ->
+    tls_connection_sup:start_child_dist([Opts]);
+start_dyn_connection_sup(false, Opts) ->
+    tls_connection_sup:start_child([Opts]).
 
 socket_control(SslSocket, Timeout) ->
     case ssl_gen_statem:socket_control(SslSocket) of

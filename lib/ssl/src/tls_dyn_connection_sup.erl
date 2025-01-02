@@ -32,7 +32,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 -export([start_child/3]).
 
 %% Supervisor callback
@@ -41,8 +41,9 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link() ->
-    supervisor:start_link(?MODULE, []).
+-spec start_link(Options :: [gen_server:start_opt()]) -> supervisor:startlink_ret().
+start_link(Options) ->
+    supervisor:start_link(?MODULE, [], Options).
 
 start_child(Sup, sender, Args) ->
     supervisor:start_child(Sup, sender(Args));

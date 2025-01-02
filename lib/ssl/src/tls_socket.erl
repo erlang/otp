@@ -421,7 +421,8 @@ call(Pid, Msg) ->
 
 start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo) ->
     try
-        {ok, DynSup} = tls_connection_sup:start_child([]),
+        SupOpts = maps:to_list(maps:with([timeout, debug, hibernate_after, spawn_opt], SslOpts)),
+        {ok, DynSup} = tls_connection_sup:start_child([SupOpts]),
         SenderOpts = maps:get(sender_spawn_opts, SslOpts, []),
         {ok, Sender} = tls_dyn_connection_sup:start_child(DynSup, sender, [[{spawn_opt, SenderOpts}]]),
         ConnArgs = [server, Sender, "localhost", Port, Socket,
