@@ -33,7 +33,7 @@
          middle9212/0, gen_server9212/0, handle_info/2, start_registered_name/1, log/2]).
 
 %% API tests
--export([ sup_start_normal/1, sup_start_ignore_init/1, 
+-export([ sup_start_normal/1, sup_start_ignore_init/1, sup_start_gen_flags/1,
 	  sup_start_ignore_child/1, sup_start_ignore_temporary_child/1,
 	  sup_start_ignore_temporary_child_start_child/1,
 	  sup_start_ignore_temporary_child_start_child_simple/1,
@@ -125,7 +125,7 @@ all() ->
 
 groups() -> 
     [{sup_start, [],
-      [sup_start_normal, sup_start_ignore_init,
+      [sup_start_normal, sup_start_ignore_init, sup_start_gen_flags,
        sup_start_ignore_child, sup_start_ignore_temporary_child,
        sup_start_ignore_temporary_child_start_child,
        sup_start_ignore_temporary_child_start_child_simple,
@@ -230,6 +230,15 @@ sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ignore = start_link(ignore),
     check_no_exit(100).
+
+%%-------------------------------------------------------------------------
+%% Tests what happens if init-callback returns ignore.
+sup_start_gen_flags(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Ret = {ok, {{one_for_one, 2, 3600}, []}},
+    {ok, Pid} = supervisor:start_link(?MODULE, Ret, [{hibernate_after, 0}]),
+    check_no_exit(100),
+    terminate(Pid, shutdown).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns ignore.

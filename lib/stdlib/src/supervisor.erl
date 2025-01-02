@@ -280,7 +280,7 @@ but the map is preferred.
 -behaviour(gen_server).
 
 %% External exports
--export([start_link/2, start_link/3,
+-export([start_link/2, start_link/3, start_link/4,
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
 	 which_children/1, which_child/2,
@@ -530,12 +530,28 @@ start_link(Mod, Args) ->
 -doc """
 Creates a supervisor process as part of a supervision tree.
 
+The supervisor can be nameless or registered,
+and it can receive options or none at all.
+""".
+-spec start_link(SupNameOrModule, ModuleOrArgs, ArgsOrOptions) -> Return when
+      SupNameOrModule :: sup_name() | module(),
+      ModuleOrArgs :: module() | term(),
+      ArgsOrOptions :: term() | [gen_server:start_opt()],
+      Return :: startlink_ret().
+start_link(Mod, Args, Options) when is_atom(Mod), is_list(Options) ->
+    gen_server:start_link(supervisor, {self, Mod, Args}, Options);
+start_link(SupName, Mod, Args) when is_tuple(SupName), is_atom(Mod) ->
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []).
+
+-doc """
+Creates a supervisor process as part of a supervision tree.
+
 For example, the function ensures that the supervisor is linked to the calling
 process (its supervisor).
 
 The created supervisor process calls [`Module:init/1`](`c:init/1`) to find out
 about restart strategy, maximum restart intensity, and child processes. To
-ensure a synchronized startup procedure, `start_link/2,3` does not return until
+ensure a synchronized startup procedure, `start_link/2,3,4` does not return until
 [`Module:init/1`](`c:init/1`) has returned and all child processes have been
 started.
 
@@ -571,13 +587,14 @@ started.
   processes with reason `shutdown` and then terminate itself and returns
   `{error, {shutdown, Reason}}`.
 """.
--spec start_link(SupName, Module, Args) -> startlink_ret() when
+-spec start_link(SupName, Module, Args, Options) -> startlink_ret() when
       SupName :: sup_name(),
       Module :: module(),
-      Args :: term().
-start_link(SupName, Mod, Args) ->
-    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, []).
- 
+      Args :: term(),
+      Options :: [gen_server:start_opt()].
+start_link(SupName, Mod, Args, Options) ->
+    gen_server:start_link(SupName, supervisor, {SupName, Mod, Args}, Options).
+
 %%% ---------------------------------------------------
 %%% Interface functions.
 %%% ---------------------------------------------------
