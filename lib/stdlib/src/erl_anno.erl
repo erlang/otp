@@ -328,7 +328,10 @@ line(Anno) ->
             Line
     end.
 
--doc "Returns the location of the annotations Anno.".
+-doc """
+Returns the location of the annotations Anno. If there is no location,
+a zero line number is returned.
+""".
 -doc(#{since => <<"OTP 18.0">>}).
 -spec location(Anno) -> location() when
       Anno :: anno().
@@ -338,7 +341,7 @@ location(Line) when ?ALINE(Line) ->
 location({Line, Column}=Location) when ?ALINE(Line), ?ACOLUMN(Column) ->
     Location;
 location(Anno) ->
-    anno_info(Anno, location).
+    anno_info(Anno, location, 0).
 
 -doc false.
 -spec record(Anno) -> record() when
