@@ -8741,6 +8741,27 @@ recv(ClientPid, SenderPid,
 	       [get(role), Total, TotIter, TotAct, (catch inet:info(Socket))]),
 	    ok;
 
+        %% It is a race if this message is received before the tcp_closed
+        %% since we are now linked with the client process...
+        {'EXIT', ClientPid, normal} ->
+            ?P("[~w,recv] received (normal) exit message from client"
+               "~n   when:"
+               "~n      Total received:    ~w"
+               "~n      Total iterations:  ~w"
+               "~n      Total activations: ~w"
+               "~n      Socket:            ~p"
+               "~n      PeerName:          ~p"
+               "~n      SockName:          ~p"
+               "~n      Socket Info:       ~p",
+               [get(role),
+                Total, TotIter, TotAct,
+                Socket, oki(inet:peername(Socket)), oki(inet:sockname(Socket)),
+                (catch inet:info(Socket))]),
+            recv(undefined, SenderPid,
+                 Socket,
+                 Total, TotIter, TotAct,
+                 Control, ActiveN);
+
         Other ->
             ?P("[~w,recv] received unexpected message"
                "~n      Msg:               ~p"
