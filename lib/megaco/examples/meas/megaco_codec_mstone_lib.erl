@@ -258,7 +258,14 @@ display_app_info() ->
 display_megaco_info() ->
     MI = megaco:module_info(),
     {value, {attributes, Attr}} = lists:keysearch(attributes, 1, MI),
-    {value, {app_vsn,    Ver}}  = lists:keysearch(app_vsn, 1, Attr),
+    {value, {app_vsn,    MVer}} = lists:keysearch(app_vsn, 1, Attr),
+    Ver =
+        case MVer of
+            "megaco-" ++ VStr ->
+                VStr;
+            _ ->
+                MVer
+        end,
     io:format("Megaco version:      ~s~n", [Ver]).
 
 display_asn1_info() ->
