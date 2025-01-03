@@ -238,15 +238,6 @@ message.
 -define(PATTERN_TO_BINDINGS_MATCH_SPEC(Pat), [{Pat,[],['$$']}]).
 -define(PATTERN_TO_TRUE_MATCH_SPEC(Pat), [{Pat,[],[true]}]).
 
-%%-define(DEBUGM(X, Y), io:format(X, Y)).
--define(DEBUGM(X, Y), true).
-
-%%-define(DEBUGF(X,Y), io:format(X, Y)).
--define(DEBUGF(X,Y), void).
-
-%%-define(PROFILE(C), C).
--define(PROFILE(C), void).
-
 -doc "Opaque continuation used by `match/1` and `match/3`.".
 -opaque bindings_cont() :: #dets_cont{}.
 -doc "Opaque continuation used by `bchunk/2`.".
@@ -399,7 +390,6 @@ fsck(Fname, _Version) ->
 fsck(Fname) ->
     catch begin
       {ok, Fd, FH} = read_file_header(Fname, read, false),
-      ?DEBUGF("FileHeader: ~p~n", [FH]),	    
       case dets_v9:check_file_header(FH, Fd) of
           {error, not_closed} ->
               fsck(Fd, make_ref(), Fname, FH, default, default);
@@ -2112,7 +2102,6 @@ apply_op(Op, From, Head, N) ->
 	close  ->
 	    resp(From, fclose(Head)),
 	    _NewHead = unlink_fixing_procs(Head),
-	    ?PROFILE(ep:done()),
 	    exit(normal);
 	{close, Pid} -> 
 	    %% Used from dets_server when Pid has closed the table,
@@ -2301,7 +2290,6 @@ bug_found(Name, Op, Bad, Stacktrace, From) ->
     end.
 
 do_internal_open(Parent, Server, From, Ref, Args) ->
-    ?PROFILE(ep:do()),
     case do_open_file(Args, Parent, Server, Ref) of
         {ok, Head} ->
             resp(From, ok),
@@ -3188,7 +3176,7 @@ fopen2(Fname, Tab) ->
                  end,
             case Do of
 		{repair, Mess} ->
-                    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+                    error_logger:format("dets: file ~tp~s~n", [Fname, Mess]),
                     case fsck(Fd, Tab, Fname, FH, default, default) of
                         ok ->
                             fopen2(Fname, Tab);
@@ -3267,7 +3255,7 @@ fopen_existing_file(Tab, OpenArgs) ->
 	_ when FH#fileheader.keypos =/= Kp ->
 	    throw({error, {keypos_mismatch, Fname}});
 	{compact, SourceHead} ->
-	    io:format(user, "dets: file ~tp is now compacted ...~n", [Fname]),
+            error_logger:format("dets: file ~tp is now compacted ...~n", [Fname]),
 	    {ok, NewSourceHead} = open_final(SourceHead, Fname, read, false,
 					     ?DEFAULT_CACHE, Tab, Debug),
 	    case catch compact(NewSourceHead) of
@@ -3277,14 +3265,14 @@ fopen_existing_file(Tab, OpenArgs) ->
 		_Err ->
                     _ = file:close(Fd),
                     dets_utils:stop_disk_map(),
-		    io:format(user, "dets: compaction of file ~tp failed, "
-			      "now repairing ...~n", [Fname]),
+                    error_logger:format("dets: compaction of file ~tp failed, "
+                                        "now repairing ...~n", [Fname]),
                     {ok, Fd2, _FH} = read_file_header(Fname, Acc, Ram),
                     do_repair(Fd2, Tab, Fname, FH, MinSlots, MaxSlots, 
 			      OpenArgs)
 	    end;
 	{repair, Mess} ->
-	    io:format(user, "dets: file ~tp~s~n", [Fname, Mess]),
+            error_logger:format("dets: file ~tp~s~n", [Fname, Mess]),
             do_repair(Fd, Tab, Fname, FH, MinSlots, MaxSlots, 
 		      OpenArgs);
 	{final, H} ->
