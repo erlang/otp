@@ -1530,7 +1530,7 @@ with a specific [`Seed`](`t:seed/0`).
 > nor in generating floating point numbers.  It is easy to accidentally
 > mess up the statistical properties of this generator or to loose
 > the performance advantage when doing either.
-> See the recepies at the start of this
+> See the recipes at the start of this
 > [Niche algorithms API](#niche-algorithms-api) description.
 >
 > Note also the caveat about weak low bits that this generator suffers from.
@@ -2231,7 +2231,7 @@ The low bits of the base generator are surprisingly good, so the lowest
 weaknesses that lie in the high bits of the 32-bit MWC "digit".
 It is recommended to use `rem` on the the generator state, or bit mask
 extracting the lowest bits to produce numbers in a range 16 bits or less.
-See the recepies at the start of this
+See the recipes at the start of this
 [Niche algorithms API](#niche-algorithms-api) description.
 
 On a typical 64 bit Erlang VM this generator executes in below 8% (1/13)
@@ -2286,7 +2286,7 @@ in the xorshift making the low 16 good quality, but in the range
 16..31 bits there are weaker bits that should not become high bits
 of the generated values.
 
-Therefore it is in general safer to shift out low bits. See the recepies
+Therefore it is in general safer to shift out low bits. See the recipes
 at the start of this [Niche algorithms API](#niche-algorithms-api)
 description.
 
@@ -2311,7 +2311,7 @@ base generator enough that all 59 bits are of very good quality.
 Be careful to not accidentaly create a bignum when handling the value `V`.
 
 It is in general general better to use the high bits from this scrambler than
-the low. See the recepies at the start of this
+the low. See the recipes at the start of this
 [Niche algorithms API](#niche-algorithms-api) description.
 
 For a non power of 2 range less than about 29 bits (to not get
