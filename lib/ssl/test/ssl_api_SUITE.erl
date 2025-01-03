@@ -3063,8 +3063,11 @@ options_debug(_Config) -> %% debug  log_level keep_secrets
     ?OK(#{log_level := notice}, [], server, [keep_secrets]),
     ?OK(#{log_level := debug, keep_secrets := true},
         [{log_level, debug}, {keep_secrets, true}], server),
+    Fun = fun(_KeyLogItems) -> _KeyLogItems end,
+    ?OK(#{log_level := debug, keep_secrets := Fun},
+        [{log_level, debug}, {keep_secrets, Fun}], server),
     ?OK(#{log_level := info},
-        [{log_level, info}, {keep_secrets, false}], server, [keep_secrets]),
+        [{log_level, info}, {keep_secrets, false}], server, []),
 
     %% Errors
     ?ERR({log_level, foo}, [{log_level, foo}], server),
@@ -4024,9 +4027,9 @@ keylog_connection_info_result(Socket, KeepSecrets) ->
 
 check_keylog_info('tlsv1.3', [{keylog, ["CLIENT_HANDSHAKE_TRAFFIC_SECRET"++_,_|_]=Keylog}], true) ->
     {ok, Keylog};
-check_keylog_info('tlsv1.3', []=Keylog, false) ->
+check_keylog_info(_, []=Keylog, false) ->
     {ok, Keylog};
-check_keylog_info(_, [{keylog, ["CLIENT_RANDOM"++_]=Keylog}], _) ->
+check_keylog_info(_, [{keylog, ["CLIENT_RANDOM"++_]=Keylog}], true) ->
     {ok, Keylog};
 check_keylog_info(_, Unexpected, Keep) ->
     {unexpected, Keep, Unexpected}.
