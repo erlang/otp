@@ -2174,7 +2174,7 @@ connect(TCPSocket, TLSOptions, Timeout)
     try
         tls_gen_connection = connection_cb(TLSOptions),
         {ok, Config} = ssl_config:handle_options(TCPSocket, TLSOptions, client, undefined),
-        tls_socket:upgrade(TCPSocket, Config, Timeout)
+        tls_socket:upgrade(client, TCPSocket, Config, Timeout)
     catch
         error:{badmatch, _} ->
             {error, {dtls_upgrade, notsup}};
@@ -2448,15 +2448,9 @@ handshake(Socket, SslOptions, Timeout)
   when is_list(SslOptions), ?IS_TIMEOUT(Timeout) ->
     try       
         tls_gen_connection = connection_cb(SslOptions),
-        {ok, #config{transport_info = CbInfo, ssl = SslOpts, emulated = EmOpts}} =
+        {ok, Config} =
             ssl_config:handle_options(Socket, SslOptions, server, undefined),
-        Transport = element(1, CbInfo),
-        ok = tls_socket:setopts(Transport, Socket, tls_socket:internal_inet_values()),
-        {ok, Port} = tls_socket:port(Transport, Socket),
-        {ok, SessionIdHandle} = tls_socket:session_id_tracker(ssl_unknown_listener, SslOpts),
-        Trackers = [{session_id_tracker, SessionIdHandle}],
-        {ok, SSocket} = tls_socket:start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo),
-        ssl_gen_statem:handshake(SSocket, Timeout)
+        tls_socket:upgrade(server, Socket, Config, Timeout)
     catch
         error:{badmatch, _} ->
             {error, {dtls_upgrade, notsup}};

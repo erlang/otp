@@ -108,7 +108,7 @@
 %%% Initial Erlang process setup
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
--spec tls_start_link(client| server, ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
+-spec tls_start_link(client | server, ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
     {ok, pid()} | ignore |  {error, ssl:reason()}.
 %%
 %% Description: Creates a process which calls Module:init/1 to
@@ -121,7 +121,7 @@ tls_start_link(Role, Host, Port, Socket, {SslOpts, _, _} = Options, User, CbInfo
     {ok, Pid}.
 
 %%--------------------------------------------------------------------
--spec dtls_start_link(atom(), ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
+-spec dtls_start_link(client | server, ssl:host(), inet:port_number(), port(), tuple(), pid(), tuple()) ->
 			{ok, pid()} | ignore |  {error, ssl:reason()}.
 %%
 %% Description: Creates a gen_statem process which calls Module:init/1 to
