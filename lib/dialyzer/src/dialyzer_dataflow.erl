@@ -1004,7 +1004,8 @@ handle_map(Tree,Map,State) ->
 	traverse_map_pairs(Pairs, Map1, State1, t_none(), [], []),
       InsertPair = fun({KV,assoc,_},Acc) -> erl_types:t_map_put(KV,Acc);
 		      ({KV,exact,KVTree},Acc) ->
-		       case t_is_none(T=erl_types:t_map_update(KV,Acc)) of
+                       T = erl_types:t_map_update(KV,Acc),
+		       case t_is_none(T) of
 			 true -> throw({none, Acc, KV, KVTree});
 			 false -> T
 		       end
@@ -1723,7 +1724,8 @@ bind_guard(Guard, Map, Env, Eval, State0) ->
 		{{Map1, t_none(), State1}, BE}
 	    end,
 	  Map3 = join_maps_end([BodyMap, HandlerMap], Map1),
-	  case t_is_none(Sup = t_sup(BodyType, HandlerType)) of
+          Sup = t_sup(BodyType, HandlerType),
+	  case t_is_none(Sup) of
 	    true ->
 	      %% Pick a reason. N.B. We assume that the handler is always
 	      %% compiler-generated if the body is; that way, we won't need to

@@ -120,7 +120,8 @@ encode_jer({typeinfo,{Module,Type}},Val) ->
 encode_jer({sof,Type},Vals) when is_list(Vals) ->
     [encode_jer(Type,Val)||Val <- Vals];
 encode_jer({choice,Choices},{Alt,Value}) ->
-    case is_map_key(AltBin = atom_to_binary(Alt,utf8),Choices) of
+    AltBin = atom_to_binary(Alt,utf8),
+    case is_map_key(AltBin,Choices) of
         true ->
             EncodedVal = encode_jer(maps:get(AltBin,Choices),Value),
             #{AltBin => EncodedVal};
