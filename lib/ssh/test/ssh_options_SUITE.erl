@@ -1076,7 +1076,7 @@ really_do_hostkey_fingerprint_check(Config, HashAlg) ->
                                end,
 			   ct:log("check ~p == ~p (~p) and ~n~p~n in ~p (~p)~n",
 				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
-			   HostCheck and FPCheck
+			   HostCheck andalso FPCheck
 		   end,
     
     ssh_test_lib:connect(Host, Port, [{silently_accept_hosts,
