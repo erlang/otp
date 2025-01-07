@@ -452,16 +452,16 @@ or the `Event` argument provided to `send_event/2`.
 
 `StateData` is the [*state data*](#state-data) of the `gen_fsm` process.
 
-If the function returns `{next_state, NextStateName, NewStateData},
-{next_state, NextStateName, NewStateData, Timeout},
-or {next_state, NextStateName, NewStateData, hibernate},
+If the function returns `{next_state, NextStateName, NewStateData}`,
+`{next_state, NextStateName, NewStateData, Timeout}`,
+or `{next_state, NextStateName, NewStateData, hibernate}`,
 the `gen_fsm` process continues executing with
 the current [*state name*](#state-name) set to `NextStateName`
 and with the possibly updated [*state data*](#state-data)
 `NewStateData`.  For a description of `Timeout` and `hibernate`,
 see [`Module:init/1`](`c:init/1`).
 
-If the function returns `{stop ,Reason, NewStateData},
+If the function returns `{stop ,Reason, NewStateData}`,
 the `gen_fsm` process calls
 [`Module:terminate(Reason, StateName, NewStateData)`](`c:terminate/3`)
 and terminates.
