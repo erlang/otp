@@ -493,6 +493,9 @@ jobs:
             debug) DIR=lib/os_mon; APP=os_mon; TYPE=debug ;;
             *) DIR=lib/${{ matrix.type }} ;;
           esac
+          ## Remove systemd-coredump
+          ! sudo apt remove systemd-coredump
+          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
           sudo service apport stop
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
