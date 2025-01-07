@@ -1759,7 +1759,7 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     t.tm_sec = *second;
     t.tm_isdst = isdst;
 
-    if (!daylight) {
+    if (!sys_daylight) {
         /* If this is a timezone without DST and the OS (correctly)
 	   refuses to give us a DST time, we simulate the Linux/Solaris
 	   behaviour of giving the same data as if is_dst was not set. */
