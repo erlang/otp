@@ -102,6 +102,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {"old_code",                                "address"},
     {"nif_call_tab",                            NULL},
     {"nodes_monitors",			        NULL},
+    {"debugger",			        NULL},
     {"meta_name_tab",	         	        "address"},
     {"resource_monitors",			"address"},
     {"driver_list",                             NULL},
