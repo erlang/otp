@@ -580,6 +580,7 @@ void process_main(ErtsSchedulerData *esdp)
  OpCase(label_L):
  OpCase(on_load):
  OpCase(line_I):
+ OpCase(i_debug_line_It):
  OpCase(i_nif_padding):
     erts_exit(ERTS_ERROR_EXIT, "meta op\n");
 

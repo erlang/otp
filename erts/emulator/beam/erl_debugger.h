@@ -20,9 +20,11 @@
 #define ERTS_DEBUGGER_ENABLED          ((Uint)1 << 0)
 #define ERTS_DEBUGGER_LINE_BREAKPOINTS ((Uint)1 << 1)
 
+#define ERTS_DEBUGGER_IS_ENABLED_IN(Var, Flgs) \
+    ((Var & (Flgs | ERTS_DEBUGGER_ENABLED)) == (Flgs | ERTS_DEBUGGER_ENABLED))
+
 #define ERTS_DEBUGGER_IS_ENABLED(Flgs) \
-    ((erts_debugger_flags & (Flgs | ERTS_DEBUGGER_ENABLED)) == \
-     (Flgs | ERTS_DEBUGGER_ENABLED))
+    ERTS_DEBUGGER_IS_ENABLED_IN(erts_debugger_flags, Flgs)
 
 extern Uint erts_debugger_flags;
 

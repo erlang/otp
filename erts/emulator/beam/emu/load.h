@@ -142,6 +142,8 @@ struct LoaderState_ {
     unsigned int current_li;	/* Current line instruction */
     unsigned int* func_line;	/* Mapping from function to first line instr */
 
+    int debug_line_seen;        /* A debug_line was already processed in this function */
+
     /* Translates lambda indexes to their canonical literal, if any. */
     SWord *lambda_literals;
 
