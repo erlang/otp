@@ -13409,16 +13409,16 @@ api_opt_sock_broadcast(_Config) when is_list(_Config) ->
                         Get = fun(S) ->
                                       socket:getopt(S, socket, Opt)
                               end,
-                        {ok, #{domain => Domain,
-                               opt    => Opt,
-                               set    => Set,
-                               get    => Get,
-                               lsa    => LSA,
-                               bsa    => BSA}};
+                        #{domain => Domain,
+                          opt    => Opt,
+                          set    => Set,
+                          get    => Get,
+                          lsa    => LSA,
+                          bsa    => BSA};
                     {ok, _} ->
                         skip(no_valid_broadcast_address);
-                    {error, _} = ERROR ->
-                        ERROR
+                    {error, Reason} ->
+                        skip({local_host_info, Reason})
                 end
         end,
     TC   = fun(State) -> do_api_opt_sock_broadcast(State) end,
