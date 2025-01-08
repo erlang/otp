@@ -2129,10 +2129,11 @@ get_repl(X, Acc) ->
 %%%----------------------------------------------------------------
 disconnect_fun(Reason, D) -> disconnect_fun(Reason, D, undefined).
 disconnect_fun(Reason, D, Details) ->
-    case ?CALL_FUN(disconnectfun, D) of
-        Fun1 when is_function(Fun1, 1) ->
-            Fun1(Reason);
-        Fun2 when is_function(Fun2, 2) ->
+    Fun = ?GET_OPT(disconnectfun, (D#data.ssh_params)#ssh.opts),
+    case erlang:fun_info(Fun, arity) of
+        {arity, 1} ->
+            Fun(Reason);
+        {arity, 2} ->
             Keys = [client_version,
                     server_version,
                     peer,
@@ -2143,7 +2144,7 @@ disconnect_fun(Reason, D, Details) ->
                     user_auth
                    ],
             ConnInfo = fold_keys(Keys, fun conn_info/2, D),
-            Fun2(Reason, #{details => Details, connection_info => ConnInfo})
+            Fun(Reason, #{details => Details, connection_info => ConnInfo})
     end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
