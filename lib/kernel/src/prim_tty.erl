@@ -1352,6 +1352,10 @@ insert_buf(State, Bin, LineAcc, Acc) ->
                            State#state.buffer_expand =:= undefined ->
             [PrevChar | BB] = State#state.buffer_before,
             case string:next_grapheme([PrevChar | Bin]) of
+                [$\e | _] ->
+                    %% Ansi escape sequences can never have unicode characters in them
+                    %% so Char cannot be part of this cluster
+                    insert_buf(State, Rest, [Char | LineAcc], Acc);
                 [PrevChar | _] ->
                     %% It was not part of the previous cluster, so just insert
                     %% it as a normal character
