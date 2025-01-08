@@ -55,20 +55,20 @@ compile_cmdline() ->
 -spec compile(list(), file:filename()) ->
           'ok' | {'error', binary()} | {'crash', {atom(), term(), term()}}.
 compile(Args, Cwd) ->
-    try compile1(Args, #options{outdir=Cwd,cwd=Cwd}) of
-        ok ->
-            ok
-    catch
-        throw:{error, Output} ->
-            {error, unicode:characters_to_binary(Output)};
-        C:E:Stk ->
-            {crash, {C,E,Stk}}
-    end.
+    put(compile_server, true),
+    do_compile(Args, Cwd).
 
 %% Run the the compiler in a separate process.
 compile_cmdline1(Args) ->
     {ok, Cwd} = file:get_cwd(),
-    {Pid,Ref} = spawn_monitor(fun() -> exit(compile(Args, Cwd)) end),
+    F = fun() ->
+                put(compile_server, false),
+                put(standard_io, group_leader()),
+                StdError = whereis(standard_error),
+                group_leader(StdError, self()),
+                exit(do_compile(Args, Cwd))
+        end,
+    {Pid,Ref} = spawn_monitor(F),
     receive
         {'DOWN', Ref, process, Pid, Result} ->
             case Result of
@@ -90,6 +90,17 @@ cmdline_init() ->
     Path = [D || D <- code:get_path(), D =/= "."],
     true = code:set_path(Path),
     ok.
+
+do_compile(Args, Cwd) ->
+    try compile1(Args, #options{outdir=Cwd,cwd=Cwd}) of
+        ok ->
+            ok
+    catch
+        throw:{error, Output} ->
+            {error, unicode:characters_to_binary(Output)};
+        C:E:Stk ->
+            {crash, {C,E,Stk}}
+    end.
 
 %% Parse all options.
 compile1(["--"|Files], Opts) ->
@@ -291,16 +302,30 @@ compile2(Files, #options{cwd=Cwd,includes=Incl,outfile=Outfile}=Opts0) ->
             Opts = Opts0#options{includes=lists:reverse(Incl)},
             case {Outfile,length(Files)} of
                 {"", _} ->
-                    compile3(Files, Cwd, Opts);
+                    compile_files(Files, Cwd, Opts);
                 {[_|_], 1} ->
-                    compile3(Files, Cwd, Opts);
+                    compile_files(Files, Cwd, Opts);
                 {[_|_], _N} ->
                     throw({error, "Output file name given, but more than one input file.\n"})
             end
     end.
 
+compile_files(Files, Cwd, #options{specific=Specific}=Opts) ->
+    Stdout = lists:member({makedep_output,standard_io}, Specific),
+    case {Stdout,get(compile_server)} of
+        {true,true} ->
+            group_leader() ! {erl_compile_server, standard_io},
+            ok;
+        {true,false} ->
+            group_leader(get(standard_io), self()),
+            ok;
+        {false,_} ->
+            ok
+    end,
+    do_compile_files(Files, Cwd, Opts).
+
 %% Compile the list of files, until done or compilation fails.
-compile3([File|Rest], Cwd, Options) ->
+do_compile_files([File|Rest], Cwd, Options) ->
     Ext = filename:extension(File),
     Root = filename:rootname(File),
     InFile = filename:absname(Root, Cwd),
@@ -312,8 +337,8 @@ compile3([File|Rest], Cwd, Options) ->
 		filename:rootname(Outfile)
 	end,
     compile_file(Ext, InFile, OutFile, Options),
-    compile3(Rest, Cwd, Options);
-compile3([], _Cwd, _Options) -> ok.
+    do_compile_files(Rest, Cwd, Options);
+do_compile_files([], _Cwd, _Options) -> ok.
 
 show_info(#options{specific = Spec}) ->
     G = fun G0([]) -> undefined;
