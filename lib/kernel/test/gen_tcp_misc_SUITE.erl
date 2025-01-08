@@ -4741,6 +4741,10 @@ sets_eq(L1, L2) ->
 
 millis() ->
     erlang:monotonic_time(millisecond).
+
+%% Used when we need to convert system time to milli seconds
+cmillis(T) ->
+    erlang:convert_time_unit(T, native, millisecond).
 	
 collect_accepts(0, _Tmo) ->
     ?P("~w(~w) -> done (when rest tmo = ~p)", [?FUNCTION_NAME, 0, _Tmo]),
@@ -4748,14 +4752,42 @@ collect_accepts(0, _Tmo) ->
 collect_accepts(N, Tmo) ->
     A = millis(),
     receive
-	{accepted, P, {error, eaddrnotavail = Reason}} ->
+	{accepted, P, {error, eaddrnotavail = Reason}, _} ->
             ?P("~w(~w) -> ~p unacceptable accept failure: ~p",
                [?FUNCTION_NAME, N, P, Reason]),
             ?SKIPT(accept_failed_str(Reason));
 
-        {accepted, P, Msg} ->
+        {accepted, P, Msg, Info} ->
             ?P("~w(~w) -> received accept result from ~p: "
-               "~n   ~p", [?FUNCTION_NAME, N, P, Msg]),
+               "~n   Msg:  ~p"
+               "~n   Info: ~p"
+               "~n      accept time:     ~s"
+               "~n      processing time: ~s",
+               [?FUNCTION_NAME, N, P, Msg, Info,
+               begin
+                   if
+                       is_list(Info) ->
+                           {value, {_, TSTryAccept}} =
+                               lists:keysearch(try_accept, 1, Info),
+                           {value, {_, TSAccept}} =
+                               lists:keysearch(accept, 1, Info),
+                           ?F("~w msec", [TSAccept - TSTryAccept]);
+                       true ->
+                           "ignore"
+                   end
+               end,
+               begin
+                   if
+                       is_list(Info) ->
+                           {value, {_, TSStart}} =
+                               lists:keysearch(start, 1, Info),
+                           {value, {_, TSSent}} =
+                               lists:keysearch(sent, 1, Info),
+                           ?F("~w msec", [TSSent - TSStart]);
+                       true ->
+                           "ignore"
+                   end
+               end]),
             NextN = if N =:= infinity -> N; true -> N - 1 end,
 	    [{P,Msg}] ++ collect_accepts(NextN, Tmo - (millis()-A))
 
@@ -4806,11 +4838,19 @@ collect_connects(Tmo) ->
 
 mktmofun(Tmo,Parent,LS) ->
     fun() ->
+            TS0 = millis(),
             ?P("[acceptor] mktmofun:fun -> try accept"),
-            AcceptResult = catch gen_tcp:accept(LS, Tmo),            
-            ?P("[acceptor] mktmofun:fun -> accepted: "
-               "~n   ~p", [AcceptResult]),
-            Parent ! {accepted,self(), AcceptResult}
+            TS1 = millis(),
+            AcceptResult = catch gen_tcp:accept(LS, Tmo),
+            TS2 = millis(),
+            ?P("[acceptor] mktmofun:fun -> accept result: "
+               "~n   ~p"
+               "~n   after ~p msec",
+               [AcceptResult, TS2-TS1]),
+            Parent ! {accepted, self(), AcceptResult,
+                      [{start, TS0},
+                       {try_accept, TS1}, {accept, TS2},
+                       {sent, millis()}]}
     end.
 
 %% Accept tests
@@ -4880,10 +4920,19 @@ do_multi_accept_close_listen(Config, Addr) ->
          end,
     Parent = self(),
     F = fun() ->
+                TS0 = millis(),
                 ?P("started"),
+                TS1 = millis(),
                 Accepted = gen_tcp:accept(LS),
-                ?P("accept result: ~p", [Accepted]),
-                Parent ! {accepted,self(),Accepted}
+                TS2 = millis(),
+                ?P("accept result: "
+                   "~n   ~p"
+                   "~n   after ~p msec",
+                   [Accepted, TS2-TS1]),
+                Parent ! {accepted,self(),Accepted,
+                          [{start, TS0},
+                           {try_accept, TS1}, {accept, TS2},
+                           {sent, millis()}]}
         end,
     ?P("create acceptor processes"),
     spawn(F),
@@ -4894,7 +4943,7 @@ do_multi_accept_close_listen(Config, Addr) ->
     ct:sleep(?SECS(2)),
     ?P("close (listen) socket"),
     gen_tcp:close(LS),
-    ?P("await accepts"),
+    ?P("await accepts - expect closed"),
     ok = ?EXPECT_ACCEPTS([{_,{error,closed}},{_,{error,closed}},
                           {_,{error,closed}},{_,{error,closed}}],4,500),
     ?P("done"),
@@ -4922,7 +4971,9 @@ do_accept_timeout(Config, Addr) ->
                  ?SKIPT(listen_failed_str(Reason))
          end,
     Parent = self(),
-    F = fun() -> Parent ! {accepted,self(),gen_tcp:accept(LS,1000)} end,
+    F = fun() ->
+                Parent ! {accepted,self(),gen_tcp:accept(LS,1000),ignore}
+        end,
     P = spawn(F),
     ok = ?EXPECT_ACCEPTS([{P,{error,timeout}}],1,2000).
 
@@ -4953,7 +5004,8 @@ do_accept_timeouts_in_order(Config, Addr) ->
     P3 = spawn(mktmofun(1300,Parent,LS)),
     P4 = spawn(mktmofun(1400,Parent,LS)),
     ok = ?EXPECT_ACCEPTS([{P1,{error,timeout}},{P2,{error,timeout}},
-                          {P3,{error,timeout}},{P4,{error,timeout}}],infinity,2000).
+                          {P3,{error,timeout}},{P4,{error,timeout}}],
+                         infinity,2000).
 
 %% Check that multi-accept timeouts happen in the correct order (more).
 accept_timeouts_in_order2(Config) when is_list(Config) ->
@@ -5092,7 +5144,8 @@ do_accept_timeouts_in_order5(Config, Addr) ->
     P3 = spawn(mktmofun(600,Parent,LS)),
     P4 = spawn(mktmofun(200,Parent,LS)),
     ok = ?EXPECT_ACCEPTS([{P4,{error,timeout}},{P1,{error,timeout}},
-			  {P3,{error,timeout}},{P2,{error,timeout}}],infinity,2000).
+			  {P3,{error,timeout}},{P2,{error,timeout}}],
+                         infinity, 2000).
 
 %% Check that multi-accept timeouts happen in the correct order after
 %% mixing millsec and sec timeouts (even more).
@@ -5781,7 +5834,7 @@ do_several_accepts_in_one_go(Config, Addr) ->
     {ok, PortNo} = inet:port(LS),
     F1 = fun() ->
 		 ?P("acceptor starting"),
-		 Parent ! {accepted,self(),gen_tcp:accept(LS)}
+		 Parent ! {accepted,self(),gen_tcp:accept(LS),ignore}
          end,
     F2 = fun() ->
 		 ?P("connector starting"),
@@ -6746,35 +6799,28 @@ mad_sender(S, N) ->
             ?P("mad_sender -> send failed: timeout"
                "~n   Number of sends:     ~w"
                "~n   Elapsed (send) time: ~w msec",
-               [N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+               [N2, cmillis(get(elapsed))]),
             ERROR1;
         {error, {timeout, RestData}} = ERROR2 ->
             ?P("mad_sender -> "
                "send failed: timeout with ~w bytes of rest data"
                "~n   Number of sends:     ~w"
                "~n   Elapsed (send) time: ~w msec",
-               [rest_data_size(RestData),
-                N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+               [rest_data_size(RestData), N2, cmillis(get(elapsed))]),
             ERROR2;
         {error, Reason} = ERROR3 ->
             ?P("mad_sender -> send failed: "
                "~n   ~p"
                "~n   Number of sends:     ~w"
                "~n   Elapsed (send) time: ~w msec",
-               [Reason,
-                N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+               [Reason, N2, cmillis(get(elapsed))]),
             ERROR3;
         ERROR4 ->
             ?P("mad_sender -> send failed: "
                "~n   ~p"
                "~n   Number of sends:     ~w"
                "~n   Elapsed (send) time: ~w msec",
-               [ERROR4,
-                N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond)]),
+               [ERROR4, N2, cmillis(get(elapsed))]),
             ERROR4
     end.
 
@@ -7020,18 +7066,14 @@ timeout_sink_loop(Action, To, N) ->
                "~n   Number of actions: ~p"
                "~n   Elapsed time:      ~p msec"
                "~n   Result:            timeout with ~w bytes of rest data",
-               [N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond),
-                rest_data_size(RestData)]),
+               [N2, cmillis(get(elapsed)), rest_data_size(RestData)]),
 	    {{error, timeout}, N2};
 	Other ->
             ?P("[sink-loop] action result: "
                "~n   Number of actions: ~p"
                "~n   Elapsed time:      ~p msec"
                "~n   Result:            ~p",
-               [N2,
-                erlang:convert_time_unit(get(elapsed), native, millisecond),
-                Other]),
+               [N2, cmillis(get(elapsed)), Other]),
 	    {Other, N2}
     end.
 
