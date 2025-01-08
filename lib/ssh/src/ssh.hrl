@@ -1146,8 +1146,8 @@ in the User's Guide chapter.
 """.
 -doc(#{title => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
-        {failfun, fun((User::string(), PeerAddress::inet:ip_address(), Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), PeerAddress::inet:ip_address(), Method::string()) ->_)} .
+        {failfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Reason::term()) -> _)}
+      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)} .
 
 -doc(#{title => <<"Other data types">>}).
 -type opaque_daemon_options()  ::
