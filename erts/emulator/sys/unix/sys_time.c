@@ -105,7 +105,7 @@ static void clock_gettime_times_raw(ErtsMonotonicTime *, ErtsSystemTime *);
 
 #endif /* defined(__linux__) && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME) */
 
-#ifndef HAVE_DECL_DAYLIGHT
+#if !HAVE_DECL_DAYLIGHT
 int sys_daylight = -1;
 #endif
 
@@ -200,7 +200,7 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
 #if defined(ERTS_MACH_CLOCKS)
     mach_clocks_init();
 #endif
-#ifndef HAVE_DECL_DAYLIGHT
+#if !HAVE_DECL_DAYLIGHT
     /* If the system does not have the daylight variable,
        we create it by looping through the current year
        in the current timezone and check if isdst ever

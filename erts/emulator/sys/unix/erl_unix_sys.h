@@ -148,7 +148,7 @@ typedef struct tms SysTimes;
 
 #define sys_times(Arg) times(Arg)
 
-#ifndef HAVE_DECL_DAYLIGHT
+#if !HAVE_DECL_DAYLIGHT
 extern int sys_daylight;
 #else
 #define sys_daylight daylight
