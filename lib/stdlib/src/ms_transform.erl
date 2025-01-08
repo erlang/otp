@@ -1,8 +1,8 @@
 %%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2002-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ms_transform).
@@ -83,24 +83,24 @@ format_error({?WARN_SHADOW_VAR,Name}) ->
       io_lib:format("variable ~p shadowed in ms_transform fun head",
 		    [Name]));
 
-format_error(?ERR_NOFUN) ->	    
+format_error(?ERR_NOFUN) ->
     "Parameter of ets/dbg:fun2ms/1 is not a literal fun";
-format_error(?ERR_ETS_HEAD) ->	    
+format_error(?ERR_ETS_HEAD) ->
     "ets:fun2ms requires fun with single variable or tuple parameter";
-format_error(?ERR_DBG_HEAD) ->	    
+format_error(?ERR_DBG_HEAD) ->
     "dbg:fun2ms requires fun with single variable or list parameter";
-format_error(?ERR_HEADMATCH) ->	    
+format_error(?ERR_HEADMATCH) ->
     "in fun head, only matching (=) on toplevel can be translated into match_spec";
-format_error(?ERR_SEMI_GUARD) ->	    
+format_error(?ERR_SEMI_GUARD) ->
     "fun with semicolon (;) in guard cannot be translated into match_spec";
-format_error(?ERR_GUARDMATCH) ->	    
+format_error(?ERR_GUARDMATCH) ->
     "fun with guard matching ('=' in guard) is illegal as match_spec as well";
-format_error({?ERR_GUARDLOCALCALL, Name, Arithy}) ->	    
+format_error({?ERR_GUARDLOCALCALL, Name, Arithy}) ->
     lists:flatten(io_lib:format("fun containing the local function call "
 				"'~tw/~w' (called in guard) "
 				"cannot be translated into match_spec",
 				[Name, Arithy]));
-format_error({?ERR_GUARDREMOTECALL, Module, Name, Arithy}) ->	    
+format_error({?ERR_GUARDREMOTECALL, Module, Name, Arithy}) ->
     lists:flatten(io_lib:format("fun containing the remote function call "
 				"'~w:~tw/~w' (called in guard) "
 				"cannot be translated into match_spec",
@@ -119,14 +119,14 @@ format_error({?ERR_GUARDDISALLOWEDOP, Operator}) ->
     %% not in guards.
     lists:flatten(
       io_lib:format("the operator ~w is not allowed in guards", [Operator]));
-format_error(?ERR_BODYMATCH) ->	    
+format_error(?ERR_BODYMATCH) ->
     "fun with body matching ('=' in body) is illegal as match_spec";
-format_error({?ERR_BODYLOCALCALL, Name, Arithy}) ->	    
+format_error({?ERR_BODYLOCALCALL, Name, Arithy}) ->
     lists:flatten(io_lib:format("fun containing the local function "
 				"call '~tw/~w' (called in body) "
 				"cannot be translated into match_spec",
 				[Name,Arithy]));
-format_error({?ERR_BODYREMOTECALL, Module, Name, Arithy}) ->	    
+format_error({?ERR_BODYREMOTECALL, Module, Name, Arithy}) ->
     lists:flatten(io_lib:format("fun containing the remote function call "
 				"'~w:~tw/~w' (called in body) "
 				"cannot be translated into match_spec",
@@ -140,55 +140,55 @@ format_error({?ERR_BODYBINCONSTRUCT, Var}) ->
       io_lib:format("bit syntax construction with variable ~w (in body) "
 		    "cannot be translated "
 		    "into match_spec", [Var]));
-format_error({?ERR_BODYDISALLOWEDOP, Operator}) -> 
-    %% This will probably never happen, Are there op's that are allowed in 
+format_error({?ERR_BODYDISALLOWEDOP, Operator}) ->
+    %% This will probably never happen, Are there op's that are allowed in
     %% guards but not in bodies? Not at time of writing anyway...
     lists:flatten(
-      io_lib:format("the operator ~w is not allowed in function bodies", 
+      io_lib:format("the operator ~w is not allowed in function bodies",
 		    [Operator]));
 
 format_error({?ERR_UNBOUND_VARIABLE, Str}) ->
     lists:flatten(
       io_lib:format("the variable ~s is unbound, cannot translate "
 		    "into match_spec", [Str]));
-format_error({?ERR_HEADBADREC,Name}) ->	    
+format_error({?ERR_HEADBADREC,Name}) ->
     lists:flatten(
       io_lib:format("fun head contains unknown record type ~tw",[Name]));
-format_error({?ERR_HEADBADFIELD,RName,FName}) ->	    
+format_error({?ERR_HEADBADFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun head contains reference to unknown field ~tw in "
 		    "record type ~tw",[FName, RName]));
-format_error({?ERR_HEADMULTIFIELD,RName,FName}) ->	    
+format_error({?ERR_HEADMULTIFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun head contains already defined field ~tw in "
 		    "record type ~tw",[FName, RName]));
-format_error({?ERR_HEADDOLLARATOM,Atom}) ->	    
+format_error({?ERR_HEADDOLLARATOM,Atom}) ->
     lists:flatten(
       io_lib:format("fun head contains atom ~w, which conflics with reserved "
 		    "atoms in match_spec heads",[Atom]));
-format_error({?ERR_HEADBINMATCH,Atom}) ->	    
+format_error({?ERR_HEADBINMATCH,Atom}) ->
     lists:flatten(
       io_lib:format("fun head contains bit syntax matching of variable ~w, "
 		    "which cannot be translated into match_spec", [Atom]));
-format_error({?ERR_GUARDBADREC,Name}) ->	    
+format_error({?ERR_GUARDBADREC,Name}) ->
     lists:flatten(
       io_lib:format("fun guard contains unknown record type ~tw",[Name]));
-format_error({?ERR_GUARDBADFIELD,RName,FName}) ->	    
+format_error({?ERR_GUARDBADFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun guard contains reference to unknown field ~tw in "
 		    "record type ~tw",[FName, RName]));
-format_error({?ERR_GUARDMULTIFIELD,RName,FName}) ->	    
+format_error({?ERR_GUARDMULTIFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun guard contains already defined field ~tw in "
 		    "record type ~tw",[FName, RName]));
-format_error({?ERR_BODYBADREC,Name}) ->	    
+format_error({?ERR_BODYBADREC,Name}) ->
     lists:flatten(
       io_lib:format("fun body contains unknown record type ~tw",[Name]));
-format_error({?ERR_BODYBADFIELD,RName,FName}) ->	    
+format_error({?ERR_BODYBADFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun body contains reference to unknown field ~tw in "
 		    "record type ~tw",[FName, RName]));
-format_error({?ERR_BODYMULTIFIELD,RName,FName}) ->	    
+format_error({?ERR_BODYMULTIFIELD,RName,FName}) ->
     lists:flatten(
       io_lib:format("fun body contains already defined field ~tw in "
 		    "record type ~tw",[FName, RName]));
@@ -237,7 +237,7 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
 		    Ret
             end
     end.
-    
+
 
 %%
 %% Called when translating during compiling
@@ -391,7 +391,7 @@ forms(Forms0) ->
 form({attribute,_,file,{Filename,_}}=Form) ->
     put_filename(Filename),
     Form;
-form({attribute,_,record,Definition}=Form) -> 
+form({attribute,_,record,Definition}=Form) ->
     add_record_definition(Definition),
     Form;
 form({function,Anno,Name0,Arity0,Clauses0}) ->
@@ -521,7 +521,7 @@ check_type(Anno,_Type,ets) ->
 check_type(Anno,_,dbg) ->
     throw({error,Anno,?ERR_DBG_HEAD}).
 
--record(tgd,{ b, %Bindings 
+-record(tgd,{ b, %Bindings
 	      p, %Part of spec
 	      eb %Error code base, 0 for guards, 100 for bodies
 	     }).
@@ -533,11 +533,11 @@ transform_guards(Anno,[G],Bindings) ->
     tg0(Anno,G,B);
 transform_guards(Anno,_,_) ->
     throw({error,Anno,?ERR_SEMI_GUARD}).
-    
+
 transform_body(Anno,Body,Bindings) ->
     B = #tgd{b = Bindings, p = body, eb = ?ERROR_BASE_BODY},
     tg0(Anno,Body,B).
-    
+
 
 guard_top_trans({call,Anno0,{atom,Anno1,OldTest},Params}) ->
     case old_bool_test(OldTest,length(Params)) of
@@ -556,7 +556,7 @@ tg0(Anno,[H0|T],B) when B#tgd.p =:= guard ->
     {cons,Anno, tg(H,B), tg0(Anno,T,B)};
 tg0(Anno,[H|T],B) ->
     {cons,Anno, tg(H,B), tg0(Anno,T,B)}.
-    
+
 
 tg({match,Anno,_,_},B) ->
     throw({error,Anno,?ERR_GENMATCH+B#tgd.eb});
@@ -594,7 +594,7 @@ tg({call, Anno, {atom, Anno2, FunName},ParaList},B) ->
 			   lists:map(fun(X) -> tg(X,B) end, ParaList)]};
 	_ ->
 	    throw({error,Anno,{?ERR_GENLOCALCALL+B#tgd.eb,
-			       FunName,length(ParaList)}}) 
+			       FunName,length(ParaList)}})
     end;
 tg({call, Anno, {remote,_,{atom,_,erlang},{atom, Anno2, FunName}},ParaList},
    B) ->
@@ -609,7 +609,7 @@ tg({call, Anno, {remote,_,{atom,_,erlang},{atom, Anno2, FunName}},ParaList},
 		end;
 	_ ->
 	    throw({error,Anno,{?ERR_GENREMOTECALL+B#tgd.eb,erlang,
-			       FunName,length(ParaList)}}) 
+			       FunName,length(ParaList)}})
     end;
 tg({call, Anno, {remote,_,{atom,_,ModuleName},
 		 {atom, _, FunName}},ParaList},B) ->
@@ -695,7 +695,7 @@ tg({record,Anno,RName,RFields},B) ->
 					    {value, {FN, X0}} ->
 						X0;
 					    _ ->
-						case DefValue of 
+						case DefValue of
 						    {true,Overridden} ->
 							Overridden;
 						    false ->
@@ -772,7 +772,7 @@ tg({bin_element,_Anno0,{var, Anno, A},_,_} = Whole,B) ->
 	    Whole; % exists in environment hopefully
 	_AtomName ->
 	    throw({error,Anno,{?ERR_GENBINCONSTRUCT+B#tgd.eb,A}})
-    end;    
+    end;
 tg(default,_B) ->
     default;
 tg({bin_element,Anno,X,Y,Z},B) ->
@@ -790,7 +790,7 @@ tg(T,B) when is_tuple(T), tuple_size(T) >= 2 ->
     Element = element(1,T),
     Anno = element(2,T),
     throw({error,Anno,{?ERR_GENELEMENT+B#tgd.eb,
-		       translate_language_element(Element)}}); 
+		       translate_language_element(Element)}});
 tg(Other,B) ->
     Element = io_lib:format("unknown element ~tw", [Other]),
     throw({error,erl_anno:new(0),{?ERR_GENELEMENT+B#tgd.eb,Element}}).
@@ -1105,7 +1105,7 @@ cmp_operator('==',2) ->
     true;
 cmp_operator('=:=',2) ->
     true;
-cmp_operator('/=',2) -> 
+cmp_operator('/=',2) ->
     true;
 cmp_operator('=/=',2) ->
     true;
@@ -1125,14 +1125,14 @@ is_ms_function(X,A,body) ->
 is_ms_function(X,A,guard) ->
     guard_function(X,A) or bool_test(X,A).
 
-fixup_environment(L,B) when is_list(L) ->    
+fixup_environment(L,B) when is_list(L) ->
     lists:map(fun(X) ->
-		      fixup_environment(X,B) 
+		      fixup_environment(X,B)
 	      end,
 	      L);
 fixup_environment({var,Anno,Name},B) ->
     case lists:keysearch(Name,1,B) of
-	{value,{Name,Value}} -> 
+	{value,{Name,Value}} ->
 	    freeze(Anno,Value);
 	_ ->
 	    throw({error,Anno,{?ERR_UNBOUND_VARIABLE,atom_to_list(Name)}})
@@ -1140,12 +1140,12 @@ fixup_environment({var,Anno,Name},B) ->
 fixup_environment(T,B) when is_tuple(T) ->
     list_to_tuple(
       lists:map(fun(X) ->
-			fixup_environment(X,B) 
+			fixup_environment(X,B)
 		end,
 		tuple_to_list(T)));
 fixup_environment(Other,_B) ->
     Other.
-    
+
 freeze(Anno,Term) ->
     {frozen,Anno,Term}.
 
