@@ -1894,7 +1894,7 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
     {{shutdown,Reason}, D}.
 
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
-    case disconnect_fun(LogMsg, D) of
+    case disconnect_fun(LogMsg, D, DetailedText) of
         void ->
             log(info, D,
                 "~s~n"

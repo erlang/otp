@@ -906,6 +906,7 @@ connectfun_disconnectfun_client(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+%% The client disconnects due to the server
 disconnectfun2_client(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),
@@ -928,8 +929,9 @@ disconnectfun2_client(Config) ->
     ssh:stop_daemon(Pid),
     receive
 	{disconnect,Ref,R,Extra} ->
-            %% Details is undefined for this particular case
-            #{details := _Details, connection_info := ConnInfo} = Extra,
+            %% Details is undefined for this particular case, a disconnect is
+            %% received from the peer
+            #{details := undefined, connection_info := ConnInfo} = Extra,
             Keys = [client_version, server_version, peer, user, sockname, options,
                     algorithms, user_auth],
             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
@@ -939,38 +941,56 @@ disconnectfun2_client(Config) ->
     end.
 
 %%--------------------------------------------------------------------
+%% Password authentication fails and there's no more authentication
+%% methods to try so the client disconnects with
+%% SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
 disconnectfun2_server(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
     SysDir = proplists:get_value(data_dir, Config),
 
     Parent = self(),
     Ref = make_ref(),
-    DiscFun = fun(R, Extra) -> Parent ! {disconnect,Ref,R,Extra} end,
-
+    DiscFunS = fun(R, Extra) -> Parent ! {disconnect_server,Ref,R,Extra} end,
+    DiscFunC = fun(R, Extra) -> Parent ! {disconnect_client,Ref,R,Extra} end,
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_dir, UserDir},
-					     {password, "morot"},
-                                             {disconnectfun, DiscFun}]),
+                                             {disconnectfun, DiscFunS},
+					     {password, "morot"}]),
     {error, Reason} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                  {save_accepted_host, false},
                                  {user, "foo"},
                                  {password, "wrong_password"},
                                  {user_dir, UserDir},
-                                 {user_interaction, false}]),
-	    ct:log("Error reason: ~p", [Reason]),
-    receive
-	{disconnect,Ref,R,Extra} ->
-            %% Details is undefined for this particular case
-            #{details := _Details, connection_info := ConnInfo} = Extra,
-             Keys = [client_version, server_version, peer, user, sockname, options,
-                     algorithms, user_auth],
-             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
-             ct:log("Disconnect result: ~p ~p",[R, Extra]),
-            ssh:stop_daemon(Pid)
-    after 2000 ->
-	    {fail, "No disconnectfun action"}
-    end.
+                                 {user_interaction, false},
+                                 {disconnectfun, DiscFunC}]),
+    ct:log("Error reason: ~p", [Reason]),
+    Res =
+        receive
+            {disconnect_client,Ref,R,Extra} ->
+                #{details := Details, connection_info := ConnInfo} = Extra,
+                <<"User auth failed for: \"foo\"">> = iolist_to_binary(Details),
+                Keys = [client_version, server_version, peer, user, sockname, options,
+                        algorithms, user_auth],
+                true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+                ct:log("Disconnect result client: ~p ~p",[R, Extra]),
+                receive
+                    {disconnect_server,RefS,RS,ExtraS} ->
+                        %% Details is undefined for this particular case, a disconnect is
+                        %% received from the peer
+                        #{details := undefined, connection_info := ConnInfoS} = ExtraS,
+                        KeysS = [client_version, server_version, peer, user, sockname, options,
+                                algorithms, user_auth],
+                        true = lists:all(fun({K, _}) -> lists:member(K, KeysS) end, ConnInfoS),
+                        ct:log("Disconnect result server: ~p ~p",[RS, ExtraS])
+                after 2000 ->
+                        {fail, "No disconnectfun action for server"}
+                end
+        after 2000 ->
+                {fail, "No disconnectfun action"}
+        end,
+    ssh:stop_daemon(Pid),
+    Res.
 
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option
