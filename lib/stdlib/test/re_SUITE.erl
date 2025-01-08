@@ -704,12 +704,12 @@ pcre_cve_2008_2371(Config) when is_list(Config) ->
 %% Patch from
 %% http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch
 pcre_compile_workspace_overflow(Config) when is_list(Config) ->
-    N = 819,
+    N = 1180,
     ExpStr = "Got expected error: ",
     case re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]) of
-        {error, {"regular expression is too complicated" = Str,799}} ->
+        {error, {"regular expression is too complicated" = Str,2360}} ->
             {comment, ExpStr ++ Str};
-        {error, {"parentheses are too deeply nested" = Str, _No}} ->
+        {error, {"parentheses are too deeply nested (stack check)" = Str, _No}} ->
             {comment, ExpStr ++ Str};
         Other ->
             ct:fail({unexpected, Other})
