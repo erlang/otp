@@ -1198,17 +1198,17 @@ check_shasum()
 {
     case $SHASUM_FORMAT in
         "sha256sum" )
-            if ! (cd "$3" && sha256sum --status -c "$1.$SHASUM_FORMAT"); then
+            if ! (cd "$3" && sha256sum -c "$1.$SHASUM_FORMAT" > /dev/null); then
                 echo "The sha256sum check of $2/$1 failed!" >&2
                 exit 1
             fi;;
         "sha1sum" )
-            if ! (cd "$3" && sha1sum --status -c "$1.$SHASUM_FORMAT"); then
+            if ! (cd "$3" && sha1sum -c "$1.$SHASUM_FORMAT" > /dev/null); then
                 echo "The sha1sum check of $2/$1 failed!" >&2
                 exit 1
             fi;;
         "shasum" )
-            if ! (cd "$3" && shasum -a 1 --status -c "$1.$SHASUM_FORMAT"); then
+            if ! (cd "$3" && shasum -a 1 -c "$1.$SHASUM_FORMAT" > /dev/null); then
                 echo "The shasum check of $2/$1 failed!" >&2
                 exit 1
             fi
