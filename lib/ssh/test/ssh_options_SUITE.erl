@@ -929,9 +929,11 @@ disconnectfun2_client(Config) ->
     ssh:stop_daemon(Pid),
     receive
 	{disconnect,Ref,R,Extra} ->
-            %% Details is undefined for this particular case, a disconnect is
-            %% received from the peer
-            #{details := undefined, connection_info := ConnInfo} = Extra,
+            %% Code and Details are undefined for this particular case,
+            %% code is only available when a disconnect message is sent and details
+            %% are not available when receiving a disconnect or the transport
+            %% is closed.
+            #{code := undefined, details := undefined, connection_info := ConnInfo} = Extra,
             Keys = [client_version, server_version, peer, user, sockname, options,
                     algorithms, user_auth],
             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
@@ -968,7 +970,7 @@ disconnectfun2_server(Config) ->
     Res =
         receive
             {disconnect_client,Ref,R,Extra} ->
-                #{details := Details, connection_info := ConnInfo} = Extra,
+                #{code := 14, details := Details, connection_info := ConnInfo} = Extra,
                 <<"User auth failed for: \"foo\"">> = iolist_to_binary(Details),
                 Keys = [client_version, server_version, peer, user, sockname, options,
                         algorithms, user_auth],
@@ -976,9 +978,13 @@ disconnectfun2_server(Config) ->
                 ct:log("Disconnect result client: ~p ~p",[R, Extra]),
                 receive
                     {disconnect_server,RefS,RS,ExtraS} ->
-                        %% Details is undefined for this particular case, a disconnect is
-                        %% received from the peer
-                        #{details := undefined, connection_info := ConnInfoS} = ExtraS,
+                        <<"Received disconnect: "
+                          "Unable to connect using the available authentication methods">> =
+                            iolist_to_binary(RS),
+                        %% Details and Code are undefined for this particular case
+                        #{code := undefined,
+                          details := undefined,
+                          connection_info := ConnInfoS} = ExtraS,
                         KeysS = [client_version, server_version, peer, user, sockname, options,
                                 algorithms, user_auth],
                         true = lists:all(fun({K, _}) -> lists:member(K, KeysS) end, ConnInfoS),

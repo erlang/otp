@@ -1890,11 +1890,13 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
                               description = Reason},
     D = send_msg(Msg, D0),
     LogMsg = io_lib:format("Disconnects with code = ~p [RFC4253 11.1]: ~s",[Code,Reason]),
-    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D),
+    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, Code),
     {{shutdown,Reason}, D}.
 
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
-    case disconnect_fun(LogMsg, D, DetailedText) of
+    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, undefined).
+call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, Code) ->
+    case disconnect_fun(LogMsg, D, DetailedText, Code) of
         void ->
             log(info, D,
                 "~s~n"
@@ -2127,8 +2129,8 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-disconnect_fun(Reason, D) -> disconnect_fun(Reason, D, undefined).
-disconnect_fun(Reason, D, Details) ->
+disconnect_fun(Reason, D) -> disconnect_fun(Reason, D, undefined, undefined).
+disconnect_fun(Reason, D, Details, Code) ->
     Fun = ?GET_OPT(disconnectfun, (D#data.ssh_params)#ssh.opts),
     case erlang:fun_info(Fun, arity) of
         {arity, 1} ->
@@ -2144,7 +2146,7 @@ disconnect_fun(Reason, D, Details) ->
                     user_auth
                    ],
             ConnInfo = fold_keys(Keys, fun conn_info/2, D),
-            Fun(Reason, #{details => Details, connection_info => ConnInfo})
+            Fun(Reason, #{code => Code, details => Details, connection_info => ConnInfo})
     end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
