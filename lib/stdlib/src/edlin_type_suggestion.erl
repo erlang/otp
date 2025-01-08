@@ -220,10 +220,19 @@ simplified_type(file, name_all, 0) -> {type, erlang, string, []};
 simplified_type(file, name, 0) -> {type, erlang, string, []};
 simplified_type(_Module, _TypeName, _Arity) -> none.
 
+code_get_doc_cache(Mod) ->
+    case get(Mod) of
+        undefined ->
+            Docs = code:get_doc(Mod, #{sources => [debug_info]}),
+            put(Mod, Docs),
+            Docs;
+        Docs -> Docs
+    end.
+
 lookup_type(Mod, Type, Arity, FT) ->
     case simplified_type(Mod, Type, Arity) of
         none ->
-            case code:get_doc(Mod, #{sources => [debug_info]}) of
+            case code_get_doc_cache(Mod) of
                 {ok, #docs_v1{ docs = Docs } } ->
                     FnFunctions =
                         lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
