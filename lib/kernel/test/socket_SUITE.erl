@@ -749,7 +749,8 @@
          otp16359_maccept_tcpL/1,
          otp18240_accept_mon_leak_tcp4/1,
          otp18240_accept_mon_leak_tcp6/1,
-         otp18635/1
+         otp18635/1,
+         otpABCDE/1
         ]).
 
 
@@ -2353,7 +2354,8 @@ tickets_cases() ->
     [
      {group, otp16359},
      {group, otp18240},
-     otp18635
+     otp18635,
+     otpABCDE
     ].
 
 otp16359_cases() ->
@@ -51697,7 +51699,7 @@ do_otp18635(_) ->
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
-    % show handle returned from nowait accept
+    %% show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -51738,7 +51740,7 @@ do_otp18635(_) ->
                   ?P("[connector] try create socket"),
                   {ok, CSock} = socket:open(inet, stream),
                   ?P("[connector] try connect: "
-                       "~n   (server) ~p", [SA]),
+                     "~n   (server) ~p", [SA]),
                   ok = socket:connect(CSock, SA),
                   ?P("[connector] connected - inform parent"),
                   Parent ! {self(), connected},
@@ -51749,7 +51751,7 @@ do_otp18635(_) ->
                           (catch socket:close(CSock)),
                           exit(normal)
                   end
-              end),
+          end),
 
     ?P("await (connection-) confirmation from connector (~p)", [Connector]),
     receive
@@ -51815,6 +51817,130 @@ do_otp18635(_) ->
        "~n   Sockets:           ~p", [socket:info(), socket:which_sockets()]),
 
     Result.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that results are correct when only parts of the requested
+%% amount of data is available when using socket:recv.
+%% Behaviour should be as expected for both STREAM and DGRAM sockets.
+%% That is;
+%%   STREAM: read until buffer is full or timeout
+%%   DGRAM:  - do never wait for *more* data - return with *any* available data
+%%           - only wait if there is currently *no* data.
+
+otpABCDE(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otpABCDE(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_otpABCDE(#{lsa := LSA}) ->
+
+    ?P("try stream"),
+    ok = do_otpABCDE_stream(LSA),
+    ?P("try dgram"),
+    ok = do_otpABCDE_dgram(LSA),
+    
+    ?P("done"),
+    ok.
+
+
+do_otpABCDE_stream(#{family := Fam} = LSA) ->
+
+    ?P("[stream] create listen socket"),
+    {ok, S1} = socket:open(Fam, stream),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ok = socket:listen(S1),
+
+    ?P("[stream] create connector socket"),
+    {ok, S2} = socket:open(Fam, stream),
+    ok = socket:bind(S2, LSA#{port => 0}),
+    ok = socket:connect(S2, SA1),
+
+    ?P("[stream] accept connection (acceptor socket)"),
+    {ok, S3} = socket:accept(S1),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[stream] try send and recv ~w bytes", [DataSz]),
+    ok = socket:send(S2, Data),
+    {ok, Data} = socket:recv(S3, DataSz, ?SECS(5)),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect timeout with data
+    Data = <<"0123456789">>,
+    ?P("[stream] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:send(S2, Data),
+    {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5)),
+
+    ?P("[stream] cleanup"),
+    _ = socket:close(S3),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[stream] done"),
+
+    ok.
+
+
+do_otpABCDE_dgram(#{family := Fam} = LSA) ->
+
+    ?P("[dgram] create socket 1"),
+    {ok, S1} = socket:open(Fam, dgram),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+
+    ?P("[dgram] create socket 2"),
+    {ok, S2} = socket:open(Fam, dgram),
+    ok = socket:bind(S2, LSA#{port => 0}),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[dgram] try send and recv ~w bytes", [DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    ?P("[dgram] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, 2*DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    ?P("[dgram] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[dgram] done"),
+
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
