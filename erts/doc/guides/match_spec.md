@@ -75,7 +75,7 @@ _informal_ grammar:
 - ActionFunction ::= `set_seq_token` | `get_seq_token` | `message` |
   `return_trace` | `exception_trace` | `process_dump` | `enable_trace` |
   `disable_trace` | `trace` | `display` | `caller` | `caller_line` |
-  `current_stacktrace` | `set_tcw` | `silent`
+  `current_stacktrace` | `stack_size` | `set_tcw` | `silent`
 
 A match specification used in `m:ets` can be described in the following
 _informal_ grammar:
@@ -298,6 +298,13 @@ The functions allowed only for tracing work as follows:
 
   Accepts a depth parameter. The depth value will be `backtrace_depth` if the
   argument is greater.
+
+- **`stack_size`** - Returns the current size of the stack in the called function.
+  Same value as returned from `erlang:process_info(Pid, stack_size)`.
+  Because `return_to` messages not sent on tail calls, knowing the exact state of
+  the stack on every call and return can be tricky. Knowing the stack size makes
+  it possible to estimate the full trace more accurately, without having to pay
+  the cost of getting a full stack trace.
 
 - **`display`** - For debugging purposes only. Displays the single argument as
   an Erlang term on `stdout`, which is seldom what is wanted. Returns `true` and

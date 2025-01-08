@@ -335,7 +335,8 @@ typedef enum {
     matchTrace2,
     matchTrace3,
     matchCallerLine,
-    matchCurrentStacktrace
+    matchCurrentStacktrace,
+    matchStackSize
 } MatchOps;
 
 /*
@@ -2954,6 +2955,17 @@ restart:
 
             break;
         }
+        case matchStackSize:{
+            ASSERT(c_p == self);
+           	n = STACK_START(c_p) - c_p->stop; // stack size
+            if (IS_USMALL(0, n)) {
+                *esp++ = make_small(n);
+            } else {
+                ehp = HAllocX(build_proc, BIG_UINT_HEAP_SIZE, HEAP_XTRA);
+                *esp++ = uint_to_big(n, ehp);
+            }
+            break;
+        }
         case matchSilent:
             ASSERT(c_p == self);
 	    --esp;
@@ -5375,6 +5387,30 @@ static DMCRet dmc_current_stacktrace(DMCContext *context,
     return retOk;
 }
 
+static DMCRet dmc_stack_size(DMCContext *context,
+                            DMCHeap *heap,
+                            DMC_STACK_TYPE(UWord) *text,
+                            Eterm t,
+                            int *constant)
+{
+    Eterm *p = tuple_val(t);
+    DMCRet ret;
+
+    if (!check_trace("stack_size", context, constant,
+                     (DCOMP_CALL_TRACE|DCOMP_ALLOW_TRACE_OPS), 0, &ret))
+        return ret;
+
+    if (p[0] != make_arityval(1)) {
+        RETURN_TERM_ERROR("Special form 'stack_size' called with "
+                          "arguments in %T.", t, context, *constant);
+    }
+    *constant = 0;
+    DMC_PUSH(*text, matchStackSize);
+    if (++context->stack_used > context->stack_need)
+        context->stack_need = context->stack_used;
+    return retOk;
+}
+
 static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
 			 DMC_STACK_TYPE(UWord) *text,
@@ -5465,6 +5501,8 @@ static DMCRet dmc_fun(DMCContext *context,
 	return dmc_caller_line(context, heap, text, t, constant);
     case am_current_stacktrace:
 	return dmc_current_stacktrace(context, heap, text, t, constant);
+	case am_stack_size:
+	return dmc_stack_size(context, heap, text, t, constant);
     case am_silent:
  	return dmc_silent(context, heap, text, t, constant);
     case am_set_tcw:
@@ -6550,6 +6588,10 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    erts_printf("CurrentStacktrace\n");
 	    break;
+	case matchStackSize:
+	    ++t;
+		erts_printf("StackSize\n");
+		break;
 	default:
 	    erts_printf("??? (0x%bpx)\n", *t);
 	    ++t;

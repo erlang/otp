@@ -25,7 +25,7 @@
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
 -export([test_1/1, test_2/1, test_3/1, test_4a/1, test_4b/1, test_5a/1,
-         test_5b/1, test_6/1, caller_and_return_to/1, bad_match_spec_bin/1,
+         test_5b/1, test_6/1, test_stack_size/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
@@ -60,6 +60,7 @@ groups() ->
 
 testcases_trace() ->
     [test_1, test_2, test_3, test_4a, test_4b, test_5a, test_5b, test_6,
+     test_stack_size,
      caller_and_return_to,
      trace_control_word,
      silent, silent_no_ms, silent_test,
@@ -363,6 +364,35 @@ test_6(Config) when is_list(Config) ->
     end,
 
     ok.
+
+stack_size_rec(0, RefSize) ->
+    {stack_size, RefSize} = erlang:process_info(self(), stack_size),
+    f5_test6();
+stack_size_rec(Num, RefSize) ->
+    stack_size_rec(Num - 1, RefSize),
+    ok.
+
+%% Test stack_size/0
+test_stack_size(Config) when is_list(Config) ->
+    % Smallint
+    Fun = fun() -> stack_size_rec(10, 16) end,
+    Pat = [{'_', [], [{message, {stack_size}}]}],
+    P = spawn(?MODULE, fixed_runner, [self(), Fun]),
+    erlang_trace(P, true, [call]),
+    erlang_trace_pattern({?MODULE, f2_test6, 1}, Pat, [local]),
+    erlang_trace_pattern({?MODULE, f1_test6, 0}, Pat, [local]),
+    collect(P, [{trace, P, call, {?MODULE, f2_test6, [f1]}, 16},
+                {trace, P, call, {?MODULE, f1_test6, []}, 17}]),
+
+    % Bigint
+    Fun2 = fun() -> stack_size_rec(10000000, 10000006) end,
+    Pat2 = [{'_', [], [{message, {stack_size}}]}],
+    P2 = spawn(?MODULE, fixed_runner, [self(), Fun2]),
+    erlang_trace(P2, true, [call]),
+    erlang_trace_pattern({?MODULE, f2_test6, 1}, Pat2, [local]),
+    erlang_trace_pattern({?MODULE, f1_test6, 0}, Pat2, [local]),
+    collect(P2, [{trace, P2, call, {?MODULE, f2_test6, [f1]}, 10000006},
+                 {trace, P2, call, {?MODULE, f1_test6, []}, 10000007}]).
 
 %% Test that caller and return to work as they should
 %% There was a bug where caller would be undefined when return_to was set
