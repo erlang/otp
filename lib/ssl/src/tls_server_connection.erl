@@ -223,7 +223,7 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), AlertState)
     end;
 hello(info, Event, State) ->
-    tls_gen_connection:handle_info(Event, ?STATE(hello), State);
+    tls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(Type, Event, State) ->
     gen_state(?STATE(hello), Type, Event, State).
 
