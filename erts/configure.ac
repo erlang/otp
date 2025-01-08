@@ -3137,7 +3137,10 @@ poll_works=no
 [
 
 AC_RUN_IFELSE([AC_LANG_SOURCE([[
+#include <fcntl.h>
 #include <poll.h>
+#include <stdlib.h>
+int
 main()
 {
 #ifdef _POLL_EMUL_H_
