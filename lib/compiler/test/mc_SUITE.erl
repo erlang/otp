@@ -27,7 +27,7 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
          basic/1,duplicate_keys/1,mixed/1,
-         shadow/1,bad_generators/1]).
+         shadow/1,bad_generators/1,multi/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -42,7 +42,8 @@ groups() ->
        duplicate_keys,
        mixed,
        shadow,
-       bad_generators]}].
+       bad_generators,
+       multi]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -299,6 +300,14 @@ bad_generators(_Config) ->
                 catch id(bad_generator_mc(BadIterator))
     end,
     ok.
+
+multi(_Config) ->
+    Exp = #{true => 1, false => 2},
+    Exp = #{true => 1, false => 2 || true},
+    Exp2 = #{1 => 1, 2 => 2, 5 => 5, 6 => 6},
+    Exp2 = #{X => X, X + 1 => X + 1 || X <- [1, 5]},
+    Exp3 = #{1 => 4, 5 => 8},
+    Exp3 = #{X => X+1, X => X+3 || X <- [1, 5]}.
 
 id(I) -> I.
 

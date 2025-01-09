@@ -360,10 +360,15 @@ sigil -> sigil_prefix string sigil_suffix : build_sigil('$1', '$2', '$3').
 
 list_comprehension -> '[' expr '||' lc_exprs ']' :
 	{lc,?anno('$1'),'$2','$4'}.
-map_comprehension -> '#' '{' map_field_assoc '||' lc_exprs '}' :
+list_comprehension -> '[' expr ',' exprs '||' lc_exprs ']' :
+    {lc,?anno('$1'),['$2'|'$4'],'$6'}.
+map_comprehension -> '#' '{' map_field '||' lc_exprs '}' :
 	{mc,?anno('$1'),'$3','$5'}.
+map_comprehension -> '#' '{' map_field ',' map_fields '||' lc_exprs '}' :
+    {mc,?anno('$1'),['$3'|'$5'],'$7'}.
 binary_comprehension -> '<<' expr_max '||' lc_exprs '>>' :
 	{bc,?anno('$1'),'$2','$4'}.
+
 lc_exprs -> lc_expr : ['$1'].
 lc_exprs -> lc_expr ',' lc_exprs : ['$1'|'$3'].
 lc_exprs -> zc_exprs : [{zip, ?anno(hd('$1')), '$1'}].
@@ -930,10 +935,10 @@ processed (see section [Error Information](#module-error-information)).
         {'remote', anno(), abstract_expr(), abstract_expr()}.
 
 -type af_list_comprehension() ::
-        {'lc', anno(), af_template(), af_qualifier_seq()}.
+        {'lc', anno(), af_template() | [af_template()], af_qualifier_seq()}.
 
 -type af_map_comprehension() ::
-        {'mc', anno(), af_assoc(abstract_expr()), af_qualifier_seq()}.
+        {'mc', anno(), af_assoc(abstract_expr()) | [af_assoc(abstract_expr())], af_qualifier_seq()}.
 
 -type af_binary_comprehension() ::
         {'bc', anno(), af_template(), af_qualifier_seq()}.

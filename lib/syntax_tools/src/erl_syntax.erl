@@ -5624,7 +5624,7 @@ typed_record_field_type(Node) ->
 
 %% =====================================================================
 
--record(list_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
+-record(list_comp, {template :: syntaxTree() | [syntaxTree()], body :: [syntaxTree()]}).
 
 -doc """
 Creates an abstract list comprehension.
@@ -5632,9 +5632,12 @@ Creates an abstract list comprehension.
 If `Body` is `[E1, ..., En]`, the result represents "`[Template ||
 E1, ..., En]`".
 
+Supports comprehensions with multiple emitted elements per iteration,
+from EEP 78 - in such cases, `Template` is a list of expressions.
+
 _See also: _`generator/2`, `list_comp_body/1`, `list_comp_template/1`.
 """.
--spec list_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+-spec list_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
 %% `erl_parse' representation:
 %%
@@ -5656,9 +5659,12 @@ revert_list_comp(Node) ->
 -doc """
 Returns the template subtree of a `list_comp` node.
 
+Supports comprehensions with multiple emitted elements per iteration,
+from EEP 78 - in such cases, template will be a list of expressions.
+
 _See also: _`list_comp/2`.
 """.
--spec list_comp_template(syntaxTree()) -> syntaxTree().
+-spec list_comp_template(syntaxTree()) -> syntaxTree() | [syntaxTree()].
 
 list_comp_template(Node) ->
     case unwrap(Node) of
@@ -5748,7 +5754,7 @@ binary_comp_body(Node) ->
 
 %% =====================================================================
 
--record(map_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
+-record(map_comp, {template :: syntaxTree() | [syntaxTree()], body :: [syntaxTree()]}).
 
 -doc """
 Creates an abstract map comprehension.
@@ -5756,9 +5762,12 @@ Creates an abstract map comprehension.
 If `Body` is `[E1, ..., En]`, the result represents "`#{Template ||
 E1, ..., En}`".
 
+Supports comprehensions with multiple emitted elements per iteration,
+from EEP 78 - in such cases, `Template` is a list of key-value associations.
+
 _See also: _`generator/2`, `map_comp_body/1`, `map_comp_template/1`.
 """.
--spec map_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+-spec map_comp(syntaxTree() | [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
 %% `erl_parse' representation:
 %%
@@ -5780,9 +5789,12 @@ revert_map_comp(Node) ->
 -doc """
 Returns the template subtree of a `map_comp` node.
 
+Supports comprehensions with multiple emitted elements per iteration,
+from EEP 78 - in such cases, template will be list of key-value associations.
+
 _See also: _`map_comp/2`.
 """.
--spec map_comp_template(syntaxTree()) -> syntaxTree().
+-spec map_comp_template(syntaxTree()) -> syntaxTree() | [syntaxTree()].
 
 map_comp_template(Node) ->
     case unwrap(Node) of
@@ -7885,7 +7897,12 @@ subtrees(T) ->
 			    [list_prefix(T), [S]]
 		    end;
 		list_comp ->
-		    [[list_comp_template(T)], list_comp_body(T)];
+                    case list_comp_template(T) of
+                        Exprs when is_list(Exprs) ->
+                            [Exprs, list_comp_body(T)];
+                        Expr ->
+                            [[Expr], list_comp_body(T)]
+                    end;
 		macro ->
 		    case macro_arguments(T) of
 			none ->
@@ -7894,7 +7911,12 @@ subtrees(T) ->
 			    [[macro_name(T)], As]
 		    end;
                 map_comp ->
-                    [[map_comp_template(T)], map_comp_body(T)];
+                    case map_comp_template(T) of
+                        Exprs when is_list(Exprs) ->
+                            [Exprs, map_comp_body(T)];
+                        Expr ->
+                            [[Expr], map_comp_body(T)]
+                    end;
                 map_expr ->
                     case map_expr_argument(T) of
                         none ->
@@ -8094,9 +8116,11 @@ make_tree(integer_range_type, [[L],[H]]) -> integer_range_type(L, H);
 make_tree(list, [P]) -> list(P);
 make_tree(list, [P, [S]]) -> list(P, S);
 make_tree(list_comp, [[T], B]) -> list_comp(T, B);
+make_tree(list_comp, [Ts, B]) -> list_comp(Ts, B);
 make_tree(macro, [[N]]) -> macro(N);
 make_tree(macro, [[N], A]) -> macro(N, A);
 make_tree(map_comp, [[T], B]) -> map_comp(T, B);
+make_tree(map_comp, [Ts, B]) -> map_comp(Ts, B);
 make_tree(map_expr, [Fs]) -> map_expr(Fs);
 make_tree(map_expr, [[E], Fs]) -> map_expr(E, Fs);
 make_tree(map_field_assoc, [[K], [V]]) -> map_field_assoc(K, V);

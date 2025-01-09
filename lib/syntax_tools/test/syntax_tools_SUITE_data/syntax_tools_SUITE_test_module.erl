@@ -10,6 +10,7 @@
 -export([to_upper/1, to_lower/1]).
 -export([eep49/0, eep58/0]).
 -export([strict_generators/0]).
+-export([eep73/0, eep78/0]).
 
 -import(lists,[reverse/1,member/2]).
 
@@ -604,4 +605,15 @@ eep73() ->
     [{X,Y}||X <- [1,2,3] && Y <- [2,2,2]],
     [{X,Y}||X <- [1,2,3] && <<Y>> <= <<2,2,2>>],
     [{K1,K2,V1,V2}|| K1 := V1 <- #{a=>1} && K2 := V2 <- #{b=>3}],
+    ok.
+
+%% EEP-78: Multi-comprehensions.
+eep78() ->
+    Seq = lists:seq(1, 10),
+
+    List = lists:flatten([[X, X + 100] || X <- Seq]),
+    List = [X, X + 100 || X <- Seq],
+
+    Map = maps:from_list([{X, X} || X <- List]),
+    Map = #{X => X, X + 100 => X + 100 || X <- Seq},
     ok.
