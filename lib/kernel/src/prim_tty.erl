@@ -105,7 +105,7 @@
 %%      * Same problem as insert mode, it only deleted current line, and does not move
 %%        to previous line automatically.
 
--export([init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
+-export([load/0, init/1, init_ssh/3, reinit/2, isatty/1, handles/1, unicode/1, unicode/2,
          handle_signal/2, window_size/1, update_geometry/3, handle_request/2,
          write/2, write/3,
          npwcwidth/1, npwcwidth/2,
@@ -223,14 +223,9 @@ ansi_bg_color(Color) ->
 ansi_color(BgColor, FgColor) ->
     io_lib:format("\e[~w;~wm", [ansi_bg_color(BgColor), ansi_fg_color(FgColor)]).
 
--spec on_load() -> ok.
-on_load() ->
-    on_load(#{}).
-
--spec on_load(Extra) -> ok when
-      Extra :: map().
-on_load(Extra) ->
-    case erlang:load_nif(atom_to_list(?MODULE), Extra) of
+-spec load() -> ok.
+load() ->
+    case erlang:load_nif(atom_to_list(?MODULE), #{}) of
         ok -> ok;
         {error,{reload,_}} ->
             ok
@@ -249,8 +244,6 @@ window_size(State = #state{ tty = TTY }) ->
 
 -spec init(options()) -> state().
 init(UserOptions) when is_map(UserOptions) ->
-
-    on_load(),
 
     Options = options(UserOptions),
     {ok, TTY} = tty_create(maps:get(ofd, Options)),
