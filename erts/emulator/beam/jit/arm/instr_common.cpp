@@ -185,7 +185,7 @@ void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
         mov_arg(ARG1, ArgVal(ArgVal::XReg, i));
 
         emit_enter_runtime();
-        runtime_call<1>(beam_jit_validate_term);
+        runtime_call<void (*)(Eterm), beam_jit_validate_term>();
         emit_leave_runtime();
     }
 
@@ -244,7 +244,7 @@ void BeamModuleAssembler::emit_normal_exit() {
     a.strb(ZERO.w(), arm::Mem(c_p, offsetof(Process, arity)));
     a.mov(ARG1, c_p);
     mov_imm(ARG2, am_normal);
-    runtime_call<2>(erts_do_exit_process);
+    runtime_call<void (*)(Process *, Eterm), erts_do_exit_process>();
 
     emit_proc_lc_require();
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
@@ -261,7 +261,7 @@ void BeamModuleAssembler::emit_continue_exit() {
     emit_proc_lc_unrequire();
 
     a.mov(ARG1, c_p);
-    runtime_call<1>(erts_continue_exit_process);
+    runtime_call<void (*)(Process *), erts_continue_exit_process>();
 
     emit_proc_lc_require();
     emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>(0);
@@ -321,7 +321,7 @@ void BeamModuleAssembler::emit_i_get(const ArgSource &Src,
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_pd_hash_get);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_pd_hash_get>();
 
     emit_leave_runtime();
 
@@ -337,7 +337,8 @@ void BeamModuleAssembler::emit_i_get_hash(const ArgConstant &Src,
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_pd_hash_get_with_hx);
+    runtime_call<Eterm (*)(Process *, erts_ihash_t, Eterm),
+                 erts_pd_hash_get_with_hx>();
 
     emit_leave_runtime();
 
@@ -1088,7 +1089,7 @@ void BeamModuleAssembler::emit_update_record_in_place(
 
         emit_enter_runtime();
         a.mov(ARG1, c_p);
-        runtime_call<2>(beam_jit_invalid_heap_ptr);
+        runtime_call<void (*)(Process *, Eterm), beam_jit_invalid_heap_ptr>();
         emit_leave_runtime();
 
         a.bind(pointer_ok);
@@ -1261,7 +1262,7 @@ void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
         emit_enter_runtime();
 
         a.mov(ARG1, c_p);
-        runtime_call<3>(erl_is_function);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erl_is_function>();
 
         emit_leave_runtime();
 
@@ -1875,7 +1876,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
         a.b_ne(resolve_beam_label(Fail, disp1MB));
     } else {
         emit_enter_runtime();
-        runtime_call<2>(eq);
+        runtime_call<int (*)(Eterm, Eterm), eq>();
         emit_leave_runtime();
         a.cbz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
     }
@@ -2030,7 +2031,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
         a.b_eq(resolve_beam_label(Fail, disp1MB));
     } else {
         emit_enter_runtime();
-        runtime_call<2>(eq);
+        runtime_call<int (*)(Eterm, Eterm), eq>();
         emit_leave_runtime();
         a.cbnz(ARG1.w(), resolve_beam_label(Fail, disp1MB));
     }
@@ -2133,7 +2134,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
         emit_enter_runtime_frame();
         emit_enter_runtime();
 
-        runtime_call<2>(erts_cmp_atoms);
+        runtime_call<int (*)(Eterm, Eterm), erts_cmp_atoms>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -2151,7 +2152,7 @@ void BeamGlobalAssembler::emit_arith_compare_shared() {
         comment("erts_cmp_compound(X, Y, 0, 0);");
         mov_imm(ARG3, 0);
         mov_imm(ARG4, 0);
-        runtime_call<4>(erts_cmp_compound);
+        runtime_call<Sint (*)(Eterm, Eterm, int, int), erts_cmp_compound>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -2495,7 +2496,8 @@ void BeamGlobalAssembler::emit_is_in_range_shared() {
         comment("erts_cmp_compound(X, Y, 0, 0);");
         mov_imm(ARG3, 0);
         mov_imm(ARG4, 0);
-        runtime_call<4>(erts_cmp_compound);
+        runtime_call<Sint (*)(Eterm, Eterm, int, int), erts_cmp_compound>();
+        ;
         a.tst(ARG1, ARG1);
         a.b_mi(done);
 
@@ -2504,7 +2506,8 @@ void BeamGlobalAssembler::emit_is_in_range_shared() {
         comment("erts_cmp_compound(X, Y, 0, 0);");
         mov_imm(ARG3, 0);
         mov_imm(ARG4, 0);
-        runtime_call<4>(erts_cmp_compound);
+        runtime_call<Sint (*)(Eterm, Eterm, int, int), erts_cmp_compound>();
+        ;
         a.tst(ARG1, ARG1);
 
         a.bind(done);
@@ -2634,7 +2637,8 @@ void BeamGlobalAssembler::emit_is_ge_lt_shared() {
     comment("erts_cmp_compound(Src, A, 0, 0);");
     mov_imm(ARG3, 0);
     mov_imm(ARG4, 0);
-    runtime_call<4>(erts_cmp_compound);
+    runtime_call<Sint (*)(Eterm, Eterm, int, int), erts_cmp_compound>();
+    ;
     a.tst(ARG1, ARG1);
     a.b_mi(done);
 
@@ -2642,7 +2646,8 @@ void BeamGlobalAssembler::emit_is_ge_lt_shared() {
     a.ldp(ARG2, ARG1, TMP_MEM1q);
     mov_imm(ARG3, 0);
     mov_imm(ARG4, 0);
-    runtime_call<4>(erts_cmp_compound);
+    runtime_call<Sint (*)(Eterm, Eterm, int, int), erts_cmp_compound>();
+    ;
     a.cmp(ARG1, imm(0));
 
     /* Make sure that ARG1 is -1, 0, or 1. */
@@ -2878,7 +2883,7 @@ void BeamGlobalAssembler::emit_catch_end_shared() {
         emit_enter_runtime<Update::eHeapAlloc>(2);
 
         a.mov(ARG1, c_p);
-        runtime_call<3>(add_stacktrace);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), add_stacktrace>();
 
         emit_leave_runtime<Update::eHeapAlloc>(2);
 
@@ -3002,7 +3007,7 @@ void BeamGlobalAssembler::emit_raise_shared() {
     emit_enter_runtime(0);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_sanitize_freason);
+    runtime_call<void (*)(Process *, Eterm), erts_sanitize_freason>();
 
     emit_leave_runtime(0);
 
@@ -3031,7 +3036,7 @@ void BeamModuleAssembler::emit_build_stacktrace() {
     emit_enter_runtime<Update::eHeapAlloc>(0);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(build_stacktrace);
+    runtime_call<Eterm (*)(Process *, Eterm), build_stacktrace>();
 
     emit_leave_runtime<Update::eHeapAlloc>(0);
 
@@ -3049,7 +3054,7 @@ void BeamModuleAssembler::emit_raw_raise() {
     a.mov(ARG4, c_p);
 
     emit_enter_runtime(0);
-    runtime_call<4>(raw_raise);
+    runtime_call<int (*)(Eterm, Eterm, Eterm, Process *), raw_raise>();
     emit_leave_runtime(0);
 
     a.cbnz(ARG1, next);
@@ -3110,12 +3115,13 @@ void BeamModuleAssembler::emit_i_perf_counter() {
 
     emit_enter_runtime_frame();
 
-#ifdef WIN32
     /* Call the function pointer used by erts_sys_perf_counter */
-    runtime_call<0>(erts_sys_time_data__.r.o.sys_hrtime);
+#ifdef WIN32
+    mov_imm(TMP1, erts_sys_time_data__.r.o.sys_hrtime);
 #else
-    runtime_call<0>(erts_sys_time_data__.r.o.perf_counter);
+    mov_imm(TMP1, erts_sys_time_data__.r.o.perf_counter);
 #endif
+    dynamic_runtime_call<0>(TMP1);
 
     emit_leave_runtime_frame();
 

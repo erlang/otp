@@ -183,11 +183,11 @@ $decl_enums
 
 $decl_emit_funcs
 
-    template<typename T>
-    void emit_bitwise_fallback_body(T(*func_ptr), const ErtsCodeMFA *mfa);
+    template<typename T, T Func>
+    void emit_bitwise_fallback_body(const ErtsCodeMFA *mfa);
 
-    template<typename T>
-    void emit_bitwise_fallback_guard(T(*func_ptr));
+    template<typename T, T Func>
+    void emit_bitwise_fallback_guard();
 
     x86::Mem emit_i_length_common(Label fail, int state_size);
 

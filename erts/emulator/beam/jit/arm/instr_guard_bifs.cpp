@@ -76,7 +76,7 @@ void BeamGlobalAssembler::emit_bif_is_eq_exact_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<2>(eq);
+    runtime_call<int (*)(Eterm, Eterm), eq>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -108,7 +108,7 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<2>(eq);
+    runtime_call<int (*)(Eterm, Eterm), eq>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -821,7 +821,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
         emit_cond_to_bool(arm::CondCode::kEQ, Dst);
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         cmp(ARG1, THE_NON_VALUE);
@@ -914,7 +914,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         }
     } else {
         emit_enter_runtime();
-        runtime_call<2>(get_map_element);
+        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
         emit_leave_runtime();
 
         if (Fail.get() == 0) {

@@ -254,7 +254,7 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
            BEAM_ASM_FUNC_PROLOGUE_SIZE);
 }
 
-static void i_emit_nyi(char *msg) {
+static void i_emit_nyi(const char *msg) {
     erts_exit(ERTS_ERROR_EXIT, "NYI: %s\n", msg);
 }
 
@@ -262,7 +262,7 @@ void BeamModuleAssembler::emit_nyi(const char *msg) {
     emit_enter_runtime(0);
 
     a.mov(ARG1, imm(msg));
-    runtime_call<1>(i_emit_nyi);
+    runtime_call<void (*)(const char *), i_emit_nyi>();
 
     /* Never returns */
 }

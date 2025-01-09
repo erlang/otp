@@ -120,7 +120,7 @@ void BeamGlobalAssembler::emit_plus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     emit_leave_runtime_frame();
 
@@ -188,7 +188,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_plus);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
         emit_leave_runtime(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -219,7 +219,7 @@ void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_unary_minus);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
 
     emit_leave_runtime_frame();
 
@@ -275,7 +275,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<2>(erts_unary_minus);
+        runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
         emit_leave_runtime(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
@@ -309,7 +309,7 @@ void BeamGlobalAssembler::emit_minus_body_shared() {
     emit_enter_runtime_frame();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_minus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
 
     emit_leave_runtime_frame();
 
@@ -376,7 +376,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_mixed_minus);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
         emit_leave_runtime(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -417,7 +417,8 @@ void BeamGlobalAssembler::emit_int128_to_big_shared() {
     emit_enter_runtime_frame();
     emit_enter_runtime();
 
-    runtime_call<4>(beam_jit_int128_to_big);
+    runtime_call<Eterm (*)(Process *, Uint, Uint, Uint),
+                 beam_jit_int128_to_big>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -446,7 +447,8 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     a.str(ARG4, TMP_MEM4q);
 
     lea(ARG5, TMP_MEM3q);
-    runtime_call<5>(erts_mul_add);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
+                 erts_mul_add>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
@@ -456,7 +458,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
 
     a.bind(mul_only);
     {
-        runtime_call<3>(erts_mixed_times);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -499,13 +501,13 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     emit_enter_runtime();
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_times);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
     emit_branch_if_not_value(ARG1, mul_failed);
 
     a.ldr(ARG3, TMP_MEM1q);
     a.mov(ARG2, ARG1);
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_plus);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     a.bind(mul_failed);
     emit_leave_runtime();
@@ -776,7 +778,8 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
         a.mov(ARG1, c_p);
         lea(ARG4, TMP_MEM4q);
         lea(ARG5, TMP_MEM5q);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -839,7 +842,8 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         a.mov(ARG1, c_p);
         lea(ARG4, TMP_MEM4q);
         lea(ARG5, TMP_MEM5q);
-        runtime_call<5>(erts_int_div_rem);
+        runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
+                     erts_int_div_rem>();
 
         emit_leave_runtime();
         emit_leave_runtime_frame();
@@ -1097,7 +1101,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
     emit_enter_runtime(Live.get());
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(erts_mixed_div);
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_div>();
 
     emit_leave_runtime(Live.get());
 
@@ -1127,9 +1131,8 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
  *
  * The result is returned in ARG1.
  */
-template<typename T>
-void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
-                                                     const ErtsCodeMFA *mfa) {
+template<typename T, T Func>
+void BeamGlobalAssembler::emit_bitwise_fallback_body(const ErtsCodeMFA *mfa) {
     Label error = a.newLabel();
 
     emit_enter_runtime_frame();
@@ -1138,7 +1141,7 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
     a.stp(ARG2, ARG3, TMP_MEM1q);
 
     a.mov(ARG1, c_p);
-    runtime_call<3>(func_ptr);
+    runtime_call<T, Func>();
 
     emit_leave_runtime_frame();
 
@@ -1160,7 +1163,8 @@ void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
 
 void BeamGlobalAssembler::emit_i_band_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_band, 2};
-    emit_bitwise_fallback_body(erts_band, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_band>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
@@ -1228,7 +1232,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_band);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_band>();
+
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -1255,7 +1260,8 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bor, 2};
-    emit_bitwise_fallback_body(erts_bor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
@@ -1301,7 +1307,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bor);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bor>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -1328,7 +1334,8 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bxor_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bxor, 2};
-    emit_bitwise_fallback_body(erts_bxor, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
@@ -1364,7 +1371,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     if (Fail.get() != 0) {
         emit_enter_runtime(Live.get());
         a.mov(ARG1, c_p);
-        runtime_call<3>(erts_bxor);
+        runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>();
         emit_leave_runtime(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
@@ -1396,7 +1403,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
     a.eor(ARG2, ARG1, imm(~_TAG_IMMED1_MASK));
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime_frame();
 
@@ -1423,7 +1430,7 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     a.str(ARG2, TMP_MEM1q);
 
     a.mov(ARG1, c_p);
-    runtime_call<2>(erts_bnot);
+    runtime_call<Eterm (*)(Process *, Eterm), erts_bnot>();
 
     emit_leave_runtime_frame();
 
@@ -1491,7 +1498,8 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bsr_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsr, 2};
-    emit_bitwise_fallback_body(erts_bsr, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>(
+            &bif_mfa);
 }
 
 void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
@@ -1573,7 +1581,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bsr);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
@@ -1601,7 +1609,8 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bsl_body_shared() {
     static const ErtsCodeMFA bif_mfa = {am_erlang, am_bsl, 2};
-    emit_bitwise_fallback_body(erts_bsl, &bif_mfa);
+    emit_bitwise_fallback_body<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>(
+            &bif_mfa);
 }
 
 static int count_leading_zeroes(UWord value) {
@@ -1742,7 +1751,7 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
         if (Fail.get() != 0) {
             emit_enter_runtime(Live.get());
             a.mov(ARG1, c_p);
-            runtime_call<3>(erts_bsl);
+            runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>();
             emit_leave_runtime(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));

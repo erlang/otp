@@ -53,6 +53,34 @@ extern "C"
 
 using namespace asmjit;
 
+/* The ERTS_JIT_ABI_XYZ macro lets us simulate a different calling convention
+ * than the one we are running on, which is useful for debugging
+ * Windows-specific JIT problems where we lack `rr`.
+ *
+ * If the problem is in the JIT alone, we can thus reproduce it on Linux by
+ * generating code as if we're on Windows. The `runtime_call` template
+ * seamlessly switches conventions as required so that we don't have to update
+ * any calls. */
+#if defined(WIN32)
+#    define ERTS_JIT_ABI_WIN32
+#elif !defined(ERTS_JIT_ABI_WIN32)
+#    undef ERTS_JIT_ABI_SYSV
+#    define ERTS_JIT_ABI_SYSV
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32) && !defined(WIN32)
+#    if defined(__GNUC__) || defined(__clang__)
+#        define ERTS_CCONV_ERTS
+#        define ERTS_CCONV_JIT __attribute__((ms_abi))
+#        define ERTS_CCONV_DEBUG
+#    else
+#        error "Unsupported JIT debug configuration"
+#    endif
+#else
+#    define ERTS_CCONV_ERTS
+#    define ERTS_CCONV_JIT
+#endif
+
 struct BeamAssembler : public BeamAssemblerCommon {
     BeamAssembler() : BeamAssemblerCommon(a) {
         Error err = code.attach(&a);
@@ -110,7 +138,7 @@ protected:
 #endif
 
     /* * * * * * * * * */
-#ifdef WIN32
+#if defined(ERTS_JIT_ABI_WIN32)
     const x86::Gp ARG1 = x86::rcx;
     const x86::Gp ARG2 = x86::rdx;
     const x86::Gp ARG3 = x86::r8;
@@ -127,7 +155,7 @@ protected:
     const x86::Gp ARG4d = x86::r9d;
     const x86::Gp ARG5d = x86::r10d;
     const x86::Gp ARG6d = x86::r11d;
-#else
+#elif defined(ERTS_JIT_ABI_SYSV)
     const x86::Gp ARG1 = x86::rdi;
     const x86::Gp ARG2 = x86::rsi;
     const x86::Gp ARG3 = x86::rdx;
@@ -414,35 +442,59 @@ protected:
     static const uint8_t nop2[2];
     static const uint8_t nop3[3];
 
-    void runtime_call(x86::Gp func, unsigned args) {
-        ASSERT(args < 5);
+    template<typename T>
+    struct function_traits;
 
-        emit_assert_runtime_stack();
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_ERTS *)(Domain...)> {
+        static constexpr bool Emulator = true;
+        static constexpr bool Jit = std::is_same_v<void(ERTS_CCONV_ERTS *)(),
+                                                   void(ERTS_CCONV_JIT *)()>;
+        static constexpr size_t Arity = sizeof...(Domain);
 
-#ifdef WIN32
-        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-        a.call(func);
-        a.add(x86::rsp, imm(4 * sizeof(UWord)));
-#else
-        a.call(func);
+#ifdef ERTS_CCONV_DEBUG
+        /* If the emulator and JIT conventions differ, this acts as a seamless
+         * bridge between the two conventions. */
+        template<Range(ERTS_CCONV_ERTS *Func)(Domain...)>
+        struct trampoline {
+            using type = Range(ERTS_CCONV_JIT *)(Domain...);
+
+            static Range ERTS_CCONV_JIT marshal(Domain... args) {
+                ERTS_CT_ASSERT(Emulator != Jit);
+
+                return Func(args...);
+            }
+        };
 #endif
+    };
+
+#ifdef ERTS_CCONV_DEBUG
+    template<typename Range, typename... Domain>
+    struct function_traits<Range(ERTS_CCONV_JIT *)(Domain...)> {
+        static constexpr bool Emulator = false;
+        static constexpr bool Jit = true;
+        static constexpr size_t Arity = sizeof...(Domain);
+    };
+#endif
+
+    template<typename T,
+             T Func,
+             std::enable_if_t<!function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
+        using trampoline =
+                typename function_traits<T>::template trampoline<Func>;
+        runtime_call<typename trampoline::type, trampoline::marshal>();
     }
 
-    template<typename T>
-    struct function_arity;
-    template<typename T, typename... Args>
-    struct function_arity<T(Args...)>
-            : std::integral_constant<int, sizeof...(Args)> {};
-
-    template<int expected_arity, typename T>
-    void runtime_call(T(*func)) {
-        static_assert(expected_arity == function_arity<T>());
-
+    template<typename T,
+             T Func,
+             std::enable_if_t<function_traits<T>::Jit, bool> = true>
+    void runtime_call() {
         emit_assert_runtime_stack();
 
-#ifdef WIN32
-        unsigned pushed;
-        switch (expected_arity) {
+#if defined(ERTS_JIT_ABI_WIN32)
+        unsigned pushed = 4;
+        switch (function_traits<T>::Arity) {
         case 6:
         case 5:
             /* We push ARG6 to keep the stack aligned even when we only have 5
@@ -450,20 +502,44 @@ protected:
              * sub/push/sub. */
             a.push(ARG6);
             a.push(ARG5);
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 6;
+            pushed += 2;
             break;
-        default:
-            a.sub(x86::rsp, imm(4 * sizeof(UWord)));
-            pushed = 4;
         }
-
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
 
-        a.call(imm(func));
+        a.call(imm(Func));
 
-#ifdef WIN32
+#if defined(ERTS_CCONV_DEBUG) && defined(DEBUG)
+        /* Explicitly clobber all temporary registers to provoke ABI errors. */
+        a.xor_(ARG1d, ARG1d);
+        a.mov(ARG2d, ARG1d);
+        a.mov(ARG3d, ARG1d);
+        a.mov(ARG4d, ARG1d);
+        a.mov(ARG5d, ARG1d);
+        a.mov(ARG6d, ARG1d);
+        a.mov(TMP1, ARG1);
+        a.mov(TMP2, ARG1);
+#endif
+
+#if defined(ERTS_JIT_ABI_WIN32)
         a.add(x86::rsp, imm(pushed * sizeof(UWord)));
+#endif
+    }
+
+    template<int Arity>
+    void dynamic_runtime_call(x86::Gp func) {
+        emit_assert_runtime_stack();
+        ERTS_CT_ASSERT(Arity <= 4);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.sub(x86::rsp, imm(4 * sizeof(UWord)));
+#endif
+
+        a.call(func);
+
+#ifdef ERTS_JIT_ABI_WIN32
+        a.add(x86::rsp, imm(4 * sizeof(UWord)));
 #endif
     }
 

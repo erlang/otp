@@ -114,7 +114,7 @@ void BeamGlobalAssembler::emit_fconv_shared() {
 
     /* ARG1 already contains the source term. */
     lea(ARG2, TMP_MEM1q);
-    runtime_call<2>(big_to_double);
+    runtime_call<int (*)(Eterm, double *), big_to_double>();
 
     emit_leave_runtime();
     emit_leave_runtime_frame();
