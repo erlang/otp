@@ -704,7 +704,7 @@ select_server_cert_key_pair(_,[], _,_,_,_, undefined) ->
 select_server_cert_key_pair(Session, [#{private_key := Key, certs := [Cert| _] = Certs} | Rest],
                             ClientSignAlgs, ClientSignAlgsCert, CertAuths,
                             #state{static_env = #static_env{cert_db = CertDbHandle,
-                                                            cert_db_ref = CertDbRef} = State},
+                                                            cert_db_ref = CertDbRef}} = State,
                             Default0) ->
     {_, SignAlgo, SignHash, _, _} = tls_handshake_1_3:get_certificate_params(Cert),
     %% TODO: We do validate the signature algorithm and signature hash
