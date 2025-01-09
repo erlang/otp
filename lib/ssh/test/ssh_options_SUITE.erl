@@ -929,11 +929,9 @@ disconnectfun2_client(Config) ->
     ssh:stop_daemon(Pid),
     receive
 	{disconnect,Ref,R,Extra} ->
-            %% Code and Details are undefined for this particular case,
-            %% code is only available when a disconnect message is sent and details
-            %% are not available when receiving a disconnect or the transport
-            %% is closed.
-            #{code := undefined, details := undefined, connection_info := ConnInfo} = Extra,
+            disconnect_received = R,
+            %% Code is only available when a disconnect message is sent
+            #{code := undefined, details := _Details, connection_info := ConnInfo} = Extra,
             Keys = [client_version, server_version, peer, user, sockname, options,
                     algorithms, user_auth],
             true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
@@ -970,21 +968,25 @@ disconnectfun2_server(Config) ->
     Res =
         receive
             {disconnect_client,Ref,R,Extra} ->
+                %% Code 14 is SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
+                %% https://datatracker.ietf.org/doc/html/rfc4253#section-11.1
                 #{code := 14, details := Details, connection_info := ConnInfo} = Extra,
                 <<"User auth failed for: \"foo\"">> = iolist_to_binary(Details),
+                disconnect_sent = R,
                 Keys = [client_version, server_version, peer, user, sockname, options,
                         algorithms, user_auth],
                 true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
                 ct:log("Disconnect result client: ~p ~p",[R, Extra]),
                 receive
                     {disconnect_server,RefS,RS,ExtraS} ->
+                        %% Code is only available when a disconnect message is sent
+                        #{code := undefined,
+                          details := DetailsS,
+                          connection_info := ConnInfoS} = ExtraS,
                         <<"Received disconnect: "
                           "Unable to connect using the available authentication methods">> =
-                            iolist_to_binary(RS),
-                        %% Details and Code are undefined for this particular case
-                        #{code := undefined,
-                          details := undefined,
-                          connection_info := ConnInfoS} = ExtraS,
+                            iolist_to_binary(DetailsS),
+                        disconnect_received = RS,
                         KeysS = [client_version, server_version, peer, user, sockname, options,
                                 algorithms, user_auth],
                         true = lists:all(fun({K, _}) -> lists:member(K, KeysS) end, ConnInfoS),

@@ -754,7 +754,7 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     {disconnect, _, RepliesCon} =
 	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
-    disconnect_fun("Received disconnect: "++Desc, D),
+    disconnect_fun("Received disconnect: "++Desc, D, disconnect_received),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
 handle_event(internal, #ssh_msg_ignore{}, _StateName, _) ->
@@ -1305,7 +1305,7 @@ handle_event(info, {CloseTag,Socket}, _StateName,
                         transport_close_tag = CloseTag,
                         connection_state = C0}) ->
     {Repls, D} = send_replies(ssh_connection:handle_stop(C0), D0),
-    disconnect_fun("Received a transport close", D),
+    disconnect_fun("Received a transport close", D, transport_close_received),
     {stop_and_reply, {shutdown,"Connection closed"}, Repls, D};
 
 handle_event(info, {timeout, {_, From} = Request}, _,
@@ -1896,7 +1896,11 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
     call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, undefined).
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, Code) ->
-    case disconnect_fun(LogMsg, D, DetailedText, Code) of
+    Reason = case Code of
+                 undefined -> internal_disconnect;
+                 Code when is_integer(Code) -> disconnect_sent
+             end,
+    case disconnect_fun(LogMsg, D, Reason, DetailedText, Code) of
         void ->
             log(info, D,
                 "~s~n"
@@ -2129,12 +2133,12 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-disconnect_fun(Reason, D) -> disconnect_fun(Reason, D, undefined, undefined).
-disconnect_fun(Reason, D, Details, Code) ->
+disconnect_fun(ReasonText, D, Reason) -> disconnect_fun(ReasonText, D, Reason, ReasonText, undefined).
+disconnect_fun(ReasonText, D, Reason, Details, Code) ->
     Fun = ?GET_OPT(disconnectfun, (D#data.ssh_params)#ssh.opts),
     case erlang:fun_info(Fun, arity) of
         {arity, 1} ->
-            Fun(Reason);
+            Fun(ReasonText);
         {arity, 2} ->
             Keys = [client_version,
                     server_version,

@@ -466,12 +466,34 @@ where `...` are arguments to `F` as in `m:ssh_client_key_api` and/or
 """.
 -doc(#{group => <<"Common Options">>}).
 -type key_cb_common_option()            :: {key_cb,  Module::atom() | {Module::atom(),Opts::[term()]} } .
--doc "Provides a fun to implement your own logging or other handling at disconnects.".
+-doc """
+Provides a fun to implement your own logging or other handling at disconnects.
+
+disconnect_fun/1 receives a pre prepared log message.
+
+disconnect_fun/2 can be used if more information is needed and
+there's four types of disconnect `Reason` which is provided as the first
+argument of the callback:
+- `disconnect_received` when a disconnect message is received from the peer;
+- `disconnect_sent` - when a disconnect message is sent to the peer, `code` will
+  have the disconnect message reason code;
+- `internal_disconnect` when an error occurred and the connection can't proceed,
+  e.g. a protocol mismatch was detected;
+- `transport_close_received` when a transport close was received.
+
+The second argument of the callback contains extra information, a text
+message with detailed information `Details`, the connection information
+`Info` and in case the disconnect `Reason` is `disconnect_sent` the `Code`
+of the disconnect message as defined in section-11.1 of the RFC4253.
+""".
 -doc(#{group => <<"Common Options">>}).
+-type disconnect_reason() ::  disconnect_received | disconnect_sent
+                            | internal_disconnect | transport_close_received.
 -type disconnectfun_common_option()     ::
         {disconnectfun, fun((Reason::term()) -> void | any()) |
-        fun((Reason::term(), #{details := undefined | Details::string(),
-                               connection_info := Info::proplists:proplist()}) -> void | any())}.
+        fun((Reason::disconnect_reason(), #{code := undefined | Code::pos_integer(),
+                                            details := undefined | Details::iodata(),
+                                            connection_info := Info::proplists:proplist()}) -> void | any())}.
 -doc """
 Provides a fun to implement your own logging or other action when an unexpected
 message arrives. If the fun returns `report` the usual info report is issued but
