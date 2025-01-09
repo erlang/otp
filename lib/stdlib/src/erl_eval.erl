@@ -927,28 +927,30 @@ do_apply(F, Anno, FunOrModFun, Args) when is_function(F, 3) ->
 do_apply(F, _Anno, FunOrModFun, Args) when is_function(F, 2) ->
     F(FunOrModFun, Args).
 
-%% eval_lc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
+%% eval_lc(ExprOrExprs, [Qualifier], Bindings, LocalFunctionHandler,
 %%         ExternalFuncHandler, RetBindings) ->
 %%	{value,Value,Bindings} | Value
 
+eval_lc(Es, Qs, Bs, Lf, Ef, RBs, FUVs) when is_list(Es) ->
+    ret_expr(lists:reverse(eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, [])), Bs, RBs);
 eval_lc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
-    ret_expr(lists:reverse(eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, [])), Bs, RBs).
+    eval_lc([E], Qs, Bs, Lf, Ef, RBs, FUVs).
 
-eval_lc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+eval_lc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
-    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_lc1/7);
-eval_lc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_lc1/7);
+eval_lc1(Es, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
-            CF = fun(Bs, Acc) -> eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
+            CF = fun(Bs, Acc) -> eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc) end,
             eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
         false ->
-            CF = fun(Bs) -> eval_lc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
+            CF = fun(Bs) -> eval_lc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
             eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
     end;
-eval_lc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
-    {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
-    [V|Acc].
+eval_lc1(Es, [], Bs, Lf, Ef, FUVs, Acc) ->
+    {Vs, _} = expr_list(Es, Acc, Bs, Bs, Lf, Ef, FUVs),
+    Vs.
 
 %% convert values for generator vars from abstract form to flattened lists
 convert_gen_values([{Generate, Anno, P, L0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
@@ -1530,13 +1532,14 @@ expr_list(Es, Bs, Lf, Ef) ->
     expr_list(Es, Bs, Lf, Ef, empty_fun_used_vars()).
 
 expr_list(Es, Bs, Lf, Ef, FUVs) ->
-    expr_list(Es, [], Bs, Bs, Lf, Ef, FUVs).
+    {Vs, Bs1} = expr_list(Es, [], Bs, Bs, Lf, Ef, FUVs),
+    {reverse(Vs), Bs1}.
 
 expr_list([E|Es], Vs, BsOrig, Bs0, Lf, Ef, FUVs) ->
     {value,V,Bs1} = expr(E, BsOrig, Lf, Ef, none, FUVs),
     expr_list(Es, [V|Vs], BsOrig, merge_bindings(Bs1, Bs0, element(2, E), Ef), Lf, Ef, FUVs);
 expr_list([], Vs, _, Bs, _Lf, _Ef, _FUVs) ->
-    {reverse(Vs),Bs}.
+    {Vs,Bs}.
 
 eval_op(Op, Arg1, Arg2, Anno, Bs, Ef, RBs) ->
     do_apply(erlang, Op, [Arg1,Arg2], Anno, Bs, Ef, RBs).

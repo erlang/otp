@@ -32,6 +32,7 @@
          zlc/1,
          zbc/1,
          zmc/1,
+         multi_lc/1,
          simple_cases/1,
          unary_plus/1,
          apply_atom/1,
@@ -104,7 +105,7 @@ all() ->
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
      eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
-     zlc, zbc, zmc].
+     zlc, zbc, zmc, multi_lc].
 
 groups() ->
     [].
@@ -439,6 +440,16 @@ zmc(Config) when is_list(Config) ->
     error_check("begin #{X=>Y || X <- [1] && Y <- a && K1:=V1 <- #{b=>3}} end.",
         {bad_generators,{[1], a, #{b=>3}}}),
     ok.
+
+%% EEP 77: multi-comprehensions
+multi_lc(Config) when is_list(Config) ->
+    check(fun() -> lists:append([[1, 2] || _ <- [1, 2]]) end,
+          "[1, 2 || _ <- [1, 2]].",
+          [1, 2, 1, 2]),
+    check(fun() -> lists:append([[one, two] || true]) end,
+          "[one, two || true].",
+          [one, two]),
+    error_check("[X = 1, X || true].", {unbound_var,'X'}).
 
 %% Simple cases, just to cover some code.
 simple_cases(Config) when is_list(Config) ->
