@@ -32,7 +32,8 @@
 	 test_if/1,source_name/1,otp_16978/1,otp_16824/1,scan_file/1,file_macro/1,
          deterministic_include/1, nondeterministic_include/1,
          gh_8268/1,
-         moduledoc_include/1
+         moduledoc_include/1,
+         stringify/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -78,7 +79,8 @@ all() ->
      otp_14285, test_if, source_name, otp_16978, otp_16824, scan_file, file_macro,
      deterministic_include, nondeterministic_include,
      gh_8268,
-     moduledoc_include].
+     moduledoc_include,
+     stringify].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -2121,6 +2123,19 @@ gh_8268(Config) ->
     [] = run(Config, Ts),
     ok.
 
+stringify(Config) ->
+    Ts = [{stringify_1,
+           ~"""
+            -define(S(S), ??S).
+            t() ->
+                ~S('атом') = ?S('атом'),
+                ~S("атом") = ?S("атом"),
+                ok.
+            """,
+           [],
+           ok}],
+    [] = run(Config, Ts),
+    ok.
 
 %% Start location is 1.
 check(Config, Tests) ->
