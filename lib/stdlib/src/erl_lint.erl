@@ -4033,7 +4033,7 @@ icrt_export([], _, _, _, Acc) ->
 
 handle_comprehension(E, Qs, Vt0, St0) ->
     {Vt1, Uvt, St1} = lc_quals(Qs, Vt0, St0),
-    {Evt,St2} = comprehension_expr(E, Vt1, St1),
+    {Evt,St2} = comprehension_exprs(E, Vt1, St1),
     Vt2 = vtupdate(Evt, Vt1),
     %% Shadowed global variables.
     {_,St3} = check_old_unused_vars(Vt2, Uvt, St2),
@@ -4049,6 +4049,14 @@ handle_comprehension(E, Qs, Vt0, St0) ->
     %% icrt_export/4.
     Vt = vt_no_unsafe(vt_no_unused(Vt4)),
     {Vt, St}.
+
+comprehension_exprs(Es, Vt, St0) when is_list(Es) ->
+    foldl(fun (E, {Esvt, St1}) ->
+                  {Evt, St2} = comprehension_expr(E, Vt, St1),
+                  vtmerge_pat(Evt, Esvt, St2)
+          end, {[], St0}, Es);
+comprehension_exprs(E, Vt, St) ->
+    comprehension_expr(E, Vt, St).
 
 comprehension_expr({map_field_assoc,_,K,V}, Vt0, St0) ->
     expr_list([K,V], Vt0, St0);
