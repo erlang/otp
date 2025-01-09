@@ -33,7 +33,8 @@
 -include("tls_record_1_3.hrl").
 
 %% Setup
--export([start_fsm/8,
+-export([start_fsm/6,
+         start_fsm/7,
          pids/1,
          initialize_tls_sender/1]).
 
@@ -72,20 +73,33 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {SSLOpts, _, _Trackers} = Opts,
+start_fsm(Host, Port, Socket, {SSLOpts, _, _Trackers} = Opts,
 	  User, CbInfo, Timeout) ->
     ErlDist = maps:get(erl_dist, SSLOpts, false),
     SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
     SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
-    Starter = start_connection_tree(User, ErlDist, SenderOptions,
-                                    Role, [Host, Port, Socket, Opts, User, CbInfo]),
-    receive
-        {Starter, {ok, SockReceiver}} ->
-            receive {SockReceiver, user_socket, UserSocket} ->
-                    socket_control(UserSocket, Timeout)
-            end;
-        {Starter, Error} ->
-            Error
+    {ok, DynSup} = start_connection_tree(ErlDist, SenderOptions,
+                                   [client, Host, Port, Socket, Opts, User, CbInfo]),
+    {ok, {_, Receiver,_,_}} = supervisor:which_child(DynSup, receiver),
+    receive {Receiver, user_socket, UserSocket} ->
+            case ssl_gen_statem:socket_control(UserSocket) of
+                {ok, SslSocket} ->
+                    ssl_gen_statem:handshake(SslSocket, Timeout);
+                Error ->
+                    Error
+            end
+    end.
+
+start_fsm(Port, Socket, {SSLOpts, _, _Trackers} = Opts,
+	  User, CbInfo, _Timeout) ->
+    ErlDist = maps:get(erl_dist, SSLOpts, false),
+    SenderSpawnOpts = maps:get(sender_spawn_opts, SSLOpts, []),
+    SenderOptions = handle_sender_options(ErlDist, SenderSpawnOpts),
+    {ok, DynSup} = start_connection_tree(ErlDist, SenderOptions,
+                                   [server, "localhost", Port, Socket, Opts, User, CbInfo]),
+    {ok, {_, Receiver,_,_}} = supervisor:which_child(DynSup, receiver),
+    receive {Receiver, user_socket, UserSocket} ->
+            ssl_gen_statem:socket_control(UserSocket)
     end.
 
 handle_sender_options(ErlDist, SpawnOpts) ->
@@ -96,48 +110,13 @@ handle_sender_options(ErlDist, SpawnOpts) ->
             [[{spawn_opt, SpawnOpts}]]
     end.
 
-start_connection_tree(User, IsErlDist, SenderOpts, Role, ReceiverOpts) ->
-    StartConnectionTree =
-        fun() ->
-                try start_dyn_connection_sup(IsErlDist) of
-                    {ok, DynSup} ->
-                        case tls_dyn_connection_sup:start_child(DynSup, sender, SenderOpts) of
-                            {ok, Sender} ->
-                                Args = [Role, Sender | ReceiverOpts],
-                                case tls_dyn_connection_sup:start_child(DynSup, receiver, Args) of
-                                    {ok, Receiver} ->
-                                        User ! {self(), {ok, Receiver}};
-                                    {error, _} = Error ->
-                                        User ! {self(), Error},
-                                        exit(DynSup, shutdown)
-                                end;
-                            {error, _} = Error ->
-                                User ! {self(), Error},
-                                exit(DynSup, shutdown)
-                        end;
-                    {error, _Error} = Error ->
-                        User ! {self(), Error}
-                catch exit:{noproc, _} ->
-                        User ! {self(), {error, ssl_not_started}};
-                      _:Reason:ST ->  %% Don't hang signal internal error
-                        ?SSL_LOG(notice, internal_error, [{error, Reason}, {stacktrace, ST}]),
-                        User ! {self(), {error, internal_error}}
-                end
-        end,
-    spawn(StartConnectionTree).
-
-start_dyn_connection_sup(true) ->
-    tls_connection_sup:start_child_dist([]);
-start_dyn_connection_sup(false) ->
-    tls_connection_sup:start_child([]).
-
-socket_control(SslSocket, Timeout) ->
-    case ssl_gen_statem:socket_control(SslSocket) of
-        {ok, SslSocket} ->
-            ssl_gen_statem:handshake(SslSocket, Timeout);
-        Error ->
-            Error
-    end.
+start_connection_tree(IsErlDist, SenderOpts, ReceiverOpts) ->
+    case IsErlDist of
+        false ->
+            tls_connection_sup:start_child([SenderOpts, ReceiverOpts]);
+        true ->
+            tls_connection_sup:start_child_dist([SenderOpts, ReceiverOpts])
+    end.   
 
 pids(#state{protocol_specific = #{sender := Sender}}) ->
     [self(), Sender].

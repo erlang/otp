@@ -58,7 +58,7 @@ init(_) ->
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
-                    start    => {ssl_gen_statem, start_link, []},
+                    start    => {ssl_gen_statem, dtls_start_link, []},
                     restart  => temporary,
                     shutdown => 4000,
                     modules  => [ssl_gen_statem, dtls_connection],
