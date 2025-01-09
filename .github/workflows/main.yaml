@@ -399,6 +399,11 @@ jobs:
                 echo "::endgroup::"
               done
             done
+      - name: Build Erlang/OTP JIT Win32 ABI
+        run: >
+            docker run otp './configure CFLAGS="$CFLAGS -DERTS_JIT_ABI_WIN32=1" &&
+                 make && make TYPE=debug &&
+                 cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
 
   build:
     name: Build Erlang/OTP
