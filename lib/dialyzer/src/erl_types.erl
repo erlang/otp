@@ -4632,9 +4632,9 @@ check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
   {Type, C1} = t_from_form(Abstr, ET, Site, MR, V, C),
   {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
   TypeNoVars = subst_all_vars_to_any(Type),
-  case t_is_subtype(TypeNoVars, DeclType) of
-    false -> {error, Name};
-    true -> check_fields(RecName, Left, DeclFields, S, C1)
+  case t_is_impossible(t_inf(TypeNoVars, DeclType)) of
+    true -> {error, Name};
+    false -> check_fields(RecName, Left, DeclFields, S, C1)
   end;
 check_fields(_RecName, [], _Decl, _S, C) ->
   C.
