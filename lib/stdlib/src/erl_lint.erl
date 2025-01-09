@@ -357,16 +357,6 @@ format_error_1({call_to_redefined_bif,{F,A}}) ->
       ambiguous call of overridden auto-imported BIF ~w/~w --
       use erlang:~w/~w or "-compile({no_auto_import,[~w/~w]})." to resolve name clash
       """, [F,A,F,A,F,A]};
-format_error_1({call_to_redefined_old_bif,{F,A}}) ->
-    {~"""
-      ambiguous call of overridden pre Erlang/OTP R14 auto-imported BIF ~w/~w --
-      use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash
-      """, [F,A,F,A,F,A]};
-format_error_1({redefine_old_bif_import,{F,A}}) ->
-    {~"""
-      import directive overrides pre Erlang/OTP R14 auto-imported BIF ~w/~w --
-      use "-compile({no_auto_import,[~w/~w]})." to resolve name clash
-      """, [F,A,F,A]};
 format_error_1({redefine_bif_import,{F,A}}) ->
     {~"""
       import directive overrides auto-imported BIF ~w/~w --
@@ -1830,13 +1820,7 @@ import(Anno, {Mod,Fs}, St00) ->
 			      Warn = is_warn_enabled(bif_clash, St0) andalso
 				  (not bif_clash_specifically_disabled(St0,{F,A})),
 			      AutoImpSup = is_autoimport_suppressed(St0#lint.no_auto,{F,A}),
-			      OldBif = erl_internal:old_bif(F,A),
 			      {Err,if
-				       Warn and (not AutoImpSup) and OldBif ->
-					   add_error
-					     (Anno,
-					      {redefine_old_bif_import, {F,A}},
-					      St0);
 				       Warn and (not AutoImpSup) ->
 					   add_warning
 					     (Anno,
@@ -2910,16 +2894,7 @@ check_call(Anno, F, As, _Aa, St0) ->
                              false ?= AutoSuppressed,
                              true ?= is_warn_enabled(bif_clash, St0),
                              false ?= bif_clash_specifically_disabled(St0, {F,A}),
-                             case erl_internal:old_bif(F, A) of
-                                 true ->
-                                     add_error(Anno,
-                                               {call_to_redefined_old_bif, {F,A}},
-                                               St0);
-                                 false ->
-                                     add_warning(Anno,
-                                                 {call_to_redefined_bif, {F,A}},
-                                                 St0)
-                             end
+                             add_warning(Anno, {call_to_redefined_bif, {F,A}}, St0)
                          else
                              _ ->
                                  St0
