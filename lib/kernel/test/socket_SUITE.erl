@@ -70,15 +70,17 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
@@ -2527,7 +2529,8 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
-              "~n", [_TC, Config]),
+              "~n   links:  ~p"
+              "~n", [_TC, Config, links()]),
     %% case quiet_mode(Config) of
     %%     default ->
     %%         ?LOGGER:start();
@@ -12582,6 +12585,10 @@ api_opt_simple_otp_meta_option() ->
 %% The operations we test here are only for type = stream and
 %% protocol = tcp.
 api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
+    ?SEV_IPRINT("~w -> entry with"
+		"~n   Config: ~p"
+		"~n   links:  ~p",
+		[?FUNCTION_NAME, _Config, links()]),
     ?TT(?SECS(15)),
     tc_try(?FUNCTION_NAME,
            fun() ->
@@ -12589,6 +12596,10 @@ api_opt_simple_otp_rcvbuf_option(_Config) when is_list(_Config) ->
            end).
 
 api_opt_simple_otp_rcvbuf_option() ->
+    put(sname, tc),
+    ?SEV_IPRINT("~w -> entry with"
+		"~n   links:  ~p",
+		[?FUNCTION_NAME, links()]),
     Get = fun(S) ->
                   socket:getopt(S, otp, rcvbuf)
           end,
@@ -12674,7 +12685,7 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, MsgSz} ->
-                                   ?SEV_IPRINT("MsgSz: ~p", [MsgSz]),
+                                   ?SEV_IPRINT("Msg Sz to expect: ~p", [MsgSz]),
                                    {ok, State#{msg_sz => MsgSz}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -12682,12 +12693,13 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
          #{desc => "attempt to recv",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                           ?SEV_IPRINT("try (recv ~w) bytes when rcvbuf is ~s", 
                                        [MsgSz,
                                         case Get(Sock) of
                                             {ok, RcvBuf} -> f("~w", [RcvBuf]);
                                             {error, _}   -> "-"
                                         end]),
+			   _ = socket:setopt(Sock, otp, debug, true),
                            case socket:recv(Sock) of
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
@@ -12788,7 +12800,7 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, {ExpSz, NewRcvBuf}} ->
-                                   ?SEV_IPRINT("set new rcvbuf:"
+                                   ?SEV_IPRINT("new sizes:"
                                                "~n   New RcvBuf:  ~p"
                                                "~n   Expect Size: ~p",
                                                [ExpSz, NewRcvBuf]),
@@ -12800,6 +12812,7 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
          #{desc => "attempt to setopt rcvbuf",
            cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+			   ?SEV_IPRINT("try set new rcvbuf"),
                            case Set(Sock, NewRcvBuf) of
                                ok ->
                                    ?SEV_IPRINT("set new rcvbuf: ~p",
@@ -12811,7 +12824,7 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
          #{desc => "attempt to recv",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes of data", [MsgSz]),
+                           ?SEV_IPRINT("try recv (~w bytes) of data", [MsgSz]),
                            case socket:recv(Sock) of
                                {ok, Data} when (size(Data) =:= MsgSz) ->
                                    ok;
@@ -41102,23 +41115,36 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
 
          #{desc => "await continue (recv-one-big)",
            cmd  => fun(#{tester := Tester} = State) ->
+			   ?SEV_IPRINT("await 'recv-one-big' continue"),
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv_one_big) of
                                {ok, Size} ->
+				   ?SEV_IPRINT("received "
+					       "'recv-one-big' "
+					       "continue: ~p", [Size]),
                                    {ok, State#{size => Size}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
          #{desc => "recv (one big)",
-           cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
-                           %% socket:setopt(Sock, otp, debug, true),
+           cmd  => fun(#{tester := Tester,
+			 csock  := Sock,
+			 size   := Size} = _State) ->
+                           _ = socket:setopt(Sock, otp, debug, true),
+			   ?SEV_IPRINT("try read one-big chunk (~w)",
+				       [Size]),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
+				   ?SEV_IPRINT("received "
+					       "one big chunk (~w)",
+					       [sz(Data)]),
                                    ?SEV_ANNOUNCE_READY(Tester,
                                                        recv_one_big,
                                                        b2l(Data)),
                                    ok;
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+				   ?SEV_EPRINT("failed reading: "
+					       "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -41790,18 +41816,31 @@ traffic_snr_tcp_client(Parent) ->
 traffic_snr_tcp_client_send_loop(Parent, Sock) ->
     case ?SEV_AWAIT_CONTINUE(Parent, parent, send) of
         {ok, stop} -> % Breaks the loop
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected 'stop': break the loop (send ready)"),
             ?SEV_ANNOUNCE_READY(Parent, send, ok),
             ok;
         {ok, Data} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected data (~w bytes) - send data",
+	      [sz(Data)]),
             case socket:send(Sock, Data) of
                 ok ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "data sent (send ready)"),
                     ?SEV_ANNOUNCE_READY(Parent, send, ok),
                     traffic_snr_tcp_client_send_loop(Parent, Sock);
                 {error, Reason} = ERROR ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "failed send data: "
+		      "~n   ~p", [Reason]),
                     ?SEV_ANNOUNCE_READY(Parent, send, ERROR),
                     exit({send, Reason})
             end;
         {error, Reason} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "unexpected error: "
+	      "~n   ~p", [Reason]),
             exit({await_continue, Reason})
     end.
 
@@ -52788,8 +52827,20 @@ mq() ->
     mq(self()).
 
 mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
+    pi(Pid, messages).
+
+
+links() ->
+    links(self()).
+
+links(Pid) when is_pid(Pid) ->
+    pi(Pid, links).
+
+
+pi(Pid, Key) when is_pid(Pid) ->
+    {Key, Value} = process_info(Pid, Key),
+    Value.
+
 
              
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52814,6 +52865,11 @@ l2b(L) when is_list(L) ->
 b2l(B) when is_binary(B) ->
     binary_to_list(B).
 
+sz(B) when is_binary(B) ->
+    byte_size(B);
+sz(L) when is_list(L) ->
+    iolist_size(L).
+
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
@@ -52821,7 +52877,7 @@ i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
+    FStr = f("[~s] ~p " ++ F, [formated_timestamp(), self()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 
