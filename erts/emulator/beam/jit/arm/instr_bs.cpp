@@ -2201,26 +2201,31 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                        seg.size.as<ArgAtom>().get() == am_all) {
                 /* Include the entire binary/bitstring in the
                  * resulting binary. */
+
+                can_fail =
+                        !(exact_type<BeamTypeId::Bitstring>(seg.src) &&
+                          std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit);
+
                 load_erl_bits_state(ARG1);
                 a.mov(ARG2, c_p);
                 mov_arg(ARG3, seg.src);
-                mov_imm(ARG4, seg.unit);
 
                 emit_enter_runtime<Update::eReductions>(Live.get());
-                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
-                             erts_bs_put_binary_all>();
+                if (can_fail) {
+                    mov_imm(ARG4, seg.unit);
+                    runtime_call<
+                            int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                            erts_bs_put_binary_all>();
+                } else {
+                    runtime_call<void (*)(ErlBitsState *, Process *, Eterm),
+                                 beam_jit_bs_put_binary_all>();
+                }
                 emit_leave_runtime<Update::eReductions>(Live.get());
 
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
-                    std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
-                    comment("skipped test for success because units are "
-                            "compatible");
-                    can_fail = false;
-                }
             } else {
                 /* The size is a variable. We have verified that
                  * the value is a non-negative small in the
@@ -2252,6 +2257,9 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                     mov_imm(ARG4, error_info);
                 }
                 a.cbz(ARG1, resolve_label(error, disp1MB));
+            } else {
+                comment("skipped test for success because units are "
+                        "compatible");
             }
             break;
         }

@@ -1415,6 +1415,47 @@ void BeamModuleAssembler::set_zero(Sint effectiveSize) {
 }
 
 /*
+ * Efficiently accumulate a value for a binary segment,
+ * using the smallest possible instructions.
+ */
+void BeamModuleAssembler::emit_accumulate(ArgVal src,
+                                          Sint effectiveSize,
+                                          x86::Gp bin_data,
+                                          x86::Gp tmp,
+                                          x86::Gp value,
+                                          bool isFirst) {
+    if (isFirst) {
+        /* There is no need to mask the first value being
+         * accumulated. */
+        if (effectiveSize > 32) {
+            a.mov(bin_data, value);
+        } else {
+            a.mov(bin_data.r32(), value.r32());
+        }
+        return;
+    }
+
+    ASSERT(effectiveSize < 64);
+
+    if (!need_mask(src, effectiveSize)) {
+        comment("skipped masking because the value always fits");
+    } else if (effectiveSize == 32) {
+        a.mov(value.r32(), value.r32());
+    } else if (effectiveSize == 16) {
+        a.movzx(value.r32(), value.r16());
+    } else if (effectiveSize == 8) {
+        a.movzx(value.r32(), value.r8());
+    } else if (effectiveSize < 32) {
+        a.and_(value.r32(), (1ULL << effectiveSize) - 1);
+    } else {
+        mov_imm(tmp, (1ULL << effectiveSize) - 1);
+        a.and_(value, tmp);
+    }
+
+    a.or_(bin_data, value);
+}
+
+/*
  * In:
  *
  *   ARG3 = valid unicode code point (=> 0x80) to encode
@@ -2308,22 +2349,28 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                        seg.size.as<ArgAtom>().get() == am_all) {
                 /* Include the entire binary/bitstring in the
                  * resulting binary. */
-                mov_imm(ARG4, seg.unit);
+                can_fail =
+                        !(exact_type<BeamTypeId::Bitstring>(seg.src) &&
+                          std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit);
+
+                if (can_fail) {
+                    mov_imm(ARG4, seg.unit);
+                }
                 mov_arg(ARG3, seg.src);
                 a.mov(ARG2, c_p);
                 load_erl_bits_state(ARG1);
-                runtime_call<int (*)(ErlBitsState *, Process *, Eterm, Uint),
-                             erts_bs_put_binary_all>();
+                if (can_fail) {
+                    runtime_call<
+                            int (*)(ErlBitsState *, Process *, Eterm, Uint),
+                            erts_bs_put_binary_all>();
+                } else {
+                    runtime_call<void (*)(ErlBitsState *, Process *, Eterm),
+                                 beam_jit_bs_put_binary_all>();
+                }
                 error_info = beam_jit_update_bsc_reason_info(seg.error_info,
                                                              BSC_REASON_BADARG,
                                                              BSC_INFO_UNIT,
                                                              BSC_VALUE_FVALUE);
-                if (exact_type<BeamTypeId::Bitstring>(seg.src) &&
-                    std::gcd(seg.unit, getSizeUnit(seg.src)) == seg.unit) {
-                    comment("skipped test for success because units are "
-                            "compatible");
-                    can_fail = false;
-                }
             } else {
                 /* The size is a variable. We have verified that
                  * the value is a non-negative small in the
@@ -2347,7 +2394,10 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                                              BSC_VALUE_FVALUE);
             }
 
-            if (can_fail) {
+            if (!can_fail) {
+                comment("skipped test for success because units are "
+                        "compatible");
+            } else {
                 if (Fail.get() == 0) {
                     mov_imm(ARG4, error_info);
                 }
@@ -2399,12 +2449,13 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 x86::Gp bin_data = ARG5;
 
                 comment("accumulate value for integer segment");
-                if (seg.action == BscSegment::action::ACCUMULATE_FIRST) {
-                    mov_imm(bin_data, 0);
-                } else if (seg.effectiveSize < 64) {
+                if (seg.action != BscSegment::action::ACCUMULATE_FIRST &&
+                    seg.effectiveSize < 64) {
                     a.shl(bin_data, imm(seg.effectiveSize));
                 }
-                mov_arg(ARG1, seg.src);
+                if (!seg.src.isSmall()) {
+                    mov_arg(ARG1, seg.src);
+                }
 
                 if (!always_small(seg.src)) {
                     if (always_one_of<BeamTypeId::Integer,
@@ -2441,26 +2492,24 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 }
 
                 a.bind(value_is_small);
-                a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
+                if (seg.src.isSmall()) {
+                    Sint val = signed_val(seg.src.as<ArgSmall>().get());
+                    mov_imm(ARG1, val);
+                } else if (seg.effectiveSize + _TAG_IMMED1_SIZE <= 32) {
+                    a.shr(ARG1d, imm(_TAG_IMMED1_SIZE));
+                } else {
+                    a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
+                }
 
                 /* Mask (if needed) and accumulate. */
                 a.bind(accumulate);
-                if (seg.effectiveSize == 64) {
-                    a.mov(bin_data, ARG1);
-                } else if (!need_mask(seg.src, seg.effectiveSize)) {
-                    comment("skipped masking because the value always fits");
-                    a.or_(bin_data, ARG1);
-                } else if (seg.effectiveSize == 32) {
-                    a.mov(ARG1d, ARG1d);
-                    a.or_(bin_data, ARG1);
-                } else if (seg.effectiveSize < 32) {
-                    a.and_(ARG1, (1ULL << seg.effectiveSize) - 1);
-                    a.or_(bin_data, ARG1);
-                } else {
-                    mov_imm(tmp, (1ULL << seg.effectiveSize) - 1);
-                    a.and_(ARG1, tmp);
-                    a.or_(bin_data, ARG1);
-                }
+                emit_accumulate(seg.src,
+                                seg.effectiveSize,
+                                bin_data,
+                                tmp,
+                                ARG1,
+                                seg.action ==
+                                        BscSegment::action::ACCUMULATE_FIRST);
                 break;
             }
             case BscSegment::action::STORE: {

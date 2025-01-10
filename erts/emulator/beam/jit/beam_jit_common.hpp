@@ -623,6 +623,7 @@ void beam_jit_bs_construct_fail_info(Process *c_p,
                                      Eterm arg3,
                                      Eterm arg1);
 Sint beam_jit_bs_bit_size(Eterm term);
+void beam_jit_bs_put_binary_all(ErlBitsState *EBS, Process *c_p, Eterm arg);
 
 Eterm beam_jit_int128_to_big(Process *p, Uint sign, Uint low, Uint high);
 
