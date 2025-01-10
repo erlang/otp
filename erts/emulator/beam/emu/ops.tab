@@ -1175,7 +1175,7 @@ i_bs_get_integer_32 xy f? d
 bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
     get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 xy f? t W t d
+i_bs_get_binary_imm2 xy f? t W d
 i_bs_get_binary2 xy f t? S t d
 i_bs_get_binary_all2 xy f? t t d
 
@@ -1189,10 +1189,16 @@ i_bs_get_float2 xy f? t s t d
 
 # Miscellaneous
 
-bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
-    skip_bits2(Fail, Ms, Sz, Unit, Flags)
+bs_skip_bits2 Fail=f Ms=xy Sz=xy Unit=u _Flags=u =>
+    i_bs_skip_bits2 Ms Sz Fail Unit
 
-i_bs_skip_bits_imm2 f? xy W
+# Starting with Erlang/OTP 26, bs_skip_bits2 with an immediate size is
+# almost never found in optimized code. Therefore, there is no need to
+# to implement it efficiently.
+
+bs_skip_bits2 Fail=f Ms=xy Sz Unit=u Flags=u =>
+    move Sz x | bs_skip_bits2 Fail Ms x Unit Flags
+
 i_bs_skip_bits2 xy xy f? t
 
 bs_test_tail2 Fail=f _Ms=xy o => jump Fail

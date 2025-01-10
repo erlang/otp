@@ -977,8 +977,19 @@ i_bs_match_string S f W M
 bs_get_integer2 f S t s t t d
 
 # Fetching binaries from binaries.
-bs_get_binary2 Fail=f Ms=xy Live=u Sz=sq Unit=u Flags=u Dst=d =>
-    get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
+bs_get_binary2 Fail=f Ms1=xy Live1=u Sz=xy Unit=u _Flags=u Dst1=d |
+  bs_get_tail Ms2=xy Dst2 Live2 |
+  equal(Ms1, Ms2) |
+  equal(Live1, Live2) =>
+    i_bs_get_bin_and_tail Ms1 Fail Live1 Sz Unit Dst1 Dst2
+
+i_bs_get_bin_and_tail S f t S t d d
+
+bs_get_binary2 Fail=f Ms=xy Live=u _Sz=a==am_all Unit=u _Flags=u Dst=d =>
+    i_bs_get_binary_all2 Ms Fail Live Unit Dst
+
+bs_get_binary2 Fail=f Ms=xy Live=u Sz=s Unit=u _Flags=u Dst=d =>
+    i_bs_get_binary2 Ms Fail Live Sz Unit Dst
 
 i_bs_get_binary2 S f t s t d
 i_bs_get_binary_all2 S f t t d
@@ -993,11 +1004,10 @@ i_bs_get_float2 S f t s t d
 
 # Miscellaneous
 
-bs_skip_bits2 Fail=f Ms=xy Sz=sq Unit=u Flags=u =>
-    skip_bits2(Fail, Ms, Sz, Unit, Flags)
+bs_skip_bits2 Fail=f Ms=xy Sz Unit=u _Flags=u =>
+    i_bs_skip_bits2 Ms Sz Fail Unit
 
-i_bs_skip_bits_imm2 f S W
-i_bs_skip_bits2 S S f t
+i_bs_skip_bits2 S s f t
 
 bs_test_tail2 Fail=f _Ms=xy o => jump Fail
 

@@ -177,15 +177,15 @@ i_bs_get_binary2.fetch(Ctx) {
     context = $Ctx;
 }
 
-i_bs_get_binary2.execute(Fail, Live, Sz, Flags, Dst) {
+i_bs_get_binary2.execute(Fail, Live, Sz, Unit, Dst) {
     ErlSubBits *sb;
     Eterm _result;
     Uint _size;
-    $BS_GET_FIELD_SIZE($Sz, (($Flags) >> 3), $FAIL($Fail), _size);
+    $BS_GET_FIELD_SIZE($Sz, $Unit, $FAIL($Fail), _size);
     $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
     sb = (ErlSubBits*)bitstring_val(context);
     LIGHT_SWAPOUT;
-    _result = erts_bs_get_binary_2(c_p, _size, $Flags, sb);
+    _result = erts_bs_get_binary_2(c_p, _size, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(_result)) {
@@ -206,13 +206,13 @@ i_bs_get_binary_imm2.fetch(Ctx) {
     context = $Ctx;
 }
 
-i_bs_get_binary_imm2.execute(Fail, Live, Sz, Flags, Dst) {
+i_bs_get_binary_imm2.execute(Fail, Live, Sz, Dst) {
     ErlSubBits *sb;
     Eterm _result;
     $GC_TEST_PRESERVE(BUILD_SUB_BITSTRING_HEAP_NEED, $Live, context);
     sb = (ErlSubBits*)bitstring_val(context);
     LIGHT_SWAPOUT;
-    _result = erts_bs_get_binary_2(c_p, $Sz, $Flags, sb);
+    _result = erts_bs_get_binary_2(c_p, $Sz, sb);
     LIGHT_SWAPIN;
     HEAP_SPACE_VERIFIED(0);
     if (is_non_value(_result)) {
@@ -273,17 +273,6 @@ i_bs_skip_bits2.execute(Fail, Unit) {
 
     $BS_GET_FIELD_SIZE(bits, $Unit, $FAIL($Fail), _size);
     new_offset = sb->start + _size;
-    if (new_offset <= sb->end) {
-        sb->start = new_offset;
-    } else {
-        $FAIL($Fail);
-    }
-}
-
-i_bs_skip_bits_imm2(Fail, Ms, Bits) {
-    ErlSubBits *sb = (ErlSubBits*)bitstring_val($Ms);
-    size_t new_offset;
-    new_offset = sb->start + ($Bits);
     if (new_offset <= sb->end) {
         sb->start = new_offset;
     } else {
