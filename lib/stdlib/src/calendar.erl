@@ -576,7 +576,7 @@ rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, Hour, Min, Sec, 
     Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
     check(DateTimeIn, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
-    ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
+    ScaledEpoch + fraction(Unit, FractionStr).
 
 
 
@@ -1041,9 +1041,6 @@ fraction(_, "") ->
     0;
 fraction(Unit, FractionStr) ->
     round(factor(Unit) * list_to_float([$0|FractionStr])).
-
-copy_sign(N1, N2) when N2 < 0 -> -N1;
-copy_sign(N1, _N2) -> N1.
 
 factor(second)      -> 1;
 factor(millisecond) -> 1000;
