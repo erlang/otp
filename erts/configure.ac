@@ -2258,6 +2258,7 @@ case $host_os in
 esac
 
 AC_CHECK_DECLS([posix2time, time2posix],,,[#include <time.h>])
+AC_CHECK_DECLS([daylight],,,[#include <time.h>])
 
 AC_FUNC_VPRINTF
 

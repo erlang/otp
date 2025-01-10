@@ -132,6 +132,7 @@ time_t sys_mktime( struct tm *ptm);
 #define gmtime_r sys_gmtime_r
 #define HAVE_GMTIME_R
 #define mktime sys_mktime
+extern int sys_daylight;
 
 typedef struct {
     erts_time_t tv_sec;
