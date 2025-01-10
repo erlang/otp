@@ -3548,8 +3548,8 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
 
         %%
         completion ->
-            %% There is nothing just now, but we will be notified when the
-            %% data has been read (with a completion message).
+            %% There is nothing just now, but we will be notified
+	    %% when the data has been read (with a completion message).
             Timeout = timeout(Deadline),
             receive
                 %% On Windows we are *always* done when we get {ok, Bin}
@@ -3557,17 +3557,19 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, _Bin} = OK}) ->
                     recv_result(Acc, OK);
+
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {more, Bin}}) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, bincat(Acc, Bin));
-                        true ->
-                            {error, {timeout, bincat(Acc, Bin)}}
-                    end;
+			    {Handle, {more, Bin}}) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length - byte_size(Bin), Flags,
+			      Deadline, bincat(Acc, Bin));
+			true ->
+			    {error, {timeout, bincat(Acc, Bin)}}
+		    end;
+
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
                     recv_error(Acc, Reason);
