@@ -870,6 +870,7 @@ typedef struct match_local_variable_store{
   int proptype;           /* Type of character property */
   BOOL utf;
   BOOL ucp;
+  BOOL notmatch;
   #endif
 
   uint32_t i;             /* Used for local loops */
@@ -878,11 +879,11 @@ typedef struct match_local_variable_store{
   uint32_t reptype;   /* Type of repetition (0 to avoid compiler warning) */
   uint32_t group_frame_type;  /* Specifies type for new group frames */
 
+  BOOL samelengths;
   BOOL condition;         /* Used in conditional groups */
   BOOL cur_is_word;       /* Used in "word" tests */
   BOOL prev_is_word;      /* Used in "word" tests */
-  int elgb;
-  int ergb;
+  int rgb;
 } match_local_variable_store;
 /* This typedef is a check that the size of the heapframe structure is a
 multiple of PCRE2_SIZE. See various comments above. */
