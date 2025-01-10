@@ -16,4 +16,4 @@
   {applications, [stdlib]},
   {env, []},
   {runtime_dependencies,
-   ["compiler-7.0","erts-9.0","kernel-5.0","stdlib-4.0"]}]}.
+   ["compiler-@OTP-19422@","erts-@OTP-19422@","kernel-@OTP-19422@","stdlib-@OTP-19422@"]}]}.
