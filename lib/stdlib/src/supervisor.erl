@@ -432,8 +432,7 @@ see more details [above](`m:supervisor#sup_flags`).
 -define(default_flags, #{strategy        => one_for_one,
 			 intensity       => 1,
 			 period          => 5,
-			 auto_shutdown   => never,
-			 hibernate_after => undefined}).
+			 auto_shutdown   => never}).
 -define(default_child_spec, #{restart    => permanent,
 			      type       => worker}).
 %% Default 'shutdown' is 5000 for workers and infinity for supervisors.
@@ -466,7 +465,7 @@ see more details [above](`m:supervisor#sup_flags`).
                 nrestarts = 0,
 		dynamic_restarts = 0   :: non_neg_integer(),
 		auto_shutdown = never  :: auto_shutdown(),
-		hibernate_after        :: 'undefined' | timeout(),
+		hibernate_after        :: timeout(),
 	        module,
 	        args}).
 -type state() :: #state{}.
@@ -919,14 +918,7 @@ init_children(State, StartSpec) ->
         {ok, Children} ->
             case start_children(Children, SupName) of
                 {ok, NChildren} ->
-                    %% Static supervisor are not expected to
-                    %% have much work to do so hibernate them
-                    %% to improve memory handling.
-		    {HibernateAfter, TimeoutOrHibernate} = case State#state.hibernate_after of
-							       undefined -> {infinity, hibernate};
-							       Timeout -> {Timeout, Timeout}
-							   end,
-                    {ok, State#state{children = NChildren, hibernate_after = HibernateAfter}, TimeoutOrHibernate};
+                    {ok, State#state{children = NChildren}, State#state.hibernate_after};
                 {error, NChildren, Reason} ->
                     _ = terminate_children(NChildren, SupName),
                     {stop, {shutdown, Reason}}
@@ -938,14 +930,7 @@ init_children(State, StartSpec) ->
 init_dynamic(State, [StartSpec]) ->
     case check_startspec([StartSpec], State#state.auto_shutdown) of
         {ok, Children} ->
-            %% Simple one for one supervisors are expected to
-            %% have many children coming and going so do not
-            %% hibernate.
-	    HibernateAfter = case State#state.hibernate_after of
-				 undefined -> infinity;
-				 Timeout -> Timeout
-			     end,
-	    {ok, dyn_init(State#state{children = Children, hibernate_after = HibernateAfter}), HibernateAfter};
+	    {ok, dyn_init(State#state{children = Children}), State#state.hibernate_after};
         Error ->
             {stop, {start_spec, Error}}
     end;
@@ -1955,8 +1940,7 @@ init_state(SupName, Type, Mod, Args) ->
     set_flags(Type, #state{name = supname(SupName,Mod),
 			   module = Mod,
 			   args = Args,
-			   auto_shutdown = never,
-			   hibernate_after = undefined}).
+			   auto_shutdown = never}).
 
 set_flags(Flags, State) ->
     try check_flags(Flags) of
@@ -1972,13 +1956,18 @@ set_flags(Flags, State) ->
     end.
 
 check_flags(SupFlags) when is_map(SupFlags) ->
-    do_check_flags(maps:merge(?default_flags,SupFlags));
+    case maps:merge(?default_flags, SupFlags) of
+	#{hibernate_after := _} = MergedFlags ->
+	    do_check_flags(MergedFlags);
+	#{strategy := Strategy} = MergedFlags ->
+	    do_check_flags(MergedFlags#{hibernate_after => default_hibernate_after(Strategy)})
+    end;
 check_flags({Strategy, MaxIntensity, Period}) ->
     check_flags(#{strategy => Strategy,
 		  intensity => MaxIntensity,
 		  period => Period,
 		  auto_shutdown => never,
-		  hibernate_after => undefined});
+		  hibernate_after => default_hibernate_after(Strategy)});
 check_flags(What) ->
     throw({invalid_type, What}).
 
@@ -2021,10 +2010,9 @@ validAutoShutdownForStrategy(all_significant, simple_one_for_one) ->
 validAutoShutdownForStrategy(_AutoShutdown, _Strategy) ->
     true.
 
-validHibernateAfter(undefined) ->
+validHibernateAfter(infinity) ->
     true;
-validHibernateAfter(Timeout) when Timeout =:= infinity;
-				  is_integer(Timeout), Timeout >= 0 ->
+validHibernateAfter(Timeout) when is_integer(Timeout), Timeout >= 0 ->
     true;
 validHibernateAfter(What) ->
     throw({invalid_hibernate_after, What}).
@@ -2032,6 +2020,12 @@ validHibernateAfter(What) ->
 
 supname(self, Mod) -> {self(), Mod};
 supname(N, _)      -> N.
+
+
+default_hibernate_after(simple_one_for_one) ->
+    infinity;
+default_hibernate_after(_) ->
+    0.
 
 %%% ------------------------------------------------------
 %%% Check that the children start specification is valid.
