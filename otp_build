@@ -1257,20 +1257,13 @@ do_update_ex_doc ()
 do_debuginfo_win32 ()
 {
     setup_make
-    (cd erts/emulator && $MAKE MAKE="$MAKE" TARGET=$TARGET debug) || exit 1
+    ($MAKE MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
     if [ -z "$1" ]; then
-	RELDIR="$ERL_TOP/release/$TARGET"
+       RELDIR="$ERL_TOP/release/$TARGET"
     else
-	RELDIR="$1"
+       RELDIR="$1"
     fi
-    BINDIR="$ERL_TOP/bin/$TARGET"
-    EVSN=`grep '^VSN' erts/vsn.mk | sed 's,^VSN.*=[^0-9]*\([0-9].*\)$,@\1,g;s,^[^@].*,,g;s,^@,,g'`
-    for f in beam.debug.smp.dll beam.smp.pdb beam.debug.smp.dll.pdb erl.pdb erlexec.pdb; do
-	if [ -f $BINDIR/$f ]; then
-	    rm -f $RELDIR/erts-$EVSN/bin/$f
-	    cp $BINDIR/$f $RELDIR/erts-$EVSN/bin/$f
-	fi
-    done
+    ($MAKE release RELEASE_ROOT="$RELDIR" MAKE="$MAKE" TARGET=$TARGET TYPE=debug) || exit 1
 }
 
 do_installer_win32 ()
