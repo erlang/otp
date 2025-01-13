@@ -57,6 +57,8 @@ normalization can be found in the
 [Unicode FAQ](http://unicode.org/faq/normalization.html).
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,
 	 characters_to_binary/3,

@@ -27,6 +27,8 @@
 -module(application_starter).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 -export([start/3]).
 
 %%%=============================================================================

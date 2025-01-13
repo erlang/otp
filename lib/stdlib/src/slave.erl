@@ -68,6 +68,8 @@ The master node must be alive.
 %% (the example is for tcsh)
 
 
+-compile(nowarn_deprecated_catch).
+
 -export([pseudo/1,
 	 pseudo/2,
 	 start/1, start/2, start/3,

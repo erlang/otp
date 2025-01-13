@@ -20,6 +20,8 @@
 -module(dets_utils).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Utility functions common to several dets file formats.
 %% To be used from modules dets and dets_v9 only.
 

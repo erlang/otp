@@ -49,6 +49,8 @@ For more information about raw filenames, see the `m:file` module.
 > filenames.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% File utilities.
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1]).
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1, ensure_path/1]).

@@ -20,6 +20,8 @@
 -module(sofs).
 -moduledoc({file, "../doc/src/sofs.md"}).
 
+-compile(nowarn_deprecated_catch).
+
 -export([from_term/1, from_term/2, from_external/2, empty_set/0,
          is_type/1, set/1, set/2, from_sets/1, relation/1, relation/2,
          a_function/1, a_function/2, family/1, family/2,

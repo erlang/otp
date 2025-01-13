@@ -343,6 +343,8 @@ common reasons.
 - **`sticky_directory`** - The object code resides in a sticky directory.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -include_lib("kernel/include/logger.hrl").
 -include("eep48.hrl").
 

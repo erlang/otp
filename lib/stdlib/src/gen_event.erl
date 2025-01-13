@@ -128,6 +128,8 @@ or if bad arguments are specified.
 %%%       above monitor_return() in gen.erl!
 %%%
 
+-compile(nowarn_deprecated_catch).
+
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
          start_monitor/0, start_monitor/1, start_monitor/2,

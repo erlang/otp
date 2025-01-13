@@ -62,6 +62,8 @@ convention, add `.zip` to the filename.
 -define(ERL_TAR_COMPATIBILITY, ~"erl_tar compatibility functions").
 -moduledoc(#{ titles => [{function, ?ERL_TAR_COMPATIBILITY}]}).
 
+-compile(nowarn_deprecated_catch).
+
 %% Basic api
 -export([unzip/1, unzip/2, extract/1, extract/2,
 	 zip/2, zip/3, create/2, create/3, foldl/3,

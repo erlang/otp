@@ -20,6 +20,8 @@
 -module(inet_parse).
 -moduledoc false.
 
+-compile(nowarn_deprecated_catch).
+
 %% Parser for all kinds of ineternet configuration files
 
 %% Avoid warning for local function error/2 clashing with autoimported BIF.

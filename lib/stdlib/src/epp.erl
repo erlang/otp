@@ -64,6 +64,8 @@ Module:format_error(ErrorDescriptor)
 `m:erl_parse`
 """.
 
+-compile(nowarn_deprecated_catch).
+
 %% An Erlang code preprocessor.
 
 -export([open/1,open/2,open/3,close/1,format_error/1]).

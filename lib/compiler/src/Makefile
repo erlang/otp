@@ -138,7 +138,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -Werror
+ERL_COMPILE_FLAGS += -Werror +warn_deprecated_catch
 ERL_COMPILE_FLAGS += +inline +warn_unused_import \
  -I../../stdlib/include -I$(EGEN) -W +warn_missing_spec
 
