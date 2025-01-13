@@ -864,6 +864,16 @@ list2cs(List, ExtTypes) when is_list(List) ->
             check_duplicates(Name, Keys)
     end,
 
+    case {Name, proplists:get_value(mnesia_backend_types, UserProps, [])} of
+        {schema, MergedExtTypes} ->
+            %% We just merged schema of schema table, save ext_types in process dictionary, in case
+            %% we will be merging other table's schema in the same transaction, it will need those
+            %% ext_types of not yet commited schema table.
+            put(ext_types_current_transaction, MergedExtTypes);
+        _ ->
+            ignore
+    end,
+
     Cs0 = #cstruct{name = Name,
 		   ram_copies = Rc,
 		   disc_copies = Dc,
@@ -930,7 +940,17 @@ expand_storage_type(S) ->
     end.
 
 get_ext_types() ->
-    get_schema_user_property(mnesia_backend_types).
+    %% Here we try to retrieve ext types from process dictionary first because we may have just
+    %% merged a schema of schema table in the same transaction, which is not yet commited and
+    %% next we try to merge some other table which uses external backend and during verification
+    %% we must have external backends from just merged schema available in order to properly
+    %% verify keys of this table.
+    case get(ext_types_current_transaction) of
+        undefined ->
+            get_schema_user_property(mnesia_backend_types);
+        ExtTypes ->
+            ExtTypes
+    end.
 
 get_index_plugins() ->
     get_schema_user_property(mnesia_index_plugins).
