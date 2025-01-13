@@ -2011,7 +2011,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
                 reactive_events = state->active_events;
 
-                if (state->flags & ERTS_EV_FLAG_SCHEDULER) {
+                if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
                     state->active_events |= ERTS_POLL_EV_IN;
                 }
 
