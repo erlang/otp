@@ -573,11 +573,11 @@ ssh_list_public_key(Config) when is_list(Config) ->
                                   ["openssh_rsa_pub", "openssh_dsa_pub", "openssh_ecdsa_pub"]),
 
     true =
-        (chk_decode(Data_openssh,   Expect_openssh, openssh_key) and
-         chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_key) and
-         chk_decode(Data_openssh,   Expect_openssh, public_key)         and
-         chk_decode(Data_ssh2,      Expect_ssh2,    public_key)         and
-         chk_encode(Expect_openssh, openssh_key) and
+        (chk_decode(Data_openssh,   Expect_openssh, openssh_key) andalso
+         chk_decode(Data_ssh2,      Expect_ssh2,    rfc4716_key) andalso
+         chk_decode(Data_openssh,   Expect_openssh, public_key) andalso
+         chk_decode(Data_ssh2,      Expect_ssh2,    public_key) andalso
+         chk_encode(Expect_openssh, openssh_key) andalso
          chk_encode(Expect_ssh2,    rfc4716_key)
         ).
 
@@ -702,7 +702,7 @@ ssh_known_hosts(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Encoded = ssh_file:encode(Decoded, known_hosts),
     Decoded = ssh_file:decode(Encoded, known_hosts).
@@ -717,7 +717,7 @@ ssh1_known_hosts(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Comment ="dhopson@VMUbuntu-DSH comment with whitespaces",
     Comment = proplists:get_value(comment, Attributes3),
@@ -761,7 +761,7 @@ ssh1_auth_keys(Config) when is_list(Config) ->
 
     Value1 = proplists:get_value(bits, Attributes2, undefined),
     Value2 = proplists:get_value(bits, Attributes3, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
+    true = Value1 =/= undefined andalso Value2 =/= undefined,
 
     Comment2 = Comment3 = "dhopson@VMUbuntu-DSH",
     Comment4 = Comment5 ="dhopson@VMUbuntu-DSH comment with whitespaces",

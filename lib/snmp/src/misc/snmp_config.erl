@@ -582,7 +582,7 @@ config_agent_snmp(Dir, Vsns) ->
 		     "minimum", 
 		    fun verify_sec_type/1),
     Passwd = 
-	case lists:member(v3, Vsns) and (SecType /= none) of
+	case lists:member(v3, Vsns) andalso (SecType /= none) of
 	    true ->
 		ensure_crypto_started(),
 		ask("8b. Give a password of at least length 8. It is used to "
@@ -636,7 +636,7 @@ config_agent_snmp(Dir, Vsns) ->
 	     "read/write~n"
 	     "         access to the \"internet\" subtree."),
 	   i("      3. Standard traps are sent to the manager."),
-	   case lists:member(v1, Vsns) or lists:member(v2, Vsns) of
+	   case lists:member(v1, Vsns) orelse lists:member(v2, Vsns) of
 	       true ->
 		   i("      4. Community \"public\" is mapped to security name"
 		     " \"initial\"."),
@@ -1012,7 +1012,7 @@ default_dir(Component, DefDir) ->
 	    IsManagerDir = is_members(ManagerConfs, Files),
 	    Warning = 
 		if
-		    IsAgentDir and IsManagerDir ->
+		    IsAgentDir, IsManagerDir ->
 			"Note that the default directory contains both agent and manager config files";
 		    IsAgentDir ->
 			"Note that the default directory contains agent config files";

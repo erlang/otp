@@ -851,7 +851,7 @@ opt_info(TemplateInfo, Sizes, JoinInfo, MSQs, Anno,
 
 opt_column_constants(ColumnConstants0) ->
     [CC || {{IdNo,_Col},Const,_FilNs}=CC <- ColumnConstants0,
-           (IdNo =/= ?TNO) or (length(Const) =:= 1)].
+           IdNo =/= ?TNO orelse length(Const) =:= 1].
 
 opt_constants(Anno, ColumnConstants) ->
     Ns = lists:usort([IdNo || {{IdNo,_Col},_Const,_FilNs} <- ColumnConstants]),
@@ -948,7 +948,7 @@ join_handle(AP, Anno, [F, H, O, C], Constants) ->
             A = anno0(),
             G0 = [begin
                       Call = {call,A,{atom,A,element},[{integer,A,Col},O]},
-                      list2op([{op,A,Op,Con,Call} || {Con,Op} <- Cs], 'or')
+                      list2op([{op,A,Op,Con,Call} || {Con,Op} <- Cs], 'orelse')
                   end || {Col,Cs} <- Constants],
             G = if G0 =:= [] -> G0; true -> [G0] end,
             CC1 = {clause,Anno,[AP],G,
@@ -1711,10 +1711,9 @@ filter1({op, _, Op, L0, R0}, Fs, FS) when Op =:= '=:='; Op =:= '==' ->
                               F -> [F]
                           end
                   end, Fs);
-filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'and'; Op =:= 'andalso' ->
+filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'andalso' ->
     filter1(R, filter1(L, Fs, FS), FS);
-filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'or';
-                                        Op =:= 'orelse';
+filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'orelse';
                                         Op =:= 'xor' ->
     filter1(L, Fs, FS) ++ filter1(R, Fs, FS);
 filter1({atom,_,Atom}, _Fs, _FS) when Atom =/= true ->
@@ -1754,9 +1753,9 @@ safe_filter1({op, _, Op, L0, R0}, Fs, FS) when Op =:= '=:='; Op =:= '==' ->
                               F -> [F]
                           end
                   end, Fs);
-safe_filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'and'; Op =:= 'andalso' ->
+safe_filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'andalso' ->
     safe_filter1(R, safe_filter1(L, Fs, FS), FS);
-safe_filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'or'; Op =:= 'orelse' ->
+safe_filter1({op, _, Op, L, R}, Fs, FS) when Op =:= 'orelse' ->
     safe_filter1(L, Fs, FS) ++ safe_filter1(R, Fs, FS);
 safe_filter1({atom,_,true}, Fs, _FS) ->
     Fs;
