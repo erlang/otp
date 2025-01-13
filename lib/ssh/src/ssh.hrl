@@ -124,6 +124,7 @@
 
 
 %% Types
+-doc(#{group => <<"Other Data Types">>}).
 -type role()                  :: client | server .
 
 -doc(#{group => <<"Other data types">>}).
