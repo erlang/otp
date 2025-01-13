@@ -3692,7 +3692,13 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.name == schema ->
 	    ok;
 	Cs#cstruct.name /= schema,
-	Cs#cstruct.cookie == RemoteCs#cstruct.cookie ->
+	Cs#cstruct.cookie == RemoteCs#cstruct.cookie,
+    %% Verify user_properties only on tables other than schema, because we may try to
+    %% add_table_copy of schema table, which has external backends registered.
+    %% This results in schema merge between schema with registered external backends
+    %% in user_properties, and 'empty' schema which has user_properties empty
+    %% Allow to merge schema in this case.
+    Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
 	    ok;
 	Force == true ->
 	    ok;
@@ -3711,8 +3717,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.snmp == RemoteCs#cstruct.snmp,
 	Cs#cstruct.access_mode == RemoteCs#cstruct.access_mode,
 	Cs#cstruct.majority == RemoteCs#cstruct.majority,
-	Cs#cstruct.load_order == RemoteCs#cstruct.load_order,
-	Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
+	Cs#cstruct.load_order == RemoteCs#cstruct.load_order ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
 	Force == true ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
