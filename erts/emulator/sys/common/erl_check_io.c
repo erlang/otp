@@ -494,6 +494,11 @@ erts_io_control_wakeup(ErtsDrvEventState *state, ErtsPollOp op,
                 }
             }
             pe &= ~ERTS_POLL_EV_IN;
+            if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
+                ERTS_ASSERT(state->active_events & ERTS_POLL_EV_IN);
+            } else {
+                ERTS_ASSERT(!(state->active_events & ERTS_POLL_EV_IN));
+            }
         }
 #endif
 
@@ -1082,8 +1087,6 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
             ctl_op = ERTS_POLL_OP_ADD;
         }
         new_events = state->active_events;
-        if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER)
-            new_events &= ~ERTS_POLL_EV_IN;
     }
     else {
         ctl_events &= old_events;
@@ -2007,11 +2010,6 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
                 state->active_events &= ~revents;
 
                 reactive_events = state->active_events;
-
-                if (state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
-                    reactive_events &= ~ERTS_POLL_EV_IN;
-                    state->active_events |= ERTS_POLL_EV_IN;
-                }
 
                 /* Reactivate the poll op if there are still active events */
                 if (reactive_events) {
