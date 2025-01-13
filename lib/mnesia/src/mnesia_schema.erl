@@ -170,11 +170,20 @@ init_backends() ->
     ok.
 
 init_backend(Mod, [_|_] = Aliases) ->
-    case Mod:init_backend() of
-	ok ->
-	    Mod:add_aliases(Aliases);
-	Error ->
-	    mnesia:abort({backend_init_error, Error})
+    Mods = mnesia_lib:val(ext_backends),
+    case lists:member(Mod, Mods) of
+        true ->
+            dbg_out("Backend {~p, ~p} is already initialized~n", [Mod, Aliases]),
+            ok;
+        false ->
+            case Mod:init_backend() of
+            ok ->
+                Mod:add_aliases(Aliases),
+                mnesia_lib:set(ext_backends, [Mod | Mods]),
+                dbg_out("Backend {~p, ~p} initialized~n", [Mod, Aliases]);
+            Error ->
+                mnesia:abort({backend_init_error, Error})
+            end
     end.
 
 exit_on_error({error, Reason}) ->
