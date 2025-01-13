@@ -1805,41 +1805,48 @@ compatible_ext_key_usage(undefined, _, endentity) -> %% keyusage (first arg )is 
     true;
 compatible_ext_key_usage(_, undefined, _) ->
     true;
-compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, _) ->
+compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, Type) ->
     case ext_keyusage_includes_any(Purposes) of
         true ->
             true;
         false ->
-            is_compatible_purposes(KeyUse, Purposes)
+            is_compatible_purposes(KeyUse, Purposes, Type)
     end.
 
-is_compatible_purposes(_, []) ->
+is_compatible_purposes(_, [], _) ->
     true;
-is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest]) ->
+is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest], ca = Type) ->
+    %% keyCertSign is already verified for a ca and considered compatible
+    is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest], endentity = Type) ->
     (lists:member(digitalSignature, KeyUse) orelse
      lists:member(keyAgreement, KeyUse)) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest]) ->
+        is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest], ca = Type) ->
+    %% keyCertSign is already verified for a ca and considered compatible
+    is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest], endentity = Type) ->
     (lists:member(digitalSignature, KeyUse)
      orelse
        (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
-        andalso is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest]) ->
+        andalso is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest], Type) ->
     lists:member(digitalSignature, KeyUse) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest]) ->
+        is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest], Type) ->
     ((lists:member(digitalSignature, KeyUse) orelse
       lists:member(nonRepudiation, KeyUse))
      orelse
        (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
-        andalso is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [Id| Rest]) when Id == ?'id-kp-timeStamping';
-                                                Id == ?'id-kp-OCSPSigning'->
+        andalso is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [Id| Rest],Type) when Id == ?'id-kp-timeStamping';
+                                                  Id == ?'id-kp-OCSPSigning'->
     (lists:member(digitalSignature, KeyUse) orelse
      lists:member(nonRepudiation, KeyUse)) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [_| Rest]) -> %% Unknown purposes are for user verify_fun to care about
-    is_compatible_purposes(KeyUse, Rest).
+        is_compatible_purposes(KeyUse, Rest, Type);
+is_compatible_purposes(KeyUse, [_| Rest], Type) -> %% Unknown purposes are for user verify_fun to care about
+    is_compatible_purposes(KeyUse, Rest, Type).
+
 
 ca_known_extend_key_use(ExtKeyUse) ->
     CAExtSet = ca_known_ext_key_usage(),
