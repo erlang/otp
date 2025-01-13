@@ -27,17 +27,28 @@
 -export([
     conversion_from_external_to_disc_copies_should_not_result_in_data_loss_after_node_restart/1,
     backup_and_restore_should_work_with_external_backend/1,
-    schema_creation_should_work_when_external_tables_exist/1
+    schema_creation_should_work_when_external_tables_exist/1,
+    schema_merge_of_schema_table_should_work_with_external_backend/1,
+    schema_merge_of_other_table_in_same_transaction_as_schema_table_should_work_with_external_backend/1
 ]).
 
 -include("mnesia_test_lib.hrl").
 
 -record(some_rec, {some_id :: atom(), some_int :: number(), some_string :: string()}).
 
+-define(init(N, Config),
+        mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
+                                           delete_schema,
+                                           start_ext_test_server,
+                                           {reload_appls, [mnesia]}],
+                                          N, Config, ?FILE, ?LINE)).
+
 all() -> [
     conversion_from_external_to_disc_copies_should_not_result_in_data_loss_after_node_restart,
     backup_and_restore_should_work_with_external_backend,
-    schema_creation_should_work_when_external_tables_exist
+    schema_creation_should_work_when_external_tables_exist,
+    schema_merge_of_schema_table_should_work_with_external_backend,
+    schema_merge_of_other_table_in_same_transaction_as_schema_table_should_work_with_external_backend
 ].
 
 groups() ->
@@ -165,6 +176,37 @@ schema_creation_should_work_when_external_tables_exist(Config) when is_list(Conf
 
     Ext = proplists:get_value(default_properties, Config, ?BACKEND),
     ?match(ok, mnesia:create_schema([Node], Ext)).
+
+schema_merge_of_schema_table_should_work_with_external_backend(Config) when is_list(Config) ->
+    [N1, N2] = ?init(2, Config),
+    Ext = proplists:get_value(default_properties, Config, ?BACKEND),
+    ?match(ok, mnesia:create_schema([N1], Ext)),
+    ?match([], mnesia_test_lib:start_mnesia([N1])),
+
+    ?match({atomic, ok}, mnesia:add_table_copy(schema, N2, ram_copies)),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema_location, ram}, {extra_db_nodes, [N1]}]])),
+
+    ?match({[true, true], []}, rpc:multicall([N1, N2], ext_test, is_backend_initialized, [])).
+
+schema_merge_of_other_table_in_same_transaction_as_schema_table_should_work_with_external_backend(Config) when is_list(Config) ->
+    [N1, N2] = ?init(2, Config),
+    Ext = proplists:get_value(default_properties, Config, ?BACKEND),
+    ?match(ok, mnesia:create_schema([N1], Ext)),
+    ?match([], mnesia_test_lib:start_mnesia([N1])),
+
+    ?match({atomic,ok}, mnesia:create_table(table, [
+        {type, set},
+        {record_name, some_rec},
+        {attributes, record_info(fields, some_rec)},
+        {ext_disc_only_copies, [N1]}
+    ])),
+
+    ?match({atomic, ok}, mnesia:add_table_copy(schema, N2, ram_copies)),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema_location, ram}, {extra_db_nodes, [N1]}]])),
+
+    ?match({[true, true], []}, rpc:multicall([N1, N2], ext_test, is_backend_initialized, [])).
 
 load_backup(BUP) ->
     ?match(ok, mnesia:install_fallback(BUP)),
