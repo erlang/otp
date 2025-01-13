@@ -2058,7 +2058,7 @@ With argument `How` equivalent to
         Module     :: module(),
         Options    :: [enter_loop_opt()],
         State      :: term(),
-        How :: timeout() | 'hibernate' | {'continue', term()}
+        How :: timeout() | {'timeout', timeout(), term()} | 'hibernate' | {'continue', term()}
        ) ->
           no_return().
 %%
@@ -2070,6 +2070,10 @@ enter_loop(Mod, Options, State, ServerName = {Scope, _})
 enter_loop(Mod, Options, State, ServerName = {via, _, _})
   when is_atom(Mod), is_list(Options) ->
     enter_loop(Mod, Options, State, ServerName, infinity);
+%%
+enter_loop(Mod, Options, State, {timeout, Time, _} = Timeout)
+  when is_atom(Mod), is_list(Options), ?is_timeout(Time) ->
+    enter_loop(Mod, Options, State, self(), Timeout);
 %%
 enter_loop(Mod, Options, State, TimeoutOrHibernate)
   when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
@@ -2123,7 +2127,7 @@ according to `ServerName`.
         Options    :: [enter_loop_opt()],
         State      :: term(),
         ServerName :: server_name() | pid(),
-        Timeout    :: timeout()
+        Timeout    :: timeout() | {'timeout', timeout(), term()}
        ) ->
                         no_return();
        (
@@ -2142,6 +2146,15 @@ according to `ServerName`.
            Cont       :: {'continue', term()}
        ) ->
                         no_return().
+%%
+enter_loop(Mod, Options, State, ServerName, {timeout, Time, _} = Timeout)
+  when is_atom(Mod), is_list(Options), ?is_timeout(Time) ->
+    Name = gen:get_proc_name(ServerName),
+    Parent = gen:get_parent(),
+    Debug = gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
+    CbCache = create_callback_cache(Mod),
+    loop(Parent, Name, State, CbCache, Timeout, HibernateAfterTimeout, Debug);
 %%
 enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
   when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
@@ -2186,6 +2199,12 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(
               Parent, Name, State, CbCache, infinity,
+              HibernateAfterTimeout, Debug);
+        {ok, {ok, State, {timeout, Time, _} = Timeout}}
+          when ?is_timeout(Time) ->
+	    proc_lib:init_ack(Starter, {ok, self()}),
+	    loop(
+              Parent, Name, State, CbCache, Timeout,
               HibernateAfterTimeout, Debug);
         {ok, {ok, State, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
@@ -2263,6 +2282,15 @@ loop(Parent, Name, State, CbCache, infinity, HibernateAfterTimeout, Debug) ->
     after HibernateAfterTimeout ->
             loop(Parent, Name, State, CbCache, hibernate, HibernateAfterTimeout, Debug)
     end;
+
+loop(Parent, Name, State, CbCache, {timeout, Time, TimeoutMsg} = Timeout, HibernateAfterTimeout, Debug) ->
+    Msg = receive
+              Input ->
+                  Input
+          after Time ->
+                  {timeout, TimeoutMsg}
+          end,
+    decode_msg(Msg, Parent, Name, State, CbCache, Timeout, HibernateAfterTimeout, Debug, false);
 
 loop(Parent, Name, State, CbCache, Time, HibernateAfterTimeout, Debug) ->
     Msg = receive
@@ -2412,6 +2440,13 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, CbCache, HibernateAfte
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
 	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, []);
+	{ok, {reply, Reply, NState, {timeout, infinity, _}}} ->
+	    reply(From, Reply),
+	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, []);
+	{ok, {reply, Reply, NState, {timeout, Time, _} = Timeout}}
+          when ?is_timeout(Time) ->
+	    reply(From, Reply),
+	    loop(Parent, Name, NState, CbCache, Timeout, HibernateAfterTimeout, []);
 	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
                TimeoutOrHibernate =:= hibernate ->
@@ -2439,6 +2474,13 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, CbCache, HibernateAfte
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, Debug1);
+	{ok, {reply, Reply, NState, {timeout, infinity, _}}} ->
+	    Debug1 = reply(Name, From, Reply, NState, Debug),
+	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, Debug1);
+	{ok, {reply, Reply, NState, {timeout, Time, _} = Timeout}}
+          when ?is_timeout(Time) ->
+	    Debug1 = reply(Name, From, Reply, NState, Debug),
+	    loop(Parent, Name, NState, CbCache, Timeout, HibernateAfterTimeout, Debug1);
 	{ok, {reply, Reply, NState, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
                TimeoutOrHibernate =:= hibernate ->
@@ -2466,6 +2508,11 @@ handle_common_reply(Reply, Parent, Name, From, Msg, CbCache, HibernateAfterTimeo
     case Reply of
 	{ok, {noreply, NState}} ->
 	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, {timeout, infinity, _}}} ->
+	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, []);
+	{ok, {noreply, NState, {timeout, Time, _} = Timeout}}
+          when ?is_timeout(Time) ->
+	    loop(Parent, Name, NState, CbCache, Timeout, HibernateAfterTimeout, []);
 	{ok, {noreply, NState, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
                TimeoutOrHibernate =:= hibernate ->
@@ -2487,6 +2534,10 @@ handle_common_reply(Reply, Parent, Name, From, Msg, CbCache, HibernateAfterTimeo
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, CbCache, infinity, HibernateAfterTimeout, Debug1);
+	{ok, {noreply, NState, {timeout, Time, _} = Timeout}}
+          when ?is_timeout(Time) ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
+	    loop(Parent, Name, NState, CbCache, Timeout, HibernateAfterTimeout, Debug1);
 	{ok, {noreply, NState, TimeoutOrHibernate}}
           when ?is_timeout(TimeoutOrHibernate);
                TimeoutOrHibernate =:= hibernate ->
