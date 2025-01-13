@@ -59,7 +59,7 @@ After [all terms](https://github.com/erlang/otp/blob/OTP-18.0/erts/emulator/beam
 
 ![Garbage collection: heap scan](assets/gc-heap-scan1.png)
 
-Every term object we can reach is copied to the *to space* and stored on top off the *scan stop* line, and then the scan stop is moved to the end of the last object.
+Every term object we can reach is copied to the *to space* and stored on top of the *scan stop* line, and then the scan stop is moved to the end of the last object.
 
 ![Garbage collection: heap scan](assets/gc-heap-stop.png)
 
