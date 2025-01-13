@@ -50,6 +50,9 @@
 	 select/1, select/3, select/4, repair_continuation/2
 	]).
 
+%% For testing purposes
+-export([is_backend_initialized/0]).
+
 semantics(ext_ram_copies, storage) -> ram_copies;
 semantics(ext_ram_copies, types  ) -> [set, ordered_set, bag];
 semantics(ext_ram_copies, index_types) -> [ordered];
@@ -74,13 +77,21 @@ init_backend() ->
 backend_init_marker() ->
     {test, ?MODULE, backend_init}.
 
-error_if_not_initialized() ->
+is_backend_initialized() ->
     case try ets:lookup_element(mnesia_gvar, backend_init_marker(), 2) catch _:_ -> error end of
         error ->
-            ?DBG({backend_not_initialized, {?MODULE, error}}),
-            error({backend_not_initialized, {?MODULE, error}});
+            false;
         _Other ->
-            ok
+            true
+    end.
+
+error_if_not_initialized() ->
+    case is_backend_initialized() of
+        true ->
+            ok;
+        false ->
+            ?DBG({backend_not_initialized, {?MODULE, error}}),
+            error({backend_not_initialized, {?MODULE, error}})
     end.
 
 add_aliases(_As) ->
