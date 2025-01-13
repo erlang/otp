@@ -646,25 +646,29 @@ signature_scheme(SignAlgo) when is_integer(SignAlgo) ->
 signature_scheme(_) -> unassigned.
 
 signature_schemes_1_2(SigAlgs) ->
-    lists:reverse(lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
-                        case scheme_to_components(Alg) of
-                            {Hash, Sign = rsa_pss_pss,_} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign = rsa_pss_rsae,_} ->
-                                [{Hash, Sign} | Acc];
-                            %% TLS-1.2 do not constrian the
-                            %% curve, however must be one
-                            %% present in "supported groups" (eccs)
-                            {Hash, ecdsa = Sign, _} ->
-                                [{Hash, Sign} | Acc];
-                            {Hash, Sign, undefined} ->
-                                [{Hash, format_sign(Sign)} | Acc];
-                            {_, _, _} ->
+    Schemes = lists:foldl(fun(Alg, Acc) when is_atom(Alg) ->
+                                  case scheme_to_components(Alg) of
+                                      {Hash, Sign = rsa_pss_pss,_} ->
+                                          [{Hash, Sign} | Acc];
+                                      {Hash, Sign = rsa_pss_rsae,_} ->
+                                          [{Hash, Sign} | Acc];
+                                      %% TLS-1.2 do not constrain the
+                                      %% curve, however must be one
+                                      %% present in "supported groups" (eccs)
+                                      {Hash, ecdsa = Sign, _} ->
+                                          [{Hash, Sign} | Acc];
+                                      {Hash, Sign, undefined} ->
+                                          [{Hash, format_sign(Sign)} | Acc];
+                                      {_, _, _} ->
                                 Acc
-                        end;
-                   (Alg, Acc) ->
-                        [Alg| Acc]
-                end, [], SigAlgs)).
+                                  end;
+                             (Alg, Acc) ->
+                                  [Alg| Acc]
+                          end, [], SigAlgs),
+    %% Make sure that if ECDSA TLS-1.2 names are specified do not duplicate them
+    %% earlier in list by allowing TLS-1.3 schemes to be interpreted as TLS-1.2 algs
+    %% unless the ECDSA TLS-1.2 representation is missing and we want to work around it.
+    lists:reverse(lists:uniq(Schemes)).
 
 %% TODO: reserved code points?
 
