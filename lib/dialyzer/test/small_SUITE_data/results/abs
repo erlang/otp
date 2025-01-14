@@ -1,3 +1,5 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
 
 abs.erl:12:1: Function i1/0 has no local return
 abs.erl:16:5: The pattern 'true' can never match the type 'false'

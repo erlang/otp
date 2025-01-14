@@ -151,5 +151,13 @@ file_to_lines(File, Acc) ->
     case io:get_line(File, "") of
 	{error, _}=Error -> Error;
 	eof              -> Acc;
-	A                -> file_to_lines(File, [A|Acc])
+	A                ->
+            case A of
+                "%% SPDX-License-Identifier:"++_ ->
+                    file_to_lines(File, Acc);
+                "%% SPDX-FileCopyrightText:"++_ ->
+                    file_to_lines(File, Acc);
+                _ ->
+                    file_to_lines(File, [A|Acc])
+            end
     end.
