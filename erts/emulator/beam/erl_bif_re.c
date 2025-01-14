@@ -1551,6 +1551,8 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
         case PCRE2_ERROR_UTF8_ERR21:
             BUMP_ALL_REDS(BIF_P); /* Unknown amount of work done... */
             /* Fall through for badarg... */
+            ERTS_FALLTHROUGH();
+
         case PCRE2_ERROR_BADOFFSET:
         case PCRE2_ERROR_BADMAGIC:
         case PCRE2_ERROR_BADMODE:
