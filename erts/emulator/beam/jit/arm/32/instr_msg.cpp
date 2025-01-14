@@ -32,19 +32,23 @@ extern "C"
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
                                                 const ArgRegister &Reference) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_recv_marker_clear(const ArgRegister &Reference) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_recv_marker_use(const ArgRegister &Reference) {
     // TODO
+    ASSERT(false);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -55,48 +59,59 @@ int erts_lc_proc_sig_receive_helper(Process *c_p,
                                     int *get_outp) {
     int res;
     // TODO
+    ASSERT(false);
     return res;
 }
 #endif
 
 void BeamGlobalAssembler::emit_i_loop_rec_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_remove_message() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
                                                      const ArgLabel &Dest) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
                                                    const ArgLabel &Dest) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_timeout_locked() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_timeout() {
     // TODO
+    ASSERT(false);
 }

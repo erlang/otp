@@ -30,6 +30,7 @@ extern "C"
  * Clobbers d30 and d31. */
 void BeamGlobalAssembler::emit_check_float_error() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_float_instr(uint32_t instId,
@@ -37,6 +38,7 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
                                            const ArgFRegister &RHS,
                                            const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /* * * * */
@@ -44,48 +46,57 @@ void BeamModuleAssembler::emit_float_instr(uint32_t instId,
 void BeamModuleAssembler::emit_fload(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_fstore(const ArgFRegister &Src,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG1 = source term */
 void BeamGlobalAssembler::emit_fconv_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_fconv(const ArgSource &Src,
                                      const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_fadd(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_fsub(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_fmul(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_fdiv(const ArgFRegister &LHS,
                                       const ArgFRegister &RHS,
                                       const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_fnegate(const ArgFRegister &Src,
                                          const ArgFRegister &Dst) {
     // TODO
+    ASSERT(false);
 }

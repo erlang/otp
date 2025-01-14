@@ -38,6 +38,7 @@ extern "C"
  * Result in ARG3. Clobbers TMP1. */
 void BeamGlobalAssembler::emit_internal_hash_helper() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG1 = untagged hash map root
@@ -48,6 +49,7 @@ void BeamGlobalAssembler::emit_internal_hash_helper() {
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_hashmap_get_element() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG1 = untagged flat map
@@ -57,10 +59,12 @@ void BeamGlobalAssembler::emit_hashmap_get_element() {
  * Result is returned in ARG1. ZF is set on success. */
 void BeamGlobalAssembler::emit_flatmap_get_element() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_new_map_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
@@ -68,6 +72,7 @@ void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
                                        const ArgWord &Size,
                                        const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
@@ -76,6 +81,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                                                    const ArgWord &Size,
                                                    const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG1 = map
@@ -84,6 +90,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
@@ -91,6 +98,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
                                                  const ArgRegister &Key,
                                                  const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
@@ -98,6 +106,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
                                                   const ArgWord &Size,
                                                   const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG1 = map
@@ -107,6 +116,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
  * Result is returned in RET. ZF is set on success. */
 void BeamGlobalAssembler::emit_i_get_map_element_hash_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
@@ -115,11 +125,13 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
                                                       const ArgWord &Hx,
                                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
 void BeamGlobalAssembler::emit_update_map_assoc_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = key
@@ -128,6 +140,7 @@ void BeamGlobalAssembler::emit_update_map_assoc_shared() {
  */
 void BeamGlobalAssembler::emit_update_map_single_assoc_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
@@ -136,6 +149,7 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
@@ -143,6 +157,7 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
  * Result is returned in RET, error is indicated by ZF. */
 void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
@@ -150,6 +165,7 @@ void BeamGlobalAssembler::emit_update_map_exact_guard_shared() {
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = key
@@ -159,6 +175,7 @@ void BeamGlobalAssembler::emit_update_map_exact_body_shared() {
  * Does not return on error. */
 void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
@@ -168,4 +185,5 @@ void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
