@@ -72,10 +72,12 @@ using namespace asmjit;
 
 void BeamModuleAssembler::emit_error(int reason) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_error(int reason, const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
@@ -83,82 +85,98 @@ void BeamModuleAssembler::emit_gc_test_preserve(const ArgWord &Need,
                                                 const ArgSource &Preserve,
                                                 a32::Gp preserve_reg) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_gc_test(const ArgWord &Ns,
                                        const ArgWord &Nh,
                                        const ArgWord &Live) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 /* Instrs */
 
 void BeamModuleAssembler::emit_i_validate(const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_allocate_heap(const ArgWord &NeedStack,
                                              const ArgWord &NeedHeap,
                                              const ArgWord &Live) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_allocate(const ArgWord &NeedStack,
                                         const ArgWord &Live) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_deallocate(const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_test_heap(const ArgWord &Nh,
                                          const ArgWord &Live) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_normal_exit() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_continue_exit() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
                                         const ArgRegister &Hd,
                                         const ArgRegister &Tl) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_get_hd(const ArgRegister &Src,
                                       const ArgRegister &Hd) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_get_tl(const ArgRegister &Src,
                                       const ArgRegister &Tl) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_get(const ArgSource &Src,
                                      const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_get_hash(const ArgConstant &Src,
                                           const ArgWord &Hash,
                                           const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /* Store the untagged pointer to a tuple in ARG1. */
 void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 #ifdef DEBUG
@@ -167,6 +185,7 @@ void BeamModuleAssembler::emit_load_tuple_ptr(const ArgSource &Src) {
 void BeamModuleAssembler::emit_tuple_assertion(const ArgSource &Src,
                                                a32::Gp tuple_reg) {
     // TODO
+    ASSERT(false);
 }
 #endif
 
@@ -176,6 +195,7 @@ void BeamModuleAssembler::emit_i_get_tuple_element(const ArgSource &Src,
                                                    const ArgWord &Element,
                                                    const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_get_tuple_element_swap(
@@ -184,6 +204,7 @@ void BeamModuleAssembler::emit_get_tuple_element_swap(
         const ArgRegister &Dst,
         const ArgRegister &OtherDst) {
     // TODO
+    ASSERT(false);
 }
 
 /* Fetch two consecutive tuple elements from the tuple pointed to by
@@ -193,21 +214,25 @@ void BeamModuleAssembler::emit_get_two_tuple_elements(const ArgSource &Src,
                                                       const ArgRegister &Dst1,
                                                       const ArgRegister &Dst2) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_init_yregs(const ArgWord &Size,
                                           const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_trim(const ArgWord &Words,
                                     const ArgWord &Remaining) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_move(const ArgSource &Src,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
@@ -216,12 +241,14 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
                                              const ArgRegister &Dst2,
                                              const ArgWord &Words) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
                                          const ArgRegister &Dst,
                                          const ArgWord &Words) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
@@ -229,6 +256,7 @@ void BeamModuleAssembler::emit_store_two_values(const ArgSource &Src1,
                                                 const ArgSource &Src2,
                                                 const ArgRegister &Dst2) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
@@ -236,17 +264,20 @@ void BeamModuleAssembler::emit_load_two_xregs(const ArgRegister &Src1,
                                               const ArgRegister &Src2,
                                               const ArgXRegister &Dst2) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_swap(const ArgRegister &R1,
                                     const ArgRegister &R2) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_swap2(const ArgRegister &R1,
                                      const ArgRegister &R2,
                                      const ArgRegister &R3) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
@@ -254,6 +285,7 @@ void BeamModuleAssembler::emit_swap3(const ArgRegister &R1,
                                      const ArgRegister &R3,
                                      const ArgRegister &R4) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
@@ -262,16 +294,19 @@ void BeamModuleAssembler::emit_swap4(const ArgRegister &R1,
                                      const ArgRegister &R4,
                                      const ArgRegister &R5) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_node(const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_put_list(const ArgSource &Hd,
                                         const ArgSource &Tl,
                                         const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
@@ -279,6 +314,7 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
                                                    const ArgRegister &Dst,
                                                    const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
@@ -286,22 +322,26 @@ void BeamModuleAssembler::emit_put_list2(const ArgSource &Hd1,
                                          const ArgSource &Tl,
                                          const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                                           const ArgWord &Arity,
                                           const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_self(const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_copy_words_increment(a32::Gp from,
                                                     a32::Gp to,
                                                     size_t count) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
@@ -311,6 +351,7 @@ void BeamModuleAssembler::emit_update_record(const ArgAtom &Hint,
                                              const ArgWord &UpdateCount,
                                              const Span<ArgVal> &updates) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_update_record_in_place(
@@ -320,97 +361,116 @@ void BeamModuleAssembler::emit_update_record_in_place(
         const ArgWord &UpdateCount,
         const Span<ArgVal> &updates) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_set_tuple_element(const ArgSource &Element,
                                                  const ArgRegister &Tuple,
                                                  const ArgWord &Offset) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_nonempty_list(const ArgLabel &Fail,
                                                 const ArgRegister &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_jump(const ArgLabel &Fail) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_atom(const ArgLabel &Fail,
                                        const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_boolean(const ArgLabel &Fail,
                                           const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_bitstring(const ArgLabel &Fail,
                                             const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_binary(const ArgLabel &Fail,
                                          const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_float(const ArgLabel &Fail,
                                         const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_function(const ArgLabel &Fail,
                                            const ArgRegister &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_function2(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgSource &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_integer(const ArgLabel &Fail,
                                           const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_list(const ArgLabel &Fail,
                                        const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_map(const ArgLabel &Fail,
                                       const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_nil(const ArgLabel &Fail,
                                       const ArgRegister &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_number(const ArgLabel &Fail,
                                          const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_pid(const ArgLabel &Fail,
                                       const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_port(const ArgLabel &Fail,
                                        const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_reference(const ArgLabel &Fail,
                                             const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -420,6 +480,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgLabel &Fail,
                                                  const ArgWord &Arity,
                                                  const ArgAtom &Tag) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -430,6 +491,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
                                                     const ArgWord &Arity,
                                                     const ArgAtom &Tag) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -437,6 +499,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
 void BeamModuleAssembler::emit_i_is_tuple(const ArgLabel &Fail,
                                           const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -445,6 +508,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
                                                    const ArgSource &Src,
                                                    const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -454,6 +518,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
                                                       const ArgSource &Src,
                                                       const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 /* Note: This instruction leaves the untagged pointer to the tuple in
@@ -462,6 +527,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -472,6 +538,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -482,30 +549,35 @@ void BeamGlobalAssembler::emit_is_eq_exact_list_shared() {
  */
 void BeamGlobalAssembler::emit_is_eq_exact_shallow_boxed_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                                            const ArgSource &X,
                                            const ArgSource &Y) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_eq(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
                                      const ArgSource &X,
                                      const ArgSource &Y) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -516,18 +588,21 @@ void BeamModuleAssembler::emit_is_ne(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_arith_compare_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
                                      const ArgSource &LHS,
                                      const ArgSource &RHS) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -539,6 +614,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_is_in_range_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -550,6 +626,7 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
                                            ArgConstant const &Min,
                                            ArgConstant const &Max) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -561,6 +638,7 @@ void BeamModuleAssembler::emit_is_in_range(ArgLabel const &Small,
  */
 void BeamGlobalAssembler::emit_is_ge_lt_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -580,6 +658,7 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
                                         ArgConstant const &A,
                                         ArgConstant const &B) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -591,6 +670,7 @@ void BeamModuleAssembler::emit_is_ge_ge(ArgLabel const &Fail1,
                                         ArgConstant const &A,
                                         ArgConstant const &B) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -606,6 +686,7 @@ void BeamModuleAssembler::emit_is_int_in_range(ArgLabel const &Fail,
                                                ArgConstant const &Min,
                                                ArgConstant const &Max) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -615,47 +696,58 @@ void BeamModuleAssembler::emit_is_int_ge(ArgLabel const &Fail,
                                          ArgRegister const &Src,
                                          ArgConstant const &Min) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_badmatch(const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_case_end(const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_system_limit_body() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_if_end() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_badrecord(const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_catch(const ArgYRegister &Y,
                                      const ArgCatch &Handler) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_catch_end_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_catch_end(const ArgYRegister &CatchTag) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_try_end(const ArgYRegister &CatchTag) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_try_end_deallocate(const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_try_end_move_deallocate(
@@ -663,33 +755,40 @@ void BeamModuleAssembler::emit_try_end_move_deallocate(
         const ArgRegister &Dst,
         const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_try_case(const ArgYRegister &CatchTag) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_try_case_end(const ArgSource &Src) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_raise_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_raise(const ArgSource &Trace,
                                      const ArgSource &Value) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_build_stacktrace() {
     // TODO
+    ASSERT(false);
 }
 
 /* This instruction has the same semantics as the erlang:raise/3 BIF,
  * except that it can rethrow a raw stack backtrace. */
 void BeamModuleAssembler::emit_raw_raise() {
     // TODO
+    ASSERT(false);
 }
 
 #define TEST_YIELD_RETURN_OFFSET                                               \
@@ -699,24 +798,30 @@ void BeamModuleAssembler::emit_raw_raise() {
 /* ARG3 = current_label */
 void BeamGlobalAssembler::emit_i_test_yield_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_test_yield() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_yield() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_perf_counter() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_mark_unreachable() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
     // TODO
+    ASSERT(false);
 }

@@ -95,6 +95,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
  * ARG4 = Live registers */
 void BeamGlobalAssembler::emit_garbage_collect() {
     // TODO
+    ASSERT(false);
 }
 
 /* Handles trapping to exports from C code, setting registers up in the same
@@ -108,6 +109,7 @@ void BeamGlobalAssembler::emit_garbage_collect() {
  * Assumes that c_p->current points into the MFA of an export entry. */
 void BeamGlobalAssembler::emit_bif_export_trap() {
     // TODO
+    ASSERT(false);
 }
 
 /* Handles export breakpoints, error handler, jump tracing, and so on.
@@ -120,6 +122,7 @@ void BeamGlobalAssembler::emit_bif_export_trap() {
  */
 void BeamGlobalAssembler::emit_export_trampoline() {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -128,41 +131,50 @@ void BeamGlobalAssembler::emit_export_trampoline() {
  */
 void BeamModuleAssembler::emit_raise_exception() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,
                                                const ErtsCodeMFA *exp) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_process_exit() {
     // TODO
+    ASSERT(false);
 }
 
 /* You must have already done emit_leave_runtime_frame()! */
 void BeamGlobalAssembler::emit_raise_exception_null_exp() {
     // TODO
+    ASSERT(false);
 }
 
 /* You must have already done emit_leave_runtime_frame()! */
 void BeamGlobalAssembler::emit_raise_exception() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_raise_exception_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_proc_lc_require(void) {
     // TODO
+    ASSERT(false);
 }
 
 extern "C"

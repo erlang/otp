@@ -33,6 +33,7 @@ void BeamModuleAssembler::emit_add_sub_types(bool is_small_result,
                                              const a32::Gp rhs_reg,
                                              const Label next) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
@@ -41,6 +42,7 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
                                               const a32::Gp rhs_reg,
                                               const Label next) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -54,6 +56,7 @@ void BeamModuleAssembler::emit_are_both_small(const ArgSource &LHS,
  */
 void BeamGlobalAssembler::emit_plus_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
@@ -62,6 +65,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -74,6 +78,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_unary_minus_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
@@ -81,6 +86,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -94,6 +100,7 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_minus_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
@@ -102,6 +109,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -115,6 +123,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_int128_to_big_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = Src1
@@ -125,6 +134,7 @@ void BeamGlobalAssembler::emit_int128_to_big_shared() {
  */
 void BeamGlobalAssembler::emit_mul_add_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = Src1
@@ -136,6 +146,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
  */
 void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = Src1
@@ -145,6 +156,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
  */
 void BeamGlobalAssembler::emit_mul_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = Src1
@@ -155,6 +167,7 @@ void BeamGlobalAssembler::emit_mul_body_shared() {
  */
 void BeamGlobalAssembler::emit_mul_guard_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
@@ -164,6 +177,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgSource &Src4,
                                          const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -175,6 +189,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /* ARG2 = LHS
@@ -195,6 +210,7 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
                                                bool need_div,
                                                bool need_rem) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
@@ -206,6 +222,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                                        bool need_div,
                                        bool need_rem) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_rem_div(const ArgLabel &Fail,
@@ -215,6 +232,7 @@ void BeamModuleAssembler::emit_i_rem_div(const ArgLabel &Fail,
                                          const ArgRegister &Remainder,
                                          const ArgRegister &Quotient) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
@@ -224,6 +242,7 @@ void BeamModuleAssembler::emit_i_div_rem(const ArgLabel &Fail,
                                          const ArgRegister &Quotient,
                                          const ArgRegister &Remainder) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_int_div(const ArgLabel &Fail,
@@ -232,6 +251,7 @@ void BeamModuleAssembler::emit_i_int_div(const ArgLabel &Fail,
                                          const ArgSource &RHS,
                                          const ArgRegister &Quotient) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_rem(const ArgLabel &Fail,
@@ -240,6 +260,7 @@ void BeamModuleAssembler::emit_i_rem(const ArgLabel &Fail,
                                      const ArgSource &RHS,
                                      const ArgRegister &Remainder) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
@@ -248,6 +269,7 @@ void BeamModuleAssembler::emit_i_m_div(const ArgLabel &Fail,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -263,10 +285,12 @@ template<typename T>
 void BeamGlobalAssembler::emit_bitwise_fallback_body(T(*func_ptr),
                                                      const ErtsCodeMFA *mfa) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_i_band_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
@@ -275,6 +299,7 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -288,6 +313,7 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bor_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
@@ -296,6 +322,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -309,6 +336,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bxor_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
@@ -317,6 +345,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -330,6 +359,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -342,6 +372,7 @@ void BeamGlobalAssembler::emit_i_bnot_guard_shared() {
  */
 void BeamGlobalAssembler::emit_i_bnot_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
@@ -349,6 +380,7 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
                                       const ArgSource &Src,
                                       const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -371,6 +403,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -384,6 +417,7 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
  */
 void BeamGlobalAssembler::emit_i_bsl_body_shared() {
     // TODO
+    ASSERT(false);
 }
 
 static int count_leading_zeroes(UWord value) {
@@ -402,4 +436,5 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
                                      const ArgSource &RHS,
                                      const ArgRegister &Dst) {
     // TODO
+    ASSERT(false);
 }

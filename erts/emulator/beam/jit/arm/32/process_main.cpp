@@ -57,6 +57,8 @@ void BeamGlobalAssembler::emit_process_main() {
             getSchedulerRegRef(offsetof(ErtsSchedulerRegisters, start_time));
 
     // TODO
+    ASSERT(false);
+
     a.bind(do_schedule_local);
     a.bind(context_switch_local);
     comment("Context switch, unknown arity/MFA");

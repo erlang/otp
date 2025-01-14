@@ -31,6 +31,7 @@
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_unloaded_fun() {
     // TODO
+    ASSERT(false);
 }
 
 /* Handles errors for `call_fun`. Assumes that we're running on the Erlang
@@ -42,6 +43,7 @@ void BeamGlobalAssembler::emit_unloaded_fun() {
  *        can't use LR (x30) for this because tail calls point elsewhere. */
 void BeamGlobalAssembler::emit_handle_call_fun_error() {
     // TODO
+    ASSERT(false);
 }
 
 /* Handles save_calls for local funs, which is a side-effect of our calling
@@ -51,6 +53,7 @@ void BeamGlobalAssembler::emit_handle_call_fun_error() {
  * will land here. */
 void BeamGlobalAssembler::emit_dispatch_save_calls_fun() {
     // TODO
+    ASSERT(false);
 }
 
 /* `call_fun` instructions land here to set up their environment before jumping
@@ -65,6 +68,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgWord &Arity,
                                                    const ArgWord &NumFree) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
@@ -73,22 +77,27 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamGlobalAssembler::emit_apply_fun_shared() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_apply_fun() {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_only() {
     // TODO
+    ASSERT(false);
 }
 
 /* Assumes that:
@@ -97,6 +106,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     // TODO
+    ASSERT(false);
     a32::Gp reg;
     return reg;
 }
@@ -105,6 +115,7 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
                                            const ArgWord &Arity,
                                            const ArgRegister &Func) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
@@ -112,18 +123,22 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
                                                 const ArgRegister &Func,
                                                 const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgWord &Arity) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgWord &Arity,
                                                const ArgWord &Deallocate) {
     // TODO
+    ASSERT(false);
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgWord &Dummy) {
     // TODO
+    ASSERT(false);
 }

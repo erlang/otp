@@ -28,6 +28,7 @@ using namespace asmjit;
 template<typename T>
 static constexpr bool isInt13(T value) {
     // TODO
+    ASSERT(false);
     return false;
 }
 
@@ -43,6 +44,7 @@ static constexpr bool isInt13(T value) {
  * of elements fitting in a 13-bit immediate. */
 static std::pair<UWord, int> plan_untag(const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
     return std::pair<UWord, int>();
 }
 
@@ -54,6 +56,7 @@ const std::vector<ArgVal> BeamModuleAssembler::emit_select_untag(
         UWord base,
         int shift) {
     // TODO
+    ASSERT(false);
     return std::vector<ArgVal>();
 }
 
@@ -61,6 +64,7 @@ void BeamModuleAssembler::emit_linear_search(a32::Gp comparand,
                                              Label fail,
                                              const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
@@ -68,6 +72,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(const ArgRegister &Src,
                                                     const ArgWord &Size,
                                                     const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
@@ -75,6 +80,7 @@ void BeamModuleAssembler::emit_i_select_val_lins(const ArgSource &Src,
                                                  const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
@@ -82,6 +88,7 @@ void BeamModuleAssembler::emit_i_select_val_bins(const ArgSource &Src,
                                                  const ArgWord &Size,
                                                  const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -94,6 +101,7 @@ void BeamModuleAssembler::emit_binsearch_nodes(a32::Gp reg,
                                                Label fail,
                                                const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
@@ -102,6 +110,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
                                              const ArgWord &Size,
                                              const Span<ArgVal> &args) {
     // TODO
+    ASSERT(false);
 }
 
 /*
@@ -122,4 +131,5 @@ void BeamModuleAssembler::emit_optimized_two_way_select(a32::Gp reg,
                                                         const ArgVal &value2,
                                                         const ArgVal &label) {
     // TODO
+    ASSERT(false);
 }

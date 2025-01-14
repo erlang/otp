@@ -175,6 +175,7 @@ protected:
     arm::Mem emit_setup_dispatchable_call(const a32::Gp &Src,
                                           const a32::Gp &CodeIndex) {
         // TODO
+        ASSERT(false);
         arm::Mem m;
         return m;
     }
@@ -205,18 +206,22 @@ protected:
 
     void emit_enter_erlang_frame() {
         // TODO
+        ASSERT(false);
     }
 
     void emit_leave_erlang_frame() {
         // TODO
+        ASSERT(false);
     }
 
     void emit_enter_runtime_frame() {
         // TODO
+        ASSERT(false);
     }
 
     void emit_leave_runtime_frame() {
         // TODO
+        ASSERT(false);
     }
 
     /* We keep the first six X registers in machine registers. Some of those
@@ -234,37 +239,45 @@ protected:
     template<int Spec = 0>
     void emit_enter_runtime(int live = num_register_backed_xregs) {
         // TODO
+        ASSERT(false);
     }
 
     template<int Spec = 0>
     void emit_leave_runtime(int live = num_register_backed_xregs) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_not_cons(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_not_boxed(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     a32::Gp emit_ptr_val(a32::Gp Dst, a32::Gp Src) {
         a32::Gp r;
         // TODO
+        ASSERT(false);
         return r;
     }
 
     void emit_untag_ptr(a32::Gp Dst, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     constexpr arm::Mem emit_boxed_val(a32::Gp Src, int32_t bytes = 0) const {
@@ -274,18 +287,22 @@ protected:
 
     void emit_branch_if_not_value(a32::Gp reg, Label lbl) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_branch_if_value(a32::Gp reg, Label lbl) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_branch_if_eq(a32::Gp reg, Uint value, Label lbl) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_branch_if_ne(a32::Gp reg, Uint value, Label lbl) {
         // TODO
+        ASSERT(false);
     }
 
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
@@ -293,48 +310,59 @@ protected:
      * immediates and all other bits are equal too.) */
     void emit_is_unequal_based_on_tags(a32::Gp Reg1, a32::Gp Reg2) {
         // TODO
+        ASSERT(false);
     }
 
     a32::Gp follow_size(const a32::Gp &reg, const a32::Gp &size) {
         // TODO
+        ASSERT(false);
         return reg;
     }
 
     template<typename T>
     void mov_imm(a32::Gp to, T value) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_imm(a32::Gp to, std::nullptr_t value) {
         // TODO
+        ASSERT(false);
     }
 
     void sub(a32::Gp to, a32::Gp src, int64_t val) {
         // TODO
+        ASSERT(false);
     }
 
     void add(a32::Gp to, a32::Gp src, int64_t val) {
         // TODO
+        ASSERT(false);
     }
 
     void subs(a32::Gp to, a32::Gp src, int64_t val) {
         // TODO
+        ASSERT(false);
     }
 
     void cmp(a32::Gp src, int64_t val) {
         // TODO
+        ASSERT(false);
     }
 
     void ldur(a32::Gp reg, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     void stur(a32::Gp reg, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_9bit_imm(uint32_t instId, a32::Gp reg, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     /*
@@ -344,6 +372,7 @@ protected:
      */
     void lea(a32::Gp to, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 };
 
@@ -484,47 +513,57 @@ class BeamModuleAssembler : public BeamAssembler,
 
     void reg_cache_put(arm::Mem mem, a32::Gp src) {
         // TODO
+        ASSERT(false);
     }
 
     a32::Gp find_cache(arm::Mem mem) {
         // TODO
+        ASSERT(false);
         return reg_cache.find(a.offset(), mem);
     }
 
     /* Works as the STR instruction, but also updates the cache. */
     void str_cache(a32::Gp src, arm::Mem mem_dst) {
         // TODO
+        ASSERT(false);
     }
 
     /* Works as the STP instruction, but also updates the cache. */
     void stp_cache(a32::Gp src1, a32::Gp src2, arm::Mem mem_dst) {
         // TODO
+        ASSERT(false);
     }
 
     /* Works like LDR, but looks in the cache first. */
     void ldr_cached(a32::Gp dst, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     template<typename L, typename... Any>
     void preserve_cache(L generate, Any... clobber) {
         // TODO
+        ASSERT(false);
     }
 
     void trim_preserve_cache(const ArgWord &Words) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_preserve_cache(a32::VecD dst, a32::VecD src) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_preserve_cache(a32::Gp dst, a32::Gp src) {
         // TODO
+        ASSERT(false);
     }
 
     void untag_ptr_preserve_cache(a32::Gp dst, a32::Gp src) {
         // TODO
+        ASSERT(false);
     }
 
     arm::Mem embed_label(const Label &label, enum Displacement disp);
@@ -604,22 +643,27 @@ protected:
 
     void emit_is_cons(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_not_cons(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_list(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_boxed(Label Fail, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     void emit_is_boxed(Label Fail, const ArgVal &Arg, a32::Gp Src) {
         // TODO
+        ASSERT(false);
     }
 
     /* Copies `count` words from the address at `from`, to the address at `to`.
@@ -858,6 +902,7 @@ protected:
 
     bool isRegisterBacked(const ArgVal &arg) {
         // TODO
+        ASSERT(false);
         return false;
     }
 
@@ -874,16 +919,19 @@ protected:
 
     Variable<a32::Gp> init_destination(const ArgVal &arg, a32::Gp tmp) {
         // TODO
+        ASSERT(false);
         return Variable(tmp);
     }
 
     Variable<a32::VecD> init_destination(const ArgVal &arg, a32::VecD tmp) {
         // TODO
+        ASSERT(false);
         return Variable(tmp);
     }
 
     Variable<a32::Gp> load_source(const ArgVal &arg, a32::Gp tmp) {
         // TODO
+        ASSERT(false);
         return Variable(tmp);
     }
 
@@ -911,7 +959,9 @@ protected:
     Variable<a32::Gp> load_source(const ArgVal &arg) {
         a32::Gp todo;
         // TODO
+        ASSERT(false);
         return Variable(todo); // TODO
+        ASSERT(false);
     }
 
     auto load_sources(const ArgVal &Src1,
@@ -938,6 +988,7 @@ protected:
 
     Variable<a32::VecD> load_source(const ArgVal &arg, a32::VecD tmp) {
         // TODO
+        ASSERT(false);
         return Variable<a32::VecD>(tmp);
     }
 
@@ -953,24 +1004,29 @@ protected:
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, const Variable<Reg> &from) {
         // TODO
+        ASSERT(false);
     }
 
     template<typename Reg>
     void mov_var(const Variable<Reg> &to, Reg from) {
         // TODO
+        ASSERT(false);
     }
 
     template<typename Reg>
     void mov_var(Reg to, const Variable<Reg> &from) {
         // TODO
+        ASSERT(false);
     }
 
     void flush_var(const Variable<a32::Gp> &to) {
         // TODO
+        ASSERT(false);
     }
 
     void flush_var(const Variable<a32::VecD> &to) {
         // TODO
+        ASSERT(false);
     }
 
     enum Relation { none, consecutive, reverse_consecutive };
@@ -978,46 +1034,56 @@ protected:
     static Relation memory_relation(const arm::Mem &mem1,
                                     const arm::Mem &mem2) {
         // TODO
+        ASSERT(false);
         return none;
     }
 
     void flush_vars(const Variable<a32::Gp> &to1,
                     const Variable<a32::Gp> &to2) {
         // TODO
+        ASSERT(false);
     }
 
     void flush_vars(const Variable<a32::Gp> &to1,
                     const Variable<a32::Gp> &to2,
                     const Variable<a32::Gp> &to3) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_arg(const ArgRegister &To, const ArgVal &From) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_arg(const ArgRegister &To, arm::Mem From) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_arg(arm::Mem To, const ArgVal &From) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_arg(a32::Gp to, const ArgVal &from) {
         // TODO
+        ASSERT(false);
     }
 
     void mov_arg(const ArgVal &to, a32::Gp from) {
         // TODO
+        ASSERT(false);
     }
 
     void cmp_arg(a32::Gp gp, const ArgVal &arg) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_str(a32::Gp gp, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_stp(a32::Gp gp1,
@@ -1026,19 +1092,23 @@ protected:
                   const ArgVal &Dst1,
                   const ArgVal &Dst2) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_stp(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_ldr(a32::Gp gp, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_ldur(a32::Gp gp, arm::Mem mem) {
 
         // TODO
+        ASSERT(false);
     }
 
     void safe_ldp(a32::Gp gp1,
@@ -1046,10 +1116,12 @@ protected:
                   const ArgVal &Src1,
                   const ArgVal &Src2) {
         // TODO
+        ASSERT(false);
     }
 
     void safe_ldp(a32::Gp gp1, a32::Gp gp2, arm::Mem mem) {
         // TODO
+        ASSERT(false);
     }
 
     /* Set the Z flag if Reg1 and Reg2 are definitely not equal based
@@ -1061,6 +1133,7 @@ protected:
                                        const ArgVal &Src2,
                                        a32::Gp Reg2) {
         // TODO
+        ASSERT(false);
 
     }
 
@@ -1070,6 +1143,7 @@ protected:
                                  const ArgVal &Src2,
                                  a32::Gp Reg2) {
         // TODO
+        ASSERT(false);
     }
 };
 
