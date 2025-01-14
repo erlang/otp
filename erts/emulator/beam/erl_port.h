@@ -334,7 +334,7 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 11))
 /* Last port to terminate halts the emulator */
 #define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 12))
-/* Check if the event in ready_input should be cleaned */
+/* Check if the event in ready_input should be cleaned. */
 #define ERTS_PORT_SFLG_CHECK_FD_CLEANUP ((Uint32) (1 << 13))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
