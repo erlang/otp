@@ -1116,8 +1116,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
 
     ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
 
-    %% We setup 100 fds in parallel to make sure all end up in
-    %% scheduler pollset
+    %% We setup 10 fds in parallel to make sure all end up in scheduler pollset
     NumberOfFds = 10,
     Parent = self(),
     Pids = [spawn_monitor(fun() ->
@@ -1154,7 +1153,8 @@ move_fd_to_scheduler_pollset(W, R, Flag, Ref, MSG_ENV) ->
                 ok
         end,
         Buf = read_nif(R, byte_size(Buf))
-     end || I <- lists:seq(1,30)].
+     end || I <- lists:seq(1,30)],
+     ok.
 
 has_scheduler_pollset() ->
     lists:search(fun(PS) ->

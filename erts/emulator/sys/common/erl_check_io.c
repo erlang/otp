@@ -1360,6 +1360,10 @@ enif_select_x(ErlNifEnv* env,
         ctl_events &= old_events;
         state->events &= ~ctl_events;
         state->active_events &= ~ctl_events;
+        if (ctl_op == ERTS_POLL_OP_DEL && state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
+            ASSERT(state->active_events & ERTS_POLL_EV_IN);
+            state->active_events &= ~ERTS_POLL_EV_IN;
+        }
     }
 
     if (ctl_events || ctl_op == ERTS_POLL_OP_DEL) {
