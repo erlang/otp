@@ -1361,7 +1361,7 @@ enif_select_x(ErlNifEnv* env,
         state->events &= ~ctl_events;
         state->active_events &= ~ctl_events;
         if (ctl_op == ERTS_POLL_OP_DEL && state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
-            ASSERT(state->active_events & ERTS_POLL_EV_IN);
+            ASSERT(state->active_events & ERTS_POLL_EV_IN || ctl_events & ERTS_POLL_EV_IN);
             state->active_events &= ~ERTS_POLL_EV_IN;
         }
     }
@@ -1979,11 +1979,11 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
             state->active_events = 0;
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset() && state->flags & ERTS_EV_FLAG_SCHEDULER) {
+            if (state->flags & ERTS_EV_FLAG_SCHEDULER) {
                 /* In the poll thread, this fd would have been disabled due to ONESHOT,
-                   but in the scheduler pollset it needs to be disabled. */
+                   but in the scheduler pollset it needs to be disabled manually. */
                 int wake_poller = 0;
-                erts_poll_control(psi->ps, fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
+                erts_poll_control(get_scheduler_pollset(), fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
                 state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
                 state->count = 0;
             }
