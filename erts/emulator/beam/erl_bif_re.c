@@ -1118,7 +1118,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
     Eterm *tp;
     int rc;
     Eterm res;
-    size_t code_size;
+    uint32_t code_size;
     Sint32 loop_limit;
     int is_list_cap;
     struct parsed_options opts;
@@ -1243,13 +1243,19 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	}
 
 	ovsize = unsigned_val(tp[2]) + 1;
-        code_tmp = (const pcre2_code*)erts_get_aligned_binary_bytes(tp[5],
-                                                              &code_size,
-                                                              &temp_alloc);
-	if (code_tmp == NULL || code_size < 4) {
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_ERROR(p, BADARG);
-	}
+        {
+            Uint code_bin_sz;
+            code_tmp = (const pcre2_code*)erts_get_aligned_binary_bytes(tp[5],
+                                                                  &code_bin_sz,
+                                                                  &temp_alloc);
+            if (code_tmp == NULL || code_bin_sz < 4 || code_bin_sz > UINT32_MAX) {
+                erts_free_aligned_binary_bytes(temp_alloc);
+                BIF_ERROR(p, BADARG);
+            }
+            code_size = (uint32_t)code_bin_sz;
+        }
+        /* ToDo: Must be possible to get rid of this extra alloc and memcpy
+                 of the compiled regex at every call to re:run. */
 	restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
 	sys_memcpy(restart.code, code_tmp, code_size);
 	erts_free_aligned_binary_bytes(temp_alloc);
