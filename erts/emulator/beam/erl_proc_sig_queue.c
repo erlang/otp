@@ -4997,8 +4997,6 @@ activate_suspend_monitor(Process *c_p, ErtsMonitorSuspend *msp)
 {
     erts_aint_t mstate;
 
-    ASSERT(msp->ptimer_count == 0);
-
     mstate = erts_atomic_read_bor_acqb(&msp->state,
                                        ERTS_MSUSPEND_STATE_FLG_ACTIVE);
     ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)); (void) mstate;
