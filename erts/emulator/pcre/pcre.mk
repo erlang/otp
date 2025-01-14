@@ -50,7 +50,7 @@ PCRE_OBJDIR = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)
 
 PCRE_DIR =  $(ERL_TOP)/erts/emulator/pcre
 
-PCRE_CFLAGS = $(filter-out -DDEBUG -Wimplicit-fallthrough,$(CFLAGS)) -DERLANG_INTEGRATION
+PCRE_CFLAGS = $(filter-out -DDEBUG -Wimplicit-fallthrough -Werror%,$(CFLAGS)) -DERLANG_INTEGRATION
 
 ifeq ($(TARGET), win32)
 $(EPCRE_LIB): $(PCRE_OBJS)
