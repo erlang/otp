@@ -4403,7 +4403,7 @@ usplit_2(X, Y, [], R, Rs) ->
 %%            T :: term().
 %%
 %% @complexity O(N), where N is the length of the input list.
-xusplit_2_1(X, Y, [Z | L], R, Rs, S) when Z < Y ->
+usplit_2_1(X, Y, [Z | L], R, Rs, S) when Z < Y ->
     usplit_2_1(Y, Z, L, [X | R], Rs, S);
 usplit_2_1(X, Y, [Z | L], R, Rs, S) when Z == Y ->
     usplit_2_1(X, Y, L, R, Rs, S);
