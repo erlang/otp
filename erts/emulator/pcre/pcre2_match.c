@@ -6797,7 +6797,7 @@ typedef struct {
 
     struct PRIV(valid_utf_ystate) valid_utf_ystate;
     
-    /* Original function parameters that need be saved */;
+    /* Original function parameters that need be saved */
     PCRE2_SPTR Xsubject;
     PCRE2_SIZE Xlength;
     PCRE2_SIZE Xstart_offset;
