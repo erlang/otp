@@ -1,14 +1,12 @@
-/-- Do not use the \x{} construct except with patterns that have the --/
-/-- /8 option set, because PCRE doesn't recognize them as UTF-8 unless --/
-No match
-/-- that option is set. However, the latest Perls recognize them always. --/
-No match
+# Do not use the \x{} construct except with patterns that have the
+# /utf option set, because PCRE doesn't recognize them as UTF-8 unless
+# that option is set. However, the latest Perls recognize them always.
 
-\x{100}ab/8
+\x{100}ab/utf
   \x{100}ab
  0: \x{100}ab
   
-/a\x{100}*b/8
+/a\x{100}*b/utf
     ab
  0: ab
     a\x{100}b  
@@ -16,7 +14,7 @@ No match
     a\x{100}\x{100}b  
  0: a\x{100}\x{100}b
     
-/a\x{100}+b/8
+/a\x{100}+b/utf
     a\x{100}b  
  0: a\x{100}b
     a\x{100}\x{100}b  
@@ -26,7 +24,7 @@ No match
     ab
 No match
      
-/\bX/8
+/\bX/utf
     Xoanon
  0: X
     +Xoanon
@@ -38,7 +36,7 @@ No match
     YXoanon  
 No match
     
-/\BX/8
+/\BX/utf
     YXoanon
  0: X
     *** Failers
@@ -50,7 +48,7 @@ No match
     \x{300}Xoanon 
 No match
 
-/X\b/8
+/X\b/utf
     X+oanon
  0: X
     ZX\x{300}oanon 
@@ -62,7 +60,7 @@ No match
     Xoanon  
 No match
     
-/X\B/8
+/X\B/utf
     Xoanon  
  0: X
     *** Failers
@@ -74,13 +72,13 @@ No match
     FAX 
 No match
     
-/[^a]/8
+/[^a]/utf
     abcd
  0: b
     a\x{100}   
  0: \x{100}
 
-/^[abc\x{123}\x{400}-\x{402}]{2,3}\d/8
+/^[abc\x{123}\x{400}-\x{402}]{2,3}\d/utf
     ab99
  0: ab9
     \x{123}\x{123}45
@@ -98,7 +96,7 @@ No match
     \x{400}\x{401}\x{402}\x{402}6  
 No match
 
-/abc/8
+/abc/utf
     ร]
 Error -10
     ร
@@ -108,7 +106,7 @@ Error -10
     รรร\?
 No match
 
-/a.b/8
+/a.b/utf
     acb
  0: acb
     a\x7fb
@@ -120,25 +118,25 @@ No match
     a\nb  
 No match
 
-/^[a\x{c0}]/8
+/^[a\x{c0}]/utf
     *** Failers
 No match
     \x{100}
 No match
 
-/(?<=aXb)cd/8
+/(?<=aXb)cd/utf
     aXbcd
  0: cd
 
-/(?<=a\x{100}b)cd/8
+/(?<=a\x{100}b)cd/utf
     a\x{100}bcd
  0: cd
 
-/(?<=a\x{100000}b)cd/8
+/(?<=a\x{100000}b)cd/utf
     a\x{100000}bcd
  0: cd
     
-/(?:\x{100}){3}b/8
+/(?:\x{100}){3}b/utf
     \x{100}\x{100}\x{100}b
  0: \x{100}\x{100}\x{100}b
     *** Failers 
@@ -146,7 +144,7 @@ No match
     \x{100}\x{100}b
 No match
 
-/\x{ab}/8
+/\x{ab}/utf
     \x{ab} 
  0: \x{ab}
     \xc2\xab
@@ -156,109 +154,109 @@ No match
     \x00{ab}
 No match
 
-/^[^a]{2}/8
+/^[^a]{2}/utf
     \x{100}bc
  0: \x{100}b
  
-/^[^a]{2,}/8
+/^[^a]{2,}/utf
     \x{100}bcAa
  0: \x{100}bcA
 
-/^[^a]{2,}?/8
+/^[^a]{2,}?/utf
     \x{100}bca
  0: \x{100}b
 
-/^[^a]{2}/8i
+/^[^a]{2}/utfi
     \x{100}bc
  0: \x{100}b
  
-/^[^a]{2,}/8i
+/^[^a]{2,}/utfi
     \x{100}bcAa
  0: \x{100}bc
 
-/^[^a]{2,}?/8iU
+/^[^a]{2,}?/utf,caseless,ungreddy
     \x{100}bca
  0: \x{100}bc
 
-/\x{100}{0,0}/8
+/\x{100}{0,0}/utf
     abcd
  0: 
  
-/\x{100}?/8
+/\x{100}?/utf
     abcd
  0: 
     \x{100}\x{100} 
  0: \x{100}
 
-/\x{100}{0,3}/8 
+/\x{100}{0,3}/utf
     \x{100}\x{100} 
  0: \x{100}\x{100}
     \x{100}\x{100}\x{100}\x{100} 
  0: \x{100}\x{100}\x{100}
     
-/\x{100}*/8
+/\x{100}*/utf
     abce
  0: 
     \x{100}\x{100}\x{100}\x{100} 
  0: \x{100}\x{100}\x{100}\x{100}
 
-/\x{100}{1,1}/8
+/\x{100}{1,1}/utf
     abcd\x{100}\x{100}\x{100}\x{100} 
  0: \x{100}
 
-/\x{100}{1,3}/8
+/\x{100}{1,3}/utf
     abcd\x{100}\x{100}\x{100}\x{100} 
  0: \x{100}\x{100}\x{100}
 
-/\x{100}+/8
+/\x{100}+/utf
     abcd\x{100}\x{100}\x{100}\x{100} 
  0: \x{100}\x{100}\x{100}\x{100}
 
-/\x{100}{3}/8
+/\x{100}{3}/utf
     abcd\x{100}\x{100}\x{100}XX
  0: \x{100}\x{100}\x{100}
 
-/\x{100}{3,5}/8
+/\x{100}{3,5}/utf
     abcd\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}XX
  0: \x{100}\x{100}\x{100}\x{100}\x{100}
 
-/\x{100}{3,}/8
+/\x{100}{3,}/utf
     abcd\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}XX
  0: \x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}
 
-/(?<=a\x{100}{2}b)X/8
+/(?<=a\x{100}{2}b)X/utf
     Xyyya\x{100}\x{100}bXzzz
  0: X
 
-/\D*/8
+/\D*/utf
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
  0: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-/\D*/8
+/\D*/utf
   \x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}
  0: \x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}\x{100}
 
-/\D/8
+/\D/utf
     1X2
  0: X
     1\x{100}2 
  0: \x{100}
   
-/>\S/8
+/>\S/utf
     > >X Y
  0: >X
     > >\x{100} Y
  0: >\x{100}
   
-/\d/8
+/\d/utf
     \x{100}3
  0: 3
     
-/\s/8
+/\s/utf
     \x{100} X
  0:  
     
-/\D+/8
+/\D+/utf
     12abcd34
  0: abcd
     *** Failers
@@ -266,13 +264,13 @@ No match
     1234  
 No match
 
-/\d+/8
+/\d+/utf
     12abcd34
  0: 12
      *** Failers
 No match
 
-/\d{2,3}/8
+/\d{2,3}/utf
     12abcd34
  0: 12
     1234abcd
@@ -282,7 +280,7 @@ No match
     1.4 
 No match
 
-/\S+/8
+/\S+/utf
     12abcd34
  0: 12abcd34
     *** Failers
@@ -290,13 +288,13 @@ No match
      \    \ 
 No match
 
-/>\s+</8
+/>\s+</utf
     12>      <34
  0: >      <
     *** Failers
 No match
 
-/>\s{2,3}</8
+/>\s{2,3}</utf
     ab>  <cd
  0: >  <
     ab>   <ce
@@ -306,7 +304,7 @@ No match
     ab>    <cd 
 No match
 
-/>\s{2,3}?</8
+/>\s{2,3}?</utf
     ab>  <cd
  0: >  <
     ab>   <ce
@@ -316,7 +314,7 @@ No match
     ab>    <cd 
 No match
 
-/\w+/8
+/\w+/utf
     12      34
  0: 12
      *** Failers
@@ -324,7 +322,7 @@ No match
     +++=*! 
 No match
 
-/\w{2,3}/8
+/\w{2,3}/utf
     ab  cd
  0: ab
     abcd ce
@@ -334,7 +332,7 @@ No match
     a.b.c
 No match
 
-/\W+/8
+/\W+/utf
     12====34
  0: ====
     *** Failers
@@ -342,7 +340,7 @@ No match
     abcd 
 No match
 
-/\W{2,3}/8
+/\W{2,3}/utf
     ab====cd
  0: ===
     ab==cd
@@ -352,7 +350,7 @@ No match
     a.b.c
 No match
 
-/\W{2,3}?/8U
+/\W{2,3}?/utf,ungreddy
     ab====cd
  0: ===
      ab==cd
@@ -362,7 +360,7 @@ No match
      a.b.c
 No match
 
-/[\x{100}]/8
+/[\x{100}]/utf
     \x{100}
  0: \x{100}
     Z\x{100}
@@ -372,7 +370,7 @@ No match
     *** Failers 
 No match
 
-/[Z\x{100}]/8
+/[Z\x{100}]/utf
     Z\x{100}
  0: Z
     \x{100}
@@ -382,7 +380,7 @@ No match
     *** Failers 
 No match
 
-/[\x{100}\x{200}]/8
+/[\x{100}\x{200}]/utf
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -390,53 +388,17 @@ No match
    *** Failers  
 No match
 
-/[\x{100}-\x{200}]/8
-   ab\x{100}cd
- 0: \x{100}
-   ab\x{200}cd
- 0: \x{200}
-   ab\x{111}cd 
- 0: \x{111}
-   *** Failers  
-No match
-
-/[z-\x{200}]/8
+/[\x{100}-\x{200}]/utf
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
  0: \x{200}
    ab\x{111}cd 
  0: \x{111}
-   abzcd
- 0: z
-   ab|cd  
- 0: |
    *** Failers  
 No match
 
-/[Q\x{100}\x{200}]/8
-   ab\x{100}cd
- 0: \x{100}
-   ab\x{200}cd
- 0: \x{200}
-   Q? 
- 0: Q
-   *** Failers  
-No match
-
-/[Q\x{100}-\x{200}]/8
-   ab\x{100}cd
- 0: \x{100}
-   ab\x{200}cd
- 0: \x{200}
-   ab\x{111}cd 
- 0: \x{111}
-   Q? 
- 0: Q
-   *** Failers  
-No match
-
-/[Qz-\x{200}]/8
+/[z-\x{200}]/utf
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -447,12 +409,48 @@ No match
  0: z
    ab|cd  
  0: |
+   *** Failers  
+No match
+
+/[Q\x{100}\x{200}]/utf
+   ab\x{100}cd
+ 0: \x{100}
+   ab\x{200}cd
+ 0: \x{200}
    Q? 
  0: Q
    *** Failers  
 No match
 
-/[\x{100}\x{200}]{1,3}/8
+/[Q\x{100}-\x{200}]/utf
+   ab\x{100}cd
+ 0: \x{100}
+   ab\x{200}cd
+ 0: \x{200}
+   ab\x{111}cd 
+ 0: \x{111}
+   Q? 
+ 0: Q
+   *** Failers  
+No match
+
+/[Qz-\x{200}]/utf
+   ab\x{100}cd
+ 0: \x{100}
+   ab\x{200}cd
+ 0: \x{200}
+   ab\x{111}cd 
+ 0: \x{111}
+   abzcd
+ 0: z
+   ab|cd  
+ 0: |
+   Q? 
+ 0: Q
+   *** Failers  
+No match
+
+/[\x{100}\x{200}]{1,3}/utf
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -462,7 +460,7 @@ No match
    *** Failers  
 No match
 
-/[\x{100}\x{200}]{1,3}?/8U
+/[\x{100}\x{200}]{1,3}?/utf,ungreddy
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -472,7 +470,7 @@ No match
    *** Failers  
 No match
 
-/[Q\x{100}\x{200}]{1,3}/8
+/[Q\x{100}\x{200}]{1,3}/utf
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -482,7 +480,7 @@ No match
    *** Failers  
 No match
 
-/[Q\x{100}\x{200}]{1,3}?/8U
+/[Q\x{100}\x{200}]{1,3}?/utf,ungreddy
    ab\x{100}cd
  0: \x{100}
    ab\x{200}cd
@@ -492,7 +490,7 @@ No match
    *** Failers  
 No match
 
-/(?<=[\x{100}\x{200}])X/8
+/(?<=[\x{100}\x{200}])X/utf
     abc\x{200}X
  0: X
     abc\x{100}X 
@@ -502,7 +500,7 @@ No match
     X  
 No match
 
-/(?<=[Q\x{100}\x{200}])X/8
+/(?<=[Q\x{100}\x{200}])X/utf
     abc\x{200}X
  0: X
     abc\x{100}X 
@@ -514,7 +512,7 @@ No match
     X  
 No match
 
-/(?<=[\x{100}\x{200}]{3})X/8
+/(?<=[\x{100}\x{200}]{3})X/utf
     abc\x{100}\x{200}\x{100}X
  0: X
     *** Failers
@@ -524,7 +522,7 @@ No match
     X  
 No match
 
-/[^\x{100}\x{200}]X/8
+/[^\x{100}\x{200}]X/utf
     AX
  0: AX
     \x{150}X
@@ -538,7 +536,7 @@ No match
     \x{200}X   
 No match
 
-/[^Q\x{100}\x{200}]X/8
+/[^Q\x{100}\x{200}]X/utf
     AX
  0: AX
     \x{150}X
@@ -554,7 +552,7 @@ No match
     QX 
 No match
 
-/[^\x{100}-\x{200}]X/8
+/[^\x{100}-\x{200}]X/utf
     AX
  0: AX
     \x{500}X 
@@ -568,7 +566,7 @@ No match
     \x{200}X   
 No match
 
-/[z-\x{100}]/8i
+/[z-\x{100}]/utf,caseless
     z
  0: z
     Z 
@@ -586,7 +584,7 @@ No match
     >\xff<
  0: \xff
 
-/[\xff]/8
+/[\xff]/utf
     >\x{ff}<
  0: \x{ff}
 
@@ -594,33 +592,33 @@ No match
     XYZ
  0: X
 
-/[^\xff]/8
+/[^\xff]/utf
     XYZ
  0: X
     \x{123} 
  0: \x{123}
 
-/^[ac]*b/8
+/^[ac]*b/utf
   xb
 No match
 
-/^[ac\x{100}]*b/8
+/^[ac\x{100}]*b/utf
   xb
 No match
 
-/^[^x]*b/8i
+/^[^x]*b/utf,caseless
   xb
 No match
 
-/^[^x]*b/8
+/^[^x]*b/utf
   xb
 No match
   
-/^\d*b/8
+/^\d*b/utf
   xb 
 No match
 
-/^\x{85}$/8i
+/^\x{85}$/utf,caseless
     \x{85}
  0: \x{85}
 
@@ -648,7 +646,7 @@ No match
  0: abc8
  0: abc9
 
-/^a\Rb/8<bsr_unicode>
+/^a\Rb/utf,bsr=unicode
     a\nb
  0: a\x{0a}b
     a\rb
@@ -670,7 +668,7 @@ No match
     a\n\rb    
 No match
 
-/^a\R*b/8<bsr_unicode>
+/^a\R*b/utf,bsr=unicode
     ab
  0: ab
     a\nb
@@ -690,7 +688,7 @@ No match
     a\n\r\x{85}\x0cb 
  0: a\x{0a}\x{0d}\x{85}\x{0c}b
 
-/^a\R+b/8<bsr_unicode>
+/^a\R+b/utf,bsr=unicode
     a\nb
  0: a\x{0a}b
     a\rb
@@ -712,7 +710,7 @@ No match
     ab  
 No match
 
-/^a\R{1,3}b/8<bsr_unicode>
+/^a\R{1,3}b/utf,bsr=unicode
     a\nb
  0: a\x{0a}b
     a\n\rb
@@ -734,23 +732,23 @@ No match
     a\r
 No match
 
-/\h+\V?\v{3,4}/8 
+/\h+\V?\v{3,4}/utf
     \x09\x20\x{a0}X\x0a\x0b\x0c\x0d\x0a
  0: \x{09} \x{a0}X\x{0a}\x{0b}\x{0c}\x{0d}
 
-/\V?\v{3,4}/8 
+/\V?\v{3,4}/utf
     \x20\x{a0}X\x0a\x0b\x0c\x0d\x0a
  0: X\x{0a}\x{0b}\x{0c}\x{0d}
 
-/\h+\V?\v{3,4}/8
+/\h+\V?\v{3,4}/utf
     >\x09\x20\x{a0}X\x0a\x0a\x0a<
  0: \x{09} \x{a0}X\x{0a}\x{0a}\x{0a}
 
-/\V?\v{3,4}/8
+/\V?\v{3,4}/utf
     >\x09\x20\x{a0}X\x0a\x0a\x0a<
  0: X\x{0a}\x{0a}\x{0a}
 
-/\H\h\V\v/8
+/\H\h\V\v/utf
     X X\x0a
  0: X X\x{0a}
     X\x09X\x0b
@@ -760,7 +758,7 @@ No match
     \x{a0} X\x0a   
 No match
     
-/\H*\h+\V?\v{3,4}/8 
+/\H*\h+\V?\v{3,4}/utf
     \x09\x20\x{a0}X\x0a\x0b\x0c\x0d\x0a
  0: \x{09} \x{a0}X\x{0a}\x{0b}\x{0c}\x{0d}
     \x09\x20\x{a0}\x0a\x0b\x0c\x0d\x0a
@@ -772,7 +770,7 @@ No match
     \x09\x20\x{a0}\x0a\x0b
 No match
      
-/\H\h\V\v/8
+/\H\h\V\v/utf
     \x{3001}\x{3000}\x{2030}\x{2028}
  0: \x{3001}\x{3000}\x{2030}\x{2028}
     X\x{180e}X\x{85}
@@ -782,7 +780,7 @@ No match
     \x{2009} X\x0a   
 No match
     
-/\H*\h+\V?\v{3,4}/8 
+/\H*\h+\V?\v{3,4}/utf
     \x{1680}\x{180e}\x{2007}X\x{2028}\x{2029}\x0c\x0d\x0a
  0: \x{1680}\x{180e}\x{2007}X\x{2028}\x{2029}\x{0c}\x{0d}
     \x09\x{205f}\x{a0}\x0a\x{2029}\x0c\x{2028}\x0a
@@ -794,7 +792,7 @@ No match
     \x09\x{200a}\x{a0}\x{2028}\x0b
 No match
      
-/a\Rb/I8<bsr_anycrlf>
+/a\Rb/I,utf,bsr=anycrlf
 Capturing subpattern count = 0
 Options: bsr_anycrlf utf8
 First char = 'a'
@@ -809,10 +807,10 @@ Need char = 'b'
 No match
     a\x{85}b
 No match
-    a\x0bb     
+    a\x{0bb}
 No match
 
-/a\Rb/I8<bsr_unicode>
+/a\Rb/I,utf,bsr=unicode
 Capturing subpattern count = 0
 Options: bsr_unicode utf8
 First char = 'a'
@@ -827,14 +825,8 @@ Need char = 'b'
  0: a\x{85}b
     a\x0bb     
  0: a\x{0b}b
-    ** Failers 
-No match
-    a\x{85}b\<bsr_anycrlf>
-No match
-    a\x0bb\<bsr_anycrlf>
-No match
     
-/a\R?b/I8<bsr_anycrlf>
+/a\R?b/I,8,bsr=anycrlf
 Capturing subpattern count = 0
 Options: bsr_anycrlf utf8
 First char = 'a'
@@ -852,7 +844,7 @@ No match
     a\x0bb     
 No match
 
-/a\R?b/I8<bsr_unicode>
+/a\R?b/I,utf,bsr=unicode
 Capturing subpattern count = 0
 Options: bsr_unicode utf8
 First char = 'a'
@@ -867,11 +859,5 @@ Need char = 'b'
  0: a\x{85}b
     a\x0bb     
  0: a\x{0b}b
-    ** Failers 
-No match
-    a\x{85}b\<bsr_anycrlf>
-No match
-    a\x0bb\<bsr_anycrlf>
-No match
  
 / End of testinput 8 / 
