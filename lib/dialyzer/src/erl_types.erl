@@ -202,6 +202,8 @@
 
 -compile({no_auto_import,[min/2,max/2,map_get/2]}).
 
+-compile({no_auto_import,[is_boolean/1, is_binary/1, is_number/1]}).
+
 -export_type([erl_type/0, type_table/0, var_table/0, cache/0]).
 
 %%-define(DEBUG, true).

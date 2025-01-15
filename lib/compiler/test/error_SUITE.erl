@@ -64,8 +64,8 @@ bif_clashes(Config) when is_list(Config) ->
                erlang:length(X).
              ">>,
            [return_warnings],
-	   {error,
-	    [{{4,18}, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
+	   {warning,
+	    [{{4,18}, erl_lint,{call_to_redefined_bif,{length,1}}}]} }],
     [] = run(Config, Ts),
     Ts1 = [{bif_clashes2,
            <<"
@@ -75,8 +75,8 @@ bif_clashes(Config) when is_list(Config) ->
                  length([a,b,c]).
              ">>,
            [return_warnings],
-	    {error,
-	     [{{3,16}, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
+	    {warning,
+	     [{{3,16}, erl_lint,{redefine_bif_import,{length,1}}}]} }],
     [] = run(Config, Ts1),
     Ts00 = [{bif_clashes3,
            <<"

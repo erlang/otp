@@ -346,6 +346,8 @@ format_error_1({redefine_function,{F,A}}) ->
     {~"function ~tw/~w already defined", [F,A]};
 format_error_1({define_import,{F,A}}) ->
     {~"defining imported function ~tw/~w", [F,A]};
+format_error_1({fun_import,{F,A}}) ->
+    {~"creating a fun from imported name ~tw/~w is not allowed", [F,A]};
 format_error_1({unused_function,{F,A}}) ->
     {~"function ~tw/~w is unused", [F,A]};
 format_error_1({unexported_function, MFA}) ->
@@ -355,16 +357,6 @@ format_error_1({call_to_redefined_bif,{F,A}}) ->
       ambiguous call of overridden auto-imported BIF ~w/~w --
       use erlang:~w/~w or "-compile({no_auto_import,[~w/~w]})." to resolve name clash
       """, [F,A,F,A,F,A]};
-format_error_1({call_to_redefined_old_bif,{F,A}}) ->
-    {~"""
-      ambiguous call of overridden pre Erlang/OTP R14 auto-imported BIF ~w/~w --
-      use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash
-      """, [F,A,F,A,F,A]};
-format_error_1({redefine_old_bif_import,{F,A}}) ->
-    {~"""
-      import directive overrides pre Erlang/OTP R14 auto-imported BIF ~w/~w --
-      use "-compile({no_auto_import,[~w/~w]})." to resolve name clash
-      """, [F,A,F,A]};
 format_error_1({redefine_bif_import,{F,A}}) ->
     {~"""
       import directive overrides auto-imported BIF ~w/~w --
@@ -1836,13 +1828,7 @@ import(Anno, {Mod,Fs}, St00) ->
 			      Warn = is_warn_enabled(bif_clash, St0) andalso
 				  (not bif_clash_specifically_disabled(St0,{F,A})),
 			      AutoImpSup = is_autoimport_suppressed(St0#lint.no_auto,{F,A}),
-			      OldBif = erl_internal:old_bif(F,A),
 			      {Err,if
-				       Warn and (not AutoImpSup) and OldBif ->
-					   add_error
-					     (Anno,
-					      {redefine_old_bif_import, {F,A}},
-					      St0);
 				       Warn and (not AutoImpSup) ->
 					   add_warning
 					     (Anno,
@@ -2759,13 +2745,23 @@ expr({'fun',Anno,Body}, Vt, St) ->
             %% It is illegal to call record_info/2 with unknown arguments.
             {[],add_error(Anno, illegal_record_info, St)};
         {function,F,A} ->
-            %% BifClash - Fun expression
-            %% N.B. Only allows BIFs here as well, NO IMPORTS!!
-            case ((not is_local_function(St#lint.locals,{F,A})) andalso
-		  (erl_internal:bif(F, A) andalso
-		   (not is_autoimport_suppressed(St#lint.no_auto,{F,A})))) of
-                true -> {[],St};
-                false -> {[],call_function(Anno, F, A, St)}
+            St1 = case is_imported_function(St#lint.imports,{F,A}) of
+                      true ->
+                          add_error(Anno, {fun_import,{F,A}}, St);
+                      false ->
+                          %% check function use like for a call
+                          As = lists:duplicate(A, undefined), % dummy args
+                          check_call(Anno, F, As, Anno, St)
+                  end,
+            %% do not mark as used as a local function if listed as
+            %% imported (either auto-imported or explicitly)
+            case not is_local_function(St1#lint.locals,{F,A}) andalso
+                (is_imported_function(St1#lint.imports,{F,A})
+                 orelse
+                   (erl_internal:bif(F, A) andalso
+                    not is_autoimport_suppressed(St1#lint.no_auto,{F,A}))) of
+                true -> {[],St1};
+                false -> {[],call_function(Anno, F, A, St1)}
             end;
         {function, {atom, _, M}, {atom, _, F}, {integer, _, A}} ->
             {[], check_unexported_function(Anno, M, F, A, St)};
@@ -2910,16 +2906,7 @@ check_call(Anno, F, As, _Aa, St0) ->
                              false ?= AutoSuppressed,
                              true ?= is_warn_enabled(bif_clash, St0),
                              false ?= bif_clash_specifically_disabled(St0, {F,A}),
-                             case erl_internal:old_bif(F, A) of
-                                 true ->
-                                     add_error(Anno,
-                                               {call_to_redefined_old_bif, {F,A}},
-                                               St0);
-                                 false ->
-                                     add_warning(Anno,
-                                                 {call_to_redefined_bif, {F,A}},
-                                                 St0)
-                             end
+                             add_warning(Anno, {call_to_redefined_bif, {F,A}}, St0)
                          else
                              _ ->
                                  St0

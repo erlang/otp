@@ -2416,12 +2416,12 @@ otp_5362(Config) when is_list(Config) ->
            ">>,
            {[nowarn_unused_function,
              warn_deprecated_function]},
-           {error,
-            [{{5,19},erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
+           {warnings,
             [{{4,19},erl_lint,{deprecated,{erlang,now,0},
                           "see the \"Time and Time Correction in Erlang\" "
                           "chapter of the ERTS User's Guide for more "
-                          "information"}}]}},
+                          "information"}},
+             {{5,19},erl_lint,{call_to_redefined_bif,{spawn,1}}}]}},
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
@@ -3250,7 +3250,7 @@ bif_clash(Config) when is_list(Config) ->
                 N.
              ">>,
            [nowarn_unexported_function],
-	   {errors,[{{2,19},erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
+	   {warnings,[{{2,19},erl_lint,{call_to_redefined_bif,{size,1}}}]}},
 
 	  %% Verify that warnings cannot be turned off in the old way.
 	  {clash2,
@@ -3279,7 +3279,7 @@ bif_clash(Config) when is_list(Config) ->
              ">>,
 	   [],
 	   []},
-	  %% But this is totally wrong - meaning of the program changed in R14, so this is an error
+	  %% For a pre R14 bif, it used to be an error, but is now a warning
 	  {clash4,
            <<"-export([size/1]).
               size({N,_}) ->
@@ -3288,20 +3288,22 @@ bif_clash(Config) when is_list(Config) ->
                 size(X).
              ">>,
 	   [],
-	   {errors,[{{5,17},erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
-	  %% For a post R14 bif, its only a warning
+	   {warnings,[{{5,17},erl_lint,{call_to_redefined_bif,{size,1}}}]}},
+	  %% For a post R14 bif, its only a warning; also check symbolic funs
 	  {clash5,
-           <<"-export([binary_part/2]).
+           <<"-export([binary_part/2,f/0]).
               binary_part({B,_},{X,Y}) ->
                 binary_part(B,{X,Y});
               binary_part(B,{X,Y}) ->
                 binary:part(B,X,Y).
+              f() -> fun binary_part/2.
              ">>,
 	   [],
-	   {warnings,[{{3,17},erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
+	   {warnings,[{{3,17},erl_lint,{call_to_redefined_bif,{binary_part,2}}},
+                      {{6,22},erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
 	  %% If you really mean to call yourself here, you can "unimport" size/1
 	  {clash6,
-           <<"-export([size/1]).
+           <<"-export([size/1,f/0]).
               -compile({no_auto_import,[size/1]}).
               size([]) ->
                 0;
@@ -3309,6 +3311,7 @@ bif_clash(Config) when is_list(Config) ->
                 N;
               size([_|T]) ->
                 1+size(T).
+              f() -> fun size/1.
              ">>,
 	   [],
 	   []},
@@ -3375,7 +3378,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
           %% Not from erlang and not from anywhere else
 	  {clash13,
            <<"-export([x/1]).
@@ -3385,7 +3388,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   {errors,[{{5,43},erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	   {errors,[{{5,43},erl_lint,{fun_import,{binary_part,2}}}],[]}},
 	  %% ...while real auto-import is OK.
 	  {clash14,
            <<"-export([x/1]).
@@ -3394,7 +3397,7 @@ bif_clash(Config) when is_list(Config) ->
              ">>,
 	   [],
 	   []},
-          %% Import directive clashing with old bif is an error, regardless of if it's called or not
+          %% Import directive clashing with old bif used to be an error, now a warning
 	  {clash15,
            <<"-export([x/1]).
               -import(x,[abs/1]).
@@ -3402,7 +3405,7 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}).
              ">>,
 	   [],
-	   {errors,[{{2,16},erl_lint,{redefine_old_bif_import,{abs,1}}}],[]}},
+	   {warnings,[{{2,16},erl_lint,{redefine_bif_import,{abs,1}}}]}},
 	  %% For a new BIF, it's only a warning
 	  {clash16,
            <<"-export([x/1]).
