@@ -152,70 +152,101 @@ to run any subsystems.
 """.
 -doc(#{title => <<"Daemon Options">>}).
 -type subsystem_spec()        :: {Name::string(), mod_args()} .
-                              
+
 -doc(#{title => <<"Common Options">>}).
 -type algs_list()             :: list( alg_entry() ).
 -doc(#{title => <<"Common Options">>}).
--type alg_entry()             :: {kex, [kex_alg()]} 
+-type alg_entry()             :: {kex, [kex_alg()]}
                                | {public_key, [pubkey_alg()]}
                                | {cipher, double_algs(cipher_alg())}
                                | {mac, double_algs(mac_alg())}
                                | {compression, double_algs(compression_alg())} .
 
 -doc(#{title => <<"Common Options">>}).
--type kex_alg()          :: 'curve25519-sha256' |
-                            'curve25519-sha256@libssh.org' |
-                            'curve448-sha512' |
-                            'ecdh-sha2-nistp521' |
-                            'ecdh-sha2-nistp384' |
-                            'ecdh-sha2-nistp256' |
-                            'diffie-hellman-group-exchange-sha256' |
-                            'diffie-hellman-group16-sha512' |
-                            'diffie-hellman-group18-sha512' |
-                            'diffie-hellman-group14-sha256' |
-                            'diffie-hellman-group14-sha1' |
-                            'diffie-hellman-group-exchange-sha1' |
-                            'diffie-hellman-group1-sha1'
-                            .
+-type kex_alg()  ::
+        'diffie-hellman-group-exchange-sha256' |
+        'diffie-hellman-group14-sha256' |
+        'diffie-hellman-group16-sha512' |
+        'diffie-hellman-group18-sha512' |
+        'curve25519-sha256' |
+        'curve25519-sha256@libssh.org' |
+        'curve448-sha512' |
+        'ecdh-sha2-nistp256' |
+        'ecdh-sha2-nistp384' |
+        'ecdh-sha2-nistp521' |
+        legacy_kex_alg().
+
+-doc(#{title => <<"Legacy Algorithms">>}).
+-type legacy_kex_alg()  ::
+        %%  Gone in OpenSSH 7.3.p1
+        'diffie-hellman-group1-sha1' |
+        %%  Gone in OpenSSH 8.2
+        'diffie-hellman-group14-sha1' |
+        'diffie-hellman-group-exchange-sha1'.
 
 -doc(#{title => <<"Common Options">>}).
--type pubkey_alg()       :: 'ssh-ed25519' |
-                            'ssh-ed448' |
-                            'ecdsa-sha2-nistp521' |
-                            'ecdsa-sha2-nistp384' |
-                            'ecdsa-sha2-nistp256' |
-                            'rsa-sha2-512' |
-                            'rsa-sha2-256' |
-                            'ssh-rsa' |
-                            'ssh-dss'
-                            .
+-type pubkey_alg()  ::
+        'ecdsa-sha2-nistp256' |
+        'ecdsa-sha2-nistp384' |
+        'ecdsa-sha2-nistp521' |
+        'ssh-ed25519' |
+        'ssh-ed448' |
+        'rsa-sha2-256' |
+        'rsa-sha2-512' |
+        legacy_pubkey_alg().
+
+-doc(#{title => <<"Legacy Algorithms">>}).
+-type legacy_pubkey_alg()  ::
+        'ssh-rsa' |
+        %% Gone in OpenSSH 7.3.p1:
+        'ssh-dss'.
 
 -doc(#{title => <<"Common Options">>}).
--type cipher_alg()       :: 'aes256-gcm@openssh.com' |
-                            'aes256-ctr' |
-                            'aes192-ctr' |
-                            'aes128-gcm@openssh.com' |
-                            'aes128-ctr' |
-                            'AEAD_AES_256_GCM' |
-                            'AEAD_AES_128_GCM' |
-                            'chacha20-poly1305@openssh.com' |
-                            'aes256-cbc' |
-                            'aes192-cbc' |
-                            'aes128-cbc' |
-                            '3des-cbc'
-                            .
+-type cipher_alg()  ::
+        'aes128-ctr' |
+        'aes128-gcm@openssh.com' |
+        'aes192-ctr' |
+        'aes256-ctr' |
+        'aes256-gcm@openssh.com' |
+        'chacha20-poly1305@openssh.com' |
+        disabled_cipher_alg() |
+        legacy_cipher_alg().
 
 -doc(#{title => <<"Common Options">>}).
--type mac_alg()          :: 'hmac-sha2-512-etm@openssh.com' |
-                            'hmac-sha2-256-etm@openssh.com' |
-                            'hmac-sha2-512' |
-                            'hmac-sha2-256' |
-                            'hmac-sha1-etm@openssh.com' |
-                            'hmac-sha1' |
-                            'hmac-sha1-96' |
-                            'AEAD_AES_256_GCM' |
-                            'AEAD_AES_128_GCM'
-                            .
+-type disabled_cipher_alg()  ::
+        %% not enabled by default as it might not be compatible with
+        %% other implemenations
+        %% read more in commit message of a895fc7303497f1795cf49360980abeb68be2223
+        'AEAD_AES_128_GCM' |
+        'AEAD_AES_256_GCM'.
+
+-doc(#{title => <<"Legacy Algorithms">>}).
+-type legacy_cipher_alg()  ::
+        %% Gone in OpenSSH 7.6
+        'aes128-cbc' |
+        'aes192-cbc' |
+        'aes256-cbc' |
+        '3des-cbc'.
+
+-doc(#{title => <<"Common Options">>}).
+-type mac_alg()  ::
+        'hmac-sha1' |
+        'hmac-sha1-etm@openssh.com' |
+        'hmac-sha2-256' |
+        'hmac-sha2-512' |
+        'hmac-sha2-256-etm@openssh.com' |
+        'hmac-sha2-512-etm@openssh.com' |
+        disabled_mac_alg() |
+        legacy_mac_alg().
+
+-doc(#{title => <<"Common Options">>}).
+-type disabled_mac_alg()  ::
+        'AEAD_AES_128_GCM' |
+        'AEAD_AES_256_GCM'.
+
+-doc(#{title => <<"Legacy Algorithms">>}).
+-type legacy_mac_alg()  ::
+        'hmac-sha1-96'.
 
 -doc(#{title => <<"Common Options">>}).
 -type compression_alg()  :: 'none' |
