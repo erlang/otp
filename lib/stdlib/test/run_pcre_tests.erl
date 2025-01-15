@@ -549,18 +549,62 @@ interpret_options(<<"locale=fr_FR,",Rest/binary>>) ->
     info("Accepting (and ignoring) french locale~n",[]),
     {Olist,NRest} = interpret_options(Rest),
     {[{exec_option, accept_nonascii}|Olist],NRest};
+%% Support the regex but not the options
 interpret_options(<<"aftertext,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {Olist, NRest};
 interpret_options(<<"mark,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {Olist, NRest};
+
 interpret_options(<<"match_invalid_utf,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {Olist, ["match_invalid_utf", NRest]};
 interpret_options(<<"dupnames,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {[dupnames | Olist], NRest};
+interpret_options(<<"anchored,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[anchored | Olist], NRest};
+interpret_options(<<"ungreedy,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[ungreedy | Olist], NRest};
+interpret_options(<<"caseless,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[caseless | Olist], NRest};
+interpret_options(<<"dollar_endonly,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[dollar_endonly | Olist], NRest};
+interpret_options(<<"dotall,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[dotall | Olist], NRest};
+interpret_options(<<"no_auto_capture,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[no_auto_capture | Olist], NRest};
+interpret_options(<<"firstline,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[firstline | Olist], NRest};
+interpret_options(<<"multiline,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[multiline | Olist], NRest};
+interpret_options(<<"extended,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[extended | Olist], NRest};
+interpret_options(<<"ucp,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[ucp | Olist], NRest};
+interpret_options(<<"never_utf,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[never_utf | Olist], NRest};
+interpret_options(<<"noteol,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[noteol | Olist], NRest};
+interpret_options(<<"notempty,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[notempty | Olist], NRest};
+interpret_options(<<"notempty_atstart,", Rest/binary>>) ->
+    {Olist,NRest} = interpret_options(Rest),
+    {[notempty_atstart | Olist], NRest};
 interpret_options(<<"no_start_optimize,",Rest/binary>>) ->
     {Olist,NRest} = interpret_options(Rest),
     {[no_start_optimize | Olist], NRest};
@@ -650,6 +694,9 @@ responses([{Line,<<"MK: ",_/binary>>}|T],U) ->
     responses(T,U);
 responses([{Line,<<" 0+ ",_/binary>>}|T],U) ->
     info("Skipping aftertext response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line, <<"Partial match: ",_/binary>>}|T],U) ->
+    info("Skipping partial match response at line ~p~n",[Line]),
     responses(T,U);
 responses([{_Line,<< X:2/binary,$:,?SPACE,Resp/binary>>}|T],U) ->
     {NT,R2} = responses(T,U),

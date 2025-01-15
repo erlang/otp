@@ -7735,7 +7735,7 @@ No match
  0: 
  0+ \x0d\x0a
 
-/(?m)^$|^\r\n/g,newline=any,aftertext,BUGSKIP
+/(?m)^$|^\r\n/g,newline=any,aftertext
     abc\r\n\r\n
  0: 
  0+ \x0d\x0a
