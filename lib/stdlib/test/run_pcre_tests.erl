@@ -769,6 +769,8 @@ newline_opt(<<"crlf">>) -> crlf;
 newline_opt(<<"CRLF">>) -> crlf;
 newline_opt(<<"anycrlf">>) -> anycrlf;
 newline_opt(<<"ANYCRLF">>) -> anycrlf;
+newline_opt(<<"nul">>) -> nul;
+newline_opt(<<"NUL">>) -> nul;
 newline_opt(<<"any">>) -> any;
 newline_opt(<<"ANY">>) -> any;
 newline_opt(_Other) ->

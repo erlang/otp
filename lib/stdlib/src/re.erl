@@ -34,7 +34,7 @@ fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
 
--type nl_spec() :: cr | crlf | lf | anycrlf | any.
+-type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
 -type compile_options() :: [compile_option()].
 -type compile_option() :: unicode | anchored | caseless | dollar_endonly
@@ -193,6 +193,8 @@ Options:
 
   - **`lf`** - Newline is indicated by a single character LF (ASCII 10), the
     default.
+
+  - **`nul`** - Newline is indicated by a single character NUL (ASCII 0).
 
   - **`crlf`** - Newline is indicated by the two-character CRLF (ASCII 13
     followed by ASCII 10) sequence.

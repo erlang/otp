@@ -316,6 +316,9 @@ static bool parse_options(Eterm listp, struct parsed_options* po)
 		    case am_lf: 
                         po->newline = PCRE2_NEWLINE_LF;
 			break;
+		    case am_nul:
+			 po->newline = PCRE2_NEWLINE_NUL;
+			break;
 		    case am_anycrlf: 
                         po->newline = PCRE2_NEWLINE_ANYCRLF;
 			break;
