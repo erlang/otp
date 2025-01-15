@@ -85,7 +85,7 @@
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
-%% Some official info about AF_UNIX
+%% Some (Microsoft-) official info about AF_UNIX
 %% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
 
 
@@ -37692,7 +37692,8 @@ do_ioctl_nread(_) ->
     i("Give it some time to arrive"),
     ?SLEEP(?SECS(1)),
     
-    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
+    i("Verify that the correct amount of data (atleast ~p) is available", 
+      [DataSz]),
     case socket:ioctl(S1, nread) of
         {ok, DataSize} when (DataSize >= DataSz) ->
             i("Success: "
@@ -41130,7 +41131,6 @@ traffic_send_and_recv_chunks_tcp(InitState) ->
            cmd  => fun(#{tester := Tester,
 			 csock  := Sock,
 			 size   := Size} = _State) ->
-                           _ = socket:setopt(Sock, otp, debug, true),
 			   ?SEV_IPRINT("try read one-big chunk (~w)",
 				       [Size]),
                            case socket:recv(Sock, Size) of
@@ -43566,12 +43566,12 @@ tpp_tcp_handler_msg_exchange(Sock, Send, Recv) ->
     tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, 0, 0, 0, undefined).
 
 tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
-    %% ?SEV_IPRINT("[~w] try receive", [N]),
+    ?SEV_IPRINT("try receive request ~w", [N]),
     case tpp_tcp_recv_req(Sock, Recv) of
         {ok, Msg, RecvSz} ->
             NewStart = if (Start =:= undefined) -> ?LIB:timestamp(); 
                           true -> Start end,
-            %% ?SEV_IPRINT("[~w] received - now try send", [N]),
+            ?SEV_IPRINT("received request ~w - now try send reply", [N]),
             case tpp_tcp_send_rep(Sock, Send, Msg) of
                 {ok, SendSz} ->
                     tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv,
@@ -43580,15 +43580,19 @@ tpp_tcp_handler_msg_exchange_loop(Sock, Send, Recv, N, Sent, Received, Start) ->
                                                       Received+RecvSz,
                                                       NewStart);
                 {error, SReason} ->
-                    ?SEV_EPRINT("send (~w): ~p", [N, SReason]),
+                    ?SEV_EPRINT("send reply ~w failed: ~p", [N, SReason]),
                     exit({send, SReason, N})
             end;
         {error, closed} ->
-            ?SEV_IPRINT("closed - we are done: ~w, ~w, ~w", [N, Sent, Received]),
+            ?SEV_IPRINT("closed - we are done: "
+			"~n   Number of msgs Exchanged: ~w"
+			"~n   Number of bytes Sent:     ~w"
+			"~n   Number of bytes Received: ~w",
+			[N, Sent, Received]),
             Stop = ?LIB:timestamp(),
             {N, Sent, Received, Start, Stop};
         {error, RReason} ->
-            ?SEV_EPRINT("recv (~w): ~p", [N, RReason]),
+            ?SEV_EPRINT("receive request ~w failed: ~p", [N, RReason]),
             exit({recv, RReason, N})
     end.
             
@@ -43598,6 +43602,7 @@ tpp_tcp_client_create(Node) ->
     Self = self(),
     Fun  = fun() -> tpp_tcp_client(Self) end,
     erlang:spawn(Node, Fun).
+    %% erlang:spawn(node(), Fun).
 
 tpp_tcp_client(Parent) ->
     tpp_tcp_client_init(Parent),
@@ -43662,6 +43667,9 @@ tpp_tcp_client_await_terminate(Parent) ->
 
 tpp_tcp_client_msg_exchange(Sock, Send, Recv, InitMsg, Num) ->
     Start = ?LIB:timestamp(),
+    ?SEV_IPRINT("begin exchange with"
+		"~n   Num:   ~p"
+		"~n   Start: ~p", [Num, Start]),
     tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, InitMsg, 
                                      Num, 0, 0, 0, Start).
 
@@ -43678,13 +43686,14 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
     end;
 tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv, Data, 
                                  Num, N, Sent, Received, Start) ->
-    %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) try send ~w", [Num,N,size(Data)]),
     case tpp_tcp_send_req(Sock, Send, Data) of
         {ok, SendSz} ->
-            %% d("tpp_tcp_client_msg_exchange_loop(~w,~w) sent - "
-            %%   "now try recv", [Num,N]),
+	    ?SEV_IPRINT("request (~w bytes) sent - try receive reply",
+			[SendSz]),
             case tpp_tcp_recv_rep(Sock, Recv) of
                 {ok, NewData, RecvSz} ->
+		    ?SEV_IPRINT("reply (~w bytes) received",
+				[RecvSz]),
                     tpp_tcp_client_msg_exchange_loop(Sock, Send, Recv,
                                                      NewData, Num, N+1,
                                                      Sent+SendSz, 
@@ -43760,13 +43769,18 @@ tpp_tcp_recv_rep(Sock, Recv) ->
     tpp_tcp_recv(Sock, Recv, ?TPP_REPLY).
 
 tpp_tcp_recv(Sock, Recv, Tag) ->
+    ?SEV_IPRINT("try receive as much as possible (sz = 0)"),
     case Recv(Sock, 0) of
         {ok, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg} 
           when (Sz =:= size(Data)) ->
+	    ?SEV_IPRINT("we got the entire message in one go"),
             %% We got it all
             {ok, Data, size(Msg)};
         {ok, <<Tag:32/integer, Sz:32/integer, Data/binary>> = Msg} ->
             Remains = Sz - size(Data),
+	    ?SEV_IPRINT("we only got a fraction (of the message): "
+			"~n   Sz:      ~p"
+			"~n   Remains: ~p", [Sz, Remains]),
             tpp_tcp_recv(Sock, Recv, Tag, Remains, size(Msg), [Data]);
         {ok, <<Tag:32/integer, _/binary>>} ->
             {error, {invalid_msg_tag, Tag}};
@@ -43775,14 +43789,19 @@ tpp_tcp_recv(Sock, Recv, Tag) ->
     end.
 
 tpp_tcp_recv(Sock, Recv, Tag, Remaining, AccSz, Acc) ->
+    ?SEV_IPRINT("try receive remaining ~w bytes", [Remaining]),
     case Recv(Sock, Remaining) of
         {ok, Data} when (Remaining =:= size(Data)) ->
             %% We got the rest
+	    ?SEV_IPRINT("we got the rest of the message"),
             TotSz = AccSz + size(Data),
             {ok, erlang:iolist_to_binary(lists:reverse([Data | Acc])), TotSz};
         {ok, Data} when (Remaining > size(Data)) ->
+	    NewRemaining = Remaining - size(Data),
+	    ?SEV_IPRINT("we only got a fraction (of the remaining ~w bytes): "
+			"~n   Remains: ~p", [Remaining, NewRemaining]),
             tpp_tcp_recv(Sock, Recv, Tag, 
-                         Remaining - size(Data), AccSz + size(Data),     
+                         NewRemaining, AccSz + size(Data),
                          [Data | Acc]);
         {error, _R} = ERROR ->
             ERROR
@@ -50756,12 +50775,22 @@ ttest_manager_loop() ->
             ?LOGGER:format("manager stopping~n", []),
             ttest_manager_done();
 
-        #ttest_report{id    = _ID,
+        #ttest_report{id    = ID,
                       time  = _RunTime,
                       bytes = _NumBytes,
                       msgs  = _NumMsgs} = Report ->
-            true = ets:insert_new(?TTEST_MANAGER, Report),
-            ttest_manager_loop()
+            case ets:insert_new(?TTEST_MANAGER, Report) of
+		true ->
+		    ttest_manager_loop();
+		false ->
+		    [Current] = ets:lookup(?TTEST_MANAGER, ID),
+		    ?LOGGER:format("manager received duplicate report:"
+				   "~n   ID:      ~p"
+				   "~n   Current: ~p"
+				   "~n   New:     ~p"
+				   "~n", [ID, Current, Report]),
+		    ttest_manager_loop()
+	    end
     end.
 
 %% We are supposed to pretty print the result here...

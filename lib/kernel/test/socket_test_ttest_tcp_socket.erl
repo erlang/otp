@@ -1349,12 +1349,12 @@ reader_exit(#{async       := true,
 
 %% ==========================================================================
 
-mq() ->
-    mq(self()).
+%% mq() ->
+%%     mq(self()).
 
-mq(Pid) when is_pid(Pid) ->
-    {messages, MQ} = process_info(Pid, messages),
-    MQ.
+%% mq(Pid) when is_pid(Pid) ->
+%%     {messages, MQ} = process_info(Pid, messages),
+%%     MQ.
 
              
 %% ==========================================================================
