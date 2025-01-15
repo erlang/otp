@@ -34,7 +34,7 @@ fields can change in future Erlang/OTP releases.
 """.
 -type mp() :: {re_pattern, _, _, _, _}.
 
--type nl_spec() :: cr | crlf | lf | anycrlf | any.
+-type nl_spec() :: cr | crlf | lf | nul | anycrlf | any.
 
 -type compile_options() :: [compile_option()].
 -type compile_option() :: unicode | anchored | caseless | dollar_endonly
