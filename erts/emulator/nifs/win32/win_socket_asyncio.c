@@ -8924,9 +8924,8 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_completed -> "
-            "send completion message to %T with"
-            "\r\n   CompletionInfo: %T"
-            "\r\n", MKPID(env, opCaller), completionInfo) );
+            "send completion message to %T"
+            "\r\n", MKPID(env, opCaller)) );
 
     /* Send a 'send' completion message */
     esaio_send_completion_msg(env,                 // Send env
@@ -8939,7 +8938,8 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
     /* *** Finalize *** */
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_completion_recv_completed -> finalize\r\n") );
+           ("WIN-ESAIO",
+            "esaio_completion_recv_completed -> finalize\r\n") );
 
     /* Request cleanup (demonitor already done above) */
     esock_clear_env("esaio_completion_recv_completed -> req cleanup",
