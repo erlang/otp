@@ -3483,8 +3483,24 @@ recv_nowait(SockRef, Length, Flags, Handle, Acc) ->
 recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
     Handle = make_ref(),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
+        {more, Bin} when (Length =:= 0) ->
+            %% There may be more data available
+            %% - repeat unless time's up
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length,
+		      Flags, Deadline, bincat(Acc, Bin));
+                true ->
+                    {ok, bincat(Acc, Bin)}
+            end;
+        {more, Bin} when (Length =:= byte_size(Bin)) ->
+            %% We got the last chunk
+            {ok, bincat(Acc, Bin)};
         {more, Bin} ->
-            %% There (may be) more data available
+            %% There may be more data available
             %% - repeat unless time's up
             Timeout = timeout(Deadline),
             if
@@ -3560,6 +3576,27 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                             {Handle, {ok, _Bin} = OK}) ->
                     recv_result(Acc, OK);
 
+                %% Do we actually (currently) ever get this when Length =:= 0?
+                %% Future proofing?
+                %% This actually depends on the nif to stop reading
+                %% (stop returning 'more').
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, bincat(Acc, Bin));
+			true ->
+			    {error, {timeout, bincat(Acc, Bin)}}
+		    end;
+                %% We got the last chunk
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}})
+                  when (Length =:= byte_size(Bin)) ->
+                    {ok, bincat(Acc, Bin)};
+                %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
 			    {Handle, {more, Bin}}) ->
 		    if
