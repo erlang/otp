@@ -432,6 +432,7 @@ validate_record(Tab, Obj) ->
 %%
 %%   dir                                  -> directory path (**)
 %%   mnesia_status                        -> status | running | stopping (**)
+%%   ext_backends                         -> module list of initialized ext backends (**)
 %%   (**) ==   (Different on all nodes)
 %%
 
@@ -458,6 +459,7 @@ other_val_1(Var) ->
 	{_, where_to_read} -> nowhere;
 	{_, where_to_write} -> [];
 	{_, active_replicas} -> [];
+	ext_backends -> [];
 	_ -> error
     end.
 
