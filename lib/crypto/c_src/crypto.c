@@ -118,6 +118,8 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_seed_nif", 1, rand_seed_nif, 0},
 
     {"aead_cipher_nif", 7, aead_cipher_nif, 0},
+    {"aead_cipher_nif", 4, aead_cipher_nif, 0},
+    {"aead_cipher_init_nif", 4, aead_cipher_init_nif, 0},
 
     {"engine_by_id_nif", 1, engine_by_id_nif, 0},
     {"engine_init_nif", 1, engine_init_nif, 0},
@@ -224,6 +226,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     if (!init_cipher_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
+    if (!init_aead_cipher_ctx(env, &rt_buf)) {
+        ret = __LINE__; goto done;
+    }
+
     if (!init_engine_ctx(env, &rt_buf)) {
         ret = __LINE__; goto done;
     }
