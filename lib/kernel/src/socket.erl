@@ -161,7 +161,7 @@
 %% -include("socket_int.hrl").
 
 %% -define(DBG(T),
-%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%%         erlang:display({'DBG', {self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
@@ -3491,7 +3491,8 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                 0 < Timeout ->
                     %% Recv more
                     recv_deadline(
-                      SockRef, Length, Flags, Deadline, bincat(Acc, Bin));
+                      SockRef, Length-byte_size(Bin),
+		      Flags, Deadline, bincat(Acc, Bin));
                 true ->
                     {ok, bincat(Acc, Bin)}
             end;
@@ -3526,7 +3527,8 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
             {ok, Acc};
         %%
         select ->
-            %% There is nothing just now, but we will be notified when there
+            %% There is nothing just now,
+	    %% but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
             receive
@@ -4837,3 +4839,5 @@ f(F, A) ->
 %%     TS = formated_timestamp(),
 %%     io:format(user,"[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]),
 %%     io:format("[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]).
+
+
