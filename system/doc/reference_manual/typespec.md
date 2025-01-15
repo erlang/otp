@@ -289,13 +289,18 @@ warning), and Dialyzer will not emit any additional warnings.
 
 ## Type Declarations of User-Defined Types
 
+> #### Change {: .info }
+>
+> Nominal types were introduced in Erlang/OTP 28.
+
 As seen, the basic syntax of a type is an atom followed by closed parentheses.
-New types are declared using `-type` and `-opaque` attributes as in the
+New types are declared using `-type`, `-opaque`, `-nominal` attributes as in the
 following:
 
 ```erlang
 -type my_struct_type() :: Type.
 -opaque my_opaq_type() :: Type.
+-nominal my_nominal_type() :: Type.
 ```
 
 The type name is the atom `my_struct_type`, followed by parentheses. `Type` is a
@@ -352,7 +357,11 @@ module defining them is allowed to depend on their term structure. Consequently,
 such types do not make much sense as module local - module local types are not
 accessible by other modules anyway - and is always to be exported.
 
-Read more on [Opaques](opaques.md)
+Types declared as `nominal` are type-checked by Dialyzer according to the
+user-defined names. They are treated as regular types everywhere else, including
+the compiler.
+
+Read more on [Opaques](opaques.md) and [Nominals](nominals.md)
 
 [](){: #typeinrecords }
 
