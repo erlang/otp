@@ -1153,7 +1153,7 @@ of the subject string. It does not match after a newline that ends the string,
 for compatibility with Perl. However, this can be changed by setting the
 PCRE2_ALT_CIRCUMFLEX option.
 
-For example, the pattern /^abc$/ matches the subject string "def`\nabc"` (where
+For example, the pattern /^abc$/ matches the subject string "def\nabc" (where
 `\n` represents a newline) in multiline mode, but not otherwise. Consequently,
 patterns that are anchored in single line mode because all branches start with
 ^ are not anchored in multiline mode, and a match for circumflex is possible
@@ -1163,7 +1163,7 @@ when the _startoffset_ argument of `run/3` is non-zero. The
 When the [Newline Conventions](`m:re#sect1.1`) recognizes the two-character sequence CRLF as a newline, this is
 preferred, even if the single characters CR and LF are also recognized as
 newlines. For example, if the newline convention is "any", a multiline mode
-circumflex matches before "xyz" in the string "abc`\r\nxyz"` rather than after
+circumflex matches before "xyz" in the string "abc\r\nxyz" rather than after
 CR, even though CR on its own is a valid newline. (It also matches at the very
 start of the string, of course.)
 
@@ -1337,7 +1337,7 @@ surrogates, are always permitted.
 
 If a range that includes letters is used when caseless matching is set, it
 matches the letters in either case. For example, `[W-c]` is equivalent to
-`[\]\[\\^_`wxyzabc]`, matched caselessly, and in a non-UTF mode, if character
+``[][\^_`wxyzabc]``, matched caselessly, and in a non-UTF mode, if character
 tables for a French locale are in use, `[\xc8-\xcb]` matches accented E
 characters in both cases.
 
@@ -1366,7 +1366,7 @@ by the Unicode standard UTS#18.
 Firstly, in Perl syntax, an expression such as "[a[]" is a character class
 with two literal characters "a" and "[", but in UTS#18 extended classes the "["
 character becomes an additional metacharacter within classes, denoting the start
-of a nested class, so a literal "[" must be escaped as "`\["`.
+of a nested class, so a literal "[" must be escaped as "\[".
 
 Secondly, within the UTS#18 extended syntax, there are additional operators
 "||", "&&" and "--" which denote character class union, intersection, and
