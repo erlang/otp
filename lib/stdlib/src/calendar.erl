@@ -576,7 +576,7 @@ rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, Hour, Min, Sec, 
     Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
     check(DateTimeIn, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
-    ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
+    ScaledEpoch + fraction(Unit, FractionStr).
 
 
 
@@ -730,7 +730,11 @@ system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, Unit),
     AdjustedTime = Time + Adjustment,
     Factor = factor(Unit),
-    Secs = AdjustedTime div Factor,
+    Secs0 = AdjustedTime div Factor,
+    Secs = if
+	       AdjustedTime rem Factor < 0 -> Secs0 - 1;
+	       true -> Secs0
+	   end,
     check(Time, Options, Secs),
     DateTime = system_time_to_datetime(Secs),
     {{Year, Month, Day}, {Hour, Min, Sec}} = DateTime,
@@ -1028,11 +1032,17 @@ local_offset(SystemTime, Unit) ->
     UniversalSecs = datetime_to_gregorian_seconds(UniversalTime),
     LocalSecs - UniversalSecs.
 
+mod(N, D) ->
+    case N rem D of
+	R when R < 0 -> mod(R + D, D);
+	R -> R
+    end.
+
 fraction_str(1, _Time) ->
     "";
 fraction_str(Factor, Time) ->
-    Fraction = Time rem Factor,
-    S = integer_to_list(abs(Fraction)),
+    Fraction = mod(Time, Factor),
+    S = integer_to_list(Fraction),
     [$. | pad(log10(Factor) - length(S), S)].
 
 fraction(second, _) ->
@@ -1041,9 +1051,6 @@ fraction(_, "") ->
     0;
 fraction(Unit, FractionStr) ->
     round(factor(Unit) * list_to_float([$0|FractionStr])).
-
-copy_sign(N1, N2) when N2 < 0 -> -N1;
-copy_sign(N1, _N2) -> N1.
 
 factor(second)      -> 1;
 factor(millisecond) -> 1000;
