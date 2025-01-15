@@ -2346,7 +2346,7 @@ The Perl-compatible lookaround assertions are atomic. If an assertion is true,
 but there is a subsequent matching failure, there is no backtracking into the
 assertion. However, there are some cases where non-atomic assertions can be
 useful. PCRE2 has some support for these, described in
-[Non-atomic assertions](`m:re#sect18), but they are not Perl-compatible.
+[Non-atomic assertions](`m:re#sect18`), but they are not Perl-compatible.
 
 A lookaround assertion may appear as the condition in a
 [conditional groups](`m:re#sect20`). In this case, the result of matching the
