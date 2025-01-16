@@ -122,7 +122,7 @@ activate_pending_connection_state_1(Current, Pending, Connection) ->
 %%--------------------------------------------------------------------
 -spec step_encryption_state(#state{}) -> #state{}.
 %%
-%% Description: Activates the next encyrption state (e.g. handshake
+%% Description: Activates the next encryption state (e.g. handshake
 %% encryption).
 %%--------------------------------------------------------------------
 step_encryption_state(#state{connection_states =
@@ -131,20 +131,20 @@ step_encryption_state(#state{connection_states =
     NewRead = PendingRead#{sequence_number => 0},
     NewWrite = PendingWrite#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_read => NewRead,
-                                current_write => NewWrite}}.
+                    ConnStates#{current_read => maps:remove(aead_handle, NewRead),
+                                current_write => maps:remove(aead_handle, NewWrite)}}.
 
 step_encryption_state_read(#state{connection_states =
                                  #{pending_read := PendingRead} = ConnStates} = State) ->
     NewRead = PendingRead#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_read => NewRead}}.
+                    ConnStates#{current_read => maps:remove(aead_handle, NewRead)}}.
 
 step_encryption_state_write(#state{connection_states =
                                  #{pending_write := PendingWrite} = ConnStates} = State) ->
     NewWrite = PendingWrite#{sequence_number => 0},
     State#state{connection_states =
-                    ConnStates#{current_write => NewWrite}}.
+                    ConnStates#{current_write => maps:remove(aead_handle, NewWrite)}}.
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},

@@ -44,6 +44,7 @@
          cipher/5, 
          aead_encrypt/6, 
          aead_decrypt/6,
+         aead_type/2,
 	 suites/1, 
          all_suites/1,
          crypto_support_filters/0,
