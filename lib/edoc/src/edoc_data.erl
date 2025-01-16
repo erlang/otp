@@ -31,6 +31,8 @@
 
 -module(edoc_data).
 
+-compile(nowarn_deprecated_catch).
+
 -export([module/4, overview/4, type/3]).
 
 -export([hidden_filter/2, get_all_tags/1, get_entry/2, get_tags/2]).

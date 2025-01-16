@@ -30,6 +30,8 @@
 
 -module(edoc_macros).
 
+-compile(nowarn_deprecated_catch).
+
 -export([expand_tags/3, std_macros/1, check_defs/1]).
 
 -include("edoc.hrl").

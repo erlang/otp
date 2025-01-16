@@ -45,6 +45,8 @@
 
 -module(edoc_run).
 
+-compile(nowarn_deprecated_catch).
+
 -export([file/1, application/1, files/1, toc/1]).
 
 -compile({no_auto_import,[error/1]}).

@@ -202,7 +202,10 @@ server_command(From, {start, Job}, St) ->
 server_command(From, stop, St) ->
     %% unregister the server name and let remaining jobs finish
     server_command_reply(From, {error, stopped}),
-    catch unregister(St#state.name),
+    try unregister(St#state.name)
+    catch
+        error:badarg -> ok
+    end,
     server(St#state{stopped = true});
 server_command(From, {watch, Target, _Opts}, St) ->
     %% the code watcher is only started on demand

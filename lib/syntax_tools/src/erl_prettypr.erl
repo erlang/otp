@@ -32,6 +32,8 @@ This module is a front end to the pretty-printing library module `prettypr`, for
 text formatting of abstract syntax trees defined by the module `erl_syntax`.
 """.
 
+-compile(nowarn_deprecated_catch).
+
 -export([format/1, format/2, best/1, best/2, layout/1, layout/2,
 	 get_ctxt_precedence/1, set_ctxt_precedence/2,
 	 get_ctxt_paperwidth/1, set_ctxt_paperwidth/2,
