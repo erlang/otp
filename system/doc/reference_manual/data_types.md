@@ -42,10 +42,16 @@ conventional notation, there are two Erlang-specific notations:
   ASCII value or unicode code-point of the character _`char`_.
 - _`base`_`#`_`value`_  
   Integer with the base _`base`_, which must be an integer in the range 2
-  through 36.
+  through 36. This notation can also be found in the Ada programming
+  language. Erlang does _not_ support prefixes such as `0x` for hexadecimal
+  or `077` for octal.
 
 Leading zeroes are ignored. Single underscore characters (`_`) can be
 inserted between digits as a visual separator.
+
+Also note that floating point numbers must start with a digit, and must
+contain a `.`. In other words, literals such as `.01` and `1e6` are not
+allowed, and must be written `0.01` and `1.0e6` respectively.
 
 _Examples:_
 

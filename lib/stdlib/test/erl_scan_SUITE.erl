@@ -165,6 +165,7 @@ otp_7810(Config) when is_list(Config) ->
     ok = integers(),
     ok = base_integers(),
     ok = floats(),
+    ok = base_floats(),
     ok = dots(),
     ok = chars(),
     ok = variables(),
@@ -318,7 +319,7 @@ integers() ->
          "__123"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {ok, [{integer, _, _}|_], _} ->
                       error({unexpected_integer, S});
                   {ok, _, _} ->
@@ -335,7 +336,7 @@ integers() ->
          "12@"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,integer}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -397,7 +398,7 @@ base_integers() ->
          "10#12A4"],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,integer}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -454,7 +455,89 @@ floats() ->
         ],
     lists:foreach(
       fun(S) ->
-              case erl_scan:string(S) of
+              case erl_scan_string(S) of
+                  {error,{1,erl_scan,{illegal,float}},_} ->
+                      ok;
+                  {error,Err,_} ->
+                      error({unexpected_error, S, Err});
+                  Succ ->
+                      error({unexpected_success, S, Succ})
+              end
+      end, FloatErrors),
+    ok.
+
+base_floats() ->
+    [begin
+         Ts = [{float,{1,1},F}],
+         test_string(FS, Ts)
+     end || {FS, F} <- [{"10#1.0",1.0},
+                        {"10#012345.625", 012345.625},
+                        {"10#3.31200",3.31200},
+                        {"10#1.0#e0",1.0e0},
+                        {"10#1.0#E17",1.0E17},
+                        {"10#34.21#E-18", 34.21E-18},
+                        {"10#17.0#E+14", 17.0E+14},
+                        {"10#12345.625#e3", 12345.625e3},
+                        {"10#12345.625#E-3", 12345.625E-3},
+
+                        {"2#1.0", 1.0},
+                        {"2#101.0", 5.0},
+                        {"2#101.1", 5.5},
+                        {"2#101.101", 5.625},
+                        {"2#101.1#e0", 5.5},
+                        {"2#1.0#e+3", 8.0},
+                        {"2#1.0#e-3", 0.125},
+                        {"2#000100.001000", 4.125},
+                        {"2#0.10000000000000000000000000000000000000000000000000001", 0.5000000000000001}, % 53 bits
+                        {"2#0.100000000000000000000000000000000000000000000000000001", 0.5}, % not 54 bits
+                        {"2#0.11001001000011111101101010100010001000010110100011000#e+2", math:pi()}, % pi to 53 bits
+
+                        {"3#102.12", 3#10212/3#100},
+
+                        {"16#100.0", 256.0},
+                        {"16#ff.d", 16#ffd/16},
+                        {"16#1.0", 1.0},
+                        {"16#abc.def", 16#abcdef/16#1000},
+                        {"16#00100.001000", 256.0 + 1/16#1000},
+                        {"16#0.80000000000008", 0.5000000000000001}, % 53-bit fraction
+                        {"16#0.80000000000004", 0.5}, % not 54 bits
+                        {"16#fe.8#e0", 16#fe8/16},
+                        {"16#f.e#e+3", float(16#fe*16#100)},
+                        {"16#c.0#e-1", 16#c/16},
+                        {"16#0.0e0", 16#e/16#100}, % e is a hex digit, not exponent
+                        {"16#0.0E0", 16#e/16#100}, % same for E
+                        {"16#0.3243f6a8885a30#e+1", math:pi()} % pi to 53 bits
+                       ]],
+
+    [begin
+         {error,{1,erl_scan,{illegal,float}},1} = erl_scan_string(S),
+         {error,{{1,1},erl_scan,{illegal,float}},{1,_}} =
+             erl_scan_string(S, {1,1}, [])
+     end || S <- ["1.14Ea"]],
+
+    UnderscoreSamples =
+        [{"1_6#000_100.0_0", 256.0},
+         {"16#0.3243_f6a8_885a_30#e+1", math:pi()},
+         {"16#3243_f6a8.885a_30#e-7", math:pi()},
+         {"16#3243_f6a8_885a.30#e-1_1", math:pi()},
+         {"2#1.010101010101010101010#e+2_1", 2796202.0}],
+    lists:foreach(
+         fun({S, I}) ->
+                 test_string(S, [{float, {1, 1}, I}])
+         end, UnderscoreSamples),
+    FloatErrors =
+        [
+         "10#12345.a25",
+         "10#12345.6a5",
+         "16#a0.gf23",
+         "16#a0.2fg3",
+         "2#10.201",
+         "2#10.120",
+         "3#102.3"
+        ],
+    lists:foreach(
+      fun(S) ->
+              case erl_scan_string(S) of
                   {error,{1,erl_scan,{illegal,float}},_} ->
                       ok;
                   {error,Err,_} ->
@@ -1592,8 +1675,9 @@ erl_scan_string(String, StartLocation, Options) ->
     case erl_scan:string(String, StartLocation, Options) of
         {ok, Tokens, EndLocation} ->
             {ok, unopaque_tokens(Tokens), EndLocation};
-        Else ->
-            Else
+        {error,{_,Mod,Reason},_}=Error ->
+            Mod:format_error(Reason),
+            Error
     end.
 
 erl_scan_tokens(C, S, L) ->
