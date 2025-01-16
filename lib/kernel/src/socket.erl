@@ -3763,7 +3763,9 @@ an explanation of `TimeoutOrHandle`.
 """.
 
 -spec sendto(Socket :: socket(), Data :: iodata(),
-             Dest :: sockaddr(), Flags :: list()) -> Result when
+             Dest :: sockaddr(), Flags | TimeoutOrHandle) -> Result when
+      TimeoutOrHandle :: dynamic(),
+      Flags :: list(),
       Result :: 'ok'
               | {'ok', RestData :: binary()}
               | {'error', Reason}
