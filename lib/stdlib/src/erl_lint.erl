@@ -175,6 +175,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                behaviour=[],                    %Behaviour
                exports=gb_sets:empty()	:: gb_sets:set(fa()),%Exports
                imports=[] :: orddict:orddict(fa(), module()),%Imports
+               remote_self_calls=#{} :: #{ fa() => gb_sets:set() },
                compile=[],                      %Compile flags
                records=maps:new()               %Record definitions
                    :: #{atom() => {anno(),Fields :: term()}},
@@ -1249,7 +1250,8 @@ post_traversal_check(Forms, St0) ->
     StG = check_dialyzer_attribute(Forms, StF),
     StH = check_callback_information(StG),
     StI = check_nifs(Forms, StH),
-    check_removed(Forms, StI).
+    StJ = check_unexported_functions(StI),
+    check_removed(Forms, StJ).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1651,6 +1653,30 @@ check_nifs(Forms, St0) ->
     Bad = [{FA,Anno} || {FA,Anno} <- FAsAnno, not gb_sets:is_element(FA, DefFunctions)],
     DefFunctions1 = gb_sets:to_list(DefFunctions),
     func_location_error(undefined_nif, Bad, St1, DefFunctions1).
+
+check_unexported_functions(#lint{callbacks=Cs,
+                                 optional_callbacks=OCs,
+                                 exports=Es0}=St) ->
+    Es = case Cs =/= #{} orelse OCs =/= #{} of
+            true -> gb_sets:add({behaviour_info, 1}, Es0);
+            false -> Es0
+         end,
+    maps:fold(fun check_unexported_functions_1/3,
+              St#lint{exports=Es},
+              St#lint.remote_self_calls).
+
+check_unexported_functions_1({F, A}=Key, Annos, Acc0) ->
+    #lint{module=M,exports=Es} = Acc0,
+    case not gb_sets:is_element(Key, Es) of
+        true ->
+            gb_sets:fold(fun(Anno, Acc) ->
+                                 add_warning(Anno,
+                                             {unexported_function, {M, F, A}},
+                                             Acc)
+                         end, Acc0, Annos);
+        false ->
+            Acc0
+    end.
 
 nowarn_function(Tag, Opts) ->
     ordsets:from_list([FA || {Tag1,FAs} <- Opts,
@@ -2764,7 +2790,7 @@ expr({'fun',Anno,Body}, Vt, St) ->
                 false -> {[],call_function(Anno, F, A, St1)}
             end;
         {function, {atom, _, M}, {atom, _, F}, {integer, _, A}} ->
-            {[], check_unexported_function(Anno, M, F, A, St)};
+            {[], check_remote_self_call(Anno, M, F, A, St)};
         {function,M,F,A} ->
             expr_list([M,F,A], Vt, St)
     end;
@@ -2789,7 +2815,7 @@ expr({call,Anno,{remote,_Ar,{atom,_Am,M},{atom,Af,F}},As}, Vt, St0) ->
     St1 = keyword_warning(Af, F, St0),
     St2 = check_remote_function(Anno, M, F, As, St1),
     St3 = check_module_name(M, Anno, St2),
-    St4 = check_unexported_function(Anno, M, F, length(As), St3),
+    St4 = check_remote_self_call(Anno, M, F, length(As), St3),
     expr_list(As, Vt, St4);
 expr({call,Anno,{remote,_Ar,M,F},As}, Vt, St0) ->
     St1 = keyword_warning(Anno, M, St0),
@@ -3020,17 +3046,23 @@ is_valid_call(Call) ->
 
 %% Raises a warning if we're remote-calling an unexported function (or
 %% referencing it with `fun M:F/A`), as this is likely to be unintentional.
-check_unexported_function(Anno, M, F, A,
-                          #lint{module=M,
-                                compile=Opts,
-                                exports=Es} = St) ->
+check_remote_self_call(Anno, M, F, A,
+                       #lint{module=M,
+                             compile=Opts,
+                             exports=Es,
+                             remote_self_calls=Rsc0} = St) ->
     case (is_warn_enabled(unexported_function, St)
           andalso (not lists:member(export_all, Opts))
           andalso (not gb_sets:is_element({F, A}, Es))) of
-        true -> add_warning(Anno, {unexported_function, {M, F, A}}, St);
-        false -> St
+        true ->
+            Locs0 = maps:get({F, A}, Rsc0, gb_sets:empty()),
+            Locs = gb_sets:add_element(Anno, Locs0),
+            Rsc = Rsc0#{ {F, A} => Locs },
+            St#lint{remote_self_calls=Rsc};
+        false ->
+            St
     end;
-check_unexported_function(_Anno, _M, _F, _A, St) ->
+check_remote_self_call(_Anno, _M, _F, _A, St) ->
     St.
 
 %% record_def(Anno, RecordName, [RecField], State) -> State.
