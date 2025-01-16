@@ -212,9 +212,10 @@ type	PTAB_LIST_DEL	SHORT_LIVED	PROCESSES	ptab_list_deleted_el
 type	PTAB_LIST_CNKI	SHORT_LIVED	PROCESSES	ptab_list_chunk_info
 type	PTAB_LIST_PIDS	SHORT_LIVED	PROCESSES	ptab_list_pids
 type	RE_TMP_BUF	TEMPORARY	SYSTEM		re_tmp_buf
+type    RE_SHORTLIVED   SHORT_LIVED     SYSTEM          re_shortlived
+type    RE_INIT         LONG_LIVED      SYSTEM          re_init
 type    RE_SUBJECT      SHORT_LIVED     SYSTEM          re_subject
-type  	RE_HEAP 	STANDARD	SYSTEM		re_heap
-type	RE_STACK 	SHORT_LIVED	SYSTEM		re_stack
+type    RE_PRECOMPILE   STANDARD        SYSTEM          re_precompile
 type	UNICODE_BUFFER 	SHORT_LIVED	SYSTEM		unicode_buffer
 type	BINARY_BUFFER 	SHORT_LIVED	SYSTEM		binary_buffer
 type	PRE_ALLOC_DATA	LONG_LIVED	SYSTEM		pre_alloc_data

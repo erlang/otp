@@ -38,28 +38,89 @@
 
 #define LOOP_FACTOR 10
 
-static const unsigned char *default_table;
 static Uint max_loop_limit;
-static Export re_exec_trap_export;
-static BIF_RETTYPE re_exec_trap(BIF_ALIST_3);
+static Export re_match_trap_export;
+static BIF_RETTYPE re_match_trap(BIF_ALIST_3);
 static Export *grun_trap_exportp = NULL;
 static Export *urun_trap_exportp = NULL;
 static Export *ucompile_trap_exportp = NULL;
 
 static pcre2_general_context* the_general_ctx;
-static pcre2_compile_context* the_default_compile_ctx;
+static pcre2_compile_context* the_tmp_compile_ctx;
+static pcre2_compile_context* the_precompile_ctx;
 
 static BIF_RETTYPE re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first);
 
 static void *our_pcre2_malloc(size_t size, void* null)
 {
-    return erts_alloc(ERTS_ALC_T_RE_HEAP, size);
+    const ErtsAlcType_t type = erts_initialized ? ERTS_ALC_T_RE_SHORTLIVED
+                                                : ERTS_ALC_T_RE_INIT;
+    return erts_alloc(type, size);
 }
 
 static void our_pcre2_free(void *ptr, void* null)
 {
-    erts_free(ERTS_ALC_T_RE_HEAP, ptr);
+    /* Allocations made during initialization are never freed. */
+    erts_free(ERTS_ALC_T_RE_SHORTLIVED, ptr);
 }
+
+/*
+ * The magic binary for a pre-compiled regex.
+ * Just an indirection to the pcre2_code allocated and managed by PCRE2.
+ * The lifetime is the same as the referred pcre2_code.
+ *
+ * This might look like an unnecessary indirection, but to allocate
+ * the pcre2_code as a magic binary would force us to break the PCRE2 API
+ * abstraction somehow.
+
+ * According to PCRE2 docs compiled pcre2_code's are thread-safe. That is,
+ * several schedulers may execute re:run with the same pcre2_code instance
+ * without any need for synchronization or to copy it.
+ */
+struct regex_magic_indirect {
+    pcre2_code* regex_code;
+};
+
+static int regex_code_destructor(Binary *mbp)
+{
+    struct regex_magic_indirect* indirect = ERTS_MAGIC_BIN_DATA(mbp);
+    pcre2_code_free(indirect->regex_code);
+#ifdef DEBUG
+    indirect->regex_code = NULL;
+#endif
+    return 1;
+}
+
+static void *our_pcre2_precompile_malloc(size_t size, void* null)
+{
+    return erts_alloc(ERTS_ALC_T_RE_PRECOMPILE, size);
+}
+
+static void our_pcre2_precompile_free(void *ptr, void* null)
+{
+    erts_free(ERTS_ALC_T_RE_PRECOMPILE, ptr);
+}
+
+static bool magic_ref_to_pcre2_code(Eterm magic_ref, pcre2_code  **code_p)
+{
+    Binary *bin;
+    struct regex_magic_indirect* indirect;
+
+    if (!is_internal_magic_ref(magic_ref)) {
+        return false;
+    }
+    bin = erts_magic_ref2bin(magic_ref);
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != regex_code_destructor) {
+        return false;
+    }
+    indirect = (struct regex_magic_indirect*) ERTS_MAGIC_BIN_DATA(bin);
+    ASSERT(indirect->regex_code != NULL);
+
+    *code_p = indirect->regex_code;
+    return true;
+}
+
+
 
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
 #define ERTS_STACK_LIMIT ((char *) erts_get_stacklimit())
@@ -97,21 +158,31 @@ void erts_init_bif_re(void)
                    && PCRE2_NEWLINE_NUL);
     ERTS_CT_ASSERT(PCRE2_BSR_ANYCRLF && PCRE2_BSR_UNICODE);
 
-
-    the_general_ctx = pcre2_general_context_create(our_pcre2_malloc,
-                                                   our_pcre2_free,
-                                                   NULL);
     if (erts_check_if_stack_grows_downwards(&c))
         stack_guard = stack_guard_downwards;
     else
         stack_guard = stack_guard_upwards;
-    the_default_compile_ctx = pcre2_compile_context_create(the_general_ctx);
-    pcre2_set_compile_recursion_guard(the_default_compile_ctx, stack_guard, NULL);
 
-    default_table = NULL; /* ISO8859-1 default, forced into pcre */
+    the_general_ctx = pcre2_general_context_create(our_pcre2_malloc,
+                                                   our_pcre2_free,
+                                                   NULL);
+    the_tmp_compile_ctx = pcre2_compile_context_create(the_general_ctx);
+    pcre2_set_compile_recursion_guard(the_tmp_compile_ctx, stack_guard, NULL);
+
+    {
+        pcre2_general_context *precomp_gen_ctx =
+            pcre2_general_context_create(our_pcre2_precompile_malloc,
+                                         our_pcre2_precompile_free,
+                                         NULL);
+        the_precompile_ctx = pcre2_compile_context_create(precomp_gen_ctx);
+        pcre2_set_compile_recursion_guard(the_precompile_ctx, stack_guard,
+                                          NULL);
+        pcre2_general_context_free(precomp_gen_ctx);
+    }
+
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
-    erts_init_trap_export(&re_exec_trap_export, am_erlang, am_re_run_trap, 3,
-			  &re_exec_trap);
+    erts_init_trap_export(&re_match_trap_export, am_erlang, am_re_run_trap, 3,
+			  &re_match_trap);
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);
     ucompile_trap_exportp =  erts_export_put(am_re,am_ucompile,2);
@@ -437,32 +508,32 @@ static bool parse_options(Eterm listp, struct parsed_options* po)
 static pcre2_code *compile(const char* expr,
                            ErlDrvSizeT slen,
 			   const struct parsed_options *opts,
+                           pcre2_compile_context *compile_ctx,
                            int *errcode,
                            PCRE2_SIZE *errofset)
 {
-    pcre2_compile_context* compile_ctx;
+    pcre2_compile_context* ctx;
     pcre2_code *result;
 
     if (opts->newline | opts->bsr) {
-        compile_ctx = pcre2_compile_context_copy(the_default_compile_ctx);
+        ctx = pcre2_compile_context_copy(compile_ctx);
         if (opts->newline) {
-            pcre2_set_newline(compile_ctx, opts->newline);
+            pcre2_set_newline(ctx, opts->newline);
         }
         if (opts->bsr) {
-            pcre2_set_bsr(compile_ctx, opts->bsr);
+            pcre2_set_bsr(ctx, opts->bsr);
         }
     }
     else {
-        compile_ctx = the_default_compile_ctx;
+        ctx = compile_ctx;
     }
-    result = pcre2_compile((const PCRE2_UCHAR8 *)expr, slen, opts->compile,
-                           errcode, errofset, compile_ctx);
-    if (compile_ctx != the_default_compile_ctx) {
-        pcre2_compile_context_free(compile_ctx);
+    result = pcre2_compile_8((const PCRE2_UCHAR8 *)expr, slen, opts->compile,
+                             errcode, errofset, ctx);
+    if (ctx != compile_ctx) {
+        pcre2_compile_context_free(ctx);
     }
     return result;
 }
-
 
 /*
  * Build Erlang term result from compilation
@@ -505,6 +576,9 @@ build_compile_result(Process *p, Eterm error_tag, pcre2_code *result,
         uint32_t capture_count;
         uint32_t newline;
         int use_crlf;
+        Binary* magic_bin;
+        Eterm magic_ref;
+        struct regex_magic_indirect* indirect;
 
 	pcre2_pattern_info(result, PCRE2_INFO_SIZE, &pattern_size);
 	pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
@@ -512,12 +586,16 @@ build_compile_result(Process *p, Eterm error_tag, pcre2_code *result,
         use_crlf = (newline == PCRE2_NEWLINE_ANY ||
 		    newline == PCRE2_NEWLINE_CRLF ||
 		    newline == PCRE2_NEWLINE_ANYCRLF);
-	/* XXX: Optimize - keep in offheap binary to allow this to 
-	   be kept across traps w/o need of copying */
-        ret = erts_new_binary_from_data(p, pattern_size, (byte*)result);
-	pcre2_code_free(result);
-	hp = HAlloc(p, (with_ok) ? (3+6) : 6);
-	ret = TUPLE5(hp,am_re_pattern, make_small(capture_count), make_small(unicode),make_small(use_crlf),ret);
+
+        magic_bin = erts_create_magic_binary(sizeof(struct regex_magic_indirect),
+                                             regex_code_destructor);
+        indirect = ERTS_MAGIC_BIN_DATA(magic_bin);
+        indirect->regex_code = result;
+
+        hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE + 6 + (with_ok ? 3 : 0));
+        magic_ref = erts_mk_magic_ref(&hp, &MSO(p), magic_bin);
+	ret = TUPLE5(hp, am_re_pattern, make_small(capture_count),
+                     make_small(unicode), make_small(use_crlf), magic_ref);
 	if (with_ok) {
 	    hp += 6;
 	    ret = TUPLE2(hp,am_ok,ret);
@@ -571,11 +649,12 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
     if (erts_iolist_size(arg1, &slen)) {
         BIF_ERROR(p,BADARG);
     }
+    // ToDo: Avoid copy if nice aligned binary
     expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen);
     buffres = erts_iolist_to_buf(arg1, expr, slen);
     ASSERT(buffres >= 0); (void)buffres;
 
-    result = compile(expr, slen, &opts, &errcode, &errofset);
+    result = compile(expr, slen, &opts, the_precompile_ctx, &errcode, &errofset);
 
     ret = build_compile_result(p, am_error, result, errcode,
 			       errofset, unicode, 1, NIL);
@@ -624,7 +703,7 @@ typedef struct _restart_context {
     void *restart_data;
     Uint32 flags;
     PCRE2_UCHAR8* subject; /* to be able to free it when done */
-    pcre2_code *code; /* Keep a copy */
+    pcre2_code *code_to_free;    // temp compiled regex, NULL if precompiled
     pcre2_match_data *match_data;
     pcre2_match_context *match_ctx;
     PCRE2_SIZE *ovector; /* Keep until done */
@@ -653,9 +732,9 @@ static void cleanup_restart_context(RestartContext *rc)
 	erts_free(ERTS_ALC_T_RE_SUBJECT, rc->subject);    
     }
     rc->subject = NULL;
-    if (rc->code != NULL) {
-	erts_free(ERTS_ALC_T_RE_SUBJECT, rc->code);
-	rc->code = NULL;
+    if (rc->code_to_free != NULL) {
+        pcre2_code_free(rc->code_to_free);
+        rc->code_to_free = NULL;
     }
     if (rc->ret_info != NULL) {
 	erts_free(ERTS_ALC_T_RE_SUBJECT, rc->ret_info);
@@ -896,7 +975,7 @@ static Eterm build_exec_return(Process *p, int rc, RestartContext *restartp, Ete
 	    ((unsigned) ((unsigned char *) (NameEntry))[1])))
 
 
-static void build_one_capture(const pcre2_code *code, ReturnInfo **ri, int *sallocated, int has_dupnames, char *name)
+static void build_one_capture(pcre2_code  *code, ReturnInfo **ri, int *sallocated, int has_dupnames, char *name)
 {
     ReturnInfo *r = (*ri);
     if (has_dupnames) {
@@ -937,7 +1016,7 @@ static void build_one_capture(const pcre2_code *code, ReturnInfo **ri, int *sall
 }    
 
 static ReturnInfo *
-build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre2_code *code)
+build_capture(Eterm capture_spec[CAPSPEC_SIZE], pcre2_code  *code)
 {
     ReturnInfo *ri = erts_alloc(ERTS_ALC_T_RE_SUBJECT, RINFO_SIZ(0));
     int sallocated = 0;
@@ -1115,15 +1194,13 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre2_code *code)
 static BIF_RETTYPE
 re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 {
-    const byte *temp_alloc = NULL;
-    const pcre2_code *code_tmp;
     RestartContext restart;
+    pcre2_code  *regex_code;
     ErlDrvSizeT slength;
     int ovsize;
     Eterm *tp;
     int rc;
     Eterm res;
-    uint32_t code_size;
     Sint32 loop_limit;
     int is_list_cap;
     struct parsed_options opts;
@@ -1150,14 +1227,14 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
             BIF_ERROR(p,BADARG);
         }
         else {
-	    /* Compile from textual RE */
+	    /* Compile from textual regex */
 	    ErlDrvSizeT slen;
 	    char *expr;
-	    pcre2_code *result;
 	    int errcode = 0;
 	    PCRE2_SIZE errofset = 0;
 	    uint32_t capture_count;
 	    int buffres;
+            pcre2_compile_context* compile_ctx;
 
 	    if (opts.flags & PARSE_FLAG_UNICODE &&
 		(!is_bitstring(arg2) || !is_bitstring(arg1) ||
@@ -1169,18 +1246,22 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		BIF_ERROR(p,BADARG);
 	    }
 	    
+            // ToDo: Avoid copy if nice aligned binary
 	    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen);
 	    
 	    buffres = erts_iolist_to_buf(arg2, expr, slen);
 	    ASSERT(buffres >= 0); (void)buffres;
 
-            result = compile(expr, slen, &opts, &errcode, &errofset);
+            compile_ctx = ((opts.flags & PARSE_FLAG_GLOBAL)
+                           ? the_precompile_ctx : the_tmp_compile_ctx);
+            regex_code = compile(expr, slen, &opts, compile_ctx,
+                                 &errcode, &errofset);
 
-            if (!result) {
+            if (!regex_code) {
 		/* Compilation error gives badarg except in the compile 
 		   function or if we have PARSE_FLAG_REPORT_ERRORS */
 		if (opts.flags &  PARSE_FLAG_REPORT_ERRORS) {
-		    res = build_compile_result(p, am_error, result, errcode,
+		    res = build_compile_result(p, am_error, regex_code, errcode,
 					       errofset,
 					       (opts.flags &
 						PARSE_FLAG_UNICODE) ? 1 : 0, 
@@ -1195,7 +1276,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    if (opts.flags & PARSE_FLAG_GLOBAL) {
 		Eterm precompiled = 
 		    build_compile_result(p, am_error,
-					 result, errcode, 
+					 regex_code, errcode,
 					 errofset,
 					 (opts.flags &
 					  PARSE_FLAG_UNICODE) ? 1 : 0,
@@ -1211,16 +1292,14 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		BIF_TRAP3(grun_trap_exportp, p, arg1, precompiled, r);
 	    }
 
-	    pcre2_pattern_info(result, PCRE2_INFO_SIZE, &code_size);
-	    pcre2_pattern_info(result, PCRE2_INFO_CAPTURECOUNT, &capture_count);
+	    pcre2_pattern_info(regex_code, PCRE2_INFO_CAPTURECOUNT, &capture_count);
 	    ovsize = capture_count + 1;
-	    restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
-	    sys_memcpy(restart.code, result, code_size);
-	    pcre2_code_free(result);
+	    restart.code_to_free = regex_code;
 	    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
-	    /*unicode = (opts.flags & PARSE_FLAG_UNICODE) ? 1 : 0;*/
         }
     } else {
+        /* Precompiled regex */
+
 	if (opts.flags & PARSE_FLAG_UNIQUE_COMPILE_OPT) {
 	    BIF_ERROR(p,BADARG);
 	}
@@ -1228,7 +1307,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	tp = tuple_val(arg2);
 	if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
 	    is_not_small(tp[3]) || is_not_small(tp[4]) || 
-	    is_not_bitstring(tp[5])) {
+            !magic_ref_to_pcre2_code(tp[5], &regex_code)) {
 	    BIF_ERROR(p,BADARG);
 	}
 
@@ -1248,22 +1327,6 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	}
 
 	ovsize = unsigned_val(tp[2]) + 1;
-        {
-            Uint code_bin_sz;
-            code_tmp = (const pcre2_code*)erts_get_aligned_binary_bytes(tp[5],
-                                                                  &code_bin_sz,
-                                                                  &temp_alloc);
-            if (code_tmp == NULL || code_bin_sz < 4 || code_bin_sz > UINT32_MAX) {
-                erts_free_aligned_binary_bytes(temp_alloc);
-                BIF_ERROR(p, BADARG);
-            }
-            code_size = (uint32_t)code_bin_sz;
-        }
-        /* ToDo: Must be possible to get rid of this extra alloc and memcpy
-                 of the compiled regex at every call to re:run. */
-	restart.code = erts_alloc(ERTS_ALC_T_RE_SUBJECT, code_size);
-	sys_memcpy(restart.code, code_tmp, code_size);
-	erts_free_aligned_binary_bytes(temp_alloc);
 
 	if (opts.newline | opts.bsr) {
             /*
@@ -1274,29 +1337,27 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
              */
 	    if (opts.newline) {
 		uint32_t newline_compiled;
-		if (pcre2_pattern_info(restart.code, PCRE2_INFO_NEWLINE,
+		if (pcre2_pattern_info(regex_code, PCRE2_INFO_NEWLINE,
 				       &newline_compiled) != 0
 		    || newline_compiled != opts.newline) {
-		    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 		    BIF_ERROR(p, BADARG);
 		}
 	    }
 	    if (opts.bsr) {
 		uint32_t bsr_compiled;
-		if (pcre2_pattern_info(restart.code, PCRE2_INFO_BSR,
+		if (pcre2_pattern_info(regex_code, PCRE2_INFO_BSR,
 				       &bsr_compiled) != 0
 		    || bsr_compiled != opts.bsr) {
-		    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 		    BIF_ERROR(p, BADARG);
 		}
 	    }
         }
+        restart.code_to_free = NULL;
     }
 
     restart.match_data = pcre2_match_data_create(ovsize, the_general_ctx);
     restart.ovector = pcre2_get_ovector_pointer(restart.match_data);
 
-//    restart.extra.flags = PCRE2_EXTRA_TABLES | PCRE2_EXTRA_LOOP_LIMIT;
     loop_limit = MIN(reds_initial * LOOP_FACTOR, max_loop_limit);
     pcre2_set_loops_left(restart.match_data, loop_limit);
     restart.restart_data = NULL;
@@ -1305,9 +1366,9 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 
     restart.ret_info = NULL;
     if (opts.flags & PARSE_FLAG_CAPTURE_OPT) {
-	if ((restart.ret_info = build_capture(opts.capture, restart.code)) == NULL) {
+	if ((restart.ret_info = build_capture(opts.capture, regex_code)) == NULL) {
             pcre2_match_data_free(restart.match_data);
-	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
+            pcre2_code_free_8(restart.code_to_free);
 	    BIF_ERROR(p,BADARG);
 	}
     }
@@ -1354,7 +1415,7 @@ handle_iodata:
             if (restart.match_ctx) {
                 pcre2_match_context_free(restart.match_ctx);
             }
-	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
+            pcre2_code_free_8(restart.code_to_free);
 	    if (restart.ret_info != NULL) {
 		erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ret_info);
 	    }
@@ -1370,11 +1431,11 @@ handle_iodata:
 	restart.flags |= RESTART_FLAG_REPORT_MATCH_LIMIT;
     }
 
-    rc = pcre2_match(restart.code, restart.subject,
-                     slength, opts.startoffset,
-                     opts.match,
-                     restart.match_data,
-                     restart.match_ctx);
+    rc = pcre2_match_8(regex_code, restart.subject,
+                       slength, opts.startoffset,
+                       opts.match,
+                       restart.match_data,
+                       restart.match_ctx);
 
     reds_consumed = (loop_limit - pcre2_get_loops_left(restart.match_data)) / LOOP_FACTOR;
 
@@ -1400,7 +1461,7 @@ handle_iodata:
             ERTS_VBUMP_ALL_REDS(p);
             hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
             magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
-            BIF_TRAP3(&re_exec_trap_export,
+            BIF_TRAP3(&re_match_trap_export,
                       p,
                       arg1,
                       arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
@@ -1409,14 +1470,8 @@ handle_iodata:
 
             /* Recursive loop detected in pattern... */
         case PCRE2_ERROR_RECURSELOOP:
-#if 1
             reds_consumed = CONTEXT_REDS; /* Unknown amount of work done... */
             break; /* nomatch for backwards compatibility reasons for now... */
-#else
-            BUMP_ALL_REDS(p); /* Unknown amount of work done... */
-            cleanup_restart_context(&restart);
-            BIF_ERROR(p, BADARG);
-#endif
             
             /* Bad utf8 in subject... */
         case PCRE2_ERROR_BADUTFOFFSET:
@@ -1454,7 +1509,7 @@ handle_iodata:
 
         default:
             /* Something unexpected happened... */
-            ASSERT(! "Unexpected erts_pcre_exec() result");
+            ASSERT(! "Unexpected pcre2_match() result");
             cleanup_restart_context(&restart);
             BIF_ERROR(p, EXC_INTERNAL_ERROR);
         }
@@ -1498,7 +1553,7 @@ re_run_2(BIF_ALIST_2)
  * The "magic" trap target, continue a re:run
  */
 
-static BIF_RETTYPE re_exec_trap(BIF_ALIST_3) 
+static BIF_RETTYPE re_match_trap(BIF_ALIST_3)
      /* XXX: Optimize - arg 1 and 2 to be utilized for keeping binary 
 	code and subject */
 {
@@ -1536,7 +1591,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
             /* Trap */
             BUMP_REDS(BIF_P, reds_consumed);
             ERTS_VBUMP_ALL_REDS(BIF_P);
-            BIF_TRAP3(&re_exec_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+            BIF_TRAP3(&re_match_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
             /* Bad utf8 in subject... */
         case PCRE2_ERROR_BADUTFOFFSET:
         case PCRE2_ERROR_UTF8_ERR1:
@@ -1571,7 +1626,7 @@ static BIF_RETTYPE re_exec_trap(BIF_ALIST_3)
             BIF_ERROR(BIF_P, BADARG);
         default:
             /* Something unexpected happened... */
-            ASSERT(! "Unexpected erts_pcre_exec() result");
+            ASSERT(! "Unexpected pcre2_match() result");
             cleanup_restart_context(restartp);
             BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
         }
@@ -1598,25 +1653,19 @@ re_inspect_2(BIF_ALIST_2)
     uint32_t options;
     int num_names;
     Eterm res;
-    const pcre2_code *code;
-    Uint code_size;
+    pcre2_code  *code;
     int infores;
 
     if (is_not_tuple(BIF_ARG_1) || (arityval(*tuple_val(BIF_ARG_1)) != 5)) {
 	goto error;
     }
     tp = tuple_val(BIF_ARG_1);
-    if (tp[1] != am_re_pattern || is_not_small(tp[2]) || 
-        is_not_small(tp[3]) || is_not_small(tp[4])) {
+    if (tp[1] != am_re_pattern || is_not_small(tp[2])
+        || is_not_small(tp[3]) || is_not_small(tp[4])
+        || !magic_ref_to_pcre2_code(tp[5], &code)) {
         goto error;
     }
     if (BIF_ARG_2 != am_namelist) {
-        goto error;
-    }
-    code = (const pcre2_code *)erts_get_aligned_binary_bytes(tp[5],
-                                                       &code_size,
-                                                       &temp_alloc);
-    if (code == NULL || code_size < 4) {
         goto error;
     }
 
