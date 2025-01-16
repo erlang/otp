@@ -44,7 +44,7 @@
          infer_relops/1,
          not_equal_inference/1,bad_bin_unit/1,singleton_inference/1,
          inert_update_type/1,range_inference/1,
-         bif_inference/1,too_many_arguments/1]).
+         bif_inference/1,too_many_arguments/1,ensure_bits/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -82,7 +82,7 @@ groups() ->
        container_performance,infer_relops,
        not_equal_inference,bad_bin_unit,singleton_inference,
        inert_update_type,range_inference,
-       bif_inference,too_many_arguments]}].
+       bif_inference,too_many_arguments,ensure_bits]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1181,6 +1181,75 @@ too_many_arguments(_Config) ->
     Errors = beam_val(M),
     [{{too_many_arguments,t,256},too_many_arguments},
      {{too_many_arguments,t,0},invalid_function_header}] = Errors,
+    ok.
+
+%% GH-9304: Validator did not check that operations were preceded by
+%% ensure_at_least / ensure_exactly.
+ensure_bits(_Config) ->
+    M = {ensure,
+         [{t,1}],
+         [],
+         [{function,short_eal,1,2,
+           [{label,1},
+            {func_info,{atom,short_eal},{atom,short_eal},1},
+            {label,2},
+            {test,bs_start_match3,{f,3},1,[{x,0}],{x,0}},
+            {bs_match,{f,3},{x,0},
+             {commands,[{ensure_at_least,15,1}, %% One bit short.
+                        {'=:=',nil,8,0},
+                        {'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,3},
+            {move,{atom,boo},{x,0}},
+            return]},
+          {function,short_ex,1,6,
+           [{label,5},
+            {func_info,{atom,short_ex},{atom,short_ex},1},
+            {label,6},
+            {test,bs_start_match3,{f,7},1,[{x,0}],{x,0}},
+            {bs_match,{f,7},{x,0},
+             {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,7},
+            {move,{atom,boo},{x,0}},
+            return]},
+         {function,missing_ensure,1,9,
+           [{label,8},
+            {func_info,{atom,missing_ensure},{atom,missing_ensure},1},
+            {label,9},
+            {test,bs_start_match3,{f,10},1,[{x,0}],{x,0}},
+            {bs_match,{f,10},{x,0},
+             {commands,[{'=:=',nil,8,0}]}},
+            {move,{atom,yay},{x,0}},
+            return,
+            {label,10},
+            {move,{atom,boo},{x,0}},
+            return]}],
+         11},
+    Errors = beam_val(M),
+    [{{short_eal,short_eal,1},
+      {{bs_match,
+           {f,3},
+           {x,0},
+           {commands,
+               [{ensure_at_least,15,1},
+                {'=:=',nil,8,0},
+                {'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{short_ex,short_ex,1},
+      {{bs_match,
+           {f,7},
+           {x,0},
+           {commands,[{ensure_exactly,7},{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,7}}},
+     {{missing_ensure,missing_ensure,1},
+      {{bs_match,{f,10},{x,0},{commands,[{'=:=',nil,8,0}]}},
+       5,
+       {insufficient_bits,{'=:=',nil,8,0},8,0}}}] = Errors,
     ok.
 
 id(I) ->

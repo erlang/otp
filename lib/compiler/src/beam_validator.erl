@@ -888,7 +888,7 @@ vi({bs_match,{f,Fail},Ctx0,{commands,List}}, Vst) ->
                    validate_failed_bs_match(List, Ctx, FailVst)
            end,
            fun(SuccVst) ->
-                   validate_bs_match(List, Ctx, 1, SuccVst)
+                   validate_bs_match(List, Ctx, 0, 1, SuccVst)
            end);
 vi({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
@@ -1600,34 +1600,46 @@ validate_bs_start_match({f,Fail}, Live, Src, Dst, Vst) ->
 %% Validate the bs_match instruction.
 %%
 
-validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
+validate_bs_match([I|Is], Ctx, Ensured, Unit0, Vst0) ->
     case I of
-        {ensure_at_least,_Size,Unit} ->
+        {ensure_at_least,Size,Unit} ->
             Type = #t_bs_context{tail_unit=Unit},
             Vst1 = update_bs_unit(Ctx, Unit, Vst0),
             Vst = update_type(fun meet/2, Type, Ctx, Vst1),
-            validate_bs_match(Is, Ctx, Unit, Vst);
-        {ensure_exactly,_Stride} ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is, Ctx, Size, Unit, Vst);
+        {ensure_exactly, Size} ->
+            validate_bs_match(Is, Ctx, Size, Unit0, Vst0);
         {'=:=',nil,Bits,Value} when Bits =< 64, is_integer(Value) ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Bits, Ensured),
+                              Unit0,
+                              Vst0);
         {Type0,Live,{literal,Flags},Size,Unit,Dst} when Type0 =:= binary;
                                                         Type0 =:= integer ->
+            true = is_integer(Size), %Assertion.
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
             Vst1 = prune_x_regs(Live, Vst0),
             Type = case Type0 of
                        integer ->
-                           true = is_integer(Size), %Assertion.
                            bs_integer_type({Size, Size}, Unit, Flags);
                        binary ->
                            SizeUnit = bsm_size_unit({integer,Size}, Unit),
                            #t_bitstring{size_unit=SizeUnit}
                    end,
             Vst = extract_term(Type, bs_match, [Ctx], Dst, Vst1, Vst0),
-            validate_bs_match(Is, Ctx, Unit0, Vst);
-        {skip,_Stride} ->
-            validate_bs_match(Is, Ctx, Unit0, Vst0);
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Size, Ensured),
+                              Unit0,
+                              Vst);
+        {skip, Size} ->
+            validate_bs_match(Is,
+                              Ctx,
+                              consume_bits(I, Size, Ensured),
+                              Unit0,
+                              Vst0);
         {get_tail,Live,_,Dst} ->
             validate_ctx_live(Ctx, Live),
             verify_live(Live, Vst0),
@@ -1635,11 +1647,17 @@ validate_bs_match([I|Is], Ctx, Unit0, Vst0) ->
             #t_bs_context{tail_unit=Unit} = get_concrete_type(Ctx, Vst0),
             Type = #t_bitstring{size_unit=Unit},
             Vst = extract_term(Type, get_tail, [Ctx], Dst, Vst1, Vst0),
-            %% In rare circumstance, there can be multiple `get_tail` sub commands.
-            validate_bs_match(Is, Ctx, Unit, Vst)
+            %% In rare circumstances, there can be multiple `get_tail` sub
+            %% commands.
+            validate_bs_match(Is, Ctx, 0, Unit, Vst)
     end;
-validate_bs_match([], _Ctx, _Unit, Vst) ->
+validate_bs_match([], _Ctx, _Ensured, _Unit, Vst) ->
     Vst.
+
+consume_bits(I, Size, Ensured) when Size > Ensured ->
+    error({insufficient_bits, I, Size, Ensured});
+consume_bits(_I, Size, Ensured) ->
+    Ensured - Size.
 
 validate_ctx_live({x,X}=Ctx, Live) when X >= Live ->
     error({live_does_not_preserve_context,Live,Ctx});
