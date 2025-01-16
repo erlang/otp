@@ -4438,7 +4438,8 @@ void erts_add_taint(Eterm mod_atom)
     struct tainted_module_t *first, *t;
 
     ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&erts_driver_list_lock)
-                   || erts_has_code_mod_permission());
+                   || erts_has_code_mod_permission()
+                   || !erts_initialized);
 
     first = (struct tainted_module_t*) erts_atomic_read_nob(&first_taint);
     for (t=first ; t; t=t->next) {
