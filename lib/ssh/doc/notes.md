@@ -211,6 +211,8 @@ limitations under the License.
   cost of affecting interoperability. See
   [Configuring algorithms in SSH](configure_algos.md).
 
+  Thanks to Fabian Bäumer, Marcus Brinkmann and Jörg Schwenk.
+
   \*** POTENTIAL INCOMPATIBILITY \***
 
   Own Id: OTP-18897
@@ -369,6 +371,8 @@ limitations under the License.
   configuration. This will provide protection against vulnerability, but at a
   cost of affecting interoperability. See
   [Configuring algorithms in SSH](configure_algos.md).
+
+  Thanks to Fabian Bäumer, Marcus Brinkmann and Jörg Schwenk.
 
   \*** POTENTIAL INCOMPATIBILITY \***
 
@@ -535,6 +539,8 @@ limitations under the License.
   configuration. This will provide protection against vulnerability, but at a
   cost of affecting interoperability. See
   [Configuring algorithms in SSH](configure_algos.md).
+
+  Thanks to Fabian Bäumer, Marcus Brinkmann and Jörg Schwenk.
 
   \*** POTENTIAL INCOMPATIBILITY \***
 
@@ -761,6 +767,8 @@ limitations under the License.
 * With this change (being response to CVE-2023-48795), ssh can negotiate "strict KEX" OpenSSH extension with peers supporting it; also 'chacha20-poly1305@openssh.com' algorithm becomes a less preferred cipher.
 
   If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability. See Configuring algorithms in SSH User's Guide.
+
+  Thanks to Fabian Bäumer, Marcus Brinkmann and Jörg Schwenk.
 
   \*** POTENTIAL INCOMPATIBILITY ***
 
@@ -1145,6 +1153,8 @@ limitations under the License.
 * With this change (being response to CVE-2023-48795), ssh can negotiate "strict KEX" OpenSSH extension with peers supporting it; also 'chacha20-poly1305@openssh.com' algorithm becomes a less preferred cipher.
 
   If strict KEX availability cannot be ensured on both connection sides, affected encryption modes(CHACHA and CBC) can be disabled with standard ssh configuration. This will provide protection against vulnerability, but at a cost of affecting interoperability. See Configuring algorithms in SSH User's Guide.
+
+  Thanks to Fabian Bäumer, Marcus Brinkmann and Jörg Schwenk.
 
   \*** POTENTIAL INCOMPATIBILITY ***
 
