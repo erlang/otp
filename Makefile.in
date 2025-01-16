@@ -804,7 +804,7 @@ primary_bootstrap_copy:
 
 # To remove modules left by the bootstrap building, but leave (restore)
 # the modules in kernel which are needed for an emulator build
-KERNEL_PRELOAD    = erl_init init erl_prim_loader prim_inet prim_file zlib prim_zip erlang erts_code_purger
+KERNEL_PRELOAD    = erl_init init erl_prim_loader prim_inet prim_file zlib erlang erts_code_purger
 KERNEL_PRELOAD_BEAMS=$(KERNEL_PRELOAD:%=$(BOOTSTRAP_TOP)/lib/kernel/ebin/%.beam)
 
 start_scripts:

@@ -764,7 +764,6 @@ PRELOAD_BEAM =	$(ERL_TOP)/erts/preloaded/ebin/erts_code_purger.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/zlib.beam \
 		$(ESOCK_PRELOAD_BEAM) \
-		$(ERL_TOP)/erts/preloaded/ebin/prim_zip.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erlang.beam \
 		$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \

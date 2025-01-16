@@ -45,7 +45,6 @@ PRE_LOADED_ERL_MODULES = \
 	prim_inet \
 	$(PRE_LOADED_ERL_ESOCK_MODULES) \
 	zlib \
-	prim_zip \
 	erl_init \
 	erts_code_purger \
 	erlang \
@@ -176,5 +175,4 @@ dialyzer: $(DIA_PLT)
 $(EBIN)/erl_prim_loader.beam: $(KERNEL_SRC)/inet_boot.hrl $(KERNEL_INCLUDE)/file.hrl
 $(EBIN)/prim_file.beam: $(KERNEL_SRC)/file_int.hrl $(KERNEL_INCLUDE)/file.hrl
 $(EBIN)/prim_inet.beam: $(KERNEL_SRC)/inet_int.hrl $(KERNEL_INCLUDE)/inet_sctp.hrl
-$(EBIN)/prim_zip.beam: zip_internal.hrl $(KERNEL_INCLUDE)/file.hrl $(STDLIB_INCLUDE)/zip.hrl
 $(EBIN)/init.beam: $(KERNEL_INCLUDE)/file.hrl

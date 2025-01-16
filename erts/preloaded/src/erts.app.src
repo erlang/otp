@@ -33,7 +33,6 @@
 		prim_eval,
 		prim_file,
 		prim_inet,
-		prim_zip,
                 atomics,
                 counters,
                 persistent_term,

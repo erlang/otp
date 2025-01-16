@@ -1582,7 +1582,7 @@ preloaded() ->
            erts_code_purger,erts_dirty_process_signal_handler,
            erts_internal,erts_literal_area_collector,erts_trace_cleaner,
            init,persistent_term,prim_buffer,prim_eval,prim_file,
-           prim_inet,prim_zip,zlib]).
+           prim_inet,zlib]).
 
 %%______________________________________________________________________
 %% This is the erts binaries that should *not* be part of a systool:make_tar package

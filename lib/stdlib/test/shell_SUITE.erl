@@ -551,30 +551,6 @@ records(Config) when is_list(Config) ->
     [{error,invalid_filename}] = scan(<<"rr({foo}).">>),
     [[]] = scan(<<"rr(\"not_a_file\").">>),
 
-    %% load record from archive
-    true = purge_and_delete(test),
-
-    PrivDir = proplists:get_value(priv_dir, Config),
-    AppDir = filename:join(PrivDir, "test_app"),
-    ok = file:make_dir(AppDir),
-    AppEbinDir = filename:join(AppDir, "ebin"),
-    ok = file:make_dir(AppEbinDir),
-
-    ok = file:write_file(Test, Contents),
-    {ok, test} = compile:file(Test, [{outdir, AppEbinDir}]),
-
-    Ext = init:archive_extension(),
-    Archive = filename:join(PrivDir, "test_app" ++ Ext),
-    {ok, _} = zip:create(Archive, ["test_app"], [{compress, []}, {cwd, PrivDir}]),
-
-    ArchiveEbinDir = filename:join(Archive, "test_app/ebin"),
-    true = code:add_path(ArchiveEbinDir),
-    {module, test} = code:load_file(test),
-    BeamInArchive = filename:join(ArchiveEbinDir, "test.beam"),
-    BeamInArchive = code:which(test),
-
-    [[state]] = scan(<<"rr(test).">>),
-
     %% using records
     [2] = scan(<<"rd(foo,{bar}), record_info(size, foo).">>),
     [true] = scan(<<"rd(foo,{bar}), is_record(#foo{}, foo).">>),
