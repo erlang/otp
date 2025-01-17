@@ -170,11 +170,20 @@ init_backends() ->
     ok.
 
 init_backend(Mod, [_|_] = Aliases) ->
-    case Mod:init_backend() of
-	ok ->
-	    Mod:add_aliases(Aliases);
-	Error ->
-	    mnesia:abort({backend_init_error, Error})
+    Mods = mnesia_lib:val(ext_backends),
+    case lists:member(Mod, Mods) of
+        true ->
+            dbg_out("Backend {~p, ~p} is already initialized~n", [Mod, Aliases]),
+            ok;
+        false ->
+            case Mod:init_backend() of
+            ok ->
+                Mod:add_aliases(Aliases),
+                mnesia_lib:set(ext_backends, [Mod | Mods]),
+                dbg_out("Backend {~p, ~p} initialized~n", [Mod, Aliases]);
+            Error ->
+                mnesia:abort({backend_init_error, Error})
+            end
     end.
 
 exit_on_error({error, Reason}) ->
@@ -921,7 +930,17 @@ expand_storage_type(S) ->
     end.
 
 get_ext_types() ->
-    get_schema_user_property(mnesia_backend_types).
+    %% Here we try to retrieve ext types from process dictionary first because we may have just
+    %% merged a schema of schema table in the same transaction, which is not yet commited and
+    %% next we try to merge some other table which uses external backend and during verification
+    %% we must have external backends from just merged schema available in order to properly
+    %% verify keys of this table.
+    case get(ext_types_current_transaction) of
+        undefined ->
+            get_schema_user_property(mnesia_backend_types);
+        ExtTypes ->
+            ExtTypes
+    end.
 
 get_index_plugins() ->
     get_schema_user_property(mnesia_index_plugins).
@@ -2679,9 +2698,16 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
     end;
 
 prepare_op(_Tid, {op, merge_schema, TabDef}, _WaitFor) ->
-    Cs = list2cs(TabDef),
+    #cstruct{name = Name, user_properties = UserProps} = Cs = list2cs(TabDef),
     case verify_merge(Cs) of
-	ok  ->
+	ok when Name == schema ->
+	    %% We just merged schema of schema table, save ext_types in process dictionary, in case
+	    %% we will be merging other table's schema in the same transaction, it will need those
+	    %% ext_types of not yet commited schema table.
+	    ExtTypes = proplists:get_value(mnesia_backend_types, UserProps, []),
+	    put(ext_types_current_transaction, ExtTypes),
+	    {true, optional};
+	ok ->
 	    {true, optional};
 	Error ->
 	    verbose("Merge_Schema ~p failed on ~p: ~tp~n", [_Tid,node(),Error]),
@@ -3683,7 +3709,13 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.name == schema ->
 	    ok;
 	Cs#cstruct.name /= schema,
-	Cs#cstruct.cookie == RemoteCs#cstruct.cookie ->
+	Cs#cstruct.cookie == RemoteCs#cstruct.cookie,
+	%% Verify user_properties only on tables other than schema, because we may try to
+	%% add_table_copy of schema table, which has external backends registered.
+	%% This results in schema merge between schema with registered external backends
+	%% in user_properties, and 'empty' schema which has user_properties empty
+	%% Allow to merge schema in this case.
+	Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
 	    ok;
 	Force == true ->
 	    ok;
@@ -3702,8 +3734,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.snmp == RemoteCs#cstruct.snmp,
 	Cs#cstruct.access_mode == RemoteCs#cstruct.access_mode,
 	Cs#cstruct.majority == RemoteCs#cstruct.majority,
-	Cs#cstruct.load_order == RemoteCs#cstruct.load_order,
-	Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
+	Cs#cstruct.load_order == RemoteCs#cstruct.load_order ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
 	Force == true ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
