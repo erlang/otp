@@ -25,6 +25,7 @@ there can be at most one such process registered at any given time.
 Using the BIFs in this module, a debugger can:
 
   - set breakpoints;
+  - inspect internal process state, such registers, stack-frames;
   - get notified on debugger events such as a process hitting a breakpoint;
   - resume processes paused on breakpoints
 
@@ -37,6 +38,8 @@ expect frequent incompatible changes.
 -export([instrumentations/0, toggle_instrumentations/1]).
 -export([register/1, unregister/2, whereis/0]).
 -export([breakpoint/3]).
+-export([stack_frames/2, peek_stack_frame_slot/4]).
+-export([xregs_count/1, peek_xreg/3]).
 
 
 %% Types
@@ -64,6 +67,51 @@ Debugger-events:
 """.
 -type event() ::
     {breakpoint, pid(), mfa(), Line :: pos_integer(), Resume :: fun(() -> ok)} .
+
+
+-export_type([stack_frame/0, stack_frame_fun/0, stack_frame_info/0, stack_frame_slot/0, reg_val/0]).
+
+-doc """
+A stack-frame, including the value of each slot.
+""".
+-type stack_frame() ::
+    {FrameNo :: non_neg_integer(), stack_frame_fun(), stack_frame_info()}.
+
+-doc """
+What is running in each stack frame, including special VM frames.
+""".
+-type stack_frame_fun() ::
+    #{function := mfa(), line := pos_integer() | undefined}
+    | '<terminate process>'
+    | '<continue terminate process>'
+    | '<terminate process normally>'
+    | '<breakpoint>'
+    | 'unknown function'.
+
+-doc """
+Extra information about a stack-frame.
+
+  - `slots`: Y-registers (in order `[Y0,...Yk])`, followed by exception-handlers.
+  - `code`: Memory address of the next instruction to execute in this frame.
+""".
+-type stack_frame_info() :: #{
+    slots := [stack_frame_slot()],
+    code := pos_integer()
+}.
+
+-doc """
+The contents of a stack frame slot can be a Y-register
+or an exception handler.
+""".
+-type stack_frame_slot() ::
+    reg_val() | {'catch', stack_frame_fun()}.
+
+-doc """
+The value of a X/Y register, if it fits within the requested
+size. If it's too large, then size of the term.
+""".
+-type reg_val() ::
+    {value, term()} | {too_large, Size :: pos_integer()}.
 
 -export_type([instrumentation/0]).
 
@@ -162,4 +210,55 @@ Returns `ok` on success. It can fail with the following reasons:
     Flag :: boolean(),
     Reason :: {unsupported, Module | Line} | {badkey, Module | Line}.
 breakpoint(_, _, _) ->
+    erlang:nif_error(undef).
+
+
+%% Stack frames
+
+-doc """
+Get the all the stack-frames for a suspended process.
+
+If the given process is not in a suspended state, returns `running`.
+Otherwise, list of [stack frames](stack_frame/1), which includes
+the content of each slot. For slots containing terms, `MaxTermSize`
+controls the maximum size of values that are allowed to be returned
+(to avoid accidentally blowing the heap of the caller).
+""".
+-spec stack_frames(pid(), MaxTermSize :: non_neg_integer()) -> running | [stack_frame()].
+stack_frames(_, _) ->
+    erlang:nif_error(undef).
+
+-doc """
+Get the value of a slot in a suspended process stack-frame.
+
+Returns `running` if the process is not suspended, and `undefined`
+if the frame or the slot don't exist for that process.
+Otherwise returns the slot, that can be a term, if its size is less
+than `MaxTermSize`, or a an exeption handler.
+""".
+-spec peek_stack_frame_slot(pid(), FrameNo, Slot, MaxSize) ->
+    running | undefined | stack_frame_slot() when
+    FrameNo :: pos_integer(),
+    Slot :: non_neg_integer(),
+    MaxSize :: non_neg_integer().
+peek_stack_frame_slot(_, _, _, _) ->
+    erlang:nif_error(undef).
+
+%% Process registers
+
+-doc """
+Get the number of X-registers currently in use by a suspended process.
+""".
+-spec xregs_count(pid()) -> running | non_neg_integer().
+xregs_count(_) ->
+    erlang:nif_error(undef).
+
+-doc """
+Get the value of an X-register for a suspended process.
+""".
+-spec peek_xreg(pid(), Reg, MaxSize) ->
+    running | undefined | reg_val() when
+    Reg :: non_neg_integer(),
+    MaxSize :: non_neg_integer().
+peek_xreg(_, _, _) ->
     erlang:nif_error(undef).
