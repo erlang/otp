@@ -207,6 +207,9 @@ public:
         return ptrs[lbl];
     }
 
+    enum erts_is_line_breakpoint is_line_breakpoint_trampoline(ErtsCodePtr);
+
+
 $decl_get_funcs
 };
 

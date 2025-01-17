@@ -116,6 +116,12 @@ typedef struct {
     BpFunction* matching;	/* Matching functions */
 } BpFunctions;
 
+enum erts_is_line_breakpoint {
+    IS_NOT_LINE_BP = 0,
+    IS_ENABLED_LINE_BP = 1,
+    IS_DISABLED_LINE_BP = 2,
+ };
+
 /*
 ** Function interface exported from beam_bp.c
 */
@@ -186,6 +192,10 @@ void erts_clear_time_break(BpFunctions *f);
 void erts_clear_memory_break(BpFunctions *f);
 Eterm erts_make_bp_session_list(ErtsHeapFactory*, const ErtsCodeInfo*,
                                 Eterm tail);
+
+void erts_install_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+void erts_uninstall_line_breakpoint(struct erl_module_instance *, ErtsCodePtr);
+enum erts_is_line_breakpoint erts_is_line_breakpoint_code(ErtsCodePtr);
 
 const Export *erts_line_breakpoint_hit__prepare_call(Process* c_p,
                                                      ErtsCodePtr pc,

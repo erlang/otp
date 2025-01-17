@@ -364,3 +364,53 @@ lookup_loc(FunctionInfo* fi, const void* pc,
 	}
     }
 }
+
+ErtsCodePtr
+erts_find_next_code_for_line(const BeamCodeHeader* code_hdr,
+                             unsigned int line,
+                             unsigned int *start_from)
+{
+    const BeamCodeLineTab *lt = code_hdr->line_table;
+    const UWord num_functions = code_hdr->num_functions;
+    unsigned int line_index = -1;
+    unsigned int num_lines;
+
+    if (lt == NULL) {
+	return NULL;
+    }
+
+    num_lines = lt->func_tab[num_functions] - lt->func_tab[0];
+
+    /* NB. While at the moment lt->loc_tab is sorted (except at
+     * the edges, since module_info/0,1, etc have no line info),
+     * there's no strong guarantee this will be sorted in general,
+     * as the compiler could reorder functions, code with no
+     * dependencies, etc. So we do a linear-search here.
+     */
+    if (lt->loc_size == 2) {
+        for(unsigned int i=*start_from; i<num_lines; i++) {
+            int curr_line = LOC_LINE(lt->loc_tab.p2[i]);
+            if (curr_line == line) {
+                line_index = i;
+                *start_from = i+1;
+                break;
+            }
+        }
+    } else {
+        for(unsigned int i=*start_from; i<num_lines; i++) {
+            int curr_line = LOC_LINE(lt->loc_tab.p4[i]);
+            if (curr_line == line) {
+                line_index = i;
+                *start_from = i+1;
+                break;
+            }
+        }
+    }
+
+    if (line_index == -1) {
+        *start_from = 0;
+        return NULL;
+    }
+
+    return lt->func_tab[0][line_index];
+}
