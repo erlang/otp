@@ -401,9 +401,9 @@ input_handler_start(Socket, DistHandle) ->
         Front              = [],
         Size               = 0,
         Rear               = [],
-        SelectHandle       = undefined,
+        CSHandle           = undefined,
         %% erlang:display({?FUNCTION_NAME, Socket, DistHandle}),
-        input_handler(IHP, Front, Size, Rear, SelectHandle)
+        input_handler(IHP, Front, Size, Rear, CSHandle)
     catch
         Class : Reason : Stacktrace when Class =:= error ->
             error_logger:error_report(
@@ -414,17 +414,17 @@ input_handler_start(Socket, DistHandle) ->
             erlang:raise(Class, Reason, Stacktrace)
     end.
 
-input_handler(IHP, Front, Size, Rear, SelectHandle)
-  when IHP#ihp.watermark > Size, SelectHandle =:= undefined ->
+input_handler(IHP, Front, Size, Rear, CSHandle)
+  when IHP#ihp.watermark > Size, CSHandle =:= undefined ->
     %% erlang:display({?FUNCTION_NAME, ?LINE, Size}),
-    input_handler_recv(IHP, Front, Size, Rear, SelectHandle);
-input_handler(IHP, [] = Front, Size, [] = Rear, SelectHandle) ->
+    input_handler_recv(IHP, Front, Size, Rear, CSHandle);
+input_handler(IHP, [] = Front, Size, [] = Rear, CSHandle) ->
     0 = Size, % Assert
-    input_handler_recv(IHP, Front, Size, Rear, SelectHandle);
-input_handler(IHP, [] = _Front, Size, Rear, SelectHandle) ->
+    input_handler_recv(IHP, Front, Size, Rear, CSHandle);
+input_handler(IHP, [] = _Front, Size, Rear, CSHandle) ->
     %% erlang:display({?FUNCTION_NAME, ?LINE, Size}),
-    input_handler(IHP, lists:reverse(Rear), Size, [], SelectHandle);
-input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
+    input_handler(IHP, lists:reverse(Rear), Size, [], CSHandle);
+input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, CSHandle) ->
     case Bin of
         <<PacketSize_1:32, Packet_1:PacketSize_1/binary,
           PacketSize_2:32, Packet_2:PacketSize_2/binary,
@@ -445,9 +445,9 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
             if
                 byte_size(Rest) > 0 ->
                     input_handler(
-                      IHP, [Rest | Front], Size_1, Rear, SelectHandle);
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
                 true -> % byte_size(Rest) == 0
-                    input_handler(IHP, Front, Size_1, Rear, SelectHandle)
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
             end;
         <<PacketSize_1:32, Packet_1:PacketSize_1/binary,
           PacketSize_2:32, Packet_2:PacketSize_2/binary,
@@ -461,9 +461,9 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
             if
                 byte_size(Rest) > 0 ->
                     input_handler(
-                      IHP, [Rest | Front], Size_1, Rear, SelectHandle);
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
                 true -> % byte_size(Rest) == 0
-                    input_handler(IHP, Front, Size_1, Rear, SelectHandle)
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
             end;
         <<PacketSize:32, Packet:PacketSize/binary, Rest/binary>> ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
@@ -473,9 +473,9 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
             if
                 byte_size(Rest) > 0 ->
                     input_handler(
-                      IHP, [Rest | Front], Size_1, Rear, SelectHandle);
+                      IHP, [Rest | Front], Size_1, Rear, CSHandle);
                 true -> % byte_size(Rest) == 0
-                    input_handler(IHP, Front, Size_1, Rear, SelectHandle)
+                    input_handler(IHP, Front, Size_1, Rear, CSHandle)
             end;
         <<PacketSize:32, PacketStart/binary>> ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, Size, PacketSize}),
@@ -485,7 +485,7 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
                 0 > Size_1 ->
                     %% Incomplete packet in buffer
                     input_handler_recv(
-                      IHP, Bin_Front, Size, Rear, SelectHandle);
+                      IHP, Bin_Front, Size, Rear, CSHandle);
                 Size_1 > 0->
                     %% Complete packet is buffered, and some more
                     PacketStartSize = byte_size(PacketStart),
@@ -497,12 +497,12 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
                         collect_iov(
                           IOV, Front, PacketSize - PacketStartSize, Rear),
                     put_data(IHP#ihp.dist_handle, Packet),
-                    input_handler(IHP, Front_1, Size_1, Rear_1, SelectHandle);
+                    input_handler(IHP, Front_1, Size_1, Rear_1, CSHandle);
                 true -> % Size_1 == 0
                     %% Exactly a packet is buffered
                     Packet = [PacketStart | Front] ++ lists:reverse(Rear),
                     put_data(IHP#ihp.dist_handle, Packet),
-                    input_handler(IHP, [], 0, [], SelectHandle)
+                    input_handler(IHP, [], 0, [], CSHandle)
             end;
         <<First/binary>> ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, Size, byte_size(First)}),
@@ -511,56 +511,64 @@ input_handler(IHP, [Bin | Front] = Bin_Front, Size, Rear, SelectHandle) ->
                 4 > Size ->
                     %% Incomplete packet header in buffer
                     input_handler_recv(
-                      IHP, Bin_Front, Size, Rear, SelectHandle);
+                      IHP, Bin_Front, Size, Rear, CSHandle);
                 Size > 4 ->
                     %% Complete packet header is buffered, and some more
                     {Hdr, Front_1, Rear_1} =
                         collect_bin(First, Front, 4 - byte_size(First), Rear),
                     input_handler(
-                      IHP, [Hdr | Front_1], Size, Rear_1, SelectHandle);
+                      IHP, [Hdr | Front_1], Size, Rear_1, CSHandle);
                 true -> % Size == 4
                     %% Exacty a packet header is buffered
                     Hdr = list_to_binary(Bin_Front ++ lists:reverse(Rear)),
-                    input_handler(IHP, [Hdr], Size, [], SelectHandle)
+                    input_handler(IHP, [Hdr], Size, [], CSHandle)
             end
     end.
 
 input_handler_recv(IHP, Front, Size, Rear, undefined) ->
-    case socket:recv(IHP#ihp.socket, 0, [], nowait) of
+    CSHandle = make_ref(),
+    case socket:recv(IHP#ihp.socket, 0, [], CSHandle) of
+        {select_read, {{select_info,_,_}, Data}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE,
+            %%                 select, {CSHandle,byte_size(Data)}}),
+            Size_1 = byte_size(Data) + Size,
+            Rear_1 = [Data | Rear],
+            input_handler(IHP, Front, Size_1, Rear_1, CSHandle);
+        {select, {select_info,_,_}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, select, CSHandle}),
+            input_handler(IHP, Front, Size, Rear, CSHandle);
+        {completion, {completion_info,_,_}} ->
+            %% erlang:display({?FUNCTION_NAME, ?LINE, select, CSHandle}),
+            input_handler(IHP, Front, Size, Rear, CSHandle);
+        Result ->
+            input_handler_common(IHP, Front, Size, Rear, Result)
+    end;
+input_handler_recv(IHP, Front, Size, Rear, CSHandle) ->
+    input_handler_wait(IHP, Front, Size, Rear, CSHandle).
+
+input_handler_common(IHP, Front, Size, Rear, Result) ->
+    case Result of
         {ok, Data} ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, '<<', byte_size(Data)}),
             Size_1 = byte_size(Data) + Size,
             Rear_1 = [Data | Rear],
             input_handler(IHP, Front, Size_1, Rear_1, undefined);
-        {select, {{select_info, _, SelectHandle}, Data}} ->
-            %% erlang:display({?FUNCTION_NAME, ?LINE,
-            %%                 select, {SelectHandle,byte_size(Data)}}),
-            Size_1 = byte_size(Data) + Size,
-            Rear_1 = [Data | Rear],
-            input_handler(IHP, Front, Size_1, Rear_1, SelectHandle);
-        {select, {select_info, _, SelectHandle}} ->
-            %% erlang:display({?FUNCTION_NAME, ?LINE, select, SelectHandle}),
-            input_handler(IHP, Front, Size, Rear, SelectHandle);
-        {error, {Reason, _Data}} ->
-            %% erlang:display({?FUNCTION_NAME, ?LINE,
-            %%                 error, {Reason, byte_size(_Data)}}),
-            exit(Reason);
         {error, Reason} ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, error, Reason}),
             exit(Reason)
-    end;
-input_handler_recv(IHP, Front, Size, Rear, SelectHandle) ->
-    input_handler_wait(IHP, Front, Size, Rear, SelectHandle).
+    end.
 
-input_handler_wait(IHP, Front, Size, Rear, SelectHandle) ->
-    %% erlang:display({?FUNCTION_NAME, ?LINE, SelectHandle}),
+input_handler_wait(IHP, Front, Size, Rear, CSHandle) ->
+    %% erlang:display({?FUNCTION_NAME, ?LINE, CSHandle}),
     Socket = IHP#ihp.socket,
     receive
-        {'$socket', Socket, select, SelectHandle} ->
+        {'$socket', Socket, select, CSHandle} ->
             input_handler_recv(IHP, Front, Size, Rear, undefined);
+        {'$socket', Socket, completion, {CSHandle, Result}} ->
+            input_handler_common(IHP, Front, Size, Rear, Result);
         _Ignore ->
             %% erlang:display({?FUNCTION_NAME, ?LINE, _Ignore}),
-            input_handler_wait(IHP, Front, Size, Rear, SelectHandle)
+            input_handler_wait(IHP, Front, Size, Rear, CSHandle)
     end.
 
 collect_bin(Collected, [Bin | Front], N, Rear) ->

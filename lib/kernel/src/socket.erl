@@ -5084,7 +5084,9 @@ recv_zero(SockRef, Length, Flags, Buf) ->
         {more, Bin} -> % Type == stream, Length == 0, default buffer filled
             recv_zero(SockRef, Length, Flags, [Bin | Buf]);
         {ok, Bin} -> % All requested data
-            {ok, condense_buffer([Bin | Buf])};
+            {ok, condense_buffer(Bin, Buf)};
+        {error, Reason} ->
+            recv_error(Buf, Reason);
         timeout when Buf =:= [] ->
             {error, timeout};
         timeout ->
@@ -5093,9 +5095,7 @@ recv_zero(SockRef, Length, Flags, Buf) ->
             {ok, condense_buffer(Buf)};
         {timeout, Bin} ->
             %% Stream socket with Length > 0 and not all data
-            {error, {timeout, condense_buffer([Bin | Buf])}};
-        {error, Reason} ->
-            recv_error(Buf, Reason)
+            {error, {timeout, condense_buffer(Bin, Buf)}}
     end.
 
 recv_nowait(SockRef, Length, Flags, Handle) ->
@@ -5104,19 +5104,21 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
             recv_zero(SockRef, Length, Flags, [Bin]);
         {ok, _} = OK -> % All requested data
             OK;
-        {select, Bin} -> % All data, new recv operation in progress
-            {select, {?SELECT_INFO(recv, Handle), Bin}};
-        select ->
-            %% The caller will get a select message when there
-            %% might be data to read
-            {select, ?SELECT_INFO(recv, Handle)};
+        {error, _} = Error ->
+            Error;
         completion ->
             %% The caller will get a completion message (with the
             %% result) when the data arrives. *No* further action
             %% is required.
             {completion, ?COMPLETION_INFO(recv, Handle)};
-        {error, _} = Error ->
-            Error
+        {Select, Bin} % New recv operation in progress
+          when Select =:= select;        % Incomplete data
+               Select =:= select_read -> % Final data
+            {Select, {?SELECT_INFO(recv, Handle), Bin}};
+        select -> %% No data
+            %% The caller will get a select message when there
+            %% might be data to read
+            {select, ?SELECT_INFO(recv, Handle)}
     end.
 
 %% prim_socket:recv(_, AskedFor, _, zero|Handle)
@@ -5142,49 +5144,19 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 %% else read error                                      -> {error, _}
 %% end
 
-%% Buf is [], for 'select' platforms; it is only used
-%% for 'completion' platforms.
-%%
 recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
     Handle = make_ref(),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
         {more, Bin} -> % Type = stream, Length = 0, default buffer filled
             0  = Length,
-            [] = Buf,
             recv_zero(SockRef, Length, Flags, [Bin]);
         %%
-        {ok, _Bin} = OK -> %% All data
-            [] = Buf,
+        {ok, _Bin} = OK when Buf =:= [] -> %% All data
             OK;
-
-        %%
-        {select, Bin} -> %% All data, new recv operation in progress
-            [] = Buf,
-            _ = cancel(SockRef, recv, Handle),
-            {ok, Bin};
-        %%
-        select ->
-            [] = Buf,
-            %%
-            %% There is nothing just now, but we will be notified
-            %% with a select message when there is something to recv
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(?socket(SockRef), select, Handle) ->
-                    if
-                        0 < Timeout ->
-                            %% Retry
-                            recv_deadline(
-                              SockRef, Length, Flags, Deadline, Buf);
-                        true ->
-                            {error, timeout}
-                    end;
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    {error, Reason}
-            after Timeout ->
-                    _ = cancel(SockRef, recv, Handle),
-                    {error, timeout}
-            end;
+        {ok, Bin} ->
+            {ok, condense_buffer(Bin, Buf)};
+        {error, _Reason} = ERROR ->
+            ERROR;
         %%
         completion ->
             %% There is nothing just now, but we will be notified when the
@@ -5194,11 +5166,11 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}})
                   when Length =:= 0 ->
-                    {ok, condense_buffer([Bin | Buf])};
+                    {ok, condense_buffer(Bin, Buf)};
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}})
                   when Length =:= byte_size(Bin) ->
-                    {ok, condense_buffer([Bin | Buf])};
+                    {ok, condense_buffer(Bin, Buf)};
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}}) ->
                     if
@@ -5208,7 +5180,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                               SockRef, Length - byte_size(Bin), Flags,
                               Deadline, [Bin | Buf]);
                         true ->
-                            recv_error([Bin | Buf], timeout)
+                            recv_error(Bin, Buf, timeout)
                     end;
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
@@ -5220,8 +5192,41 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                     recv_error(Buf, timeout)
             end;
         %%
-        {error, Reason} ->
-            recv_error(Buf, Reason)
+        {select_read, Bin} -> %% All data, new recv operation in progress
+            _ = cancel(SockRef, recv, Handle),
+            {ok, condense_buffer(Bin, Buf)};
+        %%
+        Select %% select | {select, Bin} %% No data or incomplete
+          when Select =:= select;
+               tuple_size(Select) =:= 2, element(1, Select) =:= select ->
+            {Length_1, Buf_1} =
+                if
+                    Select =:= select ->
+                        {Length, Buf};
+                    true ->
+                        Bin = element(2, Select),
+                        {Length - byte_size(Bin), [Bin | Buf]}
+                end,
+            %%
+            %% There is nothing just now, but we will be notified
+            %% with a select message when there is something to recv
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(?socket(SockRef), select, Handle) ->
+                    if
+                        0 < Timeout ->
+                            %% Retry
+                            recv_deadline(
+                              SockRef, Length_1, Flags, Deadline, Buf_1);
+                        true ->
+                            recv_error(Buf_1, timeout)
+                    end;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    recv_error(Buf_1, Reason)
+            after Timeout ->
+                    _ = cancel(SockRef, recv, Handle),
+                    recv_error(Buf_1, timeout)
+            end
     end.
 
 recv_error([], Reason) ->
@@ -5229,12 +5234,20 @@ recv_error([], Reason) ->
 recv_error(Buf, Reason) when is_list(Buf) ->
     {error, {Reason, condense_buffer(Buf)}}.
 
+recv_error(Bin, Buf, Reason) when is_list(Buf) ->
+    {error, {Reason, condense_buffer(Bin, Buf)}}.
+
 %% Condense buffer into a Binary
--compile({inline, [condense_buffer/1]}).
+%%
+-compile({inline, [condense_buffer/1, condense_buffer/2]}).
 condense_buffer([]) -> <<>>;
 condense_buffer([Bin]) when is_binary(Bin) -> Bin;
 condense_buffer(Buffer) ->
     iolist_to_binary(lists:reverse(Buffer)).
+
+condense_buffer(Bin, []) -> Bin;
+condense_buffer(Bin, Buffer) when is_binary(Bin) ->
+    iolist_to_binary(lists:reverse(Buffer, [Bin])).
 
 %% ---------------------------------------------------------------------------
 %%
@@ -5429,6 +5442,8 @@ recvfrom(Socket, BufSz, Flags, Timeout) ->
 
 recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
     case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
+        {select_read = Tag,  Source_Data} ->
+            {Tag, {?SELECT_INFO(recvfrom, Handle), Source_Data}};
         select = Tag ->
             {Tag, ?SELECT_INFO(recvfrom, Handle)};
         completion = Tag ->
@@ -5440,6 +5455,10 @@ recvfrom_nowait(SockRef, BufSz, Handle, Flags) ->
 recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:recvfrom(SockRef, BufSz, Flags, Handle) of
+        {select_read, Source_Data} ->
+            _ = cancel(SockRef, recvfrom, Handle),
+            {ok, Source_Data};
+
         select ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
@@ -5677,6 +5696,8 @@ recvmsg(Socket, BufSz, CtrlSz, Flags, Timeout) ->
 
 recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle)  ->
     case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
+        {select_read = Tag, Msg} ->
+            {Tag, {?SELECT_INFO(recvmsg, Handle), Msg}};
         select = Tag ->
             {Tag, ?SELECT_INFO(recvmsg, Handle)};
         completion = Tag ->
@@ -5688,6 +5709,10 @@ recvmsg_nowait(SockRef, BufSz, CtrlSz, Flags, Handle)  ->
 recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
     Handle = make_ref(),
     case prim_socket:recvmsg(SockRef, BufSz, CtrlSz, Flags, Handle) of
+        {select_read, Msg} ->
+            _ = cancel(SockRef, recvmsg, Handle),
+            {ok, Msg};
+
         select = Tag ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
