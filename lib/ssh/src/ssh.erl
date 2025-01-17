@@ -135,6 +135,7 @@ The directory could be changed with the option
                  [{type,<<"Client Options">>},
                   {type,<<"Daemon Options">>},
                   {type,<<"Common Options">>},
+                  {type,<<"Legacy Algorithms">>},
                   {type,<<"Other data types">>}]}).
 
 -include("ssh.hrl").

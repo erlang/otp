@@ -179,7 +179,11 @@ default_algorithms1(kex) ->
 
 default_algorithms1(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
-				       'AEAD_AES_256_GCM'
+				       'AEAD_AES_256_GCM',
+                                       'aes256-cbc',
+                                       'aes192-cbc',
+                                       'aes128-cbc',
+                                       '3des-cbc'
                                       ]));
 default_algorithms1(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
