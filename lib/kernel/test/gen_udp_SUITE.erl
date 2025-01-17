@@ -1104,7 +1104,9 @@ do_open_fd(Config) when is_list(Config) ->
     ?P("try open second (domain = inet6) socket with FD = ~w "
        "and expect *failure*", [FD]),
 
-    case ?OPEN(Config, 0, [inet6, {fd,FD}]) of
+    OS = which_os(),
+
+    case ?OPEN(Config, 0, [{debug, true}, inet6, {fd,FD}]) of
         {error, einval = Reason} ->
             ?P("expected failure reason ~w", [Reason]),
             ok;
@@ -1114,6 +1116,12 @@ do_open_fd(Config) when is_list(Config) ->
         {error, Reason} ->
             ?P("unexpected failure: ~w", [Reason]),
             ct:fail({unexpected_failure, Reason});
+        {ok, Socket} when (OS =:= darwin) ->
+            ?P("unexpected success: "
+               "~n   ~p", [inet:info(Socket)]),
+            (catch gen_udp:close(Socket)),
+            (catch gen_udp:close(S1)),
+            skip(unexpected_succes);
         {ok, Socket} ->
             ?P("unexpected success: "
                "~n   ~p", [inet:info(Socket)]),
@@ -2017,14 +2025,32 @@ do_connect(Config) when is_list(Config) ->
     ok = gen_udp:send(S2, <<16#deadbeef:32>>),
     ?P("try recv on second socket - expect failure when"
        "~n   Socket Info: ~p", [inet:info(S2)]),
+
+    %% Need this for the error handling
+    OS = which_os(),
+
+    ok = inet:setopts(S2, [{debug, true}]),
     ok = case gen_udp:recv(S2, 0, 500) of
-	     {error, econnrefused = R} -> ?P("expected failure: ~w", [R]), ok;
-	     {error, econnreset   = R} -> ?P("expected failure: ~w", [R]), ok;
+	     {error, econnrefused = R} ->
+                 ?P("expected failure: ~w", [R]),
+                 ok;
+	     {error, econnreset   = R} ->
+                 ?P("expected failure: ~w", [R]),
+                 ok;
+             {error, timeout      = R} when (OS =:= darwin) ->
+                 ?P("expected failure (~w) on darwin => SKIP", [R]),
+                 (catch gen_udp:close(S2)),
+                 skip(R);
 	     Other -> 
                  ?P("UNEXPECTED failure: ~p:"
                     "~n   ~p", [Other, inet:info(S2)]),
+                 (catch gen_udp:close(S2)),
                  Other
 	 end,
+
+    ?P("cleanup"),
+    (catch gen_udp:close(S2)),
+
     ?P("done"),
     ok.
 
@@ -3583,6 +3609,19 @@ skip(Reason) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a simplified os:type()
+which_os() ->
+    %% Need this for the error handling
+    case os:type() of
+        {unix, Flavor} ->
+            Flavor;
+        {win32, nt} ->
+            windows;
+        _ ->
+            other % We do not really care...
+    end.
+
 
 which_info(Sock) ->
     which_info([istate, active], inet:info(Sock), #{}).

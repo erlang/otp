@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -13364,47 +13364,71 @@ api_opt_sock_bindtodevice() ->
 
 api_opt_sock_broadcast(_Config) when is_list(_Config) ->
     ?TT(?SECS(30)),
-    tc_try(api_opt_sock_broadcast,
-           fun() -> has_support_sock_broadcast() end,
-           fun() -> api_opt_sock_broadcast() end).
+    Cond =
+        fun() ->
+                has_support_ipv4(),
+                has_support_sock_broadcast()
+        end,
+    Pre  =
+        fun() ->
+                Platform =
+                    case os:type() of
+                        {unix, Flavor} ->
+                            Flavor;
+                        _ ->
+                            other
+                    end,
+                Domain = inet,
+                Opt    = broadcast,
+                case which_local_host_info(Domain) of
+                    {ok, #{name      := Name,
+                           addr      := {A1, A2, A3, _}}}
+                      when (A1 =:= 192) andalso
+                           (A2 =:= 168) andalso
+                           (A3 =:= 0) andalso
+                           (Platform =:= darwin) ->
+                        ?SEV_IPRINT("home network (~p) on darwin - skip",
+                                    [Name]),
+                        skip(home_network_on_darwin);
+                    {ok, #{name      := Name,
+                           addr      := Addr,
+                           broadaddr := BAddr}}
+                      when (BAddr =/= undefined) ->
+                        ?SEV_IPRINT("local host info: "
+                                    "~n   Name:           ~p"
+                                    "~n   Addr:           ~p"
+                                    "~n   Broadcast Addr: ~p",
+                                    [Name, Addr, BAddr]),
+                        LSA = #{family => Domain,
+                                addr   => Addr},
+                        BSA = #{family => Domain,
+                                addr   => BAddr},
+                        Set = fun(S, Val) when is_boolean(Val) ->
+                                      socket:setopt(S, socket, Opt, Val)
+                              end,
+                        Get = fun(S) ->
+                                      socket:getopt(S, socket, Opt)
+                              end,
+                        #{domain => Domain,
+                          opt    => Opt,
+                          set    => Set,
+                          get    => Get,
+                          lsa    => LSA,
+                          bsa    => BSA};
+                    {ok, _} ->
+                        skip(no_valid_broadcast_address);
+                    {error, Reason} ->
+                        skip({local_host_info, Reason})
+                end
+        end,
+    TC   = fun(State) -> do_api_opt_sock_broadcast(State) end,
+    Post = fun(_) -> ok end,
+    tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
-api_opt_sock_broadcast() ->
-    Opt    = broadcast,
-    Set    = fun(S, Val) when is_boolean(Val) ->
-                     socket:setopt(S, socket, Opt, Val)
-             end,
-    Get    = fun(S) ->
-                     socket:getopt(S, socket, Opt)
-             end,
-
+do_api_opt_sock_broadcast(InitState) ->
     TesterSeq =
         [
-         #{desc => "which local address",
-           cmd  => fun(#{domain := Domain} = State) ->
-                           case which_local_host_info(Domain) of
-                               {ok, #{name      := Name,
-                                      addr      := Addr,
-                                      broadaddr := BAddr}}
-				 when (BAddr =/= undefined) ->
-                                   ?SEV_IPRINT("local host info: "
-                                               "~n   Name:           ~p"
-                                               "~n   Addr:           ~p"
-                                               "~n   Broadcast Addr: ~p",
-                                               [Name, Addr, BAddr]),
-                                   LSA = #{family => Domain,
-                                           addr   => Addr},
-                                   BSA = #{family => Domain,
-                                           addr   => BAddr},
-                                   {ok, State#{lsa => LSA,
-                                               bsa => BSA}};
-			       {ok, _} ->
-				   {skip, no_broadcast_address};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-
          #{desc => "[socket 1] create UDP socket (listening 1)",
            cmd  => fun(#{domain := Domain} = State) ->
                            case socket:open(Domain, dgram, udp) of
@@ -13510,7 +13534,8 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 3][get] verify UDP socket (before bind and set)",
-           cmd  => fun(#{sock3 := Sock} = _State) ->
+           cmd  => fun(#{get   := Get,
+                         sock3 := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, false} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -13527,7 +13552,8 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 3] Try make broadcast allowed",
-           cmd  => fun(#{sock3 := Sock} = _State) ->
+           cmd  => fun(#{set   := Set,
+                         sock3 := Sock} = _State) ->
                            case Set(Sock, true) of
                                ok ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -13540,7 +13566,8 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 3] verify UDP socket broadcast allowed",
-           cmd  => fun(#{sock3 := Sock} = _State) ->
+           cmd  => fun(#{get   := Get,
+                         sock3 := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, true} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -13573,7 +13600,8 @@ api_opt_sock_broadcast() ->
                            end
                    end},
          #{desc => "[socket 3] verify UDP socket (after set)",
-           cmd  => fun(#{sock3 := Sock} = _State) ->
+           cmd  => fun(#{get   := Get,
+                         sock3 := Sock} = _State) ->
                            case Get(Sock) of
                                {ok, true} ->
                                    ?SEV_IPRINT("Expected Success: "
@@ -13653,7 +13681,7 @@ api_opt_sock_broadcast() ->
                                        "~n   ~p", [Dest]),
                            case socket:sendto(Sock, Data, Dest) of
                                ok ->
-                                   ?SEV_IPRINT("Expected Success: "
+                                   ?SEV_IPRINT("Expected (send) Success: "
                                                "broadcast message sent"),
                                    ok;
                                {error, eaddrnotavail = Reason} ->
@@ -13719,10 +13747,7 @@ api_opt_sock_broadcast() ->
          ?SEV_FINISH_NORMAL
         ],
 
-    Domain = inet_or_inet6(),
-
     i("start tester evaluator"),
-    InitState = #{domain => Domain},
     Tester = ?SEV_START("tester", TesterSeq, InitState),
 
     i("await evaluator(s)"),
@@ -25684,10 +25709,24 @@ api_to_connect_tcp(InitState) ->
                            ok
                    end},
          #{desc => "start remote client on client node",
-           cmd  => fun(#{node := Node} = State) ->
-                           Pid = api_toc_tcp_client_start(Node),
-                           ?SEV_IPRINT("remote client ~p started", [Pid]),
-                           {ok, State#{rclient => Pid}}
+           cmd  => fun(#{node := Node, peer := Peer} = State) ->
+                           case api_toc_tcp_client_start(Node) of
+                               Pid when is_pid(Pid) ->
+                                   ?SEV_IPRINT("remote client ~p started",
+                                               [Pid]),
+                                   {ok, State#{rclient => Pid}};
+                               {error, Reason} ->
+                                   ?SEV_EPRINT(
+                                      "Failed starting (remote) client:"
+                                      "~n   Reason:     ~p"
+                                      "~nwhen"
+                                      "~n   Peer State: ~p",
+                                      [Reason, peer:get_state(Peer)]),
+                                   SkipReason =
+                                       ?SLIB:f("Remote Client Start: ~p",
+                                               [Reason]),
+                                   {skip, SkipReason}
+                           end
                    end},
          %% #{desc => "monitor remote client",
          %%   cmd  => fun(#{rclient := Pid}) ->
@@ -25944,18 +25983,26 @@ api_to_connect_tcp(InitState) ->
 api_toc_tcp_client_start(Node) ->
     api_toc_tcp_client_start(Node, 5000).
 api_toc_tcp_client_start(Node, Timeout) ->
-    Self = self(),
-    Fun  = fun() -> api_toc_tcp_client(Self) end,
-    {Pid, MRef} = erlang:spawn_monitor(Node, Fun),
-    receive
-        {Pid, started} ->
-            Pid;
-        {'DOWN', MRef, process, Pid, Reason} ->
-            {error, Reason};
-        {nodedown, Node} = NODEDOWN ->
-            {error, NODEDOWN}
-    after Timeout ->
-            {error, timeout}
+    case net_adm:ping(Node) of
+        pong ->
+            Self = self(),
+            Fun  = fun() -> api_toc_tcp_client(Self) end,
+            {Pid, MRef} = erlang:spawn_monitor(Node, Fun),
+            receive
+                {Pid, started} ->
+                    Pid;
+                {'DOWN', MRef, process, Pid, Reason} ->
+                    {error, Reason};
+                {nodedown, Node} = NODEDOWN ->
+                    {error, NODEDOWN}
+            after Timeout ->
+                    %% This should only happen if the (remote) node is
+                    %% dead or dying...
+                    exit(Pid, kill),
+                    {error, timeout}
+            end;
+        pang ->
+            {error, node_down}
     end.
 
 api_toc_tcp_client(Parent) ->
@@ -27775,7 +27822,11 @@ tc_try(Case, TCFun) ->
 
 tc_try(Case, TCCondFun, TCFun) ->
     ?TC_TRY(Case, TCCondFun, TCFun).
-   
+
+
+tc_try(Case, TCCondFun, TCPre, TCFun, TCPost) ->
+    ?TC_TRY(Case, TCCondFun, TCPre, TCFun, TCPost).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

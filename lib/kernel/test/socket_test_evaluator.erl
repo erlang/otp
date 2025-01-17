@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,10 @@
       Init :: initial_evaluator_state().
                              
 start(Name, Seq, InitState) 
-  when is_list(Name) andalso is_list(Seq) andalso (Seq =/= []) ->
+  when is_list(Name) andalso
+       is_list(Seq)  andalso
+       (Seq =/= [])  andalso
+       is_map(InitState) ->
     %% Make sure 'parent' is not already used
     case maps:find(parent, InitState) of
         {ok, _} ->
