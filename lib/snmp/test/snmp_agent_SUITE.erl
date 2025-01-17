@@ -8674,7 +8674,10 @@ start_standalone_agent(Node, Config)  ->
                     "~n   Reason: ~p", [?FUNCTION_NAME, What, Info, Reason]),
 	    ?FAIL({start_failed, net_if, Details});            
         {error, _} = ERROR ->
-            ERROR
+            ERROR;
+
+        {badrpc, _Reason} = BADRPC ->
+            BADRPC
     end.
 
 start_standalone_agent(Config)  ->
