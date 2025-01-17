@@ -409,15 +409,43 @@ end_per_testcase(_Case, Config) ->
 
 %% Tests core functionality.
 send_to_closed(Config) when is_list(Config) ->
-    ?TC_TRY(?FUNCTION_NAME, fun() -> do_send_to_closed(Config) end).
+    Pre  = fun() ->
+                   Sock = case ?OPEN(Config, 0) of
+                              {ok, S} ->
+                                  S;
+                              {error, OReason} ->
+                                  ?P("~w:pre -> Failed create socket: "
+                                     "~n   Reason: ~p",
+                                     [?FUNCTION_NAME, OReason]),
+                                  ?SKIPT(?F("Failed open socket: ~w",
+                                            [OReason]))
+                          end,
+                   case ?LIB:which_local_addr(inet) of
+                       {ok, Addr} ->
+                           #{socket     => Sock,
+                             local_addr => Addr};
+                       {error, LReason} ->
+                           ?P("Failed get local address: "
+                              "~n   Reason: ~p", [LReason]),
+                           (catch gen_udp:close(Sock)),
+                           ?SKIPT(?F("Failed get local address: ~w", [LReason]))
+                   end
+           end,
+    TC   = fun(State) -> do_send_to_closed(State) end,
+    Post = fun(#{socket := Socket}) ->
+                   (catch gen_udp:close(Socket))
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
-do_send_to_closed(Config) ->
-    {ok, Sock} = ?OPEN(Config, 0),
-    {ok, Addr} = ?LIB:which_local_addr(inet),
+do_send_to_closed(#{socket := Sock, local_addr := Addr}) ->
+    ?P("~w -> first send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
     timer:sleep(2),
+    ?P("~w -> second send to (closed port): "
+       "~n   ~p, ~p", [?FUNCTION_NAME, Addr, ?CLOSED_PORT]),
     ok = gen_udp:send(Sock, Addr, ?CLOSED_PORT, "foo"),
-    ok = gen_udp:close(Sock),
+    ?P("~w -> done", [?FUNCTION_NAME]),
     ok.
 
 
@@ -2803,6 +2831,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     LinkLocalAddr =
                         case ?LIB:which_link_local_addr(Domain) of
                             {ok, LLA} ->
+                                ?P("found link local address: "
+                                   "~n   ~p", [LLA]),
                                 LLA;
                             {error, _} ->
                                 skip("No link local address")
@@ -2825,8 +2855,8 @@ t_simple_link_local_sockaddr_in6_send_recv(Config) when is_list(Config) ->
                     case net:getifaddrs(Filter) of
                         {ok, [#{addr := #{scope_id := ScopeID}}=H|T]} ->
                             ?P("found link-local candidate(s): "
-                               "~n   Candidate:       ~p"
-                               "~n   Rest Candidate:  ~p", [H, T]),
+                               "~n   Candidate:      ~p"
+                               "~n   Rest Candidate: ~p", [H, T]),
                             SockAddr = #{family   => Domain,
                                          addr     => LinkLocalAddr,
                                          port     => 0,
