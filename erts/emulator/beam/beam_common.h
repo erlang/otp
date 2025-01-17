@@ -285,6 +285,7 @@ extern ErtsCodePtr beam_bif_export_trap;
 extern ErtsCodePtr beam_export_trampoline;
 extern ErtsCodePtr beam_continue_exit;
 extern ErtsCodePtr beam_unloaded_fun;
+extern ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 extern ErtsCodePtr beam_return_to_trace;   /* OpCode(i_return_to_trace) */
 extern ErtsCodePtr beam_return_trace;      /* OpCode(i_return_trace) */

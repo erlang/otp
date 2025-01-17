@@ -70,6 +70,7 @@ void beamasm_emit_coverage(void *instance,
                            void *coverage,
                            Uint index,
                            Uint size);
+void beamasm_emit_align(void *instance, uint32_t alignment);
 ErtsCodePtr beamasm_get_code(void *ba, int label);
 ErtsCodePtr beamasm_get_lambda(void *ba, int index);
 const byte *beamasm_get_rodata(void *ba, char *label);

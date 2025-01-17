@@ -59,6 +59,7 @@ ErtsCodePtr beam_continue_exit;
 ErtsCodePtr beam_save_calls_export;
 ErtsCodePtr beam_save_calls_fun;
 ErtsCodePtr beam_unloaded_fun;
+ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
@@ -390,6 +391,8 @@ void beamasm_init() {
     beam_exit = (ErtsCodePtr)bga->get_process_exit();
 
     beam_unloaded_fun = (ErtsCodePtr)bga->get_unloaded_fun();
+
+    beam_i_line_breakpoint_cleanup = (ErtsCodePtr)bga->get_i_line_breakpoint_cleanup();
 
     beamasm_metadata_late_init();
 }
