@@ -559,6 +559,10 @@ im_running(OldFriends, NewFriends) ->
     abcast(OldFriends, {im_running, node(), NewFriends}).
 
 schema_is_merged() ->
+    %% We might have merged a schema that contains external backends,
+    %% we must initialize them on current node if not already initialized.
+    mnesia_schema:init_backends(),
+
     MsgTag = schema_is_merged,
     SafeLoads = initial_safe_loads(),
 
