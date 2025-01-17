@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -6379,6 +6379,18 @@ traffic_ping_pong_send_and_receive_udp2(InitState) ->
          #{desc => "await (remote) handler ready",
            cmd  => fun(#{tester  := Tester,
                          handler := Handler} = _State) ->
+                           %% If this fails then we should really skip
+                           %% as it has actually nothing to do with the
+                           %% test. But for now we just let it crash...
+                           %% case ?SEV_AWAIT_READY(Handler, handler, init, 
+                           %%                       [{tester, Tester}]) of
+                           %%     ok ->
+                           %%         ok;
+                           %%     {error, Reason} ->
+                           %%         ?SEV_EPRINT("Handler failed initiate: "
+                           %%                     "~n   ~p", [Reason]),
+                           %%         {skip, Reason}
+                           %% end
                            ?SEV_AWAIT_READY(Handler, handler, init, 
                                             [{tester, Tester}])
                    end},
@@ -6749,11 +6761,14 @@ tpp_udp_client_handler_create(Node) ->
 tpp_udp_client_handler(Parent) ->
     tpp_udp_client_handler_init(Parent),
     ?SEV_IPRINT("await start command"),
-    {ServerSA, Proto, BufInit, Send, Recv} = tpp_udp_handler_await_start(Parent),
+    {ServerSA, Proto, BufInit, Send, Recv} =
+        tpp_udp_handler_await_start(Parent),
     ?SEV_IPRINT("start command with"
                 "~n   ServerSA: ~p", [ServerSA]),
     Domain   = maps:get(family, ServerSA),
+    ?SEV_IPRINT("try create (domain ~w) socket", [Domain]),
     Sock     = tpp_udp_sock_open(Domain, Proto, BufInit),
+    ?SEV_IPRINT("try bind socket"),
     Path     = tpp_udp_sock_bind(Sock, Domain),
     ?SEV_IPRINT("announce ready", []),
     tpp_udp_handler_announce_ready(Parent, init),
@@ -7013,6 +7028,17 @@ which_local_socket_addr(Domain) ->
         {ok, [#{addr := Addr}|_]} ->
             #{family => Domain,
               addr   => Addr};
+        {error, no_address = Reason} ->
+            ?SEV_IPRINT("failed get (valid) local host address: ~w"
+                        "~n   Host Info: "
+                        "~n      ~p",
+                        [case net:getifaddrs(Domain) of
+                             {ok, Info} ->
+                                 Info;
+                             _ ->
+                                 undefined
+                         end]),
+            ?FAIL(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
     end.
