@@ -81,9 +81,9 @@ protected:
 
     const a32::Gp E = a32::fp;
 
-    const a32::Gp c_p = a32::r7;
-    const a32::Gp FCALLS = a32::r8;
-    const a32::Gp HTOP = a32::r9;
+    //const a32::Gp c_p = a32::r7;
+    //const a32::Gp FCALLS = a32::r8;
+    //const a32::Gp HTOP = a32::r9;
 
     /* Local copy of the active code index.
      *
@@ -92,8 +92,15 @@ protected:
      * jumping to the actual code. */
     const a32::Gp active_code_ix = a32::r6;
 
-
-    static const int num_register_backed_xregs = 6;
+    /*
+     * All of the following registers are caller-save.
+     *
+     * Note that ARG1 is also the register for the return value.
+     */
+    const a32::Gp ARG1 = a32::r0;
+    const a32::Gp ARG2 = a32::r1;
+    const a32::Gp ARG3 = a32::r2;
+    const a32::Gp ARG4 = a32::r3;
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const arm::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -138,6 +145,7 @@ protected:
     }
 
     void emit_assert_redzone_unused() {
+        ASSERT(false);
 #ifdef JIT_HARD_DEBUG
         const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
         Label next = a.newLabel();
@@ -169,6 +177,8 @@ protected:
      * assume that the respective entry is in ARG1, so we have to copy it over
      * if it isn't already. */
     arm::Mem emit_setup_dispatchable_call(const a32::Gp &Src) {
+        // TODO
+        ASSERT(false);
         return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
