@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12008,10 +12008,6 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
-
-    descP->readBuf.size   = 0;
-    descP->readBuf.data   = NULL;
-    descP->readResult     = 0;
 
     descP->readPkgCnt     = 0;
     descP->readPkgMax     = 0;
