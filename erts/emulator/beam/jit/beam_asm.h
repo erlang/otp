@@ -176,6 +176,50 @@ static inline enum erts_asm_bp_flag erts_asm_bp_get_flags(
     return (enum erts_asm_bp_flag)ci_exec->u.metadata.breakpoint_flag;
 }
 
+static inline void erts_asm_bp_enable(ErtsCodePtr rw_p) {
+#    if defined(__aarch64__)
+        Uint32 volatile *rw_code = (Uint32 *)rw_p;
+
+        /* B .next, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0x14000002);
+
+        /* Reroute the initial jump instruction to `.enabled`. */
+        rw_code[0] = 0x14000001;
+#    else /* x86_64 */
+        byte volatile *rw_code = (byte *)rw_p;
+
+        /* SHORT JMP .next, NOP, .enabled: CALL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x06 && rw_code[2] == 0x90 &&
+               rw_code[3] == 0xE8);
+
+        /* Reroute the initial jump instruction to `.enabled`. */
+        rw_code[1] = 0x01;
+#    endif
+
+}
+
+
+static inline void erts_asm_bp_disable(ErtsCodePtr rw_p) {
+#    if defined(__aarch64__)
+        Uint32 volatile *rw_code = (Uint32 *)rw_p;
+
+        /* B .enabled, .enabled: BL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0x14000001);
+
+        /* Reroute the initial jump instruction back to `.next`. */
+        rw_code[0] = 0x14000002;
+#    else /* x86_64 */
+        byte volatile *rw_code = (byte *)rw_p;
+
+        /* SHORT JMP .enabled, NOP, .enabled: CALL breakpoint_handler, .next: */
+        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x01 && rw_code[2] == 0x90 &&
+               rw_code[3] == 0xE8);
+
+        /* Reroute the initial jump instruction back to `.next`. */
+        rw_code[1] = 0x06;
+#    endif
+}
+
 static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
                                         const ErtsCodeInfo *ci_exec,
                                         enum erts_asm_bp_flag flag) {
@@ -183,24 +227,11 @@ static inline void erts_asm_bp_set_flag(ErtsCodeInfo *ci_rw,
     (void)ci_exec;
 
     if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
-#    if defined(__aarch64__)
-        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
-
-        /* B .next, .enabled: BL breakpoint_handler, .next: */
-        ASSERT(rw_code[1] == 0x14000002);
-
-        /* Reroute the initial jump instruction to `.enabled`. */
-        rw_code[1] = 0x14000001;
-#    else /* x86_64 */
-        byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
-
-        /* SHORT JMP .next, NOP, .enabled: CALL breakpoint_handler, .next: */
-        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x06 && rw_code[2] == 0x90 &&
-               rw_code[3] == 0xE8);
-
-        /* Reroute the initial jump instruction to `.enabled`. */
-        rw_code[1] = 1;
-#    endif
+        ErtsCodePtr rw_p = erts_codeinfo_to_code(ci_rw);
+#       if defined(__aarch64__)
+            rw_p = (ErtsCodePtr)((Uint32 *)rw_p + 1);
+#       endif
+        erts_asm_bp_enable(rw_p);
     }
 
     ci_rw->u.metadata.breakpoint_flag |= flag;
@@ -217,26 +248,11 @@ static inline void erts_asm_bp_unset_flag(ErtsCodeInfo *ci_rw,
     if (ci_rw->u.metadata.breakpoint_flag == ERTS_ASM_BP_FLAG_NONE) {
         /* We've removed the last flag, route the branch instruction back
          * past the prologue. */
-
-#    if defined(__aarch64__)
-        Uint32 volatile *rw_code = (Uint32 *)erts_codeinfo_to_code(ci_rw);
-
-        /* B .enabled, .enabled: BL breakpoint_handler, .next: */
-        ASSERT(rw_code[1] == 0x14000001);
-
-        /* Reroute the initial jump instruction back to `.next`. */
-        ERTS_CT_ASSERT(BEAM_ASM_FUNC_PROLOGUE_SIZE == sizeof(Uint32[3]));
-        rw_code[1] = 0x14000002;
-#    else /* x86_64 */
-        byte volatile *rw_code = (byte *)erts_codeinfo_to_code(ci_rw);
-
-        /* SHORT JMP .enabled, NOP, .enabled: CALL breakpoint_handler, .next: */
-        ASSERT(rw_code[0] == 0xEB && rw_code[1] == 0x01 && rw_code[2] == 0x90 &&
-               rw_code[3] == 0xE8);
-
-        /* Reroute the initial jump instruction back to `.next`. */
-        rw_code[1] = BEAM_ASM_FUNC_PROLOGUE_SIZE - 2;
-#    endif
+        ErtsCodePtr rw_p = erts_codeinfo_to_code(ci_rw);
+#       if defined(__aarch64__)
+            rw_p = (ErtsCodePtr)((Uint32 *)rw_p + 1);
+#       endif
+        erts_asm_bp_disable(rw_p);
     }
 }
 
