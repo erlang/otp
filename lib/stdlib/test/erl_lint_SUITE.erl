@@ -1222,7 +1222,31 @@ unused_function(Config) when is_list(Config) ->
                 32*X.
            ">>,
            {[]}, %% Tuple indicates no 'export_all'.
-           {warnings,[{{9,15},erl_lint,{unused_function,{flurb,1}}}]}}],
+           {warnings,[{{9,15},erl_lint,{unused_function,{flurb,1}}}]}},
+
+          %% GH-9267: references prior to the -export directive caused false
+          %% positives.
+          {func6,
+           <<"-record(blurf, {a = ?MODULE:t() }).
+              -export([t/0]).
+
+              t() ->
+                 #blurf{a=hello}.
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           []},
+
+          %% GH-9267: references prior to the -export directive caused false
+          %% positives.
+          {func7,
+           <<"-callback foo() -> ok.
+              -export([t/0]).
+
+              t() ->
+                 ?MODULE:behaviour_info(callbacks).
+           ">>,
+           {[]}, %% Tuple indicates no 'export_all'.
+           []}],
 
     [] = run(Config, Ts),
     ok.
