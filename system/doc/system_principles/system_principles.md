@@ -195,7 +195,7 @@ querying the search path.
 
 The following file types are defined in Erlang/OTP:
 
-| _File Type_               | _File Name/Extension_ | _Documented in_                                     |
+| File Type               | File Name/Extension | Documented in                                     |
 | ------------------------- | --------------------- | --------------------------------------------------- |
 | Module                    | `.erl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
 | Include file              | `.hrl`                | [Erlang Reference Manual](`e:system:modules.md`)    |
