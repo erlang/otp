@@ -539,7 +539,7 @@ Naturally, this function does _not_ return immediately.
 > values are accepted.
 """.
 -spec sleep(Time) -> 'ok'
-              when Time :: timeout().
+              when Time :: time() | 'infinity'.
 sleep(T)
   when is_integer(T),
        T > ?MAX_RECEIVE_AFTER ->
