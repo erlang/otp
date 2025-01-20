@@ -116,7 +116,7 @@ jobs:
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -160,7 +160,7 @@ jobs:
               "`pwd`/.github/otp.tar.gz" \
               "`pwd`/otp_archive.tar.gz"
       - name: Upload restored cache
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -187,7 +187,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archives
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_prebuilt
           path: |
@@ -238,7 +238,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -272,7 +272,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -372,7 +372,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -459,12 +459,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -545,7 +545,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
@@ -592,14 +592,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: Unit Test Results
           path: |
@@ -657,7 +657,7 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@7b4da11513bf3f43f9999e90eabced41ab8bb048 # ratchet:softprops/action-gh-release@v2.2.0
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # ratchet:softprops/action-gh-release@v2.2.1
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
@@ -676,7 +676,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # ratchet:actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4.6.0
         with:
           name: Event File
           path: ${{ github.event_path }}
