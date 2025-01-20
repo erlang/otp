@@ -220,14 +220,14 @@ rfc3339(Config) when is_list(Config) ->
     %% The leap second is not handled:
     "1991-01-01T00:00:00Z" = test_parse("1990-12-31T23:59:60Z"),
 
-    "9999-12-31T23:59:59Z" = do_format_z(253402300799, []),
-    "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*1000+999, Ms),
+    "9999-12-31T23:59:59Z" = roundtrip_fmt_rfc3339_z(253402300799, []),
+    "9999-12-31T23:59:59.999Z" = roundtrip_fmt_rfc3339_z(253402300799*1000+999, Ms),
     NaPerSec = erlang:convert_time_unit(1, second, native),
     "9999-12-31T23:59:59.999Z" = do_format_z(253402300799*NaPerSec+(NaPerSec-1), Na),
     "9999-12-31T23:59:59.999999Z" =
-        do_format_z(253402300799*1_000_000+999_999, Mys),
+        roundtrip_fmt_rfc3339_z(253402300799*1_000_000+999_999, Mys),
     "9999-12-31T23:59:59.999999999Z" =
-        do_format_z(253402300799*1_000_000_000+999_999_999, Ns),
+        roundtrip_fmt_rfc3339_z(253402300799*1_000_000_000+999_999_999, Ns),
     {'EXIT', _} = (catch do_format_z(253402300799+1, [])),
     {'EXIT', _} = (catch do_parse("9999-12-31T23:59:60Z", [])),
     {'EXIT', _} = (catch do_format_z(253402300799*1_000_000_000+999_999_999+1, Ns)),
@@ -268,7 +268,7 @@ rfc3339(Config) when is_list(Config) ->
     test_time(erlang:system_time(millisecond), Ms),
     test_time(erlang:system_time(microsecond), Mys++[{offset, "-02:20"}]),
 
-    946720800 = TO = do_parse("2000-01-01 10:00:00Z", []),
+    946720800 = TO = do_parse("2000-01-01T10:00:00Z", []),
     Str = "2000-01-01T10:02:00+00:02",
     Str = do_format(TO, [{offset, 120}]),
     "2000-01-01T10:02:00.000+00:02" =
@@ -316,23 +316,49 @@ rfc3339(Config) when is_list(Config) ->
     -1613833200000000 = do_parse("1918-11-11T11:00:00+02:00", Mys),
     -1613833200000000 = do_parse("1918-11-11T09:00:00Z", Mys),
 
-    "1970-01-01T00:00:00.000000Z" = do_format_z(0, Mys),
-    "1970-01-01T00:00:01Z" = do_format_z(1, S),
-    "1970-01-01T00:00:00.001Z" = do_format_z(1, Ms),
-    "1970-01-01T00:00:00.000001Z" = do_format_z(1, Mys),
-    "1970-01-01T00:00:00.000000001Z" = do_format_z(1, Ns),
-    "1970-01-01T00:00:01.000000Z" = do_format_z(1_000_000, Mys),
-    "1970-01-01T00:00:00.543210Z" = do_format_z(543_210, Mys),
-    "1970-01-01T00:00:00.543Z" = do_format_z(543, Ms),
-    "1970-01-01T00:00:00.543210000Z" = do_format_z(543_210_000, Ns),
-    "1970-01-01T00:00:06.543210Z" = do_format_z(6_543_210, Mys),
-    "1979-06-21T12:12:12.000000Z" = do_format_z(298815132000000, Mys),
-    "1918-11-11T13:00:00.000000Z" = do_format_z(-1613818800000000, Mys),
+    "1970-01-01T00:00:00.000000Z" = roundtrip_fmt_rfc3339_z(0, Mys),
+    "1970-01-01T00:00:01Z" = roundtrip_fmt_rfc3339_z(1, S),
+    "1970-01-01T00:00:00.001Z" = roundtrip_fmt_rfc3339_z(1, Ms),
+    "1970-01-01T00:00:00.000001Z" = roundtrip_fmt_rfc3339_z(1, Mys),
+    "1970-01-01T00:00:00.000000001Z" = roundtrip_fmt_rfc3339_z(1, Ns),
+    "1970-01-01T00:00:01.000000Z" = roundtrip_fmt_rfc3339_z(1_000_000, Mys),
+    "1970-01-01T00:00:00.543210Z" = roundtrip_fmt_rfc3339_z(543_210, Mys),
+    "1970-01-01T00:00:00.543Z" = roundtrip_fmt_rfc3339_z(543, Ms),
+    "1970-01-01T00:00:00.543210000Z" = roundtrip_fmt_rfc3339_z(543_210_000, Ns),
+    "1970-01-01T00:00:06.543210Z" = roundtrip_fmt_rfc3339_z(6_543_210, Mys),
+    "1979-06-21T12:12:12.000000Z" = roundtrip_fmt_rfc3339_z(298815132000000, Mys),
+    "1918-11-11T13:00:00.000000Z" = roundtrip_fmt_rfc3339_z(-1613818800000000, Mys),
+
+    %% GH-9279
+    "1969-12-31T23:59:58.750Z" = roundtrip_fmt_rfc3339_z(-1250, Ms),
+    "1969-12-31T23:59:59.000Z" = roundtrip_fmt_rfc3339_z(-1000, Ms),
+    "1969-12-31T23:59:59.007Z" = roundtrip_fmt_rfc3339_z(-993, Ms),
+    "1969-12-31T23:59:59.250Z" = roundtrip_fmt_rfc3339_z(-750, Ms),
+    "1969-12-31T23:59:59.500Z" = roundtrip_fmt_rfc3339_z(-500, Ms),
+    "1969-12-31T23:59:59.750Z" = roundtrip_fmt_rfc3339_z(-250, Ms),
+    "1969-12-31T23:59:59.999Z" = roundtrip_fmt_rfc3339_z(-1, Ms),
+    "1970-01-01T00:00:00.000Z" = roundtrip_fmt_rfc3339_z(0, Ms),
+    "1970-01-01T00:00:00.001Z" = roundtrip_fmt_rfc3339_z(1, Ms),
+    "1970-01-01T00:00:00.017Z" = roundtrip_fmt_rfc3339_z(17, Ms),
+    "1970-01-01T00:00:00.250Z" = roundtrip_fmt_rfc3339_z(250, Ms),
+    "1970-01-01T00:00:00.500Z" = roundtrip_fmt_rfc3339_z(500, Ms),
+    "1970-01-01T00:00:00.750Z" = roundtrip_fmt_rfc3339_z(750, Ms),
+    "1970-01-01T00:00:01.000Z" = roundtrip_fmt_rfc3339_z(1000, Ms),
+    "1970-01-01T00:00:01.250Z" = roundtrip_fmt_rfc3339_z(1250, Ms),
+
     ok.
 
 %%
 %% LOCAL FUNCTIONS
 %%
+
+roundtrip_fmt_rfc3339(Time, Opts) ->
+    Str = calendar:system_time_to_rfc3339(Time, Opts),
+    Time = calendar:rfc3339_to_system_time(Str, Opts),
+    Str.
+
+roundtrip_fmt_rfc3339_z(Time, Opts) ->
+    roundtrip_fmt_rfc3339(Time, [{offset, "Z"} | Opts]).
 
 test_parse(String) ->
     test_parse(String, []).
