@@ -832,7 +832,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     ESOCK_ASSERT( enif_self(env, &self) != NULL );
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> entry with"
+            ("UNIX-ESSIO", "essio_open_with_fd -> entry with"
              "\r\n   fd:    %d"
              "\r\n   eopts: %T"
              "\r\n", fd, eopts) );
@@ -851,7 +851,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_domain(fd, &domain)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get domain from system\r\n") );
+                 "essio_open_with_fd -> failed get domain from system\r\n") );
 
         if (! open_get_domain(env, eopts, &domain)) {
             return esock_make_invalid(env, esock_atom_domain);
@@ -861,7 +861,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! open_which_type(fd, &type)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get type from system\r\n") );
+                 "essio_open_with_fd -> failed get type from system\r\n") );
 
         if (! open_get_type(env, eopts, &type))
             return esock_make_invalid(env, esock_atom_type);
@@ -870,12 +870,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (! esock_open_which_protocol(fd, &protocol)) {
         SSDBG2( dbg,
                 ("UNIX-ESSIO",
-                 "essio_open2 -> failed get protocol from system\r\n") );
+                 "essio_open_with_fd -> failed get protocol from system\r\n") );
 
         if (! open_get_protocol(env, eopts, &protocol)) {
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> "
+                     "essio_open_with_fd -> "
                      "failed get protocol => try protocol 0\r\n") );
             protocol = 0;
         }
@@ -884,11 +884,14 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO",
-             "essio_open2 -> "
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
-             "\r\n", domain, type, protocol) );
+             "essio_open_with_fd -> "
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol)) );
 
 
     if (open_todup(env, eopts)) {
@@ -898,7 +901,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
 
             SSDBG2( dbg,
                     ("UNIX-ESSIO",
-                     "essio_open2 -> dup failed: %d\r\n",
+                     "essio_open_with_fd -> dup failed: %d\r\n",
                      save_errno) );
 
             return esock_make_error_errno(env, save_errno);
@@ -929,10 +932,12 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
         if (sock_peer(descP->sock,
                       (struct sockaddr*) &remote,
                       &addrLen) == 0) {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> connected\r\n") );
             descP->writeState |= ESOCK_STATE_CONNECTED;
         } else {
-            SSDBG2( dbg, ("UNIX-ESSIO", "essio_open2 -> not connected\r\n") );
+            SSDBG2( dbg, ("UNIX-ESSIO",
+                          "essio_open_with_fd -> not connected\r\n") );
         }
     }
 
@@ -940,7 +945,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     sockRef = enif_make_resource(env, descP);
     enif_release_resource(descP);
 
-    ESOCK_ASSERT( MONP("essio_open2 -> ctrl",
+    ESOCK_ASSERT( MONP("essio_open_with_fd -> ctrl",
                        env, descP,
                        &descP->ctrlPid,
                        &descP->ctrlMon) == 0 );
@@ -955,7 +960,7 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     if (descP->useReg) esock_send_reg_add_msg(env, descP, sockRef);
 
     SSDBG2( dbg,
-            ("UNIX-ESSIO", "essio_open2 -> done: %T\r\n", sockRef) );
+            ("UNIX-ESSIO", "essio_open_with_fd -> done: %T\r\n", sockRef) );
 
     return esock_make_ok2(env, sockRef);
 }
@@ -1071,11 +1076,15 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
 
     SSDBG2( dbg,
             ("UNIX-ESSIO", "essio_open4 -> entry with"
-             "\r\n   domain:   %d"
-             "\r\n   type:     %d"
-             "\r\n   protocol: %d"
+             "\r\n   domain:   %d (%s)"
+             "\r\n   type:     %d (%s)"
+             "\r\n   protocol: %d (%s)"
              "\r\n   eopts:    %T"
-             "\r\n", domain, type, protocol, eopts) );
+             "\r\n",
+             domain,   DOM2STR(domain),
+             type,     TYPE2STR(type),
+             protocol, PROTO2STR(protocol),
+             eopts) );
 
 
 #ifdef HAVE_SETNS

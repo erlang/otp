@@ -1127,7 +1127,14 @@ do_open_fd(Config) when is_list(Config) ->
                "~n   ~p", [inet:info(Socket)]),
             (catch gen_udp:close(Socket)),
             (catch gen_udp:close(S1)),
-            ct:fail(unexpected_succes)
+            case ((OS =:= darwin) andalso ?IS_SOCKET_BACKEND(Config)) of
+                true ->
+                    %% This should not work, but on (some) Darwin
+                    %% machines it does...
+                    skip(unexpected_success);
+                _ ->
+                    ct:fail(unexpected_success)
+            end
     end,
 
     ?P("try open second socket with FD = ~w "

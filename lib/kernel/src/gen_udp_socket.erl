@@ -177,23 +177,23 @@ open(Service, Opts) ->
 
 open_lookup(Service, Opts0) ->
     %% ?DBG(['open lookup', {service, Service}, {opts, Opts0}]),
-    {EinvalOpts, Opts_1} = setopts_split(einval, Opts0),
+    {EinvalOpts, Opts1} = setopts_split(einval, Opts0),
     EinvalOpts =:= [] orelse exit(badarg),
-    {Mod, Opts_2} = inet:udp_module(Opts_1),
+    {Mod, Opts2} = inet:udp_module(Opts1),
     Domain = domain(Mod),
-    {StartOpts, Opts_3} = setopts_split(start, Opts_2),
+    {StartOpts, Opts3} = setopts_split(start, Opts2),
     ErrRef = make_ref(),
     try
 	begin
 	    %% IPs    = val(ErrRef, Mod:getaddrs(Address, Domain)),
 	    Port   = val(ErrRef, Mod:getserv(Service)),
-	    %% Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts_3],
-	    Opts_4 = [{port, Port} | Opts_3],
+	    %% Opts_4 = [{port, Port}, {buffer, ?RECBUF} | Opts3],
+	    Opts4 = [{port, Port} | Opts3],
 	    #udp_opts{fd     = Fd,
 		      ifaddr = BindIP,
 		      port   = BindPort,
 		      opts   = OpenOpts} =
-		val(ErrRef, inet:udp_options(Opts_4, Mod)),
+		val(ErrRef, inet:udp_options(Opts4, Mod)),
             %% ?DBG([{fd, Fd}, {bind_ip, BindIP}, {bind_port, BindPort},
             %%       {opts, OpenOpts}]),
             BindAddr  = bind_addr(Domain, BindIP, BindPort, Fd),
@@ -205,21 +205,27 @@ open_lookup(Service, Opts0) ->
             ?badarg_exit({error, Reason})
     end.
 
-do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts) ->
+do_open(Mod, BindAddr, Domain, OpenOpts, Opts, ExtraOpts0) ->
 
     %% ?DBG([{mod, Mod}, {bind_addr, BindAddr}, {domain, Domain},
-    %%       {open_opts, OpenOpts}, {opts, Opts}, {extra_opts, ExtraOpts}]),
+    %%       {open_opts, OpenOpts}, {opts, Opts}, {extra_opts0, ExtraOpts0}]),
 
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2,
     %% and then over to ExtraOpts.
-    %% The {debug, Bool} option is passed in Opts since it is
-    %% subversively classified as both start and socket option.
+    %% The {debug, Bool} option is passed in Opts (and also into ExtraOpts)
+    %% since it is subversively classified as both start and socket option
+    %% (and also open_opts).
     %%
 
-    {SocketOpts, StartOpts} = setopts_split(socket, Opts),
-    %% ?DBG(['try start server', {socket, SocketOpts}, {start, StartOpts}]),
-    case start_server(Mod, Domain, start_opts(StartOpts), ExtraOpts) of
+    {OOpts, Opts2}           = setopts_split(open_opts, Opts),
+    ExtraOpts                = extra_opts(OOpts, ExtraOpts0),
+    {SocketOpts, StartOpts0} = setopts_split(socket,    Opts2),
+    StartOpts                = start_opts(StartOpts0),
+    %% ?DBG(['try start server',
+    %%       {start_opts, StartOpts},
+    %%       {extra_opts, ExtraOpts}]),
+    case start_server(Mod, Domain, StartOpts, ExtraOpts) of
         {ok, Server} ->
             {PreBindSetOpts, OpenOpts2} = setopts_split(pre_bind, OpenOpts),
             %% ?DBG([{pre_bind_open_opts, PreBindSetOpts},
@@ -277,6 +283,16 @@ extra_opts(OpenOpts) when is_list(OpenOpts) ->
     %% inet:{connect,listen,udp,sctp}_options/2 has the bad taste
     %% to use this for [{netns,BinNS}] if that option is used...
    maps:from_list(OpenOpts).
+
+%% Should we verify the options or just accept them?
+%% The *opt_categories functions *should* filter, so...
+extra_opts([], ExtraOpts)
+  when is_map(ExtraOpts) ->
+    ExtraOpts;
+extra_opts([{Opt, Val}|Opts], ExtraOpts)
+  when is_list(Opts) andalso is_map(ExtraOpts) ->
+    extra_opts(Opts, ExtraOpts#{Opt => Val}).
+
 
 
 default_any(_Domain, #{fd := _}, _BindAddr) ->
@@ -1034,7 +1050,8 @@ getopt_categories(Opt) ->
 opt_categories(Tag) when is_atom(Tag) ->
     case Tag of
         sys_debug   -> #{start => []};
-        debug       -> #{socket => [], start    => []};
+        %% open_opts is for the 'Opts' argument of the socket:open call
+        debug       -> #{socket => [], start    => [], open_opts => []};
         ipv6_v6only -> #{socket => [], pre_bind => []};
 
         %% Some options may trigger us to choose recvmsg (instead of recvfrom)

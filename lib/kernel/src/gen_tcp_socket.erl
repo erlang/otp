@@ -152,7 +152,8 @@ connect_lookup(Address, Port, Opts0, Timer) ->
 connect_lookup(Domain, Address, Port, Mod, Opts0, Timer) ->
     %% ?DBG([{domain, Domain}, {addr, Address}, {port, Port},
     %%       {mod, Mod}, {opts0, Opts0}, {timer, Timer}]),
-    {StartOpts, Opts} = split_start_opts(Opts0),
+    {StartOpts, Opts1} = split_start_opts(Opts0),
+    {OpenOpts0, Opts2} = split_open_opts(Opts1),
     ErrRef = make_ref(),
     try
 	%% ?DBG(['try getaddrs']),
@@ -160,7 +161,7 @@ connect_lookup(Domain, Address, Port, Mod, Opts0, Timer) ->
 	%% ?DBG(['try getserv']),
         TP  = val(ErrRef, Mod:getserv(Port)),
 	%% ?DBG(['process connect options']),
-        CO  = val(ErrRef, inet:connect_options(Opts, Mod)),
+        CO  = val(ErrRef, inet:connect_options(Opts2, Mod)),
 	%% ?DBG(['process sockaddrs']),
 	SAs = sockaddrs(IPs, TP, Domain),
 	%% ?DBG([{sas, SAs}, {co, CO}]),
@@ -174,33 +175,30 @@ connect_lookup(Domain, Address, Port, Mod, Opts0, Timer) ->
             %%
             %% ?DBG([{domain, Domain}, {bind_ip, BindAddr}]),
             BindSockaddr = bind_addr(Domain, BindAddr, BindPort),
-            ExtraOpts = extra_opts(Fd),
+            OpenOpts = open_opts(OpenOpts0, open_opts(Fd)),
             connect_open(
-              Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts,
+              Addrs, Domain, ConnectOpts, StartOpts, OpenOpts,
               Timer, BindSockaddr)
     catch
         throw : {ErrRef, Reason} ->
             ?badarg_exit({error, Reason})
     end.
 
-connect_open(
-  Addrs, Domain, ConnectOpts, StartOpts, ExtraOpts, Timer, BindAddr) ->
+connect_open(Addrs, Domain,
+             ConnectOpts, StartOpts0, OpenOpts,
+             Timer, BindAddr) ->
     %%
     %% The {netns, File} option is passed in Fd by inet:connect_options/2,
     %% and then over to ExtraOpts.
     %%
-    case
-        start_server(
-          Domain,
-	  [{timeout, inet:timeout(Timer)} | StartOpts],
-	  ExtraOpts)
-    of
+    StartOpts = [{timeout, inet:timeout(Timer)} | StartOpts0],
+    case start_server(Domain, StartOpts, OpenOpts) of
         {ok, Server} ->
 	    %% ?DBG(['server started', {server, Server}]),
             ErrRef = make_ref(),
             try
                 try_setopts(ErrRef, Server, StartOpts, ConnectOpts),
-                try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
+                try_bind(ErrRef, Server, Domain, BindAddr, OpenOpts),
                 Socket = try_connect(ErrRef, Server, Addrs, Timer),
                 MSock  = ?MODULE_socket(Server, Socket),
                 %% ?DBG(['done', {msock, MSock}]),
@@ -241,18 +239,26 @@ connect_loop([Addr | Addrs], Server, _Error, Timer) ->
     end.
 
 
-extra_opts(Fd) when is_integer(Fd) ->
+open_opts(Fd) when is_integer(Fd) ->
     if
         Fd < 0 ->
             #{};
         true ->
             #{fd => Fd}
     end;
-extra_opts(OpenOpts) when is_list(OpenOpts) ->
+open_opts(OpenOpts) when is_list(OpenOpts) ->
     %% This is an **ugly** hack.
     %% inet:{connect,listen,udp,sctp}_options/2 has the bad taste
     %% to use this for [{netns,BinNS}] if that option is used...
    maps:from_list(OpenOpts).
+
+%% Should we verify the options or just accept them?
+open_opts([], OpenOpts)
+  when is_map(OpenOpts) ->
+    OpenOpts;
+open_opts([{Opt, Val}|Opts], OpenOpts)
+  when is_list(Opts) andalso is_map(OpenOpts) ->
+    open_opts(Opts, OpenOpts#{Opt => Val}).
 
 
 default_any(_Domain, undefined, #{fd := _}) ->
@@ -367,18 +373,21 @@ default_active_true(Opts) ->
 
 %% -------------------------------------------------------------------------
 
-listen(Port, Opts) ->
-    %% ?DBG([{port, Port}, {opts, Opts}]),
-    Opts_1              = internalize_setopts(Opts),
-    %% ?DBG([{opts_1, Opts_1}]), 
-   {Mod, Opts_2}       = inet:tcp_module(Opts_1),
-    %% ?DBG([{mod, Mod}, {opts_2, Opts_2}]),
-    {StartOpts, Opts_3} = split_start_opts(Opts_2),
-    %% ?DBG([{start_opts, StartOpts}, {opts_3, Opts_3}]),
+listen(Port, Opts0) ->
+    %% ?DBG([{port, Port}, {opts0, Opts0}]),
+    Opts1              = internalize_setopts(Opts0),
+    %% ?DBG([{opts1, Opts1}]), 
+    {Mod, Opts2}       = inet:tcp_module(Opts1),
+    %% ?DBG([{mod, Mod}, {opts2, Opts2}]),
+    {StartOpts, Opts3} = split_start_opts(Opts2),
+    {OpenOpts0, Opts4} = split_open_opts(Opts3),
+    %% ?DBG([{start_opts, StartOpts},
+    %%       {open_opts0, OpenOpts0},
+    %%       {opts4,      Opts4}]),
     case Mod:getserv(Port) of
         {ok, TP} ->
             %% ?DBG([{tp, TP}]),
-            case inet:listen_options([{port, TP} | Opts_3], Mod) of
+            case inet:listen_options([{port, TP} | Opts4], Mod) of
                 {error, badarg} ->
                     exit(badarg);
                 {ok,
@@ -393,10 +402,10 @@ listen(Port, Opts) ->
                     %%       {listen_opts, ListenOpts}, {backlog, Backlog}]),
                     BindSockaddr  = bind_addr(Domain, BindAddr, BindPort),
                     %% ?DBG([{bind_sock_addr, BindSockaddr}]),
-                    ExtraOpts = extra_opts(Fd),
-                    %% ?DBG([{extra_opts, ExtraOpts}]),
+                    OpenOpts = open_opts(OpenOpts0, open_opts(Fd)),
+                    %% ?DBG([{open_opts, OpenOpts}]),
                     listen_open(
-                      Domain, ListenOpts, StartOpts, ExtraOpts,
+                      Domain, ListenOpts, StartOpts, OpenOpts,
                       Backlog, BindSockaddr)
             end;
         {error, _} = Error ->
@@ -406,14 +415,13 @@ listen(Port, Opts) ->
 
 %% Helpers -------
 
-listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
+listen_open(Domain, ListenOpts, StartOpts0, OpenOpts, BackLog, BindAddr) ->
     %% ?DBG(['start server',
-    %%       {listen_opts, ListenOpts},
-    %%       {start_opts,  StartOpts},
-    %%       {extra_opts,  ExtraOpts}]),
-    case
-        start_server(Domain, [{timeout, infinity} | StartOpts], ExtraOpts)
-    of
+    %%       {listen_opts,  ListenOpts},
+    %%       {start_opts0,  StartOpts0},
+    %%       {open_opts,    OpenOpts}]),
+    StartOpts = [{timeout, infinity} | StartOpts0],
+    case start_server(Domain, StartOpts, OpenOpts) of
         {ok, Server} ->
             %% ?DBG([{server, Server}]),
             ErrRef = make_ref(),
@@ -422,7 +430,7 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
                     {win32, nt} ->
                         %% On *Windows*
                         %% we need to bind before everything else...
-                        try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
+                        try_bind(ErrRef, Server, Domain, BindAddr, OpenOpts),
                         try_setopts(ErrRef, Server, StartOpts, ListenOpts),
                         Socket = try_listen(ErrRef, Server, BackLog),
                         MSock  = ?MODULE_socket(Server, Socket),
@@ -431,7 +439,7 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
 
                     _ ->
                         try_setopts(ErrRef, Server, StartOpts, ListenOpts),
-                        try_bind(ErrRef, Server, Domain, BindAddr, ExtraOpts),
+                        try_bind(ErrRef, Server, Domain, BindAddr, OpenOpts),
                         Socket = try_listen(ErrRef, Server, BackLog),
                         MSock  = ?MODULE_socket(Server, Socket),
                         %% ?DBG(['done', {msock, MSock}]),
@@ -452,19 +460,19 @@ listen_open(Domain, ListenOpts, StartOpts, ExtraOpts, BackLog, BindAddr) ->
     end.
 
 
-try_bind(ErrRef, Server, Domain, BindAddr0, ExtraOpts) ->
+try_bind(ErrRef, Server, Domain, BindAddr0, OpenOpts) ->
     %% ?DBG(['process bind-address',
     %%       {domain,     Domain},
     %%       {bind_addr0, BindAddr0},
-    %%       {extra_opts, ExtraOpts}]),
-    BindAddr1 = default_any(Domain, BindAddr0, ExtraOpts),
+    %%       {open_opts,  OpenOpts}]),
+    BindAddr1 = default_any(Domain, BindAddr0, OpenOpts),
     %% ?DBG(['try bind', {bind_addr1, BindAddr1}]),
     ok(ErrRef, call_bind(Server, BindAddr1)).
 
 try_setopts(ErrRef, Server, StartOpts, OperationOpts) ->
     %% ?DBG(['process options',
     %%       {start_opts,     StartOpts},
-    %%       {operation_opts, listenOpts}]),
+    %%       {operation_opts, OperationOpts}]),
     SetOpts = default_active_true([{start_opts, StartOpts} |
                                    setopts_opts(ErrRef, OperationOpts)]),
     %% ?DBG(['try setopts', {set_opts, SetOpts}]),
@@ -811,20 +819,20 @@ which_packet_type(?MODULE_socket(_Server, Socket)) ->
 unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
     {error, enotsup}.
 
-fdopen(Fd, Opts) when is_integer(Fd), 0 =< Fd, is_list(Opts) ->
-    Opts_1 = internalize_setopts(Opts),
-    {Mod, Opts_2} = inet:tcp_module(Opts_1),
+fdopen(Fd, Opts0) when is_integer(Fd), 0 =< Fd, is_list(Opts0) ->
+    Opts1        = internalize_setopts(Opts0),
+    {Mod, Opts2} = inet:tcp_module(Opts1),
     Domain = domain(Mod),
-    {StartOpts, Opts_3} = split_start_opts(Opts_2),
-    ExtraOpts = extra_opts(Fd),
-    case
-        start_server(Domain, [{timeout, infinity} | StartOpts], ExtraOpts)
-    of
+    {StartOpts0, Opts3} = split_start_opts(Opts2),
+    {Opts4, OpenOpts0}  = split_open_opts(Opts3),
+    OpenOpts            = open_opts(OpenOpts0, open_opts(Fd)),
+    StartOpts           = [{timeout, infinity} | StartOpts0],
+    case start_server(Domain, StartOpts, OpenOpts) of
         {ok, Server} ->
             ErrRef = make_ref(),
             try
                 Setopts =
-                    [{start_opts, StartOpts} | setopts_opts(ErrRef, Opts_3)],
+                    [{start_opts, StartOpts} | setopts_opts(ErrRef, Opts4)],
                 ok(ErrRef, call(Server, {setopts, Setopts})),
                 Socket = val(ErrRef, call(Server, fdopen)),
                 {ok, ?MODULE_socket(Server, Socket)}
@@ -1030,6 +1038,21 @@ split_start_opts(Opts) ->
           _                -> Opt
       end || Opt <- StartOpts],
      NonStartOpts}.
+
+
+%% No need to (at this point) do something fancy here,
+%% since we really only got one option we need to pick out; the debug
+%% option.
+split_open_opts(Opts) ->
+    split_open_opts(Opts, [], []).
+
+split_open_opts([], OpenOpts, OtherOpts) ->
+    {lists:reverse(OpenOpts), lists:reverse(OtherOpts)};
+split_open_opts([{debug, _} = Opt|Opts], OpenOpts, OtherOpts) ->
+    split_open_opts(Opts, [Opt|OpenOpts], OtherOpts);
+split_open_opts([Opt|Opts], OpenOpts, OtherOpts) ->
+    split_open_opts(Opts, OpenOpts, [Opt|OtherOpts]).
+
 
 %%
 %% -------
@@ -1383,10 +1406,14 @@ meta_opts() -> maps:keys(server_write_opts()).
 %% State Machine Engine Call Interface
 
 %% Start for connect or listen - create a socket
-start_server(Domain, StartOpts, ExtraOpts) ->
-    %% ?DBG([{domain, Domain}, {start_opts, StartOpts}, {extra_opts, ExtraOpts}]),
+%%    StartOpts - Options for gen_statem (start the gen_statem server)
+%%    OpenOpts  - Options for socket:open
+start_server(Domain, StartOpts, OpenOpts) ->
+    %% ?DBG([{domain,     Domain},
+    %%       {start_opts, StartOpts},
+    %%       {open_opts,  OpenOpts}]),
     Owner = self(),
-    Arg   = {open, Domain, ExtraOpts, Owner},
+    Arg   = {open, Domain, OpenOpts, Owner},
     case gen_statem:start(?MODULE, Arg, StartOpts) of
         {ok, Server} ->
 	    %% ?DBG([{server, Server}]),
