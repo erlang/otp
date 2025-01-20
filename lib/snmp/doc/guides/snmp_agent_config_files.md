@@ -82,6 +82,24 @@ The following example shows an `agent.conf` file:
 {snmpEngineMaxMessageSize, 484}.
 ```
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir    = "/tmp",
+AgentPort   = 4000,
+Transports  = [{transportDomainUdpIpv4, {141,213,11,24}},
+               {transportDomainUdpIpv6, {0,0,0,0,0,0,0,1}}],
+EngineID    = "mbj's engine",
+MMS         = 484,
+AgentConfig =
+   [snmpa_conf:agent_entry(intAgentUDPPort,          AgentPort),
+    snmpa_conf:agent_entry(intAgentTransports,       Transports),
+    snmpa_conf:agent_entry(snmpEngineID,             EngineID),
+    snmpa_conf:agent_entry(snmpEngineMaxMessageSize, MMS)],
+snmpa_conf:write_agent_config(AgentDir, AgentConfig),
+```
+
+
 These are the supported entries and their value types:
 
 ```erlang
@@ -146,6 +164,17 @@ Each entry is a term:
 
 - `ContextName` is a string.
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir      = "/tmp",
+ContextConfig =
+   [snmpa_conf:context_entry("foo"),
+    snmpa_conf:context_entry("bar")],
+snmpa_conf:write_context_config(AgentDir, ContextConfig),
+```
+
+
 [](){: #system_information }
 
 ## System Information
@@ -171,8 +200,23 @@ The following example shows a valid `standard.conf` file:
 {snmpEnableAuthenTraps, enabled}.
 ```
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir  = "/tmp",
+StdConfig =
+   [snmpa_conf:standard_entry(sysDescr,    "Erlang SNMP agent"),
+    snmpa_conf:standard_entry(sysObjectID, [1,2,3]),
+    snmpa_conf:standard_entry(sysContact,  "(mbj,eklas)@erlang.ericsson.se"),
+    snmpa_conf:standard_entry(sysName,     "test"),
+    snmpa_conf:standard_entry(sysServices, 72),
+    snmpa_conf:standard_entry(snmpEnableAuthenTraps, enabled)],
+snmpa_conf:write_standard_config(AgentDir, StdConfig),
+```
+
 A value must be provided for all variables, which lack default values in the
 MIB.
+
 
 [](){: #community }
 
@@ -195,6 +239,19 @@ Each entry is a term:
 - `SecurityName` is a string.
 - `ContextName` is a string.
 - `TransportTag` is a string.
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir        = "/tmp",
+CommunityConfig =
+   [snmpa_conf:community_entry("public"),
+    snmpa_conf:community_entry("all-rights"),
+    snmpa_conf:community_entry("standard trap",
+                               "standard trap", "initial", "", "")],
+snmpa_conf:write_community_config(AgentDir, CommunityConfig),
+```
+
 
 [](){: #vacm }
 
@@ -231,6 +288,26 @@ tables.
   exact match is used for this sub-identifier. Zeros are wild-cards which match
   any sub-identifier. If the mask is shorter than the sub-tree, the tail is
   regarded as all ones. `null` is shorthand for a mask with all ones.
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir   = "/tmp",
+SecName    = "plain",
+VacmConfig =
+   [%%                        SecModel, SecName, GroupName
+    snmpa_conf:vacm_s2g_entry(usm, SecName, SecName),
+
+    %%                        GroupName, Prefix, SecModel,
+    snmpa_conf:vacm_acc_entry(SecName, "", any,
+    %%                        SecLevel, Match, RV, WV, NV
+                              noAuthNoPriv, exact, "all", "all", "all"),
+
+    %%                        ViewName, ViewSubtree, ViewType, ViewMask
+    snmpa_conf:vacm_vtf_entry("restricted", [1,3,6,1], included, null)],
+snmpa_conf:write_vacm_config(AgentDir, VacmConfig),
+```
+
 
 [](){: #usm }
 
@@ -276,6 +353,33 @@ Each entry is a term:
   encryption key. It is not visible in the MIB. The length of this key needs to
   be 16 if `usmDESPrivProtocol` or `usmAesCfb128Protocol` is used.
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir  = "/tmp",
+EngineID  = "plain engine"
+Passwd    = "FooBar Hoopla", %% This should *obviously* be choosen better
+Secret16  = snmp:passwd2localized_key(md5, Passwd, EngineID),
+Secret20  = snmp:passwd2localized_key(sha, Passwd, EngineID),
+UsmConfig =
+   [snmpa_conf:usm_entry(EngineID, "initial", "initial", zeroDotZero,
+                         usmHMACMD5AuthProtocol, "", "",
+                         usmNoPrivProtocol, "", "",
+                         "", Secret16, ""),
+
+    snmpa_conf:usm_entry(EngineID, "templateMD5", "templateMD5", zeroDotZero,
+                         usmHMACMD5AuthProtocol, "", "",
+                         usmDESPrivProtocol, "", "",
+                         "", Secret16, Secret16),
+
+    snmpa_conf:usm_entry(EngineID, "templateSHA", "templateSHA", zeroDotZero,
+                         usmHMACSHAAuthProtocol, "", "",
+                         usmAesCfb128Protocol, "", "",
+                         "", Secret20, Secret16)],
+snmpa_conf:write_usm_config(AgentDir, UsmConfig),
+```
+
+
 [](){: #notify }
 
 ## Notify Definitions
@@ -292,6 +396,17 @@ Each entry is a term:
 - `NotifyName` is a unique non-empty string.
 - `Tag` is a string.
 - `Type` is `trap` or `inform`.
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir     = "/tmp",
+NotifyConfig =
+   [snmpa_conf:notify_entry("standard trap",   "std_trap",   trap),
+    snmpa_conf:notify_entry("standard inform", "std_inform", inform)],
+snmpa_conf:write_notify_config(AgentDir, NotifyConfig),
+```
+
 
 [](){: #target_addr }
 
@@ -335,6 +450,29 @@ Note that if `EngineId` has the value `discovery`, the agent cannot send
 `inform` messages to that manager until it has performed the _discovery_ process
 with that manager.
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir         = "/tmp",
+Addr1            = {{1,2,3,4},     162},
+Addr2            = {{11,21,31,41}, 162},
+Timeout          = 1500,
+RetryCount       = 3,
+TargetAddrConfig =
+   [snmpa_conf:target_addr_entry("Target 1",
+                                 transportDomainUdpIpv4, Addr1,
+				 Timeout, RetryCount,
+				 "std_trap, "target_1", "",
+				 [], 2048),
+    snmpa_conf:target_addr_entry("Target 2",
+                                 transportDomainUdpIpv4, Addr2,
+				 Timeout, RetryCount,
+				 "std_inform, "target_2", "",
+				 [], 2048)],
+snmpa_conf:write_target_addr_config(AgentDir, TargetAddrConfig),
+```
+
+
 [](){: #target_params }
 
 ## Target Parameters Definitions
@@ -353,3 +491,13 @@ Each entry is a term:
 - `SecurityModel` is `v1`, `v2c`, or `usm`.
 - `SecurityName` is a string.
 - `SecurityLevel` is `noAuthNoPriv`, `authNoPriv` or `authPriv`.
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+AgentDir         = "/tmp",
+TargetAddrConfig =
+   [snmpa_conf:target_params_entry("target_1", v1),
+    snmpa_conf:target_params_entry("target_2", v2, "initial", noAthNoPriv],
+snmpa_conf:write_target_params_config(AgentDir, TargetParamsConfig),
+```
