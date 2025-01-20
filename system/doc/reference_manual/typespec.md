@@ -192,7 +192,7 @@ predefined aliases for the type unions also shown in the table.
 
 [](){: #builtin_types }
 
-| _Built-in type_           | _Defined as_                                                                |
+| Built-in type             | Defined as                                                                  |
 | ------------------------- | --------------------------------------------------------------------------- |
 | `t:term/0`                | `t:any/0`                                                                   |
 | `t:binary/0`              | `<<_:_*8>>`                                                                 |
@@ -227,11 +227,11 @@ In addition, the following three built-in types exist and can be thought as
 defined below, though strictly their "type definition" is not valid syntax
 according to the type language defined above.
 
-| _Built-in type_       | _Can be thought defined by the syntax_ |
-| --------------------- | -------------------------------------- |
-| `t:non_neg_integer/0` | `0..`                                  |
-| `t:pos_integer/0`     | `1..`                                  |
-| `t:neg_integer/0`     | `..-1`                                 |
+| Built-in type         | Can be thought defined by the syntax |
+| --------------------- | ------------------------------------ |
+| `t:non_neg_integer/0` | `0..`                                |
+| `t:pos_integer/0`     | `1..`                                |
+| `t:neg_integer/0`     | `..-1`                               |
 
 _Table: Additional built-in types_
 

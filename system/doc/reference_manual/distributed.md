@@ -295,7 +295,7 @@ _Table: Distribution BIFs_
 Examples of command-line flags used for distributed programming (for more
 information, see the [erl](`e:erts:erl_cmd.md`) executable in ERTS):
 
-| _Command-Line Flag_      | _Description_                                               |
+| Command-Line Flag        | Description                                                 |
 | ------------------------ | ----------------------------------------------------------- |
 | `-connect_all false`     | Only explicit connection setups are used.                   |
 | `-hidden`                | Makes a node into a hidden node.                            |
@@ -310,7 +310,7 @@ _Table: Distribution Command-Line Flags_
 
 Examples of modules useful for distributed programming in the Kernel application:
 
-| _Module_         | _Description_                                      |
+| Module           | Description                                        |
 | ---------------- | -------------------------------------------------- |
 | `m:global`       | A global name registration facility.               |
 | `m:global_group` | Grouping nodes to global name registration groups. |
@@ -321,8 +321,8 @@ _Table: Kernel Modules Useful For Distribution._
 
 In the STDLIB application:
 
-| _Module_ | _Description_                     |
-| -------- | --------------------------------- |
-| `m:peer`  | Start and control of peer nodes. |
+| Module   | Description                      |
+| -------- | -------------------------------- |
+| `m:peer` | Start and control of peer nodes. |
 
 _Table: STDLIB Modules Useful For Distribution._

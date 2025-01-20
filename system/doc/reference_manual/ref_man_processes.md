@@ -55,7 +55,7 @@ Besides addressing a process by using its pid, there are also BIFs for
 registering a process under a name. The name must be an atom and is
 automatically unregistered if the process terminates:
 
-| _BIF_                                 | _Description_                                                                          |
+| BIF                                   | Description                                                                            |
 | ------------------------------------- | -------------------------------------------------------------------------------------- |
 | [`register(Name, Pid)`](`register/2`) | Associates the name `Name`, an atom, with the process `Pid`.                           |
 | `registered/0`                        | Returns a list of names that have been registered using [`register/2`](`register/2`).  |

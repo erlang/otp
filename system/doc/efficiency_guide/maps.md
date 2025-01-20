@@ -142,9 +142,9 @@ elements, or when it shrinks to 32 elements or less.
 
 A small map looks like this inside the runtime system:
 
-| 0           | 1   | 2      | 3        |         | N        |
-| :---------: | --- | :----: | :------: | :-----: | :------: |
-| **FLATMAP** | _N_ | _Keys_ | _Value1_ | _..._   | _ValueN_ |
+|      0      | 1   |   2   |   3    |       |   N    |
+| :---------: | --- | :---: | :----: | :---: | :----: |
+| **FLATMAP** | N   | Keys  | Value1 |  ...  | ValueN |
 
 _Table: The representation of a small map_
 
@@ -163,26 +163,26 @@ _Table: The representation of a small map_
 As an example, let us look at how the map `#{a => foo, z => bar}` is
 represented:
 
-| 0           | 1   | 2         | 3     | 4     |
-| :---------: | --- | :-------: | :---: | ----- |
-| **FLATMAP** | _2_ | `{a,z}`   | `foo` | `bar` |
+|      0      | 1   |    2    |   3   | 4     |
+| :---------: | --- | :-----: | :---: | ----- |
+| **FLATMAP** | 2   | `{a,z}` | `foo` | `bar` |
 
 _Table: \#\{a => foo, z => bar\}_
 
 Let us update the map: `M#{q => baz}`. The map now looks like this:
 
-| 0           | 1   | 2           | 3     | 4     | 5     |
-| :---------: | --- | :---------: | :---: | :---: | :---: |
-| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bar` |
+|      0      | 1   |     2     |   3   |   4   |   5   |
+| :---------: | --- | :-------: | :---: | :---: | :---: |
+| **FLATMAP** | 3   | `{a,q,z}` | `foo` | `baz` | `bar` |
 
 _Table: \#\{a => foo, q => baz, z => bar\}_
 
 Finally, change the value of one element: `M#{z := bird}`. The map now looks
 like this:
 
-| 0           | 1   | 2           | 3     | 4     | 5      |
-| :---------: | --- | :---------: | :---: | :---: | :----: |
-| **FLATMAP** | _3_ | `{a,q,z}`   | `foo` | `baz` | `bird` |
+|      0      | 1   |     2     |   3   |   4   |   5    |
+| :---------: | --- | :-------: | :---: | :---: | :----: |
+| **FLATMAP** | 3   | `{a,q,z}` | `foo` | `baz` | `bird` |
 
 _Table: \#\{a => foo, q => baz, z => bird\}_
 

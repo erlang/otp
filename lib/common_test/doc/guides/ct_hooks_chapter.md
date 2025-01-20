@@ -123,7 +123,7 @@ following table. Function [init/2](`c:ct_hooks:init/2`) is called at the
 beginning of the scope and function [terminate/1](`c:ct_hooks:terminate/1`) is
 called when the scope ends.
 
-| _CTH installed in_                                            | _CTH scope begins before_                                             | _CTH scope ends after_                                                                        |
+| CTH installed in                                              | CTH scope begins before                                               | CTH scope ends after                                                                          |
 | ------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | [ct_run](run_test_chapter.md#ct_run)                          | the first test suite is to be run                                     | the last test suite has been run                                                              |
 | [ct:run_test](`ct:run_test/1`)                                | the first test suite is run                                           | the last test suite has been run                                                              |

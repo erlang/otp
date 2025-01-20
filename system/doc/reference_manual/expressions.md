@@ -788,16 +788,16 @@ ERTS User's guide.
 Expr1 op Expr2
 ```
 
-| _op_   | _Description_            |
-| ------ | ------------------------ |
-| `==`   | Equal to                 |
-| `/=`   | Not equal to             |
-| `=<`   | Less than or equal to    |
-| `<`    | Less than                |
-| `>=`   | Greater than or equal to |
-| `>`    | Greater than             |
-| `=:=`  | Term equivalence         |
-| `=/=`  | Term non-equivalence     |
+| op    | Description              |
+| ----- | ------------------------ |
+| `==`  | Equal to                 |
+| `/=`  | Not equal to             |
+| `=<`  | Less than or equal to    |
+| `<`   | Less than                |
+| `>=`  | Greater than or equal to |
+| `>`   | Greater than             |
+| `=:=` | Term equivalence         |
+| `=/=` | Term non-equivalence     |
 
 _Table: Term Comparison Operators._
 
@@ -899,22 +899,22 @@ op Expr
 Expr1 op Expr2
 ```
 
-| _Operator_   | _Description_             | _Argument Type_ |
-| ------------ | ------------------------- | --------------- |
-| `+`          | Unary +                   | Number          |
-| `-`          | Negation (unary -)        | Number          |
-| `+`          | Addition                  | Number          |
-| `-`          | Subtraction               | Number          |
-| `*`          | Multiplication            | Number          |
-| `/`          | Floating point division   | Number          |
-| `bnot`       | Unary bitwise NOT         | Integer         |
-| `div`        | Integer division          | Integer         |
-| `rem`        | Integer remainder of X/Y  | Integer         |
-| `band`       | Bitwise AND               | Integer         |
-| `bor`        | Bitwise OR                | Integer         |
-| `bxor`       | Bitwise XOR               | Integer         |
-| `bsl`        | Bitshift left             | Integer         |
-| `bsr`        | Arithmetic bitshift right | Integer         |
+| Operator | Description               | Argument Type |
+| -------- | ------------------------- | ------------- |
+| `+`      | Unary +                   | Number        |
+| `-`      | Negation (unary -)        | Number        |
+| `+`      | Addition                  | Number        |
+| `-`      | Subtraction               | Number        |
+| `*`      | Multiplication            | Number        |
+| `/`      | Floating point division   | Number        |
+| `bnot`   | Unary bitwise NOT         | Integer       |
+| `div`    | Integer division          | Integer       |
+| `rem`    | Integer remainder of X/Y  | Integer       |
+| `band`   | Bitwise AND               | Integer       |
+| `bor`    | Bitwise OR                | Integer       |
+| `bxor`   | Bitwise XOR               | Integer       |
+| `bsl`    | Bitshift left             | Integer       |
+| `bsr`    | Arithmetic bitshift right | Integer       |
 
 _Table: Arithmetic Operators._
 
@@ -954,12 +954,12 @@ op Expr
 Expr1 op Expr2
 ```
 
-| _Operator_ | _Description_     |
-| ---------- | ----------------- |
-| `not`      | Unary logical NOT |
-| `and`      | Logical AND       |
-| `or`       | Logical OR        |
-| `xor`      | Logical XOR       |
+| Operator | Description       |
+| -------- | ----------------- |
+| `not`    | Unary logical NOT |
+| `and`    | Logical AND       |
+| `or`     | Logical OR        |
+| `xor`    | Logical XOR       |
 
 _Table: Logical Operators._
 
@@ -2201,7 +2201,7 @@ Valid guard expressions are the following:
 - Boolean expressions
 - Short-circuit expressions (`andalso`/`orelse`)
 
-| _BIF_                                |
+| BIF                                  |
 | ------------------------------------ |
 | [`is_atom/1`](`is_atom/1`)           |
 | [`is_binary/1`](`is_binary/1`)       |
@@ -2229,7 +2229,7 @@ compatibility and are not to be used in new code. They are also only
 allowed at top level. For example, they are not allowed in Boolean
 expressions in guards.
 
-| _BIF_                                    |
+| BIF                                      |
 | ---------------------------------------- |
 | [`abs(Number)`](`abs/1`)                 |
 | [`bit_size(Bitstring)`](`bit_size/1`)    |
@@ -2270,19 +2270,19 @@ fails. If the guard was part of a guard sequence, the next guard in the sequence
 
 Operator precedence in descending order:
 
-| _Operator_                                   | _Association_     |
-| -------------------------------------------- | ----------------- |
-| `#`                                          |                   |
-| Unary `+` `-` `bnot` `not`                   |                   |
-| `/` `*` `div` `rem` `band` `and`             | Left-associative  |
-| `+` `-` `bor` `bxor` `bsl` `bsr` `or` `xor`  | Left-associative  |
-| `++` `--`                                    | Right-associative |
-| `==` `/=` `=<` `<` `>=` `>` `=:=` `=/=`      | Non-associative   |
-| `andalso`                                    | Left-associative  |
-| `orelse`                                     | Left-associative  |
-| `catch`                                      |                   |
-| `=` `!`                                      | Right-associative |
-| `?=`                                         | Non-associative   |
+| Operator                                    | Association       |
+| ------------------------------------------- | ----------------- |
+| `#`                                         |                   |
+| Unary `+` `-` `bnot` `not`                  |                   |
+| `/` `*` `div` `rem` `band` `and`            | Left-associative  |
+| `+` `-` `bor` `bxor` `bsl` `bsr` `or` `xor` | Left-associative  |
+| `++` `--`                                   | Right-associative |
+| `==` `/=` `=<` `<` `>=` `>` `=:=` `=/=`     | Non-associative   |
+| `andalso`                                   | Left-associative  |
+| `orelse`                                    | Left-associative  |
+| `catch`                                     |                   |
+| `=` `!`                                     | Right-associative |
+| `?=`                                        | Non-associative   |
 
 _Table: Operator Precedence_
 

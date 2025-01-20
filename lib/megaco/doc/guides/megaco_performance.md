@@ -32,20 +32,20 @@ We have made four different measurements of our Erlang/OTP implementation of the
 Megaco/H.248 protocol stack, in order to compare our different
 encoders/decoders. The result of each one is summarized in the table below.
 
-| _Codec and config_                       | _Size_ | _Encode_ | _Decode_ | _Total_ |
-| ---------------------------------------- | ------ | -------- | -------- | ------- |
-| pretty                                   | 336    | 5        | 12       | 17      |
-| pretty \[flex]                           | 336    | 5        | 11       | 16      |
-| compact                                  | 181    | 4        | 10       | 14      |
-| compact \[flex]                          | 181    | 4        | 9        | 13      |
-| per bin                                  | 91     | 6        | 6        | 12      |
-| per bin \[native]                        | 91     | 4        | 3        | 7       |
-| ber bin                                  | 165    | 6        | 6        | 12      |
-| ber bin \[native]                        | 165    | 4        | 3        | 7       |
-| erl_dist                                 | 875    | 2        | 5        | 7       |
-| erl_dist \[megaco_compressed]            | 405    | 1        | 2        | 3       |
-| erl_dist \[compressed]                   | 345    | 15       | 9        | 24      |
-| erl_dist \[megaco_compressed,compressed] | 200    | 11       | 4        | 15      |
+| Codec and config                         | Size | Encode | Decode | Total |
+| ---------------------------------------- | ---- | ------ | ------ | ----- |
+| pretty                                   | 336  | 5      | 12     | 17    |
+| pretty \[flex]                           | 336  | 5      | 11     | 16    |
+| compact                                  | 181  | 4      | 10     | 14    |
+| compact \[flex]                          | 181  | 4      | 9      | 13    |
+| per bin                                  | 91   | 6      | 6      | 12    |
+| per bin \[native]                        | 91   | 4      | 3      | 7     |
+| ber bin                                  | 165  | 6      | 6      | 12    |
+| ber bin \[native]                        | 165  | 4      | 3      | 7     |
+| erl_dist                                 | 875  | 2      | 5      | 7     |
+| erl_dist \[megaco_compressed]            | 405  | 1      | 2      | 3     |
+| erl_dist \[compressed]                   | 345  | 15     | 9      | 24    |
+| erl_dist \[megaco_compressed,compressed] | 200  | 11     | 4      | 15    |
 
 _Table: Codec performance_
 
