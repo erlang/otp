@@ -57,7 +57,8 @@
 	 join/1,
 	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1, droplast/1, search/1, hof/1,
-	 enumerate/1, error_info/1]).
+	 enumerate/1, error_info/1,
+         doctests/1]).
 
 %% Sort randomized lists until stopped.
 %%
@@ -116,9 +117,9 @@ groups() ->
      {uniq, [parallel], [uniq_1, uniq_2]},
      {misc, [parallel], [reverse, member, dropwhile, takewhile,
 			 filter_partition, suffix, subtract, join,
-			 hof, droplast, search, enumerate, error_info]}
+			 hof, droplast, search, enumerate, error_info,
+                         doctests]}
     ].
-
 init_per_suite(Config) ->
     Config.
 
@@ -2452,3 +2453,6 @@ uniq_2(_Config) ->
                    [{42, 1}, {42.0, 99}, {a, 99}, {a, 1}, {42, 100}]),
     [1] = lists:uniq(fun(_) -> whatever end, lists:seq(1, 10)),
     ok.
+
+doctests(_Config) ->
+    shell_docs:test(lists, []).

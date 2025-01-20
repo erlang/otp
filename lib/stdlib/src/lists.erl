@@ -240,7 +240,7 @@ _Example:_
 
 ```erlang
 > lists:subtract("123212", "212").
-"312".
+"312"
 ```
 
 `lists:subtract(A, B)` is equivalent to `A -- B`.
@@ -1546,8 +1546,7 @@ _Examples:_
 
 ```erlang
 > Fun = fun(Atom) -> atom_to_list(Atom) end.
-#Fun<erl_eval.6.10732646>
-2> lists:keymap(Fun, 2, [{name,jane,22},{name,lizzie,20},{name,lydia,15}]).
+> lists:keymap(Fun, 2, [{name,jane,22},{name,lizzie,20},{name,lydia,15}]).
 [{name,"jane",22},{name,"lizzie",20},{name,"lydia",15}]
 ```
 """.
@@ -2163,12 +2162,11 @@ Like `foldl/3`, but the list is traversed from right to left.
 _Example:_
 
 ```erlang
-> P = fun(A, AccIn) -> io:format("~p ", [A]), AccIn end.
-#Fun<erl_eval.12.2225172>
-> lists:foldl(P, void, [1,2,3]).
-1 2 3 void
-> lists:foldr(P, void, [1,2,3]).
-3 2 1 void
+> P = fun(A, AccIn) -> [A|AccIn] end.
+> lists:foldl(P, [], [1,2,3]).
+[3,2,1]
+> lists:foldr(P, [], [1,2,3]).
+[1,2,3]
 ```
 
 [`foldl/3`](`foldl/3`) is tail recursive and is usually preferred to
@@ -2326,7 +2324,7 @@ Summing the elements in a list and double them at the same time:
 
 ```erlang
 > lists:mapfoldl(fun(X, Sum) -> {2*X, X+Sum} end,
-0, [1,2,3,4,5]).
+  0, [1,2,3,4,5]).
 {[2,4,6,8,10],15}
 ```
 """.
