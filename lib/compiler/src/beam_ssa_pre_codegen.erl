@@ -572,7 +572,7 @@ bs_insert_is([], _, _, Acc) ->
 %%
 %%    * bs_get / bs_ensured_get
 %%    * bs_skip / bs_ensured_skip
-%%    * bs_match_string
+%%    * bs_match_string / bs_ensured_match_string
 %%
 %% The bs_ensured_* instructions don't check that the bitstring being
 %% matched is long enough, because that has already been done by a
@@ -634,8 +634,13 @@ bs_instrs_is([#b_set{anno=Anno0,op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
                                Anno0
                        end,
                 I1#b_set{anno=Anno,op=bs_skip,args=[Type,Ctx|As]};
-            {bs_match,[#b_literal{val=string},Ctx|As]} ->
-                I1#b_set{op=bs_match_string,args=[Ctx|As]};
+            {bs_match,[#b_literal{val=string},Ctx,#b_literal{val=S}=S0]} ->
+                case Anno0 of
+                    #{ensured := true} when bit_size(S) =< 64 ->
+                        I1#b_set{op=bs_ensured_match_string,args=[Ctx,S0]};
+                    #{} ->
+                        I1#b_set{op=bs_match_string,args=[Ctx,S0]}
+                end;
             {_,_} ->
                 I1
         end,
@@ -2621,6 +2626,7 @@ reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
     end;
 reserve_zreg([], _, _, A) -> A.
 
+use_zreg(bs_ensured_match_string) -> yes;
 use_zreg(bs_ensured_skip) -> yes;
 use_zreg(bs_ensure) -> yes;
 use_zreg(bs_match_string) -> yes;
