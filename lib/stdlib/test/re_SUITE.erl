@@ -20,7 +20,8 @@
 -module(re_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, pcre/1,compile_options/1,
+	 init_per_group/2,end_per_group/2, pcre2/1,compile_options/1,
+         old_pcre1/1,
          pcre2_incompat/1,
 	 run_options/1,combined_options/1,replace_autogen/1,
 	 global_capture/1,replace_input_types/1,replace_with_fun/1,replace_return/1,
@@ -41,7 +42,8 @@ suite() ->
      {timetrap,{minutes,3}}].
 
 all() -> 
-    [pcre, compile_options, run_options, combined_options,
+    [pcre2, compile_options, run_options, combined_options,
+     old_pcre1,
      pcre2_incompat,
      replace_autogen, global_capture, replace_input_types,
      replace_with_fun, replace_return, split_autogen, split_options,
@@ -69,10 +71,17 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%% Run all applicable tests from the PCRE testsuites.
-pcre(Config) when is_list(Config) ->
+%% Run all applicable tests from the PCRE2 testsuites.
+pcre2(Config) when is_list(Config) ->
     RootDir = proplists:get_value(data_dir, Config),
     Res = run_pcre_tests:test(RootDir),
+    0 = lists:sum([ X || {X,_,_} <- Res ]),
+    {comment,Res}.
+
+%% Run tests from the old PCRE testsuites.
+old_pcre1(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(data_dir, Config),
+    Res = run_old_pcre1_tests:test(RootDir),
     0 = lists:sum([ X || {X,_,_} <- Res ]),
     {comment,Res}.
 
