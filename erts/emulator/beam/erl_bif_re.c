@@ -617,17 +617,44 @@ re_version_0(BIF_ALIST_0)
     BIF_RET(erts_new_binary_from_data(BIF_P, version_size, version));
 }
 
+static bool get_iolist_as_bytes(Eterm iolist,
+                                byte **bytes_p,
+                                ErlDrvSizeT *slen_p,
+                                byte** tmp_buf_p)
+{
+    int buffres;
+
+    if (is_bitstring(iolist)) {
+        Uint bit_offs, bit_sz;
+
+        ERTS_GET_BITSTRING(iolist, *bytes_p, bit_offs, bit_sz);
+        if (!BIT_OFFSET(bit_offs) && !TAIL_BITS(bit_sz)) {
+            *slen_p = BYTE_SIZE(bit_sz);
+            *tmp_buf_p = NULL;
+            return true;
+        }
+    }
+
+    if (erts_iolist_size(iolist, slen_p)) {
+        return false;
+    }
+    *bytes_p = *tmp_buf_p = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, *slen_p);
+    buffres = erts_iolist_to_buf(iolist, (char*)*bytes_p, *slen_p);
+    ASSERT(buffres >= 0); (void)buffres;
+    return true;
+}
+
 static BIF_RETTYPE
 re_compile(Process* p, Eterm arg1, Eterm arg2)
 {
     ErlDrvSizeT slen;
-    char *expr;
+    byte *expr;
+    byte *tmp_expr;
     pcre2_code *result;
     int errcode = 0;
     PCRE2_SIZE errofset = 0;
     Eterm ret;
     int unicode = 0;
-    int buffres;
     struct parsed_options opts;
 
     if (!parse_options(arg2, &opts)) {
@@ -642,24 +669,22 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
 
     unicode = (opts.flags & PARSE_FLAG_UNICODE) ? 1 : 0;
 
-    if (opts.flags & PARSE_FLAG_UNICODE && !is_bitstring(arg1)) {
-	BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
+    if (unicode && !is_bitstring(arg1)) {
+        BIF_TRAP2(ucompile_trap_exportp, p, arg1, arg2);
     }
 
-    if (erts_iolist_size(arg1, &slen)) {
+    if (!get_iolist_as_bytes(arg1, &expr, &slen, &tmp_expr)) {
         BIF_ERROR(p,BADARG);
     }
-    // ToDo: Avoid copy if nice aligned binary
-    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen);
-    buffres = erts_iolist_to_buf(arg1, expr, slen);
-    ASSERT(buffres >= 0); (void)buffres;
 
-    result = compile(expr, slen, &opts, the_precompile_ctx, &errcode, &errofset);
+    result = compile((char*)expr, slen, &opts, the_precompile_ctx, &errcode, &errofset);
 
     ret = build_compile_result(p, am_error, result, errcode,
 			       errofset, unicode, 1, NIL);
 
-    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
+    if (tmp_expr) {
+        erts_free(ERTS_ALC_T_RE_TMP_BUF, tmp_expr);
+    }
     BIF_RET(ret);
 }
 
@@ -1229,12 +1254,12 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
         else {
 	    /* Compile from textual regex */
 	    ErlDrvSizeT slen;
-	    char *expr;
+	    byte *expr;
+            byte *tmp_expr;
+
 	    int errcode = 0;
 	    PCRE2_SIZE errofset = 0;
 	    uint32_t capture_count;
-	    int buffres;
-            pcre2_compile_context* compile_ctx;
 
 	    if (opts.flags & PARSE_FLAG_UNICODE &&
 		(!is_bitstring(arg2) || !is_bitstring(arg1) ||
@@ -1242,20 +1267,15 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 		BIF_TRAP3(urun_trap_exportp, p, arg1, arg2, arg3);
 	    }
 	    
-	    if (erts_iolist_size(arg2, &slen)) {
-		BIF_ERROR(p,BADARG);
-	    }
-	    
-            // ToDo: Avoid copy if nice aligned binary
-	    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen);
-	    
-	    buffres = erts_iolist_to_buf(arg2, expr, slen);
-	    ASSERT(buffres >= 0); (void)buffres;
+            if (!get_iolist_as_bytes(arg2, &expr, &slen, &tmp_expr)) {
+                BIF_ERROR(p,BADARG);
+            }
 
-            compile_ctx = ((opts.flags & PARSE_FLAG_GLOBAL)
-                           ? the_precompile_ctx : the_tmp_compile_ctx);
-            regex_code = compile(expr, slen, &opts, compile_ctx,
+            regex_code = compile((char*)expr, slen, &opts, the_tmp_compile_ctx,
                                  &errcode, &errofset);
+            if (tmp_expr) {
+                erts_free(ERTS_ALC_T_RE_TMP_BUF, tmp_expr);
+            }
 
             if (!regex_code) {
 		/* Compilation error gives badarg except in the compile 
@@ -1266,10 +1286,8 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 					       (opts.flags &
 						PARSE_FLAG_UNICODE) ? 1 : 0, 
 					       1, am_compile);
-		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		    BIF_RET(res);
 		} else {
-		    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		    BIF_ERROR(p,BADARG);
 		}
 	    }
@@ -1282,7 +1300,6 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 					  PARSE_FLAG_UNICODE) ? 1 : 0,
 					 0, NIL);
 		Eterm *hp,r;
-		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		hp = HAlloc(p,4);
 		/* arg2 is in the tuple just to make exceptions right */
 		r = TUPLE3(hp,arg3,
@@ -1295,7 +1312,6 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3, int first)
 	    pcre2_pattern_info(regex_code, PCRE2_INFO_CAPTURECOUNT, &capture_count);
 	    ovsize = capture_count + 1;
 	    restart.code_to_free = regex_code;
-	    erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
         }
     } else {
         /* Precompiled regex */
