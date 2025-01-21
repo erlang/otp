@@ -308,18 +308,19 @@ wait_finished(internal,
     try
         Maybe(tls_handshake_1_3:validate_finished(State0, VerifyData)),
 
-        State1 = tls_handshake_1_3:calculate_traffic_secrets(State0),
-        State2 = tls_handshake_1_3:maybe_calculate_resumption_master_secret(State1),
-        ExporterSecret = tls_handshake_1_3:calculate_exporter_master_secret(State2),
-        State3 = tls_handshake_1_3:forget_master_secret(State2),
+        State1 = tls_handshake_1_3:handle_secrets(State0),
         %% Configure traffic keys
-        State4 = ssl_record:step_encryption_state(State3),
+        State2 = ssl_record:step_encryption_state(State1),
 
-        State5 = maybe_send_session_ticket(State4),
+        State3 = maybe_send_session_ticket(State2),
 
-        {Record, #state{protocol_specific = PS} = State} = ssl_gen_statem:prepare_connection(State5, tls_gen_connection),
-        tls_gen_connection:next_event(connection, Record,
-                                      State#state{protocol_specific = PS#{exporter_master_secret => ExporterSecret}},
+        {Record, #state{connection_states = ConnectionStates,
+                        static_env = #static_env{role = Role},
+                        ssl_options = SSLOpts} = State}
+            = ssl_gen_statem:prepare_connection(State3, tls_gen_connection),
+        KeepSecrets = maps:get(keep_secrets, SSLOpts, false),
+        tls_gen_connection_1_3:maybe_traffic_keylog_1_3(KeepSecrets, Role, ConnectionStates, 0),
+        tls_gen_connection:next_event(connection, Record, State,
                                       [{{timeout, handshake}, cancel}])
     catch
         {Ref, #alert{} = Alert} ->
@@ -471,10 +472,10 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
 
         Opts = State2#state.ssl_options,
         State3 = case maps:get(keep_secrets, Opts, false) of
-                     true ->
-                         tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random);
                      false ->
-                         State2
+                         State2;
+                     Keep when Keep =/= false  ->
+                         tls_handshake_1_3:set_client_random(State2, Hello#client_hello.random)
                  end,
 
         State4 = tls_handshake_1_3:update_start_state(State3,

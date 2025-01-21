@@ -47,6 +47,7 @@
          handle_resumption/2,
          send_key_update/2,
          update_cipher_key/2,
+         maybe_traffic_keylog_1_3/4,
          do_maybe/0]).
 
 %%--------------------------------------------------------------------
@@ -148,9 +149,14 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     handle_new_session_ticket(NewSessionTicket, State),
     tls_gen_connection:next_event(?STATE(connection), no_record, State);
 
-connection(internal, #key_update{} = KeyUpdate, State0) ->
+connection(internal, #key_update{} = KeyUpdate, #state{static_env = #static_env{role = Role},
+                                                       ssl_options = SslOpts,
+                                                       protocol_specific = PS} = State0) ->
     case handle_key_update(KeyUpdate, State0) of
-        {ok, State} ->
+        {ok, #state{connection_states = ConnectionStates} = State} ->
+            Fun = maps:get(keep_secrets, SslOpts, false),
+            N = maps:get(num_key_updates, PS, 0),
+            maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N),
             tls_gen_connection:next_event(?STATE(connection), no_record, State);
         {error, State, Alert} ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(connection), State),
@@ -289,9 +295,12 @@ send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
     tls_sender:send_post_handshake(Sender, KeyUpdate).
 
-update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
+update_cipher_key(ConnStateName, #state{connection_states = CS0,
+                                        protocol_specific = PS} = State0) ->
     CS = update_cipher_key(ConnStateName, CS0),
-    State0#state{connection_states = CS};
+    N = maps:get(num_key_updates, PS, 0),
+    State0#state{connection_states = CS,
+                 protocol_specific = PS#{num_key_updates => N + 1}};
 update_cipher_key(ConnStateName, CS0) ->
     #{security_parameters := SecParams0,
       cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
@@ -314,6 +323,17 @@ update_cipher_key(ConnStateName, CS0) ->
                             cipher_state => CipherState,
                             sequence_number => 0},
     CS0#{ConnStateName => ConnState}.
+
+maybe_traffic_keylog_1_3({keylog, Fun}, Role, ConnectionStates, N) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, read),
+    Keylog = ssl_logger:keylog_traffic_1_3(ssl_gen_statem:opposite_role(Role), ClientRandom,
+                                           Prf, TrafficSecret, N),
+    Fun(#{items => Keylog});
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
 
 %%--------------------------------------------------------------------
 do_wait_cert(#certificate_1_3{} = Certificate, State0) ->

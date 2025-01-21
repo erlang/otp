@@ -71,14 +71,16 @@
          key_update_at,  %% TLS 1.3
          dist_handle,
          log_level,
-         hibernate_after
+         hibernate_after,
+         keylog_fun
         }).
 
 -record(data,
         {
          static = #static{},
          connection_states = #{},
-         bytes_sent     %% TLS 1.3
+         bytes_sent,     %% TLS 1.3
+         num_key_updates = 0
         }).
 
 %%%===================================================================
@@ -237,7 +239,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            renegotiate_at := RenegotiateAt,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel,
-                           hibernate_after := HibernateAfter}},
+                           hibernate_after := HibernateAfter,
+                           keylog_fun := Fun}},
      #data{connection_states = ConnectionStates0, static = Static0} = StateData0) ->
     ConnectionStates = case BeastMitigation of
                            disabled ->
@@ -260,7 +263,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 renegotiate_at = RenegotiateAt,
                                                 key_update_at = KeyUpdateAt,
                                                 log_level = LogLevel,
-                                                hibernate_after = HibernateAfter}},
+                                                hibernate_after = HibernateAfter,
+                                                keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
@@ -326,13 +330,13 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               {next_event, internal,
                {application_packets, {self(),undefined}, Data}}]}
     end;
-connection({call, From}, get_application_traffic_secret, State) ->
-    CurrentWrite = maps:get(current_write, State#data.connection_states),
+connection({call, From}, get_application_traffic_secret, #data{num_key_updates = N} = Data) ->
+    CurrentWrite = maps:get(current_write, Data#data.connection_states),
     SecurityParams = maps:get(security_parameters, CurrentWrite),
     ApplicationTrafficSecret =
         SecurityParams#security_parameters.application_traffic_secret,
-    hibernate_after(connection, State,
-                    [{reply, From, {ok, ApplicationTrafficSecret}}]);
+    hibernate_after(connection, Data,
+                    [{reply, From, {ok, ApplicationTrafficSecret, N}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
@@ -391,11 +395,21 @@ handshake({call, _}, _, _) ->
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
 handshake(cast, {new_write, WriteState, Version},
-          #data{connection_states = ConnectionStates,
-                static = #static{key_update_at = KeyUpdateAt0} = Static} = StateData) ->
+          #data{connection_states = ConnectionStates0,
+                num_key_updates = N,
+                static = #static{key_update_at = KeyUpdateAt0,
+                                 role = Role,
+                                 keylog_fun = Fun} = Static} = StateData) ->
+    ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
+     case Version of
+         ?TLS_1_3 ->
+             maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N);
+          _ ->
+             ok
+     end,
     {next_state, connection, 
-     StateData#data{connection_states = ConnectionStates#{current_write => WriteState},
+     StateData#data{connection_states = ConnectionStates,
                     static = Static#static{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
@@ -581,12 +595,28 @@ send_post_handshake_data(Handshake, From, StateName,
             {next_state, StateName, StateData1,  [{reply, From, Result}]}
     end.
 
-maybe_update_cipher_key(#data{connection_states = ConnectionStates0}= StateData, #key_update{}) ->
+maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
+                              static = #static{role = Role,
+                                               keylog_fun = Fun},
+                              num_key_updates = N
+                             }= StateData, #key_update{}) ->
     ConnectionStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
+    maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N + 1),
     StateData#data{connection_states = ConnectionStates,
+                   num_key_updates = N + 1,
                    bytes_sent = 0};
 maybe_update_cipher_key(StateData, _) ->
     StateData.
+
+maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N) when is_function(Fun) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    Keylog =  ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, TrafficSecret, N),
+    Fun(#{items => Keylog});
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
 
 update_bytes_sent(Version, CS, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
     StateData#data{connection_states = CS};
