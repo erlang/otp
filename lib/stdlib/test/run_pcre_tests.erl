@@ -85,11 +85,13 @@ pick_exec_options([]) ->
 
 test([],_,_,_) ->
     0;
-test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
+test([{{replace,_},_,_,_,_}|T],PreCompile,index,REAsList) ->
+    test(T,PreCompile,index,REAsList);
+test([{R,RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
     Unicode = lists:member(unicode,Options0),
     RE = case REAsList of
 	     true ->
-		 if 
+		 if
 		     Unicode -> unicode:characters_to_list(RE0);
 		     true -> binary_to_list(RE0)
 		 end;
@@ -106,7 +108,7 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 		   end,
     case Cres of
 	{ok,P} ->
-	    try testrun(RE,P,Tests,ExecOptions,Xopt,XMode) of
+	    try testrun(R, RE,P,Tests,ExecOptions,Xopt,XMode) of
 		N when is_integer(N) ->
 		    N + test(T,PreCompile,XMode,REAsList)
             catch
@@ -182,10 +184,14 @@ press([]) ->
 press([H|T]) ->
     H++press(T).
 
-testrun(_,_,[],_,_,_) ->
+testrun(_,_,_,[],_,_,_) ->
     0;
-testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
-    Xopt = clean_duplicates(Xopt0,ExecOpt),
+testrun(ReFun, RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
+    Global = case lists:member(g, EO) of true -> [global]; false -> [] end,
+    ReturnType = if ReFun =:= run -> [{capture,all,XMode}];
+                    true -> [{return,XMode}] end,
+    AcceptNonAscii = lists:member(accept_nonascii,EO),
+    Xopt = clean_duplicates(Xopt0,ExecOpt) ++ ReturnType ++ Global,
 
     case lists:keymember(newline,1,Xopt) of
 	true ->
@@ -196,115 +202,66 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	false ->
 	    ok
     end,
-	    
-    Res = 
-	case lists:member(g,EO) of
-	    true ->
-		case XMode of
-		    binary ->
-			case re_run(Chal,P,ExecOpt++Xopt++
-				    [global,{capture,all,binary}]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				{match,press([bfix(R)|| R <- Reslist])}
-			end;
-		    list ->
-			case re_run(Chal,P,ExecOpt++Xopt++
-				    [global,{capture,all,list}]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				UFix = lists:member(unicode,EO),
-				{match,press([bfix([if UFix =:= true -> list_to_utf8(L); true -> list_to_binary(L) end || L <- R]) || R <- Reslist])}
-			end;
-		    index ->
-			case re_run(Chal,P,ExecOpt++Xopt++[global]) of
-			    nomatch ->
-				nomatch;
-			    {match, Reslist} ->
-				{match,press([fixup(Chal,R,0) || R <- Reslist])}
-			end
-		end;
-	    false ->
-		case EO -- [accept_nonascii] of
-		    EO ->
-			case contains_eightbit(Chal) of
-			    true ->
-				info("skipping 8bit without LANG (~p)~n",
-					 [Line]),
-				throw(skip);
-			    false ->
-				ok
-			end,
-
-			case XMode of
-			    binary ->
-				case re_run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,binary}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,bfix(Reslist)}
-				end;
-			    list ->
-				case re_run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,list}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					UFix = lists:member(unicode,EO),
-					{match,bfix([if 
-							 UFix =:= true -> list_to_utf8(L); 
-							 true -> list_to_binary(L) 
-						     end || L <- Reslist])}
-				end;
-			    index ->
-				case re_run(Chal,P,ExecOpt++Xopt) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,fixup(Chal,Reslist,0)}
-				end
-			end;
-		    _LesserOpt ->
-			case XMode of
-			    binary ->
-				case re_run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,binary}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,bfix(Reslist)}
-				end;
-			    list ->
-				case re_run(Chal,P,ExecOpt++Xopt++
-					    [{capture,all,list}]) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					UFix = lists:member(unicode,EO),
-					{match,bfix([if 
-							 UFix =:= true -> list_to_utf8(L); 
-							 true -> list_to_binary(L) 
-						     end || L <- Reslist])}
-				end;
-			    index ->
-				case re_run(Chal,P,ExecOpt++Xopt) of
-				    nomatch ->
-					nomatch;
-				    {match, Reslist} ->
-					{match,fixup(Chal,Reslist,0)}
-				end
-			end
-		end
-	end,
+    %% If global and accept_nonascii is not set, and subject has 8bit, skip
+    case not lists:member(g,EO) andalso not AcceptNonAscii andalso contains_eightbit(Chal) of
+    true -> 
+        info("skipping 8bit without LANG (~p)~n",
+                [Line]),
+        throw(skip);
+    false ->
+        ok
+    end,
+    TestFun = case ReFun of
+          run -> fun() -> re_run(Chal, P, ExecOpt++Xopt) end;
+          {replace, Replacement} -> fun() ->
+                {replace, re_replace(Chal, P, Replacement, ExecOpt++Xopt)}
+            end
+    end,
+    Res = case TestFun() of
+        %% Handle replace results
+        {replace, NewChal} when is_binary(NewChal), XMode =:= binary ->
+            {match, [{dont_care, NewChal}]};
+        {replace, NewChal} when is_list(NewChal), XMode =:= list ->
+            UFix = lists:member(unicode,EO),
+            {match, [{dont_care, if
+                UFix -> list_to_utf8(NewChal);
+                true -> list_to_binary(NewChal)
+            end}]};
+        %%  Handle run results
+        nomatch ->
+            nomatch;
+        {match, Reslist} when XMode =:= binary, Global =:= [global] ->
+            {match,press([bfix(R)|| R <- Reslist])};
+        {match, Reslist} when XMode =:= binary ->
+            {match,bfix(Reslist)};
+        {match, Reslist} when XMode =:= list, Global =:= [global] ->
+            UFix = lists:member(unicode,EO),
+            {match,press([bfix([if
+                            UFix -> list_to_utf8(L);
+                            true -> list_to_binary(L)
+                        end || L <- R]) || R <- Reslist])};
+        {match, Reslist} when XMode =:= list ->
+            UFix = lists:member(unicode,EO),
+            {match,bfix([if
+                            UFix -> list_to_utf8(L);
+                            true -> list_to_binary(L)
+                        end || L <- Reslist])};
+        {match, Reslist} when XMode =:= index, Global =:= [global] ->
+            {match,press([fixup(Chal,R,0) || R <- Reslist])};
+        {match, Reslist} when XMode =:= index ->
+            {match,fixup(Chal,Reslist,0)}
+    end,
+	
     case compare_sloppy(Res,Responses) of
 	true ->
-	    testrun(RE,P,T,EO,Xopt0,XMode);
+	    testrun(ReFun, RE,P,T,EO,Xopt0,XMode);
 	false ->
-	    io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
-		      [get(testfile), Line,RE,Chal,binary_to_list(Chal),used_options(),Responses,Res]),
+        case ReFun of
+	        run -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+		      [get(testfile), Line,RE,Chal,binary_to_list(Chal),used_options(),Responses,Res]);
+            {replace, Repl} -> io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nreplace with: ~p, ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+                [get(testfile), Line,RE,Chal,binary_to_list(Chal),Repl,used_options(),Responses,Res])
+        end,
 	    case get(error_limit) of
 		infinite -> ok;
 		X ->
@@ -317,6 +274,8 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	    end,
 	    1
     end.
+compare_sloppy([{dont_care, L1}|T1],[{_,L1}|T2]) ->
+    compare_sloppy(T1,T2);
 compare_sloppy({A,L1},{A,L2}) ->
     compare_sloppy(L1,L2);
 compare_sloppy(A,A) ->
@@ -438,26 +397,29 @@ stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
     {T1,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
     {NewRe,<< Ch, Options/binary >>} = end_of_re(Ch,Re),
     case interpret_options_x(backstrip(frontstrip(Options)),NewRe) of
-	{Olist,[]} ->
+	{Olist,[], Extra} ->
 	    U = lists:member(unicode,Olist),
-            case skip_debug_stuff(T1) of
-                {next, T2} ->
-                    inc_counter(re_skipped),
-                    stru(T2);
-                {continue, T2} ->
-                    inc_counter(re_tested),
-		    {NewT,Matches} = stru2(T2,U),
-		    Matches1 = case U of
-				   true ->
-				       Matches ++
-					   [ {unicode:characters_to_list(E1,unicode),E2,E3,E4} ||
-					       {E1,E2,E3,E4} <- Matches];
-				   false ->
-				       Matches
-			       end,
-		    [{NewRe,Line,Olist,Matches1}|stru(NewT)]
+        case skip_debug_stuff(T1) of
+            {next, T2} ->
+                inc_counter(re_skipped),
+                stru(T2);
+            {continue, T2} ->
+                inc_counter(re_tested),
+                {NewT,Matches} = stru2(T2,U),
+                Matches1 = case U of
+                    true ->
+                        Matches ++
+                        [ {unicode:characters_to_list(E1,unicode),E2,E3,E4} ||
+                            {E1,E2,E3,E4} <- Matches];
+                    false ->
+                        Matches
+                    end,
+                    case proplists:is_defined(replace, Extra) of
+                        true -> [{{replace, proplists:get_value(replace, Extra)},NewRe,Line,Olist,Matches1}|stru(NewT)];
+                        false -> [{run, NewRe,Line,Olist,Matches1}|stru(NewT)]
+                end
 	    end;
-	{_,Rest} ->
+	{_,Rest, _} ->
 	    NewT = skip_until_empty(T1),
 	    SkipTo = case NewT of
                          [{ToLine,_}|_] -> integer_to_list(ToLine);
@@ -481,16 +443,16 @@ contains_lang_sens(<<_,R/binary>>) ->
     contains_lang_sens(R).
 
 interpret_options_x(Options,RE) ->
-    {O,R} = interpret_options(<<Options/binary, $,>>),
+    {O,R,E} = interpret_options(<<Options/binary, $,>>),
     case (contains_lang_sens(RE) or lists:member(caseless,O)) of
 	false ->
-	    {[{exec_option,accept_nonascii}|O],R};
+	    {[{exec_option,accept_nonascii}|O],R,E};
 	true ->
 	    case lists:member(unicode,O) of
 		true ->
-		    {[{exec_option,accept_nonascii}|O],R};
+		    {[{exec_option,accept_nonascii}|O],R,E};
 		false ->
-		    {O,R}
+		    {O,R,E}
 	    end
     end.
 
@@ -523,101 +485,221 @@ bsr_opt(_Other) ->
     false.
 
 interpret_options(<<>>) ->
-    {[], []};
+    {[], [], []};
+%% Supported, put in the list of supported options
 interpret_options(<<"newline=",Rest0/binary>>) ->
     {NewLine, Rest1} = get_modifier(Rest0),
-    {Olist, NRest} = interpret_options(Rest1),
+    {Olist, NRest, Extra} = interpret_options(Rest1),
     case newline_opt(NewLine) of
 	false ->
-	    {Olist, [NewLine | NRest]};
+	    {Olist, [NewLine | NRest], Extra};
 	NL ->
-	    {[{newline, NL} | Olist], NRest}
+	    {[{newline, NL} | Olist], NRest, Extra}
     end;
 interpret_options(<<"bsr=",Rest0/binary>>) ->
     {Word, Rest1} = get_modifier(Rest0),
-    {Olist, NRest} = interpret_options(Rest1),
+    {Olist, NRest, Extra} = interpret_options(Rest1),
     case bsr_opt(Word) of
 	false ->
-	    {Olist, [Word | NRest]};
+	    {Olist, [Word | NRest], Extra};
 	BSR ->
-	    {[BSR | Olist], NRest}
+	    {[BSR | Olist], NRest, Extra}
     end;
 interpret_options(<<"utf,",Rest0/binary>>) ->
-    {Olist, NRest} = interpret_options(Rest0),
-    {[unicode | Olist], NRest};
+    {Olist, NRest, Extra} = interpret_options(Rest0),
+    {[unicode | Olist], NRest, Extra};
 interpret_options(<<"locale=fr_FR,",Rest/binary>>) ->
     info("Accepting (and ignoring) french locale~n",[]),
-    {Olist,NRest} = interpret_options(Rest),
-    {[{exec_option, accept_nonascii}|Olist],NRest};
-%% Support the regex but not the options
-interpret_options(<<"aftertext,",Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {Olist, NRest};
-interpret_options(<<"mark,",Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {Olist, NRest};
-
-interpret_options(<<"match_invalid_utf,",Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {Olist, ["match_invalid_utf", NRest]};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[{exec_option, accept_nonascii}|Olist],NRest, Extra};
 interpret_options(<<"dupnames,",Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[dupnames | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dupnames | Olist], NRest, Extra};
 interpret_options(<<"anchored,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[anchored | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[anchored | Olist], NRest, Extra};
 interpret_options(<<"ungreedy,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[ungreedy | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[ungreedy | Olist], NRest, Extra};
 interpret_options(<<"caseless,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[caseless | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[caseless | Olist], NRest, Extra};
 interpret_options(<<"dollar_endonly,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[dollar_endonly | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dollar_endonly | Olist], NRest, Extra};
 interpret_options(<<"dotall,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[dotall | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[dotall | Olist], NRest, Extra};
+interpret_options(<<"global,",Rest/binary>>) ->
+    {Olist, NRest, Extra} = interpret_options(Rest),
+    {[{exec_option,g} | Olist], NRest, Extra};
 interpret_options(<<"no_auto_capture,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[no_auto_capture | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[no_auto_capture | Olist], NRest, Extra};
 interpret_options(<<"firstline,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[firstline | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[firstline | Olist], NRest, Extra};
 interpret_options(<<"multiline,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[multiline | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[multiline | Olist], NRest, Extra};
 interpret_options(<<"extended,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[extended | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[extended | Olist], NRest, Extra};
 interpret_options(<<"ucp,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[ucp | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[ucp | Olist], NRest, Extra};
 interpret_options(<<"never_utf,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[never_utf | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[never_utf | Olist], NRest, Extra};
 interpret_options(<<"noteol,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[noteol | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[noteol | Olist], NRest, Extra};
 interpret_options(<<"notempty,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[notempty | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[notempty | Olist], NRest, Extra};
 interpret_options(<<"notempty_atstart,", Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[notempty_atstart | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[notempty_atstart | Olist], NRest, Extra};
 interpret_options(<<"no_start_optimize,",Rest/binary>>) ->
-    {Olist,NRest} = interpret_options(Rest),
-    {[no_start_optimize | Olist], NRest};
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {[no_start_optimize | Olist], NRest, Extra};
+%% Support the regex but not the options (silently ignore the option)
+interpret_options(<<"aftertext,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"mark,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"get=",Rest0/binary>>) ->
+    {_Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest, Extra} = interpret_options(Rest1),
+    {Olist, NRest, Extra};
+interpret_options(<<"getall,",Rest/binary>>) ->
+    {Olist,NRest, Extra} = interpret_options(Rest),
+    {Olist, NRest, Extra};
+interpret_options(<<"copy=",Rest0/binary>>) ->
+    {_Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest, Extra} = interpret_options(Rest1),
+    {Olist, NRest, Extra};
+%% Replace is supported using re:replace, put in Extra
+interpret_options(<<"replace=",Rest0/binary>>) ->
+    {Word, Rest1} = get_modifier(Rest0),
+    {Olist,NRest,Extra} = interpret_options(Rest1),
+    Replacement = (fun F(Word_, Acc) -> case Word_ of
+                <<$,, _/binary>> ->
+                    [];
+                %% do not support [10]
+                <<$[, _/binary>> ->
+                    [];
+                %% do not support $*Mark
+                <<$$, $*, _/binary>> ->
+                    [];
+                %% replace $0 with &, $1 with \\1, ${1} with \\1
+                <<$$, $0, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $&>>);
+                <<$$, ${, $0, $}, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $&>>);
+                <<$$, D, WRest/binary>> when $1 =< D, D =< $9 ->
+                    F(WRest, <<Acc/binary, $\\, D>>);
+                <<$$, ${, D, $},WRest/binary>> when $1 =< D, D =< $9 ->
+                    F(WRest, <<Acc/binary, $\\, D>>);
+                <<$$, $$, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, $$>>);
+                %% do not support any other starting with $, ${ i.e. ${Name}
+                <<$$, _/binary>> ->
+                    [];
+                <<C, WRest/binary>> ->
+                    F(WRest, <<Acc/binary, C>>);
+                <<>> ->
+                    Acc
+            end
+        end)(Word, <<>>),
+    case Replacement of
+        [] ->
+            {Olist, ["replace="++Word | NRest], Extra};
+        _ ->
+            {Olist, NRest, [{replace, Replacement}|Extra]}
+    end;
 interpret_options(<<Bin/binary>>) ->
     [FirstWord, Rest] = binary:split(Bin, <<",">>),
-    {Olist, Failed1} = interpret_options(Rest),
-    case short_options(FirstWord, Olist, Failed1) of
+    {Olist, Failed1, Extra} = interpret_options(Rest),
+    case interpret_not_supported_options(FirstWord) of
+        true ->
+            {Olist, [FirstWord | Failed1], Extra};
         false ->
-            {Olist, [FirstWord | Failed1]};
-        {Options, Failed2} ->
-            {Options ++ Olist, Failed2}
+            case short_options(FirstWord, Olist, Failed1) of
+                false ->
+                    {Olist, [FirstWord | Failed1], Extra};
+                {Options, Failed2} ->
+                    {Options ++ Olist, Failed2, Extra}
+            end
     end.
-
+interpret_not_supported_options(Word) ->
+    case binary:split(Word, <<"=">>) of
+        [FirstWord, _] ->
+            lists:member(FirstWord, [
+                <<"allaftertext">>,
+                <<"allcaptures">>,
+                <<"allow_empty_class">>,
+                <<"allow_lookaround_bsk">>,
+                <<"allow_surrogate_escapes">>,
+                <<"allvector">>,
+                <<"alt_bsux">>,
+                <<"alt_circumflex">>,
+                <<"alt_verbnames">>,
+                <<"altglobal">>,
+                <<"ascii_all">>,
+                <<"ascii_bsd">>,
+                <<"ascii_bss">>,
+                <<"ascii_bsw">>,
+                <<"ascii_digit">>,
+                <<"ascii_posix">>,
+                <<"auto_callout">>,
+                <<"bad_escape_is_literal">>,
+                <<"bincode">>,
+                <<"callout_info">>,
+                <<"caseless_restrict">>,
+                <<"endanchored">>,
+                <<"escaped_cr_is_lf">>,
+                <<"expand">>,
+                <<"extended_more">>,
+                <<"extra_alt_bsux">>,
+                <<"hex">>,
+                <<"info">>,
+                <<"jitstack">>,
+                <<"literal">>,
+                <<"locale">>,
+                <<"match_invalid_utf">>,
+                <<"match_line">>,
+                <<"match_unset_backref">>,
+                <<"match_word">>,
+                <<"max_pattern_length">>,
+                <<"max_varlookbehind">>,
+                <<"never_backslash_c">>,
+                <<"never_ucp">>,
+                <<"no_auto_possess">>,
+                <<"no_dotstar_anchor">>,
+                <<"no_jit">>,
+                <<"no_utf_check">>,
+                <<"null_context">>,
+                <<"null_pattern">>,
+                <<"ovector">>,
+                <<"parens_nest_limit">>,
+                <<"ph">>,
+                <<"ps">>,
+                <<"stackguard">>,
+                <<"startchar">>,
+                <<"subject_literal">>,
+                <<"substitute_callout">>,
+                <<"substitute_extended">>,
+                <<"substitute_literal">>,
+                <<"tables">>,
+                <<"use_length">>,
+                <<"use_offset_limit">>
+            ]);
+        _ ->
+            false
+    end.
 short_options(<<>>, Olist, Failed) ->
     {Olist, Failed};
 short_options(<<"xx", Rest/binary>>, Olist0, Failed0) ->
@@ -690,11 +772,23 @@ stru2(X,_) ->
 responses([{Line,<<"MK: ",_/binary>>}|T],U) ->
     info("Skipping mark response at line ~p~n",[Line]),
     responses(T,U);
+responses([{Line,<<?SPACE, _D,"C ",_/binary>>}|T],U) ->
+    info("Skipping copy response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE, _D,"G ",_/binary>>}|T],U) ->
+    info("Skipping get response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE, _D,"L ",_/binary>>}|T],U) ->
+    info("Skipping getall response at line ~p~n",[Line]),
+    responses(T,U);
 responses([{Line,<<" 0+ ",_/binary>>}|T],U) ->
     info("Skipping aftertext response at line ~p~n",[Line]),
     responses(T,U);
 responses([{Line, <<"Partial match: ",_/binary>>}|T],U) ->
     info("Skipping partial match response at line ~p~n",[Line]),
+    responses(T,U);
+responses([{Line,<<?SPACE,_,$(, _, $), " Old",_/binary>>}|T],U) ->
+    info("Skipping substitute response at line ~p~n",[Line]),
     responses(T,U);
 responses([{_Line,<< X:2/binary,$:,?SPACE,Resp/binary>>}|T],U) ->
     {NT,R2} = responses(T,U),
@@ -708,9 +802,6 @@ responses([{_Line,<<"No match",_/binary>>}|T],_) ->
     {T,nomatch};
 responses([{Line,<<?SPACE,No,Ch,_/binary>>}|T],U) when No >= $0, No =< $9, Ch >= $A, Ch =< $Z ->
     info("Skipping strange debug response at line ~p~n",[Line]),
-    responses(T,U);
-responses([{Line,<<?SPACE,?SPACE,Ch,_/binary>>}|T],U) when Ch =:= $G; Ch =:= $C ->
-    info("Skipping stranger debug response at line ~p~n",[Line]),
     responses(T,U);
 responses([{Line,<<C,_/binary>>=X}|_],_) when C =/= ?SPACE ->
     info("Offending response line(~w)! ~p~n",[Line,X]),
@@ -1347,6 +1438,11 @@ re_run(Subj, RE, Opts) ->
     inc_counter(re_run),
     put(re_run_opts, Opts),
     re:run(Subj, RE, Opts).
+
+re_replace(Subj, RE, Repl, Opts) ->
+    inc_counter(re_replace),
+    put(re_run_opts, Opts),
+    re:replace(Subj, RE, Repl, Opts).
 
 used_options() ->
     RunOpts = get(re_run_opts),
