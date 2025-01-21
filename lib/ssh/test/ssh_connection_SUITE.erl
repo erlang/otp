@@ -623,6 +623,9 @@ big_cat(Config) when is_list(Config) ->
     %% build 10MB binary
     Data = << <<X:32>> || X <- lists:seq(1,2500000)>>,
 
+    %% pre-adjust receive window so the other end doesn't block
+    ssh_connection:adjust_window(ConnectionRef, ChannelId0, size(Data)),
+
     ct:log("sending ~p byte binary~n",[size(Data)]),
     ok = ssh_connection:send(ConnectionRef, ChannelId0, Data, 10000),
     ok = ssh_connection:send_eof(ConnectionRef, ChannelId0),
@@ -764,11 +767,8 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
 %%  done with transferring data towards client and terminates the
 %%  channel (this results with {error, closed} return value from
 %%  ssh_connection:send on the client side)
-%%- interrupted_send used to be interrupted when ssh_echo_server ran
-%%  out of data window and closed channel
-%%- but with automatic window adjustment, above condition is not taking
-%%  place, so ssh_echo_server continues sending data until it is done
-%%- so ssh_connection:send returns 'ok'
+%%- interrupted_send is interrupted when ssh_echo_server ran
+%%  out of ssh data window and closed channel
 small_interrupted_send(Config) ->
     K = 1024,
     SendSize = 10 * K * K,
@@ -807,7 +807,7 @@ do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
 		  fun() ->
 			  ct:log("~p:~p open channel",[?MODULE,?LINE]),
 			  {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-			  ct:log("~p:~p start subsystem", [?MODULE,?LINE]),
+			  ct:log("~p:~p start ssh subsystem", [?MODULE,?LINE]),
 			  case ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity) of
 			      success ->
 				  Parent ! {self(), channelId, ChannelId},
@@ -840,6 +840,7 @@ do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
 	    SenderPid = spawn(fun() ->
 				      Parent ! {self(),  ssh_connection:send(ConnectionRef, ChannelId, Data, 30000)}
 			      end),
+            ct:log("SenderPid = ~p", [SenderPid]),
 	    receive
 	    	{ResultPid, result, {fail, Fail}} ->
 		    ct:log("~p:~p Listener failed: ~p", [?MODULE,?LINE,Fail]),
@@ -858,7 +859,7 @@ do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
 			    ct:log("~p:~p Not expected send result: ~p",[?MODULE,?LINE,Msg]),
 			    {fail, "Not expected msg"}
 		    end;
-		{SenderPid, SenderResult} ->
+		{SenderPid, {error, closed}} ->
 		    ct:log("~p:~p ~p - That's what we expect, "
                            "but client channel handler has not reported yet",
                            [?MODULE,?LINE, SenderResult]),
@@ -1965,26 +1966,35 @@ do_simple_exec(ConnectionRef, N) ->
         _ ->
             receive_bytes(ConnectionRef, ChannelId0, N * byte_size(ExpectedBin), 0)
     end,
-
     %% receive close messages
+    CloseMessages =
+        [{ssh_cm, ConnectionRef, {eof, ChannelId0}},
+         {ssh_cm, ConnectionRef, {closed, ChannelId0}}],
+    Timeout = 10000,
+    [receive
+         M ->
+             ct:log("Received M = ~w", [M]),
+             ok
+     after
+         Timeout ->
+             ct:log("M = ~w not found !", [M]),
+             ct:log("Messages in queue =~n~p", [process_info(self(), messages)]),
+             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+     end || M <- CloseMessages],
     receive
-	{ssh_cm, ConnectionRef, {eof, ChannelId0}} ->
-	    ok
+        %% 141 is exit status of `yes testing | head -n 1` on tcsh
+        %% other shells return 0
+        ExitMsg = {ssh_cm, ConnectionRef, {exit_status, ChannelId0, ExitStatus}}
+          when ExitStatus == 0; ExitStatus == 141 ->
+            ct:log("Received M = ~w", [ExitMsg]),
+            ok
     after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+        Timeout ->
+            ct:log("Acceptable exit status not received"),
+            ct:log("Messages in queue =~n~p", [process_info(self(), messages)]),
+            ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
-    receive
-	{ssh_cm, ConnectionRef, {exit_status, ChannelId0, 0}} ->
-	    ok
-    after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end,
-    receive
-	{ssh_cm, ConnectionRef,{closed, ChannelId0}} ->
-	    ok
-    after
-	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+    ok.
 
 
 %%--------------------------------------------------------------------
@@ -2121,6 +2131,7 @@ collect_data(ConnectionRef, ChannelId, EchoSize, Acc, Sum) ->
 	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} when is_binary(Data) ->
 	    ct:log("~p:~p collect_data: received ~p bytes. total ~p bytes,  want ~p more",
 		   [?MODULE,?LINE,size(Data),Sum+size(Data),EchoSize-Sum]),
+            ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
 	    collect_data(ConnectionRef, ChannelId, EchoSize, [Data | Acc], Sum+size(Data));
 	{ssh_cm, ConnectionRef, Msg={eof, ChannelId}} ->
 	    collect_data_report_end(Acc, Msg, EchoSize);
@@ -2184,6 +2195,7 @@ receive_bytes(ConnectionRef, ChannelId0, Budget, AccSize) when Budget > 0 ->
                 "~p bytes Received/Total = ~p/~p bytes",
             Args = [Budget, byte_size(D), AccSize + byte_size(D)],
             ct:log(Fmt, Args),
+            ssh_connection:adjust_window(ConnectionRef, ChannelId0, size(D)),
             receive_bytes(ConnectionRef, ChannelId0,
                           Budget - byte_size(D), AccSize + byte_size(D))
     after
