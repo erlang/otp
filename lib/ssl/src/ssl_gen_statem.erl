@@ -567,14 +567,22 @@ initial_hello({call, From}, {start, Timeout}, #state{static_env = #static_env{ro
 
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
+            handshake_env = #handshake_env{} = Env,
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0) ->
     try
         SslOpts = ssl:update_options(Opts, Role, OrigSSLOptions),
 	State = ssl_config(SslOpts, Role, State0),
-	initial_hello({call, From}, {start, Timeout},
-	     State#state{ssl_options = SslOpts,
-                         socket_options = new_emulated(EmOpts, SockOpts)})
+        CountinueStatus = case maps:get(handshake, SslOpts) of
+                              hello ->
+                                  pause;
+                              Other ->
+                                  Other
+                          end,
+        initial_hello({call, From}, {start, Timeout},
+                      State#state{ssl_options = SslOpts,
+                                  handshake_env = Env#handshake_env{continue_status = CountinueStatus},
+                                  socket_options = new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
 	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
