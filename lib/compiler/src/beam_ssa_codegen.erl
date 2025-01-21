@@ -374,8 +374,8 @@ classify_heap_need(Name, _Args) ->
 %%  by classify_heap_need/2.
 
 classify_heap_need(bs_ensure) -> gc;
-classify_heap_need(bs_checked_get) -> gc;
-classify_heap_need(bs_checked_skip) -> gc;
+classify_heap_need(bs_ensured_get) -> gc;
+classify_heap_need(bs_ensured_skip) -> gc;
 classify_heap_need(bs_get) -> gc;
 classify_heap_need(bs_get_tail) -> gc;
 classify_heap_need(bs_init_writable) -> gc;
@@ -482,9 +482,8 @@ prefer_xregs_is([#cg_set{op=call,dst=Dst}=I0|Is], St, Copies, Acc) ->
     I = prefer_xregs_call(I0, Copies, St),
     prefer_xregs_is(Is, St, #{Dst=>{x,0}}, [I|Acc]);
 prefer_xregs_is([#cg_set{op=Op}=I|Is], St, Copies0, Acc)
-  when Op =:= bs_checked_get;
-       Op =:= bs_checked_skip;
-       Op =:= bs_checked_get_tail;
+  when Op =:= bs_ensured_get;
+       Op =:= bs_ensured_skip;
        Op =:= bs_ensure;
        Op =:= bs_match_string ->
     Copies = prefer_xregs_prune(I, Copies0, St),
@@ -682,7 +681,7 @@ need_live_anno(Op) ->
     case Op of
         {bif,_} -> true;
         bs_create_bin -> true;
-        bs_checked_get -> true;
+        bs_ensured_get -> true;
         bs_get -> true;
         bs_get_position -> true;
         bs_get_tail -> true;
@@ -1802,17 +1801,17 @@ cg_instr(bs_start_match, [{atom,new}, Src0], Dst, Set) ->
     {Src, Pre} = force_reg(Src0, Dst),
     Live = get_live(Set),
     Pre ++ [{bs_start_match4,{atom,no_fail},Live,Src,Dst}];
-cg_instr(bs_checked_get, [Kind,Ctx,{literal,Flags},{integer,Size},{integer,Unit}], Dst, Set) ->
+cg_instr(bs_ensured_get, [Kind,Ctx,{literal,Flags},{integer,Size},{integer,Unit}], Dst, Set) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
     Live = get_live(Set),
-    [{bs_checked_get,Live,Kind,Ctx,field_flags(Flags, Set),Size,Unit,Dst}];
-cg_instr(bs_checked_get, [{atom,binary},Ctx,{literal,_Flags},
+    [{bs_ensured_get,Live,Kind,Ctx,field_flags(Flags, Set),Size,Unit,Dst}];
+cg_instr(bs_ensured_get, [{atom,binary},Ctx,{literal,_Flags},
                           {atom,all},{integer,Unit}], Dst, Set) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
     Live = get_live(Set),
-    [{bs_checked_get_tail,Live,Ctx,Unit,Dst}];
+    [{bs_ensured_get_tail,Live,Ctx,Unit,Dst}];
 cg_instr(bs_get_tail, [Src], Dst, Set) ->
     Live = get_live(Set),
     [{bs_get_tail,Src,Dst,Live}];
@@ -1848,12 +1847,12 @@ cg_instr(is_nonempty_list, Ss, Dst, Set) ->
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
-cg_instr(bs_checked_skip, [_Type,Ctx,_Flags,{integer,Sz},{integer,U}], {z,_})
+cg_instr(bs_ensured_skip, [_Type,Ctx,_Flags,{integer,Sz},{integer,U}], {z,_})
   when is_integer(Sz) ->
     %% Temporary instruction that will be incorporated into a bs_match
     %% instruction by the bs_translate sub pass.
-    [{bs_checked_skip,Ctx,Sz*U}];
-cg_instr(bs_checked_skip, [_Type,_Ctx,_Flags,{atom,all},{integer,_U}], {z,_}) ->
+    [{bs_ensured_skip,Ctx,Sz*U}];
+cg_instr(bs_ensured_skip, [_Type,_Ctx,_Flags,{atom,all},{integer,_U}], {z,_}) ->
     [];
 cg_instr(bs_init_writable, Args, Dst) ->
     setup_args(Args) ++ [bs_init_writable|copy({x,0}, Dst)];
@@ -2334,7 +2333,7 @@ bs_translate_fixup_tail([], Bits) ->
 
 bs_translate_instr({test,bs_ensure,Fail,[Ctx,Size,Unit]}) ->
     {Ctx,Fail,{ensure_at_least,Size,Unit}};
-bs_translate_instr({bs_checked_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
+bs_translate_instr({bs_ensured_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
                     Size,Unit,Dst}) ->
     %% Only keep flags that have a meaning for binary matching and are
     %% distinct from the default value.
@@ -2348,9 +2347,9 @@ bs_translate_instr({bs_checked_get,Live,{atom,Type},Ctx,{field_flags,Flags0},
                          {anno,_} -> false
                      end],
     {Ctx,{f,0},{Type,Live,{literal,Flags},Size,Unit,Dst}};
-bs_translate_instr({bs_checked_skip,Ctx,Stride}) ->
+bs_translate_instr({bs_ensured_skip,Ctx,Stride}) ->
     {Ctx,{f,0},{skip,Stride}};
-bs_translate_instr({bs_checked_get_tail,Live,Ctx,Unit,Dst}) ->
+bs_translate_instr({bs_ensured_get_tail,Live,Ctx,Unit,Dst}) ->
     {Ctx,{f,0},{get_tail,Live,Unit,Dst}};
 bs_translate_instr({bs_get_tail,Ctx,Dst,Live}) ->
     {Ctx,{f,0},{get_tail,Live,1,Dst}};

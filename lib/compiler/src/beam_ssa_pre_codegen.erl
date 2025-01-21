@@ -568,9 +568,18 @@ bs_insert_is([#b_set{dst=Dst}=I|Is], Saves, Restores, Acc0) ->
 bs_insert_is([], _, _, Acc) ->
     {reverse(Acc), []}.
 
-%% Translate bs_match instructions to bs_get, bs_match_string,
-%% or bs_skip. Also rename match context variables to use the
-%% variable assigned to by the start_match instruction.
+%% Translate bs_match instructions to one of:
+%%
+%%    * bs_get / bs_ensured_get
+%%    * bs_skip / bs_ensured_skip
+%%    * bs_match_string
+%%
+%% The bs_ensured_* instructions don't check that the bitstring being
+%% matched is long enough, because that has already been done by a
+%% bs_ensure instruction.
+%%
+%% Also rename match context variables to use the variable assigned to
+%% by the start_match instruction.
 
 bs_instrs([{L,#b_blk{is=Is0}=Blk}|Bs], CtxChain, Acc0) ->
     case bs_instrs_is(Is0, CtxChain, []) of
@@ -591,6 +600,8 @@ bs_rewrite_skip([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs]) ->
         no ->
             [{L,Blk}|bs_rewrite_skip(Bs)];
         {yes,Is} ->
+            %% bs_skip was rewritten to bs_ensured_skip, which
+            %% can't fail.
             #b_br{succ=Succ} = Last0,
             Last = beam_ssa:normalize(Last0#b_br{fail=Succ}),
             [{L,Blk#b_blk{is=Is,last=Last}}|bs_rewrite_skip(Bs)]
@@ -600,7 +611,7 @@ bs_rewrite_skip([]) ->
 
 bs_rewrite_skip_is([#b_set{anno=#{ensured := true},op=bs_skip}=I0,
                     #b_set{op={succeeded,guard}}], Acc) ->
-    I = I0#b_set{op=bs_checked_skip},
+    I = I0#b_set{op=bs_ensured_skip},
     {yes,reverse(Acc, [I])};
 bs_rewrite_skip_is([I|Is], Acc) ->
     bs_rewrite_skip_is(Is, [I|Acc]);
@@ -640,7 +651,8 @@ bs_combine(Dst, Ctx, [{L,#b_blk{is=Is0}=Blk}|Acc]) ->
      #b_set{anno=Anno,op=bs_match,args=[Type,_|As]}=BsMatch|Is1] = reverse(Is0),
     if
         is_map_key(ensured, Anno) ->
-            Is = reverse(Is1, [BsMatch#b_set{op=bs_checked_get,dst=Dst,
+            %% This instruction can't fail.
+            Is = reverse(Is1, [BsMatch#b_set{op=bs_ensured_get,dst=Dst,
                                              args=[Type,Ctx|As]}]),
             #b_blk{last=#b_br{succ=Succ}=Br0} = Blk,
             Br = beam_ssa:normalize(Br0#b_br{fail=Succ}),
@@ -2609,7 +2621,7 @@ reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
     end;
 reserve_zreg([], _, _, A) -> A.
 
-use_zreg(bs_checked_skip) -> yes;
+use_zreg(bs_ensured_skip) -> yes;
 use_zreg(bs_ensure) -> yes;
 use_zreg(bs_match_string) -> yes;
 use_zreg(bs_set_position) -> yes;
