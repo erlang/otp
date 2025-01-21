@@ -910,10 +910,12 @@ handle_alerts([#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} | _Alerts],
                                                           recv =  #recv{from = From}} = State}) when From == undefined ->
     %% Linger to allow recv and setopts to possibly fetch data not yet delivered to user to be fetched
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = true}}};
-handle_alerts([#alert{level = ?FATAL} = Alert | _Alerts], 
+handle_alerts([#alert{level = ?FATAL} = Alert0 | _Alerts],
               {next_state, connection = StateName, #state{connection_env = CEnv, 
+                                                          static_env = #static_env{role = Role},
                                                           socket_options = #socket_options{active = false},
                                                           recv = #recv{from = From}} = State}) when From == undefined ->
+    Alert = Alert0#alert{role = ssl_gen_statem:opposite_role(Role)},
     %% Linger to allow recv and setopts to retrieve alert reason 
     {next_state, StateName, State#state{connection_env = CEnv#connection_env{socket_tls_closed = Alert}}};
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->

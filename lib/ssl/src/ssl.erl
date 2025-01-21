@@ -198,7 +198,8 @@ Special Erlang node configuration for the application can be found in
               tls_server_option/0,
               client_option_cert/0,
               server_option_cert/0,
-              common_option_tls13/0
+              common_option_tls13/0,
+              keylog_info/0
              ]).
 
 %% -------------------------------------------------------------------------------------------------------
@@ -658,14 +659,24 @@ Options common to both client and server side.
   on hello extensions before continuing or aborting the handshake by
   calling `handshake_continue/3` or `handshake_cancel/1`.
 
-- **`{keep_secrets, KeepSecrets}`** - Configures a TLS 1.3 connection for keylogging.
+- **`{keep_secrets, KeepSecrets}`** - Configures a TLS connection for keylogging.
 
-  In order to retrieve keylog information on a TLS 1.3 connection, it must be
+  In order to retrieve keylog information on a TLS connection, it must be
   configured in advance to keep `client_random` and various handshake secrets.
 
   The `keep_secrets` functionality is disabled (`false`) by default.
 
   Added in OTP 23.2.
+
+  The `keep_secrets` can be enabled by setting the option to `true` or
+  to a fun of arity one. If the connection succeds the keylog
+  information can be fetched with connection_information/2, however if
+  the connection fails this is not possible and then the fun, if
+  specified, will be called with [`keylog_info()`](`t:keylog_info/0`)
+  as an argument. For more information see [NSS
+  keylog](using_ssl.md#nss-keylog).
+
+  Added in OTP @OTP-19391@
 
 - **`{max_handshake_size, HandshakeSize}`** - Limit the acceptable handshake packet size.
 
@@ -702,7 +713,7 @@ Options common to both client and server side.
                                 {ciphers, cipher_suites()} |
                                 {signature_algs, signature_algs()} |
                                 {signature_algs_cert, [sign_scheme()]} |
-                                {keep_secrets, KeepSecrets:: boolean()} |
+                                {keep_secrets, KeepSecrets:: boolean() | function()} |
                                 {max_handshake_size, HandshakeSize::pos_integer()} |
                                 {versions, [protocol_version()]} |
                                 {log_level, Level::logger:level() | none | all} |
@@ -2053,8 +2064,15 @@ TLS connection information that can be used for NSS key logging.
 -type security_info() :: [{client_random, binary()} |
                           {server_random, binary()} |
                           {master_secret, binary()} |
-                          {keylog, term()}].
+                          {keylog, [keylog_item()]}].
 
+-type keylog_item() :: io_lib:chars().
+
+-type keylog_info() ::  #{items => [keylog_item()],
+                          server => {inet:hostname(), inet:port_number()},
+                          listen_port => inet:port_number(),
+                          src => {inet:ip_address(), inet:port_number()} | peer
+                         }.
 
 -doc(#{title => <<"Info">>}).
 -doc """
@@ -2690,9 +2708,8 @@ defined.
 Note that the values for `client_random`, `server_random`, `master_secret`, and `keylog`
 affect the security of connection.
 
-In order to retrieve `keylog` and other secret information from a TLS 1.3
-connection, the `keep_secrets` option must be configured in advance and
-set to `true`.
+In order to retrieve `keylog` and other secret information from a TLS
+connection, the `keep_secrets` option must be configured in advance.
 
 > #### Note {: .info }
 >
@@ -3809,7 +3826,7 @@ opt_protocol_versions(UserOpts, Opts, Env) ->
 
     {_, LL} = get_opt_of(log_level, LogLevels, DefaultLevel, UserOpts, Opts),
 
-    Opts1 = set_opt_bool(keep_secrets, false, UserOpts, Opts),
+    Opts1 = opt_keep_secrets(UserOpts, Opts),
 
     {DistW, Dist} = get_opt_bool(erl_dist, false, UserOpts, Opts1),
     option_incompatible(PRC =:= dtls andalso Dist, [{protocol, PRC}, {erl_dist, Dist}]),
@@ -4623,6 +4640,18 @@ opt_process(UserOpts, Opts0, _Env) ->
     %% Opts = Opts1#{receiver_spawn_opts => RSO, sender_spawn_opts => SSO},
     set_opt_int(hibernate_after, 0, infinity, infinity, UserOpts, Opts2).
 
+opt_keep_secrets(UserOpts, Opts) ->
+    case get_opt(keep_secrets, false, UserOpts, Opts) of
+        {new, Value} when is_boolean(Value) orelse is_function(Value) ->
+            Opts#{keep_secrets => Value};
+        {old, _} ->
+            Opts;
+        {default, _} -> %% Keep default implicit
+            Opts;
+        {_, Value}  ->
+            option_error(keep_secrets, Value)
+    end.
+
 %%%%
 
 get_opt(Opt, Default, UserOpts, Opts) ->
@@ -4691,13 +4720,6 @@ get_opt_file(Opt, Default, UserOpts, Opts) ->
     case get_opt(Opt, Default, UserOpts, Opts) of
         {new, File} -> {new, validate_filename(File, Opt)};
         Res -> Res
-    end.
-
-set_opt_bool(Opt, Default, UserOpts, Opts) ->
-    case maps:get(Opt, UserOpts, Default) of
-        Default -> Opts;
-        Value when is_boolean(Value) -> Opts#{Opt => Value};
-        Value -> option_error(Opt, Value)
     end.
 
 get_opt_map(Opt, Default, UserOpts, Opts) ->

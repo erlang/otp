@@ -411,6 +411,28 @@ _Exporting the secrets_
       file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem <- KeylogItems]).
 ```
 
+If the connection fails connection_information cannot be called as the connection is closed.
+To be able to retrieve key logging even for failed connections it is possible to specify a fun as
+the keep_secrets option value instead of true, so that the fun can be called if the connection fails.
+
+An outline of this use case:
+
+```erlang
+    Me = self(),
+    Fun = fun(KeylogInfo) ->
+                  Me ! {alert_info, KeylogInfo}
+          end,
+    Options = [{keep_secrets, Fun} ...]
+
+    ...
+
+    receive
+        {alert_info, #{items := KeylogItems, server := Server}} ->
+	    io:format("Writing keylog for connection to ~p", [Server]),
+	    file:write_file("key.log", [[KeylogItem,$\n] || KeylogItem <- KeylogItems])
+    ...
+```
+
 ## Session Reuse Prior to TLS 1.3
 
 Clients can request to reuse a session established by a previous full handshake
