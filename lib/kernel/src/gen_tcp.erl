@@ -879,11 +879,11 @@ The return value `{error, {timeout, RestData}}` can only be returned when
 > option) expires (the function can "hang" even when using the `inet`
 > backend if the internal buffers are full).
 >
-> If this happens when using `packet =/= raw`, a partial package has been
-> written.  A new package therefore _mustn't_ be written at this point,
+> If this happens when using `packet =/= raw`, a partial packet has been
+> written. A new packet therefore _mustn't_ be written at this point,
 > as there is no way for the peer to distinguish this from data in
-> the current package.  Instead, set package to raw, send the rest data
-> (as raw data) and then set package to the correct package type again.
+> the current packet. Instead, set the `packet` option to `raw`, send the
+> rest data (as raw data) and then set `packet` back to the correct type.
 """.
 -spec send(Socket, Packet) -> ok | {error, Reason} when
       Socket   :: socket(),
