@@ -447,7 +447,7 @@ run(List)
 
 run(List, Dir)
   when is_list(List) ->
-    Path = filename:join([code:lib_dir(diameter, src), "dict", ?base]),
+    Path = filename:join([?LIB_DIR(diameter, src), "dict", ?base]),
     {ok, Bin} = file:read_file(Path),
     ?RUN([{{?MODULE, F, [{Bin, Dir}]}, 180000} || F <- List]);
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,6 +149,11 @@ run(List)
 run(Grp) ->
     ?DL("run(~w) -> start (diameter) app", [Grp]),
     ok = diameter:start(),
+
+    ?DL("run(~w) -> register services", [Grp]),
+    ok = ?DEL_REG(?SERVER),
+    ok = ?DEL_REG(?CLIENT),
+
     ?DL("run(~w) -> start (diameter) service 'server'", [Grp]),
     ok = diameter:start_service(?SERVER, service(?SERVER, Grp)),
     ?DL("run(~w) -> start (diameter) service 'client'", [Grp]),
@@ -161,6 +166,11 @@ run(Grp) ->
                     end,
                     [{group, Grp}],
                     tc(Grp)),
+
+    ?DL("run(~w) -> unregister services", [Grp]),
+    ok = ?DEL_REG(?CLIENT),
+    ok = ?DEL_REG(?SERVER),
+
     ?DL("run(~w) -> stop (diameter) app", [Grp]),
     ok = diameter:stop(),
     ?DL("run(~w) -> done", [Grp]),

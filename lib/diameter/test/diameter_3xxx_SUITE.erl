@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 %% ===========================================================================
 
 traffic(_Config) ->
-    ?XL("traffic -> entry"),
+    ?XL("~w -> entry", [?FUNCTION_NAME]),
     run().
 
 
@@ -210,6 +210,12 @@ run([Errors, RFC] = G) ->
     Name = ?L(Errors) ++ "," ++ ?L(RFC),
     ?XL("run -> start diameter app"),
     ok = diameter:start(),
+
+    ?XL("run -> subscribe to 'server' (diameter) events"),
+    ok = ?DEL_REG(?SERVER),
+    ?XL("run -> subscribe to 'client' (diameter) events"),
+    ok = ?DEL_REG(?CLIENT),
+
     ?XL("run -> start service 'server' (~p)", [Name]),
     ok = diameter:start_service(?SERVER, ?SERVICE(Name, Errors, RFC)),
     ?XL("run -> start service 'client'"),
@@ -232,6 +238,12 @@ run([Errors, RFC] = G) ->
     ok = diameter:stop_service(?SERVER),
     ?XL("run -> stop service 'client'"),
     ok = diameter:stop_service(?CLIENT),
+
+    ?XL("run -> unsubscribe from 'server' (diameter) events"),
+    ok = ?DEL_UNREG(?SERVER),
+    ?XL("run -> unsubscribe from 'client' (diameter) events"),
+    ok = ?DEL_UNREG(?CLIENT),
+
     ?XL("run -> done"),
     ok.
 

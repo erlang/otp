@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,9 @@
          eprof/1,
          log/4,
          proxy_call/4,
-         f/2
+         f/2,
+         formated_timestamp/0, format_timestamp/1,
+         lib_dir/2
         ]).
 
 %% diameter-specific
@@ -56,8 +58,7 @@
          listen/2, listen/3,
          connect/3, connect/4,
          disconnect/4,
-         info/0,
-         diameter_event_logger_start/2, diameter_event_logger_stop/1
+         info/0
         ]).
 
 -export([analyze_and_print_host_info/0]).
@@ -81,29 +82,39 @@ init_per_suite(Config) ->
                 true -> 
                     {skip, "Unstable host and/or os (or combo thererof)"};
                 false ->
+                    {ok, Logger} = ?DEL_START(),
                     case lists:keysearch(label, 1, HostInfo) of
                         {value, Label} ->
-                            [{dia_factor, Factor}, Label | Config];
+                            [{logger, Logger},
+                             {dia_factor, Factor}, Label | Config];
                         false ->
-                            [{dia_factor, Factor} | Config]
+                            [{logger, Logger},
+                             {dia_factor, Factor} | Config]
                     end
             catch
                 throw:{skip, _} = SKIP ->
                     SKIP;
                 _:_:_ ->
-                    [{dia_factor, Factor} | Config]
+                    {ok, Logger} = ?DEL_START(),
+                    [{logger, Logger},
+                     {dia_factor, Factor} | Config]
             end;
         _ ->
-            [{dia_factor, 1} | Config]
+            {ok, Logger} = ?DEL_START(),
+            [{logger, Logger},
+             {dia_factor, 1} | Config]
     catch
         throw:{skip, _} = SKIP ->
             SKIP;
         _:_:_ ->
-            [{dia_factor, 1} | Config]
+            {ok, Logger} = ?DEL_START(),
+            [{logger, Logger},
+             {dia_factor, 1} | Config]
     end.
 
 
 end_per_suite(_Config) ->
+    ?DEL_STOP(),
     ok.
 
 
@@ -140,7 +151,7 @@ name(A)
 
 consult(Name, Suf)
   when is_atom(Name), is_atom(Suf) ->
-    case code:lib_dir(Name, ebin) of
+    case lib_dir(Name, ebin) of
         {error = E, Reason} ->
             {E, {Name, Reason}};
         Dir ->
@@ -747,6 +758,12 @@ log(ModStr, LINE, F, A)
        is_list(F) andalso
        is_list(A) ->
     ct:log("[~s:~w,~p] " ++ F ++ "~n", [ModStr, LINE, self()|A]).
+
+
+%% ---------------------------------------------------------------------------
+
+lib_dir(App, SubDir) when is_atom(App) andalso is_atom(SubDir) ->
+    filename:join(code:lib_dir(App), atom_to_list(SubDir)).
 
 
 %% ---------------------------------------------------------------------------
@@ -3096,119 +3113,6 @@ pinfo(P, Key) when is_pid(P) ->
 
 
 %% ---------------------------------------------------------------------------
-
-diameter_event_logger_start(Name, SvcName) ->
-    Self = self(),
-    Logger = {Pid, _MRef} =
-        spawn_monitor(fun() ->
-                              diameter_event_logger_init(Name, SvcName, Self)
-                      end),
-    receive
-        {?MODULE, del, Pid, started} ->
-            Logger
-    end.
-
-diameter_event_logger_stop({Pid, MRef} = _Logger) ->
-    Pid ! {?MODULE, del, self(), stop},
-    receive
-        {'DOWN', MRef, process, Pid, _} ->
-            ok
-    end.
-    
-diameter_event_logger_init(Name, SvcName, Parent) ->
-    MRef = erlang:monitor(process, Parent),
-    diameter:subscribe(SvcName),
-    Parent ! {?MODULE, del, self(), started},
-    diameter_event_logger_loop(Name, SvcName, Parent, MRef).
-
-diameter_event_logger_loop(Name, SvcName, Parent, MRef) ->
-    receive
-        {'DOWN', MRef, process, Parent, Reason} ->
-            diameter_event_msg(Name, SvcName,
-                               "(diameter) event logger "
-                               "received DOWN regarding parent: "
-                               "~n   Reason: ~p",
-                               [Reason]),
-            diameter:unsubscribe(SvcName),
-            exit({parent_died, Reason});
-
-        {?MODULE, del, Parent, stop} ->
-            diameter_event_msg(Name, SvcName,
-                               "(diameter) event logger "
-                               "received 'stop' from parent", []),
-            diameter:unsubscribe(SvcName),
-            erlang:demonitor(MRef, [flush]),
-            exit(normal);
-
-        #diameter_event{service = SvcName, info = Info} ->
-            diameter_event_msg(Name, SvcName,
-                               "(diameter) event logger "
-                               "received event: "
-                               "~n~s",
-                               [format_diameter_event_info("   ", Info)]),
-            diameter_event_logger_loop(Name, SvcName, Parent, MRef)
-    end.
-
-diameter_event_msg(Name, SvcName, F, A) ->
-    io:format("==== DIAMETER EVENT ==== ~s ====~n"
-              "[~s, ~p] " ++ F ++ "~n",
-              [formated_timestamp(), Name, SvcName | A]).
-
-
-format_diameter_event_info(Indent, Event)
-  when (Event =:= start) orelse (Event =:= stop) ->
-    ?F("~s~w", [Indent, Event]);
-format_diameter_event_info(Indent,
-                           {up, Ref, Peer, _Config, _Pkt}) ->
-    ?F("~sup: "
-       "~n~s   Ref:  ~p"
-       "~n~s   Peer: ~p",
-       [Indent,
-        Indent, Ref,
-        Indent, Peer]);
-format_diameter_event_info(Indent,
-                           {up, Ref, Peer, _Config}) ->
-    ?F("~sup: "
-       "~n~s   Ref:  ~p"
-       "~n~s   Peer: ~p",
-       [Indent,
-        Indent, Ref,
-        Indent, Peer]);
-format_diameter_event_info(Indent,
-                           {down, Ref, Peer, _Config}) ->
-    ?F("~sdown: "
-       "~n~s   Ref:  ~p"
-       "~n~s   Peer: ~p",
-       [Indent,
-        Indent, Ref,
-        Indent, Peer]);
-format_diameter_event_info(Indent,
-                           {reconnect, Ref, _Opts}) ->
-    ?F("~sreconnect: "
-       "~n~s   Ref: ~p",
-       [Indent,
-        Indent, Ref]);
-format_diameter_event_info(Indent,
-                           {closed, Ref, Reason, _Config}) ->
-    ?F("~sclosed: "
-       "~n~s   Ref:    ~p"
-       "~n~s   Reason: ~p",
-       [Indent,
-        Indent, Ref,
-        Indent, Reason]);
-format_diameter_event_info(Indent,
-                           {watchdog, Ref, PeerRef, {From, To}, _Config}) ->
-    ?F("~swatchdog: ~w -> ~w"
-       "~n~s   Ref:     ~p"
-       "~n~s   PeerRef: ~p",
-       [Indent, From, To,
-        Indent, Ref,
-        Indent, PeerRef]);
-format_diameter_event_info(Indent, Event) ->
-    ?F("~s~p", [Indent, Event]).
-
-    
-
 
 formated_timestamp() ->
     format_timestamp(os:timestamp()).

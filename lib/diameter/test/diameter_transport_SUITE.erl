@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -203,9 +203,12 @@ connect(Prot) ->
 reconnect({listen, Ref}) ->
     ?TL("reconnect(listen) -> entry with"
         "~n   Ref: ~p", [Ref]),
-    SvcName = make_ref(),
-    ?TL("reconnect(listen) -> start event logger"),
-    Logger = ?DEL_START("reconnect(listen)", SvcName),
+    %5 SvcName = make_ref(),
+    SvcName = {reconnect, listen, make_ref()},
+
+    ?TL("reconnect(listen) -> register service"),
+    ok = ?DEL_REG(SvcName),
+
     ?TL("reconnect(listen) -> start service (~p)", [SvcName]),
     ok = start_service(SvcName),
     ?TL("reconnect(listen) -> connect"),
@@ -227,8 +230,8 @@ reconnect({listen, Ref}) ->
     ?TL("reconnect(listen) -> abort: wait for partner again"),
     Res = abort(SvcName, LRef, Ref),
 
-    ?TL("reconnect(listen) -> stop event logger"),
-    ?DEL_STOP(Logger),
+    ?TL("reconnect(listen) -> unregister service"),
+    ok = ?DEL_UNREG(SvcName),
 
     ?TL("reconnect(listen) -> done when"
         "~n   Res: ~p", [Res]),
@@ -238,9 +241,12 @@ reconnect({connect, Ref}) ->
     ?TL("reconnect(connect) -> entry with"
         "~n   Ref: ~p", [Ref]),
 
-    SvcName = make_ref(),
-    ?TL("reconnect(connect) -> start event logger"),
-    Logger = ?DEL_START("reconnect(connect)", SvcName),
+    %% SvcName = make_ref(),
+    SvcName = {reconnect, connect, make_ref()},
+
+    ?TL("reconnect(connect) -> register service"),
+    ok = ?DEL_REG(SvcName),
+
     ?TL("reconnect(connect) -> subscribe to service ~p", [SvcName]),
     true = diameter:subscribe(SvcName),
     ?TL("reconnect(connect) -> start service ~p", [SvcName]),
@@ -286,8 +292,8 @@ reconnect({connect, Ref}) ->
     MRef = erlang:monitor(process, Pid),
     Res = ?RECV({'DOWN', MRef, process, _, _}),
 
-    ?TL("reconnect(connect) -> stop event logger"),
-    ?DEL_STOP(Logger),
+    ?TL("reconnect(connect) -> unregister service"),
+    ok = ?DEL_UNREG(SvcName),
 
     ?TL("reconnect(connect) -> done when"
         "~n   Res: ~p", [Res]),

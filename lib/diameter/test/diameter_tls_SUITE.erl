@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -254,6 +254,7 @@ make_certs(Dir) ->
                                              "client"]]).
 
 start_services(Dir) ->
+    lists:foreach(fun(S) -> ?DEL_REG(S) end, ?SERVERS ++ [?CLIENT]),
     Servers = [{S, {_,_} = server(S, sopts(S, Dir))} || S <- ?SERVERS],
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT, ?DICT_COMMON)),
     Servers.
@@ -276,9 +277,12 @@ disconnect({_, {_LRef, _PortNr}, CRef}) ->
     ok = diameter:remove_transport(?CLIENT, CRef).
 
 stop_services() ->
+    lists:foreach(fun(S) -> ?DEL_UNREG(S) end,
+                  lists:reverse(?SERVERS ++ [?CLIENT])),
     [{H,T} || H <- [?CLIENT | ?SERVERS],
               T <- [diameter:stop_service(H)],
               T /= ok].
+
 
 %% ===========================================================================
 %% diameter callbacks
