@@ -742,7 +742,7 @@ Within strings (`"`\-delimited), quoted atoms, and the content of
 [`~b` and `~s` sigils](data_types.md#sigil), the following escape sequences are
 recognized:
 
-| _Sequence_                  | _Description_                                                                         |
+| Sequence                    | Description                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------- |
 | `\b`                        | Backspace (ASCII code 8)                                                              |
 | `\d`                        | Delete (ASCII code 127)                                                               |

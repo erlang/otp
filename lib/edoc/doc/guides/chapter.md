@@ -452,17 +452,17 @@ In several contexts (`@see` tags, `@link` macros, etc.), EDoc lets you refer to
 the generated documentation for modules, functions, datatypes, and applications,
 using a simple and compact syntax. The possible formats for references are:
 
-| _Reference syntax_                    | _Example_                                       | _Scope_       |
-| ------------------------------------- | ----------------------------------------------- | ------------- |
-| `Module`                              | `m:edoc_run`, `erl.lang.list`                   | Global        |
-| `Function/Arity`                      | `file/2`                                        | Within module |
-| `Module:Function/Arity`               | `edoc:application/2`                            | Global        |
-| `Type()`                              | `filename()`                                    | Within module |
-| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
-| `//Application`                       | [edoc](index.html)                              | Global        |
-| `//Application/Module`                | `m:edoc_doclet`                                 | Global        |
-| `//Application/Module:Function/Arity` | `edoc_run:file/1`                               | Global        |
-| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`)    | Global        |
+| Reference syntax                      | Example                                      | Scope         |
+| ------------------------------------- | -------------------------------------------- | ------------- |
+| `Module`                              | `m:edoc_run`, `erl.lang.list`                | Global        |
+| `Function/Arity`                      | `file/2`                                     | Within module |
+| `Module:Function/Arity`               | `edoc:application/2`                         | Global        |
+| `Type()`                              | `filename()`                                 | Within module |
+| `Module:Type()`                       | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
+| `//Application`                       | [edoc](index.html)                           | Global        |
+| `//Application/Module`                | `m:edoc_doclet`                              | Global        |
+| `//Application/Module:Function/Arity` | `edoc_run:file/1`                            | Global        |
+| `//Application/Module:Type()`         | [edoc:edoc_module()](`t:edoc:edoc_module/0`) | Global        |
 
 _Table: reference syntax_
 

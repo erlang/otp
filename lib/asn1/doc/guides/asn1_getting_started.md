@@ -312,7 +312,7 @@ and how values are assigned in Erlang.
 
 ASN.1 has both primitive and constructed types:
 
-| _Primitive Types_                                              | _Constructed Types_                                          |
+| Primitive Types                                                | Constructed Types                                            |
 | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | [BOOLEAN](asn1_getting_started.md#boolean)                     | [SEQUENCE](asn1_getting_started.md#sequence)                 |
 | [INTEGER](asn1_getting_started.md#integer)                     | [SET](asn1_getting_started.md#set)                           |

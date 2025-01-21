@@ -262,7 +262,7 @@ type
 
 The available OID names are as follows:
 
-| _OID Name_                                   |
+| OID Name                                     |
 | -------------------------------------------- |
 | id-dsa-with-sha1                             |
 | id-dsaWithSHA1 (ISO or OID to above)         |
@@ -289,7 +289,7 @@ record:
 
 The attribute OID name atoms and their corresponding value types are as follows:
 
-| _OID Name_                | _Value Type_                  |
+| OID Name                  | Value Type                    |
 | ------------------------- | ----------------------------- |
 | id-at-name                | special_string()              |
 | id-at-surname             | special_string()              |
@@ -331,7 +331,7 @@ records:
 
 The public-key algorithm OID name atoms are as follows:
 
-| _OID Name_              |
+| OID Name                |
 | ----------------------- |
 | rsaEncryption           |
 | id-dsa                  |
@@ -362,7 +362,7 @@ _Table: Public-Key Algorithm OIDs_
 The standard certificate extensions OID name atoms and their corresponding value
 types are as follows:
 
-| _OID Name_                       | _Value Type_                   |
+| OID Name                         | Value Type                     |
 | -------------------------------- | ------------------------------ |
 | id-ce-authorityKeyIdentifier     | \#'AuthorityKeyIdentifier'\{\} |
 | id-ce-subjectKeyIdentifier       | oid()                          |
@@ -378,7 +378,7 @@ types are as follows:
 | id-ce-policyConstraints          | \#'PolicyConstraints'\{\}      |
 | id-ce-extKeyUsage                | \[id_key_purpose()]            |
 | id-ce-cRLDistributionPoints      | \[#'DistributionPoint'\{\}]    |
-| id-ce-inhibitAnyPolicy           | pos_integer()                      |
+| id-ce-inhibitAnyPolicy           | pos_integer()                  |
 | id-ce-freshestCRL                | \[#'DistributionPoint'\{\}]    |
 
 _Table: Standard Certificate Extensions_
@@ -392,7 +392,7 @@ key_usage() = digitalSignature | nonRepudiation | keyEncipherment
 ```
 And for `id_key_purpose()`:
 
-| _OID Name_            |
+| OID Name              |
 | --------------------- |
 | id-kp-serverAuth      |
 | id-kp-clientAuth      |
@@ -480,7 +480,7 @@ _Table: Key Purpose OIDs_
 The private internet extensions OID name atoms and their corresponding value
 types are as follows:
 
-| _OID Name_                | _Value Type_                |
+| OID Name                  | Value Type                  |
 | ------------------------- | --------------------------- |
 | id-pe-authorityInfoAccess | \[#'AccessDescription'\{\}] |
 | id-pe-subjectInfoAccess   | \[#'AccessDescription'\{\}] |
@@ -530,12 +530,12 @@ specifications and RFC 5280 are as follows:
 The CRL extensions OID name atoms and their corresponding value types are as
 follows:
 
-| _OID Name_                     | _Value Type_                                    |
+| OID Name                       | Value Type                                      |
 | ------------------------------ | ----------------------------------------------- |
 | id-ce-authorityKeyIdentifier   | \#'AuthorityKeyIdentifier\{\}                   |
 | id-ce-issuerAltName            | \{rdnSequence, \[#AttributeTypeAndValue'\{\}]\} |
-| id-ce-cRLNumber                | pos_integer()                                       |
-| id-ce-deltaCRLIndicator        | pos_integer()                                       |
+| id-ce-cRLNumber                | pos_integer()                                   |
+| id-ce-deltaCRLIndicator        | pos_integer()                                   |
 | id-ce-issuingDistributionPoint | \#'IssuingDistributionPoint'\{\}                |
 | id-ce-freshestCRL              | \[#'Distributionpoint'\{\}]                     |
 
@@ -562,7 +562,7 @@ Erlang record:
 The CRL entry extensions OID name atoms and their corresponding value types are
 as follows:
 
-| _OID Name_                | _Value Type_   |
+| OID Name                  | Value Type     |
 | ------------------------- | -------------- |
 | id-ce-cRLReason           | crl_reason()   |
 | id-ce-holdInstructionCode | oid()          |
