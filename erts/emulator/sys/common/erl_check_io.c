@@ -884,6 +884,13 @@ deselect(ErtsDrvEventState *state, int mode)
         erts_io_control(state, ERTS_POLL_OP_DEL, 0);
 	switch (state->type) {
         case ERTS_EV_TYPE_NIF:
+            if (state->flags & ERTS_EV_FLAG_NIF_SELECT) {
+                DEBUG_PRINT_FD("Clear ERTS_EV_FLAG_NIF_SELECT (%d) on sched %d", state,
+                    erts_atomic_read_nob(&erts_port_task_outstanding_io_tasks),
+                    erts_get_scheduler_id());
+                state->flags &= ~ERTS_EV_FLAG_NIF_SELECT;
+                erts_port_task_dec_outstanding_io_tasks();
+            }
             clear_select_event(&state->driver.nif->in);
             clear_select_event(&state->driver.nif->out);
             clear_select_event(&state->driver.nif->err);
@@ -902,6 +909,7 @@ deselect(ErtsDrvEventState *state, int mode)
 	}
 	state->type = ERTS_EV_TYPE_NONE;
 	state->flags = ERTS_EV_FLAG_CLEAR;
+        state->count = 0;
     } else {
         ErtsPollEvents new_events =
             erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
