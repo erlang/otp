@@ -1048,6 +1048,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
 
         msp->next = NULL;
         erts_atomic_init_relb(&msp->state, 0);
+        msp->ptimer_count = 0;
         erts_atomic32_init_nob(&mdp->refc, 2);
         break;
     }
