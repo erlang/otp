@@ -58,7 +58,7 @@
 %% Tracing
 -export([handle_trace/3]).
 
--record(static,
+-record(env,
         {connection_pid,
          role,
          socket,
@@ -71,12 +71,14 @@
          key_update_at,  %% TLS 1.3
          dist_handle,
          log_level,
-         hibernate_after
+         hibernate_after,
+         keylog_fun,
+         num_key_updates = 0
         }).
 
 -record(data,
         {
-         static = #static{},
+         env = #env{},
          connection_states = #{},
          bytes_sent     %% TLS 1.3
         }).
@@ -237,8 +239,9 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            renegotiate_at := RenegotiateAt,
                            key_update_at := KeyUpdateAt,
                            log_level := LogLevel,
-                           hibernate_after := HibernateAfter}},
-     #data{connection_states = ConnectionStates0, static = Static0} = StateData0) ->
+                           hibernate_after := HibernateAfter,
+                           keylog_fun := Fun}},
+     #data{connection_states = ConnectionStates0, env = Env0} = StateData0) ->
     ConnectionStates = case BeastMitigation of
                            disabled ->
                                ConnectionStates0#{current_write => WriteState};
@@ -249,7 +252,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
     StateData =
         StateData0#data{connection_states = ConnectionStates,
                         bytes_sent = 0,
-                        static = Static0#static{connection_pid = Pid,
+                        env = Env0#env{connection_pid = Pid,
                                                 role = Role,
                                                 socket = Socket,
                                                 socket_options = SockOpts,
@@ -260,7 +263,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 renegotiate_at = RenegotiateAt,
                                                 key_update_at = KeyUpdateAt,
                                                 log_level = LogLevel,
-                                                hibernate_after = HibernateAfter}},
+                                                hibernate_after = HibernateAfter,
+                                                keylog_fun = Fun}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
@@ -276,7 +280,7 @@ init(_, _, _) ->
                   gen_statem:event_handler_result(atom()).
 %%--------------------------------------------------------------------
 connection({call, From}, {application_data, AppData}, 
-           #data{static = #static{socket_options = #socket_options{packet = Packet}}} =
+           #data{env = #env{socket_options = #socket_options{packet = Packet}}} =
                StateData) ->
     case encode_packet(Packet, AppData) of
         {error, _} = Error ->
@@ -299,14 +303,14 @@ connection({call, From}, downgrade, #data{connection_states =
 connection({call, From}, {set_opts, Opts}, StateData) ->
     handle_set_opts(connection, From, Opts, StateData);
 connection({call, From}, dist_get_tls_socket, 
-           #data{static = #static{transport_cb = Transport,
+           #data{env = #env{transport_cb = Transport,
                                   socket = Socket,
                                   connection_pid = Pid,
                                   trackers = Trackers}} = StateData) ->
     TLSSocket = tls_gen_connection:socket([Pid, self()], Transport, Socket, Trackers),
     hibernate_after(connection, StateData, [{reply, From, {ok, TLSSocket}}]);
 connection({call, From}, {dist_handshake_complete, _Node, DHandle},
-           #data{static = #static{connection_pid = Pid} = Static} = StateData) ->
+           #data{env = #env{connection_pid = Pid} = Env} = StateData) ->
     false = erlang:dist_ctrl_set_opt(DHandle, get_size, true),
     ok = erlang:dist_ctrl_input_handler(DHandle, Pid),
     ok = ssl_gen_statem:dist_handshake_complete(Pid, DHandle),
@@ -317,22 +321,22 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
         [] ->
             hibernate_after(connection,
                             StateData#data{
-                              static = Static#static{dist_handle = DHandle}},
+                              env = Env#env{dist_handle = DHandle}},
                             [{reply,From,ok}]);
         Data ->
             {keep_state,
-             StateData#data{static = Static#static{dist_handle = DHandle}},
+             StateData#data{env = Env#env{dist_handle = DHandle}},
              [{reply,From,ok},
               {next_event, internal,
                {application_packets, {self(),undefined}, Data}}]}
     end;
-connection({call, From}, get_application_traffic_secret, State) ->
-    CurrentWrite = maps:get(current_write, State#data.connection_states),
+connection({call, From}, get_application_traffic_secret, #data{env = #env{num_key_updates = N}} = Data) ->
+    CurrentWrite = maps:get(current_write, Data#data.connection_states),
     SecurityParams = maps:get(security_parameters, CurrentWrite),
     ApplicationTrafficSecret =
         SecurityParams#security_parameters.application_traffic_secret,
-    hibernate_after(connection, State,
-                    [{reply, From, {ok, ApplicationTrafficSecret}}]);
+    hibernate_after(connection, Data,
+                    [{reply, From, {ok, ApplicationTrafficSecret, N}}]);
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, connection, StateData);
 connection(internal, {post_handshake_data, From, HSData}, StateData) ->
@@ -341,15 +345,15 @@ connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, connection, StateData};
 connection(cast, {new_write, WritesState, Version}, 
-           #data{connection_states = ConnectionStates, static = Static} = StateData) ->
+           #data{connection_states = ConnectionStates, env = Env} = StateData) ->
     hibernate_after(connection,
                     StateData#data{connection_states =
                                        ConnectionStates#{current_write => WritesState},
-                                   static =
-                                       Static#static{negotiated_version = Version}}, []);
+                                   env =
+                                       Env#env{negotiated_version = Version}}, []);
 %%
 connection(info, dist_data,
-           #data{static = #static{dist_handle = DHandle}} = StateData) ->
+           #data{env = #env{dist_handle = DHandle}} = StateData) ->
       case dist_data(DHandle) of
           [] ->
               hibernate_after(connection, StateData, []);
@@ -391,12 +395,22 @@ handshake({call, _}, _, _) ->
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
 handshake(cast, {new_write, WriteState, Version},
-          #data{connection_states = ConnectionStates,
-                static = #static{key_update_at = KeyUpdateAt0} = Static} = StateData) ->
+          #data{connection_states = ConnectionStates0,
+                env = #env{key_update_at = KeyUpdateAt0,
+                                 role = Role,
+                                 num_key_updates = N,
+                                 keylog_fun = Fun} = Env} = StateData) ->
+    ConnectionStates = ConnectionStates0#{current_write => WriteState},
     KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
+     case Version of
+         ?TLS_1_3 ->
+             maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N);
+          _ ->
+             ok
+     end,
     {next_state, connection, 
-     StateData#data{connection_states = ConnectionStates#{current_write => WriteState},
-                    static = Static#static{negotiated_version = Version,
+     StateData#data{connection_states = ConnectionStates,
+                    env = Env#env{negotiated_version = Version,
                                            key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
     {keep_state_and_data, [postpone]};
@@ -450,25 +464,25 @@ code_change(_OldVsn, State, Data, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 handle_set_opts(StateName, From, Opts,
-                #data{static = #static{socket_options = SockOpts} = Static}
+                #data{env = #env{socket_options = SockOpts} = Env}
                 = StateData) ->
     hibernate_after(StateName,
                     StateData#data{
-                      static =
-                          Static#static{
+                      env =
+                          Env#env{
                             socket_options = set_opts(SockOpts, Opts)}},
                     [{reply, From, ok}]).
 
 handle_common(StateName, {call, From}, {set_opts, Opts},
-  #data{static = #static{socket_options = SockOpts} = Static} = StateData) ->
+  #data{env = #env{socket_options = SockOpts} = Env} = StateData) ->
     hibernate_after(StateName,
                     StateData#data{
-                      static =
-                          Static#static{
+                      env =
+                          Env#env{
                             socket_options = set_opts(SockOpts, Opts)}},
      [{reply, From, ok}]);
 handle_common(_StateName, info, {'EXIT', _Sup, shutdown = Reason},
-              #data{static = #static{erl_dist = true}} = StateData) ->
+              #data{env = #env{erl_dist = true}} = StateData) ->
     %% When the connection is on its way down operations
     %% begin to fail. We wait to receive possible exit signals
     %% for one of our links to the other involved distribution parties,
@@ -476,23 +490,23 @@ handle_common(_StateName, info, {'EXIT', _Sup, shutdown = Reason},
     %% for the connection teardown.
     death_row_shutdown(Reason, StateData);
 handle_common(_StateName, info, {'EXIT', _Dist, Reason},
-              #data{static = #static{erl_dist = true}} = StateData) ->
+              #data{env = #env{erl_dist = true}} = StateData) ->
     {stop, {shutdown, Reason}, StateData};
 handle_common(_StateName, info, {'EXIT', _Sup, shutdown}, StateData) ->
     {stop, shutdown, StateData};
 handle_common(StateName, info, Msg,
-              #data{static = #static{log_level = Level}} = StateData) ->
+              #data{env = #env{log_level = Level}} = StateData) ->
     ssl_logger:log(info, Level, #{event => "TLS sender received unexpected info",
                                   reason => [{message, Msg}]}, ?LOCATION),
     hibernate_after(StateName, StateData, []);
 handle_common(StateName, Type, Msg,
-              #data{static = #static{log_level = Level}} = StateData) ->
+              #data{env = #env{log_level = Level}} = StateData) ->
     ssl_logger:log(error, Level, #{event => "TLS sender received unexpected event",
                                    reason => [{type, Type}, {message, Msg}]}, ?LOCATION),
     hibernate_after(StateName, StateData, []).
 
 send_tls_alert(#alert{} = Alert,
-               #data{static = #static{negotiated_version = Version,
+               #data{env = #env{negotiated_version = Version,
                                       socket = Socket,
                                       transport_cb = Transport,
                                       log_level = LogLevel},
@@ -504,7 +518,7 @@ send_tls_alert(#alert{} = Alert,
     StateData0#data{connection_states = ConnectionStates}.
 
 send_application_data(Data, From, StateName,
-                      #data{static = #static{connection_pid = Pid,
+                      #data{env = #env{connection_pid = Pid,
                                              socket = Socket,
                                              dist_handle = DistHandle,
                                              negotiated_version = Version,
@@ -555,7 +569,7 @@ send_application_data(Data, From, StateName,
 
 %% TLS 1.3 Post Handshake Data
 send_post_handshake_data(Handshake, From, StateName,
-                         #data{static = #static{socket = Socket,
+                         #data{env = #env{socket = Socket,
                                                 dist_handle = DistHandle,
                                                 negotiated_version = Version,
                                                 transport_cb = Transport,
@@ -581,17 +595,33 @@ send_post_handshake_data(Handshake, From, StateName,
             {next_state, StateName, StateData1,  [{reply, From, Result}]}
     end.
 
-maybe_update_cipher_key(#data{connection_states = ConnectionStates0}= StateData, #key_update{}) ->
+maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
+                              env = #env{role = Role,
+                                         num_key_updates = N,
+                                         keylog_fun = Fun} = Env
+                             } = StateData, #key_update{}) ->
     ConnectionStates = tls_gen_connection_1_3:update_cipher_key(current_write, ConnectionStates0),
+    maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N + 1),
     StateData#data{connection_states = ConnectionStates,
+                   env = Env#env{num_key_updates = N + 1},
                    bytes_sent = 0};
 maybe_update_cipher_key(StateData, _) ->
     StateData.
 
+maybe_traffic_keylog_1_3(Fun, Role, ConnectionStates, N) when is_function(Fun) ->
+    #{security_parameters := #security_parameters{client_random = ClientRandom,
+                                                  prf_algorithm = Prf,
+                                                  application_traffic_secret = TrafficSecret}}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    KeyLog =  ssl_logger:keylog_traffic_1_3(Role, ClientRandom, Prf, TrafficSecret, N),
+    ssl_logger:keylog(KeyLog, ClientRandom, Fun);
+maybe_traffic_keylog_1_3(_,_,_,_) ->
+    ok.
+
 update_bytes_sent(Version, CS, StateData, _) when ?TLS_LT(Version, ?TLS_1_3) ->
     StateData#data{connection_states = CS};
 %% Count bytes sent in TLS 1.3 for AES-GCM
-update_bytes_sent(_, CS, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
+update_bytes_sent(_, CS, #data{env = #env{key_update_at = seq_num_wrap}} = StateData, _) ->
     StateData#data{connection_states = CS};  %% Chacha20-Poly1305
 update_bytes_sent(_, CS, #data{bytes_sent = Sent} = StateData, DataSz) ->
     StateData#data{connection_states = CS,
@@ -717,7 +747,7 @@ consume_ticks() ->
     end.
 
 hibernate_after(connection = StateName,
-		#data{static=#static{hibernate_after = HibernateAfter}} = State,
+		#data{env=#env{hibernate_after = HibernateAfter}} = State,
 		Actions) when HibernateAfter =/= infinity ->
     {next_state, StateName, State, [{timeout, HibernateAfter, hibernate} | Actions]};
 hibernate_after(StateName, State, []) ->
@@ -753,7 +783,7 @@ handle_trace(hbn,
                  {call, {?MODULE, hibernate_after,
                          [_StateName = connection, State, Actions]}},
              Stack) ->
-    #data{static=#static{hibernate_after = HibernateAfter}} = State,
+    #data{env=#env{hibernate_after = HibernateAfter}} = State,
     {io_lib:format("* * * maybe hibernating in ~w ms * * * Actions = ~W ",
                    [HibernateAfter, Actions, 10]), Stack};
 handle_trace(hbn,
