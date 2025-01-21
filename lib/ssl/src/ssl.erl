@@ -919,7 +919,7 @@ Common certificate related options to both client and server.
 """.
 -type common_option_cert() :: {certs_keys, CertsKeys::[cert_key_conf()]} |
                               {depth, AllowedCertChainLen::pos_integer()} |
-                              {verify_fun, Verify::{Verifyfun :: fun(), InitialUserState :: any()}} |
+                              {verify_fun, Verify::{Verifyfun :: function(), InitialUserState :: any()}} |
                               {cert_policy_opts, PolicyOpts::[{policy_set, [public_key:oid()]} |
                                                               {explicit_policy, boolean()} |
                                                               {inhibit_policy_mapping, boolean()} |
@@ -975,7 +975,7 @@ Options common to client and server side prior to TLS-1.3.
 
 -type common_option_pre_tls13() :: {eccs, NamedCurves::[named_curve()]} |
                                    {secure_renegotiate, SecureRenegotiate::boolean()} |
-                                   {user_lookup_fun, {Lookupfun :: fun(), UserState :: any()}}.
+                                   {user_lookup_fun, {Lookupfun :: function(), UserState :: any()}}.
 
 -doc(#{title =>
            <<"Client and Server Options">>}).
@@ -1101,9 +1101,9 @@ hardware security modules (HSM) or trusted platform modules (TPM).
                                        key_id := crypto:key_id(),
                                        password => crypto:password()} |
                                      #{algorithm := sign_algo(),
-                                       sign_fun := fun(),
+                                       sign_fun := function(),
                                        sign_opts => list(),
-                                       encrypt_fun => fun(), %% Only TLS-1.0, TLS-1.1 and rsa-key
+                                       encrypt_fun => function(), %% Only TLS-1.0, TLS-1.1 and rsa-key
                                        encrypt_opts => list()
                                       }. % exported
 
@@ -1251,7 +1251,7 @@ fun(Chain::[public_key:der_encoded()]) ->
 TLS then uses `public_key:pkix_path_validation/3` with the selected CA
 as the trusted anchor and verifies the rest of the chain.
 """.
--type anchor_fun()                 ::  fun().
+-type anchor_fun()                 ::  function().
 
 -doc(#{title =>
            <<"Algorithms">>}).
@@ -1897,7 +1897,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
 -type server_option_pre_tls13() ::
         {client_renegotiation, ClientRengotiation::boolean()}|
         {reuse_sessions, ReuseSessions::boolean()} |
-        {reuse_session, ReuseSession::fun()} |
+        {reuse_session, ReuseSession::function()} |
         {honor_cipher_order, HonorServerCipherOrder::boolean()} |
         {honor_ecc_order, HonorServerECCOrder::boolean()} |
         {dh, DHDer::public_key:der_encoded()} |
