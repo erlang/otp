@@ -66,6 +66,7 @@ start() ->
 
 server() ->
     process_flag(trap_exit, true),
+    ok = prim_tty:load(),
     TTY = prim_tty:init(#{ input => disabled,
                            output => cooked,
                            ofd => stderr}),

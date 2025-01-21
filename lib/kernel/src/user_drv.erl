@@ -164,6 +164,8 @@ callback_mode() -> state_functions.
 init(Args) ->
     process_flag(trap_exit, true),
 
+    ok = prim_tty:load(),
+
     IsTTY = prim_tty:isatty(stdin) =:= true andalso prim_tty:isatty(stdout) =:= true,
     StartShell = maps:get(initial_shell, Args, undefined) =/= noshell,
     OldShell = maps:get(initial_shell, Args, undefined) =:= oldshell,
