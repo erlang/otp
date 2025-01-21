@@ -555,6 +555,8 @@ transport(<<>>, #{rfc := 6733}) ->
     tcp;
 transport(<<>>, #{rfc := 3588}) ->
     sctp;
+transport(<<>>, _) ->
+    tcp;
 transport(B, _) ->
     to_atom(B).
 
