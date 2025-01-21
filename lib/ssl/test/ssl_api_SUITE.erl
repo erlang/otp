@@ -155,6 +155,8 @@
          handshake_continue_timeout/1,
          handshake_continue_change_verify/0,
          handshake_continue_change_verify/1,
+         handshake_hello_postpone_opts_verify/0,
+         handshake_hello_postpone_opts_verify/1,
          hello_client_cancel/0,
          hello_client_cancel/1,
          hello_server_cancel/0,
@@ -349,6 +351,7 @@ handshake_paus_tests() ->
      handshake_continue, 
      handshake_continue_timeout,
      handshake_continue_change_verify,
+     handshake_hello_postpone_opts_verify,
      hello_client_cancel,
      hello_server_cancel,
      handshake_continue_tls13_client
@@ -1073,7 +1076,7 @@ handshake_continue_timeout(Config) when is_list(Config) ->
     
     ssl_test_lib:check_result(Server, {error,timeout}),
     ssl_test_lib:close(Server).
-
+%%------------------------------------------------------------------
 handshake_continue_change_verify() ->
     [{doc, "Test API function ssl:handshake_continue with updated verify option. "
       "Use a verification that will fail to make sure verification is run"}].
@@ -1103,6 +1106,35 @@ handshake_continue_change_verify(Config) when is_list(Config) ->
                             | ClientOpts], Config)},
                 {continue_options, [{verify, verify_peer} | ClientOpts]}]),
     ssl_test_lib:check_client_alert(Client,  handshake_failure).
+
+%%------------------------------------------------------------------
+handshake_hello_postpone_opts_verify() ->
+   [{doc, "Test that cert key option validation is postponed until full handshake is performed"}].
+handshake_hello_postpone_opts_verify(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    TcpPort = ssl_test_lib:inet_port(node()),
+    Host = net_adm:localhost(),
+    Version = ssl_test_lib:protocol_version(Config),
+
+    {ok,TcpListenSocket} = gen_tcp:listen(TcpPort, [binary, {active, false}, inet, {reuseaddr, true}]),
+    spawn(fun() ->
+                  {ok, TcpSocket} = gen_tcp:accept(TcpListenSocket),
+                  {ok, ASocket, _Ext} = ssl:handshake(TcpSocket, [{handshake, hello}, {versions, [Version]}]),
+                  ssl:handshake_continue(ASocket, ServerOpts, 5000)
+          end),
+    {ok, UpgradeClient} = ssl:connect(Host, TcpPort, ClientOpts),
+    ssl:close(UpgradeClient),
+
+    Port = ssl_test_lib:inet_port(node()),
+    {ok,TlsListenSocket} = ssl:listen(Port, [binary, {active, false}, inet, {reuseaddr, true}]),
+    spawn(fun() ->
+                  {ok, ASocket} = ssl:transport_accept(TlsListenSocket),
+                  {ok, _Ext} = ssl:handshake(ASocket, [{handshake, hello}, {versions, [Version]}]),
+                  ssl:handshake_continue(ASocket, ServerOpts, 5000)
+          end),
+    {ok, Client} = ssl:connect(Host, Port, [{versions, [Version]} | ClientOpts]),
+    ssl:close(Client).
 
 %%--------------------------------------------------------------------
 hello_client_cancel() ->
