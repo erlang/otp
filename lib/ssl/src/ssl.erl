@@ -2416,7 +2416,7 @@ owning the [`sslsocket()`](`t:sslsocket/0`) will receive messages of type
           {error, Reason} when
       Socket :: socket() | sslsocket(),
       SslSocket :: sslsocket(),
-      Options :: [server_option()],
+      Options :: [server_option() | common_option()],
       Timeout :: timeout(),
       Ext :: protocol_extensions(),
       Reason :: closed | timeout | {options, any()} | error_alert().
@@ -2464,7 +2464,7 @@ handshake(Socket, SslOptions, Timeout)
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
-      Options :: [tls_client_option() | tls_server_option()],
+      Options :: [client_option() | server_option() | common_option()],
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().
 %%--------------------------------------------------------------------
@@ -2478,7 +2478,7 @@ handshake_continue(Socket, SSLOptions) ->
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
-      Options :: [tls_client_option() | tls_server_option()],
+      Options :: [client_option() | server_option() | common_option()],
       Timeout :: timeout(),
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().

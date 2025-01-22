@@ -1651,6 +1651,10 @@ validate_filename(FN, Option) ->
 
 validate_server_cert_opts(_Opts, #{validate_certs_or_anon_ciphers := false}) ->
     ok;
+validate_server_cert_opts(#{handshake := hello}, _) ->
+    %% This verification should be done only when handshake := full, as options
+    %% to fulfill the requirement can be supplied at that time.
+    ok;
 validate_server_cert_opts(#{certs_keys := [_|_]=CertsKeys, ciphers := CPHS, versions := Versions}, _) ->
     validate_certs_or_anon_ciphers(CertsKeys, CPHS, Versions);
 validate_server_cert_opts(#{ciphers := CPHS, versions := Versions}, _) ->
