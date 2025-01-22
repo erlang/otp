@@ -479,6 +479,9 @@ handle_info(_State, {io_request,From,ReplyAs, {get_geometry, What}}, Data) ->
     keep_state_and_data;
 handle_info(_State, {io_request,From,ReplyAs,Req}, Data) when ?IS_PUTC_REQ(Req) ->
     putc_request(Req, From, ReplyAs, Data);
+handle_info(_State, {io_request,From,ReplyAs, _Req}, _Data) ->
+    io_reply(From, ReplyAs, {error, request}),
+    keep_state_and_data;
 
 handle_info(_State, {reply, undefined, _Reply}, _Data) ->
     %% Ignore any reply with an undefined From.
