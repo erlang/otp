@@ -37,7 +37,8 @@
          io_get_chars_file_read_stdin_binary_mode/1,
          file_read_stdin_latin1_binary_mode/1,
          file_read_stdin_latin1_list_mode/1,
-         io_fwrite_stdin_latin1_mode/1
+         io_fwrite_stdin_latin1_mode/1,
+         invalid_req/1
         ]).
 
 
@@ -84,7 +85,8 @@ all() ->
      io_get_chars_file_read_stdin_binary_mode,
      file_read_stdin_latin1_binary_mode,
      file_read_stdin_latin1_list_mode,
-     io_fwrite_stdin_latin1_mode
+     io_fwrite_stdin_latin1_mode,
+     invalid_req
     ].
 
 groups() -> 
@@ -1674,6 +1676,11 @@ raw_stdout_isatty(Config) when is_list(Config) ->
          {expect, "\\QZ^?\\200\\377\\203Z\\E"}
         ],[]),
         ok.
+
+invalid_req(_Config) ->
+    Ref = make_ref(),
+    whereis(user) ! {io_request, self(), Ref, invalid},
+    receive M -> ?assertMatch({io_reply,_Ref, {error,request}}, M) end.
 %%
 %% Test I/O-server
 %%

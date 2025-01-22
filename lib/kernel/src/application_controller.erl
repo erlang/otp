@@ -258,7 +258,7 @@ is_running(AppName) when is_atom(AppName) ->
 %%-----------------------------------------------------------------
 %% Func: start_boot_application/2
 %% The same as start_application/2 expect that this function is
-%% called from the boot script file. It mustnot be used by the operator.
+%% called from the boot script file. It must not be used by the operator.
 %% This function will cause a node crash if a permanent application 
 %% fails to boot start
 %%-----------------------------------------------------------------
