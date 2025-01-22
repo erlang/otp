@@ -509,8 +509,8 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Ref, #alert{} = Alert} ->
             Alert;
         error:Reason:ST ->
-            ?SSL_LOG(debug, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
-            ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_in_client_hello)
+            ?SSL_LOG(info, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_parameter_in_client_hello)
     end.
 
 send_hello_flight({start_handshake, PSK0},
@@ -592,8 +592,8 @@ send_hello_flight({start_handshake, PSK0},
         {Ref, #alert{} = Alert} ->
             Alert;
         error:Reason:ST ->
-            ?SSL_LOG(debug, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
-            ?ALERT_REC(?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
+            ?SSL_LOG(info, crypto_error, [{reason, Reason}, {stacktrace, ST}]),
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_parameter_to_compute_key)
     end.
 
 validate_cookie(_Cookie, #state{ssl_options = #{cookie := false}}) ->
