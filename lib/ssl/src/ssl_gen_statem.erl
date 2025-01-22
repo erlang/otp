@@ -839,8 +839,7 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
                   } = State)  when StateName =/= connection ->
     maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     alert_user(UserSocket, StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
-    {stop, {shutdown, normal}, State};
-
+    {stop, {shutdown, transport_closed}, State};
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
                                                                           role = Role,
                                                                           socket = Socket,
@@ -849,28 +848,36 @@ handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_e
     ?SSL_LOG(info, "Socket error", [{error_tag, ErrorTag}, {description, Reason}]),
     Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, {transport_error, Reason}),
     handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
-    {stop, {shutdown,normal}, State};
-
+    {stop, {shutdown, transport_closed}, State};
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
             #state{connection_env = #connection_env{user_application = {MonitorRef, _Pid}},
                    ssl_options = #{erl_dist := true}}) ->
     {stop, {shutdown, Reason}};
-handle_info({'DOWN', MonitorRef, _, _, _}, _,
+handle_info({'DOWN', MonitorRef, _, _, _}, connection,
             #state{connection_env = #connection_env{user_application = {MonitorRef, _Pid}}}) ->
     {stop, {shutdown, normal}};
+handle_info({'DOWN', MonitorRef, _, _, _}, _,
+            #state{recv = Recv,
+                   connection_env = #connection_env{user_application = {MonitorRef, _Pid}}} = State) ->
+    %% Receiver has died
+    {stop, {shutdown, cancel_hs}, State#state{recv = Recv#recv{from = undefined}}};
 handle_info({'EXIT', Pid, _Reason}, StateName,
             #state{connection_env = #connection_env{user_application = {_MonitorRef, Pid}}} = State) ->
     %% It seems the user application has linked to us
     %% - ignore that and let the monitor handle this
     {next_state, StateName, State};
 %%% So that terminate will be run when supervisor issues shutdown
-handle_info({'EXIT', _Sup, shutdown}, _StateName, State) ->
+handle_info({'EXIT', _Sup, shutdown}, connection, State) ->
     {stop, shutdown, State};
+handle_info({'EXIT', _Sup, shutdown}, _, #state{recv = #recv{from = StartFrom} = Recv} = State) ->
+    gen_statem:reply(StartFrom, {error, closed}),
+    {stop, {shutdown, cancel_hs},  State#state{recv = Recv#recv{from = undefined}}};
 handle_info({'EXIT', Socket, normal}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
     %% Handle as transport close"
     {stop,{shutdown, transport_closed}, State};
 handle_info({'EXIT', Socket, Reason}, _StateName, #state{static_env = #static_env{socket = Socket}} = State) ->
-    {stop,{shutdown, Reason}, State};
+    ?SSL_LOG(info, socket_error, [{error, Reason}]),
+    {stop,{shutdown, transport_closed}, State};
 handle_info(allow_renegotiate, StateName, #state{handshake_env = HsEnv} = State) -> %% PRE TLS-1.3
     {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{allow_renegotiate = true}}};
 handle_info(Msg, StateName, #state{static_env = #static_env{socket = Socket, error_tag = ErrorTag}} = State) ->
@@ -1189,19 +1196,29 @@ terminate(Reason, connection, #state{static_env = #static_env{
                                                      socket = Socket},
                                      connection_states = ConnectionStates
                                     } = State) ->
-
+    
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
     %% Send the termination ALERT if possible
     catch Connection:send_alert_in_connection(Alert, State),
     Connection:close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
+terminate({shutdown, cancel_hs} = Reason , _StateName,
+          #state{static_env = #static_env{transport_cb = Transport,
+                                          protocol_cb = Connection,
+                                          socket = Socket}
+                } = State0) ->
+    handle_trusted_certs_db(State0),
+    CancelAlert = ?ALERT_REC(?WARNING, ?USER_CANCELED),
+    CloseAlert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+    State = Connection:send_alert(CancelAlert, State0),
+    Connection:send_alert(CloseAlert, State),
+    Connection:close(Reason, Socket, Transport, undefined);
 terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Transport,
                                                               protocol_cb = Connection,
                                                               socket = Socket}
-				    } = State) ->
+                                    } = State) ->
     handle_trusted_certs_db(State),
     Connection:close(Reason, Socket, Transport, undefined).
-
 %%====================================================================
 %% Log handling
 %%====================================================================
