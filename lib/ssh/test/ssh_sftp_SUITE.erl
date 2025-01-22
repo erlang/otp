@@ -55,6 +55,7 @@
          pos_read/1,
          pos_write/1,
          position/1,
+         read_6GB/1,
          read_crypto_tar/1,
          read_dir/1,
          read_file/1,
@@ -82,6 +83,7 @@
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 -include_lib("stdlib/include/assert.hrl").
+
 %% Default timetrap timeout
 -define(default_timeout, test_server:minutes(0.5)).
 
@@ -120,6 +122,7 @@ groups() ->
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
+                    read_6GB,
 		    sftp_nonexistent_subsystem
                    ]},
 
@@ -229,24 +232,7 @@ init_per_group(erlang_server, Config) ->
     [{peer, {fmt_host(HostX),PortX}}, {group, erlang_server}, {sftpd, Sftpd} | Config];
 
 init_per_group(openssh_server, Config) ->
-    ct:comment("Begin ~p",[grps(Config)]),
-    Host = ssh_test_lib:hostname(),
-    case (catch ssh_sftp:start_channel(Host,
-				       [{user_interaction, false},
-					{silently_accept_hosts, true},
-                                        {save_accepted_host, false}
-                                       ])) of
-	{ok, _ChannelPid, Connection} ->
-	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
-	    ssh:close(Connection),
-	    [{w2l, fun w2l/1},
-             {peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
-	{error,"Key exchange failed"} ->
-	    {skip, "openssh server doesn't support the tested kex algorithm"};
-	Other ->
-            ct:log("No openssh server. Cause:~n~p~n",[Other]),
-	    {skip, "No openssh daemon (see log in testcase)"} 
-    end;
+    verify_openssh(Config);
 
 init_per_group(remote_tar, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
@@ -288,7 +274,18 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-
+init_per_testcase(read_6GB, Config) ->
+    case verify_openssh(Config) of
+        Result = {skip, _} ->
+            Result;
+        _ ->
+            case os:type() of
+                {win32, _} ->
+                    {skip, "/dev/zero not available on Windws"};
+                _ ->
+                    init_per_testcase(read_6GB_prepare_openssh_server, Config)
+            end
+    end;
 init_per_testcase(sftp_nonexistent_subsystem, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
@@ -301,7 +298,6 @@ init_per_testcase(sftp_nonexistent_subsystem, Config) ->
 				  [{User, Passwd}]}
 				]),
     [{sftpd, Sftpd} | Config];
-
 init_per_testcase(version_option, Config0) ->
     Config = prepare(Config0),
     TmpConfig0 = lists:keydelete(watchdog, 1, Config),
@@ -321,7 +317,6 @@ init_per_testcase(version_option, Config0) ->
                                ]),
     Sftp = {ChannelPid, Connection},
     [{sftp,Sftp}, {watchdog, Dog} | TmpConfig];
-
 init_per_testcase(Case, Config00) ->
     Config0 = prepare(Config00),
     Config1 = lists:keydelete(watchdog, 1, Config0),
@@ -333,11 +328,24 @@ init_per_testcase(Case, Config00) ->
 		   undefined -> [];
 		   Sz -> [{packet_size,Sz}]
 	       end,
+    PrepareOpenSSHServer =
+        fun() ->
+                Host = ssh_test_lib:hostname(),
+        	{ok, ChannelPid, Connection} =
+        	    ssh_sftp:start_channel(Host,
+        				   [{user_interaction, false},
+        				    {silently_accept_hosts, true},
+                                            {save_accepted_host, false}
+                                           | PktSzOpt
+        				   ]),
+        	Sftp = {ChannelPid, Connection},
+        	[{sftp, Sftp}, {watchdog, Dog} | Config2]
+        end,
     Config =
 	case proplists:get_value(group,Config2) of
 	    erlang_server ->
-		{_,Host, Port} =  proplists:get_value(sftpd, Config2),
-		{ok, ChannelPid, Connection}  = 
+		{_,Host, Port} = proplists:get_value(sftpd, Config2),
+		{ok, ChannelPid, Connection} =
 		    ssh_sftp:start_channel(Host, Port,
 					   [{user, User},
 					    {password, Passwd},
@@ -352,18 +360,10 @@ init_per_testcase(Case, Config00) ->
 	    openssh_server when Case == links ->
 		{skip, "known bug in openssh"};
 	    openssh_server ->
-		Host = ssh_test_lib:hostname(),
-		{ok, ChannelPid, Connection} = 
-		    ssh_sftp:start_channel(Host, 
-					   [{user_interaction, false},
-					    {silently_accept_hosts, true},
-                                            {save_accepted_host, false}
-					    | PktSzOpt
-					   ]),
-		Sftp = {ChannelPid, Connection},
-		[{sftp, Sftp}, {watchdog, Dog} | Config2]
+                PrepareOpenSSHServer();
+            _ when Case == read_6GB_prepare_openssh_server ->
+                PrepareOpenSSHServer()
 	end,
-
     case catch proplists:get_value(remote_tar,Config) of
 	%% The 'catch' is for the case of Config={skip,...}
 	true ->
@@ -712,6 +712,29 @@ position(Config) when is_list(Config) ->
 
     {ok, 1} = ssh_sftp:position(Sftp, Handle, cur),
     {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1).
+
+read_6GB(Config) when is_list(Config) ->
+    ct:timetrap(16*?default_timeout),
+    FileName = "/dev/zero",
+    SftpFileName = w2l(Config, FileName),
+    {SftpChannel, _ConnectionRef} = proplists:get_value(sftp, Config),
+    ChunkSize = 65535,
+    N = 100000,
+    {ok, Handle} = ssh_sftp:open(SftpChannel, SftpFileName, [read]),
+    ExpectedList = lists:duplicate(ChunkSize, 0),
+    [begin
+         MBTransferred = io_lib:format("~.2f", [I * ChunkSize / 1048576.0]),
+         case ssh_sftp:read(SftpChannel, Handle, ChunkSize, timer:minutes(1)) of
+             {ok, ExpectedList} ->
+                 [ct:log("~n~s MB read~n", [MBTransferred]) || I rem 10000 == 0];
+             Result ->
+                 ct:log("## After reading ~s MB~n## Unexpected result received = ~p",
+                        [MBTransferred, Result]),
+                 ct:fail(unexpected_reason)
+         end
+     end ||
+        I <- lists:seq(0, N)],
+    ok.
 
 %%--------------------------------------------------------------------
 pos_read(Config) when is_list(Config) ->
@@ -1271,4 +1294,22 @@ w2l(Config, P) ->
     W2L = proplists:get_value(w2l, Config, fun(X) -> X end),
     W2L(P).
 
-    
+verify_openssh(Config) ->
+    ct:comment("Begin ~p",[grps(Config)]),
+    Host = ssh_test_lib:hostname(),
+    case (catch ssh_sftp:start_channel(Host,
+				       [{user_interaction, false},
+					{silently_accept_hosts, true},
+                                        {save_accepted_host, false}
+                                       ])) of
+	{ok, _ChannelPid, Connection} ->
+	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
+	    ssh:close(Connection),
+	    [{w2l, fun w2l/1},
+             {peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
+	{error,"Key exchange failed"} ->
+	    {skip, "openssh server doesn't support the tested kex algorithm"};
+	Other ->
+            ct:log("No openssh server. Cause:~n~p~n",[Other]),
+	    {skip, "No openssh daemon (see log in testcase)"}
+    end.
