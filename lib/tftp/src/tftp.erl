@@ -350,7 +350,7 @@ matching regexp is found.
 -spec read_file(RemoteFilename, LocalFilename, Options) ->
         {ok, LastCallbackState} | {error, Reason} when
     RemoteFilename    :: file:filename(),
-    LocalFilename     :: file:filename_all(),
+    LocalFilename     :: file:filename_all() | 'binary',
     Options           :: [connection_option()],
     LastCallbackState :: term(),
     Reason            :: term().
