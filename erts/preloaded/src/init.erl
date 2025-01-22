@@ -697,6 +697,11 @@ boot_loop(BootPid, State) ->
 	    notify(State#state.subscribed),
 	    loop(State#state{status = {started,PS},
 			     subscribed = []});
+        {'EXIT',BootPid,terminating} ->
+            %% If BootPid exited with terminating, then AC is about to
+            %% terminate and thus the entire system. We ignore this here
+            %% in order to give kernel a chance to flush logs to disk.
+            boot_loop(BootPid, State);
 	{'EXIT',BootPid,Reason} ->
 	    % erlang:display({"init terminating in do_boot",Reason}),
 	    crash("Runtime terminating during boot", [Reason]);
