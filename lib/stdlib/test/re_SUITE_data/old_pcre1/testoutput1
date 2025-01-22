@@ -6668,10 +6668,6 @@ No match
     \x0a\x0b\x0c\x0d
  0: \x0a\x0b\x0c\x0d
 
-/^\c/
-    ?
- 0: ?
-
 /(abc)\1/i
    abc
 No match
