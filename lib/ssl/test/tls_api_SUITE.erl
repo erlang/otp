@@ -1370,7 +1370,9 @@ signature_algs(Config) when is_list(Config) ->
     true = (not lists:member(rsa_pkcs1_sha384, TLS_1_2_All)) andalso lists:member({sha384, rsa}, TLS_1_2_All),
     true = (not lists:member(rsa_pkcs1_sha256, TLS_1_2_All)) andalso lists:member({sha256, rsa}, TLS_1_2_All),
     true = (not lists:member(rsa_pkcs1_sha, TLS_1_2_All)) andalso lists:member({sha, rsa}, TLS_1_2_All),
-    true = (not lists:member(ecdsa_sha1, TLS_1_2_All)) andalso lists:member({sha, ecdsa}, TLS_1_2_All).
+    true = (not lists:member(ecdsa_sha1, TLS_1_2_All)) andalso lists:member({sha, ecdsa}, TLS_1_2_All),
+    All = ssl_cipher:signature_schemes_1_2(ssl:signature_algs(default, 'tlsv1.3')),
+    true = length(All) == length(lists:uniq(All)).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
