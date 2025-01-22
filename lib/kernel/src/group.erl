@@ -1277,7 +1277,7 @@ type({io_request, _From, _ReplyAs, Req}) ->
     type(Req);
 type(getopts) ->
     ctrl;
-type(Req) ->
+type(Req) when tuple_size(Req) > 1 ->
     ReqType = element(1, Req),
     case {lists:member(ReqType, [put_chars, requests]),
             lists:member(ReqType, [get_chars, get_line, get_until, get_password])} of
@@ -1287,7 +1287,9 @@ type(Req) ->
             input;
         {false, false} ->
             ctrl
-    end.
+    end;
+type(_InvalidReq) ->
+    ctrl.
 
 format_io_request_log(#{ request := {io_request, From, ReplyAs, Request},
                          server := Server,
