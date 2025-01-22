@@ -555,37 +555,53 @@ int main(int argc, char **argv)
     if (s == NULL) {
         erts_snprintf(tmpStr, sizeof(tmpStr),
             "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP, bindir, rootdir);
+        set_env("PATH", tmpStr);
     } else if (strstr(s, rootdir) == NULL) {
         erts_snprintf(tmpStr, sizeof(tmpStr),
             "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, rootdir, s);
+        set_env("PATH", tmpStr);
     } else {
-        const char *bindir_slug, *bindir_slug_index;
-        int bindir_slug_length;
+        char *pathBuf = NULL;
+        int pathBufLen = 0;
+
+        char *sep_index;
+        int sep_length = strlen(PATHSEP);
+        int bindir_length = strlen(bindir);
         const char *in_index;
         char *out_index;
 
-        erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP, bindir);
+        pathBufLen = strlen(s) + strlen(bindir) + strlen(PATHSEP);
+        pathBuf = emalloc(pathBufLen);
 
-        bindir_slug = strsave(tmpStr);
-        bindir_slug_length = strlen(bindir_slug);
+        strcpy(pathBuf, bindir);
 
-        out_index = &tmpStr[bindir_slug_length];
+        out_index = &pathBuf[bindir_length];
         in_index = s;
 
-        while ((bindir_slug_index = strstr(in_index, bindir_slug))) {
-            int block_length = (bindir_slug_index - in_index);
+        while ((sep_index = strstr(in_index, PATHSEP))) {
+            int elem_length = (sep_index - in_index);
 
-            memcpy(out_index, in_index, block_length);
+            if (bindir_length != elem_length ||
+                0 != strncmp(in_index, bindir, elem_length)) {
+                strcpy(out_index, PATHSEP);
+                out_index += sep_length;
+                memcpy(out_index, in_index, elem_length);
+                out_index += elem_length;
+            }
 
-            in_index = bindir_slug_index + bindir_slug_length;
-            out_index += block_length;
+            in_index = sep_index + sep_length;
         }
-        efree((void*)bindir_slug);
-        strcpy(out_index, in_index);
-    }
 
+        if (0 != strcmp(in_index, bindir)) {
+            strcpy(out_index, PATHSEP);
+            out_index += sep_length;
+            strcpy(out_index, in_index);
+        }
+
+        set_env("PATH", pathBuf);
+        efree(pathBuf);
+    }
     free_env_val(s);
-    set_env("PATH", tmpStr);
 
     i = 1;
 
