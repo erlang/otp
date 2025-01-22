@@ -2414,7 +2414,7 @@ owning the [`sslsocket()`](`t:sslsocket/0`) will receive messages of type
           {error, Reason} when
       Socket :: socket() | sslsocket(),
       SslSocket :: sslsocket(),
-      Options :: [server_option()],
+      Options :: [server_option() | common_option()],
       Timeout :: timeout(),
       Ext :: protocol_extensions(),
       Reason :: closed | timeout | {options, any()} | error_alert().
@@ -2468,7 +2468,7 @@ handshake(Socket, SslOptions, Timeout)
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
-      Options :: [tls_client_option() | tls_server_option()],
+      Options :: [client_option() | server_option() | common_option()],
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().
 %%--------------------------------------------------------------------
@@ -2482,7 +2482,7 @@ handshake_continue(Socket, SSLOptions) ->
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
       HsSocket :: sslsocket(),
-      Options :: [tls_client_option() | tls_server_option()],
+      Options :: [client_option() | server_option() | common_option()],
       Timeout :: timeout(),
       SslSocket :: sslsocket(),
       Reason :: closed | timeout | error_alert().
@@ -4872,6 +4872,10 @@ validate_filename(FN, Option) ->
     option_error(Option, FN).
 
 validate_server_cert_opts(_Opts, #{validate_certs_or_anon_ciphers := false}) ->
+    ok;
+validate_server_cert_opts(#{handshake := hello}, _) ->
+    %% This verification should be done only when handshake := full, as options
+    %% to fulfill the requirement can be supplied at that time.
     ok;
 validate_server_cert_opts(#{certs_keys := [_|_]=CertsKeys, ciphers := CPHS, versions := Versions}, _) ->
     validate_certs_or_anon_ciphers(CertsKeys, CPHS, Versions);
