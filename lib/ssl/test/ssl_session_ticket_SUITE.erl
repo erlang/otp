@@ -83,7 +83,7 @@
          stateless_multiple_servers/1]).
 
 -include("ssl_test_lib.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).

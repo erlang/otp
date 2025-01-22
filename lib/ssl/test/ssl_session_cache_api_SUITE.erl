@@ -25,7 +25,7 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 
 %% Callback functions
 -export([all/0,

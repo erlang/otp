@@ -568,7 +568,6 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
                     %% Complete record
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
-                    ssl_logger:debug(get(log_level), inbound, 'record', Record),
                     case Downgrade of
                         {_Pid, _From} ->
                             %% parse only single record for downgrade scenario, buffer remaining data

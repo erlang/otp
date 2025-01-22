@@ -22,7 +22,7 @@
 -module(ssl_reject_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssl_record.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_handshake.hrl").
 

@@ -113,22 +113,6 @@ HRL_FILES = \
 	ssl_test_lib.hrl\
 	ssl_dist_test_lib.hrl
 
-HRL_FILES_SRC = \
-	ssl_api.hrl\
-	ssl_internal.hrl\
-	ssl_alert.hrl \
-	tls_handshake.hrl \
-	ssl_handshake.hrl \
-	ssl_cipher.hrl \
-	tls_record.hrl \
-	ssl_record.hrl
-
-HRL_FILES_INC = 
-
-HRL_FILES_NEEDED_IN_TEST = \
-	$(HRL_FILES_SRC:%=../src/%) \
-	$(HRL_FILES_INC:%=../include/%)
-
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 INCLUDES = -I.
@@ -185,7 +169,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(HRL_FILES_NEEDED_IN_TEST) $(COVER_FILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(COVER_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) ssl.spec ssl_bench.spec ssl_gh.spec ssl.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
