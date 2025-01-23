@@ -819,9 +819,11 @@ Options: anchored
 No first char
 No need char
     aaaa
-No match
+ 0: aaaa
+ 1: a
     aaaaaa
-No match
+ 0: aaaaaa
+ 1: aa
     
 /Perl does not fail these two for the final subjects. Neither did PCRE until/
 /release 8.01. The problem is in backtracking into a subpattern that contains/
