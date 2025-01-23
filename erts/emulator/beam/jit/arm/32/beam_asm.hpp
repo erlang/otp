@@ -77,23 +77,32 @@ protected:
 
     /* Points at x_reg_array inside an ErtsSchedulerRegisters struct, allowing
      * the aux_regs field to be addressed with an 8-bit displacement. */
-    const a32::Gp scheduler_registers = a32::r10;
+    const a32::Gp scheduler_registers = a32::r4;
 
-    const a32::Gp E = a32::fp;
+    const a32::Gp E = a32::r7;
 
-    const a32::Gp c_p = a32::r7;
-    const a32::Gp FCALLS = a32::r8;
-    const a32::Gp HTOP = a32::r9;
+    const a32::Gp c_p = a32::r8;
+    const a32::Gp FCALLS = a32::r9;
+    const a32::Gp HTOP = a32::r10;
 
     /* Local copy of the active code index.
      *
      * This is set to ERTS_SAVE_CALLS_CODE_IX when save_calls is active, which
      * routes us to a common handler routine that calls save_calls before
      * jumping to the actual code. */
-    const a32::Gp active_code_ix = a32::r6;
+    const a32::Gp active_code_ix = a32::r5;
 
+    /*
+     * All of the following registers are caller-save.
+     *
+     * Note that ARG1 is also the register for the return value.
+     */
+    const a32::Gp ARG1 = a32::r0;
+    const a32::Gp ARG2 = a32::r1;
+    const a32::Gp ARG3 = a32::r2;
+    const a32::Gp ARG4 = a32::r3;
 
-    static const int num_register_backed_xregs = 6;
+    const a32::Gp VAR = a32::r6;
 
 #ifdef ERTS_MSACC_EXTENDED_STATES
     const arm::Mem erts_msacc_cache = getSchedulerRegRef(
@@ -138,6 +147,7 @@ protected:
     }
 
     void emit_assert_redzone_unused() {
+        ASSERT(false);
 #ifdef JIT_HARD_DEBUG
         const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
         Label next = a.newLabel();
@@ -169,6 +179,8 @@ protected:
      * assume that the respective entry is in ARG1, so we have to copy it over
      * if it isn't already. */
     arm::Mem emit_setup_dispatchable_call(const a32::Gp &Src) {
+        // TODO
+        ASSERT(false);
         return emit_setup_dispatchable_call(Src, active_code_ix);
     }
 
@@ -237,13 +249,13 @@ protected:
      * needed. */
 
     template<int Spec = 0>
-    void emit_enter_runtime(int live = num_register_backed_xregs) {
+    void emit_enter_runtime() {
         // TODO
         ASSERT(false);
     }
 
     template<int Spec = 0>
-    void emit_leave_runtime(int live = num_register_backed_xregs) {
+    void emit_leave_runtime() {
         // TODO
         ASSERT(false);
     }
