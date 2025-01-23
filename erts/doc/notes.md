@@ -21,6 +21,25 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed configure tests for GCC 14
+
+  Own Id: OTP-19407 Aux Id: [GH-9211], [PR-9234]
+
+- Fix bug where log printouts would go missing when `application_controller` is stopping while log messages are being sent.
+  
+  This bug was introduced by OTP-19078 in Erlang/OTP 26.2.5.
+
+  Own Id: OTP-19418 Aux Id: [GH-9163], [PR-9274]
+
+[GH-9211]: https://github.com/erlang/otp/issues/9211
+[PR-9234]: https://github.com/erlang/otp/pull/9234
+[GH-9163]: https://github.com/erlang/otp/issues/9163
+[PR-9274]: https://github.com/erlang/otp/pull/9274
+
 ## Erts 15.2
 
 ### Fixed Bugs and Malfunctions

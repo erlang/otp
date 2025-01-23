@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # TFTP Release Notes
 
+## Tftp 1.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix specs in tftp:read_file function.
+
+  Own Id: OTP-19446 Aux Id: [PR-9327], ERIERL-1179
+
+[PR-9327]: https://github.com/erlang/otp/pull/9327
+
 ## Tftp 1.2.1
 
 ### Improvements and New Features
