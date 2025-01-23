@@ -1276,7 +1276,12 @@ mode(Config) ->
 
     Directory = filename:join(PrivDir,"dir"),
     ok = file:make_dir(Directory),
-    {ok, DirFI } = file:read_file_info(Executable),
+    {ok, DirFI } = file:read_file_info(Directory),
+
+    NestedFile = filename:join(Directory, "nested"),
+    file:write_file(NestedFile, "bbb"),
+    {ok, NestedFI } = file:read_file_info(NestedFile),
+
     ok = file:write_file_info(Directory, DirFI#file_info{ mode = 8#111 bor 8#400 }),
     {ok, #file_info{ mode = OrigDirMode }} = file:read_file_info(Directory),
 
@@ -1286,16 +1291,18 @@ mode(Config) ->
 
     OrigExecMode777 = OrigExecMode band 8#777,
     OrigDirMode777 = OrigDirMode band 8#777,
+    OrigNestedFileMode777 = NestedFI#file_info.mode band 8#777,
 
     ?assertMatch(
        {ok, [#zip_comment{},
              #zip_file{ name = "dir/", info = #file_info{ mode = OrigDirMode777 }},
+             #zip_file{ name = "dir/nested", info = #file_info{ mode = OrigNestedFileMode777 }},
              #zip_file{ name = "exec", info = #file_info{ mode = OrigExecMode777 }} ]},
        zip:list_dir(Archive)),
 
     ok = file:make_dir(ExtractDir),
     ?assertMatch(
-       {ok, ["dir/","exec"]}, unzip(Config, Archive, [{cwd,ExtractDir}])),
+       {ok, ["dir/","dir/nested","exec"]}, unzip(Config, Archive, [{cwd,ExtractDir}])),
 
     case un_z64(get_value(unzip, Config)) =/= unemzip of
         true ->
@@ -1305,7 +1312,11 @@ mode(Config) ->
 
             {ok,#file_info{ mode = DirMode }} =
                 file:read_file_info(filename:join(ExtractDir,"dir")),
-            ?assertEqual(DirMode band 8#777, OrigDirMode777);
+            ?assertEqual(DirMode band 8#777, OrigDirMode777),
+
+            {ok,#file_info{ mode = NestedMode }} =
+                file:read_file_info(filename:join(ExtractDir,"dir/nested")),
+            ?assertEqual(NestedMode band 8#777, OrigNestedFileMode777);
         false ->
             %% emzip does not support mode
             ok
