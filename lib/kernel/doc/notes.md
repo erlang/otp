@@ -21,6 +21,19 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix the default group_leader to reply `{error,request}` on invalid I/O requests instead of crashing.
+  
+  This bug was introduced in Erlang/OTP 27.2.
+
+  Own Id: OTP-19444 Aux Id: [GH-9237], [PR-9318]
+
+[GH-9237]: https://github.com/erlang/otp/issues/9237
+[PR-9318]: https://github.com/erlang/otp/pull/9318
+
 ## Kernel 10.2
 
 ### Fixed Bugs and Malfunctions

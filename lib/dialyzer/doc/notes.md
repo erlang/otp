@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 5.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a crash caused by the use of opaque types.
+
+  Own Id: OTP-19439 Aux Id: ERIERL-1183, [PR-9314]
+
+[PR-9314]: https://github.com/erlang/otp/pull/9314
+
 ## Dialyzer 5.3
 
 ### Fixed Bugs and Malfunctions
