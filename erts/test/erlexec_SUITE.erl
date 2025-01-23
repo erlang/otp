@@ -446,17 +446,24 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
 
 long_path_env(Config) when is_list(Config) ->
     OriginalPath = os:getenv("PATH"),
-    [BinPath, _RestPath] = string:split(OriginalPath, ":"),
+    [BinPath, RestPath] = string:split(OriginalPath, ":"),
     LongPath = lists:duplicate(10240, "x"),
-    TestPath = OriginalPath ++ ":" ++ LongPath ++ ":" ++ BinPath,
-    AssertPath = OriginalPath ++ ":" ++ LongPath,
-    os:putenv("PATH", TestPath),
-
+    ExpectedPath = OriginalPath ++ ":" ++ LongPath,
     {ok, [[PName]]} = init:get_argument(progname),
     Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
-    Output = os:cmd(Cmd),
 
-    true = string:equal(AssertPath, Output),
+    os:putenv("PATH", OriginalPath ++ ":" ++ LongPath ++ ":" ++ BinPath),
+    Output1 = os:cmd(Cmd),
+    true = string:equal(ExpectedPath, Output1),
+
+    os:putenv("PATH", ExpectedPath),
+    Output2 = os:cmd(Cmd),
+    true = string:equal(ExpectedPath, Output2),
+
+    os:putenv("PATH", RestPath ++ ":" ++ LongPath),
+    Output3 = os:cmd(Cmd),
+    true = string:equal(ExpectedPath, Output3),
+
     ok.
 
 
