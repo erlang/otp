@@ -51,6 +51,14 @@ Here are some examples of what should work:
 3
 ```
 
+## Multi-line with comma example:
+
+```erlang
+> A = 1,
+  A + 2.
+3
+```
+
 ## Multi-match example:
 
 ```erlang
@@ -107,6 +115,13 @@ Here are some examples of what should work:
 ```
 > Prebound.
 hello
+```
+
+## Matching of maps:
+
+```
+> #{ a => b }.
+#{ a => b }
 ```
 
 """.
@@ -184,16 +199,37 @@ parse_match(Rest, Acc) ->
 
 run_tests({test, Test, Match}, Bindings) ->
     maybe
-        Cmd = lists:flatten([unicode:characters_to_list(Match),
-                             "=",
-                             unicode:characters_to_list(Test)]),
-        {ok, T, _} ?= erl_scan:string(Cmd),
-        {ok, Ast} ?= inspect(erl_parse:parse_exprs(T)),
-        {value, _Res, NewBindings} ?= inspect(erl_eval:exprs(Ast, Bindings)),
-        NewBindings
+        Cmd = [unicode:characters_to_list(Match), " = begin ",
+                string:trim(string:trim(unicode:characters_to_list(Test)), trailing, "."), " end."],
+        {ok, T, _} ?= erl_scan:string(lists:flatten(Cmd)),
+        {ok, Ast0} ?= inspect(erl_parse:parse_exprs(T)),
+        Ast = rewrite(Ast0),
+        try
+            {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
+            NewBindings
+        catch E:R:ST ->
+                io:format("~p~n", [Ast]),
+                erlang:raise(E,R,ST)
+        end
     else
-        E -> throw({iolist_to_binary(Test), iolist_to_binary(Match), E})
+        Else -> throw({iolist_to_binary(Test), iolist_to_binary(Match), Else})
     end.
+
+rewrite([{match, Ann, LHS, RHS} | Rest]) ->
+    [{match, Ann, rewrite_map_match(LHS), RHS} | Rest].
+
+rewrite_map_match(AST) ->
+    erl_syntax:revert(
+    erl_syntax_lib:map(fun(Tree) ->
+        case erl_syntax:type(Tree) of
+            map_field_assoc ->
+                Name = erl_syntax:map_field_assoc_name(Tree),
+                Value = erl_syntax:map_field_assoc_value(Tree),
+                erl_syntax:map_field_exact(Name, Value);
+            _Else ->
+                Tree
+        end
+     end, AST)).
 
 inspect(Term) ->
 %% Uncomment for debugging
