@@ -149,16 +149,8 @@ protected:
     void emit_assert_redzone_unused() {
         ASSERT(false);
 #ifdef JIT_HARD_DEBUG
-        const int REDZONE_BYTES = S_REDZONE * sizeof(Eterm);
-        Label next = a.newLabel();
-
-        a.sub(SUPER_TMP, E, imm(REDZONE_BYTES));
-        a.cmp(HTOP, SUPER_TMP);
-
-        a.b_ls(next);
-        a.udf(0xbeef);
-
-        a.bind(next);
+    // TODO
+    ASSERT(false);
 #endif
     }
 
@@ -884,19 +876,8 @@ protected:
      * that the return address forms a valid CP. */
     template<typename Any>
     void fragment_call(Any target) {
-        emit_assert_redzone_unused();
-
-#if defined(JIT_HARD_DEBUG)
-        /* Verify that the stack has not grown. */
-        Label next = a.newLabel();
-        a.ldr(SUPER_TMP, getInitialSPRef());
-        a.cmp(a32::sp, SUPER_TMP);
-        a.b_eq(next);
-        a.udf(0xdead);
-        a.bind(next);
-#endif
-
-        a.bl(resolve_fragment((void (*)())target, disp128MB));
+        // TODO
+        ASSERT(false);
     }
 
     template<typename T>
