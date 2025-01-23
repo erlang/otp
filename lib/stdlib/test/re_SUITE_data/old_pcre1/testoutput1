@@ -8979,22 +8979,6 @@ No match
     a
 No match
 
-/(?=a\Kb)ab/
-    ab 
- 0: b
-
-/(?!a\Kb)ac/
-    ac 
- 0: ac
-    
-/^abc(?<=b\Kc)d/
-    abcd
- 0: cd
-
-/^abc(?<!b\Kq)d/
-    abcd
- 0: abcd
-
 
 /A(*PRUNE:A)A+(*SKIP:A)(B|Z) | AC/xK
     AAAC
