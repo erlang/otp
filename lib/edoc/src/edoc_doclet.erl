@@ -36,6 +36,8 @@
 
 -module(edoc_doclet).
 
+-compile(nowarn_deprecated_catch).
+
 -export([run/2]).
 
 -import(edoc_report, [report/2, warning/2]).
