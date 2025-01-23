@@ -111,30 +111,6 @@ Failed: invalid escape sequence in character class at offset 6
 /(?X)[\X]/
 Failed: invalid escape sequence in character class at offset 6
 
-/[\B]/BZ
-------------------------------------------------------------------
-        Bra
-        B
-        Ket
-        End
-------------------------------------------------------------------
-
-/[\R]/BZ
-------------------------------------------------------------------
-        Bra
-        R
-        Ket
-        End
-------------------------------------------------------------------
-
-/[\X]/BZ
-------------------------------------------------------------------
-        Bra
-        X
-        Ket
-        End
-------------------------------------------------------------------
-
 /[z-a]/
 Failed: range out of order in character class at offset 3
 
@@ -8031,14 +8007,6 @@ No match
     a\n\n\n\rb
 No match
     a\r
-No match
-
-/^a[\R]b/<bsr_unicode>
-    aRb
- 0: aRb
-    ** Failers
-No match
-    a\nb
 No match
 
 /(?&abc)X(?<abc>P)/I
