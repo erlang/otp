@@ -609,14 +609,6 @@ No match
     \x{ff5a}   
  0: \x{ff5a}
     
-/^[\X]/8
-    X123
- 0: X
-    *** Failers
-No match
-    AXYZ
-No match
-
 /^(\X*)C/8
     A\x{300}\x{301}\x{302}BCA\x{300}\x{301} 
  0: A\x{300}\x{301}\x{302}BC

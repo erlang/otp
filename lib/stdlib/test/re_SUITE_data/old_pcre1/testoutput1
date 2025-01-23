@@ -6233,12 +6233,6 @@ No match
     b     
 No match
 
-/[\z\C]/
-    z
- 0: z
-    C 
- 0: C
-    
 /\M/
     M 
  0: M
@@ -7040,16 +7034,6 @@ No match
 /(?<=ab\Cde)X/
     abZdeX
  0: X
-
-/a[\CD]b/
-    aCb
- 0: aCb
-    aDb 
- 0: aDb
-
-/a[\C-X]b/
-    aJb
- 0: aJb
 
 /\H\h\V\v/
     X X\x0a
