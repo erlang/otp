@@ -4913,7 +4913,7 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
       TimeoutOrHandle :: nowait | select_handle() | completion_handle();
           (Socket :: socket(), Length :: non_neg_integer(), Flags :: list())
           -> dynamic();
-          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle :: select_handle() | completion_handle())
+          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle :: nowait | select_handle() | completion_handle())
           -> dynamic().
 
 recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
