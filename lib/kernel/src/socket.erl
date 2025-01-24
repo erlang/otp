@@ -27,8 +27,10 @@ create, delete and manipulate the sockets as well as sending and receiving data
 on them.
 
 The intent is that it shall be as "close as possible" to the OS level socket
-interface. The only significant addition is that some of the functions, e.g.
-`recv/3`, have a time-out argument.
+interface. The only significant additions are that some of the functions, e.g.
+`recv/3`, have a time-out argument, and that [`recv/*`](`recv/1`) for a
+[`stream`](`t:type/0`) socket iterates until the requested amount of data
+has been received.
 
 [](){: #asynchronous-calls }
 
@@ -50,29 +52,48 @@ interface. The only significant addition is that some of the functions, e.g.
 >
 > #### The `completion` and `select` Return Values
 >
-> For instance, if calling `recv/3` like this;
-> [`recv(Socket, 0, nowait)`](#recv-nowait), when there is
-> no data available for reading, it will return one of:
+> For instance, the call [`recv(Socket, 0, nowait)`](#recv-nowait),
+> when there is no data available for reading, will,
+> depending on the operating system, return one of:
 >
 > - `{completion, `[`CompletionInfo`](`t:completion_info/0`)`}`
 > - `{select, `[`SelectInfo`](`t:select_info/0`)`}`
 >
-> `CompletionInfo` contains a [CompletionHandle](`t:completion_handle/0`) and
-> `SelectInfo` contains a [SelectHandle](`t:select_handle/0`).
-> Both are types are aliases to `t:reference/0`.
+> Where `CompletionInfo` is
+> `{completion_info, _, `[`CompletionHandle`](`t:completion_handle/0`)`}`
+> and `SelectInfo` is
+> `{select_info, _, `[`SelectHandle`](`t:select_handle/0`)`}`.
+> Both the `CompletionHandle` and the `SelectHandle`
+> are of type `t:reference/0`.
+>
 > When the operation can continue, a `completion` message containing
 > the `CompletionHandle` or a `select` message containing
 > the `SelectHandle` is sent to the calling process.
 >
-> On `select` systems some functions may also return:
+> On `select` systems, [`recv/2,3,4`](`recv/2`) may also return:
 >
-> - `{select, {`[`SelectInfo`](`t:select_info/0`)`, _}`
+> - `{select, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
 >
-> This may happen for sockets of type [`stream`](`t:type/0`) where
-> the stream handling can split the data stream at any point.
-> See the respective function's type specification's return type.
+> This may happen for sockets of type [`stream`](`t:type/0`)
+> when `Length > 1` since the OS may split a data stream at any point
+> and deliver just the first part of the requested data.
+> For the next [`recv/2,3,4`](`recv/2`) call; the `Length` to receive
+> will probably have to be adjusted due to the already delivered data
+> in this return value.
 >
-> #### The `completion` and `select` Messages
+> On `select` systems, when the `{otp, select_read}` option is `true`,
+> the asynchronous [`recv/3,4`](#recv-nowait),
+> [`recvfrom/3,4`](#recvfrom-nowait), and
+> [`recvmsg/3,4,5`](#recvmsg-nowait) functions may also return:
+>
+> - `{select_read, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
+>
+> This indicates that the receive operation was completed;
+> all requested data has been delivered,  and that the calling process
+> will get a `select` message when there is data available
+> for the next receive operation.
+>
+> #### The `completion` and `select` Messages [](){: #async-messages }
 >
 > The `completion` message has the format:
 >
@@ -85,11 +106,11 @@ interface. The only significant addition is that some of the functions, e.g.
 >   `[`SelectHandle`](`t:select_handle/0`)`}`
 >
 > When a `completion` message is received (which contains the _result_
-> of the operation), it means that the operation has been _completed_ with
-> `CompletionStatus :: ok | {error, Reason}`.
-> See the respective function's documentation for possible values
-> of `Reason`, which are the same `{error, Reason}` values
-> that can be returned by the function itself.
+> of the operation), it means that the operation has been _completed_ and
+> `CompletionStatus` is the return value for the operation,
+> which is what the function that initiated the operation
+> could have returned, with the `nowait` argument,
+> except for the `completion` and `select` return values.
 >
 > When a `select` message is received, it only means that the operation
 > _may now continue_, by retrying the operation (which may return
@@ -102,15 +123,19 @@ interface. The only significant addition is that some of the functions, e.g.
 > On `select` systems, all other processes are _locked out_ until the
 > current process has completed the operation as in a continuation
 > call has returned a value indicating success or failure
-> (not a `select` return).  Other processes are queued and get
-> a `select` return which makes them wait for their turn.
+> (not a `select` or `select_read` return).  Other processes are queued
+> and get a `select` return which makes them wait for their turn.
 >
-> #### Canceling an operation
+> Note that receiving data from parallel processes is only suitable
+> for some protocols.  For a [`stream`](`t:type/0`) socket
+> it is in general a recipe for disaster.
+>
+> #### Cancelling an operation
 >
 > An operation that is in progress (not completed) may be canceled
 > using `cancel/2` both on `completion` and `select` systems.
 >
-> Canceling an operation ensures that there is no `completion`,
+> Cancelling an operation ensures that there is no `completion`,
 > `select`, nor `abort` message in the inbox after the `cancel/2` call.
 >
 > #### Using a `Handle`
@@ -126,22 +151,23 @@ interface. The only significant addition is that some of the functions, e.g.
 > to only scan the messages that arrive after the `t:reference/0`
 > is created.  If the message queue is large this is a big optimization.
 >
-> The `t:reference/0` has to be unique for the call.
+> It is not possible to have more than one operation in progress
+> with the same `t:reference/0`.
 >
 > #### Repeating an Operation on a `select` Systems
 >
 > On`select` systems, if a call would be repeated _before_ the `select`
-> message has been received it replaces the call in progress:
+> message has been received it replaces the operation in progress:
 >
 > ```erlang
->     {select, {select_info, Handle}} = socket:accept(LSock, nowait),
->     {error, timeout} = socket:accept(LSock, 500),
+>     {select, {select_info, Handle}} = socket:accept(LSock, nowait),
+>     {ok, Socket} = socket:accept(LSock, 1000),
 >     :
 > ```
 > Above, `Handle` is _no longer_ valid once the second `accept/2`, call
 > has been made (the first call is automatically canceled).
-> After the second `accept/2` call returns `{error, timeout}`,
-> the accept operation has completed.
+> After the second `accept/2` call returns, the accept operation
+> has completed.
 >
 > Note that there is a race here; there is no way to know if the call
 > is repeated _before_ the `select` message is sent since it _may_
@@ -887,6 +913,19 @@ hence above all OS protocol levels.
   See [sendmsg](`sendmsg/2`) and also the `ctrl` field of the `t:msg_send/0`
   type.
 
+- **`select_read`** - `t:boolean/0` \-
+  On `select` implementations, see [Asynchronous Calls](#asynchronous-calls),
+  automatically activate select after a completed read.
+
+  Instead of `{ok, Data}` the receive operation returns
+  [`{select_read, {SelectInfo, Data}}`](`t:select_info/0`),
+  and the calling process can wait for a [`select` message](#async-messages)
+  containing `SelectInfo` when there is data available again.
+
+  Setting this option locks out other processes from receiving any data
+  since the current process continues its operation, so it effectively
+  disables receive operation queuing.
+
 - **`fd`** - `t:integer/0` \- Only valid to _get_. The OS protocol levels'
   socket descriptor. Functions [`open/1,2`](`open/1`) can be used to create a
   socket according to this module from an existing OS socket descriptor.
@@ -904,6 +943,7 @@ internal use only.
         rcvbuf | % sndbuf |
         rcvctrlbuf |
         sndctrlbuf |
+        select_read |
         meta |
         use_registry |
         fd |
@@ -1093,14 +1133,14 @@ _Options for protocol level_ [_`ip`_:](`t:level/0`)
   [control message](`t:cmsg_recv/0`) `#{level := ip, type := recverr}`.
 
   A working strategy should be to first poll the error queue using
-  [`recvmsg/2,3,4` ](`m:socket#recvmsg-timeout`)with `Timeout =:= 0` and `Flags`
+  [`recvmsg/2,3,4` ](#recvmsg-timeout)with `Timeout =:= 0` and `Flags`
   containing `errqueue` (ignore the return value `{error, timeout}`) before
   reading the actual data to ensure that the error queue gets cleared. And read
   the data using one of the `nowait |`
   [`select_handle()` ](`t:select_handle/0`)recv functions:
-  [`recv/3,4`](`m:socket#recv-nowait`),
-  [`recvfrom/3,4`](`m:socket#recvfrom-nowait`) or
-  [`recvmsg/3,4,5`](`m:socket#recvmsg-nowait`). Otherwise you might accidentally
+  [`recv/3,4`](#recv-nowait),
+  [`recvfrom/3,4`](#recvfrom-nowait) or
+  [`recvmsg/3,4,5`](#recvmsg-nowait). Otherwise you might accidentally
   cause a busy loop in and out of 'select' for the socket.
 
 - **`{ip, recvif}`** - `Value = boolean()`
@@ -1737,7 +1777,16 @@ contained in the returned `t:completion_info/0`.
 [Select operation](#asynchronous-calls) info.
 
 Returned by an operation that requires the caller to wait for a
-[select message](`m:socket#asynchronous-calls`) containing the
+[`select` message](#async-messages) containing the
+[`SelectHandle`](`t:select_handle/0`).
+
+On `select` systems, if the option
+[`{otp, select_read}`](`t:otp_socket_option/0`) is set,
+[`{select_read, {select_info(), _}}`](`t:select_info/0`)
+is returned instead of `{ok, _}` to indicate that a new
+asynchronous receive operation has been initiated
+and the caller should wait for a
+[`select` message](#async-messages) containing the
 [`SelectHandle`](`t:select_handle/0`).
 """.
 -type select_info() ::
@@ -1750,7 +1799,7 @@ Returned by an operation that requires the caller to wait for a
 [Completion operation](#asynchronous-calls) info.
 
 Returned by an operation that requires the caller to wait for a
-[completion message](`m:socket#asynchronous-calls`) containing the
+[`completion` message](#async-messages) containing the
 [`CompletionHandle`](`t:completion_handle/0`) _and_ the result of the operation;
 the `CompletionStatus`.
 """.
@@ -2945,7 +2994,7 @@ See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
 On `select` systems this function finalizes a connection setup
-on a socket, after receiving a `select` message
+on a socket, after receiving a [`select` message](#async-messages)
 `{'$socket',` [`Socket`](`t:socket/0`)`, select,
 `[`SelectHandle`](`t:select_handle/0`)`}`,
 and returns whether the connection setup was successful or not.
@@ -3021,7 +3070,7 @@ if the connection hasn't been established within `Timeout` milliseconds.
 >
 > The safe play is to close the socket and start over.
 >
-> Also note that this applies to canceling a `nowait` connect call
+> Also note that this applies to cancelling a `nowait` connect call
 > described below.
 
 [](){: #connect-nowait }
@@ -3038,10 +3087,10 @@ start an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call `connect/1`
+After receiving a [`select` message](#async-messages); call `connect/1`
 to complete the operation.
 
-If canceling the operation with `cancel/2` see the note above
+If cancelling the operation with `cancel/2` see the note above
 about [connection time-out](#connect-timeout).
 """.
 -spec connect(Socket, SockAddr, Timeout :: 'infinity') ->
@@ -3851,8 +3900,9 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendto/3,4`](`sendto/3`)
-with `SelectInfo` as the `Cont` argument, to complete the operation.
+After receiving a [`select` message](#async-messages);
+call [`sendto/3,4`](`sendto/3`) with `SelectInfo` as the `Cont` argument,
+to complete the operation.
 """.
 -spec sendto(Socket, Data, Dest, Flags, Timeout :: 'infinity') ->
                   'ok' |
@@ -4078,8 +4128,9 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendmsg/3,4`](`sendmsg/3`)
-with `SelectInfo` as the `Cont` argument, to complete the operation.
+After receiving a [`select` message](#async-messages);
+call [`sendmsg/3,4`](`sendmsg/3`) with `SelectInfo` as the `Cont` argument,
+to complete the operation.
 
 [](){: #sendmsg-cont }
 
@@ -4635,8 +4686,10 @@ an [asynchronous call](#asynchronous-calls) like for `nowait`.
 See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
-After receiving a `select` message call [`sendfile/2,3,4,5`](`sendfile/2`)
-with `SelectInfo` as the `Continuation` argument, to complete the operation.
+After receiving a [`select` message](#async-messages);
+call [`sendfile/2,3,4,5`](`sendfile/2`)
+with `SelectInfo` as the `Continuation` argument,
+to complete the operation.
 
 [](){: #sendfile-cont }
 
@@ -4927,11 +4980,22 @@ recv(Socket, Length, TimeoutOrHandle) ->
 -doc """
 Receive data on a connected socket.
 
-The argument `Length` specifies how many bytes to receive,
-with the special case `0` meaning "all available".
+The argument `Length` specifies the size of the receive buffer.
+Packet oriented sockets truncate the packet if the size is too small.
 
-When `Length` is `0`, a default buffer size is used, which can be set by
+If `Length == 0`; a default buffer size is used, which can be set by
 [`socket:setopt(Socket, {otp,recvbuf}, BufSz)`](`setopt/3`).
+
+For a socket of [type `stream`](`t:type/0`), when a `Timeout` argument
+is used, the operation iterates until `Length` bytes has been received,
+or the operation times out.  If `Length == 0` all readily available
+data is returned.
+
+On a `select` system, when the default receive buffer size option
+[`{otp,recvbuf}`](`t:otp_socket_option/0`) special value `{N,BufSize}`
+is used, `N` limits how many `BufSize` buffers that may be received
+in a tight loop before the receive operation returns.  The option value
+`{1,BufSize}` is equivalent to just specifying a size value `BufSize`.
 
 The message `Flags` may be symbolic `t:msg_flag/0`s and/or
 `t:integer/0`s as in the platform's appropriate header files.
@@ -4954,8 +5018,8 @@ or if the OS reports an error for the operation.
 If the `Timeout` argument is a time-out value
 (`t:non_neg_integer/0`); return `{error, timeout}`
 if no data has arrived after `Timeout` milliseconds,
-or `{error, {timeout, Data}}` if some but not enough data
-has been received on a socket of [type `stream`](`t:type/0`).
+or `{error, {timeout, Data}}` if some but not enough data has been received
+(on a socket of [type `stream`](`t:type/0`) with `Length > 0`).
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no data
@@ -4978,10 +5042,18 @@ See the note [Asynchronous Calls](#asynchronous-calls)
 at the start of this module reference manual page.
 
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
-if `Length > 0` and there isn't enough data available, this function
-will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
+if `Length > 0` and there is some but not enough data available,
+this function will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
 with partial `Data`.  A repeated call to complete the operation
 will probably need an updated `Length` argument.
+
+On `select` systems, if the option
+[`{otp, select_read}`](`t:otp_socket_option/0`) is set,
+[`{select_read, {SelectInfo, Data}}`](`t:select_info/0`)
+is returned instead of `{ok, Data}` and a new asynchronous
+receive operation has been initiated, which can be seen
+as an automatic [nowait](#recv-nowait) call whenever
+a receive operation is completed.
 """.
 -spec recv(Socket, Length, Flags, Timeout :: 'infinity') ->
           {'ok', Data} |
@@ -5007,9 +5079,9 @@ will probably need an updated `Length` argument.
           {'ok', Data} |
           {'select', SelectInfo} |
           {'select', {SelectInfo, Data}} |
+          {'select_read', {SelectInfo, Data}} |
           {'completion', CompletionInfo} |
-          {'error', Reason} |
-          {'error', {Reason, Data}} when
+          {'error', Reason} when
       Socket         :: socket(),
       Length         :: non_neg_integer(),
       Flags          :: [msg_flag() | integer()],
@@ -5086,7 +5158,7 @@ recv_zero(SockRef, Length, Flags, Buf) ->
         {ok, Bin} -> % All requested data
             {ok, condense_buffer(Bin, Buf)};
         {error, Reason} ->
-            recv_error(Buf, Reason);
+            recv_error(Reason, Buf);
         timeout when Buf =:= [] ->
             {error, timeout};
         timeout ->
@@ -5095,7 +5167,7 @@ recv_zero(SockRef, Length, Flags, Buf) ->
             {ok, condense_buffer(Buf)};
         {timeout, Bin} ->
             %% Stream socket with Length > 0 and not all data
-            {error, {timeout, condense_buffer(Bin, Buf)}}
+            recv_error(timeout, [Bin | Buf])
     end.
 
 recv_nowait(SockRef, Length, Flags, Handle) ->
@@ -5155,8 +5227,8 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
             OK;
         {ok, Bin} ->
             {ok, condense_buffer(Bin, Buf)};
-        {error, _Reason} = ERROR ->
-            ERROR;
+        {error, Reason} ->
+            recv_error(Reason, Buf);
         %%
         completion ->
             %% There is nothing just now, but we will be notified when the
@@ -5180,16 +5252,16 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                               SockRef, Length - byte_size(Bin), Flags,
                               Deadline, [Bin | Buf]);
                         true ->
-                            recv_error(Bin, Buf, timeout)
+                            recv_error(timeout, [Bin | Buf])
                     end;
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
-                    recv_error(Buf, Reason);
+                    recv_error(Reason, Buf);
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     {error, Reason}
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf, timeout)
+                    recv_error(timeout, Buf)
             end;
         %%
         {select_read, Bin} -> %% All data, new recv operation in progress
@@ -5219,23 +5291,20 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                             recv_deadline(
                               SockRef, Length_1, Flags, Deadline, Buf_1);
                         true ->
-                            recv_error(Buf_1, timeout)
+                            recv_error(timeout, Buf_1)
                     end;
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    recv_error(Buf_1, Reason)
+                    recv_error(Reason, Buf_1)
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf_1, timeout)
+                    recv_error(timeout, Buf_1)
             end
     end.
 
-recv_error([], Reason) ->
+recv_error(Reason, []) ->
     {error, Reason};
-recv_error(Buf, Reason) when is_list(Buf) ->
+recv_error(Reason, Buf) when is_list(Buf) ->
     {error, {Reason, condense_buffer(Buf)}}.
-
-recv_error(Bin, Buf, Reason) when is_list(Buf) ->
-    {error, {Reason, condense_buffer(Bin, Buf)}}.
 
 %% Condense buffer into a Binary
 %%
@@ -5301,10 +5370,10 @@ With arguments `BufSz` and `Flags`; equivalent to
 [`recvfrom(Socket, BufSz, Flags, infinity)`](`recvfrom/4`).
 
 With arguments `BufSz` and `TimeoutOrHandle`; equivalent to
-[`recv(Socket, BufSz, [], TimeoutOrHandle)`](`recvfrom/4`).
+[`recvfrom(Socket, BufSz, [], TimeoutOrHandle)`](`recvfrom/4`).
 
 With arguments `Flags` and `TimeoutOrHandle`; equivalent to
-[`recv(Socket, 0, Flags, TimeoutOrHandle)`](`recvfrom/4`)
+[`recvfrom(Socket, 0, Flags, TimeoutOrHandle)`](`recvfrom/4`)
 
 `TimeoutOrHandle :: 'nowait'` has been allowed *since OTP 22.1*.
 
@@ -5330,9 +5399,9 @@ recvfrom(Socket, BufSz, TimeoutOrHandle) ->
 -doc """
 Receive a message on a socket.
 
-This function is intended for sockets that are not connection
+This function is intended primarily for sockets that are not connection
 oriented such as type [`dgram`](`t:type/0`) or [`seqpacket`](`t:type/0`)
-where it may arrive messages from different source addresses.
+where messages may arrive from different source addresses.
 
 Argument `BufSz` specifies the number of bytes for the receive buffer.
 If the buffer size is too small, the message will be truncated.
@@ -5402,6 +5471,7 @@ at the start of this module reference manual page.
               (Socket, BufSz, Flags, 'nowait' | Handle) ->
           {'ok', {Source, Data}} |
           {'select', SelectInfo} |
+          {'select_read', {SelectInfo, {Source, Data}}} |
           {'completion', CompletionInfo} |
           {'error', Reason} when
       Socket         :: socket(),
@@ -5582,7 +5652,8 @@ recvmsg(Socket, BufSz, CtrlSz, TimeoutOrHandle) ->
 -doc """
 Receive a message on a socket.
 
-This function receives both data and control messages.
+This function receives a data message with control messages
+as well as its source address.
 
 Arguments `BufSz` and `CtrlSz` specifies the number of bytes for the
 receive buffer and the control message buffer. If the buffer size(s)
@@ -5655,6 +5726,7 @@ at the start of this module reference manual page.
              (Socket, BufSz, CtrlSz, Flags, 'nowait' | Handle) ->
           {'ok', Msg} |
           {'select', SelectInfo} |
+          {'select_read', {SelectInfo, Msg}} |
           {'completion', CompletionInfo} |
           {'error', Reason} when
       Socket        :: socket(),
@@ -6621,10 +6693,10 @@ at the start of this module reference manual page.
 
 If another process tries an operation of the same basic type
 (`accept/1` | `send/2` | `recv/2`) it will be enqueued and notified
-through a `select` or `completion` message when the current operation
-and all enqueued before it has been completed. If the current operation
-is canceled by this function it is treated as a completed operation;
-the process first in queue is notified.
+through a [`select` or `completion` message](#async-messages)
+when the current operation and all enqueued before it has been completed.
+If the current operation is canceled by this function it is treated
+as a completed operation; the process first in queue is notified.
 
 If [`SelectInfo`](`t:select_info/0`) `|`
 [`CompletionInfo`](`t:completion_info/0`) does not match
