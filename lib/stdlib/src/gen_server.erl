@@ -242,27 +242,29 @@ using exit signals.
 	( (X) =:= infinity orelse ( is_integer(X) andalso (X) >= 0 ) )
 ).
 
--record(callback_cache,{handle_call :: fun((Request :: term(), From :: from(), State :: term()) ->
-                            {reply, Reply :: term(), NewState :: term()} |
-                            {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
-                            {noreply, NewState :: term()} |
-                            {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-                            {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
-                            {stop, Reason :: term(), NewState :: term()}),
-                        handle_cast :: fun((Request :: term(), State :: term()) ->
-                            {noreply, NewState :: term()} |
-                            {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-                            {stop, Reason :: term(), NewState :: term()}),
-                        handle_info :: fun((Info :: timeout | term(), State :: term()) ->
-                            {noreply, NewState :: term()} |
-                            {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
-                            {stop, Reason :: term(), NewState :: term()})}).
-
 -record(server_data, {parent :: pid(),
 		      name :: term(),
 		      module :: module(),
-		      callback_cache :: #callback_cache{},
-		      hibernate_after :: timeout()}).
+		      hibernate_after :: timeout(),
+		      handle_call :: fun((Request :: term(), From :: from(), State :: term()) ->
+                          {reply, Reply :: term(), NewState :: term()} |
+                          {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {noreply, NewState :: term()} |
+                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+                          {stop, Reason :: term(), NewState :: term()}),
+                      handle_cast :: fun((Request :: term(), State :: term()) ->
+                          {noreply, NewState :: term()} |
+                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {stop, Reason :: term(), NewState :: term()}),
+                      handle_info :: fun((Info :: timeout | term(), State :: term()) ->
+                          {noreply, NewState :: term()} |
+                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {stop, Reason :: term(), NewState :: term()}),
+                      handle_continue :: fun((Info :: term(), State :: term()) ->
+                          {noreply, NewState :: term()} |
+                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {stop, Reason :: term(), NewState :: term()})}).
 
 %%%=========================================================================
 %%%  API
@@ -2155,11 +2157,14 @@ enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
   when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
        is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
     Name = gen:get_proc_name(ServerName),
-    loop(#server_data{parent=gen:get_parent(),
-                      name=Name,
-                      module=Mod,
-                      callback_cache=create_callback_cache(Mod),
-                      hibernate_after=gen:hibernate_after(Options)},
+    loop(#server_data{parent = gen:get_parent(),
+                      name = Name,
+                      module = Mod,
+                      hibernate_after = gen:hibernate_after(Options),
+		      handle_call = fun Mod:handle_call/3,
+		      handle_cast = fun Mod:handle_cast/2,
+		      handle_info = fun Mod:handle_info/2,
+		      handle_continue = fun Mod:handle_continue/2},
          State,
          TimeoutOrHibernate,
          gen:debug_options(Name, Options));
@@ -2167,11 +2172,14 @@ enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
 enter_loop(Mod, Options, State, ServerName, {continue, _}=Continue)
   when is_atom(Mod), is_list(Options) ->
     Name = gen:get_proc_name(ServerName),
-    loop(#server_data{parent=gen:get_parent(),
-                      name=Name,
-                      module=Mod,
-                      callback_cache=create_callback_cache(Mod),
-                      hibernate_after=gen:hibernate_after(Options)},
+    loop(#server_data{parent = gen:get_parent(),
+                      name = Name,
+                      module = Mod,
+                      hibernate_after = gen:hibernate_after(Options),
+		      handle_call = fun Mod:handle_call/3,
+                      handle_cast = fun Mod:handle_cast/2,
+                      handle_info = fun Mod:handle_info/2,
+                      handle_continue = fun Mod:handle_continue/2},
          State,
          Continue,
          gen:debug_options(Name, Options)).
@@ -2192,11 +2200,14 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
-    ServerData = #server_data{parent=Parent,
-                              name=Name,
-                              module=Mod,
-                              callback_cache=create_callback_cache(Mod),
-                              hibernate_after=gen:hibernate_after(Options)},
+    ServerData = #server_data{parent = Parent,
+                              name = Name,
+                              module = Mod,
+                              hibernate_after = gen:hibernate_after(Options),
+			      handle_call = fun Mod:handle_call/3,
+                              handle_cast = fun Mod:handle_cast/2,
+                              handle_info = fun Mod:handle_info/2,
+                              handle_continue = fun Mod:handle_continue/2},
     Debug = gen:debug_options(Name, Options),
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
@@ -2281,22 +2292,15 @@ loop(ServerData, State, Time, Debug) ->
           end,
     decode_msg(ServerData, State, Msg, Time, Debug, false).
 
--spec create_callback_cache(module()) -> #callback_cache{}.
-create_callback_cache(Mod) ->
-    #callback_cache{handle_call = fun Mod:handle_call/3,
-                    handle_cast = fun Mod:handle_cast/2,
-                    handle_info = fun Mod:handle_info/2}.
-
 -doc false.
-wake_hib(#server_data{module=Mod} = ServerData, State, Debug) ->
+wake_hib(ServerData, State, Debug) ->
     Msg = receive
               Input ->
                   Input
           end,
-    CbCache = create_callback_cache(Mod),
-    decode_msg(ServerData#server_data{callback_cache=CbCache}, State, Msg, hibernate, Debug, true).
+    decode_msg(ServerData, State, Msg, hibernate, Debug, true).
 
-decode_msg(#server_data{parent=Parent} = ServerData, State, Msg, Time, Debug, Hib) ->
+decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, Time, Debug, Hib) ->
     case Msg of
         {system, From, Req} ->
             sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
@@ -2336,9 +2340,9 @@ try_dispatch(ServerData, State, {'$gen_cast', Msg}) ->
 try_dispatch(ServerData, State, Info) ->
     try_handle_info(ServerData, State, Info).
 
-try_handle_continue(#server_data{module = Mod}, State, Msg) ->
+try_handle_continue(#server_data{handle_continue = HandleContinue}, State, Msg) ->
     try
-        {ok, Mod:handle_continue(Msg, State)}
+        {ok, HandleContinue(Msg, State)}
     catch
         throw:R ->
             {ok, R};
@@ -2346,7 +2350,7 @@ try_handle_continue(#server_data{module = Mod}, State, Msg) ->
             {'EXIT', Class, R, Stacktrace}
     end.
 
-try_handle_info(#server_data{module=Mod, callback_cache=#callback_cache{handle_info = HandleInfo}}, State, Msg) ->
+try_handle_info(#server_data{module = Mod, handle_info = HandleInfo}, State, Msg) ->
     try
         {ok, HandleInfo(Msg, State)}
     catch
@@ -2372,7 +2376,7 @@ try_handle_info(#server_data{module=Mod, callback_cache=#callback_cache{handle_i
             {'EXIT', Class, R, Stacktrace}
     end.
 
-try_handle_cast(#server_data{callback_cache=#callback_cache{handle_cast = HandleCast}}, State, Msg) ->
+try_handle_cast(#server_data{handle_cast = HandleCast}, State, Msg) ->
     try
         {ok, HandleCast(Msg, State)}
     catch
@@ -2382,7 +2386,7 @@ try_handle_cast(#server_data{callback_cache=#callback_cache{handle_cast = Handle
             {'EXIT', Class, R, Stacktrace}
     end.
 
-try_handle_call(#server_data{callback_cache=#callback_cache{handle_call = HandleCall}}, State, Msg, From) ->
+try_handle_call(#server_data{handle_call = HandleCall}, State, Msg, From) ->
     try
         {ok, HandleCall(Msg, From, State)}
     catch
@@ -2392,7 +2396,7 @@ try_handle_call(#server_data{callback_cache=#callback_cache{handle_call = Handle
             {'EXIT', Class, R, Stacktrace}
     end.
 
-try_terminate(#server_data{module=Mod}, State, Reason) ->
+try_terminate(#server_data{module = Mod}, State, Reason) ->
     case erlang:function_exported(Mod, terminate, 2) of
         true ->
             try
@@ -2438,7 +2442,7 @@ handle_msg(ServerData, State, Msg) ->
     Reply = try_dispatch(ServerData, State, Msg),
     handle_common_reply(ServerData, State, Msg, undefined, Reply).
 
-handle_msg(#server_data{name=Name} = ServerData, State, {'$gen_call', From, Msg}, Debug) ->
+handle_msg(#server_data{name = Name} = ServerData, State, {'$gen_call', From, Msg}, Debug) ->
     Result = try_handle_call(ServerData, State, Msg, From),
     case Result of
 	{ok, {reply, Reply, NState}} ->
@@ -2483,7 +2487,7 @@ handle_common_reply(ServerData, State, Msg, From, Reply) ->
 	    terminate(ServerData, State, Msg, From, {bad_return_value, BadReply}, ?STACKTRACE(), [])
     end.
 
-handle_common_reply(#server_data{name=Name} = ServerData, State, Msg, From, Reply, Debug) ->
+handle_common_reply(#server_data{name = Name} = ServerData, State, Msg, From, Reply, Debug) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
@@ -2525,7 +2529,7 @@ system_terminate(Reason, _Parent, Debug, [ServerData, State, _Time]) ->
     terminate(ServerData, State, [], undefined, Reason, ?STACKTRACE(), Debug).
 
 -doc false.
-system_code_change([#server_data{module=Mod} = ServerData, State, Time], _Module, OldVsn, Extra) ->
+system_code_change([#server_data{module = Mod} = ServerData, State, Time], _Module, OldVsn, Extra) ->
     case catch Mod:code_change(OldVsn, State, Extra) of
         {ok, NewState} -> {ok, [ServerData, NewState, Time]};
         Else -> Else
@@ -2618,12 +2622,12 @@ terminate(ServerData, State, Msg, From, Class, Reason, Stacktrace, Debug, Report
 catch_result(error, Reason, Stacktrace) -> {Reason, Stacktrace};
 catch_result(exit, Reason, _Stacktrace) -> Reason.
 
-error_info(#server_data{name=application_controller}, _State, _Msg, _From, _Reason, _ST, _Debug) ->
+error_info(#server_data{name = application_controller}, _State, _Msg, _From, _Reason, _ST, _Debug) ->
     %% OTP-5811 Do not send an error report if it's the system process
     %% application_controller which is terminating - let init take care
     %% of it instead
     ok;
-error_info(#server_data{name=Name, module=Mod}, State, Msg, From, Reason, ST, Debug) ->
+error_info(#server_data{name = Name, module = Mod}, State, Msg, From, Reason, ST, Debug) ->
     Log = sys:get_log(Debug),
     Status =
         gen:format_status(Mod, terminate,
