@@ -40,11 +40,17 @@ conventional notation, there are two Erlang-specific notations:
 
 - `$`_`char`_  
   ASCII value or unicode code-point of the character _`char`_.
-- _`base`_`#`_`value`_  
+- _`base`_`#`_`digits`_  
   Integer with the base _`base`_, which must be an integer in the range 2
-  through 36. This notation can also be found in the Ada programming
+  through 36. _`digits`_ are `0`-`9` plus letters `A`-`Z` (upper or lower case).
+  This notation can also be found in the Ada programming
   language. Erlang does _not_ support prefixes such as `0x` for hexadecimal
   or `077` for octal.
+- _`base`_`#`_`digits`_`.`_`digits`_`#e`_`exponent`_  
+  Based floating point number, for example `16#ff.fe#e+6`. Using a base
+  like 16 or 2 allows for an exact text representation of a floating
+  point number. Like the base, the exponent is always a decimal number.
+
 
 Leading zeroes are ignored. Single underscore characters (`_`) can be
 inserted between digits as a visual separator.
