@@ -68,7 +68,7 @@ void BeamModuleAssembler::emit_i_lambda_trampoline(const ArgLambda &Lambda,
                                                    const ArgWord &Arity,
                                                    const ArgWord &NumFree) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_lambda_trampoline");
 }
 
 void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
@@ -77,7 +77,7 @@ void BeamModuleAssembler::emit_i_make_fun3(const ArgLambda &Lambda,
                                            const ArgWord &NumFree,
                                            const Span<ArgVal> &env) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_make_fun3");
 }
 
 void BeamGlobalAssembler::emit_apply_fun_shared() {
@@ -87,17 +87,17 @@ void BeamGlobalAssembler::emit_apply_fun_shared() {
 
 void BeamModuleAssembler::emit_i_apply_fun() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_apply_fun");
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_last(const ArgWord &Deallocate) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_apply_fun_last");
 }
 
 void BeamModuleAssembler::emit_i_apply_fun_only() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_apply_fun_only");
 }
 
 /* Assumes that:
@@ -106,7 +106,7 @@ void BeamModuleAssembler::emit_i_apply_fun_only() {
 a32::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
                                            bool skip_header_test) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_fun");
     a32::Gp reg;
     return reg;
 }
@@ -115,7 +115,7 @@ void BeamModuleAssembler::emit_i_call_fun2(const ArgVal &Tag,
                                            const ArgWord &Arity,
                                            const ArgRegister &Func) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_fun2");
 }
 
 void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
@@ -123,22 +123,22 @@ void BeamModuleAssembler::emit_i_call_fun2_last(const ArgVal &Tag,
                                                 const ArgRegister &Func,
                                                 const ArgWord &Deallocate) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_fun2_last");
 }
 
 void BeamModuleAssembler::emit_i_call_fun(const ArgWord &Arity) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_fun");
 }
 
 void BeamModuleAssembler::emit_i_call_fun_last(const ArgWord &Arity,
                                                const ArgWord &Deallocate) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_fun_last");
 }
 
 /* Psuedo-instruction for signalling lambda load errors. Never actually runs. */
 void BeamModuleAssembler::emit_i_lambda_error(const ArgWord &Dummy) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_lambda_error");
 }

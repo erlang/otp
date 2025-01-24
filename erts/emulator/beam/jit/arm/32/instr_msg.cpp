@@ -32,23 +32,23 @@ extern "C"
 
 void BeamModuleAssembler::emit_recv_marker_reserve(const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_recv_marker_reserve");
 }
 
 void BeamModuleAssembler::emit_recv_marker_bind(const ArgRegister &Marker,
                                                 const ArgRegister &Reference) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_recv_marker_bind");
 }
 
 void BeamModuleAssembler::emit_recv_marker_clear(const ArgRegister &Reference) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_recv_marker_clear");
 }
 
 void BeamModuleAssembler::emit_recv_marker_use(const ArgRegister &Reference) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_recv_marker_use");
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -71,47 +71,47 @@ void BeamGlobalAssembler::emit_i_loop_rec_shared() {
 
 void BeamModuleAssembler::emit_i_loop_rec(const ArgLabel &Wait) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_loop_rec");
 }
 
 void BeamModuleAssembler::emit_remove_message() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_remove_message");
 }
 
 void BeamModuleAssembler::emit_loop_rec_end(const ArgLabel &Dest) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_loop_rec_end");
 }
 
 void BeamModuleAssembler::emit_wait_unlocked(const ArgLabel &Dest) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_wait_unlocked");
 }
 
 void BeamModuleAssembler::emit_wait_locked(const ArgLabel &Dest) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_wait_locked");
 }
 
 void BeamModuleAssembler::emit_wait_timeout_unlocked(const ArgSource &Src,
                                                      const ArgLabel &Dest) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_wait_timeout_unlocked");
 }
 
 void BeamModuleAssembler::emit_wait_timeout_locked(const ArgSource &Src,
                                                    const ArgLabel &Dest) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_wait_timeout_locked");
 }
 
 void BeamModuleAssembler::emit_timeout_locked() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_timeout_locked");
 }
 
 void BeamModuleAssembler::emit_timeout() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_timeout");
 }

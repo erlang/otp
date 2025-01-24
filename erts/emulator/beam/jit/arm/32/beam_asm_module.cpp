@@ -95,7 +95,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *ga,
 
 void BeamModuleAssembler::emit_i_nif_padding() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_nif_padding");
 }
 
 void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
@@ -105,7 +105,7 @@ void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
 
 void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_breakpoint_trampoline");
 }
 
 static void i_emit_nyi(char *msg) {
@@ -164,7 +164,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
                                            const ArgAtom &Function,
                                            const ArgWord &Arity) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_func_info");
     ErtsCodeInfo info = {};
 
     /* `op_i_func_info_IaaI` is used in various places in the emulator, so this
@@ -205,7 +205,7 @@ void BeamModuleAssembler::emit_i_func_info(const ArgWord &Label,
 
 void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_label");
     ASSERT(Label.isLabel());
 
     current_label = rawLabels[Label.get()];
@@ -217,19 +217,19 @@ void BeamModuleAssembler::emit_label(const ArgLabel &Label) {
 void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
                                              const ArgWord &Alignment) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_aligned_label");
     a.align(AlignMode::kCode, Alignment.get());
     emit_label(Label);
 }
 
 void BeamModuleAssembler::emit_on_load() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_on_load");
 }
 
 void BeamModuleAssembler::bind_veneer_target(const Label &target) {
     // TODO
-    ASSERT(false);
+    emit_nyi("bind_veneer_target");
     auto veneer_range = _veneers.equal_range(target.id());
     for (auto it = veneer_range.first; it != veneer_range.second; it++) {
         const Veneer &veneer = it->second;
@@ -249,7 +249,7 @@ void BeamModuleAssembler::bind_veneer_target(const Label &target) {
 
 void BeamModuleAssembler::emit_int_code_end() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_int_code_end");
     /* This label is used to figure out the end of the last function */
     code_end = a.newLabel();
     a.bind(code_end);
@@ -291,7 +291,7 @@ void BeamModuleAssembler::emit_line(const ArgWord &Loc) {
      * Since line addresses are taken _after_ line instructions we can avoid
      * this by adding a nop when we detect this condition. */
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_line");
 }
 
 void BeamModuleAssembler::emit_func_line(const ArgWord &Loc) {
@@ -329,7 +329,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
                                                 enum Displacement disp,
                                                 const char *labelName) {
     // TODO
-    ASSERT(false);
+    emit_nyi("resolve_label");
     ssize_t currOffset = a.offset();
 
     ssize_t minOffset = currOffset - disp;
@@ -393,7 +393,7 @@ const Label &BeamModuleAssembler::resolve_label(const Label &target,
 const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
                                                    enum Displacement disp) {
     // TODO
-    ASSERT(false);
+    emit_nyi("resolve_fragment");
     auto it = _dispatchTable.find(fragment);
 
     if (it == _dispatchTable.end()) {
@@ -405,12 +405,12 @@ const Label &BeamModuleAssembler::resolve_fragment(void (*fragment)(),
 
 void BeamModuleAssembler::emit_i_flush_stubs() {
         // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_flush_stubs");
 }
 
 void BeamModuleAssembler::check_pending_stubs() {
     // TODO
-    ASSERT(false);
+    emit_nyi("check_pending_stubs");
     size_t currOffset = a.offset();
 
     /* We shouldn't let too much space pass between checks. */
@@ -425,7 +425,7 @@ void BeamModuleAssembler::check_pending_stubs() {
 
 void BeamModuleAssembler::flush_pending_stubs(size_t range) {
     // TODO
-    ASSERT(false);
+    emit_nyi("flush_pending_stubs");
     ssize_t effective_offset = a.offset() + range;
     Label next;
 
@@ -484,10 +484,10 @@ void BeamModuleAssembler::flush_pending_stubs(size_t range) {
 
 void BeamModuleAssembler::emit_veneer(const Veneer &veneer) {
         // TODO
-    ASSERT(false);
+    emit_nyi("emit_veneer");
 }
 
 void BeamModuleAssembler::emit_constant(const Constant &constant) {
         // TODO
-    ASSERT(false);
+    emit_nyi("emit_constant");
 }

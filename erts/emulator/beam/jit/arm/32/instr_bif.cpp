@@ -32,7 +32,7 @@ extern "C"
 
 void BeamModuleAssembler::ubif_comment(const ArgWord &Bif) {
     // TODO
-    ASSERT(false);
+    emit_nyi("ubif_comment");
 }
 
 /* ARG2 = argument vector, ARG4 (!) = bif function pointer
@@ -56,7 +56,7 @@ void BeamModuleAssembler::emit_i_bif1(const ArgSource &Src1,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif1");
 }
 
 void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
@@ -65,7 +65,7 @@ void BeamModuleAssembler::emit_i_bif2(const ArgSource &Src1,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif2");
 }
 
 void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
@@ -75,14 +75,14 @@ void BeamModuleAssembler::emit_i_bif3(const ArgSource &Src1,
                                       const ArgWord &Bif,
                                       const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif3");
 }
 
 void BeamModuleAssembler::emit_i_bif(const ArgLabel &Fail,
                                      const ArgWord &Bif,
                                      const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_bif");
 }
 
 /*
@@ -94,7 +94,7 @@ void BeamModuleAssembler::emit_nofail_bif1(const ArgSource &Src1,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_nofail_bif1");
 }
 
 void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
@@ -102,14 +102,14 @@ void BeamModuleAssembler::emit_nofail_bif2(const ArgSource &Src1,
                                            const ArgWord &Bif,
                                            const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_nofail_bif2");
 }
 
 void BeamModuleAssembler::emit_i_length_setup(const ArgLabel &Fail,
                                               const ArgWord &Live,
                                               const ArgSource &Src) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_length_setup");
 }
 
 /* ARG2 = live registers, ARG3 = entry address
@@ -140,7 +140,7 @@ void BeamModuleAssembler::emit_i_length(const ArgLabel &Fail,
                                         const ArgWord &Live,
                                         const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_length");
 }
 
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
@@ -172,17 +172,17 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
 void BeamModuleAssembler::emit_call_light_bif(const ArgWord &Bif,
                                               const ArgExport &Exp) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_light_bif");
 }
 
 void BeamModuleAssembler::emit_send() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_send");
 }
 
 void BeamModuleAssembler::emit_nif_start() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_nif_start");
 }
 
 void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
@@ -213,14 +213,14 @@ void BeamGlobalAssembler::emit_dispatch_bif(void) {
  * actually called. */
 void BeamModuleAssembler::emit_call_bif(const ArgWord &Func) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_bif");
 }
 
 void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
                                             const ArgAtom &F,
                                             const ArgWord &A) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_bif_mfa");
 }
 
 void BeamGlobalAssembler::emit_call_nif_early() {
@@ -256,7 +256,7 @@ void BeamModuleAssembler::emit_call_nif(const ArgWord &Func,
                                         const ArgWord &NifMod,
                                         const ArgWord &DirtyFunc) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_call_nif");
 }
 
 static ErtsCodePtr get_on_load_address(Process *c_p, Eterm module) {
@@ -269,10 +269,10 @@ static ErtsCodePtr get_on_load_address(Process *c_p, Eterm module) {
  * which is very tricky to implement as a BIF. */
 void BeamModuleAssembler::emit_i_call_on_load_function() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_on_load_function");
 }
 
 void BeamModuleAssembler::emit_i_load_nif() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_load_nif");
 }

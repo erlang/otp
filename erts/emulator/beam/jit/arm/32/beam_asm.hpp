@@ -953,8 +953,7 @@ protected:
         a32::Gp todo;
         // TODO
         ASSERT(false);
-        return Variable(todo); // TODO
-        ASSERT(false);
+        return Variable(todo);
     }
 
     auto load_sources(const ArgVal &Src1,

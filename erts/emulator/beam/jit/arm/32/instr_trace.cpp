@@ -65,20 +65,20 @@ static void return_trace(Process *c_p,
 
 void BeamModuleAssembler::emit_return_trace() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_return_trace");
 }
 
 void BeamModuleAssembler::emit_i_call_trace_return() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_call_trace_return");
 }
 
 void BeamModuleAssembler::emit_i_return_to_trace() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_return_to_trace");
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_hibernate");
 }

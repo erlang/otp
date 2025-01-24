@@ -131,18 +131,18 @@ void BeamGlobalAssembler::emit_export_trampoline() {
  */
 void BeamModuleAssembler::emit_raise_exception() {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_raise_exception");
 }
 
 void BeamModuleAssembler::emit_raise_exception(const ErtsCodeMFA *exp) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_raise_exception");
 }
 
 void BeamModuleAssembler::emit_raise_exception(Label I,
                                                const ErtsCodeMFA *exp) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_raise_exception");
 }
 
 void BeamGlobalAssembler::emit_process_exit() {
@@ -169,12 +169,12 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
 
 void BeamModuleAssembler::emit_proc_lc_unrequire(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_proc_lc_unrequire");
 }
 
 void BeamModuleAssembler::emit_proc_lc_require(void) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_proc_lc_require");
 }
 
 extern "C"

@@ -73,7 +73,7 @@ void BeamGlobalAssembler::emit_bif_is_ne_exact_shared() {
 void BeamModuleAssembler::emit_cond_to_bool(arm::CondCode cc,
                                             const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_cond_to_bool");
 }
 
 void BeamModuleAssembler::emit_cmp_immed_to_bool(arm::CondCode cc,
@@ -81,21 +81,21 @@ void BeamModuleAssembler::emit_cmp_immed_to_bool(arm::CondCode cc,
                                                  const ArgSource &RHS,
                                                  const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_cmp_immed_to_bool");
 }
 
 void BeamModuleAssembler::emit_bif_is_eq_exact(const ArgRegister &LHS,
                                                const ArgSource &RHS,
                                                const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_eq_exact");
 }
 
 void BeamModuleAssembler::emit_bif_is_ne_exact(const ArgRegister &LHS,
                                                const ArgSource &RHS,
                                                const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_ne_exact");
 }
 
 void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
@@ -103,21 +103,21 @@ void BeamModuleAssembler::emit_bif_is_ge_lt(arm::CondCode cc,
                                             const ArgSource &RHS,
                                             const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_ge_lt");
 }
 
 void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_ge");
 }
 
 void BeamModuleAssembler::emit_bif_is_lt(const ArgSource &LHS,
                                          const ArgSource &RHS,
                                          const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_is_lt");
 }
 
 /* ================================================================
@@ -135,7 +135,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
                                        const ArgSource &Src2,
                                        const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_and");
 }
 
 /* ================================================================
@@ -156,7 +156,7 @@ void BeamModuleAssembler::emit_bif_bit_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_bit_size");
 }
 
 /* ================================================================
@@ -173,7 +173,7 @@ void BeamModuleAssembler::emit_bif_byte_size(const ArgLabel &Fail,
                                              const ArgSource &Src,
                                              const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_byte_size");
 }
 
 /* ================================================================
@@ -212,7 +212,7 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
                                            const ArgSource &Tuple,
                                            const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_element");
 }
 
 /* ================================================================
@@ -228,7 +228,7 @@ void BeamGlobalAssembler::emit_handle_hd_error() {
 void BeamModuleAssembler::emit_bif_hd(const ArgSource &Src,
                                       const ArgRegister &Hd) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_hd");
 }
 
 /* ================================================================
@@ -265,7 +265,7 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
                                            const ArgSource &Src,
                                            const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_map_get");
 }
 
 /* ================================================================
@@ -282,7 +282,7 @@ void BeamModuleAssembler::emit_bif_map_size(const ArgLabel &Fail,
                                             const ArgSource &Src,
                                             const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_map_size");
 }
 
 /* ================================================================
@@ -296,21 +296,21 @@ void BeamModuleAssembler::emit_bif_min_max(arm::CondCode cc,
                                            const ArgSource &RHS,
                                            const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_min_max");
 }
 
 void BeamModuleAssembler::emit_bif_max(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_max");
 }
 
 void BeamModuleAssembler::emit_bif_min(const ArgSource &LHS,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_min");
 }
 
 /* ================================================================
@@ -327,7 +327,7 @@ void BeamModuleAssembler::emit_bif_node(const ArgLabel &Fail,
                                         const ArgRegister &Src,
                                         const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_node");
 }
 
 /* ================================================================
@@ -344,7 +344,7 @@ void BeamModuleAssembler::emit_bif_not(const ArgLabel &Fail,
                                        const ArgRegister &Src,
                                        const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_not");
 }
 
 /* ================================================================
@@ -362,7 +362,7 @@ void BeamModuleAssembler::emit_bif_or(const ArgLabel &Fail,
                                       const ArgSource &Src2,
                                       const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_or");
 }
 
 /* ================================================================
@@ -378,7 +378,7 @@ void BeamGlobalAssembler::emit_handle_tl_error() {
 void BeamModuleAssembler::emit_bif_tl(const ArgSource &Src,
                                       const ArgRegister &Tl) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_tl");
 }
 
 /* ================================================================
@@ -405,5 +405,5 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
                                               const ArgRegister &Src,
                                               const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_bif_tuple_size");
 }

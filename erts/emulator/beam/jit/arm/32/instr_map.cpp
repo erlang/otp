@@ -72,7 +72,7 @@ void BeamModuleAssembler::emit_new_map(const ArgRegister &Dst,
                                        const ArgWord &Size,
                                        const Span<ArgVal> &args) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_new_map");
 }
 
 void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
@@ -81,7 +81,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
                                                    const ArgWord &Size,
                                                    const Span<ArgVal> &args) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_new_small_map_lit");
 }
 
 /* ARG1 = map
@@ -98,7 +98,7 @@ void BeamModuleAssembler::emit_i_get_map_element(const ArgLabel &Fail,
                                                  const ArgRegister &Key,
                                                  const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_get_map_element");
 }
 
 void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
@@ -106,7 +106,7 @@ void BeamModuleAssembler::emit_i_get_map_elements(const ArgLabel &Fail,
                                                   const ArgWord &Size,
                                                   const Span<ArgVal> &args) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_get_map_elements");
 }
 
 /* ARG1 = map
@@ -125,7 +125,7 @@ void BeamModuleAssembler::emit_i_get_map_element_hash(const ArgLabel &Fail,
                                                       const ArgWord &Hx,
                                                       const ArgRegister &Dst) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_i_get_map_element_hash");
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector. */
@@ -149,7 +149,7 @@ void BeamModuleAssembler::emit_update_map_assoc(const ArgSource &Src,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_assoc");
 }
 
 /* ARG3 = live registers, ARG4 = update vector size, ARG5 = update vector.
@@ -185,5 +185,5 @@ void BeamModuleAssembler::emit_update_map_exact(const ArgSource &Src,
                                                 const ArgWord &Size,
                                                 const Span<ArgVal> &args) {
     // TODO
-    ASSERT(false);
+    emit_nyi("emit_update_map_exact");
 }
