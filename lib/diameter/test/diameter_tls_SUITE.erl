@@ -139,13 +139,12 @@ all() ->
 init_per_suite(Config) ->
     ?TL("init_per_suite -> entry with"
         "~n   Config: ~p", [Config]),
-    Config2 = ?DUTIL:init_per_suite(Config),
     try
-        [] == (catch make_certs(dir(Config2)))
+        [] == (catch make_certs(dir(Config)))
             orelse throw({?MODULE, no_certs}),
         ok == crypto:start() orelse throw({?MODULE, no_crypto}),
         ok == ssl:start() orelse throw({?MODULE, no_ssl}),
-        Config2
+        ?DUTIL:init_per_suite(Config)
     catch
         {?MODULE, E} ->
             {skip, E}
