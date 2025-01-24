@@ -71,11 +71,8 @@ jobs:
           $root = Get-Location
 
           cd ${{ env.basename }}
-          rm bin\erl.ini
-          rm erts-*\erl.ini
-          rm Install.exe
-          rm Install.ini
-          rm Uninstall.exe
+          Get-ChildItem -Recurse -Filter erl.ini | Remove-Item
+          rm Install.exe,Install.ini,Uninstall.exe
           $sha256 = Get-FileHash $root\otp.exe -Algorithm SHA256
           $sha256.Hash.ToLower() | Out-File -FilePath installer.sha256
           cp $root/vc_redist.exe .
