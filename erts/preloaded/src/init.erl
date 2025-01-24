@@ -1359,6 +1359,18 @@ eval_script(What, #es{}) ->
 load_modules(Mods0, Init) ->
     Mods = [M || M <- Mods0, not erlang:module_loaded(M)],
     F = prepare_loading_fun(),
+    case has_small_memory() of
+        true ->
+            %% Load one module at the time to reduce the peak memory
+            %% usage.
+            _ = [do_load_modules([M], F, Init) || M <- Mods],
+            ok;
+        false ->
+            %% Load the modules in parallel.
+            do_load_modules(Mods, F, Init)
+    end.
+
+do_load_modules(Mods, F, Init) ->
     case erl_prim_loader:get_modules(Mods, F) of
 	{ok,{Prep0,[]}} ->
 	    Prep = [Code || {_,{prepared,Code,_}} <- Prep0],
@@ -1393,6 +1405,13 @@ prepare_loading_fun() ->
 		    end
 	    end
     end.
+
+has_small_memory() ->
+    %% Heuristic for small memory. If true, we'll try to preserve
+    %% memory by not loading code in parallel.
+    (erlang:system_info(wordsize) =:= 4 andalso
+     erlang:system_info(schedulers_online) =:= 1) orelse
+        erlang:system_info(debug_compiled).
 
 make_path(Pa, Pz, Path, Vars) ->
     append([Pa,append([fix_path(Path,Vars),Pz])]).
