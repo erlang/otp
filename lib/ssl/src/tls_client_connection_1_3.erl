@@ -252,7 +252,7 @@ start(internal, #server_hello{}, State0) ->
     ssl_gen_statem:handle_own_alert(
       ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State0);
 start(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 start(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -303,7 +303,7 @@ wait_sh(internal, #server_hello{} = Hello,
                                           no_record, State1)
     end;
 wait_sh(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_sh(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -321,7 +321,7 @@ hello_middlebox_assert(internal = Type, #encrypted_extensions{} = Msg,  #state{s
                                      reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
 hello_middlebox_assert(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 hello_middlebox_assert(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -340,7 +340,7 @@ hello_retry_middlebox_assert(internal = Type, #server_hello{} = Msg, #state{ssl_
                                      reason => [{missing, #change_cipher_spec{}}]}, ?LOCATION),
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State);
 hello_retry_middlebox_assert(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 hello_retry_middlebox_assert(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -364,7 +364,7 @@ wait_ee(internal, #encrypted_extensions{extensions = Extensions}, State0) ->
             tls_gen_connection:next_event(NextState, no_record, State)
     end;
 wait_ee(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_ee(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -395,7 +395,7 @@ wait_cert_cr(internal, #certificate_request_1_3{} = CertificateRequest,
             tls_gen_connection:next_event(NextState, no_record, State1)
    end;
 wait_cert_cr(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_cert_cr(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -477,7 +477,7 @@ wait_finished(internal,
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 wait_finished(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_finished(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 %%--------------------------------------------------------------------

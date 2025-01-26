@@ -239,7 +239,7 @@ start(internal, #client_hello{}, State0) -> %% Missing mandantory TLS-1.3 extens
     %% so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?FUNCTION_NAME, State0);
 start(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 start(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -261,7 +261,7 @@ negotiated(internal, {start_handshake, _} = Message, State0) ->
             {next_state, NextState, State, []}
     end;
 negotiated(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, negotiated, State);
 negotiated(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -328,7 +328,7 @@ wait_finished(internal,
             ssl_gen_statem:handle_own_alert(Alert, ?FUNCTION_NAME, State0)
     end;
 wait_finished(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_finished(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -354,7 +354,7 @@ wait_eoed(internal, #end_of_early_data{}, #state{handshake_env = HsEnv0} = State
                                             wait_eoed, State0)
     end;
 wait_eoed(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_eoed(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 

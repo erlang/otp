@@ -119,7 +119,7 @@ wait_cert(internal,
             tls_gen_connection:next_event(NextState, no_record, State)
     end;
 wait_cert(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_cert(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
@@ -131,7 +131,7 @@ wait_cv(internal = Type, #change_cipher_spec{} = Msg,
   when Id =/= ?EMPTY_ID ->
     handle_change_cipher_spec(Type, Msg, ?FUNCTION_NAME, State);
 wait_cv(info, Msg, State) ->
-    tls_gen_connection:handle_info(Msg, ?FUNCTION_NAME, State);
+    tls_connection:gen_info(Msg, ?FUNCTION_NAME, State);
 wait_cv(Type, Msg, State) ->
     ssl_gen_statem:handle_common_event(Type, Msg, ?FUNCTION_NAME, State).
 
