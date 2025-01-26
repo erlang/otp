@@ -31,6 +31,20 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed configure tests for GCC 14</p>
+          <p>
+	    Own Id: OTP-19407 Aux Id: GH-9211, PR-9234 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

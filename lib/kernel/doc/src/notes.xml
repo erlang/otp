@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 9.2.4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix bug where log printouts would go missing when
+	    <c>application_controller</c> is stopping while log
+	    messages are being sent.</p> <p>This bug was introduced
+	    by OTP-19078 in Erlang/OTP 26.2.5. </p>
+          <p>
+	    Own Id: OTP-19418 Aux Id: GH-9163 PR-9274 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 9.2.4.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

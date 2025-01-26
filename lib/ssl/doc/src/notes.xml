@@ -27,6 +27,29 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 11.1.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>An initiated handshake should always be closed with an
+	    alert, some corner cases have been fixed so that this
+	    should always be the case.</p>
+          <p>
+	    Own Id: OTP-19411 Aux Id: PR-9273, ERIERL-1174 </p>
+        </item>
+        <item>
+	    <p>Correct option handling to work properly for paused
+	    handshaking. Could result in unwanted alerts or or error
+	    messages. </p>
+          <p>
+	    Own Id: OTP-19445 Aux Id: GH-9177, PR-9322 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 11.1.4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
