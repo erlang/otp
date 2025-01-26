@@ -76,6 +76,8 @@
 -define(abs(Name), filename:absname(Name)).
 
 -define(now, os:timestamp()).
+-define(expected_summary_size, 4).
+-define(minimum_summary_size, 3).
 
 -record(log_cache, {version,
 		    all_runs = [],
@@ -1853,10 +1855,8 @@ year() ->
 count_cases(Dir) ->
     SumFile = filename:join(Dir, ?run_summary),
     case read_summary(SumFile, [summary]) of
-	{ok, [{Succ,Fail,Skip}]} ->
-	    {Succ,Fail,Skip,undefined};
 	{ok, [Summary]} ->
-	    Summary;
+	    get_expected_num_of_summary_values(Summary);
 	{error, _} ->
 	    LogFile = filename:join(Dir, ?suitelog_name),
 	    case file:read_file(LogFile) of
@@ -1894,6 +1894,16 @@ read_summary(Name, Keys) ->
 	{error, Reason} ->
 	    {error, Reason}
     end.
+
+get_expected_num_of_summary_values(Summary) when tuple_size(Summary) > ?expected_summary_size ->
+    List = tuple_to_list(Summary),
+    list_to_tuple(lists:sublist(List, ?expected_summary_size));
+get_expected_num_of_summary_values(Summary) when tuple_size(Summary) == ?expected_summary_size ->
+    Summary;
+get_expected_num_of_summary_values(Summary) when tuple_size(Summary) >= ?minimum_summary_size ->
+    List = tuple_to_list(Summary),
+    Pad = lists:duplicate(?expected_summary_size - length(List), undefined),
+    list_to_tuple(lists:append(List, Pad)).
 
 count_cases1("=failed" ++ Rest, {Success, _Fail, UserSkip,AutoSkip}) ->
     {NextLine, Count} = get_number(Rest),
