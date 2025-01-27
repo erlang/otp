@@ -557,9 +557,21 @@ int main(int argc, char **argv)
             "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
         set_env("PATH", tmpStr);
     } else if (strstr(s, rootdir) == NULL) {
-        erts_snprintf(tmpStr, sizeof(tmpStr),
+        char *pathBuf = NULL;
+        int pathBufLen = 0;
+        int path_sep_length = strlen(PATHSEP);
+        int dir_sep_length = strlen(DIRSEP);
+
+        pathBufLen =
+            strlen(bindir) + path_sep_length
+            + strlen(rootdir) + dir_sep_length + strlen("bin") + path_sep_length
+            + strlen(s) + 1;
+
+        pathBuf = emalloc(pathBufLen);
+
+        erts_snprintf(pathBuf, pathBufLen,
             "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, rootdir, s);
-        set_env("PATH", tmpStr);
+        set_env("PATH", pathBuf);
     } else {
         char *pathBuf = NULL;
         int pathBufLen = 0;

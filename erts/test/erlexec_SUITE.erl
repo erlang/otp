@@ -32,7 +32,7 @@
 
 -export([args_file/1, evil_args_file/1, missing_args_file/1, env/1, args_file_env/1,
          otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
-         zdbbl_dist_buf_busy_limit/1, long_path_env/1]).
+         zdbbl_dist_buf_busy_limit/1, long_path_env/1, long_path_env_when_rootdir_not_present/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -44,7 +44,7 @@ suite() ->
 all() ->
     [args_file, evil_args_file, missing_args_file, env, args_file_env,
      otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit,
-     long_path_env].
+     long_path_env, long_path_env_when_rootdir_not_present].
 
 init_per_suite(Config) ->
     [{suite_erl_flags, save_env()} | Config].
@@ -456,10 +456,32 @@ long_path_env(Config) when is_list(Config) ->
     Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
 
     compare_erl_path(Cmd, BinPath, ActualPath),
-    compare_erl_path(Cmd, BinPath, pathjoin([ActualPath, LongPath])),
-    compare_erl_path(Cmd, BinPath, pathjoin([ActualPath, LongPath, BinPath])),
-    compare_erl_path(Cmd, BinPath, pathjoin([BinPath, ActualPath, LongPath])),
-    compare_erl_path(Cmd, BinPath, pathjoin([BinPath, ActualPath, LongPath, BinPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath, BinPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
+    ok.
+
+long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
+    BinPath = os:getenv("BINDIR"),
+    RootPath = os:getenv("ROOTDIR"),
+    RootPathWithBin = filename:join(RootPath, "bin"),
+    ActualPath = os:getenv("PATH"),
+    LongPathLength = 10240,
+
+    LongPath = lists:duplicate(LongPathLength, "x"),
+    {ok, [[PName]]} = init:get_argument(progname),
+    Cmd = "\"" ++ filename:join(RootPathWithBin, PName) ++ "\"" ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
+
+    PathComponents = string:split(ActualPath, pathsep(), all),
+    ActualPathNoRoot = path_var_join(lists:filter(fun (Path) ->
+        (Path =/= RootPathWithBin) and (Path =/= (RootPathWithBin ++ "/")) and (Path =/= BinPath)
+    end, PathComponents)),
+
+    os:putenv("PATH", path_var_join([ActualPathNoRoot, LongPath, LongPath])),
+    Output = os:cmd(Cmd),
+
+    ?assertEqual(string:length(string:find(Output, LongPath ++ ":" ++ LongPath)), (LongPathLength * 2) + 1),
     ok.
 
 compare_erl_path(Cmd, BinPath, Path) ->
@@ -475,8 +497,8 @@ pathsep() ->
         _ -> ":"
     end.
 
-pathjoin(Components) ->
-    lists:concat(lists:join(pathsep(), Components)).
+path_var_join(Paths) ->
+    lists:concat(lists:join(pathsep(), Paths)).
 
 
 %%
