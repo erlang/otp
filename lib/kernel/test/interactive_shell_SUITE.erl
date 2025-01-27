@@ -67,7 +67,8 @@
          remsh_basic/1, remsh_error/1, remsh_longnames/1, remsh_no_epmd/1,
          remsh_expand_compatibility_25/1, remsh_expand_compatibility_later_version/1,
          external_editor/1, external_editor_visual/1,
-         external_editor_unicode/1, shell_ignore_pager_commands/1]).
+         external_editor_unicode/1, shell_ignore_pager_commands/1,
+         shell_escape_sequence_end_of_prompt_followed_by_unicode/1]).
 
 -export([get_until/2]).
 
@@ -75,7 +76,7 @@
 %% Exports for custom shell history module
 -export([load/0, add/1]).
 %% For custom prompt testing
--export([prompt/1]).
+-export([prompt/1, prompt_2/1]).
 -export([output_to_stdout_slowly/1]).
 -record(tmux, {peer, node, name, ssh_server_name, orig_location }).
 suite() ->
@@ -153,6 +154,7 @@ groups() ->
      {tty_unicode,[parallel],
       [{group,tty_tests},
        shell_invalid_unicode,
+       shell_escape_sequence_end_of_prompt_followed_by_unicode,
        external_editor_unicode
        %% unicode wrapping does not work right yet
        %% shell_unicode_wrap,
@@ -1407,6 +1409,27 @@ shell_help(Config) ->
         stop_tty(Term),
         ok
     end.
+
+prompt_2(_) ->
+    ["\e[94m",54620,44397,50612,47,51312,49440,47568,"\e[0m"].
+shell_escape_sequence_end_of_prompt_followed_by_unicode(Config) ->
+    %% If the prompt ended with an escape sequence, and the user input a unicode character
+    %% prim_tty tried to put that character in the escape sequence. This test checks that
+    %% the unicode character will not be part of the escape sequence.
+    Term = start_tty(Config),
+
+    try
+        send_tty(Term,"shell:prompt_func(\n"),
+        send_tty(Term,"{interactive_shell_SUITE,\n"),
+        send_tty(Term,"prompt_2}).\n"),
+        send_tty(Term,"÷.\n"),
+        check_content(Term, "syntax error before: '÷'"),
+        ok
+    after
+        stop_tty(Term),
+        ok
+    end.
+
 %% Test the we can handle invalid ansi escape chars.
 %%   tmux cannot handle this... so we test this using to_erl
 shell_invalid_ansi(_Config) ->
