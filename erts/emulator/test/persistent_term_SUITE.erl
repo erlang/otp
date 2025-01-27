@@ -35,7 +35,8 @@
 	 whole_message/1,
          shared_magic_ref/1,
 	 non_message_signal/1,
-         get_put_colliding_bucket/1]).
+         get_put_colliding_bucket/1,
+         gc_binary_orig/1]).
 
 %%
 -export([test_init_restart_cmd/1]).
@@ -55,7 +56,8 @@ all() ->
      whole_message,
      shared_magic_ref,
      non_message_signal,
-     get_put_colliding_bucket].
+     get_put_colliding_bucket,
+     gc_binary_orig].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1090,6 +1092,31 @@ gar_setter(Key) ->
     persistent_term:erase(Key),
     persistent_term:put(Key, {complex, term}),
     gar_setter(Key).
+
+%% https://github.com/erlang/otp/issues/9222
+gc_binary_orig(_Config) ->
+
+    Key = ?FUNCTION_NAME,
+    Data = iolist_to_binary(lists:duplicate(100, $a)),
+
+    persistent_term:put(Key,Data),
+
+    LiteralData = persistent_term:get(Key),
+
+    %% We create a sub binary to a literal persistent term
+    %% This means that the SUB_BITS now is a non-literal but
+    %% orig is a literal
+    <<SubData:70/binary, _/binary>> = LiteralData,
+
+    %% This used to GC LiteralData->orig when it should not.
+    erlang:garbage_collect(),
+
+    %% Just a dummy compare in order to access the data. This would
+    %% segfault on Windows.
+    false = LiteralData =:= SubData,
+
+    persistent_term:erase(Key).
+
 
 %% Test that literals in non-message signals are copied
 %% when removed...
