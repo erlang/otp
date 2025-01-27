@@ -2052,14 +2052,6 @@ No match
     aaa
 No match
 
-/[\d-z]+/
-    12-34z
- 0: 12-34z
-    *** Failers
-No match
-    aaa
-No match
-
 /\x5c/
     \\
  0: \
