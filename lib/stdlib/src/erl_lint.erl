@@ -4619,19 +4619,20 @@ check_remote_function(Anno, M, F, As, St0) ->
 %%  been enabled.
 check_load_nif(Anno, erlang, load_nif, [_, _], St0) ->
     St = St0#lint{load_nif = true},
-    case is_warn_enabled(nif_inline, St) of
-        true -> check_nif_inline(Anno, St);
-        false -> St
-    end;
+    check_nif_inline(Anno, St);
+check_load_nif(Anno, erlang, nif_error, _, St) ->
+    check_nif_inline(Anno, St);
 check_load_nif(_Anno, _ModName, _FuncName, _Args, St) ->
     St.
 
 check_nif_inline(Anno, St) ->
-    case any(fun is_inline_opt/1, St#lint.compile) of
+    case is_warn_enabled(nif_inline, St) andalso
+        any(fun is_inline_opt/1, St#lint.compile) of
         true -> add_warning(Anno, nif_inline, St);
         false -> St
     end.
 
+is_inline_opt({inline, {_F,_A}}) -> true;
 is_inline_opt({inline, [_|_]=_FAs}) -> true;
 is_inline_opt(inline) -> true;
 is_inline_opt(_) -> false.
