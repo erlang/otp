@@ -24,7 +24,9 @@ test(RootDir) ->
     put(verbose,false),
     erts_debug:set_internal_state(available_internal_state,true),
     io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,10)]),
-    Testfiles0 = ["testoutput1", "testoutput2", "testoutput3", "testoutput4",
+    Testfiles0 = ["testoutput1", "testoutput2",
+                  %%"testoutput3", Latin1 locale no longer supported
+                  "testoutput4",
 		 "testoutput5", "testoutput6","mod_testoutput8","testoutput10"],
     Testfiles = [ filename:join([RootDir,"old_pcre1",FN]) || FN <- Testfiles0 ],
     Res = [ begin io:format("~s~n",[X]), t(X) end || X <- Testfiles ],
