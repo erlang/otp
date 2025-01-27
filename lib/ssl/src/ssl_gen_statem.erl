@@ -1269,8 +1269,13 @@ terminate({shutdown, cancel_hs} = Reason , _StateName,
     handle_trusted_certs_db(State0),
     CancelAlert = ?ALERT_REC(?WARNING, ?USER_CANCELED),
     CloseAlert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
-    State = Connection:send_alert(CancelAlert, State0),
-    Connection:send_alert(CloseAlert, State),
+    try Connection:send_alert(CancelAlert, State0) of
+        State ->
+            catch Connection:send_alert(CloseAlert, State)
+    catch
+       _:_ ->
+            ok
+    end,
     Connection:close(Reason, Socket, Transport, undefined);
 terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Transport,
                                                               protocol_cb = Connection,
