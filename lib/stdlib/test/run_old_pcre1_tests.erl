@@ -36,6 +36,7 @@ test(RootDir) ->
 t(OneFile) ->
     t(OneFile,infinite).
 t(OneFile,Num) ->
+    put(testfile,filename:basename(OneFile)),
     {ok,Bin} = file:read_file(OneFile),
     Lines = splitfile(0,Bin,1),
     Structured = stru(Lines),
@@ -78,16 +79,16 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 	     false ->
 		 RE0
 	 end,
-    {Options,ExecOptions} = pick_exec_options(Options0),
-    {Cres, Xopt} = case PreCompile of
-		       true ->
-			   {re:compile(RE,Options),[]};
-		       _ ->
-			   {{ok,RE},Options}
-		   end,
+    {CompOpts,ExecOptions} = pick_exec_options(Options0),
+    Cres = case PreCompile of
+               true ->
+                   re_compile(RE,CompOpts);
+               _ ->
+                   {ok,RE}
+           end,
     case Cres of
 	{ok,P} ->
-	    case (catch testrun(RE,P,Tests,ExecOptions,Xopt,XMode)) of
+	    case (catch testrun(RE,P,Tests,ExecOptions,PreCompile,CompOpts,XMode)) of
 		N when is_integer(N) ->
 		    N + test(T,PreCompile,XMode,REAsList);
 		limit ->
@@ -156,16 +157,57 @@ clean_duplicates([X|T],L) ->
 	   [X|clean_duplicates(T,L)] 
     end.
 
+comp_exec_opt_check(COs, EOs) ->
+    NL = case lists:keyfind(newline, 1, COs) of
+             {newline, Cnl} -> Cnl;
+             false -> nl % default
+         end,
+    NL_ok = case lists:keyfind(newline, 1, EOs) of
+                {newline, NL} -> true;
+                {newline, _} -> false;
+                false -> true
+            end,
+
+    BSR = case lists:search(fun(bsr_anycrlf) -> true;
+                               (bsr_unicode) -> true;
+                               (_) -> false
+                            end, COs) of
+              {value, Cbsr} -> Cbsr;
+              false -> bsr_unicode % default
+          end,
+    BSR_ok = case lists:search(fun(bsr_anycrlf) -> true;
+                                  (bsr_unicode) -> true;
+                                  (_) -> false
+                               end, EOs) of
+                 {value, BSR} -> true;
+                 {value, _} -> false;
+                 false -> true
+             end,
+    NL_ok and BSR_ok.
 
 press([]) ->
     [];
 press([H|T]) ->
     H++press(T).
 
-testrun(_,_,[],_,_,_) ->
+testrun(_,_,[],_,_,_,_) ->
     0;
-testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
-    Xopt = clean_duplicates(Xopt0,ExecOpt),
+testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,PreCompiled,CompOpts,XMode) ->
+    Xopt = case PreCompiled of
+               true ->
+                   case comp_exec_opt_check(CompOpts, ExecOpt) of
+                       true ->
+                           %%io:format("CompOpts = ~p\nExecOpt = ~p\n", [CompOpts, ExecOpt]),
+                           ok;
+                       false ->
+                           info("~p: skipping inconsistent compile vs run options "
+                                "~p vs ~p\n", [Line, CompOpts, ExecOpt]),
+                           throw(skip)
+                   end,
+                   [];
+               false ->
+                   clean_duplicates(CompOpts,ExecOpt)
+           end,
 
     case lists:keymember(newline,1,Xopt) of
 	true ->
@@ -182,7 +224,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	    true ->
 		case XMode of
 		    binary ->
-			case re:run(Chal,P,ExecOpt++Xopt++
+			case re_run(Chal,P,ExecOpt++Xopt++
 				    [global,{capture,all,binary}]) of
 			    nomatch ->
 				nomatch;
@@ -190,7 +232,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 				{match,press([bfix(R)|| R <- Reslist])}
 			end;
 		    list ->
-			case re:run(Chal,P,ExecOpt++Xopt++
+			case re_run(Chal,P,ExecOpt++Xopt++
 				    [global,{capture,all,list}]) of
 			    nomatch ->
 				nomatch;
@@ -199,7 +241,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 				{match,press([bfix([if UFix =:= true -> list_to_utf8(L); true -> list_to_binary(L) end || L <- R]) || R <- Reslist])}
 			end;
 		    index ->
-			case re:run(Chal,P,ExecOpt++Xopt++[global]) of
+			case re_run(Chal,P,ExecOpt++Xopt++[global]) of
 			    nomatch ->
 				nomatch;
 			    {match, Reslist} ->
@@ -220,7 +262,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 
 			case XMode of
 			    binary ->
-				case re:run(Chal,P,ExecOpt++Xopt++
+				case re_run(Chal,P,ExecOpt++Xopt++
 					    [{capture,all,binary}]) of
 				    nomatch ->
 					nomatch;
@@ -228,7 +270,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 					{match,bfix(Reslist)}
 				end;
 			    list ->
-				case re:run(Chal,P,ExecOpt++Xopt++
+				case re_run(Chal,P,ExecOpt++Xopt++
 					    [{capture,all,list}]) of
 				    nomatch ->
 					nomatch;
@@ -240,7 +282,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 						     end || L <- Reslist])}
 				end;
 			    index ->
-				case re:run(Chal,P,ExecOpt++Xopt) of
+				case re_run(Chal,P,ExecOpt++Xopt) of
 				    nomatch ->
 					nomatch;
 				    {match, Reslist} ->
@@ -250,7 +292,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 		    _LesserOpt ->
 			case XMode of
 			    binary ->
-				case re:run(Chal,P,ExecOpt++Xopt++
+				case re_run(Chal,P,ExecOpt++Xopt++
 					    [{capture,all,binary}]) of
 				    nomatch ->
 					nomatch;
@@ -258,7 +300,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 					{match,bfix(Reslist)}
 				end;
 			    list ->
-				case re:run(Chal,P,ExecOpt++Xopt++
+				case re_run(Chal,P,ExecOpt++Xopt++
 					    [{capture,all,list}]) of
 				    nomatch ->
 					nomatch;
@@ -270,7 +312,7 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 						     end || L <- Reslist])}
 				end;
 			    index ->
-				case re:run(Chal,P,ExecOpt++Xopt) of
+				case re_run(Chal,P,ExecOpt++Xopt) of
 				    nomatch ->
 					nomatch;
 				    {match, Reslist} ->
@@ -281,10 +323,10 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 	end,
     case compare_sloppy(Res,Responses) of
 	true ->
-	    testrun(RE,P,T,EO,Xopt0,XMode);
+	    testrun(RE,P,T,EO,PreCompiled,CompOpts,XMode);
 	false ->
-	    io:format("FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n", 
-		      [Line,RE,Chal,binary_to_list(Chal),{ExecOpt,EO,Xopt},Responses,Res]),
+	    io:format("~s: FAIL(~w): re = ~p, ~nmatched against = ~p(~w), ~nwith options = ~p. ~nexpected = ~p, ~ngot = ~p~n",
+		      [get(testfile), Line,RE,Chal,binary_to_list(Chal),{ExecOpt,EO,Xopt},Responses,Res]),
 	    case get(error_limit) of
 		infinite -> ok;
 		X ->
@@ -905,7 +947,7 @@ single_esc(_) ->
 info(Str,Lst) ->
     case get(verbose) of
 	true ->
-	    io:format(Str,Lst);
+	    io:format("~s:" ++ Str, [get(testfile) | Lst]);
 	_ ->
 	    ok
     end.
@@ -1168,3 +1210,10 @@ ranchar() ->
 ranstring() ->
     iolist_to_binary([ranchar() || _ <- lists:duplicate(rand:uniform(20),0) ]).
 
+re_compile(RE, Opts) ->
+    info("~s: re:compile(~p, ~p)\n", [get(testfile), RE, Opts]),
+    re:compile(RE, Opts).
+
+re_run(Subj, RE, Opts) ->
+    info("~s: re:run(~p, ~p, ~p)\n", [get(testfile), Subj, RE, Opts]),
+    re:run(Subj, RE, Opts).
