@@ -2144,14 +2144,6 @@ No match
  0: abc@0
  1: abc
     
-/^A\8B\9C$/
-    A8B9C
- 0: A8B9C
-    *** Failers
-No match
-    A\08B\09C  
-No match
-    
 /^(A)(B)(C)(D)(E)(F)(G)(H)(I)\8\9$/
     ABCDEFGHIHI 
  0: ABCDEFGHIHI
