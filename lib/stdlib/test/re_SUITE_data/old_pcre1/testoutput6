@@ -141,7 +141,7 @@ No match
     \x{2b0}
 No match
     \x{4db6} 
-No match
+ 0: \x{4db6}
   
 /^\p{Lt}/8
     \x{1c5}
@@ -714,7 +714,7 @@ No match
     ** Failers
 No match
     \x{061c}
-No match
+ 0: \x{061c}
     X\x{06e9}   
 No match
 
@@ -1144,17 +1144,17 @@ No match
     ** Failers
 No match
     \x{650}
-No match
-    \x{651}  
-No match
+ 0: \x{650}
+    \x{651}
+ 0: \x{651}
     \x{652}  
-No match
+ 0: \x{652}
     \x{653}  
-No match
+ 0: \x{653}
     \x{654} 
-No match
+ 0: \x{654}
     \x{655} 
-No match
+ 0: \x{655}
     
 /^\p{Cyrillic}/8
     \x{1d2b} 
@@ -1162,7 +1162,7 @@ No match
     
 /^\p{Common}/8
     \x{589}
- 0: \x{589}
+No match
     \x{60c}
  0: \x{60c}
     \x{61f}  
