@@ -41,7 +41,6 @@ Let us start by drawing the board which will look like this:
 ║       │       │       ║
 ╚═══════╧═══════╧═══════╝
 ```
-{: .monospace-font }
 
 
 We will use the alternate screen buffer for our game so first we need to set that up:
@@ -80,7 +79,6 @@ draw_board() ->
        "     ╚═══════╧═══════╧═══════╝\r\n"]),
     ok.
 ```
-{: .monospace-font }
 
 Let us add some interactivity to our game! To do that we need to change the
 shell from running in `cooked` to `raw` mode. This is done by calling

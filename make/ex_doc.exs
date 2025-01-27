@@ -234,9 +234,6 @@ config = [
     :epub ->
       """
       <style type="text/css">
-        #monospace-font > code {
-          font-family: monospace;
-        }
         .content-inner pre code.mermaid {
           display: none;
         }
@@ -244,14 +241,7 @@ config = [
       """
 
     _ ->
-      """
-      <style type="text/css">
-        .monospace-font > code {
-          font-family: monospace;
-        }
-      </style>
-
-      """
+      ""
   end
 ]
 
