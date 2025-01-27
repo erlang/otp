@@ -611,6 +611,14 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.6
+
+### Fixed Bugs and Malfunctions
+
+* Fixed configure tests for GCC 14
+
+  Own Id: OTP-19407 Aux Id: GH-9211, PR-9234
+
 ## Erts 14.2.5.5
 
 ### Fixed Bugs and Malfunctions

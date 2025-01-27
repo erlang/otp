@@ -417,6 +417,16 @@ This document describes the changes made to the Kernel application.
 [#6724]: https://github.com/erlang/otp/issues/6724
 [PR-8396]: https://github.com/erlang/otp/pull/8396
 
+## Kernel 9.2.4.5
+
+### Fixed Bugs and Malfunctions
+
+* Fix bug where log printouts would go missing when `application_controller` is stopping while log messages are being sent.
+
+  This bug was introduced by OTP-19078 in Erlang/OTP 26.2.5.
+
+  Own Id: OTP-19418 Aux Id: GH-9163 PR-9274
+
 ## Kernel 9.2.4.4
 
 ### Fixed Bugs and Malfunctions

@@ -83,6 +83,14 @@ This document describes the changes made to the Dialyzer application.
 [PR-7443]: https://github.com/erlang/otp/pull/7443
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Dialyzer 5.1.3.1
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a crash caused by the use of opaque types.
+
+  Own Id: OTP-19439 Aux Id: ERIERL-1183, PR-9314
+
 ## Dialyzer 5.1.3
 
 ### Fixed Bugs and Malfunctions

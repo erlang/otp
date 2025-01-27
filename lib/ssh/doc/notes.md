@@ -141,6 +141,20 @@ limitations under the License.
 [PR-7845]: https://github.com/erlang/otp/pull/7845
 [PR-8026]: https://github.com/erlang/otp/pull/8026
 
+## Ssh 5.1.4.5
+
+### Fixed Bugs and Malfunctions
+
+* With this change, type specs for ssh:connection_info/1,2 functions are fixed so they include \{error, term()\} return value.
+
+  Own Id: OTP-19388 Aux Id: ERIERL-1165, PR-9161
+* With this change, ssh client accepts a banner sent during processing keyboard interactive user authentication.
+
+  Own Id: OTP-19392 Aux Id: PR-9139, GH-9065
+* With this change, large sftp transfers does not hang. Redundant window adjustment are not requested.
+
+  Own Id: OTP-19435 Aux Id: PR-9309
+
 ## Ssh 5.1.4.4
 
 ### Fixed Bugs and Malfunctions

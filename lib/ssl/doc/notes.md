@@ -246,6 +246,17 @@ This document describes the changes made to the SSL application.
 [PR-8250]: https://github.com/erlang/otp/pull/8250
 [PR-8255]: https://github.com/erlang/otp/pull/8255
 
+## SSL 11.1.4.7
+
+### Fixed Bugs and Malfunctions
+
+* An initiated handshake should always be closed with an alert, some corner cases have been fixed so that this should always be the case.
+
+  Own Id: OTP-19411 Aux Id: PR-9273, ERIERL-1174
+* Correct option handling to work properly for paused handshaking. Could result in unwanted alerts or or error messages.
+
+  Own Id: OTP-19445 Aux Id: GH-9177, PR-9322
+
 ## SSL 11.1.4.6
 
 ### Fixed Bugs and Malfunctions
