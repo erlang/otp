@@ -610,14 +610,15 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
                 iready(state->driver.select->inport, state);
             if (state->active_events & ERTS_POLL_EV_OUT)
                 oready(state->driver.select->outport, state);
+            state->active_events = 0;
+            active_events = 0;
+
 #if ERTS_POLL_USE_SCHEDULER_POLLING
             /* The error has only happened for scheduler or normal pollset,
                so when cleaning up we should also delete it from the other pollset.
             */
             erts_io_control(state, ERTS_POLL_OP_DEL, 0);
 #endif
-            state->active_events = 0;
-            active_events = 0;
         }
     }
 
