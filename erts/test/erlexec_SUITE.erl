@@ -35,6 +35,7 @@
          zdbbl_dist_buf_busy_limit/1, long_path_env/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -445,26 +446,37 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     ok.
 
 long_path_env(Config) when is_list(Config) ->
-    OriginalPath = os:getenv("PATH"),
-    [BinPath, RestPath] = string:split(OriginalPath, ":"),
+    BinPath = os:getenv("BINDIR"),
+    ActualPath = os:getenv("PATH"),
+    ct:log("BINDIR: ~ts", [BinPath]),
+    ct:log("PATH: ~ts", [ActualPath]),
+
     LongPath = lists:duplicate(10240, "x"),
-    ExpectedPath = OriginalPath ++ ":" ++ LongPath,
     {ok, [[PName]]} = init:get_argument(progname),
     Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
 
-    os:putenv("PATH", OriginalPath ++ ":" ++ LongPath ++ ":" ++ BinPath),
-    Output1 = os:cmd(Cmd),
-    true = string:equal(ExpectedPath, Output1),
-
-    os:putenv("PATH", ExpectedPath),
-    Output2 = os:cmd(Cmd),
-    true = string:equal(ExpectedPath, Output2),
-
-    os:putenv("PATH", RestPath ++ ":" ++ LongPath),
-    Output3 = os:cmd(Cmd),
-    true = string:equal(ExpectedPath, Output3),
-
+    compare_erl_path(Cmd, BinPath, ActualPath),
+    compare_erl_path(Cmd, BinPath, pathjoin([ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, pathjoin([ActualPath, LongPath, BinPath])),
+    compare_erl_path(Cmd, BinPath, pathjoin([BinPath, ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, pathjoin([BinPath, ActualPath, LongPath, BinPath])),
     ok.
+
+compare_erl_path(Cmd, BinPath, Path) ->
+    os:putenv("PATH", Path),
+    Output = os:cmd(Cmd),
+    % BinPath is at the front of PATH and nowhere else
+    ?assertEqual(string:find(Output, BinPath ++ ":"), Output),
+    ?assertEqual(string:find(Output, ":" ++ BinPath), nomatch).
+
+pathsep() ->
+    case os:type() of
+        {win32, _} -> ";";
+        _ -> ":"
+    end.
+
+pathjoin(Components) ->
+    lists:concat(lists:join(pathsep(), Components)).
 
 
 %%
