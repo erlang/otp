@@ -5971,18 +5971,6 @@ No match
  0: 
  0: 
 
-/^[\d-a]/
-    abcde
- 0: a
-    -things
- 0: -
-    0digit
- 0: 0
-    *** Failers
-No match
-    bcdef    
-No match
-    
 /[[:space:]]+/
     > \x09\x0a\x0c\x0d\x0b<
  0:  \x09\x0a\x0c\x0d\x0b
