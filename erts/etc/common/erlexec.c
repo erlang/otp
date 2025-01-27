@@ -554,7 +554,7 @@ int main(int argc, char **argv)
 
     if (s == NULL) {
         erts_snprintf(tmpStr, sizeof(tmpStr),
-            "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP, bindir, rootdir);
+            "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
         set_env("PATH", tmpStr);
     } else if (strstr(s, rootdir) == NULL) {
         erts_snprintf(tmpStr, sizeof(tmpStr),
