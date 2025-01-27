@@ -2196,10 +2196,6 @@ No match
 10: j
 11: k
 
-/ab\idef/
-    abidef
- 0: abidef
-
 /a{0}bc/
     bc
  0: bc
