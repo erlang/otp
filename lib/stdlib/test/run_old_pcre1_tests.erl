@@ -70,6 +70,9 @@ pick_exec_options([]) ->
 
 test([],_,_,_) ->
     0;
+test([{<<"--", _/binary>>, Line, _, _}|T], PreCompile, XMode, REAsList) ->
+    info("Skip comment regex at line ~p\n", [Line]),
+    test(T, PreCompile, XMode, REAsList);
 test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
     Unicode = lists:member(unicode,Options0),
     RE = case REAsList of
