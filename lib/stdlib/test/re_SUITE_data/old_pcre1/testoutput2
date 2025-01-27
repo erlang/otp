@@ -14417,12 +14417,6 @@ Failed: reference to non-existent subpattern at offset 22
 /\V\x85\9*+((?2)\3++()2)*:2/
 Failed: reference to non-existent subpattern at offset 26
 
-/(((?(R)){0,2}) (?''((?'R')((?'R')))))/J
-
-/(((?(X)){0,2}) (?''((?'X')((?'X')))))/J
-
-/(((?(R)){0,2}) (?''((?'X')((?'R')))))/
-
 "(?J)(?'d'(?'d'\g{d}))"
 
 ".*?\h.+.\.+\R*?\xd(?i)(?=!(?=b`b`b`\`b\xa9b!)`\a`bbbbbbbbbbbbb`bbbbbbbbbbbb*R\x85bbbbbbb\C?{((?2)(?))((
