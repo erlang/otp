@@ -6201,10 +6201,6 @@ No match
     b     
 No match
 
-/\M/
-    M 
- 0: M
-    
 /(a+)*b/
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 
 No match
