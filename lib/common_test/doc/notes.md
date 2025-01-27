@@ -162,6 +162,14 @@ limitations under the License.
 [GH-7972]: https://github.com/erlang/otp/issues/7972
 [PR-8112]: https://github.com/erlang/otp/pull/8112
 
+## Common_Test 1.26.2.4
+
+### Fixed Bugs and Malfunctions
+
+* Common test will now not crash when running tests with OTP-26 and earlier, while having previous test results from OTP-27.
+
+  Own Id: OTP-19385 Aux Id: ERIERL-1166, PR-9155, PR-9156
+
 ## Common_Test 1.26.2.3
 
 ### Fixed Bugs and Malfunctions
