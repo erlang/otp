@@ -12648,7 +12648,7 @@ No match
 
 /(?(?=b(*SKIP)a)bn|bnn)/
     bnn
-No match
+ 0: bnn
 
 /(?=b(*THEN)a|)bn|bnn/
     bnn
