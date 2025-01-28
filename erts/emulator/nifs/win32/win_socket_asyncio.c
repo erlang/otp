@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2023. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -9175,7 +9175,11 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
             "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
             sockRef, descP->sock) );
 
-    return MKT2(env, esock_atom_more, data);
+    if (toRead > 0) {
+        return MKT2(env, esock_atom_more, data);
+    } else {
+        return esock_make_ok2(opEnv, data);
+    }
 }
 
 
