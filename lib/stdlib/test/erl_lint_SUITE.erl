@@ -4977,32 +4977,7 @@ inline_nifs(Config) ->
               gurka() -> ok.
              ">>,
            [],
-           {warnings,[{{2,22},erl_lint,nif_inline}]}},
-           {explicit_inline_unloaded_1,
-           <<"-compile({inline, [bar/0]}).
-              -nifs([bar/0]).
-              bar() -> erlang:nif_error(error).
-             ">>,
-           [],
-           {warnings,[{{2,16},erl_lint,no_load_nif},
-                      {{3,24},erl_lint,nif_inline}]}},
-           {explicit_inline_unloaded_2,
-           <<"-compile({inline, bar/0}).
-              -nifs([bar/0]).
-              bar() -> erlang:nif_error(error).
-             ">>,
-           [],
-           {warnings,[{{2,16},erl_lint,no_load_nif},
-                      {{3,24},erl_lint,nif_inline}]}},
-           {implicit_inline_unloaded,
-           <<"-compile(inline).
-              -nifs([bar/0]).
-              bar() -> erlang:nif_error(error).
-              gurka() -> ok.
-             ">>,
-           [],
-           {warnings,[{{2,16},erl_lint,no_load_nif},
-                      {{3,24},erl_lint,nif_inline}]}}],
+           {warnings,[{{2,22},erl_lint,nif_inline}]}}],
     [] = run(Config, Ts).
 
 undefined_nifs(Config) when is_list(Config) ->
