@@ -361,7 +361,8 @@ typedef struct {
     int          iov_max;
 
     /* XXX
-     * Should be locked but too awkward for no gain since it is not used yet
+     * Should be locked but too awkward for no gain
+     * since it is not used yet.
      */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,16 +46,20 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
-%% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
+%%
+%% SUITE = socket_api_SUITE.
+%%
+%% S = fun() -> ts:run(kernel, socket_api_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
-%% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
+%% G = fun(GROUP) -> ts:run(kernel, socket_api_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
-%% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_api_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_api_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
+%% G = fun(GROUP) -> ct:run_test([{suite, socket_api_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
-%% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
+%% T = fun(TC) -> ct:run_test([{suite, socket_api_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
@@ -11710,17 +11714,17 @@ api_opt_simple_otp_rcvbuf_option() ->
                    end},
 
          %% Recv with default size for (otp) rcvbuf
-         #{desc => "await continue (recv initial)",
+         #{desc => "await continue (recv initial = 1)",
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, MsgSz} ->
-                                   ?SEV_IPRINT("MsgSz: ~p", [MsgSz]),
+                                   ?SEV_IPRINT("Msg Sz to expect: ~p", [MsgSz]),
                                    {ok, State#{msg_sz => MsgSz}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
-         #{desc => "attempt to recv",
+         #{desc => "attempt to recv (1)",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
                            ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
                                        [MsgSz,
@@ -11729,58 +11733,19 @@ api_opt_simple_otp_rcvbuf_option() ->
                                             {error, _}   -> "-"
                                         end]),
                            case socket:recv(Sock) of
-                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                               {ok, Data} when (byte_size(Data) =:= MsgSz) ->
+                                   ?SEV_IPRINT("expected recv result"),
                                    ok;
-                               {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
+                               {ok, Data} -> 
+                                  {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
                                    ERROR
                            end
                    end},
-         #{desc => "announce ready (recv initial)",
-           cmd  => fun(#{tester := Tester}) ->
-                           ?SEV_ANNOUNCE_READY(Tester, recv),
-                           ok
-                   end},
-
-         %% Recv with new size (1) for (otp) rcvbuf
-         #{desc => "await continue (recv 1)",
-           cmd  => fun(#{tester := Tester} = State) ->
-                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
-                               {ok, NewRcvBuf} ->
-                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
-                                   {ok, State#{rcvbuf => NewRcvBuf}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "attempt to setopt rcvbuf",
-           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
-                           case Set(Sock, NewRcvBuf) of
-                               ok ->
-                                   ok;
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "attempt to recv",
-           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
-                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
-                                       [MsgSz,
-                                        case Get(Sock) of
-                                            {ok, RcvBuf} -> ?F("~w", [RcvBuf]);
-                                            {error, _}   -> "-"
-                                        end]),
-                           case socket:recv(Sock) of
-                               {ok, Data} when (size(Data) =:= MsgSz) ->
-                                   ok;
-                               {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
-                               {error, _} = ERROR ->
-                                   ERROR
-                           end
-                   end},
-         #{desc => "announce ready (recv 1)",
+         #{desc => "announce ready (recv initial = 1)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, recv),
                            ok
@@ -11791,7 +11756,8 @@ api_opt_simple_otp_rcvbuf_option() ->
            cmd  => fun(#{tester := Tester} = State) ->
                            case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
                                {ok, NewRcvBuf} ->
-                                   ?SEV_IPRINT("set new rcvbuf: ~p", [NewRcvBuf]),
+                                   ?SEV_IPRINT("set new rcvbuf: ~p",
+                                               [NewRcvBuf]),
                                    {ok, State#{rcvbuf => NewRcvBuf}};
                                {error, _} = ERROR ->
                                    ERROR
@@ -11806,14 +11772,80 @@ api_opt_simple_otp_rcvbuf_option() ->
                                    ERROR
                            end
                    end},
-         #{desc => "attempt to recv",
+         #{desc => "attempt to recv (2)",
            cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                                       [MsgSz,
+                                        case Get(Sock) of
+                                            {ok, RcvBuf} -> ?F("~w", [RcvBuf]);
+                                            {error, _}   -> "-"
+                                        end]),
                            case socket:recv(Sock) of
-                               {ok, Data} when (size(Data) =:= MsgSz) ->
+                               {ok, Data} when (byte_size(Data) =:= MsgSz) ->
+                                   ?SEV_IPRINT("expected recv result"),
                                    ok;
                                {ok, Data} ->
-                                   {error, {invalid_msg_sz, MsgSz, size(Data)}};
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (recv 2)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, recv),
+                           ok
+                   end},
+
+         %% Recv with new size (3) for (otp) rcvbuf
+         #{desc => "await continue (recv 3)",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv) of
+                               {ok, NewRcvBuf} ->
+                                   ?SEV_IPRINT("set new rcvbuf: ~p",
+                                               [NewRcvBuf]),
+                                   {ok, State#{rcvbuf => NewRcvBuf}};
                                {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to setopt rcvbuf",
+           cmd  => fun(#{sock := Sock, rcvbuf := NewRcvBuf} = _State) ->
+                           case Set(Sock, NewRcvBuf) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "attempt to recv (3)",
+           cmd  => fun(#{sock := Sock, msg_sz := MsgSz} = _State) ->
+                           ?SEV_IPRINT("try recv ~w bytes when rcvbuf is ~s", 
+                                       [MsgSz,
+                                        case Get(Sock) of
+                                            {ok, RcvBuf} -> ?F("~w", [RcvBuf]);
+                                            {error, _}   -> "-"
+                                        end]),
+                           case socket:recv(Sock) of
+                               {ok, Data} when (byte_size(Data) =:= MsgSz) ->
+                                   ?SEV_IPRINT("expected recv result"),
+                                   ok;
+                               {ok, Data} ->
+                                   ?SEV_EPRINT("got unexpected amount of data:"
+                                               "~n   Expected: ~p"
+                                               "~n   Got:      ~p",
+                                               [MsgSz, byte_size(Data)]),
+                                   {error,
+                                    {invalid_msg_sz, MsgSz, byte_size(Data)}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected recv error:"
+                                               "~n   Reason: ~p", [Reason]),
                                    ERROR
                            end
                    end},

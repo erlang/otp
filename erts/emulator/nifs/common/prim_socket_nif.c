@@ -6119,8 +6119,8 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
                       const ERL_NIF_TERM argv[])
 {
     ESockDescriptor* descP;
-    ERL_NIF_TERM     sockRef, recvRef;
-    ErlNifUInt64     elen;
+    ERL_NIF_TERM     sockRef, recvRef, elen, eflags;
+    ErlNifUInt64     len64;
     ssize_t          len; /* ssize_t due to the return type of recv() */
     int              flags;
     ERL_NIF_TERM     res;
@@ -6129,6 +6129,8 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     ESOCK_ASSERT( argc == 4 );
 
     sockRef = argv[0]; // We need this in case we send abort (to the caller)
+    elen    = argv[1];
+    eflags  = argv[2];
     recvRef = argv[3];
 
     if (! ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
@@ -6139,20 +6141,48 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
         (COMPARE(recvRef, esock_atom_zero) != 0)) {
         return enif_make_badarg(env);
     }
-    if ((! (a1ok = GET_UINT64(env, argv[1], &elen))) ||
-        (! GET_INT(env, argv[2], &flags))) {
-        if ((! IS_INTEGER(env, argv[1])) ||
-            (! IS_INTEGER(env, argv[2])))
+    if ((! (a1ok = GET_UINT64(env, elen, &len64))) ||
+        (! GET_INT(env, eflags, &flags))) {
+        if ((! IS_INTEGER(env, elen)) ||
+            (! IS_INTEGER(env, eflags))) {
+
             return enif_make_badarg(env);
 
-        if (! a1ok)
-            return esock_make_error_integer_range(env, argv[1]);
-        return
-            esock_make_error_integer_range(env, argv[2]);
+        }
+
+        if (! a1ok) {
+
+            SSDBG( descP,
+                   ("SOCKET", "nif_recv(%T), {%d,0x%X} -> "
+                    "invalid (format) length: %T"
+                    "\r\n",
+                    sockRef, descP->sock, descP->readState, elen) );
+
+            return esock_make_error_integer_range(env, elen);
+        }
+
+        SSDBG( descP,
+               ("SOCKET", "nif_recv(%T), {%d,0x%X} -> invalid flags: %T"
+                "\r\n",
+                sockRef, descP->sock, descP->readState, eflags) );
+
+        return esock_make_error_integer_range(env, eflags);
     }
-    len = (ssize_t) elen;
-    if (elen != (ErlNifUInt64) len)
-        return esock_make_error_integer_range(env, elen);
+
+    len = (ssize_t) len64;
+    if (len64 != (ErlNifUInt64) len) {
+
+        SSDBG( descP,
+               ("SOCKET", "nif_recv(%T), {%d,0x%X} -> "
+                "invalid (range) length:"
+                "\r\n   (e) length:    %T"
+                "\r\n   (raw) length:  %ld"
+                "\r\n   (cast) length: %ld"
+                "\r\n",
+                sockRef, descP->sock, descP->readState, elen, len64, len) );
+
+        return esock_make_error_integer_range(env, len64);
+    }
 
     MLOCK(descP->readMtx);
 

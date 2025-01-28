@@ -3034,23 +3034,35 @@ traffic_send_and_recv_chunks_stream(InitState) ->
 
          #{desc => "await continue (recv-one-big)",
            cmd  => fun(#{tester := Tester} = State) ->
-                           case ?SEV_AWAIT_CONTINUE(Tester, tester, recv_one_big) of
+			   ?SEV_IPRINT("await 'recv-one-big' continue"),
+                           case ?SEV_AWAIT_CONTINUE(Tester,
+                                                    tester, recv_one_big) of
                                {ok, Size} ->
+				   ?SEV_IPRINT("received "
+					       "'recv-one-big' "
+					       "continue: ~p", [Size]),
                                    {ok, State#{size => Size}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
                    end},
          #{desc => "recv (one big)",
-           cmd  => fun(#{tester := Tester, csock := Sock, size := Size} = _State) ->
-                           %% socket:setopt(Sock, otp, debug, true),
+           cmd  => fun(#{tester := Tester,
+                         csock  := Sock,
+                         size   := Size} = _State) ->
+			   ?SEV_IPRINT("try read one-big chunk (~w)", [Size]),
                            case socket:recv(Sock, Size) of
                                {ok, Data} ->
+				   ?SEV_IPRINT("received "
+					       "one big chunk (~w)",
+					       [sz(Data)]),
                                    ?SEV_ANNOUNCE_READY(Tester,
                                                        recv_one_big,
                                                        b2l(Data)),
                                    ok;
-                               {error, _} = ERROR ->
+                               {error, Reason} = ERROR ->
+				   ?SEV_EPRINT("failed reading: "
+					       "~n   ~p", [Reason]),
                                    ERROR
                            end
                    end},
@@ -3722,18 +3734,32 @@ traffic_snr_tcp_client(Parent) ->
 traffic_snr_tcp_client_send_loop(Parent, Sock) ->
     case ?SEV_AWAIT_CONTINUE(Parent, parent, send) of
         {ok, stop} -> % Breaks the loop
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected 'stop': break the loop "
+                "(announce: send ready)"),
             ?SEV_ANNOUNCE_READY(Parent, send, ok),
             ok;
         {ok, Data} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "received expected data (~w bytes) - send data",
+	      [sz(Data)]),
             case socket:send(Sock, Data) of
                 ok ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "data sent (send ready)"),
                     ?SEV_ANNOUNCE_READY(Parent, send, ok),
                     traffic_snr_tcp_client_send_loop(Parent, Sock);
                 {error, Reason} = ERROR ->
+		    i("traffic_snr_tcp_client_send_loop -> "
+		      "failed send data: "
+		      "~n   ~p", [Reason]),
                     ?SEV_ANNOUNCE_READY(Parent, send, ERROR),
                     exit({send, Reason})
             end;
         {error, Reason} ->
+	    i("traffic_snr_tcp_client_send_loop -> "
+	      "unexpected error: "
+	      "~n   ~p", [Reason]),
             exit({await_continue, Reason})
     end.
 
@@ -7218,7 +7244,8 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
 sock_port(S) ->
     case socket:sockname(S) of
         {ok, #{port := Port}} -> Port;
-        {ok, #{}}             -> undefined
+        {ok, #{}}             -> undefined;
+        {error, Reason}       -> error(Reason)
     end.
 
 l2b(L) when is_list(L) ->
@@ -7226,6 +7253,11 @@ l2b(L) when is_list(L) ->
 
 b2l(B) when is_binary(B) ->
     binary_to_list(B).
+
+sz(B) when is_binary(B) ->
+    byte_size(B);
+sz(L) when is_list(L) ->
+    iolist_size(L).
 
 i(F) ->
     i(F, []).

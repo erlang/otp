@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -364,7 +364,7 @@ server(Addr, Port) ->
 -include("file_int.hrl").
 
 %% -define(DBG(T),
-%%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
+%%         erlang:display({'DBG', {self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
@@ -5133,10 +5133,12 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 %% if got 0, type == STREAM                             -> {error, closed}
 %% if got full buffer ->
 %%     if asked for 0, type == STREAM ->
-%%         if rNum =< rNumCnt                           -> {ok, Bin}
-%%         else rNumCnt < rNum                          -> {more, Bin}
-%%         end
-%%     else asked for N; type != STREAM                 -> {ok, Bin}
+%%         if OS /= Windows ->
+%%             if rNum =< rNumCnt                       -> {ok, Bin}
+%%             else rNumCnt < rNum                      -> {more, Bin}
+%%             end
+%%         else                                         -> {ok, Bin}
+%%     else                                             -> {ok, Bin}
 %%     end
 %% else got less than buffer ->
 %%     if asked for N, type == STREAM ->
@@ -5156,12 +5158,55 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 
 recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
     Handle = make_ref(),
+    %% d("~w -> entry with"
+    %%   "~n   Length:   ~p"
+    %%   "~n   Deadline: ~p"
+    %%   "~n   sz(Buf):  ~p", [?FUNCTION_NAME, Length, Deadline, sz(Buf)]),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
-        {more, Bin} -> % Type = stream, Length = 0, default buffer filled
-            0 = Length,
-            recv_zero(SockRef, Length, Flags, [Bin]);
+        {more, Bin} when (Length =:= 0) ->
+            %% d("~w(0) -> more when"
+            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
+            %% There may be more data available
+            %% - repeat unless time's up
+            %%
+            %% Not on Windows:
+            %% Do not yet use the rNum and rNumCnt fields,
+            %% so cannot break the read loop, and will therefor
+            %% never return '{more, Bin}' in this case!
+            %%
+            %% Type = stream, Length = 0, default buffer filled
+            %%
+            %% Note that Buf "should" be empty in this case, but
+            %% just in case...
+            recv_zero(SockRef, Length, Flags, [Bin | Buf]);
+
+        %% This next two cases are Windows only
+        {more, Bin} when (Length =:= byte_size(Bin)) ->
+            %% d("~w -> (last) more when"
+            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
+            %% We got the last chunk
+            {ok, condense_buffer([Bin | Buf])};
+        {more, Bin} 
+          when (Length > byte_size(Bin)) ->
+            %% d("~w(~w) -> more when "
+            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
+            %% There may be more data available
+            %% - repeat unless time's up
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length-byte_size(Bin),
+		      Flags, Deadline, [Bin | Buf]);
+                true ->
+                    {ok, condense_buffer([Bin | Buf])}
+            end;
+
         %%
         {select, Bin} ->
+            %% d("~w(~w) -> select when "
+            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
             %% We got less than requested on a stream socket
 	    Timeout = timeout(Deadline),
             receive
@@ -5185,6 +5230,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
         select
           when 0 < Length;   % Requested a specific amount of data
                Buf =:= [] -> % or Buf empty (and requested any amount of data)
+            %% d("~w(~w) -> select", [?FUNCTION_NAME, Length]),
             %%
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
@@ -5207,37 +5253,66 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
             end;
         %%
         select -> % Length is 0 (request any amount of data), Buf not empty
+            %% d("~w(0) -> select when"
+            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, sz(Buf)]),
             %%
             %% We first got some data and are then asked to wait,
             %% but what we already got will do just fine;
             %% - cancel and return what we have
             _ = cancel(SockRef, recv, Handle),
             {ok, condense_buffer(Buf)};
+
         %%
         completion ->
-            %% There is nothing just now, but we will be notified when the
-            %% data has been read (with a completion message).
+            %% There is nothing just now, but we will be notified
+	    %% when the data has been read (with a completion message).
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
-                  when Length =:= 0 ->
-                    {ok, condense_buffer([Bin | Buf])};
-                ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
-                  when Length =:= byte_size(Bin) ->
-                    {ok, condense_buffer([Bin | Buf])};
+                %% On Windows we are *always* done when we get {ok, Bin}
+                %% If we should/can read more, the result is {more, Bin}
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}}) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, [Bin | Buf]);
-                        true ->
-                            recv_error([Bin | Buf], timeout)
-                    end;
+                    {ok, condense_buffer([Bin | Buf])};
+
+                %% The nif (Windows I/O backend) never actually return
+                %% '{more, Bin}' when Length = 0, so this case is just
+                %% future proofing.
+                %% See comment for '{more, Bin}'.
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
+
+                %% We got the last chunk
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}})
+                  when (Length =:= byte_size(Bin)) ->
+                    %% d("~w -> (last) more when"
+                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
+                    {ok, condense_buffer([Bin | Buf])};
+                %% Just another chunk, but not the last
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}})
+                  when (Length > byte_size(Bin)) ->
+                    %% d("~w(~w) -> more when "
+                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length - byte_size(Bin), Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
+
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
                     recv_error(Buf, Reason);
@@ -5248,27 +5323,17 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
                     recv_error(Buf, timeout)
             end;
 
-
-        %% All requested data
-        {ok, Bin} when (Length =:= 0) orelse
-                       (Length =:= byte_size(Bin)) -> % All requested data
+        {ok, Bin} ->
+            %% d("~w -> ok when"
+            %%   "~n   sz(Bin): ~p"
+            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, sz(Bin), sz(Buf)]),
             {ok, condense_buffer([Bin | Buf])};
-
-        {ok, Bin} -> % Only part of the requested data
-            Timeout = timeout(Deadline),
-            if
-                0 < Timeout ->
-                    %% Recv more
-                    recv_deadline(
-                      SockRef, Length - byte_size(Bin), Flags,
-                      Deadline, [Bin | Buf]);
-                true ->
-                    recv_error([Bin | Buf], timeout)
-            end;
-
 
         %%
         {error, Reason} ->
+            %% d("~w -> error when"
+            %%   "~n   Reason:  ~p"
+            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, Reason, sz(Buf)]),
             recv_error(Buf, Reason)
     end.
 
@@ -6743,6 +6808,11 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
+%% sz(B) when is_binary(B) ->
+%%     byte_size(B);
+%% sz(L) when is_list(L) ->
+%%     iolist_size(L).
+
 deadline(Timeout) ->
     case Timeout of
         nowait ->
@@ -6816,6 +6886,18 @@ f(F, A) ->
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
 
+
+%% d(F) ->
+%%     d(get(debug), F, []).
+
+%% d(F, A) ->
+%%     d(get(debug), F, A).
+
+%% d(true, F, A) ->
+%%     p(F, A);
+%% d(_, _, _) ->
+%%     ok.
+
 %% p(F) ->
 %%     p(F, []).
 
@@ -6828,3 +6910,5 @@ f(F, A) ->
 %%     TS = formatted_timestamp(),
 %%     io:format(user,"[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]),
 %%     io:format("[~s][~s,~p] " ++ F ++ "~n", [TS, SName, self()|A]).
+
+
