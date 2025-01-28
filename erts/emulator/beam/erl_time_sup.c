@@ -1759,24 +1759,16 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     t.tm_sec = *second;
     t.tm_isdst = isdst;
 
-    /* the nature of mktime makes this a bit interesting,
-     * up to four mktime calls could happen here
-     */
+    if (!sys_daylight) {
+        /* If this is a timezone without DST and the OS (correctly)
+	   refuses to give us a DST time, we simulate the Linux/Solaris
+	   behaviour of giving the same data as if is_dst was not set. */
+        t.tm_isdst = 0;
+    }
 
     if (erl_mktime(&the_clock, &t) < 0) {
-	if (isdst) {
-	    /* If this is a timezone without DST and the OS (correctly)
-	       refuses to give us a DST time, we simulate the Linux/Solaris
-	       behaviour of giving the same data as if is_dst was not set. */
-	    t.tm_isdst = 0;
-	    if (erl_mktime(&the_clock, &t) < 0) {
-		/* Failed anyway, something else is bad - will be a badarg */
-		return 0;
-	    }
-	} else {
-	    /* Something else is the matter, badarg. */
-	    return 0;
-	}
+        /* Something is the matter, badarg. */
+        return 0;
     }
 
 #ifdef HAVE_TIME2POSIX

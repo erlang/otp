@@ -76,6 +76,7 @@
 
 static TIME_ZONE_INFORMATION static_tzi;
 static int have_static_tzi = 0;
+int sys_daylight = 0;
 
 static int days_in_month[2][13] = {
     {0,31,28,31,30,31,30,31,31,30,31,30,31},
@@ -285,9 +286,65 @@ sys_hrtime_gtc64(void)
     return time;
 }
 
-/*
- * Init
- */
+/* Struct and algorithm taken from https://learn.microsoft.com/en-us/windows/win32/api/timezoneapi/ns-timezoneapi-time_zone_information */
+typedef struct _REG_TZI_FORMAT
+{
+    LONG Bias;
+    LONG StandardBias;
+    LONG DaylightBias;
+    SYSTEMTIME StandardDate;
+    SYSTEMTIME DaylightDate;
+} REG_TZI_FORMAT;
+
+static int sys_init_tzinfo(void) {
+    char *tz = getenv("TZ");
+    char regKey[255];
+    HKEY tzKey;
+    DWORD res, size;
+    REG_TZI_FORMAT tzi;
+
+
+    /* If TZ is not set we fallback to GetTimeZoneInformation, just like mktime and friends. */
+    if (!tz) {
+        return GetTimeZoneInformation(&static_tzi);
+    }
+
+    snprintf(regKey, sizeof(regKey), "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Time Zones\\%s", tz);
+
+    if ((res = RegOpenKey(HKEY_LOCAL_MACHINE, regKey, &tzKey)) != ERROR_SUCCESS) {
+        return 0;
+    }
+
+    size = sizeof(tzi);
+    if ((res = RegGetValueW(tzKey, NULL, L"TZI", RRF_RT_REG_BINARY, NULL,
+            &tzi, &size)) != ERROR_SUCCESS) {
+        RegCloseKey(tzKey);
+        return 0;
+    }
+
+    static_tzi.Bias = tzi.Bias;
+    static_tzi.StandardBias = tzi.StandardBias;
+    static_tzi.DaylightBias = tzi.DaylightBias;
+    static_tzi.StandardDate = tzi.StandardDate;
+    static_tzi.DaylightDate = tzi.DaylightDate;
+
+    size = sizeof(static_tzi.StandardName);
+    if ((res = RegGetValueW(tzKey, NULL, L"Std", RRF_RT_REG_SZ, NULL,
+            &static_tzi.StandardName, &size)) != ERROR_SUCCESS) {
+        RegCloseKey(tzKey);
+        return 0;
+    }
+
+    size = sizeof(static_tzi.DaylightName);
+    if ((res = RegGetValueW(tzKey, NULL, L"Dlt", RRF_RT_REG_SZ, NULL,
+            &static_tzi.DaylightName, &size)) != ERROR_SUCCESS) {
+        RegCloseKey(tzKey);
+        return 0;
+    }
+
+    RegCloseKey(tzKey);
+    return 1;
+}
 
 void
 sys_init_time(ErtsSysInitTimeResult *init_resp)
@@ -406,10 +463,11 @@ sys_init_time(ErtsSysInitTimeResult *init_resp)
     init_resp->os_system_time_info.resolution = 100;
     init_resp->os_system_time_info.locked_use = 0;
 
-    if(GetTimeZoneInformation(&static_tzi) && 
-       static_tzi.StandardDate.wMonth != 0 &&
-       static_tzi.DaylightDate.wMonth != 0) {
-	have_static_tzi = 1;
+    have_static_tzi = sys_init_tzinfo();
+
+    if (have_static_tzi) {
+        sys_daylight = static_tzi.StandardDate.wMonth != 0 &&
+                    static_tzi.DaylightDate.wMonth != 0;
     }
 }
 

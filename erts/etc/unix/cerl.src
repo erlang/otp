@@ -423,6 +423,9 @@ if [ "x$GDB" = "x" ]; then
         fi
     elif [ $run_rr = yes ]; then
         if [ $1 = replay ] || [ $1 = eplay ]; then
+
+            install_gdb_tools
+
 	    rr_cmd=$1
             shift
             cmdfile="/tmp/.cerlgdb.$$"

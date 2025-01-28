@@ -474,6 +474,10 @@
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
+/* Define to 1 if you have the declaration of 'daylight', and to 0 if you
+   don't. */
+#undef HAVE_DECL_DAYLIGHT
+
 /* Define to 1 if you have the declaration of 'getrlimit', and to 0 if you
    don't. */
 #undef HAVE_DECL_GETRLIMIT

@@ -21151,6 +21151,17 @@ esac
 fi
 printf "%s\n" "#define HAVE_DECL_TIME2POSIX $ac_have_decl" >>confdefs.h
 
+ac_fn_check_decl "$LINENO" "daylight" "ac_cv_have_decl_daylight" "#include <time.h>
+" "$ac_c_undeclared_builtin_options" "CFLAGS"
+if test "x$ac_cv_have_decl_daylight" = xyes
+then :
+  ac_have_decl=1
+else case e in #(
+  e) ac_have_decl=0 ;;
+esac
+fi
+printf "%s\n" "#define HAVE_DECL_DAYLIGHT $ac_have_decl" >>confdefs.h
+
 
 ac_func=
 for ac_item in $ac_func_c_list
