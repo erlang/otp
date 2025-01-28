@@ -448,10 +448,15 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
 long_path_env(Config) when is_list(Config) ->
     BinPath = os:getenv("BINDIR"),
     ActualPath = os:getenv("PATH"),
+
+    PathComponents = string:split(ActualPath, pathsep(), all),
+    ActualPathNoBinPath = path_var_join(lists:filter(fun (Path) ->
+                                                          Path =/= BinPath
+                                                  end, PathComponents)),
     ct:log("BINDIR: ~ts", [BinPath]),
     ct:log("PATH: ~ts", [ActualPath]),
 
-    LongPath = lists:duplicate(10240, "x"),
+    LongPath = lists:flatten(lists:duplicate(10240, "x")),
     {ok, [[PName]]} = init:get_argument(progname),
     Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
 
@@ -460,6 +465,10 @@ long_path_env(Config) when is_list(Config) ->
     compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath, BinPath])),
     compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath])),
     compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
+
+    Output = compare_erl_path(Cmd, BinPath, path_var_join([ActualPathNoBinPath, LongPath])),
+    ?assertEqual(string:find(Output, LongPath), LongPath),
+
     ok.
 
 long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
@@ -469,7 +478,7 @@ long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
     ActualPath = os:getenv("PATH"),
     LongPathLength = 10240,
 
-    LongPath = lists:duplicate(LongPathLength, "x"),
+    LongPath = lists:flatten(lists:duplicate(LongPathLength, "x")),
     {ok, [[PName]]} = init:get_argument(progname),
     Cmd = "\"" ++ filename:join(RootPathWithBin, PName) ++ "\"" ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
 
@@ -481,7 +490,7 @@ long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
     os:putenv("PATH", path_var_join([ActualPathNoRoot, LongPath, LongPath])),
     Output = os:cmd(Cmd),
 
-    ?assertEqual(string:length(string:find(Output, LongPath ++ ":" ++ LongPath)), (LongPathLength * 2) + 1),
+    ?assertEqual(string:length(string:find(Output, LongPath ++ pathsep() ++ LongPath)), (LongPathLength * 2) + string:length(pathsep())),
     ok.
 
 compare_erl_path(Cmd, BinPath, Path) ->
@@ -489,7 +498,8 @@ compare_erl_path(Cmd, BinPath, Path) ->
     Output = os:cmd(Cmd),
     % BinPath is at the front of PATH and nowhere else
     ?assertEqual(string:find(Output, BinPath ++ ":"), Output),
-    ?assertEqual(string:find(Output, ":" ++ BinPath), nomatch).
+    ?assertEqual(string:find(Output, ":" ++ BinPath), nomatch),
+    Output.
 
 pathsep() ->
     case os:type() of

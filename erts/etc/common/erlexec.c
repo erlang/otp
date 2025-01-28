@@ -582,7 +582,7 @@ int main(int argc, char **argv)
         const char *in_index;
         char *out_index;
 
-        pathBufLen = strlen(s) + strlen(bindir) + strlen(PATHSEP);
+        pathBufLen = strlen(s) + strlen(bindir) + strlen(PATHSEP) + 1;
         pathBuf = emalloc(pathBufLen);
 
         strcpy(pathBuf, bindir);
@@ -608,6 +608,8 @@ int main(int argc, char **argv)
             strcpy(out_index, PATHSEP);
             out_index += sep_length;
             strcpy(out_index, in_index);
+        } else {
+            *out_index = '\0';
         }
 
         set_env("PATH", pathBuf);
