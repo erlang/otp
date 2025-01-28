@@ -123,6 +123,8 @@ while test -n "$1" ; do
 		MD=-MD;
 	    fi
 	    OPTIMIZED_BUILD=true;;
+        -O0)
+            ;;
 	-O*)
 	    # Optimization hardcoded
 	    OPTIMIZE_FLAGS="-Ox -Z7";
