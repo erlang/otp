@@ -653,12 +653,12 @@ do_zip(F, Files, Options) ->
         {Out1, LHS, Pos} = put_z_files(Files, Z, Out0, 0, Opts, []),
         zlib:close(Z),
         Out2 = put_central_dir(LHS, Pos, Out1, Opts),
-        Out3 = Output({close, F}, Out2),
+        Out3 = Output(flush, Output({close, F}, Out2)),
         {ok, Out3}
     catch
         C:R:Stk ->
             ?CATCH(zlib:close(Z)),
-            Output({close, F}, Out0),
+            Output(flush, Output({close, F}, Out0)),
             erlang:raise(C, R, Stk)
     end.
 
@@ -2218,8 +2218,8 @@ cd_file_header_to_file_info(FileName,
 
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
-get_z_files([], _Z, _In, _Opts, Acc) ->
-    lists:reverse(Acc);
+get_z_files([], _Z, _In, #unzip_opts{ output = Output }, Acc) ->
+    flush_and_reverse(Output, Acc, []);
 get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
     get_z_files(Rest, Z, In, Opts, Acc);
 get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
@@ -2240,6 +2240,11 @@ get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
 	_ ->
 	    get_z_files(Rest, Z, In0, Opts, Acc0)
     end.
+
+flush_and_reverse(Output, [H|T], Acc) ->
+    flush_and_reverse(Output, T, [Output(flush, H) | Acc]);
+flush_and_reverse(_Output, [], Acc) ->
+    Acc.
 
 %% get a file from the archive, reading chunks
 get_z_file(In0, Z, Input, Output, OpO, FB,
@@ -2280,8 +2285,8 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 
             IsDir = lists:last(FileName) =:= $/,
 
-	    case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
-		true ->
+            case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
+                true ->
                     {Type, Out, In} =
                         case lists:last(FileName) of
                             $/ ->
@@ -2302,11 +2307,20 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                                  Output({file_info, FileNameWithCwd}, Out),
                                  LHExtra, ZipFile),
 
-                    Out2 = Output({set_file_info, FileNameWithCwd, FileInfo, [{time, local}]}, Out),
+                    SetFileInfo =
+                        fun(O) -> Output({set_file_info, FileNameWithCwd, FileInfo, [{time, local}]}, O) end,
+
+                    Out2 =
+                        if Type =:= dir ->
+                                Output({delay, SetFileInfo}, Out);
+                           Type =:= file ->
+                                SetFileInfo(Out)
+                        end,
+
                     {Type, Out2, In};
-		false ->
-		    {ignore, In3}
-	    end;
+                false ->
+                    {ignore, In3}
+            end;
 	Else ->
 	    throw({bad_local_file_header, Else})
     end.
@@ -2680,7 +2694,12 @@ binary_io({set_file_info, _F, _FI}, B) ->
 binary_io({set_file_info, _F, _FI, _O}, B) ->
     B;
 binary_io({ensure_path, Dir}, _B) ->
-    {Dir, <<>>}.
+    {Dir, <<>>};
+binary_io({delay, Fun}, B) ->
+    %% We don't delay things in binary_io
+    Fun(B);
+binary_io(flush, FN) ->
+    FN.
 
 file_io({file_info, F}, _) ->
     case file:read_file_info(F) of
@@ -2735,7 +2754,7 @@ file_io({pwrite, Pos, Data}, H) ->
     end;
 file_io({close, FN}, H) ->
     case file:close(H) of
-	ok -> FN;
+	ok -> #{ name => FN, flush => []};
 	{error, Error} -> throw(Error)
     end;
 file_io(close, H) ->
@@ -2757,4 +2776,9 @@ file_io({set_file_info, F, FI, O}, H) ->
     end;
 file_io({ensure_path, Dir}, _H) ->
     ok = filelib:ensure_path(Dir),
-    Dir.
+    #{ name => Dir, flush => []};
+file_io({delay, Fun}, #{flush := Flush} = H) ->
+    H#{flush := [Fun | Flush] };
+file_io(flush, #{ name := Name, flush := Flush }) ->
+    _ = [F(Name) || F <- Flush],
+    Name.
