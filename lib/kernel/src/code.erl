@@ -569,7 +569,9 @@ ensure_loaded(Mod) when is_atom(Mod) ->
                                     call({load_error, Mod, Ref}),
                                     Error;
                                 Prepared ->
-                                    call({load_ok, Prepared, Mod, File, Ref})
+                                    Res = call({load_ok, Prepared, Mod, File, Ref}),
+                                    erlang:garbage_collect(),
+                                    Res
                             end
                     end;
                 embedded ->
