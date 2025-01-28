@@ -114,7 +114,9 @@
          nested_cons/0,
          nested_mixed/0,
 
-         see_through/0]).
+         see_through/0,
+
+         duplicated_args/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1245,3 +1247,14 @@ see_through1({_,R}) ->
 
 see_through0() ->
     [{foo, #see_through{a={bar, [foo]}}}].
+
+duplicated_args(V) ->
+    %% The constructed list was considered unique, which made
+    %% duplicated_args/2 think that both arguments were unique
+    %% (which is wrong).
+    duplicated_args([V], [V]).
+
+duplicated_args(A, B) ->
+%ssa% (A, B) when post_ssa_opt ->
+%ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
+    {A, B}.
