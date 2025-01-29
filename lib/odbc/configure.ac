@@ -119,11 +119,6 @@ AC_PROG_EGREP
 
 AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 AC_CHECK_HEADERS([windows.h])
-AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
-[[#ifdef HAVE_WINDOWS_H
-     # include <windows.h>
-     #endif
-     ]])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -161,7 +156,13 @@ AS_CASE([$host_os],
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
 
-               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
+               AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               fi
+               LIBS="$save_LIBS"
         ],
 
         [haiku*],
@@ -170,7 +171,13 @@ AS_CASE([$host_os],
                ODBC_LIB= -L"/system/lib"
                ODBC_INCLUDE="-I/system/develop/headers"
                dnl Haiku's package manager will deal with this for us
+               save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
                AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+               if test $odbc_lib_link_success = no; then
+                  AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+               fi
+               LIBS="$save_LIBS"
         ],
 
         [win32|cygwin],
@@ -184,7 +191,10 @@ AS_CASE([$host_os],
 		    ODBC_LIB=-L"$with_odbc/lib"
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
+		save_LIBS="$LIBS"
+		LIBS="$LIBS $ODBC_LIB"
 		AC_CHECK_LIB(odbc32, main, [ODBC_LIB="$ODBC_LIB -lodbc32"; odbc_lib_link_success=yes])
+		LIBS="$save_LIBS"
         ],
 
         [
@@ -227,16 +237,37 @@ AS_CASE([$host_os],
 			    echo "No odbc library found" > "$ERL_TOP/lib/odbc/SKIP"
 			else
 			    AC_MSG_RESULT($ODBC_LIB)
+			    save_LIBS="$LIBS"
+			    LIBS="$LIBS $ODBC_LIB"
 			    AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			    if test $odbc_lib_link_success = no; then
+			       AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			    fi
+			    LIBS="$save_LIBS"
 			fi
                     ],
 
                     [
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
+			save_LIBS="$LIBS"
+			LIBS="$LIBS $ODBC_LIB"
 			AC_CHECK_LIB(odbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes])
+			if test $odbc_lib_link_success = no; then
+			   AC_CHECK_LIB(iodbc, SQLAllocHandle,[ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes])
+			fi
+			LIBS="$save_LIBS"
                     ])
         ])
+
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $ODBC_INCLUDE"
+AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
+[[#ifdef HAVE_WINDOWS_H
+     # include <windows.h>
+     #endif
+     ]])
+CFLAGS="$save_CFLAGS"
 
 if test $odbc_required_headers = no;  then
     AC_MSG_WARN(["ODBC library - header check failed"])
