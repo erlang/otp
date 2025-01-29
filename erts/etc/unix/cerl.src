@@ -75,8 +75,20 @@ install_gdb_tools ()
 
 build_gdb_tools ()
 {
-    (cd "$ERL_TOP"/erts/etc/common && make)
+    if command -v gmake > /dev/null; then
+        (cd "$ERL_TOP"/erts/etc/common && gmake)
+    else
+        (cd "$ERL_TOP"/erts/etc/common && make)
+    fi
 }
+
+## If ERL_TOP is not set, we try to figure it out from
+## the location of cerl
+if [ -z "$ERL_TOP" ]; then
+    CERL="$0"
+    ERL_TOP="$(dirname "$(dirname "$CERL")")"
+    export ERL_TOP
+fi
 
 # These are marked for export
 export ROOTDIR
