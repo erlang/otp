@@ -2211,7 +2211,12 @@ eep58(Config) when is_list(Config) ->
     check(fun() -> [X || X := X <- #{a => 1, b => b}] end,
           "[X || X := X <- #{a => 1, b => b}].",
 	  [b]),
-
+    check(fun() -> #{A => B || {A, B} <- [{1, 2}, {1, 3}]} end,
+          "#{A => B || {A, B} <- [{1, 2}, {1, 3}]}.",
+	  #{1 => 3}),
+    check(fun() -> #{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X, X+3}]} end,
+          "#{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X, X+3}]}.",
+	  #{1 => 4,5 => 8}),
     error_check("[K+V || K := V <- a].", {bad_generator,a}),
     error_check("[K+V || K := V <- [-1|#{}]].", {bad_generator,[-1|#{}]}),
 
