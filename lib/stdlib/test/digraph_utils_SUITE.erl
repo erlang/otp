@@ -153,6 +153,8 @@ subgraph(Config) when is_list(Config) ->
     {fg,f,g,fgl} = digraph:edge(SG, fg),
     {fg2,f,g,fgl2} = digraph:edge(SG, fg2),
     {_, {_, acyclic}} = lists:keysearch(cyclicity, 1, digraph:info(SG)),
+    digraph:add_edge(SG, f, g),
+    digraph:add_vertex(SG, b),
     true = digraph:delete(SG),
 
     SG1 = digraph_utils:subgraph(G, [f, g, h],

@@ -165,7 +165,6 @@ new(Type) ->
 	    V = ets:new(vertices, [set, Access]),
 	    E = ets:new(edges, [set, Access]),
 	    N = ets:new(neighbours, [bag, Access]),
-	    ets:insert(N, [{'$vid', 0}, {'$eid', 0}]),
 	    set_type(Ts, #digraph{vtab=V, etab=E, ntab=N});
 	error ->
 	    erlang:error(badarg)
@@ -251,7 +250,7 @@ The created vertex is represented by term `['$v' | N]`, where `N` is an intege
       G :: graph().
 
 add_vertex(G) ->
-    do_add_vertex({new_vertex_id(G), []}, G).
+    do_add_vertex({new_vertex_id(), []}, G).
 
 -doc(#{equiv => add_vertex(G, V, [])}).
 -spec add_vertex(G, V) -> vertex() when
@@ -409,7 +408,7 @@ out_edges(G, V) ->
       V2 :: vertex().
 
 add_edge(G, V1, V2) ->
-    do_add_edge({new_edge_id(G), V1, V2, []}, G).
+    do_add_edge({new_edge_id(), V1, V2, []}, G).
 
 -doc(#{equiv => add_edge/5}).
 -doc """
@@ -426,7 +425,7 @@ See `t:add_edge_err_rsn/0` for details on possible errors.
       Label :: label().
 
 add_edge(G, V1, V2, D) ->
-    do_add_edge({new_edge_id(G), V1, V2, D}, G).
+    do_add_edge({new_edge_id(), V1, V2, D}, G).
 
 -doc """
 Creates (or modifies) an edge with the identifier
@@ -513,30 +512,22 @@ edge(G, E) ->
 %%
 %% Generate a "unique" edge identifier (relative to this graph)
 %%
--spec new_edge_id(graph()) -> edge().
+-spec new_edge_id() -> edge().
 
--dialyzer({no_improper_lists, new_edge_id/1}).
+-dialyzer({no_improper_lists, new_edge_id/0}).
 
-new_edge_id(G) ->
-    NT = G#digraph.ntab,
-    [{'$eid', K}] = ets:lookup(NT, '$eid'),
-    true = ets:delete(NT, '$eid'),
-    true = ets:insert(NT, {'$eid', K+1}),
-    ['$e' | K].
+new_edge_id() ->
+    ['$e' | erlang:unique_integer()].
 
 %%
 %% Generate a "unique" vertex identifier (relative to this graph)
 %%
--spec new_vertex_id(graph()) -> vertex().
+-spec new_vertex_id() -> vertex().
 
--dialyzer({no_improper_lists, new_vertex_id/1}).
+-dialyzer({no_improper_lists, new_vertex_id/0}).
 
-new_vertex_id(G) ->
-    NT = G#digraph.ntab,
-    [{'$vid', K}] = ets:lookup(NT, '$vid'),
-    true = ets:delete(NT, '$vid'),
-    true = ets:insert(NT, {'$vid', K+1}),
-    ['$v' | K].
+new_vertex_id() ->
+    ['$v' | erlang:unique_integer()].
 
 %%
 %% Collect elements for a index in a tuple
