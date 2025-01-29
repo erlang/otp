@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2025 Ericsson and the Erlang/OTP contributors
+
+[build_info]
+apps = [
+    "lib/*",
+    {"name" = "erts", "dir" = "erts/preloaded", "src_dirs" = ["src"]},
+    {"name" = "wx", "dir" = "lib/wx", "src_dirs" = ["src", "gen"]},
+    {"name" = "inets", "dir" = "lib/inets", "src_dirs" = ["src/http_client", "src/http_server", "src/http_lib", "src/inets_app"]},
+    {"name" = "common_test", "dir" = "lib/common_test", "src_dirs" = ["src", "test_server"]},
+    # Due to some Erlang/OTP bootstrapping issues, `stdlib` modules such as `gen_server` includes headers from the kernel application
+    # using a simple `-include` directive, causing ELP to fail resolving those inclusions.
+    # Include kernel as an `include_dir` for `stdlib` to solve the issue
+    {"name" = "stdlib", "dir" = "lib/stdlib", "include_dirs" = ["include", "../kernel/include"]},
+    ]
+deps = []
