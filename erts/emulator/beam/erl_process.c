@@ -8987,7 +8987,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P),
                                        BIF_ARG_1);
         if (mon) {
-            ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+            ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND);
             mdp = erts_monitor_to_data(mon);
             msp = (ErtsMonitorSuspend *) mdp;
             mstate = erts_atomic_read_nob(&msp->state);
@@ -9091,7 +9091,7 @@ resume_process_1(BIF_ALIST_1)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND);
     msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
 
     mstate = erts_atomic_dec_read_relb(&msp->state);
@@ -12298,8 +12298,8 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
                     *tag = val;
             } else if (arg == am_monitor) {
                 Eterm monitor_tag;
-                Uint16 oflags = erts_monitor_opts(val, &monitor_tag);
-                if (oflags == (Uint16) ~0)
+                Uint32 oflags = erts_monitor_opts(val, &monitor_tag);
+                if (oflags == (Uint32) ~0)
                     result = -1;
                 else {
                     sop->monitor_oflags = oflags;
@@ -13448,7 +13448,8 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     Sint reds_consumed = 0;
 
     ASSERT(c_p->flags & F_DISABLE_GC);
-    ASSERT(erts_monitor_is_target(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
+    ASSERT(erts_monitor_is_target(mon)
+           && ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC);
     ASSERT(ctxt->dist_state == NIL);
     ASSERT(!ctxt->yield);
 
@@ -13542,7 +13543,8 @@ proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
     Sint reds_consumed = 0;
 
     ASSERT(c_p->flags & F_DISABLE_GC);
-    ASSERT(erts_monitor_is_origin(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
+    ASSERT(erts_monitor_is_origin(mon)
+           && ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC);
     ASSERT(ctxt->dist_state == NIL);
     ASSERT(!ctxt->wait_pend_spawn_monitor);
     ASSERT(!ctxt->yield);
@@ -13686,7 +13688,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
 
     if (erts_monitor_is_target(mon)) {
         /* We are being watched... */
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
         case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
             erts_proc_sig_send_monitor_down(&c_p->common,
@@ -13771,7 +13773,7 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     }
     else { /* Origin monitor */
         /* We are watching someone else... */
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
         case ERTS_MON_TYPE_SUSPEND:
         case ERTS_MON_TYPE_PROC:
             erts_proc_sig_send_demonitor(&c_p->common, c_p->common.id, 0, mon);
@@ -13875,7 +13877,7 @@ erts_proc_exit_handle_dist_link(ErtsLink *lnk, void *vctxt, Sint reds)
     Sint reds_consumed = 0;
 
     ASSERT(c_p->flags & F_DISABLE_GC);
-    ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC);
     ASSERT(ctxt->dist_state == NIL);
     ASSERT(!ctxt->yield);
 
@@ -13953,7 +13955,7 @@ erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds)
     Eterm reason = ((ErtsProcExitContext *) vctxt)->reason;
     ErtsELink *elnk = NULL;
 
-    switch (lnk->type) {
+    switch (ERTS_ML_GET_TYPE(lnk)) {
     case ERTS_LNK_TYPE_PROC:
         ASSERT(is_internal_pid(lnk->other.item));
         if (((ErtsILink *) lnk)->unlinking)

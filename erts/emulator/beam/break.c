@@ -184,7 +184,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
     char *prefix = ", ";
  
     mdp = erts_monitor_to_data(mon);
-    switch (mon->type) {
+    switch (ERTS_ML_GET_TYPE(mon)) {
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
     case ERTS_MON_TYPE_TIME_OFFSET:
@@ -199,7 +199,7 @@ static int doit_print_monitor(ErtsMonitor *mon, void *vpcontext, Sint reds)
         }
 
         if (erts_monitor_is_target(mon)) {
-            if (mon->type != ERTS_MON_TYPE_RESOURCE)
+            if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_RESOURCE)
                 erts_print(to, to_arg, "%s{from,%T,%T}", prefix, mon->other.item, mdp->ref);
             else {
                 ErtsResource* rsrc = mon->other.ptr;

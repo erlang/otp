@@ -1086,7 +1086,7 @@ proc_queue_signal(ErtsPTabElementCommon *sender, Eterm from, Eterm pid,
     if (is_normal_sched) {
         pend_sig = esdp->pending_signal.sig;
         if (op == ERTS_SIG_Q_OP_MONITOR
-            && ((ErtsMonitor*)sig)->type == ERTS_MON_TYPE_PROC) {
+            && ERTS_ML_GET_TYPE((ErtsMonitor *) sig) == ERTS_MON_TYPE_PROC) {
 
             if (!pend_sig) {
                 esdp->pending_signal.sig = sig;
@@ -2456,7 +2456,7 @@ erts_proc_sig_send_link_exit_noconnection(ErtsLink *lnk)
     to = lnk->other.item;
 
     ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
-    ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC);
 
     olnk = erts_link_to_other(lnk, &elnk);
 
@@ -2498,7 +2498,7 @@ erts_proc_sig_send_link(ErtsPTabElementCommon *sender, Eterm from,
                         Eterm to, ErtsLink *lnk)
 {
     ErtsSignal *sig;
-    Uint16 type = lnk->type;
+    Uint32 type = ERTS_ML_GET_TYPE(lnk);
 
     ASSERT(!sender || sender->id == from);
     ASSERT(lnk && eq(from, lnk->other.item));
@@ -2545,8 +2545,8 @@ erts_proc_sig_send_unlink(ErtsPTabElementCommon *sender, Eterm from,
     ErtsSigUnlinkOp *sulnk;
     Uint64 id;
 
-    ASSERT(lnk->type != ERTS_LNK_TYPE_PROC
-           || lnk->type != ERTS_LNK_TYPE_PORT);
+    ASSERT(ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_PROC
+           || ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_PORT);
     ASSERT(lnk->flags & ERTS_ML_FLG_IN_TABLE);
 
     sulnk = erts_proc_sig_make_unlink_op(sender, from);
@@ -2554,7 +2554,7 @@ erts_proc_sig_send_unlink(ErtsPTabElementCommon *sender, Eterm from,
     sig = (ErtsSignal *) sulnk;
     to = lnk->other.item;
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_UNLINK,
-                                             lnk->type, 0);
+                                             ERTS_ML_GET_TYPE(lnk), 0);
 
     ASSERT(is_internal_pid(to));
     res = proc_queue_signal(sender, from, to, sig, 0, ERTS_SIG_Q_OP_UNLINK);
@@ -2727,7 +2727,7 @@ erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
         mon->other.item = reason; /* Pass immed reason via other.item... */
         sig = (ErtsSignal *) mon;
         sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_MONITOR_DOWN,
-                                                 mon->type, 0);
+                                                 ERTS_ML_GET_TYPE(mon), 0);
         if (proc_queue_signal(sender, from, to, sig,
                               !(is_pid(from) || is_port(from)),
                               ERTS_SIG_Q_OP_MONITOR_DOWN)) {
@@ -2738,7 +2738,7 @@ erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
         ErtsMonitorData *mdp = erts_monitor_to_data(mon);
         Eterm from_tag, monitored, from_type, heap[3];
 
-        if (mon->type == ERTS_MON_TYPE_SUSPEND) {
+        if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND) {
             /*
              * Set reason to 'undefined', since exit
              * reason is not used for suspend monitors,
@@ -2827,7 +2827,7 @@ erts_proc_sig_send_demonitor(ErtsPTabElementCommon *sender, Eterm from,
                              int system, ErtsMonitor *mon)
 {
     ErtsSignal *sig = (ErtsSignal *) mon;
-    Uint16 type = mon->type;
+    Uint32 type = ERTS_ML_GET_TYPE(mon);
     Eterm to = mon->other.item;
 
     ASSERT(is_internal_pid(to) || to == am_undefined);
@@ -2851,7 +2851,7 @@ erts_proc_sig_send_monitor(ErtsPTabElementCommon *sender, Eterm from,
                            ErtsMonitor *mon, Eterm to)
 {
     ErtsSignal *sig = (ErtsSignal *) mon;
-    Uint16 type = mon->type;
+    Uint32 type = ERTS_ML_GET_TYPE(mon);
 
     ASSERT(is_internal_pid(to) || to == am_undefined);
     ASSERT(erts_monitor_is_target(mon));
@@ -4510,7 +4510,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
         lnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p), from);
         if (!lnk)
             ignore = destroy = !0; /* No longer active */
-        else if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+        else if (ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PROC) {
             if (((ErtsILink *) lnk)->unlinking)
                 ignore = destroy = !0; /* No longer active */
             else
@@ -4641,7 +4641,7 @@ convert_to_down_message(Process *c_p,
                         ErtsMessage *sig,
                         ErtsMonitorData *mdp,
                         ErtsMonitor **omon,
-                        Uint16 mon_type,
+                        Uint32 mon_type,
                         ErtsMessage ***next_nm_sig)
 {
     int cnt = 0;
@@ -4756,7 +4756,7 @@ convert_to_down_message(Process *c_p,
             hp += 3;
         }
 
-        ASSERT(mdp->origin.type == mon_type);
+        ASSERT(ERTS_ML_GET_TYPE(&mdp->origin) == mon_type);
         switch (mon_type) {
         case ERTS_MON_TYPE_PORT:
             type = am_port;
@@ -4957,7 +4957,7 @@ handle_nodedown(Process *c_p,
 
 static void
 handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
-                          Uint16 type, ErtsMonitor *mon, ErtsMessage *sig,
+                          Uint32 type, ErtsMonitor *mon, ErtsMessage *sig,
                           Eterm msg, ErtsMessage ***next_nm_sig)
 {
     convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
@@ -4966,7 +4966,7 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
     switch (type) {
 
     case ERTS_MON_TYPE_TIME_OFFSET:
-        ASSERT(mon->type == ERTS_MON_TYPE_TIME_OFFSET);
+        ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_TIME_OFFSET);
         if (mon->flags & ERTS_ML_FLG_TAG) {
             ErtsMonitorData *mdp = erts_monitor_to_data(mon);
             Eterm *tpl, tag_storage;
@@ -4985,7 +4985,7 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
     case ERTS_MON_TYPE_NODES: {
         ErtsMonitorDataExtended *mdep;
         Uint n;
-        ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+        ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
         mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
         ERTS_ML_ASSERT(mdep->u.refc > 0);
         n = mdep->u.refc;
@@ -5205,7 +5205,7 @@ handle_suspend(Process *c_p, ErtsMonitor *mon, int *yieldp)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&c_p->state);
 
-    ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND);
 
     if (!(state & ERTS_PSFLG_DIRTY_RUNNING)) {
         ErtsMonitorSuspend *msp;
@@ -5767,7 +5767,7 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
     void *data_attached;
     Eterm from, alias, msg, token;
     ErtsMonitor *mon;
-    Uint16 flags;
+    Uint32 flags;
     int type, cnt = 0;
 
     type = get_alias_msg_data(sig, &from, &alias, &msg, &data_attached, &token);
@@ -5776,7 +5776,7 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
     ASSERT(is_internal_pid_ref(alias));
 
     mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), alias);
-    flags = mon ? mon->flags : (Uint16) 0;
+    flags = mon ? mon->flags : (Uint32) 0;
     if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
         | !!(flags & ERTS_ML_FLG_SPAWN_PENDING)) {
         /*
@@ -5796,7 +5796,7 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
         
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
         case ERTS_MON_TYPE_DIST_PORT:
         case ERTS_MON_TYPE_ALIAS:
             erts_monitor_release(mon);
@@ -6047,7 +6047,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                                 xsigd->u.ref);
                 if (omon) {
                     ASSERT(erts_monitor_is_origin(omon));
-                    if (omon->type == ERTS_MON_TYPE_ALIAS) {
+                    if (ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_ALIAS) {
                         omon = NULL;
                         break;
                     }
@@ -6063,7 +6063,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         break;
                     }
                     mdp = erts_monitor_to_data(omon);
-                    if (omon->type == ERTS_MON_TYPE_DIST_PROC) {
+                    if (ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_DIST_PROC) {
                         if (erts_monitor_dist_delete(&mdp->u.target))
                             tmon = &mdp->u.target;
                     }
@@ -6121,12 +6121,14 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             else {
                 switch (omon->flags & ERTS_ML_STATE_ALIAS_MASK) {
                 case ERTS_ML_STATE_ALIAS_UNALIAS: {
+                    Uint32 add_flags;
                     ErtsMonitorData *amdp;
                     ASSERT(is_internal_pid_ref(mdp->ref));
                     amdp = erts_monitor_create(ERTS_MON_TYPE_ALIAS,
                                                mdp->ref, c_p->common.id,
                                                NIL, NIL, THE_NON_VALUE);
-                    amdp->origin.flags = ERTS_ML_STATE_ALIAS_UNALIAS;
+                    add_flags = (omon->flags & ERTS_ML_STATE_ALIAS_MASK);
+                    amdp->origin.flags |= add_flags;
                     omon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
                     erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p),
                                               omon,
@@ -6193,11 +6195,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
             remove_nm_sig(c_p, sig, next_nm_sig);
 
-            if (mon->type == ERTS_MON_TYPE_DIST_PROC)
+            if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC)
                 erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), mon);
             else {
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(c_p), mon);
-                if (mon->type == ERTS_MON_TYPE_SUSPEND)
+                if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND)
                     handle_suspend(c_p, mon, &yield);
             }
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
@@ -6233,14 +6235,14 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             else {
                 ErtsMonitor *omon = (ErtsMonitor *) sig;
                 ErtsMonitorData *mdp = erts_monitor_to_data(omon);
-                ASSERT(omon->type == type);
+                ASSERT(ERTS_ML_GET_TYPE(omon) == type);
                 ASSERT(erts_monitor_is_origin(omon));
                 ASSERT(!erts_monitor_is_in_table(omon));
                 if (!erts_monitor_is_in_table(&mdp->u.target))
                     erts_monitor_release(omon);
                 else {
                     ErtsMonitor *tmon = &mdp->u.target;
-                    ASSERT(tmon->type == type);
+                    ASSERT(ERTS_ML_GET_TYPE(tmon) == type);
                     if (type == ERTS_MON_TYPE_DIST_PROC)
                         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), tmon);
                     else {
@@ -6287,7 +6289,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             }
             else {
                 /* Already linked or unlinking... */
-                if (nlnk->type != ERTS_LNK_TYPE_DIST_PROC)
+                if (ERTS_ML_GET_TYPE(nlnk) != ERTS_LNK_TYPE_DIST_PROC)
                     erts_link_internal_release(nlnk);
                 else {
                     ErtsELink *elnk;
@@ -8355,7 +8357,7 @@ handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon)
 
     /* Terminate connection to the node and report it... */
 
-    if (omon->type != ERTS_MON_TYPE_DIST_PROC)
+    if (ERTS_ML_GET_TYPE(omon) != ERTS_MON_TYPE_DIST_PROC)
         ERTS_INTERNAL_ERROR("non-distributed missing spawn_reply");
     
     mdp = erts_monitor_to_data(omon);
