@@ -1,7 +1,7 @@
 #!/usr/bin/env elixir
 
 Mix.install([
-  :floki
+  {:floki, git: "https://github.com/garazdawi/floki.git", ref: "70e934ae5ae7b60c8cdfc091364ad13d9ba2b9f7"}
 ])
 
 defmodule Anchors do
