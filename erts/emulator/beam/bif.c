@@ -362,7 +362,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    if (!erts_monitor_is_origin(mon))
        return am_badarg;
 
-   if (mon->type == ERTS_MON_TYPE_ALIAS)
+   if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_ALIAS)
        return am_false; /* Not a monitor (may have been...) */
 
    switch (mon->flags & ERTS_ML_STATE_ALIAS_MASK) {
@@ -373,7 +373,8 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
                                                    NIL,
                                                    NIL,
                                                    THE_NON_VALUE);
-       amdp->origin.flags = mon->flags & ERTS_ML_STATE_ALIAS_MASK;
+       Uint32 add_flags = mon->flags & ERTS_ML_STATE_ALIAS_MASK;
+       amdp->origin.flags |= add_flags;
        mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
        erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p), mon, &amdp->origin);
        break;
@@ -386,7 +387,7 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        break;
    }
    
-   switch (mon->type) {
+   switch (ERTS_ML_GET_TYPE(mon)) {
 
    case ERTS_MON_TYPE_TIME_OFFSET:
        *multip = am_true;
@@ -573,10 +574,10 @@ badarg:
     BIF_ERROR(BIF_P, BADARG);
 }
 
-Uint16
+Uint32
 erts_monitor_opts(Eterm opts, Eterm *tag)
 {
-    Uint16 add_oflags = 0;
+    Uint32 add_oflags = 0;
 
     *tag = THE_NON_VALUE;
 
@@ -585,7 +586,7 @@ erts_monitor_opts(Eterm opts, Eterm *tag)
         cons = list_val(opts);
         opt = CAR(cons);
         if (is_not_tuple(opt))
-	    return (Uint16) ~0;
+	    return (Uint32) ~0;
         tpl = tuple_val(opt);
         switch (arityval(tpl[0])) {
         case 2:
@@ -603,14 +604,14 @@ erts_monitor_opts(Eterm opts, Eterm *tag)
                     add_oflags |= ERTS_ML_STATE_ALIAS_ONCE;
                     break;
                 default:
-                    return (Uint16) ~0;
+                    return (Uint32) ~0;
                 }
                 break;
             case am_tag:
                 *tag = tpl[2];
                 break;
             default:
-                return (Uint16) ~0;
+                return (Uint32) ~0;
             }
             break;
         default:
@@ -619,12 +620,12 @@ erts_monitor_opts(Eterm opts, Eterm *tag)
 	opts = CDR(cons);
     }
     if (is_not_nil(opts))
-        return (Uint16) ~0;
+        return (Uint32) ~0;
     return add_oflags;
 }
 
 static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
-                           Uint16 add_oflags, Eterm tag) 
+                           Uint32 add_oflags, Eterm tag) 
 {
     Eterm ref, id, name;
     ErtsMonitorData *mdp;
@@ -842,14 +843,14 @@ done:
 
 BIF_RETTYPE monitor_2(BIF_ALIST_2)
 {
-    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, (Uint16) 0, THE_NON_VALUE);
+    return monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, (Uint32) 0, THE_NON_VALUE);
 }
 
 BIF_RETTYPE monitor_3(BIF_ALIST_3)
 {
     Eterm tag;
-    Uint16 oflags = erts_monitor_opts(BIF_ARG_3, &tag);
-    if (oflags == (Uint16) ~0) {
+    Uint32 oflags = erts_monitor_opts(BIF_ARG_3, &tag);
+    if (oflags == (Uint32) ~0) {
         BIF_P->fvalue = am_badopt;
         BIF_ERROR(BIF_P, BADARG | EXF_HAS_EXT_INFO);
     }
@@ -5574,7 +5575,7 @@ BIF_RETTYPE alias_1(BIF_ALIST_1)
 {
     Eterm ref, opts = BIF_ARG_1;
     ErtsMonitorData *mdp;
-    Uint16 flags = ERTS_ML_STATE_ALIAS_UNALIAS;
+    Uint32 flags = ERTS_ML_STATE_ALIAS_UNALIAS;
     
     while (is_list(opts)) {
         Eterm *cons = list_val(opts);
@@ -5625,7 +5626,7 @@ BIF_RETTYPE unalias_1(BIF_ALIST_1)
     ASSERT(erts_monitor_is_origin(mon));
     
     mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
-    if (mon->type == ERTS_MON_TYPE_ALIAS) {
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_ALIAS) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);
         erts_monitor_release(mon);
     }

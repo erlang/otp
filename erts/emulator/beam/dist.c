@@ -5711,7 +5711,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm list;
     ErtsDSigSendContext ctx;
     int code;
-    Uint16 monitor_oflags = 0, monitor_opts_oflags = 0;
+    Uint32 monitor_oflags = 0, monitor_opts_oflags = 0;
 
     add_monitor = 0;
     ok_result = THE_NON_VALUE;
@@ -5802,7 +5802,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                     case am_monitor:
                         monitor_opts_oflags = erts_monitor_opts(tp[2],
                                                                 &monitor_tag);
-                        if (monitor_opts_oflags == (Uint16) ~0) {
+                        if (monitor_opts_oflags == (Uint32) ~0) {
                             if (BIF_ARG_4 != am_spawn_request)
                                 goto badarg;
                             ok_result = ref = erts_make_ref(BIF_P);
@@ -6691,7 +6691,7 @@ erts_monitor_nodes_delete(ErtsMonitor *omon)
 {
     ErtsMonitorData *mdp;
 
-    ASSERT(omon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_NODES);
     ASSERT(erts_monitor_is_origin(omon));
 
     mdp = erts_monitor_to_data(omon);
@@ -6722,7 +6722,7 @@ save_nodes_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
 
     ASSERT(erts_monitor_is_target(mon));
-    ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
 
     ctxt->nmdp[ctxt->i].pid = mon->other.item;
     ctxt->nmdp[ctxt->i].options = mdp->origin.other.item;
@@ -6960,7 +6960,7 @@ nodes_monitor_info(ErtsMonitor *mon, void *vctxt, Sint reds)
     res = ctxt->res;
 
     ASSERT(erts_monitor_is_target(mon));
-    ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
     mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
     no = mdep->u.refc;
 

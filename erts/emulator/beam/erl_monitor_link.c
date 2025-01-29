@@ -46,7 +46,7 @@ ml_get_key(ErtsMonLnkNode *mln)
     ptr += mln->key_offset;
 
 #ifdef ERTS_ML_DEBUG
-    switch (mln->type) {
+    switch (ERTS_ML_GET_TYPE(mln)) {
     case ERTS_MON_TYPE_ALIAS:
     case ERTS_MON_TYPE_PROC:
     case ERTS_MON_TYPE_PORT:
@@ -837,7 +837,7 @@ ErtsMonitorData *
 erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, Eterm tag)
 {
     ErtsMonitorData *mdp;
-    Uint16 tag_flag;
+    Uint32 tag_flag;
 
     switch (type) {
     case ERTS_MON_TYPE_PROC:
@@ -859,7 +859,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
                 mdp = &mdhp->md;
                 hp = &mdhp->ref_heap[0];
                 ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdhp));
-                tag_flag = (Uint16) 0;
+                tag_flag = (Uint32) 0;
             }
             else {
                 ErtsMonitorDataTagHeap *mdthp;
@@ -883,7 +883,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
             ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
             mdp->origin.key_offset -= mdp->origin.offset;
             mdp->origin.flags = tag_flag;
-            mdp->origin.type = type;
+            ERTS_ML_SET_TYPE(&mdp->origin, type);
 
             mdp->u.target.other.item = orgn;
             mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
@@ -891,7 +891,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
             ERTS_ML_ASSERT(mdp->u.target.key_offset >= mdp->u.target.offset);
             mdp->u.target.key_offset -= mdp->u.target.offset;
             mdp->u.target.flags = ERTS_ML_FLG_TARGET | tag_flag;
-            mdp->u.target.type = type;
+            ERTS_ML_SET_TYPE(&mdp->u.target, type);
             erts_atomic32_init_nob(&mdp->refc, 2);
             break;
         } /* end of "if (is_nil(name))"" */
@@ -906,8 +906,8 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         Uint rsz, osz, tsz, thfsz;
         Eterm *hp;
         ErlOffHeap oh;
-        Uint16 name_flag;
-        Uint16 pending_flag;
+        Uint32 name_flag;
+        Uint32 pending_flag;
 
         rsz = is_immed(ref) ? 0 : size_object(ref);
         if (trgt != am_pending) {
@@ -915,8 +915,8 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
                 tsz = size_object(trgt);
             else
                 tsz = 0;
-            pending_flag = (Uint16) 0;
-            name_flag = is_nil(name) ? ((Uint16) 0) : ERTS_ML_FLG_NAME;
+            pending_flag = (Uint32) 0;
+            name_flag = is_nil(name) ? ((Uint32) 0) : ERTS_ML_FLG_NAME;
         }
         else {
             /* Pending spawn_request() */
@@ -926,7 +926,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
             /* name contains tag */
             
             /* Not by name */
-            name_flag = (Uint16) 0;
+            name_flag = (Uint32) 0;
             
         }
         if (type == ERTS_MON_TYPE_RESOURCE)
@@ -944,7 +944,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
 
         hp = &mdep->heap[0];
         if (!thfsz)
-            tag_flag = (Uint16) 0;
+            tag_flag = (Uint32) 0;
         else {
             *hp = is_immed(tag) ? tag : mk_heap_fragment_eterm(tag);
             hp++;
@@ -969,7 +969,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         mdp->origin.other.item = tsz ? copy_struct(trgt, tsz, &hp, &oh) : trgt;
         mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
         mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag|pending_flag|tag_flag;
-        mdp->origin.type = type;
+        ERTS_ML_SET_TYPE(&mdp->origin, type);
 
         if (type == ERTS_MON_TYPE_RESOURCE)
             mdp->u.target.other.ptr = (void *) orgn;
@@ -977,7 +977,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
             mdp->u.target.other.item = osz ? copy_struct(orgn, osz, &hp, &oh) : orgn;
         mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
         mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED|name_flag|tag_flag;
-        mdp->u.target.type = type;
+        ERTS_ML_SET_TYPE(&mdp->u.target, type);
 
         if (type == ERTS_MON_TYPE_NODE || type == ERTS_MON_TYPE_NODES) {
             mdep->u.refc = 0;
@@ -1037,14 +1037,14 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
         mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
         ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
-        mdp->origin.flags = (Uint16) ERTS_ML_FLG_EXTENDED;
-        mdp->origin.type = type;
+        mdp->origin.flags = ERTS_ML_FLG_EXTENDED;
+        ERTS_ML_SET_TYPE(&mdp->origin, type);
 
         mdp->u.target.other.item = orgn;
         mdp->u.target.offset = (Uint16) offsetof(ErtsMonitorData, u.target);
         mdp->u.target.key_offset = (Uint16) offsetof(ErtsMonitor, other.item);
         mdp->u.target.flags = ERTS_ML_FLG_TARGET|ERTS_ML_FLG_EXTENDED;
-        mdp->u.target.type = type;
+        ERTS_ML_SET_TYPE(&mdp->u.target, type);
 
         msp->next = NULL;
         erts_atomic_init_relb(&msp->state, 0);
@@ -1071,8 +1071,8 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name, 
         mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
         ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
         mdp->origin.key_offset -= mdp->origin.offset;
-        mdp->origin.flags = (Uint16) 0;
-        mdp->origin.type = type;
+        mdp->origin.flags = (Uint32) 0;
+        ERTS_ML_SET_TYPE(&mdp->origin, type);
 
         erts_atomic32_init_nob(&mdp->refc, 1);
         break;
@@ -1095,13 +1095,13 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
 {
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) == 0);
     ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(mdp->origin.type == ERTS_MON_TYPE_ALIAS
+    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(&mdp->origin) == ERTS_MON_TYPE_ALIAS
                    || !(mdp->u.target.flags & ERTS_ML_FLG_IN_TABLE));
-    ERTS_ML_ASSERT(mdp->origin.type == ERTS_MON_TYPE_ALIAS
+    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(&mdp->origin) == ERTS_MON_TYPE_ALIAS
                    || ((mdp->origin.flags & ERTS_ML_FLGS_SAME)
                        == (mdp->u.target.flags & ERTS_ML_FLGS_SAME)));
 
-    switch (mdp->origin.type) {
+    switch (ERTS_ML_GET_TYPE(&mdp->origin)) {
     case ERTS_MON_TYPE_ALIAS:
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_TAG));
         erts_free(ERTS_ALC_T_ALIAS, mdp);
@@ -1139,7 +1139,7 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
             break;
         }
         mdep = (ErtsMonitorDataExtended *) mdp;
-        if (mdp->origin.type == ERTS_MON_TYPE_NODE)
+        if (ERTS_ML_GET_TYPE(&mdp->origin) == ERTS_MON_TYPE_NODE)
             ERTS_ML_ASSERT(!mdep->uptr.node_monitors);
         else if (mdep->uptr.ohhp) {
             ERTS_INIT_OFF_HEAP(&oh);
@@ -1175,7 +1175,7 @@ erts_monitor_set_dead_dist(ErtsMonitor *mon, Eterm nodename)
     mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
 
     ERTS_ML_ASSERT(mon->flags & ERTS_ML_FLG_EXTENDED);
-    ERTS_ML_ASSERT(mon->type == ERTS_MON_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC);
     ERTS_ML_ASSERT(!mdep->dist);
 
     mdep->dist = erts_mon_link_dist_create(nodename);
@@ -1188,7 +1188,7 @@ erts_monitor_size(ErtsMonitor *mon)
     Uint size, refc;
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
 
-    switch (mdp->origin.type) {
+    switch (ERTS_ML_GET_TYPE(&mdp->origin)) {
     case ERTS_MON_TYPE_ALIAS:
         size = sizeof(ErtsMonitorData);
         break;
@@ -1206,12 +1206,12 @@ erts_monitor_size(ErtsMonitor *mon)
         mdep = (ErtsMonitorDataExtended *) mdp;
         hsz = 0;
 
-        if (mon->type != ERTS_MON_TYPE_NODE
-            && mon->type != ERTS_MON_TYPE_NODES) {
+        if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_NODE
+            && ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_NODES) {
             if (!is_immed(mdep->md.ref))
                 hsz += NC_HEAP_SIZE(mdep->md.ref);
-            if (mon->type == ERTS_MON_TYPE_DIST_PROC
-                || mon->type == ERTS_MON_TYPE_DIST_PORT) {
+            if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC
+                || ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PORT) {
                 if (!is_immed(mdep->md.origin.other.item))
                     hsz += NC_HEAP_SIZE(mdep->md.origin.other.item);
                 if (!is_immed(mdep->md.u.target.other.item))
@@ -1464,8 +1464,8 @@ erts_link_internal_create(Uint16 type, Eterm id)
     ilnk->link.other.item = id;
     ilnk->link.key_offset = (Uint16) offsetof(ErtsLink, other.item);
     ilnk->link.offset = (Uint16) 0;
-    ilnk->link.flags = (Uint16) 0;
-    ilnk->link.type = type;
+    ilnk->link.flags = (Uint32) 0;
+    ERTS_ML_SET_TYPE(&ilnk->link, type);
     ilnk->unlinking = 0;
 
     return &ilnk->link;
@@ -1500,13 +1500,13 @@ erts_link_external_create(Uint16 type, Eterm this_, Eterm other)
     ldp->proc.flags = ERTS_ML_FLG_EXTENDED;
     ldp->proc.key_offset = (Uint16) offsetof(ErtsLink, other.item);
     ldp->proc.offset = (Uint16) offsetof(ErtsLinkData, proc);
-    ldp->proc.type = type;
+    ERTS_ML_SET_TYPE(&ldp->proc, type);
 
     ldp->dist.other.item = this_;
     ldp->dist.flags = ERTS_ML_FLG_EXTENDED;
     ldp->dist.key_offset = (Uint16) offsetof(ErtsLink, other.item);
     ldp->dist.offset = (Uint16) offsetof(ErtsLinkData, dist);
-    ldp->dist.type = type;
+    ERTS_ML_SET_TYPE(&ldp->dist, type);
 
     elnk->ohhp = oh.first;
     elnk->dist = NULL;
@@ -1549,7 +1549,7 @@ erts_link_set_dead_dist(ErtsLink *lnk, Eterm nodename)
     ErtsELink *elnk;
 
     ERTS_ML_ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
-    ERTS_ML_ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ERTS_ML_ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC);
 
     elnk = erts_link_to_elink(lnk);
 
@@ -1571,8 +1571,8 @@ erts_link_size(ErtsLink *lnk)
     else {
         ErtsELink *elnk = erts_link_to_elink(lnk);
 
-        ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
-        ASSERT(is_external_pid_header(elnk->heap[0]));
+        ASSERT((ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC
+                && is_external_pid_header(elnk->heap[0])));
 
         size = sizeof(ErtsELink);
         size += thing_arityval(elnk->heap[0])*sizeof(Eterm);

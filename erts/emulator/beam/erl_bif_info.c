@@ -243,7 +243,7 @@ static int do_calc_mon_size(ErtsMonitor *mon, void *vpsz, Sint reds)
     Uint *psz = vpsz;
     *psz += is_immed(mdp->ref) ? 0 : NC_HEAP_SIZE(mdp->ref);
 
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         *psz += erts_resource_ref_size(mon->other.ptr);
     else
         *psz += is_immed(mon->other.item) ? 0 : NC_HEAP_SIZE(mon->other.item);
@@ -266,7 +266,7 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
     Eterm tup, t, d, r, p, x;
 
     r = is_immed(mdp->ref) ? mdp->ref : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mdp->ref);
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         p = erts_bld_resource_ref(&(pmlc->hp), &MSO(pmlc->p), mon->other.ptr);
     else
         p = (is_immed(mon->other.item)
@@ -277,12 +277,13 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
         x = ((ErtsMonitorDataExtended *) mdp)->u.name;
     else if (erts_monitor_is_target(mon))
         x = NIL;
-    else if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES)
+    else if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODE
+             || ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES)
         x = make_small(((ErtsMonitorDataExtended *) mdp)->u.refc);
     else
         x = NIL;
 
-    switch (mon->type) {
+    switch (ERTS_ML_GET_TYPE(mon)) {
     case ERTS_MON_TYPE_PROC:
         t = am_process;
         break;
@@ -378,7 +379,7 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
     Uint sz = 0;
     UWord addr;
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+    if (ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC)
         addr = (UWord) erts_link_to_elink(lnk);
     else
         addr = (UWord) lnk;
@@ -406,7 +407,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     ERTS_DECL_AM(linked);
     ERTS_DECL_AM(unlinking);
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
+    if (ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC) {
         ErtsELink *elnk = erts_link_to_elink(lnk);
         state = elnk->unlinking ? AM_unlinking : AM_linked;
         addr = (UWord) elnk;
@@ -426,7 +427,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
         pid = copy_struct(lnk->other.item, sz, &(pllc->hp), &MSO(pllc->p));
     }
 
-    switch (lnk->type) {
+    switch (ERTS_ML_GET_TYPE(lnk)) {
     case ERTS_LNK_TYPE_PROC:
         t = am_process;
         break;
@@ -519,7 +520,7 @@ typedef struct {
 	ErtsResource* resource;
     }entity;
     int named;
-    Uint16 type;
+    Uint32 type;
     Eterm node;
     /* pid is actual target being monitored, no matter pid/port or name */
     Eterm pid;
@@ -561,7 +562,7 @@ do {							\
 static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
-    if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+    if (ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PROC) {
         if (((ErtsILink *) lnk)->unlinking)
             return 1;
     }
@@ -584,9 +585,9 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
  
         EXTEND_MONITOR_INFOS(micp);
 
-        micp->mi[micp->mi_i].type = mon->type;
+        micp->mi[micp->mi_i].type = ERTS_ML_GET_TYPE(mon);
 
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
@@ -636,9 +637,9 @@ static int collect_one_target_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
 
         EXTEND_MONITOR_INFOS(micp);
   
-        micp->mi[micp->mi_i].type = mon->type;
+        micp->mi[micp->mi_i].type = ERTS_ML_GET_TYPE(mon);
         micp->mi[micp->mi_i].named = !!(mon->flags & ERTS_ML_FLG_NAME);
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
 
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
@@ -710,7 +711,7 @@ do {									\
 static int
 collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 {
-    if (mon->type == ERTS_MON_TYPE_SUSPEND) {
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND) {
         Sint count;
         erts_aint_t mstate;
         ErtsMonitorSuspend *msp;

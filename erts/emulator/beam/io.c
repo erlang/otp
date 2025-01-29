@@ -5025,7 +5025,7 @@ static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
     else
         erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
