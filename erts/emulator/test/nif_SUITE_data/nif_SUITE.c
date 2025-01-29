@@ -2720,8 +2720,15 @@ static ERL_NIF_TERM socketpair_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     ERL_NIF_TERM read_fd, write_fd;
     int fds[2], flags;
 
-    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0, fds) < 0)
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0)
         return enif_make_string(env, "pipe failed", ERL_NIF_LATIN1);
+
+    flags = fcntl(fds[0], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[0], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
+    flags = fcntl(fds[1], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[1], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
 
     read_rsrc  = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
     write_rsrc = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
