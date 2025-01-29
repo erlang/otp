@@ -133,7 +133,9 @@
                     '+' | '-' | '*' | '/'.
 
 %% Primops only used internally during code generation.
--type cg_prim_op() :: 'bs_checked_get' | 'bs_checked_skip' |
+-type cg_prim_op() :: 'bs_ensured_get' |
+                      'bs_ensured_match_string' |
+                      'bs_ensured_skip' |
                       'bs_get' | 'bs_get_position' | 'bs_match_string' |
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
