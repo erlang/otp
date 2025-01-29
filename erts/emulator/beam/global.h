@@ -1564,6 +1564,9 @@ ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr)
     ASSERT(ptr == ptr_val(tptr));
 
 #if defined(ERTS_HAVE_IS_IN_LITERAL_RANGE)
+#ifdef TAG_LITERAL_PTR
+    ASSERT(!erts_is_in_literal_range(ptr) || is_literal_ptr(tptr));
+#endif
     return erts_is_in_literal_range(ptr);
 #elif defined(TAG_LITERAL_PTR)
     return is_literal_ptr(tptr);

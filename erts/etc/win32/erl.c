@@ -306,7 +306,8 @@ static void get_parameters(void)
     free(ini_filename);
 }
 
-static void error(char* format, ...)
+static __declspec(noreturn) void
+error(char* format, ...)
 {
     char sbuf[2048];
     va_list ap;
