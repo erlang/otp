@@ -46,9 +46,14 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 	    *hp |= TAG_LITERAL_PTR;
 	    break;
 	case TAG_PRIMARY_HEADER:
-	    if (header_is_thing(*hp)) {
-		hp += thing_arityval(*hp);
-	    }
+	    if (*hp == HEADER_SUB_BITS) {
+                /* Tag the `orig` field as a literal. It's the last field
+                 * inside the thing structure so we can handle it by pretending
+                 * it's not part of the thing. */
+                hp += thing_arityval(*hp) - 1;
+            } else if (header_is_thing(*hp)) {
+                hp += thing_arityval(*hp);
+            }
 	    break;
 	default:
 	    break;
