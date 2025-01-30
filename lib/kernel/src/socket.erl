@@ -5266,43 +5266,42 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
         completion ->
             %% There is nothing just now, but we will be notified
 	    %% when the data has been read (with a completion message).
+	    %%
+	    %% Since these (completion-) messages can also be received
+	    %% directly by the user (nowait), the I/O completion threads
+	    %% do not use the more-construct.
+	    %% But since there is no conflict with how the sync I/O backend
+	    %% (essio = unix) here, they can instead safely send {ok, Bin}
+	    %% and let us handle possible loop'ing...
+	    %%
             Timeout = timeout(Deadline),
             receive
-                %% On Windows we are *always* done when we get {ok, Bin}
-                %% If we should/can read more, the result is {more, Bin}
-                ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}}) ->
-                    {ok, condense_buffer([Bin | Buf])};
 
-                %% The nif (Windows I/O backend) never actually return
-                %% '{more, Bin}' when Length = 0, so this case is just
-                %% future proofing.
-                %% See comment for '{more, Bin}'.
+                %% For Length = 0; The async I/O backend do not use
+		%% the rNum+rNumCnt and therefor cannot break a possible
+		%% loop. Therefor we are done when we receive this result.
+		%% Buf "should be" empty here, but just in case...
                 ?socket_msg(?socket(SockRef), completion,
-			    {Handle, {more, Bin}}) when (Length =:= 0) ->
-		    if
-			0 < Timeout ->
-			    %% Recv more
-			    recv_deadline(
-			      SockRef, Length, Flags,
-			      Deadline, [Bin | Buf]);
-			true ->
-			    {error, {timeout, condense_buffer([Bin | Buf])}}
-		    end;
+                            {Handle, {ok, Bin}}) when (Length =:= 0) ->
+                    %% d("~w -> completion ok when"
+                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
+                    {ok, condense_buffer([Bin | Buf])};
 
                 %% We got the last chunk
                 ?socket_msg(?socket(SockRef), completion,
-			    {Handle, {more, Bin}})
+			    {Handle, {ok, Bin}})
                   when (Length =:= byte_size(Bin)) ->
-                    %% d("~w -> (last) more when"
+                    %% d("~w -> completion (last) ok when"
                     %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
                     {ok, condense_buffer([Bin | Buf])};
+
                 %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
-			    {Handle, {more, Bin}})
+			    {Handle, {ok, Bin}})
                   when (Length > byte_size(Bin)) ->
-                    %% d("~w(~w) -> more when "
-                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
+                    %% d("~w(~w) -> completion ok when "
+                    %%   "~n   sz(Bin):  ~p",
+		    %%   [?FUNCTION_NAME, Length, sz(Bin)]),
 		    if
 			0 < Timeout ->
 			    %% Recv more
@@ -5315,10 +5314,20 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
+                    %% d("~w(~w) -> completion error when "
+		    %%   "~n   Reason: ~p",
+		    %%   [?FUNCTION_NAME, Length, Reason]),
                     recv_error(Buf, Reason);
+
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    {error, Reason}
+                    %% d("~w(~w) -> completion abort when "
+		    %%   "~n   Reason: ~p",
+		    %%   [?FUNCTION_NAME, Length, Reason]),
+                    recv_error(Buf, Reason)
+
             after Timeout ->
+                    %% d("~w(~w) -> completion timeout",
+		    %%   [?FUNCTION_NAME, Length]),
                     _ = cancel(SockRef, recv, Handle),
                     recv_error(Buf, timeout)
             end;
@@ -6888,18 +6897,20 @@ f(F, A) ->
 
 
 %% d(F) ->
-%%     d(get(debug), F, []).
+%%     %% d(get(debug), F, []).
+%%     d(true, F, []).
 
 %% d(F, A) ->
-%%     d(get(debug), F, A).
+%%     %% d(get(debug), F, A).
+%%     d(true, F, A).
 
 %% d(true, F, A) ->
 %%     p(F, A);
 %% d(_, _, _) ->
 %%     ok.
 
-%% p(F) ->
-%%     p(F, []).
+%% %% p(F) ->
+%% %%     p(F, []).
 
 %% p(F, A) ->
 %%     p(get(sname), F, A).
