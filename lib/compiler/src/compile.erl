@@ -1729,8 +1729,6 @@ abstr_passes(AbstrStatus) ->
         [
          {unless,no_docs,?pass(beam_docs)},
          ?pass(remove_doc_attributes),
-
-         %% Add all -compile() directives to #compile.options
          ?pass(compile_directives),
 
          {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
@@ -1975,12 +1973,10 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                                         []
                                 end]),
             case R of
-                %% FIXME Extra should include used features as well
                 {ok,Forms0,Extra} ->
                     Encoding = proplists:get_value(encoding, Extra),
                     %% Get features used in the module, indicated by
-                    %% enabling features with
-                    %% -compile({feature, .., enable}).
+                    %% enabling features with -feature(...).
                     UsedFtrs = proplists:get_value(features, Extra),
                     St1 = metadata_add_features(UsedFtrs, St),
                     Forms = case with_columns(Opts ++ compile_options(Forms0)) of
@@ -1989,7 +1985,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                                 false ->
                                     strip_columns(Forms0)
                             end,
-                    {ok,Forms,St1#compile{encoding=Encoding}};
+                    {ok,Forms,St1#compile{encoding=Encoding,
+                                          options=[{features, UsedFtrs}|Opts]}};
                 {error,E} ->
                     Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
                     {error,St#compile{errors=St#compile.errors ++ Es}}
@@ -2423,6 +2420,7 @@ legalize_vars(Code0, St) ->
                end, Code0),
     {ok,Code,St}.
 
+%% Add all -compile() directives to #compile.options
 compile_directives(Forms, St) ->
     Opts = [C || {attribute,_,compile,C} <- Forms],
     compile_directives_1(Opts, Forms, St).

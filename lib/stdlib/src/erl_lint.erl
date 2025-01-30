@@ -221,6 +221,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
+               features = [],                   %Enabled features
                feature_keywords =               %Keywords in
                                                 %configurable features
                    feature_keywords() :: #{atom() => atom()},
@@ -743,9 +744,6 @@ entries in the list of errors.
       ErrorInfo :: error_info()).
 
 module(Forms, FileName, Opts0) ->
-    %% FIXME Hmm, this is not coherent with the semantics of features
-    %% We want the options given on the command line to take
-    %% precedence over options in the module.
     Opts = Opts0 ++ compiler_options(Forms),
     St = forms(Forms, start(FileName, Opts)),
     return_status(St).
@@ -780,6 +778,7 @@ start(File, Opts) ->
 				     nowarn_format, 0, Opts),
 	  enabled_warnings = Enabled,
           nowarn_bif_clash = nowarn_function(nowarn_bif_clash, Opts),
+          features = proplists:get_value(features, Opts, []),
           file = File
          }.
 
