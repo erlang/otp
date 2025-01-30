@@ -714,7 +714,7 @@ position(Config) when is_list(Config) ->
     {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1).
 
 read_6GB(Config) when is_list(Config) ->
-    ct:timetrap(16*?default_timeout),
+    ct:timetrap(test_server:minutes(20)),
     FileName = "/dev/zero",
     SftpFileName = w2l(Config, FileName),
     {SftpChannel, _ConnectionRef} = proplists:get_value(sftp, Config),
