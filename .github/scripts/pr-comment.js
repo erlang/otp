@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Ericsson AB
+//
+// SPDX-License-Identifier: Apache-2.0
+
 // %CopyrightBegin%
 //
 // Copyright Ericsson AB 2024. All Rights Reserved.
