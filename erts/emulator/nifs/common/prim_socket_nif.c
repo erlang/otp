@@ -10382,7 +10382,7 @@ ERL_NIF_TERM esock_peername(ErlNifEnv*       env,
  *
  * Description:
  * Returns whatever info the ioctl returns for the specific (get) request.
- * WHEN SET IS IMPLEMENTED, WE NED ANOTHER ARGUMENT!!
+ * WHEN SET IS IMPLEMENTED, WE NEED ANOTHER ARGUMENT!!
  *
  * Arguments:
  * Socket (ref) - Points to the socket descriptor.

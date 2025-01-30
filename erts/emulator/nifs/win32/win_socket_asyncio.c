@@ -4205,7 +4205,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, eres;
+    ERL_NIF_TERM data, result;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4244,7 +4244,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_fails, &descP->readFails, 1);
 
-            eres = esock_make_error(env, esock_atom_closed);
+            result = esock_make_error(env, esock_atom_closed);
             
         } else {
 
@@ -4416,7 +4416,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             "\r\n",
             sockRef, descP->sock) );
 
-    return eres;
+    return result;
 }
 
 
@@ -4491,7 +4491,6 @@ ERL_NIF_TERM recv_check_failure(ErlNifEnv*       env,
                                 int              saveErrno,
                                 ERL_NIF_TERM     sockRef)
 {
-    // ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
     ERL_NIF_TERM reason = ENO2T(env, saveErrno);
 
     SSDBG( descP,
@@ -4666,8 +4665,13 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    // eres = esock_atom_timeout; // Will trigger {error, timeout}
-                    eres = esock_atom_ok;
+                    /*
+                     * Operation successfully canceled!
+                     *
+                     * Returning 'timeout' will trigger {error, timeout}
+                     */
+
+                    eres = esock_atom_timeout;
 
                 }
 
@@ -7280,7 +7284,7 @@ void esaio_completion_accept_success(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_accept_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
@@ -7423,7 +7427,7 @@ void esaio_completion_accept_failure(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_accept_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
@@ -7785,7 +7789,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_send_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7936,7 +7940,7 @@ void esaio_completion_send_failure(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_send_failure(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8301,7 +8305,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendto_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8450,7 +8454,7 @@ void esaio_completion_sendto_failure(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendto_failure(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8633,7 +8637,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendmsg_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8782,7 +8786,7 @@ void esaio_completion_sendmsg_failure(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendmsg_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -9083,13 +9087,15 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
                       esock_atom_completion_status,
                       ENO2T(env, error));
 
-        /* Inform the user waiting for a reply */
+        /* Inform (send abort) the user waiting for the reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
         esaio_completion_recv_fail(env, descP, error, FALSE);
 
     } else {
+
         esaio_completion_recv_fail(env, descP, error, TRUE);
+
     }
 
     FREE_BIN( &opDataP->buf );
@@ -9100,7 +9106,7 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9432,16 +9438,8 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
- * We do *not* want to risk ending up in a "never ending" read loop
- * here (by trying to read more data (and yet again getting partial)).
- * [worst case, we could up with all our worker threads busy trying
- * to read more data, and no one ready to respond to new requests].
- * So we simply return what we got to the user and let the user
- * decide what to do.
- *
- * So:
- *    if "give me all you got" (toRead == 0) -> {ok, Bin}
- *    else                     (toRead >  0) -> {more, Bin}
+ * We return the data as a complete result, and let the user figure
+ * out what to do (done or continue).
  */
 
 static
@@ -9477,11 +9475,7 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
             "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
             sockRef, descP->sock) );
 
-    if (toRead > 0) {
-        return MKT2(env, esock_atom_more, data);
-    } else {
-        return esock_make_ok2(opEnv, data);
-    }
+    return esock_make_ok2(opEnv, data);
 }
 
 
@@ -9721,7 +9715,7 @@ void esaio_completion_recvfrom_success(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9792,7 +9786,7 @@ void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_more_data(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9944,7 +9938,7 @@ void esaio_completion_recvfrom_failure(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -10362,7 +10356,7 @@ void esaio_completion_recvmsg_success(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvmsg_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -10517,7 +10511,7 @@ void esaio_completion_recvmsg_failure(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvmsg_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
