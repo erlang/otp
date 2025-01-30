@@ -940,19 +940,41 @@ aa_get_status_by_type(Type, StatusByType) ->
             beam_ssa_ss:meet_in_args(Statuses)
     end.
 
-aa_alias_surviving_args(Args, Call, SS, AAS) ->
+aa_alias_surviving_phi_args(Args, Call, SS, AAS) ->
     KillSet = aa_killset_for_instr(Call, AAS),
-    aa_alias_surviving_args1(Args, SS, KillSet).
+    aa_alias_surviving_phi_args1(Args, SS, KillSet).
 
-aa_alias_surviving_args1([A|Args], SS0, KillSet) ->
+aa_alias_surviving_phi_args1([#b_var{}=A|Args], SS0, KillSet) ->
     SS = case sets:is_element(A, KillSet) of
              true ->
                  SS0;
              false ->
                  aa_set_status(A, aliased, SS0)
          end,
-    aa_alias_surviving_args1(Args, SS, KillSet);
-aa_alias_surviving_args1([], SS, _KillSet) ->
+    aa_alias_surviving_phi_args1(Args, SS, KillSet);
+aa_alias_surviving_phi_args1([_|Args], SS, KillSet) ->
+    aa_alias_surviving_phi_args1(Args, SS, KillSet);
+aa_alias_surviving_phi_args1([], SS, _KillSet) ->
+    SS.
+
+aa_alias_surviving_args(Args, Call, SS0, AAS) ->
+    SS = aa_alias_surviving_phi_args(Args, Call, SS0, AAS),
+    %% Compared to phi arguments, function arguments are all used, and
+    %% if the same variable is used more than once, it becomes
+    %% aliased.
+    aa_alias_repeated_args(Args, SS, sets:new()).
+
+aa_alias_repeated_args([#b_var{}=A|Args], SS0, Seen) ->
+    SS = case sets:is_element(A, Seen) of
+             true ->
+                 aa_set_status(A, aliased, SS0);
+             false ->
+                 SS0
+         end,
+    aa_alias_repeated_args(Args, SS, sets:add_element(A, Seen));
+aa_alias_repeated_args([_|Args], SS, Seen) ->
+    aa_alias_repeated_args(Args, SS, Seen);
+aa_alias_repeated_args([], SS, _Seen) ->
     SS.
 
 %% Return the kill-set for the instruction defining Dst.
@@ -1189,7 +1211,7 @@ aa_phi(Dst, Args0, SS0, #aas{cnt=Cnt0}=AAS) ->
     %% TODO: Use type info?
     Args = [V || {V,_} <:- Args0],
     ?DP("Phi~n"),
-    SS1 = aa_alias_surviving_args(Args, {phi,Dst}, SS0, AAS),
+    SS1 = aa_alias_surviving_phi_args(Args, {phi,Dst}, SS0, AAS),
     ?DP("  after aa_alias_surviving_args:~n~s.~n", [beam_ssa_ss:dump(SS1)]),
     {SS,Cnt} = beam_ssa_ss:phi(Dst, Args, SS1, Cnt0),
     {SS,AAS#aas{cnt=Cnt}}.
