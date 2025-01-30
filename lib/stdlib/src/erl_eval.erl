@@ -1257,7 +1257,7 @@ eval_bc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
 
 eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
     L = eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, []),
-    Map = maps:from_list(L),
+    Map = maps:from_list(reverse(L)),
     ret_expr(Map, Bs, RBs).
 
 eval_mc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
