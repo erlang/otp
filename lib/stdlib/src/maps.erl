@@ -105,7 +105,7 @@ _Example:_
 ```erlang
 > Key = 1337,
   Map = #{42 => value_two,1337 => "value one","a" => 1},
-  maps:get(Key,Map).
+  maps:get(Key, Map).
 "value one"
 ```
 """.
@@ -794,14 +794,14 @@ valid iterator, or with `badarg` if `Fun` is not a function of arity 2.
 _Example:_
 
 ```erlang
-> Fun = fun(K,V) -> io:format("~p:~p~n",[K,V]) end.
-#Fun<erl_eval.41.18682967>
+> Fun = fun(K,V) -> io:format("% ~p:~p~n",[K,V]) end.
+
 > Map = #{"x" => 10, "y" => 20, "z" => 30}.
 #{"x" => 10,"y" => 20,"z" => 30}
 > maps:foreach(Fun,Map).
-"x":10
-"y":20
-"z":30
+% "x":10
+% "y":20
+% "z":30
 ok
 ```
 """.
@@ -942,22 +942,22 @@ size(Map) ->
 
 -doc """
 Returns a map iterator `Iterator` that can be used by [`maps:next/1`](`next/1`)
-to traverse the key-value associations in a map. When iterating over a map, the
-memory usage is guaranteed to be bounded no matter the size of the map.
+to traverse the key-value associations in a map. The order of iteration is
+undefined. When iterating over a map, the memory usage is guaranteed to be
+bounded no matter the size of the map.
 
 The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 
 _Example:_
 
 ```erlang
-> M = #{ a => 1, b => 2 }.
-#{a => 1,b => 2}
-> I = maps:iterator(M), ok.
-ok
+> M = #{ "foo" => 1, "bar" => 2 }.
+#{"foo" => 1,"bar" => 2}
+> I = maps:iterator(M).
 > {K1, V1, I2} = maps:next(I), {K1, V1}.
-{a,1}
+{"bar",2}
 > {K2, V2, I3} = maps:next(I2),{K2, V2}.
-{b,2}
+{"foo",1}
 > maps:next(I3).
 none
 ```
@@ -983,8 +983,7 @@ _Example (when _`Order`_ is _`ordered`_):_
 ```erlang
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> OrdI = maps:iterator(M, ordered), ok.
-ok
+> OrdI = maps:iterator(M, ordered).
 > {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
 {a,1}
 > {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
@@ -998,8 +997,7 @@ _Example (when _`Order`_ is _`reversed`_):_
 ```erlang
 > M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> RevI = maps:iterator(M, reversed), ok.
-ok
+> RevI = maps:iterator(M, reversed).
 > {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
 {b,2}
 > {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
@@ -1013,12 +1011,10 @@ _Example (when _`Order`_ is an arithmetic sorting function):_
 ```erlang
 > M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
 #{-1 => a,0 => c,-1.0 => b,0.0 => d}
-> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end), ok.
-ok
+> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end).
 > maps:to_list(ArithOrdI).
 [{-1,a},{-1.0,b},{0,c},{0.0,d}]
-> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end), ok.
-ok
+> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end).
 > maps:to_list(ArithRevI).
 [{0.0,d},{0,c},{-1.0,b},{-1,a}]
 ```
@@ -1056,8 +1052,7 @@ _Example:_
 ```erlang
 > Map = #{a => 1, b => 2, c => 3}.
 #{a => 1,b => 2,c => 3}
-> I = maps:iterator(Map), ok.
-ok
+> I = maps:iterator(Map, ordered).
 > {K1, V1, I1} = maps:next(I), {K1, V1}.
 {a,1}
 > {K2, V2, I2} = maps:next(I1), {K2, V2}.
@@ -1159,7 +1154,7 @@ _Examples:_
 
 ```erlang
 > EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
-maps:groups_from_list(EvenOdd, [1, 2, 3]).
+  maps:groups_from_list(EvenOdd, [1, 2, 3]).
 #{even => [2], odd => [1, 3]}
 > maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}
@@ -1209,8 +1204,8 @@ _Examples:_
 
 ```erlang
 > EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
-> Square = fun(X) -> X * X end,
-> maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).
+  Square = fun(X) -> X * X end,
+  maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).
 #{even => [4], odd => [1, 9]}
 > maps:groups_from_list(
     fun erlang:length/1,

@@ -2524,6 +2524,8 @@ BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
 
     if (br != NULL) {
         size = (br->val)->orig_size;
+    } else {
+        size = BYTE_SIZE(size);
     }
 
     BIF_RET(erts_make_integer(size, BIF_P));
