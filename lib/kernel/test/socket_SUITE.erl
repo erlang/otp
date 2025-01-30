@@ -12340,6 +12340,9 @@ do_otp19063(_) ->
         {'DOWN', MRef, process, Connector, _} ->
             ?P("connector terminated"),
             ok
+    after 1000 ->
+	    ?P("connector did not die in time - kill it"),
+	    exit(Connector, kill)
     end,
     _ = socket:close(ASock1),
     _ = socket:close(LSock1),
