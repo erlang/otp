@@ -79,6 +79,14 @@ feature_specs() ->
             experimental => 25,
             approved => 27,
             keywords => ['maybe', 'else'],
+            type => extension},
+      compr_assign =>
+          #{short => "Assignment in comprehensions (EEP77)",
+            description =>
+                "Implementation of '=' assignments in comprehensions proposed in EEP77.",
+            status => experimental,
+            experimental => 29,
+            keywords => [],
             type => extension}}.
 
 %% Return all currently known features.
