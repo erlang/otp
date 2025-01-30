@@ -200,8 +200,6 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                errors=[]   :: [{file:filename(),error_info()}], %Current errors
                warnings=[] :: [{file:filename(),error_info()}], %Current warnings
                file = ""        :: string(),	%From last file attribute
-               recdef_top=false :: boolean(),	%true in record initialisation
-						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
                called= [] :: [{fa(),anno()}],   %Called functions
                fun_used_vars = undefined        %Funs used vars
@@ -3090,17 +3088,15 @@ def_fields(Fs0, Name, St0) ->
                   case exist_field(F, Fs) of
                       true -> {Fs,add_error(Af, {redefine_field,Name,F}, St)};
                       false ->
-                          St1 = St#lint{recdef_top = true},
-                          {_,St2} = expr(V, [], St1),
+                          {_,St2} = expr(V, [], St),
                           %% Warnings and errors found are kept, but
                           %% updated calls, records, etc. are discarded.
-                          St3 = St1#lint{warnings = St2#lint.warnings,
+                          St3 = St#lint{warnings = St2#lint.warnings,
                                          errors = St2#lint.errors,
-                                         called = St2#lint.called,
-                                         recdef_top = false},
+                                         called = St2#lint.called},
                           %% This is one way of avoiding a loop for
                           %% "recursive" definitions.
-                          NV = case St2#lint.errors =:= St1#lint.errors of
+                          NV = case St2#lint.errors =:= St#lint.errors of
                                    true -> V;
                                    false -> {atom,Aa,undefined}
                                end,
@@ -4067,10 +4063,7 @@ comprehension_expr(E, Vt, St) ->
 %%  in ShadowVarTable (these are local variables that are not global variables).
 
 lc_quals(Qs, Vt0, St0) ->
-    OldRecDef = St0#lint.recdef_top,
-    {Vt,Uvt,St} = lc_quals(Qs, Vt0, [], St0#lint{recdef_top = false}),
-    {Vt,Uvt,St#lint{recdef_top = OldRecDef}}.
-
+    lc_quals(Qs, Vt0, [], St0).
 lc_quals([{zip,_Anno,Gens} | Qs], Vt0, Uvt0, St0) ->
     St1 = are_all_generators(Gens,St0),
     {Vt,Uvt,St} = handle_generators(Gens,Vt0,Uvt0,St1),
@@ -4205,13 +4198,12 @@ fun_clauses(Cs, Vt, St) ->
     fun_clauses1(Cs, Vt, St).
 
 fun_clauses1(Cs, Vt, St) ->
-    OldRecDef = St#lint.recdef_top,
     {Bvt,St2} = foldl(fun (C, {Bvt0, St0}) ->
                               {Cvt,St1} = fun_clause(C, Vt, St0),
                               {vtmerge(Cvt, Bvt0),St1}
-                      end, {[],St#lint{recdef_top = false}}, Cs),
+                      end, {[],St}, Cs),
     Uvt = vt_no_unsafe(vt_no_unused(vtold(Bvt, Vt))),
-    {Uvt,St2#lint{recdef_top = OldRecDef}}.
+    {Uvt,St2}.
 
 fun_clause({clause,_Anno,H,G,B}, Vt0, St0) ->
     {Hvt,Hnew,St1} = head(H, Vt0, [], St0), % No imported pattern variables
@@ -4289,9 +4281,6 @@ pat_var(V, Anno, Vt, New, St0) ->
                     {[{V,{bound,used,Ls}}],[],
                      %% As this is matching, exported vars are risky.
                      add_warning(Anno, {exported_var,V,From}, St)};
-                error when St0#lint.recdef_top ->
-                    {[],[{V,{bound,unused,[Anno]}}],
-                     add_error(Anno, {variable_in_record_def,V}, St0)};
                 error ->
                     %% add variable to NewVars, not yet used
                     {[],[{V,{bound,unused,[Anno]}}],St0}
