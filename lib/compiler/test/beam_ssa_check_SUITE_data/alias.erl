@@ -107,7 +107,9 @@
          fuzz0/0, fuzz0/1,
          alias_after_phi/0,
          check_identifier_type/0,
-         gh9014_main/0]).
+         gh9014_main/0,
+
+         duplicated_args/1]).
 
 %% Trivial smoke test
 transformable0(L) ->
@@ -1180,3 +1182,14 @@ gh9014_wibble(State) ->
 
 gh9014_main() ->
     {counter, 1} = gh9014_wibble({state, {counter, 0}}).
+
+duplicated_args(V) ->
+    %% The constructed list was considered unique, which made
+    %% duplicated_args/2 think that both arguments were unique
+    %% (which is wrong).
+    duplicated_args([V], [V]).
+
+duplicated_args(A, B) ->
+%ssa% (A, B) when post_ssa_opt ->
+%ssa% _ = put_tuple(A, B) {aliased => [A, B]}.
+    {A, B}.
