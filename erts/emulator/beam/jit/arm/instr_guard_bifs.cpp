@@ -609,19 +609,12 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
             a.asr(TMP3, pos.reg, imm(_TAG_IMMED1_SIZE));
 
-            if (min >= 1) {
-                comment("skipped check for position >= 1");
+            if (1 <= min && max <= size) {
+                comment("skipped check for known safe position");
             } else {
-                a.cmp(TMP3, imm(1));
-                a.b_mi(fail);
-            }
-
-            if (size >= max) {
-                comment("skipped check for position beyond tuple");
-            } else {
-                mov_imm(TMP2, size);
-                a.cmp(TMP2, TMP3);
-                a.b_lo(fail);
+                a.sub(TMP2, TMP3, imm(1));
+                cmp(TMP2, size);
+                a.b_hs(fail);
             }
 
             a.ldr(dst.reg, arm::Mem(TMP1, TMP3, arm::lsl(3)));

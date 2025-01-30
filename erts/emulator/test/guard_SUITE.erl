@@ -26,6 +26,7 @@
 	 type_tests/1,guard_bif_binary_part/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([init/3]).
 -import(lists, [member/2]).
@@ -55,6 +56,19 @@ bad_tuple(Config) when is_list(Config) ->
     error = bad_tuple1({a, b}),
     x = bad_tuple1({x, b}),
     y = bad_tuple1({a, b, y}),
+
+    ?assertError(badarg, int_to_atom_1(-1)),
+    ?assertError(badarg, int_to_atom_1(0)),
+    ?assertError(badarg, int_to_atom_1(4)),
+    ?assertError(badarg, int_to_atom_1(4.2)),
+    ?assertError(badarg, int_to_atom_1(x)),
+
+    ?assertError(badarg, int_to_atom_2(-1)),
+    ?assertError(badarg, int_to_atom_2(0)),
+    ?assertError(badarg, int_to_atom_2(4)),
+    ?assertError(badarg, int_to_atom_2(3.0)),
+    ?assertError(badarg, int_to_atom_2(x)),
+
     ok.
 
 bad_tuple1(T) when element(1, T) == x ->
@@ -63,6 +77,22 @@ bad_tuple1(T) when element(3, T) == y ->
     y;
 bad_tuple1(_) ->
     error.
+
+int_to_atom_1(N) ->
+    if
+        is_integer(N) ->
+            element(N, {a,b,c});
+        true ->
+            element(N, {a,b,c})
+    end.
+
+int_to_atom_2(N0) ->
+    case id(N0) of
+        N when is_integer(N) ->
+            element(N, {a,b,c});
+        Other ->
+            element(Other, {a,b,c})
+    end.
 
 test_heap_guards(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),

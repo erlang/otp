@@ -380,19 +380,13 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
             a.mov(RET, ARG1);
             a.sar(RET, imm(_TAG_IMMED1_SIZE));
-            if (min >= 1) {
-                comment("skipped check for position =:= 0 since it is always "
-                        ">= 1");
+
+            if (1 <= min && max <= size) {
+                comment("skipped check for known safe position");
             } else {
-                a.short_().jz(error);
-            }
-            if (min >= 0 && size >= max) {
-                comment("skipped check for negative position and position "
-                        "beyond tuple");
-            } else {
-                /* Note: Also checks for negative size. */
-                a.cmp(RET, imm(size));
-                a.short_().ja(error);
+                a.lea(ARG3, x86::qword_ptr(RET, -1));
+                cmp(ARG3, size, ARG5);
+                a.short_().jae(error);
             }
 
             a.mov(RET, x86::qword_ptr(ARG4, RET, 3));
