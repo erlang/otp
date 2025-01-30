@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Ericsson AB
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Contributing to Erlang/OTP
 
 1. [License](#license)
@@ -101,7 +107,7 @@ a discussion on the mailing list.
 Contributions to Erlang/OTP must be under the Apache 2.0 license, and should
 have a SPDX license and copyright identifier. Only in specific cases were no
 other alternative exists, Erlang/OTP will consider accepting Pull Requests with
-Apache-2.0 compatible licenses.
+`Apache-2.0` compatible licenses.
 
 Under no circumstances the Erlang/OTP project will accept non-compatible Apache 2.0 contributions.
 
@@ -109,6 +115,7 @@ Erlang/OTP has automatic checks to enforce this policy:
 - License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
   contribution will be manually checked, and will trigger a non-passing test in
   Github.
+
 
 - The [REUSE tool](https://reuse.software/) checks that all files have `SPDX-License-Identifier:` and
   `SPDX-FileCopyrightText:`. The License identifier should be `Apache-2.0` in

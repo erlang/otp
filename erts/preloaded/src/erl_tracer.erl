@@ -1,3 +1,7 @@
+% SPDX-FileCopyrightText: 2016 Ericsson AB
+%
+% SPDX-License-Identifier: Apache-2.0
+
 -module(erl_tracer).
 -moduledoc """
 Erlang tracer behavior.
