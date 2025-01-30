@@ -51,7 +51,11 @@ This documents the functions as a brief version of the complete
 -type mem() :: binary() | tuple().   %% Memory block
 -type f() :: float().
 -type i() :: integer().
+-ifdef(CAN_USE_DRIVER).
 -on_load(init_nif/0).
+-else.
+-export([init_nif/0]).
+-endif.
 
 -export([clearIndex/1,clearColor/4,clear/1,indexMask/1,colorMask/4,alphaFunc/2,
   blendFunc/2,logicOp/1,cullFace/1,frontFace/1,pointSize/1,lineWidth/1,
@@ -315,6 +319,7 @@ nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 %% @hidden
+-doc false.
 init_nif() ->
   Base = "erl_gl",
   Priv = code:priv_dir(wx),

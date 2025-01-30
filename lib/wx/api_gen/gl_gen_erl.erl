@@ -86,7 +86,11 @@ gl_api(Fs, _GluNifs) ->
     Exp = fun(F) -> gen_export(F) end,
     ExportList = lists:map(Exp,Fs),
 
+    w("-ifdef(CAN_USE_DRIVER).~n",[]),
     w("-on_load(init_nif/0).~n",[]),
+    w("-else.~n",[]),
+    w("-export([init_nif/0]).~n",[]),
+    w("-endif.~n",[]),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
     w("-export([get_interface/0, rec/1, lookup_func/1]).\n",[]),
     w("-nifs([lookup_func_nif/1]).\n",[]),
@@ -95,6 +99,7 @@ gl_api(Fs, _GluNifs) ->
     w("nif_stub_error(Line) ->~n"
       "    erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).\n\n",[]),
     w("%% @hidden~n", []),
+    w("-doc false.~n", []),
     w("init_nif() ->~n", []),
     w("  Base = \"erl_gl\",\n"
       "  Priv = code:priv_dir(wx),\n"
