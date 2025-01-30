@@ -1795,7 +1795,12 @@ eep43(Config) when is_list(Config) ->
 	  "    (fun(#{X := value}) -> true end)(#{X => value}) "
 	  "end.",
 	  true),
-
+    check(fun() -> #{A => B || {A, B} <- [{1, 2}, {1, 3}]} end,
+          "#{A => B || {A, B} <- [{1, 2}, {1, 3}]}.",
+	  #{1 => 3}),
+    check(fun() -> #{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X, X+3}]} end,
+          "#{A => B || X <- [1, 5], {A, B} <- [{X, X+1}, {X, X+3}]}.",
+	  #{1 => 4,5 => 8}),
     error_check("[camembert]#{}.", {badmap,[camembert]}),
     error_check("[camembert]#{nonexisting:=v}.", {badmap,[camembert]}),
     error_check("#{} = 1.", {badmatch,1}),
