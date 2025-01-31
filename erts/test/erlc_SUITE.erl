@@ -835,7 +835,7 @@ features_macros(Config) when is_list(Config) ->
         erpc:call(Node1, code, load_file, [f_macros]),
     %% Check features enabled during compilation
     [approved_ftr_1, approved_ftr_2, experimental_ftr_1] =
-        erpc:call(Node1, erl_features, used, [f_macros]),
+        lists:sort(erpc:call(Node1, erl_features, used, [f_macros])),
 
     peer:stop(Peer1),
 
@@ -903,7 +903,7 @@ features_all(Config) when is_list(Config) ->
     {Peer0, Node0} = peer(["-pa", OutDir]),
     %% Check features enabled during compilation
     [approved_ftr_1,approved_ftr_2,experimental_ftr_1,experimental_ftr_2] =
-        erpc:call(Node0, erl_features, used, [foo]),
+        lists:sort(erpc:call(Node0, erl_features, used, [foo])),
     peer:stop(Peer0),
 
     Compile("foo.erl", longopt(disable, all),
@@ -997,8 +997,8 @@ features_runtime(Config) when is_list(Config) ->
     peer:stop(Peer0),
 
     {Peer1, Node1} = peer(["-enable-feature", "experimental_ftr_2"]),
-    [experimental_ftr_2, approved_ftr_2, approved_ftr_1] =
-        erpc:call(Node1, erl_features, enabled, []),
+    [approved_ftr_1, approved_ftr_2, experimental_ftr_2] =
+        lists:sort(erpc:call(Node1, erl_features, enabled, [])),
     [while, until, unless] =  erpc:call(Node1, erl_features, keywords, []),
 
     peer:stop(Peer1),
@@ -1077,7 +1077,7 @@ features_include(Config) when is_list(Config) ->
     {conditional, off, none} = erpc:call(Node3, f_include_exp2, foo, []),
 
     [approved_ftr_1, approved_ftr_2, experimental_ftr_2] =
-        erpc:call(Node3, erl_features, used, [f_include_exp2]),
+        lists:sort(erpc:call(Node3, erl_features, used, [f_include_exp2])),
     peer:stop(Peer3),
 
     ok.
