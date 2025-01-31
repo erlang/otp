@@ -2334,6 +2334,7 @@ do_send(Dest, Msg) ->
 %% stacktraces.
 %% ---------------------------------------------------
 
+-compile({inline, [try_dispatch/3]}).
 try_dispatch(ServerData, State, {'$gen_cast', Msg}) ->
     try_handle_cast(ServerData, State, Msg);
 try_dispatch(ServerData, State, Info) ->
