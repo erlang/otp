@@ -172,11 +172,11 @@ The directory could be changed with the option
 
 %%% "Deprecated" types export:
 -export_type([ssh_daemon_ref/0, ssh_connection_ref/0, ssh_channel_id/0]).
--doc(#{group => <<"Deprecated Types">>}).
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_daemon_ref()     :: daemon_ref().
--doc(#{group => <<"Deprecated Types">>}).
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_connection_ref() :: connection_ref().
--doc(#{group => <<"Deprecated Types">>}).
+-doc(#{group => <<"Deprecated">>}).
 -opaque ssh_channel_id()     :: channel_id().
 
 
