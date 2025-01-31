@@ -408,6 +408,12 @@ request is a one-time execution that closes the channel when it is done.
 
 See the User's Guide section on
 [One-Time Execution](using_ssh.md#one-time-execution) for examples.
+
+> #### Note {: .info }
+>
+> In case when command generates large amount of output data, manual
+> window adjustment might be necessary in order to receive it.
+> see [`ssh_connectino:adjust_window/3`](`adjust_window/3`)
 """.
 -spec exec(ConnectionRef, ChannelId, Command, Timeout) -> result() when
       ConnectionRef :: ssh:connection_ref(),
