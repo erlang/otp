@@ -2157,14 +2157,7 @@ enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
   when is_atom(Mod), is_list(Options), ?is_timeout(TimeoutOrHibernate);
        is_atom(Mod), is_list(Options), TimeoutOrHibernate =:= hibernate ->
     Name = gen:get_proc_name(ServerName),
-    loop(#server_data{parent = gen:get_parent(),
-                      name = Name,
-                      module = Mod,
-                      hibernate_after = gen:hibernate_after(Options),
-		      handle_call = fun Mod:handle_call/3,
-		      handle_cast = fun Mod:handle_cast/2,
-		      handle_info = fun Mod:handle_info/2,
-		      handle_continue = fun Mod:handle_continue/2},
+    loop(server_data(gen:get_parent(), Name, Mod, gen:hibernate_after(Options)),
          State,
          TimeoutOrHibernate,
          gen:debug_options(Name, Options));
@@ -2172,14 +2165,7 @@ enter_loop(Mod, Options, State, ServerName, TimeoutOrHibernate)
 enter_loop(Mod, Options, State, ServerName, {continue, _}=Continue)
   when is_atom(Mod), is_list(Options) ->
     Name = gen:get_proc_name(ServerName),
-    loop(#server_data{parent = gen:get_parent(),
-                      name = Name,
-                      module = Mod,
-                      hibernate_after = gen:hibernate_after(Options),
-		      handle_call = fun Mod:handle_call/3,
-                      handle_cast = fun Mod:handle_cast/2,
-                      handle_info = fun Mod:handle_info/2,
-                      handle_continue = fun Mod:handle_continue/2},
+    loop(server_data(gen:get_parent(), Name, Mod, gen:hibernate_after(Options)),
          State,
          Continue,
          gen:debug_options(Name, Options)).
@@ -2200,14 +2186,7 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
-    ServerData = #server_data{parent = Parent,
-                              name = Name,
-                              module = Mod,
-                              hibernate_after = gen:hibernate_after(Options),
-			      handle_call = fun Mod:handle_call/3,
-                              handle_cast = fun Mod:handle_cast/2,
-                              handle_info = fun Mod:handle_info/2,
-                              handle_continue = fun Mod:handle_continue/2},
+    ServerData = server_data(Parent, Name, Mod, gen:hibernate_after(Options)),
     Debug = gen:debug_options(Name, Options),
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
@@ -2292,13 +2271,33 @@ loop(ServerData, State, Time, Debug) ->
           end,
     decode_msg(ServerData, State, Msg, Time, Debug, false).
 
+-compile({inline, [server_data/4, update_callback_cache/1]}).
+
+server_data(Parent, Name, Mod, HibernateAfter) ->
+    #server_data{
+       parent          = Parent,
+       name            = Name,
+       module          = Mod,
+       hibernate_after = HibernateAfter,
+       handle_call     = fun Mod:handle_call/3,
+       handle_cast     = fun Mod:handle_cast/2,
+       handle_info     = fun Mod:handle_info/2,
+       handle_continue = fun Mod:handle_continue/2}.
+
+update_callback_cache(#server_data{module = Mod} = ServerData) ->
+    ServerData#server_data{
+      handle_call     = fun Mod:handle_call/3,
+      handle_cast     = fun Mod:handle_cast/2,
+      handle_info     = fun Mod:handle_info/2,
+      handle_continue = fun Mod:handle_continue/2}.
+
 -doc false.
 wake_hib(ServerData, State, Debug) ->
     Msg = receive
               Input ->
                   Input
           end,
-    decode_msg(ServerData, State, Msg, hibernate, Debug, true).
+    decode_msg(update_callback_cache(ServerData), State, Msg, hibernate, Debug, true).
 
 decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, Time, Debug, Hib) ->
     case Msg of
@@ -2520,7 +2519,7 @@ reply(Name, From, Reply, State, Debug) ->
 %%-----------------------------------------------------------------
 -doc false.
 system_continue(Parent, Debug, [#server_data{parent=Parent} = ServerData, State, Time]) ->
-    loop(ServerData, State, Time, Debug).
+    loop(update_callback_cache(ServerData), State, Time, Debug).
 
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
