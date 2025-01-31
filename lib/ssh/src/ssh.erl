@@ -441,14 +441,14 @@ close(ConnectionRef) ->
                            | {send_ext_info, boolean()}
                            | {recv_ext_info, boolean()}
                           ].
+-type conn_info_channels() :: [proplists:proplist()].
+
 -doc """
 Return values from the `connection_info/1` and `connection_info/2` functions.
 
-In the `option` info tuple are only the options included that differs from the
+In the `options` info tuple are only the options included that differs from the
 default values.
 """.
--type conn_info_channels() :: [proplists:proplist()].
-
 -type connection_info_tuple() ::
         {client_version, version()}
       | {server_version, version()}
