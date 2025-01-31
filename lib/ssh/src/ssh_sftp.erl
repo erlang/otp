@@ -154,7 +154,7 @@ start_channel(Dest) ->
                    -> {ok,pid(),ssh:connection_ref()} | {error,reason()};
 
                    (ssh:connection_ref(),
-                    [sftp_option()]
+                    [ssh:client_option() | sftp_option()]
                    )
                    -> {ok,pid()}  | {ok,pid(),ssh:connection_ref()} | {error,reason()};
 
