@@ -98,6 +98,8 @@ You can find more projects, tools and articles related to Erlang/OTP on the [awe
 
 Erlang/OTP is released under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0).
 
+For any license inquiry, please send an email to opensource@ericsson.com
+
 > %CopyrightBegin%
 >
 > Copyright Ericsson AB 2010-2024. All Rights Reserved.

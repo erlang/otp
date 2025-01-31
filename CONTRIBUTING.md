@@ -96,10 +96,35 @@ feature one or two releases beforehand.
 can be included in OTP. Major changes or new features in ERTS, Kernel, or STDLIB will need an EEP or at least
 a discussion on the mailing list.
 
+### License Compliance
+
+Contributions to Erlang/OTP must be under the Apache 2.0 license, and should
+have a SPDX license and copyright identifier. Only in specific cases were no
+other alternative exists, Erlang/OTP will consider accepting Pull Requests with
+Apache-2.0 compatible licenses.
+
+Under no circumstances the Erlang/OTP project will accept non-compatible Apache 2.0 contributions.
+
+Erlang/OTP has automatic checks to enforce this policy:
+- License Scanner checks that contributions are Apache 2.0. Any non-Apache 2.0
+  contribution will be manually checked, and will trigger a non-passing test in
+  Github.
+
+- The [REUSE tool](https://reuse.software/) checks that all files have `SPDX-License-Identifier:` and
+  `SPDX-FileCopyrightText:`. The License identifier should be `Apache-2.0` in
+  all cases, and the copyright should be in the format
+  `SPDX-FileCopyrightText: YYYY Name Lastname <email@example.com>` (or use as
+  default `SPDX-FileCopyrightText: YYYY Erlang/OTP and contributors`). These annotations 
+  can be generated in files via the REUSE tool as follows (e.g.,):
+  ```
+  reuse annotate --no-replace --license "Apache-2.0" --copyright "Ericsson and contributors" -y 2025
+  ```
+
 ### Before you submit your pull request
 
-* Make sure existing test cases don't fail. It is not necessary to run all tests (that would take many hours),
-but you should at least run the tests for the application you have changed.
+* Make sure existing test cases don't fail. It is not necessary to run all tests
+(that would take many hours), but you should at least run the tests for the
+application you have changed.
 * Make sure all static checks pass by calling `./otp_build check`. Call `./otp_build check --help` for details on what `./otp_build check` does.
 * Make sure that github actions passes, if you go to https://github.com/$YOUR_GITHUB_USER/otp/actions you can enable github actions builds for you otp fork.
 
