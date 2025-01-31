@@ -771,32 +771,40 @@ call_compile_server(char** argv)
         if (dec_size >= 2) {
             ei_decode_atom(reply.buff, &dec_index, atom);
         }
-        if (dec_size == 2) {
-            if (strcmp(atom, "ok") == 0) {
-                char* output = decode_binary(reply.buff, &dec_index, &dec_size);
-                if (debug) {
-                    fprintf(stderr, "called server for %s => ok\n", source_file);
-                }
-                if (output) {
-                    fwrite(output, dec_size, 1, stdout);
-                    exit(0);
-                }
+        if (dec_size == 2 && strcmp(atom, "ok") == 0) {
+            /* An old compile server from OTP 27 or earlier. */
+            char* output = decode_binary(reply.buff, &dec_index, &dec_size);
+            if (debug) {
+                fprintf(stderr, "called server for %s => ok\n", source_file);
             }
-        } else if (dec_size == 3 && strcmp(atom, "error") == 0) {
+            if (output) {
+                fwrite(output, dec_size, 1, stdout);
+                exit(0);
+            }
+        } else if (dec_size == 3 && (strcmp(atom, "ok") ||
+                                     strcmp(atom, "error"))) {
+            /* A compile server from OTP 28 or later. */
             int std_size, err_size;
             char* std;
             char* err;
+            int exit_status = atom[0] == 'e';
 
             if (debug) {
-                fprintf(stderr, "called server for %s => error\n", source_file);
+                if (exit_status) {
+                    fprintf(stderr, "called server for %s => error\n", source_file);
+                } else {
+                    fprintf(stderr, "called server for %s => ok\n", source_file);
+                }
             }
             std = decode_binary(reply.buff, &dec_index, &std_size);
             err = decode_binary(reply.buff, &dec_index, &err_size);
-            if (std && err) {
-                fwrite(err, err_size, 1, stderr);
+            if (std) {
                 fwrite(std, std_size, 1, stdout);
-                exit(1);
             }
+            if (err) {
+                fwrite(err, err_size, 1, stderr);
+            }
+            exit(exit_status);
         }
     }
 
