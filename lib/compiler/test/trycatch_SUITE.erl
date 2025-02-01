@@ -1175,7 +1175,7 @@ grab_bag_3() ->
     try 2 of
         true ->
             <<
-              "" || [V0] = door
+              "" || true =:= ([V0] = door)
             >>
     catch
         error:true:V0 ->
