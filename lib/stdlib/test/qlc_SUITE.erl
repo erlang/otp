@@ -2977,14 +2977,14 @@ lookup2(Config) when is_list(Config) ->
        <<"%% Only guards are inspected. No lookup.
           etsc(fun(E) ->
                  Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E),
-                                     Y = (X =:= 3)]),
+                                     true =:= (Y = (X =:= 3))]),
                  {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q))
          end, [{false,3},{true,3}])">>,
 
        <<"%% Only guards are inspected. No lookup.
           etsc(fun(E) ->
                  Q = qlc:q([{X,Y} || {X,Y} <- ets:table(E),
-                                     Y = (X =:= 3)]),
+                                     true =:= (Y = (X =:= 3))]),
                  {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q))
          end, [{3,true},{4,true}])">>,
 
@@ -2995,7 +2995,7 @@ lookup2(Config) when is_list(Config) ->
           true = ets:insert(E2, [{true,1},{false,2}]),
           Q = qlc:q([{X,Z} || {_,X} <- ets:table(E1),
                               {Y,Z} <- ets:table(E2),
-                              Y = (X =:= 3)]),
+                              true =:= (Y = (X =:= 3))]),
           {'EXIT', {{badmatch,false},_}} = (catch qlc:e(Q)),
           ets:delete(E1),
           ets:delete(E2)">>,
