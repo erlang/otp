@@ -232,10 +232,10 @@ otp_8310() ->
     a = if (false orelse a) =:= a -> a; true -> b end,
     F1 = fun() -> a end,
     {'EXIT',{{bad_filter,a},_}} =
-        (catch {a, [X || X <- [1,2,3], _ = F1()]}),
+        (catch {a, [X || X <- [1,2,3], F1()]}),
     F2 = fun() -> << 3:8 >> end,
     {'EXIT',{{bad_filter,<<3>>},_}} =
-        (catch {a, << << X >> || << X >> <= << 7:8 >>,_ = F2() >>}),
+        (catch {a, << << X >> || << X >> <= << 7:8 >>, F2() >>}),
     {'EXIT',{{bad_generator,a},_}} =
         (catch {a, [X || X <- a]}),
     {'EXIT',{{bad_generator,b},_}} =

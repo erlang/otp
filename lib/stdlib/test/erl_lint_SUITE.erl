@@ -367,9 +367,9 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                   [Z || Z <- (Y = X), % Y unused.
                        Y > X]; % Y unbound.
               k(X) ->
-                  [Y || Y = X > 3, Z = X]; % Z unused.
+                  [Y || true =:= (Y = X > 3), true =:= (Z = X)]; % Z unused.
               k(X) ->
-                  [Z || Y = X > 3, Z = X]. % Y unused.
+                  [Z || true =:= (Y = X > 3), true =:= (Z = X)]. % Y unused.
            ">>,
            [warn_unused_vars],
            {error,[{{8,21},erl_lint,{unbound_var,'Y'}},
@@ -378,8 +378,10 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
                    {{4,34},erl_lint,{unused_var,'Y'}},
                    {{8,34},erl_lint,{unused_var,'Y'}},
                    {{10,31},erl_lint,{unused_var,'Y'}},
-                   {{13,36},erl_lint,{unused_var,'Z'}},
-                   {{15,25},erl_lint,{unused_var,'Y'}}]}},
+                   {{13,20},erl_lint,{export_var_subexpr,'Y',{'=:=',{13,30}}}},
+                   {{13,57},erl_lint,{unused_var,'Z'}},
+                   {{15,20},erl_lint,{export_var_subexpr,'Z',{'=:=',{15,52}}}},
+                   {{15,35},erl_lint,{unused_var,'Y'}}]}},
 
           {lc14,
            <<"lc2() ->
