@@ -274,7 +274,7 @@ inconsistent_types_2() ->
                    <<
                      Y ||
                        _ <- Y,
-                       (not ((false = Y) = (Y /= []))), (_ = Y)
+                       (not ((false = Y) = (Y /= []))), true =:= (_ = Y)
                    >>
            end
     >>.
