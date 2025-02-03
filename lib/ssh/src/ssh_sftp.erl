@@ -101,6 +101,9 @@ file transfer service available for SSH.
 -define(XF(S), S#state.xf).
 -define(REQID(S), S#state.req_id).
 
+-doc """
+Specifies available SFTP options.
+""".
 -type sftp_option() :: {timeout, timeout()}
                      | {sftp_vsn, pos_integer()}
                      | {window_size, pos_integer()}
