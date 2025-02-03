@@ -40,6 +40,7 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
                  strict_ra=[],         % Strict record accesses
                  checked_ra=[],        % Successfully accessed records
                  dialyzer=false,       % Compiler option 'dialyzer'
+                 rec_init_count=0,     % Number of generated record init functions
                  new_forms=#{},        % New forms
                  strict_rec_tests=true :: boolean()
                 }).
@@ -96,7 +97,12 @@ forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
 forms([F | Fs0], St0) ->
     {Fs,St} = forms(Fs0, St0),
     {[F | Fs], St};
-forms([], #exprec{new_forms=FsN}=St) -> {maps:values(FsN),St};
+forms([], #exprec{new_forms=FsN}=St) ->
+    {[{'function', Anno,
+                   maps:get(Def,FsN),
+                   0,
+                   [{'clause', Anno, [], [], [Def]}]}
+      || {_,Anno,_}=Def <- maps:keys(FsN)], St};
 forms([], St) -> {[],St}.
 
 clauses([{clause,Anno,H0,G0,B0} | Cs0], St0) ->
@@ -373,28 +379,30 @@ expr({record_index,Anno,Name,F}, St) ->
     expr(I, St);
 expr({record,Anno0,Name,Is}, St) ->
     Anno = mark_record(Anno0, St),
-    
-    IsUndefined = [{RF, AnnoRF, Field, {atom, AnnoRF, 'undefined'}} || {record_field=RF, AnnoRF, Field, _} <- Is],
-    Fields = lists:flatten(lists:sort([atom_to_list(FieldAtom) || {record_field, _, {atom, _, FieldAtom}, _} <- Is])),
-    R_default_init = [{atom,Anno,Name} |
-                       record_inits(record_fields(Name, Anno0, St),IsUndefined)],
     R_init = [{atom,Anno,Name} |
               record_inits(record_fields(Name, Anno0, St), Is)],
     Vars = lists:flatten(traverse_af(Is, fun save_vars/2)),
     %% If R_init contains free variables that was not bound via Is
     case free_variables(R_init, Vars) of
         true ->
-            FName = list_to_atom("erl_expand_records_init_"++atom_to_list(Name)++"_"++Fields),
+            IsUndefined = [{RF, AnnoRF, Field, {atom, AnnoRF, 'undefined'}} || {record_field=RF, AnnoRF, Field, _} <- Is],
+            R_default_init = [{atom,Anno,Name} |
+                                record_inits(record_fields(Name, Anno0, St),IsUndefined)],
             %% add a function to the module that returns the
             %% initialized record, we generate different init functions
             %% depending on which fields that will override the default value
-            {Tup, St1} = expr({tuple,Anno,R_default_init},St),
-            F = {'function', Anno, FName, 0,
-                 [{'clause', Anno, [], [], [Tup]}]},
-            %% replace the record expression with a call expression
+            {Def, St1} = expr({tuple,Anno,R_default_init},St),
+            Map=St1#exprec.new_forms,
+            {FName,St2} = case maps:get(Def, Map, undefined) of
+                undefined->
+                    C=St1#exprec.rec_init_count,
+                    NewName=list_to_atom("rec_init$^" ++ integer_to_list(C)),
+                    {NewName, St1#exprec{rec_init_count=C+1, new_forms=Map#{Def=>NewName}}};
+                OldName -> {OldName,St1}
+            end,
+            %% replace the init record expression with a call expression
             %% to the newly added function and a record update
-            C = {call,Anno,{atom,Anno,FName},[]},
-            expr({record, Anno0, C, Name, Is},St1#exprec{new_forms=(St#exprec.new_forms)#{FName=>F}});
+            expr({record, Anno0, {call,Anno,{atom,Anno,FName},[]}, Name, Is},St2);
         false ->
             %% No free variables means that we can just
             %% output the record as a tuple.
