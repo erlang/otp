@@ -820,7 +820,7 @@ handle_call({histogram, Lockname, InOpts}, _From, #state{ duration=Duration, loc
 	{locations,  false}],
 
     Opts     = options(InOpts, Default),
-    Filtered = filter_locks(Locks, Lockname),
+    Filtered = filter_locks(Locks, if is_atom(Lockname) -> atom_to_binary(Lockname); true -> Lockname end),
     Combos   = combine_classes(Filtered, proplists:get_value(combine, Opts)),
     lists:foreach(fun
 	    (#lock{ stats = Stats }=L) ->
@@ -1426,6 +1426,7 @@ kv(Key, Value, Offset) -> term2string(term2string("~~~ps : ~~s", [Offset]),[Key,
 
 s(T) when is_float(T) -> term2string("~.4f", [T]);
 s(T) when is_list(T)  -> term2string("~ts", [T]);
+s(T) when is_binary(T) -> term2string("~ts", [T]);
 s(T)                  -> term2string(T).
 
 strings(Strings) -> strings(Strings, []).
