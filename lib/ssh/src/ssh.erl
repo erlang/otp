@@ -446,8 +446,9 @@ close(ConnectionRef) ->
 -doc """
 Return values from the `connection_info/1` and `connection_info/2` functions.
 
-In the `options` info tuple are only the options included that differs from the
-default values.
+> #### Note {: .info }
+>
+> Note that `options` info tuple contains only items with nondefault values.
 """.
 -type connection_info_tuple() ::
         {client_version, version()}
@@ -682,8 +683,9 @@ daemon_replace_options(DaemonRef, NewUserOptions) ->
 -doc """
 Return values from the `daemon_info/1` and `daemon_info/2` functions.
 
-In the `option` info tuple are only the options included that differs from the
-default values.
+> #### Note {: .info }
+>
+> Note that `options` info tuple contains only items with nondefault values.
 """.
 -type daemon_info_tuple() ::
         {port, inet:port_number()}
