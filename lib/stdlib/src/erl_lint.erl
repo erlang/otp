@@ -402,6 +402,8 @@ format_error_1(update_literal) ->
     ~"expression updates a literal";
 format_error_1(illegal_zip_generator) ->
     ~"only generators are allowed in a zip generator.";
+format_error_1(illegal_map_exact_in_comprehension) ->
+    ~"illegal map association, did you mean to use `=>`?";
 %% --- patterns and guards ---
 format_error_1(illegal_map_assoc_in_pattern) -> ~"illegal pattern, did you mean to use `:=`?";
 format_error_1(illegal_pattern) -> ~"illegal pattern";
@@ -4060,6 +4062,9 @@ comprehension_exprs(E, Vt, St) ->
 
 comprehension_expr({map_field_assoc,_,K,V}, Vt0, St0) ->
     expr_list([K,V], Vt0, St0);
+comprehension_expr({map_field_exact,A,K,V}, Vt0, St0) ->
+    St = add_error(A, illegal_map_exact_in_comprehension, St0),
+    expr_list([K,V], Vt0, St);
 comprehension_expr(E, Vt, St) ->
     expr(E, Vt, St).
 
