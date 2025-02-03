@@ -9438,7 +9438,14 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
- * We return the data as a complete result, and let the user figure
+ * We do *not* want to risk ending up in a "never ending" read loop
+ * here (by trying to read more data (and yet again getting partial)).
+ * [worst case, we could end up with all our worker threads busy trying
+ * to read more data, and no one ready to respond to new requests].
+ * So we simply return what we got to the user and let the user
+ * decide what to do.
+ *
+ * We return the data as a complete result, and let "the user" figure
  * out what to do (done or continue).
  */
 
@@ -9476,6 +9483,7 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
             sockRef, descP->sock) );
 
     return esock_make_ok2(opEnv, data);
+
 }
 
 

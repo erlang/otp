@@ -1844,7 +1844,7 @@ handle_recv(#params{socket = Socket, recv_method = []} = P,
 
         {error, Reason} ->
             %% ?DBG(['recvfrom error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, Reason)
+            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
     end;
 handle_recv(#params{recv_method = []} = P,
             D,
@@ -1858,38 +1858,9 @@ handle_recv(#params{recv_method = []} = P,
             handle_recv_deliver(P, D, ActionsR, {Source, Data});
 
         {error, Reason0} ->
-            Reason =
-                case Reason0 of
-                    {completion_status, #{info := more_data = _INFO}} ->
-                        %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {info, INFO},
-                        %%       {p, P}, {d, D}]),
-                        emsgsize;
-                    {completion_status, more_data = _INFO} ->
-                        %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {info, INFO},
-                        %%       {p, P}, {d, D}]),
-                        emsgsize;
-
-                    {completion_status, #{info := INFO}} ->
-                        %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {info, INFO},
-                        %%       {p, P}, {d, D}]),
-                        INFO;
-                    {completion_status, INFO} ->
-                        %% ?DBG(['completion status',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {info, INFO},
-                        %%       {p, P}, {d, D}]),
-                        INFO;
-                    _ ->
-                       Reason0 
-                end,
+            Reason = curate_error_reason(Reason0),
             %% ?DBG(['recvfrom error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, Reason)
+            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
     end;
 handle_recv(#params{socket = Socket} = P,
             #{recv_length := Length} = D, ActionsR, CS) when (CS =:= recv) ->
@@ -1913,7 +1884,7 @@ handle_recv(#params{socket = Socket} = P,
 
         {error, Reason} ->
             %% ?DBG(['recvmsg error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, Reason)
+            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
     end;
 handle_recv(P, D, ActionsR, CS) ->
     %% ?DBG(['recvmsg completion status']),
@@ -1924,7 +1895,7 @@ handle_recv(P, D, ActionsR, CS) ->
 
         {error, Reason} ->
             %% ?DBG(['recvmsg error', {reason, Reason}]),
-            handle_recv_error(P, D, ActionsR, Reason)
+            handle_recv_error(P, D, ActionsR, curate_error_reason(Reason))
     end.
 
 
@@ -1936,7 +1907,7 @@ handle_recv_error(P, D, ActionsR, Reason) ->
     {D_1, ActionsR_1} = cleanup_recv_reply(P, D, ActionsR, Reason),
     %% ?DBG([{d1, D_1}]),
     case Reason of
-        closed ->
+        closed -> %% What about econnreset?
             {next_state, 'closed_read', {P, D_1}, reverse(ActionsR_1)};
         emsgsize ->
             {next_state, 'open',
@@ -1970,19 +1941,20 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
     Reason =
         case D of
             #{active := false} ->
-                Reason0;
+                curate_error_reason(Reason0);
             #{active := _} ->
                 ModuleSocket = module_socket(P),
                 Owner        = P#params.owner,
-                case Reason0 of
+                Reason1 = curate_error_reason(Reason0),
+                case Reason1 of
                     timeout ->
                         %% ?DBG(['error - timeout',
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason0},
-                        Reason0;
+                        Owner ! {udp_error, ModuleSocket, Reason1},
+                        Reason1;
                     closed ->
                         %% ?DBG(['closed',
                         %%       {owner, Owner},
@@ -1990,61 +1962,15 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
                         Owner ! {udp_closed, ModuleSocket},
-                        Reason0;
+                        Reason1;
                     emsgsize ->
                         %% ?DBG(['error - emsgsize',
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason0},
-                        Reason0;
-
-                    %% None of these errors (completion_status) should
-                    %% be cause to close the socket.
-                    {completion_status, #{info := more_data = _INFO}} ->
-                        %% ?DBG(['completion status',
-                        %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {module_socket, ModuleSocket},
-                        %%       {info, INFO}, {p, P}, {d, D},
-                        %%       {mq, mq(Owner)}]),
-                        R = emsgsize,
-                        Owner ! {udp_error, ModuleSocket, R},
-                        %% ?DBG(['udp error sent',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {mq, mq(Owner)}]),
-                        R;
-                    {completion_status, more_data = _INFO} ->
-                        %% ?DBG(['completion status',
-                        %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {module_socket, ModuleSocket},
-                        %%       {info, INFO}, {p, P}, {d, D},
-                        %%       {mq, mq(Owner)}]),
-                        R = emsgsize,
-                        Owner ! {udp_error, ModuleSocket, R},
-                        %% ?DBG(['udp error sent',
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {mq, mq(Owner)}]),
-                        R;
-
-                    {completion_status, #{info := INFO}} ->
-                        %% ?DBG(['completion status',
-                        %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {module_socket, ModuleSocket},
-                        %%       {info, INFO}, {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, INFO},
-                        INFO;
-                    {completion_status, INFO} ->
-                        %% ?DBG(['completion status',
-                        %%       {owner, Owner},
-                        %%       {timestamp, formated_timestamp()},
-                        %%       {module_socket, ModuleSocket},
-                        %%       {info, INFO}, {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, INFO},
-                        INFO;
+                        Owner ! {udp_error, ModuleSocket, Reason1},
+                        Reason1;
 
                     _ ->
                         %% ?DBG(['error and closed',
@@ -2052,9 +1978,9 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
                         %%       {reason, Reason0}, {p, P}, {d, D}]),
-                        Owner ! {udp_error, ModuleSocket, Reason0},
+                        Owner ! {udp_error, ModuleSocket, Reason1},
                         Owner ! {udp_closed, ModuleSocket},
-                        Reason0
+                        Reason1
                 end
         end,
     {recv_stop(D#{active := false}),
@@ -2065,6 +1991,22 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
          #{} ->
              ActionsR
      end}.
+
+
+curate_error_reason({completion_status, CS}) ->
+    curate_error_reason(CS);
+curate_error_reason(#{info := Info}) ->
+    curate_error_reason(Info);
+curate_error_reason(more_data) ->
+    emsgsize;
+curate_error_reason(netname_deleted) ->
+    econnreset;
+curate_error_reason(too_many_cmds) ->
+    closed;
+curate_error_reason(Reason) ->
+    Reason.
+
+
 
 %% send_udp_error_msg(Dest, Sock, Error) ->
 %%     send_udp_msg(Dest, {udp_error, Sock, Error}).

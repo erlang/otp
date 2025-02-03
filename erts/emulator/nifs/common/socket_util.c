@@ -2637,7 +2637,7 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
     case WSAENOTSOCK:
         return MKA(env, "enotsock");
         break;
-#endif        
+#endif
 
 #if defined(ERROR_INVALID_NETNAME)
     case ERROR_INVALID_NETNAME:
