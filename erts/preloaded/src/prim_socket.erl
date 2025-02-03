@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -726,7 +726,7 @@ sendv_result(SockRef, IOV, SendRef, HasWritten, Result) ->
                     %% Cont is not used for sendv
                     {select, IOV, undefined};
                 true ->
-                    select
+                    {select, undefined}
             end;
         {select, Written} ->
             RestIOV = rest_iov(Written, IOV),

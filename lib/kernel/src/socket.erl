@@ -3674,17 +3674,18 @@ send_common_deadline_result(
   Op, Fun, SendResult) ->
     %%
     case SendResult of
-        select ->
+        completion ->
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(_Socket, select, Handle) ->
-                    Fun(SockRef, Data, undefined, Deadline, HasWritten);
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    send_common_error(Reason, Data, HasWritten)
+                    send_common_error(Reason, Data, false)
             after Timeout ->
+		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
-                    send_common_error(timeout, Data, HasWritten)
+                    send_common_error(timeout, Data, false)
             end;
 
         {select, Cont} ->
@@ -3710,20 +3711,6 @@ send_common_deadline_result(
             after Timeout ->
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data_1, true)
-            end;
-
-        completion ->
-            %% Would block, wait for continuation
-            Timeout = timeout(Deadline),
-            receive
-                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
-                    CompletionStatus;
-                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    send_common_error(Reason, Data, false)
-            after Timeout ->
-		    %% ?DBG(['completion send timeout - cancel']),
-                    _ = cancel(SockRef, Op, Handle),
-                    send_common_error(timeout, Data, false)
             end;
 
         %%
@@ -4562,7 +4549,7 @@ sendv_deadline(SockRef, IOV, Deadline) ->
       sendv, fun sendv_deadline_cont/5,
       prim_socket:sendv(SockRef, IOV, Handle)).
 
-sendv_deadline_cont(SockRef, IOV, _, Deadline, HasWritten) ->
+sendv_deadline_cont(SockRef, IOV, _undefined, Deadline, HasWritten) ->
     SelectHandle = make_ref(),
     send_common_deadline_result(
       SockRef, IOV, SelectHandle, Deadline, HasWritten,
