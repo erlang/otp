@@ -589,7 +589,7 @@ default(server) ->
            },
 
       bannerfun =>
-          #{default => undefined,
+          #{default => fun(_) -> <<>> end,
             chk => fun(V) -> check_function1(V) end,
             class => user_option
            },

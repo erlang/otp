@@ -216,25 +216,15 @@ retry_fun(User, Reason, #data{ssh_params = #ssh{opts = Opts,
     end.
 
 maybe_send_banner(D0 = #data{ssh_params = #ssh{userauth_banner_sent = false} = Ssh}, User) ->
-    Opts = Ssh#ssh.opts,
-    BannerText = case maps:get(bannerfun, Opts, undefined) of
-                     undefined ->
-                         <<>>;
-                     BannerFun when is_function(BannerFun, 1) ->
-                         %% Ignore bad banner texts
-                         case BannerFun(User) of
-                             B when is_binary(B) -> B;
-                             _ -> <<>>
-                         end
-                 end,
-    case BannerText of
-        <<>> ->
-            D0;
-        BannerText ->
+    BannerFun = ?GET_OPT(bannerfun, Ssh#ssh.opts),
+    case BannerFun(User) of
+        BannerText when is_binary(BannerText), byte_size(BannerText) > 0 ->
             Banner = #ssh_msg_userauth_banner{message = BannerText,
                                               language = <<>>},
             D = D0#data{ssh_params = Ssh#ssh{userauth_banner_sent = true}},
-            ssh_connection_handler:send_msg(Banner, D)
+            ssh_connection_handler:send_msg(Banner, D);
+        _ ->
+            D0
     end;
 maybe_send_banner(D, _) ->
     D.
