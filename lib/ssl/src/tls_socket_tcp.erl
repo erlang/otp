@@ -173,7 +173,7 @@ shutdown(Socket, How) ->
 recv(Socket, Size) ->
     recv(Socket, Size, infinity).
 recv(Socket, Size, Timeout) ->
-    socket:recv(Socket, Size, Timeout).
+    socket:recv(Socket, Size, [], Timeout).
 
 send(Socket, Data) ->
     ?CT_LOG("~w send ~w", [get(role), iolist_size(Data)]),
