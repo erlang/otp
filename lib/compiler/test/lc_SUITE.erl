@@ -24,7 +24,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1,no_export/1,shadow/1,
-	 effect/1]).
+	 effect/1,multi/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +43,8 @@ groups() ->
        empty_generator,
        no_export,
        shadow,
-       effect
+       effect,
+       multi
       ]}].
 
 init_per_suite(Config) ->
@@ -283,6 +284,10 @@ do_effect(Lc, L) ->
     F = fun(V) -> put(?MODULE, [V|get(?MODULE)]) end,
     ok = Lc(F, L),
     lists:reverse(erase(?MODULE)).
+
+multi(Config) when is_list(Config) ->
+    [true, false] = [true, false || true],
+    [1, 2, 5, 6] = [X, X + 1 || X <- [1, 5]].
 
 id(I) -> I.
 
