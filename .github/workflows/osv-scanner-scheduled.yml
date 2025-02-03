@@ -86,3 +86,5 @@ jobs:
         actions: read
         contents: read
     uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@764c91816374ff2d8fc2095dab36eecd42d61638" # ratchet:google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v1.9.2
+    with:
+        upload-sarif: ${{ github.repository == 'erlang/otp' }}
