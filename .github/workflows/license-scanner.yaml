@@ -27,6 +27,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   run-scan:
@@ -69,7 +70,7 @@ jobs:
   upload-scan:
     needs: run-scan
     runs-on: ubuntu-latest
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.repository == 'erlang/otp' }}
     permissions:
       # Required to upload SARIF file to CodeQL.
       # See: https://github.com/github/codeql-action/issues/2117
