@@ -3190,13 +3190,9 @@ listen(Socket, Backlog) ->
 -doc("Equivalent to [`accept(ListenSocket, infinity)`](`accept/2`).").
 -spec accept(ListenSocket) -> Result when
       Result ::  {'ok', Socket} |
-                 {'select', SelectInfo} |
-                 {'completion', CompletionInfo} |
                  {'error', Reason},
       ListenSocket    :: socket(),
       Socket          :: socket(),
-      SelectInfo      :: select_info(),
-      CompletionInfo  :: completion_info(),
       Reason          :: dynamic().
 
 
@@ -3763,21 +3759,15 @@ an explanation of `TimeoutOrHandle`.
 """.
 
 -spec sendto(Socket :: socket(), Data :: iodata(),
-             Dest :: sockaddr(), Flags | TimeoutOrHandle) -> Result when
-      TimeoutOrHandle :: dynamic(),
-      Flags :: list(),
-      Result :: 'ok'
-              | {'ok', RestData :: binary()}
-              | {'error', Reason}
-              | {'error', {Reason, RestData :: binary()}},
-      Reason     :: posix() | 'closed' | invalid();
+             Dest :: sockaddr(), Flags ::  [msg_flag() | integer()]) -> dynamic();
             (Socket :: socket(), Data :: iodata(),
-             Cont :: select_info(), TimeoutOrHandle :: dynamic()) -> Result when
-      Result :: 'ok'
-              | {'ok', RestData :: binary()}
-              | {'error', Reason}
-              | {'error', {Reason, RestData :: binary()}},
-      Reason     :: posix() | 'closed' | invalid().
+             Cont :: select_info(), Timeout | Handle) -> dynamic() when
+      Timeout :: infinity | non_neg_integer(),
+      Handle  :: nowait | select_handle();
+            (Socket :: socket(), Data :: iodata(),
+             Dest :: sockaddr(), Timeout | Handle) -> dynamic() when
+      Timeout :: infinity | non_neg_integer(),
+      Handle  :: nowait | select_handle() | completion_handle().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
     sendto(Socket, Data, Dest, Flags, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -4880,7 +4870,7 @@ With argument `Length`; equivalent to
 With argument `Flags`; equivalent to
 [`recv(Socket, 0, Flags, infinity)`](`recv/4`) *(since OTP 24.0)*.
 """.
--spec recv(Socket :: socket(), Flags :: list()) -> dynamic();
+-spec recv(Socket :: socket(), Flags :: [msg_flag() | integer()]) -> dynamic();
           (Socket :: socket(), Length :: non_neg_integer()) -> dynamic().
 
 recv(Socket, Flags) when is_list(Flags) ->
@@ -4909,12 +4899,12 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 """.
 -spec recv(Socket, Flags, TimeoutOrHandle) -> dynamic() when
       Socket :: socket(),
-      Flags :: list(),
-      TimeoutOrHandle :: nowait | select_handle() | completion_handle();
-          (Socket :: socket(), Length :: non_neg_integer(), Flags :: list())
+      Flags :: [msg_flag() | integer()],
+      TimeoutOrHandle :: 'infinity' | non_neg_integer() | nowait | select_handle() | completion_handle();
+          (Socket :: socket(), Length :: non_neg_integer(), Flags :: [msg_flag() | integer()])
           -> dynamic();
-          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle :: select_handle() | completion_handle())
-          -> dynamic().
+          (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle) -> dynamic() when
+      TimeoutOrHandle :: 'infinity' | non_neg_integer() | nowait | select_handle() | completion_handle().
 
 recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recv(Socket, 0, Flags, TimeoutOrHandle);
@@ -5346,9 +5336,8 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
               -> dynamic();
               (Socket :: socket(), BufSz :: non_neg_integer(), Flags :: [msg_flag() | integer()])
               -> dynamic();
-              (Socket :: socket(), BufSz :: non_neg_integer(),
-               TimeoutOrHandle :: 'nowait' | select_handle() | completion_handle())
-              -> dynamic().
+              (Socket :: socket(), BufSz :: non_neg_integer(), TimeoutOrHandle) -> dynamic() when
+      TimeoutOrHandle :: 'infinity' | non_neg_integer() | 'nowait' | select_handle() | completion_handle().
 
 recvfrom(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, TimeoutOrHandle);
@@ -5553,7 +5542,10 @@ With argument `TimeoutOrHandle`; equivalent to
 `TimeoutOrHandle :: Handle` has been allowed *since OTP 24.0*.
 """.
 -spec recvmsg(Socket :: socket(), Flags :: list()) -> dynamic();
-             (Socket :: socket(), TimeoutOrHandle :: reference() | 'infinity' | 'nowait' | non_neg_integer()) -> dynamic().
+             (Socket :: socket(), TimeoutOrHandle) -> dynamic() when
+      TimeoutOrHandle :: Timeout | Handle,
+      Handle :: select_handle() | completion_handle(),
+      Timeout :: 'infinity' | 'nowait' | non_neg_integer().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
