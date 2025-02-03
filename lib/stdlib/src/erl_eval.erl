@@ -1253,30 +1253,37 @@ eval_bc1(E, [], Bs, Lf, Ef, FUVs, Acc) ->
     {value,V,_} = expr(E, Bs, Lf, Ef, none, FUVs),
     <<Acc/bitstring,V/bitstring>>.
 
-%% eval_mc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
+%% eval_mc(ExprOrExprs, [Qualifier], Bindings, LocalFunctionHandler,
 %%         ExternalFuncHandler, RetBindings) ->
 %%	{value,Value,Bindings} | Value
 
-eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
-    L = eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, []),
+eval_mc(Es, Qs, Bs, Lf, Ef, RBs, FUVs) when is_list(Es) ->
+    L = eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, []),
     Map = maps:from_list(reverse(L)),
-    ret_expr(Map, Bs, RBs).
+    ret_expr(Map, Bs, RBs);
+eval_mc(E, Qs, Bs, Lf, Ef, RBs, FUVs) ->
+    eval_mc([E], Qs, Bs, Lf, Ef, RBs, FUVs).
 
-eval_mc1(E, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+eval_mc1(Es, [{zip, Anno, Gens}|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     {VarList, Bs1} = convert_gen_values(Gens, [], Bs0, Lf, Ef, FUVs),
-    eval_zip(E, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_mc1/7);
-eval_mc1(E, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
+    eval_zip(Es, [{zip, Anno, VarList}|Qs], Bs1, Lf, Ef, FUVs, Acc0, fun eval_mc1/7);
+eval_mc1(Es, [Q|Qs], Bs0, Lf, Ef, FUVs, Acc0) ->
     case is_generator(Q) of
         true ->
-            CF = fun(Bs, Acc) -> eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, Acc) end,
+            CF = fun(Bs, Acc) -> eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc) end,
             eval_generator(Q, Bs0, Lf, Ef, FUVs, Acc0, CF);
         false ->
-            CF = fun(Bs) -> eval_mc1(E, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
+            CF = fun(Bs) -> eval_mc1(Es, Qs, Bs, Lf, Ef, FUVs, Acc0) end,
             eval_filter(Q, Bs0, Lf, Ef, CF, FUVs, Acc0)
     end;
-eval_mc1({map_field_assoc,Lfa,K0,V0}, [], Bs, Lf, Ef, FUVs, Acc) ->
-    {value,KV,_} = expr({tuple,Lfa,[K0,V0]}, Bs, Lf, Ef, none, FUVs),
-    [KV|Acc].
+eval_mc1(Es, [], Bs, Lf, Ef, FUVs, Acc) ->
+    eval_mc2(Es, Bs, Lf, Ef, FUVs, Acc).
+
+eval_mc2([{map_field_assoc,_,K0,V0}|Es], Bs, Lf, Ef, FUVs, Acc) ->
+    {[K,V],_} = expr_list([K0,V0], Bs, Lf, Ef, FUVs),
+    eval_mc2(Es, Bs, Lf, Ef, FUVs, [{K,V}|Acc]);
+eval_mc2([], _Bs, _Lf, _Ef, _FUVs, Acc) ->
+    Acc.
 
 eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun) ->
     Gens = case check_bad_generators(VarList, {Bs0, Lf, Ef}, []) of
