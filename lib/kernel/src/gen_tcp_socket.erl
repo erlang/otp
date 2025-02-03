@@ -2029,8 +2029,12 @@ handle_event(
     _ = socket_close(Socket),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
-                        closed;
+                        econnreset;
                     {completion_status, netname_deleted} ->
+                        econnreset;
+                    {completion_status, #{info := too_many_cmds}} ->
+                        closed;
+                    {completion_status, too_many_cmds} ->
                         closed;
                     {completion_status, #{info := INFO}} ->
                         INFO;
@@ -2110,8 +2114,12 @@ handle_event(
     %% ?DBG(['abort msg', {reason, Reason}]),
     NewReason = case Reason of
                     {completion_status, #{info := netname_deleted}} ->
-                        closed;
+                        econnreset;
                     {completion_status, netname_deleted} ->
+                        econnreset;
+                    {completion_status, #{info := too_many_cmds}} ->
+                        closed;
+                    {completion_status, too_many_cmds} ->
                         closed;
                     {completion_status, #{info := INFO}} ->
                         INFO;
