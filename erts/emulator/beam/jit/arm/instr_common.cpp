@@ -181,7 +181,7 @@ void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
 #    ifdef JIT_HARD_DEBUG
     emit_enter_runtime_frame();
 
-    for (unsigned i = 0; i < arity.get(); i++) {
+    for (unsigned i = 0; i < Arity.get(); i++) {
         mov_arg(ARG1, ArgVal(ArgVal::XReg, i));
 
         emit_enter_runtime();
@@ -3185,4 +3185,10 @@ void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
     } else {
         ASSERT(0);
     }
+}
+
+void BeamModuleAssembler::emit_debug_line(const ArgWord &Loc,
+                                          const ArgWord &Index,
+                                          const ArgWord &Live) {
+    emit_validate(Live);
 }

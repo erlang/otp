@@ -555,7 +555,7 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
            (_) -> false
         end,
     RPO = beam_ssa:rpo(Blocks0),
-    {Blocks,Count} = beam_ssa:split_blocks(RPO, P, Blocks0, Count0),
+    {Blocks,Count} = beam_ssa:split_blocks_before(RPO, P, Blocks0, Count0),
     {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
 
 %%%

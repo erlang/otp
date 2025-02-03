@@ -3334,3 +3334,9 @@ void BeamModuleAssembler::emit_coverage(void *coverage, Uint index, Uint size) {
         ASSERT(0);
     }
 }
+
+void BeamModuleAssembler::emit_debug_line(const ArgWord &Loc,
+                                          const ArgWord &Index,
+                                          const ArgWord &Live) {
+    emit_validate(Live);
+}

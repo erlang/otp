@@ -23,6 +23,7 @@
 -moduledoc false.
 
 -export([module/2]).
+-export([is_original_variable/1]).  %Called from beam_core_to_ssa.
 -export([classify_heap_need/2]).    %Called from beam_ssa_pre_codegen.
 
 -export_type([ssa_register/0]).
@@ -41,14 +42,16 @@
              regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
              ultimate_fail=1 :: beam_label(),
              catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             fc_label=1 :: beam_label()
+             fc_label=1 :: beam_label(),
+             debug_info=false :: boolean()
             }).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
-                    {'ok',beam_asm:module_code()}.
+          {'ok',beam_asm:module_code()}.
 
-module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
-    {Asm,St} = functions(Fs, {atom,Mod}),
+module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) ->
+    DebugInfo = member(beam_debug_info, Opts),
+    {Asm,St} = functions(Fs, {atom,Mod}, DebugInfo),
     {ok,{Mod,Es,Attrs,Asm,St#cg.lcount}}.
 
 -record(need, {h=0 :: non_neg_integer(),   % heap words
@@ -109,12 +112,12 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, AtomMod) ->
+functions(Forms, AtomMod, DebugInfo) ->
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
-             #cg{lcount=1}, Forms).
+             #cg{lcount=1,debug_info=DebugInfo}, Forms).
 
-function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
-    #{func_info:={_,Name,Arity}} = Anno,
+function(#b_function{anno=Anno,bs=Blocks,args=Args}, AtomMod, St0) ->
+    #{func_info := {_,Name,Arity}} = Anno,
     NoBsMatch = not maps:get(bs_ensure_opt, Anno, false),
     try
         assert_exception_block(Blocks),            %Assertion.
@@ -127,11 +130,12 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
         Labels = (St4#cg.labels)#{0=>Entry,?EXCEPTION_BLOCK=>0},
         St5 = St4#cg{labels=Labels,used_labels=gb_sets:singleton(Entry),
                      ultimate_fail=Ult},
-        {Body,St} = cg_fun(Blocks, NoBsMatch, St5#cg{fc_label=Fi}),
-        Asm = [{label,Fi},line(Anno),
-               {func_info,AtomMod,{atom,Name},Arity}] ++
+        {Body,St} = cg_fun(Blocks, Args, NoBsMatch, St5#cg{fc_label=Fi}),
+        Asm0 = [{label,Fi},line(Anno),
+                {func_info,AtomMod,{atom,Name},Arity}] ++
                add_parameter_annos(Body, Anno) ++
                [{label,Ult},if_end],
+        Asm = fix_debug_line(Asm0, Arity, St),
         Func = {function,Name,Arity,Entry,Asm},
         {Func,St}
     catch
@@ -139,6 +143,24 @@ function(#b_function{anno=Anno,bs=Blocks}, AtomMod, St0) ->
             io:fwrite("Function: ~w/~w\n", [Name,Arity]),
             erlang:raise(Class, Error, Stack)
     end.
+
+fix_debug_line(Is0, Live, #cg{debug_info=true}) ->
+    case Is0 of
+        [{label,_}=FiLbl,
+         {line,_}=Li,
+         {func_info,_,_,_}=Fi,
+         {label,_}=Entry,
+         {debug_line,Location,Index,Live,{none,[]}}|Is] ->
+            %% Mark this debug_line instruction as being the
+            %% very first instruction in the function.
+            Args = [{{integer,I}, [{x,I-1}]} || I <- lists:seq(1, Live)],
+            DbgLine = {debug_line,Location,Index,Live,{entry,Args}},
+            [FiLbl,Li,Fi,Entry,DbgLine|Is];
+        _ ->
+            Is0
+    end;
+fix_debug_line(Is, _Arity, #cg{debug_info=false}) ->
+    Is.
 
 assert_exception_block(Blocks) ->
     %% Assertion: ?EXCEPTION_BLOCK must be a call erlang:error(badarg).
@@ -166,7 +188,7 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
 
     [Entry | sort(Annos)] ++ Body.
 
-cg_fun(Blocks, NoBsMatch, St0) ->
+cg_fun(Blocks, Args, NoBsMatch, St0) ->
     Linear0 = linearize(Blocks),
     St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
@@ -174,7 +196,8 @@ cg_fun(Blocks, NoBsMatch, St0) ->
     Linear3 = liveness(Linear2, St1),
     Linear4 = defined(Linear3, St1),
     Linear5 = opt_allocate(Linear4, St1),
-    Linear = fix_wait_timeout(Linear5),
+    Linear6 = fix_wait_timeout(Linear5),
+    Linear = add_debug_info(Linear6, Args, St1),
     {Asm,St} = cg_linear(Linear, St1),
     case NoBsMatch of
         true -> {Asm,St};
@@ -245,11 +268,16 @@ need_heap_never(_) ->
 need_heap_blks([{L,#cg_blk{is=Is0}=Blk0}|Bs], H0, Acc) ->
     {Is1,H1} = need_heap_is(reverse(Is0), H0, []),
     {Ns,H} = need_heap_terminator(Bs, L, H1),
-    Is = Ns ++ Is1,
+    Is = delay_alloc(Ns ++ Is1),
     Blk = Blk0#cg_blk{is=Is},
     need_heap_blks(Bs, H, [{L,Blk}|Acc]);
 need_heap_blks([], H, Acc) ->
     {Acc,H}.
+
+delay_alloc([#cg_alloc{}=AI,
+             #cg_set{op=debug_line}=ELI|Is2]) ->
+    [ELI|delay_alloc([AI|Is2])];
+delay_alloc(Is) -> Is.
 
 need_heap_is([#cg_alloc{words=Words}=Alloc0|Is], N, Acc) ->
     Alloc = Alloc0#cg_alloc{words=add_heap_words(N, Words)},
@@ -391,6 +419,7 @@ classify_heap_need(build_stacktrace) -> gc;
 classify_heap_need(call) -> gc;
 classify_heap_need(catch_end) -> gc;
 classify_heap_need(copy) -> neutral;
+classify_heap_need(debug_line) -> gc;
 classify_heap_need(executable_line) -> neutral;
 classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
@@ -690,6 +719,7 @@ need_live_anno(Op) ->
         bs_start_match -> true;
         bs_skip -> true;
         call -> true;
+        debug_line -> true;
         put_map -> true;
         update_record -> true;
         _ -> false
@@ -817,6 +847,7 @@ need_y_init(#cg_set{op=bs_skip,args=[#b_literal{val=Type}|_]}) ->
         _ -> false
     end;
 need_y_init(#cg_set{op=bs_start_match}) -> true;
+need_y_init(#cg_set{op=debug_line}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
 need_y_init(#cg_set{op=update_record}) -> true;
 need_y_init(#cg_set{}) -> false.
@@ -955,6 +986,246 @@ fix_wait_timeout_is([#cg_set{op=wait_timeout,dst=WaitBool}=WT,
 fix_wait_timeout_is([I|Is], Acc) ->
     fix_wait_timeout_is(Is, [I|Acc]);
 fix_wait_timeout_is([], _Acc) -> no.
+
+%%%
+%%% Gather debug information and add as annotations to `debug_line`
+%%% instructions.
+%%%
+%%% This pass is run when collection of BEAM debug information has
+%%% been requested.
+%%%
+
+add_debug_info(Linear0, Args, #cg{regs=Regs,debug_info=true}) ->
+    Def0 = ordsets:from_list(Args),
+    Linear = anno_defined_regs(Linear0, Def0, Regs),
+    FrameSzMap = #{0 => none},
+    VarMap = #{},
+    add_debug_info_blk(Linear, Regs, FrameSzMap, VarMap);
+add_debug_info(Linear, _Args, #cg{debug_info=false}) ->
+    Linear.
+
+add_debug_info_blk([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs],
+                   Regs, FrameSzMap0, VarMap0) ->
+    FrameSize0 = map_get(L, FrameSzMap0),
+    {Is,VarMap,FrameSize} =
+        add_debug_info_is(Is0, Regs, FrameSize0, VarMap0, []),
+    Successors = successors(Last),
+    FrameSzMap = foldl(fun(Succ, Acc) ->
+                               Acc#{Succ => FrameSize}
+                       end, FrameSzMap0, Successors),
+    Blk = Blk0#cg_blk{is=Is},
+    [{L,Blk}|add_debug_info_blk(Bs, Regs, FrameSzMap, VarMap)];
+add_debug_info_blk([], _Regs, _FrameSzMap, _VarMap) ->
+    [].
+
+add_debug_info_is([#cg_alloc{stack=FrameSize}=I|Is],
+                  Regs, FrameSize0, VarMap, Acc) ->
+    if
+        is_integer(FrameSize) ->
+            add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+        true ->
+            add_debug_info_is(Is, Regs, FrameSize0, VarMap, [I|Acc])
+    end;
+add_debug_info_is([#cg_set{anno=#{was_phi := true},op=copy}=I|Is],
+                  Regs, FrameSize, VarMap, Acc) ->
+    %% This copy operation originates from a phi node. The source and
+    %% destination are not equivalent and must not be added to VarMap.
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{anno=Anno,op=copy,dst=#b_var{name=Dst},
+                           args=[#b_var{name=Src}]}=I|Is],
+                  Regs, FrameSize, VarMap0, Acc) ->
+    VarMap = case Anno of
+                 #{delayed_yreg_copy := true} ->
+                     VarMap0#{Src => [Dst]};
+                 #{} ->
+                     VarMap0#{Dst => [Src]}
+             end,
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{anno=Anno0,op=debug_line,args=[Index]}=I0|Is],
+                  Regs, FrameSize, VarMap, Acc) ->
+    #{def_regs := DefRegs,
+      alias := Alias,
+      literals := Literals0,
+      live := NumLive0} = Anno0,
+    AliasMap = maps:merge_with(fun(_, L1, L2) -> L1 ++ L2 end,
+                               VarMap, Alias),
+    Literals1 = [{get_original_names(#b_var{name=Var}, AliasMap),Val} ||
+                    {Val,Var} <:- Literals0],
+    Literals = [{hd(Vars),[{literal,Val}]} ||
+                   {Vars,Val} <:- Literals1, Vars =/= []],
+    RegVarMap = [{map_get(V, Regs),get_original_names(V, AliasMap)} ||
+                    V <- DefRegs,
+                    not is_beam_register(V)],
+    S0 = sofs:family(RegVarMap, [{reg,[variable]}]),
+    S1 = sofs:family_to_relation(S0),
+    S2 = sofs:converse(S1),
+    S3 = sofs:relation_to_family(S2),
+    S = sort(Literals ++ sofs:to_external(S3)),
+    Live = max(NumLive0, num_live(DefRegs, Regs)),
+    Info = {FrameSize,S},
+    I = I0#cg_set{args=[Index,#b_literal{val=Live},#b_literal{val=Info}]},
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([#cg_set{}=I|Is], Regs, FrameSize, VarMap, Acc) ->
+    add_debug_info_is(Is, Regs, FrameSize, VarMap, [I|Acc]);
+add_debug_info_is([], _Regs, FrameSize, VarMap, Info) ->
+    {reverse(Info),VarMap,FrameSize}.
+
+get_original_names(#b_var{name=Name}, AliasMap) ->
+    get_original_names_1([Name], AliasMap, sets:new()).
+
+get_original_names_1([Name|Names0], AliasMap, Seen0) ->
+    case sets:is_element(Name, Seen0) of
+        true ->
+            get_original_names_1(Names0, AliasMap, Seen0);
+        false ->
+            Seen = sets:add_element(Name, Seen0),
+            Names = case AliasMap of
+                        #{Name := Vars0} ->
+                            Vars = Vars0 ++ Names0,
+                            get_original_names_1(Vars, AliasMap, Seen);
+                        #{} ->
+                            Names0
+                    end,
+            case is_original_variable(Name) of
+                true ->
+                    [Name|get_original_names_1(Names, AliasMap, Seen)];
+                false ->
+                    get_original_names_1(Names, AliasMap, Seen)
+            end
+    end;
+get_original_names_1([], _, _) ->
+    [].
+
+-spec is_original_variable(Name) -> boolean() when
+      Name :: non_neg_integer() | atom().
+
+%% Test whether the variable name originates from the Erlang source
+%% code, meaning that it was not invented by the compiler. It is
+%% sufficient to check that the first character can legally start an
+%% Erlang variable name, because all new variables inserted by the
+%% compiler always start with an invalid character such as "@" or a
+%% lower-case letter.
+is_original_variable(Name) when is_atom(Name) ->
+    <<C/utf8,_/binary>> = atom_to_binary(Name),
+    if
+        %% A variable name must start with "_" or an upper-case letter
+        %% included in ISO Latin-1.
+        C =:= $_ -> true;
+        $A =< C, C =< $Z -> true;
+        $À =< C, C =< $Þ, C =/= $× -> true;
+        true -> false
+    end;
+is_original_variable(Name) when is_integer(Name) ->
+    false.
+
+%%%
+%%% Annotate `debug_line` instructions with all variables that have
+%%% been defined and are still available in a BEAM register.
+%%%
+
+anno_defined_regs(Linear, Def, Regs) ->
+    def_regs(Linear, #{0 => Def}, Regs).
+
+def_regs([{L,#cg_blk{is=Is0,last=Last}=Blk0}|Bs], DefMap0, Regs) ->
+    Def0 = map_get(L, DefMap0),
+    {Is,Def,MaybeDef} = def_regs_is(Is0, Regs, Def0, []),
+    DefMap = def_successors(Last, Def, MaybeDef, DefMap0),
+    Blk = Blk0#cg_blk{is=Is},
+    [{L,Blk}|def_regs(Bs, DefMap, Regs)];
+def_regs([], _, _) -> [].
+
+def_regs_is([#cg_alloc{live=Live}=I|Is], Regs, Def0, Acc) when is_integer(Live) ->
+    Def = trim_xregs(Def0, Live, Regs),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{op=succeeded,args=[Var]}=I], _Regs, Def, Acc) ->
+    %% Var will only be defined on the success branch of the `br`
+    %% for this block.
+    MaybeDef = [Var],
+    {reverse(Acc, [I]),Def,MaybeDef};
+def_regs_is([#cg_set{op=kill_try_tag,args=[#b_var{}=Tag]}=I|Is], Regs, Def0, Acc) ->
+    Def = ordsets:del_element(Tag, Def0),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{op=catch_end,dst=Dst,args=[#b_var{}=Tag|_]}=I|Is], Regs, Def0, Acc) ->
+    Def1 = trim_xregs(Def0, 0, Regs),
+    Def2 = kill_regs(Def1, [Dst,Tag], Regs),
+    Def = ordsets:add_element(Dst, Def2),
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{anno=Anno0,op=debug_line}=I0|Is], Regs, Def, Acc) ->
+    Anno = Anno0#{def_regs => Def},
+    I = I0#cg_set{anno=Anno},
+    def_regs_is(Is, Regs, Def, [I|Acc]);
+def_regs_is([#cg_set{anno=Anno,dst=Dst,op={bif,Bif},args=Args}=I|Is], Regs, Def0, Acc) ->
+    Def1 = case is_gc_bif(Bif, Args) of
+               true ->
+                   #{live := Live} = Anno,
+                   trim_xregs(Def0, Live, Regs);
+               false ->
+                   Def0
+           end,
+    case Regs of
+        #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+            Def2 = kill_reg(Def1, R, Regs),
+            Def = ordsets:add_element(Dst, Def2),
+            def_regs_is(Is, Regs, Def, [I|Acc]);
+        #{} ->
+            def_regs_is(Is, Regs, Def1, [I|Acc])
+    end;
+def_regs_is([#cg_set{anno=Anno,dst=Dst}=I|Is], Regs, Def0, Acc) ->
+    Def1 = case Anno of
+               #{live := Live} -> trim_xregs(Def0, Live, Regs);
+               #{} -> Def0
+           end,
+    Def2 = case Anno of
+               #{kill_yregs := KillYregs} ->
+                   kill_regs(Def1, KillYregs, Regs);
+               #{} ->
+                   Def1
+           end,
+    case Anno of
+        #{clobbers := true} ->
+            Def3 = trim_xregs(Def2, 0, Regs),
+            Def = case Regs of
+                      #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+                          Def4 = kill_reg(Def3, R, Regs),
+                          ordsets:add_element(Dst, Def4);
+                      #{} ->
+                          Def3
+                  end,
+            def_regs_is(Is, Regs, Def, [I|Acc]);
+        #{} ->
+            case Regs of
+                #{Dst := {Tag,_}=R} when Tag =:= x; Tag =:= y ->
+                    Def3 = kill_reg(Def2, R, Regs),
+                    Def = ordsets:add_element(Dst, Def3),
+                    def_regs_is(Is, Regs, Def, [I|Acc]);
+                #{} ->
+                    def_regs_is(Is, Regs, Def1, [I|Acc])
+            end
+    end;
+def_regs_is([], _Regs, Def, Acc) ->
+    {reverse(Acc),Def,[]}.
+
+trim_xregs([V|Vs], Live, Regs) ->
+    case Regs of
+        #{V := {x,R}} when R < Live ->
+            [V|trim_xregs(Vs, Live, Regs)];
+        #{V := {y,_}}->
+            [V|trim_xregs(Vs, Live, Regs)];
+        #{} ->
+            trim_xregs(Vs, Live, Regs)
+    end;
+trim_xregs([], _, _) -> [].
+
+kill_reg([V|Vs], R, Regs) ->
+    case Regs of
+        #{V := R} -> Vs;
+        #{} -> [V|kill_reg(Vs, R, Regs)]
+    end;
+kill_reg([], _, _) -> [].
+
+kill_regs(Defs, KillRegs0, Regs) ->
+    KillRegs = #{map_get(V, Regs) => [] || V <- KillRegs0},
+    [D || D <- Defs, not is_map_key(map_get(D, Regs), KillRegs)].
 
 %%%
 %%% Here follows the main code generation functions.
@@ -1824,6 +2095,14 @@ cg_instr(bs_get_position, [Ctx], Dst, Set) ->
 cg_instr(executable_line, [{integer,Index}], _Dst, #cg_set{anno=Anno}) ->
     {line,Location} = line(Anno),
     [{executable_line,Location,Index}];
+cg_instr(debug_line, [{integer,Index},{integer,Live},{literal,Info}],
+         _Dst, #cg_set{anno=Anno}) ->
+    case line(Anno) of
+        {line,[]} ->
+            [];
+        {line,Location} ->
+            [{debug_line,Location,Index,Live,Info}]
+    end;
 cg_instr(put_map, [{atom,assoc},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
     [{put_map_assoc,{f,0},SrcMap,Dst,Live,{list,Ss}}];
@@ -2135,9 +2414,10 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
     end;
 translate_phis(_, _, _) -> [].
 
-phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
-    CopyArgs = [V || {V,Target} <:- PhiArgs, Target =:= L],
-    [#cg_set{op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
+phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L) ->
+    CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
+    Anno = Anno0#{was_phi => true},
+    [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
 phi_copies([], _) -> [].
 
 %% opt_move_to_x0([Instruction]) -> [Instruction].

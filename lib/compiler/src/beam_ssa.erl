@@ -42,7 +42,7 @@
          predecessors/1,
          rename_vars/3,
          rpo/1,rpo/2,
-         split_blocks/4,
+         split_blocks_before/4,split_blocks_after/4,
          successors/1,successors/2,
          trim_unreachable/1,
          used/1,uses/2]).
@@ -142,7 +142,7 @@
                       'set_tuple_element' | 'succeeded' |
                       'update_record'.
 
--import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,reverse/2,sort/1]).
 
 -spec add_anno(Key, Value, Construct0) -> Construct when
       Key :: atom(),
@@ -719,7 +719,7 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
 %%  block if the predicate returns true for the first instruction in a
 %%  block.
 
--spec split_blocks(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+-spec split_blocks_before(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
       Labels :: [label()],
       Pred :: fun((b_set()) -> boolean()),
       Blocks :: block_map(),
@@ -728,8 +728,25 @@ rename_vars(Rename, Labels, Blocks) when is_map(Rename), is_map(Blocks) ->
       Blocks :: block_map(),
       Count :: label().
 
-split_blocks(Ls, P, Blocks, Count) when is_map(Blocks) ->
-    split_blocks_1(Ls, P, Blocks, Count).
+split_blocks_before(Ls, P, Blocks, Count) when is_map(Blocks) ->
+    split_blocks_1(Ls, P, fun split_blocks_before_is/3, Blocks, Count).
+
+%% split_blocks_after(Labels, Predicate, Blocks0, Count0) -> {Blocks,Count}.
+%%  Call Predicate(Instruction) for each instruction in the given
+%%  blocks. If Predicate/1 returns true, split the block after this
+%%  instruction.
+
+-spec split_blocks_after(Labels, Pred, Blocks0, Count0) -> {Blocks,Count} when
+      Labels :: [label()],
+      Pred :: fun((b_set()) -> boolean()),
+      Blocks :: block_map(),
+      Count0 :: label(),
+      Blocks0 :: block_map(),
+      Blocks :: block_map(),
+      Count :: label().
+
+split_blocks_after(Ls, P, Blocks, Count) when is_map(Blocks) ->
+    split_blocks_1(Ls, P, fun split_blocks_after_is/3, Blocks, Count).
 
 -spec trim_unreachable(SSA0) -> SSA when
       SSA0 :: block_map() | [{label(),b_blk()}],
@@ -1082,9 +1099,9 @@ flatmapfoldl(F, Accu0, [Hd|Tail]) ->
     {R++Rs,Accu2};
 flatmapfoldl(_, Accu, []) -> {[],Accu}.
 
-split_blocks_1([L|Ls], P, Blocks0, Count0) ->
+split_blocks_1([L|Ls], P, Split, Blocks0, Count0) ->
     #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
-    case split_blocks_is(Is0, P, []) of
+    case Split(Is0, P, []) of
         {yes,Bef,Aft} ->
             NewLbl = Count0,
             Count = Count0 + 1,
@@ -1094,23 +1111,32 @@ split_blocks_1([L|Ls], P, Blocks0, Count0) ->
             Blocks1 = Blocks0#{L:=BefBlk,NewLbl=>NewBlk},
             Successors = successors(NewBlk),
             Blocks = update_phi_labels(Successors, L, NewLbl, Blocks1),
-            split_blocks_1([NewLbl|Ls], P, Blocks, Count);
+            split_blocks_1([NewLbl|Ls], P, Split, Blocks, Count);
         no ->
-            split_blocks_1(Ls, P, Blocks0, Count0)
+            split_blocks_1(Ls, P, Split, Blocks0, Count0)
     end;
-split_blocks_1([], _, Blocks, Count) ->
+split_blocks_1([], _, _, Blocks, Count) ->
     {Blocks,Count}.
 
-split_blocks_is([I|Is], P, []) ->
-    split_blocks_is(Is, P, [I]);
-split_blocks_is([I|Is], P, Acc) ->
+split_blocks_before_is([I|Is], P, []) ->
+    split_blocks_before_is(Is, P, [I]);
+split_blocks_before_is([I|Is], P, Acc) ->
     case P(I) of
         true ->
             {yes,reverse(Acc),[I|Is]};
         false ->
-            split_blocks_is(Is, P, [I|Acc])
+            split_blocks_before_is(Is, P, [I|Acc])
     end;
-split_blocks_is([], _, _) -> no.
+split_blocks_before_is([], _, _) -> no.
+
+split_blocks_after_is([I|Is], P, Acc) ->
+    case P(I) of
+        true ->
+            {yes,reverse(Acc, [I]),Is};
+        false ->
+            split_blocks_after_is(Is, P, [I|Acc])
+    end;
+split_blocks_after_is([], _, _) -> no.
 
 update_phi_labels_is([#b_set{op=phi,args=Args0}=I0|Is], Old, New) ->
     Args = [{Arg,rename_label(Lbl, Old, New)} || {Arg,Lbl} <:- Args0],

@@ -273,6 +273,9 @@ error_info(_Config) ->
          {get_coverage, [cover_line_id,NotLoaded]},
          {get_coverage, [whatever,?MODULE]},
 
+         {get_debug_info, [42]},
+         {get_debug_info, [NotLoaded]},
+
          {reset_coverage, [42]},
          {reset_coverage, [NotLoaded]},
          {reset_coverage, [?MODULE]},

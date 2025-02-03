@@ -403,7 +403,8 @@ common reasons.
          module_status/0,
          module_status/1,
          modified_modules/0,
-         get_mode/0]).
+         get_mode/0,
+         get_debug_info/1]).
 
 -removed({rehash,0,"the code path cache feature has been removed"}).
 -removed({is_module_native,1,"HiPE has been removed"}).
@@ -418,6 +419,18 @@ common reasons.
 -export_type([coverage_mode/0]).
 -type coverage_mode() :: 'none' | 'function' | 'function_counters' |
                          'line_coverage' | 'line_counters'.
+
+-export_type([debug_line/0, debug_frame/0, debug_name/0, debug_source/0,
+              debug_value/0, debug_info/0]).
+
+-nominal debug_line() :: pos_integer().
+-nominal debug_frame() :: non_neg_integer() | 'entry' | 'none'.
+-nominal debug_name() :: binary() | 1..255.
+-nominal debug_source() :: {'x',non_neg_integer()}
+                         | {'y',non_neg_integer()}
+                         | {value, _}.
+-nominal debug_value() :: {debug_name(), debug_source()}.
+-nominal debug_info() :: [{debug_line(), {debug_frame(), [debug_value()]}}].
 
 -export([coverage_support/0,
          get_coverage/2,
@@ -2327,4 +2340,11 @@ _See also:_ [Native Coverage Support](#module-native-coverage-support)
 -spec coverage_support() -> Supported when
       Supported :: boolean().
 coverage_support() ->
+    erlang:nif_error(undefined).
+
+-doc(#{since => <<"OTP 28.0">>}).
+-spec get_debug_info(Module) -> DebugInfo when
+      Module :: module(),
+      DebugInfo :: debug_info().
+get_debug_info(_Module) ->
     erlang:nif_error(undefined).

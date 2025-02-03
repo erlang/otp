@@ -25,7 +25,7 @@
 -include("beam_asm.hrl").
 
 -export([module/2]).
--import(lists, [keysort/2,member/2,reverse/1,reverse/2,
+-import(lists, [flatmap/2,keysort/2,member/2,reverse/1,reverse/2,
                 splitwith/2,usort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
@@ -172,11 +172,16 @@ collect({put_map,{f,0},Op,S,D,R,{list,Puts}}) ->
 collect({fmove,S,D})         -> {set,[D],[S],fmove};
 collect({fconv,S,D})         -> {set,[D],[S],fconv};
 collect({executable_line,_,_}=Line) -> {set,[],[],Line};
+collect({debug_line,_,_,_,_}=Line) -> collect_debug_line(Line);
 collect({swap,D1,D2})        ->
     Regs = [D1,D2],
     {set,Regs,Regs,swap};
 collect({make_fun3,F,I,U,D,{list,Ss}}) -> {set,[D],Ss,{make_fun3,F,I,U}};
 collect(_)                   -> error.
+
+collect_debug_line({debug_line,_Loc,_Index,_Live,{_,Vars}}=I) ->
+    Ss = flatmap(fun({_Name,Regs}) -> Regs end, Vars),
+    {set,[],Ss,I}.
 
 %% embed_lines([Instruction]) -> [Instruction]
 %%  Combine blocks that would be split by line/1 instructions.

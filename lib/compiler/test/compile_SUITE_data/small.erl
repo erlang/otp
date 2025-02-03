@@ -1,6 +1,6 @@
 -module(small).
 
--export([go/0,go/2]).
+-export([go/0,go/2,latin1_var/1]).
 
 
 -small_attribute({value,3}).
@@ -43,6 +43,8 @@ recv() ->
     tmo = F(),
     ok.
 
+latin1_var(Överskott) ->
+    Överskott + 1.
 
 id(I) -> I.
 

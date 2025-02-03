@@ -1080,6 +1080,9 @@ expand_opt(r26, Os) ->
     [no_bsm_opt | expand_opt(r27, Os)];
 expand_opt(r27, Os) ->
     [no_long_atoms, compressed_literals | Os];
+expand_opt(beam_debug_info, Os) ->
+    [beam_debug_info, no_copt, no_bsm_opt, no_bool_opt,
+     no_share_opt, no_recv_opt, no_ssa_opt, no_throw_opt | Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_type_opt=O, Os) ->
@@ -1676,7 +1679,8 @@ abstr_passes(AbstrStatus) ->
 
          {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
 
-         {delay,[{iff,line_coverage,{pass,sys_coverage}}]},
+         {delay,[{iff,line_coverage,{pass,sys_coverage}},
+                 {iff,beam_debug_info,?pass(beam_debug_info)}]},
          {iff,'dcover',{src_listing,"cover"}},
 
          ?pass(expand_records),
@@ -1696,6 +1700,7 @@ core_passes(CoreStatus) ->
     case CoreStatus of
         non_verified_core ->
             [?pass(core_lint_module),
+             ?pass(core_compile_directives),
              {unless,no_core_prepare,{pass,sys_core_prepare}},
              {iff,dprep,{listing,"prepare"}}];
         verified_core ->
@@ -2359,9 +2364,18 @@ legalize_vars(Code0, St) ->
                end, Code0),
     {ok,Code,St}.
 
-compile_directives(Forms, #compile{options=Opts0}=St0) ->
-    Opts1 = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
-    Opts = Opts1 ++ Opts0,
+compile_directives(Forms, St) ->
+    Opts = [C || {attribute,_,compile,C} <- Forms],
+    compile_directives_1(Opts, Forms, St).
+
+core_compile_directives(Core, St) ->
+    Attrs = [{cerl:concrete(Name),cerl:concrete(Value)} ||
+                {Name,Value} <:- cerl:module_attrs(Core)],
+    Opts = [C || {compile,C} <- Attrs],
+    compile_directives_1(Opts, Core, St).
+
+compile_directives_1(Opts1, Forms, #compile{options=Opts0}=St0) ->
+    Opts = expand_opts(flatten(Opts1)) ++ Opts0,
     St1 = St0#compile{options=Opts},
     case any_obsolete_option(Opts) of
         {yes,Opt} ->
@@ -2502,6 +2516,10 @@ debug_info(#compile{module=Module,ofile=OFile}=St) ->
 	false ->
 	    {ok,DebugInfo,Opts2}
     end.
+
+beam_debug_info(Code0, #compile{}=St) ->
+    {ok,Code} = sys_coverage:beam_debug_info(Code0),
+    {ok,Code,St}.
 
 debug_info_chunk(#compile{mod_options=ModOpts0,
                           options=CompOpts,
@@ -2825,7 +2843,34 @@ do_src_listing(Lf, Fs) ->
     foreach(fun (F) -> io:put_chars(Lf, [erl_pp:form(F, Opts),"\n"]) end,
 	    Fs).
 
-listing(Ext, Code, St0) ->
+listing(Ext, Code0, St0) ->
+    Code = maybe
+               %% Ensure that a pretty-printed Core Erlang module
+               %% compiled with the `beam_debug_info` option can be
+               %% compiled.
+               true ?= cerl:is_c_module(Code0),
+               true ?= lists:member(beam_debug_info, St0#compile.options),
+
+               %% First check whether the `beam_debug_info` option is
+               %% already present.
+               Attrs0 = cerl:module_attrs(Code0),
+               Opts0 = [{cerl:concrete(Name),cerl:concrete(Value)} ||
+                           {Name,Value} <:- Attrs0],
+               Opts = [Opt || {compile,Opts} <- Opts0,
+                              Opt <- lists:flatten([Opts])],
+               false ?= lists:member(beam_debug_info, Opts),
+
+               %% Add a `-compile(beam_debug_info)` attribute.
+               Compile = {cerl:abstract(compile),
+                          cerl:abstract(beam_debug_info)},
+               Attrs = [Compile|Attrs0],
+               cerl:update_c_module(Code0, cerl:module_name(Code0),
+                                    cerl:module_exports(Code0),
+                                    Attrs, cerl:module_defs(Code0))
+           else
+               _ ->
+                   Code0
+           end,
     St = St0#compile{encoding = none},
     listing(fun(Lf, Fs) -> beam_listing:module(Lf, Fs) end, Ext, Code, St).
 

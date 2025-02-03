@@ -375,8 +375,11 @@ vi({'%',_}, Vst) ->
     Vst;
 vi({line,_}, Vst) ->
     Vst;
-vi({executable_line,_,_}, Vst) ->
+vi({executable_line,_,Index}, Vst) when is_integer(Index) ->
     Vst;
+vi({debug_line,_,Index,Live,Info}, Vst) when is_integer(Index),
+                                             is_integer(Live) ->
+    validate_debug_line(Info, Live, Vst);
 vi(nif_start, Vst) ->
     Vst;
 %%
@@ -2174,6 +2177,44 @@ validate_select_tuple_arity(Fail, [], _, #vst{}=Vst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
            end).
+
+%%
+%% Validate debug information in `debug_line` instructions.
+%%
+
+validate_debug_line({entry,Args}, Live, Vst) ->
+    do_validate_debug_line(none, Live, Vst),
+    _ = [get_term_type(Reg, Vst) || {_Name,[Reg]} <:- Args],
+    prune_x_regs(Live, Vst);
+validate_debug_line({Stk,Vars}, Live, Vst0) ->
+    do_validate_debug_line(Stk, Live, Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    _ = [validate_dbg_vars(Regs, Name, Vst) || {Name,Regs} <:- Vars],
+    Vst.
+
+do_validate_debug_line(ExpectedStk, Live, #vst{current=St}=Vst) ->
+    case St of
+        #st{numy=ExpectedStk} ->
+            ok;
+        #st{numy=ActualStk} ->
+            error({beam_debug_info,frame_size,ExpectedStk,actual,ActualStk})
+    end,
+    verify_live(Live, Vst),
+    verify_y_init(Vst).
+
+validate_dbg_vars([R|Rs], Name, Vst) ->
+    Type = get_term_type(R, Vst),
+    validate_dbg_vars(Rs, Type, Name, Vst).
+
+validate_dbg_vars([R|Rs], Type, Name, Vst) ->
+    case get_term_type(R, Vst) of
+        Type ->
+            validate_dbg_vars(Rs, Type, Name, Vst);
+        OtherType ->
+            error({type_mismatch,Name,OtherType,Type})
+    end;
+validate_dbg_vars([], _Type, _Name, _Vst) ->
+    ok.
 
 %%
 %% Infers types from comparisons, looking at the expressions that produced the

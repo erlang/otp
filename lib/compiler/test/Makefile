@@ -11,6 +11,7 @@ MODULES= \
 	beam_block_SUITE \
 	beam_bounds_SUITE \
 	beam_validator_SUITE \
+	beam_debug_info_SUITE \
 	beam_disasm_SUITE \
 	beam_doc_SUITE \
 	beam_except_SUITE \
@@ -167,6 +168,8 @@ ERL_FILES= $(MODULES:%=%.erl)
 CORE_FILES= $(CORE_MODULES:%=%.core)
 ERL_DUMMY_FILES= $(CORE_MODULES:%=%.erl)
 
+BEAM_OPCODES_HRL=$(ERL_TOP)/lib/compiler/src/beam_opcodes.hrl
+
 ##TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 ##INSTALL_PROGS= $(TARGET_FILES)
 
@@ -309,6 +312,7 @@ release_tests_spec: make_emakefile
         done
 	$(INSTALL_DATA) $(ERL_DUMMY_FILES) "$(RELSYSDIR)"
 	rm $(ERL_DUMMY_FILES)
+	$(INSTALL_DATA) $(BEAM_OPCODES_HRL) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 

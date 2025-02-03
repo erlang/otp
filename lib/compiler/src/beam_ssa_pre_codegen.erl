@@ -114,6 +114,8 @@ functions([], _Ps) -> [].
 
 passes(Opts) ->
     AddPrecgAnnos = proplists:get_bool(dprecg, Opts),
+    BeamDebugInfo = proplists:get_bool(beam_debug_info, Opts),
+
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
@@ -121,6 +123,12 @@ passes(Opts) ->
           ?PASS(sanitize),
           ?PASS(expand_match_fail),
           ?PASS(expand_update_tuple),
+
+          case BeamDebugInfo of
+              false -> ignore;
+              true -> ?PASS(break_out_debug_line)
+          end,
+
           ?PASS(place_frames),
           ?PASS(fix_receives),
 
@@ -837,6 +845,21 @@ sanitize_is([], Last, _InBlocks, _Blocks, Count, Values, Changed, Acc) ->
             no_change
     end.
 
+do_sanitize_is(#b_set{anno=Anno0,op=debug_line,args=Args0}=I0,
+               Is, Last, InBlocks, Blocks, Count, Values, _Changed0, Acc) ->
+    Args = sanitize_args(Args0, Values),
+    #{alias := Alias0, literals := Literals0} = Anno0,
+    Alias = sanitize_alias(Alias0, Values),
+    Anno1 = Anno0#{alias := Alias},
+    Anno = case [{Val,From} || #b_var{name=From} := #b_literal{val=Val} <- Values] of
+               [] ->
+                   Anno1;
+               [_|_]=Literals ->
+                   Anno1#{literals => Literals ++ Literals0}
+           end,
+    I = I0#b_set{anno=Anno,args=Args},
+    Changed = true,
+    sanitize_is(Is, Last, InBlocks, Blocks, Count, Values, Changed, [I|Acc]);
 do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
                Is, Last, InBlocks, Blocks, Count, Values, Changed0, Acc) ->
     Args = sanitize_args(Args0, Values),
@@ -869,6 +892,19 @@ sanitize_last(#b_blk{last=Last0}=Blk, Values) ->
         true ->
             Blk
     end.
+
+sanitize_alias(Alias, Values) ->
+    sanitize_alias_1(maps:keys(Alias), Values, Alias).
+
+sanitize_alias_1([Old|Vs], Values, Alias0) ->
+    Alias = case Values of
+                #{#b_var{name=Old} := #b_var{name=New}} ->
+                    Alias0#{New => map_get(Old, Alias0)};
+                #{} ->
+                    Alias0
+            end,
+    sanitize_alias_1(Vs, Values, Alias);
+sanitize_alias_1([], _Values, Alias) -> Alias.
 
 sanitize_args(Args, Values) ->
     [sanitize_arg(Arg, Values) || Arg <- Args].
@@ -1208,6 +1244,91 @@ sort_update_tuple([#b_literal{}=Index, Value | Updates], Acc) ->
 sort_update_tuple([], Acc) ->
     append([[Index, Value] || {Index, Value} <:- sort(fun erlang:'>='/2, Acc)]).
 
+
+%%%
+%%% Avoid placing stack frame allocation instructions before an
+%%% `debug_line` instruction to potentially provide information for
+%%% more variables.
+%%%
+%%% This sub pass is only run when the `beam_debug_info` option has been given.
+%%%
+%%% As an example, consider this function:
+%%%
+%%%     foo(A, B, C) ->
+%%%         {ok,bar(A),B}.
+%%%
+%%% When compiled with the `beam_debug_info` option the first part of the SSA code
+%%% will look like this:
+%%%
+%%%     0:
+%%%       _7 = debug_line `1`
+%%%       _3 = call (`bar`/1), _0
+%%%
+%%% The beam_ssa_pre_codegen pass will place a stack frame before the block:
+%%%
+%%%     %% #{frame_size => 1,yregs => #{{b_var,1} => []}}
+%%%     0:
+%%%       [1] y0/_12 = copy x1/_1
+%%%       [3] z0/_7 = debug_line `1`
+%%%
+%%% In the resulting BEAM code there will not be any information for
+%%% variable `C`, because the allocate instruction will kill it before
+%%% reaching the `debug_line` instruction:
+%%%
+%%%     {allocate,1,2}.
+%%%     {move,{x,1},{y,0}}.
+%%%     {debug_line,[{location,...}],1,
+%%%                  {1,[{'A',[{x,0}]},{'B',[{x,1},{y,0}]}]},
+%%%                  2}.
+%%%
+%%% If we split the block after the `debug_line` instruction, the
+%%% allocation of the stack frame will be placed after the
+%%% `debug_line` instruction:
+%%%
+%%%     0:
+%%%       [1] z0/_7 = debug_line `1`
+%%%       [3] br ^12
+%%%
+%%%     %% #{frame_size => 1,yregs => #{{b_var,1} => []}}
+%%%     12:
+%%%       [5] y0/_13 = copy x1/_1
+%%%       [7] x0/_3 = call (`bar`/1), x0/_0
+%%%
+%%% In the resulting BEAM code, there will now be information for variable `C`:
+%%%
+%%%     {debug_line,[{location,"t.erl",5}],
+%%%                 1,
+%%%                 {none,[{'A',[{x,0}]},{'B',[{x,1}]},{'C',[{x,2}]}]},
+%%%                 2}.
+%%%     {allocate,1,2}.
+%%%
+
+break_out_debug_line(#st{ssa=Blocks0,cnt=Count0}=St) ->
+    RPO = beam_ssa:rpo(Blocks0),
+
+    %% Calculate the set of all indices for `debug_line` instructions
+    %% that occur as the first instruction in a block. Splitting after
+    %% every `debug_line` instruction is not always beneficial, and
+    %% can even result in worse information about variables.
+    F = fun(_, #b_blk{is=[#b_set{op=debug_line,
+                                 args=[#b_literal{val=Index}]}|_]}, Acc) ->
+                sets:add_element(Index, Acc);
+           (_, _, Acc) ->
+                Acc
+        end,
+    ToBeSplit = beam_ssa:fold_blocks(F, RPO, sets:new(), Blocks0),
+
+    %% Now split blocks after the found `debug_line` instructions that
+    %% are known to start blocks.
+    P = fun(#b_set{op=debug_line,args=[#b_literal{val=Index}]}) ->
+                sets:is_element(Index, ToBeSplit);
+           (_) ->
+                false
+        end,
+    {Blocks,Count} = beam_ssa:split_blocks_after(RPO, P, Blocks0, Count0),
+
+    St#st{ssa=Blocks,cnt=Count}.
+
 %%%
 %%% Find out where frames should be placed.
 %%%
@@ -1470,7 +1591,8 @@ split_rm_blocks([L|Ls], Blocks0, Count0, Acc) ->
                         Op =:= remove_message
                 end,
             Next = Count0,
-            {Blocks,Count} = beam_ssa:split_blocks([L], P, Blocks0, Count0),
+            {Blocks,Count} = beam_ssa:split_blocks_before([L], P,
+                                                          Blocks0, Count0),
             true = Count0 =/= Count,            %Assertion.
             split_rm_blocks(Ls, Blocks, Count, [Next|Acc])
     end;
@@ -2001,7 +2123,8 @@ copy_retval_is([#b_set{op=call,dst=#b_var{}=Dst}=I0|Is], RC, Yregs,
     case sets:is_element(Dst, Yregs) of
         true ->
             {NewVar,Count} = new_var(Count1),
-            Copy = #b_set{op=copy,dst=Dst,args=[NewVar]},
+            Copy = #b_set{anno=#{delayed_yreg_copy => true},
+                          op=copy,dst=Dst,args=[NewVar]},
             I = I1#b_set{dst=NewVar},
             copy_retval_is(Is, RC, Yregs, Copy, Count, [I|Acc]);
         false ->
@@ -2651,16 +2774,17 @@ reserve_zregs(RPO, Blocks, Intervals, Res) ->
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
-             Last, ShortLived, A) ->
+             Last, ShortLived, A0) ->
     case {Val,Last} of
         {#b_literal{val=Arity},#b_br{bool=Bool}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
-            reserve_test_zreg(Dst, ShortLived, A);
+            A1 = reserve_test_zreg(Dst, ShortLived, A0),
+            reserve_test_zreg(Bool, ShortLived, A1);
         {_,_} ->
             %% Either the arity is too big, or the boolean value is not
             %% used in a conditional branch.
-            A
+            A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
              #b_switch{arg=Dst}, ShortLived, A) ->
@@ -2683,9 +2807,11 @@ use_zreg(bs_ensured_skip) -> yes;
 use_zreg(bs_ensure) -> yes;
 use_zreg(bs_match_string) -> yes;
 use_zreg(bs_set_position) -> yes;
+use_zreg(debug_line) -> yes;
 use_zreg(executable_line) -> yes;
 use_zreg(kill_try_tag) -> yes;
 use_zreg(landingpad) -> yes;
+use_zreg(nif_start) -> yes;
 use_zreg(recv_marker_bind) -> yes;
 use_zreg(recv_marker_clear) -> yes;
 use_zreg(remove_message) -> yes;
