@@ -155,7 +155,7 @@ jobs:
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
             EVENT: ${{ github.event_name }}
-            DELETED: ${{ steps.cache.outputs.deleted_files }}
+            DELETED: ${{ fromJson(steps.cache.outputs.deleted_count) > 20 && '[]' || steps.cache.outputs.deleted_files }}
         run: |
             .github/scripts/restore-from-prebuilt.sh "`pwd`" \
               "`pwd`/.github/otp.tar.gz" \
