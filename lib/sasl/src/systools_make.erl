@@ -1589,9 +1589,10 @@ preloaded() ->
 
 erts_binary_filter() ->
     Cmds = ["typer", "dialyzer", "ct_run", "yielding_c_fun", "erlc"],
+    Extensions = [".exe", ".pdb"],
     case os:type() of
         {unix,_} -> Cmds;
-        {win32,_} -> [ [Cmd, ".exe"] || Cmd <- Cmds]
+        {win32,_} -> [ [Cmd, Ext] || Cmd <- Cmds, Ext <- Extensions]
     end.
 
 %%______________________________________________________________________
