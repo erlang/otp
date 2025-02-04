@@ -3763,7 +3763,7 @@ an explanation of `TimeoutOrHandle`.
             (Socket :: socket(), Data :: iodata(),
              Cont :: select_info(), Timeout :: timeout() | Handle  :: nowait | select_handle()) -> dynamic();
             (Socket :: socket(), Data :: iodata(),
-             Dest :: sockaddr(), Timeout :: timeout() | Handle  :: nowait | select_handle() | completion_handle()) -> dynamic().
+             Dest :: sockaddr(), Timeout :: timeout() | 'nowait' | Handle :: select_handle() | completion_handle()) -> dynamic().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
     sendto(Socket, Data, Dest, Flags, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
@@ -4896,11 +4896,11 @@ With arguments `Flags` and `TimeoutOrHandle`; equivalent to
 -spec recv(Socket, Flags, TimeoutOrHandle) -> dynamic() when
       Socket :: socket(),
       Flags :: [msg_flag() | integer()],
-      TimeoutOrHandle :: timeout() | nowait | select_handle() | completion_handle();
+      TimeoutOrHandle :: timeout() | 'nowait' | select_handle() | completion_handle();
           (Socket :: socket(), Length :: non_neg_integer(), Flags :: [msg_flag() | integer()])
           -> dynamic();
           (Socket :: socket(), Length :: non_neg_integer(), TimeoutOrHandle) -> dynamic() when
-      TimeoutOrHandle :: timeout() | nowait | select_handle() | completion_handle().
+      TimeoutOrHandle :: timeout() | 'nowait' | select_handle() | completion_handle().
 
 recv(Socket, Flags, TimeoutOrHandle) when is_list(Flags) ->
     recv(Socket, 0, Flags, TimeoutOrHandle);
@@ -5539,9 +5539,8 @@ With argument `TimeoutOrHandle`; equivalent to
 """.
 -spec recvmsg(Socket :: socket(), Flags :: list()) -> dynamic();
              (Socket :: socket(), TimeoutOrHandle) -> dynamic() when
-      TimeoutOrHandle :: Timeout | Handle,
-      Handle :: select_handle() | completion_handle(),
-      Timeout :: timeout() | 'nowait'.
+      TimeoutOrHandle :: timeout() | 'nowait' | Handle,
+      Handle :: select_handle() | completion_handle().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
