@@ -224,7 +224,7 @@ generate_dependabot_config(Versions) ->
      [io_lib:format(
 ~`
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "~ts"
     schedule:
       interval: "weekly"
