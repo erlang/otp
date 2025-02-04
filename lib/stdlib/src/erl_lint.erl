@@ -449,6 +449,9 @@ format_error_1({unbound_var,V,GuessV}) ->
 format_error_1({unsafe_var,V,{What,Where}}) ->
     {~"variable ~w unsafe in ~w ~s",
                   [V,What,format_where(Where)]};
+format_error_1({exported_var,V,{{record_field,R,F},Where}}) ->
+    {~"variable ~w exported from #~w.~w ~s",
+                    [V,R,F,format_where(Where)]};
 format_error_1({exported_var,V,{What,Where}}) ->
     {~"variable ~w exported from ~w ~s",
                   [V,What,format_where(Where)]};
@@ -467,8 +470,6 @@ format_error_1({shadowed_var,V,In}) ->
     {~"variable ~w shadowed in ~w", [V,In]};
 format_error_1({unused_var, V}) ->
     {~"variable ~w is unused", [V]};
-format_error_1({variable_in_record_def,V}) ->
-    {~"variable ~w in record definition", [V]};
 format_error_1({stacktrace_guard,V}) ->
     {~"stacktrace variable ~w must not be used in a guard", [V]};
 format_error_1({stacktrace_bound,V}) ->
@@ -3071,7 +3072,7 @@ record_def(Anno, Name, Fs0, St0) ->
     case is_map_key(Name, St0#lint.records) of
         true -> add_error(Anno, {redefine_record,Name}, St0);
         false ->
-            {Fs1,St1} = def_fields(normalise_fields(Fs0), Name, St0),
+            {Fs1,_,St1} = def_fields(normalise_fields(Fs0), Name, St0),
             St2 = St1#lint{records=maps:put(Name, {Anno,Fs1},
                                             St1#lint.records)},
             Types = [T || {typed_record_field, _, T} <- Fs0],
@@ -3084,11 +3085,16 @@ record_def(Anno, Name, Fs0, St0) ->
 %%  record and set State.
 
 def_fields(Fs0, Name, St0) ->
-    foldl(fun ({record_field,Af,{atom,Aa,F},V}, {Fs,St}) ->
+    foldl(fun ({record_field,Af,{atom,Aa,F},V}, {Fs,Vt0,St}) ->
                   case exist_field(F, Fs) of
-                      true -> {Fs,add_error(Af, {redefine_field,Name,F}, St)};
+                      true -> {Fs,Vt0,add_error(Af, {redefine_field,Name,F}, St)};
                       false ->
-                          {_,St2} = expr(V, [], St),
+                          {Vt1,St2} = expr(V, Vt0, St),
+                          %% Everything that was bound is exported to the next field
+                          Vt2 = lists:map(
+                                fun({Var,{bound,Usage,Ls}}) ->
+                                        {Var, {{export, {{'record_field', Name, F}, Af}}, Usage,Ls}};
+                                   (X) -> X end, Vt1),
                           %% Warnings and errors found are kept, but
                           %% updated calls, records, etc. are discarded.
                           St3 = St#lint{warnings = St2#lint.warnings,
@@ -3100,9 +3106,9 @@ def_fields(Fs0, Name, St0) ->
                                    true -> V;
                                    false -> {atom,Aa,undefined}
                                end,
-                          {[{record_field,Af,{atom,Aa,F},NV}|Fs],St3}
+                          {[{record_field,Af,{atom,Aa,F},NV}|Fs],Vt2,St3}
                   end
-          end, {[],St0}, Fs0).
+          end, {[],[],St0}, Fs0).
 
 %% normalise_fields([RecDef]) -> [Field].
 %%  Normalise the field definitions to always have a default value. If

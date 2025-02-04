@@ -295,7 +295,7 @@ free_variables(AF, Acc) ->
     catch
             throw:{error,unsafe_variable} -> true
     end.
-free_variables1({'fun',_anno,_}, Acc) ->
+free_variables1({'fun',_anno,{clauses, _}}, Acc) ->
     {function,Acc}; %% tag that we are in a 'fun' now that can define new variables
 free_variables1({clause,_anno,Pattern,_guards,_body}, {function,Acc}) ->
     lists:flatten(traverse_af(Pattern, fun save_vars/2, [])++Acc);
