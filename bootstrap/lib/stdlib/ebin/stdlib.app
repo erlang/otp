@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "6.1.2"},
+  {vsn, "6.2"},
   {modules, [argparse,
 	     array,
 	     base64,
@@ -101,7 +101,8 @@
 	     shell,
 	     shell_default,
 	     shell_docs,
-         shell_docs_markdown,
+	     shell_docs_markdown,
+	     shell_docs_test,
 	     slave,
 	     sofs,
 	     string,
@@ -119,5 +120,5 @@
   {applications, [kernel]},
   {env, []},
   {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-15.0","crypto-4.5",
-			  "compiler-5.0"]}
+			  "compiler-5.0", "syntax_tools-3.2.1"]}
 ]}.
