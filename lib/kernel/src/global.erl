@@ -1831,7 +1831,8 @@ init_connect(Vsn, Node, InitMsg, HisTag, HisVsn,
 
                              send_cancel_connect_message(Node, HisTag),
                              MyOldTag = get({sync_tag_my, Node}),
-                             restart_connect(Node, MyOldTag, S0)
+                             throw({return,
+                                    restart_connect(Node, MyOldTag, S0)})
                      end
              end,
 
@@ -1874,15 +1875,20 @@ restart_connect(Node, MyTag, S0) ->
     S2 = S1#state{known = maps:remove({pending, Node},
                                       S1#state.known)},
 
+    %% Locks might have been set and we cannot rely on 'DOWN' messages
+    %% triggering cleanup since the connection between the nodes has not
+    %% been taken down. Explicitly take care of them...
+    S3 = delete_node_resources(Node, S2),
+
     if is_integer(MyTag) ->
             %% Node is up from our perspective; start a new resolver
             %% and send a new init_connect...
-            handle_nodeup(Node, S2);
+            handle_nodeup(Node, S3);
        true ->
             %% Node is down from our prespective; wait until
             %% global_group say Node is up by sending us a
             %% group_nodeup message...
-            S2
+            S3
     end.
 
 %%========================================================================
