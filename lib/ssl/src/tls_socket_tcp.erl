@@ -263,6 +263,7 @@ connect_1([IP|IPs], Port, Opts, Timeout, _Err) ->
     Family = which_family(IP),
     SockAddr = #{family => Family, addr => IP, port => Port},
     {ok, Socket} = socket:open(Family, stream, tcp),
+    ok = socket:bind(Socket, SockAddr#{port => 0}),
     [ok = socket:setopt(Socket, Opt, Val) || {{_,_}=Opt, Val} <- Opts],
     case socket:connect(Socket, SockAddr, Timeout) of
         ok ->
