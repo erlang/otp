@@ -752,7 +752,7 @@
          otp18240_accept_mon_leak_tcp4/1,
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
-         otpABCDE/1
+         otp19469/1
         ]).
 
 
@@ -2357,7 +2357,7 @@ tickets_cases() ->
      {group, otp16359},
      {group, otp18240},
      otp18635,
-     otpABCDE
+     otp19469
     ].
 
 otp16359_cases() ->
@@ -51926,7 +51926,7 @@ do_otp18635(_) ->
 %%   DGRAM:  - do never wait for *more* data - return with *any* available data
 %%           - only wait if there is currently *no* data.
 
-otpABCDE(Config) when is_list(Config) ->
+otp19469(Config) when is_list(Config) ->
     ?TT(?SECS(10)),
     Cond = fun() -> 
                    has_support_ipv4()
@@ -51943,7 +51943,7 @@ otpABCDE(Config) when is_list(Config) ->
                    end
            end,
     TC   = fun(InitState) ->
-                   ok = do_otpABCDE(InitState)
+                   ok = do_otp19469(InitState)
            end,
     Post = fun(_) ->
                    ok
@@ -51951,18 +51951,18 @@ otpABCDE(Config) when is_list(Config) ->
     ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
 
 
-do_otpABCDE(#{lsa := LSA}) ->
+do_otp19469(#{lsa := LSA}) ->
 
     ?P("try stream"),
-    ok = do_otpABCDE_stream(LSA),
+    ok = do_otp19469_stream(LSA),
     ?P("try dgram"),
-    ok = do_otpABCDE_dgram(LSA),
+    ok = do_otp19469_dgram(LSA),
     
     ?P("done"),
     ok.
 
 
-do_otpABCDE_stream(#{family := Fam} = LSA) ->
+do_otp19469_stream(#{family := Fam} = LSA) ->
 
     ?P("[stream] create listen socket"),
     {ok, S1} = socket:open(Fam, stream),
@@ -52003,7 +52003,7 @@ do_otpABCDE_stream(#{family := Fam} = LSA) ->
     ok.
 
 
-do_otpABCDE_dgram(#{family := Fam} = LSA) ->
+do_otp19469_dgram(#{family := Fam} = LSA) ->
 
     ?P("[dgram] create socket 1"),
     {ok, S1} = socket:open(Fam, dgram),
