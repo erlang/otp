@@ -326,13 +326,14 @@ which_default_bind_address2(Domain) ->
     case net_getifaddrs(Domain) of
         {ok, Addrs} ->
             %% ?DBG([{addrs, Addrs}]),
-            %% Pick first *non-loopback* interface that is 'up'
+            %% Pick first *non-loopback* interface that is 'up' and 'running'
             UpNonLoopbackAddrs =
                 [Addr ||
                     #{flags := Flags} = Addr <-
                         Addrs,
                     (not lists:member(loopback, Flags)) andalso
-                        lists:member(up, Flags)],
+                        lists:member(up, Flags) andalso
+                        lists:member(running, Flags)],
             %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
             case UpNonLoopbackAddrs of
                 [#{addr := #{addr := Addr}} | _] ->
