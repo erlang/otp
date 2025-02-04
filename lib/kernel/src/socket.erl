@@ -4950,10 +4950,41 @@ or if the OS reports an error for the operation.
 [](){: #recv-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:non_neg_integer/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); on Windows return `{error, timeout}`
 if no data has arrived after `Timeout` milliseconds,
 or `{error, {timeout, Data}}` if some but not enough data
 has been received on a socket of [type `stream`](`t:type/0`).
+On Unix, if will return `{error, timeout}` either if no data
+has arrived or if not enough data (Length > 0) has arrived.
+It is then up to the caller to make another all to see if 
+some data has arrived (and was stored internally):
+
+
+```erlang
+    case socket:recv(Socket, 10, 5000) of
+        {ok, Data} -> % 10 bytes of data
+            "Do something with this data..."
+            ok;
+
+        {error, timeout} ->
+            %% We *may* have gotten *some* data, just less then 10,
+            %% so try read again.
+            case socket:recv(Socket, 0, 0) of
+                {ok, Data} -> % We *did* get some data
+                    "Do something with this data..."
+                    ok;
+                {error, timeout} -> % Actually nothing to read
+                    :
+                {error, _} -> % Proper error
+                    :
+            end;                    
+
+        {error, {timeout, Data}} -> % Only on Windows
+            "Do something with this data..."
+            ok;
+        :
+```
+
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no data
