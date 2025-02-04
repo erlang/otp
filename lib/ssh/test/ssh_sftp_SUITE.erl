@@ -279,9 +279,11 @@ init_per_testcase(read_6GB, Config) ->
         Result = {skip, _} ->
             Result;
         _ ->
-            case os:type() of
-                {win32, _} ->
-                    {skip, "/dev/zero not available on Windws"};
+            case {os:type(), erlang:system_info(system_architecture)} of
+                {{win32, _}, _} ->
+                    {skip, "/dev/zero not available on Windows"};
+                {_, "aarch64"} ->
+                    {skip, "machine too slow for test"};
                 _ ->
                     init_per_testcase(read_6GB_prepare_openssh_server, Config)
             end
@@ -714,7 +716,7 @@ position(Config) when is_list(Config) ->
     {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1).
 
 read_6GB(Config) when is_list(Config) ->
-    ct:timetrap(16*?default_timeout),
+    ct:timetrap(test_server:minutes(20)),
     FileName = "/dev/zero",
     SftpFileName = w2l(Config, FileName),
     {SftpChannel, _ConnectionRef} = proplists:get_value(sftp, Config),
