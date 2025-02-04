@@ -19,7 +19,7 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "master"
     schedule:
       interval: "weekly"
@@ -33,7 +33,7 @@ updates:
       github-actions:
         patterns: ['*']
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "maint"
     schedule:
       interval: "weekly"
@@ -47,7 +47,7 @@ updates:
       github-actions:
         patterns: ['*']
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "maint-27"
     schedule:
       interval: "weekly"
@@ -61,7 +61,7 @@ updates:
       github-actions:
         patterns: ['*']
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "maint-26"
     schedule:
       interval: "weekly"
@@ -75,7 +75,7 @@ updates:
       github-actions:
         patterns: ['*']
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "maint-25"
     schedule:
       interval: "weekly"
