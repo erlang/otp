@@ -47,6 +47,7 @@ concurrency:
 env:
     ## Equivalent to github.event_name == 'pull_request' ? github.base_ref : github.ref_name
     BASE_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+    OTP_SBOM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
 
 permissions:
   contents: read
@@ -155,7 +156,7 @@ jobs:
             BOOTSTRAP: ${{ steps.cache.outputs.bootstrap }}
             CONFIGURE: ${{ steps.cache.outputs.configure }}
             EVENT: ${{ github.event_name }}
-            DELETED: ${{ steps.cache.outputs.deleted_files }}
+            DELETED: ${{ fromJson(steps.cache.outputs.deleted_count) > 20 && '[]' || steps.cache.outputs.deleted_files }}
         run: |
             .github/scripts/restore-from-prebuilt.sh "`pwd`" \
               "`pwd`/.github/otp.tar.gz" \
@@ -607,15 +608,82 @@ jobs:
           path: |
             make_test_dir/*_junit.xml
 
+  ## If you want to speedup this step for testing the easiest way is to create
+  ## these two commits:
+  ##
+  ##   git rm -rf lib erts system && git revert HEAD
+  ##
+  ## and then create a step that that does this:
+  ##
+  ##   - name: SBOM Sha
+  ##     run: echo "sha=$(git rev-parse HEAD~1)" >> $GITHUB_OUTPUT
+  ##
+  ## and then make sure to use that sha instead of env.OTP_SBOM_VERSION
+  sbom:
+    name: Create SBOM
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/OTP-')
+    steps:
+      - name: Use HTTPS instead of SSH for Git cloning
+        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+      - name: Checkout project
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+
+      - name: Fetch Default ORT Config
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
+        with:
+          repository: oss-review-toolkit/ort-config
+          ref: "main"
+          path: ".ort-config"
+
+      - name: Setup ORT Config
+        id: setup-ort-config
+        run: |
+            mkdir -p "/$HOME/.ort/"
+
+            # Move Fetched Default Config into Place
+            mv .ort-config "/$HOME/.ort/config"
+
+            # Append Global ORT Config
+            cat .ort/config/config.yml >> "$HOME/.ort/config/config.yml"
+
+      - name: Run OSS Review Toolkit
+        id: ort
+        # TODO: Use released version once the following issue has been released:
+        # * https://github.com/oss-review-toolkit/ort-ci-github-action/issues/37
+        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/41
+        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/43
+        uses: maennchen/ort-ci-github-action@37e64506008cb4418bf2b03eba951f26254dde0f # ratchet:maennchen/ort-ci-github-action@action-output
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:sha-b71d16f
+            run: >
+              labels,
+              cache-dependencies,
+              cache-scan-results,
+              analyzer,
+              scanner,
+              advisor,
+              reporter,
+              'upload-results',
+              'upload-scan-result'
+            fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
+            report-formats: "SpdxDocument"
+            ort-cli-report-args: '-O SpdxDocument=outputFileFormats=JSON'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
     name: Release Erlang/OTP
     runs-on: ubuntu-latest
-    needs: documentation
+    needs:
+        - documentation
+        - sbom
     if: startsWith(github.ref, 'refs/tags/OTP-') && github.repository == 'erlang/otp'
     ## Needed to create releases
     permissions:
       contents: write
+      attestations: write
+      id-token: write
     steps:
       ## This step outputs the tag name and whether the tag is a release or patch
       ## (all releases have only two version identifiers, while patches have three
@@ -643,6 +711,10 @@ jobs:
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
         with:
           name: otp_doc_man
+    
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
+        with:
+          otp-version: "27"
 
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
@@ -657,6 +729,50 @@ jobs:
           FILES=$(ls {*.tar.gz,*.txt})
           md5sum $FILES > MD5.txt
           sha256sum $FILES > SHA256.txt
+    
+      - name: Download SBoM
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+
+      - name: Download ORT Scan Results
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        with:
+            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
+
+      - name: Process SBOM
+        run: |
+            ls *.json
+            .github/scripts/otp-compliance.es sbom otp-info --sbom-file bom.spdx.json --input-file scan-result.json
+
+      - name: Attest Distribution Assets with SBoM
+        id: attest-sbom
+        uses: actions/attest-sbom@115c3be05ff3974bcbd596578934b3f9ce39bf68 # ratchet:actions/attest-sbom@v2
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            bom.*.json
+            bom.*.yml
+            bom.*.xml
+          sbom-path: bom.spdx.json
+
+      - name: "Copy SBoM provenance"
+        id: sbom-provenance
+        shell: bash
+        run: |
+          shopt -s nullglob
+          mkdir attestations
+          for FILE in artifacts/*.tar.gz bom.*.xml bom.*.json bom.*.yml; do
+            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
+          done
+        env:
+          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+      - name: "Assemble Distribution Attestations"
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # ratchet:actions/upload-artifact@v4
+        with:
+
+          name: "Attestations"
+          path: "attestations/*.sigstore"
 
       - name: Upload pre-built and doc tar archives
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # ratchet:softprops/action-gh-release@v2.2.1
@@ -665,6 +781,9 @@ jobs:
           files: |
             artifacts/*.tar.gz
             artifacts/*.txt
+            attestations/*.sigstore
+            scan-report-web-app.html
+            bom.*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy on erlang.org
