@@ -248,6 +248,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 hibernate_after = HibernateAfter}},
     proc_lib:set_label({tls_sender, Role, {connection, Pid}}),
     put(log_level, LogLevel),
+    put(tls_role, Role),
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(info = Type, Msg, StateData) ->
     handle_common(init, Type, Msg, StateData);

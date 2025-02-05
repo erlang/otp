@@ -120,6 +120,7 @@ init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
                                              Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},
+    put(tls_role, client),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options,
                                           ?CLIENT_ROLE, State0),

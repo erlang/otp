@@ -111,6 +111,7 @@ init([?SERVER_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
                                              Host, Port, Socket, Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},
+    put(tls_role, server),
     try
 	State = ssl_gen_statem:init_ssl_config(State0#state.ssl_options, ?SERVER_ROLE, State0),
         tls_gen_connection:initialize_tls_sender(State),

@@ -142,6 +142,7 @@ init([Role, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
                                                    Socket, Options, User, CbInfo),
     #state{static_env = #static_env{user_socket = UserSocket}} = State0,
     User ! {self(), user_socket, UserSocket},
+    put(tls_role, client),
     try
         State1 = #state{static_env = #static_env{session_cache = Cache,
                                                  session_cache_cb = CacheCb
