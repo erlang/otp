@@ -1307,8 +1307,8 @@ dnl esock
 dnl -------------
 
 AC_ARG_ENABLE(esock,
-AS_HELP_STRING([--enable-esock], [enable builtin experimental socket (as a nif) support (default)])
-AS_HELP_STRING([--disable-esock], [disable builtin experimental socket (as a nif) support]),
+AS_HELP_STRING([--enable-esock], [enable builtin socket (as a nif) support (default)])
+AS_HELP_STRING([--disable-esock], [disable builtin socket (as a nif) support]),
   [ case "$enableval" in
     no) enable_esock=no ;;
     *)  enable_esock=yes ;;
@@ -1342,6 +1342,17 @@ dnl Temporary! Currently we require eei to be *explicitly*
 dnl disabled (for debug reasons).
 if test "x$enable_esock_extended_error_info" != "xno"; then
     AC_DEFINE(ESOCK_USE_EXTENDED_ERROR_INFO, [1], [Use extended error info])
+fi
+
+
+dnl *** ESOCK_VERBOSE_MTX_NAMES ***
+
+AC_ARG_ENABLE(esock_verbose_mtx_names,
+AS_HELP_STRING([--enable-esock-verbose-mtx-names], [enable use of verbose mutex names (default)])
+AS_HELP_STRING([--disable-esock-verbose-mtx-names], [disable use of verbose mutex names]))
+
+if test "x$enable_esock_verbose_mtx_names" != "xno"; then
+    AC_DEFINE(ESOCK_VERBOSE_MTX_NAMES, [1], [Use verbose mutex names])
 fi
 
 

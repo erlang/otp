@@ -854,6 +854,7 @@ enable_builtin_zlib
 enable_esock
 enable_esock_use_rcvsndtimeo
 enable_esock_extended_error_info
+enable_esock_verbose_mtx_names
 with_esock_counter_size
 enable_esock_socket_registry
 with_clock_resolution
@@ -1605,6 +1606,10 @@ Optional Features:
                           enable use of extended error info
   --disable-esock-extended-error-info
                           disable use of extended error info (default)
+  --enable-esock-verbose-mtx-names
+                          enable use of verbose mutex names (default)
+  --disable-esock-verbose-mtx-names
+                          disable use of verbose mutex names
   --enable-esock-socket-registry
                           enable use of the socket registry by default
                           (default)
@@ -16531,6 +16536,21 @@ fi
 if test "x$enable_esock_extended_error_info" != "xno"; then
 
 printf "%s\n" "#define ESOCK_USE_EXTENDED_ERROR_INFO 1" >>confdefs.h
+
+fi
+
+
+
+# Check whether --enable-esock_verbose_mtx_names was given.
+if test ${enable_esock_verbose_mtx_names+y}
+then :
+  enableval=$enable_esock_verbose_mtx_names;
+fi
+
+
+if test "x$enable_esock_verbose_mtx_names" != "xno"; then
+
+printf "%s\n" "#define ESOCK_VERBOSE_MTX_NAMES 1" >>confdefs.h
 
 fi
 
