@@ -3761,7 +3761,7 @@ an explanation of `TimeoutOrHandle`.
 -spec sendto(Socket :: socket(), Data :: iodata(),
              Dest :: sockaddr(), Flags ::  [msg_flag() | integer()]) -> dynamic();
             (Socket :: socket(), Data :: iodata(),
-             Cont :: select_info(), Timeout :: timeout() | Handle  :: nowait | select_handle()) -> dynamic();
+             Cont :: select_info(), Timeout :: timeout() | 'nowait' | Handle :: select_handle()) -> dynamic();
             (Socket :: socket(), Data :: iodata(),
              Dest :: sockaddr(), Timeout :: timeout() | 'nowait' | Handle :: select_handle() | completion_handle()) -> dynamic().
 
