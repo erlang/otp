@@ -605,7 +605,7 @@ splitter(Left, Right, 0) ->
     {Left, Right};
 splitter(<<>>, Right, RelPos) ->
     split_iolist(Right, RelPos);
-splitter(Left, [A | Right], RelPos) when is_list(A) or is_binary(A) ->
+splitter(Left, [A | Right], RelPos) when is_list(A) ; is_binary(A) ->
     Sz = erlang:iolist_size(A),
     case Sz > RelPos of
 	true ->
@@ -629,7 +629,7 @@ skip_iolist(L, Pos) when is_list(L) ->
 
 skipper(Right, 0) ->
     Right;
-skipper([A | Right], RelPos) when is_list(A) or is_binary(A) ->
+skipper([A | Right], RelPos) when is_list(A) ; is_binary(A) ->
     Sz = erlang:iolist_size(A),
     case Sz > RelPos of
 	true ->
