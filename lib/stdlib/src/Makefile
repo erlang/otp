@@ -134,7 +134,8 @@ MODULES= \
 	unicode_util \
 	uri_string \
 	win32reg \
-	zip
+	zip \
+	zstd
 
 HRL_FILES= \
 	../include/assert.hrl \

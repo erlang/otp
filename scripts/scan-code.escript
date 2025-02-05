@@ -47,7 +47,8 @@ reviewed() ->
       <<"autoconf-simple-exception">>, <<"unicode">>, <<"tcl">>, <<"gpl-2.0 WITH classpath-exception-2.0">>,
       <<"zlib">>, <<"lgpl-2.0-plus WITH wxwindows-exception-3.1">>,
       <<"openssl-ssleay">>, <<"cc-by-sa-3.0">>, <<"cc-by-4.0">>, <<"dco-1.1">>, <<"fsf-ap">>,
-      <<"classpath-exception-2.0">>, <<"ietf-trust">>, <<"apache-2.0-or-lgpl-2.1-or-later">> ].
+      <<"classpath-exception-2.0">>, <<"ietf-trust">>, <<"apache-2.0-or-lgpl-2.1-or-later">>,
+      <<"bsd-new OR gpl-2.0">> ].
 
 not_approved() ->
     [<<"gpl">>, <<"gpl-3.0-plus">>, <<"gpl-2.0">>, <<"gpl-1.0-plus">>, <<"unlicense">>,
@@ -146,8 +147,20 @@ execute(Command, Config) ->
     maps:get(sarif, Config) =/= undefined andalso
         sarif(maps:get(sarif, Config), Errors),
 
-    Errors =/= [] andalso erlang:raise(exit, Errors, []),
-    ok.
+    SortedErrors = lists:sort(
+                     fun(#{ msg := AMsg } = A, #{ msg := BMsg } = B) ->
+                             if AMsg =:= BMsg ->
+                                     A =< B;
+                                true ->
+                                     AMsg =< BMsg
+                             end
+                     end, Errors),
+
+    [io:format(standard_error, "~ts:\n  Msg: ~p\n  License: ~ts\n  SPDX: ~ts\n", [Path, Msg, License, Spdx]) ||
+                  #{ msg := Msg, spdx := Spdx, license := License, path := Path } <- SortedErrors],
+
+     Errors =/= [] andalso erlang:raise(exit, SortedErrors, []),
+     ok.
 
 compliance_check(Licenses) when is_list(Licenses) ->
     lists:foldl(fun ({Path, License, SPDX0, Copyright}, Acc) ->
@@ -155,7 +168,11 @@ compliance_check(Licenses) when is_list(Licenses) ->
                         CopyrightResult = check_copyright(Copyright),
                         LicenseResult = compliance_check(License),
                         R = lists:foldl(fun (ok, Acc0) -> Acc0;
-                                            ({error, Msg}, Acc0) -> [{SPDX, Path, Msg} | Acc0]
+                                            ({error, Msg}, Acc0) ->
+                                                [#{ license => License,
+                                                    spdx => SPDX,
+                                                    path => Path,
+                                                    msg => Msg} | Acc0]
                                         end, [], [CopyrightResult, LicenseResult]),
                         R ++ Acc
                     end, [], Licenses);
