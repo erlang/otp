@@ -61,7 +61,6 @@ The following data types are used in the functions for mod_esi:
   - **`{http_LowerCaseHTTPHeaderName, string()}`** - example:
     \{http_content_type, "text/html"\}
 """.
--moduledoc(#{titles => [{callback,<<"ESI Callback Functions">>}]}).
 
 %% API
 %% Functions provided to help erl scheme alias programmer to 
@@ -143,7 +142,7 @@ where `Input` is `{first, Data::binary()}` or
 The input `State` is the last returned `State`, in it the callback can include
 any data that it needs to keep track of when handling the chunks.
 """.
--doc(#{title => <<"ESI Callback Functions">>}).
+-doc(#{group => <<"ESI Callback Functions">>}).
 -callback 'Function'(SessionID, Env, Input) -> {continue, State} | _
                         when
                             SessionID :: term(),

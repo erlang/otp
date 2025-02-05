@@ -85,28 +85,23 @@ However, [ex_doc] is still used to generate HTML docs for the `edoc` application
 #### Grouping
 
 It is possible to create groups of types and/or functions within a module using
-documentation metadata. To do that you need to do two things:
-
-1. Add the key `titles` to the `moduledoc` metadata with a list containing which
-  groups you want.
-2. Add the key `title` to each type and/or function you want to be listed within
-  that group.
+documentation metadata. To do that you need to add the key `group` to each type
+and/or function you want to be listed within that group.
 
 Example:
 
 ```erlang
 -module(test).
 -moduledoc "A test module".
--moduledoc(#{ titles => [{function, <<"Obsolete API">>}, {type, <<"Obsolete API">>}] }).
 
 -export([old_function/0]).
 
 -doc "An old type".
--doc(#{ title => <<"Obsolete API">> }).
+-doc(#{group => <<"Obsolete API">> }).
 -type old_type() :: term().
 
 -doc "An old function".
--doc(#{ title => <<"Obsolete API">> }).
+-doc(#{group => <<"Obsolete API">> }).
 old_function() -> very_old.
 ```
 

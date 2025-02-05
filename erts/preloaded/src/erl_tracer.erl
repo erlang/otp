@@ -183,8 +183,7 @@ static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 ```
 """.
--moduledoc(#{since => "OTP 19.0",
-             titles => [{callback,<<"Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 19.0"}).
 
 -export([enabled/3, trace/5, on_load/0]).
 
@@ -266,7 +265,7 @@ tracee.
 This function can be called multiple times per tracepoint, so it is important
 that it is both fast and without side effects.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag() | trace_status,
       TracerState :: term(),
@@ -279,7 +278,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_call/3`](`c:enabled_call/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_call(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_call(),
       TracerState :: term(),
@@ -292,7 +291,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_garbage_collection/3`](`c:enabled_garbage_collection/3`) is
 undefined, [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_garbage_collection(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_gc(),
       TracerState :: term(),
@@ -305,7 +304,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_ports/3`](`c:enabled_ports/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_ports(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_ports(),
       TracerState :: term(),
@@ -318,7 +317,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_procs/3`](`c:enabled_procs/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_procs(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_procs(),
       TracerState :: term(),
@@ -331,7 +330,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_receive/3`](`c:enabled_receive/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_receive(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_receive(),
       TracerState :: term(),
@@ -344,7 +343,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_running_ports/3`](`c:enabled_running_ports/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_running_ports(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_running_ports(),
       TracerState :: term(),
@@ -357,7 +356,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_running_procs/3`](`c:enabled_running_procs/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_running_procs(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_running_procs(),
       TracerState :: term(),
@@ -370,7 +369,7 @@ This callback is called whenever a tracepoint with trace flag
 If [`enabled_send/3`](`c:enabled_send/3`) is undefined,
 [`Module:enabled/3`](`c:enabled/3`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback enabled_send(TraceTag, TracerState, Tracee) -> Result when
       TraceTag :: trace_tag_send(),
       TracerState :: term(),
@@ -396,7 +395,7 @@ specified.
 For more information on what `Label` and `SeqTraceInfo` can be, see
 `m:seq_trace`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace(seq_trace, TracerState, Label, SeqTraceInfo, Opts) -> Result when
       TracerState :: term(),
       Label :: term(),
@@ -417,7 +416,7 @@ This callback is called when a tracepoint is triggered and the
 If [`trace_call/5`](`c:trace_call/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_call(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_call(),
       TracerState :: term(),
@@ -433,7 +432,7 @@ callback returned `trace`.
 If [`trace_garbage_collection/5`](`c:trace_garbage_collection/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_garbage_collection(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_gc(),
       TracerState :: term(),
@@ -448,7 +447,7 @@ This callback is called when a tracepoint is triggered and the
 If [`trace_ports/5`](`c:trace_ports/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_ports(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag(),
       TracerState :: term(),
@@ -463,7 +462,7 @@ This callback is called when a tracepoint is triggered and the
 If [`trace_procs/5`](`c:trace_procs/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_procs(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag(),
       TracerState :: term(),
@@ -478,7 +477,7 @@ This callback is called when a tracepoint is triggered and the
 If [`trace_receive/5`](`c:trace_receive/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_receive(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_receive(),
       TracerState :: term(),
@@ -494,7 +493,7 @@ returned `trace`.
 If [`trace_running_ports/5`](`c:trace_running_ports/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_running_ports(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_running_ports(),
       TracerState :: term(),
@@ -510,7 +509,7 @@ returned `trace`.
 If [`trace_running_procs/5`](`c:trace_running_procs/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_running_procs(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_running_procs(),
       TracerState :: term(),
@@ -525,7 +524,7 @@ This callback is called when a tracepoint is triggered and the
 If [`trace_send/5`](`c:trace_send/5`) is undefined,
 [`Module:trace/5`](`c:trace/5`) is called instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.0">>}).
+-doc(#{since => <<"OTP 19.0">>}).
 -callback trace_send(TraceTag, TracerState, Tracee, TraceTerm, Opts) -> Result when
       TraceTag :: trace_tag_send(),
       TracerState :: term(),
