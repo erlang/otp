@@ -63,6 +63,9 @@
 
 
 extern
+ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock);
+
+extern
 ERL_NIF_TERM esock_make_extra_error_info_term(ErlNifEnv*   env,
                                               const char*  file,
                                               const char*  function,
