@@ -709,7 +709,7 @@ static ERL_NIF_TERM decompress_stream_nif(ErlNifEnv *env,
            can find the total decompressed size and if so use it
            as the decompress chunk size. */
         if (!ctx->in_use) {
-            size_t decompressedSize;
+            unsigned long long decompressedSize;
             ErlNifBinary bin;
 
             if (!enif_inspect_binary(env, argv[1], &bin)) {
