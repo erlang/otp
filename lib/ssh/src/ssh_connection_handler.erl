@@ -68,6 +68,7 @@
          retrieve/2,
 	 info/1, info/2,
 	 connection_info/2,
+	 connection_info_server/1,
 	 channel_info/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
@@ -307,6 +308,18 @@ connection_info(ConnectionHandler, Key) when is_atom(Key) ->
     end;
 connection_info(ConnectionHandler, Options) ->
     call(ConnectionHandler, {connection_info, Options}).
+
+%%--------------------------------------------------------------------
+connection_info_server(D) when is_tuple(D) ->
+    Keys = [client_version,
+            server_version,
+            peer,
+            user,
+            sockname,
+            options,
+            algorithms
+           ],
+    fold_keys(Keys, fun conn_info/2, D).
 
 %%--------------------------------------------------------------------
 -spec channel_info(connection_ref(),
@@ -725,7 +738,7 @@ handle_event(internal, #ssh_msg_disconnect{description=Desc} = Msg, StateName, D
     {disconnect, _, RepliesCon} =
 	ssh_connection:handle_msg(Msg, D0#data.connection_state, ?role(StateName), D0#data.ssh_params),
     {Actions,D} = send_replies(RepliesCon, D0),
-    disconnect_fun("Received disconnect: "++Desc, D),
+    disconnect_fun("Received disconnect: "++Desc, D, disconnect_received),
     {stop_and_reply, {shutdown,Desc}, Actions, D};
 
 handle_event(internal, #ssh_msg_ignore{}, {_StateName, _Role, init},
@@ -1240,7 +1253,7 @@ handle_event(info, {CloseTag,Socket}, _StateName,
                         transport_close_tag = CloseTag,
                         connection_state = C0}) ->
     {Repls, D} = send_replies(ssh_connection:handle_stop(C0), D0),
-    disconnect_fun("Received a transport close", D),
+    disconnect_fun("Received a transport close", D, transport_close_received),
     {stop_and_reply, {shutdown,"Connection closed"}, Repls, D};
 
 handle_event(info, {timeout, {_, From} = Request}, _,
@@ -1794,11 +1807,17 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
                               description = Reason},
     D = send_msg(Msg, D0),
     LogMsg = io_lib:format("Disconnects with code = ~p [RFC4253 11.1]: ~s",[Code,Reason]),
-    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D),
+    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, Code),
     {{shutdown,Reason}, D}.
 
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
-    case disconnect_fun(LogMsg, D) of
+    call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, undefined).
+call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D, Code) ->
+    Reason = case Code of
+                 undefined -> internal_disconnect;
+                 Code when is_integer(Code) -> disconnect_sent
+             end,
+    case disconnect_fun(LogMsg, D, Reason, DetailedText, Code) of
         void ->
             log(info, D,
                 "~s~n"
@@ -1842,7 +1861,8 @@ conn_info_keys() ->
      sockname,
      options,
      algorithms,
-     channels
+     channels,
+     user_auth
     ].
 
 conn_info(client_version, #data{ssh_params=S}) -> {S#ssh.c_vsn, S#ssh.c_version};
@@ -1864,7 +1884,8 @@ conn_info(socket, D) ->   D#data.socket;
 conn_info(chan_ids, D) ->
     ssh_client_channel:cache_foldl(fun(#channel{local_id=Id}, Acc) ->
 				    [Id | Acc]
-			    end, [], cache(D)).
+                                   end, [], cache(D));
+conn_info(user_auth, #data{ssh_params=#ssh{last_userauth_tried=UserAuth}}) -> UserAuth.
 
 conn_info_chans(Chs) ->
     Fs = record_info(fields, channel),
@@ -2029,8 +2050,25 @@ get_repl(X, Acc) ->
     exit({get_repl,X,Acc}).
 
 %%%----------------------------------------------------------------
-%%disconnect_fun({disconnect,Msg}, D) -> ?CALL_FUN(disconnectfun,D)(Msg);
-disconnect_fun(Reason, D)           -> ?CALL_FUN(disconnectfun,D)(Reason).
+disconnect_fun(ReasonText, D, Reason) -> disconnect_fun(ReasonText, D, Reason, ReasonText, undefined).
+disconnect_fun(ReasonText, D, Reason, Details, Code) ->
+    Fun = ?GET_OPT(disconnectfun, (D#data.ssh_params)#ssh.opts),
+    case erlang:fun_info(Fun, arity) of
+        {arity, 1} ->
+            Fun(ReasonText);
+        {arity, 2} ->
+            Keys = [client_version,
+                    server_version,
+                    peer,
+                    user,
+                    sockname,
+                    options,
+                    algorithms,
+                    user_auth
+                   ],
+            ConnInfo = fold_keys(Keys, fun conn_info/2, D),
+            Fun(Reason, #{code => Code, details => Details, connection_info => ConnInfo})
+    end.
 
 unexpected_fun(UnexpectedMessage, #data{ssh_params = #ssh{peer = {_,Peer} }} = D) ->
     ?CALL_FUN(unexpectedfun,D)(UnexpectedMessage, Peer).
