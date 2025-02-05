@@ -40,6 +40,8 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
                  strict_ra=[],         % Strict record accesses
                  checked_ra=[],        % Successfully accessed records
                  dialyzer=false,       % Compiler option 'dialyzer'
+                 rec_init_count=0,     % Number of generated record init functions
+                 new_forms=#{},        % New forms
                  strict_rec_tests=true :: boolean()
                 }).
 
@@ -95,6 +97,12 @@ forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
 forms([F | Fs0], St0) ->
     {Fs,St} = forms(Fs0, St0),
     {[F | Fs], St};
+forms([], #exprec{new_forms=FsN}=St) ->
+    {[{'function', Anno,
+                   maps:get(Def,FsN),
+                   0,
+                   [{'clause', Anno, [], [], [Def]}]}
+      || {_,Anno,_}=Def <- maps:keys(FsN)], St};
 forms([], St) -> {[],St}.
 
 clauses([{clause,Anno,H0,G0,B0} | Cs0], St0) ->
@@ -262,6 +270,42 @@ not_a_tuple({op,_,_,_}) -> true;
 not_a_tuple({op,_,_,_,_}) -> true;
 not_a_tuple(_) -> false.
 
+traverse_af(AF, Fun) ->
+    traverse_af(AF, Fun, []).
+traverse_af(AF, Fun, Acc) when is_list(AF) ->
+    [ traverse_af(Ast, Fun, Fun(Ast,Acc)) || Ast <- AF];
+traverse_af(AF, Fun, Acc) when is_tuple(AF) ->
+    %% Iterate each tuple element, if the element is an AF, traverse it
+    [[(fun  (List) when is_list(List) ->
+                            traverse_af(List, Fun, Acc);
+            (Tuple) when is_tuple(Tuple)->
+                            case erl_anno:is_anno(Tuple) of
+                                true -> [];
+                                false -> traverse_af(Tuple, Fun, Fun(Tuple,Acc))
+                            end;
+            (_) -> []
+        end)(Term) || Term <- tuple_to_list(AF)],Acc];
+traverse_af(_, _, Acc) -> Acc.
+save_vars({var, _, Var}, _) -> Var;
+save_vars(_, Acc) -> Acc.
+free_variables(AF, Acc) ->
+    try
+            _=traverse_af(AF, fun free_variables1/2, Acc),
+            false
+    catch
+            throw:{error,unsafe_variable} -> true
+    end.
+free_variables1({'fun',_anno,{clauses, _}}, Acc) ->
+    {function,Acc}; %% tag that we are in a 'fun' now that can define new variables
+free_variables1({clause,_anno,Pattern,_guards,_body}, {function,Acc}) ->
+    lists:flatten(traverse_af(Pattern, fun save_vars/2, [])++Acc);
+free_variables1({var, _, Var}, Acc) ->
+    case lists:member(Var, Acc) of
+        true -> Acc;
+        false -> throw({error, unsafe_variable})
+    end;
+free_variables1(_, Acc) -> Acc.
+
 record_test_in_body(Anno, Expr, Name, St0) ->
     %% As Expr may have side effects, we must evaluate it
     %% first and bind the value to a new variable.
@@ -335,9 +379,35 @@ expr({record_index,Anno,Name,F}, St) ->
     expr(I, St);
 expr({record,Anno0,Name,Is}, St) ->
     Anno = mark_record(Anno0, St),
-    expr({tuple,Anno,[{atom,Anno0,Name} |
-                      record_inits(record_fields(Name, Anno0, St), Is)]},
-         St);
+    R_init = [{atom,Anno,Name} |
+              record_inits(record_fields(Name, Anno0, St), Is)],
+    Vars = lists:flatten(traverse_af(Is, fun save_vars/2)),
+    %% If R_init contains free variables that was not bound via Is
+    case free_variables(R_init, Vars) of
+        true ->
+            IsUndefined = [{RF, AnnoRF, Field, {atom, AnnoRF, 'undefined'}} || {record_field=RF, AnnoRF, Field, _} <- Is],
+            R_default_init = [{atom,Anno,Name} |
+                                record_inits(record_fields(Name, Anno0, St),IsUndefined)],
+            %% add a function to the module that returns the
+            %% initialized record, we generate different init functions
+            %% depending on which fields that will override the default value
+            {Def, St1} = expr({tuple,Anno,R_default_init},St),
+            Map=St1#exprec.new_forms,
+            {FName,St2} = case maps:get(Def, Map, undefined) of
+                undefined->
+                    C=St1#exprec.rec_init_count,
+                    NewName=list_to_atom("rec_init$^" ++ integer_to_list(C)),
+                    {NewName, St1#exprec{rec_init_count=C+1, new_forms=Map#{Def=>NewName}}};
+                OldName -> {OldName,St1}
+            end,
+            %% replace the init record expression with a call expression
+            %% to the newly added function and a record update
+            expr({record, Anno0, {call,Anno,{atom,Anno,FName},[]}, Name, Is},St2);
+        false ->
+            %% No free variables means that we can just
+            %% output the record as a tuple.
+            expr({tuple,Anno,R_init},St)
+    end;
 expr({record_field,_A,R,Name,F}, St) ->
     Anno = erl_parse:first_anno(R),
     get_record_field(Anno, R, F, Name, St);

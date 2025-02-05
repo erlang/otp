@@ -272,7 +272,34 @@ init(Config) when is_list(Config) ->
            t() ->
                catch #{ok => ok || #r1{}},
                ok.
-           """
+           """,
+          ~"""
+           -record(r0, {a=[X||X<-[cucumber,banan]],
+                        b=case {cucumber,banan} of X -> X; _ -> ok end,
+                        c=fun()->{X,_} = {cucumber,banan}, X end}).
+           -record(r1, {a=[X||X<-[side_effect(a)]],
+                        b=[X||X<-[side_effect(b)]]}).
+           side_effect(X) -> self() ! {side_effect, X}, ok.
+           t() ->
+             %% Test that X does not affect default initialization
+             X = {yes, no},
+             {yes,no} = X,
+             #r0{a=[cucumber,banan], b={cucumber,banan}, c=C} = #r0{},
+             cucumber = C(),
+             %% Test that initialization is not done on fields to be initialized
+             %% with other than the default.
+             #r1{a=hello,b=[ok]}=#r1{a=hello},
+             Ok1 = receive
+               {side_effect, b} -> ok;
+               {side_effect, a} -> nok
+             end,
+             Ok2 = receive
+               {side_effect, b} -> ok;
+               {side_effect, a} -> nok
+               after 100 -> ok
+             end,
+             Ok1 = Ok2 = ok.
+          """
          ],
     run(Config, Ts),
     ok.
