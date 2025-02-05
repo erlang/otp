@@ -32,17 +32,19 @@
 
 -export([args_file/1, evil_args_file/1, missing_args_file/1, env/1, args_file_env/1,
          otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
-         zdbbl_dist_buf_busy_limit/1]).
+         zdbbl_dist_buf_busy_limit/1, long_path_env/1, long_path_env_when_rootdir_not_present/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
 
-all() -> 
+all() ->
     [args_file, evil_args_file, missing_args_file, env, args_file_env,
-     otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit].
+     otp_7461, argument_separation, argument_with_option, zdbbl_dist_buf_busy_limit,
+     long_path_env, long_path_env_when_rootdir_not_present].
 
 init_per_suite(Config) ->
     [{suite_erl_flags, save_env()} | Config].
@@ -108,9 +110,9 @@ loop_ping(_,0) ->
 loop_ping(Node,N) ->
     case net_adm:ping(Node) of
 	pang ->
-	    receive 
+	    receive
 	    after 500 ->
-		    ok 
+		    ok
 	    end,
 	    loop_ping(Node, N-1);
 	pong ->
@@ -147,7 +149,7 @@ argument_with_option(Config) when is_list(Config) ->
                         ok
                 end
         end,
-    
+
     [begin
          MissingCheck(CmdLine,"-",""),
 
@@ -172,7 +174,7 @@ argument_with_option(Config) when is_list(Config) ->
      end || CmdLine <- EmuSingle],
 
     ErlDouble = ["env"],
-    
+
     [begin
          MissingCheck(CmdLine,"-",""),
          MissingCheck(CmdLine,"-"," a"),
@@ -354,16 +356,16 @@ args_file_env(Config) when is_list(Config) ->
     ok.
 
 %% Make sure "erl -detached" survives when parent process group gets killed
-otp_7461(Config) when is_list(Config) ->   
+otp_7461(Config) when is_list(Config) ->
     case os:type() of
     	{unix,_} ->
 	    {NetStarted, _} = net_kernel:start([test_server, shortnames]),
 	    try
 		net_kernel:monitor_nodes(true),
-		register(otp_7461, self()),	    
+		register(otp_7461, self()),
 
-		otp_7461_do(Config)		
-	    after 
+		otp_7461_do(Config)
+	    after
 		catch unregister(otp_7461),
 	        catch net_kernel:monitor_nodes(false),
 	        case NetStarted of
@@ -374,7 +376,7 @@ otp_7461(Config) when is_list(Config) ->
 	_ ->
 	    {skip,"Only on Unix."}
     end.
-	
+
 otp_7461_do(Config) ->
     io:format("alive=~p node=~p\n",[is_alive(), node()]),
     TestProg = filename:join([proplists:get_value(data_dir, Config), "erlexec_tests"]),
@@ -384,32 +386,32 @@ otp_7461_do(Config) ->
 	" -setcookie " ++ atom_to_list(erlang:get_cookie()) ++
 	" -pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -s erlexec_SUITE otp_7461_remote init " ++ atom_to_list(node()),
-    
+
     %% otp_7461 --------> erlexec_tests.c --------> cerl -detached
     %%          open_port                 fork+exec
-    
+
     io:format("spawn port prog ~p\n",[Cmd]),
     Port = open_port({spawn, Cmd}, [eof]),
-    
-    io:format("Wait for node to connect...\n",[]),    
+
+    io:format("Wait for node to connect...\n",[]),
     {nodeup, Slave} = receive Msg -> Msg
 			    after 20*1000 -> timeout end,
     io:format("Node alive: ~p\n", [Slave]),
-    
+
     pong = net_adm:ping(Slave),
     io:format("Ping ok towards ~p\n", [Slave]),
-    
+
     Port ! { self(), {command, "K"}}, % Kill child process group
     {Port, {data, "K"}} = receive Msg2 -> Msg2 end,
     port_close(Port),
-    
+
     %% Now the actual test. Detached node should still be alive.
     pong = net_adm:ping(Slave),
     io:format("Ping still ok towards ~p\n", [Slave]),
-    
+
     %% Halt node
     rpc:cast(Slave, ?MODULE, otp_7461_remote, [[halt, self()]]),
-    
+
     {nodedown, Slave} = receive
                             Msg3 -> Msg3
                         after 20*1000 -> timeout
@@ -417,7 +419,7 @@ otp_7461_do(Config) ->
     io:format("Node dead: ~p\n", [Slave]),
     ok.
 
-      	    
+
 %% Executed on slave node
 otp_7461_remote([init, Master]) ->
     io:format("otp_7461_remote(init,~p) at ~p\n",[Master, node()]),
@@ -442,7 +444,72 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     LimB = rpc:call(SName,erlang,system_info,[dist_buf_busy_limit]),
     ok = cleanup_node(SNameS, 10),
     ok.
-    
+
+long_path_env(Config) when is_list(Config) ->
+    BinPath = os:getenv("BINDIR"),
+    ActualPath = os:getenv("PATH"),
+
+    PathComponents = string:split(ActualPath, pathsep(), all),
+    ActualPathNoBinPath = path_var_join(lists:filter(fun (Path) ->
+                                                          Path =/= BinPath
+                                                  end, PathComponents)),
+    ct:log("BINDIR: ~ts", [BinPath]),
+    ct:log("PATH: ~ts", [ActualPath]),
+
+    LongPath = lists:flatten(lists:duplicate(10240, "x")),
+    {ok, [[PName]]} = init:get_argument(progname),
+    Cmd = PName ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
+
+    compare_erl_path(Cmd, BinPath, ActualPath),
+    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([ActualPath, LongPath, BinPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath])),
+    compare_erl_path(Cmd, BinPath, path_var_join([BinPath, ActualPath, LongPath, BinPath])),
+
+    Output = compare_erl_path(Cmd, BinPath, path_var_join([ActualPathNoBinPath, LongPath])),
+    ?assertEqual(string:find(Output, LongPath), LongPath),
+
+    ok.
+
+long_path_env_when_rootdir_not_present(Config) when is_list(Config) ->
+    BinPath = os:getenv("BINDIR"),
+    RootPath = os:getenv("ROOTDIR"),
+    RootPathWithBin = filename:join(RootPath, "bin"),
+    ActualPath = os:getenv("PATH"),
+    LongPathLength = 10240,
+
+    LongPath = lists:flatten(lists:duplicate(LongPathLength, "x")),
+    {ok, [[PName]]} = init:get_argument(progname),
+    Cmd = "\"" ++ filename:join(RootPathWithBin, PName) ++ "\"" ++ " -noshell -eval 'io:format(\"~ts\", [os:getenv(\"PATH\")]),erlang:halt()'",
+
+    PathComponents = string:split(ActualPath, pathsep(), all),
+    ActualPathNoRoot = path_var_join(lists:filter(fun (Path) ->
+        (Path =/= RootPathWithBin) and (Path =/= (RootPathWithBin ++ "/")) and (Path =/= BinPath)
+    end, PathComponents)),
+
+    os:putenv("PATH", path_var_join([ActualPathNoRoot, LongPath, LongPath])),
+    Output = os:cmd(Cmd),
+
+    ?assertEqual(string:length(string:find(Output, LongPath ++ pathsep() ++ LongPath)), (LongPathLength * 2) + string:length(pathsep())),
+    ok.
+
+compare_erl_path(Cmd, BinPath, Path) ->
+    os:putenv("PATH", Path),
+    Output = os:cmd(Cmd),
+    % BinPath is at the front of PATH and nowhere else
+    ?assertEqual(string:find(Output, BinPath ++ ":"), Output),
+    ?assertEqual(string:find(Output, ":" ++ BinPath), nomatch),
+    Output.
+
+pathsep() ->
+    case os:type() of
+        {win32, _} -> ";";
+        _ -> ":"
+    end.
+
+path_var_join(Paths) ->
+    lists:concat(lists:join(pathsep(), Paths)).
+
 
 %%
 %% Utils
@@ -452,29 +519,31 @@ save_env() ->
     {erl_flags,
      os:getenv("ERL_AFLAGS"),
      os:getenv("ERL_FLAGS"),
-     os:getenv("ERL_"++erlang:system_info(otp_release)++"_FLAGS"),
-     os:getenv("ERL_ZFLAGS")}.
+     os:getenv("ERL_" ++ erlang:system_info(otp_release) ++ "_FLAGS"),
+     os:getenv("ERL_ZFLAGS"),
+     os:getenv("PATH")}.
 
 restore_env(EVar, false) when is_list(EVar) ->
     restore_env(EVar, "");
 restore_env(EVar, "") when is_list(EVar) ->
     case os:getenv(EVar) of
-	false -> ok;
-	"" -> ok;
-	" " -> ok;
-	_ -> os:putenv(EVar, " ")
+    false -> ok;
+    "" -> ok;
+    " " -> ok;
+    _ -> os:putenv(EVar, " ")
     end;
 restore_env(EVar, Value) when is_list(EVar), is_list(Value) ->
     case os:getenv(EVar) of
-	Value -> ok;
-	_ -> os:putenv(EVar, Value)
+    Value -> ok;
+    _ -> os:putenv(EVar, Value)
     end.
 
-restore_env({erl_flags, AFlgs, Flgs, RFlgs, ZFlgs}) ->
+restore_env({erl_flags, AFlgs, Flgs, RFlgs, ZFlgs, Path}) ->
     restore_env("ERL_AFLAGS", AFlgs),
     restore_env("ERL_FLAGS", Flgs),
-    restore_env("ERL_"++erlang:system_info(otp_release)++"_FLAGS", RFlgs),
+    restore_env("ERL_"++erlang:system_info(otp_release) ++ "_FLAGS", RFlgs),
     restore_env("ERL_ZFLAGS", ZFlgs),
+    restore_env("PATH", Path),
     ok.
 
 privfile(Name, Config) ->
@@ -544,7 +613,7 @@ split_emu_clt([A|As], Emu, Misc, Extra, misc = Type) ->
 
 split_emu_clt([A|As], Emu, Misc, Extra, extra = Type) ->
     split_emu_clt(As, Emu, Misc, [A|Extra], Type).
-    
+
 
 get_nodename(T) ->
     atom_to_list(T)
