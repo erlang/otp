@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2022-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -477,9 +477,6 @@ typedef struct {
 #endif
     ESockRequestQueue  readersQ;
 
-    ErlNifBinary       readBuf;
-    ssize_t            readResult;
-
     ESockCounter       readPkgCnt;
     ESockCounter       readPkgMax;
     ESockCounter       readPkgMaxCnt;
@@ -543,6 +540,7 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;
