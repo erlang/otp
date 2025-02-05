@@ -210,21 +210,12 @@ executable by prepending the file with the lines starting with `#!` and `%%!`
 mentioned above. In a precompiled script, the `main/1` function must be
 exported.
 
-Another option is to have an entire Erlang archive in the script. In an archive
-script, the interpretation of the script header is the same as in a script
-containing source code. This means that you can make an archive file executable
-by prepending the file with the lines starting with `#!` and `%%!` mentioned
-above. In an archive script, the `main/1` function must be exported. By default
-the `main/1` function in the module with the same name as the basename of the
-`escript` file is invoked. This behavior can be overridden by setting flag
-`-escript main Module` as one of the emulator flags. `Module` must be the name
-of a module that has an exported `main/1` function. For more information about
-archives and code loading, see `m:escript` and `m:code`.
+It is also possible to have multiple files in a script. See `escript:create/2`.
 
-It is often very convenient to have a header in the escript, especially on Unix
-platforms. However, the header is optional, so you directly can "execute" an
-Erlang module, Beam file, or archive file without adding any header to them. But
-then you have to invoke the script as follows:
+It is often convenient to have a header in the escript, especially on
+Unix platforms. However, the header is optional, so you directly can
+"execute" an Erlang module, Beam file, or archive file without adding
+any header to them. But then you have to invoke the script as follows:
 
 ```text
 $ escript factorial.erl 5

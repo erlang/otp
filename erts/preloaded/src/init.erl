@@ -45,7 +45,6 @@
 %%        -profile_boot    : Use an 'eprof light' to profile boot sequence
 %%        -init_debug      : Activate debug printouts in init
 %%        -loader_debug    : Activate debug printouts in erl_prim_loader
-%%        -code_path_choice : strict | relaxed
 
 -module(init).
 -moduledoc """
@@ -78,17 +77,6 @@ The `init` module interprets the following command-line flags:
 
 - **`--`** - Everything following `--` up to the next flag is considered plain
   arguments and can be retrieved using `get_plain_arguments/0`.
-
-- **`-code_path_choice Choice`** - Can be set to `strict` or `relaxed`. It
-  controls how each directory in the code path is to be interpreted:
-
-  - Strictly as it appears in the `boot script`, or
-  - `init` is to be more relaxed and try to find a suitable directory if it can
-    choose from a regular `ebin` directory and an `ebin` directory in an archive
-    file.
-
-  It defaults to `strict` from OTP 27 and this option is scheduled for removal
-  in OTP 28.
 
 - **`-epmd_module Module`** - This flag is deprecated and has been replaced by
   the `kernel` application parameter [`epmd_module`](`e:kernel:kernel_app.md#epmd_module`).
@@ -262,7 +250,7 @@ error
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
-	 objfile_extension/0, archive_extension/0,code_path_choice/0,
+	 objfile_extension/0,
          get_configfd/1, set_configfd/2]).
 
 -include_lib("kernel/include/file.hrl").
@@ -292,7 +280,6 @@ error
 	 path,
 	 pa,
 	 pz,
-	 path_choice,
 	 prim_load,
 	 load_mode,
 	 vars
@@ -635,18 +622,6 @@ map(_F, []) ->
     [];
 map(F, [X|Rest]) ->
     [F(X) | map(F, Rest)].
-
--doc false.
--spec code_path_choice() -> 'relaxed' | 'strict'.
-code_path_choice() ->
-    case get_argument(code_path_choice) of
-	{ok,[["strict"]]} ->
-	    strict;
-	{ok,[["relaxed"]]} ->
-	    relaxed;
-	_Else ->
-	    strict
-    end.
 
 boot(Start,Flags,Args) ->
     start_on_load_handler_process(),
@@ -1202,9 +1177,7 @@ do_boot(Init,Flags,Start) ->
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
 
-    PathChoice = code_path_choice(),
     Es = #es{init=Init,debug=Deb,path=Path,pa=Pa,pz=Pz,
-	     path_choice=PathChoice,
 	     prim_load=true,load_mode=LoadMode,
 	     vars=BootVars},
     eval_script(BootList, Es),
@@ -1313,12 +1286,10 @@ eval_script([{progress,Info}=Progress|T], #es{debug=Deb}=Es) ->
 eval_script([{preLoaded,_}|T], #es{}=Es) ->
     eval_script(T, Es);
 eval_script([{path,Path}|T], #es{path=false,pa=Pa,pz=Pz,
-				 path_choice=PathChoice,
 				 vars=Vars,debug=Deb}=Es) ->
     debug(Deb, {path,Path},
           fun() ->
-                  RealPath0 = make_path(Pa, Pz, Path, Vars),
-                  RealPath = patch_path(RealPath0, PathChoice),
+                  RealPath = make_path(Pa, Pz, Path, Vars),
                   erl_prim_loader:set_path(RealPath)
           end),
     eval_script(T, Es);
@@ -1442,72 +1413,6 @@ add_var(Path, _) ->
 extract_var([$/|Path],Var) -> {reverse(Var),Path};
 extract_var([H|T],Var)     -> extract_var(T,[H|Var]);
 extract_var([],Var)        -> {reverse(Var),[]}.
-
-patch_path(Dirs, strict) ->
-    Dirs;
-patch_path(Dirs, relaxed) ->
-    ArchiveExt = archive_extension(),
-    [patch_dir(Dir, ArchiveExt) || Dir <- Dirs].
-
-patch_dir(Orig, ArchiveExt) ->
-    case funny_split(Orig, $/) of
-	["nibe", RevApp, RevArchive | RevTop] ->
-	    App = reverse(RevApp),
-	    case funny_splitwith(RevArchive, $.) of
-		{Ext, Base} when Ext =:= ArchiveExt, Base =:= App ->
-		    %% Orig archive
-		    Top = reverse([reverse(C) || C <- RevTop]),
-		    Dir = join(Top ++ [App, "ebin"], "/"),
-		    Archive = Orig;
-		_ ->
-		    %% Orig directory
-		    Top = reverse([reverse(C) || C <- [RevArchive | RevTop]]),
-		    Archive = join(Top ++ [App ++ ArchiveExt, App, "ebin"], "/"),
-		    Dir = Orig
-	    end,
-	    %% First try dir, second try archive and at last use orig if both fails
-	    case erl_prim_loader:read_file_info(Dir) of
-		{ok, #file_info{type = directory}} ->
-		    Dir;
-		_ ->
-		    case erl_prim_loader:read_file_info(Archive) of
-			{ok, #file_info{type = directory}} ->
-			    Archive;
-			_ ->
-			    Orig
-		    end
-	    end;
-	_ ->
-	    Orig
-    end.
-
-%% Returns all lists in reverse order
-funny_split(List, Sep) ->
-   funny_split(List, Sep, [], []).
-
-funny_split([Sep | Tail], Sep, Path, Paths) ->
-    funny_split(Tail, Sep, [], [Path | Paths]);
-funny_split([Head | Tail], Sep, Path, Paths) ->
-    funny_split(Tail, Sep, [Head | Path], Paths);
-funny_split([], _Sep, Path, Paths) ->
-    [Path | Paths].
-
-%% Returns {BeforeSep, AfterSep} where BeforeSep is in reverse order
-funny_splitwith(List, Sep) ->
-    funny_splitwith(List, Sep, [], List).
-
-funny_splitwith([Sep | Tail], Sep, Acc, _Orig) ->
-    {Acc, Tail};
-funny_splitwith([Head | Tail], Sep, Acc, Orig) ->
-    funny_splitwith(Tail, Sep, [Head | Acc], Orig);
-funny_splitwith([], _Sep, _Acc, Orig) ->
-    {[], Orig}.
-
--spec join([string()], string()) -> string().
-join([H1, H2 | T], S) ->
-    H1 ++ S ++ join([H2 | T], S);
-join([H], _) ->
-    H.
 
 %% Servers that are located in the init kernel are linked
 %% and supervised by init.
@@ -1844,11 +1749,6 @@ objfile_extension() ->
 %%      "VEE" -> ".vee";
 %%      "BEAM" -> ".beam"
 %%    end.
-
--doc false.
--spec archive_extension() -> nonempty_string().
-archive_extension() ->
-    ".ez".
 
 %%%
 %%% Support for handling of on_load functions.
