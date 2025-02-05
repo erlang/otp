@@ -1061,7 +1061,7 @@ The Jaro distance between two strings can be calculated with
 jaro_similarity(A0, B0) ->
     {A, ALen} = str_to_gcl_and_length(A0),
     {B, BLen} = str_to_indexmap(B0),
-    Dist = max(ALen, BLen) div 2,
+    Dist = max(1, max(ALen, BLen) div 2),
     {AM, BM} = jaro_match(A, B, -Dist, Dist, [], []),
     if
         ALen =:= 0 andalso BLen =:= 0 ->
