@@ -808,6 +808,9 @@ jaro_similarity(_Config) ->
     ?TEST("Sunday", ["Saturday"], 0.71944444),
 
     %% Short strings (no translations counted)
+    ?TEST("a", ["a"], 1.0),
+    ?TEST("c", ["a"], 0.0),
+    ?TEST("ca", ["ac"], 0.0),
     ?TEST("ca", ["abc"], 0.0),
     ?TEST("ca", ["cb"],  ((1/2+1/2+1)/3)),
     ?TEST("ca", ["cab"], ((2/2+2/3+1)/3)),
