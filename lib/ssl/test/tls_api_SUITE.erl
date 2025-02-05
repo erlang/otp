@@ -142,16 +142,21 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
+     {group, 'tlsv1'},
+     {group, transport_socket}
     ].
 
 groups() ->
     [
-     {'tlsv1.3', [],  (api_tests() ++  [tls_13_reject_change_cipher_spec_as_first_msg,
-                                        tls_13_middlebox_reject_change_cipher_spec_as_first_msg]) -- [sockname]},
-     {'tlsv1.2', [],  api_tests()},
-     {'tlsv1.1', [],  api_tests()},
-     {'tlsv1', [],  api_tests()}
+     {'tlsv1.3', [], [{group, api_tests},
+                      tls_13_reject_change_cipher_spec_as_first_msg,
+                      tls_13_middlebox_reject_change_cipher_spec_as_first_msg
+                     ] ++ seq_test()},
+     {'tlsv1.2', [], [{group, api_tests}] ++ seq_test()},
+     {'tlsv1.1', [], [{group, api_tests}] ++ seq_test()},
+     {'tlsv1', [],  [{group, api_tests}] ++ seq_test()},
+     {transport_socket, [], [{group, api_tests}] ++ seq_test()},
+     {api_tests, [parallel], api_tests()}
     ].
 
 api_tests() ->
@@ -173,7 +178,6 @@ api_tests() ->
      tls_client_closes_socket,
      tls_closed_in_active_once,
      tls_reset_in_active_once,
-     tls_monitor_listener,
      tls_tcp_msg,
      tls_tcp_msg_big,
      tls_dont_crash_on_handshake_garbage,
@@ -185,11 +189,14 @@ api_tests() ->
      sockname,
      tls_server_handshake_timeout,
      transport_close,
-     transport_close_in_inital_hello,
      emulated_options,
      accept_pool,
      reuseaddr
     ].
+
+seq_test() ->
+    [transport_close_in_inital_hello,tls_monitor_listener].
+
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),
@@ -240,18 +247,19 @@ tls_upgrade(Config) when is_list(Config) ->
 						{from, self()},
 						{mfa, {?MODULE,
 						       upgrade_result, []}},
-						{tcp_options,
-						 [{active, false} | TcpOpts]},
+                                                {transport, proplists:get_value(transport, Config)},
+                                                {tcp_options,[{active, false} | TcpOpts]},
 						{ssl_options, [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
 						{port, Port},
-				   {host, Hostname},
-				   {from, self()},
-				   {mfa, {?MODULE, upgrade_result, []}},
-				   {tcp_options, [binary]},
-				   {ssl_options,  [{verify, verify_peer},
-                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+                                                {host, Hostname},
+                                                {from, self()},
+                                                {mfa, {?MODULE, upgrade_result, []}},
+                                                {transport, proplists:get_value(transport, Config)},
+                                                {tcp_options, [binary]},
+                                                {ssl_options,  [{verify, verify_peer},
+                                                                {server_name_indication, Hostname} | ClientOpts]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -272,22 +280,22 @@ tls_upgrade_new_opts(Config) when is_list(Config) ->
 
     Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
 						{from, self()},
-						{mfa, {?MODULE,
-						       upgrade_result_new_opts, []}},
-						{tcp_options,
-						 [{active, false} | TcpOpts]},
+						{mfa, {?MODULE,upgrade_result_new_opts, []}},
+						{tcp_options,[{active, false} | TcpOpts]},
+                                                {transport, proplists:get_value(transport, Config)},
 						{ssl_options, [{verify, verify_peer},
                                                                {mode, list} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
 						{port, Port},
-				   {host, Hostname},
-				   {from, self()},
-				   {mfa, {?MODULE, upgrade_result_new_opts, []}},
-				   {tcp_options, [binary]},
-				   {ssl_options,  [{verify, verify_peer},
-                                                   {mode, list},
-                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+                                                {host, Hostname},
+                                                {from, self()},
+                                                {mfa, {?MODULE, upgrade_result_new_opts, []}},
+                                                {tcp_options, [binary]},
+                                                {transport, proplists:get_value(transport, Config)},
+                                                {ssl_options,  [{verify, verify_peer},
+                                                                {mode, list},
+                                                                {server_name_indication, Hostname} | ClientOpts]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -322,11 +330,11 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                [{node, ServerNode}, {port, 0},
                 {from, self()},
                 {mfa, {?MODULE, upgrade_result, []}},
-                {tcp_options,
-                 [{active, false} | TcpOpts]},
+                {tcp_options,[{active, false} | TcpOpts]},
+                {transport, proplists:get_value(transport, Config)},
                 {ssl_options, [{versions, [Version |NewVersions]},
                                {sni_fun, fun(_SNI) -> ServerOpts ++ NewOpts end}
-                              | ServerEcdsaOpts]}]),
+                              | proplists:delete(versions, ServerEcdsaOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client(
                [{node, ClientNode},
@@ -335,9 +343,11 @@ tls_upgrade_new_opts_with_sni_fun(Config) when is_list(Config) ->
                 {from, self()},
                 {mfa, {?MODULE, upgrade_result, []}},
                 {tcp_options, [binary]},
+                {transport, proplists:get_value(transport, Config)},
                 {ssl_options,  [{versions,  [Version |NewVersions]},
                                 {ciphers, Ciphers},
-                                {server_name_indication, Hostname} | ClientOpts]}]),
+                                {server_name_indication, Hostname} |
+                                proplists:delete(versions, ClientOpts)]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -361,10 +371,9 @@ tls_upgrade_with_timeout(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
 						{from, self()},
 						{timeout, 5000},
-						{mfa, {?MODULE,
-						       upgrade_result, []}},
-						{tcp_options,
-						 [{active, false} | TcpOpts]},
+						{mfa, {?MODULE, upgrade_result, []}},
+						{tcp_options, [{active, false} | TcpOpts]},
+                                                {transport, proplists:get_value(transport, Config)},
 						{ssl_options, [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client([{node, ClientNode},
@@ -373,8 +382,10 @@ tls_upgrade_with_timeout(Config) when is_list(Config) ->
 						{from, self()},
 						{mfa, {?MODULE, upgrade_result, []}},
 						{tcp_options, TcpOpts},
+                                                {transport, proplists:get_value(transport, Config)},
 						{ssl_options, [{verify, verify_peer},
-                                                               {server_name_indication, Hostname} | ClientOpts]}]),
+                                                               {server_name_indication, Hostname}
+                                                              | ClientOpts]}]),
 
     ?CT_LOG("Client ~p  Server ~p ~n", [Client, Server]),
 
@@ -392,23 +403,25 @@ tls_upgrade_with_client_timeout(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
-    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
-						{from, self()},
-						{mfa, {?MODULE,
-						       upgrade_result, []}},
-						{tcp_options,
-						 [{active, false} | TcpOpts]},
-						{ssl_options, [{verify, verify_peer} | ServerOpts]}]),
+    Server = ssl_test_lib:start_upgrade_server(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {mfa, {?MODULE, upgrade_result, []}},
+                {tcp_options, [{active, false} | TcpOpts]},
+                {transport, proplists:get_value(transport, Config)},
+                {ssl_options, [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_upgrade_client_error([{node, ClientNode},
-						{port, Port},
-				   {host, Hostname},
-				   {from, self()},
-                                   {timeout, 0},
-				   {mfa, {?MODULE, upgrade_result, []}},
-				   {tcp_options, [binary]},
-				   {ssl_options,  [{verify, verify_peer},
-                                                   {server_name_indication, Hostname} | ClientOpts]}]),
+    Client = ssl_test_lib:start_upgrade_client_error(
+               [{node, ClientNode},
+                {port, Port},
+                {host, Hostname},
+                {from, self()},
+                {timeout, 0},
+                {mfa, {?MODULE, upgrade_result, []}},
+                {tcp_options, [binary]},
+                {transport, proplists:get_value(transport, Config)},
+                {ssl_options,  [{verify, verify_peer},
+                                {server_name_indication, Hostname} | ClientOpts]}]),
 
     ?CT_LOG("Client ~p  Server ~p", [Client, Server]),
     ok = ssl_test_lib:check_result(Client, {error, timeout}),
@@ -453,9 +466,9 @@ tls_shutdown(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					{from, self()},
-			   {mfa, {?MODULE, tls_shutdown_result, [server]}},
-			   {options, [{exit_on_close, false},
-				      {active, false} | ServerOpts]}]),
+                                        {mfa, {?MODULE, tls_shutdown_result, [server]}},
+                                        {options, [{exit_on_close, false},
+                                                   {active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
@@ -520,7 +533,7 @@ tls_shutdown_error(Config) when is_list(Config) ->
     {ok, Listen} = ssl:listen(Port, ServerOpts),
     {error, enotconn} = ssl:shutdown(Listen, read_write),
     ok = ssl:close(Listen),
-    {error, closed} = ssl:shutdown(Listen, read_write).
+    {error, _} = ssl:shutdown(Listen, read_write).
 
 %%--------------------------------------------------------------------
 tls_client_closes_socket() ->
@@ -531,15 +544,17 @@ tls_client_closes_socket(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
-    Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
-						      {from, self()},
-						      {tcp_options, TcpOpts},
-						      {ssl_options, ServerOpts}]),
+    Server = ssl_test_lib:start_upgrade_server_error(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {tcp_options, TcpOpts},
+                {transport, proplists:get_value(transport, Config)},
+                {ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Connect = fun() ->
 		      {ok, _Socket} = rpc:call(ClientNode, gen_tcp, connect,
-					      [Hostname, Port, [binary]]),
+                                               [Hostname, Port, [binary]]),
 		      %% Make sure that handshake is called before
 		      %% client process ends and closes socket.
 		      ct:sleep(?SLEEP)
@@ -560,16 +575,30 @@ tls_reset_in_active_once(Config) when is_list(Config) ->
     TcpOpts = [binary, {reuseaddr, true}],
     Port = ssl_test_lib:inet_port(node()),
     Server = fun() ->
-		     {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
-		     {ok, TcpServerSocket} = gen_tcp:accept(Listen),
-		     {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
-		     lists:foreach(
-		       fun(_) ->
-			       ssl:send(ServerSocket, "some random message\r\n")
-		       end, lists:seq(1, 20)),
-		     %% Close TCP instead of SSL socket to trigger the bug:
-		     gen_tcp:close(TcpServerSocket),
-		     gen_tcp:close(Listen)
+                     case proplists:get_value(transport, Config) of
+                         socket ->
+                             {ok, Listen} = tls_socket_tcp:listen(Port, TcpOpts),
+                             {ok, TcpServerSocket} = socket:accept(Listen),
+                             {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
+                             lists:foreach(
+                               fun(_) ->
+                                       ssl:send(ServerSocket, "some random message\r\n")
+                               end, lists:seq(1, 20)),
+                             %% Close TCP instead of SSL socket to trigger the bug:
+                             socket:close(TcpServerSocket),
+                             socket:close(Listen);
+                         _ ->
+                             {ok, Listen} = gen_tcp:listen(Port, TcpOpts),
+                             {ok, TcpServerSocket} = gen_tcp:accept(Listen),
+                             {ok, ServerSocket} = ssl:handshake(TcpServerSocket, ServerOpts),
+                             lists:foreach(
+                               fun(_) ->
+                                       ssl:send(ServerSocket, "some random message\r\n")
+                               end, lists:seq(1, 20)),
+                             %% Close TCP instead of SSL socket to trigger the bug:
+                             gen_tcp:close(TcpServerSocket),
+                             gen_tcp:close(Listen)
+                     end
 	     end,
     spawn_link(Server),
     {ok, Socket} = ssl:connect(Hostname, Port, [{active, false} | ClientOpts]),
@@ -590,7 +619,8 @@ tls_closed_in_active_once() ->
 
 tls_closed_in_active_once(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOpts = proplists:delete(cb_info, ServerOpts0),
     {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
     Port = ssl_test_lib:inet_port(node()),
@@ -671,12 +701,14 @@ tls_tcp_msg(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}, {active, false}],
 
-    Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0},
-						      {from, self()},
-						      {timeout, 5000},
-						      {mfa, {?MODULE, dummy, []}},
-						      {tcp_options, TcpOpts},
-						      {ssl_options, ServerOpts}]),
+    Server = ssl_test_lib:start_upgrade_server_error(
+               [{node, ServerNode}, {port, 0},
+                {from, self()},
+                {timeout, 5000},
+                {mfa, {?MODULE, dummy, []}},
+                {transport, proplists:get_value(transport, Config)},
+                {tcp_options, TcpOpts},
+                {ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
     {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
@@ -706,6 +738,7 @@ tls_tcp_msg_big(Config) when is_list(Config) ->
 						      {timeout, 5000},
 						      {mfa, {?MODULE, dummy, []}},
 						      {tcp_options, TcpOpts},
+                                                      {transport, proplists:get_value(transport, Config)},
 						      {ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
 
@@ -783,12 +816,13 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
 					 {mfa, {ssl_test_lib, no_result, []}},
 					 {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{connection_handler = Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
-                                                                               {node, ClientNode}, {port, Port},
-                                                                               {host, Hostname},
-                                                                               {from, self()},
-                                                                               {mfa, {?MODULE, receive_msg, []}},
-                                                                               {options, ClientOpts}]),
+    {Client, SslSocket} = ssl_test_lib:start_client([return_socket,
+                                                     {node, ClientNode}, {port, Port},
+                                                     {host, Hostname},
+                                                     {from, self()},
+                                                     {mfa, {?MODULE, receive_msg, []}},
+                                                     {options, ClientOpts}]),
+    #sslsocket{connection_handler = Pid} = SslSocket,
 
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
@@ -796,7 +830,12 @@ tls_tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     StaticEnv = State#state.static_env,
     Socket = StaticEnv#static_env.socket,
     %% Fake tcp error
-    Pid ! {tcp_error, Socket, etimedout},
+    case proplists:get_value(transport, Config) of
+        socket ->
+            Pid ! {'$socket', Socket, abort, etimedout};
+        _ ->
+            Pid ! {tcp_error, Socket, etimedout}
+    end,
 
     ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
 
@@ -842,10 +881,12 @@ tls_reject_warning_alert_in_initial_hs(Config) when is_list(Config) ->
                          Other ->
                              Other
                      end,
+
     Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 					 {from, self()},
 					 {mfa, {ssl_test_lib, no_result, []}},
-					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} | ServerOpts]}]),
+					 {options, [{versions, [ssl_test_lib:protocol_version(Config)]} |
+                                                    proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
     {ok, Socket}  = gen_tcp:connect("localhost", Port, [{active, false}, binary]),
     NoRenegotiateAlert = <<?BYTE(?ALERT), ?BYTE(Major), ?BYTE(Minor), ?UINT16(2), ?BYTE(?WARNING), ?BYTE(?NO_RENEGOTIATION)>>,
@@ -1056,15 +1097,28 @@ transport_close(Config) when is_list(Config) ->
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
 				   {options,  [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    {ok, TcpS} = rpc:call(ClientNode, gen_tcp, connect,
-			  [Hostname,Port,[binary, {active, false}]]),
+
+    {ok, Socket} = case proplists:get_value(transport, Config) of
+                       socket ->
+                           rpc:call(ClientNode, tls_socket_tcp, connect,
+                                    [Hostname,Port,[binary, {active, false}], infinity]);
+                       _ ->
+                           rpc:call(ClientNode, gen_tcp, connect,
+                                    [Hostname,Port,[binary, {active, false}]])
+                   end,
+
     {ok, SslS} = rpc:call(ClientNode, ssl, connect,
-			  [TcpS,[{active, false}|ClientOpts]]),
+			  [Socket,[{active, false}|ClientOpts]]),
 
     ?CT_LOG("Server ~p ~n", [Server]),
     ok = ssl:send(SslS, "Hello world"),
     {ok,<<"Hello world">>} = ssl:recv(SslS, 11),
-    gen_tcp:close(TcpS),
+    case proplists:get_value(transport, Config) of
+        socket ->
+            socket:close(Socket);
+        _ ->
+            gen_tcp:close(Socket)
+    end,
     {error, _} = ssl:send(SslS, "Hello world").
 
 %%--------------------------------------------------------------------
@@ -1383,7 +1437,7 @@ upgrade_result(Socket) ->
     ok = ssl:send(Socket, "Hello world"),
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
-    <<"Hello world">> =  ssl_test_lib:active_recv(Socket, length("Hello world")),
+    <<"Hello world">> = ssl_test_lib:active_recv(Socket, length("Hello world")),
     ok.
 
 upgrade_result_new_opts(Socket) ->
@@ -1402,6 +1456,10 @@ tls_downgrade_result(Socket, Pid) ->
             ok
     end,
     case ssl:close(Socket, {self(), 10000})  of
+        {ok, {'$socket', _} = TCPSocket} ->
+            ok = socket:send(TCPSocket, <<"Downgraded">>),
+            {ok, <<"Downgraded">>} = socket:recv(TCPSocket, length("Downgraded")),
+            ok;
 	{ok, TCPSocket} ->
             inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),

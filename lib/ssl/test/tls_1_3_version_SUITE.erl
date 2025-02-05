@@ -96,8 +96,8 @@ all() ->
 
 groups() ->
     [
-     {rsa, [], [reject_legacy_cert | tls_1_3_1_2_tests() ++ legacy_tests()]},
-     {ecdsa, [], tls_1_3_1_2_tests()}
+     {rsa, [parallel], [reject_legacy_cert | tls_1_3_1_2_tests() ++ legacy_tests()]},
+     {ecdsa, [parallel], tls_1_3_1_2_tests()}
     ].
 
 cert_groups() ->

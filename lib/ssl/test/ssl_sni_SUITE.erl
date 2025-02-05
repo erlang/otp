@@ -79,12 +79,13 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], sni_tests()},
-     {'tlsv1.2', [], sni_tests()},
-     {'tlsv1.1', [], sni_tests()},
-     {'tlsv1', [], sni_tests()},
-     {'dtlsv1.2', [], sni_tests()},
-     {'dtlsv1', [], sni_tests()}
+     {'tlsv1.3', [], [{group, sni_tests}]},
+     {'tlsv1.2', [], [{group, sni_tests}]},
+     {'tlsv1.1', [], [{group, sni_tests}]},
+     {'tlsv1', [], [{group, sni_tests}]},
+     {'dtlsv1.2', [], [{group, sni_tests}]},
+     {'dtlsv1', [], [{group, sni_tests}]},
+     {sni_tests, [parallel], sni_tests()}
     ].
 
 sni_tests() ->
@@ -132,7 +133,7 @@ end_per_suite(_) ->
 
 init_per_testcase(customize_hostname_check, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ssl_test_lib:clean_start(keep_version),
+    %% ssl_test_lib:clean_start(keep_version),
     ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->
@@ -212,9 +213,11 @@ dns_name(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
-    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+    Opts = proplists:get_value(group_opts, Config),
+    VersionTuple = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ClientOpts0,
+
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
     successfull_connect(ServerConf, [{verify, verify_peer},
                                      {server_name_indication, Hostname} | ClientConf], undefined, Config),
@@ -243,9 +246,12 @@ ip_fallback(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
-    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+
+    Opts = proplists:get_value(group_opts, Config),
+    VersionTuple = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ClientOpts0,
+
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config),
@@ -271,9 +277,12 @@ no_ip_fallback(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
-    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+
+    Opts = proplists:get_value(group_opts, Config),
+    VersionTuple = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ClientOpts0,
+
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config).
@@ -296,9 +305,11 @@ dns_name_reuse(Config) ->
                                         #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
                                           intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
                                           peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
-    Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
-    ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
-    ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
+
+    Opts = proplists:get_value(group_opts, Config),
+    VersionTuple = ssl_test_lib:n_version(proplists:get_value(version, Config)),
+    ServerConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ServerOpts0,
+    ClientConf = ssl_test_lib:sig_algs(rsa, VersionTuple) ++ Opts ++ ClientOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 

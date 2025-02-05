@@ -113,15 +113,17 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}    
+     {group, 'tlsv1'},
+     {group, transport_socket}
     ].
 
 groups() ->
     [
-     {'tlsv1.3', [], payload_tests()},
-     {'tlsv1.2', [], payload_tests()},
-     {'tlsv1.1', [], payload_tests()},
-     {'tlsv1', [], payload_tests()}
+     {'tlsv1.3', [parallel], payload_tests()},
+     {'tlsv1.2', [parallel], payload_tests()},
+     {'tlsv1.1', [parallel], payload_tests()},
+     {'tlsv1', [parallel], payload_tests()},
+     {transport_socket, [parallel], payload_tests()}
     ].
 
 payload_tests() ->
@@ -169,7 +171,7 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 
 init_per_testcase(TestCase, Config)

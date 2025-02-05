@@ -116,6 +116,7 @@ MODULES= \
 	tls_server_session_ticket_sup\
 	tls_server_sup\
 	tls_socket \
+	tls_socket_tcp \
 	tls_sup \
 	tls_v1
 

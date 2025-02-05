@@ -70,7 +70,7 @@ handle_options(Opts, Role, Host) ->
     handle_options(undefined, undefined, Opts, Role, Host).
 
 handle_options(Socket, Opts, Role, Host) ->
-    CbInfo = handle_option_cb_info(Opts, tls),
+    CbInfo = handle_option_cb_info(Opts, tls, Socket),
     Transport = element(1, CbInfo),
     handle_options(Transport, Socket, Opts, Role, Host).
 
@@ -87,7 +87,7 @@ handle_options(Transport, Socket, Opts0, Role, Host) ->
     #{protocol := Protocol} = SslOpts,
     {Sock, Emulated} = emulated_options(Transport, Socket, Protocol, SockOpts0),
     ConnetionCb = connection_cb(Protocol),
-    CbInfo = handle_option_cb_info(Opts0, Protocol),
+    CbInfo = handle_option_cb_info(Opts0, Protocol, Socket),
 
     {ok, #config{
             ssl = SslOpts,
@@ -1514,6 +1514,8 @@ set_opt_new(_, _, _, _, Opts) ->
 
 %%%%
 
+default_cb_info(tls_socket) ->
+    tls_socket_tcp:cb_info();
 default_cb_info(tls) ->
     {gen_tcp, tcp, tcp_closed, tcp_error, tcp_passive};
 default_cb_info(dtls) ->
@@ -1525,6 +1527,11 @@ handle_cb_info(CbInfo) when tuple_size(CbInfo) =:= 5 ->
     CbInfo;
 handle_cb_info(CbInfo) ->
     option_error(cb_info, CbInfo).
+
+handle_option_cb_info(Options, tls, {'$socket', _}) ->
+    handle_option_cb_info(Options, tls_socket);
+handle_option_cb_info(Options, Protocol, _) ->
+    handle_option_cb_info(Options, Protocol).
 
 handle_option_cb_info(Options, Protocol) ->
     CbInfo = proplists:get_value(cb_info, Options, default_cb_info(Protocol)),
@@ -1708,9 +1715,21 @@ emulated_options(undefined, undefined, Protocol, Opts) ->
     end;
 emulated_options(Transport, Socket, Protocol, Opts) ->
     EmulatedOptions = tls_socket:emulated_options(),
-    {ok, Original} = tls_socket:getopts(Transport, Socket, EmulatedOptions),
-    {Inet, Emulated0} = emulated_options(undefined, undefined, Protocol, Opts),
-    {Inet, lists:ukeymerge(1, Emulated0, Original)}.
+    {ok, Inherited} = case Socket of
+                          {'$socket', _} ->
+                              %% This can't be set on a socket socket,
+                              %% so set Inherited the only possibly defaults.
+                              {ok, tls_socket:internal_inet_values(tcp)};
+                          _ ->
+                              tls_socket:getopts(Transport, Socket, EmulatedOptions)
+                      end,
+    Get = fun(Key) ->
+                  {Key, proplists:get_value(Key, Opts, proplists:get_value(Key, Inherited))}
+          end,
+    {Inet, _} = emulated_options(undefined, undefined, Protocol, Opts),
+    Emulated = [Get(Key) || Key <- EmulatedOptions],
+    {Inet, Emulated}.
+
 
 handle_cipher_option(Value, Versions)  when is_list(Value) ->       
     try binary_cipher_suites(Versions, Value) of

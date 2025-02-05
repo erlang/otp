@@ -234,7 +234,7 @@
 -define(uint64(X), << ?UINT64(X) >> ).
 
 -define(MANY, 1000).
--define(SOME, 50).
+-define(SOME, 102).     %% More than def: {active, N=100}
 -define(BASE_TIMEOUT_SECONDS, 20).
 -define(SOME_SCALE, 2).
 -define(MANY_SCALE, 3).
@@ -253,10 +253,10 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1', [parallel], socket_packet_tests() ++ protocol_packet_tests()},
      %% We will not support any packet types if the transport is
      %% not reliable. We might support it for DTLS over SCTP in the future 
      {'dtlsv1.2', [], [reject_packet_opt]},
@@ -2313,7 +2313,7 @@ passive_recv_packet(Socket, Data, N) ->
     end.
 
 send(Socket,_, 0) ->
-    ssl:send(Socket, <<>>),
+    ok = ssl:send(Socket, <<>>),
     no_result_msg;
 send(Socket, Data, N) ->
     case ssl:send(Socket, [Data]) of

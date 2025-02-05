@@ -72,11 +72,11 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.2', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1.1', [],  [reject_prev] ++ all_tls_version_tests()},
-     {'tlsv1', [], all_tls_version_tests()},
-     {'dtlsv1.2', [], [reject_prev]}
+    [{'tlsv1.3', [parallel], [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.2', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1.1', [parallel],  [reject_prev] ++ all_tls_version_tests()},
+     {'tlsv1', [parallel], all_tls_version_tests()},
+     {'dtlsv1.2', [parallel], [reject_prev]}
     ].
 
 all_tls_version_tests() ->
@@ -194,7 +194,8 @@ accept_sslv3_record_hello(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()},
                                         {options, [{versions, Allversions}, 
-                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} | ServerOpts]}]),
+                                                   {signature_algs, AllSigAlgs}, {ciphers, Ciphers} |
+                                                   proplists:delete(versions, ServerOpts)]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     %% TLS-1.X Hello with SSL-3.0 record version
@@ -237,7 +238,8 @@ reject_prev(Config) when is_list(Config) ->
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
-					      {options,[{versions, [PrevVersion]} | ClientOpts]}]),
+					      {options,[{versions, [PrevVersion]} |
+                                                        proplists:delete(versions, ClientOpts)]}]),
     ssl_test_lib:check_client_alert(Server, Client, protocol_version).
 
 %%--------------------------------------------------------------------
