@@ -159,14 +159,8 @@ run(Opts) ->
             continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), Upstream]),
 
             %% Push maint+master if changed
-            dry(Opts, ["git push ", Upstream, " --atomic ", lists:join(" ", UpdatedBranches)]),
+            dry(Opts, ["git push ", Upstream, " --atomic ", lists:join(" ", UpdatedBranches)]);
 
-            %% Delete dependabot branches targeting master+maint and merge any PRs targeting maint-* branches
-            maps:foreach(
-              fun(PR, #{ head := HeadName }) ->
-                      continue(Opts, "Delete #~ts (~ts) on ~ts?", [HeadName, PR, Upstream]),
-                      dry(Opts, ["git push ", Upstream, " :", HeadName])
-              end, DependabotPRs);
        false ->
             ok
     end,
@@ -224,7 +218,7 @@ generate_dependabot_config(Versions) ->
      [io_lib:format(
 ~`
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories: ["/","/.github/actions/*"]
     target-branch: "~ts"
     schedule:
       interval: "weekly"
