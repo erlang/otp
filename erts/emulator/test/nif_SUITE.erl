@@ -1068,7 +1068,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
     ok = write_nif(W, <<"hej">>),
     %% Make sure schedulers sleeps, triggering migration back to poll thread
     timer:sleep(10),
-    <<"hej">> = read_nif(R, 3),
+    <<"hej">> = read_all_nif(R, 3),
 
     ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
 
@@ -1077,7 +1077,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
     ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
 
     %% Check that we get WRITE select event if read FullData
-    FullData = read_nif(W, byte_size(FullData)),
+    FullData = read_all_nif(W, byte_size(FullData)),
     receive_ready(R, Ref, ready_output),
     ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
 
@@ -1095,7 +1095,7 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
         select_nif(R, ?ERL_NIF_SELECT_READ bor ?ERL_NIF_SELECT_CANCEL, R, self(), Ref, MSG_ENV),
     ?assertEqual(OriginalSchedPollFds + SchedulerFDs, get_scheduler_pollset_size()),
     ok = write_nif(W, <<"hej">>),
-    <<"hej">> = read_nif(R, 3),
+    <<"hej">> = read_all_nif(R, 3),
     [] = flush(0),
 
     %% Close write side, while read side is in scheduler pollset
@@ -1133,10 +1133,13 @@ select_scheduler_do(Flag, Ref, MSG_ENV) ->
     [begin P ! stop, receive {'DOWN', Ref1, _, _, _} -> ok end end || {P, Ref1} <- Pids],
 
     NumberOfClosedFds = NumberOfFds * 2,
+    %% Sleep a bit to let all callback trigger
+    timer:sleep(1000),
     {NumberOfClosedFds, {_,_}} = last_fd_stop_call(),
 
     timer:sleep(1000),
 
+    %% Sleep a bit to let the pollset clear out
     ?assertEqual(OriginalSchedPollFds, get_scheduler_pollset_size()),
 
     ok.
@@ -1152,9 +1155,17 @@ move_fd_to_scheduler_pollset(W, R, Flag, Ref, MSG_ENV) ->
             Msg when Ref =:= Msg ->
                 ok
         end,
-        Buf = read_nif(R, byte_size(Buf))
+        Buf = read_all_nif(R, byte_size(Buf))
      end || I <- lists:seq(1,30)],
      ok.
+
+read_all_nif(Fd, Count) ->
+    case read_nif(Fd, Count) of
+        Res when byte_size(Res) =:= Count ->
+            Res;
+        Res when byte_size(Res) < Count ->
+            <<Res/binary, (read_all_nif(Fd, Count - byte_size(Res)))/binary>>
+    end.
 
 has_scheduler_pollset() ->
     lists:search(fun(PS) ->
