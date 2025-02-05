@@ -1,4 +1,4 @@
-#
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 # Copyright (C) 2008, Ericsson Telecommunications
 # Authors: Richard Carlsson, Bertil Karlsson
 #

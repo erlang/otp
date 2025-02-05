@@ -43,6 +43,7 @@ jobs:
               new:
                   - added: '**'
                   - '!**/*.beam'
+                  - '!LICENSES/**/*.txt'
                   - '!**/*.exe'
                   - '!**/*.config.cache.static'
           ## OTP-27.0 tag as base

@@ -7,6 +7,7 @@ by the pcretest program, which redefines the PRIV macro to change
 table names from _pcre_xxx to xxxx, thereby avoiding name clashes
 with the library. At present, just one of these tables is actually
 needed. */
+/* SPDX-License-Identifier: BSD-3-Clause */
 /* %ExternalCopyright% */
 #ifndef PCRE_INCLUDED
 

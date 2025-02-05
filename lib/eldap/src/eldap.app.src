@@ -1,3 +1,4 @@
+%% SPDX-License-Identifier: MIT
 {application, eldap,
  [{description, "Ldap api"},
   {vsn, "%VSN%"},
