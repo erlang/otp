@@ -6052,7 +6052,7 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, lcnt_sample_t *sample,
     lock_desc = erts_lock_flags_get_type_name(info->flags);
 
     type  = erts_atom_put((byte*)lock_desc, sys_strlen(lock_desc), ERTS_ATOM_ENC_LATIN1, 1);
-    name  = erts_atom_put((byte*)info->name, sys_strlen(info->name), ERTS_ATOM_ENC_LATIN1, 1);
+    name  = erts_bld_binary(hpp, szp, sys_strlen(info->name), info->name);
 
     /* Only attempt to resolve ids when actually emitting the term. This ought
      * to be safe since all immediates are the same size. */

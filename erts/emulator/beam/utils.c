@@ -547,6 +547,33 @@ erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
     return res;
 }
 
+Eterm erts_bld_binary(Uint **hpp, Uint *szp, Uint sz, char *data) {
+    Eterm res = THE_NON_VALUE;
+    Uint size_in_bits = NBITS(sz);
+    if (size_in_bits <= ERL_ONHEAP_BITS_LIMIT) {
+        if (szp) {
+            *szp += heap_bits_size(size_in_bits);
+        }
+        if (hpp) {
+            res = HEAP_BITSTRING(*hpp, (byte *)data, 0, size_in_bits);
+            *hpp += heap_bits_size(size_in_bits);
+        }
+    } else {
+        if (szp) {
+            *szp += ERL_REFC_BITS_SIZE;
+        }
+        if (hpp) {
+            ErlOffHeap dummy_oh = {0};
+            Binary *refc_binary;
+            refc_binary = erts_bin_nrml_alloc(sz);
+            sys_memcpy(refc_binary->orig_bytes, (byte *)data, sz);
+            res = erts_wrap_refc_bitstring(
+                &dummy_oh.first, &dummy_oh.overhead, hpp, refc_binary,
+                (byte *)refc_binary->orig_bytes, 0, size_in_bits);
+        }
+    }
+    return res;
+}
 
 Eterm
 erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr)
