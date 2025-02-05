@@ -1138,7 +1138,7 @@ erts_tar(Config) ->
                            "typer.exe",
                            "yielding_c_fun.exe"],
                 PdbIgnored = [filename:rootname(F) ++ ".pdb" || F <- IgnoredFiles],
-                {["erl.ini"] ++ Files ++ PdbFiles, IgnoredFiles ++ PdbIgnored}
+                {Files ++ PdbFiles, IgnoredFiles ++ PdbIgnored}
         end,
 
     ErtsTarContent =
