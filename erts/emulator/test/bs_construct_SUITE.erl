@@ -631,9 +631,13 @@ do_something() ->
 
 append_empty_is_same(Config) when is_list(Config) ->
     NonWritableBin = <<"123">>,
-    true = erts_debug:same(NonWritableBin, append(NonWritableBin, <<>>)),
+
+    %% Should use erts_debug:same/2, but this was disabled in PR-9372
+    %% (ERIERL-1177) because the optimization was unsafe.
+    true = NonWritableBin =:= append(NonWritableBin, <<>>),
     WritableBin = <<(id(<<>>))/binary,0,1,2,3,4,5,6,7>>,
-    true = erts_debug:same(WritableBin, append(WritableBin, <<>>)),
+    true = WritableBin =:= append(WritableBin, <<>>),
+
     ok.
 
 append(A, B) ->

@@ -1659,17 +1659,6 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 	}
     }
 
-    if (build_size_in_bits == 0) {
-        if (HeapWordsLeft(c_p) < extra_words) {
-            (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
-            if (ERTS_PROC_IS_EXITING(c_p)) {
-                return THE_NON_VALUE;
-            }
-            bin = reg[live];
-        }
-	return bin;
-    }
-
     if ((ERTS_UINT_MAX - build_size_in_bits) < position) {
         c_p->fvalue = am_size;
         c_p->freason = SYSTEM_LIMIT;
@@ -1749,10 +1738,6 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
         if (unit > 1 && (src_size % unit) != 0) {
             c_p->fvalue = am_unit;
             goto badarg;
-        }
-
-        if (build_size_in_bits == 0) {
-            return bin;
         }
 
         if((ERTS_UINT_MAX - build_size_in_bits) < src_size) {
