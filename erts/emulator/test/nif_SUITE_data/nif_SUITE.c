@@ -28,6 +28,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/uio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 
 #include "nif_mod.h"
@@ -2709,6 +2711,42 @@ static ERL_NIF_TERM pipe_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }
 
 /*
+ * Create a read-write socketpair with two fds (to read and to write)
+ */
+static ERL_NIF_TERM socketpair_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    struct fd_resource* read_rsrc;
+    struct fd_resource* write_rsrc;
+    ERL_NIF_TERM read_fd, write_fd;
+    int fds[2], flags;
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0)
+        return enif_make_string(env, "pipe failed", ERL_NIF_LATIN1);
+
+    flags = fcntl(fds[0], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[0], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
+    flags = fcntl(fds[1], F_GETFL, 0);
+    if (flags == -1) return enif_make_badarg(env);
+    if (fcntl(fds[1], F_SETFL, flags | O_NONBLOCK) == -1) return enif_make_badarg(env);
+
+    read_rsrc  = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    write_rsrc = enif_alloc_resource(fd_resource_type, sizeof(struct fd_resource));
+    read_rsrc->fd  = fds[0];
+    read_rsrc->was_selected = 0;
+    write_rsrc->fd = fds[1];
+    write_rsrc->was_selected = 0;
+    read_fd  = enif_make_resource(env, read_rsrc);
+    write_fd = enif_make_resource(env, write_rsrc);
+    enif_release_resource(read_rsrc);
+    enif_release_resource(write_rsrc);
+
+    return enif_make_tuple2(env,
+               enif_make_tuple2(env, read_fd, make_pointer(env, read_rsrc)),
+               enif_make_tuple2(env, write_fd, make_pointer(env, write_rsrc)));
+}
+
+/*
  * Create (dupe) of a resource with the same fd, to test stealing
  */
 static ERL_NIF_TERM dupe_resource_nif(ErlNifEnv* env, int argc,
@@ -2783,7 +2821,7 @@ static ERL_NIF_TERM read_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
             }
             return res;
         }
-        else if (n == 0) {
+        else if (n == 0 || errno == ECONNRESET) {
             return atom_eof;
         }
         else if (errno == EAGAIN) {
@@ -3891,6 +3929,7 @@ static ErlNifFunc nif_funcs[] =
     {"select_nif", 6, select_nif},
 #ifndef __WIN32__
     {"pipe_nif", 0, pipe_nif},
+    {"socketpair_nif", 0, socketpair_nif},
     {"write_nif", 2, write_nif},
     {"dupe_resource_nif", 1, dupe_resource_nif},
     {"read_nif", 2, read_nif},

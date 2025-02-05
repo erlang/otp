@@ -42,6 +42,7 @@
 #include "bif.h"
 #include "erl_bif_unique.h"
 #include "erl_proc_sig_queue.h"
+#include "erl_check_io.h"
 #include "dtrace-wrapper.h"
 
 #define ERTS_SIG_REDS_CNT_FACTOR 4
@@ -2470,6 +2471,16 @@ erts_proc_sig_send_link(ErtsPTabElementCommon *sender, Eterm from,
                                              type, 0);
 
     return proc_queue_signal(sender, from, to, sig, 0, ERTS_SIG_Q_OP_LINK);
+}
+
+int
+erts_proc_sig_send_nif_select(Eterm to, ErtsMessage *msg) {
+    ErtsSignal *sig = (ErtsSignal*)msg;
+
+    sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_NIF_SELECT,
+                                             ERTS_SIG_Q_TYPE_UNDEFINED,
+                                             0);
+    return proc_queue_signal(NULL, am_system, to, sig, 0, ERTS_SIG_Q_OP_NIF_SELECT);
 }
 
 ErtsSigUnlinkOp *
@@ -6355,6 +6366,20 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
             break;
         }
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+        case ERTS_SIG_Q_OP_NIF_SELECT: {
+
+            Eterm msg = erts_io_handle_nif_select(sig);
+
+            convert_prepared_sig_to_msg(c_p, &tracing, sig, msg, am_undefined, next_nm_sig);
+
+            cnt += 4;
+
+            erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
+
+            break;
+        }
+#endif
 
         default:
             ERTS_INTERNAL_ERROR("Unknown signal");
@@ -6726,6 +6751,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             }
             break;
 
+        case ERTS_SIG_Q_OP_NIF_SELECT:
         case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
         case ERTS_SIG_Q_OP_ALIAS_MSG:
             sig->next = NULL;
@@ -6918,6 +6944,7 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_RECV_MARK:
         case ERTS_SIG_Q_OP_ADJ_MSGQ:
 	case ERTS_SIG_Q_OP_FLUSH:
+        case ERTS_SIG_Q_OP_NIF_SELECT:
             break;
 
         default:
@@ -7007,7 +7034,9 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_SYNC_SUSPEND:
     case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
     case ERTS_SIG_Q_OP_IS_ALIVE:
-    case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY: {
+    case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY:
+    case ERTS_SIG_Q_OP_NIF_SELECT:
+    {
         ErlHeapFragment *hf;
         size = sizeof(ErtsMessageRef);
         size += ERTS_HEAP_FRAG_SIZE(((ErtsMessage *) sig)->hfrag.alloc_size);
@@ -8614,6 +8643,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                 case ERTS_SIG_Q_OP_RECV_MARK:
 		case ERTS_SIG_Q_OP_FLUSH:
                 case ERTS_SIG_Q_OP_RPC:
+                case ERTS_SIG_Q_OP_NIF_SELECT:
                     break;
 
                 default:

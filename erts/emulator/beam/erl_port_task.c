@@ -595,6 +595,11 @@ reset_executed_io_task_handle(Port *prt, ErtsPortTask *ptp)
                                                   reset_port_task_handle);
                 erts_atomic32_read_band_nob(&prt->state, ~ERTS_PORT_SFLG_CHECK_FD_CLEANUP);
             } else {
+                /* We don't have to call erts_io_notify_port_task_executed for scheduler events
+                   as we will keep the fd in the set. However, if driver_deselect was called in
+                   the ready_input callback, then we do need to call it in order to free the
+                   select structures from the fd state.
+                   */
                 reset_port_task_handle(ptp->u.alive.handle);
             }
         } else
