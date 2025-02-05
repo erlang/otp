@@ -26,13 +26,6 @@
 %%% Created : 18 May 2004 by Hakan Mattsson <hakan@erix.ericsson.se>
 %%%-------------------------------------------------------------------
 -module(tftp).
-
--moduledoc(#{titles =>
-                 [{function,<<"Client API">>},
-                  {function,<<"Server API">>}
-              ]}
-         ).
-
 -moduledoc """
 Trivial FTP.
 
@@ -269,7 +262,7 @@ with new values in `AcceptedOptions`.
 
 """.
 
--doc(#{title => <<"Client API">>,
+-doc(#{group => <<"Client API">>,
        since => <<"OTP 18.1">>}).
 -callback open(Peer :: peer(),
 	       Access :: access(),
@@ -323,7 +316,7 @@ However, it is invoked if the functions fail (crash).
 -doc(#{since => <<"OTP 18.1">>}).
 -callback abort(Code :: error_code(), string(), State :: term()) -> 'ok'.
 
--doc(#{title => <<"Client API">>}).
+-doc(#{group => <<"Client API">>}).
 -doc """
 Reads a (virtual) file `RemoteFilename` from a TFTP server.
 
@@ -354,7 +347,7 @@ read_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(read, RemoteFilename, LocalFilename, Options).
     
 
--doc(#{title => <<"Client API">>}).
+-doc(#{group => <<"Client API">>}).
 -doc """
 Writes a (virtual) file `RemoteFilename` to a TFTP server.
 
@@ -384,7 +377,7 @@ matching regexp is found.
 write_file(RemoteFilename, LocalFilename, Options) ->
     tftp_engine:client_start(write, RemoteFilename, LocalFilename, Options).
 
--doc(#{title => <<"Server API">>}).
+-doc(#{group => <<"Server API">>}).
 -doc """
 Starts a daemon process listening for UDP packets on a port.
 
@@ -401,7 +394,7 @@ start(Options) ->
     tftp_engine:daemon_start(Options).
 
 
--doc(#{title => <<"Server API">>}).
+-doc(#{group => <<"Server API">>}).
 -doc """
 Returns information about all TFTP server.
 """.
@@ -409,7 +402,7 @@ info(Pid) ->
     tftp_engine:info(Pid).
 
 
--doc(#{title => <<"Server API">>}).
+-doc(#{group => <<"Server API">>}).
 -doc """
 Changes configuration a TFTP Server
 """.
