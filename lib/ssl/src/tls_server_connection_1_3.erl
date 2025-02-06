@@ -212,7 +212,7 @@ start(internal = Type, #change_cipher_spec{} = Msg, State) ->
 start(internal, #client_hello{extensions = #{client_hello_versions :=
                                                  #client_hello_versions{versions = ClientVersions}
                                             }} = Hello,
-      #state{ssl_options = #{handshake := full}} = State) ->
+      #state{handshake_env = #handshake_env{continue_status = full}} = State) ->
     case tls_record:is_acceptable_version(?TLS_1_3, ClientVersions) of
         true ->
             handle_client_hello(Hello, State);
