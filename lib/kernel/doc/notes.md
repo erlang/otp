@@ -21,6 +21,18 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a couple of bugs that could make `global`'s internal state inconsistent when a connection was reconnected.
+
+  Own Id: OTP-19381 Aux Id: [PR-9377], [GH-9112], [GH-9117]
+
+[PR-9377]: https://github.com/erlang/otp/pull/9377
+[GH-9112]: https://github.com/erlang/otp/issues/9112
+[GH-9117]: https://github.com/erlang/otp/issues/9117
+
 ## Kernel 10.2.1
 
 ### Fixed Bugs and Malfunctions

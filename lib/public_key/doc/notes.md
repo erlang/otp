@@ -19,6 +19,17 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.17.1
+
+### Fixed Bugs and Malfunctions
+
+- Consider keyCertSign to compatible with extended key usage for TLS client/server auth in CAs, adhere to wide spread implementations
+
+  Own Id: OTP-19240 Aux Id: [PR-9286], [GH-9208]
+
+[PR-9286]: https://github.com/erlang/otp/pull/9286
+[GH-9208]: https://github.com/erlang/otp/issues/9208
+
 ## Public_Key 1.17
 
 ### Improvements and New Features

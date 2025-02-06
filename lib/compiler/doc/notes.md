@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.5.5
+
+### Fixed Bugs and Malfunctions
+
+- Eliminated a bug in the alias analysis pass that could potentially cause unsafe optimizations of binary construction or record updates.
+
+  Own Id: OTP-19455 Aux Id: [PR-9356]
+
+[PR-9356]: https://github.com/erlang/otp/pull/9356
+
 ## Compiler 8.5.4
 
 ### Fixed Bugs and Malfunctions

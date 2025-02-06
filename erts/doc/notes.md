@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Disabled an unsafe runtime optimization in binary construction that caused silent memory corruption.
+
+  Own Id: OTP-19462 Aux Id: ERIERL-1177, [PR-9372]
+
+[PR-9372]: https://github.com/erlang/otp/pull/9372
+
 ## Erts 15.2.1
 
 ### Fixed Bugs and Malfunctions
