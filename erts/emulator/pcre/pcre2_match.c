@@ -689,14 +689,21 @@ int rgb;
 #else
 #define EDEBUGF(X)
 #endif
-#define COST(N) (match_data->loops_left -= (N))
+
+/* We use a restrict pointer and leave it up to the compiler to cache
+ * the loop counter. With that we don't have to instrument every
+ * return site in match() to restore match_data->loops_left.
+ */
+int32_t* restrict loops_left_p = &match_data->loops_left;
+
+#define COST(N) (*loops_left_p -= (N))
 #define LABEL_XCAT(A,B) A##B
 #define LABEL_CAT(A,B) LABEL_XCAT(A,B)
 
 #define COST_CHK(N) 				\
 do {						\
-  match_data->loops_left -= (N);	        \
-  if (match_data->loops_left <= 0) {            \
+  *loops_left_p -= (N);	                        \
+  if (*loops_left_p <= 0) {                     \
       Freturn_id = __LINE__ + 100;	        \
       goto LOOP_COUNT_BREAK;			\
       LABEL_CAT(L_LOOP_COUNT_,__LINE__):	\
@@ -7634,13 +7641,13 @@ if (utf &&
 
     exec_context->valid_utf_ystate.yielded = 0;
 restart_valid_utf:
-    exec_context->valid_utf_ystate.loops_left_p = &(match_data->loops_left);
+    exec_context->valid_utf_ystate.loops_left = match_data->loops_left;
 
     match_data->rc = PRIV(yielding_valid_utf)(mb->check_subject,
                                               length - (mb->check_subject - subject),
                                               &(match_data->startchar),
                                               &(exec_context->valid_utf_ystate));
-
+    match_data->loops_left = exec_context->valid_utf_ystate.loops_left;
 #endif
     if (match_data->rc == 0) break;   /* Valid UTF string */
 
