@@ -33,6 +33,22 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.24.0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Common test will now not crash when running tests with
+	    OTP-26 and earlier, while having previous test results
+	    from OTP-27.</p>
+          <p>
+	    Own Id: OTP-19385 Aux Id: ERIERL-1166, PR-9155, PR-9156 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.24.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
