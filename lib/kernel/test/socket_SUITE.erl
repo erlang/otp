@@ -12569,8 +12569,19 @@ do_otp19469_dgram(#{family := Fam} = LSA) ->
     Data = <<"0123456789">>,
     ?P("[dgram] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
     ok = socket:sendto(S2, Data, SA1),
-    {ok, Data} = socket:recv(S1, 2*DataSz, ?SECS(5)),
-    ?P("[dgram] success"),
+    %% On Windows the behaviour seems to depend on the (OS) version...
+    case socket:recv(S1, 2*DataSz, ?SECS(5)) of
+        {ok, Data} ->
+            ?P("[dgram] success"),
+            ok;
+        {error, {timeout, Data}} ->
+            ?P("[dgram] timeout success"),
+            ok;
+        {error, Reason} ->
+            ?P("unexpected error result:"
+               "~n   Reason: ~p", [Reason]),
+            ?FAIL({unexpected_failure, Reason})
+    end,
 
     ?P("[dgram] cleanup"),
     _ = socket:close(S2),
