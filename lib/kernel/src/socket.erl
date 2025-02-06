@@ -4954,6 +4954,7 @@ If the `Timeout` argument is a time-out value
 if no data has arrived after `Timeout` milliseconds,
 or `{error, {timeout, Data}}` if some but not enough data
 has been received on a socket of [type `stream`](`t:type/0`).
+It *can* also return directly with `{ok, Data}` ([type `dgram`](`t:type/0`)).
 On Unix, if will return `{error, timeout}` either if no data
 has arrived or if not enough data (Length > 0) has arrived.
 It is then up to the caller to make another all to see if 
@@ -5189,14 +5190,8 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 
 recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
     Handle = make_ref(),
-    %% d("~w -> entry with"
-    %%   "~n   Length:   ~p"
-    %%   "~n   Deadline: ~p"
-    %%   "~n   sz(Buf):  ~p", [?FUNCTION_NAME, Length, Deadline, sz(Buf)]),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
         {more, Bin} when (Length =:= 0) ->
-            %% d("~w(0) -> more when"
-            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
             %% There may be more data available
             %% - repeat unless time's up
             %%
@@ -5213,14 +5208,10 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
         %% This next two cases are Windows only
         {more, Bin} when (Length =:= byte_size(Bin)) ->
-            %% d("~w -> (last) more when"
-            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
             %% We got the last chunk
             {ok, condense_buffer([Bin | Buf])};
         {more, Bin} 
           when (Length > byte_size(Bin)) ->
-            %% d("~w(~w) -> more when "
-            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
             %% There may be more data available
             %% - repeat unless time's up
             Timeout = timeout(Deadline),
@@ -5236,8 +5227,6 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
         %%
         {select, Bin} ->
-            %% d("~w(~w) -> select when "
-            %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, Length, sz(Bin)]),
             %% We got less than requested on a stream socket
 	    Timeout = timeout(Deadline),
             receive
@@ -5261,8 +5250,6 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
         select
           when 0 < Length;   % Requested a specific amount of data
                Buf =:= [] -> % or Buf empty (and requested any amount of data)
-            %% d("~w(~w) -> select", [?FUNCTION_NAME, Length]),
-            %%
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
@@ -5284,9 +5271,6 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
             end;
         %%
         select -> % Length is 0 (request any amount of data), Buf not empty
-            %% d("~w(0) -> select when"
-            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, sz(Buf)]),
-            %%
             %% We first got some data and are then asked to wait,
             %% but what we already got will do just fine;
             %% - cancel and return what we have
@@ -5314,25 +5298,18 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 		%% Buf "should be" empty here, but just in case...
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}}) when (Length =:= 0) ->
-                    %% d("~w -> completion ok when"
-                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
                     {ok, condense_buffer([Bin | Buf])};
 
                 %% We got the last chunk
                 ?socket_msg(?socket(SockRef), completion,
 			    {Handle, {ok, Bin}})
                   when (Length =:= byte_size(Bin)) ->
-                    %% d("~w -> completion (last) ok when"
-                    %%   "~n   sz(Bin):  ~p", [?FUNCTION_NAME, sz(Bin)]),
                     {ok, condense_buffer([Bin | Buf])};
 
                 %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
 			    {Handle, {ok, Bin}})
                   when (Length > byte_size(Bin)) ->
-                    %% d("~w(~w) -> completion ok when "
-                    %%   "~n   sz(Bin):  ~p",
-		    %%   [?FUNCTION_NAME, Length, sz(Bin)]),
 		    if
 			0 < Timeout ->
 			    %% Recv more
@@ -5345,35 +5322,21 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
-                    %% d("~w(~w) -> completion error when "
-		    %%   "~n   Reason: ~p",
-		    %%   [?FUNCTION_NAME, Length, Reason]),
                     recv_error(Buf, Reason);
 
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    %% d("~w(~w) -> completion abort when "
-		    %%   "~n   Reason: ~p",
-		    %%   [?FUNCTION_NAME, Length, Reason]),
                     recv_error(Buf, Reason)
 
             after Timeout ->
-                    %% d("~w(~w) -> completion timeout",
-		    %%   [?FUNCTION_NAME, Length]),
                     _ = cancel(SockRef, recv, Handle),
                     recv_error(Buf, timeout)
             end;
 
         {ok, Bin} ->
-            %% d("~w -> ok when"
-            %%   "~n   sz(Bin): ~p"
-            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, sz(Bin), sz(Buf)]),
             {ok, condense_buffer([Bin | Buf])};
 
         %%
         {error, Reason} ->
-            %% d("~w -> error when"
-            %%   "~n   Reason:  ~p"
-            %%   "~n   sz(Buf): ~p", [?FUNCTION_NAME, Reason, sz(Buf)]),
             recv_error(Buf, Reason)
     end.
 
