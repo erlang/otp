@@ -148,20 +148,12 @@ start_channel(Dest) ->
 %%% -spec:s are as if Dialyzer handled signatures for separate
 %%% function clauses.
 -doc(#{equiv => start_channel/3}).
--spec start_channel(ssh:open_socket(),
-                    [ssh:client_option() | sftp_option()]
-                   )
-                   -> {ok,pid(),ssh:connection_ref()} | {error,reason()};
-
-                   (ssh:connection_ref(),
-                    [sftp_option()]
-                   )
-                   -> {ok,pid()}  | {ok,pid(),ssh:connection_ref()} | {error,reason()};
-
-                   (ssh:host(),
-                    [ssh:client_option() | sftp_option()]
-                   )
-                   -> {ok,pid(),ssh:connection_ref()} | {error,reason()} .
+-spec start_channel(ssh:open_socket(), [ssh:client_option() | sftp_option()]) ->
+          {ok, pid(), ssh:connection_ref()} | {error,reason()};
+                   (ssh:connection_ref(), [ssh:client_option() | sftp_option()]) ->
+          {ok, pid()}  | {ok, pid(), ssh:connection_ref()} | {error, reason()};
+                   (ssh:host(), [ssh:client_option() | sftp_option()]) ->
+          {ok, pid(), ssh:connection_ref()} | {error, reason()} .
 start_channel(Cm, UserOptions0) when is_pid(Cm) ->
     UserOptions = legacy_timeout(UserOptions0),
     Timeout = proplists:get_value(timeout, UserOptions, infinity),
