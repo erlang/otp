@@ -2090,7 +2090,7 @@ enc_EventBufferDescriptor([], _State) ->
      ?EventBufferToken
     ];
 enc_EventBufferDescriptor(EventSpecs, State) 
-  when is_list(EventSpecs) and (length(EventSpecs) >= 1) ->
+  when is_list(EventSpecs), length(EventSpecs) >= 1 ->
     [
      ?EventBufferToken,
      ?LBRKT_INDENT(State),

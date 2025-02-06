@@ -624,8 +624,8 @@ multi_mixed_key(Tabs,Type) ->
 					    [ {A,F} | 
 					      Acc];
 					Else ->
-					    case FunE(Else) or 
-						FunG(Else) or
+					    case FunE(Else) orelse
+						FunG(Else) orelse
 						FunJ(Else) of
 						true ->
 						    [ {A,F} | 

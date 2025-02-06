@@ -275,25 +275,25 @@ pseudo_output_length(?'id-hmacWithSHA512') ->
 
 derived_key_length(_, Len) when is_integer(Len) ->
     Len;
-derived_key_length(Cipher,_) when (Cipher == ?'desCBC') or 
-				  (Cipher == "DES-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'desCBC' ;
+				  Cipher == "DES-CBC" ->
     8;
-derived_key_length(Cipher,_) when (Cipher == ?'rc2CBC') or 
-				  (Cipher == "RC2-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'rc2CBC' ;
+				  Cipher == "RC2-CBC" ->
     16;
-derived_key_length(Cipher,_) when (Cipher == ?'des-EDE3-CBC') or 
-				  (Cipher == "DES-EDE3-CBC") ->
+derived_key_length(Cipher,_) when Cipher == ?'des-EDE3-CBC' ;
+				  Cipher == "DES-EDE3-CBC" ->
     24;
 
-derived_key_length(Cipher,_) when (Cipher == "AES-128-CBC");
-                                  (Cipher == ?'id-aes128-CBC') ->
+derived_key_length(Cipher,_) when Cipher == "AES-128-CBC" ;
+                                  Cipher == ?'id-aes128-CBC' ->
     16;
-derived_key_length(Cipher,_) when (Cipher == "AES-192-CBC");
-                                  (Cipher == ?'id-aes192-CBC') ->
+derived_key_length(Cipher,_) when Cipher == "AES-192-CBC" ;
+                                  Cipher == ?'id-aes192-CBC' ->
     24;
 
-derived_key_length(Cipher,_) when (Cipher == "AES-256-CBC");
-                                  (Cipher == ?'id-aes256-CBC') ->
+derived_key_length(Cipher,_) when Cipher == "AES-256-CBC" ;
+                                  Cipher == ?'id-aes256-CBC' ->
     32.
 
 block_size(Cipher) when Cipher == rc2_cbc; 
