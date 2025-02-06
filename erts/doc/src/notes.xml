@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Disabled an unsafe runtime optimization in binary
+	    construction that caused silent memory corruption.</p>
+          <p>
+	    Own Id: OTP-19462 Aux Id: ERIERL-1177, PR-9372 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
