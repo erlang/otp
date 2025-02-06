@@ -21,6 +21,22 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.7
+
+### Fixed Bugs and Malfunctions
+
+- An initiated handshake should always be closed with an alert, some corner cases have been fixed so that this should always be the case.
+
+  Own Id: OTP-19411 Aux Id: [PR-9273], ERIERL-1174
+
+- Correct option handling to work properly for paused handshaking. Could result in unwanted alerts or or error messages.
+
+  Own Id: OTP-19445 Aux Id: [GH-9177], [PR-9322]
+
+[PR-9273]: https://github.com/erlang/otp/pull/9273
+[GH-9177]: https://github.com/erlang/otp/issues/9177
+[PR-9322]: https://github.com/erlang/otp/pull/9322
+
 ## SSL 11.2.6
 
 ### Improvements and New Features
