@@ -19,7 +19,13 @@ A clear and concise description of any alternative solutions or features you've 
 Add any other context or screenshots about the feature request here.
 
 <!--
-SPDX-FileCopyrightText: 2025 Ericsson AB
+
+%CopyrightBegin%
+
+SPDX-FileCopyrightText: Copyright Ericsson AB 2016-2025. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
+
+%CopyrightEnd%
+
 -->

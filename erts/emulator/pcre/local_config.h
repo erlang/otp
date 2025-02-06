@@ -1,5 +1,6 @@
-/* %ExternalCopyright% */
 /* SPDX-License-Identifier: GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 */
+/* %ExternalCopyright% */
+
 
 #define HAVE_ZLIB_H 1
 /* The value of LINK_SIZE determines the number of bytes used to store links
