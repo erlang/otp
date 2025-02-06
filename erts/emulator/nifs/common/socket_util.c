@@ -169,15 +169,8 @@ extern
 ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock)
 {
 #if defined(ESOCK_VERBOSE_MTX_NAMES)
-    ESOCK_PRINTF("esock_mutex_create -> create name with"
-                 "\r\n   pre:  %s"
-                 "\r\n   sock: %d"
-                 "\r\n", pre, sock);
     sprintf(buf, "%s[" SOCKET_FORMAT_STR "]", pre, sock);
 #else
-    ESOCK_PRINTF("esock_mutex_create -> create name with"
-                 "\r\n   pre: %s"
-                 "\r\n", pre);
     VOID(sock);
     sprintf(buf, "%s", pre);
 #endif
