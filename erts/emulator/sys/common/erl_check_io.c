@@ -117,6 +117,7 @@ static const char* event_state_flag_to_str(EventStateFlags f, const char *buff, 
     case ERTS_EV_FLAG_USED: return "USED";
     case ERTS_EV_FLAG_FALLBACK: return "FLBK";
     case ERTS_EV_FLAG_FALLBACK | ERTS_EV_FLAG_USED: return "USED|FLBK";
+    case ERTS_EV_FLAG_WANT_ERROR: return "WANT_ERROR";
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
     case ERTS_EV_FLAG_CLEAR | ERTS_EV_FLAG_NIF_SELECT: return "CLEAR|NIF_SELECT";
@@ -222,6 +223,13 @@ struct drv_ev_state_shared {
 int ERTS_WRITE_UNLIKELY(erts_no_pollsets) = 1;
 int ERTS_WRITE_UNLIKELY(erts_no_poll_threads) = 1;
 struct drv_ev_state_shared drv_ev_state;
+
+/* Used by etp */
+ErtsPollEvents etp_poll_ev_none = ERTS_POLL_EV_NONE;
+ErtsPollEvents etp_poll_ev_in = ERTS_POLL_EV_IN;
+ErtsPollEvents etp_poll_ev_out = ERTS_POLL_EV_OUT;
+ErtsPollEvents etp_poll_ev_err = ERTS_POLL_EV_ERR;
+ErtsPollEvents etp_poll_ev_nval = ERTS_POLL_EV_NVAL;
 
 static ERTS_INLINE int fd_hash(ErtsSysFdType fd)
 {
@@ -369,7 +377,7 @@ static ERTS_INLINE void iready(Eterm id, ErtsDrvEventState *state);
 static ERTS_INLINE void oready(Eterm id, ErtsDrvEventState *state);
 #ifdef DEBUG_PRINT_MODE
 static char *drvmode2str(int mode);
-static char *nifmode2str(enum ErlNifSelectFlags mode);
+static char *nifmode2str(enum ErlNifSelectFlags mode, const char *buff, int sz);
 #endif
 
 static ERTS_INLINE void
@@ -1237,6 +1245,9 @@ enif_select_x(ErlNifEnv* env,
     ErtsDrvSelectDataState *free_select = NULL;
     ErtsNifSelectDataState *free_nif = NULL;
     ErtsPollEvents new_events = 0;
+#ifdef DEBUG_PRINT_MODE
+    char tmp_buff[255];
+#endif
 
     ASSERT(!erts_dbg_is_resource_dying(resource));
 
@@ -1252,7 +1263,7 @@ enif_select_x(ErlNifEnv* env,
     state = get_drv_ev_state(fd); /* may be NULL! */
 
     DEBUG_PRINT_FD("enif_select(%T, %d, %s, %p, %T, %T)",
-                   state, env->proc->common.id, fd, nifmode2str(mode), resource,
+                   state, env->proc->common.id, fd, nifmode2str(mode, tmp_buff, sizeof(tmp_buff)), resource,
                    pid ? pid->pid : THE_NON_VALUE, THE_NON_VALUE);
 
     if (mode & ERL_NIF_SELECT_STOP) {
@@ -2826,24 +2837,33 @@ drvmode2str(int mode) {
 }
 
 static ERTS_INLINE char *
-nifmode2str(enum ErlNifSelectFlags mode) {
-    if (mode & ERL_NIF_SELECT_STOP)
-        return "STOP";
-    switch (mode) {
-    case ERL_NIF_SELECT_READ: return "READ";
-    case ERL_NIF_SELECT_WRITE: return "WRITE";
-    case ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE: return "READ|WRITE";
-    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_READ: return "CANCEL|READ";
-    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_WRITE: return "CANCEL|WRITE";
-    case ERL_NIF_SELECT_CANCEL|ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE:
-        return "CANCEL|READ|WRITE";
-    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_READ: return "CUSTOM|READ";
-    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_WRITE: return "CUSTOM|WRITE";
-    case ERL_NIF_SELECT_CUSTOM_MSG|ERL_NIF_SELECT_READ|ERL_NIF_SELECT_WRITE:
-        return "CUSTOM|READ|WRITE";
-    default: return "UNKNOWN";
+nifmode2str(enum ErlNifSelectFlags mode, const char *orig, int len) {
+    char *prefix = "";
+    int pos = 0;
+    char *buff = (char*)orig;
+
+    #define NIFMODE_PRINT(MODE, NAME) do {                            \
+        if (mode & MODE) {                                            \
+          pos += snprintf(buff + pos, len-pos ,"%s%s", prefix, NAME); \
+          prefix = "|";                                               \
+          mode &= ~MODE;                                              \
+        }                                                             \
+    } while(0)
+
+    NIFMODE_PRINT(ERL_NIF_SELECT_STOP, "STOP");
+    NIFMODE_PRINT(ERL_NIF_SELECT_WRITE, "WRITE");
+    NIFMODE_PRINT(ERL_NIF_SELECT_READ, "READ");
+    NIFMODE_PRINT(ERL_NIF_SELECT_CUSTOM_MSG, "CUSTOM");
+    NIFMODE_PRINT(ERL_NIF_SELECT_CANCEL, "CANCEL");
+    NIFMODE_PRINT(ERL_NIF_SELECT_ERROR, "ERROR");
+
+#undef NIFMODE_PRINT
+
+    if (mode) {
+        snprintf(buff+pos, len-pos, "%sERROR(%d)", prefix, mode);
     }
-}
+    return buff;
+ }
 
 #endif
 
