@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -866,6 +866,7 @@ const int esock_ioctl_flags_length = NUM(esock_ioctl_flags);
 #define ESOCK_OPT_OTP_FD           1008
 #define ESOCK_OPT_OTP_META         1009
 #define ESOCK_OPT_OTP_USE_REGISTRY 1010
+#define ESOCK_OPT_OTP_SELECT_READ  1011
 /**/
 #define ESOCK_OPT_OTP_DOMAIN       1999 // INTERNAL AND ONLY GET
 #if 0
@@ -1228,6 +1229,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
 /* *** esock_setopt_otp_debug        ***
  * *** esock_setopt_otp_iow          ***
  * *** esock_setopt_otp_ctrl_proc    ***
+ * *** esock_setopt_otp_select_read  ***
  * *** esock_setopt_otp_rcvbuf       ***
  * *** esock_setopt_otp_rcvctrlbuf   ***
  * *** esock_setopt_otp_sndctrlbuf   ***
@@ -1238,6 +1240,7 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
     ESOCK_SETOPT_OTP_FUNC_DEF(debug);           \
     ESOCK_SETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_SETOPT_OTP_FUNC_DEF(select_read);     \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_SETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -1256,6 +1259,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
 /* *** esock_getopt_otp_debug        ***
  * *** esock_getopt_otp_iow          ***
  * *** esock_getopt_otp_ctrl_proc    ***
+ * *** esock_getopt_otp_select_read  ***
  * *** esock_getopt_otp_rcvbuf       ***
  * *** esock_getopt_otp_rcvctrlbuf   ***
  * *** esock_getopt_otp_sndctrlbuf   ***
@@ -1271,6 +1275,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
     ESOCK_GETOPT_OTP_FUNC_DEF(debug);           \
     ESOCK_GETOPT_OTP_FUNC_DEF(iow);             \
     ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);       \
+    ESOCK_GETOPT_OTP_FUNC_DEF(select_read);     \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);          \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvctrlbuf);      \
     ESOCK_GETOPT_OTP_FUNC_DEF(sndctrlbuf);      \
@@ -6779,6 +6784,12 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SELECT_READ:
+        MLOCK(descP->readMtx);
+        result = esock_setopt_otp_select_read(env, descP, eVal);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_setopt_otp_rcvbuf(env, descP, eVal);
@@ -6880,6 +6891,34 @@ ERL_NIF_TERM esock_setopt_otp_iow(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_setopt_otp_iow {%d} -> ok"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_atom_ok;
+}
+
+
+
+/* esock_setopt_otp_select_read - Handle the OTP (level) select_read option
+ */
+
+static
+ERL_NIF_TERM esock_setopt_otp_select_read(ErlNifEnv*       env,
+                                          ESockDescriptor* descP,
+                                          ERL_NIF_TERM     eVal)
+{
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_setopt_otp_iow {%d} -> closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    if (! esock_decode_bool(eVal, &descP->selectRead))
+      return esock_make_invalid(env, esock_atom_value);
+
+    SSDBG( descP,
+           ("SOCKET", "esock_setopt_otp_select_read {%d} -> ok"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -8542,6 +8581,12 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         MUNLOCK(descP->readMtx);
         break;
 
+    case ESOCK_OPT_OTP_SELECT_READ:
+        MLOCK(descP->readMtx);
+        result = esock_getopt_otp_select_read(env, descP);
+        MUNLOCK(descP->readMtx);
+        break;
+
     case ESOCK_OPT_OTP_RCVBUF:
         MLOCK(descP->readMtx);
         result = esock_getopt_otp_rcvbuf(env, descP);
@@ -8668,6 +8713,34 @@ ERL_NIF_TERM esock_getopt_otp_iow(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "esock_getopt_otp_iow {%d} ->"
+            "\r\n   eVal: %T"
+            "\r\n", descP->sock, eVal) );
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+
+/* esock_getopt_otp_select_read - Handle the OTP (level) select_read option
+ */
+
+static
+ERL_NIF_TERM esock_getopt_otp_select_read(ErlNifEnv*       env,
+                                          ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal;
+
+    if (! IS_OPEN(descP->readState)) {
+        SSDBG( descP,
+               ("SOCKET", "esock_getopt_otp_select_read {%d} -> done closed\r\n",
+                descP->sock) );
+        return esock_make_error_closed(env);
+    }
+
+    eVal = esock_encode_bool(descP->selectRead);
+
+    SSDBG( descP,
+           ("SOCKET", "esock_getopt_otp_select_read {%d} ->"
             "\r\n   eVal: %T"
             "\r\n", descP->sock, eVal) );
 
@@ -11936,10 +12009,6 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
 
-    descP->readBuf.size   = 0;
-    descP->readBuf.data   = NULL;
-    descP->readResult     = 0;
-
     descP->readPkgCnt     = 0;
     descP->readPkgMax     = 0;
     descP->readPkgMaxCnt  = 0;
@@ -11977,6 +12046,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
     descP->iow              = FALSE;
     descP->dbg              = ESOCK_DEBUG_DEFAULT;      // Overwritten by caller
+    descP->selectRead       = FALSE;
     descP->useReg           = ESOCK_USE_SOCKET_REGISTRY;// Overwritten by caller
     descP->meta.env         = esock_alloc_env("esock_alloc_descriptor - "
                                               "meta-env");
