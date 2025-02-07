@@ -22,6 +22,12 @@ excludes:
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
+      - path: "lib/wx/src/gen/**/wx*.erl"
+        reason: "INCORRECT"
+        comment: >-
+          Documentation was taken from wxWidgets, source code is Apache-2.0
+        detected_license: "Apache-2.0"
+        concluded_license: "Apache-2.0 AND LicenseRef-wxwindows-free-doc"
 
       - path: "lib/edoc/doc/guides/chapter.md"
         reason: "INCORRECT"
@@ -36,6 +42,12 @@ curations:
         concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
 
       - path: "lib/syntax_tools/doc/guides/chapter.md"
+        reason: "INCORRECT"
+        comment: >-
+          License mistaken by Scancode
+        concluded_license: "Apache-2.0 OR LGPL-2.0-or-later"
+
+      - path: "lib/compiler/test/beam_ssa_check_SUITE_data/phis.erl"
         reason: "INCORRECT"
         comment: >-
           License mistaken by Scancode
@@ -90,9 +102,17 @@ curations:
         concluded_license: "Unicode-3.0"
 
       - path: "lib/stdlib/uc_spec/**/*"
-        reason: "DATA_OF"
+        reason: "INCORRECT"
+        detected_license: "NONE"
         comment: >-
           License not included in data files
+        concluded_license: "Unicode-3.0"
+
+      - path: "lib/stdlib/uc_spec/**/*"
+        reason: "INCORRECT"
+        detected_license: "LicenseRef-scancode-unicode"
+        comment: >-
+          Update license to its actual license
         concluded_license: "Unicode-3.0"
 
       - path: "lib/stdlib/test/shell_docs_SUITE_data/**/*"
@@ -725,7 +745,7 @@ curations:
         reason: "INCORRECT"
         comment: >-
           The scanner incorrectly categorises the license
-        concluded_license: "Apache-2.0 WITH LLVM-exception OR BSL-1.0 WITH LLVM-exception"
+        concluded_license: "(Apache-2.0 WITH LLVM-exception AND BSL-1.0) AND (Apache-2.0 OR BSL-1.0)"
 
       - path: "erts/emulator/ryu/d2s_full_table.h"
         reason: "INCORRECT"
