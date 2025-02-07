@@ -2757,7 +2757,6 @@ BIF_RETTYPE make_tuple_3(BIF_ALIST_3)
 {
     Sint n;
     Uint limit;
-    Eterm* hp;
     Eterm res;
     Eterm list = BIF_ARG_3;
     Eterm* tup = NULL;
@@ -2770,13 +2769,13 @@ BIF_RETTYPE make_tuple_3(BIF_ALIST_3)
     if (n == 0) {
         res = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     } else {
-        hp = HAlloc(BIF_P, n+1);
+        Eterm* hp = HAlloc(BIF_P, n+1);
         res = make_tuple(hp);
         *hp++ = make_arityval(n);
         tup = hp;
-    }
-    while (n--) {
-	*hp++ = BIF_ARG_2;
+        while (n--) {
+            *hp++ = BIF_ARG_2;
+        }
     }
     while(is_list(list)) {
 	Eterm* cons;

@@ -4303,6 +4303,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     Eterm reason;
     Eterm from;
 
+    ERTS_UNDEF(reason, THE_NON_VALUE);
     ASSERT(ERTS_PROC_SIG_TYPE(tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
     
     xsigd = get_exit_signal_data(sig);
@@ -4799,6 +4800,7 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
             ErtsMessage *first = NULL, *prev, *last;
             Uint hsz = size_object(msg);
             Uint i;
+            ERTS_UNDEF(last,NULL);
 
             for (i = 0; i < n; i++) {
                 Eterm *hp;

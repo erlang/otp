@@ -3043,6 +3043,9 @@ static TreeDbTerm *slot_search(Process *p, TreeDbTerm *root,
     TreeDbTerm **pp;
     DbTreeStack* stack;
 
+#ifdef DEBUG
+    lastobj = (TreeDbTerm*)1;
+#endif
     if (iter) {
         /* Find first non-empty tree */
         while (!root) {
@@ -3134,6 +3137,7 @@ next_root:
         }
 
         ASSERT(slot > stack->slot);
+        ASSERT(lastobj != (TreeDbTerm*)1);
         if (lastobj) {
             lastkey = GETKEY(tb, lastobj->dbterm.tpl);
             lastobj = NULL;

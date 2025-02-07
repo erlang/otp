@@ -5714,6 +5714,7 @@ static void dbg_assert_in_env(ErlNifEnv* env, Eterm term,
 {
     Uint saved_used_size;
     Eterm* real_htop;
+    ERTS_UNDEF(saved_used_size, 0);
 
     if (is_immed(term)
         || (is_non_value(term) && env->exception_thrown)

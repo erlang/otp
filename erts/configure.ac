@@ -3670,7 +3670,7 @@ if test "X $CFLAGS" = "X$no_opt_CFLAGS"; then
 	If you want to build ERTS without any optimization, pass -O0 to CFLAGS.])
 fi
 AC_MSG_RESULT([yes])
-DEBUG_CFLAGS="-g -O0 $no_opt_CFLAGS"
+DEBUG_CFLAGS="-g -Og $no_opt_CFLAGS"
 AC_SUBST(DEBUG_CFLAGS)
 
 no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[[^ ]]*/ /g')

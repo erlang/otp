@@ -1385,8 +1385,8 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
 {
     ErtsTracerRef *ref;
     ErtsTracerRef *next_ref;
-    Eterm mfa;
-    Eterm* hp = NULL;
+    Eterm mfa = THE_NON_VALUE;
+
     for (ref = p->common.tracee.first_ref; ref; ref = next_ref) {
         ErtsTracerNif *tnif = NULL;
         next_ref = ref->next;
@@ -1394,8 +1394,8 @@ trace_proc_spawn(Process *p, Eterm what, Eterm pid,
             && is_tracer_ref_enabled(NULL, 0, &p->common, ref, &tnif,
                                      TRACE_FUN_E_PROCS, what)) {
 
-            if(!hp){
-                hp = HAlloc(p, 4);
+            if(is_non_value(mfa)){
+                Eterm* hp = HAlloc(p, 4);
                 mfa = TUPLE3(hp, mod, func, args);
             }
             send_to_tracer_nif(NULL, &p->common, ref, p->common.id, tnif, TRACE_FUN_T_PROCS,
