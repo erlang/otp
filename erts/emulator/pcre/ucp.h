@@ -2,6 +2,7 @@
 *          Unicode Property Table handler        *
 *************************************************/
 
+/* SPDX-License-Identifier: BSD-3-Clause */
 /* %ExternalCopyright% */
 
 #ifndef _UCP_H

@@ -1,3 +1,6 @@
+%% SPDX-License-Identifier: MIT
+%% SPDX-FileCopyrightText: 2010 Torbjorn Tornkvist <tobbe@tornkvist.org>
+
 -ifndef( _ELDAP_HRL ).
 -define( _ELDAP_HRL , 1 ).
 

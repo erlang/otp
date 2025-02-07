@@ -1,4 +1,6 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
 /* %ExternalCopyright% */
+
 
 #define HAVE_ZLIB_H 1
 /* The value of LINK_SIZE determines the number of bytes used to store links

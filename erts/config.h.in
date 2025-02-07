@@ -1,5 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
-
+/* SPDX-License-Identifier: GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 */
 
 #ifndef __ERTS_CONFIG_H__
 #define __ERTS_CONFIG_H__

@@ -1,3 +1,11 @@
+# %CopyrightBegin%
+#
+# SPDX-FileCopyrightText: Copyright Ericsson AB 2023-2025. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# %CopyrightEnd%
+
 name: Build Base Image
 description: 'Builds the base testing image (using cache if possible)'
 
