@@ -62,6 +62,7 @@ document etp-help
 %   etp-heapdump, etp-offheapdump, etpf-offheapdump,
 %   etp-search-heaps, etp-search-alloc,
 %   etp-ets-tables, etp-ets-tabledump
+%   etp-fd-dump
 %
 % Complex commands that use the Erlang support module.
 %   etp-overlapped-heaps, etp-chart, etp-chart-start, etp-chart-end
@@ -4919,6 +4920,158 @@ document etp-ets-tabledump
 % Dump an ETS table with a specified slot index.
 %---------------------------------------------------------------------------
 end
+
+define _etp-fd-print-events
+    if $arg0 == 0 || $arg0 == etp_poll_ev_none
+        printf "NONE"
+    else
+    if $arg0 == etp_poll_ev_in
+        printf "IN"
+    else
+    if $arg0 == etp_poll_ev_out
+        printf "OUT"
+    else
+    if $arg0 == (etp_poll_ev_in|etp_poll_ev_out)
+        printf "IN|OUT"
+    else
+    if $arg0 == etp_poll_ev_err
+        printf "ERR"
+    else
+    if $arg0 == etp_poll_ev_nval
+        printf "NVAL"
+    else
+        printf "UNKNOWN(%d)", $arg0
+    end
+    end
+    end
+    end
+    end
+    end
+    printf "\n"
+end
+
+define etp-fd
+    set $etp_fd_state = &drv_ev_state.v[$arg0]
+    printf "fd: %d\n", $arg0
+    
+    printf "  type: "
+    if $etp_fd_state->type == 0
+        printf "NONE\n"
+    end
+    if $etp_fd_state->type == 1
+        printf "DRV_SEL\n"
+    end
+    if $etp_fd_state->type == 2
+        printf "STOP_USE\n"
+    end
+    if $etp_fd_state->type == 3
+        printf "NIF\n"
+    end
+    if $etp_fd_state->type == 4
+        printf "STOP_NIF\n"
+    end
+
+    printf "  events: "
+    _etp-fd-print-events $etp_fd_state->events
+    
+    printf "  active_events: "
+    _etp-fd-print-events $etp_fd_state->active_events
+    
+    printf "  flags: "
+    set $etp_fd_flags = $etp_fd_state->flags
+    if  $etp_fd_flags == 0x0
+        printf "NONE"
+    else
+        if  $etp_fd_flags & 0x1
+            printf "USED "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x1
+        end
+        if  $etp_fd_flags & 0x2
+            printf "SCHEDULER "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x2
+        end
+        if  $etp_fd_flags & 0x4
+            printf "IN_SCHEDULER "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x4
+        end
+        if  $etp_fd_flags & 0x8
+            printf "NIF_SELECT "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x8
+        end
+        if  $etp_fd_flags & 0x10
+            printf "FALLBACK "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x10
+        end
+        if  $etp_fd_flags & 0x20
+            printf "WANT_ERROR "
+            set $etp_fd_flags =  $etp_fd_flags & ~0x20
+        end
+        if $etp_fd_flags
+            printf "ERROR(%d)", $etp_fd_flags
+        end
+    end
+    printf "\n"
+    if $etp_fd_state->driver.select
+        if $etp_fd_state->driver.select->inport != $etp_nil
+            printf "  IN PORT: "
+            etp $etp_fd_state->driver.select->inport
+        end
+        if $etp_fd_state->driver.select->outport != $etp_nil
+            printf "  OUT PORT: "
+            etp $etp_fd_state->driver.select->outport
+        end
+        if $etp_fd_state->driver.select->outiotask.task.counter != 0
+            printf "  OUT TASK: (ErtsPortTask*)%p\n", $etp_fd_state->driver.select->outiotask.task.counter
+        end
+        if $etp_fd_state->driver.select->iniotask.task.counter != 0
+            printf "  IN TASK: (ErtsPortTask*)%p\n", $etp_fd_state->driver.select->iniotask.task.counter
+        end
+    end
+    if $etp_fd_state->driver.nif
+        if $etp_fd_state->driver.nif->in.pid != $etp_nil
+            printf "  IN PID: "
+            etp $etp_fd_state->driver.nif->in.pid
+        end
+        if $etp_fd_state->driver.nif->out.pid != $etp_nil
+            printf "  OUT PID: "
+            etp $etp_fd_state->driver.nif->out.pid
+        end
+    end
+end
+
+document etp-fd
+%---------------------------------------------------------------------------
+% etp-fd FD
+%
+% Dump info about a specific FD
+%---------------------------------------------------------------------------
+end
+
+define etp-fd-dump
+    set $etp_fd_dump_i = 0
+    set $etp_fd_dump_len = drv_ev_state.len.counter
+    while $etp_fd_dump_i < $etp_fd_dump_len
+        set $etp_fd_dump_state = &drv_ev_state.v[$etp_fd_dump_i]
+        set $should_display = $etp_fd_dump_state->flags != 0
+        set $should_display |= $etp_fd_dump_state->events != etp_poll_ev_none && $etp_fd_dump_state->events != 0
+        set $should_display |= $etp_fd_dump_state->active_events != etp_poll_ev_none && $etp_fd_dump_state->active_events != 0
+        set $should_display |= $etp_fd_dump_state->driver.select != 0
+        set $should_display |= $etp_fd_dump_state->driver.nif != 0
+        if  $should_display
+            etp-fd $etp_fd_dump_i
+        end
+        set $etp_fd_dump_i++
+    end
+end
+
+document etp-fd-dump
+%---------------------------------------------------------------------------
+% etp-fd-dump
+%
+% Dump all FDs in the system
+%---------------------------------------------------------------------------
+end
+
 
 define etp-lc-dump
 # Non-reentrant

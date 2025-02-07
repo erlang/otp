@@ -169,7 +169,7 @@ typedef struct {
  * Note that not all signal are handled using this functionality!
  */
 
-#define ERTS_SIG_Q_OP_MAX 19
+#define ERTS_SIG_Q_OP_MAX 20
 
 #define ERTS_SIG_Q_OP_EXIT                      0  /* Exit signal due to bif call */
 #define ERTS_SIG_Q_OP_EXIT_LINKED               1  /* Exit signal due to link break*/
@@ -190,7 +190,8 @@ typedef struct {
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
 #define ERTS_SIG_Q_OP_ADJ_MSGQ                  18
-#define ERTS_SIG_Q_OP_FLUSH			ERTS_SIG_Q_OP_MAX
+#define ERTS_SIG_Q_OP_FLUSH			19
+#define ERTS_SIG_Q_OP_NIF_SELECT		ERTS_SIG_Q_OP_MAX
 
 #define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
 
@@ -1177,6 +1178,9 @@ erts_proc_sig_send_cla_request(Process *c_p, Eterm to, Eterm req_id);
  */
 void
 erts_proc_sig_send_move_msgq_off_heap(Eterm to);
+
+int
+erts_proc_sig_send_nif_select(Eterm to, ErtsMessage *msg);
 
 /*
  * End of send operations of currently supported process signals.

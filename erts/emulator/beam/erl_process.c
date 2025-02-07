@@ -3386,7 +3386,7 @@ try_set_sys_scheduling(void)
 
 
 static ERTS_INLINE int
-prepare_for_sys_schedule(void)
+prepare_for_sys_schedule(ErtsSchedulerData *esdp)
 {
     if (erts_sched_poll_enabled()) {
         while (!erts_port_task_have_outstanding_io_tasks()
@@ -3401,7 +3401,7 @@ prepare_for_sys_schedule(void)
 
 #else
 #define clear_sys_scheduling()
-#define prepare_for_sys_schedule() 0
+#define prepare_for_sys_schedule(esdp) 0
 #endif
 
 #ifdef HARDDEBUG
@@ -3536,13 +3536,18 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
                 current_time = 0;
                 timeout_time = ERTS_MONOTONIC_TIME_MAX;
             }
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+            if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && erts_sched_poll_enabled()) {
+                erts_io_clear_nif_select_handles(esdp);
+            }
+#endif
             if (do_timeout) {
                 if (!thr_prgr_active) {
                     erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 1);
                     sched_wall_time_change(esdp, 1);
                 }
             }
-            else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && prepare_for_sys_schedule()) {
+            else if (!ERTS_SCHEDULER_IS_DIRTY(esdp) && prepare_for_sys_schedule(esdp)) {
                 /* We sleep in check_io, only for normal schedulers */
                 if (thr_prgr_active) {
                     erts_thr_progress_active(erts_thr_prgr_data(esdp), thr_prgr_active = 0);
@@ -5978,6 +5983,12 @@ init_scheduler_data(ErtsSchedulerData* esdp, int num,
 
     esdp->io.out = (Uint64) 0;
     esdp->io.in = (Uint64) 0;
+
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    for (int i = 0; i < sizeof(esdp->nif_select_fds) / sizeof(ErtsSysFdType); i++) {
+        esdp->nif_select_fds[i] = ERTS_SYS_FD_INVALID;
+    }
+#endif
 
     esdp->pending_signal.sig = NULL;
     esdp->pending_signal.to = THE_NON_VALUE;
@@ -9829,7 +9840,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    goto check_activities_to_run;
 	} else if (is_normal_sched &&
                    fcalls > (2 * context_reds) &&
-                   prepare_for_sys_schedule()) {
+                   prepare_for_sys_schedule(esdp)) {
             ErtsMonotonicTime current_time;
 	    /*
 	     * Schedule system-level activities.

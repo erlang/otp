@@ -71,6 +71,9 @@ typedef struct process Process;
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
+// Included for ERTS_POLL_USE_SCHEDULER_POLLING
+#include "erl_poll.h"
+
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT_OPT	0
 #define ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT		0
 
@@ -721,6 +724,9 @@ struct ErtsSchedulerData_ {
 	Uint64 out;
 	Uint64 in;
     } io;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    ErtsSysFdType nif_select_fds[5]; /* Used by check io */
+#endif
     struct {
         ErtsSignal* sig;
         Eterm to;

@@ -269,7 +269,7 @@ if [ -n "${FLAVOR}" ]; then
 fi
 
 # Compile test server and configure
-if [ ! -f "$ERL_TOP/lib/common_test/test_server/variables" ]; then
+if [ ! -f "$ERL_TOP/lib/common_test/test_server/variables.${TYPE}.${FLAVOR}" ]; then
     cd "$ERL_TOP/lib/common_test/test_server"
     ( ${MAKE:-make} && erl -noshell -eval "ts:install()." -s init stop )  > "$INSTALL_TEST_LOG" 2>&1
     if [ $? != 0 ]
@@ -277,6 +277,8 @@ if [ ! -f "$ERL_TOP/lib/common_test/test_server/variables" ]; then
         cat "$INSTALL_TEST_LOG"
         print_highlighted_msg $RED "\"make && erl -eval 'ts:install()'\" in common_test/test_server failed."
         exit 1
+    else
+        cp "$ERL_TOP/lib/common_test/test_server/variables" "$ERL_TOP/lib/common_test/test_server/variables.${TYPE}.${FLAVOR}"
     fi
 fi
 
@@ -284,7 +286,7 @@ fi
 cd $MAKE_TEST_REL_DIR
 
 erl -sname test -noshell -pa "$ERL_TOP/lib/common_test/test_server" \
-    -eval "ts:compile_datadirs(\"$ERL_TOP/lib/common_test/test_server/variables\",\"*_SUITE_data\")."\
+    -eval "ts:compile_datadirs(\"$ERL_TOP/lib/common_test/test_server/variables.${TYPE}.${FLAVOR}\",\"*_SUITE_data\")."\
     -s init stop > "$COMPILE_TEST_LOG" 2>&1
 
 if [ $? != 0 ]
