@@ -50,12 +50,12 @@
 #define DEBUG_PRINT_FD(FMT, STATE, ...)                                                 \
     do {                                                                                \
         const char buff[128];                                                           \
-        DEBUG_PRINT("%d: " FMT " (ev=%s, ac=%s, flg=%s)",                               \
+        DEBUG_PRINT("%d: " FMT " (ev=%s, ac=%s, flg=%s, cnt=%d)",                       \
                 (STATE) ? (STATE)->fd : (ErtsSysFdType)-1, ##__VA_ARGS__,               \
                 ev2str((STATE) ? (STATE)->events : ERTS_POLL_EV_NONE),                  \
                 ev2str((STATE) ? (STATE)->active_events : ERTS_POLL_EV_NONE),           \
                 event_state_flag_to_str((STATE) ? (STATE)->flags : ERTS_EV_FLAG_CLEAR,  \
-                            buff, sizeof(buff)));                                       \
+                            buff, sizeof(buff)), (STATE)->count);                       \
     } while(0)
 #define DEBUG_PRINT_MODE
 #else
@@ -120,7 +120,7 @@ static const char* event_state_flag_to_str(EventStateFlags f, const char *buff, 
     case ERTS_EV_FLAG_WANT_ERROR: return "WANT_ERROR";
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-    case ERTS_EV_FLAG_CLEAR | ERTS_EV_FLAG_NIF_SELECT: return "CLEAR|NIF_SELECT";
+    case ERTS_EV_FLAG_NIF_SELECT: return "NIF_SELECT";
     case ERTS_EV_FLAG_USED | ERTS_EV_FLAG_NIF_SELECT: return "USED|NIF_SELECT";
     case ERTS_EV_FLAG_SCHEDULER: return "SCHD";
     case ERTS_EV_FLAG_SCHEDULER | ERTS_EV_FLAG_USED: return "USED|SCHD";
@@ -1358,7 +1358,18 @@ enif_select_x(ErlNifEnv* env,
                 }
             }
             if (ctl_events & ERTS_POLL_EV_IN) {
+                ErtsSchedulerData *esdp = erts_get_scheduler_data();
                 erts_io_clear_nif_select(fd, state);
+                /* Clear the marker in scheduler data so that the scheduler
+                 * does not detect the flag is this FD is again triggered very
+                 * soon.
+                 */
+                for (int i = 0; i < sizeof(esdp->nif_select_fds) / sizeof(ErtsSysFdType); i++) {
+                    if (esdp->nif_select_fds[i] == fd) {
+                        DEBUG_PRINT("%d: Clear in sched %d's state", esdp->nif_select_fds[i], esdp->no);
+                        esdp->nif_select_fds[i] = ERTS_SYS_FD_INVALID;
+                    }
+                }
             }
         }
 #endif
