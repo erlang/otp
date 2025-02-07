@@ -6,7 +6,8 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2014 University of Cambridge
+     Original API code Copyright (c) 1997-2012 University of Cambridge
+         New API code Copyright (c) 2016 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -36,53 +37,85 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------------
 */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
 
-/* This module contains global variables that are exported by the PCRE library.
-PCRE is thread-clean and doesn't use any global variables in the normal sense.
-However, it calls memory allocation and freeing functions via the four
-indirections below, and it can optionally do callouts, using the fifth
-indirection. These values can be changed by the caller, but are shared between
-all threads.
+/* This file contains a function that converts a Unicode character code point
+into a UTF string. The behaviour is different for each code unit width. */
 
-For MS Visual Studio and Symbian OS, there are problems in initializing these
-variables to non-local functions. In these cases, therefore, an indirection via
-a local function is used.
-
-Also, when compiling for Virtual Pascal, things are done differently, and
-global variables are not used. */
-
-/* %ExternalCopyright% */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "pcre_internal.h"
+#include "pcre2_internal.h"
 
-#if defined _MSC_VER || defined  __SYMBIAN32__
-static void* LocalPcreMalloc(size_t aSize)
-  {
-  return malloc(aSize);
-  }
-static void LocalPcreFree(void* aPtr)
-  {
-  free(aPtr);
-  }
-PCRE_EXP_DATA_DEFN void *(*PUBL(malloc))(size_t) = LocalPcreMalloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(free))(void *) = LocalPcreFree;
-PCRE_EXP_DATA_DEFN void *(*PUBL(stack_malloc))(size_t) = LocalPcreMalloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(stack_free))(void *) = LocalPcreFree;
-PCRE_EXP_DATA_DEFN int   (*PUBL(callout))(PUBL(callout_block) *) = NULL;
-PCRE_EXP_DATA_DEFN int   (*PUBL(stack_guard))(void) = NULL;
 
-#elif !defined VPCOMPAT
-PCRE_EXP_DATA_DEFN void *(*PUBL(malloc))(size_t) = malloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(free))(void *) = free;
-PCRE_EXP_DATA_DEFN void *(*PUBL(stack_malloc))(size_t) = malloc;
-PCRE_EXP_DATA_DEFN void  (*PUBL(stack_free))(void *) = free;
-PCRE_EXP_DATA_DEFN int   (*PUBL(callout))(PUBL(callout_block) *) = NULL;
-PCRE_EXP_DATA_DEFN int   (*PUBL(stack_guard))(void) = NULL;
+/* If SUPPORT_UNICODE is not defined, this function will never be called.
+Supply a dummy function because some compilers do not like empty source
+modules. */
+
+#ifndef SUPPORT_UNICODE
+unsigned int
+PRIV(ord2utf)(uint32_t cvalue, PCRE2_UCHAR *buffer)
+{
+(void)(cvalue);
+(void)(buffer);
+return 0;
+}
+#else  /* SUPPORT_UNICODE */
+
+
+/*************************************************
+*          Convert code point to UTF             *
+*************************************************/
+
+/*
+Arguments:
+  cvalue     the character value
+  buffer     pointer to buffer for result
+
+Returns:     number of code units placed in the buffer
+*/
+
+unsigned int
+PRIV(ord2utf)(uint32_t cvalue, PCRE2_UCHAR *buffer)
+{
+/* Convert to UTF-8 */
+
+#if PCRE2_CODE_UNIT_WIDTH == 8
+int i, j;
+for (i = 0; i < PRIV(utf8_table1_size); i++)
+  if ((int)cvalue <= PRIV(utf8_table1)[i]) break;
+buffer += i;
+for (j = i; j > 0; j--)
+ {
+ *buffer-- = 0x80 | (cvalue & 0x3f);
+ cvalue >>= 6;
+ }
+*buffer = PRIV(utf8_table2)[i] | cvalue;
+return i + 1;
+
+/* Convert to UTF-16 */
+
+#elif PCRE2_CODE_UNIT_WIDTH == 16
+if (cvalue <= 0xffff)
+  {
+  *buffer = (PCRE2_UCHAR)cvalue;
+  return 1;
+  }
+cvalue -= 0x10000;
+*buffer++ = 0xd800 | (cvalue >> 10);
+*buffer = 0xdc00 | (cvalue & 0x3ff);
+return 2;
+
+/* Convert to UTF-32 */
+
+#else
+*buffer = (PCRE2_UCHAR)cvalue;
+return 1;
 #endif
+}
+#endif  /* SUPPORT_UNICODE */
 
-/* End of pcre_globals.c */
+/* End of pcre_ord2utf.c */

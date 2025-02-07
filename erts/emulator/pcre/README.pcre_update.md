@@ -1,3 +1,7 @@
+<!--
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # How to update the PCRE version used by Erlang
 
 ## The basic changes to the PCRE library
@@ -688,14 +692,13 @@ generate re\_testoutput1\_replacement\_test.erl. Watch during the
 generation that you do not get to many of the "Fishy character"
 messages, if they are more than, say 20, you will probably need to
 address the UTF8 issues in the Perl execution. As it is now, we skip
-non latin1 characters in this test. You will need to run iconv on the
-generated module to make it UTF-8 before running tests. Try to use a
-perl version that is as new as possible.
+non latin1 characters in this test. The generation will end by running
+'iconv' to convert the module from latin1 to UTF-8.
 
-The exact same procedure goes for the re\_testoutput1\_split\_test.erl. 
+The exact same procedure goes for the re\_testoutput1\_split\_test.erl.
 
-Make a note about perl version used in the commit updating the replace
-and split test files.
+Try to use a perl version that is as new as possible. Make a note about perl
+version used in the commit updating the replace and split test files.
 
 Note that the perl version you are using may not be completely
 compatible with the PCRE version you are upgrading to. If this is the
@@ -705,8 +708,6 @@ to do. If there are only a small amount of failures you will probably
 end up preferring the behavior of PCRE, and manually changing these
 tests. Do these changes in a separate commit so it is easy to see
 what differed.
-
-Also add copyright headers to the files after converting them to UTF-8.
 
 After ironing out the rest of the bugs, you should be done with the
 code.

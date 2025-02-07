@@ -5,8 +5,8 @@
 /* PCRE is a library of functions to support regular expressions whose syntax
 and semantics are as close as possible to those of the Perl 5 language.
 
-                       Written by Philip Hazel
-           Copyright (c) 1997-2012 University of Cambridge
+                     Written by Philip Hazel
+            Copyright (c) 2023 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -36,63 +36,62 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 -----------------------------------------------------------------------------
 */
+/* SPDX-License-Identifier: BSD-3-Clause */
 
+/* This file contains functions to implement checked integer operation */
 
-/* This module contains the external function pcre_refcount(), which is an
-auxiliary function that can be used to maintain a reference count in a compiled
-pattern data block. This might be helpful in applications where the block is
-shared by different users. */
-
-/* %ExternalCopyright% */
-
+#ifndef PCRE2_PCRE2TEST
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "pcre_internal.h"
-
+#include "pcre2_internal.h"
+#endif
 
 /*************************************************
-*           Maintain reference count             *
+*        Checked Integer Multiplication          *
 *************************************************/
 
-/* The reference count is a 16-bit field, initialized to zero. It is not
-possible to transfer a non-zero count from one host to a different host that
-has a different byte order - though I can't see why anyone in their right mind
-would ever want to do that!
-
+/*
 Arguments:
-  argument_re   points to compiled code
-  adjust        value to add to the count
+  r         A pointer to PCRE2_SIZE to store the answer
+  a, b      Two integers
 
-Returns:        the (possibly updated) count value (a non-negative number), or
-                a negative error number
-*/
+Returns:    Bool indicating if the operation overflows
 
-#if defined COMPILE_PCRE8
-#if defined(ERLANG_INTEGRATION)
-PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
-erts_pcre_refcount(pcre *argument_re, int adjust)
-#else
-PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
-pcre_refcount(pcre *argument_re, int adjust)
-#endif
-#elif defined COMPILE_PCRE16
-PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
-pcre16_refcount(pcre16 *argument_re, int adjust)
-#elif defined COMPILE_PCRE32
-PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
-pcre32_refcount(pcre32 *argument_re, int adjust)
-#endif
+It is modeled after C23's <stdckdint.h> interface
+The INT64_OR_DOUBLE type is a 64-bit integer type when available,
+otherwise double. */
+
+BOOL
+PRIV(ckd_smul)(PCRE2_SIZE *r, int a, int b)
 {
-REAL_PCRE *re = (REAL_PCRE *)argument_re;
-if (re == NULL) return PCRE_ERROR_NULL;
-if (re->magic_number != MAGIC_NUMBER) return PCRE_ERROR_BADMAGIC;
-if ((re->flags & PCRE_MODE) == 0) return PCRE_ERROR_BADMODE;
-re->ref_count = (-adjust > re->ref_count)? 0 :
-                (adjust + re->ref_count > 65535)? 65535 :
-                re->ref_count + adjust;
-return re->ref_count;
+#ifdef HAVE_BUILTIN_MUL_OVERFLOW
+PCRE2_SIZE m;
+
+if (__builtin_mul_overflow(a, b, &m)) return TRUE;
+
+*r = m;
+#else
+INT64_OR_DOUBLE m;
+
+#ifdef PCRE2_DEBUG
+if (a < 0 || b < 0) abort();
+#endif
+
+m = (INT64_OR_DOUBLE)a * (INT64_OR_DOUBLE)b;
+
+#if defined INT64_MAX || defined int64_t
+if (sizeof(m) > sizeof(*r) && m > (INT64_OR_DOUBLE)PCRE2_SIZE_MAX) return TRUE;
+*r = (PCRE2_SIZE)m;
+#else
+if (m > PCRE2_SIZE_MAX) return TRUE;
+*r = m;
+#endif
+
+#endif
+
+return FALSE;
 }
 
-/* End of pcre_refcount.c */
+/* End of pcre_chkdint.c */
