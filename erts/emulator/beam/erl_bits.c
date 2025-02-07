@@ -1659,6 +1659,21 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
 	}
     }
 
+    if (build_size_in_bits == 0) {
+        if (HeapWordsLeft(c_p) < extra_words) {
+            (void) erts_garbage_collect(c_p, extra_words, reg, live+1);
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                return THE_NON_VALUE;
+            }
+            bin = reg[live];
+        }
+        /* Assign values that should cause a crash if an attempt is made
+         * to read or write to the binary. */
+        EBS->erts_current_bin = NULL;
+        EBS->erts_bin_offset = 5;
+        return bin;
+    }
+
     if ((ERTS_UINT_MAX - build_size_in_bits) < position) {
         c_p->fvalue = am_size;
         c_p->freason = SYSTEM_LIMIT;
@@ -1738,6 +1753,14 @@ erts_bs_append_checked(Process* c_p, Eterm* reg, Uint live,
         if (unit > 1 && (src_size % unit) != 0) {
             c_p->fvalue = am_unit;
             goto badarg;
+        }
+
+        if (build_size_in_bits == 0) {
+            /* Assign values that should cause a crash if an attempt
+             * is made to read or write to the binary. */
+            EBS->erts_current_bin = NULL;
+            EBS->erts_bin_offset = 5;
+            return bin;
         }
 
         if((ERTS_UINT_MAX - build_size_in_bits) < src_size) {

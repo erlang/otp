@@ -34,6 +34,7 @@
          many_segments/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -890,14 +891,55 @@ zero_width(Config) when is_list(Config) ->
     Z = id(0),
     Small = id(42),
     Big = id(1 bsl 128),
+
     <<>> = <<Small:Z>>,
     <<>> = <<Small:0>>,
     <<>> = <<Big:Z>>,
     <<>> = <<Big:0>>,
+
+    append_zero_width(<<>>),
+    append_zero_width(<<1:1>>),
+    append_zero_width(<<-1:9>>),
+    append_zero_width(<<"abc">>),
+
+    Bin = id(<<"abc">>),
+    append_zero_width(id(<<Bin/binary, "def">>)),
+    append_zero_width(id(<<Bin/binary, 1:1>>)),
+    append_zero_width(id(<<Bin/binary, -1:9>>)),
     
     {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
     {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
     {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+
+    ok.
+
+append_zero_width(Base) ->
+    Z = id(0),
+    Small = id(42),
+    Big = id(1 bsl 128),
+    Float = id(42.0),
+    EmptyBin = id(<<>>),
+    Bin = id(~"xyz"),
+
+    Base = id(<<Base/bitstring, Small:Z/big-integer>>),
+    Base = id(<<Base/bitstring, Small:0/big-integer>>),
+    Base = id(<<Base/bitstring, Small:Z/little-integer>>),
+    Base = id(<<Base/bitstring, Small:0/little-integer>>),
+
+    Base = id(<<Base/bitstring, Big:Z/big-integer>>),
+    Base = id(<<Base/bitstring, Big:0/big-integer>>),
+    Base = id(<<Base/bitstring, Big:Z/little-integer>>),
+    Base = id(<<Base/bitstring, Big:0/little-integer>>),
+
+    ?assertError(badarg, <<Base/bitstring, Float:Z/big-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:Z/little-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:0/big-float>>),
+    ?assertError(badarg, <<Base/bitstring, Float:0/little-float>>),
+
+    Base = id(<<Base/bitstring, EmptyBin:Z/binary>>),
+    Base = id(<<Base/bitstring, EmptyBin:0/binary>>),
+    Base = id(<<Base/bitstring, Bin:Z/binary>>),
+    Base = id(<<Base/bitstring, Bin:0/binary>>),
 
     ok.
 
