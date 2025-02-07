@@ -34,8 +34,7 @@
          otp_7461/1, otp_7461_remote/1, argument_separation/1, argument_with_option/1,
          zdbbl_dist_buf_busy_limit/1, long_path_env/1, long_path_env_when_rootdir_not_present/1]).
 
--include_lib("common_test/include/ct.hrl").
--include_lib("eunit/include/eunit.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
