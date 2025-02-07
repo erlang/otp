@@ -622,7 +622,9 @@ jobs:
   sbom:
     name: Create SBOM
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/OTP-')
+    if: |
+        startsWith(github.ref, 'refs/tags/OTP-') || github.event_name == 'schedule' ||
+          (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check'))
     steps:
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
