@@ -1,5 +1,4 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
-/* SPDX-License-Identifier: GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 */
 
 /* Define to 1 if using 'alloca.c'. */
 #undef C_ALLOCA
