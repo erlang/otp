@@ -4944,26 +4944,6 @@ then :
 
 fi
 
-       for ac_header in sql.h sqlext.h
-do :
-  as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | sed "$as_sed_sh"`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "#ifdef HAVE_WINDOWS_H
-     # include <windows.h>
-     #endif
-
-"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"
-then :
-  cat >>confdefs.h <<_ACEOF
-#define `printf "%s\n" "HAVE_$ac_header" | sed "$as_sed_cpp"` 1
-_ACEOF
- odbc_required_headers=yes
-else case e in #(
-  e) odbc_required_headers=no ;;
-esac
-fi
-
-done
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
@@ -5639,6 +5619,8 @@ case $host_os in #(
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
 
+               save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
 printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
 if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
@@ -5684,16 +5666,11 @@ fi
 printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
 if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
 then :
-  ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
 fi
 
-         ;; #(
-  haiku*) :
-
-               TARGET_FLAGS="-DUNIX"
-               ODBC_LIB= -L"/system/lib"
-               ODBC_INCLUDE="-I/system/develop/headers"
-                              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
+               if test $odbc_lib_link_success = no; then
+                  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
 printf %s "checking for SQLAllocHandle in -lodbc... " >&6; }
 if test ${ac_cv_lib_odbc_SQLAllocHandle+y}
 then :
@@ -5741,6 +5718,115 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+               fi
+               LIBS="$save_LIBS"
+         ;; #(
+  haiku*) :
+
+               TARGET_FLAGS="-DUNIX"
+               ODBC_LIB= -L"/system/lib"
+               ODBC_INCLUDE="-I/system/develop/headers"
+                              save_LIBS="$LIBS"
+               LIBS="$LIBS $ODBC_LIB"
+               { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
+printf %s "checking for SQLAllocHandle in -lodbc... " >&6; }
+if test ${ac_cv_lib_odbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-lodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_odbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_odbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_odbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_odbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_odbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
+fi
+
+               if test $odbc_lib_link_success = no; then
+                  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+               fi
+               LIBS="$save_LIBS"
          ;; #(
   win32|cygwin) :
 
@@ -5794,6 +5880,8 @@ fi
 		    ODBC_LIB=-L"$with_odbc/lib"
 		    ODBC_INCLUDE="-I$with_odbc/include"
 		fi
+		save_LIBS="$LIBS"
+		LIBS="$LIBS $ODBC_LIB"
 		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for main in -lodbc32" >&5
 printf %s "checking for main in -lodbc32... " >&6; }
 if test ${ac_cv_lib_odbc32_main+y}
@@ -5833,6 +5921,7 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc32"; odbc_lib_link_success=yes
 fi
 
+		LIBS="$save_LIBS"
          ;; #(
   *) :
 
@@ -5911,6 +6000,8 @@ printf "%s\n" "$as_me: WARNING: No odbc library found skipping odbc" >&2;}
 			else
 			    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ODBC_LIB" >&5
 printf "%s\n" "$ODBC_LIB" >&6; }
+			    save_LIBS="$LIBS"
+			    LIBS="$LIBS $ODBC_LIB"
 			    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
 printf %s "checking for SQLAllocHandle in -lodbc... " >&6; }
 if test ${ac_cv_lib_odbc_SQLAllocHandle+y}
@@ -5959,12 +6050,65 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+			    if test $odbc_lib_link_success = no; then
+			       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+			    fi
+			    LIBS="$save_LIBS"
 			fi
                      ;; #(
   *) :
 
 			ODBC_LIB=-L"$with_odbc/lib"
 			ODBC_INCLUDE="-I$with_odbc/include"
+			save_LIBS="$LIBS"
+			LIBS="$LIBS $ODBC_LIB"
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -lodbc" >&5
 printf %s "checking for SQLAllocHandle in -lodbc... " >&6; }
 if test ${ac_cv_lib_odbc_SQLAllocHandle+y}
@@ -6013,10 +6157,85 @@ then :
   ODBC_LIB="$ODBC_LIB -lodbc"; odbc_lib_link_success=yes
 fi
 
+			if test $odbc_lib_link_success = no; then
+			   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for SQLAllocHandle in -liodbc" >&5
+printf %s "checking for SQLAllocHandle in -liodbc... " >&6; }
+if test ${ac_cv_lib_iodbc_SQLAllocHandle+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_lib_save_LIBS=$LIBS
+LIBS="-liodbc  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char SQLAllocHandle (void);
+int
+main (void)
+{
+return SQLAllocHandle ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  ac_cv_lib_iodbc_SQLAllocHandle=yes
+else case e in #(
+  e) ac_cv_lib_iodbc_SQLAllocHandle=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_iodbc_SQLAllocHandle" >&5
+printf "%s\n" "$ac_cv_lib_iodbc_SQLAllocHandle" >&6; }
+if test "x$ac_cv_lib_iodbc_SQLAllocHandle" = xyes
+then :
+  ODBC_LIB="$ODBC_LIB -liodbc"; odbc_lib_link_success=yes
+fi
+
+			fi
+			LIBS="$save_LIBS"
                      ;;
 esac
          ;;
 esac
+
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS $ODBC_INCLUDE"
+       for ac_header in sql.h sqlext.h
+do :
+  as_ac_Header=`printf "%s\n" "ac_cv_header_$ac_header" | sed "$as_sed_sh"`
+ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "#ifdef HAVE_WINDOWS_H
+     # include <windows.h>
+     #endif
+
+"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"
+then :
+  cat >>confdefs.h <<_ACEOF
+#define `printf "%s\n" "HAVE_$ac_header" | sed "$as_sed_cpp"` 1
+_ACEOF
+ odbc_required_headers=yes
+else case e in #(
+  e) odbc_required_headers=no ;;
+esac
+fi
+
+done
+CFLAGS="$save_CFLAGS"
 
 if test $odbc_required_headers = no;  then
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: \"ODBC library - header check failed\"" >&5
