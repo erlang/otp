@@ -1894,7 +1894,6 @@ match_list(_, _, _Anno, _Bs, _BBs, _Ef) ->
 %% add_binding(Name, Value, Bindings)
 %% del_binding(Name, Bindings)
 
--doc #{since => ~"OTP @OTP-19184@"}.
 -doc "Returns an empty binding structure.".
 -spec(new_bindings() -> binding_struct()).
 new_bindings() -> orddict:new().
@@ -1986,6 +1985,7 @@ merge_bindings(Bs1, Bs2, Anno, Ef) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
+-doc #{since => ~"OTP @OTP-19184@"}.
 -spec(new_bindings(binding_struct()) -> binding_struct()).
 new_bindings(Bs) when is_map(Bs) -> maps:new();
 new_bindings(Bs) when is_list(Bs) -> orddict:new().
