@@ -169,20 +169,20 @@ groups() ->
      {'tlsv1', [], ssl_protocol_groups()},
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
-     {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
-     {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++
+     {rsa, [parallel], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer]},
+     {ecdsa, [parallel], all_version_tests()},
+     {dsa, [parallel], all_version_tests()},
+     {rsa_1_3, [parallel], all_version_tests() ++ rsa_tests() ++
           tls_1_3_tests() ++ tls_1_3_rsa_tests() ++ [client_auth_seelfsigned_peer, basic_rsa_1024]},
-     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_2_rsa_tests()},
-     {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {rsa_pss_pss, [], all_version_tests()},
-     {rsa_pss_pss_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
-     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++
+     {rsa_pss_rsae, [parallel], all_version_tests() ++ tls_1_2_rsa_tests()},
+     {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {rsa_pss_pss, [parallel], all_version_tests()},
+     {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests() ++
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 ssl_protocol_groups() ->

@@ -47,7 +47,8 @@ all() ->
     [{group, 'tlsv1.3'}].
 
 groups() ->
-    [{'tlsv1.3', [], tls_1_3_tests()}].
+    [{'tlsv1.3', [], [{group, transport_socket} | tls_1_3_tests()]},
+     {transport_socket, [], tls_1_3_tests()}].
 
 tls_1_3_tests() ->
     [key_update_at_client,

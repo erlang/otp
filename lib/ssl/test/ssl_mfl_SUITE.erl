@@ -59,12 +59,13 @@ all() ->
      {group, 'dtlsv1'}].
 
 groups() ->
-    [{'tlsv1.3', [], common_tests()},
-     {'tlsv1.2', [], common_tests() ++ pre_tls_1_3()},
-     {'tlsv1.1', [], common_tests() ++ pre_tls_1_3()},
-     {'tlsv1', [], common_tests() ++ pre_tls_1_3()},
-     {'dtlsv1.2', [], common_tests() ++ pre_tls_1_3()},
-     {'dtlsv1', [], common_tests() ++ pre_tls_1_3()}
+    [{'tlsv1.3', [parallel], common_tests()},
+     {'tlsv1.2', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'tlsv1.1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'tlsv1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'dtlsv1.2', [parallel], common_tests() ++ pre_tls_1_3()},
+     {'dtlsv1', [parallel], common_tests() ++ pre_tls_1_3()},
+     {transport_socket, [parallel], common_tests()}
     ].
 
 common_tests() ->

@@ -209,7 +209,7 @@ traffic and upgrading it to use TLS.
 
 Both sides needs to agree on the upgrade.
 """.
--type socket()                   :: gen_tcp:socket(). % exported
+-type socket()                   :: gen_tcp:socket() | socket:socket(). % exported
 
 -doc(#{title => <<"Socket">>}).
 -doc """
@@ -3235,12 +3235,14 @@ See `inet:getstat/2` for further details.
       Options :: [inet:stat_option()],
       OptionValues :: [{inet:stat_option(), integer()}].
 %%--------------------------------------------------------------------
+
 getstat(#sslsocket{socket_handle = {Listener, _},
-                   listener_config = #config{transport_info = Info}},
+                   listener_config = #config{transport_info = Info,
+                                             connection_cb = dtls_gen_connection}},
         Options) when is_list(Options) ->
     Transport = element(1, Info),
     dtls_socket:getstat(Transport, Listener, Options);
-getstat(#sslsocket{socket_handle = Listen, 
+getstat(#sslsocket{socket_handle = Listen,
                    listener_config = #config{transport_info = Info}},
         Options) when is_list(Options) ->
     Transport = element(1, Info),
@@ -3274,8 +3276,7 @@ To handle siutations where the peer has performed a shutdown on the
 write side, option `{exit_on_close, false}` is useful.
 """.
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
-                                              transport_info = Info}}, _) ->
+shutdown(#sslsocket{listener_config = #config{transport_info = Info}}, _) ->
     Transport = element(1, Info),
     %% enotconn is what gen_tcp:shutdown on a listen socket will result with.
     %% shutdown really is handling TCP functionality not present
@@ -3290,11 +3291,6 @@ shutdown(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connectio
         _  ->
             {error, enotconn}
     end;
-shutdown(#sslsocket{socket_handle = Listen, 
-                    listener_config = #config{connection_cb = tls_gen_connection,
-                                              transport_info = Info}}, How) ->
-    Transport = element(1, Info),
-    Transport:shutdown(Listen, How);    
 shutdown(#sslsocket{connection_handler = Controller}, How) when is_pid(Controller) ->
     ssl_gen_statem:shutdown(Controller, How).
 

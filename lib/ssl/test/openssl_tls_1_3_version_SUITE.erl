@@ -53,7 +53,7 @@ groups() ->
     [
      %%{openssl_server, [{group, 'tlsv1.3'}]},
      {openssl_client, [{group, 'tlsv1.3'}]},
-     {'tlsv1.3', [], cert_groups()},
+     {'tlsv1.3', [parallel], cert_groups()},
      {rsa, [], tests()},
      {ecdsa, [], tests()}
     ].
@@ -164,8 +164,10 @@ tls12_client_tls13_server() ->
 
 tls12_client_tls13_server(Config) when is_list(Config) ->
     ClientOpts = [{versions,
-                   ['tlsv1.1', 'tlsv1.2']} | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+                   ['tlsv1.1', 'tlsv1.2']} |
+                  proplists:delete(versions, ssl_test_lib:ssl_options(client_cert_opts, Config))],
     ServerOpts =  [{versions,
-                   ['tlsv1.3', 'tlsv1.2']} | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+                    ['tlsv1.3', 'tlsv1.2']} |
+                   proplists:delete(versions, ssl_test_lib:ssl_options(server_cert_opts, Config))],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
-   
+

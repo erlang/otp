@@ -74,18 +74,18 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
-              {'tlsv1.1', [], sni_tests()},
-              {'tlsv1', [], sni_tests()},
-              {'dtlsv1.2', [], sni_tests()},
-              {'dtlsv1', [], sni_tests()}
+             [{'tlsv1.3', [parallel], sni_tests()},
+              {'tlsv1.2', [parallel], sni_tests()},
+              {'tlsv1.1', [parallel], sni_tests()},
+              {'tlsv1', [parallel], sni_tests()},
+              {'dtlsv1.2', [parallel], sni_tests()},
+              {'dtlsv1', [parallel], sni_tests()}
              ];
         false ->
-             [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
-              {'tlsv1.1', [], sni_tests()},
-              {'tlsv1', [], sni_tests()}
+             [{'tlsv1.3', [parallel], sni_tests()},
+              {'tlsv1.2', [parallel], sni_tests()},
+              {'tlsv1.1', [parallel], sni_tests()},
+              {'tlsv1', [parallel], sni_tests()}
              ]
      end.
  

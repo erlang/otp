@@ -38,14 +38,15 @@
          peername/2, 
          sockname/2, 
          port/2,
-         close/2]).
+         close/2,
+         monitor_socket/1]).
 
 -export([split_options/1, 
          get_socket_opts/3]).
 
 -export([emulated_options/0, 
          emulated_options/1, 
-         internal_inet_values/0, 
+         internal_inet_values/1,
          default_inet_values/0,
 	 init/1, 
          start_link/3, 
@@ -77,7 +78,7 @@ send(Transport, Socket, Data) ->
 listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _}, 
 				inet_user = Options, 
 				ssl = SslOpts, emulated = EmOpts} = Config) ->
-    case Transport:listen(Port, Options ++ internal_inet_values()) of
+    case Transport:listen(Port, Options ++ internal_inet_values(Transport)) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             LifeTime = ssl_config:get_ticket_lifetime(),
@@ -115,7 +116,7 @@ upgrade(client, Socket, #config{transport_info = CbInfo,
                                 ssl = SslOptions,
                                 emulated = EmOpts}, Timeout) ->
     Transport = element(1, CbInfo),
-    ok = setopts(Transport, Socket, internal_inet_values()),
+    ok = setopts(Transport, Socket, internal_inet_values(Transport)),
     case peername(Transport, Socket) of
 	{ok, {Host, Port}} ->
             start_tls_client_connection(Host, Port, Socket, SslOptions, EmOpts, CbInfo, Timeout);
@@ -126,7 +127,7 @@ upgrade(server, Socket, #config{transport_info = CbInfo,
                                 ssl = SslOpts,
                                 emulated = EmOpts}, Timeout) ->
     Transport = element(1, CbInfo),
-    ok = setopts(Transport, Socket, internal_inet_values()),
+    ok = setopts(Transport, Socket, internal_inet_values(Transport)),
     {ok, Port} = port(Transport, Socket),
     {ok, SessionIdHandle} = session_id_tracker(ssl_unknown_listener, SslOpts),
     Trackers = [{session_id_tracker, SessionIdHandle}],
@@ -138,7 +139,7 @@ connect(Host, Port,
 		emulated = EmOpts, inet_ssl = SocketOpts},
 	Timeout) ->
     {Transport, _, _, _, _} = CbInfo,
-    try Transport:connect(Host, Port,  SocketOpts, Timeout) of
+    try Transport:connect(Host, Port, SocketOpts ++ internal_inet_values(Transport), Timeout) of
 	{ok, Socket} ->
 	    start_tls_client_connection(Host, Port, Socket, SslOpts, EmOpts, CbInfo, Timeout);
 	{error, Reason} ->
@@ -254,13 +255,20 @@ close(gen_tcp, Socket) ->
 close(Transport, Socket) ->
     Transport:close(Socket).
 
+monitor_socket({'$socket', _}=Socket) ->
+    socket:monitor(Socket);
+monitor_socket(InetSocket) ->
+    inet:monitor(InetSocket).
+
 emulated_options() ->
     [mode, packet, active, header, packet_size].
 
 emulated_options(Opts) ->
-      emulated_options(Opts, internal_inet_values(), default_inet_values()).
+    emulated_options(Opts, [], default_inet_values()).
 
-internal_inet_values() ->
+internal_inet_values(tls_socket_tcp) ->
+    [];
+internal_inet_values(_) ->
     [{packet_size,0}, {packet, 0}, {header, 0}, {active, false}, {mode,binary}].
 
 default_inet_values() ->
@@ -334,7 +342,7 @@ start_link(Port, SockOpts, SslOpts) ->
 init([Listen, Opts, SslOpts]) ->
     process_flag(trap_exit, true),
     proc_lib:set_label({tls_listen_tracker, Listen}),
-    Monitor = inet:monitor(Listen),
+    Monitor = monitor_socket(Listen),
     {ok, #state{emulated_opts = do_set_emulated_opts(Opts, []), 
                 listen_monitor = Monitor,
                 ssl_opts = SslOpts}}.

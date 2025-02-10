@@ -86,15 +86,20 @@ all() ->
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
-     {group, 'dtlsv1'}
+     {group, 'dtlsv1'},
+     {group, mitigate}
     ].
 
 groups() ->
-    [{'dtlsv1.2', [], renegotiate_tests()},
-     {'dtlsv1',   [], renegotiate_tests()},
-     {'tlsv1.2',  [], renegotiate_tests()},
-     {'tlsv1.1',  [], renegotiate_tests()},
-     {'tlsv1',    [], renegotiate_tests()}
+    [{'dtlsv1.2', [parallel], renegotiate_tests()},
+     {'dtlsv1',   [parallel], renegotiate_tests()},
+     {'tlsv1.2',  [], [{group, transport_socket}]},
+     {transport_socket, [parallel], renegotiate_tests()},
+     {'tlsv1.1',  [parallel], renegotiate_tests()},
+     {'tlsv1',    [parallel], renegotiate_tests()},
+     {mitigate, [parallel], [renegotiate_dos_mitigate_active,
+                             renegotiate_dos_mitigate_passive,
+                             renegotiate_dos_mitigate_absolute]}
     ].
 
 renegotiate_tests() ->
@@ -106,9 +111,6 @@ renegotiate_tests() ->
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number,
      server_no_wrap_sequence_number,
-     renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive,
-     renegotiate_dos_mitigate_absolute,
      active_error_disallowed_client_renegotiate].
 
 init_per_suite(Config) ->
@@ -129,11 +131,12 @@ init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config). 
 
 end_per_group(GroupName, Config) ->
-  ssl_test_lib:end_per_group(GroupName, Config).
+    ssl_test_lib:end_per_group(GroupName, Config).
 
-init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
-                                          TestCase == renegotiate_dos_mitigate_passive;
-                                          TestCase == renegotiate_dos_mitigate_absolute ->
+init_per_testcase(TestCase, Config)
+  when TestCase == renegotiate_dos_mitigate_active;
+       TestCase == renegotiate_dos_mitigate_passive;
+       TestCase == renegotiate_dos_mitigate_absolute ->
     ct:timetrap({seconds, 25}),
     Config;
 init_per_testcase(_, Config) ->
@@ -400,7 +403,7 @@ renegotiate_dos_mitigate_active(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-				   {options, ServerOpts}]),
+				   {options, [{versions, ['tlsv1.2']}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -408,7 +411,7 @@ renegotiate_dos_mitigate_active(Config) when is_list(Config) ->
 					{from, self()},
 					{mfa, {?MODULE,
 					       renegotiate_immediately, []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
@@ -428,7 +431,7 @@ renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result, []}},
-				   {options, [{active, false} | ServerOpts]}]),
+				   {options, [{active, false}, {versions, ['tlsv1.2']} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
  
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -436,7 +439,7 @@ renegotiate_dos_mitigate_passive(Config) when is_list(Config) ->
 					{from, self()}, 
 					{mfa, {?MODULE, 
 					       renegotiate_immediately, []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
     
     ssl_test_lib:check_result(Client, ok, Server, ok), 
     ssl_test_lib:close(Server),
@@ -455,7 +458,8 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
-				   {options, [{client_renegotiation, false} | ServerOpts]}]),
+				   {options, [{client_renegotiation, false}, {versions, ['tlsv1.2']}
+                                             | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -464,7 +468,7 @@ renegotiate_dos_mitigate_absolute(Config) when is_list(Config) ->
 					{mfa, {?MODULE,
 					       renegotiate_rejected,
 					       []}},
-					{options, ClientOpts}]),
+					{options, [{versions, ['tlsv1.2']}|ClientOpts]}]),
 
     ssl_test_lib:check_result(Client, ok, Server, ok),
     ssl_test_lib:close(Server),
@@ -529,7 +533,7 @@ renegotiate_rejected(Socket) ->
     _ = ssl_test_lib:active_recv(Socket, 11),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
-    ct:sleep(?RENEGOTIATION_DISABLE_TIME +1),
+    ct:sleep(?RENEGOTIATION_DISABLE_TIME + ?SLEEP),
     {error, renegotiation_rejected} = ssl:renegotiate(Socket),
     ?CT_LOG("Failed to renegotiate again"),
     ssl:send(Socket, "Hello world"),

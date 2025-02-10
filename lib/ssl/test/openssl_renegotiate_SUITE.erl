@@ -75,16 +75,16 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{'tlsv1.2', [], all_versions_tests()},
-              {'tlsv1.1', [], all_versions_tests()},
-              {'tlsv1', [], all_versions_tests()},
-              {'dtlsv1.2', [], all_versions_tests()},
-              {'dtlsv1', [], all_versions_tests()}
+             [{'tlsv1.2', [parallel], all_versions_tests()},
+              {'tlsv1.1', [parallel], all_versions_tests()},
+              {'tlsv1', [parallel], all_versions_tests()},
+              {'dtlsv1.2', [parallel], all_versions_tests()},
+              {'dtlsv1', [parallel], all_versions_tests()}
              ];
         false ->
-             [{'tlsv1.2', [], all_versions_tests()},
-              {'tlsv1.1', [], all_versions_tests()},
-              {'tlsv1', [], all_versions_tests()}
+             [{'tlsv1.2', [parallel], all_versions_tests()},
+              {'tlsv1.1', [parallel], all_versions_tests()},
+              {'tlsv1', [parallel], all_versions_tests()}
            ]
      end.
  

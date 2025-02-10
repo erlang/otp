@@ -79,23 +79,27 @@ all() ->
 groups() ->
     [
      {openssl_client, [], protocol_groups()},
-     {'tlsv1.3', [], tls_1_3_protocol_groups()},
+     {'tlsv1.3', [], transport_group()},
+     {transport_socket, [], tls_1_3_protocol_groups()},
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, ecdsa}, {group, rsa_pss_rsae}, {group, rsa_pss_pss}]},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1.2', [], pre_tls_1_3_protocol_groups() ++ [{group, ecdsa}]},
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
-     {rsa, [], all_version_tests()},
-     {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests() ++ [unsupported_sign_algo_client_auth,
-                                                              unsupported_sign_algo_cert_client_auth]},
-     {rsa_pss_rsae, [], all_version_tests()},
-     {rsa_pss_pss, [], all_version_tests()},
-     {rsa_pss_rsae_1_3, [], all_version_tests() ++ tls_1_3_tests()},
-     {rsa_pss_pss_1_3, [], all_version_tests() ++ tls_1_3_tests()},
-     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
-     {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {rsa, [parallel], all_version_tests()},
+     {ecdsa, [parallel], all_version_tests()},
+     {dsa, [parallel], all_version_tests()},
+     {rsa_1_3, [parallel],
+      all_version_tests() ++
+          tls_1_3_tests() ++
+          [unsupported_sign_algo_client_auth,
+           unsupported_sign_algo_cert_client_auth]},
+     {rsa_pss_rsae, [parallel], all_version_tests()},
+     {rsa_pss_pss, [parallel], all_version_tests()},
+     {rsa_pss_rsae_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_pss_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {eddsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
     ].
 
 protocol_groups() ->
@@ -118,6 +122,9 @@ protocol_groups() ->
 pre_tls_1_3_protocol_groups() ->
     [{group, rsa},
      {group, dsa}].
+
+transport_group() ->
+    [{group, transport_socket}].
 
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},

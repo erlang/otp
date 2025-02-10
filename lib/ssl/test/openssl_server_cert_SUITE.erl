@@ -81,22 +81,23 @@ all() ->
 groups() ->
     [
      {openssl_server, [], protocol_groups()},
-     {'tlsv1.3', [], tls_1_3_protocol_groups()},
+     {'tlsv1.3', [], [{group, transport_socket}]},
+     {transport_socket, [], tls_1_3_protocol_groups()},
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
-     {rsa, [], all_version_tests()},
-     {ecdsa, [], all_version_tests()},
-     {dsa, [], all_version_tests()},
-     {rsa_1_3, [], all_version_tests() ++ tls_1_3_tests()},
+     {rsa, [parallel], all_version_tests()},
+     {ecdsa, [parallel], all_version_tests()},
+     {dsa, [parallel], all_version_tests()},
+     {rsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
       %% TODO: Create proper conf of openssl server
       %%++ [unsupported_sign_algo_client_auth,
       %% unsupported_sign_algo_cert_client_auth]},
-     {rsa_pss_rsae, [], all_version_tests() ++ tls_1_3_tests()},
-     {rsa_pss_pss, [], all_version_tests() ++ tls_1_3_tests()},
-     {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {rsa_pss_rsae, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {rsa_pss_pss, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {ecdsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()}
      %% Enable test later when we have OpenSSL version that
      %% is able to read EDDSA private key files
      %%{eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
@@ -354,7 +355,7 @@ init_per_group(GroupName, Config) ->
                     {skip, {atom_to_list(GroupName) ++ " not supported by OpenSSL"}}
             end;
         false ->
-            Config
+            ssl_test_lib:init_per_group(GroupName, Config)
     end.
 
 end_per_group(GroupName, Config) ->
