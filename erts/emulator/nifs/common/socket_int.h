@@ -180,6 +180,28 @@ typedef int BOOLEAN_T;
 #define NUM(Array) (sizeof(Array) / sizeof(*(Array)))
 
 
+/* ********************************************************************* *
+ *                              SOCKET and HANDLE                        *
+ * ********************************************************************* *
+ */
+
+#if defined(__WIN32__)
+
+#define INVALID_EVENT NULL
+#define SOCKET_FORMAT_STR "%lld"
+
+#else
+
+#define INVALID_HANDLE (-1)
+typedef int HANDLE;
+#define INVALID_SOCKET (-1)
+typedef int SOCKET; /* A subset of HANDLE */
+#define INVALID_EVENT INVALID_HANDLE
+#define SOCKET_FORMAT_STR "%d"
+
+#endif
+
+
 #ifdef HAVE_SOCKLEN_T
 #  define SOCKLEN_T socklen_t
 #else
@@ -662,6 +684,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS;
 #define MKUL(E,UL)          enif_make_ulong((E), (UL))
 
 #define MCREATE(N)          enif_mutex_create((N))
+#define MCREATE3(P, B, S)   esock_mutex_create((P), (B), (S))
 #define MDESTROY(M)         enif_mutex_destroy((M))
 #define MLOCK(M)            enif_mutex_lock((M))
 #define MUNLOCK(M)          enif_mutex_unlock((M))

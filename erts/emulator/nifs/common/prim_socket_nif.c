@@ -11974,8 +11974,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     esock_requestor_init(&descP->connector);
     descP->connectorP = NULL;
 
-    sprintf(buf, "esock.w[" SOCKET_FORMAT_STR "]", sock);
-    descP->writeMtx       = MCREATE(buf);
+    /* *** Write section *** */
+    // sprintf(buf, "esock.w[" SOCKET_FORMAT_STR "]", sock);
+    // descP->writeMtx       = MCREATE(buf);
+    descP->writeMtx       = MCREATE3("esock.w", buf, sock);
     descP->writeState     = 0;
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
@@ -11998,8 +12000,10 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->sendfileCountersP = NULL;
 #endif
 
-    sprintf(buf, "esock.r[" SOCKET_FORMAT_STR "]", sock);
-    descP->readMtx        = MCREATE(buf);
+    /* *** Read section *** */
+    // sprintf(buf, "esock.r[" SOCKET_FORMAT_STR "]", sock);
+    // descP->readMtx        = MCREATE(buf);
+    descP->readMtx        = MCREATE3("esock.r", buf, sock);
     descP->readState      = 0;
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
@@ -12017,7 +12021,8 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->readWaits      = 0;
     descP->readFails      = 0;
 
-    sprintf(buf, "esock.acc[" SOCKET_FORMAT_STR "]", sock);
+    /* *** Accept section *** */
+    // sprintf(buf, "esock.acc[" SOCKET_FORMAT_STR "]", sock);
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
     esock_requestor_init(&descP->currentAcceptor);
@@ -12030,13 +12035,15 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->accTries         = 0;
     descP->accWaits         = 0;
 
-    sprintf(buf, "esock.close[" SOCKET_FORMAT_STR "]", sock);
+    /* *** Close section *** */
+    // sprintf(buf, "esock.close[" SOCKET_FORMAT_STR "]", sock);
     descP->closeEnv         = NULL;
     descP->closeRef         = esock_atom_undefined;
     enif_set_pid_undefined(&descP->closerPid);
     MON_INIT(&descP->closerMon);
 
-    sprintf(buf, "esock.cfg[" SOCKET_FORMAT_STR "]", sock);
+    /* *** Config section *** */
+    // sprintf(buf, "esock.cfg[" SOCKET_FORMAT_STR "]", sock);
     descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
 #ifndef __WIN32__
     descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;

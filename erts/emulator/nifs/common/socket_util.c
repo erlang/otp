@@ -156,6 +156,29 @@ static ERL_NIF_TERM esock_encode_if_type(ErlNifEnv*   env,
 #endif
 
 
+/* The pre string has to be large enough (suggest 64) that
+ * the name fits.
+ * This function creates a mutex with a specific name:
+ *       <pre>[<file descriptor>]
+ * For example: esock.w[10]
+ *
+ * But this is only done if ESOCK_VERBOSE_MTX_NAMES is defined.
+ * Otherwise it will just be the pre string.
+ */
+extern
+ErlNifMutex* esock_mutex_create(const char* pre, char* buf, SOCKET sock)
+{
+#if defined(ESOCK_VERBOSE_MTX_NAMES)
+    sprintf(buf, "%s[" SOCKET_FORMAT_STR "]", pre, sock);
+#else
+    VOID(sock);
+    sprintf(buf, "%s", pre);
+#endif
+
+    return enif_mutex_create(buf);
+}
+
+
 /* *** esock_get_uint_from_map ***
  *
  * Simple utility function used to extract a unsigned int value from a map.
@@ -2981,11 +3004,10 @@ size_t esock_strnlen(const char *s, size_t maxlen)
  *
  */
 extern
-void __noreturn
-esock_abort(const char* expr,
-                 const char* func,
-                 const char* file,
-                 int         line)
+void __noreturn esock_abort(const char* expr,
+                            const char* func,
+                            const char* file,
+                            int         line)
 {
 #if 0
     fflush(stdout);
