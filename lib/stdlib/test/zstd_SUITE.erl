@@ -108,7 +108,7 @@ bulk(_Config) ->
                  iob(zstd:decompress(DoubleCompressed))),
 
     %% Test compression of a large amount of data
-    Iter = lists:seq(0,1_000_000),
+    Iter = lists:seq(0,large_data_size()),
     IOV = lists:duplicate(10, iob([rand:uniform(255) || _ <- Iter])),
     IOVCompressed = zstd:compress(IOV, #{ compressionLevel => -20 }),
     ?assertEqual(iob(IOV), iob(zstd:decompress(IOVCompressed))),
@@ -188,7 +188,16 @@ cstream(_Config) ->
     ?assertEqual(Data, iob(zstd:decompress([C3_1, C3_2]))),
 
     %% Test compression of a large amount of data
-    LargeData = iob([rand:uniform(255) || _ <- lists:seq(0,1_000_000)]),
+    LargeData = iob([rand:uniform(255) || _ <- lists:seq(0,large_data_size())]),
+
+    %% On debug emulator we set some parameters to make the threshold for when
+    %% zstd fills it internal buffers lower so that we get {continue, Remain, Data}
+    [ begin
+          ok = zstd:set_parameter(CCtx, targetCBlockSize, 1340),
+          ok = zstd:set_parameter(CCtx, windowLog, 10),
+          ok = zstd:set_parameter(CCtx, chainLog, 6),
+          ok = zstd:set_parameter(CCtx, hashLog, 6)
+      end || erlang:system_info(emu_type) =:= debug],
     {continue, Remain, C4_1} = zstd:stream(CCtx, LargeData),
     {done, C4_2} = zstd:finish(CCtx, [Remain]),
     ?assertEqual(iob([LargeData]), iob(zstd:decompress([C4_1,C4_2]))),
@@ -432,18 +441,34 @@ dict_api(Config) ->
 
 
 doc_tests(Config) ->
-    {ok, Dict} = file:read_file(proplists:get_value(dict, Config)),
-    DictBinding = erl_eval:add_binding('Dict', Dict, erl_eval:new_bindings()),
-    File = filename:join(proplists:get_value(priv_dir, Config), "example"),
-    ok = file:write_file(File, ~"lorem ipsum"),
-    shell_docs:test(
-      zstd,
-      [
-        {module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},
-        {{function, get_dict_id, 1}, DictBinding},
-        {{function, dict, 3}, DictBinding}
-    ]
-     ).
+    case erlang:system_info(emu_type) of
+        debug ->
+            %% As return values from decompress are split into an iovec with
+            %% multiple element on debug emulators, we skip running these test
+            {skip, "Don't run in debug emulator"};
+        _ ->
+            {ok, Dict} = file:read_file(proplists:get_value(dict, Config)),
+            DictBinding = erl_eval:add_binding('Dict', Dict, erl_eval:new_bindings()),
+            File = filename:join(proplists:get_value(priv_dir, Config), "example"),
+            ok = file:write_file(File, ~"lorem ipsum"),
+            shell_docs:test(
+              zstd,
+              [
+               {module_doc, erl_eval:add_binding('File', File, erl_eval:new_bindings())},
+               {{function, get_dict_id, 1}, DictBinding},
+               {{function, dict, 3}, DictBinding}
+              ]
+             )
+    end.
 
 iob(IOList) ->
     erlang:iolist_to_binary(IOList).
+
+%% Doing enif_inspect on a large binary is very slow in debug
+%% build as it does a checksum of entire binary every time.
+%% So we limit the size of the input data in debug builds.
+large_data_size() ->
+    case erlang:system_info(emu_type) =:= debug of
+        true -> 2_000;
+        false -> 1_000_000
+    end.

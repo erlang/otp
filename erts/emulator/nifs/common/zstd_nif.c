@@ -611,9 +611,18 @@ static ERL_NIF_TERM codec_nif(ZstdCtx* ctx,
         return enif_raise_exception(env, am_error);
     }
 
+
+#ifndef MAX
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+#endif
+
+#ifndef MIN
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#endif
+
 #define BYTES_PER_REDUCTION (1024)
 
-    enif_consume_timeslice(env, in_buffer.pos / BYTES_PER_REDUCTION);
+    enif_consume_timeslice(env, MIN(100, MAX(1, in_buffer.pos / BYTES_PER_REDUCTION)));
 
     if (flush && in_buffer.pos == in_buffer.size) {
         /* If our output buffer is full and we've got remaining data, signal
