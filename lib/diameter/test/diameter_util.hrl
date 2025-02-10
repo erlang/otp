@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2024-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,15 +22,15 @@
 -define(diameter_util__, true).
 
 -define(DUTIL,                        diameter_util).
+-define(DEL,                          diameter_event_logger).
 
 -define(LOG(F, A),                    ?LOG(atom_to_list(?MODULE), F, A)).
 -define(LOG(MS, F, A),                ?DUTIL:log(MS, ?LINE, F, A)).
 
 -define(F(F, A),                      ?DUTIL:f(F, A)).
+-define(FS(),                         ?DUTIL:formated_timestamp()).
+-define(FS(TS),                       ?DUTIL:formated_timestamp(TS)).
 
--define(DEL_START(N, S),              ?DUTIL:diameter_event_logger_start(N, S)).
--define(DEL_STOP(L),                  ?DUTIL:diameter_event_logger_stop(L)).
-		                 
 -define(HAVE_SCTP(),                  ?DUTIL:have_sctp()).
 -define(MKTEMP(S),                    ?DUTIL:mktemp(S)).
 -define(RUN(A),                       ?DUTIL:run(A)).
@@ -57,8 +57,16 @@
         ?DUTIL:proxy_call((F), (T), (PT), {error, timeout})).
 -define(PCALL(F, T, PT, DRes),
         ?DUTIL:proxy_call((F), (T), (PT), (DRes))).
--define(TS(),          erlang:system_time(millisecond)).
--define(MINS(M),       timer:minutes((M))).
--define(SECS(S),       timer:seconds((S))).
+
+-define(TS(),                         erlang:system_time(millisecond)).
+-define(MINS(M),                      timer:minutes((M))).
+-define(SECS(S),                      timer:seconds((S))).
+
+-define(LIB_DIR(A, SD),               ?DUTIL:lib_dir((A), (SD))).
+
+-define(DEL_START(),                  ?DEL:start_link()).
+-define(DEL_STOP(),                   ?DEL:stop()).
+-define(DEL_REG(S),                   ?DEL:register_service((S))).
+-define(DEL_UNREG(S),                 ?DEL:unregister_service((S))).
 
 -endif.
