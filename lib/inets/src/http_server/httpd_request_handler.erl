@@ -99,9 +99,18 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
     %% At this point the function httpd_request_handler:start/2 will return.
     proc_lib:init_ack({ok, self()}),
     {SocketType, Socket} = await_socket_ownership_transfer(AcceptTimeout),
-    ServerName = erlang:iolist_to_binary(httpd_util:lookup(ConfigDB, server_name)),
+    ServerName =
+        case httpd_util:lookup(ConfigDB, server_name) of
+            undefined ->
+                %% ERIERL-1190 workaround - on some rare occassions
+                %% server_name can't be read from ets table
+                net_adm:localhost();
+            EtsValue ->
+                EtsValue
+        end,
+    ServerNameBin = erlang:iolist_to_binary(ServerName),
     Protocol = protocol(SocketType),
-    proc_lib:set_label({Protocol, ServerName}),
+    proc_lib:set_label({Protocol, ServerNameBin}),
     
     Peername = http_transport:peername(SocketType, Socket),
     Sockname = http_transport:sockname(SocketType, Socket),
