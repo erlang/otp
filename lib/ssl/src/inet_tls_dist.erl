@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@
 -export([fam_select/2, fam_address/1, fam_listen/3, fam_accept/2,
          fam_accept_connection/6, fam_setup/6]).
 
--export([verify_client/3, cert_nodes/1]).
+-export([verify_client/3, cert_nodes/1,
+         get_ssl_client_options/0, get_ssl_server_options/1]).
 
 %% kTLS helpers
 -export([inet_ktls_setopt/3, inet_ktls_getopt/3,
@@ -338,7 +339,13 @@ spawn_accept({Family, ListenSocket, NetKernel, Continue}) ->
         end).
 
 accept_one(Family, Socket, NetKernel) ->
-    Opts = setup_verify_client(Socket, get_ssl_options(server)),
+    Opts =
+        case inet:peername(Socket) of
+            {ok,{PeerIP,_Port}} ->
+                get_ssl_server_options(PeerIP);
+            {error,Reason} ->
+                exit(trace({no_peername,Reason}))
+        end,
     KTLS = proplists:get_value(ktls, Opts, false),
     case
         ssl:handshake(
@@ -401,7 +408,12 @@ accept_one(
             trace(unsupported_protocol)
     end.
 
+get_ssl_client_options() ->
+    get_ssl_options(client).
 
+get_ssl_server_options(PeerIP) when PeerIP =/= undefined ->
+    setup_verify_client(get_ssl_options(server), PeerIP).
+%%
 %% {verify_fun,{fun ?MODULE:verify_client/3,_}} is used
 %% as a configuration marker that verify_client/3 shall be used.
 %%
@@ -411,41 +423,28 @@ accept_one(
 %% The inserted state is not accessible from a configuration file
 %% since it is dynamic and connection dependent.
 %%
-setup_verify_client(Socket, Opts) ->
-    setup_verify_client(Socket, Opts, true, []).
-%%
-setup_verify_client(_Socket, [], _, OptsR) ->
-    lists:reverse(OptsR);
-setup_verify_client(Socket, [Opt|Opts], First, OptsR) ->
+setup_verify_client([Opt | Opts], PeerIP) ->
     case Opt of
-        {verify_fun,{Fun,_}} ->
-            case Fun =:= fun ?MODULE:verify_client/3 of
-                true ->
+        {verify_fun,{VerifyFun, _}} ->
+            case fun inet_tls_dist:verify_client/3 of
+                VerifyFun ->
                     if
-                        First ->
-                            case inet:peername(Socket) of
-                                {ok,{PeerIP,_Port}} ->
-                                    {ok,Allowed} = net_kernel:allowed(),
-                                    AllowedHosts = allowed_hosts(Allowed),
-                                    setup_verify_client(
-                                      Socket, Opts, false,
-                                      [{verify_fun,
-                                        {Fun, {AllowedHosts,PeerIP}}}
-                                       |OptsR]);
-                                {error,Reason} ->
-                                    exit(trace({no_peername,Reason}))
-                            end;
+                        PeerIP =:= undefined ->
+                            setup_verify_client(Opts, PeerIP);
                         true ->
-                            setup_verify_client(
-                              Socket, Opts, First, OptsR)
+                            {ok, Allowed} = net_kernel:allowed(),
+                            [{verify_fun,
+                              {VerifyFun, {allowed_hosts(Allowed), PeerIP}}}
+                            | setup_verify_client(Opts, undefined)]
                     end;
-                false ->
-                    setup_verify_client(
-                      Socket, Opts, First, [Opt|OptsR])
-            end;
+                _ ->
+                    [Opt | setup_verify_client(Opts, PeerIP)]
+              end;
         _ ->
-            setup_verify_client(Socket, Opts, First, [Opt|OptsR])
-    end.
+            [Opt | setup_verify_client(Opts, PeerIP)]
+      end;
+setup_verify_client([], _PeerIP) ->
+    [].
 
 allowed_hosts(Allowed) ->
     lists:usort(allowed_node_hosts(Allowed)).
@@ -631,7 +630,7 @@ do_setup(
     ParseAddress = fun (A) -> inet:parse_strict_address(A, Family) end,
     {#net_address{
         host = Host,
-        address = {Ip, PortNum}},
+        address = {IP, PortNum}},
      ConnectOptions,
      Version} =
         trace(inet_tcp_dist:fam_setup(
@@ -648,7 +647,7 @@ do_setup(
     dist_util:reset_timer(Timer),
     maybe
         {ok, #sslsocket{connection_handler = Receiver, payload_sender = Sender} = SslSocket} ?=
-            ssl:connect(Ip, PortNum, Opts, net_kernel:connecttime()),
+            ssl:connect(IP, PortNum, Opts, net_kernel:connecttime()),
         HSData =
             case KTLS of
                 true ->
@@ -686,7 +685,7 @@ do_setup(
             %% port_please !
             ?shutdown2(
                Node,
-               trace({ssl_connect_failed, Ip, PortNum, Other}))
+               trace({ssl_connect_failed, IP, PortNum, Other}))
     end.
 
 
