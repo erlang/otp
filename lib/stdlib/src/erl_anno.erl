@@ -421,7 +421,7 @@ set_location(Location, Anno) ->
     set(location, Location, Anno).
 
 -doc "Modifies the end location of the annotations Anno.".
--doc(#{since => <<"OTP 27.2">>}).
+-doc(#{since => <<"OTP 28.0">>}).
 -spec set_end_location(Location, Anno) -> Anno when
       Location :: location(),
       Anno :: anno().
