@@ -332,13 +332,14 @@ which_default_bind_address2(Domain) ->
     case net_getifaddrs(Domain) of
         {ok, Addrs} ->
             %% ?DBG([{addrs, Addrs}]),
-            %% Pick first *non-loopback* interface that is 'up'
+            %% Pick first *non-loopback* interface that is 'up' and 'running'
             UpNonLoopbackAddrs =
                 [Addr ||
                     #{flags := Flags} = Addr <-
                         Addrs,
                     (not lists:member(loopback, Flags)) andalso
-                        lists:member(up, Flags)],
+                        lists:member(up, Flags) andalso
+                        lists:member(running, Flags)],
             %% ?DBG([{up_non_loopback_addrs, UpNonLoopbackAddrs}]),
             case UpNonLoopbackAddrs of
                 [#{addr := #{addr := Addr}} | _] ->
@@ -870,28 +871,31 @@ socket_sendv(Socket, Data, Timeout) ->
     Result = socket:sendv(Socket, Data, Timeout),
     case Result of
         {error, {Reason, RestData}} when is_list(RestData) ->
-        {error, NewReason} = socket_send_error({error, Reason}),
-        {error, {NewReason, RestData}};
-    {error, _} ->
-        socket_send_error(Result);
-    _ ->
-        Result
-end.
+	    {error, NewReason} = socket_send_error({error, Reason}),
+	    {error, {NewReason, RestData}};
+	{error, _} ->
+	    socket_send_error(Result);
+	_ ->
+	    Result
+    end.
 
 -compile({inline, [socket_send_error/1]}).
-socket_send_error(Result) ->
+socket_send_error({error, {completion_status, Reason}}) ->
+    socket_send_error({error, Reason});
+socket_send_error({error, #{info := Reason}}) ->
+    socket_send_error({error, Reason});
+socket_send_error(Result) ->			 
     case Result of
-        {error, epipe}                          -> {error, econnreset};
-        {error, Reason} when is_atom(Reason)    -> Result;
-        {error, #{info := Reason}} ->
-            case Reason of
-                netname_deleted ->
-                    {error, econnreset};
-                too_many_cmds ->
-                    {error, closed};
-                _ ->
-                    Result
-            end
+        {error, epipe} ->
+	    {error, econnreset};
+        {error, netname_deleted} ->
+	    {error, econnreset};
+	{error, too_many_cmds} ->
+	    {error, closed};
+        {error, Reason} when is_atom(Reason) ->
+	    Result;
+	_ ->
+	    Result
     end.
 
 
@@ -917,6 +921,7 @@ socket_cancel(Socket, SelectInfo) ->
         ok          -> ok;
         {error, _}  -> ok
     end.
+
 
 %%% ========================================================================
 %%% API Helpers
@@ -2047,6 +2052,7 @@ handle_event(
 handle_event(
   {timeout, recv}, recv, #recv{info = Info},
   {#params{socket = Socket} = P, D}) ->
+    %% ?DBG(['timeout recv', {recv_info, Info}]),
     socket_cancel(Socket, Info),
     handle_recv_error(P, D, [], timeout);
 
@@ -2063,11 +2069,22 @@ handle_event(Type, Content, State, P_D) ->
 
 completion_status_reason(Reason) ->
     case Reason of
-        {completion_status, #{info := netname_deleted}} -> closed;
-        {completion_status, netname_deleted}            -> closed;
+        {completion_status, #{info := netname_deleted}} -> econnreset;
+        {completion_status, netname_deleted}            -> econnreset;
+        {completion_status, #{info := too_many_cmds}}   -> closed;
+        {completion_status, too_many_cmds}              -> closed;
         {completion_status, #{info := Info}}            -> Info;
         {completion_status, Info}                       -> Info;
+
+	%% <MAYBE-IN-THE-FUTURE>
+        #{info := netname_deleted}                      -> econnreset;
+        netname_deleted                                 -> econnreset;
+        #{info := too_many_cmds}                        -> closed;
+        too_many_cmds                                   -> closed;
+	%% </MAYBE-IN-THE-FUTURE>
+
         _                                               -> Reason
+
     end.
 
 handle_closed(
@@ -2129,6 +2146,7 @@ handle_close(#params{socket = Socket} = P, D, State, Caller, ActionsR) ->
                          [{{timeout, connect}, cancel},
                           {reply, From, {error, closed}}])};
             #recv{info = Info} ->
+		%% ?DBG([{recv_info, Info}]),
                 socket_cancel(P#params.socket, Info),
                 socket_close(Socket),
                 {next_state, _, P_D_1, Actions_1} =
@@ -2300,7 +2318,7 @@ handle_recv(P, D, ActionsR) ->
 %%
 handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
     BufferSize = iolist_size(Buffer),
-    %% ?DBG(CS),
+    %% ?DBG([{cs, CS}]),
     case CS of
         recv ->
             handle_recv(P, D, ActionsR, Buffer, BufferSize, CS);
@@ -2597,6 +2615,12 @@ handle_recv_error(
                         end,
                     Caller =/= Owner andalso
                         begin
+			    io:format("~w(~w) -> send closed to ~p when"
+				      "~n   Reason:     ~p"
+				      "~n   ShowReason: ~p"
+				      "~n",
+				      [?FUNCTION_NAME, ?LINE, Owner,
+				       Reason, ShowReason]),
                             Owner ! {tcp_closed, ModuleSocket}
                         end,
                     handle_recv_error_exit_on_close(
@@ -2658,6 +2682,8 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
                         begin
                             Owner ! {tcp_error, ModuleSocket, ReplyReason}
                         end,
+		    io:format("~w(~w) -> send closed to ~p~n",
+			      [?FUNCTION_NAME, ?LINE, Owner]),
                     Owner ! {tcp_closed, ModuleSocket},
                     {_, ActionsR} = exit_on_close(D_1, [Reply]),
                     {next_state, 'closed', {P, D_1}, ActionsR}
@@ -2670,6 +2696,16 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
     end.
 
 %% -> CuratedReason
+%% This is a special "verbose" (Extra Error Info) map
+%% that we *currently* only produce with the esaio backend (=Windows).
+curated_error_reason(D, {completion_status, Reason}) ->
+    curated_error_reason(D, Reason);
+curated_error_reason(D, #{info := netname_deleted}) ->
+    curated_error_reason(D, econnreset);
+curated_error_reason(D, #{info := too_many_cmds}) ->
+    curated_error_reason(D, closed);
+curated_error_reason(D, #{info := Reason}) ->
+    curated_error_reason(D, Reason);
 curated_error_reason(D, Reason) ->
     if
         Reason =:= econnreset;
@@ -2681,6 +2717,17 @@ curated_error_reason(D, Reason) ->
         true ->
             Reason
     end.
+
+%% curate_error({error, {completion_status, CS}}) ->
+%%     curate_error({error, CS});
+%% curate_error({error, #{info := netname_deleted}}) ->
+%%     curate_error({error, econnreset});
+%% curate_error({error, #{info := too_many_cmds}}) ->
+%%     curate_error({error, closed});
+%% curate_error({error, #{info := Info}}) ->
+%%     curate_error({error, Info});
+%% curate_error({error, _} = ERROR) ->
+%%     ERROR.
 
 
 handle_active(P, D, State, ActionsR) ->
@@ -2996,6 +3043,8 @@ call_setopts_active(P, D_0, State, Opts, Active)
                     #{} ->
                         D_0
                 end,
+	    io:format("~w(~w) -> send closed to ~p~n",
+		      [?FUNCTION_NAME, ?LINE, Owner]),
             Owner ! {tcp_closed, ModuleSocket},
             socket_close(P#params.socket),
             {ok, D_1, [{next_event, internal, exit}]}

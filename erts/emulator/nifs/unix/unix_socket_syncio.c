@@ -2729,7 +2729,9 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     ERL_NIF_TERM ret;
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> entry with"
-                   "\r\n   bufSz: %lu x %u (%ld)"
+                   "\r\n   bufSz: %lu"
+                   "\r\n   count: %u"
+                   "\r\n   len:   %ld"
                    "\r\n", descP->sock,
                    (unsigned long) bufSz, descP->rNumCnt, (long) len) );
 

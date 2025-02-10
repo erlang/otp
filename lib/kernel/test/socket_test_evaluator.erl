@@ -202,6 +202,14 @@ await_finish(Evs, OK, Fails) ->
             {Evs2, OK2, Fails2} =
                 await_finish_fail(Pid, Reason, Evs, OK, Fails),
             await_finish(Evs2, OK2, Fails2);
+
+	%% Special case: TimeTrap
+        {'EXIT', Pid, {timetrap_timeout, _TO, CallStack} = Reason} ->
+            ?SEV_IPRINT("await_finish -> timetrap (from ~p): "
+                         "~n   ~p", [Pid, CallStack]),
+	    %% force_evc_termination(Evs),
+	    {error, Reason};
+
         {'EXIT', Pid, Reason} ->
             %% ?SEV_IPRINT("await_finish -> fail (exit) received: "
             %%             "~n   Pid:    ~p"
@@ -254,6 +262,15 @@ await_finish_skip(Pid, Reason, Evs, OK) ->
     await_evs_terminated(Evs2),
     ?SEV_IPRINT("issue skip"),
     ?LIB:skip(Reason).
+
+%% force_evc_termination(Evs) ->
+%%     Kill = fun(#ev{name = Name, pid = Pid}) ->
+%% 		  ?SEV_EPRINT("kill evaluator ~p (~p) - timetrap",
+%% 			      [Name, Pid]),
+%% 		   exit(Pid, kill)
+%% 	   end,
+%%     lists:foreach(Kill, Evs).
+
 
 await_evs_terminated(Evs) ->
     Instructions =
@@ -664,7 +681,7 @@ print(Prefix, F, A) ->
                 %% or a named process. Instead its 
                 %% most likely the test case itself, 
                 %% so skip the name and the pid.
-                "";
+                f("[~p]", [self()]);
             SName ->
                 f("[~s][~p]", [SName, self()])
         end,

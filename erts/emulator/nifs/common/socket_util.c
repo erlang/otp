@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2750,6 +2750,12 @@ ERL_NIF_TERM esock_errno_to_term(ErlNifEnv* env, int err)
         break;
 #endif
 
+#if defined(WSAENOTSOCK)
+    case WSAENOTSOCK:
+        return MKA(env, "enotsock");
+        break;
+#endif
+
 #if defined(ERROR_INVALID_NETNAME)
     case ERROR_INVALID_NETNAME:
         return MKA(env, "invalid_netname");
@@ -2924,7 +2930,24 @@ ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv*   env,
                                   ERL_NIF_TERM tag,
                                   ERL_NIF_TERM reason)
 {
-    return MKT2(env, esock_atom_error, MKT2(env, tag, reason));
+    return esock_make_error(env, MKT2(env, tag, reason));
+}
+
+
+
+/* Create an 'error' two (2) tuple in the form:
+ *
+ *          {error, {invalid, {integer_range, I}}}
+ *
+ * The second arg (i) is already in the form of an
+ * ERL_NIF_TERM so all we have to do is create the tuple.
+ */
+extern
+ERL_NIF_TERM esock_make_error_integer_range(ErlNifEnv* env, ERL_NIF_TERM i)
+{
+    ERL_NIF_TERM intRange = MKT2(env, esock_atom_integer_range, i);
+
+    return esock_make_error_invalid(env, intRange);
 }
 
 
@@ -2936,25 +2959,7 @@ ERL_NIF_TERM esock_make_error_t2r(ErlNifEnv*   env,
 extern
 ERL_NIF_TERM esock_make_error_invalid(ErlNifEnv* env, ERL_NIF_TERM what)
 {
-    return MKT2(env,
-                esock_atom_error,
-                MKT2(env, esock_atom_invalid, what));
-}
-
-
-
-/* Create an 'error' two (2) tuple in the form:
- *
- *          {error, {invalid, {integer_range, I}}}
- *
- * The second element (i) is already in the form of an
- * ERL_NIF_TERM so all we have to do is create the tuple.
- */
-extern
-ERL_NIF_TERM esock_make_error_integer_range(ErlNifEnv* env, ERL_NIF_TERM i)
-{
-    return
-        esock_make_invalid(env, MKT2(env, esock_atom_integer_range, i));
+    return esock_make_error_t2r(env, esock_atom_invalid, what);
 }
 
 

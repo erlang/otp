@@ -186,7 +186,7 @@ groups() ->
      {inet_backend_socket,    [], inet_backend_socket_cases()},
 
      {tickets,                [], ticket_cases()},
-
+     
      {ctrl_proc,              [], ctrl_proc_cases()},
      {close,                  [], close_cases()},
      {active,                 [], active_cases()},
@@ -2044,7 +2044,11 @@ do_show_econnreset_active(Config, Addr) ->
     {ok, S1} = gen_tcp:accept(L1),
     ok = gen_tcp:close(L1),
     ok = inet:setopts(Client1, [{linger, {true, 0}}]),
+    %% ?P("enable server socket debug"),
+    %% _ = inet:setopts(S1, [{debug, true}]),
+    ?P("close the client socket"),
     ok = gen_tcp:close(Client1),
+    ?P("await server side econnreset (tcp-) error message"),
     receive
 	{tcp_error, S1, econnreset} ->
 	    receive
@@ -2059,9 +2063,14 @@ do_show_econnreset_active(Config, Addr) ->
                     ?P("UNEXPECTED timeout (expected closed)"),
                     ct:fail({timeout, {server, no_tcp_closed}})
 	    end;
+
+	{tcp_closed, S1} ->
+            ?P("Received unexpected 'closed' message"),
+	    ct:fail({unexpected, on, econnreset, closed});
+	    
 	Other2 ->
-            ?P("UNEXPECTED (expected error:econnreset):"
-               "~n   ~p", [Other2]),
+	    ?P("Received unexpected message:"
+	       "~n   ~p", [Other2]),
 	    ct:fail({unexpected, on, econnreset, Other2})
     after 1000 ->
             ?P("UNEXPECTED timeout (expected error:econnreset)"),

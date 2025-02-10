@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,20 +45,24 @@
 %%
 %% (cd /mnt/c/$LOCAL_TESTS/26/kernel_test/ && $ERL_TOP/bin/win32/erl.exe -sname kernel-26-tester -pa c:$LOCAL_TESTS/26/test_server)
 %% application:set_env(kernel, test_inet_backends, true).
+%%
+%% SUITE = socket_SUITE.
+%%
 %% S = fun() -> ts:run(kernel, socket_SUITE, [batch]) end.
 %% S = fun(SUITE) -> ts:run(kernel, SUITE, [batch]) end.
-%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
-%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ts:run(kernel, socket_SUITE, {group, GROUP}, [batch]) end.
 %% G = fun(SUITE, GROUP) -> ts:run(kernel, SUITE, {group, GROUP}, [batch]) end.
+%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
+%%
+%% S = fun() -> ct:run_test([{suite, socket_SUITE}]) end.
+%% S = fun(SUITE) -> ct:run_test([{suite, SUITE}]) end.
 %% G = fun(GROUP) -> ct:run_test([{suite, socket_SUITE}, {group, GROUP}]) end.
 %% G = fun(SUITE, GROUP) -> ct:run_test([{suite, SUITE}, {group, GROUP}]) end.
-%% T = fun(TC) -> ts:run(kernel, socket_SUITE, TC, [batch]) end.
 %% T = fun(TC) -> ct:run_test([{suite, socket_SUITE}, {testcase, TC}]) end.
 %% T = fun(S, TC) -> ct:run_test([{suite, S}, {testcase, TC}]) end.
 %% T = fun(S, G, TC) -> ct:run_test([{suite, S}, {group, G}, {testcase, TC}]) end.
 %%
-%% Some official info about AF_UNIX
+%% Some (Microsoft-) official info about AF_UNIX
 %% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
 
 
@@ -161,7 +165,8 @@
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
          otp19063/1,
-         otp19251/1
+         otp19251/1,
+         otp19469/1
         ]).
 
 
@@ -377,7 +382,8 @@ tickets_cases() ->
      {group, otp18240},
      otp18635,
      otp19063,
-     otp19251
+     otp19251,
+     otp19469
     ].
 
 otp16359_cases() ->
@@ -544,7 +550,14 @@ format_ioctl(Key, Sup, Prefix, Max) ->
 init_per_testcase(_TC, Config) ->
     io:format("init_per_testcase(~w) -> entry with"
               "~n   Config: ~p"
-              "~n", [_TC, Config]),
+              "~n   links:  ~p"
+              "~n", [_TC, Config, links()]),
+    %% case quiet_mode(Config) of
+    %%     default ->
+    %%         ?LOGGER:start();
+    %%     Quiet ->
+    %%         ?LOGGER:start(Quiet)
+    %% end,
     Config.
 
 end_per_testcase(_TC, Config) ->
@@ -10195,7 +10208,8 @@ do_ioctl_nread(_) ->
     i("Give it some time to arrive"),
     ?SLEEP(?SECS(1)),
     
-    i("Verify that the correct amount of data (atleast ~p) is available", [DataSz]),
+    i("Verify that the correct amount of data (atleast ~p) is available", 
+      [DataSz]),
     case socket:ioctl(S1, nread) of
         {ok, DataSize} when (DataSize >= DataSz) ->
             i("Success: "
@@ -12059,7 +12073,7 @@ do_otp18635(_) ->
 
     %% ok = socket:setopt(LSock, otp, debug, true),
 
-                                                % show handle returned from nowait accept
+    %% show handle returned from nowait accept
     ?P("try accept with timeout = nowait - expect select when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p",
@@ -12326,6 +12340,9 @@ do_otp19063(_) ->
         {'DOWN', MRef, process, Connector, _} ->
             ?P("connector terminated"),
             ok
+    after 1000 ->
+	    ?P("connector did not die in time - kill it"),
+	    exit(Connector, kill)
     end,
     _ = socket:close(ASock1),
     _ = socket:close(LSock1),
@@ -12427,7 +12444,150 @@ do_otp19251(_) ->
     _ = socket:close(Sock1),
 
     ?P("done"),
+    ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Tests that results are correct when only parts of the requested
+%% amount of data is available when using socket:recv.
+%% Behaviour should be as expected for both STREAM and DGRAM sockets.
+%% That is;
+%%   STREAM: read until buffer is full or timeout
+%%   DGRAM:  - do never wait for *more* data - return with *any* available data
+%%           - only wait if there is currently *no* data.
+
+otp19469(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otp19469(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_otp19469(#{lsa := LSA}) ->
+
+    ?P("try stream"),
+    ok = do_otp19469_stream(LSA),
+    ?P("try dgram"),
+    ok = do_otp19469_dgram(LSA),
+    
+    ?P("done"),
+    ok.
+
+
+do_otp19469_stream(#{family := Fam} = LSA) ->
+
+    ?P("[stream] create listen socket"),
+    {ok, S1} = socket:open(Fam, stream),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ok = socket:listen(S1),
+
+    ?P("[stream] create connector socket"),
+    {ok, S2} = socket:open(Fam, stream),
+    ok = socket:bind(S2, LSA#{port => 0}),
+    ok = socket:connect(S2, SA1),
+
+    ?P("[stream] accept connection (acceptor socket)"),
+    {ok, S3} = socket:accept(S1),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[stream] try send and recv ~w bytes", [DataSz]),
+    ok = socket:send(S2, Data),
+    {ok, Data} = socket:recv(S3, DataSz, ?SECS(5)),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect timeout with data
+    Data = <<"0123456789">>,
+    ?P("[stream] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:send(S2, Data),
+    put(debug, true),
+    _ = socket:setopt(S3, otp, debug, true),
+    case os:type() of
+        {unix, _} ->
+            %% This is a OTP 27 behaviour.
+            %% Not in 26 and not in 28 (I think)
+            {error, timeout} = socket:recv(S3, 2*DataSz, ?SECS(5)),
+            {ok, Data}       = socket:recv(S3, 0);
+        {win32, _} ->
+            {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5))
+    end,
+    _ = socket:setopt(S3, otp, debug, false),
+    put(debug, false),
+
+    ?P("[stream] cleanup"),
+    _ = socket:close(S3),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[stream] done"),
+    ok.
+
+
+do_otp19469_dgram(#{family := Fam} = LSA) ->
+
+    ?P("[dgram] create socket 1"),
+    {ok, S1} = socket:open(Fam, dgram),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+
+    ?P("[dgram] create socket 2"),
+    {ok, S2} = socket:open(Fam, dgram),
+    ok = socket:bind(S2, LSA#{port => 0}),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[dgram] try send and recv ~w bytes", [DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    ?P("[dgram] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    %% On Windows the behaviour seems to depend on the (OS) version...
+    case socket:recv(S1, 2*DataSz, ?SECS(5)) of
+        {ok, Data} ->
+            ?P("[dgram] success"),
+            ok;
+        {error, {timeout, Data}} ->
+            ?P("[dgram] timeout success"),
+            ok;
+        {error, Reason} ->
+            ?P("unexpected error result:"
+               "~n   Reason: ~p", [Reason]),
+            ?FAIL({unexpected_failure, Reason})
+    end,
+
+    ?P("[dgram] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[dgram] done"),
     ok.
 
 
@@ -12757,6 +12917,22 @@ skip(Reason) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
+
+format_timestamp({_N1, _N2, _N3} = TS) ->
+    {_Date, Time}   = calendar:now_to_local_time(TS),
+    %% {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    %% FormatTS = 
+    %%     io_lib:format("~.4w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w.~w",
+    %%                   [YYYY, MM, DD, Hour, Min, Sec, N3]),  
+    FormatTS = io_lib:format("~.2.0w:~.2.0w:~.2.0w", [Hour, Min, Sec]),  
+    lists:flatten(FormatTS).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% *** tc_try/2,3 ***
 %% Case:      Basically the test case name
 %% TCCondFun: A fun that is evaluated before the actual test case
@@ -12812,11 +12988,36 @@ start_node(Name, Timeout) when is_integer(Timeout) andalso (Timeout > 0) ->
             
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% mq() ->
+%%     mq(self()).
+
+%% mq(Pid) when is_pid(Pid) ->
+%%     pi(Pid, messages).
+
+
+links() ->
+    links(self()).
+
+links(Pid) when is_pid(Pid) ->
+    pi(Pid, links).
+
+
+pi(Pid, Key) when is_pid(Pid) ->
+    {Key, Value} = process_info(Pid, Key),
+    Value.
+
+
+             
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    FStr = ?F("[~s] " ++ F, [?FTS()|A]),
+    FStr = f("[~s] ~p " ++ F, [formated_timestamp(), self()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
 

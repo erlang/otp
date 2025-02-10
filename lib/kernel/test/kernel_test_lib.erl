@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2020-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2370,6 +2370,7 @@ set_tc_name(N) when is_list(N) ->
 tc_begin(TC) ->
     OldVal = process_flag(trap_exit, true),
     put(old_trap_exit, OldVal),
+    put(sname, tc),
     set_tc_name(TC),
     tc_print("begin ***",
              "~n----------------------------------------------------~n", "").
