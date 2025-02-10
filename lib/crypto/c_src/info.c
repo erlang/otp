@@ -107,7 +107,10 @@ const char* resource_name(const char *name, ErlNifBinary* buf)
 
 ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
-    ERL_NIF_TERM keys[5], vals[5];
+#if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
+    extern OSSL_PROVIDER *fips_provider;
+#endif
+    ERL_NIF_TERM keys[6], vals[6];
     ERL_NIF_TERM  ret;
     size_t cnt;
     int ok;
@@ -125,13 +128,28 @@ ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 #endif
     keys[3] = enif_make_atom(env, "cryptolib_version_linked");
     vals[3] = enif_make_string(env, OpenSSL_version(OPENSSL_VERSION), ERL_NIF_LATIN1);
-#ifdef HAS_3_0_API
-    keys[4] = enif_make_atom(env, "fips_provider_available");
-    vals[4] = OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false;
-    cnt = 5;
-#else
     cnt = 4;
+#ifdef HAS_3_0_API
+    keys[cnt] = enif_make_atom(env, "fips_provider_available");
+    vals[cnt] = OSSL_PROVIDER_available(NULL, "fips") ? atom_true : atom_false;
+    cnt++;
+# ifdef FIPS_SUPPORT
+    if (fips_provider) {
+        const char *build_info = NULL;
+        OSSL_PARAM request[] = {
+            { "buildinfo", OSSL_PARAM_UTF8_PTR, &build_info, 0, 0 },
+            { NULL, 0, NULL, 0, 0 }
+        };
+        if (!OSSL_PROVIDER_get_params(fips_provider, request)) {
+            build_info = "Not available";
+        }
+        keys[cnt] = enif_make_atom(env, "fips_provider_buildinfo");
+        vals[cnt] = enif_make_string(env, build_info, ERL_NIF_UTF8);
+        cnt++;
+    }
+# endif
 #endif
+    ASSERT(cnt <= sizeof(keys)/sizeof(keys[0]));
     ok = enif_make_map_from_arrays(env, keys, vals, cnt, &ret);
     ASSERT(ok); (void)ok;
 
