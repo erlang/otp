@@ -9508,14 +9508,6 @@ do_otp_18357(#{name := Name, addr := Addr}) ->
                                    {ifaddr,       Addr}]),
     {ok, PortNo} = inet:port(L),
 
-    %% Need this for the error handling
-    OS = case os:type() of
-             {unix, darwin = Flavor} ->
-                 Flavor;
-             _ ->
-                 other % We do not really care...
-         end,
-
     ?P("try connect (with bind-to-device)"),
     OS = which_os(),
     C = case gen_tcp:connect(Addr, PortNo,
