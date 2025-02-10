@@ -192,9 +192,10 @@ modules(Config) ->
     run(Config, [modules]).
 
 code_mods() ->
-    Dir  = code:lib_dir(diameter, ebin),
+    Dir  = ?LIB_DIR(diameter, ebin),
     {ok, Files} = file:list_dir(Dir),
     [?A(lists:reverse(R)) || N <- Files, "maeb." ++ R <- [lists:reverse(N)]].
+
 
 %% ===========================================================================
 %% # exports/1
@@ -596,6 +597,8 @@ is_app(S)
     {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
     true.
 
+
+%% ===========================================================================
 
 i(F) ->
     i(F, []).
