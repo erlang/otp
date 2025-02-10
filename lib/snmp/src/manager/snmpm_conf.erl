@@ -625,7 +625,7 @@ usm_entry(EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey) ->
     {EngineID, UserName, AuthP, AuthKey, PrivP, PrivKey}.
 
 -doc """
-Create an entry for the agent community config file, `community.conf`.
+Create an entry for the manager usm config file, `usm.conf`.
 
 See
 [`Security data for USM`](snmp_manager_config_files.md#security-data-for-usm)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -376,7 +376,7 @@ Create an entry for the agent config file, `agent.conf`.
 
 The type of `Val` depends on the value of `Tag`:
 
-- **`intAgentTransports: `[`snmpa_conf:intAgentTransport()`](`t:intAgentTransport/0`) `<mandatory>`**{: #intAgentTransports }
+- **`intAgentTransports: [`[`snmpa_conf:intAgentTransport()`](`t:intAgentTransport/0`) ] `<mandatory>`**{: #intAgentTransports }
 
 - **`intAgentUDPPort: `[`inet:port_number()`](`t:inet:port_number/0`) `<optional>`**{: #intAgentUDPPort }
 
@@ -413,10 +413,9 @@ write_agent_config(Dir, Conf) ->
 "%% Each row is a 2-tuple:\n"
 "%% {AgentVariable, Value}.\n"
 "%% For example\n"
-"%% {intAgentUDPPort, 4000}.\n"
-"%% The ip address for the agent is sent as id in traps.\n"
-"%% {intAgentIpAddress, [127,42,17,5]}.\n"
-"%% {snmpEngineID, \"agentEngine\"}.\n"
+"%% {intAgentUDPPort,          4000}.\n"
+"%% {intAgentTransports,       [{transportDomainUdpIpv4, {127,42,17,5}}]}.\n"
+"%% {snmpEngineID,             \"agentEngine\"}.\n"
 "%% {snmpEngineMaxMessageSize, 484}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment, 
