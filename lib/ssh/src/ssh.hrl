@@ -122,16 +122,17 @@
 
 
 %% Types
+-doc(#{title => <<"Other Data Types">>}).
 -type role()                  :: client | server .
 
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type host()                  :: string() | inet:ip_address() | loopback .
 -doc """
 The socket is supposed to be result of a [gen_tcp:connect](`gen_tcp:connect/3`)
 or a [gen_tcp:accept](`gen_tcp:accept/1`). The socket must be in passive mode
 (that is, opened with the option `{active,false})`.
 """.
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type open_socket()           :: gen_tcp:socket().
 
 -doc """
@@ -514,7 +515,7 @@ protocol).
 Opaque types that define experimental options that are not to be used in
 products.
 """.
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type opaque_common_options() ::
         {transport, {atom(),atom(),atom()} }
       | {vsn, {non_neg_integer(),non_neg_integer()} }
@@ -547,7 +548,7 @@ risk.
       | gen_tcp:connect_option()
       | ?COMMON_OPTION .
 
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type opaque_client_options() ::
         {keyboard_interact_fun, fun((Name::iodata(),
                                      Instruction::iodata(),
@@ -1149,17 +1150,17 @@ in the User's Guide chapter.
         {failfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Reason::term()) -> _)}
       | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)} .
 
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type opaque_daemon_options()  ::
         {infofun, fun()}
       | opaque_common_options().
 
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type ip_port() :: {inet:ip_address(), inet:port_number()} .
 
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type mod_args() :: {Module::atom(), Args::list()} .
--doc(#{title => <<"Other data types">>}).
+-doc(#{title => <<"Other Data Types">>}).
 -type mod_fun_args() :: {Module::atom(), Function::atom(), Args::list()} .
 
 
