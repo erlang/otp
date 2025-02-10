@@ -162,11 +162,18 @@ execute(Command, Config) ->
      Errors =/= [] andalso erlang:raise(exit, SortedErrors, []),
      ok.
 
+-spec compliance_check([{Path, License, SPDX, Copyrights}]) -> Result when
+      Result     :: #{ license => License, spdx => SPDX, path => Path, msg => Msg},
+      License    :: binary(),
+      SPDX       :: binary(),
+      Copyrights :: binary(),
+      Path       :: binary(),
+      Msg        :: no_license | license_not_approved | license_to_be_reviewed | license_not_recognised | no_copyright.
 compliance_check(Licenses) when is_list(Licenses) ->
     lists:foldl(fun ({Path, License, SPDX0, Copyright}, Acc) ->
                         SPDX = spdx_nonnull(SPDX0),
                         CopyrightResult = check_copyright(Copyright),
-                        LicenseResult = compliance_check(License),
+                        LicenseResult = license_compliance_check(License),
                         R = lists:foldl(fun (ok, Acc0) -> Acc0;
                                             ({error, Msg}, Acc0) ->
                                                 [#{ license => License,
@@ -175,8 +182,12 @@ compliance_check(Licenses) when is_list(Licenses) ->
                                                     msg => Msg} | Acc0]
                                         end, [], [CopyrightResult, LicenseResult]),
                         R ++ Acc
-                    end, [], Licenses);
-compliance_check(License) ->
+                    end, [], Licenses).
+
+-spec license_compliance_check(DetectedLicense) -> ok | {error, Err} when
+      Err :: no_license | license_not_approved | license_to_be_reviewed | license_not_recognised,
+      DetectedLicense :: binary().
+license_compliance_check(License) ->
     Handler = [ {no_license(), {error, no_license}},
                 {not_approved(), {error, license_not_approved}},
                 {reviewed(), {error, license_to_be_reviewed}},
@@ -188,6 +199,7 @@ spdx_nonnull(null) ->
 spdx_nonnull(X) ->
     X.
 
+-spec check_copyright([#{binary() := binary()}]) -> ok | {error, no_copyright}.
 check_copyright([]) ->
     {error, no_copyright};
 check_copyright([#{<<"copyright">> := _} | _]) ->
@@ -216,15 +228,28 @@ fetch_licenses(FolderPath, #{<<"files">> := Files}) ->
                           <<"detected_license_expression_spdx">> := SPDX,
                           <<"copyrights">> := Copyrights,
                           <<"path">> := Path}) ->
-                            {true, {string:trim(Path, leading, FolderPath), License, SPDX, Copyrights}};
+                            {true, {string:prefix(string:trim(Path, leading), FolderPath), License, SPDX, Copyrights}};
                        (_) ->
                             false
                     end, Files).
 
+-spec sarif(file:name_all(), Errors) -> dynamic() when
+      Errors :: [#{ license => License, spdx => SPDX, path => Path, msg => Msg}],
+      License    :: binary(),
+      SPDX       :: binary(),
+      Path       :: binary(),
+      Msg        :: no_license | license_not_approved | license_to_be_reviewed | license_not_recognised | no_copyright.
 sarif(SarifFile, Errors) ->
     file:write_file(SarifFile, sarif(Errors)).
-sarif(Errors) ->
-    ErrorTypes = lists:usort([{Type, License} || {License, _File, Type} <- Errors]),
+
+-spec sarif(Input) -> dynamic() when
+      Input :: [#{ license => License, spdx => SPDX, path => Path, msg => Msg}],
+      License    :: binary(),
+      SPDX       :: binary(),
+      Path       :: binary(),
+      Msg        :: no_license | license_not_approved | license_to_be_reviewed | license_not_recognised | no_copyright.
+sarif(Errors) when is_list(Errors) ->
+    ErrorTypes = lists:usort([{Type, License} || #{spdx := License, msg := Type} <- Errors]),
     ErrorTypesIndex = lists:zip(ErrorTypes, lists:seq(0,length(ErrorTypes) - 1)),
     json:format(
       #{ ~"version" => ~"2.1.0",
@@ -256,7 +281,7 @@ sarif(Errors) ->
                                           ~"uri" => File
                                          },
                          ~"length" => -1
-                        } || File <- lists:usort([F || {_, F, _} <- Errors])
+                        } || File <- lists:usort([F || #{path := F} <- Errors])
                      ],
                  ~"results" =>
                      [ #{
@@ -270,7 +295,7 @@ sarif(Errors) ->
                                              #{ ~"uri" => File }
                                        }
                                 } ]
-                        } || {License, File, ErrorType} <- Errors]
+                        } || #{spdx := License, path := File, msg := ErrorType} <- Errors]
                 } ]
        }).
 
