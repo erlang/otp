@@ -1894,6 +1894,7 @@ match_list(_, _, _Anno, _Bs, _BBs, _Ef) ->
 %% add_binding(Name, Value, Bindings)
 %% del_binding(Name, Bindings)
 
+-doc #{since => ~"OTP @OTP-19184@"}.
 -doc "Returns an empty binding structure.".
 -spec(new_bindings() -> binding_struct()).
 new_bindings() -> orddict:new().
