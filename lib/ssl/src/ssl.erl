@@ -1741,8 +1741,12 @@ Options specific to the server side, or with different semantics for the client 
   If the server receives a SNI (Server Name Indication) from the
   client, the given fun `SNIFun` will be called to retrieve
   [`server_option()`](`t:server_option/0`) for the indicated
-  hosts. These options will override previously specified options for
-  that host.
+  server. These options will override previously specified server options.
+  The sni_fun can indicate that it does not recognize the server name by
+  returning `unrecognized` in which case the connection will be closed with an
+  `unrecognized_name` alert. If the
+  sni_fun returns `undefined` the connection will be attempted with the default
+  options supplied to `listen/2` or  [`handshake/2,3`](`handshake/2`).
 
   > #### Note {: .info }
   The options `sni_fun` and `sni_hosts` are mutually exclusive.
@@ -1751,7 +1755,8 @@ Options specific to the server side, or with different semantics for the client 
 
   If the server receives a SNI (Server Name Indication) from the client matching a
   host listed in the `sni_hosts` option, the specific options for that host will
-  override previously specified options.
+  override previously specified options. If no match is found it behaves as
+  option sni_fun that returns `undefined`.
 
   > #### Note {: .info }
   The options `sni_fun` and `sni_hosts` are mutually exclusive.
@@ -1762,7 +1767,7 @@ Options specific to the server side, or with different semantics for the client 
         common_option_cert() |
         {alpn_preferred_protocols,  AppProtocols::[binary()]}|
         {sni_hosts, SNIHosts::[{inet:hostname(), [server_option() | common_option()]}]} |
-        {sni_fun, SNIFun:: fun((string()) -> [])} |
+        {sni_fun, SNIFun:: fun((string()) -> [server_option() | common_option()] | 'unrecognized' | 'undefined')} |
         server_option_pre_tls13() |
         common_option_pre_tls13() |
         server_option_tls13() |

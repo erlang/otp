@@ -39,12 +39,14 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([no_sni_header/1,
+-export([no_sni_ext/1,
          sni_match/1,
          sni_no_match/1,
-         no_sni_header_fun/1,
+         no_sni_ext_fun/1,
          sni_match_fun/1,
          sni_no_match_fun/1,
+         sni_fail_fun/1,
+         sni_crash_fun/1,
          dns_name/1,
          ip_fallback/1,
          no_ip_fallback/1,
@@ -88,12 +90,14 @@ groups() ->
     ].
 
 sni_tests() ->
-    [no_sni_header, 
+    [no_sni_ext, 
      sni_match, 
      sni_no_match,
-     no_sni_header_fun, 
+     no_sni_ext_fun, 
      sni_match_fun, 
      sni_no_match_fun,
+     sni_fail_fun,
+     sni_crash_fun,
      dns_name,
      ip_fallback,
      no_ip_fallback,
@@ -148,14 +152,14 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-no_sni_header(Config) ->
+no_sni_ext(Config) ->
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
     ServerOptions = ssl_test_lib:ssl_options(proplists:get_value(sni_server_opts, Config), Config),
     ClientOptions = ssl_test_lib:ssl_options([{server_name_indication, disable} |
                                               proplists:get_value(client_local_opts, Config)], Config),
     basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, undefined).
 
-no_sni_header_fun(Config) ->
+no_sni_ext_fun(Config) ->
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
     [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, []) end,
@@ -174,7 +178,7 @@ sni_match(Config) ->
 sni_match_fun(Config) ->
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
     [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
-    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, unrecognized) end,
     ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
     ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
                                                proplists:get_value(client_opts, Config)], Config),
@@ -186,15 +190,38 @@ sni_no_match(Config) ->
     ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
                                                proplists:get_value(client_opts, Config)], Config),
     ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
-    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName).
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, handshake_failure).
 
 sni_no_match_fun(Config) ->
     {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
-    [{sni_hosts, _}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
-    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config),
-    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+    [{sni_hosts, ServerSNIConf}| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, unrecognized) end,
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, "localhost"} |
                                                proplists:get_value(client_local_opts, Config)], Config),
-    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName).
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, unrecognized_name).
+
+sni_fail_fun(Config) ->
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [_| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ,
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    basic_sni_alert_test(ServerNode, ServerOptions ++ [{sni_fun, fun(_Domain) -> [{versions, ['tlsv1.5']}] end}],
+                         ClientNode, ClientOptions, HostName, handshake_failure),
+    basic_sni_alert_test(ServerNode, ServerOptions ++  [{sni_fun, fun(_Domain) -> [{verify, foobar}] end}],
+                         ClientNode, ClientOptions, HostName, handshake_failure).
+
+sni_crash_fun(Config) ->
+    {ClientNode, ServerNode, HostName} = ssl_test_lib:run_where(Config),
+    [_| DefaultConf] = proplists:get_value(sni_server_opts, Config),
+    SNIFun = fun(Domain) -> Domain = nomatch end,
+    ServerOptions =  ssl_test_lib:ssl_options(DefaultConf, Config) ++ [{sni_fun, SNIFun}],
+    ClientOptions =  ssl_test_lib:ssl_options([{server_name_indication, HostName} |
+                                               proplists:get_value(client_opts, Config)], Config),
+    basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, handshake_failure).
+
+
 
 dns_name(Config) ->
     Hostname = "OTP.test.server",
@@ -215,12 +242,12 @@ dns_name(Config) ->
     Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer},
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config, handshake_failure),
+    successful_connect(ServerConf, [{verify, verify_peer},
                                      {server_name_indication, Hostname} | ClientConf], undefined, Config),
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, "foo"} | ClientConf],
-                          undefined, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, disable} | ClientConf],
+    unsuccessful_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, "foo"} | ClientConf],
+                          undefined, Config, handshake_failure),
+    successful_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, disable} | ClientConf],
                         undefined, Config).
 
 ip_fallback(Config) ->
@@ -246,10 +273,10 @@ ip_fallback(Config) ->
     Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config),
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], list_to_atom(Hostname), Config).
+    successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
+    successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
+    successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config),
+    successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], list_to_atom(Hostname), Config).
 
 no_ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
@@ -274,9 +301,9 @@ no_ip_fallback(Config) ->
     Version = ssl_test_lib:n_version(proplists:get_value(version, Config)),
     ServerConf = ssl_test_lib:sig_algs(rsa, Version) ++  ServerOpts0,
     ClientConf = ssl_test_lib:sig_algs(rsa, Version) ++ ClientOpts0,
-    successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config),
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config).
+    successful_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config, handshake_failure),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], IPStr, Config, handshake_failure).
 
 dns_name_reuse(Config) ->
     SNIHostname = "OTP.test.server",
@@ -302,7 +329,7 @@ dns_name_reuse(Config) ->
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
-    unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
+    unsuccessful_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config, handshake_failure),
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -475,7 +502,7 @@ basic_sni_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, E
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName) ->
+basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostName, Alert) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {ssl_test_lib, no_result, []}},
                                         {options, ServerOptions}]),
@@ -483,11 +510,11 @@ basic_sni_alert_test(ServerNode, ServerOptions, ClientNode, ClientOptions, HostN
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
                                               {host, HostName}, {from, self()},
                                               {options, [{verify, verify_peer} | ClientOptions]}]),
-    ssl_test_lib:check_client_alert(Client, handshake_failure),
+    ssl_test_lib:check_client_alert(Client, Alert),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-successfull_connect(ServerOptions, ClientOptions, Hostname0, Config) ->  
+successful_connect(ServerOptions, ClientOptions, Hostname0, Config) ->
     {ClientNode, ServerNode, Hostname1} = ssl_test_lib:run_where(Config),
     Hostname = host_name(Hostname0, Hostname1),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -502,7 +529,7 @@ successfull_connect(ServerOptions, ClientOptions, Hostname0, Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-unsuccessfull_connect(ServerOptions, ClientOptions, Hostname0, Config) ->
+unsuccessful_connect(ServerOptions, ClientOptions, Hostname0, Config, Alert) ->
     {ClientNode, ServerNode, Hostname1} = ssl_test_lib:run_where(Config),
     Hostname = host_name(Hostname0, Hostname1),
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -514,7 +541,7 @@ unsuccessfull_connect(ServerOptions, ClientOptions, Hostname0, Config) ->
 					      {from, self()}, 
 					      {options, ClientOptions}]),
     
-    ssl_test_lib:check_server_alert(Server, Client, handshake_failure).
+    ssl_test_lib:check_server_alert(Server, Client, Alert).
 
 host_name(undefined, Hostname) ->
     Hostname;
