@@ -273,6 +273,9 @@ using exit signals.
 %%%  API
 %%%=========================================================================
 
+-type action() :: 'hibernate' | {'hibernate', boolean()} |
+                  {'timeout', timeout(), term()}.
+
 -doc """
 Initialize the server.
 
@@ -307,7 +310,7 @@ See function [`start_link/3,4`](`start_link/3`)'s return value
 """.
 -callback init(Args :: term()) ->
     {ok, State :: term()} |
-    {ok, State :: term(), timeout() | 'hibernate' | [  {'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {continue, term()}} |
+    {ok, State :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {stop, Reason :: term()} |
     ignore |
     {error, Reason :: term()}.
@@ -375,9 +378,9 @@ The return value `Result` is interpreted as follows:
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {'continue', term()}} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {'continue', term()}} |
+    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 
@@ -393,7 +396,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {'continue', term()}} |
+    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -419,7 +422,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {'continue', term()}} |
+    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -447,7 +450,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 -doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}] | {'continue', term()}} |
+    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -2266,6 +2269,23 @@ loop(#server_data{hibernate_after=HibernateAfterTimeout} = ServerData, State, #a
             proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
     end.
 
+start_timer(undefined, {infinity, _}) ->
+    undefined;
+start_timer(undefined, {Time, Msg}) ->
+    erlang:start_timer(Time, self(), Msg);
+start_timer(TRef, _) ->
+    TRef.
+
+cancel_timer(undefined) ->
+    ok;
+cancel_timer(TRef) ->
+    case erlang:cancel_timer(TRef) of
+	false ->
+	    receive {timeout, TRef, _} -> ok end;
+	_ ->
+	    ok
+    end.
+
 -compile({inline, [server_data/4, update_callback_cache/1]}).
 
 server_data(Parent, Name, Mod, HibernateAfter) ->
@@ -2316,23 +2336,6 @@ decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, TRef, Debug, 
             Debug1 = sys:handle_debug(Debug, fun print_event/3,
                                       ServerData#server_data.name, {in, Msg}),
             handle_msg(ServerData, State, Msg, Debug1)
-    end.
-
-start_timer(undefined, {infinity, _}) ->
-    undefined;
-start_timer(undefined, {Time, Msg}) ->
-    erlang:start_timer(Time, self(), Msg);
-start_timer(TRef, _) ->
-    TRef.
-
-cancel_timer(undefined) ->
-    ok;
-cancel_timer(TRef) ->
-    case erlang:cancel_timer(TRef) of
-	false ->
-	    receive {timeout, TRef, _} -> ok end;
-	_ ->
-	    ok
     end.
 
 %%% ---------------------------------------------------
@@ -2437,26 +2440,34 @@ try_terminate(#server_data{module = Mod}, State, Reason) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
-extract_actions(hibernate) ->
-    {ok, #actions{hibernate = true}};
-extract_actions(Time) when ?is_timeout(Time) ->
-    {ok, #actions{timeout = {Time, timeout}}};
-extract_actions([_|_] = ActionsList) ->
+extract_actions(ActionsList)
+  when is_list(ActionsList) ->
     extract_actions(ActionsList, #actions{});
-extract_actions([]) ->
-    {ok, #actions{}};
-extract_actions(_) ->
-    error.
+extract_actions(Time)
+  when ?is_timeout(Time) ->
+    {ok, #actions{timeout = {Time, timeout}}};
+extract_actions(Action) ->
+    extract_actions([Action], #actions{}).
 
-extract_actions([hibernate | ActionsList], Acc) ->
-    extract_actions(ActionsList, Acc#actions{hibernate = true});
-extract_actions([{hibernate, Hibernate} | ActionsList], Acc) when is_boolean(Hibernate) ->
-    extract_actions(ActionsList, Acc#actions{hibernate = Hibernate});
-extract_actions([{timeout, Time, Msg} | ActionsList], Acc) when ?is_timeout(Time) ->
-    extract_actions(ActionsList, Acc#actions{timeout = {Time, Msg}});
+extract_actions([Action | ActionsList], Acc0) ->
+    case extract_action(Action, Acc0) of
+	#actions{} = Acc1 ->
+	    extract_actions(ActionsList, Acc1);
+	error ->
+	    error
+    end;
 extract_actions([], Acc) ->
-    {ok, Acc};
-extract_actions(_, _) ->
+    {ok, Acc}.
+
+extract_action(hibernate, Acc) ->
+    Acc#actions{hibernate = true};
+extract_action({hibernate, Hibernate}, Acc)
+  when is_boolean(Hibernate) ->
+    Acc#actions{hibernate = Hibernate};
+extract_action({timeout, Time, Msg}, Acc)
+  when ?is_timeout(Time) ->
+    Acc#actions{timeout = {Time, Msg}};
+extract_action(_, _) ->
     error.
 
 handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
