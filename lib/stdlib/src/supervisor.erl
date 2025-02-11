@@ -765,6 +765,7 @@ The following information is given for each child specification/process:
 which_children(Supervisor) ->
     call(Supervisor, which_children).
 
+-doc(#{since => <<"OTP @OTP-19345@">>}).
 -doc """
 Returns information about the child specification and child process identified
 by the given `Id`.
