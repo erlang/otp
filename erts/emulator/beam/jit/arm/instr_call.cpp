@@ -36,7 +36,7 @@ void BeamGlobalAssembler::emit_dispatch_return() {
 void BeamModuleAssembler::emit_dispatch_return() {
 #ifdef JIT_HARD_DEBUG
     /* Validate return address and {x,0} */
-    emit_validate(ArgVal(ArgVal::Word, 1));
+    emit_validate(ArgVal(ArgVal::Type::Word, 1));
 #endif
 
     if (erts_alcu_enable_code_atags) {

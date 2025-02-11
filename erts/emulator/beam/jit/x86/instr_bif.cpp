@@ -133,8 +133,8 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
     for (size_t i = 1; i < args.size() && is_contiguous_mem; i++) {
         const ArgSource &curr = args[i], &prev = args[i - 1];
 
-        is_contiguous_mem =
-                ArgVal::memory_relation(prev, curr) == ArgVal::consecutive;
+        is_contiguous_mem = ArgVal::memory_relation(prev, curr) ==
+                            ArgVal::Relation::consecutive;
     }
 
     if (is_contiguous_mem) {
