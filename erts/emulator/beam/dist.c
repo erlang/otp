@@ -3194,11 +3194,11 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 		& ERTS_PORT_SFLGS_DEAD) == 0);
 
         dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-        ASSERT(dep);
+        ERTS_ASSUME(dep);
 	id = prt->common.id;
     }
     else {
-	ASSERT(dist_entry);
+	ERTS_ASSUME(dist_entry);
 	ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&dist_entry->rwmtx)
 			   || erts_lc_rwmtx_is_rwlocked(&dist_entry->rwmtx));
 	ASSERT(is_internal_port(dist_entry->cid));
@@ -3773,6 +3773,9 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_outputv)) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+
+        ERTS_ASSUME(dep);
+
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
@@ -3878,6 +3881,7 @@ erts_dist_command(Port *prt, int initial_reds)
 
     ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
+    ERTS_ASSUME(dep);
     erts_atomic_set_mb(&dep->dist_cmd_scheduled, 0);
 
     erts_de_rlock(dep);
@@ -4625,6 +4629,9 @@ erts_dist_port_not_busy(Port *prt)
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_port_not_busy)) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+
+        ERTS_ASSUME(dep);
+
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 

@@ -3903,7 +3903,9 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
 
    if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
        DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-       ASSERT(dep);
+
+       ERTS_ASSUME(dep);
+
        erts_do_net_exits(dep, modified_reason);
        erts_deref_dist_entry(dep);
        erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
@@ -6345,7 +6347,11 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry* dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	return erts_net_message(prt,
 				dep,
                                 conn_id,
@@ -6390,7 +6396,11 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
         DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
         Uint32 conn_id = (Uint32)(UWord) erts_prtsd_get(prt, ERTS_PRTSD_CONN_ID);
+
+        ERTS_ASSUME(dep);
+
         erts_atomic64_inc_nob(&dep->in);
+
 	if (len == 0)
 	    return erts_net_message(prt,
 				    dep,
