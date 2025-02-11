@@ -54,6 +54,7 @@
 #include "jit/beam_asm.h"
 #include "erl_global_literals.h"
 #include "beam_load.h"
+#include "beam_common.h"
 
 Export *erts_await_result;
 static Export await_exit_trap;
@@ -1189,26 +1190,66 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
 BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 {
-    /*
-     * hibernate/3 is usually translated to an instruction; therefore
-     * this function is only called when the call could not be translated.
-     */
-    Eterm reg[3];
+    Eterm module = BIF_ARG_1, function = BIF_ARG_2, args = BIF_ARG_3;
+    Uint arity = 0;
 
-    reg[0] = BIF_ARG_1;
-    reg[1] = BIF_ARG_2;
-    reg[2] = BIF_ARG_3;
-
-    if (erts_hibernate(BIF_P, reg)) {
-        /*
-         * If hibernate succeeded, TRAP. The process will be wait in a
-         * hibernated state if its state is inactive (!ERTS_PSFLG_ACTIVE);
-         * otherwise, continue executing (if any message was in the queue).
-         */
-        BIF_TRAP_CODE_PTR(BIF_P, BIF_P->i, 3);
+    /* Check for obvious errors as a courtesy to the user; while apply/3 will
+     * fail later on if there's anything wrong with the arguments (e.g. the
+     * callee does not exist), we have more helpful context now than after
+     * discarding the stack. */
+    if (is_not_atom(module) || is_not_atom(function)) {
+        BIF_ERROR(BIF_P, BADARG);
     }
 
-    return THE_NON_VALUE;
+    while (is_list(args) && arity <= MAX_ARG) {
+        args = CDR(list_val(args));
+        arity++;
+    }
+
+    if (is_not_nil(args)) {
+        if (arity > MAX_ARG) {
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        }
+
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(process_hibernate)) {
+        ErtsCodeMFA cmfa = { module, function, arity };
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
+        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
+        dtrace_fun_decode(BIF_P, &cmfa, process_name, mfa_buf);
+        DTRACE2(process_hibernate, process_name, mfa_buf);
+    }
+#endif
+
+    /* Discard our execution state and prepare to resume with apply/3 after
+     * waking up from hibernation.
+     *
+     * Note that BIF_P->current has already been set to hibernate/3 as this is
+     * a heavy BIF. */
+    BIF_P->stop = BIF_P->hend - CP_SIZE;
+    BIF_P->return_trace_frames = 0;
+    BIF_P->catches = 0;
+
+    switch(erts_frame_layout) {
+    case ERTS_FRAME_LAYOUT_RA:
+        ASSERT(BIF_P->stop[0] == make_cp(beam_normal_exit));
+        break;
+    case ERTS_FRAME_LAYOUT_FP_RA:
+        FRAME_POINTER(BIF_P) = &BIF_P->stop[0];
+        ASSERT(BIF_P->stop[0] == make_cp(NULL));
+        ASSERT(BIF_P->stop[1] == make_cp(beam_normal_exit));
+        break;
+    }
+
+    /* Normally, the X register array is filled when trapping out. We do NOT do
+     * this here as there is special magic involved when trapping out after
+     * hibernation; `erts_hibernate` populates the process' argument registers
+     * and then the BIF epilogue jumps straight into do_schedule. */
+    erts_hibernate(BIF_P, BIF__ARGS, 3);
+    BIF_TRAP_CODE_PTR(BIF_P, beam_run_process, 3);
 }
 
 /**********************************************************************/
