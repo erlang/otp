@@ -25,7 +25,7 @@
 -export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
 	 messages_in_queue/1,undefined_mfa/1,no_heap/1,
-         wake_up_and_bif_trap/1]).
+         wake_up_and_bif_trap/1,in_place/1]).
 
 %% Used by test cases.
 -export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2,
@@ -37,7 +37,7 @@ suite() ->
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
-     undefined_mfa, no_heap, wake_up_and_bif_trap].
+     undefined_mfa, no_heap, wake_up_and_bif_trap, in_place].
 
 %%%
 %%% Testing the basic functionality of erlang:hibernate/3.
@@ -371,6 +371,89 @@ characters_to_list_trap(Parent) ->
     Bin = binary:copy(Bin0, 1500),
     unicode:characters_to_list(Bin),
     Parent ! {ok, self()}.
+
+%% Tests the in-place variant, hibernate/0
+in_place(_Config) ->
+    in_place_helper("Minimal test",
+                    fun(F) -> F() end, 16),
+
+    in_place_helper("Deep stack test",
+                    fun(F) ->
+                        (fun S(0) -> F(); S(N) -> S(N - 1), ok end)(512)
+                    end, 530),
+
+    in_place_helper("Heavy data test",
+                    fun(F) ->
+                        Data = lists:seq(1, 1024),
+                        F(),
+                        lists:foreach(fun(_) -> ok end, Data)
+                    end, 2100),
+
+    in_place_helper("Heavy data and stack test",
+                    fun(F) ->
+                        Data = lists:seq(1, 1024),
+                        (fun S(0) -> F(); S(N) -> S(N - 1), ok end)(512),
+                        lists:foreach(fun(_) -> ok end, Data)
+                    end, 2600),
+ 
+    ok.
+
+in_place_helper(Description, Fun, Limit) ->
+    Parent = self(),
+    Token = make_ref(),
+
+    {Reference, RefMon} =
+        spawn_opt(fun() ->
+                          Fun(fun() ->
+                                  Parent ! {ready, Token},
+                                  receive {done, Token} -> ok end
+                              end)
+                  end, [link, monitor]),
+    {Hibernator, HibMon} =
+        spawn_opt(fun() ->
+                          Fun(fun() ->
+                                      Parent ! {ready, Token},
+                                      erlang:hibernate(),
+                                      Parent ! {awoken, Token},
+                                      receive {done, Token} -> ok end
+                              end)
+                  end, [link, monitor]),
+
+    receive {ready, Token} -> ok end,
+    [{status, waiting}, {_, RefSize}] =
+        process_info(Reference, [status, total_heap_size]),
+    Reference ! {done, Token},
+    receive {'DOWN', RefMon, _, _, _} -> ok end,
+
+    receive {ready, Token} -> ok end,
+    [{status, waiting}, {_, HiberSize}] =
+        process_info(Hibernator, [status, total_heap_size]),
+
+    %% Sleep a while, we have a small race between the ready message and
+    %% hibernation.
+    ct:sleep(1000),
+
+    %% If we did not succeed in hibernating, the hibernator will have sent a
+    %% message saying it has awoken before we poke it with a done message.
+    receive
+        {awoken, Token} ->
+            ct:fail("Failed to sleep on hibernate/0")
+    after
+        0 -> ok
+    end,
+
+    Hibernator ! {done, Token},
+    receive {awoken, Token} -> ok end,
+
+    receive {'DOWN', HibMon, _, _, _} -> ok end,
+
+    ct:log("~ts~n\tReference size ~p~n\tHibernated size ~p~n",
+           [Description, RefSize, HiberSize]),
+
+    true = HiberSize < Limit,                   %Assertion, whitebox.
+    true = HiberSize =< RefSize,                %Assertion.
+
+    ok.
 
 %%
 %% Misc

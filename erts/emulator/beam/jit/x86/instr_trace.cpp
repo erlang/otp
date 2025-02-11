@@ -241,23 +241,28 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    Label error = a.newLabel();
-
-    emit_enter_runtime<Update::eReductions | Update::eHeapAlloc>();
+    emit_enter_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<int (*)(Process *, Eterm *), erts_hibernate>();
+    mov_imm(ARG3, 0);
+    runtime_call<void (*)(Process *, Eterm *, int), erts_hibernate>();
 
-    emit_leave_runtime<Update::eReductions | Update::eHeapAlloc>();
-
-    a.test(RET, RET);
-    a.je(error);
+    emit_leave_runtime<Update::eReductions | Update::eHeap | Update::eStack>();
 
     a.and_(x86::dword_ptr(c_p, offsetof(Process, flags)),
            imm(~F_HIBERNATE_SCHED));
-    a.jmp(resolve_fragment(ga->get_do_schedule()));
 
-    a.bind(error);
-    emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
+    a.mov(getXRef(0), imm(am_ok));
+#ifdef NATIVE_ERLANG_STACK
+    fragment_call(resolve_fragment(ga->get_dispatch_return()));
+#else
+    Label next = a.newLabel();
+
+    a.lea(ARG3, x86::qword_ptr(next));
+    a.jmp(resolve_fragment(ga->get_dispatch_return()));
+
+    a.align(AlignMode::kCode, 8);
+    a.bind(next);
+#endif
 }
