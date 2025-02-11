@@ -196,7 +196,14 @@ pre_init_per_group(_Suite,Group,Config,State) ->
 post_init_per_group(Suite,Group,Config,Result,Proxy) when is_pid(Proxy) ->
     {gen_server:call(Proxy,{?FUNCTION_NAME, [Suite, Group, Config, Result]}),Proxy};
 post_init_per_group(_Suite,_Group,Config,Result,State) ->
-    {Result, end_tc(init_per_group,Config,Result,State)}.
+    NewState = end_tc(init_per_group,Config,Result,State),
+    case Result of
+        {skip, _} ->
+            %% on_tc_skip will be called which will re-add this group
+            {Result, NewState#state{ curr_group = tl(NewState#state.curr_group) }};
+        _ ->
+            {Result, NewState}
+    end.
 
 pre_end_per_group(Suite,Group,Config,Proxy) when is_pid(Proxy) ->
     {gen_server:call(Proxy,{?FUNCTION_NAME, [Suite, Group, Config]}),Proxy};
@@ -253,26 +260,30 @@ get_line_from_result(_, _) ->
 on_tc_skip(Suite,TC,Result,Proxy) when is_pid(Proxy) ->
     _ = gen_server:call(Proxy,{?FUNCTION_NAME, [Suite,TC,Result]}),
     Proxy;
-on_tc_skip(Suite,{ConfigFunc,_GrName}, Res, State) ->
-    on_tc_skip(Suite,ConfigFunc, Res, State);
+on_tc_skip(Suite,{init_per_group,GrName}, Res, State) ->
+    on_tc_skip(Suite,init_per_group, Res, State#state{ curr_group = [GrName | State#state.curr_group]});
+on_tc_skip(Suite,{end_per_group,_GrName}, Res, State) ->
+    NewState = on_tc_skip(Suite,end_per_group, Res, State),
+    NewState#state{ curr_group = tl(State#state.curr_group)};
+on_tc_skip(Suite,{ConfigFunc,GrName}, Res, State) ->
+    if GrName =:= hd(State#state.curr_group) ->
+            on_tc_skip(Suite,ConfigFunc, Res, State);
+       true ->
+            NewState = on_tc_skip(Suite,ConfigFunc, Res,
+                                  State#state{ curr_group = [GrName | State#state.curr_group]}),
+            NewState#state{ curr_group = tl(NewState#state.curr_group)}
+    end;                          
 on_tc_skip(Suite,Tc, Res, State0) ->
     TcStr = atom_to_list(Tc),
+    CurrGroup = make_group_string(State0#state.curr_group),
     State1 =
 	case State0#state.test_cases of
-	    [#testcase{name=TcStr}|TCs] ->
+	    [#testcase{name=TcStr,group=CurrGroup}|TCs] ->
 		State0#state{test_cases=TCs};
 	    _ ->
 		State0
 	end,
-    State2 = end_tc(Tc,[],Res,init_tc(set_suite(Suite,State1),[])),
-    CurrGroup = State2#state.curr_group,
-    State =
-        case {Tc, is_list(CurrGroup) andalso length(CurrGroup)>0}of
-            {end_per_group, true} ->
-                State2#state{curr_group = tl(CurrGroup)};
-            _ ->
-                State2
-        end,
+    State = end_tc(Tc,[],Res,init_tc(set_suite(Suite,State1),[])),
     do_tc_skip(Res, State).
 
 do_tc_skip(Res, State) ->
@@ -313,7 +324,7 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 	end,
     Url = make_url(UrlBase,Log),
     ClassName = atom_to_list(Suite),
-    PGroup = lists:concat(lists:join(".",lists:reverse(Groups))),
+    PGroup = make_group_string(Groups),
     TimeTakes = io_lib:format("~f",[timer:now_diff(?now,TS) / 1000000]),
     State#state{ test_cases = [#testcase{ log = Log,
 					  url = Url,
@@ -328,6 +339,9 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					  result = passed }|
 			       State#state.test_cases],
 		 tc_log = ""}. % so old tc_log is not set if next is on_tc_skip
+
+make_group_string(Groups) ->
+    lists:concat(lists:join(".",lists:reverse(Groups))).
 
 set_suite(Suite,#state{curr_suite=undefined}=State) ->
     State#state{curr_suite=Suite, curr_suite_ts=?now};

@@ -35,7 +35,8 @@ all() ->
 
 groups() ->
     [{root, [], [{group, left}, {group, right}]},
-     {left, [], [test_case]},
+     {left, [], [test_case, {group, nested_group}]},
+     {nested_group, [], [test_case]},
      {right, [], [test_case]}].
 
 test_case(_Config) ->
