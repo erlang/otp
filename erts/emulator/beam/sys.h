@@ -186,6 +186,8 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNREACHABLE ((void)0)
 #endif
 
+/* Tells the compiler to assume that a certain fact always holds, suppressing
+ * bogus warnings and/or enabling better optimizations. */
 #if !defined(DEBUG)
 #  define ERTS_ASSUME(Expr) ((Expr) ?                                          \
                              (void)0 :                                         \
