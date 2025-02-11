@@ -879,12 +879,13 @@ call_ext u==0 u$func:erlang:yield/0 => i_yield
 call_ext_last u==0 u$func:erlang:yield/0 D => i_yield | deallocate_return D
 call_ext_only u==0 u$func:erlang:yield/0 => i_yield | return
 
+
+# The hibernate/0 BIF is an instruction
 #
-# The hibernate/3 BIF is an instruction.
-#
-call_ext u==3 u$func:erlang:hibernate/3 => i_hibernate
-call_ext_last u==3 u$func:erlang:hibernate/3 _D => i_hibernate
-call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
+
+call_ext u==0 u$func:erlang:hibernate/0 => i_hibernate
+call_ext_last u==0 u$func:erlang:hibernate/0 D => i_hibernate | deallocate_return D
+call_ext_only u==0 u$func:erlang:hibernate/0 => i_hibernate | return
 
 call_ext u==0 u$func:os:perf_counter/0 =>
     i_perf_counter

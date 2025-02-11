@@ -208,26 +208,19 @@ void BeamModuleAssembler::emit_i_return_to_trace() {
 }
 
 void BeamModuleAssembler::emit_i_hibernate() {
-    Label error = a.newLabel();
-
-    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(3);
+    emit_enter_runtime<Update::eReductions | Update::eHeap | Update::eStack>(0);
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<int (*)(Process *, Eterm *), erts_hibernate>();
+    mov_imm(ARG3, 0);
+    runtime_call<void (*)(Process *, Eterm *, int), erts_hibernate>();
 
-    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(3);
-
-    a.cbz(ARG1, error);
+    emit_leave_runtime<Update::eReductions | Update::eHeap | Update::eStack>(0);
 
     a.ldr(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
     a.and_(TMP1, TMP1, imm(~F_HIBERNATE_SCHED));
     a.str(TMP1.w(), arm::Mem(c_p, offsetof(Process, flags)));
-    a.b(resolve_fragment(ga->get_do_schedule(), disp128MB));
 
-    a.bind(error);
-    emit_raise_exception(&BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa);
-    mark_unreachable();
+    mov_imm(XREG0, am_ok);
+    fragment_call(ga->get_dispatch_return());
 }
