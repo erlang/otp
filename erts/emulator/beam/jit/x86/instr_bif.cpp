@@ -789,7 +789,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
         emit_enter_runtime<Update::eStack>();
 
         a.mov(ARG1, c_p);
-        runtime_call<ErtsCodePtr (*)(Process *, Eterm *),
+        runtime_call<ErtsCodePtr (*)(const Process *, const Eterm *),
                      erts_printable_return_address>();
 
         emit_leave_runtime<Update::eStack>();
