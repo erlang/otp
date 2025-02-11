@@ -22,7 +22,7 @@ Add any other context or screenshots about the feature request here.
 
 %CopyrightBegin%
 
-SPDX-FileCopyrightText: Copyright Ericsson AB 2021. All Rights Reserved.
+SPDX-FileCopyrightText: Copyright Ericsson AB 2021-2025. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 

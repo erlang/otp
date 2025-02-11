@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% SPDX-FileCopyrightText: Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% SPDX-FileCopyrightText: Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 %%

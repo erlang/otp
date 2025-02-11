@@ -25,7 +25,7 @@ Add any other context about the problem here. If you wish to attach Erlang code 
 <!--
 %CopyrightBegin%
 
-SPDX-FileCopyrightText: Copyright Ericsson AB 2021. All Rights Reserved.
+SPDX-FileCopyrightText: Copyright Ericsson AB 2021-2025. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 
