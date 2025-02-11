@@ -1593,10 +1593,8 @@ Optional Features:
   --disable-ppc-lwsync-instruction
                           disable use of powerpc lwsync instruction
   --enable-builtin-zlib   force use of our own built-in zlib
-  --enable-esock          enable builtin experimental socket (as a nif)
-                          support (default)
-  --disable-esock         disable builtin experimental socket (as a nif)
-                          support
+  --enable-esock          enable builtin socket (as a nif) support (default)
+  --disable-esock         disable builtin socket (as a nif) support
   --enable-esock-rcvsndtimeo
                           enable use of the option(s) rcvtimeo and sndtimeo
   --disable-esock-rcvsndtimeo
