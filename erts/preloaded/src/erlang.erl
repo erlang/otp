@@ -5232,7 +5232,7 @@ processes() ->
 Returns a processes iterator that can be used in
 [`processes_next/1`](`processes_next/1`).
 """.
--doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP 28.0">> }.
 -spec processes_iterator() -> processes_iter_ref().
 processes_iterator() ->
     {0, []}.
@@ -5269,7 +5269,7 @@ ok
 > `processes_next/1` returns `none` is guaranteed to be part of the result
 > returned from one of the calls to `processes_next/1`.
 """.
--doc #{ category => processes, since => <<"OTP @OTP-19369@">> }.
+-doc #{ category => processes, since => <<"OTP 28.0">> }.
 -spec processes_next(Iter) -> {Pid, NewIter} | 'none' when
       Iter :: processes_iter_ref(),
       NewIter :: processes_iter_ref(),

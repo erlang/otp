@@ -19,6 +19,32 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 5.3
+
+### Fixed Bugs and Malfunctions
+
+- The implementation of the ssh server-side supervision tree has been improved.
+
+  Own Id: OTP-19324 Aux Id: [PR-8968], [GH-8223]
+
+[PR-8968]: https://github.com/erlang/otp/pull/8968
+[GH-8223]: https://github.com/erlang/otp/issues/8223
+
+### Improvements and New Features
+
+- The [`Erlang SSH daemon`](using_ssh.md#running-an-erlang-ssh-daemon) now uses the same backend to handle multiline functionality as the Erlang shell.
+
+  Own Id: OTP-19226 Aux Id: [PR-8805]
+
+- CBC algorithms are not offered by default. See Configuring algorithms in SSH if you wish to enable them.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-19420 Aux Id: [PR-9277]
+
+[PR-8805]: https://github.com/erlang/otp/pull/8805
+[PR-9277]: https://github.com/erlang/otp/pull/9277
+
 ## Ssh 5.2.6
 
 ### Fixed Bugs and Malfunctions

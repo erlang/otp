@@ -25,6 +25,22 @@ as all enhancements and bugfixes for every release of Megaco. Each release of
 Megaco thus constitutes one section in this document. The title of each section
 is the version number of Megaco.
 
+## Megaco 4.8
+
+### Improvements and New Features
+
+- Nano seconds are now used for (example) meas result presentation.
+  
+  Nanoseconds are now used, for example, in `meas` result presentations.
+
+  Own Id: OTP-19403
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+
 ## Megaco 4.7
 
 ### Improvements and New Features

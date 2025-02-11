@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Jinterface application.
 
+## Jinterface 1.15
+
+### Improvements and New Features
+
+- The `.class` files of jinterface are now part of the prebuilt archive using Java 8.
+
+  Own Id: OTP-19308 Aux Id: [PR-8960]
+
+[PR-8960]: https://github.com/erlang/otp/pull/8960
+
 ## Jinterface 1.14.1
 
 ### Improvements and New Features

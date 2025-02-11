@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.16
+
+### Improvements and New Features
+
+- Updated odbc configure to enable easier use of iodbc driver.
+
+  Own Id: OTP-19456 Aux Id: [PR-9083]
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+[PR-9083]: https://github.com/erlang/otp/pull/9083
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+
 ## ODBC 2.15
 
 ### Improvements and New Features

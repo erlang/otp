@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.5
+
+### Improvements and New Features
+
+- Added support for compiling Erlang/OTP for Windows on ARM64.
+
+  Own Id: OTP-19480 Aux Id: [PR-8734]
+
+[PR-8734]: https://github.com/erlang/otp/pull/8734
+
 ## Wx 2.4.3
 
 ### Fixed Bugs and Malfunctions

@@ -21,6 +21,31 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.3
+
+### Improvements and New Features
+
+- Refactoring, minor optimizations and improved log printouts.
+
+  Own Id: OTP-19367 Aux Id: [PR-9019]
+
+- `supervisor:which_child/2` is now used to make start-up code for TLS-connections simpler and more straight forward, and to increase stability and maintainability of the ssl application.
+
+  Own Id: OTP-19406 Aux Id: [PR-9231]
+
+- The data handling for tls-v1.3 has been optimized.
+
+  Own Id: OTP-19430 Aux Id: [PR-9305]
+
+- Added experimental socket support.
+
+  Own Id: OTP-19463 Aux Id: [PR-9398]
+
+[PR-9019]: https://github.com/erlang/otp/pull/9019
+[PR-9231]: https://github.com/erlang/otp/pull/9231
+[PR-9305]: https://github.com/erlang/otp/pull/9305
+[PR-9398]: https://github.com/erlang/otp/pull/9398
+
 ## SSL 11.2.7
 
 ### Fixed Bugs and Malfunctions
