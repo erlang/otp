@@ -163,9 +163,15 @@ initial_hello({call, From}, {start, Timeout},
                                      protocol_cb = Connection},
                      ssl_options = #{versions := Versions},
                      recv = Recv} = State0) ->
-    NextState = next_statem_state(Versions),
-    Connection:next_event(NextState, no_record, State0#state{recv = Recv#recv{from = From}},
-                          [{{timeout, handshake}, Timeout, close}]);
+    case Versions of
+        [?TLS_1_3] ->
+            Connection:next_event(start, no_record, State0#state{recv = Recv#recv{from = From}},
+                                  [{change_callback_module, tls_server_connection_1_3},
+                                   {{timeout, handshake}, Timeout, close}]);
+        _ ->
+            Connection:next_event(hello, no_record, State0#state{recv = Recv#recv{from = From}},
+                                  [{{timeout, handshake}, Timeout, close}])
+    end;
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
             handshake_env = #handshake_env{} = Env,
@@ -473,15 +479,6 @@ renegotiate(#state{static_env = #static_env{socket = Socket,
 			 handshake_env = HsEnv#handshake_env{tls_handshake_history = Hs0}},
     tls_gen_connection:next_event(hello, no_record, State, Actions).
 
-next_statem_state([Version]) ->
-    case ssl:tls_version(Version) of
-        ?TLS_1_3 ->
-            start;
-        _  ->
-            hello
-    end;
-next_statem_state(_) ->
-    hello.
 
 %%--------------------------------------------------------------------
 %% Tracing
