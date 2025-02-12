@@ -185,6 +185,7 @@ handle_call({set_props,PropList}, _From, St) ->
     {reply,ok,do_set_props(PropList, St)};
 handle_call({print,Detail,Msg,Printer}, {From,_}, St) ->
     output(Detail, Msg, Printer, From, St),
+    do_gc(),
     {reply,ok,St};
 handle_call({capture, Who}, {_From, _}, St) ->
     Cap = case Who of
@@ -240,16 +241,20 @@ handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
 	_:_ ->
 	    From ! {io_reply,ReplyAs,{error,arguments}}
     end,
+    do_gc(),
     {noreply,St};
 handle_info({structured_io,ClientPid,{Detail,Str}}, St) ->
     output(Detail, Str, ClientPid, ClientPid, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,["$tc_html",Format],Args}, St) ->
     Str = io_lib:format(Format, Args),
     output(Detail, ["$tc_html",Str], internal, none, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,Fun}, St) when is_function(Fun)->
     output(Detail, Fun, internal, none, St),
+    do_gc(),
     {noreply,St};
 handle_info({printout,Detail,Format,Args}, St) ->
     Str = io_lib:format(Format, Args),
@@ -258,6 +263,7 @@ handle_info({printout,Detail,Format,Args}, St) ->
        true ->
 	    output(Detail, Str, internal, none, St)
     end,
+    do_gc(),
     {noreply,St};
 handle_info(Msg, #st{tc_supervisor=Pid}=St) when is_pid(Pid) ->
     %% The process overseeing the testcase process also used to be
@@ -273,6 +279,13 @@ handle_info(_Msg, #st{}=St) ->
 
 terminate(_, _) ->
     ok.
+
+do_gc() ->
+    %% Reduces the amount of memory used, in one example from 6.6 GB to 500MB
+    %% when running testsuites in parallel and doesn't take any longer
+    erlang:garbage_collect(self(), [{async, true}, {type, major}]),
+    ok.
+
 
 do_set_props([{levels,Levels}|Ps], St) ->
     do_set_props(Ps, St#st{levels=Levels});
