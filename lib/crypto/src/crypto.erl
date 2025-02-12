@@ -930,12 +930,12 @@ associations (like fips) may be absent if not supported.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 24.2">>}).
 -spec info() -> #{compile_type := normal | debug | valgrind | asan,
-                 cryptolib_version_compiled => string() | undefined,
+                  cryptolib_version_compiled := string() | undefined,
                   cryptolib_version_linked := string(),
                   link_type := dynamic | static,
                   otp_crypto_version := string(),
-                  fips_provider_available := boolean(),
-                  fips_provider_buildinfo := string()
+                  fips_provider_available => boolean(),
+                  fips_provider_buildinfo => string()
                  }.
 info() -> 
     (info_nif())#{otp_crypto_version => crypto:version()}.
