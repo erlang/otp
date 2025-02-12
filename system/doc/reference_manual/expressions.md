@@ -1298,8 +1298,8 @@ Each element `Ei` specifies a _segment_ of the bit string. The segments are
 ordered left to right from the most significant bit to the least significant bit
 of the bit string.
 
-Each segment specification `Ei` is a value, followed by an optional _size
-expression_ and an optional _type specifier list_.
+Each segment specification `Ei` is a value, whose default type is `integer`,
+followed by an optional _size expression_ and an optional _type specifier list_.
 
 ```
 Ei = Value |
