@@ -621,6 +621,14 @@ This document describes the changes made to the ERTS application.
 [PR-7809]: https://github.com/erlang/otp/pull/7809
 [PR-7977]: https://github.com/erlang/otp/pull/7977
 
+## Erts 14.2.5.7
+
+### Fixed Bugs and Malfunctions
+
+* Disabled an unsafe runtime optimization in binary construction that caused silent memory corruption.
+
+  Own Id: OTP-19462 Aux Id: ERIERL-1177, PR-9372
+
 ## Erts 14.2.5.6
 
 ### Fixed Bugs and Malfunctions
