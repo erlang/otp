@@ -3519,7 +3519,8 @@ setfun(T, Fun, Type, NType) ->
 		NT -> {?LIST(NS), NT}
 	    end;
 	NS when ?IS_ORDSET(NS) ->
-	    case unify_types(NType, NT = ?ORDTYPE(NS)) of
+            NT = ?ORDTYPE(NS),
+	    case unify_types(NType, NT) of
 		[] -> type_mismatch;
 		NT -> {?ORDDATA(NS), NT}
 	    end;

@@ -2413,7 +2413,8 @@ select_parts(PartDataL) ->
             NL = [D#part_data{states = NewS} || 
                      {W1, #part_data{states = S0}=D} <- Ws,
                      W1 > 0,
-                     (NewS = ordsets:subtract(S0, S)) =/= []],
+                     NewS <- [ordsets:subtract(S0, S)],
+                     NewS =/= []],
             if 
                 length(S) =:= 1; NActions =:= 1 ->
                     select_parts(NL);
