@@ -3,5 +3,8 @@
 
 test() ->
     {'EXIT',{{badmatch,true}, _}} =
-        catch [0 || (X = (true or (X = is_port(node()))))],
+        catch case X = (true or (X = is_port(node()))) of
+                  true -> 1;
+                  false -> 0
+              end,
     ok.
