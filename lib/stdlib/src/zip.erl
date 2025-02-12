@@ -395,7 +395,7 @@ Options:
       Archive :: file:name() | binary(),
       Options :: [Option],
       Option  :: {file_list, FileList} | cooked
-               | keep_old_files | verbose | memory |
+               | keep_old_files | verbose | memory | skip_directories |
                  {file_filter, FileFilter} | {cwd, CWD} |
                  {extra, extra()},
       FileList :: [file:name()],
@@ -703,7 +703,7 @@ One option is available:
       RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
       CommentAndFiles :: [zip_comment() | zip_file()],
       Options :: [Option],
-      Option :: cooked | {extra, extra()}).
+      Option :: cooked | skip_directories | {extra, extra()}).
 
 list_dir(F, Options) ->
     case ?CATCH(do_list_dir(F, Options)) of
