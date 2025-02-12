@@ -96,36 +96,34 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 
 %% Shadowed by erl_bif_types: lists:keyfind/3
 -doc """
-Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
-equal to `Key`. Returns `Tuple` if such a tuple is found, otherwise `false`.
+Searches the list `List` for a tuple whose `N`th element compares
+equal to `Key`. Returns `Elem` if such a tuple is found, otherwise `false`.
 """.
--spec keyfind(Key, N, TupleList) -> Tuple | false when
+-spec keyfind(Key, N, List) -> Elem | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList :: [Tuple],
-      Tuple :: tuple().
+      List :: [Elem].
 
 keyfind(_, _, _) ->
     erlang:nif_error(undef).
 
 %% Shadowed by erl_bif_types: lists:keymember/3
 -doc """
-Returns `true` if there is a tuple in `TupleList` whose `N`th element compares
+Returns `true` if there is a tuple in `List` whose `N`th element compares
 equal to `Key`, otherwise `false`.
 """.
--spec keymember(Key, N, TupleList) -> boolean() when
+-spec keymember(Key, N, List) -> boolean() when
       Key :: term(),
       N :: pos_integer(),
-      TupleList :: [Tuple],
-      Tuple :: tuple().
+      List :: [term()].
 
 keymember(_, _, _) ->
     erlang:nif_error(undef).
 
 %% Shadowed by erl_bif_types: lists:keysearch/3
 -doc """
-Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
-equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
+Searches the list `List` for a tuple whose `N`th element compares
+equal to `Key`. Returns `{value, Elem}` if such a tuple is found, otherwise
 `false`.
 
 > #### Note {: .info }
@@ -133,21 +131,17 @@ equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
 > This function is retained for backward compatibility. Function `keyfind/3` is
 > usually more convenient.
 """.
--spec keysearch(Key, N, TupleList) -> {value, Tuple} | false when
+-spec keysearch(Key, N, List) -> {value, Elem} | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList :: [Tuple],
-      Tuple :: tuple().
+      List :: [Elem].
 
 keysearch(_, _, _) ->
     erlang:nif_error(undef).
 
 %% Shadowed by erl_bif_types: lists:member/2
 -doc "Returns `true` if `Elem` matches some element of `List`, otherwise `false`.".
--spec member(Elem, List) -> boolean() when
-      Elem :: T,
-      List :: [T],
-      T :: term().
+-spec member(Elem, List :: [Elem]) -> boolean().
 
 member(_, _) ->
     erlang:nif_error(undef).
@@ -166,9 +160,8 @@ _Example:_
 """.
 -spec reverse(List1, Tail) -> List2 when
       List1 :: [T],
-      Tail :: term(),
-      List2 :: [T],
-      T :: term().
+      Tail :: [U],
+      List2 :: [T | U].
 
 reverse(_, _) ->
     erlang:nif_error(undef).
@@ -201,9 +194,8 @@ _Example:_
 """.
 -spec append(List1, List2) -> List3 when
       List1 :: [T],
-      List2 :: [T],
-      List3 :: [T],
-      T :: term().
+      List2 :: [U],
+      List3 :: [T | U].
 
 append(L1, L2) -> L1 ++ L2.
 
@@ -222,8 +214,7 @@ _Example:_
 -spec append(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
-      List1 :: [T],
-      T :: term().
+      List1 :: [T].
 
 append([E]) -> E;
 append([H|T]) -> H ++ append(T);
@@ -247,9 +238,8 @@ _Example:_
 """.
 -spec subtract(List1, List2) -> List3 when
       List1 :: [T],
-      List2 :: [T],
-      List3 :: [T],
-      T :: term().
+      List2 :: [term()],
+      List3 :: [T].
 
 subtract(L1, L2) -> L1 -- L2.
 
@@ -258,8 +248,7 @@ subtract(L1, L2) -> L1 -- L2.
 -doc "Returns a list with the elements in `List1` in reverse order.".
 -spec reverse(List1) -> List2 when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 reverse([] = L) ->
     L;
@@ -291,8 +280,7 @@ c
 -spec nth(N, List) -> Elem when
       N :: pos_integer(),
       List :: [T,...],
-      Elem :: T,
-      T :: term().
+      Elem :: T.
 
 nth(1, [H|_]) -> H;
 nth(N, [_|_]=L) when is_integer(N), N > 1 ->
@@ -322,8 +310,7 @@ _Example_
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
       List :: [T,...],
-      Tail :: [T],
-      T :: term().
+      Tail :: [T].
 
 nthtail(0, []) -> [];
 nthtail(0, [_|_]=L) -> L;
@@ -340,8 +327,7 @@ nthtail_1(N, [_|T]) ->
 -doc "Returns `true` if `List1` is a prefix of `List2`, otherwise `false`.".
 -spec prefix(List1, List2) -> boolean() when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 prefix([X|PreTail], [X|Tail]) ->
     prefix(PreTail, Tail);
@@ -353,8 +339,7 @@ prefix([_|_], List) when is_list(List) -> false.
 -doc "Returns `true` if `List1` is a suffix of `List2`, otherwise `false`.".
 -spec suffix(List1, List2) -> boolean() when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
@@ -369,8 +354,7 @@ function crashes with a `function_clause`.
 -doc(#{since => <<"OTP 17.0">>}).
 -spec droplast(List) -> InitList when
       List :: [T, ...],
-      InitList :: [T],
-      T :: term().
+      InitList :: [T].
 
 %% This is the simple recursive implementation
 %% reverse(tl(reverse(L))) is faster on average,
@@ -383,8 +367,7 @@ droplast([H|T]) -> [H|droplast(T)].
 -doc "Returns the last element in `List`.".
 -spec last(List) -> Last when
       List :: [T,...],
-      Last :: T,
-      T :: term().
+      Last :: T.
 
 last([E|Es]) -> last(E, Es).
 
@@ -403,7 +386,7 @@ last(E, []) -> E.
       Seq :: [integer()].
 
 seq(First, Last)
-    when is_integer(First), is_integer(Last), First-1 =< Last -> 
+    when is_integer(First), is_integer(Last), First-1 =< Last ->
     seq_loop(Last-First+1, Last, []).
 
 seq_loop(N, X, L) when N >= 4 ->
@@ -504,8 +487,7 @@ _Example:_
 -spec duplicate(N, Elem) -> List when
       N :: non_neg_integer(),
       Elem :: T,
-      List :: [T],
-      T :: term().
+      List :: [T].
 
 duplicate(N, X) when is_integer(N), N >= 0 -> duplicate(N, X, []).
 
@@ -520,14 +502,13 @@ other elements of `List`.
 """.
 -spec min(List) -> Min when
       List :: [T,...],
-      Min :: T,
-      T :: term().
+      Min :: T.
 
 min([H|T]) -> min(T, H).
 
 min([H|T], Min) when H < Min -> min(T, H);
 min([_|T], Min)              -> min(T, Min);
-min([],    Min)              -> Min. 
+min([],    Min)              -> Min.
 
 %% max(L) -> returns the maximum element of the list L
 
@@ -537,8 +518,7 @@ other elements of `List`.
 """.
 -spec max(List) -> Max when
       List :: [T,...],
-      Max :: T,
-      T :: term().
+      Max :: T.
 
 max([H|T]) -> max(T, H).
 
@@ -568,8 +548,7 @@ _Examples:_
       List1 :: [T],
       List2 :: [T],
       Start :: pos_integer(),
-      Len :: non_neg_integer(),
-      T :: term().
+      Len :: non_neg_integer().
 
 sublist(List, 1, L) when is_list(List), is_integer(L), L >= 0 ->
     sublist(List, L);
@@ -586,8 +565,7 @@ case the whole list is returned.
 -spec sublist(List1, Len) -> List2 when
       List1 :: [T],
       List2 :: [T],
-      Len :: non_neg_integer(),
-      T :: term().
+      Len :: non_neg_integer().
 
 sublist(List, L) when is_integer(L), is_list(List) ->
     sublist_2(List, L).
@@ -607,13 +585,12 @@ Returns a copy of `List1` where the first element matching `Elem` is deleted, if
 there is such an element.
 """.
 -spec delete(Elem, List1) -> List2 when
-      Elem :: T,
+      Elem :: term(),
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 delete(Item, [Item|Rest]) -> Rest;
-delete(Item, [H|Rest]) -> 
+delete(Item, [H|Rest]) ->
     [H|delete(Item, Rest)];
 delete(_, []) -> [].
 
@@ -624,9 +601,7 @@ delete(_, []) -> [].
 -spec zip(List1, List2) -> List3 when
       List1 :: [A],
       List2 :: [B],
-      List3 :: [{A, B}],
-      A :: term(),
-      B :: term().
+      List3 :: [{A, B}].
 
 zip(Xs, Ys) -> zip(Xs, Ys, fail).
 
@@ -669,11 +644,7 @@ lengths.
       List1 :: [A],
       List2 :: [B],
       List3 :: [{A | DefaultA, B | DefaultB}],
-      A :: term(),
-      B :: term(),
-      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB}},
-      DefaultA :: term(),
-      DefaultB :: term().
+      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB}}.
 
 zip([X | Xs], [Y | Ys], How) ->
     [{X, Y} | zip(Xs, Ys, How)];
@@ -704,9 +675,7 @@ each tuple.
 -spec unzip(List1) -> {List2, List3} when
       List1 :: [{A, B}],
       List2 :: [A],
-      List3 :: [B],
-      A :: term(),
-      B :: term().
+      List3 :: [B].
 
 unzip(Ts) -> unzip(Ts, [], []).
 
@@ -721,10 +690,7 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
       List1 :: [A],
       List2 :: [B],
       List3 :: [C],
-      List4 :: [{A, B, C}],
-      A :: term(),
-      B :: term(),
-      C :: term().
+      List4 :: [{A, B, C}].
 
 zip3(Xs, Ys, Zs) -> zip3(Xs, Ys, Zs, fail).
 
@@ -742,13 +708,7 @@ For a description of the `How` parameter, see `zip/3`.
       List2 :: [B],
       List3 :: [C],
       List4 :: [{A | DefaultA, B | DefaultB, C | DefaultC}],
-      A :: term(),
-      B :: term(),
-      C :: term(),
-      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB, DefaultC}},
-      DefaultA :: term(),
-      DefaultB :: term(),
-      DefaultC :: term().
+      How :: 'fail' | 'trim' | {'pad', {DefaultA, DefaultB, DefaultC}}.
 
 zip3([X | Xs], [Y | Ys], [Z | Zs], How) ->
     [{X, Y, Z} | zip3(Xs, Ys, Zs, How)];
@@ -785,10 +745,7 @@ each tuple, and the third list contains the third element of each tuple.
       List1 :: [{A, B, C}],
       List2 :: [A],
       List3 :: [B],
-      List4 :: [C],
-      A :: term(),
-      B :: term(),
-      C :: term().
+      List4 :: [C].
 
 unzip3(Ts) -> unzip3(Ts, [], [], []).
 
@@ -805,10 +762,7 @@ unzip3([], Xs, Ys, Zs) ->
       Combine :: fun((X, Y) -> T),
       List1 :: [X],
       List2 :: [Y],
-      List3 :: [T],
-      X :: term(),
-      Y :: term(),
-      T :: term().
+      List3 :: [T].
 
 zipwith(F, Xs, Ys) -> zipwith(F, Xs, Ys, fail).
 
@@ -834,12 +788,7 @@ _Example:_
       List1 :: [X],
       List2 :: [Y],
       List3 :: [T],
-      X :: term(),
-      Y :: term(),
-      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY}},
-      DefaultX :: term(),
-      DefaultY :: term(),
-      T :: term().
+      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY}}.
 
 zipwith(F, [X | Xs], [Y | Ys], How) ->
     [F(X, Y) | zipwith(F, Xs, Ys, How)];
@@ -867,11 +816,7 @@ zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
       List1 :: [X],
       List2 :: [Y],
       List3 :: [Z],
-      List4 :: [T],
-      X :: term(),
-      Y :: term(),
-      Z :: term(),
-      T :: term().
+      List4 :: [T].
 
 zipwith3(F, Xs, Ys, Zs) -> zipwith3(F, Xs, Ys, Zs, fail).
 
@@ -901,14 +846,7 @@ _Examples:_
       List2 :: [Y],
       List3 :: [Z],
       List4 :: [T],
-      X :: term(),
-      Y :: term(),
-      Z :: term(),
-      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY, DefaultZ}},
-      DefaultX :: term(),
-      DefaultY :: term(),
-      DefaultZ :: term(),
-      T :: term().
+      How :: 'fail' | 'trim' | {'pad', {DefaultX, DefaultY, DefaultZ}}.
 
 zipwith3(F, [X | Xs], [Y | Ys], [Z | Zs], How) ->
     [F(X, Y, Z) | zipwith3(F, Xs, Ys, Zs, How)];
@@ -939,12 +877,11 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 -doc "Returns a list containing the sorted elements of `List1`.".
 -spec sort(List1) -> List2 when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 sort([X, Y | L] = L0) when X =< Y ->
     case L of
-	[] -> 
+	[] ->
 	    L0;
 	[Z] when Y =< Z ->
 	    L0;
@@ -997,8 +934,7 @@ position in `ListOfLists` is picked before the other element.
 -spec merge(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
-      List1 :: [T],
-      T :: term().
+      List1 :: [T].
 
 merge(L) ->
     mergel(L, []).
@@ -1018,10 +954,7 @@ is picked before the element from `List3`.
       List1 :: [X],
       List2 :: [Y],
       List3 :: [Z],
-      List4 :: [(X | Y | Z)],
-      X :: term(),
-      Y :: term(),
-      Z :: term().
+      List4 :: [(X | Y | Z)].
 
 merge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
    lists:reverse(merge3_1(L1, [], H2, T2, H3, T3), []);
@@ -1044,7 +977,11 @@ merge3([], [], []) ->
 %%  merges three reversed sorted lists X, Y and Z
 
 -doc false.
--spec rmerge3([X], [Y], [Z]) -> [(X | Y | Z)].
+-spec rmerge3(List1, List2, List3) -> List4 when
+    List1 :: [X],
+    List2 :: [Y],
+    List3 :: [Z],
+    List4 :: [(X | Y | Z)].
 
 rmerge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
    lists:reverse(rmerge3_1(L1, [], H2, T2, H3, T3), []);
@@ -1076,9 +1013,7 @@ element from `List2`.
 -spec merge(List1, List2) -> List3 when
       List1 :: [X],
       List2 :: [Y],
-      List3 :: [(X | Y)],
-      X :: term(),
-      Y :: term().
+      List3 :: [(X | Y)].
 
 merge([_|_]=T1, [H2 | T2]) ->
     lists:reverse(merge2_1(T1, H2, T2, []), []);
@@ -1095,7 +1030,10 @@ merge([], []) ->
 %% reverse(rmerge(reverse(A),reverse(B))) is equal to merge(I,A,B).
 
 -doc false.
--spec rmerge([X], [Y]) -> [(X | Y)].
+-spec rmerge(List1, List2) -> List3 when
+    List1 :: [X],
+    List2 :: [Y],
+    List3 :: [(X | Y)].
 
 rmerge([_|_]=T1, [H2 | T2]) ->
     lists:reverse(rmerge2_1(T1, H2, T2, []), []);
@@ -1139,7 +1077,7 @@ thing_to_list(X) when is_list(X)    -> X.	%Assumed to be a string
 
 -doc "Returns a flattened version of `DeepList`.".
 -spec flatten(DeepList) -> List when
-      DeepList :: [term() | DeepList],
+      DeepList :: [term()],
       List :: [term()].
 
 flatten(List) when is_list(List) ->
@@ -1147,7 +1085,7 @@ flatten(List) when is_list(List) ->
 
 -doc "Returns a flattened version of `DeepList` with tail `Tail` appended.".
 -spec flatten(DeepList, Tail) -> List when
-      DeepList :: [term() | DeepList],
+      DeepList :: [term()],
       Tail :: [term()],
       List :: [term()].
 
@@ -1166,7 +1104,7 @@ do_flatten([], Tail) ->
 
 -doc "Equivalent to [`length(flatten(DeepList))`](`length/1`), but more efficient.".
 -spec flatlength(DeepList) -> non_neg_integer() when
-      DeepList :: [term() | DeepList].
+      DeepList :: [term()].
 
 flatlength(List) ->
     flatlength(List, 0).
@@ -1209,15 +1147,14 @@ flatlength([], L) -> L.
 %keysearch3(Key, N, []) -> false.
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a tuple whose `N`th
+Returns a copy of `List1` where the first occurrence of a tuple whose `N`th
 element compares equal to `Key` is deleted, if there is such a tuple.
 """.
--spec keydelete(Key, N, TupleList1) -> TupleList2 when
+-spec keydelete(Key, N, List1) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple],
-      Tuple :: tuple().
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 keydelete(K, N, L) when is_integer(N), N > 0 ->
     keydelete3(K, N, L).
@@ -1228,17 +1165,16 @@ keydelete3(Key, N, [H|T]) ->
 keydelete3(_, _, []) -> [].
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a `T` tuple whose
+Returns a copy of `List1` where the first occurrence of a `T` tuple whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
 such a tuple `T`.
 """.
--spec keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2 when
+-spec keyreplace(Key, N, List1, NewTuple) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple],
-      NewTuple :: Tuple,
-      Tuple :: tuple().
+      List1 :: [Elem],
+      List2 :: [Elem | NewTuple],
+      NewTuple :: tuple().
 
 keyreplace(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keyreplace3(K, N, L, New).
@@ -1250,17 +1186,16 @@ keyreplace3(Key, Pos, [H|T], New) ->
 keyreplace3(_, _, [], _) -> [].
 
 -doc """
-Searches the list of tuples `TupleList1` for a tuple whose `N`th element
-compares equal to `Key`. Returns `{value, Tuple, TupleList2}` if such a tuple is
-found, otherwise `false`. `TupleList2` is a copy of `TupleList1` where the first
-occurrence of `Tuple` has been removed.
+Searches the list `List1` for a tuple whose `N`th element
+compares equal to `Key`. Returns `{value, Elem, List2}` if such a tuple `Elem` is
+found, otherwise `false`. `List2` is a copy of `List1` where the first
+occurrence of `Elem` has been removed.
 """.
--spec keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} | false when
+-spec keytake(Key, N, List1) -> {value, Elem, List2} | false when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [tuple()],
-      TupleList2 :: [tuple()],
-      Tuple :: tuple().
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 keytake(Key, N, L) when is_integer(N), N > 0 ->
     keytake(Key, N, L, []).
@@ -1272,18 +1207,17 @@ keytake(Key, N, [H|T], L) ->
 keytake(_K, _N, [], _L) -> false.
 
 -doc """
-Returns a copy of `TupleList1` where the first occurrence of a tuple `T` whose
+Returns a copy of `List1` where the first occurrence of a tuple `T` whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
-such a tuple `T`. If there is no such tuple `T`, a copy of `TupleList1` where
+such a tuple `T`. If there is no such tuple `T`, a copy of `List1` where
 [`NewTuple`] has been appended to the end is returned.
 """.
--spec keystore(Key, N, TupleList1, NewTuple) -> TupleList2 when
+-spec keystore(Key, N, List1, NewTuple) -> List2 when
       Key :: term(),
       N :: pos_integer(),
-      TupleList1 :: [Tuple],
-      TupleList2 :: [Tuple, ...],
-      NewTuple :: Tuple,
-      Tuple :: tuple().
+      List1 :: [Tuple],
+      List2 :: [Tuple | NewTuple, ...],
+      NewTuple :: tuple().
 
 keystore(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keystore2(K, N, L, New).
@@ -1370,17 +1304,15 @@ compare equal, the tuple from `TupleList1` is picked before the tuple from
 """.
 -spec keymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
-      TupleList1 :: [T1],
-      TupleList2 :: [T2],
-      TupleList3 :: [(T1 | T2)],
-      T1 :: Tuple,
-      T2 :: Tuple,
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      TupleList3 :: [Tuple],
       Tuple :: tuple().
 
 keymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     keymerge_1(Index, L1, L2).
 
-keymerge_1(Index, [_|_]=T1, [H2 | T2]) -> 
+keymerge_1(Index, [_|_]=T1, [H2 | T2]) ->
     E2 = element(Index, H2),
     M = keymerge2_1(Index, T1, E2, H2, T2, []),
     lists:reverse(M, []);
@@ -1394,13 +1326,17 @@ keymerge_1(_Index, [], []) ->
 %% reverse(rkeymerge(I,reverse(A),reverse(B))) is equal to keymerge(I,A,B).
 
 -doc false.
--spec rkeymerge(pos_integer(), [X], [Y]) ->
-	[R] when X :: tuple(), Y :: tuple(), R :: tuple().
+-spec rkeymerge(N, TupleList1, TupleList2) -> TupleList3 when
+    N :: pos_integer(),
+    TupleList1 :: [Tuple],
+    TupleList2 :: [Tuple],
+    TupleList3 :: [Tuple],
+    Tuple :: tuple().
 
 rkeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rkeymerge_1(Index, L1, L2).
 
-rkeymerge_1(Index, [_|_]=T1, [H2 | T2]) -> 
+rkeymerge_1(Index, [_|_]=T1, [H2 | T2]) ->
     E2 = element(Index, H2),
     M = rkeymerge2_1(Index, T1, E2, H2, T2, []),
     lists:reverse(M, []);
@@ -1496,11 +1432,9 @@ and the one from `TupleList2` is deleted.
 """.
 -spec ukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
-      TupleList1 :: [T1],
-      TupleList2 :: [T2],
-      TupleList3 :: [(T1 | T2)],
-      T1 :: Tuple,
-      T2 :: Tuple,
+      TupleList1 :: [Tuple],
+      TupleList2 :: [Tuple],
+      TupleList3 :: [Tuple],
       Tuple :: tuple().
 
 ukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
@@ -1520,8 +1454,12 @@ ukeymerge_1(_Index, [], []) ->
 %% reverse(rukeymerge(I,reverse(A),reverse(B))) is equal to ukeymerge(I,A,B).
 
 -doc false.
--spec rukeymerge(pos_integer(), [X], [Y]) ->
-	[(X | Y)] when X :: tuple(), Y :: tuple().
+-spec rukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
+    N :: pos_integer(),
+    TupleList1 :: [Tuple],
+    TupleList2 :: [Tuple],
+    TupleList3 :: [Tuple],
+    Tuple :: tuple().
 
 rukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rukeymerge_1(Index, L1, L2).
@@ -1560,7 +1498,7 @@ _Examples:_
 
 keymap(Fun, Index, [Tup|Tail]) ->
    [setelement(Index, Tup, Fun(element(Index, Tup)))|keymap(Fun, Index, Tail)];
-keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
+keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
                             is_function(Fun, 1) -> [].
 
 -doc(#{equiv => enumerate(1, 1, List1)}).
@@ -1568,8 +1506,7 @@ keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
 -spec enumerate(List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],
-      Index :: integer(),
-      T :: term().
+      Index :: integer().
 enumerate(List1) ->
     enumerate(1, 1, List1).
 
@@ -1578,8 +1515,7 @@ enumerate(List1) ->
 -spec enumerate(Index, List1) -> List2 when
       List1 :: [T],
       List2 :: [{Index, T}],
-      Index :: integer(),
-      T :: term().
+      Index :: integer().
 enumerate(Index, List1) ->
     enumerate(Index, 1, List1).
 
@@ -1621,8 +1557,7 @@ _Examples:_
       List1 :: [T],
       List2 :: [{Index, T}],
       Index :: integer(),
-      Step :: integer(),
-      T :: term().
+      Step :: integer().
 enumerate(Index, Step, List1) when is_integer(Index), is_integer(Step) ->
     enumerate_1(Index, Step, List1).
 
@@ -1640,10 +1575,9 @@ Returns a list containing the sorted elements of `List1`, according to the
 `false`.
 """.
 -spec sort(Fun, List1) -> List2 when
-      Fun :: fun((A :: T, B :: T) -> boolean()),
+      Fun :: fun((T, T) -> boolean()),
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 sort(Fun, []) when is_function(Fun, 2) ->
     [];
@@ -1671,9 +1605,7 @@ element from `List1` is picked before the element from `List2`.
       Fun :: fun((A, B) -> boolean()),
       List1 :: [A],
       List2 :: [B],
-      List3 :: [(A | B)],
-      A :: term(),
-      B :: term().
+      List3 :: [(A | B)].
 
 merge(Fun, L1, L2) when is_function(Fun, 2) ->
     merge_1(Fun, L1, L2).
@@ -1690,7 +1622,11 @@ merge_1(_Fun, [], []) ->
 %% reverse(rmerge(F,reverse(A),reverse(B))) is equal to merge(F,A,B).
 
 -doc false.
--spec rmerge(fun((X, Y) -> boolean()), [X], [Y]) -> [(X | Y)].
+-spec rmerge(Fun, List1, List2) -> List3 when
+    Fun :: fun((A, B) -> boolean()),
+    List1 :: [A],
+    List2 :: [B],
+    List3 :: [(A | B)].
 
 rmerge(Fun, L1, L2) when is_function(Fun, 2) ->
     rmerge_1(Fun, L1, L2).
@@ -1714,8 +1650,7 @@ ordering, otherwise `false`.
 -spec usort(Fun, List1) -> List2 when
       Fun :: fun((T, T) -> boolean()),
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 usort(Fun, [_] = L) when is_function(Fun, 2) ->
     L;
@@ -1741,7 +1676,7 @@ usort_1(Fun, X, [Y | L]) ->
         false  ->
 	    ufsplit_2(Y, L, Fun, [X])
     end.
-                    
+
 -doc """
 Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
 `List2` must be sorted according to the
@@ -1757,9 +1692,7 @@ deleted.
       Fun :: fun((A, B) -> boolean()),
       List1 :: [A],
       List2 :: [B],
-      List3 :: [(A | B)],
-      A :: term(),
-      B :: term().
+      List3 :: [(A | B)].
 
 umerge(Fun, L1, L2) when is_function(Fun, 2) ->
     umerge_1(Fun, L1, L2).
@@ -1776,7 +1709,11 @@ umerge_1(_Fun, [], []) ->
 %% reverse(rumerge(F,reverse(A),reverse(B))) is equal to umerge(F,A,B).
 
 -doc false.
--spec rumerge(fun((X, Y) -> boolean()), [X], [Y]) -> [(X | Y)].
+-spec rumerge(Fun, List1, List2) -> List3 when
+    Fun :: fun((A, B) -> boolean()),
+    List1 :: [A],
+    List2 :: [B],
+    List3 :: [(A | B)].
 
 rumerge(Fun, L1, L2) when is_function(Fun, 2) ->
     rumerge_1(Fun, L1, L2).
@@ -1799,8 +1736,7 @@ first element of the elements comparing equal have been deleted.
 """.
 -spec usort(List1) -> List2 when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 usort([X, Y | L] = L0) when X < Y ->
     case L of
@@ -1866,14 +1802,13 @@ lowest position in `ListOfLists` is picked and the other is deleted.
 -spec umerge(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
-      List1 :: [T],
-      T :: term().
+      List1 :: [T].
 
 umerge(L) ->
     umergel(L).
 
 %% umerge3(X, Y, Z) -> L
-%%  merges three sorted lists X, Y and Z without duplicates, 
+%%  merges three sorted lists X, Y and Z without duplicates,
 %%  removes duplicates
 
 -doc """
@@ -1889,10 +1824,7 @@ When two elements compare equal, the element from
       List1 :: [X],
       List2 :: [Y],
       List3 :: [Z],
-      List4 :: [(X | Y | Z)],
-      X :: term(),
-      Y :: term(),
-      Z :: term().
+      List4 :: [(X | Y | Z)].
 
 umerge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
     lists:reverse(umerge3_1(L1, [H2 | H3], T2, H2, [], T3, H3), []);
@@ -1916,7 +1848,11 @@ umerge3([], [], []) ->
 %%  removes duplicates
 
 -doc false.
--spec rumerge3([X], [Y], [Z]) -> [(X | Y | Z)].
+-spec rumerge3(List1, List2, List3) -> List4 when
+    List1 :: [X],
+    List2 :: [Y],
+    List3 :: [Z],
+    List4 :: [(X | Y | Z)].
 
 rumerge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
    lists:reverse(rumerge3_1(L1, T2, H2, [], T3, H3),[]);
@@ -1949,9 +1885,7 @@ and the one from `List2` is deleted.
 -spec umerge(List1, List2) -> List3 when
       List1 :: [X],
       List2 :: [Y],
-      List3 :: [(X | Y)],
-      X :: term(),
-      Y :: term().
+      List3 :: [(X | Y)].
 
 umerge([H1 | T1], [_|_]=T2) ->
     lists:reverse(umerge2_2(T1, T2, [], H1), []);
@@ -1969,7 +1903,10 @@ umerge([], []) ->
 %% reverse(rumerge(reverse(A),reverse(B))) is equal to umerge(I,A,B).
 
 -doc false.
--spec rumerge([X], [Y]) -> [(X | Y)].
+-spec rumerge(List1, List2) -> List3 when
+    List1 :: [X],
+    List2 :: [Y],
+    List3 :: [(X | Y)].
 
 rumerge([_|_]=T1, [H2 | T2]) ->
     lists:reverse(rumerge2_1(T1, T2, [], H2), []);
@@ -1995,7 +1932,7 @@ rumerge([], []) ->
 %% dropwhile(Predicate, List)
 %% splitwith(Predicate, List)
 %%  for list programming. Function here is a 'fun'.
-%% 
+%%
 %%  The name zf is a joke!
 %%
 %%  N.B. Unless where the functions actually needs it only foreach/2/3,
@@ -2010,9 +1947,8 @@ Returns `true` if `Pred(Elem)` returns `true` for all elements `Elem` in `List`,
 otherwise `false`. The `Pred` function must return a boolean.
 """.
 -spec all(Pred, List) -> boolean() when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List :: [Elem].
 
 all(Pred, List) when is_function(Pred, 1) ->
     case List of
@@ -2037,9 +1973,8 @@ Returns `true` if `Pred(Elem)` returns `true` for at least one element `Elem` in
 `List`. The `Pred` function must return a boolean.
 """.
 -spec any(Pred, List) -> boolean() when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List :: [Elem].
 
 any(Pred, List) when is_function(Pred, 1) ->
     case List of
@@ -2068,9 +2003,7 @@ implementation.
 -spec map(Fun, List1) -> List2 when
       Fun :: fun((A) -> B),
       List1 :: [A],
-      List2 :: [B],
-      A :: term(),
-      B :: term().
+      List2 :: [B].
 
 map(F, List) when is_function(F, 1) ->
     case List of
@@ -2105,9 +2038,7 @@ _Example:_
 -spec flatmap(Fun, List1) -> List2 when
       Fun :: fun((A) -> [B]),
       List1 :: [A],
-      List2 :: [B],
-      A :: term(),
-      B :: term().
+      List2 :: [B].
 
 flatmap(F, List) when is_function(F, 1) ->
     flatmap_1(F, List).
@@ -2118,8 +2049,8 @@ flatmap_1(_F, []) ->
     [].
 
 -doc """
-Calls `Fun(Elem, AccIn)` on successive elements `A` of `List`, starting with
-`AccIn == Acc0`. `Fun/2` must return a new accumulator, which is passed to the
+Calls `Fun(Elem, Acc)` on successive elements `A` of `List`, starting with
+`Acc == Acc0`. `Fun/2` must return a new accumulator, which is passed to the
 next call. The function returns the final value of the accumulator. `Acc0` is
 returned if the list is empty.
 
@@ -2133,13 +2064,10 @@ _Example:_
 ```
 """.
 -spec foldl(Fun, Acc0, List) -> Acc1 when
-      Fun :: fun((Elem :: T, AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
-      List :: [T],
-      T :: term().
+      Fun :: fun((Elem, Acc) -> Acc),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      List :: [Elem].
 
 foldl(F, Accu, List) when is_function(F, 2) ->
     case List of
@@ -2170,13 +2098,10 @@ _Example:_
 [`foldr/3`](`foldr/3`).
 """.
 -spec foldr(Fun, Acc0, List) -> Acc1 when
-      Fun :: fun((Elem :: T, AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
-      List :: [T],
-      T :: term().
+      Fun :: fun((Elem, Acc) -> Acc),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      List :: [Elem].
 
 foldr(F, Accu, List) when is_function(F, 2) ->
     foldr_1(F, Accu, List).
@@ -2191,10 +2116,9 @@ foldr_1(_F, Accu, []) ->
 returns `true`. The `Pred` function must return a boolean.
 """.
 -spec filter(Pred, List1) -> List2 when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 filter(Pred, List) when is_function(Pred, 1) ->
     [ E || E <- List, Pred(E) ].
@@ -2219,11 +2143,10 @@ _Examples:_
 For a different way to partition a list, see `splitwith/2`.
 """.
 -spec partition(Pred, List) -> {Satisfying, NotSatisfying} when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List :: [T],
-      Satisfying :: [T],
-      NotSatisfying :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List :: [Elem],
+      Satisfying :: [Elem],
+      NotSatisfying :: [Elem].
 
 partition(Pred, L) when is_function(Pred, 1) ->
     partition_1(Pred, L, [], []).
@@ -2268,9 +2191,7 @@ _Example:_
 -spec filtermap(Fun, List1) -> List2 when
       Fun :: fun((Elem) -> boolean() | {'true', Value}),
       List1 :: [Elem],
-      List2 :: [Elem | Value],
-      Elem :: term(),
-      Value :: term().
+      List2 :: [Elem | Value].
 
 filtermap(F, List) when is_function(F, 1) ->
     filtermap_1(F, List).
@@ -2288,7 +2209,10 @@ filtermap_1(_F, []) ->
     [].
 
 -doc false.
--spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
+-spec zf(Fun, List1) -> List2 when
+    Fun :: fun((Elem) -> boolean() | {'true', Value}),
+    List1 :: [Elem],
+    List2 :: [Elem | Value].
 
 zf(F, L) ->
     filtermap(F, L).
@@ -2299,9 +2223,8 @@ its side effects and the evaluation order is defined to be the same as the order
 of the elements in the list.
 """.
 -spec foreach(Fun, List) -> ok when
-      Fun :: fun((Elem :: T) -> term()),
-      List :: [T],
-      T :: term().
+      Fun :: fun((Elem) -> term()),
+      List :: [Elem].
 
 foreach(F, List) when is_function(F, 1) ->
     foreach_1(F, List).
@@ -2326,15 +2249,11 @@ Summing the elements in a list and double them at the same time:
 ```
 """.
 -spec mapfoldl(Fun, Acc0, List1) -> {List2, Acc1} when
-      Fun :: fun((A, AccIn) -> {B, AccOut}),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Fun :: fun((A, Acc) -> {B, Acc}),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
       List1 :: [A],
-      List2 :: [B],
-      A :: term(),
-      B :: term().
+      List2 :: [B].
 
 mapfoldl(F, Accu, List) when is_function(F, 2) ->
     mapfoldl_1(F, Accu, List).
@@ -2348,15 +2267,11 @@ mapfoldl_1(_F, Accu, []) ->
 
 -doc "Combines the operations of `map/2` and `foldr/3` into one pass.".
 -spec mapfoldr(Fun, Acc0, List1) -> {List2, Acc1} when
-      Fun :: fun((A, AccIn) -> {B, AccOut}),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Fun :: fun((A, Acc) -> {B, Acc}),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
       List1 :: [A],
-      List2 :: [B],
-      A :: term(),
-      B :: term().
+      List2 :: [B].
 
 mapfoldr(F, Accu, List) when is_function(F, 2) ->
     mapfoldr_1(F, Accu, List).
@@ -2374,10 +2289,9 @@ the function returns the longest prefix of the list for which all elements
 satisfy the predicate. The `Pred` function must return a boolean.
 """.
 -spec takewhile(Pred, List1) -> List2 when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 takewhile(Pred, List) when is_function(Pred, 1) ->
     takewhile_1(Pred, List).
@@ -2395,10 +2309,9 @@ Drops elements `Elem` from `List1` while `Pred(Elem)` returns `true` and returns
 the remaining list. The `Pred` function must return a boolean.
 """.
 -spec dropwhile(Pred, List1) -> List2 when
-      Pred :: fun((Elem :: T) -> boolean()),
-      List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      Pred :: fun((Elem) -> boolean()),
+      List1 :: [Elem],
+      List2 :: [Elem].
 
 dropwhile(Pred, List) when is_function(Pred, 1) ->
     dropwhile_1(Pred, List).
@@ -2458,8 +2371,7 @@ list, see `partition/2`.
       Pred :: fun((T) -> boolean()),
       List :: [T],
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 splitwith(Pred, List) when is_function(Pred, 1) ->
     splitwith_1(Pred, List, []).
@@ -2480,8 +2392,7 @@ and `List3` the remaining elements (the `N`th tail).
       N :: non_neg_integer(),
       List1 :: [T],
       List2 :: [T],
-      List3 :: [T],
-      T :: term().
+      List3 :: [T].
 
 split(N, List) when is_integer(N), N >= 0, is_list(List) ->
     case split(N, List, []) of
@@ -2515,9 +2426,8 @@ and on a singleton list. For example:
 -doc(#{since => <<"OTP 19.0">>}).
 -spec join(Sep, List1) -> List2 when
       Sep :: T,
-      List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List1 :: [U],
+      List2 :: [T | U].
 
 join(_Sep, []) -> [];
 join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
@@ -2533,15 +2443,15 @@ join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 %%% type information.
 %%% =================================================================
 
--compile({inline, 
+-compile({inline,
           [{merge3_12,7}, {merge3_21,7}, {rmerge3_12,7}, {rmerge3_21,7}]}).
 
--compile({inline, 
+-compile({inline,
           [{umerge3_12,8}, {umerge3_21,8},
 	   {rumerge3_12a,7}, {rumerge3_12b,8}]}).
 
--compile({inline, 
-          [{keymerge3_12,12}, {keymerge3_21,12}, 
+-compile({inline,
+          [{keymerge3_12,12}, {keymerge3_21,12},
            {rkeymerge3_12,12}, {rkeymerge3_21,12}]}).
 
 -compile({inline,
@@ -3419,10 +3329,10 @@ ukeymerge3_2(I, E1, T1, H1, [], _HdM, _D, M, _E3, H3, T3) ->
     ukeymerge2_2(I, T1, E1, H1, T3, [H3 | M]).
 
 % E1 =< E2. Inlined.
-ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, E3, H3, T3, M, _HdM, D) 
+ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, E3, H3, T3, M, _HdM, D)
                                                              when E1 =< E3 ->
     ukeymerge3_1(I, T1, D, E1, E2, H2, T2, [H1 | M], E3, H3, T3);
-ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, E3, _H3, T3, M, HdM, _D) 
+ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, E3, _H3, T3, M, HdM, _D)
                                                              when E3 == HdM ->
     ukeymerge3_12_3(I, E1, T1, H1, E2, H2, T2, M, T3);
 ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, _E3, H3, T3, M, _HdM, _D) ->
@@ -3440,10 +3350,10 @@ ukeymerge3_12_3(I, E1, T1, H1, E2, H2, T2, M, []) ->
     ukeymerge2_1(I, T1, E2, E1, T2, [H1 | M], H2).
 
 % E1 > E2. Inlined.
-ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, E3, H3, T3, M, _HdM, D) 
+ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, E3, H3, T3, M, _HdM, D)
                                                              when E2 =< E3 ->
     ukeymerge3_2(I, E1, T1, H1, T2, E2, D, [H2 | M], E3, H3, T3);
-ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, E3, _H3, T3, M, HdM, _D) 
+ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, E3, _H3, T3, M, HdM, _D)
                                                              when E3 == HdM ->
     ukeymerge3_21_3(I, E1, T1, H1, E2, H2, T2, M, T3);
 ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, _E3, H3, T3, M, _HdM, _D) ->
@@ -3482,7 +3392,7 @@ rukeymerge3_12a(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M) ->
     rukeymerge3_2(I, E1, H1, T1, T2, H2, E2, M, E3, H3, T3).
 
 % E1 > E2. Inlined
-rukeymerge3_21a(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, _D1, _D2) 
+rukeymerge3_21a(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, _D1, _D2)
                                                               when E1 =< E3 ->
     rukeymerge3_21_3(I, E1, H1, T1, E2, H2, T2, M, E3, H3, T3);
 rukeymerge3_21a(I, _E1, H1, T1, E2, H2, T2, E3, H3, T3, M, D1, D2) ->
@@ -3508,7 +3418,7 @@ rukeymerge3_2(I, _E1, H1, T1, [], H2M, _E2M, M, E3, H3, T3) ->
     rukeymerge2_1(I, T1, E3, T3, [H1, H2M | M], H3).
 
 % E1 =< E2. Inlined.
-rukeymerge3_12b(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, H2M) 
+rukeymerge3_12b(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, H2M)
                                                              when E2 =< E3 ->
     rukeymerge3_12_3(I, E1, H1, T1, E2, H2, T2, [H2M | M], E3, H3, T3);
 rukeymerge3_12b(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, H2M) ->
@@ -3608,7 +3518,7 @@ rukeymerge2_2(_I, T1, _E1, [], M, _E2M, H2M, H1) ->
 %% Ascending.
 fsplit_1(Y, X, Fun, [Z | L], R, Rs) ->
     case Fun(Y, Z) of
-        true -> 
+        true ->
             fsplit_1(Z, Y, Fun, L, [X | R], Rs);
         false ->
             case Fun(X, Z) of
@@ -3646,7 +3556,7 @@ fsplit_1_1(Y, X, Fun, [], R, Rs, S) ->
 %% Descending.
 fsplit_2(Y, X, Fun, [Z | L], R, Rs) ->
     case Fun(Y, Z) of
-        false -> 
+        false ->
             fsplit_2(Z, Y, Fun, L, [X | R], Rs);
         true ->
             case Fun(X, Z) of
@@ -3701,7 +3611,7 @@ rfmergel([L], Acc, Fun, O) ->
 rfmergel([], Acc, Fun, O) ->
     fmergel(Acc, [], Fun, O).
 
-%% merge/3 
+%% merge/3
 
 %% Elements from the first list are prioritized.
 fmerge2_1([H1 | T1], H2, Fun, T2, M) ->
@@ -3905,7 +3815,7 @@ rufmerge2_2(H1, T1, Fun, [H2 | T2], M, H2M) ->
     end;
 rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
     case Fun(H2M, H1) of
-        true -> 
+        true ->
             lists:reverse(T1, [H1 | M]);
         false ->
             lists:reverse(T1, [H1, H2M | M])
@@ -3930,8 +3840,7 @@ _Examples:_
 -doc(#{since => <<"OTP 25.0">>}).
 -spec uniq(List1) -> List2 when
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 uniq(L) ->
     uniq_1(L, #{}).
@@ -3962,10 +3871,9 @@ _Examples:_
 """.
 -doc(#{since => <<"OTP 25.0">>}).
 -spec uniq(Fun, List1) -> List2 when
-      Fun :: fun((T) -> any()),
+      Fun :: fun((T) -> term()),
       List1 :: [T],
-      List2 :: [T],
-      T :: term().
+      List2 :: [T].
 
 uniq(F, L) when is_function(F, 1) ->
     uniq_2(L, F, #{}).
