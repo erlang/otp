@@ -176,9 +176,23 @@ parse_tests([<<"> ", NewCmd/binary>> | T], Cmd) ->
 parse_tests([<<" ", More/binary>> | T], Acc) ->
     parse_tests(T, [More | Acc]);
 parse_tests([NewMatch | T], Cmd) ->
-    {Match, Rest} = parse_match(T, [NewMatch]),
-    [{test, lists:join($\n, lists:reverse(Cmd)),
-      lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
+    %% `NewMatch` maybe either `<<"> SomeCode.">>` or `<<"419> OtherCode.">>`
+    %% `NewMatch` maybe `<<" Value > Thang.">>` too and treated as `test` which
+    %% maybe a bug
+    case string:split(NewMatch, ">") of
+        [MaybeInt, MaybeNewCmd] ->
+            case string:to_integer(MaybeInt) of
+                {_Int, <<>>} -> parse_tests([MaybeNewCmd | T], Cmd);
+                {error, _} ->
+                    {Match, Rest} = parse_match(T, [NewMatch]),
+                    [{test, lists:join($\n, lists:reverse(Cmd)),
+                      lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])]
+            end;
+        [_] ->
+            {Match, Rest} = parse_match(T, [NewMatch]),
+            [{test, lists:join($\n, lists:reverse(Cmd)),
+              lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])]
+    end.
 
 parse_match([<<"%", _Skip/binary>> | T], Acc) ->
     parse_match(T, Acc);
