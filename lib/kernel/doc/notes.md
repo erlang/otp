@@ -1197,6 +1197,14 @@ This document describes the changes made to the Kernel application.
 
   Own Id: OTP-18575 Aux Id: PR-7169
 
+## Kernel 8.5.4.4
+
+### Fixed Bugs and Malfunctions
+
+* Fixed a couple of bugs that could make `global`'s internal state inconsistent when a connection was reconnected.
+
+  Own Id: OTP-19381 Aux Id: PR-9377, GH-9112, GH-9117
+
 ## Kernel 8.5.4.3
 
 ### Fixed Bugs and Malfunctions
