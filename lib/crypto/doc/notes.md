@@ -21,32 +21,6 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
-## Crypto 5.6
-
-### Improvements and New Features
-
-- The `crypto:start/0`, `crypto:stop/0`, and `crypto:enable_fips_mode/1` functions have been deprecated.
-
-  Own Id: OTP-19155 Aux Id: [PR-8592]
-
-- Warnings are now logged if module `m:crypto` with FIPS-supported OpenSSL is loaded without application [`crypto`](index.html) being loaded. In this case FIPS will be disabled even if the user had set application parameter `fips_mode`.
-
-  Own Id: OTP-19156 Aux Id: [PR-8590]
-
-- The functionality of `crypto:crypto_one_time_aead/6` is now also available in the new functions `crypto:crypto_one_time_aead_init/4` and
-  `crypto:crypto_one_time_aead/4`, which makes it possible to reuse initialization.
-
-  Own Id: OTP-19426 Aux Id: [PR-9289]
-
-- Added support for compiling Erlang/OTP for Windows on ARM64.
-
-  Own Id: OTP-19480 Aux Id: [PR-8734]
-
-[PR-8592]: https://github.com/erlang/otp/pull/8592
-[PR-8590]: https://github.com/erlang/otp/pull/8590
-[PR-9289]: https://github.com/erlang/otp/pull/9289
-[PR-8734]: https://github.com/erlang/otp/pull/8734
-
 ## Crypto 5.5.2
 
 ### Fixed Bugs and Malfunctions

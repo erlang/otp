@@ -1985,7 +1985,7 @@ merge_bindings(Bs1, Bs2, Anno, Ef) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
--doc #{since => ~"OTP 28.0"}.
+-doc #{since => ~"OTP @OTP-19184@"}.
 -spec(new_bindings(binding_struct()) -> binding_struct()).
 new_bindings(Bs) when is_map(Bs) -> maps:new();
 new_bindings(Bs) when is_list(Bs) -> orddict:new().

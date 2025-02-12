@@ -19,16 +19,6 @@ limitations under the License.
 -->
 # Inets Release Notes
 
-## Inets 9.3.2
-
-### Fixed Bugs and Malfunctions
-
-- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
-
-  Own Id: OTP-19485 Aux Id: [PR-8592]
-
-[PR-8592]: https://github.com/erlang/otp/pull/8592
-
 ## Inets 9.3.1
 
 ### Fixed Bugs and Malfunctions

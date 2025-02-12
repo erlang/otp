@@ -68,7 +68,7 @@ Typical `Reason`s:
 - **`not_on_controlling_process`** - The context was used by a process that
 did not create it.
 """.
--moduledoc #{ since => "OTP 28.0" }.
+-moduledoc #{ since => "OTP @OTP-19477@" }.
 
 -export_type([context/0, dict/0]).
 
@@ -78,13 +78,13 @@ for streaming compression or decompression.
 
 Only the process that created the context can use it.
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -opaque context() :: {compress | decompress, term()}.
 
 -doc """
 A compression or decompression dictionary.
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -opaque  dict() :: {cdict | ddict, term()}.
 
 -doc """
@@ -262,7 +262,7 @@ ok
 {'EXIT', {{zstd_error, <<"Operation not authorized at current processing stage">>}, _}}
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec set_parameter(Ctx :: context(), Key :: term(), Value :: term()) -> ok.
 set_parameter({compress, Ctx}, dictionary, {cdict, Dict}) when is_reference(Dict) ->
     ref_compress_dictionary_nif(Ctx, Dict);
@@ -307,7 +307,7 @@ ok
 15
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec get_parameter(Ctx :: context(), Key :: term()) -> Value :: term().
 get_parameter({compress, Ctx}, Key) ->
     get_compress_parameter_nif(Ctx, Key);
@@ -317,7 +317,7 @@ get_parameter(Ctx, _Key) ->
     error({badarg, {invalid_context, Ctx}}).
 
 -doc #{ equiv => dict(Mode, Dict, #{}) }.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec dict(Mode :: compress | decompress, Dict :: binary()) -> {ok, dict()}.
 dict(Mode, Dict) -> dict(Mode, Dict, #{}).
 
@@ -356,7 +356,7 @@ only a single `t:dict/0` and provide it to multiple `t:context/0`.
 There is no API exposed in `m:zstd` to create a dictionary, instead use the
 `zstd` command line tool.
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec dict(compress, Dict :: binary(), #{ compressionLevel => compressionLevel() }) -> {ok, dict()};
           (decompress, Dict :: binary(), #{ }) -> {ok, dict()}.
 dict(compress, Dict, #{ compressionLevel := Level }) -> {ok, {cdict, create_cdict_nif(Dict, Level)}};
@@ -378,7 +378,7 @@ Example:
 0
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec get_dict_id(DictOrFrame :: dict() | binary()) -> non_neg_integer().
 get_dict_id({cdict, Dict}) ->
     getDictId_fromCDict_nif(Dict);
@@ -409,7 +409,7 @@ Example:
       dictID => 0, checksumFlag => false}}
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec get_frame_header(Frame :: iodata()) ->
           {ok, #{ blockSizeMax => non_neg_integer(),
                   checksumFlag => boolean(),
@@ -427,7 +427,7 @@ get_frame_header(Frame) ->
     end.
 
 -doc #{ equiv => context(Mode, #{}) }.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec context(compress | decompress) -> {ok, context()}.
 context(Mode) when Mode =:= compress; Mode =:= decompress ->
     context(Mode, #{}).
@@ -440,7 +440,7 @@ Create a compression or decompression context.
 A context can be used to do streaming compression/decompression and allows
 re-using parameters for multiple compressions/decompressions.
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec context(compress, Options :: compress_parameters()) -> {ok, context()};
              (decompress, Options :: decompress_parameters()) -> {ok, context()}.
 context(compress, Options) ->
@@ -468,7 +468,7 @@ Example:
 [<<"ab">>]
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec stream(Ctx :: context(), Data :: iodata()) -> Result when
       Result :: {continue, Remainder :: erlang:iovec(), Output :: binary()} |
                 {continue, Output :: binary()}.
@@ -511,7 +511,7 @@ Example:
 <<"ab">>
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec finish(Ctx :: context(), Data :: iodata()) -> Result when
       Result :: {done, erlang:iovec()}.
 finish({compress, Ref}, Data) when is_binary(Data) ->
@@ -576,7 +576,7 @@ ok
 [~"b"]
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec reset(Ctx :: context()) -> ok.
 reset({compress, Ref}) ->
     compress_reset_nif(Ref);
@@ -591,7 +591,7 @@ A `t:context/0` is automatically closed when GC:ed, so the only reason to call
 this function is to make the resources attached to the context be released
 before the next GC.
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec close(Ctx :: context()) -> ok.
 close({compress, Ref}) ->
     compress_close_nif(Ref);
@@ -599,7 +599,7 @@ close({decompress, Ref}) ->
     decompress_close_nif(Ref).
 
 -doc #{ equiv => compress(Data, #{}) }.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec compress(iodata()) -> iodata().
 compress(Data) ->
     compress(Data, #{}).
@@ -616,7 +616,7 @@ Example:
 > zstd:compress("abc", #{ compressionLevel => 20 }).
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec compress(Data :: iodata(), Options :: compress_parameters()) -> iodata();
               (Data :: iodata(), Ctx :: context()) -> iodata().
 compress(Data, Options) when is_map(Options) ->
@@ -634,7 +634,7 @@ compress(Data, {compress, Ref}) ->
                IOV).
 
 -doc #{ equiv => decompress(Data, #{}) }.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec decompress(iodata()) -> iodata().
 decompress(Data) ->
     decompress(Data, #{}).
@@ -652,7 +652,7 @@ Example:
 [~"abc"]
 ```
 """.
--doc #{ since => "OTP 28.0" }.
+-doc #{ since => "OTP @OTP-19477@" }.
 -spec decompress(Data :: iodata(), Options :: decompress_parameters()) -> iodata();
                 (Data :: iodata(), Ctx :: context()) -> iodata().
 decompress(Data, Options) when is_map(Options) ->

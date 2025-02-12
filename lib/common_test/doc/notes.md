@@ -19,36 +19,6 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
-## Common_Test 1.28
-
-### Fixed Bugs and Malfunctions
-
-- Replaced calls to deprecated `crypto:start()` with `application:start(crypto)`.
-
-  Own Id: OTP-19485 Aux Id: [PR-8592]
-
-[PR-8592]: https://github.com/erlang/otp/pull/8592
-
-### Improvements and New Features
-
-- The overage reports in HTML can be rendered in dark mode if requested by the user's browser.
-
-  Own Id: OTP-19159 Aux Id: [PR-7830]
-
-- The `abort_if_missing_suites` option now defaults to `true`. If you prefer the old behavior, set `abort_if_missing_suites` to `false` in your test runs.
-
-  *** POTENTIAL INCOMPATIBILITY ***
-
-  Own Id: OTP-19355 Aux Id: [PR-9045]
-
-- Added support for compiling Erlang/OTP for Windows on ARM64.
-
-  Own Id: OTP-19480 Aux Id: [PR-8734]
-
-[PR-7830]: https://github.com/erlang/otp/pull/7830
-[PR-9045]: https://github.com/erlang/otp/pull/9045
-[PR-8734]: https://github.com/erlang/otp/pull/8734
-
 ## Common_Test 1.27.6
 
 ### Fixed Bugs and Malfunctions
