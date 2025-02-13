@@ -253,6 +253,9 @@ test_suite_events(skip_init_per_group_SUITE) ->
         {skip_init_per_group_SUITE,{test_case,left},skip_on_purpose}},
        {?eh,test_stats,{0,0,{1,0}}},
        {?eh,tc_user_skip,
+         {skip_init_per_group_SUITE,{test_case,nested_group},skip_on_purpose}},
+       {?eh,test_stats,{0,0,{2,0}}},
+       {?eh,tc_user_skip,
         {skip_init_per_group_SUITE,{end_per_group,left},skip_on_purpose}}],
 
       [{?eh,tc_start,
@@ -261,7 +264,7 @@ test_suite_events(skip_init_per_group_SUITE) ->
         {skip_init_per_group_SUITE,{init_per_group,right,[]},ok}},
        {?eh,tc_start,{skip_init_per_group_SUITE,test_case}},
        {?eh,tc_done,{skip_init_per_group_SUITE,test_case,ok}},
-       {?eh,test_stats,{1,0,{1,0}}},
+       {?eh,test_stats,{1,0,{2,0}}},
        {?eh,tc_start,
         {skip_init_per_group_SUITE,{end_per_group,right,[]}}},
        {?eh,tc_done,
@@ -351,7 +354,7 @@ test_events(skip_suite_in_spec) ->
      test_suite_events(skip_suite_in_spec) ++
      [{?eh,stop_logging,[]}];
 test_events(skip_init_per_group) ->
-    [{?eh,start_logging,'_'},{?eh,start_info,{1,1,2}}] ++
+    [{?eh,start_logging,'_'},{?eh,start_info,{1,1,3}}] ++
      test_suite_events(skip_init_per_group_SUITE) ++
      [{?eh,stop_logging,[]}];
 test_events(Test) ->
@@ -472,15 +475,17 @@ assert_lines(skip_init_per_group, A) ->
                 ok;
             ("test_case", [{testcase,4}, {testsuite,1}, {testsuites,1}], "root.left") ->
                 ok;
-            ("end_per_group", [{testcase,5}, {testsuite,1}, {testsuites,1}], "root.left") ->
+            ("test_case", [{testcase,5}, {testsuite,1}, {testsuites,1}], "root.left.nested_group") ->
                 ok;
-            ("init_per_group", [{testcase,6}, {testsuite,1}, {testsuites,1}], "root.right") ->
+            ("end_per_group", [{testcase,6}, {testsuite,1}, {testsuites,1}], "root.left") ->
                 ok;
-            ("test_case", [{testcase,7}, {testsuite,1}, {testsuites,1}], "root.right") ->
+            ("init_per_group", [{testcase,7}, {testsuite,1}, {testsuites,1}], "root.right") ->
                 ok;
-            ("end_per_group", [{testcase,8}, {testsuite,1}, {testsuites,1}], "root.right") ->
+            ("test_case", [{testcase,8}, {testsuite,1}, {testsuites,1}], "root.right") ->
                 ok;
-            ("end_per_group", [{testcase,9}, {testsuite,1}, {testsuites,1}], "root") ->
+            ("end_per_group", [{testcase,9}, {testsuite,1}, {testsuites,1}], "root.right") ->
+                ok;
+            ("end_per_group", [{testcase,10}, {testsuite,1}, {testsuites,1}], "root") ->
                 ok;
             (Tc, TcParents, TcGroupPath) ->
                 exit({wrong_grouppath, [{tc, Tc},
