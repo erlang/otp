@@ -39,8 +39,7 @@ used.
                FieldN [= ExprN]}).
 ```
 
-The default value for a field is an arbitrary expression, except that it must
-not use any variables.
+The default value for a field is an arbitrary expression.
 
 A record definition can be placed anywhere among the attributes and function
 declarations of a module, but the definition must come before any usage of the
@@ -67,6 +66,17 @@ field `FieldI` is the value of evaluating the corresponding expression `ExprI`:
 The fields can be in any order, not necessarily the same order as in the record
 definition, and fields can be omitted. Omitted fields get their respective
 default value instead.
+
+> #### Change {: .info }
+>
+> In Erlang/OTP OTP-19464, variables are allowed in the record definition.
+> If a record definition contains a variable, the record will first be
+> initialized with the default values and then each respective field
+> will be updated again with the corresponding `ExprI`.
+> The fields are not initialized with the default value first in cases where
+> every field, that have a default value containing a variable, is set to a
+> new expression.
+> Think a second time before putting side effects in the default values.
 
 If several fields are to be assigned the same value, the following construction
 can be used:
