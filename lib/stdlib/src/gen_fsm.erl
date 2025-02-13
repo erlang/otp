@@ -746,7 +746,7 @@ of the `gen_fsm` process.
 
 The function is to return `Status`, a term that change the details
 of the current state and status of the `gen_fsm` process.
-There are no restrictions on the form `Status` can take,
+There are no restrictions of the form `Status` can take,
 but for the [`sys:get_status/1,2`](`sys:get_status/1`) case
 (when `Opt` is `normal`), the recommended form for the `Status` value
 is `[{data, [{"StateData", Term}]}]`, where `Term` provides

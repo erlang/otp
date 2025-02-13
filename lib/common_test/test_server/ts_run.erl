@@ -110,7 +110,7 @@ ct_run_test(Dir, CommonTestArgs) ->
     end.
 
 %%
-%% Deletes File from Files when File is on the form .../<SUITE>_data/<file>
+%% Deletes File from Files when File is of the form .../<SUITE>_data/<file>
 %% when all of <SUITE> has been skipped in Spec, i.e. there
 %% exists a {skip, {<SUITE>, _}} tuple in Spec.
 %%

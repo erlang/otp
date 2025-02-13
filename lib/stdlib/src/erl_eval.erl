@@ -96,7 +96,7 @@ called for such calls. The argument can have the following formats:
   ```
 
   `Anno` is the [`erl_anno:anno()`](`t:erl_anno:anno/0`) of the node, `FuncSpec`
-  is the name of the function on the form `{Module,Function}` or a fun, and
+  is the name of the function of the form `{Module,Function}` or a fun, and
   `Arguments` is a list of the _evaluated_ arguments. The function handler
   returns the value of the function. To signal an error, the function handler
   calls [`exit/1`](`exit/1`) with a suitable exit value.

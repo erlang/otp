@@ -169,7 +169,7 @@ relying on them will produce the same pseudo random sequences as before.
 > less than 0.5 had got smaller intervals decreasing as the generated value
 > approached 0.0 although still uniformly distributed for sufficiently large
 > subranges. The new algorithms produces uniformly distributed floats
-> on the form `N * 2.0^(-53)` hence they are equally spaced.
+> of the form `N * 2.0^(-53)` hence they are equally spaced.
 
 [](){: #generator-state }
 #### Generator State
@@ -391,7 +391,7 @@ the generator's range:
   (IEEE 745 Double, that has got a 53-bit mantissa) in the range
   `0..1`, that is `0.0 =< V < 1.0` is to generate a 53-bit number `X`
   and then use `V = X * (1.0/((1 bsl 53)))` as your value.
-  This will create a value on the form N*2^-53 with equal probability
+  This will create a value of the form N*2^-53 with equal probability
   for every possible N for the range.
 """.
 -moduledoc(#{since => "OTP 18.0",
@@ -794,7 +794,7 @@ From the specified `State`, generates a random number `X ::` `t:float/0`,
 uniformly distributed in the value range `0.0 =< X < 1.0`.
 Returns the number `X` and the updated `NewState`.
 
-The generated numbers are on the form `N * 2.0^(-53)`, that is;
+The generated numbers are of the form `N * 2.0^(-53)`, that is;
 equally spaced in the interval.
 
 > #### Warning {: .warning }
@@ -820,7 +820,7 @@ uniform_s(State = {#{uniform:=Uniform}, _}) ->
     Uniform(State);
 uniform_s({#{bits:=Bits, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),
-    %% Produce floats on the form N * 2^(-53)
+    %% Produce floats of the form N * 2^(-53)
     {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {AlgHandler, R1}};
 uniform_s({#{max:=Max, next:=Next} = AlgHandler, R0}) ->
     {V, R1} = Next(R0),

@@ -42,7 +42,7 @@
 
 
 %%----------------------------------------------------------------------
-%% The InHandler process will receive messages on the form {snmp_pdu, Pdu}.
+%% The InHandler process will receive messages of the form {snmp_pdu, Pdu}.
 %%----------------------------------------------------------------------
 
 start_link_packet(

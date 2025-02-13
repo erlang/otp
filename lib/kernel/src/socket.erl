@@ -952,7 +952,7 @@ internal use only.
 -doc """
 Socket option.
 
-Socket options on the form `{Level, Opt}` where the OS protocol `Level` =
+Socket options of the form `{Level, Opt}` where the OS protocol `Level` =
 `t:level/0` and `Opt` is a socket option on that protocol level.
 
 The OS name for an options is, except where otherwise noted, the `Opt` atom, in

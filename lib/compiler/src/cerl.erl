@@ -1774,7 +1774,7 @@ A variable is identified by its name, given by the `Name` parameter.
 If a name is given by a single atom, it should either be a "simple" atom which
 does not need to be single-quoted in Erlang, or otherwise its print name should
 correspond to a proper Erlang variable, that is, begin with an uppercase character
-or an underscore. Names on the form `{A, N}` represent function name variables
+or an underscore. Names of the form `{A, N}` represent function name variables
 "`A/N`"; these are special variables which may be bound only in the function
 definitions of a module or a `letrec`. They may not be bound in `let`
 expressions and cannot occur in clause patterns. The atom `A` in a function name

@@ -633,7 +633,7 @@ The step functionality can be used together with flag/option `suite` and `suite`
 The most flexible way to specify what to test, is to use a test specification,
 which is a sequence of Erlang terms. The terms are normally declared in one or
 more text files (see `ct:run_test/1`), but can also be passed to `Common Test`
-on the form of a list (see `ct:run_testspec/1`). There are two general types of
+in the form of a list (see `ct:run_testspec/1`). There are two general types of
 terms: configuration terms and test specification terms.
 
 With configuration terms it is, for example, possible to do the following:

@@ -406,7 +406,7 @@ There are also unary set operators:
 Recall that a call is a pair (From, To). `domain` applied to a set of calls is
 interpreted as the set of all vertices From, and `range` as the set of all
 vertices To. The interpretation of the `strict` operator is the operand with all
-calls on the form (A, A) removed.
+calls of the form (A, A) removed.
 
 The interpretation of the _restriction operators_{: #restriction } is a subset
 of the first operand, a set of calls. The second operand, a set of vertices, is

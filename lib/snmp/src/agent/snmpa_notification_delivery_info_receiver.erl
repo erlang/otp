@@ -39,7 +39,7 @@ following functions:
 The semantics of them and their exact signatures are explained below.
 
 Legacy notification delivery information receiver modules used a target argument
-on the form `{IpAddr, PortNumber}` instead of `{Domain, Addr}`, and if the SNMP
+of the form `{IpAddr, PortNumber}` instead of `{Domain, Addr}`, and if the SNMP
 Agent is run without changing the configuration to use transport domains the
 notification delivery information receiver will still get the old arguments and
 work as before.

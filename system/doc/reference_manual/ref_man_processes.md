@@ -605,7 +605,7 @@ received by a process:
     `kill` will _not_ terminate the process in this case and it will not be
     converted to `killed`.
 
-  The converted message will be on the form `{'EXIT', SenderID, Reason}` where
+  The converted message will be of the form `{'EXIT', SenderID, Reason}` where
   `Reason` equals the exit reason of the exit signal and `SenderID` is the
   identifier of the process or port that sent the exit signal.
 

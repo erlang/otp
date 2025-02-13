@@ -122,7 +122,7 @@ following keys can be set as configuration parameters:
   An empty string is interpreted as local time. The values `"Z"`, `"z"` or `0`
   are interpreted as Universal Coordinated Time (UTC).
 
-  Strings, other than `"Z"`, `"z"`, or `""`, must be on the form `±[hh]:[mm]`,
+  Strings, other than `"Z"`, `"z"`, or `""`, must be of the form `±[hh]:[mm]`,
   for example `"-02:00"` or `"+00:00"`.
 
   Integers must be in microseconds, meaning that the offset `7200000000` is

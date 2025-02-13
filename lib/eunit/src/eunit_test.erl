@@ -368,7 +368,7 @@ context_error(Type, Class, Trace, Term) ->
     throw({context_error, Type, {Class, Term, get_stacktrace(Trace)}}).
 
 %% This generates single setup/cleanup functions from a list of tuples
-%% on the form {Tag, Setup, Cleanup}, where the setup function always
+%% of the form {Tag, Setup, Cleanup}, where the setup function always
 %% backs out correctly from partial completion.
 
 multi_setup(List) ->

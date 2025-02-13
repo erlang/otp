@@ -745,7 +745,7 @@ remove(Name, FuncOrFuncId, Timeout) ->
     send_system_msg(Name, {debug, {remove, FuncOrFuncId}}, Timeout).
 
 %%-----------------------------------------------------------------
-%% All system messages sent are on the form {system, From, Msg}
+%% All system messages sent are of the form {system, From, Msg}
 %% The receiving side should send Msg to handle_system_msg/5.
 %%-----------------------------------------------------------------
 send_system_msg(Name, Request) ->

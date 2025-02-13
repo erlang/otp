@@ -11177,7 +11177,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     ERTS_BIF_PREP_RET(ret, am_ok);
 
     /*
-     * Send message on the form: {Requester, Target, Operation}
+     * Send message of the form: {Requester, Target, Operation}
      */
 
     ASSERT(is_immed(st->requester));
