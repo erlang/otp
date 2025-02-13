@@ -47,6 +47,8 @@
          bad_service_name_length/2,
          bad_service_name_then_correct/1,
          bad_very_long_service_name/1,
+         banner_sent_to_client/1,
+         banner_not_sent_to_client/1,
          client_handles_keyboard_interactive_0_pwds/1,
          client_handles_banner_keyboard_interactive/1,
          client_info_line/1,
@@ -145,7 +147,9 @@ groups() ->
 			     bad_service_name_then_correct
 			    ]},
      {authentication, [], [client_handles_keyboard_interactive_0_pwds,
-                           client_handles_banner_keyboard_interactive
+                           client_handles_banner_keyboard_interactive,
+                           banner_sent_to_client,
+                           banner_not_sent_to_client
 			  ]},
      {ext_info, [], [no_ext_info_s1,
                      no_ext_info_s2,
@@ -761,6 +765,74 @@ client_handles_banner_keyboard_interactive(Config) ->
                                                 ]}]
 			).
 
+banner_sent_to_client(Config) ->
+    BannerFun = fun(U) -> list_to_binary(U) end,
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+					     {user_dir, UserDir},
+					     {password, Pwd},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {bannerfun, BannerFun}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host, Port, User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_banner{message = BannerFun(User),
+                                            language = <<>>}, receive_msg},
+	   {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+
+    ssh:stop_daemon(Pid),
+    Config.
+
+banner_not_sent_to_client(Config) ->
+    %% Bad bannerfun
+    BBF = fun(_U) -> no_banner_is_sent_because_bannerfun_return_is_not_binary end,
+    User = "foo",
+    Pwd = "morot",
+    UserDir = user_dir(Config),
+    {BBFPid, BBFHost, BBFPort} =
+        ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {failfun, fun ssh_test_lib:failfun/2},
+                             {bannerfun, BBF}]),
+
+    {ok,BBFAfterUserAuthReqState} = connect_and_userauth_request(BBFHost,
+                                                                 BBFPort,
+                                                                 User, Pwd, UserDir),
+    {ok,BBFEndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], BBFAfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(BBFEndState),
+    ssh:stop_daemon(BBFPid),
+
+    %% No bannerfun
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok,AfterUserAuthReqState} = connect_and_userauth_request(Host,
+                                                              Port,
+                                                              User, Pwd, UserDir),
+    {ok,EndState} =
+	ssh_trpt_test_lib:exec(
+	  [{match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+	  ], AfterUserAuthReqState),
+
+    {ok,_} = trpt_test_lib_send_disconnect(EndState),
+    ssh:stop_daemon(Pid),
+
+    Config.
+
 %%%--------------------------------------------------------------------
 client_info_line(Config) ->
     %% A client must not send an info-line. If it does, the server should handle
@@ -1300,3 +1372,43 @@ disconnect(Code) ->
 	   tcp_closed,
 	   {tcp_error,econnaborted}
 	  ]}.
+
+%%%----------------------------------------------------------------
+connect_and_userauth_request(Host, Port, User, Pwd, UserDir) ->
+    ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg},
+           {send, #ssh_msg_service_request{name = "ssh-userauth"}},
+	   {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+	   {send, #ssh_msg_userauth_request{user = User,
+					    service = "ssh-connection",
+					    method = "password",
+					    data = <<?BOOLEAN(?FALSE),
+						     ?STRING(unicode:characters_to_binary(Pwd))>>
+					   }}
+          ]).
+
+trpt_test_lib_send_disconnect(State) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+                                  description = "End of the fun",
+                                  language = ""
+                                 }},
+       close_socket
+      ], State).
