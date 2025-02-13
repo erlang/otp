@@ -38,7 +38,6 @@ build(Opts) ->
                   ?WARN_FUN_APP,
                   ?WARN_MATCHING,
                   ?WARN_OPAQUE,
-                  ?WARN_OPAQUE_UNION,
                   ?WARN_CALLGRAPH,
                   ?WARN_FAILING_CALL,
                   ?WARN_BIN_CONSTRUCTION,

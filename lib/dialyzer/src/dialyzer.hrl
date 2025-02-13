@@ -144,7 +144,8 @@ the warning options.
                        | 'extra_return'
                        | 'no_extra_return'
                        | 'missing_return'
-                       | 'no_missing_return'.
+                       | 'no_missing_return'
+                       | 'opaque_union'.
 -doc """
 Option `from` defaults to `byte_code`. Options `init_plt` and `plts` change the
 default.
