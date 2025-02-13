@@ -366,6 +366,10 @@ server(Addr, Port) ->
 %% -define(DBG(T),
 %%         erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME}, T})).
 
+%% -define(P(F),   ?P(F, [])).
+%% -define(P(F,A), p("~w:~w(~w) -> " ++ F, [?MODULE, ?FUNCTION_NAME, ?LINE | A])).
+
+
 %% Also in prim_socket
 -define(REGISTRY, socket_registry).
 
@@ -1686,10 +1690,10 @@ Information element designators for the  `i/1` and `i/2` functions.
 %%
 
 -define(ASYNCH_DATA_TAG, (recv | recvfrom | recvmsg |
-                          send | sendto | sendmsg | sendfile)).
+                          send | sendv | sendto | sendmsg | sendfile)).
 -define(ASYNCH_TAG,      ((accept | connect) | ?ASYNCH_DATA_TAG)).
 
-%% -type asynch_data_tag() :: send | sendto | sendmsg |
+%% -type asynch_data_tag() :: send | sendv | sendto | sendmsg |
 %%                            recv | recvfrom | recvmsg |
 %%                            sendfile.
 %% -type asynch_tag()      :: connect | accept |
@@ -3619,7 +3623,6 @@ send_common_nowait_result(Handle, Op, Result) ->
 send_common_deadline_result(
   SockRef, Data, Handle, Deadline, HasWritten,
   Op, Fun, SendResult) ->
-    %%
     case SendResult of
         select ->
             %% Would block, wait for continuation
@@ -3659,6 +3662,7 @@ send_common_deadline_result(
                     send_common_error(timeout, Data_1, true)
             end;
 
+	%%
         completion ->
             %% Would block, wait for continuation
             Timeout = timeout(Deadline),
@@ -3668,9 +3672,51 @@ send_common_deadline_result(
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
                     send_common_error(Reason, Data, false)
             after Timeout ->
+                    %% ?DBG(['completion send timeout - cancel']),
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, Data, false)
+            end;
+
+        {completion, _} ->
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Handle, {ok, Written}}) ->
+                    case prim_socket:rest_iov(Written, Data) of
+			[] ->
+			    ok;
+			Data_1 ->
+			    Fun(SockRef, Data_1, undefined, Deadline, true)
+		    end;
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, Data, false)
+            after Timeout ->
 		    %% ?DBG(['completion send timeout - cancel']),
                     _ = cancel(SockRef, Op, Handle),
                     send_common_error(timeout, Data, false)
+            end;
+
+        {completion, RestData, _} ->
+            %% Would block, wait for continuation
+            Timeout = timeout(Deadline),
+            receive
+                ?socket_msg(_Socket, completion, {Handle, {ok, Written}}) ->
+                    case prim_socket:rest_iov(Written, RestData) of
+			[] ->
+			    ok;
+			Data_1 ->
+			    Fun(SockRef, Data_1, undefined, Deadline, true)
+		    end;
+                ?socket_msg(_Socket, completion, {Handle, CompletionStatus}) ->
+                    CompletionStatus;
+                ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+                    send_common_error(Reason, RestData, false)
+            after Timeout ->
+		    %% ?DBG(['completion send timeout - cancel']),
+                    _ = cancel(SockRef, Op, Handle),
+                    send_common_error(timeout, RestData, false)
             end;
 
         %%
@@ -4255,7 +4301,7 @@ sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
       Reason  :: posix() | 'closed' | invalid().
 
 sendv(Socket, IOV) ->
-    sendv(Socket, IOV, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT).
+    sendv(Socket, IOV, ?ESOCK_SENDV_TIMEOUT_DEFAULT).
 
 
 -doc """
