@@ -7,7 +7,8 @@
          private_types/1, export_all/1, equiv/1, spec/1, deprecated/1, warn_missing_doc/1,
          doc_with_file/1, doc_with_file_error/1, all_string_formats/1,
          docs_from_ast/1, spec_switch_order/1, user_defined_type/1, skip_doc/1,
-         no_doc_attributes/1, converted_metadata/1, converted_metadata_warnings/1]).
+         no_doc_attributes/1, converted_metadata/1, converted_metadata_warnings/1,
+         cover_compiled/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/eep48.hrl").
@@ -16,7 +17,9 @@
 -define(get_name(), atom_to_list(?FUNCTION_NAME)).
 
 all() ->
-    [{group, documentation_generation_tests}, doc_with_file].
+    [{group, documentation_generation_tests},
+     doc_with_file,
+     cover_compiled].
 
 groups() ->
     [{documentation_generation_tests, [parallel], documentation_generation_tests()}].
@@ -693,6 +696,27 @@ converted_metadata_warnings(Config) ->
     ?assertMatch({DocAnno, beam_doc, {invalid_metadata, since}}, DocSinse),
 
     ok.
+
+cover_compiled(Config) ->
+    case test_server:is_cover() of
+        true ->
+            {skip, "Cover is running"};
+        false ->
+            try
+                DataDir = proplists:get_value(data_dir, Config),
+                ok = file:set_cwd(DataDir),
+
+                ModuleName = ?get_name(),
+                {ok, ModName} = default_compile_file(Config, ModuleName),
+                {ok, cover_compiled} = cover:compile(ModuleName),
+
+                {ok, #docs_v1{}} = code:get_doc(ModName),
+
+                ok
+            after
+                cover:stop()
+            end
+    end.
 
 scan_and_parse(Code) ->
     {ok, Toks, _} = erl_scan:string(Code),
