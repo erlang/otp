@@ -1867,6 +1867,11 @@ get_doc(Mod, #{sources:=[Source|Sources]}=Options) ->
                 ErtsDir ->
                     GetDoc(filename:join([ErtsDir, "ebin", atom_to_list(Mod) ++ ".beam"]))
             end;
+        cover_compiled ->
+            case cover_compiled_filename(Mod) of
+                {ok, Filename} -> GetDoc(Filename);
+                {error, missing} -> {error, missing}
+            end;
         Error when is_atom(Error) ->
             {error, Error};
         Fn ->
@@ -1954,6 +1959,20 @@ get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
       [unicode:characters_to_binary(Signature)], none, SpecMd}];
 get_function_docs_from_ast(_, _) ->
     [].
+
+cover_compiled_filename(Mod) ->
+   cover_compiled_filename(get_path(), atom_to_list(Mod) ++ ".beam").
+
+cover_compiled_filename([], _Beam) ->
+    {error, missing};
+cover_compiled_filename([Path | T], Beam) ->
+    Filename = filename:join(Path, Beam),
+    case filelib:is_regular(Filename) of
+        true ->
+            {ok, Filename};
+        false ->
+            cover_compiled_filename(T, Beam)
+    end.
 
 %% Search the entire path system looking for name clashes
 
