@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -271,7 +271,7 @@ typedef struct {
 
 
 typedef struct __ESAIOOpDataAccept {
-    /* AcceptEx; ; lookup with WSAID_ACCEPTEX */
+    /* AcceptEx; lookup with WSAID_ACCEPTEX */
 
     /* The socket, sock, is created empty and then provided as an
      * argumented to AcceptEx (together with the listen socket
@@ -346,19 +346,34 @@ typedef struct __ESAIOOpDataSendMsg {
 } ESAIOOpDataSendMsg;
 
 typedef struct __ESAIOOpDataSendv {
-    /* WSASend (used with an io-vector) */
-    ErlNifIOVec*  iovec;
+    /* WSASend (used with an actual io-vector) */
+    ErlNifIOVec* iovec;
 
-    ERL_NIF_TERM  sockRef; /* The socket */
-    ERL_NIF_TERM  sendRef; /* The (unique) reference (ID)
-                            * of the send request */
-} ESAIOOpDataSendv;
+    WSABUF*      lpBuffers;      /* Array of buffers */
+    DWORD        dwBufferCount;  /* Length of buffer array */
+
+    ERL_NIF_TERM sockRef; /* The socket */
+    ERL_NIF_TERM sendRef; /* The (unique) reference (ID)
+                           * of the send request */
+
+    /* The actual size (in bytes) of the I/O Vector that
+     * we are supposed to send. Note that if the I/O Vector is
+     * cut off (length > IOV_MAX), this value will always be
+     * larger than what was sent, resulting in a '{ok, Written}'
+     * or a '{iov, Written}' (completion) result.
+     * If dataInTail is TRUE, this will trigger a '{ok, Written}'
+     * result rather then a 'ok'.
+     */
+    DWORD        toWrite;    // What is to be written in *this* write
+    BOOLEAN_T    dataInTail; // Is there more in 
+
+ } ESAIOOpDataSendv;
 
 typedef struct __ESAIOOpDataRecv {
     /* WSARecv */
-    DWORD         toRead;  /* Can be 0 (= zero)
-                            * "just to indicate: give me what you got"
-                            */
+    DWORD        toRead;  /* Can be 0 (= zero)
+                           * "just to indicate: give me what you got"
+                           */
     ErlNifBinary buf;
     ERL_NIF_TERM sockRef; /* The socket */
     ERL_NIF_TERM recvRef; /* The (unique) reference (ID)
@@ -528,7 +543,7 @@ static ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                       ESAIOOperation*  opP,
                                       ErlNifPid        caller,
                                       int              send_result,
-                                      ssize_t          dataSize,
+                                      size_t           dataSize,
                                       BOOLEAN_T        dataInTail,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     sendRef,
@@ -561,7 +576,7 @@ static BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
                                            ERL_NIF_TERM*    tail);
 static BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
                                               ErlNifIOVec*     iovec,
-                                              ssize_t*         dataSize);
+                                              size_t*          dataSize);
 static BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     eCMsg,
@@ -814,6 +829,7 @@ static void esaio_completion_send_completed(ErlNifEnv*       env,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     sendRef,
                                             DWORD            toWrite,
+                                            BOOLEAN_T        dataInTail,
                                             ESockRequestor*  reqP);
 static ERL_NIF_TERM esaio_completion_send_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
@@ -828,6 +844,32 @@ static void esaio_completion_send_fail(ErlNifEnv*       env,
                                        int              error,
                                        BOOLEAN_T        inform);
 static void esaio_completion_send_not_active(ESockDescriptor* descP);
+static BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
+                                        ESockDescriptor*  descP,
+                                        OVERLAPPED*       ovl,
+                                        ErlNifEnv*        opEnv,
+                                        ErlNifPid*        opCaller,
+                                        ESAIOOpDataSendv* opDataP,
+                                        int               error);
+static void esaio_completion_sendv_success(ErlNifEnv*        env,
+                                           ESockDescriptor*  descP,
+                                           OVERLAPPED*       ovl,
+                                           ErlNifEnv*        opEnv,
+                                           ErlNifPid*        opCaller,
+                                           ESAIOOpDataSendv* opDataP);
+static void esaio_completion_sendv_aborted(ErlNifEnv*        env,
+                                           ESockDescriptor*  descP,
+                                           ErlNifPid*        opCaller,
+                                           ESAIOOpDataSendv* opDataP);
+static void esaio_completion_sendv_failure(ErlNifEnv*        env,
+                                           ESockDescriptor*  descP,
+                                           ErlNifPid*        opCaller,
+                                           ESAIOOpDataSendv* opDataP,
+                                           int               error);
+static void esaio_completion_sendv_fail(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        int              error,
+                                        BOOLEAN_T        inform);
 static BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
                                          ESockDescriptor*   descP,
                                          OVERLAPPED*        ovl,
@@ -2816,12 +2858,12 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     int             wres;
     ERL_NIF_TERM    tail;
     ERL_NIF_TERM    eAddr, eCtrl;
-    ssize_t         dataSize;
+    size_t          dataSize;
     size_t          ctrlBufLen,  ctrlBufUsed;
     WSABUF*         wbufs = NULL;
     ESAIOOperation* opP   = NULL;
 
-    SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> entry with"
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> entry"
                    "\r\n", sockRef, descP->sock) );
 
     /* This *only* works on socket type(s) DGRAM or RAW.
@@ -2830,6 +2872,11 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
      * we do this...
      */
     if (! ((descP->type == SOCK_DGRAM) || (descP->type == SOCK_RAW))) {
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "NOT SUPPORTED FOR TYPE %d (%s)"
+                       "\r\n", sockRef, descP->sock, TYPE2STR(descP->type)) );
+
         return enif_raise_exception(env, MKA(env, "notsup"));
     }
 
@@ -2839,12 +2886,23 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
         return esock_make_error_closed(env);
 
     /* Connect and Write can not be simultaneous? */
-    if (descP->connectorP != NULL)
+    if (descP->connectorP != NULL) {
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "simultaneous connect and send not allowed"
+                       "\r\n", sockRef, descP->sock) );
+
         return esock_make_error_invalid(env, esock_atom_state);
+    }
 
     /* Ensure that this caller does not *already* have a
      * (send) request waiting */
     if (esock_writer_search4pid(env, descP, &caller)) {
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "already sending"
+                       "\r\n", sockRef, descP->sock) );
+
         /* Sender already in queue */
         return esock_raise_invalid(env, esock_atom_state);
     }
@@ -2858,6 +2916,10 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     if (! init_sendmsg_sockaddr(env, descP, eMsg,
                                 &opP->data.sendmsg.msg,
                                 &opP->data.sendmsg.addr)) {
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "address"
+                       "\r\n", sockRef, descP->sock) );
 
         FREE( opP );
 
@@ -2897,7 +2959,10 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
                    B2S(! enif_is_empty_list(opP->env, tail))) );
 
 
-    /* We now have an allocated iovec - verify vector size */
+    /* We now have an allocated iovec - verify vector size
+     * This function may "truncate" the vector
+     * (if the vector size is > iov-max).
+     */
 
     if (! verify_sendmsg_iovec_size(dataP, descP, opP->data.sendmsg.iovec)) {
 
@@ -2915,9 +2980,15 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
 
 
     /* Verify that we can send the entire message.
-     * On DGRAM the tail must be "empty" (= everything must fit in one message).
+     * On DGRAM the tail *must* be "empty" (= everything 
+     * must fit in one message send).
      */
     if (! verify_sendmsg_iovec_tail(opP->env, descP, &tail)) {
+
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "tail not empty"
+                       "\r\n", sockRef, descP->sock) );
 
         // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
         esock_free_env("esaio-sendmsg - iovec tail failure", opP->env);
@@ -2930,7 +3001,14 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
     if (! check_sendmsg_iovec_overflow(descP,
                                        opP->data.sendmsg.iovec, &dataSize)) {
 
-        // No need - belongs to op env: FREE_IOVEC( opP->data.sendmsg.iovec );
+
+        SSDBG( descP, ("WIN-ESAIO", "esaio_sendmsg(%T, %d) -> "
+                       "iovec size failure"
+                       "\r\n", sockRef, descP->sock) );
+
+        /*
+         * No need to explicitly free iovec, it belongs to op env
+         */
         esock_free_env("esaio-sendmsg - iovec size failure", opP->env);
         FREE( opP );
 
@@ -2942,11 +3020,11 @@ ERL_NIF_TERM esaio_sendmsg(ErlNifEnv*       env,
            ("WIN-ESAIO",
             "esaio_sendmsg {%d} -> iovec size verified"
             "\r\n   iov length: %lu"
-            "\r\n   data size:  %u"
+            "\r\n   data size:  %lu"
             "\r\n",
             descP->sock,
             (unsigned long) opP->data.sendmsg.iovec->iovcnt,
-            (long) dataSize) );
+            (unsigned long) dataSize) );
 
     wbufs = MALLOC(opP->data.sendmsg.iovec->iovcnt * sizeof(WSABUF));
     ESOCK_ASSERT( wbufs != NULL );
@@ -3089,7 +3167,6 @@ BOOLEAN_T init_sendmsg_sockaddr(ErlNifEnv*       env,
 }
                              
 
-
 static
 BOOLEAN_T verify_sendmsg_iovec_size(const ESockData* dataP,
                                     ESockDescriptor* descP,
@@ -3107,12 +3184,17 @@ BOOLEAN_T verify_sendmsg_iovec_size(const ESockData* dataP,
 }
 
 
+// #define ESOCK_SENDV_COUNT_DATA_IN_TAIL 1
 
 static
 BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
                                     ERL_NIF_TERM*    tail)
 {
+#if defined(ESOCK_SENDV_COUNT_DATA_IN_TAIL)
+    DWORD        dataInTail = 0;
+    DWORD        binCount = 0;
+#endif
     ERL_NIF_TERM h, t, tmp = *tail;
     ErlNifBinary bin;
 
@@ -3123,6 +3205,25 @@ BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
      * data or the 'iov' is invalid.
      */
 
+#if defined(ESOCK_SENDV_COUNT_DATA_IN_TAIL)
+    for (;;) {
+        if (enif_get_list_cell(env, tmp, &h, &t) &&
+            enif_inspect_binary(env, h, &bin)) {
+            binCount   += 1;
+            dataInTail += bin.size;
+            tmp = t;
+            continue;
+        } else
+            break;
+    }
+
+    ESOCK_PRINTF("verify_sendmsg_iovec_tail(%d) -> "
+                 "\r\n   Number of bins in tail: %lu"
+                 "\r\n   data in tail:           %lu"
+                 "\r\n",
+                 descP->sock, binCount, dataInTail);
+
+#else
     for (;;) {
         if (enif_get_list_cell(env, tmp, &h, &t) &&
             enif_inspect_binary(env, h, &bin) &&
@@ -3132,13 +3233,17 @@ BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
         } else
             break;
     }
+#endif
 
     *tail = tmp;
 
-    if ((! enif_is_empty_list(env, tmp)) &&
-        (descP->type != SOCK_STREAM)) {
+#if defined(ESOCK_SENDV_COUNT_DATA_IN_TAIL)
+    if ((dataInTail > 0) && (descP->type != SOCK_STREAM)) {
+#else
+    if ((! enif_is_empty_list(env, tmp)) && (descP->type != SOCK_STREAM)) {
+#endif
 
-        /* We can not send the whole packet in one sendmsg() call */
+        /* We can not send the whole packet in one sendmsg/sendv() call */
         SSDBG( descP, ("WIN-ESAIO",
                        "verify_sendmsg_iovec_tail {%d} -> invalid tail\r\n",
                        descP->sock) );
@@ -3155,10 +3260,10 @@ BOOLEAN_T verify_sendmsg_iovec_tail(ErlNifEnv*       env,
 static
 BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
                                        ErlNifIOVec*     iovec,
-                                       ssize_t*         dataSize)
+                                       size_t*          dataSize)
 {
-    ssize_t dsz = 0;
-    size_t  i;
+    size_t dsz = 0;
+    size_t i;
 
     for (i = 0;  i < iovec->iovcnt;  i++) {
         size_t len = iovec->iov[i].iov_len;
@@ -3173,7 +3278,7 @@ BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
                            "\r\n   len:       %lu"
                            "\r\n   dataSize:  %ld"
                            "\r\n", descP->sock, (unsigned long) i,
-                           (unsigned long) len, (long) dsz) );
+                           (unsigned long) len, (unsigned long) dsz) );
 
             *dataSize = dsz;
 
@@ -3194,6 +3299,8 @@ BOOLEAN_T check_sendmsg_iovec_overflow(ESockDescriptor* descP,
  * Do the actual sendv.
  * Do some initial writer checks, do the actual send and then
  * analyze the result.
+ *
+ * This function is executing "within" a mutex lock+unlock-block.
  */
 extern
 ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
@@ -3207,8 +3314,10 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
     ERL_NIF_TERM    eres;
     ESockAddress    addr;
     ERL_NIF_TERM    tail;
-    ssize_t         dataSize, sendv_result;
+    size_t          dataSize;
+    ssize_t         sendv_result;
     BOOLEAN_T       dataInTail, cleanup;
+    WSABUF*         wbufs = NULL;
     ESAIOOperation* opP   = NULL;
 
     SSDBG( descP,
@@ -3218,8 +3327,8 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
     ESOCK_ASSERT( enif_self(env, &caller) != NULL );
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendv(%d) -> check state\r\n",
-            descP->sock) );
+           ("WIN-ESAIO", "esaio_sendv(%d) -> check state (0x%lX)\r\n",
+            descP->sock, descP->writeState) );
 
     if (! IS_OPEN(descP->writeState))
         return esock_make_error_closed(env);
@@ -3250,37 +3359,46 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
 
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendv(%d) -> allocations\r\n",
+           ("WIN-ESAIO", "esaio_sendv(%d) -> allocate operation\r\n",
             descP->sock) );
 
     /* Allocate the operation */
     opP = MALLOC( sizeof(ESAIOOperation) );
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> "
+            "\r\n   operation:  0x%lX"
+            "\r\n",
+            descP->sock, opP) );
     ESOCK_ASSERT( opP != NULL);
     sys_memzero((char*) opP, sizeof(ESAIOOperation));
 
     opP->tag = ESAIO_OP_SENDV;
 
     /* Its a bit annoying that we have to alloc an env and then
-     * copy the ref *before* we know that we actually need it.
+     * copy the ref(s) *before* we know that we actually need it.
      * How much does this cost?
      */
-    opP->env = esock_alloc_env("esaio_sendv - operation");
+    opP->env                = esock_alloc_env("esaio_sendv - operation");
+    opP->data.sendv.sendRef = CP_TERM(opP->env, sendRef);
+    opP->data.sendv.sockRef = CP_TERM(opP->env, sockRef);
+    opP->caller             = caller;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_sendv(%d) -> extract I/O vector\r\n",
             descP->sock) );
 
     /* Extract the 'iov', which must be an erlang:iovec(),
-     * from which we take at most IOV_MAX binaries.
+     * from which we take *at most* IOV_MAX binaries.
      * The env *cannot* be NULL because we don't actually know if 
      * the send succeeds *now*. It could be sceduled!
      */
+
     if (! enif_inspect_iovec(opP->env,
                              dataP->iov_max, eIOV, &tail,
                              &opP->data.sendv.iovec)) {
 
         SSDBG( descP, ("WIN-ESAIO",
-                       "esaio_sendv {%d} -> iov inspection failed\r\n",
+                       "esaio_sendv(%d) -> iov inspection failed\r\n",
                        descP->sock) );
 
         esock_free_env("esaio-sendv - iovec inspection failure", opP->env);
@@ -3289,10 +3407,19 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
         return esock_make_error_invalid(env, esock_atom_iov);
     }
 
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_sendv(%d) -> I/O vector: "
+            "\r\n   iovec:           0x%lX"
+            "\r\n   (vector) length: %lu elements"
+            "\r\n",
+            descP->sock,
+            opP->data.sendv.iovec,
+            opP->data.sendv.iovec->iovcnt) );
+
     if (opP->data.sendv.iovec == NULL) {
 
-        SSDBG( descP, ("UNIX-ESSIO",
-                       "esaio_sendv {%d} -> not an iov\r\n",
+        SSDBG( descP, ("WIN-ESAIO",
+                       "esaio_sendv(%d) -> not an iov\r\n",
                        descP->sock) );
 
         esock_free_env("esaio-sendv - iovec failure", opP->env);
@@ -3301,38 +3428,16 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
         return esock_make_invalid(env, esock_atom_iov);
     }
 
+
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_sendv(%d) -> check if data in tail\r\n",
             descP->sock) );
 
     dataInTail = (! enif_is_empty_list(opP->env, tail));
 
-    SSDBG( descP, ("WIN-ESAIO", "esaio_sendv(%d) -> verify iovec size when"
-                   "\r\n   iovcnt: %lu"
-                   "\r\n   tail:   %s"
-                   "\r\n", descP->sock,
-                   (unsigned long) opP->data.sendv.iovec->iovcnt,
-                   B2S(dataInTail)) );
-
-    /* We now have an allocated iovec - verify vector size */
-
-    if (! verify_sendmsg_iovec_size(dataP, descP, opP->data.sendv.iovec)) {
-
-        /* We can not send the whole packet in one sendv() call */
-        SSDBG( descP, ("WIN-ESAIO",
-                       "esaio_sendv {%d} -> iovcnt > iov_max\r\n",
-                       descP->sock) );
-
-        // No need - belongs to op env: FREE_IOVEC( opP->data.send.iovec );
-        esock_free_env("esaio-sendv - iovec failure", opP->env);
-        FREE( opP );
-
-        return esock_make_error_invalid(env, esock_atom_iov);
-    }
-
-    SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendv(%d) -> verify iovec tail\r\n",
-            descP->sock) );
+    SSDBG( descP, ("WIN-ESAIO", "esaio_sendv(%d) -> verify iovec tail"
+                   "\r\n   data in tail: %s"
+                   "\r\n", descP->sock, B2S(dataInTail)) );
 
     /* Verify that we can send the entire message.
      * On DGRAM the tail must be "empty" (= everything must fit in one message).
@@ -3364,21 +3469,33 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("WIN-ESAIO",
-            "esaio_sendv {%d} -> iovec size verified"
-            "\r\n   iov length: %lu"
-            "\r\n   data size:  %u"
+            "esaio_sendv(%d) -> iovec size verified"
+            "\r\n   data in tail: %s"
+            "\r\n   data size:    %u"
             "\r\n",
             descP->sock,
-            (unsigned long) opP->data.sendv.iovec->iovcnt,
+            B2S(dataInTail),
             (long) dataSize) );
+
+    wbufs = MALLOC(opP->data.sendv.iovec->iovcnt * sizeof(WSABUF));
+    ESOCK_ASSERT( wbufs != NULL );
+    for (int i = 0; i < opP->data.sendv.iovec->iovcnt; i++) {
+        wbufs[i].len = opP->data.sendv.iovec->iov[i].iov_len;
+        wbufs[i].buf = opP->data.sendv.iovec->iov[i].iov_base;
+    }
+
+    opP->data.sendv.lpBuffers     = wbufs;
+    opP->data.sendv.dwBufferCount = opP->data.sendv.iovec->iovcnt;
+    opP->data.sendv.toWrite       = dataSize;
+    opP->data.sendv.dataInTail    = dataInTail;
 
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_tries, &descP->writeTries, 1);
 
     /* And now, try to send the message */
     sendv_result = sock_sendv_O(descP->sock,
-                                (LPWSABUF) opP->data.sendv.iovec->iov,
-                                opP->data.sendv.iovec->iovcnt,
+                                (LPWSABUF) opP->data.sendv.lpBuffers,
+                                opP->data.sendv.dwBufferCount,
                                 (OVERLAPPED*) opP);
 
     eres = send_check_result(env, descP, opP, caller,
@@ -3386,25 +3503,40 @@ ERL_NIF_TERM esaio_sendv(ErlNifEnv*       env,
                              sockRef, sendRef, &cleanup);
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendv(%d) -> sent and analyzed: %d, %T\r\n",
-            descP->sock, sendv_result, eres) );
+           ("WIN-ESAIO", "esaio_sendv(%d) -> sent and analyzed: %d\r\n",
+            descP->sock, sendv_result) );
 
+
+    /*
+     * Once the send (WSASend) has been called, the buffers is owned
+     * by the system.
+     */
+
+    /*
     if (cleanup) {
         
-        /* The i/o vector belongs to the op env,
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_sendv(%d) -> cleanup\r\n",
+                descP->sock) );
+
+        / * "Manually" allocated buffers * /
+        FREE( opP->data.sendv.lpBuffers );
+
+        / * The i/o vector belongs to the op env,
          * so it goes when the env goes.
-         */
+         * /
         esock_clear_env("esaio_sendv - cleanup", opP->env);
         esock_free_env("esaio_sendv - cleanup", opP->env);
 
         FREE( opP );
 
     }
+    */
 
     SSDBG( descP,
-           ("WIN-ESAIO", "esaio_sendv {%d} -> done (%s)"
-            "\r\n   %T"
-            "\r\n", descP->sock, B2S(cleanup), eres) );
+           ("WIN-ESAIO", "esaio_sendv(%d) -> done"
+            "\r\n   result: %T"
+            "\r\n", descP->sock, eres) );
 
     return eres;
 
@@ -3441,7 +3573,7 @@ BOOLEAN_T decode_cmsghdrs(ErlNifEnv*       env,
     int          i;
 
     SSDBG( descP, ("WIN-ESAIO", "decode_cmsghdrs {%d} -> entry with"
-                   "\r\n   eCMsg:      %T"
+                   "\r\n   eCMsg:         %T"
                    "\r\n   cmsgHdrBufP:   0x%lX"
                    "\r\n   cmsgHdrBufLen: %d"
                    "\r\n", descP->sock,
@@ -6605,7 +6737,7 @@ void* esaio_completion_main(void* threadDataP)
 
         } /* if (!res) */
 
-        dataP->latest = opP->tag;
+        dataP->latest = opP->tag; // This is just for debugging
 
         switch (opP->tag) {
         case ESAIO_OP_TERMINATE:
@@ -6639,6 +6771,15 @@ void* esaio_completion_main(void* threadDataP)
                                          opP->env, &opP->caller,
                                          &opP->data.send,
                                          save_errno);
+            break;
+
+        case ESAIO_OP_SENDV:
+            SGDBG( ("WIN-ESAIO",
+                    "esaio_completion_main -> received sendv cmd\r\n") );
+            done = esaio_completion_sendv(dataP, descP, (OVERLAPPED*) opP,
+                                          opP->env, &opP->caller,
+                                          &opP->data.sendv,
+                                          save_errno);
             break;
 
         case ESAIO_OP_SENDTO:
@@ -6698,8 +6839,12 @@ void* esaio_completion_main(void* threadDataP)
 
         }
 
+
+        SGDBG( ("WIN-ESAIO", "esaio_completion_main -> free OVERLAPPED\r\n") );
+
         FREE(opP);
 
+        
     } /* while (!done) */
 
     SGDBG( ("WIN-ESAIO", "esaio_completion_main -> terminating\r\n") );
@@ -7216,7 +7361,7 @@ void esaio_completion_accept_success(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_accept_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
@@ -7359,7 +7504,7 @@ void esaio_completion_accept_failure(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_accept_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->acceptorsQ.first == NULL)), descP->readState) );
     if (descP->acceptorsQ.first == NULL) {
@@ -7699,6 +7844,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
                                             opDataP->sockRef,
                                             opDataP->sendRef,
                                             opDataP->wbuf.len,
+                                            FALSE,
                                             &req);
         } else {
             /* A completed (active) request for a socket that is not open.
@@ -7721,7 +7867,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_send_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7743,9 +7889,9 @@ void esaio_completion_send_success(ErlNifEnv*       env,
 
 static
 void esaio_completion_send_aborted(ErlNifEnv*         env,
-                                     ESockDescriptor* descP,
-                                     ErlNifPid*       opCaller,
-                                     ESAIOOpDataSend* opDataP)
+                                   ESockDescriptor* descP,
+                                   ErlNifPid*       opCaller,
+                                   ESAIOOpDataSend* opDataP)
 {
     ESockRequestor req;
 
@@ -7872,7 +8018,7 @@ void esaio_completion_send_failure(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_send_failure(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -7894,6 +8040,7 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     sendRef,
                                      DWORD            toWrite,
+                                     BOOLEAN_T        dataInTail,
                                      ESockRequestor*  reqP)
 {
     ERL_NIF_TERM completionStatus, completionInfo;
@@ -7925,17 +8072,52 @@ void esaio_completion_send_completed(ErlNifEnv*       env,
 
         if (written == toWrite) {
 
-            /* Sent it all => done */
+            /* Sent it "all" (if the operation was a sendv,
+             * then the I/O vector might have been "cut off"),
+             * *but* there might have been data "in the tail",
+             * that is; size (length) of I/O vector > IOV_MAX.
+             * This is *only* possible for *sendv*!
+             * sendmsg also has the data in an I/O vector, but is only
+             * supported for DGRAM, where *all* of the I/O vector must
+             * fit in one message.
+             */
 
-            completionStatus = esaio_completion_send_done(env,
-                                                          descP, sockRef,
-                                                          written);
+            if (dataInTail) {
 
+                /*
+                ESOCK_PRINTF("esaio_completion_send_completed(%d) -> "
+                             "partial with data in tail: "
+                             "\r\n   Written: %lu"
+                             "\r\n",
+                             descP->sock, written);
+                */
+
+                completionStatus = esaio_completion_send_partial(env,
+                                                                 descP,
+                                                                 sockRef,
+                                                                 written);
+
+            } else {
+
+                completionStatus = esaio_completion_send_done(env,
+                                                              descP, sockRef,
+                                                              written);
+
+            }
+                
         } else {
 
             /* Only send part of the data =>
              * needs splitting and (maybe) retry (its up to the caller)!
              */
+
+            /*
+            ESOCK_PRINTF("esaio_completion_send_completed(%d) -> partial: "
+                         "\r\n   To Write: %lu"
+                         "\r\n   Written:  %lu"
+                         "\r\n",
+                         descP->sock, toWrite, written);
+            */
 
             completionStatus = esaio_completion_send_partial(env,
                                                              descP,
@@ -8031,7 +8213,7 @@ ERL_NIF_TERM esaio_completion_send_partial(ErlNifEnv*       env,
 
     }
 
-    return esock_make_ok2(env, MKI64(env, written));
+    return esock_make_ok2(env, MKUI64(env, written));
 
 }
 
@@ -8087,6 +8269,355 @@ void esaio_completion_send_fail(ErlNifEnv*       env,
                                 BOOLEAN_T        inform)
 {
     esaio_completion_fail(env, descP, "send", error, inform);
+}
+
+
+
+/* === send 'stuff' === */
+
+/* *** esaio_completion_sendv ***
+ *
+ * Handle a completed 'sendv' (completion) request.
+ * Send a 'completion' message (to requestor) with the request status.
+ *
+ * Completion message: 
+ *     {'socket tag', socket(), completion, CompletionInfo}
+ *
+ *     CompletionInfo:   {CompletionHandle, CompletionStatus}
+ *     CompletionHandle: reference()
+ *     Result:           ok | {ok, Written} | {error, Reason}
+ *
+ * Note that the normal result is 'ok', but if the attempt was to send
+ * an I/O vector with length > IOV_MAX, then the vector will be cut
+ * off at IOV_MAX. If we succeed at sending that part, the success
+ * result will be '{ok, Written}'.
+ *
+ * There is a possibillity of a race here. That is, if the user
+ * calls socket:sendv(Socket, ..., nowait), the send is scheduled,
+ * and then just as it has completed, but before this
+ * thread has been activated to handle the 'send completed'
+ * the user calls socket:close(Socket) (or exits).
+ * Then when this function is called, the socket is closed.
+ * What to do?
+ *
+ * We need to use 'WSAGetOverlappedResult' to actually figure out the
+ * "transfer result" (how much was sent).
+ */
+static
+BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
+                                 ESockDescriptor*  descP,
+                                 OVERLAPPED*       ovl,
+                                 ErlNifEnv*        opEnv,
+                                 ErlNifPid*        opCaller,
+                                 ESAIOOpDataSendv* opDataP,
+                                 int               error)
+{
+    ErlNifEnv*     env = dataP->env;
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_completion_sendv(%d) -> entry with"
+            "\r\n   opDataP: 0x%lX"
+            "\r\n   error:   %d"
+            "\r\n", descP->sock, opDataP, error) );
+
+    switch (error) {
+    case NO_ERROR:
+        SSDBG( descP,
+               ("WIN-ESAIO", "esaio_completion_sendv(%d) -> no error"
+                "\r\n", descP->sock) );
+        MLOCK(descP->writeMtx);
+
+        esaio_completion_sendv_success(env, descP, ovl, opEnv,
+                                       opCaller, opDataP);
+
+        MUNLOCK(descP->writeMtx);
+        break;
+
+    case WSA_OPERATION_ABORTED:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendv(%d) -> operation aborted"
+                "\r\n", descP->sock) );
+        /* *** SAME MTX LOCK ORDER FOR ALL OPs *** */
+        MLOCK(descP->readMtx);
+        MLOCK(descP->writeMtx);
+
+        esaio_completion_sendv_aborted(env, descP, opCaller, opDataP);
+
+        MUNLOCK(descP->writeMtx);
+        MUNLOCK(descP->readMtx);
+        break;
+
+    default:
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendv(%d) -> operation unknown failure"
+                "\r\n", descP->sock) );
+        MLOCK(descP->writeMtx);
+
+        esaio_completion_sendv_failure(env, descP, opCaller, opDataP, error);
+        
+        MUNLOCK(descP->writeMtx);
+        break;
+    }
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendv(%d) -> cleanup\r\n", descP->sock) );
+
+    /* "Manually" allocated buffers */
+    FREE( opDataP->lpBuffers );
+
+    /* No need for this "stuff" anymore */
+    esock_clear_env("esaio_completion_sendv - op cleanup", opEnv);
+    esock_free_env("esaio_completion_sendv - op cleanup", opEnv);
+
+    SSDBG( descP,
+           ("WIN-ESAIO", "esaio_completion_sendv(%d) -> done\r\n",
+            descP->sock) );
+
+    return FALSE;
+}
+
+
+
+/* *** esaio_completion_sendv_success ***
+ */
+static
+void esaio_completion_sendv_success(ErlNifEnv*        env,
+                                    ESockDescriptor*  descP,
+                                    OVERLAPPED*       ovl,
+                                    ErlNifEnv*        opEnv,
+                                    ErlNifPid*        opCaller,
+                                    ESAIOOpDataSendv* opDataP)
+{
+    ESockRequestor req;
+    BOOLEAN_T      cleanup;
+
+    if (esock_writer_get(env, descP,
+                         &opDataP->sendRef,
+                         opCaller,
+                         &req)) {
+        if (IS_OPEN(descP->writeState)) {
+            esaio_completion_send_completed(env, descP, ovl, opEnv,
+                                            opCaller,
+                                            opDataP->sockRef,
+                                            opDataP->sendRef,
+                                            opDataP->toWrite,
+                                            opDataP->dataInTail,
+                                            &req);
+        } else {
+            /* A completed (active) request for a socket that is not open.
+             * Is this even possible?
+             * A race (completed just as the socket was closed).
+             */
+            esaio_completion_send_not_active(descP);
+        }
+
+        cleanup = TRUE;
+
+    } else {
+
+        /* Request was actually completed directly
+         * (and was therefor not put into the "queue")
+         * => Nothing to do here.
+         */
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendv_success(%d) -> "
+                "ghost activation (no cleanup)"
+                "\r\n", descP->sock) );
+
+        cleanup = FALSE;
+
+    }
+
+
+    if (cleanup) {
+
+        /* *Maybe* update socket (write) state
+         * (depends on if we made the queue is now empty (we made it so))
+         */
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendv_success(%d) -> "
+                "maybe update (write) state (0x%X)\r\n",
+                descP->sock,
+                B2S((descP->writersQ.first == NULL)), descP->writeState) );
+
+        if (descP->writersQ.first == NULL) {
+            descP->writeState &= ~ESOCK_STATE_SELECTED;
+        }
+
+    }
+
+}
+
+
+
+/* *** esaio_completion_sendv_aborted ***
+ * The only thing *we* do that could cause an abort is the
+ * 'CancelIoEx' call, which we do when closing the socket
+ * (or cancel a request).
+ * But if we have done that;
+ *   - Socket state will not be 'open' and
+ *   - we have also set closer (pid and ref).
+ */
+
+static
+void esaio_completion_sendv_aborted(ErlNifEnv*        env,
+                                    ESockDescriptor*  descP,
+                                    ErlNifPid*        opCaller,
+                                    ESAIOOpDataSendv* opDataP)
+{
+    ESockRequestor req;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendv_aborted(%d) -> "
+            "try get request"
+            "\r\n", descP->sock) );
+
+    if (esock_writer_get(env, descP,
+                         &opDataP->sendRef,
+                         opCaller,
+                         &req)) {
+
+        ERL_NIF_TERM reason = esock_atom_closed;
+
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion_sendv_aborted(%d) -> "
+                "send abort message to %T"
+                "\r\n", descP->sock, req.pid) );
+
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             &req, reason);
+
+    }
+
+    /* The socket not being open (assumed closing),
+     * means we are in the closing phase...
+     */
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendv_aborted(%d) -> "
+            "maybe send close message => "
+            "\r\n   is socket (write) open: %s"
+            "\r\n",
+            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
+
+    if (! IS_OPEN(descP->writeState)) {
+
+        /* We can only send the 'close' message to the closer
+         * when all requests has been processed!
+         */
+
+        /* Check "our" queue */
+        if (descP->writersQ.first == NULL) {
+
+            /* Check "other" queue(s) and if there is a closer pid */
+            if ((descP->readersQ.first == NULL) &&
+                (descP->acceptorsQ.first == NULL)) {
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "esaio_completion_sendv_aborted(%d) -> "
+                        "all queues are empty => "
+                        "\r\n   send close message"
+                        "\r\n",
+                        descP->sock) );
+
+                esaio_stop(env, descP);
+
+            }
+        }
+    }
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendv_aborted(%d) -> "
+            "maybe (%s) update (write) state (0x%X)\r\n",
+            descP->sock,
+            B2S((descP->writersQ.first == NULL)), descP->writeState) );
+    if (descP->writersQ.first == NULL) {
+        descP->writeState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
+
+
+
+/* *** esaio_completion_sendv_failure *
+ * A "general" failure happened while performing the 'sendv' operation.
+ */
+static
+void esaio_completion_sendv_failure(ErlNifEnv*        env,
+                                    ESockDescriptor*  descP,
+                                    ErlNifPid*        opCaller,
+                                    ESAIOOpDataSendv* opDataP,
+                                    int               error)
+{
+    ESockRequestor req;
+    ERL_NIF_TERM   reason;
+
+    /* We do not know what this is
+     * but we can "assume" that the request failed so we need to
+     * remove it from the "queue" if its still there...
+     * And cleanup...
+     */
+    if (esock_writer_get(env, descP,
+                         &opDataP->sendRef,
+                         opCaller,
+                         &req)) {
+
+        reason = MKT2(env,
+                      esock_atom_completion_status,
+                      ENO2T(env, error));
+
+        /* Inform the user waiting for a reply */
+        esock_send_abort_msg(env, descP, opDataP->sockRef,
+                             &req, reason);
+        esaio_completion_sendv_fail(env, descP, error, FALSE);
+
+    } else {
+        esaio_completion_sendv_fail(env, descP, error, TRUE);
+    }
+
+    /* *Maybe* update socket (write) state
+     * (depends on if the queue is now empty)
+     */
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_sendv_failure(%d) -> "
+            "maybe (%s) update (write) state (0x%X)\r\n",
+            descP->sock,
+            B2S((descP->writersQ.first == NULL)), descP->writeState) );
+    if (descP->writersQ.first == NULL) {
+        descP->writeState &= ~ESOCK_STATE_SELECTED;
+    }
+
+}
+
+
+/* *** esaio_completion_sendv_fail ***
+ * Unknown operation failure.
+ */
+static
+void esaio_completion_sendv_fail(ErlNifEnv*       env,
+                                 ESockDescriptor* descP,
+                                 int              error,
+                                 BOOLEAN_T        inform)
+{
+    esaio_completion_fail(env, descP, "sendv", error, inform);
 }
 
 
@@ -8215,6 +8746,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
                                             opDataP->sockRef,
                                             opDataP->sendRef,
                                             opDataP->wbuf.len,
+                                            FALSE,
                                             &req);
         } else {
             /* A completed (active) request for a socket that is not open.
@@ -8237,7 +8769,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendto_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8386,7 +8918,7 @@ void esaio_completion_sendto_failure(ErlNifEnv*         env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendto_failure(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8535,8 +9067,12 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
 
             DWORD toWrite = 0;
 
-            /* Calculate how much data *in total*
-             * we was supposed to write */
+            /* Calculate how much data *in total* we was supposed to write.
+             * Note that we can do this here since sendmsg on Windows
+             * are only supported for DGRAM and RAW and those has
+             * to fit in *one* package (send), so this is the entire
+             * message (unlike sendv for STREAM).
+             */
             for (int i = 0; i < opDataP->iovec->iovcnt; i++) {
                 toWrite += opDataP->iovec->iov[i].iov_len;
             }
@@ -8546,6 +9082,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
                                             opDataP->sockRef,
                                             opDataP->sendRef,
                                             toWrite,
+                                            FALSE,
                                             &req);
 
         } else {
@@ -8569,7 +9106,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendmsg_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -8718,7 +9255,7 @@ void esaio_completion_sendmsg_failure(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_sendmsg_success(%d) -> "
-            "maybe (%s) update (write) state (ox%X)\r\n",
+            "maybe (%s) update (write) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->writersQ.first == NULL)), descP->writeState) );
     if (descP->writersQ.first == NULL) {
@@ -9036,7 +9573,7 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recv_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9622,7 +10159,7 @@ void esaio_completion_recvfrom_success(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9693,7 +10230,7 @@ void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_more_data(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -9845,7 +10382,7 @@ void esaio_completion_recvfrom_failure(ErlNifEnv*           env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvfrom_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -10263,7 +10800,7 @@ void esaio_completion_recvmsg_success(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvmsg_success(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -10418,7 +10955,7 @@ void esaio_completion_recvmsg_failure(ErlNifEnv*          env,
     SSDBG( descP,
            ("WIN-ESAIO",
             "esaio_completion_recvmsg_failure(%d) -> "
-            "maybe (%s) update (read) state (ox%X)\r\n",
+            "maybe (%s) update (read) state (0x%X)\r\n",
             descP->sock,
             B2S((descP->readersQ.first == NULL)), descP->readState) );
     if (descP->readersQ.first == NULL) {
@@ -11257,7 +11794,7 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
                                ESAIOOperation*  opP,
                                ErlNifPid        caller,
                                int              send_result,
-                               ssize_t          dataSize,
+                               size_t           dataSize,
                                BOOLEAN_T        dataInTail,
                                ERL_NIF_TERM     sockRef,
                                ERL_NIF_TERM     sendRef,
@@ -11269,16 +11806,38 @@ ERL_NIF_TERM send_check_result(ErlNifEnv*       env,
 
     if (send_result == 0) {
 
-        /* Send success already!
-         * So, no need to store the data (request, in the "queue").
-         * Note that the completion threads will use the
-         * precense or absence of this request 'record' to inform
-         * its actions.
-         */
+        if (!dataInTail) {
 
-        *cleanup = FALSE;
+            /* Send success already!
+             * So, no need to store the data (request, in the "queue").
+             * Note that the completion threads will use the
+             * precense or absence of this request 'record' to inform
+             * its actions.
+             */
 
-        res = send_check_ok(env, descP, dataSize, sockRef);
+            *cleanup = FALSE;
+
+            res = send_check_ok(env, descP, dataSize, sockRef);
+
+        } else {
+
+            /* We only attempted to write a part of the IOV,
+             * but *that* part was successfully written in its entirety
+             * (since it was not scheduled).
+             * Note that it was only part of the IOV (dataInTail).
+             * Also, we know that its not a DGRAM socket since we then
+             * *require* that *all* of the data fits in one message
+             * (no splitting in parts).
+             */
+
+            descP->writePkgMaxCnt += dataSize;
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_write_byte, &descP->writeByteCnt,
+                          dataSize);
+
+            res = MKT2(env, esock_atom_iov, MKUI64(env, dataSize));
+        }
 
     } else {
 
@@ -11336,13 +11895,20 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_byte, &descP->writeByteCnt, written);
 
-    /* We can *never* have a partial successs:
-     * Either the entire buffer is sent, or the op is scheduled or we fail.
-     * But since we have a field (writePkgMaxCnt) in the descriptor
-     * we might as well use it.
+    /* We *can* have partial success when using sendv (type = STREAM).
+     * Then its possible to send in an I/O vector with a length > IOV_MAX.
+     * In which case we can only send a part of the I/O Vector (we
+     * will return with '{iov, Written}' and the prim_socket
+     * sendv function will call again with the remaining vector,
+     * until the last chunk of the vector has been sucessfully written,
+     * at which point this function is called.
+     *
+     * For sendmsg, this will not be the case since it cannot be used
+     * for type STREAM (TCP). The entire message must fit in one send
+     * operation. Either a complete success directly or we fail.
      */
 
-    descP->writePkgMaxCnt = written;
+    descP->writePkgMaxCnt += written;
     if (descP->writePkgMaxCnt > descP->writePkgMax)
         descP->writePkgMax = descP->writePkgMaxCnt;
     descP->writePkgMaxCnt = 0;
