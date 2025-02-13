@@ -107,7 +107,9 @@ const char* resource_name(const char *name, ErlNifBinary* buf)
 
 ERL_NIF_TERM info_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* () */
+#if defined(HAS_3_0_API) && defined(FIPS_SUPPORT)
     extern OSSL_PROVIDER *fips_provider;
+#endif
     ERL_NIF_TERM keys[6], vals[6];
     ERL_NIF_TERM  ret;
     size_t cnt;
