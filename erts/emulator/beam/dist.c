@@ -1150,6 +1150,8 @@ void init_dist(void)
     {
         Eterm *hp_start, *hp, **hpp = NULL, tuple;
         Uint sz = 0, *szp = &sz;
+        ERTS_UNDEF(hp, NULL);
+        ERTS_UNDEF(hp_start, NULL);
         while (1) {
             struct erl_off_heap_header **ohp;
             /*
