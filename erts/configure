@@ -864,6 +864,7 @@ enable_prefer_elapsed_monotonic_time_during_suspend
 enable_gettimeofday_as_os_system_time
 with_javac
 enable_deterministic_build
+enable_security_hardening_flags
 enable_year2038
 '
       ac_precious_vars='build_alias
@@ -1624,6 +1625,9 @@ Optional Features:
   --enable-deterministic-build
                           enable build determinism, stripping absolute paths
                           from build output
+  --disable-security-hardening-flags
+                          disable Open Source Security Foundation security
+                          hardening flags
   --disable-year2038      don't support timestamps after 2038
 
 Optional Packages:
@@ -3532,6 +3536,19 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8027,7 +8044,7 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=return-type to WERRORFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=return-type to WERRORFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=return-type $WERRORFLAGS";
+    CFLAGS="-Werror -Werror=return-type $WERRORFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8051,9 +8068,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        WERRORFLAGS="-Werror=return-type $WERRORFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        WERRORFLAGS="-Werror=return-type $WERRORFLAGS"
 
 else case e in #(
   e)
@@ -8067,7 +8084,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=implicit to WERRORFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=implicit to WERRORFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=implicit $WERRORFLAGS";
+    CFLAGS="-Werror -Werror=implicit $WERRORFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8091,9 +8108,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        WERRORFLAGS="-Werror=implicit $WERRORFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        WERRORFLAGS="-Werror=implicit $WERRORFLAGS"
 
 else case e in #(
   e)
@@ -8107,7 +8124,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Werror=undef to WERRORFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -Werror=undef to WERRORFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-Werror=undef $WERRORFLAGS";
+    CFLAGS="-Werror -Werror=undef $WERRORFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8131,9 +8148,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        WERRORFLAGS="-Werror=undef $WERRORFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        WERRORFLAGS="-Werror=undef $WERRORFLAGS"
 
 else case e in #(
   e)
@@ -8191,7 +8208,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-common to CFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -fno-common to CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-common $CFLAGS";
+    CFLAGS="-Werror -fno-common $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8215,9 +8232,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CFLAGS="-fno-common $CFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CFLAGS="-fno-common $CFLAGS"
 
 else case e in #(
   e)
@@ -8232,7 +8249,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)" >&5
 printf %s "checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fno-strict-aliasing $CFLAGS";
+    CFLAGS="-Werror -fno-strict-aliasing $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8256,9 +8273,9 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     if test "X$can_enable_flag" = "Xtrue"
 then :
 
+        CFLAGS="-fno-strict-aliasing $CFLAGS"
         { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-        CFLAGS="-fno-strict-aliasing $CFLAGS"
 
 else case e in #(
   e)
@@ -8314,7 +8331,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-generate -Werror..." >&5
 printf %s "checking whether $CC accepts -fprofile-generate -Werror...... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fprofile-generate -Werror $CFLAGS";
+    CFLAGS="-Werror -fprofile-generate -Werror $CFLAGS";
     if test "$cross_compiling" = yes
 then :
   can_enable_flag=false
@@ -8356,7 +8373,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-use -Werror..." >&5
 printf %s "checking whether $CC accepts -fprofile-use -Werror...... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fprofile-use -Werror $CFLAGS";
+    CFLAGS="-Werror -fprofile-use -Werror $CFLAGS";
     if test "$cross_compiling" = yes
 then :
   can_enable_flag=false
@@ -8398,7 +8415,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-use -fprofile-correction -Werror..." >&5
 printf %s "checking whether $CC accepts -fprofile-use -fprofile-correction -Werror...... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fprofile-use -fprofile-correction -Werror $CFLAGS";
+    CFLAGS="-Werror -fprofile-use -fprofile-correction -Werror $CFLAGS";
     if test "$cross_compiling" = yes
 then :
   can_enable_flag=false
@@ -8480,7 +8497,7 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fprofile-instr-generate -Werror..." >&5
 printf %s "checking whether $CC accepts -fprofile-instr-generate -Werror...... " >&6; }
     saved_CFLAGS=$CFLAGS;
-    CFLAGS="-fprofile-instr-generate -Werror $CFLAGS";
+    CFLAGS="-Werror -fprofile-instr-generate -Werror $CFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -27003,6 +27020,846 @@ then :
 else case e in #(
   e) ERL_DETERMINISTIC=no ;;
 esac
+fi
+
+
+
+
+  if test "X$host" = "Xwin32"
+then :
+   ossf_security_hardening_default=no
+else case e in #(
+  e)  ossf_security_hardening_default=yes ;;
+esac
+fi
+  # Check whether --enable-security-hardening-flags was given.
+if test ${enable_security_hardening_flags+y}
+then :
+  enableval=$enable_security_hardening_flags; case "$enableval" in
+       no) ossf_security_hardening=no ;;
+       *)  ossf_security_hardening=yes ;;
+     esac
+else case e in #(
+  e) ossf_security_hardening=$ossf_security_hardening_default ;;
+esac
+fi
+
+
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <string.h>
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+        if test "X$can_enable_flag" = "Xfalse"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <string.h>
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+else case e in #(
+  e) if test "X$can_enable_flag" != "Xtrue"
+then :
+  exit 1
+fi
+         ;;
+esac
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-clash-protection to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstack-clash-protection to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstack-clash-protection $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstack-clash-protection $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstack-protector-strong to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstack-protector-strong $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstack-protector-strong $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fcf-protection=full to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fcf-protection=full to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fcf-protection=full $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fcf-protection=full $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -mbranch-protection=standard to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -mbranch-protection=standard to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -mbranch-protection=standard $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-mbranch-protection=standard $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fexceptions to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fexceptions to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fexceptions $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fexceptions $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-overflow to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-overflow to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-strict-overflow $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-strict-overflow $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-delete-null-pointer-checks to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-delete-null-pointer-checks to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-delete-null-pointer-checks $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-delete-null-pointer-checks $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fno-strict-aliasing to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fno-strict-aliasing $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fno-strict-aliasing $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -ftrivial-auto-var-init=zero to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -ftrivial-auto-var-init=zero to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -ftrivial-auto-var-init=zero $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-ftrivial-auto-var-init=zero $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstrict-flex-arrays=3 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstrict-flex-arrays=3 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstrict-flex-arrays=3 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstrict-flex-arrays=3 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+        if test "X$can_enable_flag" = "Xfalse"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstrict-flex-arrays=2 to CFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -fstrict-flex-arrays=2 to CFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -fstrict-flex-arrays=2 $CFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CFLAGS="-fstrict-flex-arrays=2 $CFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+else case e in #(
+  e) if test "X$can_enable_flag" != "Xtrue"
+then :
+  exit 1
+fi
+         ;;
+esac
+fi
+
+fi
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -D_GLIBCXX_ASSERTIONS to CXXFLAGS (via CFLAGS)" >&5
+printf %s "checking if we can add -D_GLIBCXX_ASSERTIONS to CXXFLAGS (via CFLAGS)... " >&6; }
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="-Werror -D_GLIBCXX_ASSERTIONS $CXXFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        CXXFLAGS="-D_GLIBCXX_ASSERTIONS $CXXFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+fi
+
+
+    if test "$ossf_security_hardening" = "yes"
+then :
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG=-Wl,-z,noexecstack
+    LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG=-Wl,-z,relro
+    LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG=-Wl,-z,now
+    LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG=-Wl,--as-needed
+    LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)" >&5
+printf %s "checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)... " >&6; }
+    saved_LDFLAGS=$LDFLAGS;
+    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries
+    LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+return 0;
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+    LDFLAGS=$saved_LDFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"
+then :
+
+        LDFLAGS="$saved_LDFLAG $LDFLAGS"
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+       ;;
+esac
+fi
+
+
 fi
 
 
