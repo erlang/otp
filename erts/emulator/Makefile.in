@@ -147,7 +147,7 @@ else
 
 ifeq ($(TYPE),valgrind)
 TYPEMARKER = .valgrind
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DVALGRIND -DNO_JUMP_TABLE
+TYPE_FLAGS = @DEBUG_CFLAGS@ -DVALGRIND -DNO_JUMP_TABLE @NO_MAYBE_UNINITIALIZED@
 TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 ENABLE_ALLOC_TYPE_VARS += valgrind
 else
@@ -155,7 +155,7 @@ else
 ifeq ($(TYPE),asan)
 PURIFY =
 TYPEMARKER = .asan
-TYPE_FLAGS = @DEBUG_CFLAGS@ -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER
+TYPE_FLAGS = @DEBUG_CFLAGS@ -fsanitize=address -fsanitize-recover=address -fno-omit-frame-pointer -DADDRESS_SANITIZER @NO_MAYBE_UNINITIALIZED@
 TYPE_CXXFLAGS = @DEBUG_CXXFLAGS@
 LDFLAGS += -fsanitize=address
 ENABLE_ALLOC_TYPE_VARS += asan
@@ -956,7 +956,7 @@ $(OBJDIR)/%.o: nifs/$(ERLANG_OSTYPE)/%.c
 # included before any other directives, including other #includes.
 #
 ASMJIT_FLAGS=-DASMJIT_EMBED=1 -DASMJIT_NO_BUILDER=1 -DASMJIT_NO_DEPRECATED=1 -DASMJIT_STATIC=1 -DASMJIT_NO_FOREIGN=1
-ASMJIT_CXXFLAGS=$(filter-out -Wformat -Wformat=2, $(CXXFLAGS))
+ASMJIT_CXXFLAGS=$(filter-out -Wformat -Wformat=2, $(CXXFLAGS)) @NO_MAYBE_UNINITIALIZED@
 ASMJIT_PCH_OBJ=$(TTF_DIR)/asmjit/asmjit.hpp.gch
 ASMJIT_PCH_SRC=$(TTF_DIR)/asmjit/asmjit.hpp
 
