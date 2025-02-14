@@ -89,6 +89,8 @@ WXERL_CAN_BUILD_DRIVER=false
 AC_MSG_NOTICE(Building for [$host_os])
 WXERL_CAN_BUILD_DRIVER=true
 
+ERL_OSSF_FLAGS
+
 LM_WINDOWS_ENVIRONMENT
 
 USER_CFLAGS=$CFLAGS
@@ -242,7 +244,7 @@ dnl ----------------------------------------------------------------------
 case $host_os in
     mingw32)
 	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
-	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-g -Wall -O2 $CFLAGS -fomit-frame-pointer"
 	;;
     win32)
 	DEBUG_CFLAGS="-g -Wall $CFLAGS -DDEBUG"
@@ -251,11 +253,11 @@ case $host_os in
     darwin*)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
 	# omit-frame-pointer causes seg faults with 10.9 and clang
-	CFLAGS="-g -Wall -fPIC $CFLAGS -fno-strict-aliasing"
+	CFLAGS="-g -Wall -fPIC $CFLAGS"
 	;;
     *)
 	DEBUG_CFLAGS="-g -Wall -fPIC $CFLAGS -DDEBUG"
-	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer -fno-strict-aliasing"
+	CFLAGS="-Wall -fPIC $CFLAGS -fomit-frame-pointer"
 	;;
 esac
 

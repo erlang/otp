@@ -1925,6 +1925,19 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
 if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"

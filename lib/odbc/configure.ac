@@ -53,6 +53,8 @@ LM_WINDOWS_ENVIRONMENT
 
 AC_PROG_MAKE_SET
 
+ERL_OSSF_FLAGS
+
 AC_SUBST(LD)
 
 _search_path=/bin:/usr/bin:/usr/local/bin:$PATH

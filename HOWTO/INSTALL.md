@@ -428,6 +428,10 @@ Some of the available `configure` options are:
     option which will enable `configure` to continue without support for
     timestamps after mid-January 2038. This is typically only an issue on 32-bit
     platforms.
+*   `--disable-security-hardening-flags` - Disable all security hardening
+    flags when compiling Erlang/OTP. This can be useful in some scenarios
+    when the flags either causes Erlang/OTP not to build, or unacceptable
+    performance degradations.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.
