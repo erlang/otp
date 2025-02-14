@@ -106,16 +106,16 @@ groups_for_docs =
          end}
       end
     ) ++
-      [Callbacks: &(&1[:kind] == :callback)] ++
-      Enum.map(
-        Access.get(titles, :function, []),
-        fn {:function, title} ->
-          {"#{title}",
-           fn a ->
-             a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
-           end}
-        end
-      )
+    [Callbacks: &(&1[:kind] == :callback)] ++
+    Enum.map(
+      Access.get(titles, :function, []),
+      fn {:function, title} ->
+        {"#{title}",
+         fn a ->
+           a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
+         end}
+      end
+    )
 
 ## Create the correct source url to github
 base_url = "https://github.com/" <> System.get_env("BASE_URL", "erlang/otp/blob/master/")
@@ -161,7 +161,7 @@ current_datetime = System.os_time() |> DateTime.from_unix!(:native)
 config = [
   proglang: :erlang,
   source_url_pattern: source_url_pattern,
-  assets: %{ Path.join(cwd, "/assets") => "assets" },
+  assets: %{Path.join(cwd, "/assets") => "assets"},
   logo: Path.join(:code.root_dir(), "system/doc/assets/erlang-logo.png"),
   before_closing_head_tag: fn _ -> "<style>.dark img { background-color: white; }</style>" end,
   before_closing_footer_tag: fn _ ->

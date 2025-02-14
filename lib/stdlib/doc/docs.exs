@@ -61,7 +61,7 @@
         :dets,
         :qlc
       ],
-      ALGORITHMS: [:rand, :random, :zip, :erl_tar],
+      ALGORITHMS: [:rand, :random, :zip, :erl_tar, :zstd],
       "DATE & TIME": [:calendar, :timer],
       NODES: [:slave, :peer, :argparse, :escript, :win32reg]
     ]
