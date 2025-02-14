@@ -302,6 +302,23 @@ enum chars_format {
     FMT_GENERAL
 };
 
+// SPDX-SnippetBegin
+// SPDX-SnippetCopyrightText: Copyright (c) Microsoft Corporation.
+// SPDX-SnippetCopyrightText: Copyright 2018 Ulf Adams
+// SPDX-SnippetCopyrightText: Copyright (c) Microsoft Corporation. All rights reserved.
+// SPDX-License-Identifier: (Apache-2.0 WITH LLVM-exception) AND BSL-1.0
+//
+// The license information in the original file is not
+// clear on whether it should be AND or OR between
+// "Apache 2.0 with LLVM-exception" and "Boost Software License 1.0".
+// Therefore, just to be safe, an AND was chosen in the SPDX license
+// identifier expression above.
+// Library: STL
+// Git repository: https://github.com/microsoft/STL
+// Commit: e745bad3b1d05b5b19ec652d68abb37865ffa454
+// Original function: https://github.com/microsoft/STL/blob/e745bad3b1d05b5b19ec652d68abb37865ffa454/stl/inc/xcharconv_ryu.h#L1926
+  
+
 // This is inspired from the MS STL Charconv, under Apache with LLVM exception licence
 // see https://github.com/microsoft/STL/blob/main/LICENSE.txt
 // The inspiration is at https://github.com/microsoft/STL/blob/e745bad3b1d05b5b19ec652d68abb37865ffa454/stl/inc/xcharconv_ryu.h#L1926
@@ -621,6 +638,8 @@ static inline int to_chars(const floating_decimal_64 v, const bool sign, char* c
   return _Total_scientific_length + sign;
 }
 // end of STL code, back to ryu
+// SPDX-SnippetEnd
+
 
 static inline bool d2d_small_int(const uint64_t ieeeMantissa, const uint32_t ieeeExponent,
   floating_decimal_64* const v) {
