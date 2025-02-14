@@ -918,19 +918,24 @@ Example:
   cryptolib_version_compiled => "OpenSSL 3.0.0 7 sep 2021",
   cryptolib_version_linked => "OpenSSL 3.0.0 7 sep 2021",
   link_type => dynamic,
-  otp_crypto_version => "5.0.2"}
+  otp_crypto_version => "5.0.2",
+  fips_provider_available => true,
+  fips_provider_buildinfo => "3.0.0"}
 2>
 ```
 
-More association types than documented may be present in the map.
+More association types than documented may be present in the map. Some of the
+associations (like fips) may be absent if not supported.
 """.
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 24.2">>}).
 -spec info() -> #{compile_type := normal | debug | valgrind | asan,
-                 cryptolib_version_compiled => string() | undefined,
+                  cryptolib_version_compiled := string() | undefined,
                   cryptolib_version_linked := string(),
                   link_type := dynamic | static,
-                  otp_crypto_version := string()
+                  otp_crypto_version := string(),
+                  fips_provider_available => boolean(),
+                  fips_provider_buildinfo => string()
                  }.
 info() -> 
     (info_nif())#{otp_crypto_version => crypto:version()}.
