@@ -215,7 +215,6 @@ release_handler does.
 [`config`](`e:kernel:config.md`), [`rel`](rel.md), [`relup`](relup.md),
 [`script`](script.md), `m:sys`, `m:systools`
 """.
--moduledoc(#{titles => [{function,<<"Application Upgrade/Downgrade">>}]}).
 -behaviour(gen_server).
 
 -include_lib("kernel/include/file.hrl").
@@ -938,7 +937,7 @@ If the `restart_new_emulator` instruction is found in the script,
 before the rest of the upgrade instructions can be executed, and this can only
 be done by [`install_release/1,2`](`install_release/1`).
 """.
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason} when App :: atom(),
    Dir :: string(),
    Unpurged :: [Module],
@@ -968,7 +967,7 @@ upgrade_app(App, NewDir1) ->
 %%          located in the ebin dir of the _current_ version
 %%-----------------------------------------------------------------
 -doc(#{equiv => downgrade_app/3}).
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec downgrade_app(App, Dir) ->  {ok, Unpurged} | restart_emulator | {error, Reason} when
       App :: atom(),
       Dir :: string(),
@@ -1008,7 +1007,7 @@ Returns one of the following:
 - `restart_emulator` if this instruction is encountered in the script
 - `{error, Reason}` if an error occurred when finding or evaluating the script
 """.
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec downgrade_app(App, OldVsn, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason} when App :: atom(),
    Dir :: string(),
    OldVsn :: string(),
@@ -1049,7 +1048,7 @@ application version. For details about `Script`, see [`appup(4)`](appup.md).
 Failure: If a script cannot be found, the function fails with an appropriate
 error reason.
 """.
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec upgrade_script(App, Dir) -> {ok, NewVsn, Script}
                         when
                             App :: atom(),
@@ -1098,7 +1097,7 @@ Returns `{ok, Script}` if successful. For details about `Script`, see
 Failure: If a script cannot be found, the function fails with an appropriate
 error reason.
 """.
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec downgrade_script(App, OldVsn, Dir) -> {ok, Script}
                           when
                               App :: atom(),
@@ -1144,7 +1143,7 @@ If the `restart_new_emulator` instruction is found in the script,
 before the rest of the upgrade instructions can be executed, and this can only
 be done by [`install_release/1,2`](`install_release/1`).
 """.
--doc(#{title => <<"Application Upgrade/Downgrade">>}).
+-doc(#{group => <<"Application Upgrade/Downgrade">>}).
 -spec eval_appup_script(App, ToVsn, ToDir, Script :: term()) ->
                            {ok, Unpurged} |
                            restart_emulator |

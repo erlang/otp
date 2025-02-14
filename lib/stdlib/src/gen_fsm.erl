@@ -270,8 +270,6 @@ for the functions to be exported from a `gen_fsm` callback module.
 **State data** denotes the internal state of the Erlang process
 that implements the state machine.
 """.
--moduledoc #{titles =>
-                 [{callback, ~"deprecated"}]}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -395,7 +393,7 @@ that implements the state machine.
 -doc "Reply destination. See `reply/2`".
 -type from() :: {To :: pid(), Tag :: term()}.
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Initialize process and internal [*state name*](#state-name)
 and [*state data*](#state-data).
@@ -438,7 +436,7 @@ where `Reason` is any term, or `ignore`.
       Timeout   :: timeout(),
       Reason    :: term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Handle an asynchronous event.
 
@@ -480,7 +478,7 @@ and terminates.
       Timeout       :: timeout(),
       Reason        :: term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Handle a synchronous event.
 
@@ -544,7 +542,7 @@ of the process that called [`sync_send_event/2,3`](`sync_send_event/3`),
       Timeout       :: timeout(),
       Reason        :: 'normal' | term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Handle an asynchronous event.
 
@@ -570,7 +568,7 @@ see [`Module:StateName/2`](`c:'StateName'/2`).
       Timeout       :: timeout(),
       Reason        :: term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Handle a synchronous event.
 
@@ -602,7 +600,7 @@ see [`Module:StateName/3`](`c:'StateName'/3`).
       NewStateData  :: term(),
       Timeout       :: timeout(),
       Reason        :: term().
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Handle an incoming message
 
@@ -627,7 +625,7 @@ see [`Module:StateName/2`](`c:'StateName'/2`).
       NewStateData  :: term(),
       Timeout       :: timeout(),
       Reason        :: normal | term().
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Clean up before termination.
 
@@ -672,7 +670,7 @@ using `error_logger:format/2`.
       StateName :: atom(),
       StateData :: term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Update the internal [*state data*](#state-data) during upgrade/downgrade.
 
@@ -708,7 +706,7 @@ and updated internal data.
       NewStateData  :: term(),
       Extra         :: term().
 
--doc #{ title => ~"deprecated" }.
+-doc(#{group => ~"deprecated" }).
 -doc """
 Optional function for providing a term describing
 the current `gen_fsm` process status.

@@ -45,8 +45,7 @@ For information about how to add a CTH to your suite, see section
 > For a minimal example of a CTH, see section
 > [Example CTH](ct_hooks_chapter.md#example) in the User's Guide.
 """.
--moduledoc(#{since => "OTP R14B02",
-             titles => [{callback,<<"Callback Functions">>}]}).
+-moduledoc(#{since => "OTP R14B02"}).
 
 %% API Exports
 -export([init/1]).
@@ -86,7 +85,7 @@ times by `Common Test`.
 If not implemented, the CTH acts as if this function returned a call to
 `make_ref/0`.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback id(Opts) -> Id when Opts :: term(), Id :: term().
 
 -doc """
@@ -107,7 +106,7 @@ Guide.
 For details about when `init` is called, see section
 [CTH Scope](ct_hooks_chapter.md#scope) in the User's Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback init(Id, Opts) -> {ok, State} | {ok, State, Priority} when
       Id :: reference() | term(),
       Opts :: term(),
@@ -138,7 +137,7 @@ If [`Module:on_tc_skip/4`](`c:on_tc_skip/4`) is not exported, common_test will
 attempt to call `Module:on_tc_skip(TestName, Reason, CTHState)` instead. This is
 for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback on_tc_skip(SuiteName, TestName, Reason, CTHState) -> NewCTHState when
       SuiteName :: atom(),
       TestName :: init_per_suite | end_per_suite |
@@ -175,7 +174,7 @@ If [`Module:on_tc_fail/4`](`c:on_tc_fail/4`) is not exported, common_test will
 attempt to call `Module:on_tc_fail(TestName, Reason, CTHState)` instead. This is
 for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback on_tc_fail(SuiteName, TestName, Reason, CTHState) -> NewCTHState when
       SuiteName :: atom(),
       TestName :: init_per_suite | end_per_suite |
@@ -195,7 +194,7 @@ it exists. It behaves the same way as
 [`post_init_per_suite`](`c:post_init_per_suite/4`), but for function
 [`end_per_suite`](`c:ct_suite:end_per_suite/1`) instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback post_end_per_suite(SuiteName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       Config :: [{Key,Value}],
@@ -215,7 +214,7 @@ if it exists. It behaves the same way as
 [`pre_init_per_suite`](`c:pre_init_per_suite/3`), but for function
 [`end_per_suite`](`c:ct_suite:end_per_suite/1`) instead.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback pre_end_per_suite(SuiteName, EndData, CTHState) -> Result when
       SuiteName :: atom(),
       EndData :: Config | SkipOrFail,
@@ -241,7 +240,7 @@ common_test will attempt to call
 `Module:post_end_per_group(GroupName, Config, Return, CTHState)` instead. This
 is for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback post_end_per_group(SuiteName, GroupName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       GroupName :: atom(),
@@ -267,7 +266,7 @@ common_test will attempt to call
 `Module:pre_end_per_group(GroupName, EndData, CTHState)` instead. This is for
 backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback pre_end_per_group(SuiteName, GroupName, EndData, CTHState) -> Result when
       SuiteName :: atom(),
       GroupName :: atom(),
@@ -293,7 +292,7 @@ exported, common_test will attempt to call
 `Module:post_end_per_testcase(TestcaseName, Config, Return, CTHState)` instead.
 This is for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback post_end_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       TestcaseName :: atom(),
@@ -325,7 +324,7 @@ exported, common_test will attempt to call
 `Module:pre_end_per_testcase(TestcaseName, EndData, CTHState)` instead. This is
 for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback pre_end_per_testcase(SuiteName, TestcaseName, EndData, CTHState) -> Result when
       SuiteName :: atom(),
       TestcaseName :: atom(),
@@ -349,7 +348,7 @@ exported, common_test will attempt to call
 `Module:post_init_per_testcase(TestcaseName, Config, Return, CTHState)` instead.
 This is for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback post_init_per_testcase(SuiteName, TestcaseName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       TestcaseName :: atom(),
@@ -379,7 +378,7 @@ is for backwards compatibility.
 CTHs cannot be added here right now. That feature may be added in a later
 release, but it would right now break backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback pre_init_per_testcase(SuiteName, TestcaseName, InitData, CTHState) -> Result when
       SuiteName :: atom(),
       TestcaseName :: atom(),
@@ -406,7 +405,7 @@ common_test will attempt to call
 `Module:post_init_per_group(GroupName, Config, Return, CTHState)` instead. This
 is for backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback post_init_per_group(SuiteName, GroupName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       GroupName :: atom(),
@@ -432,7 +431,7 @@ common_test will attempt to call
 `Module:pre_init_per_group(GroupName, InitData, CTHState)` instead. This is for
 backwards compatibility.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 19.3">>}).
+-doc(#{since => <<"OTP 19.3">>}).
 -callback pre_init_per_group(SuiteName, GroupName, InitData, CTHState) -> Result when
       SuiteName :: atom(),
       GroupName :: atom(),
@@ -470,7 +469,7 @@ This function is called only if the CTH is added before or in `init_per_suite`.
 For details, see section [CTH Scope](ct_hooks_chapter.md#scope) in the User's
 Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback post_init_per_suite(SuiteName, Config, Return, CTHState) -> Result when
       SuiteName :: atom(),
       Config :: [{Key, Value}],
@@ -512,7 +511,7 @@ This function is called only if the CTH is added before `init_per_suite is run`.
 For details, see section [CTH Scope](ct_hooks_chapter.md#scope) in the User's
 Guide.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback pre_init_per_suite(SuiteName, InitData, CTHState) -> Result when
       SuiteName :: atom(),
       InitData :: Config | SkipOrFail,
@@ -558,7 +557,7 @@ CT start flag, the `c:init/2` function is called first.
 > [`post_all/3`](`c:post_all/3`) hook function to always be called twice. For
 > this reason, side effects are best avoided in this callback.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.3.8">>}).
+-doc(#{since => <<"OTP 21.3.8">>}).
 -callback post_all(SuiteName, Return, GroupDefs) -> NewReturn when
       SuiteName :: atom(),
       Return :: Tests | {skip, Reason},
@@ -622,7 +621,7 @@ first.
 > [`post_groups/2`](`c:post_groups/2`) hook function to always be called twice.
 > For this reason, side effects are best avoided in this callback.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP 21.3.8">>}).
+-doc(#{since => <<"OTP 21.3.8">>}).
 -callback post_groups(SuiteName, GroupDefs) -> NewGroupDefs when
       SuiteName :: atom(),
       GroupDefs :: [Group],
@@ -653,7 +652,7 @@ first.
 This function is called at the end of a CTH [scope](ct_hooks_chapter.md#scope).
 The returned term is ignored.
 """.
--doc(#{title => <<"Callback Functions">>,since => <<"OTP R14B02">>}).
+-doc(#{since => <<"OTP R14B02">>}).
 -callback terminate(CTHState) -> term() when CTHState :: term().
 
 -optional_callbacks(
