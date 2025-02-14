@@ -12525,10 +12525,8 @@ do_otp19469_stream(#{family := Fam} = LSA) ->
     _ = socket:setopt(S3, otp, debug, true),
     case os:type() of
         {unix, _} ->
-            %% This is a OTP 27 behaviour.
-            %% Not in 26 and not in 28 (I think)
-            {error, timeout} = socket:recv(S3, 2*DataSz, ?SECS(5)),
-            {ok, Data}       = socket:recv(S3, 0);
+            %% As of 28 we are back to this behaviour
+            {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5));
         {win32, _} ->
             {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5))
     end,
