@@ -593,8 +593,8 @@ rpc_check(X) -> X.
 
 
 %% This is a real handy function to be used when interacting with
-%% a server called Name at node Node, It is assumed that the server
-%% Receives messages on the form {From, Request} and replies on the
+%% a server called Name at node Node. It is assumed that the server
+%% receives messages of the form {From, Request} and replies are of the
 %% form From ! {ReplyWrapper, Node, Reply}.
 %% This function makes such a server call and ensures that that
 %% The entire call is packed into an atomic transaction which 
@@ -905,7 +905,7 @@ rpcmulticallify([_N|Ns], [{Class, Reason}|Rlts], Ok, Err) ->
 %% that failed during the timespan of the call.
 %% This function assumes that if we send a request to a server 
 %% called Name, the server will reply with a reply
-%% on the form {Name, Node, Reply}, otherwise this function will
+%% of the form {Name, Node, Reply}, otherwise this function will
 %% hang forever. 
 %% It also assumes that the server receives messages on the form
 %% {From, Msg} and then replies as From ! {Name, node(), Reply}.

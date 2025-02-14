@@ -20,7 +20,7 @@
 
 %% Expand function definition forms of parameterized module. We assume
 %% all record definitions, imports, queries, etc., have been expanded
-%% away. Any calls on the form 'foo(...)' must be calls to local
+%% away. Any calls of the form 'foo(...)' must be calls to local
 %% functions. Auto-generated functions (module_info,...) have not yet
 %% been added to the function definitions, but are listed in 'defined'
 %% and 'exports'. The 'new/N' function is neither added to the

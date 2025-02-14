@@ -821,7 +821,7 @@ labeled.
 
 The returned value is a tuple `{NewTree, Max}`, where `NewTree` is the labeled
 tree and `Max` is 1 plus the largest label value used. All previous annotation
-terms on the form `{label, X}` are deleted.
+terms of the form `{label, X}` are deleted.
 
 The values of L used in the tree is a dense range from `N` to `Max - 1`, where
 `N =< Max =< N + size(Tree)`. Note that it is possible that no labels are used

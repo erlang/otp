@@ -1851,7 +1851,7 @@ that returns a term describing the current status of the `gen_statem`.
 
 The function is to return `Status`, a term that contains
 the appropriate details of the current state and status
-of the `gen_statem`.  There are no restrictions on the form `Status`
+of the `gen_statem`.  There are no restrictions of the form `Status`
 can take, but for the [`sys:get_status/1,2`](`sys:get_status/1`) case
 (when `Opt` is `normal`), the recommended form for the `Status` value
 is `[{data, [{"State", Term}]}]`, where `Term` provides relevant details

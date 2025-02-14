@@ -196,7 +196,7 @@ merge([], _, _, Ack) ->
 
 realkeys(Tab, Pos, IxKey) ->
     Index = get_index_table(Tab, Pos),
-    db_get(Index, IxKey). % a list on the form [{IxKey, RealKey1} , ....
+    db_get(Index, IxKey). % a list of the form [{IxKey, RealKey1} , ....
 
 dirty_select(Tab, Spec, Pos) when is_integer(Pos) ->
     %% Assume that we are on the node where the replica is

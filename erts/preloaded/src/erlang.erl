@@ -10562,7 +10562,7 @@ Asynchronously send a spawn request. Returns a request identifier `ReqId`.
 
 If the spawn operation succeeds, a new process is created on the node identified
 by `Node`. When a spawn operation succeeds, the caller will by default be sent a
-message on the form `{ReplyTag, ReqId, ok, Pid}` where `Pid` is the process
+message of the form `{ReplyTag, ReqId, ok, Pid}` where `Pid` is the process
 identifier of the newly created process. Such a message is referred to as a
 _success message_ below in the text. `ReplyTag` is by default the atom
 `spawn_reply` unless modified by the `{reply_tag, ReplyTag}` option. The new
@@ -11764,7 +11764,7 @@ equals `DHandle` used when setting this option. When the `get_size` option is:
 - **`true`** - and there are distribution data available, a call to
   `erlang:dist_ctrl_get_data(DHandle)` will return `Data` to pass over the
   channel as well as the `Size` of `Data` in bytes. This is returned as a tuple
-  on the form `{Size, Data}`.
+  of the form `{Size, Data}`.
 
 All options are set to default when a channel is closed.
 

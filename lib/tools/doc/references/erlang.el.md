@@ -147,7 +147,7 @@ For the tag commands to work it requires that you have generated a tag file. See
 -   _`M-.`_ (`find-tag`) - Find a function definition. The default value is the
     function name under the point.
 -   Find Tag (`erlang-find-tag`) - Like the Elisp-function
-    `find-tag'. Capable of retrieving Erlang modules. Tags can be given on the forms `tag',
+    `find-tag'. Capable of retrieving Erlang modules. Tags can be given of the forms `tag',
     `module:', `module:tag'.
 -   _`M-+`_ (`erlang-find-next-tag`) - Find the next occurrence of tag.
 -   _`M-TAB`_ (`erlang-complete-tag`) - Perform completion on the tag entered in

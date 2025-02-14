@@ -571,7 +571,7 @@ of the `gen_server` process..
 
 The function is to return `Status`, a term that changes the details
 of the current state and status of the `gen_server` process.
-There are no restrictions on the form `Status` can take,
+There are no restrictions of the form `Status` can take,
 but for the `sys:get_status/1,2` case (when `Opt` is `normal`),
 the recommended form for the `Status` value is
 `[{data, [{"State", Term}]}]`, where `Term` provides relevant details
@@ -1177,7 +1177,7 @@ process with an exit term containing `Reason = timeout` as described below.
 > with the reply, it may arrive to the process message queue
 > any time later. The calling process must therefore after
 > catching a time-out exit be prepared to receive garbage message(s)
-> on the form `{reference(), _}` and deal with them appropriately
+> of the form `{reference(), _}` and deal with them appropriately
 > (discard them) so they do not clog the process message queue,
 > or gets mistaken for other messages.
 >

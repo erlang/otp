@@ -106,7 +106,7 @@ The handlers are called in sequence, and the order is not defined.
 ## Logger API
 
 The API for logging consists of a set of [macros](`m:logger#module-macros`), and a set
-of functions on the form `logger:Level/1,2,3`, which are all shortcuts for
+of functions of the form `logger:Level/1,2,3`, which are all shortcuts for
 [`logger:log(Level,Arg1[,Arg2[,Arg3]])`](`logger:log/2`).
 
 The macros are defined in `logger.hrl`, which is included in a module with the

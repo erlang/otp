@@ -42,7 +42,7 @@ This daemon acts as a name server on all hosts involved in distributed Erlang
 computations. When an Erlang node starts, the node has a name and it obtains an
 address from the host OS kernel. The name and address are sent to the `epmd`
 daemon running on the local host. In a TCP/IP environment, the address consists
-of the IP address and a port number. The node name is an atom on the form of
+of the IP address and a port number. The node name is an atom of the form
 `Name@Node`. The job of the `epmd` daemon is to keep track of which node name
 listens on which address. Hence, `epmd` maps symbolic node names to machine
 addresses.

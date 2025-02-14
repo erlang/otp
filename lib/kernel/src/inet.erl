@@ -377,7 +377,7 @@ Add the following directive to the module:
 -doc """
 A general network address.
 
-A general network address format on the form `{Family, Destination}`
+A general network address format of the form `{Family, Destination}`
 where `Family` is an atom such as `local` and the format of `Destination`
 depends on `Family`.  `Destination` is a complete address (for example
 an IP address with port number).
