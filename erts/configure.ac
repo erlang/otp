@@ -3671,6 +3671,9 @@ AS_HELP_STRING([--enable-deterministic-build], [enable build determinism, stripp
 ERL_DETERMINISTIC=no)
 AC_SUBST(ERL_DETERMINISTIC)
 
+ERL_OSSF
+ERL_OSSF_FLAGS
+
 AC_MSG_CHECKING([CFLAGS for -O switch])
 dnl                               Remove all "-O*" options
 no_opt_CFLAGS=$(echo " $CFLAGS" | sed 's/ -O[[^ ]]*/ /g')

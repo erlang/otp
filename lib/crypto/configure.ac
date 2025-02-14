@@ -464,6 +464,8 @@ case $enable_dynamic_ssl in
 	SSL_DYNAMIC_ONLY=no;;
 esac
 
+echo "meep"
+
 AS_CASE(["$erl_xcomp_without_sysroot-$with_ssl"],
         [yes-* | no-no],
         [

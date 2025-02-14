@@ -735,6 +735,11 @@ AS_IF([test "x$GCC" = xyes],
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
   ])
 
+ERL_OSSF
+ERL_OSSF_CFLAGS([CFLAGS])
+ERL_OSSF_CXXFLAGS([CXXFLAGS])
+ERL_OSSF_LDFLAGS([LDFLAGS])
+
 #############################################################################
 
 dnl 
