@@ -133,8 +133,8 @@ void BeamModuleAssembler::emit_setup_guard_bif(const std::vector<ArgVal> &args,
     for (size_t i = 1; i < args.size() && is_contiguous_mem; i++) {
         const ArgSource &curr = args[i], &prev = args[i - 1];
 
-        is_contiguous_mem =
-                ArgVal::memory_relation(prev, curr) == ArgVal::consecutive;
+        is_contiguous_mem = ArgVal::memory_relation(prev, curr) ==
+                            ArgVal::Relation::consecutive;
     }
 
     if (is_contiguous_mem) {
@@ -789,7 +789,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
         emit_enter_runtime<Update::eStack>();
 
         a.mov(ARG1, c_p);
-        runtime_call<ErtsCodePtr (*)(Process *, Eterm *),
+        runtime_call<ErtsCodePtr (*)(const Process *, const Eterm *),
                      erts_printable_return_address>();
 
         emit_leave_runtime<Update::eStack>();

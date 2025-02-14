@@ -1675,19 +1675,19 @@ protected:
         }
     }
 
-    enum Relation { none, consecutive, reverse_consecutive };
+    enum class Relation { none, consecutive, reverse_consecutive };
 
     static Relation memory_relation(const arm::Mem &mem1,
                                     const arm::Mem &mem2) {
         if (mem1.hasBaseReg() && mem2.hasBaseReg() &&
             mem1.baseId() == mem2.baseId()) {
             if (mem1.offset() + 8 == mem2.offset()) {
-                return consecutive;
+                return Relation::consecutive;
             } else if (mem1.offset() == mem2.offset() + 8) {
-                return reverse_consecutive;
+                return Relation::reverse_consecutive;
             }
         }
-        return none;
+        return Relation::none;
     }
 
     void flush_vars(const Variable<a64::Gp> &to1,

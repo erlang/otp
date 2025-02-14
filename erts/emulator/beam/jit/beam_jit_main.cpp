@@ -322,18 +322,18 @@ void beamasm_init() {
         func_label = label++;
         entry_label = label++;
 
-        args = {ArgVal(ArgVal::Label, func_label),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, func_label),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Word, func_label),
-                ArgVal(ArgVal::Immediate, mod_name),
-                ArgVal(ArgVal::Immediate, op.name),
-                ArgVal(ArgVal::Word, op.arity)};
+        args = {ArgVal(ArgVal::Type::Word, func_label),
+                ArgVal(ArgVal::Type::Immediate, mod_name),
+                ArgVal(ArgVal::Type::Immediate, op.name),
+                ArgVal(ArgVal::Type::Word, op.arity)};
         bma->emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Label, entry_label),
-                ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, entry_label),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         bma->emit(op_aligned_label_Lt, args);
 
         args = {};
@@ -540,24 +540,26 @@ extern "C"
         BeamModuleAssembler ba(bga, info->mfa.module, 3);
         std::vector<ArgVal> args;
 
-        args = {ArgVal(ArgVal::Label, 1), ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, 1),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
-        args = {ArgVal(ArgVal::Word, 1),
-                ArgVal(ArgVal::Immediate, info->mfa.module),
-                ArgVal(ArgVal::Immediate, info->mfa.function),
-                ArgVal(ArgVal::Word, info->mfa.arity)};
+        args = {ArgVal(ArgVal::Type::Word, 1),
+                ArgVal(ArgVal::Type::Immediate, info->mfa.module),
+                ArgVal(ArgVal::Type::Immediate, info->mfa.function),
+                ArgVal(ArgVal::Type::Word, info->mfa.arity)};
         ba.emit(op_i_func_info_IaaI, args);
 
-        args = {ArgVal(ArgVal::Label, 2), ArgVal(ArgVal::Word, sizeof(UWord))};
+        args = {ArgVal(ArgVal::Type::Label, 2),
+                ArgVal(ArgVal::Type::Word, sizeof(UWord))};
         ba.emit(op_aligned_label_Lt, args);
 
         args = {};
         ba.emit(op_i_breakpoint_trampoline, args);
 
-        args = {ArgVal(ArgVal::Word, (BeamInstr)normal_fptr),
-                ArgVal(ArgVal::Word, (BeamInstr)lib),
-                ArgVal(ArgVal::Word, (BeamInstr)dirty_fptr)};
+        args = {ArgVal(ArgVal::Type::Word, (BeamInstr)normal_fptr),
+                ArgVal(ArgVal::Type::Word, (BeamInstr)lib),
+                ArgVal(ArgVal::Type::Word, (BeamInstr)dirty_fptr)};
         ba.emit(op_call_nif_WWW, args);
 
         ba.codegen(buff, buff_len);

@@ -496,12 +496,12 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.bind(data);
     if (embedInText) {
         for (const ArgVal &arg : args) {
-            ASSERT(arg.getType() == ArgVal::Label);
+            ASSERT(arg.getType() == ArgVal::Type::Label);
             a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
         }
     }
 
-    if (Fail.getType() == ArgVal::Immediate) {
+    if (Fail.getType() == ArgVal::Type::Immediate) {
         a.bind(fail);
     }
 }

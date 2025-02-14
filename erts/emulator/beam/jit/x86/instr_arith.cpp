@@ -440,7 +440,7 @@ void BeamGlobalAssembler::emit_unary_minus_guard_shared() {
 void BeamModuleAssembler::emit_i_unary_minus(const ArgSource &Src,
                                              const ArgLabel &Fail,
                                              const ArgRegister &Dst) {
-    ArgVal zero = ArgVal(ArgVal::Immediate, make_small(0));
+    ArgVal zero = ArgVal(ArgVal::Type::Immediate, make_small(0));
     bool small_result = is_diff_small_if_args_are_small(zero, Src);
 
     if (always_small(Src) && small_result) {

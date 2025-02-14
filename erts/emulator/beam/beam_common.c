@@ -406,9 +406,9 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
  *
  * This is needed to generate correct stacktraces when throwing errors from
  * instructions that return like an ordinary function, such as call_nif. */
-ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) {
-    Eterm *stack_bottom = STACK_START(p);
-    Eterm *scanner = E;
+ErtsCodePtr erts_printable_return_address(const Process* p, const Eterm *E) {
+    const Eterm *stack_bottom = STACK_START(p);
+    const Eterm *scanner = E;
 
     ASSERT(is_CP(scanner[0]));
 
