@@ -1,0 +1,26 @@
+[
+    {
+      "ID": "common_test-jquery",
+      "description": "jquery package",
+      "copyrightText": "Copyright OpenJS Foundation and other contributors",
+      "downloadLocation": "https://github.com/jquery/jquery",
+      "homepage": "https://jquery.com",
+      "licenseDeclared": "MIT",
+      "name": "jquery",
+      "versionInfo": "3.7.1",
+      "path": "./lib/common_test/priv/jquery-latest.js",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "ID": "common_test-tablesorter",
+      "description": "tablesorter javascript library",
+      "copyrightText": "Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.",
+      "downloadLocation": "https://github.com/Mottie/tablesorter",
+      "homepage": "https://github.com/Mottie/tablesorter",
+      "licenseDeclared": "BSD-3-Clause OR GPL-2.0-only",
+      "name": "jquery-tablesorter",
+      "versionInfo": "2.32",
+      "path": "./lib/common_test/priv/jquery.tablesorter.min.js",
+      "supplier": "NOASSERTION"
+    }
+]

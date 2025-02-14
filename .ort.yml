@@ -19,6 +19,10 @@ excludes:
       reason: "OTHER"
       comment: "This file is not present in a release."
 
+    - pattern: "**/vendor.info"
+      reason: "OTHER"
+      comment: "This file is not present in a release."
+
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
@@ -27,7 +31,7 @@ curations:
         comment: >-
           Documentation was taken from wxWidgets, source code is Apache-2.0
         detected_license: "Apache-2.0"
-        concluded_license: "Apache-2.0 AND LicenseRef-wxwindows-free-doc"
+        concluded_license: "Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3"
 
       - path: "lib/edoc/doc/guides/chapter.md"
         reason: "INCORRECT"
@@ -364,7 +368,7 @@ curations:
         reason: "DOCUMENTATION_OF"
         comment: >-
           The scanner incorrectly categorises this license
-        concluded_license: "Apache-2.0 OR LGPL-2.1-or-later"
+        concluded_license: "Apache-2.0"
 
       - path: "lib/edoc/include/edoc_doclet.hrl"
         reason: "INCORRECT"
@@ -741,11 +745,18 @@ curations:
           The scanner incorrectly categorises the license
         concluded_license: "Apache-2.0 OR BSL-1.0"
 
+      # - path: "erts/emulator/ryu/d2s.c"
+      #   reason: "INCORRECT"
+      #   comment: >-
+      #     The scanner incorrectly categorises the license
+      #   concluded_license: "(Apache-2.0 WITH LLVM-exception AND BSL-1.0) AND (Apache-2.0 OR BSL-1.0)"
+
       - path: "erts/emulator/ryu/d2s.c"
-        reason: "INCORRECT"
+        reason: "DATA_OF"
         comment: >-
           The scanner incorrectly categorises the license
-        concluded_license: "(Apache-2.0 WITH LLVM-exception AND BSL-1.0) AND (Apache-2.0 OR BSL-1.0)"
+        detected_license: "NOASSERTION WITH LLVM-exception"
+        concluded_license: "Apache-2.0 WITH LLVM-exception AND BSL-1.0"
 
       - path: "erts/emulator/ryu/d2s_full_table.h"
         reason: "INCORRECT"
@@ -863,6 +874,13 @@ curations:
 
       - path: "erts/emulator/openssl/README"
         reason: "DOCUMENTATION_OF"
+        comment: >-
+          The scanner mixes up the copyright and license notice
+        concluded_license: "Apache-2.0"
+
+      - path: ".github/scripts/otp-compliance.es"
+        reason: "CODE"
+        detected_license: "BSL-1.0 OR LGPL-2.1-or-later OR NOASSERTION OR Unlicense"
         comment: >-
           The scanner mixes up the copyright and license notice
         concluded_license: "Apache-2.0"
