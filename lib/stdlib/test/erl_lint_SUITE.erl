@@ -877,7 +877,22 @@ export_vars_warn(Config) when is_list(Config) ->
                   Z = X.
            ">>,
            [],
-           {warnings,[{{7,19},erl_lint,{exported_var,'Z',{'if',{2,19}}}}]}}
+           {warnings,[{{7,19},erl_lint,{exported_var,'Z',{'if',{2,19}}}}]}},
+           {exp5,
+            <<"-record(r0, {a=X=1,
+                            b=X=2}).
+               -record(r1, {a=case 1 of Z -> X=Z end,
+                            b=case 2 of X -> Y=Z=2 end}).
+               -record(r2, {a=case 1 of X -> X end,
+                            b=(fun()-> X=2 end)()}).
+            ">>,
+            [],{warnings,[{{1,22},erl_lint,{unused_record,r0}},
+                          {{2,31},erl_lint,{exported_var,'X',{{record_field,r0,a},{1,34}}}},
+                          {{3,17},erl_lint,{unused_record,r1}},
+                          {{4,41},erl_lint,{exported_var,'X',{'case',{3,31}}}},
+                          {{4,48},erl_lint,{exported_var,'Z',{'case',{3,31}}}},
+                          {{5,17},erl_lint,{unused_record,r2}},
+                          {{6,40},erl_lint,{exported_var,'X',{'case',{5,31}}}}]}}
          ],
     [] = run(Config, Ts),
     ok.
@@ -2846,10 +2861,8 @@ otp_5878(Config) when is_list(Config) ->
               t() -> #r2{}.
              ">>,
            [warn_unused_record],
-           {error,[{{1,44},erl_lint,{variable_in_record_def,'A'}},
-                   {{1,54},erl_lint,{unbound_var,'B'}},
-                   {{2,38},erl_lint,{variable_in_record_def,'A'}}],
-            [{{1,22},erl_lint,{unused_record,r1}}]}},
+           {errors,[{{1,54},erl_lint,{unbound_var,'B'}}],
+            []}},
 
           {otp_5878_30,
            <<"-record(r1, {t = case foo of _ -> 3 end}).
@@ -2859,9 +2872,7 @@ otp_5878(Config) when is_list(Config) ->
               t() -> {#r1{},#r2{},#r3{},#r4{}}.
              ">>,
            [warn_unused_record],
-           {errors,[{{2,44},erl_lint,{variable_in_record_def,'A'}},
-                    {{3,44},erl_lint,{variable_in_record_def,'A'}}],
-            []}},
+            []},
 
           {otp_5878_40,
            <<"-record(r1, {foo = A}). % A unbound
@@ -2898,9 +2909,7 @@ otp_5878(Config) when is_list(Config) ->
              ">>,
            [warn_unused_record],
            {error,[{{1,39},erl_lint,{unbound_var,'A'}},
-                   {{2,33},erl_lint,{unbound_var,'A'}},
-                   {{4,42},erl_lint,{variable_in_record_def,'A'}},
-                   {{17,44},erl_lint,{variable_in_record_def,'A'}}],
+                   {{2,33},erl_lint,{unbound_var,'A'}}],
             [{{8,36},erl_lint,{unused_var,'X'}}]}},
 
           {otp_5878_60,
@@ -2922,8 +2931,7 @@ otp_5878(Config) when is_list(Config) ->
               t() -> #r1{}.
              ">>,
            [warn_unused_record],
-           {errors,[{{3,40},erl_lint,{unbound_var,'Y'}},
-                    {{4,38},erl_lint,{variable_in_record_def,'Y'}}],
+           {errors,[{{3,40},erl_lint,{unbound_var,'Y'}}],
             []}},
 
           {otp_5878_80,

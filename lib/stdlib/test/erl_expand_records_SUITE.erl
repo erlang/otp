@@ -272,7 +272,56 @@ init(Config) when is_list(Config) ->
            t() ->
                catch #{ok => ok || #r1{}},
                ok.
-           """
+           """,
+          ~"""
+           -record(r0, {a=[X||X<-[cucumber,banan]],
+                        b=case {cucumber,banan} of X -> X; _ -> ok end,
+                        c=fun()->{Y,_} = {cucumber,banan}, Y end}).
+           -record(r1, {a=[X||X<-[side_effect(a)]],
+                        b=[X||X<-[side_effect(b)]]}).
+           -record(r2, {a=X=1,
+                        b=X}).
+
+           -record(r3, {a = case X = 1 of _ -> X end,
+                        b = case Y = 2 of X -> Y; _ -> X end}).
+           -record(r4, {a= begin X = side_effect(a), X end,
+                        b= begin X = side_effect(b), X end}).
+           -record(r5, {a = case side_effect(a) of Y when Y =:= ok -> Y; Y -> Y end,
+                        b = case Y of ok -> 1; _ -> 2 end}).
+           side_effect(X) -> self() ! {side_effect, X}, ok.
+           t() ->
+               %% Test that X does not affect default initialization
+               X = {yes, no},
+               {yes,no} = X,
+               #r0{a=[cucumber,banan], b={cucumber,banan}, c=C} = #r0{},
+               cucumber = C(),
+               %% Test that default initialization is done on fields that are
+               %% initialized with another value
+               #r1{a=hello,b=[ok]}=#r1{a=hello},
+               Ok1 = receive
+                   {side_effect, a} -> ok;
+                   {side_effect, b} -> nok
+               end,
+               Ok2 = receive
+                   {side_effect, b} -> ok
+                   after 100 -> nok
+               end,
+               Ok1 = Ok2 = ok,
+               #r2{a=1,b=1}=#r2{},
+               #r2{a=undefined, b=1}=#r2{a=undefined},
+               #r2{a=2, b=2}=#r2{_=2},
+               #r3{a=1, b=1}=#r3{},
+               #r3{a=3, b=1}=#r3{a=3},
+               #r4{a=ok, b=ok}=#r4{},
+               ok = receive {side_effect, a} -> ok; _ -> nok end,
+               ok = receive {side_effect, b} -> ok; _ -> nok end,
+               #r4{a=ok, b=ok}=#r4{a=ok},
+               ok = receive {side_effect, a} -> ok; _ -> nok end,
+               ok = receive {side_effect, b} -> ok; _ -> nok end,
+               #r5{a=ok, b = 1} = #r5{a=ok},
+               ok = receive {side_effect, a} -> ok; _ -> nok end,
+               ok.
+          """
          ],
     run(Config, Ts),
     ok.
