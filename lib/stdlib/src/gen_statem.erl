@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3632,50 +3632,50 @@ loop_receive(
 	    end
     after
         HibernateAfterTimeout ->
-            loop_hibernate(P, Debug, S)
+            loop_hibernate(P, Debug, S#state{hibernate = true})
     end.
 
+-compile({inline, [loop_receive_result/4]}).
+loop_receive_result(P, Debug, S, Event) ->
+    %%
+    %% The field 'hibernate' in S is now invalid and will be restored
+    %% at the end of the loop in loop_next_events/10 or loop_timeouts/12,
+    %% before looping back to loop/3.
+    %%
+    Hibernate = false,
+    loop_receive_result(P, Debug, S, Event, Hibernate).
+%%
 %% We have received an event
 %%
-loop_receive_result(P, ?not_sys_debug = Debug, S, Event) ->
-    %% Here is the queue of not yet handled events created
+%% Here is the queue of not yet handled events created
+%%
+loop_receive_result(P, ?not_sys_debug = Debug, S, Event, Hibernate) ->
     Events = [],
-    loop_event(P, Debug, S, Event, Events);
+    loop_event(P, Debug, S, Event, Events, Hibernate);
 loop_receive_result(
   #params{name = Name} = P, Debug,
-  #state{state_data = {State,_Data}} = S, Event) ->
+  #state{state_data = {State,_Data}} = S, Event, Hibernate) ->
     Debug_1 = sys_debug(Debug, Name, {in,Event,State}),
-    %% Here is the queue of not yet handled events created
     Events = [],
-    loop_event(P, Debug_1, S, Event, Events).
+    loop_event(P, Debug_1, S, Event, Events, Hibernate).
 
 %% Handle one event; received or enqueued
 %%
 loop_event(
-  P, Debug, #state{hibernate = true} = S, Event, Events) ->
-    %%
-    %% If (this old) Hibernate is true here it can only be
-    %% because it was set from an event action
-    %% and we did not go into hibernation since there were
-    %% events in queue, so we do what the user
-    %% might rely on i.e collect garbage which
-    %% would have happened if we actually hibernated
-    %% and immediately was awakened.
-    %%
-    _ = garbage_collect(),
-    %%
-    %% The field 'hibernate' in S is now invalid and will be
-    %% restored when looping back to loop/3 or loop_event/5.
-    %%
+  P, Debug, #state{state_data = State_Data} = S, Event, Events, Hibernate) ->
     Q = [Event|Events],
-    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event);
-loop_event(P, Debug, S, Event, Events) ->
-    %%
-    %% The field 'hibernate' in S is now invalid and will be
-    %% restored when looping back to loop/3 or loop_event/5.
-    %%
-    Q = [Event|Events],
-    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event).
+    case Hibernate of
+        true ->
+            %%
+            %% Hibernate is 'true' because it was set from an event action,
+            %% but since there were events in queue we shall not hibernate,
+            %% instead emulate hibernate and immediate wake-up.
+            %%
+            _ = garbage_collect(),
+            loop_state_callback(P, Debug, S, Q, State_Data, Event, Hibernate);
+        false ->
+            loop_state_callback(P, Debug, S, Q, State_Data, Event, Hibernate)
+    end.
 
 %% Make a state enter call to the state function, we loop back here
 %% from further down if state enter calls are enabled
@@ -3712,10 +3712,9 @@ loop_enter(P, Debug, S, Q, State_Data, Actions) ->
 
 %% Make a state call (not state enter call) to the state function
 %%
--compile({inline, [loop_state_callback/6]}).
-loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent) ->
+-compile({inline, [loop_state_callback/7]}).
+loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent, Hibernate) ->
     NextEventsR = [],
-    Hibernate = false,
     TimeoutsR = [],
     Postpone = false,
     StateCall = true,
@@ -4131,7 +4130,7 @@ loop_actions_list(
                               NextEventsR, Hibernate,
                               [RelativeTimeout|TimeoutsR], Postpone,
                               CallEnter, StateCall, Actions);
-                        _ ->
+                        error ->
                             terminate(
                               error,
                               {bad_action_from_state_function,Timeout},
@@ -4780,14 +4779,15 @@ loop_done(P, Debug, S, Q) ->
                     Timers_1 = cancel_timer(TimeoutType, TimerRef, Timers),
                     S_1 = S#state{timers = Timers_1},
                     Event = {TimeoutType, TimeoutMsg},
-                    loop_receive_result(P, Debug, S_1, Event);
+                    loop_receive_result(
+                      P, Debug, S_1, Event, S#state.hibernate);
                 #{} ->
                     %% Get a new event
                     loop(P, Debug, S)
             end;
         [Event|Events] ->
 	    %% Loop until out of enqueued events
-	    loop_event(P, Debug, S, Event, Events)
+	    loop_event(P, Debug, S, Event, Events, S#state.hibernate)
     end.
 
 
@@ -4807,7 +4807,7 @@ parse_timeout_opts_abs(Opts, Abs) ->
         [{abs,Abs_1}|Opts] when is_boolean(Abs_1) ->
             parse_timeout_opts_abs(Opts, Abs_1);
         _ ->
-            badarg
+            error
     end.
 
 %% Get the callback mode, update #params{}
