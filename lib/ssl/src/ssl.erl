@@ -3740,10 +3740,36 @@ ssl_options() ->
 %% Handle ssl options at handshake, handshake_continue
 -doc false.
 -spec update_options([any()], client | server, map()) -> map().
-update_options(Opts, Role, InheritedSslOpts) when is_map(InheritedSslOpts) ->
-    {UserSslOpts, _} = split_options(Opts, ssl_options()),
+update_options(NewOpts, Role, OriginalSslOpts) when is_map(OriginalSslOpts) ->
+    {UserSslOpts, _} = split_options(NewOpts, ssl_options()),
     Env = #{role => Role, validate_certs_or_anon_ciphers => Role == server},
-    process_options(UserSslOpts, InheritedSslOpts, Env).
+    OrigVersionsOpt = maps:get(versions, OriginalSslOpts, []),
+    NewVersions0 = proplists:get_value(versions, NewOpts, []),
+    {Record, NewVersions} =
+        case maps:get(protocol, OriginalSslOpts, tls) of
+            tls ->
+                validate_updated_versions(tls, NewVersions0),
+                {tls_record, NewVersions0};
+            dtls ->
+                validate_updated_versions(dtls, NewVersions0),
+                {dtls_record, NewVersions0}
+        end,
+    OrigVersions = [Record:protocol_version(V) || V <- OrigVersionsOpt],
+    %% Newversions is on atom format that will sort
+    %% correctly on term format for both tls and dtls.
+    %% tls_record | dtls_record:is_higher works on {Major:integer(), Minor:integer()}
+    %% RFC version format.
+    VersionsOpt = lists:sort(fun(V1, V2) -> V1 > V2 end, NewVersions),
+    FallBackOptions = handle_possible_version_change(OrigVersions, VersionsOpt,
+                                                     OriginalSslOpts, Record),
+    process_options(UserSslOpts, FallBackOptions, Env).
+
+validate_updated_versions(_, []) ->
+    true;
+validate_updated_versions(tls, [_| _] = NewVersions) ->
+    validate_versions(tls, NewVersions);
+validate_updated_versions(dtls, [_|_] = NewVersions) ->
+    validate_versions(dtls, NewVersions).
 
 process_options(UserSslOpts, SslOpts0, Env) ->
     %% Reverse option list so we get the last set option if set twice,
@@ -3770,6 +3796,59 @@ process_options(UserSslOpts, SslOpts0, Env) ->
     SslOpts = opt_process(UserSslOptsMap, SslOpts18, Env),
     validate_server_cert_opts(SslOpts, Env),
     SslOpts.
+
+handle_possible_version_change([Version|_], [Version|_] = VersionOpt, OrigSSLOpts, _) ->   
+    filter_for_versions(VersionOpt, OrigSSLOpts);
+handle_possible_version_change(_, [], OrigSSLOpts, _) ->
+    OrigSSLOpts;
+handle_possible_version_change(_, VersionsOpt, #{ciphers := Suites} = OrigSSLOpts, Record) ->   
+    FallbackSuites = ciphers_for_version(VersionsOpt, Suites, Record),
+    filter_for_versions(VersionsOpt, OrigSSLOpts#{ciphers => FallbackSuites}).
+
+filter_for_versions(['tlsv1.3'], OrigSSLOptions) ->
+    Opts = ?'PRE_TLS-1_3_ONLY_OPTIONS' ++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.3', 'tlsv1.2'| Rest], OrigSSLOptions) ->
+    maybe_exclude_tlsv1(Rest, OrigSSLOptions);
+filter_for_versions(['tlsv1.2'], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.2' | Rest], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS',
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions));
+filter_for_versions(['tlsv1.1'], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS'++ ?'TLS-1_0_ONLY_OPTIONS',
+    maps:without(Opts, OrigSSLOptions);
+filter_for_versions(['tlsv1.1'| Rest], OrigSSLOptions) ->
+    Opts = ?'TLS-1_3_ONLY_OPTIONS' ++ ?'FROM_TLS-1_2_ONLY_OPTIONS',
+    maybe_exclude_tlsv1(Rest, maps:without(Opts, OrigSSLOptions));
+filter_for_versions(['tlsv1'], OrigSSLOptions) ->
+    OrigSSLOptions;
+filter_for_versions(['dtlsv1.2'| _], OrigSSLOptions) ->
+    OrigSSLOptions; %% dtls1.3 not yet supported
+filter_for_versions(['dtlsv1'], OrigSSLOptions) ->
+    filter_for_versions(['tlsv1.1'], OrigSSLOptions). %% dtlsv1 is equivialent to tlsv1.1
+
+maybe_exclude_tlsv1(Versions, Options) ->
+    case lists:member('tlsv1', Versions) of
+        false ->
+            Opts = ?'TLS-1_0_ONLY_OPTIONS',
+            maps:without(Opts, Options);
+        true ->
+            Options
+    end.
+
+ciphers_for_version([AtomVersion | _], CurrentSuites, Record) ->
+    Version = Record:protocol_version_name(AtomVersion),
+    Suites = ssl_cipher:all_suites(Version),
+    Intersection = sets:intersection(sets:from_list(Suites),
+                                     sets:from_list(CurrentSuites)),
+    case sets:is_empty(Intersection) of
+        true ->
+            tls_v1:default_suites(ssl:tls_version(Version));
+        false ->
+            [Suite || Suite <- CurrentSuites, lists:member(Suite, Suites)]
+    end.
 
 -doc false.
 -spec handle_options([any()], client | server, undefined|host()) -> {ok, #config{}}.
