@@ -59,7 +59,6 @@ jobs:
     name: Build Erlang/OTP (64-bit)
     runs-on: ubuntu-latest
     outputs:
-        BASE_BUILD: ${{ steps.base-build.outputs.BASE_BUILD }}
         changes: ${{ steps.changes.outputs.changes }}
         c-code-changes: ${{ steps.c-code-changes.outputs.changes }}
         all: ${{ steps.apps.outputs.all }}
@@ -494,6 +493,8 @@ jobs:
         ## Run dialyzer
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
+      - name: Check OSSF compiler flags
+        uses: ./.github/actions/ossf-compiler-flags-scanner
 
   test:
     name: Test Erlang/OTP
