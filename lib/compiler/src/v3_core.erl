@@ -2080,6 +2080,7 @@ get_nomatch_total(NomatchModes) ->
             end
         end.
 
+is_generator({match,_,_,_}) -> true;
 is_generator({generate,_,_,_}) -> true;
 is_generator({generate_strict,_,_,_}) -> true;
 is_generator({b_generate,_,_,_}) -> true;
@@ -2118,6 +2119,8 @@ get_qual_anno(Abstract) -> element(2, Abstract).
 %% generator(Line, Generator, Guard, State) -> {Generator',State}.
 %%  Transform a given generator into its #igen{} representation.
 
+generator(Line, {match,L,P,E}, Gs, St0) ->
+    generator(Line, {generate_strict,L,P,{cons,L,E,{nil,L}}}, Gs, St0);
 generator(Line, {Generate,Lg,P0,E}, Gs, St0) when Generate =:= generate;
                                                   Generate =:= generate_strict ->
     LA = lineno_anno(Line, St0),
