@@ -238,8 +238,18 @@ using exit signals.
    element(2, erlang:process_info(self(), current_stacktrace))).
 
 -define(
-	is_timeout(X),
+	is_timeout(Abs, X),
+	( ( Abs =:= false andalso ?is_rel_timeout(X) ) orelse ( Abs =:= true andalso ?is_abs_timeout(X) ) )
+).
+
+-define(
+	is_rel_timeout(X),
 	( (X) =:= infinity orelse ( is_integer(X) andalso (X) >= 0 ) )
+).
+
+-define(
+	is_abs_timeout(X),
+	( (X) =:= infinity orelse is_integer(X) )
 ).
 
 -record(server_data, {parent :: pid(),
@@ -266,15 +276,14 @@ using exit signals.
                           {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
                           {stop, Reason :: term(), NewState :: term()})}).
 
--record(actions, {timeout = {infinity, timeout} :: {Time :: timeout(), Msg :: term()},
-		  hibernate = false :: boolean()}).
-
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
 
--type action() :: 'hibernate' | {'hibernate', boolean()} |
-                  {'timeout', timeout(), term()}.
+-type action() :: timeout() |
+                  'hibernate' |
+                  {'timeout', timeout(), term()} |
+                  {'timeout_and_hibernate', timeout(), term()}.
 
 -doc """
 Initialize the server.
@@ -310,7 +319,7 @@ See function [`start_link/3,4`](`start_link/3`)'s return value
 """.
 -callback init(Args :: term()) ->
     {ok, State :: term()} |
-    {ok, State :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {ok, State :: term(), action() | {'continue', term()}} |
     {stop, Reason :: term()} |
     ignore |
     {error, Reason :: term()}.
@@ -378,9 +387,9 @@ The return value `Result` is interpreted as follows:
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {reply, Reply :: term(), NewState :: term(), action() | {'continue', term()}} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {noreply, NewState :: term(), action() | {'continue', term()}} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 
@@ -396,7 +405,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {noreply, NewState :: term(), action() | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -422,7 +431,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {noreply, NewState :: term(), action() | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -450,7 +459,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 -doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | action() | [action()] | {'continue', term()}} |
+    {noreply, NewState :: term(), action() | {'continue', term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -1936,7 +1945,7 @@ the terminated middleman process.
                         }.
 %%
 multi_call(Nodes, Name, Request, Timeout)
-  when is_list(Nodes), is_atom(Name), ?is_timeout(Timeout) ->
+  when is_list(Nodes), is_atom(Name), ?is_rel_timeout(Timeout) ->
     Alias = alias(),
     try
         Timer = if Timeout == infinity -> undefined;
@@ -2047,7 +2056,7 @@ mc_cancel_timer(Timer, Alias) ->
 %%
 enter_loop(Mod, Options, State)
   when is_atom(Mod), is_list(Options) ->
-    enter_loop(Mod, Options, State, self(), []).
+    enter_loop(Mod, Options, State, self(), infinity).
 
 -doc """
 Make the calling process become a `gen_server` process.
@@ -2084,15 +2093,15 @@ With argument `How` equivalent to
 enter_loop(Mod, Options, State, ServerName = {Scope, _})
   when is_atom(Mod), is_list(Options), Scope == local;
        is_atom(Mod), is_list(Options), Scope == global ->
-    enter_loop(Mod, Options, State, ServerName, []);
+    enter_loop(Mod, Options, State, ServerName, infinity);
 %%
 enter_loop(Mod, Options, State, ServerName = {via, _, _})
   when is_atom(Mod), is_list(Options) ->
-    enter_loop(Mod, Options, State, ServerName, []);
+    enter_loop(Mod, Options, State, ServerName, infinity);
 %%
-enter_loop(Mod, Options, State, ActionsOrContinue)
+enter_loop(Mod, Options, State, Action)
   when is_atom(Mod), is_list(Options) ->
-    enter_loop(Mod, Options, State, self(), ActionsOrContinue).
+    enter_loop(Mod, Options, State, self(), Action).
 
 -doc """
 Make the calling process become a `gen_server` process.
@@ -2157,13 +2166,13 @@ enter_loop(Mod, Options, State, ServerName, {continue, _}=Continue)
 	 undefined,
          gen:debug_options(Name, Options));
 %%
-enter_loop(Mod, Options, State, ServerName, Actions0)
+enter_loop(Mod, Options, State, ServerName, Action0)
   when is_atom(Mod), is_list(Options) ->
-    {ok, Actions} = extract_actions(Actions0),
+    {ok, Action} = extract_action(Action0),
     Name = gen:get_proc_name(ServerName),
     loop(server_data(gen:get_parent(), Name, Mod, gen:hibernate_after(Options)),
 	 State,
-	 Actions,
+	 Action,
 	 undefined,
 	 gen:debug_options(Name, Options)).
 
@@ -2188,15 +2197,12 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     case init_it(Mod, Args) of
 	{ok, {ok, State}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
-	    loop(ServerData, State, #actions{}, undefined, Debug);
-	{ok, {ok, State, {continue, _}=Continue}} ->
-	    proc_lib:init_ack(Starter, {ok, self()}),
-	    loop(ServerData, State, Continue, undefined, Debug);
-	{ok, {ok, State, Actions0} = Return} ->
+	    loop(ServerData, State, infinity, undefined, Debug);
+	{ok, {ok, State, Action0} = Return} ->
 	    maybe
-		{ok, Actions} ?= extract_actions(Actions0),
+		{ok, Action} ?= extract_action(Action0),
 		proc_lib:init_ack(Starter, {ok, self()}),
-		loop(ServerData, State, Actions, undefined, Debug)
+		loop(ServerData, State, Action, undefined, Debug)
 	    else
 		error ->
 		    gen:unregister_name(Name0),
@@ -2253,28 +2259,37 @@ loop(ServerData, State, {continue, Continue} = Msg, undefined, Debug) ->
             handle_common_reply(ServerData, State, Msg, undefined, Reply, Debug1)
     end;
 
-loop(ServerData, State, #actions{timeout = {0, TimeoutMsg}}, undefined, Debug) ->
+loop(ServerData, State, {timeout, 0, TimeoutMsg, [{abs, false}]}, undefined, Debug) ->
     decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
 
-loop(#server_data{hibernate_after=HibernateAfterTimeout} = ServerData, State, #actions{hibernate = Hibernate, timeout = Timeout}, TRef0, Debug) ->
-    HibernateAfter = if
-			 Hibernate -> 0;
-			 true -> HibernateAfterTimeout
-		     end,
-    TRef = start_timer(TRef0, Timeout),
-    receive
-        Msg ->
-            decode_msg(ServerData, State, Msg, TRef, Debug, false)
-    after HibernateAfter ->
-            proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
-    end.
+loop(ServerData, State, {timeout, Time, TimeoutMsg, TimeoutOpts}, undefined, Debug) ->
+    TRef = erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
+    loop(ServerData, State, infinity, TRef, Debug);
 
-start_timer(undefined, {infinity, _}) ->
-    undefined;
-start_timer(undefined, {Time, Msg}) ->
-    erlang:start_timer(Time, self(), Msg);
-start_timer(TRef, _) ->
-    TRef.
+loop(ServerData, State, {timeout_and_hibernate, Time, TimeoutMsg, TimeoutOpts}, undefined, Debug) ->
+    TRef = erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
+    loop(ServerData, State, hibernate, TRef, Debug);
+
+loop(ServerData, State, hibernate, TRef, Debug) ->
+    proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug]);
+
+loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, TRef, Debug) ->
+    receive
+	Msg ->
+	    decode_msg(ServerData, State, Msg, TRef, Debug, false)
+    after HibernateAfterTimeout ->
+	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
+    end;
+
+loop(ServerData, State, Time, undefined, Debug)
+  when ?is_rel_timeout(Time) ->
+    Msg = receive
+	      Input ->
+		  Input
+	  after Time ->
+	      timeout
+	  end,
+    decode_msg(ServerData, State, Msg, undefined, Debug, false).
 
 cancel_timer(undefined) ->
     ok;
@@ -2320,7 +2335,6 @@ decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, TRef, Debug, 
             sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
                                   [ServerData, State, TRef, Hib], Hib);
         {'EXIT', Parent, Reason} ->
-	    ok = cancel_timer(TRef),
             terminate(ServerData, State, Msg, undefined, Reason, ?STACKTRACE(), Debug);
 	{timeout, TRef, Msg1} when TRef =/= undefined, Debug =:= [] ->
 	    handle_msg(ServerData, State, Msg1);
@@ -2440,34 +2454,42 @@ try_terminate(#server_data{module = Mod}, State, Reason) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
-extract_actions(ActionsList)
-  when is_list(ActionsList) ->
-    extract_actions(ActionsList, #actions{});
-extract_actions(Time)
-  when ?is_timeout(Time) ->
-    {ok, #actions{timeout = {Time, timeout}}};
-extract_actions(Action) ->
-    extract_actions([Action], #actions{}).
-
-extract_actions([Action | ActionsList], Acc0) ->
-    case extract_action(Action, Acc0) of
-	#actions{} = Acc1 ->
-	    extract_actions(ActionsList, Acc1);
-	error ->
-	    error
-    end;
-extract_actions([], Acc) ->
-    {ok, Acc}.
-
-extract_action(hibernate, Acc) ->
-    Acc#actions{hibernate = true};
-extract_action({hibernate, Hibernate}, Acc)
-  when is_boolean(Hibernate) ->
-    Acc#actions{hibernate = Hibernate};
-extract_action({timeout, Time, Msg}, Acc)
-  when ?is_timeout(Time) ->
-    Acc#actions{timeout = {Time, Msg}};
-extract_action(_, _) ->
+extract_action({continue, _} = Continue) ->
+    {ok, Continue};
+extract_action(hibernate) ->
+    {ok, hibernate};
+extract_action({timeout, T, M})
+  when ?is_rel_timeout(T) ->
+    {ok, {timeout, T, M, [{abs, false}]}};
+extract_action({timeout, T, M, []})
+  when ?is_rel_timeout(T) ->
+    {ok, {timeout, T, M, [{abs, false}]}};
+extract_action({timeout, T, M, {abs, Abs}})
+  when is_boolean(Abs),
+       ?is_timeout(Abs, T) ->
+    {ok, {timeout, T, M, [{abs, Abs}]}};
+extract_action({timeout, T, _, [{abs, Abs}]} = Timeout)
+  when is_boolean(Abs),
+       ?is_timeout(Abs, T) ->
+    {ok, Timeout};
+extract_action({timeout_and_hibernate, T, M})
+  when ?is_rel_timeout(T) ->
+    {ok, {timeout_and_hibernate, T, M, [{abs, false}]}};
+extract_action({timeout_and_hibernate, T, M, []})
+  when ?is_rel_timeout(T) ->
+    {ok, {timeout_and_hibernate, T, M, [{abs, false}]}};
+extract_action({timeout_and_hibernate, T, M, {abs, Abs}})
+  when is_boolean(Abs),
+       ?is_timeout(Abs, T) ->
+    {ok, {timeout_and_hibernate, T, M, [{abs, Abs}]}};
+extract_action({timeout_and_hibernate, T, _, [{abs, Abs}]} = TimeoutAndHibernate)
+  when is_boolean(Abs),
+       ?is_timeout(Abs, T) ->
+    {ok, TimeoutAndHibernate};
+extract_action(Timeout)
+  when ?is_rel_timeout(Timeout) ->
+    {ok, Timeout};
+extract_action(_) ->
     error.
 
 handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
@@ -2475,15 +2497,12 @@ handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
     case Result of
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
-	    loop(ServerData, NState, #actions{}, undefined, []);
-	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
-	    reply(From, Reply),
-	    loop(ServerData, NState, Continue, undefined, []);
-	{ok, {reply, Reply, NState, Actions0} = Return} ->
+	    loop(ServerData, NState, infinity, undefined, []);
+	{ok, {reply, Reply, NState, Action0} = Return} ->
 	    maybe
-		{ok, Actions} ?= extract_actions(Actions0),
+		{ok, Action} ?= extract_action(Action0),
 		reply(From, Reply),
-		loop(ServerData, NState, Actions, undefined, [])
+		loop(ServerData, NState, Action, undefined, [])
 	    else
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), [])
@@ -2506,15 +2525,12 @@ handle_msg(#server_data{name = Name} = ServerData, State, {'$gen_call', From, Ms
     case Result of
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(ServerData, NState, #actions{}, undefined, Debug1);
-	{ok, {reply, Reply, NState, {continue, _}=Continue}} ->
-	    Debug1 = reply(Name, From, Reply, NState, Debug),
-	    loop(ServerData, NState, Continue, undefined, Debug1);
-	{ok, {reply, Reply, NState, Actions0} = Return} ->
+	    loop(ServerData, NState, infinity, undefined, Debug1);
+	{ok, {reply, Reply, NState, Action0} = Return} ->
 	    maybe
-		{ok, Actions} ?= extract_actions(Actions0),
+		{ok, Action} ?= extract_action(Action0),
 		Debug1 = reply(Name, From, Reply, NState, Debug),
-		loop(ServerData, NState, Actions, undefined, Debug1)
+		loop(ServerData, NState, Action, undefined, Debug1)
 	    else
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), [])
@@ -2535,13 +2551,13 @@ handle_msg(ServerData, State, Msg, Debug) ->
 handle_common_reply(ServerData, State, Msg, From, Reply) ->
     case Reply of
 	{ok, {noreply, NState}} ->
-	    loop(ServerData, NState, #actions{}, undefined, []);
+	    loop(ServerData, NState, infinity, undefined, []);
 	{ok, {noreply, NState, {continue, _}=Continue}} ->
 	    loop(ServerData, NState, Continue, undefined, []);
-	{ok, {noreply, NState, Actions0} = Return} ->
+	{ok, {noreply, NState, Action0} = Return} ->
 	    maybe
-		{ok, Actions} ?= extract_actions(Actions0),
-		loop(ServerData, NState, Actions, undefined, [])
+		{ok, Action} ?= extract_action(Action0),
+		loop(ServerData, NState, Action, undefined, [])
 	    else
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), [])
@@ -2559,15 +2575,12 @@ handle_common_reply(#server_data{name = Name} = ServerData, State, Msg, From, Re
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
-	    loop(ServerData, NState, #actions{}, undefined, Debug1);
-	{ok, {noreply, NState, {continue, _}=Continue}} ->
-	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
-	    loop(ServerData, NState, Continue, undefined, Debug1);
-	{ok, {noreply, NState, Actions0} = Return} ->
+	    loop(ServerData, NState, infinity, undefined, Debug1);
+	{ok, {noreply, NState, Action0} = Return} ->
 	    maybe
-		{ok, Actions} ?= extract_actions(Actions0),
+		{ok, Action} ?= extract_action(Action0),
 		Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
-		loop(ServerData, NState, Actions, undefined, Debug1)
+		loop(ServerData, NState, Action, undefined, Debug1)
 	    else
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), Debug)
@@ -2591,7 +2604,11 @@ reply(Name, From, Reply, State, Debug) ->
 %%-----------------------------------------------------------------
 -doc false.
 system_continue(Parent, Debug, [#server_data{parent=Parent} = ServerData, State, TRef, Hib]) ->
-    loop(update_callback_cache(ServerData), State, #actions{hibernate = Hib}, TRef, Debug).
+    Action = case Hib of
+		 true -> hibernate;
+		 false -> infinity
+	     end,
+    loop(update_callback_cache(ServerData), State, Action, TRef, Debug).
 
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
