@@ -305,7 +305,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
         auto second = data[i + 1];
 
         switch (ArgVal::memory_relation(first, second)) {
-        case ArgVal::consecutive: {
+        case ArgVal::Relation::consecutive: {
             x86::Mem src_ptr = getArgRef(first, 16);
 
             comment("(initializing two elements at once)");
@@ -314,7 +314,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
             vmovups(dst_ptr0, x86::xmm0);
             break;
         }
-        case ArgVal::reverse_consecutive: {
+        case ArgVal::Relation::reverse_consecutive: {
             if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
                 mov_arg(dst_ptr0, first);
                 mov_arg(dst_ptr1, second);
@@ -328,7 +328,7 @@ void BeamModuleAssembler::emit_i_new_small_map_lit(const ArgRegister &Dst,
             }
             break;
         }
-        case ArgVal::none:
+        case ArgVal::Relation::none:
             mov_arg(dst_ptr0, first);
             mov_arg(dst_ptr1, second);
             break;

@@ -839,7 +839,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
             mov_arg(dst_ptr, args[i]);
         } else {
             switch (ArgVal::memory_relation(args[i], args[i + 1])) {
-            case ArgVal::consecutive: {
+            case ArgVal::Relation::consecutive: {
                 x86::Mem src_ptr = getArgRef(args[i], 16);
 
                 comment("(moving two elements at once)");
@@ -851,7 +851,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                 i++;
                 break;
             }
-            case ArgVal::reverse_consecutive: {
+            case ArgVal::Relation::reverse_consecutive: {
                 if (!hasCpuFeature(CpuFeatures::X86::kAVX)) {
                     mov_arg(dst_ptr, args[i]);
                 } else {
@@ -867,7 +867,7 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
                 }
                 break;
             }
-            case ArgVal::none: {
+            case ArgVal::Relation::none: {
                 unsigned j;
                 if (value == args[i]) {
                     mov_preserve_cache(dst_ptr, RET);

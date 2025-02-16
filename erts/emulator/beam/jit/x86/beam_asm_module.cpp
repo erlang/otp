@@ -105,28 +105,28 @@ Label BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
 
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
-        case ArgVal::XReg: {
+        case ArgVal::Type::XReg: {
             auto index = arg.as<ArgXRegister>().get();
             data.as_beam = make_loader_x_reg(index);
             a.embed(&data.as_char, sizeof(data.as_beam));
         } break;
-        case ArgVal::YReg: {
+        case ArgVal::Type::YReg: {
             auto index = arg.as<ArgYRegister>().get();
             data.as_beam = make_loader_y_reg(index + y_offset);
             a.embed(&data.as_char, sizeof(data.as_beam));
         } break;
-        case ArgVal::Literal: {
+        case ArgVal::Type::Literal: {
             auto index = arg.as<ArgLiteral>().get();
             make_word_patch(literals[index].patches);
         } break;
-        case ArgVal::Label:
+        case ArgVal::Type::Label:
             a.embedLabel(resolve_beam_label(arg));
             break;
-        case ArgVal::Immediate:
+        case ArgVal::Type::Immediate:
             data.as_beam = arg.as<ArgImmed>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::Word:
+        case ArgVal::Type::Word:
             data.as_beam = arg.as<ArgWord>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
@@ -344,7 +344,7 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
 
 void BeamModuleAssembler::emit_i_func_label(const ArgLabel &Label) {
     flush_last_error();
-    emit_aligned_label(Label, ArgVal(ArgVal::Word, sizeof(UWord)));
+    emit_aligned_label(Label, ArgVal(ArgVal::Type::Word, sizeof(UWord)));
 }
 
 void BeamModuleAssembler::emit_on_load() {

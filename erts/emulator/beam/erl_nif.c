@@ -424,10 +424,10 @@ int
 erts_call_dirty_nif(ErtsSchedulerData *esdp,
                     Process *c_p,
                     ErtsCodePtr I,
-                    Eterm *reg)
+                    const Eterm *reg)
 {
     int exiting;
-    ERL_NIF_TERM *argv = (ERL_NIF_TERM *) reg;
+    const ERL_NIF_TERM *argv = (const ERL_NIF_TERM *) reg;
     ErtsNativeFunc *nep = ERTS_I_BEAM_OP_TO_NFUNC(I);
     const ErtsCodeMFA *codemfa = erts_code_to_codemfa(I);
     NativeFunPtr dirty_nif = (NativeFunPtr) nep->trampoline.dfunc;
@@ -5372,14 +5372,14 @@ erts_nif_sched_init(ErtsSchedulerData *esdp)
     }
 }
 
-int erts_nif_get_funcs(struct erl_module_nif* mod,
+int erts_nif_get_funcs(const struct erl_module_nif* mod,
                        ErlNifFunc **funcs)
 {
     *funcs = mod->entry.funcs;
     return mod->entry.num_of_funcs;
 }
 
-Module *erts_nif_get_module(struct erl_module_nif *nif_mod) {
+Module *erts_nif_get_module(const struct erl_module_nif *nif_mod) {
     return nif_mod->mod;
 }
 

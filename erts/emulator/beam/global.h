@@ -132,16 +132,16 @@ extern void erts_nif_sched_init(ErtsSchedulerData *esdp);
 extern void erts_nif_execute_on_halt(void);
 extern void erts_nif_notify_halt(void);
 extern void erts_nif_wait_calls(void);
-extern int erts_nif_get_funcs(struct erl_module_nif*,
+extern int erts_nif_get_funcs(const struct erl_module_nif*,
                               struct enif_func_t **funcs);
-extern Module *erts_nif_get_module(struct erl_module_nif*);
+extern Module *erts_nif_get_module(const struct erl_module_nif*);
 extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct erl_module_nif*,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
 
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
-                        ErtsCodePtr I, Eterm *reg);
+                        ErtsCodePtr I, const Eterm *reg);
 ErtsMessage* erts_create_message_from_nif_env(ErlNifEnv* msg_env, Uint extra);
 
 
@@ -1216,7 +1216,8 @@ void erts_dirty_process_main(ErtsSchedulerData *);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
 void erts_save_stacktrace(Process* p, struct StackTrace* s);
-ErtsCodePtr erts_printable_return_address(Process* p, Eterm *E) ERTS_NOINLINE;
+ErtsCodePtr erts_printable_return_address(const Process* p,
+                                          const Eterm *E) ERTS_NOINLINE;
 
 /* erl_init.c */
 
