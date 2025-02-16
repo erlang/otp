@@ -29,12 +29,14 @@ for more details on how to use escripts.
 -export([script_name/0, create/2, extract/2]).
 
 %% Internal API.
--export([start/0, start/1, parse_file/1]).
+-export([start/0, start/1]).
 
 %%-----------------------------------------------------------------------
 
 -define(SHEBANG,  "/usr/bin/env escript").
 -define(COMMENT,  "This is an -*- erlang -*- file").
+-define(BUNDLE_HEADER, ".EB\n").
+-define(NEW_ESCRIPT_TERM, escript_app_files).
 
 %%-----------------------------------------------------------------------
 
@@ -71,73 +73,83 @@ For example:
 
 -record(extract_options, {compile_source}).
 
--type zip_file() ::
-	  zip:filename()
-	| {zip:filename(), binary()}
-	| {zip:filename(), binary(), file:file_info()}.
 -type section() ::
-	  shebang
-	| {shebang, shebang() | default | undefined}
-	| comment
-	| {comment, comment() | default | undefined}
-	| {emu_args, emu_args() | undefined}
-	| {source, file:filename() | binary()}
-	| {beam, file:filename() | binary()}
-	| {archive, zip:filename() | binary()}
-	| {archive, [zip_file()], [zip:create_option()]}.
+        'shebang'
+      | {'shebang', shebang() | default | undefined}
+      | 'comment'
+      | {'comment', comment() | default | undefined}
+      | {'emu_args', emu_args() | undefined}
+      | {'source', file:filename() | binary()}
+      | {'beam', file:filename() | binary()}
+      | {'files', [file:filename() | {file:filename(), binary()}]}
+      | {'modules', [file:filename() | binary()]}.
+-type legacy_archive() :: {'archive', binary()}.
+
 
 %%-----------------------------------------------------------------------
 
 %% Create a complete escript file with both header and body
--doc """
+-doc """"
 Creates an escript from a list of sections.
 
 The sections can be specified in any order. An escript begins with an optional
-`Header` followed by a mandatory `Body`. If the header is present, it does always
- begin with a `shebang`, possibly followed by a `comment` and `emu_args`. The
+`Header` followed by a mandatory `Body`. If the header is present, it always
+begins with a `shebang`, possibly followed by a `comment` and `emu_args`. The
 `shebang` defaults to `"/usr/bin/env escript"`. The `comment` defaults to
 `"This is an -*- erlang -*- file"`. The created escript can either be returned
 as a binary or written to file.
 
-As an example of how the function can be used, we create an interpreted escript
-that uses `emu_args` to set some emulator flag. In this case, it happens to set
-number of schedulers with `+S3`. We also extract the different sections from the
-newly created script:
+> #### Change {: .info }
+>
+> Support for archive files is an experimental feature, and as such can be
+> subject to incompatible changes.
+>
+> In Erlang/OTP 28, the archive support in `m:erl_prim_loader` and the
+> the code server has been removed. Archives can be still be used for escripts,
+> but the internal implementation of archives has changed as well a how
+> to create an escript containing multiple file.
+>
+> `escript` scripts that use archive files must use
+> `escript:extract/2` to read data files from its archive, as reading files
+> from archives using `code:lib_dir/2` and `m:erl_prim_loader` is no longer
+> supported.
+
+As an example of how the function can be used, we create an
+interpreted escript that uses `emu_args` to set some emulator flag. In
+this case, it sets the number of schedulers with `+S3`. We also
+extract the different sections from the newly created script:
 
 ```erlang
-> Source = "%% Demo\nmain(_Args) ->\n    io:format(\"~p\",[erlang:system_info(schedulers)]).\n".
-"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedulers)).\n"
-> io:format("~s\n", [Source]).
+> Source = ~"""
 %% Demo
 main(_Args) ->
-    io:format(erlang:system_info(schedulers)).
-
-ok
+    io:format("~p\n", [erlang:system_info(schedulers)]).
+""", ok.
 > {ok, Bin} = escript:create(binary, [shebang, comment, {emu_args, "+S3"},
-                                      {source, list_to_binary(Source)}]).
+                                      {source, Source}]).
 {ok,<<"#!/usr/bin/env escript\n%% This is an -*- erlang -*- file\n%%!+S3"...>>}
 > file:write_file("demo.escript", Bin).
 ok
 > os:cmd("escript demo.escript").
-"3"
+"3\n"
 > escript:extract("demo.escript", []).
 {ok,[{shebang,default}, {comment,default}, {emu_args,"+S3"},
      {source,<<"%% Demo\nmain(_Args) ->\n    io:format(erlang:system_info(schedu"...>>}]}
 ```
 
-An escript without header can be created as follows:
+An escript containing a compiled BEAM file can be created as follows:
 
 ```erlang
 > file:write_file("demo.erl",
                   ["%% demo.erl\n-module(demo).\n-export([main/1]).\n\n", Source]).
 ok
-> {ok, _, BeamCode} = compile:file("demo.erl", [binary, debug_info]).
+> {ok, demo, BeamCode} = compile:file("demo.erl", [binary]).
 {ok,demo,
     <<70,79,82,49,0,0,2,208,66,69,65,77,65,116,111,109,0,0,0,
       79,0,0,0,9,4,100,...>>}
-> escript:create("demo.beam", [{beam, BeamCode}]).
+> escript:create("demo.escript", [shebang, {beam, BeamCode}]).
 ok
-> escript:extract("demo.beam", []).
+> escript:extract("demo.escript", []).
 {ok,[{shebang,undefined}, {comment,undefined}, {emu_args,undefined},
      {beam,<<70,79,82,49,0,0,3,68,66,69,65,77,65,116,
              111,109,0,0,0,83,0,0,0,9,...>>}]}
@@ -145,43 +157,26 @@ ok
 "true"
 ```
 
-Here we create an archive script containing both Erlang code and Beam code, then
-we iterate over all files in the archive and collect their contents and some
-information about them:
+An escript containing both Erlang source files and BEAM code can be created as follows:
 
 ```erlang
-> {ok, SourceCode} = file:read_file("demo.erl").
-{ok,<<"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...>>}
+> {ok, SourceCode} = file:read_file("demo.erl"), ok.
+ok
 > escript:create("demo.escript",
                  [shebang,
-                  {archive, [{"demo.erl", SourceCode},
-                             {"demo.beam", BeamCode}], []}]).
+                  {modules, [BeamCode]},
+                  {files, ["demo.erl"]}]).
 ok
-> {ok, [{shebang,default}, {comment,undefined}, {emu_args,undefined},
-     {archive, ArchiveBin}]} = escript:extract("demo.escript", []).
-{ok,[{shebang,default}, {comment,undefined}, {emu_args,undefined},
-     {{archive,<<80,75,3,4,20,0,0,0,8,0,118,7,98,60,105,
-                152,61,93,107,0,0,0,118,0,...>>}]}
-> file:write_file("demo.zip", ArchiveBin).
-ok
-> zip:foldl(fun(N, I, B, A) -> [{N, I(), B()} | A] end, [], "demo.zip").
-{ok,[{"demo.beam",
-      {file_info,748,regular,read_write,
-                 {{2010,3,2},{0,59,22}},
-                 {{2010,3,2},{0,59,22}},
-                 {{2010,3,2},{0,59,22}},
-                 54,1,0,0,0,0,0},
-      <<70,79,82,49,0,0,2,228,66,69,65,77,65,116,111,109,0,0,0,
-        83,0,0,...>>},
-     {"demo.erl",
-      {file_info,118,regular,read_write,
-                 {{2010,3,2},{0,59,22}},
-                 {{2010,3,2},{0,59,22}},
-                 {{2010,3,2},{0,59,22}},
-                 54,1,0,0,0,0,0},
-      <<"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Arg"...>>}]}
+> escript:extract("demo.escript", []).
+{ok,[{shebang,default},
+     {comment,undefined},
+     {emu_args,undefined},
+     {modules,[<<70,79,82,49,0,0,2,144,66,69,65,77,65,116,85,
+                 56,0,0,0,82,...>>]},
+     {files,[{"demo.erl",
+              <<"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Args) -"...>>}]}]}
 ```
-""".
+"""".
 -spec create(file:filename() | binary(), [section()]) ->
 		    ok | {ok, binary()} | {error, term()}.
 
@@ -232,6 +227,19 @@ prepare([H | T], S) ->
 	    prepare(T, S);
 	{emu_args, Args} when is_list(Args) ->
 	    prepare(T, S#sections{emu_args = "%%!" ++ Args ++ "\n"});
+	{archive = Type, ZipFiles, ZipOptions}
+	  when is_list(ZipFiles), is_list(ZipOptions) ->
+	    File = "dummy.zip",
+	    case zip:create(File, ZipFiles, ZipOptions ++ [memory]) of
+		{ok, {File, ZipBin}} ->
+                    prepare([{Type, ZipBin} | T], S);
+		{error, Reason} ->
+		    throw({Reason, H})
+	    end;
+	{modules=Type, Files} when is_list(Files) ->
+            prepare_bundle(Type, Files, T, S);
+	{files=Type, Files} when is_list(Files) ->
+            prepare_bundle(Type, Files, T, S);
 	{Type, File} when is_list(File) ->
 	    case file:read_file(File) of
 		{ok, Bin} ->
@@ -241,37 +249,96 @@ prepare([H | T], S) ->
 	    end;
 	{Type, Bin} when is_binary(Bin) ->
 	    prepare(T, S#sections{type = Type, body = Bin});
-	{archive = Type, ZipFiles, ZipOptions}
-	  when is_list(ZipFiles), is_list(ZipOptions) ->
-	    File = "dummy.zip",
-	    case zip:create(File, ZipFiles, ZipOptions ++ [memory]) of
-		{ok, {File, ZipBin}} ->
-		    prepare(T, S#sections{type = Type, body = ZipBin});
-		{error, Reason} ->
-		    throw({Reason, H})
-	    end;
 	_ ->
 	    throw({badarg, H})
     end;
 prepare([], #sections{body = undefined}) ->
     throw(missing_body);
-prepare([], #sections{type = Type} = S)
-  when Type =:= source; Type =:= beam; Type =:= archive ->
+prepare([], #sections{type = bundle, body = BodyMap} = S) ->
+    Modules = case BodyMap of
+                  #{modules := Mods} -> Mods;
+                  #{} -> throw(no_modules)
+              end,
+    Files = maps:get(files, BodyMap, []),
+    S#sections{body=beam_bundle(Modules, Files)};
+prepare([], #sections{type = Type} = S) when Type =:= source; Type =:= beam ->
     S;
 prepare([], #sections{type = Type}) ->
     throw({illegal_type, Type});
 prepare(BadOptions, _) ->
     throw({badarg, BadOptions}).
 
+prepare_bundle(Type, Files, T, #sections{body=undefined}=S) ->
+    prepare_bundle(Type, Files, T, S#sections{type=bundle, body=#{}});
+prepare_bundle(Type, Files0, T, #sections{type=bundle, body=Body}=S)
+  when is_map(Body) ->
+    Files = case Type of
+                modules -> read_beams(Files0);
+                files -> read_files(Files0)
+            end,
+    prepare(T, S#sections{body=Body#{Type => Files}}).
+
+read_files(Files) ->
+    [case FileOrBin of
+         {Name, Binary} when is_list(Name), is_binary(Binary) ->
+             {Name, Binary};
+         Name when is_list(Name) ->
+             case file:read_file(Name) of
+                 {ok, Bin} ->
+                     {Name, Bin};
+                 {error, Reason} ->
+                     throw({Reason, FileOrBin})
+             end;
+         _ ->
+             throw({illegal_file, FileOrBin})
+     end || FileOrBin <- Files].
+
+read_beams(Files) ->
+    [if
+         is_binary(FileOrBin) ->
+             FileOrBin;
+         is_list(FileOrBin) ->
+             case file:read_file(FileOrBin) of
+                 {ok, Bin} ->
+                     Bin;
+                 {error, Reason} ->
+                     throw({Reason, FileOrBin})
+             end;
+         true ->
+             throw({illegal_file, FileOrBin})
+     end || FileOrBin <- Files].
+
+beam_bundle(Beams, OtherFiles) ->
+    Packed = term_to_binary(Beams, [{compressed,9}]),
+    PackedSize = byte_size(Packed),
+    OtherArchive = term_to_binary(OtherFiles, [{compressed,9}]),
+    OtherArchiveSize = byte_size(OtherArchive),
+    <<?BUNDLE_HEADER,PackedSize:32,Packed/binary,
+      OtherArchiveSize:32,OtherArchive/binary>>.
+
 -type section_name() :: shebang | comment | emu_args | body .
 -type extract_option() :: compile_source | {section, [section_name()]}.
 -doc """
-Parses an escript and extracts its sections. This is the reverse of `create/2`.
+Parses an escript and extracts its sections.
+
+This is the reverse of `create/2`.
 
 All sections are returned even if they do not exist in the escript. If a
 particular section happens to have the same value as the default value, the
 extracted value is set to the atom `default`. If a section is missing, the
 extracted value is set to the atom `undefined`.
+
+> #### Change {: .info }
+>
+> Support for archive files is an experimental feature, and as such can be
+> subject to incompatible changes.
+>
+> `escript:extract/2` now returns BEAM files and other files separately
+> in `{modules, [...]}` and `{files, [...]}` tuples, respectively,
+> when the input is an escript created by Erlang/OTP 28 or later.
+>
+> If the escript was created by Erlang/OTP 27 or earlier, a zip archive
+> will still be returned in an `{archive, ZipArchive}` tuple.
 
 Option `compile_source` only affects the result if the escript contains `source`
 code. In this case the Erlang code is automatically compiled and
@@ -281,19 +348,32 @@ Example:
 
 ```erlang
 > escript:create("demo.escript",
-                 [shebang, {archive, [{"demo.erl", SourceCode},
-                                      {"demo.beam", BeamCode}], []}]).
+                 [shebang,
+                  {modules, [BeamCode]},
+                  {files, ["demo.erl"]}]).
 ok
-> {ok, [{shebang,default}, {comment,undefined}, {emu_args,undefined},
-     {archive, ArchiveBin}]} =
-              escript:extract("demo.escript", []).
+> escript:extract("demo.escript", []).
+{ok,[{shebang,default},
+     {comment,undefined},
+     {emu_args,undefined},
+     {modules,[<<70,79,82,49,0,0,2,144,66,69,65,77,65,116,85,
+                 56,0,0,0,82,...>>]},
+     {files,[{"demo.erl",
+              <<"%% demo.erl\n-module(demo).\n-export([main/1]).\n\n%% Demo\nmain(_Args) -"...>>}]}]}
+```
+
+`escript:extract/2` in Erlang/OTP 28 can extract the sections of an
+escript created by Erlang/OTP 27 and earlier:
+
+```
+> escript:extract("demo_otp27.escript", []).
 {ok,[{{archive,<<80,75,3,4,20,0,0,0,8,0,118,7,98,60,105,
                 152,61,93,107,0,0,0,118,0,...>>}
      {emu_args,undefined}]}
 ```
 """.
 -spec extract(file:filename(), [extract_option()]) ->
-        {ok, [section()]} | {error, term()}.
+        {ok, [section() | legacy_archive()]} | {error, term()}.
 
 extract(File, Options) when is_list(File), is_list(Options) ->
     try
@@ -353,8 +433,8 @@ format_errors(CompileErrors) ->
 return_sections(S, Bin) ->
     {ok, [normalize_section(shebang,  S#sections.shebang),
 	  normalize_section(comment,  S#sections.comment),
-	  normalize_section(emu_args, S#sections.emu_args),
-	  normalize_section(S#sections.type, Bin)]}.
+	  normalize_section(emu_args, S#sections.emu_args)] ++
+	  normalize_section(S#sections.type, Bin)}.
 
 normalize_section(Name, undefined) ->
     {Name, undefined};
@@ -380,8 +460,19 @@ normalize_section(emu_args, "%%!" ++ Chars) ->
     Chopped = string:trim(Chars, trailing, "$\n"),
     Stripped = string:trim(Chopped, both),
     {emu_args, Stripped};
+normalize_section(archive, Bin) ->
+    case Bin of
+        <<?BUNDLE_HEADER,BeamSize:32,PackedBeam:BeamSize/binary,
+          OtherSize:32,PackedOther:OtherSize/binary>> ->
+            Beams = binary_to_term(PackedBeam, [safe]),
+            OtherArchive = binary_to_term(PackedOther, [safe]),
+            [{modules, Beams},
+             {files, OtherArchive}];
+        _ ->
+            [{archive, Bin}]
+    end;
 normalize_section(Name, Chars) ->
-    {Name, Chars}.
+    [{Name, Chars}].
 
 -doc """
 Returns the name of the escript that is executed.
@@ -476,9 +567,9 @@ parse_and_run(File, Args, Options) ->
         is_binary(FormsOrBin) ->
             case Source of
                 archive ->
-                    case set_primary_archive(File, FormsOrBin) of
+                    case handle_archive(File, FormsOrBin) of
                         ok when CheckOnly ->
-			    case code:load_file(Module) of
+			    case code:ensure_loaded(Module) of
 				{module, _} ->
 				    case erlang:function_exported(Module, main, 1) of
 					true ->
@@ -498,10 +589,8 @@ parse_and_run(File, Args, Options) ->
                                 run   -> run(Module, Args);
                                 debug -> debug(Module, Module, Args)
                             end;
-                        {error, bad_eocd} ->
-                            fatal("Not an archive file");
-                        {error, Reason} ->
-                            fatal(Reason)
+            {error, Reason} ->
+                fatal(Reason)
                     end;
                 beam ->
                     case Mode2 of
@@ -522,37 +611,51 @@ parse_and_run(File, Args, Options) ->
             end
     end.
 
-set_primary_archive(File, FormsOrBin) ->
-    {ok, FileInfo} = file:read_file_info(File),
-    ArchiveFile = filename:absname(File),
+handle_archive(_File, <<?BUNDLE_HEADER,BeamSize:32,Beams0:BeamSize/binary,
+                       OtherSize:32,OtherFiles:OtherSize/binary>>) ->
+    Beams = name_beams(binary_to_term(Beams0, [safe])),
+    UnpackedFiles = binary_to_term(OtherFiles, [safe]),
+    AppFiles = [{list_to_atom(filename:basename(filename:rootname(Name))), Bin} ||
+                   {Name, Bin} <:- UnpackedFiles,
+                   filename:extension(Name) =:= ".app"],
+    persistent_term:put(?NEW_ESCRIPT_TERM, AppFiles),
+    {ok,Prepared} = code:prepare_loading(Beams),
+    ok = code:finish_loading(Prepared),
+    ok;
+handle_archive(File, Archive) ->
+    {ok, {Beams, AppFiles}} = extract_archive(File, Archive),
+    persistent_term:put(?NEW_ESCRIPT_TERM, AppFiles),
+    {ok, Prepared} = code:prepare_loading(Beams),
+    ok = code:finish_loading(Prepared),
+    ok.
 
-    case erl_prim_loader:set_primary_archive(ArchiveFile, FormsOrBin, FileInfo,
-                         fun escript:parse_file/1) of
-        {ok, Ebins} ->
-            %% Prepend the code path with the ebins found in the archive
-            Ebins2 = [filename:join([ArchiveFile, E]) || E <- Ebins],
-            code:add_pathsa(Ebins2, cache); % Returns ok
-        {error, _Reason} = Error ->
-            Error
+name_beams([Beam | Beams]) ->
+    Info = beam_lib:info(Beam),
+    {module, Mod} = lists:keyfind(module, 1, Info),
+    File = atom_to_list(Mod) ++ ".erl",
+    [{Mod,File,Beam}|name_beams(Beams)];
+name_beams([]) -> [].
+
+extract_archive(File, Archive) ->
+    zip:foldl(fun do_extract_archive/4, {[], []}, {File, Archive}).
+
+do_extract_archive(Name, _, Get, {BeamAcc, AppFileAcc}) ->
+    case filename:extension(Name) of
+        ".beam" ->
+            BeamFile = filename:basename(Name),
+            Mod = list_to_atom(filename:rootname(BeamFile)),
+            {[{Mod, BeamFile, Get()} | BeamAcc], AppFileAcc};
+        ".app" ->
+            App = list_to_atom(filename:rootname(filename:basename(Name))),
+            {BeamAcc, [{App, Get()} | AppFileAcc]};
+        _ ->
+            {BeamAcc, AppFileAcc}
     end.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Parse script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% Only used as callback by erl_prim_loader
--doc hidden.
-parse_file(File) ->
-    try parse_file(File, false) of
-	{_Source, _Module, FormsOrBin, _HasRecs, _Mode}
-	  when is_binary(FormsOrBin) ->
-	    {ok, FormsOrBin};
-	_ ->
-	    {error, no_archive_bin}
-    catch
-	throw:Reason ->
-	    {error, Reason}
-    end.
 
 parse_file(File, CheckOnly) ->
     {HeaderSz, StartLine, Fd, Sections} =
@@ -613,6 +716,9 @@ parse_header(File, KeepFirst) ->
 	beam ->
             {HeaderSz0, LineNo, Fd,
 	     #sections{type = beam}};
+        comment ->
+            find_first_body_line(Fd, HeaderSz0, LineNo, KeepFirst,
+				 #sections{comment = Line1});
 	_ ->
             find_first_body_line(Fd, HeaderSz0, LineNo, KeepFirst,
 				 #sections{})
@@ -623,17 +729,19 @@ find_first_body_line(Fd, HeaderSz0, LineNo, KeepFirst, Sections) ->
     %% Look for special comment on second line
     Line2 = get_line(Fd),
     {ok, HeaderSz2} = file:position(Fd, cur),
-    if
-        Sections#sections.shebang =:= undefined,
-        KeepFirst =:= true ->
-            %% No shebang. Use the entire file
-            {HeaderSz0, LineNo, Fd,
-             Sections#sections{type = guess_type(Line2)}};
-        Sections#sections.shebang =:= undefined ->
-            %% No shebang. Skip the first line
+    case Sections of
+        #sections{shebang=undefined,comment=Comment} when is_list(Comment) ->
             {HeaderSz1, LineNo, Fd,
              Sections#sections{type = guess_type(Line2)}};
-        true ->
+        #sections{shebang=undefined} when KeepFirst ->
+            %% No shebang and no comment. Use the entire file.
+            {HeaderSz0, LineNo, Fd,
+             Sections#sections{type = guess_type(Line2)}};
+        #sections{shebang=undefined} ->
+            %% No shebang. Skip the first line.
+            {HeaderSz1, LineNo, Fd,
+             Sections#sections{type = guess_type(Line2)}};
+        #sections{} ->
             case classify_line(Line2) of
                 emu_args ->
                     %% Skip special comment on second line
@@ -672,6 +780,7 @@ classify_line(Line) ->
     case Line of
         "#!" ++ _ -> shebang;
         "PK" ++ _ -> archive;
+        ".EB" ++ _ -> archive;
         "FOR1" ++ _ -> beam;
         "%%!" ++ _ -> emu_args;
         "%" ++ _ -> comment;

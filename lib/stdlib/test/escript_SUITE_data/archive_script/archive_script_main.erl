@@ -36,17 +36,31 @@ main(MainArgs) ->
     {error, {not_started, ?DICT}} = application:start(?DUMMY),
     ok = application:start(?DICT),
     ok = application:start(?DUMMY),
-    
-    %% Access dict priv dir
-    PrivDir = code:priv_dir(?DICT),
-    PrivFile = filename:join([PrivDir, "archive_script_dict.txt"]),
-    case erl_prim_loader:read_file(PrivFile) of
-	{ok, Bin} ->
-	    io:format("priv:~p\n", [{ok, Bin}]);
-	error ->
-	    io:format("priv:~p\n", [{error, PrivFile}])
+
+    %% Try to extract the escript
+    case MainArgs of
+        ["-legacy_arg1"|_] ->
+            case escript:extract(escript:script_name(), []) of
+                {ok, Extracted} ->
+                    [{shebang, _Shebang}, {comment,_Comment},
+                     {emu_args, _Emu}, {archive, Archive}] = Extracted,
+                    <<"PK",_/binary>> = Archive,
+                    io:format("extract: ok\n");
+                error ->
+                    io:format("extract: error\n")
+            end;
+        ["-arg1"|_] ->
+            case escript:extract(escript:script_name(), []) of
+                {ok, Extracted} ->
+                    [{shebang, _Shebang}, {comment,_Comment},
+                     {emu_args, _Emu}, {modules, [_|_]},
+                     {files, [_|_]}] = Extracted,
+                    io:format("extract: ok\n");
+                error ->
+                    io:format("extract: error\n")
+            end
     end,
-    
+
     %% Use the dict app
     Tab = archive_script_main_tab,
     Key = foo,

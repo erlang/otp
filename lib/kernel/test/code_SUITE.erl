@@ -28,7 +28,7 @@
          ensure_loaded/1, ensure_loaded_many/1, ensure_loaded_many_kill/1,
          ensure_loaded_bad_case/1,
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
-         soft_purge/1, is_loaded/1, all_loaded/1, all_available/1,
+         soft_purge/1, is_loaded/1, all_loaded/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 upgrade/0, upgrade/1,
 	 sticky_dir/1, add_del_path/1,
@@ -36,8 +36,8 @@
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
-	 code_archive/1, code_archive2/1, on_load/1,
-     on_load_binary/1, on_load_binary_twice/1,
+	 on_load/1,
+         on_load_binary/1, on_load_binary_twice/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
          on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
@@ -68,13 +68,13 @@ all() ->
      ensure_loaded, ensure_loaded_many, ensure_loaded_many_kill,
      ensure_loaded_bad_case,
      delete, purge, purge_many_exits, soft_purge, is_loaded, all_loaded,
-     all_available, load_binary, dir_req, object_code, set_path_file,
+     load_binary, dir_req, object_code, set_path_file,
      upgrade, code_path_cache,
      pa_pz_option, remove_pa_pz_option,
      sticky_dir, add_del_path, dir_disappeared,
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
-     bad_erl_libs, code_archive, code_archive2, on_load,
+     bad_erl_libs, on_load,
      on_load_binary, on_load_binary_twice,
      on_load_embedded, on_load_errors,
      {group, sequence},
@@ -641,47 +641,6 @@ all_unique([]) -> ok;
 all_unique([_]) -> ok;
 all_unique([{X,_}|[{Y,_}|_]=T]) when X < Y -> all_unique(T).
 
-all_available(Config) when is_list(Config) ->
-    case test_server:is_cover() of
-	true -> {skip,"Cover is running"};
-	false -> all_available_1(Config)
-    end.
-
-all_available_1(Config) ->
-
-    %% Add an ez dir to make sure the modules in there are found
-    DDir = proplists:get_value(data_dir,Config)++"clash/",
-    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
-
-    Available = code:all_available(),
-
-    %% Test that baz and blarg that are part of the .ez archive are found
-    {value, _} =
-        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "baz" end, Available),
-    {value, _} =
-        lists:search(fun({Name,_,Loaded}) -> not Loaded andalso Name =:= "blarg" end, Available),
-
-    %% Test that all loaded are part of all available
-    Loaded = [{atom_to_list(M),P,true} || {M,P} <- code:all_loaded()],
-    [] = Loaded -- Available,
-
-    {value, {ModStr,_,false} = NotLoaded} =
-        lists:search(fun({Name,_,Loaded}) -> not is_atom(Name) end, Available),
-    ct:log("Testing with ~p",[NotLoaded]),
-
-    Mod = list_to_atom(ModStr),
-
-    %% Test that the module is actually not loaded
-    false = code:is_loaded(Mod),
-
-    %% Load it
-    Mod:module_info(),
-
-    {value, {ModStr,_,true}} =
-        lists:search(fun({Name,_,_}) -> Name =:= ModStr end, code:all_available()),
-
-    ok.
-
 load_binary(Config) when is_list(Config) ->
     TestDir = test_dir(),
     File = TestDir ++ "/code_b_test" ++ code:objfile_extension(),
@@ -869,15 +828,15 @@ add_del_path(Config) when is_list(Config) ->
     PrivDir1 = code:priv_dir(dummy_app),
     ok.
 
-
 clash(Config) when is_list(Config) ->
-    DDir = proplists:get_value(data_dir,Config)++"clash/",
+    DataDir = proplists:get_value(data_dir, Config),
+    DDir = filename:join(DataDir, "clash"),
     P = code:get_path(),
 
     %% test non-clashing entries
 
-    true = code:add_path(DDir++"foobar-0.1/ebin"),
-    true = code:add_path(DDir++"zork-0.8/ebin"),
+    true = code:add_path(filename:join(DDir, "foobar-0.1/ebin")),
+    true = code:add_path(filename:join(DDir, "zork-0.8/ebin")),
     ct:capture_start(),
     ok = code:clash(),
     ct:capture_stop(),
@@ -887,37 +846,30 @@ clash(Config) when is_list(Config) ->
 
     %% test clashing entries
 
-    true = code:add_path(DDir++"foobar-0.1/ebin"),
-    true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+    true = code:add_path(filename:join(DDir, "zork-0.8/ebin")),
+    true = code:add_path(filename:join(DDir, "frotz-0.5/ebin")),
     ct:capture_start(),
     ok = code:clash(),
     ct:capture_stop(),
     [ClashMsg|_] = ct:capture_get(),
     {match, [" hides "]} = re:run(ClashMsg, "\\*\\* .*( hides ).*",
-					[{capture,all_but_first,list}]),
+                                  [{capture,all_but_first,list}]),
     true = code:set_path(P),
 
     %% test "Bad path can't read"
 
     Priv = proplists:get_value(priv_dir, Config),
-    TmpEzFile = Priv++"foobar-0.tmp.ez",
-    {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
-    true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
-    case os:type() of
-        {win32,_} ->
-	    %% The file won't be deleted on windows until it's closed, why we
-	    %% need to rename instead.
-	    ok = file:rename(TmpEzFile,TmpEzFile++".moved");
-	 _ ->
-    	    ok = file:delete(TmpEzFile)
-    end,
+    PrivDirEbin = filename:join(Priv, "ebin"),
+    ok = file:make_dir(PrivDirEbin),
+    true = code:add_path(PrivDirEbin),
+    ok = file:del_dir(PrivDirEbin),
     ct:capture_start(),
     ok = code:clash(),
     ct:capture_stop(),
     [BadPathMsg|_] = ct:capture_get(),
     true = lists:prefix("** Bad path can't read", BadPathMsg),
     true = code:set_path(P),
-    file:delete(TmpEzFile++".moved"), %% Only effect on windows
+
     ok.
 
 %% Every module that the code_server uses should be preloaded,
@@ -961,7 +913,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
 	  code_server, lists, lists_sort, unicode, binary, filename,
 	  gb_sets, gb_trees, erts_code_purger, erts_internal, code,
-	  prim_zip, zlib],
+	  zlib],
     ErrCnt1 =
 	case lists:member(M, OK) or erlang:is_builtin(M,F,A) of
 	    true ->
@@ -1021,11 +973,6 @@ check_funs({'$M_EXPR','$F_EXPR',_},
 	    {code_server,loop,1}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,all,2},
-	    {code_server,is_numstr,1},
-	    {code_server,is_vsn,1},
-	    {code_server,vsn_to_num,1},
-	    {code_server,create_bundle,2},
-	    {code_server,choose_bundles,1},
 	    {code_server,make_path,2},
 	    {code_server,get_user_lib_dirs_1,1},
 	    {code_server,get_user_lib_dirs,0},
@@ -1034,11 +981,6 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,all_1,2},
 	    {lists,all,2},
-	    {code_server,is_numstr,1},
-	    {code_server,is_vsn,1},
-	    {code_server,vsn_to_num,1},
-	    {code_server,create_bundle,2},
-	    {code_server,choose_bundles,1},
 	    {code_server,make_path,2},
 	    {code_server,get_user_lib_dirs_1,1},
 	    {code_server,get_user_lib_dirs,0},
@@ -1046,7 +988,13 @@ check_funs({'$M_EXPR','$F_EXPR',1},
 	    {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,filter,2},
-	    {code_server,try_archive_subdirs,3}|_]) -> 0;
+        {code_server,store_module_and_reply,3},
+        {code_server,handle_loader,4},
+        {code_server,run_loader,4},
+        {code_server,handle_call,3},
+        {code_server,loop,1},
+        {code_server,init,3},
+        {code_server,start_link,1}]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{erlang,apply,2},
 	    {erlang,spawn_link,1},
@@ -1231,127 +1179,6 @@ bad_erl_libs(Config) when is_list(Config) ->
     %% Test that code path is not affected by the faulty ERL_LIBS
     Code = Code2,
 
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% Create an archive file containing an application and make use of it.
-
-code_archive(Config) when is_list(Config) ->
-    do_code_archive(Config, "code_archive_libs", false).
-
-code_archive2(Config) when is_list(Config) ->
-    do_code_archive(Config, "code_archive_libs2", true).
-
-do_code_archive(Config, Root, StripVsn) when is_list(Config) ->
-    %% Copy the orig files to priv_dir
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    App = code_archive_dict,
-    VsnBase = atom_to_list(App) ++ "-1.0",
-    Base =
-	case StripVsn of
-	    true  -> atom_to_list(App);
-	    false -> VsnBase
-	end,
-    Ext = init:archive_extension(),
-    RootDir = filename:join([PrivDir, Root]),
-    ok = file:make_dir(RootDir),
-    Archive = filename:join([RootDir, VsnBase ++ Ext]),
-    {ok, _} = zip:create(Archive, [VsnBase],
-			       [{compress, []}, {cwd, DataDir}]),
-    {ok, _} = zip:extract(Archive, [{cwd, PrivDir}]),
-
-    case StripVsn of
-	true ->
-	    ok = file:rename(filename:join([PrivDir, VsnBase]),
-				   filename:join([PrivDir, Base]));
-	false ->
-	    ok
-    end,
-
-    io:format("DEBUG: ~p\n", [?LINE]),
-    %% Compile the code
-    ok = compile_app(PrivDir, Base),
-
-    %% Create the archive
-    ok = file:delete(Archive),
-    {ok, _} = zip:create(Archive, [Base],
-			       [{compress, []}, {cwd, PrivDir}]),
-
-    %% Create a directory and a file outside of the archive.
-    OtherFile = filename:join([RootDir,VsnBase,"other","other.txt"]),
-    OtherContents = ?MODULE:module_info(md5),
-    filelib:ensure_dir(OtherFile),
-    ok = file:write_file(OtherFile, OtherContents),
-
-    %% Set up ERL_LIBS and start a peer node.
-    {ok, Peer, Node} = ?CT_PEER(["-env", "ERL_LIBS", RootDir]),
-    CodePath = rpc:call(Node, code, get_path, []),
-    AppEbin = filename:join([Archive, Base, "ebin"]),
-    io:format("AppEbin: ~p\n", [AppEbin]),
-    io:format("CodePath: ~p\n", [CodePath]),
-    io:format("Archive: ~p\n", [erl_prim_loader:read_file_info(Archive)]),
-    true = lists:member(AppEbin, CodePath),
-
-    %% Start the app
-    ok = rpc:call(Node, application, start, [App]),
-
-    %% Get the lib dir for the app.
-    AppLibDir = rpc:call(Node, code, lib_dir, [App]),
-    io:format("AppLibDir: ~p\n", [AppLibDir]),
-    AppLibDir = filename:join(RootDir, VsnBase),
-
-    %% Access the app priv dir
-    AppPrivDir = rpc:call(Node, code, priv_dir, [App]),
-    AppPrivFile = filename:join([AppPrivDir, "code_archive.txt"]),
-    io:format("AppPrivFile: ~p\n", [AppPrivFile]),
-    {ok, _Bin, _} =
-	rpc:call(Node, erl_prim_loader, get_file, [AppPrivFile]),
-
-    %% Read back the other text file.
-    OtherDirPath = rpc:call(Node, code, lib_dir, [App,other]),
-    OtherFilePath = filename:join(OtherDirPath, "other.txt"),
-    io:format("OtherFilePath: ~p\n", [OtherFilePath]),
-    {ok, OtherContents, _} =
-	rpc:call(Node, erl_prim_loader, get_file, [OtherFilePath]),
-
-    %% Use the app
-    Tab = code_archive_tab,
-    Key = foo,
-    Val = bar,
-    {ok, _Pid} =  rpc:call(Node, App, new, [Tab]),
-    error =  rpc:call(Node, App, find, [Tab, Key]),
-    ok =  rpc:call(Node, App, store, [Tab, Key, Val]),
-    {ok, Val} =  rpc:call(Node, App, find, [Tab, Key]),
-    ok =  rpc:call(Node, App, erase, [Tab, Key]),
-    error =  rpc:call(Node, App, find, [Tab, Key]),
-    ok =  rpc:call(Node, App, erase, [Tab]),
-
-    peer:stop(Peer),
-    ok.
-
-compile_app(TopDir, AppName) ->
-    AppDir = filename:join([TopDir, AppName]),
-    SrcDir = filename:join([AppDir, "src"]),
-    OutDir = filename:join([AppDir, "ebin"]),
-    {ok, Files} = file:list_dir(SrcDir),
-    compile_files(Files, SrcDir, OutDir).
-
-compile_files([File | Files], SrcDir, OutDir) ->
-    case filename:extension(File) of
-	".erl" ->
-	    AbsFile = filename:join([SrcDir, File]),
-	    case compile:file(AbsFile, [{outdir, OutDir}]) of
-		{ok, _Mod} ->
-		    compile_files(Files, SrcDir, OutDir);
-		Error ->
-		    {compilation_error, AbsFile, OutDir, Error}
-	    end;
-	_ ->
-	    compile_files(Files, SrcDir, OutDir)
-    end;
-compile_files([], _, _) ->
     ok.
 
 %% Test that a boot file with (almost) all of OTP can be used to start an
