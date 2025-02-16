@@ -968,22 +968,18 @@ erts_garbage_collect(Process* p, Uint need, Eterm* objv, int nobj)
 static int
 garbage_collect_hibernate(Process* p, int check_long_gc)
 {
-    Uint heap_size;
-    Eterm* heap;
-    Eterm* htop;
-    Uint actual_size;
-    char* area;
+    Eterm *collection_heap, *collection_htop, *final_heap;
+    Uint final_size, heap_size, stack_size;
+    Sint stack_offset, heap_offset;
+    char *area;
     Uint area_sz;
-    Sint offs;
-    int reds;
 
-    if (p->flags & F_DISABLE_GC)
-	ERTS_INTERNAL_ERROR("GC disabled");
+    ERTS_ASSERT(!(p->flags & F_DISABLE_GC));
 
     if (p->sig_qs.flags & FS_ON_HEAP_MSGQ) {
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
         erts_proc_sig_fetch(p);
-	erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
+        erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
     }
 
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p))) {
@@ -1004,131 +1000,85 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
         p->flags = flags;
     }
 
-    /*
-     * Preliminaries.
-     */
     erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
 
-    /* Only allow one continuation pointer. */
-    ASSERT(p->stop == p->hend - CP_SIZE);
-
-    switch (erts_frame_layout) {
-    case ERTS_FRAME_LAYOUT_RA:
-        ASSERT(p->stop[0] == make_cp(beam_normal_exit));
-        break;
-    case ERTS_FRAME_LAYOUT_FP_RA:
-        ASSERT(p->stop[0] == make_cp(NULL));
-        ASSERT(p->stop[1] == make_cp(beam_normal_exit));
-        ASSERT(FRAME_POINTER(p) == &p->stop[0]);
-        break;
-    }
-
-    /*
-     * Do it.
-     */
     heap_size = p->heap_sz + (p->old_htop - p->old_heap) + p->mbuf_sz;
+    stack_size = STACK_START(p) - STACK_TOP(p);
 
-    /* Reserve place for continuation pointer and redzone */
-    heap_size += S_RESERVED;
-
-    heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
-				    sizeof(Eterm)*heap_size);
-    htop = heap;
-
-    htop = full_sweep_heaps(p,
-                            ERTS_INVALID_HFRAG_PTR,
-			    1,
-			    heap,
-			    htop,
-			    (char *) p->old_heap,
-			    (char *) p->old_htop - (char *) p->old_heap,
-			    p->arg_reg,
-			    p->arity);
+    /* Allocate a new heap and move all living terms to it. Note that this
+     * temporary heap does not need to include space for the stack. */
+    collection_heap = (Eterm*)ERTS_HEAP_ALLOC(ERTS_ALC_T_TMP_HEAP,
+                                              heap_size * sizeof(Eterm));
+    collection_htop = full_sweep_heaps(p,
+                                       ERTS_INVALID_HFRAG_PTR,
+                                       1,
+                                       collection_heap,
+                                       collection_heap,
+                                       (char*)p->old_heap,
+                                       (char*)p->old_htop - (char*)p->old_heap,
+                                       p->arg_reg,
+                                       p->arity);
 
 #ifdef HARDDEBUG
     disallow_heap_frag_ref_in_heap(p, heap, htop);
 #endif
 
+    heap_size = collection_htop - collection_heap;
+    final_size = heap_size + S_RESERVED + stack_size;
+
+    /* Move the heap to its final destination, compacting it together with the
+     * stack.
+     *
+     * IMPORTANT: We have garbage collected to a temporary heap and then copy
+     * the result to a newly allocated heap of exact size.
+     *
+     * !! This is intentional !! Garbage collecting as usual and then shrinking
+     * the heap by reallocating it caused serious fragmentation problems when
+     * large amounts of processes were hibernated. */
+    final_heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm) * final_size);
+    sys_memcpy(final_heap, collection_heap, heap_size * sizeof(Eterm));
+    sys_memcpy(&final_heap[final_size - stack_size],
+               p->stop,
+               stack_size * sizeof(Eterm));
+
+    stack_offset = final_heap - p->stop;
+    heap_offset = final_heap - collection_heap;
+
+    area = (char *) collection_heap;
+    area_sz = heap_size * sizeof(Eterm);
+
     erts_deallocate_young_generation(p);
+    erts_free(ERTS_ALC_T_TMP_HEAP, collection_heap);
 
-    p->heap = heap;
-    p->high_water = htop;
-    p->htop = htop;
-    p->hend = p->heap + heap_size;
-    p->stop = p->hend - CP_SIZE;
-    p->heap_sz = heap_size;
-
-    heap_size = actual_size = p->htop - p->heap;
-
-    /* Reserve place for continuation pointer and redzone */
-    heap_size += S_RESERVED;
+    p->heap = final_heap;
+    p->heap_sz = final_size;
+    p->high_water = &final_heap[heap_size];
+    p->htop = &final_heap[heap_size];
+    p->hend = &final_heap[final_size];
+    p->stop = &p->heap[final_size - stack_size];
 
     FLAGS(p) &= ~F_FORCE_GC;
     p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
 
-    /*
-     * Move the heap to its final destination.
-     *
-     * IMPORTANT: We have garbage collected to a temporary heap and
-     * then copy the result to a newly allocated heap of exact size.
-     * This is intentional and important! Garbage collecting as usual
-     * and then shrinking the heap by reallocating it caused serious
-     * fragmentation problems when large amounts of processes were
-     * hibernated.
-     */
-
-    ASSERT(actual_size < p->heap_sz);
-
-    heap = ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*heap_size);
-    sys_memcpy((void *) heap, (void *) p->heap, actual_size*sizeof(Eterm));
-    ERTS_HEAP_FREE(ERTS_ALC_T_TMP_HEAP, p->heap, p->heap_sz*sizeof(Eterm));
-
-    p->hend = heap + heap_size;
-    p->stop = p->hend - CP_SIZE;
- 
-    switch (erts_frame_layout) {
-    case ERTS_FRAME_LAYOUT_RA:
-        p->stop[0] = make_cp(beam_normal_exit);
-        break;
-    case ERTS_FRAME_LAYOUT_FP_RA:
-        p->stop[0] = make_cp(NULL);
-        p->stop[1] = make_cp(beam_normal_exit);
-        FRAME_POINTER(p) = &p->stop[0];
-        break;
-    }
-
-    offs = heap - p->heap;
-    area = (char *) p->heap;
-    area_sz = ((char *) p->htop) - area;
-    offset_heap(heap, actual_size, offs, area, area_sz);
-    p->high_water = heap + (p->high_water - p->heap);
-    offset_rootset(p, offs, 0, area, area_sz, p->arg_reg, p->arity);
-    p->htop = heap + actual_size;
-    p->heap = heap;
-    p->heap_sz = heap_size;
-
+    offset_heap(final_heap, heap_size, heap_offset, area, area_sz);
+    offset_rootset(p, heap_offset, stack_offset, area, area_sz,
+                   p->arg_reg, p->arity);
 
 #ifdef CHECK_FOR_HOLES
     p->last_htop = p->htop;
-    p->last_mbuf = 0;
-#endif    
+    p->last_mbuf = NULL;
+#endif
 #ifdef DEBUG
     p->last_old_htop = NULL;
 #endif
 
-    /*
-     * Finishing.
-     */
-
     ErtsGcQuickSanityCheck(p);
 
     p->flags |= F_HIBERNATED;
-
     erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
-    reds = gc_cost(actual_size, actual_size);
-    return reds;
+    return gc_cost(final_size, final_size);
 }
 
 void
