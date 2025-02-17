@@ -2271,7 +2271,13 @@ loop(ServerData, State, {timeout_and_hibernate, Time, TimeoutMsg, TimeoutOpts}, 
     loop(ServerData, State, hibernate, TRef, Debug);
 
 loop(ServerData, State, hibernate, TRef, Debug) ->
-    proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug]);
+    receive
+	Msg ->
+	    _ = erlang:garbage_collect(),
+	    decode_msg(ServerData, State, Msg, TRef, Debug, false)
+    after 0 ->
+	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
+    end;
 
 loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, TRef, Debug) ->
     receive
