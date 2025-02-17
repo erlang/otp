@@ -1319,7 +1319,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
                 dd->ifd = NULL;
             }
 
-            if (dd->ofd->fd < 0  || driver_sizeq(port_num) > 0)
+            if (dd->ofd->fd < 0 || driver_sizeq(port_num) > 0)
                 /* we select in order to close fd or write to queue,
                    child setup will close this fd if fd < 0 */
                 driver_select(port_num, abs(dd->ofd->fd), ERL_DRV_WRITE|ERL_DRV_USE, 1);
@@ -1452,7 +1452,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
     if ((iv = (struct iovec*) driver_peekq(ix, &vsize)) == NULL) {
         if (dd->busy)
             set_busy_port(ix, (dd->busy = 0));
-	driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
+        driver_select(ix, ready_fd, ERL_DRV_WRITE, 0);
         if (dd->pid > 0 && dd->ofd->fd < 0) {
             /* The port was opened with 'in' option, which means we
                should close the output fd as soon as the command has
@@ -1586,7 +1586,6 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
                                SysDriverOpts* opts)
 {
 
-    int i;
     int fds[2];
     int res, unbind;
     char bindir[MAXPATHLEN];
@@ -1627,9 +1626,7 @@ static ErlDrvData forker_start(ErlDrvPort port_num, char* name,
 
     unbind = erts_sched_bind_atfork_prepare();
 
-    i = fork();
-
-    if (i == 0) {
+    if (fork() == 0) {
         /* The child */
         char *cs_argv[FORKER_ARGV_NO_OF_ARGS] =
             {CHILD_SETUP_PROG_NAME, NULL, NULL};
