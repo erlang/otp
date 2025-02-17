@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Improved robustness of httpd startup procedure.
+
+  Own Id: OTP-19486 Aux Id: ERIERL-1190, [PR-9408]
+
+[PR-9408]: https://github.com/erlang/otp/pull/9408
+
 ## Inets 9.3.1
 
 ### Fixed Bugs and Malfunctions
