@@ -21,7 +21,6 @@
 %%
 -module(inet_res).
 
--moduledoc(#{titles => [{function,<<"Legacy Functions">>}]}).
 -moduledoc """
 A rudimentary DNS client.
 
@@ -415,7 +414,7 @@ lookup_filter({error,_}, _, _) -> [].
 %% To be deprecated
 
 -doc(#{equiv => nslookup(Name, Class, Type, infinity)}).
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nslookup(Name, Class, Type) -> {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
       Class :: dns_class(),
@@ -437,7 +436,7 @@ With argument `Timeout` calls `resolve/5` with `Opts = []`.
 With argument `Nameservers` calls `resolve/5` with
 `Opts = [{nameservers, Nameservers}]` and `Timeout = infinity`.
 """.
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nslookup(Name, Class, Type, Timeout) ->
                       {ok, dns_msg()} | {error, Reason} when
                   Name :: dns_name() | inet:ip_address(),
@@ -461,7 +460,7 @@ nslookup(Name, Class, Type, NSs) ->             % For backwards compatibility
     nnslookup(Name, Class, Type, NSs).          % with OTP R6B only
 
 -doc(#{equiv => nnslookup(Name, Class, Type, NSs, infinity)}).
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nnslookup(Name, Class, Type, Nameservers) ->
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),
@@ -479,7 +478,7 @@ Resolve a DNS query.
 Like `nslookup/4` but calls `resolve/5` with both the arguments
 `Opts = [{nameservers, Nameservers}]` and `Timeout`.
 """.
--doc(#{title => <<"Legacy Functions">>}).
+-doc(#{group => <<"Legacy Functions">>}).
 -spec nnslookup(Name, Class, Type, Nameservers, Timeout) ->
                       {ok, dns_msg()} | {error, Reason} when
       Name :: dns_name() | inet:ip_address(),

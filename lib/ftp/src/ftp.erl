@@ -79,13 +79,6 @@ The possible error reasons and the corresponding diagnostic strings returned by
 - **`efnamena`** - Filename not allowed \[553].
 """.
 
--moduledoc(#{titles =>
-                 [{function,<<"Connection API">>},
-                  {function,<<"File Transfer API">>},
-                  {function,<<"Chunk File Transfer API">>},
-                  {function,<<"Info API">>},
-                  {function,<<"Update API">>}
-                 ]}).
 
 -removed([{start_service, 1, "use ftp:open/2 instead"},
           {stop_service, 1,  "use ftp:close/1 instead"}]).
@@ -137,7 +130,7 @@ stop() ->
 %% Description:  Start an ftp client and connect to a host.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc(#{equiv => open/2}).
 -spec open(Host :: inet:hostname() | inet:ip_address()) ->
     {'ok', Client :: client()} | {'error', Reason :: term()}.
@@ -150,7 +143,7 @@ open({option_list, Options}) when is_list(Options) ->
 open(Host) ->
   ftp_internal:open(Host).
 
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc """
 Starts a FTP client process and opens a session with the FTP server at `Host`.
 
@@ -315,7 +308,7 @@ open(Host, Port) ->
 %%--------------------------------------------------------------------------
 %% Description:  Login with or without a supplied account name.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc """
 Performs login of `User` with `Pass`.
 """.
@@ -327,7 +320,7 @@ Performs login of `User` with `Pass`.
 user(Pid, User, Pass) ->
     ftp_internal:user(Pid, User, Pass).
 
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc """
 Performs login of `User` with `Pass` to the account specified by `Account`.
 """.
@@ -344,7 +337,7 @@ user(Pid, User, Pass, Account) ->
 %% Description:  Set a user Account.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc """
 Sets the account for an operation, if needed.
 """.
@@ -357,7 +350,7 @@ account(Pid, Acc) ->
 %%--------------------------------------------------------------------------
 %% Description:  Get the current working directory at remote server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc """
 Returns the current working directory at the remote server.
 """.
@@ -371,7 +364,7 @@ pwd(Pid) ->
 %%--------------------------------------------------------------------------
 %% Description:  Get the current working directory at local server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc """
 Returns the current working directory at the local client.
 """.
@@ -385,7 +378,7 @@ lpwd(Pid) ->
 %%--------------------------------------------------------------------------
 %% Description:  Change current working directory at remote server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Changes the working directory at the remote server to `Dir`.
 """.
@@ -398,7 +391,7 @@ cd(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Change current working directory for the local client.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Changes the working directory to `Dir` for the local client.
 """.
@@ -411,7 +404,7 @@ lcd(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description: Returns a list of files in long format.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc(#{equiv => ls/2}).
 -spec ls(Client ::client()) ->
     {'ok', Listing :: string()} |
@@ -420,7 +413,7 @@ lcd(Pid, Dir) ->
 ls(Pid) ->
   ls(Pid, "").
 
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc """
 Returns a list of files in long format.
 
@@ -443,7 +436,7 @@ ls(Pid, Dir) ->
 %% Description:  Returns a list of files in short format
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc(#{equiv => nlist/2}).
 -spec nlist(Client ::client()) ->
     {'ok', Listing :: string()} |
@@ -452,7 +445,7 @@ ls(Pid, Dir) ->
 nlist(Pid) ->
   nlist(Pid, "").
 
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc """
 Returns a list of files in short format.
 
@@ -475,7 +468,7 @@ nlist(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Rename a file at remote server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Renames `Old` to `New` at the remote server.
 """.
@@ -489,7 +482,7 @@ rename(Pid, Old, New) ->
 %% Description:  Remove file at remote server.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Deletes the file `File` at the remote server.
 """.
@@ -502,7 +495,7 @@ delete(Pid, File) ->
 %%--------------------------------------------------------------------------
 %% Description:  Make directory at remote server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Creates the directory `Dir` at the remote server.
 """.
@@ -515,7 +508,7 @@ mkdir(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Remove directory at remote server.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Removes directory `Dir` at the remote server.
 """.
@@ -528,7 +521,7 @@ rmdir(Pid, Dir) ->
 %%--------------------------------------------------------------------------
 %% Description:  Set transfer type.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Sets the file transfer type to `ascii` or `binary`. When an FTP session is
 opened, the default transfer type of the server is used, most often `ascii`,
@@ -545,7 +538,7 @@ type(Pid, Type) ->
 %% Description:  Transfer file from remote server.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc(#{equiv => recv/3}).
 -spec recv(Client ::client(), RemoteFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
@@ -553,7 +546,7 @@ type(Pid, Type) ->
 recv(Pid, RemoteFileName) ->
   ftp_internal:recv(Pid, RemoteFileName).
 
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc """
 Transfers the file `RemoteFileName` from the remote server to the file system of
 the local client. If `LocalFileName` is specified, the local file will be
@@ -575,7 +568,7 @@ recv(Pid, RemoteFileName, LocalFileName) ->
 %% Description:  Transfer file from remote server into binary.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc """
 Transfers the file `RemoteFile` from the remote server and receives it as a
 binary.
@@ -591,7 +584,7 @@ recv_bin(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start receive of chunks of remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Starts transfer of the file `RemoteFile` from the remote server.
 """.
@@ -606,7 +599,7 @@ recv_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Transfer file from remote server into binary in chunks
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Receives a chunk of the remote file (`RemoteFile` of `recv_chunk_start`). The
 return values have the following meaning:
@@ -628,7 +621,7 @@ recv_chunk(Pid) ->
 %% Description:  Transfer file to remote server.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc(#{equiv => send/3}).
 -spec send(Client ::client(), LocalFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
@@ -636,7 +629,7 @@ recv_chunk(Pid) ->
 send(Pid, LocalFileName) ->
   send(Pid, LocalFileName, LocalFileName).
 
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc """
 Transfers the file `LocalFileName` to the remote server. If `RemoteFileName` is
 specified, the name of the remote file is set to `RemoteFileName`, otherwise to
@@ -654,7 +647,7 @@ send(Pid, LocalFileName, RemotFileName) ->
 %%--------------------------------------------------------------------------
 %% Description:  Transfer a binary to a remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"File Transfer API">>}).
+-doc(#{group => <<"File Transfer API">>}).
 -doc """
 Transfers the binary `Bin` into the file `RemoteFile` at the remote server.
 """.
@@ -668,7 +661,7 @@ send_bin(Pid, Bin, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start transfer of chunks to remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Starts transfer of chunks into the file `RemoteFile` at the remote server.
 """.
@@ -681,7 +674,7 @@ send_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Description:  Start append chunks of data to remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Starts the transfer of chunks for appending to the file `RemoteFile` at the
 remote server. If the file does not exist, it is created.
@@ -696,7 +689,7 @@ append_chunk_start(Pid, RemoteFile) ->
 %%--------------------------------------------------------------------------
 %% Purpose:  Send chunk to remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Transfers the chunk `Bin` to the remote server, which writes it into the file
 specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`).
@@ -713,7 +706,7 @@ send_chunk(Pid, Bin) ->
 %%--------------------------------------------------------------------------
 %% Description:  Append chunk to remote file.
 %%--------------------------------------------------------------------------
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Transfers the chunk `Bin` to the remote server, which appends it to the file
 specified in the call to [`append_chunk_start/2`](`append_chunk_start/2`).
@@ -732,7 +725,7 @@ append_chunk(Pid, Bin) ->
 %% Description:  End sending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Stops transfer of chunks to the remote server. The file at the remote server,
 specified in the call to [`send_chunk_start/2`](`send_chunk_start/2`) is closed
@@ -749,7 +742,7 @@ send_chunk_end(Pid) ->
 %% Description:  End appending of chunks to remote file.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Chunk File Transfer API">>}).
+-doc(#{group => <<"Chunk File Transfer API">>}).
 -doc """
 Stops transfer of chunks for appending to the remote server. The file at the
 remote server, specified in the call to
@@ -766,7 +759,7 @@ append_chunk_end(Pid) ->
 %% Description:  Append the local file to the remote file
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc(#{equiv => append/3}).
 -spec append(Client ::client(), LocalFileName :: file:filename()) ->
     'ok' | {'error', Reason :: term()}.
@@ -774,7 +767,7 @@ append_chunk_end(Pid) ->
 append(Pid, LocalFileName) ->
     append(Pid, LocalFileName, LocalFileName).
 
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Transfers the file `LocalFile` to the remote server. If `RemoteFile` is
 specified, the name of the remote file that the file is appended to is set to
@@ -794,7 +787,7 @@ append(Pid, LocalFileName, RemotFileName) ->
 %% Purpose:  Append a binary to a remote file.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Update API">>}).
+-doc(#{group => <<"Update API">>}).
 -doc """
 Transfers the binary `Bin` to the remote server and appends it to the file
 `RemoteFile`. If the file does not exist, it is created.
@@ -838,7 +831,7 @@ quote(Pid, Cmd) when is_list(Cmd) ->
 %% Description:  End the ftp session.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Connection API">>}).
+-doc(#{group => <<"Connection API">>}).
 -doc """
 Ends an FTP session, created using function [open](`open/2`).
 """.
@@ -851,7 +844,7 @@ close(Pid) ->
 %% Description:  Return diagnostics.
 %%--------------------------------------------------------------------------
 
--doc(#{title => <<"Info API">>}).
+-doc(#{group => <<"Info API">>}).
 -doc """
 Given an error return value `{error, AtomReason}`, this function returns a
 readable string describing the error.

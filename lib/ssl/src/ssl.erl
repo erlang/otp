@@ -47,24 +47,6 @@ Special Erlang node configuration for the application can be found in
 [SSL Application](ssl_app.md).
 """.
 
--moduledoc(#{titles =>
-                 [{type,<<"Socket">>},
-                  {type,<<"Algorithms">>},
-                  {type,<<"Certificates">>},
-                  {type,<<"Algorithms Legacy">>},
-                  {type,<<"Client Options">>},
-                  {type,<<"Server Options">>},
-                  {type,<<"Client and Server Options">>},
-                  {type,<<"Info">>},
-                  {type,<<"Deprecated">>},
-                  {function,<<"Client API">>},
-                  {function,<<"Server API">>},
-                  {function,<<"Client and Server API">>},
-                  {function,<<"TLS-1.3 Only API">>},
-                  {function,<<"Pre TLS-1.3 API">>},
-                  {function,<<"Utility Functions">>},
-                  {function,<<"Deprecated API">>}
-                 ]}).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -201,7 +183,7 @@ Special Erlang node configuration for the application can be found in
 
 %% -------------------------------------------------------------------------------------------------------
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 A socket that can be used to perform a so-called "START-TLS", which
 means using an already connected socket previously used for plain TCP
@@ -211,7 +193,7 @@ Both sides needs to agree on the upgrade.
 """.
 -type socket()                   :: gen_tcp:socket() | socket:socket(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 Options for the transport socket.
 
@@ -224,7 +206,7 @@ only relevant for TLS and not DTLS.
 """.
 -type socket_option()            :: gen_tcp:connect_option() | gen_tcp:listen_option() | gen_udp:option(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 An opaque reference to the TLS/DTLS connection.
 
@@ -233,25 +215,25 @@ Note that despite being opaque, matching `sslsocket()` instances is allowed.
 -type sslsocket()                :: any(). % exported
 
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 An option related to the TLS/DTLS protocol.
 """.
 -type tls_option()               :: tls_client_option() | tls_server_option(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 An option that can be supplied to a TLS client.
 """.
 -type tls_client_option()        :: client_option() | common_option() | socket_option() |  transport_option(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 An option that can be supplied to a TLS server.
 """.
 -type tls_server_option()        :: server_option() | common_option() | socket_option() | transport_option(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 The type for the messages that are delivered to the owner of a
 TLS/DTLS socket in active mode.
@@ -269,7 +251,7 @@ to passive (`{active, false}`) mode.
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
                                     {ssl_error, sslsocket(), Alert::error_alert() | Reason::any()} | {ssl_passive, sslsocket()}. % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 Transport option defines a callback module and message tags to handle the underlying transport socket.
 
@@ -294,13 +276,13 @@ directly. For DTLS this feature is considered experimental.
                                                ClosedTag::atom(), ErrTag::atom()}} |  
                                     {cb_info, {CallbackModule::atom(), DataTag::atom(),
                                                ClosedTag::atom(), ErrTag::atom(), PassiveTag::atom()}}.
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 A name or address to a host.
 """.
 -type host()                     :: inet:hostname() | inet:ip_address(). % exported
 
--doc(#{title =>
+-doc(#{group => 
            <<"Socket">>}).
 -doc """
 Identifies a TLS session prior to TLS-1.3.
@@ -308,37 +290,37 @@ Identifies a TLS session prior to TLS-1.3.
 -type session_id()               :: binary(). % exported
 
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 TLS or DTLS protocol version.
 """.
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 TLS protocol version.
 """.
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 DTLS protocol version.
 """.
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 A TLS protocol version that are no longer supported by default for security reasons.
 """.
 -type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' .
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 A DTLS protocol version that are no longer supported by default for security reasons.
 """.
 -type dtls_legacy_version()      :: 'dtlsv1'.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Cipher algorithms that can be used for payload encryption.
 """.
@@ -352,7 +334,7 @@ Cipher algorithms that can be used for payload encryption.
                                   | aes_128_cbc
                                   | aes_256_cbc
                                   |  legacy_cipher(). % exported
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 Cipher algorithms that are no longer supported by default for security reasons.
 """.
@@ -360,14 +342,14 @@ Cipher algorithms that are no longer supported by default for security reasons.
                                   | des_cbc
                                   | rc4_128.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Hash algorithms used together with signing and encryption functions.
 """.
 -type hash()                     :: sha2()
                                   | legacy_hash(). % exported
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 SHA2 hash algorithms.
 """.
@@ -375,7 +357,7 @@ SHA2 hash algorithms.
                                  | sha384
                                  | sha256.
 
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 Hash algorithms that are no longer supported by default for security reasons.
 """.
@@ -383,7 +365,7 @@ Hash algorithms that are no longer supported by default for security reasons.
                                  | sha
                                  | md5.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Signature algorithms.
 """.
@@ -392,13 +374,13 @@ Signature algorithms.
                                  | rsa
                                  | legacy_sign_algo(). % exported
 
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 Signature algorithms that are no longer supported by default for security reasons.
 """.
 -type legacy_sign_algo() :: dsa.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Signature schemes, defined by TLS-1.3, and replacing signature algorithms from TLS-1.2.
 
@@ -443,7 +425,7 @@ still disallow sha1 use in the TLS protocol, since 27.0.1 and 26.2.5.2.
                                  | legacy_sign_scheme() . % exported
 
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Supported in TLS-1.3 and TLS-1.2.
 """.
@@ -454,7 +436,7 @@ Supported in TLS-1.3 and TLS-1.2.
                                  | rsa_pss_pss_sha384
                                  | rsa_pss_pss_sha256.
 
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 This is only used for certificate signatures if TLS-1.2 is negotiated,
 meaning that the peer only supports TLS-1.2, but we also support
@@ -467,7 +449,7 @@ TLS-1.3.
                                  | ecdsa_sha1
                                  | rsa_pkcs1_sha1.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Cipher Suite Key Exchange Algorithm will be `any`
 in TLS-1.3 as key exchange is no longer part of cipher suite
@@ -490,7 +472,7 @@ configuration in TLS-1.3.
                                  |  any. %% TLS 1.3 (any of TLS-1.3 keyexchanges) , exported
 
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Erlang cipher suite representation
 
@@ -507,7 +489,7 @@ exists more reliable cipher suites that can be used instead.
                                     prf    := hash() | default_prf %% Old cipher suites, version dependent
                                    }.  
 
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 For backwards compatibility only; do not use.
 """.
@@ -515,7 +497,7 @@ For backwards compatibility only; do not use.
                                   %% TLS 1.2, internally PRE TLS 1.2 will use default_prf
                                 | {kex_algo(), cipher(), hash() | aead, hash()}.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Key exchange configuration prior to TLS-1.3.
 """.
@@ -529,7 +511,7 @@ Key exchange configuration prior to TLS-1.3.
                                 | secp256r1
                                 | legacy_named_curve(). % exported
 
--doc(#{title => <<"Algorithms Legacy">>}).
+-doc(#{group => <<"Algorithms Legacy">>}).
 -doc """
 Key exchange configuration prior to TLS-1.3.
 
@@ -558,7 +540,7 @@ These curves have been deprecated by RFC 8422.
                                 | secp160r1
                                 | secp160r2.
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 TLS-1.3 key exchange configuration.
 """.
@@ -573,7 +555,7 @@ TLS-1.3 key exchange configuration.
                                 | ffdhe6144
                                 | ffdhe8192. % exported
 
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 SRP cipher suite configuration prior to TLS-1.3.
 """.
@@ -585,7 +567,7 @@ SRP cipher suite configuration prior to TLS-1.3.
                                | srp_1536
                                | srp_1024. % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 If a TLS connection fails a TLS protocol ALERT will be sent/received.
 
@@ -594,7 +576,7 @@ with some further details will be returned.
 """.
 -type error_alert()           :: {tls_alert, {tls_alert(), Description::string()}}. % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 TLS Alert Protocol reasons.
 """.
@@ -629,7 +611,7 @@ TLS Alert Protocol reasons.
                                  no_application_protocol. % exported
 
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 Error reason for debug purposes.
 
@@ -639,7 +621,7 @@ Not to be matched.
 
 %% -------------------------------------------------------------------------------------------------------
 
--doc(#{title =>
+-doc(#{group => 
            <<"Client and Server Options">>}).
 -doc """
 Options common to both client and server side.
@@ -708,7 +690,7 @@ Options common to both client and server side.
                                 {sender_spawn_opts, SpawnOpts::[erlang:spawn_opt_option()]}.
 
 
--doc(#{title =>
+-doc(#{group => 
            <<"Client and Server Options">>}).
 -doc """
 Common certificate related options to both client and server.
@@ -916,7 +898,7 @@ Common certificate related options to both client and server.
                               {partial_chain, anchor_fun()}.
 
 
--doc(#{title =>
+-doc(#{group => 
            <<"Client and Server Options">>}).
 -doc """
 Options common to client and server side prior to TLS-1.3.
@@ -963,7 +945,7 @@ Options common to client and server side prior to TLS-1.3.
                                    {secure_renegotiate, SecureRenegotiate::boolean()} |
                                    {user_lookup_fun, {Lookupfun :: fun(), UserState :: any()}}.
 
--doc(#{title =>
+-doc(#{group => 
            <<"Client and Server Options">>}).
 -doc """
 Common options to both client and server for TLS-1.3.
@@ -992,7 +974,7 @@ Common options to both client and server for TLS-1.3.
 -type common_option_tls13() :: {supported_groups, [group()]} |
                                {key_update_at, KeyUpdateAt::pos_integer()}.
 
--doc(#{title =>
+-doc(#{group => 
            <<"Client and Server Options">>}).
 -doc """
 Legacy options considered deprecated in favor of other options,
@@ -1078,7 +1060,7 @@ hardware security modules (HSM) or trusted platform modules (TPM).
   [public_key:private_encrypt/4](`public_key:encrypt_private/3`) if legacy
   versions TLS-1.0 and TLS-1.1 must be supported.
 """.
--doc(#{title =>
+-doc(#{group => 
            <<"Certificates">>}).
 -type key()                       :: {'RSAPrivateKey'| 'DSAPrivateKey' | 'ECPrivateKey' |'PrivateKeyInfo',
                                       public_key:der_encoded()} |
@@ -1112,7 +1094,7 @@ information.
 
 """.
 
--doc(#{title =>
+-doc(#{group => 
            <<"Certificates">>}).
 -type cert_key_conf()             :: #{cert => public_key:der_encoded() | [public_key:der_encoded()],
                                        key => key(),
@@ -1154,10 +1136,10 @@ to be actually used, and they may require additional configuration;
 see [`srp_param_type()`](`t:srp_param_type/0`).
 
 """.
--doc(#{title =>
+-doc(#{group => 
            <<"Algorithms">>}).
 -type cipher_suites()             :: ciphers().
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Cipher suite formats.
 
@@ -1169,13 +1151,13 @@ cipher suite option is needed.
 """.
 -type ciphers()                   :: [erl_cipher_suite()] |
                                      string(). % (according to old API) exported
--doc(#{title => <<"Algorithms">>}).
+-doc(#{group => <<"Algorithms">>}).
 -doc """
 Filter that allows you to customize cipher suite list.
 """.
 -type cipher_filters()            :: list({key_exchange | cipher | mac | prf,
                                            fun((kex_algo()|cipher()|hash()|aead|default_prf) -> true | false)}). % exported
--doc(#{title =>
+-doc(#{group => 
            <<"Certificates">>}).
 -doc """
 Options for using built-in CRL cache support.
@@ -1224,7 +1206,7 @@ There are two implementations available:
 -type crl_cache_opts()           :: {Module :: atom(),
                                      {DbHandle :: internal | term(),
                                       Args :: list()}}.
--doc(#{title =>
+-doc(#{group => 
            <<"Certificates">>}).
 -doc """
 Claim an intermediate CA in the chain as trusted.
@@ -1239,7 +1221,7 @@ as the trusted anchor and verifies the rest of the chain.
 """.
 -type anchor_fun()                 ::  fun().
 
--doc(#{title =>
+-doc(#{group => 
            <<"Algorithms">>}).
 -doc """
 Explicitly list acceptable signature algorithms for certificates and handshake
@@ -1357,7 +1339,7 @@ certificate signatures.
 
 %% -------------------------------------------------------------------------------------------------------
 
--doc(#{title => <<"Client Options">>}).
+-doc(#{group => <<"Client Options">>}).
 -doc """
 The following options are specific to the client side, or have
 different semantics for the client and server:
@@ -1389,7 +1371,7 @@ different semantics for the client and server:
                          client_option_legacy() |
                          common_option_legacy().
 
--doc(#{title => <<"Client Options">>}).
+-doc(#{group => <<"Client Options">>}).
 -doc """
 Certificate-related options specific to the client side, or with
 different semantics for the client and server.
@@ -1500,7 +1482,7 @@ different semantics for the client and server.
                               {certificate_authorities, boolean()} |
                               {stapling, Stapling:: staple | no_staple | map()}.
 
--doc(#{title => <<"Client Options">>}).
+-doc(#{group => <<"Client Options">>}).
 -doc """
 Options only relevant for TLS-1.3.
 
@@ -1577,7 +1559,7 @@ Options only relevant for TLS-1.3.
         {middlebox_comp_mode, MiddleBoxMode::boolean()}.
 
 
--doc(#{title => <<"Client Options">>}).
+-doc(#{group => <<"Client Options">>}).
 -doc """
 Options only relevant to TLS versions prior to TLS-1.3.
 
@@ -1644,7 +1626,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
         {fallback, LegacyFallback::boolean()}.
 
 
--doc(#{title => <<"Client and Server Options">>}).
+-doc(#{group => <<"Client and Server Options">>}).
 -doc """
 Common options to client and server only valid for DTLS.
 
@@ -1684,7 +1666,7 @@ Common options to client and server only valid for DTLS.
 -type common_option_dtls()  ::
          {use_srtp, UseSrtp::#{protection_profiles := [binary()], mki => binary()}}.
 
--doc(#{title => <<"Client Options">>}).
+-doc(#{group => <<"Client Options">>}).
 -doc """
 Legacy client options.
 
@@ -1719,7 +1701,7 @@ Legacy client options.
 %% -------------------------------------------------------------------------------------------------------
 
 
--doc(#{title => <<"Server Options">>}).
+-doc(#{group => <<"Server Options">>}).
 -doc """
 Options specific to the server side, or with different semantics for the client and server.
 
@@ -1817,7 +1799,7 @@ Certificate related options for a server.
   can verify.
 """.
 
--doc(#{title => <<"Server Options">>}).
+-doc(#{group => <<"Server Options">>}).
 -type server_option_cert() :: {cacerts,  CACerts::[public_key:der_encoded()] | [public_key:combined_cert()]} |
                               {cacertfile,  CACertFile::file:filename()} |
                               {verify, Verify:: verify_none | verify_peer} |
@@ -1825,7 +1807,7 @@ Certificate related options for a server.
                               {certificate_authorities, ServerCertAuth::boolean()}.
 
 
--doc(#{title => <<"Server Options">>}).
+-doc(#{group => <<"Server Options">>}).
 -doc """
 Options only relevant to TLS versions prior to TLS-1.3.
 
@@ -1895,7 +1877,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
         {dhfile,  DhFile::file:filename()} |
         {psk_identity, PSKHint::string()}.
 
--doc(#{title => <<"Server Options">>}).
+-doc(#{group => <<"Server Options">>}).
 -doc """
 Options only relevant for TLS-1.3.
 
@@ -1999,7 +1981,7 @@ Options only relevant for TLS-1.3.
                                {cookie, Cookie::boolean()} |
                                {early_data, EarlyData::enabled | disabled}.
 
--doc(#{title => <<"Server Options">>}).
+-doc(#{group => <<"Server Options">>}).
 -doc """
 Legacy server options.
 
@@ -2019,10 +2001,10 @@ Legacy server options.
 
 
 %% -------------------------------------------------------------------------------------------------------
--doc(#{title => <<"Deprecated">>}).
+-doc(#{group => <<"Deprecated">>}).
 -type prf_random() :: client_random | server_random. % exported
 
--doc(#{title => <<"Socket">>}).
+-doc(#{group => <<"Socket">>}).
 -doc """
 Client hello extensions.
 """.
@@ -2036,7 +2018,7 @@ Client hello extensions.
                                   elliptic_curves => [public_key:oid()],
                                   sni => inet:hostname()}. % exported
 %% -------------------------------------------------------------------------------------------------------
--doc(#{title => <<"Info">>}).
+-doc(#{group => <<"Info">>}).
 -doc """
 Key value list convening some information about the established connection.
 """.
@@ -2048,7 +2030,7 @@ Key value list convening some information about the established connection.
                            connection_info_pre_tls13() |
                            security_info().
 
--doc(#{title => <<"Info">>}).
+-doc(#{group => <<"Info">>}).
 -doc """
 TLS connection information that can be used for NSS key logging.
 """.
@@ -2058,7 +2040,7 @@ TLS connection information that can be used for NSS key logging.
                           {keylog, term()}].
 
 
--doc(#{title => <<"Info">>}).
+-doc(#{group => <<"Info">>}).
 -doc """
 TLS connection information relevant prior to TLS-1.3.
 """.
@@ -2068,7 +2050,7 @@ TLS connection information relevant prior to TLS-1.3.
          {ecc, {named_curve, term()}} |
          {srp_username, term()}].
 
--doc(#{title => <<"Info">>}).
+-doc(#{group => <<"Info">>}).
 -doc """
 TLS connection keys for which information can be retrieved.
 """.
@@ -2094,7 +2076,7 @@ TLS connection keys for which information can be retrieved.
 %%%--------------------------------------------------------------------
 %%% API
 %%%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        equiv => start(temporary),
        since => <<"OTP R14B">>}).
 -spec start() -> ok  | {error, reason()}.
@@ -2102,7 +2084,7 @@ TLS connection keys for which information can be retrieved.
 start() ->
     start(temporary).
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec start(permanent | transient | temporary) -> ok | {error, reason()}.
 -doc "Starts the SSL application.".
@@ -2119,7 +2101,7 @@ start(Type) ->
 Stops the SSL application.
 """.
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec stop() -> ok.
 %%--------------------------------------------------------------------
@@ -2127,7 +2109,7 @@ stop() ->
     application:stop(ssl).
 
 -doc(#{equiv => connect(TCPSocket, TLSOptions, infinity)}).
--doc(#{title => <<"Client API">>,
+-doc(#{group => <<"Client API">>,
        since => <<"OTP R14B">>}).
 -spec connect(TCPSocket, TLSOptions) ->
           {ok, sslsocket()} |
@@ -2163,7 +2145,7 @@ connect(Host, Port, TLSOptions, infinity).
 ```
 """.
 
--doc(#{title => <<"Client API">>}).
+-doc(#{group => <<"Client API">>}).
 -spec connect(TCPSocketOrHost, TLSOptionsOrPort, TimeoutOrTLSOptions) ->
           {ok, sslsocket()} |
           {ok, sslsocket(), Ext :: protocol_extensions()} |
@@ -2190,7 +2172,7 @@ connect(Host, Port, TLSOptions)
     connect(Host, Port, TLSOptions, infinity).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client API">>}).
+-doc(#{group => <<"Client API">>}).
 -doc """
 Opens a TLS/DTLS connection to `Host`, `Port`.
 
@@ -2254,7 +2236,7 @@ connect(Host, Port, Options, Timeout)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Server API">>}).
+-doc(#{group => <<"Server API">>}).
 -doc "Creates an SSL listen socket.".
 -spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
       Port::inet:port_number(),
@@ -2276,7 +2258,7 @@ listen(Port, Options0)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Server API">>,
+-doc(#{group => <<"Server API">>,
        equiv => transport_accept(ListenSocket, infinity)}).
 -spec transport_accept(ListenSocket) -> {ok, SslSocket} |
           {error, Reason} when
@@ -2288,7 +2270,7 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 
--doc(#{title => <<"Server API">>}).
+-doc(#{group => <<"Server API">>}).
 -doc """
 Accepts an incoming connection request on a listen socket.
 
@@ -2324,7 +2306,7 @@ transport_accept(#sslsocket{socket_handle = ListenSocket,
     end.
 
 %% Performs the SSL/TLS/DTLS server-side handshake.
--doc(#{title => <<"Server API">>,
+-doc(#{group => <<"Server API">>,
        equiv => handshake(HsSocket, infinity),
        since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
@@ -2364,7 +2346,7 @@ this call is equivalent to:
 handshake(HsSocket, Options, infinity).
 ```
 """.
--doc(#{title => <<"Server API">>,
+-doc(#{group => <<"Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(HsSocket, OptionsOrTimeout) -> {ok, SslSocket} | {ok, SslSocket, Ext} | {error, Reason} when
       HsSocket :: sslsocket(),
@@ -2413,7 +2395,7 @@ If option `active` is set to `once`, `true`, or an integer value, the process
 owning the [`sslsocket()`](`t:sslsocket/0`) will receive messages of type
 [`active_msgs()`](`t:active_msgs/0`).
 """.
--doc(#{title => <<"Server API">>,
+-doc(#{group => <<"Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake(Socket, Options, Timeout) ->
           {ok, SslSocket} |
@@ -2464,7 +2446,7 @@ handshake(Socket, SslOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc(#{equiv => handshake_continue(HsSocket, Options, infinity)}).
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2478,7 +2460,7 @@ handshake_continue(Socket, SSLOptions) ->
 
 %%--------------------------------------------------------------------
 -doc "Continue the TLS handshake, possibly with new, additional, or changed options.".
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec handshake_continue(HsSocket, Options, Timeout) ->
           {ok, SslSocket} | {error, Reason} when
@@ -2494,7 +2476,7 @@ handshake_continue(Socket, SSLOptions, Timeout)
 
 %%--------------------------------------------------------------------
 -doc "Cancel the handshake with a fatal `USER_CANCELED` alert.".
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        since => <<"OTP 21.0">>}).
 -spec  handshake_cancel(#sslsocket{}) -> any().
 %%--------------------------------------------------------------------
@@ -2502,7 +2484,7 @@ handshake_cancel(Socket) ->
     ssl_gen_statem:handshake_cancel(Socket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>}).
+-doc(#{group => <<"Client and Server API">>}).
 -doc "Closes a TLS/DTLS connection.".
 -spec  close(SslSocket) -> ok | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2531,7 +2513,7 @@ In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
 connection.
 """.
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        since => <<"OTP 18.1">>}).
 -spec  close(SslSocket, How) -> ok | {ok, port()} | {ok, port(), Data} | {error,Reason} when
       SslSocket :: sslsocket(),
@@ -2562,7 +2544,7 @@ close(#sslsocket{socket_handle = ListenSocket,
     tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>}).
+-doc(#{group => <<"Client and Server API">>}).
 -spec send(SslSocket, Data) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
       Data :: iodata().
@@ -2597,7 +2579,7 @@ send(#sslsocket{socket_handle = ListenSocket,
     tls_socket:send(Transport, ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        equiv => recv(Socket, Length, infinity)}).
 -spec recv(SslSocket, Length) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -2609,7 +2591,7 @@ recv(Socket, Length) ->
     recv(Socket, Length, infinity).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>}).
+-doc(#{group => <<"Client and Server API">>}).
 -spec recv(SslSocket, Length, Timeout) -> {ok, Data} | {error, reason()} when
       SslSocket :: sslsocket(),
       Length :: non_neg_integer(),
@@ -2642,7 +2624,7 @@ recv(#sslsocket{socket_handle = Listen,
     Transport:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>}).
+-doc(#{group => <<"Client and Server API">>}).
 -doc """
 Assigns a new controlling process to the SSL socket.
 
@@ -2672,7 +2654,7 @@ controlling_process(#sslsocket{socket_handle = Listen,
     Transport:controlling_process(Listen, NewController).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Returns the most relevant information about the connection.
 
@@ -2717,7 +2699,7 @@ set to `true`.
 >
 > If only undefined options are requested the resulting list can be empty.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 18.0">>}).
 -spec connection_information(SslSocket, Items) -> {ok, Result} | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -2737,7 +2719,7 @@ connection_information(#sslsocket{connection_handler = Controller}, Items)
     end.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc "Returns the address and port number of the peer.".
 -spec peername(SslSocket) -> {ok, {Address, Port}} |
           {error, reason()} when
@@ -2766,7 +2748,7 @@ peername(#sslsocket{socket_handle = ListenSocket,
     tls_socket:peername(Transport, ListenSocket). %% Will return {error, enotconn}
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 The peer certificate is returned as a DER-encoded binary.
 
@@ -2793,7 +2775,7 @@ peercert(#sslsocket{listener_config = #config{}}) ->
 
 %%--------------------------------------------------------------------
 -doc "Returns the protocol negotiated through ALPN or NPN extensions.".
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 18.0">>}).
 -spec negotiated_protocol(SslSocket) -> {ok, Protocol} | {error, Reason} when
       SslSocket :: sslsocket(),
@@ -2807,7 +2789,7 @@ negotiated_protocol(#sslsocket{connection_handler = Controller}) when is_pid(Con
     ssl_gen_statem:negotiated_protocol(Controller).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
 -doc """
 Lists all available cipher suites corresponding to `Description`.
@@ -2852,7 +2834,7 @@ cipher_suites(Description, Version)  when Version == 'dtlsv1.2';
 Equivalent to `cipher_suites/2`, but lists RFC or OpenSSL string names instead of
 [`erl_cipher_suite()`](`t:erl_cipher_suite/0`).
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec cipher_suites(Description, Version, StringType) -> [string()] when
       Description :: default | all | exclusive | anonymous,
@@ -2886,7 +2868,7 @@ by the crypto library used by the OTP Crypto application, meaning that
 [`ssl:filter_cipher_suites(Suites, [])`](`filter_cipher_suites/2`)
 is equivalent to applying only the filters for crypto library support.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
 -spec filter_cipher_suites(Suites, Filters) -> Ciphers when
       Suites :: ciphers(),
@@ -2918,7 +2900,7 @@ present. `Preferred` can be a list of cipher suites or a list of
 filters in which case the filters are used on `Suites` to extract the
 preferred cipher list.
 """.
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
 -spec prepend_cipher_suites(Preferred, Suites) -> ciphers() when
       Preferred :: ciphers() | cipher_filters(),
@@ -2947,7 +2929,7 @@ be a list of cipher suites or a list of filters in which case the
 filters are used on `Suites` to extract the deferred cipher list.
 """.
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 20.3">>}).
 -spec append_cipher_suites(Deferred, Suites) -> ciphers() when
       Deferred :: ciphers() | cipher_filters(),
@@ -3016,7 +2998,7 @@ rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
 > certificate signatures in this version of the protocol.
 """.
 
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 26.0">>}).
 -spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
@@ -3051,7 +3033,7 @@ signature_algs(Description, Version) ->
 
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 API">>,
+-doc(#{group => <<"Pre TLS-1.3 API">>,
        since => <<"OTP 19.2">>}).
 -spec eccs() -> NamedCurves when
       NamedCurves :: [named_curve()].
@@ -3064,7 +3046,7 @@ eccs() ->
     tls_v1:ec_curves(all, 'tlsv1.2').
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 API">>,
+-doc(#{group => <<"Pre TLS-1.3 API">>,
        since => <<"OTP 19.2">>}).
 -spec eccs(Version) -> NamedCurves when
       Version :: 'tlsv1.2' | 'tlsv1.1' | 'tlsv1' | 'dtlsv1.2' | 'dtlsv1',
@@ -3089,7 +3071,7 @@ eccs(Other) ->
     erlang:error({badarg, Other}).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"TLS-1.3 Only API">>,
+-doc(#{group => <<"TLS-1.3 Only API">>,
       since => <<"OTP 27.0">>}).
 -doc """
 Returns all supported groups in TLS 1.3.
@@ -3102,7 +3084,7 @@ groups() ->
     tls_v1:groups().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"TLS-1.3 Only API">>,
+-doc(#{group => <<"TLS-1.3 Only API">>,
       since => <<"OTP 27.0">>}).
 -spec groups(Description) -> [group()] when Description :: default.
 
@@ -3117,7 +3099,7 @@ groups(default) ->
     tls_v1:default_groups().
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Gets the values of the specified socket options.
 """.
@@ -3159,7 +3141,7 @@ getopts(#sslsocket{}, OptionTags) ->
     {error, {options, {socket_options, OptionTags}}}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>}).
+-doc(#{group => <<"Client and Server API">>}).
 -doc "Sets options according to `Options` for socket `SslSocket`.".
 -spec setopts(SslSocket, Options) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3208,7 +3190,7 @@ setopts(#sslsocket{}, Options) ->
     {error, {options,{not_a_proplist, Options}}}.
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 19.0">>}).
 -doc """
 Get statistics for the underlying socket.
@@ -3222,7 +3204,7 @@ getstat(Socket) ->
     getstat(Socket, inet:stats()).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 19.0">>}).
 -doc """
 Get one or more statistic values for the underlying socket.
@@ -3261,7 +3243,7 @@ getstat(#sslsocket{connection_handler = Controller,
     dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Client and Server API">>,
+-doc(#{group => <<"Client and Server API">>,
        since => <<"OTP R14B">>}).
 -spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3295,7 +3277,7 @@ shutdown(#sslsocket{connection_handler = Controller}, How) when is_pid(Controlle
     ssl_gen_statem:shutdown(Controller, How).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc "Returns the local address and port number of socket `SslSocket`.".
 -spec sockname(SslSocket) ->
           {ok, {Address, Port}} | {error, reason()} when
@@ -3323,7 +3305,7 @@ sockname(#sslsocket{connection_handler = Controller,
     tls_socket:sockname(Transport, Socket).
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP R14B">>}).
 -spec versions() -> [VersionInfo] when
       VersionInfo :: {ssl_app, string()} |
@@ -3387,7 +3369,7 @@ versions() ->
     ].
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Pre TLS-1.3 API">>,
+-doc(#{group => <<"Pre TLS-1.3 API">>,
        since => <<"OTP R14B">>}).
 -spec renegotiate(SslSocket) -> ok | {error, reason()} when
       SslSocket :: sslsocket().
@@ -3442,7 +3424,7 @@ connection. There are two types of key updates: if `Type` is `write`,
 only the writing key is updated; if `Type` is `read_write`, both the
 reading and writing keys are updated.
 """.
--doc(#{title => <<"TLS-1.3 Only API">>,
+-doc(#{group => <<"TLS-1.3 Only API">>,
        since => <<"OTP 22.3">>}).
 -spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
       SslSocket :: sslsocket(),
@@ -3467,7 +3449,7 @@ update_keys(_, _) ->
 %%--------------------------------------------------------------------
 -doc(#{equiv => export_key_materials(TLSSocket, Labels, Contexts,
                                      WantedLengths, true),
-       title => <<"Utility Functions">>,
+       group => <<"Utility Functions">>,
        since => <<"OTP 27.0">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths) ->
                  {ok, ExportKeyMaterials} | {error, reason()} when
@@ -3483,7 +3465,7 @@ export_key_materials(#sslsocket{listener_config = #config{}}, _,_,_) ->
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 27.0">>}).
 -spec export_key_materials(SslSocket, Labels, Contexts, WantedLengths, ConsumeSecret) ->
                  {ok, ExportKeyMaterials} | {error, exporter_master_secret_already_consumed | bad_input} when
@@ -3517,7 +3499,7 @@ export_key_materials(#sslsocket{socket_handle ={_Listen, #config{}}}, _,_,_, _) 
     {error, enotconn}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Deprecated API">>,
+-doc(#{group => <<"Deprecated API">>,
        since => <<"OTP R15B01">>}).
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
           {ok, binary()} | {error, reason()} when
@@ -3575,7 +3557,7 @@ prf(Socket, Secret, Label, Context, WantedLength) ->
     {ok, tls_v1:prf(PRFAlg, Secret, Label, erlang:iolist_to_binary(Context), WantedLength)}.
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 17.5">>}).
 -spec clear_pem_cache() -> ok.
 -doc """
@@ -3593,7 +3575,7 @@ clear_pem_cache() ->
     ssl_pem_cache:clear().
 
 %%---------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>}).
+-doc(#{group => <<"Utility Functions">>}).
 -doc """
 Presents the error returned by an SSL function as a printable string.
 """.
@@ -3607,7 +3589,7 @@ format_error(Reason) ->
     do_format_error(Reason).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 21.0">>}).
 -spec suite_to_str(CipherSuite) -> string() when
       CipherSuite :: erl_cipher_suite().
@@ -3620,7 +3602,7 @@ suite_to_str(Cipher) ->
     ssl_cipher_format:suite_map_to_str(Cipher).
 
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec suite_to_openssl_str(CipherSuite) -> string() when
       CipherSuite :: erl_cipher_suite().
@@ -3637,7 +3619,7 @@ suite_to_openssl_str(Cipher) ->
 
 %%
 %%--------------------------------------------------------------------
--doc(#{title => <<"Utility Functions">>,
+-doc(#{group => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec str_to_suite(CipherSuiteName) -> erl_cipher_suite()  | {error, {not_recognized, CipherSuiteName}} when
       CipherSuiteName :: string().

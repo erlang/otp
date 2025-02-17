@@ -70,10 +70,6 @@ Okasaki. It regards queues as lists. This API is by many regarded as strange and
 avoidable. For example, many reverse operations have lexically reversed names,
 some with more readable but perhaps less understandable aliases.
 """.
--moduledoc(#{titles =>
-                 [{function,<<"Original API">>},
-                  {function,<<"Extended API">>},
-                  {function,<<"Okasaki API">>}]}).
 
 %% Creation, inspection and conversion
 -export([new/0,is_queue/1,is_empty/1,len/1,to_list/1,from_list/1,member/2]).
@@ -117,7 +113,7 @@ some with more readable but perhaps less understandable aliases.
 
 %% O(1)
 -doc "Returns an empty queue.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec new() -> queue(none()).
 new() -> {[],[]}. %{RearList,FrontList}
 
@@ -128,7 +124,7 @@ that the test will return `true` for a term coinciding with the representation
 of a queue, even when not constructed by thus module. See also note on
 [data types](`e:system:data_types.md#no_user_types`).
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec is_queue(Term :: term()) -> boolean().
 is_queue({R,F}) when is_list(R), is_list(F) ->
     true;
@@ -137,7 +133,7 @@ is_queue(_) ->
 
 %% O(1)
 -doc "Tests if `Q` is empty and returns `true` if so, otherwise `false`.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec is_empty(Q :: queue()) -> boolean().
 is_empty({[],[]}) ->
     true;
@@ -148,7 +144,7 @@ is_empty(Q) ->
 
 %% O(len(Q))
 -doc "Calculates and returns the length of queue `Q`.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec len(Q :: queue()) -> non_neg_integer().
 len({R,F}) when is_list(R), is_list(F) ->
     length(R)+length(F);
@@ -169,7 +165,7 @@ _Example:_
 true
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec to_list(Q :: queue(Item)) -> list(Item).
 to_list({In,Out}) when is_list(In), is_list(Out) ->
     Out++lists:reverse(In, []);
@@ -183,7 +179,7 @@ to_list(Q) ->
 Returns a queue containing the items in `L` in the same order; the head item of
 the list becomes the front item of the queue.
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec from_list(L :: list(Item)) -> queue(Item).
 from_list(L) when is_list(L) ->
     f2r(L);
@@ -194,7 +190,7 @@ from_list(L) ->
 %% 
 %% O(length(Q)) worst case
 -doc "Returns `true` if `Item` matches some element in `Q`, otherwise `false`.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec member(Item, Q :: queue(Item)) -> boolean().
 member(X, {R,F}) when is_list(R), is_list(F) ->
     lists:member(X, R) orelse lists:member(X, F);
@@ -222,7 +218,7 @@ _Example:_
 [1,2,3,4,5,100]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec in(Item, Q1 :: queue(Item)) -> Q2 :: queue(Item).
 in(X, {[_]=In,[]}) ->
     {[X], In};
@@ -249,7 +245,7 @@ _Example:_
 [100,1,2,3,4,5]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec in_r(Item, Q1 :: queue(Item)) -> Q2 :: queue(Item).
 in_r(X, {[],[_]=F}) ->
     {F,[X]};
@@ -277,7 +273,7 @@ _Example:_
 [2,3,4,5]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec out(Q1 :: queue(Item)) ->
                  {{value, Item}, Q2 :: queue(Item)} |
                  {empty, Q1 :: queue(Item)}.
@@ -314,7 +310,7 @@ _Example:_
 [1,2,3,4]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec out_r(Q1 :: queue(Item)) ->
                  {{value, Item}, Q2 :: queue(Item)} |
                  {empty, Q1 :: queue(Item)}.
@@ -352,7 +348,7 @@ _Example 1:_
 true
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec get(Q :: queue(Item)) -> Item.
 get({[],[]}=Q) ->
     erlang:error(empty, [Q]);
@@ -386,7 +382,7 @@ _Example 1:_
 true
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec get_r(Q :: queue(Item)) -> Item.
 get_r({[],[]}=Q) ->
     erlang:error(empty, [Q]);
@@ -417,7 +413,7 @@ empty
 {value, 1}
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec peek(Q :: queue(Item)) -> empty | {value, Item}.
 peek({[],[]}) ->
     empty;
@@ -448,7 +444,7 @@ empty
 {value, 5}
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec peek_r(Q :: queue(Item)) -> empty | {value, Item}.
 peek_r({[],[]}) ->
     empty;
@@ -480,7 +476,7 @@ _Example:_
 [2,3,4,5]
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec drop(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 drop({[],[]}=Q) ->
     erlang:error(empty, [Q]);
@@ -515,7 +511,7 @@ _Example:_
 [1,2,3,4]
 ```
 """.
--doc(#{title => <<"Extended API">>}).
+-doc(#{group => <<"Extended API">>}).
 -spec drop_r(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 drop_r({[],[]}=Q) ->
     erlang:error(empty, [Q]);
@@ -538,7 +534,7 @@ drop_r(Q) ->
 %%
 %% O(1)
 -doc "Returns a queue `Q2` containing the items of `Q1` in the reverse order.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec reverse(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 reverse({R,F}) when is_list(R), is_list(F) ->
     {F,R};
@@ -564,7 +560,7 @@ _Example:_
 [1,3,2,4]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec join(Q1 :: queue(Item), Q2 :: queue(Item)) -> Q3 :: queue(Item).
 join({R,F}=Q, {[],[]}) when is_list(R), is_list(F) ->
     Q;
@@ -580,7 +576,7 @@ join(Q1, Q2) ->
 %% N = 0..len(Q)
 %% O(max(N, len(Q)))
 -doc "Splits `Q1` in two. The `N` front items are put in `Q2` and the rest in `Q3`.".
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec split(N :: non_neg_integer(), Q1 :: queue(Item)) ->
                    {Q2 :: queue(Item),Q3 :: queue(Item)}.
 split(0, {R,F}=Q) when is_list(R), is_list(F) ->
@@ -657,7 +653,7 @@ _Example 2:_
 [1,2,2,3,3,4,4,5,5,6]
 ```
 """.
--doc(#{title => <<"Original API">>}).
+-doc(#{group => <<"Original API">>}).
 -spec filter(Fun, Q1 :: queue(Item)) -> Q2 :: queue(Item) when
       Fun :: fun((Item) -> boolean() | list(Item)).
 filter(Fun, {R0,F0}) when is_function(Fun, 1), is_list(R0), is_list(F0) ->
@@ -735,7 +731,7 @@ _Example 1:_
 "efghi
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec filtermap(Fun, Q1) -> Q2 when
       Fun :: fun((Item) -> boolean() | {'true', Value}),
       Q1 :: queue(Item),
@@ -788,7 +784,7 @@ _Example:_
 120
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec fold(Fun, Acc0, Q :: queue(Item)) -> Acc1 when
       Fun :: fun((Item, AccIn) -> AccOut),
       Acc0 :: term(),
@@ -818,7 +814,7 @@ false
 true
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec any(Pred, Q :: queue(Item)) -> boolean() when
       Pred :: fun((Item) -> boolean()).
 any(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
@@ -844,7 +840,7 @@ false
 true
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec all(Pred, Q :: queue(Item)) -> boolean() when
       Pred :: fun((Item) -> boolean()).
 all(Pred, {R, F}) when is_function(Pred, 1), is_list(R), is_list(F) ->
@@ -870,7 +866,7 @@ _Example:_
 false
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec delete(Item, Q1) -> Q2 when
       Item :: T,
       Q1 :: queue(T),
@@ -912,7 +908,7 @@ _Example:_
 [1,2,3,4,5]
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec delete_r(Item, Q1) -> Q2 when
       Item :: T,
       Q1 :: queue(T),
@@ -963,7 +959,7 @@ _Example:_
 [1,2,3,4,5]
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec delete_with(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
@@ -1005,7 +1001,7 @@ _Example:_
 [1,2,3,4,5]
 ```
 """.
--doc(#{title => <<"Original API">>,since => <<"OTP 24.0">>}).
+-doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec delete_with_r(Pred, Q1) -> Q2 when
       Pred :: fun((Item) -> boolean()),
       Q1 :: queue(Item),
@@ -1093,7 +1089,7 @@ _Example:_
 [0,1,2,3]
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec cons(Item, Q1 :: queue(Item)) -> Q2 :: queue(Item).
 cons(X, Q) ->
     in_r(X, Q).
@@ -1115,7 +1111,7 @@ _Example 1:_
 1
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec head(Q :: queue(Item)) -> Item.
 head({[],[]}=Q) ->
     erlang:error(empty, [Q]);
@@ -1131,7 +1127,7 @@ Returns a queue `Q2` that is the result of removing the head item from `Q1`.
 
 Fails with reason `empty` if `Q1` is empty.
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec tail(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 tail(Q) ->
     drop(Q).
@@ -1152,7 +1148,7 @@ _Example:_
 [1,2,3,4]
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec snoc(Q1 :: queue(Item), Item) -> Q2 :: queue(Item).
 snoc(Q, X) ->
     in(X, Q).
@@ -1170,7 +1166,7 @@ _Example 1:_
 3
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec daeh(Q :: queue(Item)) -> Item.
 daeh(Q) -> get_r(Q).
 -doc """
@@ -1185,7 +1181,7 @@ _Example:_
 3
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec last(Q :: queue(Item)) -> Item.
 last(Q) -> get_r(Q).
 
@@ -1204,7 +1200,7 @@ _Example:_
 [1,2]
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec liat(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 liat(Q) -> drop_r(Q).
 -doc """
@@ -1214,7 +1210,7 @@ Fails with reason `empty` if `Q1` is empty.
 
 The name [`lait/1`](`lait/1`) is a misspelling - do not use it anymore.
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec lait(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 lait(Q) -> drop_r(Q). %% Oops, mis-spelled 'tail' reversed. Forget this one.
 -doc """
@@ -1231,7 +1227,7 @@ _Example:_
 [1,2]
 ```
 """.
--doc(#{title => <<"Okasaki API">>}).
+-doc(#{group => <<"Okasaki API">>}).
 -spec init(Q1 :: queue(Item)) -> Q2 :: queue(Item).
 init(Q) -> drop_r(Q).
 

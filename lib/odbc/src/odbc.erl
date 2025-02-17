@@ -54,7 +54,6 @@ Erlang ODBC [User's Guide.](error_handling.md)
 \[1]: Microsoft ODBC 3.0, Programmer's Reference and SDK Guide  
 See also http://msdn.microsoft.com/
 """.
--moduledoc(#{titles => [{type,<<"Types used in ODBC application">>}]}).
 
 -behaviour(gen_server).
 
@@ -80,38 +79,38 @@ See also http://msdn.microsoft.com/
 	 terminate/2, code_change/3]).
 
 -doc "Opaque reference to an ODBC connection as returnded by connect/2.".
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -opaque connection_reference() :: pid().
 -doc "Name of column in the result set.".
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type col_name()             :: string().
 -doc """
 A tuple, with the number of elements selected form columns in a database row,
 containg the values of the columns such as `{value(), value() ... value()} `.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type row()                  :: tuple().
 -doc "Erlang data type that corresponds to the ODBC data type being handled.".
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type value()                :: null | term().
 -doc "Return value for queries that select data from database tabels.".
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type selected()             :: {selected, [col_name()], [row()]}.
 -doc "Return value for queries that update database tables.".
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type updated()              :: {updated, n_rows()}.
 -doc """
 The number of affected rows for UPDATE, INSERT, or DELETE queries. For other
 query types the value is driver defined, and hence should be ignored.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type n_rows()               :: integer().
 -doc """
 Data type used by ODBC, to learn which Erlang data type corresponds to an ODBC
 data type see the Erlang to ODBC data type [mapping](databases.md#type) in the
 User's Guide.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type odbc_data_type()       ::  sql_integer | sql_smallint | sql_tinyint |
                                  {sql_decimal, Precision::integer(), Scale::integer()} |
                                  {sql_numeric, Precision::integer(), Scale::integer()} |
@@ -127,13 +126,13 @@ User's Guide.
 An explanation of what went wrong. For common errors there will be atom
 decriptions.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type common_reason()        :: connection_closed | extended_error() | term().
 -doc """
 extended error type with ODBC and native database error codes, as well as the
 base reason that would have been returned had extended_errors not been enabled.
 """.
--doc(#{title => <<"Types used in ODBC application">>}).
+-doc(#{group => <<"Types used in ODBC application">>}).
 -type extended_error()       :: {string(), integer(), term()}.
 
 -export_type([connection_reference/0,
