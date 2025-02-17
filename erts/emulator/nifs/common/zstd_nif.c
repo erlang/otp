@@ -820,29 +820,34 @@ static ERL_NIF_TERM create_cdict_nif(
     ErlNifBinary bin;
     int level;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &bin) ||
-        !enif_get_int(env, argv[1], &level)) {
+    if (!enif_is_binary(env, argv[0]) || !enif_get_int(env, argv[1], &level)) {
         return enif_make_badarg(env);
     } else {
-        ERL_NIF_TERM result;
-        ZstdDict *dict;
-        ZSTD_CDict *cdict = ZSTD_createCDict_advanced(bin.data, bin.size,
+        ERL_NIF_TERM result, binary_copy;
+        ZstdDict *dictp, dict;
+
+        dict.env = enif_alloc_env();
+        binary_copy = enif_make_copy(dict.env, argv[0]);
+
+        (void)enif_inspect_binary(dict.env, binary_copy, &bin);
+        
+        dict.c = ZSTD_createCDict_advanced(bin.data, bin.size,
                     ZSTD_dlm_byRef, ZSTD_dct_auto,
                     ZSTD_getCParams(level, 0, bin.size),
                     zstd_customMem);
 
-        if (!cdict)
+        if (!dict.c) {
+            enif_free_env(dict.env);
             return enif_make_tuple2(env, am_error,
                 enif_make_atom(env, "invalid_compress_dict"));
+        }
 
-        dict = enif_alloc_resource(compress_dict_type, sizeof(ZstdDict));
+        dictp = enif_alloc_resource(compress_dict_type, sizeof(ZstdDict));
 
-        dict->c = cdict;
-        dict->env = enif_alloc_env();
-        enif_make_binary(dict->env, &bin);
+        *dictp = dict;
 
-        result = enif_make_resource(env, (void *)dict);
-        enif_release_resource((void *)dict);
+        result = enif_make_resource(env, (void *)dictp);
+        enif_release_resource((void *)dictp);
         return result;
     }
 }
@@ -857,26 +862,32 @@ static ERL_NIF_TERM create_ddict_nif(
     ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary bin;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &bin)) {
+    if (!enif_is_binary(env, argv[0])) {
         return enif_make_badarg(env);
     } else {
-        ERL_NIF_TERM result;
-        ZstdDict *dict;
-        ZSTD_DDict *ddict = ZSTD_createDDict_advanced(bin.data, bin.size,
+        ERL_NIF_TERM result, binary_copy;
+        ZstdDict *dictp, dict;
+        
+        dict.env = enif_alloc_env();
+        binary_copy = enif_make_copy(dict.env, argv[0]);
+
+        (void)enif_inspect_binary(dict.env, binary_copy, &bin);
+        
+        dict.d = ZSTD_createDDict_advanced(bin.data, bin.size,
                     ZSTD_dlm_byRef, ZSTD_dct_auto, zstd_customMem);
 
-        if (!ddict)
+        if (!dict.d) {
+            enif_free_env(dict.env);
             return enif_make_tuple2(env, am_error,
                 enif_make_atom(env, "invalid_decompress_dict"));
+        }
 
-        dict = enif_alloc_resource(decompress_dict_type, sizeof(ZstdDict));
+        dictp = enif_alloc_resource(decompress_dict_type, sizeof(ZstdDict));
 
-        dict->d = ddict;
-        dict->env = enif_alloc_env();
-        enif_make_binary(dict->env, &bin);
+        *dictp = dict;
 
-        result = enif_make_resource(env, (void *)dict);
-        enif_release_resource((void *)dict);
+        result = enif_make_resource(env, (void *)dictp);
+        enif_release_resource((void *)dictp);
         return result;
     }
 }

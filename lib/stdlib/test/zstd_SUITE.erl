@@ -437,6 +437,9 @@ dict_api(Config) ->
     {ok, DCtx} = zstd:context(decompress, #{ dictionary => DDict }),
     {'EXIT', _} = catch zstd:set_parameter(DCtx, dictionary, CDict),
 
+    {'EXIT', _} = catch zstd:dict(compress, [1,2,3]),
+    {'EXIT', _} = catch zstd:dict(decompress, [1,2,3]),
+
     ok.
 
 
