@@ -74,6 +74,9 @@
 	 user_dir_option/1,
 	 user_dir_fun_option/1,
 	 connectfun_disconnectfun_server/1,
+	 connectfun4_server/1,
+	 disconnectfun2_client/1,
+	 disconnectfun2_server/1,
 	 hostkey_fingerprint_check/1,
 	 hostkey_fingerprint_check_md5/1,
 	 hostkey_fingerprint_check_sha/1,
@@ -114,6 +117,9 @@ suite() ->
 
 all() -> 
     [connectfun_disconnectfun_server,
+     connectfun4_server,
+     disconnectfun2_client,
+     disconnectfun2_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -608,6 +614,8 @@ auth_none(Config) ->
 					  {password, "wrong-pwd"},
 					  {user_dir, UserDir},
 					  {user_interaction, false}]),
+    [{user_auth, "none"}] =
+        ssh:connection_info(ClientConnRef1, [user_auth]),
     "some-other-user" =
         proplists:get_value(user, ssh:connection_info(ClientConnRef1, [user])),
     ok = ssh:close(ClientConnRef1),
@@ -675,12 +683,14 @@ user_dir_fun_option(Config) ->
                                                                     UserDir
                                                             end},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-    _ConnectionRef =
+    ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user, "foo"},
 					  {user_dir, UserDir},
                                           {auth_methods,"publickey"},
 					  {user_interaction, false}]),
+    [{user_auth, "publickey"}] =
+        ssh:connection_info(ConnectionRef, [user_auth]),
     receive
         {user,Ref,"foo"} ->
             ssh:stop_daemon(Pid),
@@ -778,6 +788,47 @@ connectfun_disconnectfun_server(Config) ->
 	    {fail, "No connectfun action"}
     end.
 
+
+%%--------------------------------------------------------------------
+connectfun4_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    ConnFun = fun(User,_,Method,ConnInfo) -> Parent ! {connect,Ref,User,Method,ConnInfo} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {connectfun, ConnFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    [{user_auth, "keyboard-interactive"}] =
+	ssh:connection_info(ConnectionRef, [user_auth]),
+
+    receive
+	{connect,Ref,User,Method,ConnInfo} ->
+            "foo" = User,
+            "foo" = proplists:get_value(user, ConnInfo),
+            "keyboard-interactive" = Method,
+            Keys = [client_version, server_version, peer, user, sockname, options, algorithms],
+            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+	    ssh:close(ConnectionRef),
+            ssh:stop_daemon(Pid)
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail, "No connectfun action"}
+    end.
+
 %%--------------------------------------------------------------------
 connectfun_disconnectfun_client(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
@@ -805,6 +856,101 @@ connectfun_disconnectfun_client(Config) ->
     after 2000 ->
 	    {fail, "No disconnectfun action"}
     end.
+
+%%--------------------------------------------------------------------
+%% The client disconnects due to the server
+disconnectfun2_client(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    DiscFun = fun(R, Extra) -> Parent ! {disconnect,Ref,R,Extra} end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    _ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {disconnectfun, DiscFun},
+					  {user_interaction, false}]),
+    ssh:stop_daemon(Pid),
+    receive
+	{disconnect,Ref,R,Extra} ->
+            disconnect_received = R,
+            %% Code is only available when a disconnect message is sent
+            #{code := undefined, details := _Details, connection_info := ConnInfo} = Extra,
+            Keys = [client_version, server_version, peer, user, sockname, options,
+                    algorithms, user_auth],
+            true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+	    ct:log("Disconnect result: ~p ~p",[R, Extra])
+    after 2000 ->
+	    {fail, "No disconnectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+%% Password authentication fails and there's no more authentication
+%% methods to try so the client disconnects with
+%% SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
+disconnectfun2_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    DiscFunS = fun(R, Extra) -> Parent ! {disconnect_server,Ref,R,Extra} end,
+    DiscFunC = fun(R, Extra) -> Parent ! {disconnect_client,Ref,R,Extra} end,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+                                             {disconnectfun, DiscFunS},
+					     {password, "morot"}]),
+    {error, Reason} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
+                                 {user, "foo"},
+                                 {password, "wrong_password"},
+                                 {user_dir, UserDir},
+                                 {user_interaction, false},
+                                 {disconnectfun, DiscFunC}]),
+    ct:log("Error reason: ~p", [Reason]),
+    Res =
+        receive
+            {disconnect_client,Ref,R,Extra} ->
+                %% Code 14 is SSH_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE
+                %% https://datatracker.ietf.org/doc/html/rfc4253#section-11.1
+                #{code := 14, details := Details, connection_info := ConnInfo} = Extra,
+                <<"User auth failed for: \"foo\"">> = iolist_to_binary(Details),
+                disconnect_sent = R,
+                Keys = [client_version, server_version, peer, user, sockname, options,
+                        algorithms, user_auth],
+                true = lists:all(fun({K, _}) -> lists:member(K, Keys) end, ConnInfo),
+                ct:log("Disconnect result client: ~p ~p",[R, Extra]),
+                receive
+                    {disconnect_server,RefS,RS,ExtraS} ->
+                        %% Code is only available when a disconnect message is sent
+                        #{code := undefined,
+                          details := DetailsS,
+                          connection_info := ConnInfoS} = ExtraS,
+                        <<"Received disconnect: "
+                          "Unable to connect using the available authentication methods">> =
+                            iolist_to_binary(DetailsS),
+                        disconnect_received = RS,
+                        KeysS = [client_version, server_version, peer, user, sockname, options,
+                                algorithms, user_auth],
+                        true = lists:all(fun({K, _}) -> lists:member(K, KeysS) end, ConnInfoS),
+                        ct:log("Disconnect result server: ~p ~p",[RS, ExtraS])
+                after 2000 ->
+                        {fail, "No disconnectfun action for server"}
+                end
+        after 2000 ->
+                {fail, "No disconnectfun action"}
+        end,
+    ssh:stop_daemon(Pid),
+    Res.
 
 %%--------------------------------------------------------------------
 %%% validate client that uses the 'ssh_msg_debug_fun' option
