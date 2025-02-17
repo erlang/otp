@@ -729,30 +729,42 @@ expand_filepath(PathPrefix, Word) ->
         X -> X
     end.
 
-shell(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case shell:local_func(Fun1) of
+shell(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_}<-get_exports(shell)]) of
         true -> "shell";
-        false -> "user_defined"
+        _ -> "user_defined"
+    end;
+shell(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{var, _, _}], _} -> [];
+        {ok, [{atom, _, Fun1}], _} ->
+            shell(Fun1)
     end.
 
 -doc false.
+shell_default_or_bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_}<-get_exports(shell_default)]) of
+        true -> "shell_default";
+        _ -> bif(Fun)
+    end;
 shell_default_or_bif(Fun) ->
     case erl_scan:string(Fun) of
         {ok, [{var, _, _}], _} -> [];
         {ok, [{atom, _, Fun1}], _} ->
-            case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
-                true -> "shell_default";
-                _ -> bif(Fun)
-            end
+            shell_default_or_bif(Fun1)
     end.
 
 -doc false.
-bif(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case lists:member(Fun1, [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
+bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_}<-get_exports(erlang)]) of
         true -> "erlang";
         _ -> shell(Fun)
+    end;
+bif(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{var, _, _}], _} -> [];
+        {ok, [{atom, _, Fun1}], _} ->
+            bif(Fun1)
     end.
 
 expand_string(Bef0) ->
