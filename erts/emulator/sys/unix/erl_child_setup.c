@@ -644,13 +644,10 @@ static Hash *forker_hash;
 
 static void add_os_pid_to_port_id_mapping(Eterm port_id, pid_t os_pid)
 {
-    if (port_id != THE_NON_VALUE) {
-        /* exit status report requested */
-        ErtsSysExitStatus es;
-        es.os_pid = os_pid;
-        es.port_id = port_id;
-        hash_put(forker_hash, &es);
-    }
+    ErtsSysExitStatus es;
+    es.os_pid = os_pid;
+    es.port_id = port_id;
+    hash_put(forker_hash, &es);
 }
 
 static Eterm get_port_id(pid_t os_pid)
