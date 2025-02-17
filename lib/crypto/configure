@@ -7207,8 +7207,6 @@ case $enable_dynamic_ssl in
 	SSL_DYNAMIC_ONLY=no;;
 esac
 
-echo "meep"
-
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
