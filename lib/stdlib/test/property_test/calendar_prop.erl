@@ -26,15 +26,23 @@
 %%% Properties %%%
 %%%%%%%%%%%%%%%%%%
 
-between_40_years_ago_and_in_40_years() ->
-    integer(erlang:system_time(millisecond) - 40*1000*60*60*24*365,
-            erlang:system_time(millisecond) + 40*1000*60*60*24*365).
+between_40_years_ago_and_in_40_years(Unit) ->
+    integer(erlang:system_time(Unit) - erlang:convert_time_unit(40*60*60*24*365, second, Unit),
+            erlang:system_time(Unit) + erlang:convert_time_unit(40*60*60*24*365, second, Unit)).
+
+unit() ->
+    proper_types:oneof([second,
+                        millisecond,
+                        microsecond,
+                        nanosecond,
+                        native]).
 
 rfc3339_lists_binaries() ->
-    Ms = [{unit, millisecond}],
+    Unit = millisecond,
+    Ms = [{unit, Unit}],
     ?FORALL(
         TS,
-        between_40_years_ago_and_in_40_years(),
+        between_40_years_ago_and_in_40_years(Unit),
         begin
             DateTimeString = calendar:system_time_to_rfc3339(TS, Ms),
             DateTimeBin = calendar:system_time_to_rfc3339(TS, [{return, binary} | Ms]),
@@ -44,3 +52,37 @@ rfc3339_lists_binaries() ->
             DateTimeBin =:= ListToBinary andalso FromStr =:= FromBin
         end
     ).
+
+universal_time_system_time_symmetry() ->
+    ?FORALL(
+        {SystemTime0, Unit},
+        ?LET(Unit,
+             unit(),
+             {between_40_years_ago_and_in_40_years(Unit), Unit}),
+        begin
+            Options = [{unit, Unit}],
+            UTime = calendar:system_time_to_universal_time(SystemTime0, Unit),
+            SystemTime = calendar:universal_time_to_system_time(UTime, Options),
+            loss(SystemTime0, Unit) =:= (SystemTime0 - SystemTime)
+        end
+    ).
+
+local_time_system_time_symmetry() ->
+    ?FORALL(
+        {SystemTime0, Unit},
+        ?LET(Unit,
+             unit(),
+             {between_40_years_ago_and_in_40_years(Unit), Unit}),
+        begin
+            Options = [{unit, Unit}],
+            UTime = calendar:system_time_to_local_time(SystemTime0, Unit),
+            SystemTime = calendar:local_time_to_system_time(UTime, Options),
+            loss(SystemTime0, Unit) =:= (SystemTime0 - SystemTime)
+        end
+    ).
+
+loss(_SystemTime, second) -> 0;
+loss(SystemTime, millisecond) -> SystemTime rem 1_000;
+loss(SystemTime, microsecond) -> SystemTime rem 1_000_000;
+loss(SystemTime, nanosecond) -> SystemTime rem 1_000_000_000;
+loss(SystemTime, native) -> loss(erlang:convert_time_unit(SystemTime, native, nanosecond), nanosecond).
