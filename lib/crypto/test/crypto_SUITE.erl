@@ -4950,11 +4950,21 @@ try_enable_fips_mode(Config) ->
     end.
 
 check_fips_provider() ->
-    case crypto:info() of
-        #{fips_provider_available := true,
-          fips_provider_buildinfo := BI} when is_list(BI) ->
+    case have_provider_support() of
+        true ->
+            case crypto:info() of
+                #{fips_provider_available := true,
+                  fips_provider_buildinfo := BI} when is_list(BI) ->
+                    ok
+            end;
+        false ->
             ok
     end.
+
+have_provider_support() ->
+    [{_, PackedVsn, _}] = crypto:info_lib(),
+    MajorVsn = (PackedVsn bsr 28),
+    MajorVsn >= 3.
 
 pbkdf2_hmac() ->
   [{doc, "Test the pbkdf2_hmac function"}].
