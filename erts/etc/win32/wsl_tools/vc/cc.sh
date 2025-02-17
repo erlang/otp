@@ -123,7 +123,7 @@ while test -n "$1" ; do
 		MD=-MD;
 	    fi
 	    OPTIMIZED_BUILD=true;;
-        -O0)
+        -O0|-Og)
             ;;
 	-O*)
 	    # Optimization hardcoded

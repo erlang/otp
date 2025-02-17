@@ -540,8 +540,10 @@ compdb:
 
 format-check:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format-check)
+	mix format --check-formatted
 format:
 	(cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) format)
+	mix format
 
 dep depend:
 	$(make_verbose)
