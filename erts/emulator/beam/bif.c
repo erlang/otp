@@ -4077,6 +4077,10 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	if (flush) {
 	    erts_halt(pos_int_code, halt_flush_timeout);
+            /* We lost race against other halt call.
+               Suspend this process and do a dummy trap while waiting
+               for other halt call to terminate the beam. */
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	    ERTS_BIF_YIELD2(BIF_TRAP_EXPORT(BIF_halt_2), BIF_P, am_undefined, am_undefined);
 	}
 	else {
