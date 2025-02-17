@@ -45,12 +45,17 @@ endif
 
 ifeq ($(TYPE),gcov)
 ZSTD_CFLAGS = -O0 -fprofile-arcs -ftest-coverage $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
-else  # gcov
+else  # !gcov
 ifeq ($(TYPE),debug)
 ## DEBUGLEVEL=1 enables asserts, see common/debug.h for details
 ZSTD_CFLAGS = -DDEBUGLEVEL=1 $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
-else # debug
+else # !debug && !gcov
+
 ZSTD_CFLAGS = $(subst -O2, -O3, $(CONFIGURE_CFLAGS) $(DEFS) $(THR_DEFS))
+ifeq ($(TYPE), asan)
+ZSTD_CFLAGS += -DZSTD_ADDRESS_SANITIZER
+endif # asan
+
 endif # debug
 endif # gcov
 
