@@ -21,6 +21,21 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.2.8
+
+### Fixed Bugs and Malfunctions
+
+- Setting protocol version to a lower value then supported by default in server API function called after ssl:listen/2 could result in wrong default values being used and connections failing with insufficient security.
+
+  Own Id: OTP-19457 Aux Id: [PR-9418]
+
+- Improve error handling of server name indication fun. This implies that if the `sni_fun` returns `undefined` we will attempt connection with original option values, if it returns `unrecognized` we end the connection with UNRECOGNIZED_NAME alert and if provided options fail option verification we will end the connection with a HANDSHAKE_FAILURE and an error log.
+
+  Own Id: OTP-19467 Aux Id: [PR-9387], ERIERL-1189
+
+[PR-9418]: https://github.com/erlang/otp/pull/9418
+[PR-9387]: https://github.com/erlang/otp/pull/9387
+
 ## SSL 11.2.7
 
 ### Fixed Bugs and Malfunctions
