@@ -139,6 +139,9 @@ static ErlNifFunc nif_funcs[] = {
 };
 
 #ifdef HAS_3_0_API
+# ifdef FIPS_SUPPORT
+OSSL_PROVIDER *fips_provider;
+# endif
 OSSL_PROVIDER *prov[MAX_NUM_PROVIDERS];
 int prov_cnt;
 #endif
@@ -255,9 +258,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 #ifdef HAS_3_0_API
     prov_cnt = 0;
 # ifdef FIPS_SUPPORT
-    if ((prov[prov_cnt] = OSSL_PROVIDER_load(NULL, "fips"))) {
-        prov_cnt++;
-    }
+    fips_provider = OSSL_PROVIDER_load(NULL, "fips");
 # endif
     if (!(prov[prov_cnt++] = OSSL_PROVIDER_load(NULL, "default"))) {
         ret = __LINE__; goto done;
@@ -392,6 +393,11 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_engine_mutex(env);
 
 #ifdef HAS_3_0_API
+# ifdef FIPS_SUPPORT
+        if (fips_provider) {
+            OSSL_PROVIDER_unload(fips_provider);
+        }
+# endif
         while (prov_cnt > 0) {
             OSSL_PROVIDER_unload(prov[--prov_cnt]);
         }
