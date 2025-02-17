@@ -183,6 +183,8 @@ static ssize_t write_all(int fd, const char *buff, size_t size) {
     return pos;
 }
 
+static void kill_child(pid_t os_pid);
+static void kill_all_children(void);
 static int forker_hash_init(void);
 
 static int max_files = -1;
@@ -571,6 +573,7 @@ main(int argc, char *argv[])
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
+                kill_all_children();
                 _exit(0);
             }
 
@@ -579,6 +582,7 @@ main(int argc, char *argv[])
                 if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
+                kill_all_children();
                 _exit(0);
             }
             /* Since we use unix domain sockets and send the entire data in
@@ -621,6 +625,7 @@ main(int argc, char *argv[])
                 est.os_pid = proto.u.stop.os_pid;
                 es = hash_remove(forker_hash, &est);
                 if (es) {
+                    kill_child(es->os_pid);
                     free(es);
                 }
             } else {
@@ -658,6 +663,23 @@ main(int argc, char *argv[])
         }
     }
     return 1;
+}
+
+/* Kill child process groups on VM termination so they don't become orphaned. */
+
+static void kill_child(pid_t os_pid) {
+    if (os_pid > 0 && kill(os_pid, SIGTERM) != 0) {
+        DEBUG_PRINT("error killing process %d: %d", os_pid, errno);
+    }
+}
+
+static void fun_kill_foreach(ErtsSysExitStatus *es, void *unused) {
+    kill_child(es->os_pid);
+}
+
+static void kill_all_children(void) {
+    DEBUG_PRINT("cleaning up by killing all %d child processes", forker_hash->nobjs);
+    hash_foreach(forker_hash, (HFOREACH_FUN)fun_kill_foreach, NULL);
 }
 
 static int fcmp(void *a, void *b)
