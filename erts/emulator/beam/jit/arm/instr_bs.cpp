@@ -261,7 +261,6 @@ void BeamModuleAssembler::emit_bs_get_small(const Label &fail,
         auto ctx_reg = load_source(Ctx, TMP1);
 
         comment("simplified helper call because the result is a known small");
-        emit_enter_runtime(Live.get());
 
         /* We KNOW that the process argument is never actually used. */
 #ifdef DEBUG
@@ -269,6 +268,8 @@ void BeamModuleAssembler::emit_bs_get_small(const Label &fail,
 #endif
         mov_imm(ARG3, flags);
         emit_untag_ptr(ARG4, ctx_reg.reg);
+
+        emit_enter_runtime(Live.get());
         runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
                      erts_bs_get_integer_2>();
 
