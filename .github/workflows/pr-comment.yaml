@@ -109,12 +109,6 @@ jobs:
              echo "HAS_TEST_ARTIFACTS=false" >> $GITHUB_OUTPUT
            fi
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4.2.2
-        with:
-          token: ${{ secrets.ERLANG_TOKEN }}
-          repository: 'erlang/erlang.github.io'
-          path: erlang.github.io
-
       - name: Publish CT Test Results
         uses: EnricoMi/publish-unit-test-result-action@170bf24d20d201b842d7a52403b73ed297e6645b # ratchet:EnricoMi/publish-unit-test-result-action@v2.18.0
         if: steps.extract.outputs.HAS_TEST_ARTIFACTS == 'true'
@@ -124,31 +118,6 @@ jobs:
           event_name: ${{ github.event.workflow_run.event }}
           check_name: "CT Test Results"
           files: "artifacts/**/*.xml"
-
-      - name: Upload PR to github pages
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: |
-           git clone https://github.com/talentdeficit/jsx
-           (cd jsx && rebar3 compile)
-           mkdir -p "${GITHUB_WORKSPACE}/erlang.github.io/prs/"
-           .github/scripts/sync-github-prs.es erlang/otp \
-             "${GITHUB_WORKSPACE}/erlang.github.io/prs/" \
-             "${{ needs.pr-number.outputs.result }}"
-
-      - name: Deploy to github pages 🚀
-        run: |
-          cd erlang.github.io
-          set -x
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git add -u
-          git update-index --refresh
-          if ! git diff-index --quiet HEAD --; then
-            git commit -m "Update github pages content"
-            git push origin master
-          fi
 
         ## Append some useful links and tips to the test results posted by
         ## Publish CT Test Results
