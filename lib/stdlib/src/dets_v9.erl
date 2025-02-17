@@ -2635,9 +2635,8 @@ v_segment(H, SegNo, SegPos, SegSlot) ->
     BucketP = SegPos + (4 * ?SZOBJP * SegSlot),
     case catch read_bucket(H, BucketP, H#head.type) of
 	{'EXIT', Reason} -> 
-	    dets_utils:vformat("** dets: Corrupt or truncated dets file~n", 
-			       []), 
-	    io:format("~nERROR ~tp~n", [Reason]);
+            io:format("** dets: Corrupt or truncated dets file~nERROR ~tp~n",
+                      [Reason]);
 	[] ->  %% don't print empty buckets
 	    true;
 	{Size, CollP, Objects} ->
