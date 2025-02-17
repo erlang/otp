@@ -1598,7 +1598,7 @@ static void insert_monitor_data(ErtsMonitor *mon, int type, Eterm id)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     if ((mdp->origin.flags & (ERTS_ML_FLG_DBG_VISITED
                               | ERTS_ML_FLG_EXTENDED)) == ERTS_ML_FLG_EXTENDED) {
-        if (mon->type != ERTS_MON_TYPE_NODE) {
+        if (ERTS_ML_GET_TYPE(mon) != ERTS_MON_TYPE_NODE) {
             ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
             ASSERT(mon->flags & ERTS_ML_FLG_EXTENDED);
             if (mdep->uptr.ohhp) {

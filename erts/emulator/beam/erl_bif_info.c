@@ -243,7 +243,7 @@ static int do_calc_mon_size(ErtsMonitor *mon, void *vpsz, Sint reds)
     Uint *psz = vpsz;
     *psz += is_immed(mdp->ref) ? 0 : NC_HEAP_SIZE(mdp->ref);
 
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         *psz += erts_resource_ref_size(mon->other.ptr);
     else
         *psz += is_immed(mon->other.item) ? 0 : NC_HEAP_SIZE(mon->other.item);
@@ -266,7 +266,7 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
     Eterm tup, t, d, r, p, x;
 
     r = is_immed(mdp->ref) ? mdp->ref : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mdp->ref);
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         p = erts_bld_resource_ref(&(pmlc->hp), &MSO(pmlc->p), mon->other.ptr);
     else
         p = (is_immed(mon->other.item)
@@ -277,12 +277,13 @@ static int do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc, Sint reds)
         x = ((ErtsMonitorDataExtended *) mdp)->u.name;
     else if (erts_monitor_is_target(mon))
         x = NIL;
-    else if (mon->type == ERTS_MON_TYPE_NODE || mon->type == ERTS_MON_TYPE_NODES)
+    else if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODE
+             || ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES)
         x = make_small(((ErtsMonitorDataExtended *) mdp)->u.refc);
     else
         x = NIL;
 
-    switch (mon->type) {
+    switch (ERTS_ML_GET_TYPE(mon)) {
     case ERTS_MON_TYPE_PROC:
         t = am_process;
         break;
@@ -378,7 +379,8 @@ static int calc_lnk_size(ErtsLink *lnk, void *vpsz, Sint reds)
     Uint sz = 0;
     UWord addr;
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC)
+    if (ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC
+        || ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PORT)
         addr = (UWord) erts_link_to_elink(lnk);
     else
         addr = (UWord) lnk;
@@ -406,7 +408,8 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     ERTS_DECL_AM(linked);
     ERTS_DECL_AM(unlinking);
 
-    if (lnk->type == ERTS_LNK_TYPE_DIST_PROC) {
+    if (ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC
+        || ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PORT) {
         ErtsELink *elnk = erts_link_to_elink(lnk);
         state = elnk->unlinking ? AM_unlinking : AM_linked;
         addr = (UWord) elnk;
@@ -426,7 +429,7 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
         pid = copy_struct(lnk->other.item, sz, &(pllc->hp), &MSO(pllc->p));
     }
 
-    switch (lnk->type) {
+    switch (ERTS_ML_GET_TYPE(lnk)) {
     case ERTS_LNK_TYPE_PROC:
         t = am_process;
         break;
@@ -436,6 +439,11 @@ static int make_one_lnk_element(ErtsLink *lnk, void * vpllc, Sint reds)
     case ERTS_LNK_TYPE_DIST_PROC: {
         ERTS_DECL_AM(dist_process);
         t = AM_dist_process;
+        break;
+    }
+    case ERTS_LNK_TYPE_DIST_PORT: {
+        ERTS_DECL_AM(dist_port);
+        t = AM_dist_port;
         break;
     }
     default:
@@ -519,7 +527,7 @@ typedef struct {
 	ErtsResource* resource;
     }entity;
     int named;
-    Uint16 type;
+    Uint32 type;
     Eterm node;
     /* pid is actual target being monitored, no matter pid/port or name */
     Eterm pid;
@@ -561,7 +569,8 @@ do {							\
 static int collect_one_link(ErtsLink *lnk, void *vmicp, Sint reds)
 {
     MonitorInfoCollection *micp = vmicp;
-    if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+    if (ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PROC
+        && ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PORT) {
         if (((ErtsILink *) lnk)->unlinking)
             return 1;
     }
@@ -584,9 +593,9 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
  
         EXTEND_MONITOR_INFOS(micp);
 
-        micp->mi[micp->mi_i].type = mon->type;
+        micp->mi[micp->mi_i].type = ERTS_ML_GET_TYPE(mon);
 
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
@@ -636,9 +645,9 @@ static int collect_one_target_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
 
         EXTEND_MONITOR_INFOS(micp);
   
-        micp->mi[micp->mi_i].type = mon->type;
+        micp->mi[micp->mi_i].type = ERTS_ML_GET_TYPE(mon);
         micp->mi[micp->mi_i].named = !!(mon->flags & ERTS_ML_FLG_NAME);
-        switch (mon->type) {
+        switch (ERTS_ML_GET_TYPE(mon)) {
 
         case ERTS_MON_TYPE_PROC:
         case ERTS_MON_TYPE_PORT:
@@ -710,7 +719,7 @@ do {									\
 static int
 collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 {
-    if (mon->type == ERTS_MON_TYPE_SUSPEND) {
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND) {
         Sint count;
         erts_aint_t mstate;
         ErtsMonitorSuspend *msp;
@@ -783,6 +792,7 @@ collect_one_suspend_monitor(ErtsMonitor *mon, void *vsmicp, Sint reds)
 #define ERTS_PI_IX_ASYNC_DIST                           37
 #define ERTS_PI_IX_DICTIONARY_LOOKUP                    38
 #define ERTS_PI_IX_LABEL                                39
+#define ERTS_PI_IX_PRIORITY_MESSAGES                    40
 
 #define ERTS_PI_UNRESERVE(RS, SZ) \
     (ASSERT((RS) >= (SZ)), (RS) -= (SZ))
@@ -836,6 +846,7 @@ static ErtsProcessInfoArgs pi_args[] = {
     {am_async_dist, 0, 0, ERTS_PROC_LOCK_MAIN},
     {am_dictionary, 3, ERTS_PI_FLAG_FORCE_SIG_SEND|ERTS_PI_FLAG_KEY_TUPLE2, ERTS_PROC_LOCK_MAIN},
     {am_label, 0, ERTS_PI_FLAG_FORCE_SIG_SEND, ERTS_PROC_LOCK_MAIN},
+    {am_priority_messages, 0, 0, ERTS_PROC_LOCK_MAIN}
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(pi_args[0])))
@@ -970,6 +981,8 @@ pi_arg2ix(Eterm arg, Eterm *extrap)
         return ERTS_PI_IX_ASYNC_DIST;
     case am_label:
         return ERTS_PI_IX_LABEL;
+    case am_priority_messages:
+        return ERTS_PI_IX_PRIORITY_MESSAGES;
     default:
         if (is_tuple_arity(arg, 2)) {
             Eterm *tpl = tuple_val(arg);
@@ -2298,6 +2311,10 @@ process_info_aux(Process *c_p,
 
         break;
     }
+
+    case ERTS_PI_IX_PRIORITY_MESSAGES:
+        res = rp->sig_qs.flags & FS_PRIO_MQ ? am_true : am_false;
+        break;
 
     default:
 	return THE_NON_VALUE; /* will produce badarg */
@@ -5231,18 +5248,18 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             BIF_P->mbuf_sz += sz;
             BIF_RET(copy);
         }
-        else if (ERTS_IS_ATOM_STR("remove_hopefull_dflags", BIF_ARG_1)) {
+        else if (ERTS_IS_ATOM_STR("remove_dflags", BIF_ARG_1)) {
             Uint64 new_val;
 
             if (!term_to_Uint64(BIF_ARG_2, &new_val)
-                || (new_val & ~DFLAG_DIST_HOPEFULLY))
+                || (new_val & DFLAG_DIST_MANDATORY))
                 BIF_ERROR(BIF_P, BADARG);
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
-            
-            erts_dflags_test_remove_hopefull_flags = new_val;
-            
+
+            erts_dflags_test_remove = new_val;
+
             erts_thr_progress_unblock();
             erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 

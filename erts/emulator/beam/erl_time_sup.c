@@ -1972,7 +1972,7 @@ erts_demonitor_time_offset(ErtsMonitor *mon)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     ASSERT(erts_monitor_is_origin(mon));
-    ASSERT(mon->type == ERTS_MON_TYPE_TIME_OFFSET);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_TIME_OFFSET);
 
     erts_mtx_lock(&erts_get_time_mtx);
 
