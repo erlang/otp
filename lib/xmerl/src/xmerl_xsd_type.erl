@@ -35,17 +35,21 @@
 
 
 -define(catch_exit(_Call_,_Value_,_ErrorCause_),
-	case catch (_Call_) of
-	    {'EXIT',_} ->
-		{error,{type,_ErrorCause_,_Value_}};
-	    {error,_} ->
-		{error,{_ErrorCause_,_Value_}};
-	    _ ->
-		{ok,_Value_}
+	try (_Call_) of
+	     _Result_ ->
+                catch_exit_result(_Result_,_Value_,_ErrorCause_)
+        catch
+            error:_ ->
+                {error,{type,_ErrorCause_,_Value_}};
+            exit:_ ->
+		{error,{type,_ErrorCause_,_Value_}}
 	end).
 
 -define(is_whitespace(__WS__),
 	__WS__==16#20; __WS__==16#9;__WS__==16#a; __WS__==16#d).
+
+catch_exit_result({error,_},Value,ErrorCause) -> {error,{ErrorCause,Value}};
+catch_exit_result(_,Value,_ErrorCause) -> {ok,Value}.
 
 check_simpleType(Name,Value,S) when is_list(Name) ->
     ?debug("simpleType name a list: "++Name++"~n",[]),
@@ -130,11 +134,14 @@ check_simpleType(anyURI,Value,S) ->
     case xmerl_uri:parse(Value) of
 	{error,_} ->
 	    %% might be a relative uri, then it has to be a path in the context
-	    case catch file:read_file_info(filename:join(S#xsd_state.xsd_base,Value)) of
+	    try file:read_file_info(filename:join(S#xsd_state.xsd_base,Value)) of
 		{ok,_} ->
 		    {ok,Value};
 		_ ->
 		    {error,{value_not_anyURI,Value}}
+            catch
+                _:_ ->
+                    {error,{value_not_anyURI,Value}}
 	    end;
 	_ ->
 	    {ok,Value}
@@ -212,10 +219,11 @@ check_decimal(Value) ->
 %%     I=string:chr(Value,$.),
 %%     {NumberDot,Decimal}=lists:split(I,Value),
 %%     Number=string:strip(NumberDot,right,$.),
-%%     case catch {list_to_integer(Number),list_to_integer(Decimal)} of
-%% 	{'EXIT',_} ->
-%% 	    {error,{value_not_decimal,Value}};
-%% 	_ -> {ok,Value}
+%%     try {list_to_integer(Number),list_to_integer(Decimal)} of
+%%        _ -> {ok,Value}
+%%     catch
+%% 	  error:_ ->
+%% 	     {error,{value_not_decimal,Value}}
 %%     end.
 
 check_float(V="-INF") ->
@@ -296,13 +304,15 @@ check_duration_time(Time,[H|T]) ->
     end.
 
 check_positive_integer(Value) ->
-    case catch list_to_integer(Value) of
+    try list_to_integer(Value) of
 	Int when is_integer(Int),Int>=0 ->
 	    {ok,Int};
 	_ ->
 	    {error,{value_not_integer,Value}}
+    catch
+        _:_ ->
+            {error,{value_not_integer,Value}}
     end.
-
 
 %% check_integer and thereof derived types
 check_integer(Value) ->
@@ -551,15 +561,16 @@ check_gMonth("--"++Value) ->
     end.
 
 check_base64Binary(Value) ->
-    case catch xmerl_b64Bin:parse(xmerl_b64Bin_scan:scan(Value)) of
+    try xmerl_b64Bin:parse(xmerl_b64Bin_scan:scan(Value)) of
 	{ok,_} ->
 	    {ok,Value};
 	Err = {error,_} ->
-	    Err;
-	{'EXIT',{error,Reason}} -> %% scanner failed on character
+	    Err
+    catch
+	exit:{error,Reason} -> %% scanner failed on character
 	    {error,Reason};
-	{'EXIT',Reason} ->
-	    {error,{internal_error,Reason}}
+	error:Reason:Stacktrace ->
+	    {error,{internal_error,{Reason,Stacktrace}}}
     end.
 
 %% tokens may not contain the carriage return (#xD), line feed (#xA)
@@ -840,11 +851,14 @@ maxInclusive_fun(T,V)
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) =< list_to_integer(V)) of
+	    try list_to_integer(Val) =< list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false ->
 		    {error,{maxInclusive,Val,should_be_less_than_or_equal_with,V}}
+            catch
+                _:_ ->
+                    {error,{maxInclusive,Val,should_be_less_than_or_equal_with,V}}
 	    end
     end;
 maxInclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -886,11 +900,14 @@ maxExclusive_fun(T,V)
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) < list_to_integer(V)) of
+	    try list_to_integer(Val) < list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false -> 
 		    {error,{maxExclusive,Val,not_less_than,V}}
+            catch
+                _:_ ->
+                    {error,{maxExclusive,Val,not_less_than,V}}
 	    end
     end;
 maxExclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -930,11 +947,14 @@ minExclusive_fun(T,V)
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) > list_to_integer(V)) of
+	    try list_to_integer(Val) > list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
-		    {error,{minExclusive,Val,not_greater_than,V}}
+		false -> 
+                    {error,{minExclusive,Val,not_greater_than,V}}
+            catch
+                _:_ ->
+                    {error,{minExclusive,Val,not_greater_than,V}}
 	    end
     end;
 minExclusive_fun(T,V) when T==decimal;T==float;T==double ->
@@ -974,11 +994,14 @@ minInclusive_fun(T,V)
        T==unsignedLong;T==int;T==unsignedInt;T==short;
        T==unsignedShort;T==byte;T==unsignedByte ->
     fun(Val) ->
-	    case (catch list_to_integer(Val) >= list_to_integer(V)) of
+	    try list_to_integer(Val) >= list_to_integer(V) of
 		true ->
 		    {ok,Val};
-		_ -> 
+		false -> 
 		    {error,{minInclusive,Val,not_greater_than_or_equal_with,V}}
+            catch
+                _:_ ->
+                    {error,{minInclusive,Val,not_greater_than_or_equal_with,V}}
 	    end
     end;
 minInclusive_fun(T,V) when T==decimal;T==float;T==double ->
