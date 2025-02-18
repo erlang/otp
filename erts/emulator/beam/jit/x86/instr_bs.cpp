@@ -1295,11 +1295,11 @@ void BeamModuleAssembler::update_bin_state(x86::Gp bin_offset,
                                            x86::Gp size_reg) {
     const int x_reg_offset = offsetof(ErtsSchedulerRegisters, x_reg_array.d);
     const int cur_bin_base =
-            offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_current_bin);
+            offsetof(ErtsSchedulerRegisters,
+                     aux_regs.d.erl_bits_state.erts_current_bin);
     const int cur_bin_offset =
-            offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-            offsetof(struct erl_bits_state, erts_bin_offset);
+            offsetof(ErtsSchedulerRegisters,
+                     aux_regs.d.erl_bits_state.erts_bin_offset);
 
     x86::Mem mem_bin_base =
             x86::Mem(registers, cur_bin_base - x_reg_offset, sizeof(UWord));
@@ -1903,11 +1903,11 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
         const int x_reg_offset =
                 offsetof(ErtsSchedulerRegisters, x_reg_array.d);
         const int cur_bin_base =
-                offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_current_bin);
+                offsetof(ErtsSchedulerRegisters,
+                         aux_regs.d.erl_bits_state.erts_current_bin);
         const int cur_bin_offset =
-                offsetof(ErtsSchedulerRegisters, aux_regs.d.erl_bits_state) +
-                offsetof(struct erl_bits_state, erts_bin_offset);
+                offsetof(ErtsSchedulerRegisters,
+                         aux_regs.d.erl_bits_state.erts_bin_offset);
         x86::Mem mem_bin_base =
                 x86::qword_ptr(registers, cur_bin_base - x_reg_offset);
         x86::Mem mem_bin_offset =
@@ -2725,7 +2725,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
             break;
         case am_string: {
             ArgBytePtr string_ptr(
-                    ArgVal(ArgVal::BytePtr, seg.src.as<ArgWord>().get()));
+                    ArgVal(ArgVal::Type::BytePtr, seg.src.as<ArgWord>().get()));
 
             runtime_entered = bs_maybe_enter_runtime(runtime_entered);
             comment("insert string");

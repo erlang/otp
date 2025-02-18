@@ -296,11 +296,13 @@ extern ErtsCodePtr beam_call_trace_return; /* OpCode(i_call_trace_return) */
  * @param[in] frame The frame to inspect. Must point at a CP.
  * @param[out] return_address The return address of \p frame */
 ERTS_GLB_INLINE
-const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address);
+const Eterm *erts_inspect_frame(const Eterm *frame,
+                                ErtsCodePtr *return_address);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
-const Eterm *erts_inspect_frame(Eterm *frame, ErtsCodePtr *return_address) {
+const Eterm *erts_inspect_frame(const Eterm *frame,
+                                ErtsCodePtr *return_address) {
     ASSERT(is_CP(frame[0]));
 
     if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {

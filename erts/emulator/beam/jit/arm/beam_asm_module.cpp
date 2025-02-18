@@ -121,7 +121,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
 
         a.align(AlignMode::kData, 8);
         switch (arg.getType()) {
-        case ArgVal::Literal: {
+        case ArgVal::Type::Literal: {
             auto &patches = literals[arg.as<ArgLiteral>().get()].patches;
             Label patch = a.newLabel();
 
@@ -130,22 +130,22 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<ArgVal> &args,
             patches.push_back({patch, 0});
             break;
         }
-        case ArgVal::XReg:
+        case ArgVal::Type::XReg:
             data.as_beam = make_loader_x_reg(arg.as<ArgXRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::YReg:
+        case ArgVal::Type::YReg:
             data.as_beam = make_loader_y_reg(arg.as<ArgYRegister>().get());
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::Label:
+        case ArgVal::Type::Label:
             a.embedLabel(rawLabels[arg.as<ArgLabel>().get()]);
             break;
-        case ArgVal::Immediate:
+        case ArgVal::Type::Immediate:
             data.as_beam = arg.as<ArgImmed>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
-        case ArgVal::Word:
+        case ArgVal::Type::Word:
             data.as_beam = arg.as<ArgWord>().get();
             a.embed(&data.as_char, sizeof(data.as_beam));
             break;
@@ -378,7 +378,7 @@ void BeamModuleAssembler::emit_aligned_label(const ArgLabel &Label,
 
 void BeamModuleAssembler::emit_i_func_label(const ArgLabel &Label) {
     flush_last_error();
-    emit_aligned_label(Label, ArgVal(ArgVal::Word, sizeof(UWord)));
+    emit_aligned_label(Label, ArgVal(ArgVal::Type::Word, sizeof(UWord)));
 }
 
 void BeamModuleAssembler::emit_on_load() {
@@ -775,11 +775,11 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
         a.embedLabel(rawLabels.at(value.as<ArgLabel>().get()));
     } else {
         switch (value.getType()) {
-        case ArgVal::BytePtr:
+        case ArgVal::Type::BytePtr:
             strings.push_back({anchor, 0, value.as<ArgBytePtr>().get()});
             a.embedUInt64(LLONG_MAX);
             break;
-        case ArgVal::Catch: {
+        case ArgVal::Type::Catch: {
             auto handler = rawLabels[value.as<ArgCatch>().get()];
             catches.push_back({{anchor, 0, 0}, handler});
 
@@ -789,19 +789,19 @@ void BeamModuleAssembler::emit_constant(const Constant &constant) {
             a.embedUInt64(INT_MAX);
             break;
         }
-        case ArgVal::Export: {
+        case ArgVal::Type::Export: {
             auto index = value.as<ArgExport>().get();
             imports[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);
             break;
         }
-        case ArgVal::FunEntry: {
+        case ArgVal::Type::FunEntry: {
             auto index = value.as<ArgLambda>().get();
             lambdas[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);
             break;
         }
-        case ArgVal::Literal: {
+        case ArgVal::Type::Literal: {
             auto index = value.as<ArgLiteral>().get();
             literals[index].patches.push_back({anchor, 0, 0});
             a.embedUInt64(LLONG_MAX);

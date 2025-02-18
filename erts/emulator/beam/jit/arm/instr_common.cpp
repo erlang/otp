@@ -182,7 +182,7 @@ void BeamModuleAssembler::emit_validate(const ArgWord &Arity) {
     emit_enter_runtime_frame();
 
     for (unsigned i = 0; i < Arity.get(); i++) {
-        mov_arg(ARG1, ArgVal(ArgVal::XReg, i));
+        mov_arg(ARG1, ArgVal(ArgVal::Type::XReg, i));
 
         emit_enter_runtime();
         runtime_call<void (*)(Eterm), beam_jit_validate_term>();
