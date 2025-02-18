@@ -1475,7 +1475,7 @@ listen_socket(Config) ->
     {ok, _} = ssl:sockname(ListenSocket),
 
     Check = fun({error, enotconn}) -> ok;
-               ({error, #{info => enotconn}}) -> ok  %% socket error msgs
+               ({error, #{info := enotconn}}) -> ok  %% socket error msgs
             end,
 
     Check(ssl:send(ListenSocket, <<"data">>)),
