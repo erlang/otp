@@ -1460,6 +1460,10 @@ tls_downgrade_result(Socket, Pid) ->
             ok = socket:send(TCPSocket, <<"Downgraded">>),
             {ok, <<"Downgraded">>} = socket:recv(TCPSocket, length("Downgraded")),
             ok;
+        {ok, {'$socket', _} = TCPSocket, Bin} ->
+            ok = socket:send(TCPSocket, <<"Downgraded">>),
+            <<"Downgraded">> = Bin,
+            ok;
 	{ok, TCPSocket} ->
             inet:setopts(TCPSocket, [{active, true}]),
 	    gen_tcp:send(TCPSocket, "Downgraded"),
