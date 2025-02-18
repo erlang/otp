@@ -28,7 +28,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 create/1,store/1,iterate/1,remove/1]).
+	 create/1,store/1,iterate/1,remove/1,
+         doctests_dict/1,doctests_gb_trees/1,doctests_orddict/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -38,11 +39,14 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,5}}].
 
-all() -> 
-    [create, store, remove, iterate].
+all() ->
+    [{group,p}].
 
-groups() -> 
-    [].
+groups() ->
+    [{p,[parallel],
+      [create, store, remove, iterate,
+       doctests_dict, doctests_gb_trees, doctests_orddict
+      ]}].
 
 init_per_suite(Config) ->
     Config.
@@ -114,6 +118,15 @@ remove_2([{Key,Val}|T], D0, M) ->
 remove_2([], D, M) ->
     true = M(is_empty, D),
     D.
+
+doctests_dict(_Config) ->
+    shell_docs:test(dict, []).
+
+doctests_gb_trees(_Config) ->
+    shell_docs:test(gb_trees, []).
+
+doctests_orddict(_Config) ->
+    shell_docs:test(orddict, []).
 
 %%%
 %%% Test specifics for gb_trees.
