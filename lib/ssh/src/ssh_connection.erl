@@ -797,9 +797,10 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
             reply_msg(Channel, Connection0, {open, ChannelId});
         true ->
             %% There is no user process so nobody cares about the channel
-            %% close it
+            %% close it and remove from the cache, reply from the peer will be
+            %% ignored
             CloseMsg = channel_close_msg(RemoteId),
-            ssh_client_channel:cache_update(Cache, Channel#channel{sent_close = true}),
+            ssh_client_channel:cache_delete(Cache, ChannelId),
             {[{connection_reply, CloseMsg}], Connection0}
     end;
  
@@ -850,6 +851,10 @@ handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},
 		{Replies, Connection};
 
 	    undefined ->
+                %% This may happen among other reasons
+                %% - we sent 'channel-close' %% and the peer failed to respond in time
+                %% - we tried to open a channel but the handler died prematurely
+                %%    and the channel entry was removed from the cache
 		{[], Connection0}
 	end;
 
