@@ -446,6 +446,8 @@ Eterm erts_system_profile;
 struct erts_system_profile_flags_t erts_system_profile_flags;
 int erts_system_profile_ts_type = ERTS_TRACE_FLG_NOW_TIMESTAMP;
 
+erts_atomic_t erts_sched_local_random_nosched_state;
+
 #if ERTS_MAX_PROCESSES > 0x7fffffff
 #error "Need to store process_count in another type"
 #endif
@@ -6334,7 +6336,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     erts_atomic32_init_relb(&erts_halt_progress, -1);
     erts_halt_code = INT_MIN;
 
-
+    erts_atomic_init_nob(&erts_sched_local_random_nosched_state,
+                         (erts_aint_t)&erts_sched_local_random_nosched_state >> 3);
 }
 
 ErtsRunQueue *
