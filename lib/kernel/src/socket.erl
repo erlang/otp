@@ -3596,6 +3596,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
 			    {Handle, {more, Bin}})
                   when (Length =:= byte_size(Bin)) ->
                     {ok, bincat(Acc, Bin)};
+
                 %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
 			    {Handle, {more, Bin}}) ->

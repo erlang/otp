@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2021-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1932,7 +1932,7 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
             #{active := _} ->
                 ModuleSocket = module_socket(P),
                 Owner        = P#params.owner,
-                Reason1 = curate_error_reason(Reason0),
+                Reason1      = curate_error_reason(Reason0),
                 case Reason1 of
                     timeout ->
                         %% ?DBG(['error - timeout',
@@ -1964,7 +1964,8 @@ cleanup_recv_reply(P, D, ActionsR, Reason0) ->
                         %%       {owner, Owner},
                         %%       {timestamp, formated_timestamp()},
                         %%       {module_socket, ModuleSocket},
-                        %%       {reason, Reason0}, {p, P}, {d, D}]),
+                        %%       {reason0, Reason0}, {reason1, Reason1}]),
+                        %%       {p, P}, {d, D}]),
                         Owner ! {udp_error, ModuleSocket, Reason1},
                         Owner ! {udp_closed, ModuleSocket},
                         Reason1
