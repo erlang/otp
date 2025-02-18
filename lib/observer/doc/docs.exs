@@ -8,6 +8,6 @@
     "guides/etop_ug.md",
     "guides/crashdump_ug.md",
     "references/cdv_cmd.md",
-    "observer_app.md",
+    "observer_app.md"
   ]
 ]

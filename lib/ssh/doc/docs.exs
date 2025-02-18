@@ -2,9 +2,9 @@
   annotations_for_docs: fn
     md ->
       if md[:rfc] do
-          [md[:rfc]]
-        else
-          []
+        [md[:rfc]]
+      else
+        []
       end
   end,
   ## The order of these items determine
