@@ -2904,6 +2904,13 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
+
+
+
 no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
 if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"
@@ -4648,7 +4655,7 @@ fi
   test -n "$LD" && break
 done
 
-if test -n "$ac_tool_prefix"; then
+   if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
 set dummy ${ac_tool_prefix}ld; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -4738,7 +4745,7 @@ printf "%s\n" "no" >&6; }
 fi
 
   if test "x$ac_ct_LD" = x; then
-    LD="'$(CC)'"
+    LD=":"
   else
     case $cross_compiling:$ac_tool_warned in
 yes:)
@@ -4750,6 +4757,17 @@ esac
   fi
 else
   LD="$ac_cv_prog_LD"
+fi
+
+   if test "$LD" = ":"
+then :
+  as_fn_error $? "No linker found" "$LINENO" 5
+else case e in #(
+  e)
+    printf "configure:$LINENO: %s\n" 'setting LD to ${CC}' >&5
+
+      LD=${CC} ;;
+esac
 fi
 
 
@@ -5003,6 +5021,10 @@ See 'config.log' for more details" "$LINENO" 5; }
 fi
 
 USER_LD=$LD
+if  test "$USER_LD" = '$(CC)'
+then :
+  USER_LD='$(DED_CC)'
+fi
 USER_LDFLAGS="$LDFLAGS"
 
 DED_CC=$CC
@@ -5327,12 +5349,11 @@ fi
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-DED_LDFLAGS_CONFTEST=
+  DED_LDFLAGS_CONFTEST=
 
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
+  DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+  case $host_os in
 	win32)
-		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
@@ -5341,6 +5362,7 @@ case $host_os in
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
 		fi
+                DED_LD="$CC"
 	;;
 	aix*|os400*)
 		DED_LDFLAGS="-G -bnoentry -bexpall"
@@ -5419,7 +5441,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -5430,7 +5451,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	freebsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -5441,7 +5461,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	openbsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -5455,14 +5474,16 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		DED_LDFLAGS="-shared"
 		# GNU linker has no option for 64bit build, should not propagate -m64
 	;;
-esac
+  esac
 
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
+  if test "x$DED_LD" = "x" && test "$USER_LD" != ""; then
 
-DED_LIBS=$LIBS
+    printf "configure:$LINENO: %s\n" "setting DED_LD to $USER_LD" >&5
+
+        DED_LD="$USER_LD"
+        DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+  fi
+  DED_LIBS=$LIBS
 
 fi # "x$DED_LD" = "x"
 

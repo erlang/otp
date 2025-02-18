@@ -29,6 +29,14 @@ dnl The Local Macros which could be part of autoconf are prefixed LM_,
 dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
 dnl not always consistently made...).
 dnl
+dnl To make it easier to debug, sprinkle some calls to LM_LOG in the macros
+
+dnl Log a message to config.log
+AC_DEFUN(LM_LOG,
+  [
+    printf "configure:$LINENO: %s\n" $1 >&AS_MESSAGE_LOG_FD
+  ])
+
 
 dnl We check if -Werror was given on command line and if so
 dnl we disable it for the configure and only use it when
@@ -317,6 +325,28 @@ else
 fi
 
 fi
+])
+
+
+dnl ----------------------------------------------------------------------
+dnl
+dnl LM_PROG_LD
+dnl
+dnl
+dnl Sets LD to the either ld.sh or '$(CC)'. We force LD to be $CC so that
+dnl we know that LDFLAGS will have to be in the form acceped by $CC and not
+dnl the form used to ld.
+dnl
+dnl Windows is a bit of a special case as we control ld.sh ourselves, so there
+dnl we use ld.sh instead of cc.sh.
+
+AC_DEFUN(LM_PROG_LD,
+  [AC_CHECK_PROGS(LD, ld.sh)
+   AC_CHECK_TOOL(LD, ld, [:])
+   AS_IF([test "$LD" = ":"],
+     [AC_MSG_ERROR([No linker found])],
+     [LM_LOG('setting LD to ${CC}')
+      LD=${CC}])
 ])
 
 dnl ----------------------------------------------------------------------
@@ -3110,6 +3140,7 @@ AC_DEFUN(ERL_DED_FLAGS,
 AC_SYS_YEAR2038_RECOMMENDED
 
 USER_LD=$LD
+AS_IF([ test "$USER_LD" = '$(CC)' ], [USER_LD='$(DED_CC)'])
 USER_LDFLAGS="$LDFLAGS"
 
 DED_CC=$CC
@@ -3199,12 +3230,11 @@ fi
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-DED_LDFLAGS_CONFTEST=
+  DED_LDFLAGS_CONFTEST=
 
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
+  DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+  case $host_os in
 	win32)
-		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
@@ -3213,6 +3243,7 @@ case $host_os in
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
 		fi
+                DED_LD="$CC"
 	;;
 	aix*|os400*)
 		DED_LDFLAGS="-G -bnoentry -bexpall"
@@ -3257,7 +3288,6 @@ case $host_os in
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -3268,7 +3298,6 @@ case $host_os in
 		fi
 	;;	
 	freebsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -3279,7 +3308,6 @@ case $host_os in
 		fi
 	;;	
 	openbsd*)
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -3293,14 +3321,14 @@ case $host_os in
 		DED_LDFLAGS="-shared"
 		# GNU linker has no option for 64bit build, should not propagate -m64
 	;;
-esac
+  esac
 
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-DED_LIBS=$LIBS
+  if test "x$DED_LD" = "x" && test "$USER_LD" != ""; then
+        LM_LOG("setting DED_LD to $USER_LD")
+        DED_LD="$USER_LD"
+        DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+  fi
+  DED_LIBS=$LIBS
 
 fi # "x$DED_LD" = "x"
 
