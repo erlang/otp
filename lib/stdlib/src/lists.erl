@@ -96,11 +96,14 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 -export([rkeymerge/3, rmerge/2, rmerge/3, rmerge3/3,
          rukeymerge/3, rumerge/2, rumerge/3, rumerge3/3]).
 
+
+
 %%
 %% edoc documentation creation accelerated by ErlangDoc Builder (https://chatgpt.com/g/g-w1e8LZbgT-erlangdoc-builder)
 %%
 
 %% Shadowed by erl_bif_types: lists:keyfind/3
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Searches a list of tuples for a tuple whose `N`th element matches a given `Key`.
 %%
@@ -128,6 +131,7 @@ An example of a typical ordering function is less than or equal to: `=</2`.
 %% - This function has a time complexity of `O(length(TupleList))`, as it performs a linear search.
 %%
 %% @complexity O(N) where N is the length of the list of tuples.
+%%END_DOC_BLOCK
 -doc """
 Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
 equal to `Key`. Returns `Tuple` if such a tuple is found, otherwise `false`.
@@ -141,7 +145,11 @@ equal to `Key`. Returns `Tuple` if such a tuple is found, otherwise `false`.
 keyfind(_, _, _) ->
     erlang:nif_error(undef).
 
+
 %% Shadowed by erl_bif_types: lists:keymember/3
+
+%%BEGIN_DOC_BLOCK
+%%
 %% @doc
 %% Returns `true` if a tuple in the `TupleList` has an `N`th element equal to `Key`, otherwise `false`.
 %%
@@ -168,6 +176,7 @@ keyfind(_, _, _) ->
 %% - If `N` is greater than the tuple size, or if `TupleList` contains elements that are not tuples, the function returns false.
 %%
 %% @complexity O(N) where N is the length of the list of tuples.
+%%END_DOC_BLOCK
 -doc """
 Returns `true` if there is a tuple in `TupleList` whose `N`th element compares
 equal to `Key`, otherwise `false`.
@@ -181,7 +190,18 @@ equal to `Key`, otherwise `false`.
 keymember(_, _, _) ->
     erlang:nif_error(undef).
 
+-doc """
+Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
+equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
+`false`.
+
+> #### Note {: .info }
+>
+> This function is retained for backward compatibility. Function `keyfind/3` is
+> usually more convenient.
+""".
 %% Shadowed by erl_bif_types: lists:keysearch/3
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
 %% equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise `false`.
@@ -215,16 +235,7 @@ keymember(_, _, _) ->
 %% - If `N` is greater than the tuple size, or if `TupleList` contains elements that are not tuples, the function crashes.
 %%
 %% @complexity O(N) where N is the length of the list of tuples.
--doc """
-Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
-equal to `Key`. Returns `{value, Tuple}` if such a tuple is found, otherwise
-`false`.
-
-> #### Note {: .info }
->
-> This function is retained for backward compatibility. Function `keyfind/3` is
-> usually more convenient.
-""".
+%%END_DOC_BLOCK
 -spec keysearch(Key, N, TupleList) -> {value, Tuple} | false when
       Key :: term(),
       N :: pos_integer(),
@@ -236,6 +247,24 @@ keysearch(_, _, _) ->
 
 %% Shadowed by erl_bif_types: lists:member/2
 -doc "Returns `true` if `Elem` matches some element of `List`, otherwise `false`.".
+%%BEGIN_DOC_BLOCK
+%% @doc Checks whether an element is present in a list.
+%%
+%% @param Elem The element to search for.
+%% @param List The list in which to check for the presence of `Elem`.
+%% @return This function does not return a value; it raises an `undef` error.
+%% @throws `undef` if the function is not implemented as a NIF.
+%%
+%% @example
+%%     % Attempt to check if an element is in a list (will result in an error)
+%%     member(3, [1, 2, 3, 4]).
+%%     % Throws: `undef` error
+%%
+%% @complexity O(n).
+%%END_DOC_BLOCK
+
+
+%% Shadowed by erl_bif_types: lists:reverse/2
 -spec member(Elem, List) -> boolean() when
       Elem :: T,
       List :: [T],
@@ -243,8 +272,7 @@ keysearch(_, _, _) ->
 
 member(_, _) ->
     erlang:nif_error(undef).
-
-%% Shadowed by erl_bif_types: lists:reverse/2
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Returns a list with the elements in `List1` in reverse order, with tail `Tail` appended.
 %%
@@ -269,6 +297,7 @@ member(_, _) ->
 %% - If `List1` is empty, the function returns `Tail` as-is.
 %%
 %% @complexity O(N) where N is the length of the list.
+%%END_DOC_BLOCK
 -doc """
 Returns a list with the elements in `List1` in reverse order, with tail `Tail`
 appended.
@@ -315,6 +344,7 @@ _Example:_
 
 `lists:append(A, B)` is equivalent to `A ++ B`.
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Appends two lists to produce a new concatenated list.
 %%
 %% The `append/2` function takes two lists and returns a new list containing all the elements
@@ -345,6 +375,7 @@ _Example:_
 %%   Therefore, appending lists where the first list is very large may be computationally expensive.
 %%
 %% @complexity O(length(List1)), where `List1` is the first list.
+%%BEGIN_DOC_BLOCK
 -spec append(List1, List2) -> List3 when
       List1 :: [T],
       List2 :: [T],
@@ -365,6 +396,7 @@ _Example:_
 [1,2,3,a,b,4,5,6]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Flattens a list of lists into a single concatenated list.
 %%
 %% The `append/1` function takes a list of lists (`ListOfLists`) and returns a new list containing
@@ -394,6 +426,7 @@ _Example:_
 %%   Therefore, using this function with deeply nested lists or a very large input may impact performance.
 %%
 %% @complexity O(N), where `N` is the total number of elements in all sublists.
+%%BEGIN_DOC_BLOCK
 -spec append(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
@@ -420,6 +453,7 @@ _Example:_
 
 `lists:subtract(A, B)` is equivalent to `A -- B`.
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Removes elements from the first list based on the second list.
 %%
 %% The `subtract/2` function takes two lists (`L1` and `L2`) and returns a new list containing
@@ -460,6 +494,7 @@ _Example:_
 %%
 %% @since OTP 26.0
 %% @complexity O(N * M), where `N` is the length of `L1` and `M` is the length of `L2`.
+%%END_DOC_BLOCK
 -spec subtract(List1, List2) -> List3 when
       List1 :: [T],
       List2 :: [T],
@@ -471,6 +506,7 @@ subtract(L1, L2) -> L1 -- L2.
 %% reverse(L) reverse all elements in the list L. reverse/2 is now a BIF!
 
 -doc "Returns a list with the elements in `List1` in reverse order.".
+%%BEGIN_DOC_BLOCK
 %% @doc Reverses the elements of a list.
 %%
 %% The `reverse/1` function takes a list (`List1`) and returns a new list (`List2`)
@@ -500,6 +536,7 @@ subtract(L1, L2) -> L1 -- L2.
 %% - For larger lists, it uses `lists:reverse/2` for efficient reversal.
 %%
 %% @complexity O(N), where `N` is the length of the input list.
+%%END_DOC_BLOCK
 -spec reverse(List1) -> List2 when
       List1 :: [T],
       List2 :: [T],
@@ -532,7 +569,8 @@ _Example:_
 c
 ```
 """.
-%% @doc Retrieves the Nth element from a list.
+%%BEGIN_DOC_BLOCK
+%%@doc Retrieves the Nth element from a list.
 %%
 %% The `nth/2` function returns the element at the `N`th position in the given list (`List`).
 %% List indexing starts at 1 (1-based indexing).
@@ -559,6 +597,7 @@ c
 %% - The list must be non-empty and `N` must be a positive integer.
 %%
 %% @complexity O(N), where `N` is the specified position in the list.
+%%END_DOC_BLOCK
 -spec nth(N, List) -> Elem when
       N :: pos_integer(),
       List :: [T,...],
@@ -590,6 +629,7 @@ _Example_
 []
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Retrieves the tail of a list starting from the Nth position or returns the list itself if N is 0.
 %%
 %% The `nthtail/2` function skips the first `N` elements of the given list and returns the tail of the list
@@ -619,6 +659,7 @@ _Example_
 %% - If `N` is greater than or equal to the length of the list, the result will be an empty list (`[]`).
 %%
 %% @complexity O(N), where `N` is the specified position in the list.
+%%END_DOC_BLOCK
 -spec nthtail(N, List) -> Tail when
       N :: non_neg_integer(),
       List :: [T,...],
@@ -630,7 +671,7 @@ nthtail(0, [_|_]=L) -> L;
 nthtail(1, [_|T]) -> T;
 nthtail(N, [_|_]=L) when is_integer(N), N > 1 ->
     nthtail_1(N, L).
-
+%%BEGIN_DOC_BLOCK
 %% @doc Retrieves the tail of a list starting from the Nth position.
 %%
 %% The `nthtail_1/2` function skips the first `N - 1` elements of the given list and returns
@@ -663,6 +704,7 @@ nthtail(N, [_|_]=L) when is_integer(N), N > 1 ->
 %%       T :: term().
 %%
 %% @complexity O(N), where `N` is the specified position in the list.
+%%END_DOC_BLOCK
 nthtail_1(1, [_|T]) -> T;
 nthtail_1(N, [_|T]) ->
     nthtail_1(N - 1, T).
@@ -670,6 +712,7 @@ nthtail_1(N, [_|T]) ->
 %% prefix(Prefix, List) -> (true | false)
 
 -doc "Returns `true` if `List1` is a prefix of `List2`, otherwise `false`.".
+%%BEGIN_DOC_BLOCK
 %% @doc Checks if one list is a prefix of another list.
 %%
 %% The `prefix/2` function determines whether the first list (`List1`) is a prefix of the second list (`List2`). 
@@ -700,6 +743,7 @@ nthtail_1(N, [_|T]) ->
 %% - If `List1` is longer than `List2`, the result will be `false`.
 %%
 %% @complexity O(N), where `N` is the length of `List1`.
+%%END_DOC_BLOCK
 -spec prefix(List1, List2) -> boolean() when
       List1 :: [T],
       List2 :: [T],
@@ -713,6 +757,7 @@ prefix([_|_], List) when is_list(List) -> false.
 %% suffix(Suffix, List) -> (true | false)
 
 -doc "Returns `true` if `List1` is a suffix of `List2`, otherwise `false`.".
+%%BEGIN_DOC_BLOCK
 %% @doc Checks if one list is a suffix of another list.
 %%
 %% The `suffix/2` function determines whether the first list (`List1`) is a suffix of the second list (`List2`). 
@@ -743,6 +788,7 @@ prefix([_|_], List) when is_list(List) -> false.
 %% - If `List1` is longer than `List2`, the result will be `false`.
 %%
 %% @complexity O(N), where `N` is the length of `List2`.
+%%END_DOC_BLOCK
 -spec suffix(List1, List2) -> boolean() when
       List1 :: [T],
       List2 :: [T],
@@ -758,6 +804,7 @@ suffix(Suffix, List) ->
 Drops the last element of a `List`. The list is to be non-empty, otherwise the
 function crashes with a `function_clause`.
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Drops the last element of a non-empty list.
 %%
 %% The `droplast/1` function removes the last element of the given list (`List`) and returns the remaining list (`InitList`).
@@ -782,6 +829,7 @@ function crashes with a `function_clause`.
 %%
 %% @since OTP 17.0
 %% @complexity O(N), where `N` is the length of the list.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 17.0">>}).
 -spec droplast(List) -> InitList when
       List :: [T, ...],
@@ -797,6 +845,7 @@ droplast([H|T]) -> [H|droplast(T)].
 %% last(List) returns the last element in a list.
 
 -doc "Returns the last element in `List`.".
+%%BEGIN_DOC_BLOCK
 %% @doc Retrieves the last element of a non-empty list.
 %%
 %% The `last/1` function returns the last element of the given list (`List`).
@@ -819,6 +868,7 @@ droplast([H|T]) -> [H|droplast(T)].
 %% - This function assumes the list is non-empty. If an empty list is provided, it will crash with a `function_clause` error.
 %%
 %% @complexity O(N), where `N` is the length of the list.
+%%END_DOC_BLOCK
 -spec last(List) -> Last when
       List :: [T,...],
       Last :: T,
@@ -834,6 +884,8 @@ last(E, []) -> E.
 %%  returns the sequence Min..Max
 %%  Min <= Max and Min and Max must be integers
 
+
+%%BEGIN_DOC_BLOCK
 %% @doc Generates a sequence of integers from `From` to `To` (inclusive).
 %%
 %% The `seq/2` function creates a list of integers starting from `From` and ending at `To`.
@@ -859,6 +911,7 @@ last(E, []) -> E.
 %% - This function uses `seq_loop/3` for efficient generation of sequences.
 %%
 %% @complexity O(To - From), where `To - From` is the size of the resulting sequence.
+%%END_DOC_BLOCK
 -doc(#{equiv => seq(From, To, 1)}).
 -spec seq(From, To) -> Seq when
       From :: integer(),
@@ -869,6 +922,8 @@ seq(First, Last)
     when is_integer(First), is_integer(Last), First-1 =< Last -> 
     seq_loop(Last-First+1, Last, []).
 
+
+%%BEGIN_DOC_BLOCK
 %% @doc Generates a sequence of integers in descending order from a given starting value.
 %%
 %% The `seq_loop/3` function constructs a sequence of integers starting from `X` 
@@ -896,6 +951,7 @@ seq(First, Last)
 %% - It optimizes by processing chunks of 4 or 2 integers at a time when possible.
 %%
 %% @complexity O(N), where `N` is the number of integers to generate.
+%%END_DOC_BLOCK
 seq_loop(N, X, L) when N >= 4 ->
      seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
 seq_loop(N, X, L) when N >= 2 ->
@@ -939,6 +995,8 @@ _Examples:_
 [1]
 ```
 """.
+
+%%BEGIN_DOC_BLOCK
 %% @doc Generates a sequence of integers from `From` to `To` (inclusive) with a specified step size.
 %%
 %% The `seq/3` function creates a list of integers starting from `From`, incrementing by `Incr`, and ending at `To`.
@@ -975,6 +1033,7 @@ _Examples:_
 %% - If `Incr` is 0 and `From` != `To`, a `badarg` error is raised with detailed error information.
 %%
 %% @complexity O(abs((To - From) div Incr)), where `To - From` is the range covered by the sequence.
+%%END_DOC_BLOCK
 -spec seq(From, To, Incr) -> Seq when
       From :: integer(),
       To :: integer(),
@@ -992,6 +1051,7 @@ seq(Same, Same, 0) when is_integer(Same) ->
 seq(First, Last, Inc) ->
     erlang:error(badarg, [First, Last, Inc], [{error_info, #{module => erl_stdlib_errors}}]).
 
+%%BEGIN_DOC_BLOCK
 %% @private
 %% @doc Helper function for generating a sequence of integers.
 %%
@@ -1012,6 +1072,7 @@ seq(First, Last, Inc) ->
 %%
 %% ### Complexity:
 %% - O(N), where `N` is the number of elements to generate.
+%%END_DOC_BLOCK
 seq_loop(N, X, D, L) when N >= 4 ->
      Y = X-D, Z = Y-D, W = Z-D,
      seq_loop(N-4, W-D, D, [W,Z,Y,X|L]);
@@ -1026,6 +1087,7 @@ seq_loop(0, _, _, L) ->
 %% sum(L) returns the sum of the elements in L
 
 -doc "Returns the sum of the elements in `List`.".
+%%BEGIN_DOC_BLOCK
 %% @doc Calculates the sum of all elements in a list.
 %%
 %% The `sum/1` function takes a list of numbers and returns the total sum
@@ -1052,6 +1114,7 @@ seq_loop(0, _, _, L) ->
 %% - The `number()` type includes integers and floats.
 %%
 %% @complexity O(N), where `N` is the length of the list.
+%%END_DOC_BLOCK
 -spec sum(List) -> number() when
       List :: [number()].
 
@@ -1073,6 +1136,7 @@ _Example:_
 [xx,xx,xx,xx,xx]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Creates a list containing the same element repeated a specified number of times.
 %%
 %% The `duplicate/2` function generates a list by repeating a given element `Elem` 
@@ -1100,6 +1164,7 @@ _Example:_
 %% - The function uses tail recursion for efficient list construction.
 %%
 %% @complexity O(N), where `N` is the specified number of repetitions.
+%%END_DOC_BLOCK
 -spec duplicate(N, Elem) -> List when
       N :: non_neg_integer(),
       Elem :: T,
@@ -1118,6 +1183,7 @@ Returns the first element of `List` that compares less than or equal to all
 other elements of `List`.
 """.
 
+%%BEGIN_DOC_BLOCK
 %% @doc Finds the smallest element in a non-empty list.
 %%
 %% The `min/1` function traverses a list and returns the smallest element. The list must be non-empty,
@@ -1142,6 +1208,7 @@ other elements of `List`.
 %% - If List is empty, the function generates a no function clause matching exception.
 %%
 %% @complexity O(N), where `N` is the length of the list.
+%%END_DOC_BLOCK
 -spec min(List) -> Min when
       List :: [T,...],
       Min :: T,
@@ -1160,6 +1227,7 @@ Returns the first element of `List` that compares greater than or equal to all
 other elements of `List`.
 """.
 
+%%BEGIN_DOC_BLOCK
 %% @doc Finds the largest element in a non-empty list.
 %%
 %% The `max/1` function traverses a list and returns the largest element. The list must be non-empty,
@@ -1184,6 +1252,7 @@ other elements of `List`.
 %% - If List is empty, the function generates a no function clause matching exception.
 %%
 %% @complexity O(N), where `N` is the length of the list.
+%%END_DOC_BLOCK
 -spec max(List) -> Max when
       List :: [T,...],
       Max :: T,
@@ -1213,6 +1282,7 @@ _Examples:_
 []
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Extracts a sublist starting from a given position in the list with a specified length.
 %%
 %% The `sublist/3` function extracts a sublist from `List1` starting at the 1-based index `Start` 
@@ -1245,6 +1315,7 @@ _Examples:_
 %% - The function is implemented recursively.
 %%
 %% @complexity O(Start + Len), where `Start` determines the number of elements skipped, and `Len` determines the number of elements collected.
+%%END_DOC_BLOCK
 -spec sublist(List1, Start, Len) -> List2 when
       List1 :: [T],
       List2 :: [T],
@@ -1259,6 +1330,7 @@ sublist([], S, _L) when is_integer(S), S >= 2 ->
 sublist([_H|T], S, L) when is_integer(S), S >= 2 ->
     sublist(T, S-1, L).
 
+%%BEGIN_DOC_BLOCK
 %% @doc 
 %% Returns the sublist of `List1` starting at position 1 and with (maximum) `Len`
 %% elements. It is not an error for `Len` to exceed the length of the list; in that
@@ -1289,6 +1361,7 @@ sublist([_H|T], S, L) when is_integer(S), S >= 2 ->
 %% - If `Len` exceeds the length of `List1`, the entire list is returned.
 %%
 %% @complexity O(Len), where `Len` is the number of elements to extract.
+%%END_DOC_BLOCK
 -doc """
 Returns the sublist of `List1` starting at position 1 and with (maximum) `Len`
 elements. It is not an error for `Len` to exceed the length of the list, in that
@@ -1317,6 +1390,8 @@ sublist_2(List, L) when is_list(List), L > 0 ->
 Returns a copy of `List1` where the first element matching `Elem` is deleted, if
 there is such an element.
 """.
+
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Removes the first occurrence of an element from a list.
 %%
@@ -1348,6 +1423,7 @@ there is such an element.
 %% - If `Elem` is not found, the original list is returned unchanged.
 %%
 %% @complexity O(n), where `n` is the length of the list.
+%%END_DOC_BLOCK
 -spec delete(Elem, List1) -> List2 when
       Elem :: T,
       List1 :: [T],
@@ -1362,6 +1438,7 @@ delete(_, []) -> [].
 %% Return [{X0, Y0}, {X1, Y1}, ..., {Xn, Yn}] for lists [X0, X1, ...,
 %% Xn] and [Y0, Y1, ..., Yn].
 
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Zips two lists into a list of tuples, combining elements at the same positions.
 %%
@@ -1392,6 +1469,7 @@ delete(_, []) -> [].
 %%
 %% @equiv zip(List1, List2, fail)
 %% @complexity O(length(List1)), as the function pairs elements up to the length of both lists.
+%%END_DOC_BLOCK
 -doc(#{equiv => zip(List1, List2, fail)}).
 -spec zip(List1, List2) -> List3 when
       List1 :: [A],
@@ -1436,6 +1514,8 @@ lengths.
   [{a,1},{b,2},{c,0}]
   ```
 """.
+
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Zips two lists into a list of tuples, combining elements at the same positions and handling mismatched lengths.
 %%
@@ -1476,6 +1556,7 @@ lengths.
 %%
 %% @since OTP 26.0
 %% @complexity O(N), where N is the length of the shorter list in when in trim mode or the length of the longer list when in pad mode.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zip(List1, List2, How) -> List3 when
       List1 :: [A],
@@ -1510,6 +1591,7 @@ zip([_ | _]=Xs, [], {pad, {_, Y}}) ->
 
 
 
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Unzips a list of tuples into two separate lists.
 %%
@@ -1537,6 +1619,7 @@ zip([_ | _]=Xs, [], {pad, {_, Y}}) ->
 %% - The input list `List1` is assumed to contain tuples; providing other data types may result in an error.
 %%
 %% @complexity O(length(List1)), as it traverses the list once.
+%%END_DOC_BLOCK
 -doc """
 "Unzips" a list of two-tuples into two lists, where the first list contains the
 first element of each tuple, and the second list contains the second element of
@@ -1558,6 +1641,7 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
 %% Return [{X0, Y0, Z0}, {X1, Y1, Z1}, ..., {Xn, Yn, Zn}] for lists [X0,
 %% X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Zips three lists into a single list of 3-tuples.
 %%
@@ -1585,6 +1669,7 @@ unzip([], Xs, Ys) -> {reverse(Xs), reverse(Ys)}.
 %%   using the `fail` mode by default. For other modes, use `zip3/4`.
 %%
 %% @complexity O(min(length(List1), length(List2), length(List3))), as it stops at the shortest list.
+%%END_DOC_BLOCK
 -doc(#{equiv => zip3(List1, List2, List3, fail)}).
 -spec zip3(List1, List2, List3) -> List4 when
       List1 :: [A],
@@ -1605,6 +1690,7 @@ the corresponding element in the third list.
 
 For a description of the `How` parameter, see `zip/3`.
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Zips three lists into a single list of triples with customizable handling of uneven lengths.
 %%
@@ -1637,6 +1723,7 @@ For a description of the `How` parameter, see `zip/3`.
 %%
 %% @since OTP 26.0
 %% @complexity O(N), where N is the length of the shortest list in trim or fail mode, the length of the longest list in pad mode.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zip3(List1, List2, List3, How) -> List4 when
       List1 :: [A],
@@ -1682,6 +1769,7 @@ zip3([X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 the first element of each tuple, the second list contains the second element of
 each tuple, and the third list contains the third element of each tuple.
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Unzips a list of 3-tuples into three separate lists.
 %%
@@ -1704,6 +1792,7 @@ each tuple, and the third list contains the third element of each tuple.
 %% - The output lists are in the same order as the input list.
 %%
 %% @complexity O(N), where `N` is the length of the input list.
+%%END_DOC_BLOCK
 -spec unzip3(List1) -> {List2, List3, List4} when
       List1 :: [{A, B, C}],
       List2 :: [A],
@@ -1723,6 +1812,7 @@ unzip3([], Xs, Ys, Zs) ->
 %% Return [F(X0, Y0), F(X1, Y1), ..., F(Xn, Yn)] for lists [X0, X1, ...,
 %% Xn] and [Y0, Y1, ..., Yn].
 
+%%BEGIN_DOC_BLOCK
 %% @doc
 %% Applies a combining function to corresponding elements of two lists.
 %%
@@ -1751,6 +1841,7 @@ unzip3([], Xs, Ys, Zs) ->
 %%
 %% @equiv zipwith(Combine, List1, List2, fail)
 %% @complexity O(min(length(List1), length(List2))), as the function stops when the shorter list ends.
+%%END_DOC_BLOCK
 -doc(#{equiv => zipwith(Combine, List1, List2, fail)}).
 -spec zipwith(Combine, List1, List2) -> List3 when
       Combine :: fun((X, Y) -> T),
@@ -1779,6 +1870,7 @@ _Example:_
 [5,7,9]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Combines two lists element-wise using a specified function, with configurable behavior for unequal lengths.
 %%
 %% This function takes a combining fun (`Combine`), two lists (`List1` and `List2`), and a mode (`How`) to 
@@ -1801,6 +1893,7 @@ _Example:_
 %% @since OTP 26.0
 %% @complexity O(N), where N is the length of the longer list when padding, 
 %% or the shorter list when trimming.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith(Combine, List1, List2, How) -> List3 when
       Combine :: fun((X | DefaultX, Y | DefaultY) -> T),
@@ -1835,6 +1928,7 @@ zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
 %% [X0, X1, ..., Xn], [Y0, Y1, ..., Yn] and [Z0, Z1, ..., Zn].
 
 -doc(#{equiv => zipwith3(Combine, List1, List2, List3, fail)}).
+%%BEGIN_DOC_BLOCK
 %% @doc Combines three lists element-wise using a specified fun, with a default behavior of failing on unequal lengths.
 %%
 %% This function takes a combining fun (`Combine`), three lists (`List1`, `List2`, `List3`), and produces a list 
@@ -1855,6 +1949,7 @@ zipwith(F, [_ | _]=Xs, [], {pad, {_, Y}}) ->
 %%
 %%
 %% @complexity O(N), where N is the length of the shortest list.
+%%END_DOC_BLOCK
 -spec zipwith3(Combine, List1, List2, List3) -> List4 when
       Combine :: fun((X, Y, Z) -> T),
       List1 :: [X],
@@ -1887,6 +1982,7 @@ _Examples:_
 [[a,x,1],[b,y,2],[c,z,3]]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Combines three lists element-wise using a specified fun, with configurable behavior for unequal lengths.
 %%
 %% This function takes a combining fun (`Combine`), three lists (`List1`, `List2`, `List3`), and a mode (`How`), 
@@ -1914,6 +2010,7 @@ _Examples:_
 %% @since OTP 26.0
 %% @complexity O(N), where N is the length of the longest list when padding, 
 %% or the shortest list when trimming.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 26.0">>}).
 -spec zipwith3(Combine, List1, List2, List3, How) -> List4 when
       Combine :: fun((X | DefaultX, Y | DefaultY, Z | DefaultZ) -> T),
@@ -1957,6 +2054,7 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 %%  sorts the list L
 
 -doc "Returns a list containing the sorted elements of `List1`.".
+%%BEGIN_DOC_BLOCK
 %% @doc Sorts a list of terms in ascending order.
 %%
 %% This function takes a list (`List1`) and returns a new list (`List2`) with the elements 
@@ -1971,6 +2069,7 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 %%
 %% @complexity O(N log N) on average, where N is the length of the list. 
 %%             Optimized for certain cases like already sorted or partially sorted lists.
+%%END_DOC_BLOCK
 -spec sort(List1) -> List2 when
       List1 :: [T],
       List2 :: [T],
@@ -2028,6 +2127,15 @@ sublists must be sorted before evaluating this function.
 When two elements compare equal, the element from the sublist with the lowest
 position in `ListOfLists` is picked before the other element.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges a list of sorted lists into a single sorted list.
+%% This function assumes that each sublist within the input list is sorted.
+%%
+%% @param L A list of sorted lists.
+%% @return A single sorted list containing all elements from the input lists.
+%%
+%% @complexity O(N log M), where N is the total number of elements and M is the number of lists.
+%%END_DOC_BLOCK
 -spec merge(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
@@ -2048,6 +2156,17 @@ When two elements compare equal, the element from `List1`, if there is such an
 element, is picked before the other element, otherwise the element from `List2`
 is picked before the element from `List3`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges three sorted lists into a single sorted list.
+%% This function assumes that all input lists are sorted in ascending order.
+%%
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @param List3 The third sorted list.
+%% @return A new sorted list containing all elements from the three input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in all three lists.
+%%END_DOC_BLOCK
 -spec merge3(List1, List2, List3) -> List4 when
       List1 :: [X],
       List2 :: [Y],
@@ -2078,6 +2197,16 @@ merge3([], [], []) ->
 %%  merges three reversed sorted lists X, Y and Z
 
 -doc false.
+%% @doc Merges three sorted lists into a single sorted list in reverse order.
+%% This function assumes that all input lists are sorted in ascending order.
+%%
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @param L3 The third sorted list.
+%% @return A new sorted list containing all elements from the three input lists, 
+%%         but in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in all three lists.
 -spec rmerge3([X], [Y], [Z]) -> [(X | Y | Z)].
 
 rmerge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
@@ -2107,6 +2236,16 @@ Returns the sorted list formed by merging `List1` and `List2`. Both `List1` and
 When two elements compare equal, the element from `List1` is picked before the
 element from `List2`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists into a single sorted list.
+%% This function assumes that both input lists are sorted in ascending order.
+%%
+%% @param T1 The first sorted list.
+%% @param T2 The second sorted list.
+%% @return A new sorted list containing all elements from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec merge(List1, List2) -> List3 when
       List1 :: [X],
       List2 :: [Y],
@@ -2129,6 +2268,15 @@ merge([], []) ->
 %% reverse(rmerge(reverse(A),reverse(B))) is equal to merge(I,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists into a single sorted list in reverse order.
+%% This function assumes that both input lists are sorted in ascending order.
+%%
+%% @param T1 The first sorted list.
+%% @param T2 The second sorted list.
+%% @return A new sorted list containing all elements from both input lists, 
+%%         but in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rmerge([X], [Y]) -> [(X | Y)].
 
 rmerge([_|_]=T1, [H2 | T2]) ->
@@ -2155,6 +2303,15 @@ _Example:_
 "doc/file.3"
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Concatenates a list of atoms, integers, floats, or strings into a single string.
+%% Each element in the list is converted to its string representation before concatenation.
+%%
+%% @param Things A list containing atoms, integers, floats, or strings.
+%% @return A string formed by concatenating all elements in the input list.
+%%
+%% @complexity O(N), where N is the total number of characters in the resulting string.
+%%END_DOC_BLOCK
 -spec concat(Things) -> string() when
       Things :: [Thing],
       Thing :: atom() | integer() | float() | string().
@@ -2172,6 +2329,15 @@ thing_to_list(X) when is_list(X)    -> X.   %Assumed to be a string
 %%  Flatten a list, adding optional tail.
 
 -doc "Returns a flattened version of `DeepList`.".
+%%BEGIN_DOC_BLOCK
+%% @doc Flattens a nested list into a single-level list.
+%% This function recursively expands any nested lists within the input list.
+%%
+%% @param DeepList A potentially nested list of terms.
+%% @return A flattened list containing all elements from the input list with no nesting.
+%%
+%% @complexity O(N), where N is the total number of elements in the nested list.
+%%END_DOC_BLOCK
 -spec flatten(DeepList) -> List when
       DeepList :: [term() | DeepList],
       List :: [term()].
@@ -2180,6 +2346,18 @@ flatten(List) when is_list(List) ->
     do_flatten(List, []).
 
 -doc "Returns a flattened version of `DeepList` with tail `Tail` appended.".
+%%BEGIN_DOC_BLOCK
+%% @doc Flattens a nested list and appends a tail list to the result.
+%% This function recursively expands any nested lists within the input list 
+%% and then appends the given tail list.
+%%
+%% @param DeepList A potentially nested list of terms.
+%% @param Tail A list to be appended to the flattened result.
+%% @return A flattened list containing all elements from the input list, 
+%%         followed by the elements of the tail list.
+%%
+%% @complexity O(N), where N is the total number of elements in DeepList and Tail.
+%%END_DOC_BLOCK
 -spec flatten(DeepList, Tail) -> List when
       DeepList :: [term() | DeepList],
       Tail :: [term()],
@@ -2187,6 +2365,18 @@ flatten(List) when is_list(List) ->
 
 flatten(List, Tail) when is_list(List), is_list(Tail) ->
     do_flatten(List, Tail).
+
+
+%% @doc Helper function that recursively flattens a nested list.
+%% This function processes each element in the list, expanding nested lists 
+%% and appending the tail at the end.
+%%
+%% @param H The current head element being processed.
+%% @param T The remaining list elements.
+%% @param Tail A list to be appended to the flattened result.
+%% @return A fully flattened list with all elements in order, including Tail at the end.
+%%
+%% @complexity O(N), where N is the total number of elements in the nested list and Tail.
 
 do_flatten([H|T], Tail) when is_list(H) ->
     do_flatten(H, do_flatten(T, Tail));
@@ -2199,11 +2389,32 @@ do_flatten([], Tail) ->
 %%  Calculate the length of a list of lists.
 
 -doc "Equivalent to [`length(flatten(DeepList))`](`length/1`), but more efficient.".
+%%BEGIN_DOC_BLOCK
+%% @doc Computes the length of a flattened list.
+%% This function recursively counts all elements in a potentially nested list 
+%% without constructing a new flattened list.
+%%
+%% @param DeepList A potentially nested list of terms.
+%% @return The total number of elements in the flattened list.
+%%
+%% @note: Equivalent to `length(flatten(DeepList))`, but more efficient.
+%% @complexity O(N), where N is the total number of elements in DeepList.
+%%END_DOC_BLOCK
 -spec flatlength(DeepList) -> non_neg_integer() when
       DeepList :: [term() | DeepList].
 
 flatlength(List) ->
     flatlength(List, 0).
+
+%% @doc Helper function that computes the length of a flattened list with an accumulator.
+%% This function processes each element in the list, expanding nested lists 
+%% and counting elements iteratively.
+%%
+%% @param DeepList A potentially nested list of terms.
+%% @param L The current count of elements.
+%% @return The total number of elements in the flattened list.
+%%
+%% @complexity O(N), where N is the total number of elements in DeepList.
 
 flatlength([H|T], L) when is_list(H) ->
     flatlength(H, flatlength(T, L));
@@ -2246,6 +2457,19 @@ flatlength([], L) -> L.
 Returns a copy of `TupleList1` where the first occurrence of a tuple whose `N`th
 element compares equal to `Key` is deleted, if there is such a tuple.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Deletes the first tuple from a list where the N-th element matches the given key.
+%% This function searches through the list and removes the first occurrence 
+%% of a tuple where the specified position matches the given key.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param TupleList1 A list of tuples to search through.
+%% @return A new list with the first matching tuple removed, 
+%%         or the original list if no match is found.
+%%
+%% @complexity O(N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keydelete(Key, N, TupleList1) -> TupleList2 when
       Key :: term(),
       N :: pos_integer(),
@@ -2255,6 +2479,20 @@ element compares equal to `Key` is deleted, if there is such a tuple.
 
 keydelete(K, N, L) when is_integer(N), N > 0 ->
     keydelete3(K, N, L).
+
+
+%% @doc Recursively deletes the first tuple from a list where the N-th element matches the given key.
+%% This function iterates through the list, checking each tuple's N-th element. 
+%% If a match is found, the tuple is removed, and the remaining list is returned.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param H The current tuple being checked.
+%% @param T The remaining list of tuples.
+%% @return A new list with the first matching tuple removed, 
+%%         or the original list if no match is found.
+%%
+%% @complexity O(N), where N is the length of the list.
 
 keydelete3(Key, N, [H|T]) when element(N, H) == Key -> T;
 keydelete3(Key, N, [H|T]) ->
@@ -2266,6 +2504,20 @@ Returns a copy of `TupleList1` where the first occurrence of a `T` tuple whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
 such a tuple `T`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Replaces the first tuple in a list where the N-th element matches the given key.
+%% This function searches through the list and replaces the first occurrence 
+%% of a tuple where the specified position matches the given key with a new tuple.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param TupleList1 A list of tuples to search through.
+%% @param NewTuple The new tuple to replace the matching tuple.
+%% @return A new list with the first matching tuple replaced, 
+%%         or the original list if no match is found.
+%%
+%% @complexity O(N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2 when
       Key :: term(),
       N :: pos_integer(),
@@ -2289,6 +2541,21 @@ compares equal to `Key`. Returns `{value, Tuple, TupleList2}` if such a tuple is
 found, otherwise `false`. `TupleList2` is a copy of `TupleList1` where the first
 occurrence of `Tuple` has been removed.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Takes and removes the first tuple from a list where the N-th element matches the given key.
+%% This function searches through the list for the first occurrence of a tuple 
+%% where the specified position matches the given key. If found, it returns 
+%% the tuple along with the remaining list; otherwise, it returns `false`.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param TupleList1 A list of tuples to search through.
+%% @return `{value, Tuple, TupleList2}` if a match is found, where `Tuple` is 
+%%         the matching tuple and `TupleList2` is the list with the tuple removed. 
+%%         Returns `false` if no match is found.
+%%
+%% @complexity O(N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} | false when
       Key :: term(),
       N :: pos_integer(),
@@ -2299,6 +2566,20 @@ occurrence of `Tuple` has been removed.
 keytake(Key, N, L) when is_integer(N), N > 0 ->
     keytake(Key, N, L, []).
 
+%% @doc Recursively searches for and removes the first tuple where the N-th element matches the given key.
+%% If a matching tuple is found, it is returned along with the remaining list. 
+%% Otherwise, the function returns `false`.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param H The current tuple being checked.
+%% @param T The remaining list of tuples.
+%% @param L An accumulator list storing previously encountered tuples.
+%% @return `{value, Tuple, TupleList2}` if a match is found, where `Tuple` is 
+%%         the matching tuple and `TupleList2` is the list with the tuple removed. 
+%%         Returns `false` if no match is found.
+%%
+%% @complexity O(N), where N is the length of the list.
 keytake(Key, N, [H|T], L) when element(N, H) == Key ->
     {value, H, lists:reverse(L, T)};
 keytake(Key, N, [H|T], L) ->
@@ -2311,6 +2592,20 @@ Returns a copy of `TupleList1` where the first occurrence of a tuple `T` whose
 such a tuple `T`. If there is no such tuple `T`, a copy of `TupleList1` where
 [`NewTuple`] has been appended to the end is returned.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Stores or replaces a tuple in a list based on a key.
+%% If a tuple with the N-th element matching the given key exists, it is replaced with `NewTuple`.  
+%% Otherwise, `NewTuple` is appended to the list.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param TupleList1 A list of tuples to search through.
+%% @param NewTuple The new tuple to insert or replace an existing one.
+%% @return A new list where `NewTuple` replaces an existing matching tuple, 
+%%         or is inserted if no match is found.
+%%
+%% @complexity O(N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keystore(Key, N, TupleList1, NewTuple) -> TupleList2 when
       Key :: term(),
       N :: pos_integer(),
@@ -2319,6 +2614,19 @@ such a tuple `T`. If there is no such tuple `T`, a copy of `TupleList1` where
       NewTuple :: Tuple,
       Tuple :: tuple().
 
+%% @doc Inserts or replaces a tuple in a list based on a key.
+%% If a tuple with the N-th element matching the given key exists, it is replaced with `NewTuple`.  
+%% Otherwise, `NewTuple` is inserted at the end of the list.
+%%
+%% @param Key The key to match against the N-th element of tuples.
+%% @param N The position in each tuple to compare with the key (1-based index).
+%% @param H The current tuple being checked.
+%% @param T The remaining list of tuples.
+%% @param NewTuple The new tuple to insert or replace an existing one.
+%% @return A new list where `NewTuple` replaces an existing matching tuple, 
+%%         or is inserted at the end if no match is found.
+%%
+%% @complexity O(N), where N is the length of the list.
 keystore(K, N, L, New) when is_integer(N), N > 0, is_tuple(New) ->
     keystore2(K, N, L, New).
 
@@ -2333,6 +2641,17 @@ keystore2(_Key, _N, [], New) ->
 Returns a list containing the sorted elements of list `TupleList1`. Sorting is
 performed on the `N`th element of the tuples. The sort is stable.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Sorts a list of tuples based on the N-th element of each tuple.
+%% This function implements a sorting algorithm that organizes tuples in ascending order 
+%% based on their N-th element.
+%%
+%% @param N The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 A list of tuples to be sorted.
+%% @return A new list of tuples sorted in ascending order based on the N-th element.
+%%
+%% @complexity O(N log N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keysort(N, TupleList1) -> TupleList2 when
       N :: pos_integer(),
       TupleList1 :: [Tuple],
@@ -2382,6 +2701,18 @@ keysort(I, L) when is_integer(I), I > 0 ->
         end
     end.
 
+%% @doc Processes a list of tuples while maintaining order based on the N-th element.
+%% This function iterates through the list, ensuring that tuples with equal N-th elements 
+%% remain grouped together before delegating further sorting.
+%%
+%% @param I The position in each tuple to use as the sorting key (1-based index).
+%% @param X The current tuple being processed.
+%% @param EX The value of the N-th element in `X`.
+%% @param L The remaining list of tuples.
+%% @param R The accumulator list storing processed tuples.
+%% @return A sorted list segment, maintaining order of tuples with the same key value.
+%%
+%% @complexity O(N), where N is the length of the list segment being processed.
 keysort_1(I, X, EX, [Y | L], R) when X == Y ->
     keysort_1(I, Y, EX, L, [X | R]);
 keysort_1(I, X, EX, [Y | L], R) ->
@@ -2402,6 +2733,18 @@ The merge is performed on the `N`th element of each tuple. Both `TupleList1` and
 compare equal, the tuple from `TupleList1` is picked before the tuple from
 `TupleList2`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists of tuples based on the N-th element.
+%% This function assumes that both input lists are already sorted by the given index
+%% and merges them while preserving order.
+%%
+%% @param N The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 The first sorted list of tuples.
+%% @param TupleList2 The second sorted list of tuples.
+%% @return A new sorted list containing all elements from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec keymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
       TupleList1 :: [T1],
@@ -2414,6 +2757,16 @@ compare equal, the tuple from `TupleList1` is picked before the tuple from
 keymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     keymerge_1(Index, L1, L2).
 
+%% @doc Helper function for merging two sorted lists of tuples.
+%% This function ensures that tuples from both lists are merged while maintaining order 
+%% based on the N-th element.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 The first sorted list of tuples.
+%% @param TupleList2 The second sorted list of tuples.
+%% @return A new sorted list containing all elements from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 keymerge_1(Index, [_|_]=T1, [H2 | T2]) -> 
     E2 = element(Index, H2),
     M = keymerge2_1(Index, T1, E2, H2, T2, []),
@@ -2428,12 +2781,31 @@ keymerge_1(_Index, [], []) ->
 %% reverse(rkeymerge(I,reverse(A),reverse(B))) is equal to keymerge(I,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists of tuples based on the N-th element in reverse order.
+%% This function assumes that both input lists are already sorted by the given index
+%% and merges them while preserving order, but in reverse.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param L1 The first sorted list of tuples.
+%% @param L2 The second sorted list of tuples.
+%% @return A new sorted list containing all elements from both input lists in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rkeymerge(pos_integer(), [X], [Y]) ->
     [R] when X :: tuple(), Y :: tuple(), R :: tuple().
 
 rkeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rkeymerge_1(Index, L1, L2).
-
+%% @doc Helper function for merging two sorted lists of tuples in reverse order.
+%% This function ensures that tuples from both lists are merged while maintaining order 
+%% based on the N-th element, but in reverse.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param L1 The first sorted list of tuples.
+%% @param L2 The second sorted list of tuples.
+%% @return A new sorted list containing all elements from both input lists in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 rkeymerge_1(Index, [_|_]=T1, [H2 | T2]) -> 
     E2 = element(Index, H2),
     M = rkeymerge2_1(Index, T1, E2, H2, T2, []),
@@ -2450,6 +2822,17 @@ Returns a list containing the sorted elements of list `TupleList1` where all
 except the first tuple of the tuples comparing equal have been deleted. Sorting
 is performed on the `N`th element of the tuples.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Sorts a list of tuples based on the N-th element while removing duplicates.
+%% This function assumes that the input list contains tuples sorted by the given index
+%% and ensures that only unique tuples (based on the key) remain in the output.
+%%
+%% @param N The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 A list of tuples to be sorted and filtered for uniqueness.
+%% @return A new sorted list containing only unique tuples based on the N-th element.
+%%
+%% @complexity O(N log N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec ukeysort(N, TupleList1) -> TupleList2 when
       N :: pos_integer(),
       TupleList1 :: [Tuple],
@@ -2507,6 +2890,19 @@ ukeysort(I, L) when is_integer(I), I > 0 ->
         end
     end.
 
+%%BEGIN_DOC_BLOCK
+%% @doc Helper function for sorting while filtering duplicate tuples by key.
+%% This function iterates through the list, ensuring that tuples with duplicate 
+%% N-th elements are removed before continuing with sorting.
+%%
+%% @param I The position in each tuple to use as the sorting key (1-based index).
+%% @param X The current tuple being processed.
+%% @param EX The value of the N-th element in `X`.
+%% @param L The remaining list of tuples.
+%% @return A list of unique tuples, maintaining sorted order.
+%%
+%% @complexity O(N), where N is the number of elements in the list.
+%%END_DOC_BLOCK
 ukeysort_1(I, X, EX, [Y | L]) ->
     case element(I, Y) of
         EY when EX == EY ->
@@ -2528,6 +2924,18 @@ function.
 When two tuples compare equal, the tuple from `TupleList1` is picked
 and the one from `TupleList2` is deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists of tuples while ensuring unique keys.
+%% This function assumes that both input lists are already sorted by the given index
+%% and merges them while preserving order and removing duplicate keys.
+%%
+%% @param N The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 The first sorted list of tuples.
+%% @param TupleList2 The second sorted list of tuples.
+%% @return A new sorted list containing all unique elements from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec ukeymerge(N, TupleList1, TupleList2) -> TupleList3 when
       N :: pos_integer(),
       TupleList1 :: [T1],
@@ -2540,6 +2948,16 @@ and the one from `TupleList2` is deleted.
 ukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     ukeymerge_1(Index, L1, L2).
 
+%% @doc Helper function for merging two sorted lists of tuples while removing duplicates.
+%% This function ensures that tuples from both lists are merged while maintaining order 
+%% based on the N-th element and filtering out duplicate keys.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param TupleList1 The first sorted list of tuples.
+%% @param TupleList2 The second sorted list of tuples.
+%% @return A new sorted list containing only unique tuples from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 ukeymerge_1(Index, [H1 | T1], [_|_]=T2) ->
     E1 = element(Index, H1),
     M = ukeymerge2_2(Index, T1, E1, H1, T2, []),
@@ -2554,12 +2972,35 @@ ukeymerge_1(_Index, [], []) ->
 %% reverse(rukeymerge(I,reverse(A),reverse(B))) is equal to ukeymerge(I,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists of tuples while ensuring unique keys, in reverse order.
+%% This function assumes that both input lists are already sorted by the given index.
+%% It merges them while preserving order and removing duplicate keys, 
+%% returning the result in reverse order.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param L1 The first sorted list of tuples.
+%% @param L2 The second sorted list of tuples.
+%% @return A new sorted list containing all unique elements from both input lists, in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rukeymerge(pos_integer(), [X], [Y]) ->
     [(X | Y)] when X :: tuple(), Y :: tuple().
 
 rukeymerge(Index, L1, L2) when is_integer(Index), Index > 0 ->
     rukeymerge_1(Index, L1, L2).
 
+%%BEGIN_DOC_BLOCK
+%% @doc Helper function for merging two sorted lists of tuples while removing duplicates, in reverse order.
+%% This function ensures that tuples from both lists are merged while maintaining order 
+%% based on the N-th element and filtering out duplicate keys, returning the result in reverse order.
+%%
+%% @param Index The position in each tuple to use as the sorting key (1-based index).
+%% @param L1 The first sorted list of tuples.
+%% @param L2 The second sorted list of tuples.
+%% @return A new sorted list containing only unique tuples from both input lists, in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 rukeymerge_1(Index, [_|_]=T1, [H2 | T2]) ->
     E2 = element(Index, H2),
     M = rukeymerge2_1(Index, T1, E2, T2, [], H2),
@@ -2585,6 +3026,27 @@ _Examples:_
 [{name,"jane",22},{name,"lizzie",20},{name,"lydia",15}]
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Applies a function to the N-th element of each tuple in a list.
+%% This function iterates over the list, updating the N-th element of each tuple
+%% using the provided function.
+%%
+%% @param Fun A function that takes one argument and returns a transformed value.
+%% @param N The position in each tuple to apply the function to (1-based index).
+%% @param TupleList1 A list of tuples whose N-th elements will be modified.
+%% @return A new list of tuples with updated N-th elements.
+%%
+%% @example
+%%     % Multiply the second element of each tuple by 2
+%%     keymap(fun(X) -> X * 2 end, 2, [{a, 1}, {b, 2}, {c, 3}]).
+%%     % Returns: [{a,2}, {b,4}, {c,6}]
+%%
+%%     % Convert the first element of each tuple to uppercase (assuming strings)
+%%     keymap(fun string:to_upper/1, 1, [{"hello", 10}, {"world", 20}]).
+%%     % Returns: [{"HELLO", 10}, {"WORLD", 20}]
+%%
+%% @complexity O(N), where N is the length of TupleList1.
+%%END_DOC_BLOCK
 -spec keymap(Fun, N, TupleList1) -> TupleList2 when
       Fun :: fun((Term1 :: term()) -> Term2 :: term()),
       N :: pos_integer(),
@@ -2597,6 +3059,27 @@ keymap(Fun, Index, [Tup|Tail]) ->
 keymap(Fun, Index, []) when is_integer(Index), Index >= 1, 
                             is_function(Fun, 1) -> [].
 
+%%BEGIN_DOC_BLOCK
+%% @doc Enumerates a list by pairing each element with an index.
+%% This function assigns an index to each element in the given list, 
+%% starting from `1` and incrementing by `1`.
+%%
+%% @param List1 A list of terms to be enumerated.
+%% @return A list of tuples where each element is paired with its corresponding index.
+%%
+%% @example
+%%     % Enumerate a list of atoms
+%%     enumerate([a, b, c]).
+%%     % Returns: [{1, a}, {2, b}, {3, c}]
+%%
+%%     % Enumerate a list of numbers
+%%     enumerate([10, 20, 30]).
+%%     % Returns: [{1, 10}, {2, 20}, {3, 30}]
+%%
+%%
+%% @since OTP 25.0
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -doc(#{equiv => enumerate(1, 1, List1)}).
 -doc(#{since => <<"OTP 25.0">>}).
 -spec enumerate(List1) -> List2 when
@@ -2607,6 +3090,28 @@ keymap(Fun, Index, []) when is_integer(Index), Index >= 1,
 enumerate(List1) ->
     enumerate(1, 1, List1).
 
+%%BEGIN_DOC_BLOCK
+%% @doc Enumerates a list by pairing each element with an index, starting from a given value.
+%% This function assigns an index to each element in the given list, 
+%% starting from `Index` and incrementing by `1`.
+%%
+%% @param Index The starting index for enumeration.
+%% @param List1 A list of terms to be enumerated.
+%% @return A list of tuples where each element is paired with its corresponding index.
+%%
+%% @example
+%%     % Enumerate a list of atoms starting from index 10
+%%     enumerate(10, [a, b, c]).
+%%     % Returns: [{10, a}, {11, b}, {12, c}]
+%%
+%%     % Enumerate a list of numbers starting from index 5
+%%     enumerate(5, [100, 200, 300]).
+%%     % Returns: [{5, 100}, {6, 200}, {7, 300}]
+%%
+%%
+%% @since OTP 25.0
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -doc(#{equiv => enumerate(Index, 1, List1)}).
 -doc(#{since => <<"OTP 25.0">>}).
 -spec enumerate(Index, List1) -> List2 when
@@ -2650,6 +3155,29 @@ _Examples:_
 [{0,a},{-2,b},{-4,c}]
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Enumerates a list by pairing each element with an index, using a custom step value.
+%% This function assigns an index to each element in the given list, 
+%% starting from `Index` and incrementing by `Step` for each subsequent element.
+%%
+%% @param Index The starting index for enumeration.
+%% @param Step The step value to increment the index for each element.
+%% @param List1 A list of terms to be enumerated.
+%% @return A list of tuples where each element is paired with its corresponding index.
+%%
+%% @example
+%%     % Enumerate a list of atoms starting from index 1 with step 2
+%%     enumerate(1, 2, [a, b, c]).
+%%     % Returns: [{1, a}, {3, b}, {5, c}]
+%%
+%%     % Enumerate a list of numbers starting from index 10 with step 5
+%%     enumerate(10, 5, [100, 200, 300]).
+%%     % Returns: [{10, 100}, {15, 200}, {20, 300}]
+%%
+%%
+%% @since OTP 26.0
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 26.0">>}).
 -spec enumerate(Index, Step, List1) -> List2 when
       List1 :: [T],
@@ -2660,6 +3188,16 @@ _Examples:_
 enumerate(Index, Step, List1) when is_integer(Index), is_integer(Step) ->
     enumerate_1(Index, Step, List1).
 
+%% @doc Helper function for enumerating a list with a step value.
+%% This function recursively pairs each element in the list with an index, 
+%% incrementing the index by `Step` for each element.
+%%
+%% @param Index The current index.
+%% @param Step The step value to increment the index for each element.
+%% @param List1 The remaining list of elements to be enumerated.
+%% @return A list of tuples where each element is paired with its corresponding index.
+%%
+%% @complexity O(N), where N is the length of List1.
 enumerate_1(Index, Step, [H|T]) ->
     [{Index, H}|enumerate_1(Index + Step, Step, T)];
 enumerate_1(_Index, _Step, []) ->
@@ -2673,6 +3211,29 @@ Returns a list containing the sorted elements of `List1`, according to the
 `true` if `A` compares less than or equal to `B` in the ordering, otherwise
 `false`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Sorts a list using a custom comparison function.
+%% This function sorts the given list based on the provided comparison function, 
+%% which should take two elements and return `true` if the first element 
+%% should come before the second.
+%%
+%% @param Fun A function that takes two arguments and returns a boolean, 
+%%            determining the sort order.
+%% @param List1 The list to be sorted.
+%% @return A new list sorted according to the given function.
+%%
+%% @example
+%%     % Sort a list of numbers in ascending order
+%%     sort(fun(A, B) -> A =< B end, [3, 1, 4, 1, 5, 9]).
+%%     % Returns: [1, 1, 3, 4, 5, 9]
+%%
+%%     % Sort a list of strings by length
+%%     sort(fun(A, B) -> length(A) =< length(B) end, ["apple", "kiwi", "banana"]).
+%%     % Returns: ["kiwi", "apple", "banana"]
+%%
+%%
+%% @complexity O(N log N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec sort(Fun, List1) -> List2 when
       Fun :: fun((A :: T, B :: T) -> boolean()),
       List1 :: [T],
@@ -2701,6 +3262,29 @@ function.
 `B` in the ordering, otherwise `false`. When two elements compare equal, the
 element from `List1` is picked before the element from `List2`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists into a single sorted list using a custom comparison function.
+%% This function assumes that both input lists are already sorted according to the given function
+%% and merges them while preserving order.
+%%
+%% @param Fun A function that takes two arguments and returns `true` if the first element 
+%%            should come before the second in the merged list.
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @return A new sorted list containing all elements from both input lists.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers in ascending order
+%%     merge(fun(A, B) -> A =< B end, [1, 3, 5], [2, 4, 6]).
+%%     % Returns: [1, 2, 3, 4, 5, 6]
+%%
+%%     % Merge two lists of tuples, sorting by the first element
+%%     merge(fun({A, _}, {B, _}) -> A =< B end, [{1, a}, {3, c}], [{2, b}, {4, d}]).
+%%     % Returns: [{1, a}, {2, b}, {3, c}, {4, d}]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec merge(Fun, List1, List2) -> List3 when
       Fun :: fun((A, B) -> boolean()),
       List1 :: [A],
@@ -2724,11 +3308,41 @@ merge_1(_Fun, [], []) ->
 %% reverse(rmerge(F,reverse(A),reverse(B))) is equal to merge(F,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists into a single sorted list in reverse order using a custom comparison function.
+%% This function assumes that both input lists are already sorted according to the given function
+%% and merges them while preserving order, but in reverse.
+%%
+%% @param Fun A function that takes two arguments and returns `true` if the first element 
+%%            should come before the second in the merged list.
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @return A new sorted list containing all elements from both input lists, in reverse order.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers in descending order
+%%     rmerge(fun(A, B) -> A >= B end, [5, 3, 1], [6, 4, 2]).
+%%     % Returns: [6, 5, 4, 3, 2, 1]
+%%
+%%     % Merge two lists of tuples, sorting by the first element in descending order
+%%     rmerge(fun({A, _}, {B, _}) -> A >= B end, [{3, c}, {1, a}], [{4, d}, {2, b}]).
+%%     % Returns: [{4, d}, {3, c}, {2, b}, {1, a}]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rmerge(fun((X, Y) -> boolean()), [X], [Y]) -> [(X | Y)].
 
 rmerge(Fun, L1, L2) when is_function(Fun, 2) ->
     rmerge_1(Fun, L1, L2).
-
+%% @doc Helper function for merging two sorted lists in reverse order using a custom comparison function.
+%% This function ensures that elements from both lists are merged while maintaining order 
+%% based on the given function, but in reverse.
+%%
+%% @param Fun The comparison function determining the sort order.
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @return A new sorted list containing all elements from both input lists, in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 rmerge_1(Fun, [_|_]=T1, [H2 | T2]) ->
     lists:reverse(rfmerge2_1(T1, H2, Fun, T2, []), []);
 rmerge_1(_Fun, [_|_]=L1, []) ->
@@ -2745,6 +3359,28 @@ first element of the elements comparing equal according to the
 `Fun(A, B)` is to return `true` if `A` compares less than or equal to `B` in the
 ordering, otherwise `false`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Sorts a list using a custom comparison function while removing duplicates.
+%% This function sorts the given list based on the provided comparison function, 
+%% ensuring that duplicate elements (as determined by the function) are removed.
+%%
+%% @param Fun A function that takes two arguments and returns `true` if the first element 
+%%            should come before the second in the sorted list.
+%% @param List1 The list to be sorted.
+%% @return A new sorted list containing unique elements according to the given function.
+%%
+%% @example
+%%     % Sort a list of numbers in ascending order while removing duplicates
+%%     usort(fun(A, B) -> A =< B end, [3, 1, 4, 1, 5, 9]).
+%%     % Returns: [1, 3, 4, 5, 9]
+%%
+%%     % Sort a list of tuples by the first element, removing duplicates
+%%     usort(fun({A, _}, {B, _}) -> A =< B end, [{1, a}, {2, b}, {1, c}, {3, d}]).
+%%     % Returns: [{1, a}, {2, b}, {3, d}]
+%%
+%%
+%% @complexity O(N log N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec usort(Fun, List1) -> List2 when
       Fun :: fun((T, T) -> boolean()),
       List1 :: [T],
@@ -2757,7 +3393,17 @@ usort(Fun, [] = L) when is_function(Fun, 2) ->
     L;
 usort(Fun, [X | L]) when is_function(Fun, 2) ->
     usort_1(Fun, X, L).
-
+%% @doc Helper function for sorting while filtering duplicate elements.
+%% This function iterates through the list, ensuring that duplicate elements 
+%% (as determined by the comparison function) are removed before sorting continues.
+%%
+%% @param Fun The comparison function determining the sort order.
+%% @param X The current element being processed.
+%% @param List1 The remaining list of elements.
+%% @return A sorted list with unique elements.
+%%
+%%
+%% @complexity O(N), where N is the number of elements in the list.
 usort_1(Fun, X, [Y | L]) ->
     case Fun(X, Y) of
         true ->
@@ -2787,6 +3433,29 @@ less than or equal to `B` in the ordering, otherwise `false`. When two elements
 compare equal, the element from `List1` is picked and the one from `List2` is
 deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists into a single sorted list using a custom comparison function while ensuring unique elements.
+%% This function assumes that both input lists are already sorted according to the given function.
+%% It merges them while preserving order and removing duplicate elements.
+%%
+%% @param Fun A function that takes two arguments and returns `true` if the first element 
+%%            should come before the second in the merged list.
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @return A new sorted list containing all unique elements from both input lists.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers in ascending order while removing duplicates
+%%     umerge(fun(A, B) -> A =< B end, [1, 2, 3], [2, 3, 4]).
+%%     % Returns: [1, 2, 3, 4]
+%%
+%%     % Merge two lists of tuples, sorting by the first element and ensuring uniqueness
+%%     umerge(fun({A, _}, {B, _}) -> A =< B end, [{1, a}, {2, b}], [{2, x}, {3, c}]).
+%%     % Returns: [{1, a}, {2, b}, {3, c}]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec umerge(Fun, List1, List2) -> List3 when
       Fun :: fun((A, B) -> boolean()),
       List1 :: [A],
@@ -2797,7 +3466,16 @@ deleted.
 
 umerge(Fun, L1, L2) when is_function(Fun, 2) ->
     umerge_1(Fun, L1, L2).
-
+%% @doc Helper function for merging two sorted lists while removing duplicate elements.
+%% This function ensures that elements from both lists are merged while maintaining order 
+%% based on the given function and filtering out duplicates.
+%%
+%% @param Fun The comparison function determining the sort order.
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @return A new sorted list containing only unique elements from both input lists.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 umerge_1(Fun, [H1 | T1], [_|_]=T2) ->
     lists:reverse(ufmerge2_2(H1, T1, Fun, T2, []), []);
 umerge_1(_Fun, [_|_]=L1, []) ->
@@ -2810,11 +3488,41 @@ umerge_1(_Fun, [], []) ->
 %% reverse(rumerge(F,reverse(A),reverse(B))) is equal to umerge(F,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists into a single sorted list in reverse order while ensuring unique elements.
+%% This function assumes that both input lists are already sorted according to the given function.
+%% It merges them while preserving order and removing duplicate elements, returning the result in reverse order.
+%%
+%% @param Fun A function that takes two arguments and returns `true` if the first element 
+%%            should come before the second in the merged list.
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @return A new sorted list containing all unique elements from both input lists, in reverse order.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers in descending order while removing duplicates
+%%     rumerge(fun(A, B) -> A >= B end, [5, 3, 1], [6, 3, 2]).
+%%     % Returns: [6, 5, 3, 2, 1]
+%%
+%%     % Merge two lists of tuples, sorting by the first element in descending order and ensuring uniqueness
+%%     rumerge(fun({A, _}, {B, _}) -> A >= B end, [{3, c}, {1, a}], [{4, d}, {3, x}, {2, b}]).
+%%     % Returns: [{4, d}, {3, c}, {2, b}, {1, a}]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rumerge(fun((X, Y) -> boolean()), [X], [Y]) -> [(X | Y)].
 
 rumerge(Fun, L1, L2) when is_function(Fun, 2) ->
     rumerge_1(Fun, L1, L2).
-
+%% @doc Helper function for merging two sorted lists in reverse order while ensuring unique elements.
+%% This function ensures that elements from both lists are merged while maintaining order 
+%% based on the given function and filtering out duplicates, returning the result in reverse order.
+%%
+%% @param Fun The comparison function determining the sort order.
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @return A new sorted list containing only unique elements from both input lists, in reverse order.
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 rumerge_1(Fun, [_|_]=T1, [H2 | T2]) ->
     lists:reverse(rufmerge2_1(T1, H2, Fun, T2, []), []);
 rumerge_1(_Fun, [_|_]=L1, []) ->
@@ -2831,6 +3539,25 @@ rumerge_1(_Fun, [], []) ->
 Returns a list containing the sorted elements of `List1` where all except the
 first element of the elements comparing equal have been deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Sorts a list in ascending order while removing duplicate elements.
+%% This function sorts the given list and ensures that only unique elements remain in the output.
+%%
+%% @param List1 The list to be sorted.
+%% @return A new sorted list containing unique elements.
+%%
+%% @example
+%%     % Sort a list of numbers while removing duplicates
+%%     usort([3, 1, 4, 1, 5, 9, 2, 6, 5]).
+%%     % Returns: [1, 2, 3, 4, 5, 6, 9]
+%%
+%%     % Sort a list of atoms while ensuring uniqueness
+%%     usort([b, a, c, a, d, b]).
+%%     % Returns: [a, b, c, d]
+%%
+%%
+%% @complexity O(N log N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec usort(List1) -> List2 when
       List1 :: [T],
       List2 :: [T],
@@ -2876,7 +3603,15 @@ usort([_] = L) ->
     L;
 usort([]) ->
     [].
-
+%% @doc Helper function for sorting while filtering duplicate elements.
+%% This function processes the list to ensure that only unique elements are kept before sorting continues.
+%%
+%% @param X The current element being processed.
+%% @param List1 The remaining list of elements.
+%% @return A sorted list with unique elements.
+%%
+%%
+%% @complexity O(N), where N is the number of elements in the list.
 usort_1(X, [Y | L]) when X == Y ->
     usort_1(X, L);
 usort_1(X, [Y | L]) when X < Y ->
@@ -2897,6 +3632,26 @@ function.
 When two elements compare equal, the element from the sublist with the
 lowest position in `ListOfLists` is picked and the other is deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges multiple sorted lists into a single sorted list while ensuring unique elements.
+%% This function takes a list of sorted lists and merges them into a single sorted list, 
+%% removing duplicate elements in the process.
+%%
+%% @param ListOfLists A list containing multiple sorted lists to be merged.
+%% @return A single sorted list containing all unique elements from the input lists.
+%%
+%% @example
+%%     % Merge multiple sorted lists of numbers while removing duplicates
+%%     umerge([[1, 3, 5], [2, 3, 6], [4, 5, 6]]).
+%%     % Returns: [1, 2, 3, 4, 5, 6]
+%%
+%%     % Merge multiple sorted lists of atoms while ensuring uniqueness
+%%     umerge([ [a, c, e], [b, d, f], [a, d, g] ]).
+%%     % Returns: [a, b, c, d, e, f, g]
+%%
+%%
+%% @complexity O(N log M), where N is the total number of elements and M is the number of lists.
+%%END_DOC_BLOCK
 -spec umerge(ListOfLists) -> List1 when
       ListOfLists :: [List],
       List :: [T],
@@ -2919,6 +3674,28 @@ When two elements compare equal, the element from
 `List1` is picked if there is such an element, otherwise the element from
 `List2` is picked, and the other is deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges three sorted lists into a single sorted list while ensuring unique elements.
+%% This function assumes that all input lists are already sorted. It merges them while 
+%% preserving order and removing duplicate elements.
+%%
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @param List3 The third sorted list.
+%% @return A new sorted list containing all unique elements from the three input lists.
+%%
+%% @example
+%%     % Merge three sorted lists of numbers while removing duplicates
+%%     umerge3([1, 3, 5], [2, 3, 6], [4, 5, 6]).
+%%     % Returns: [1, 2, 3, 4, 5, 6]
+%%
+%%     % Merge three sorted lists of atoms while ensuring uniqueness
+%%     umerge3([a, c, e], [b, d, f], [a, d, g]).
+%%     % Returns: [a, b, c, d, e, f, g]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in all three lists.
+%%END_DOC_BLOCK
 -spec umerge3(List1, List2, List3) -> List4 when
       List1 :: [X],
       List2 :: [Y],
@@ -2950,6 +3727,26 @@ umerge3([], [], []) ->
 %%  removes duplicates
 
 -doc false.
+%% @doc Merges three sorted lists into a single sorted list in reverse order while ensuring unique elements.
+%% This function assumes that all input lists are already sorted. It merges them while 
+%% preserving order and removing duplicate elements, returning the result in reverse order.
+%%
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @param L3 The third sorted list.
+%% @return A new sorted list containing all unique elements from the three input lists, in reverse order.
+%%
+%% @example
+%%     % Merge three sorted lists of numbers in descending order while removing duplicates
+%%     rumerge3([5, 3, 1], [6, 3, 2], [7, 5, 4]).
+%%     % Returns: [7, 6, 5, 4, 3, 2, 1]
+%%
+%%     % Merge three sorted lists of atoms while ensuring uniqueness
+%%     rumerge3([c, a], [d, b], [e, a, d]).
+%%     % Returns: [e, d, c, b, a]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in all three lists.
 -spec rumerge3([X], [Y], [Z]) -> [(X | Y | Z)].
 
 rumerge3([_|_]=L1, [H2 | T2], [H3 | T3]) ->
@@ -2980,6 +3777,27 @@ function.
 When two elements compare equal, the element from `List1` is picked
 and the one from `List2` is deleted.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Merges two sorted lists into a single sorted list while ensuring unique elements.
+%% This function assumes that both input lists are already sorted. It merges them while 
+%% preserving order and removing duplicate elements.
+%%
+%% @param List1 The first sorted list.
+%% @param List2 The second sorted list.
+%% @return A new sorted list containing all unique elements from both input lists.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers while removing duplicates
+%%     umerge([1, 3, 5], [2, 3, 6]).
+%%     % Returns: [1, 2, 3, 5, 6]
+%%
+%%     % Merge two sorted lists of atoms while ensuring uniqueness
+%%     umerge([a, c, e], [b, d, e]).
+%%     % Returns: [a, b, c, d, e]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
+%%END_DOC_BLOCK
 -spec umerge(List1, List2) -> List3 when
       List1 :: [X],
       List2 :: [Y],
@@ -3003,6 +3821,25 @@ umerge([], []) ->
 %% reverse(rumerge(reverse(A),reverse(B))) is equal to umerge(I,A,B).
 
 -doc false.
+%% @doc Merges two sorted lists into a single sorted list in reverse order while ensuring unique elements.
+%% This function assumes that both input lists are already sorted. It merges them while 
+%% preserving order and removing duplicate elements, returning the result in reverse order.
+%%
+%% @param L1 The first sorted list.
+%% @param L2 The second sorted list.
+%% @return A new sorted list containing all unique elements from both input lists, in reverse order.
+%%
+%% @example
+%%     % Merge two sorted lists of numbers in descending order while removing duplicates
+%%     rumerge([5, 3, 1], [6, 3, 2]).
+%%     % Returns: [6, 5, 3, 2, 1]
+%%
+%%     % Merge two sorted lists of atoms while ensuring uniqueness
+%%     rumerge([c, a], [d, b]).
+%%     % Returns: [d, c, b, a]
+%%
+%%
+%% @complexity O(N), where N is the total number of elements in both lists.
 -spec rumerge([X], [Y]) -> [(X | Y)].
 
 rumerge([_|_]=T1, [H2 | T2]) ->
@@ -3043,6 +3880,27 @@ rumerge([], []) ->
 Returns `true` if `Pred(Elem)` returns `true` for all elements `Elem` in `List`,
 otherwise `false`. The `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Checks if all elements in a list satisfy a given predicate.
+%% This function applies the provided predicate to each element of the list 
+%% and returns `true` if all elements satisfy the condition; otherwise, it returns `false`.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List The list of elements to be checked.
+%% @return `true` if all elements satisfy the predicate, otherwise `false`.
+%%
+%% @example
+%%     % Check if all numbers in a list are even
+%%     all(fun(X) -> X rem 2 == 0 end, [2, 4, 6, 8]).
+%%     % Returns: true
+%%
+%%     % Check if all words in a list start with the letter 'a'
+%%     all(fun(X) -> hd(X) == $a end, ["apple", "avocado", "banana"]).
+%%     % Returns: false
+%%
+%%
+%% @complexity O(N), where N is the length of the list.
+%%END_DOC_BLOCK
 -spec all(Pred, List) -> boolean() when
       Pred :: fun((Elem :: T) -> boolean()),
       List :: [T],
@@ -3057,7 +3915,15 @@ all(Pred, List) when is_function(Pred, 1) ->
             end;
         [] -> true
     end.
-
+%% @doc Helper function that recursively checks if all elements in a list satisfy a predicate.
+%% This function iterates through the list and applies the predicate to each element, 
+%% returning `false` if any element fails the condition.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List The remaining list elements to be checked.
+%% @return `true` if all elements satisfy the predicate, otherwise `false`.
+%%
+%% @complexity O(N), where N is the length of the list.
 all_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
         true -> all_1(Pred, Tail);
@@ -3070,6 +3936,31 @@ all_1(_Pred, []) ->
 Returns `true` if `Pred(Elem)` returns `true` for at least one element `Elem` in
 `List`. The `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Checks if any element in a list satisfies a given predicate.
+%% This function applies the provided predicate to each element of the list 
+%% and returns `true` if at least one element satisfies the condition; otherwise, it returns `false`.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List The list of elements to be checked.
+%% @return `true` if at least one element satisfies the predicate, otherwise `false`.
+%%
+%% @example
+%%     % Check if any number in a list is even
+%%     any(fun(X) -> X rem 2 == 0 end, [1, 3, 5, 8]).
+%%     % Returns: true
+%%
+%%     % Check if any word in a list starts with the letter 'a'
+%%     any(fun(X) -> hd(X) == $a end, ["pear", "avocado", "banana"]).
+%%     % Returns: true
+%%
+%%     % Check if any number in a list is negative
+%%     any(fun(X) -> X < 0 end, [4, 7, 10]).
+%%     % Returns: false
+%%
+%%
+%% @complexity O(N), where N is the length of the list.
+%%END_DOC_BLOCK
 -spec any(Pred, List) -> boolean() when
       Pred :: fun((Elem :: T) -> boolean()),
       List :: [T],
@@ -3084,7 +3975,15 @@ any(Pred, List) when is_function(Pred, 1) ->
             end;
         [] -> false
     end.
-
+%% @doc Helper function that recursively checks if any element in a list satisfies a predicate.
+%% This function iterates through the list and applies the predicate to each element, 
+%% returning `true` if any element satisfies the condition.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List The remaining list elements to be checked.
+%% @return `true` if at least one element satisfies the predicate, otherwise `false`.
+%%
+%% @complexity O(N), where N is the length of the list.
 any_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
         true -> true;
@@ -3099,6 +3998,31 @@ Takes a function from `A`s to `B`s, and a list of `A`s and produces a list of
 used to obtain the return values. The evaluation order depends on the
 implementation.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Applies a function to each element in a list, returning a new list of results.
+%% This function maps the provided function over the elements of the input list, 
+%% producing a new list with transformed elements.
+%%
+%% @param Fun A function that takes one argument and returns a transformed value.
+%% @param List1 The list of elements to be mapped.
+%% @return A new list where each element is the result of applying `Fun` to the corresponding element in `List1`.
+%%
+%% @example
+%%     % Square each number in a list
+%%     map(fun(X) -> X * X end, [1, 2, 3, 4]).
+%%     % Returns: [1, 4, 9, 16]
+%%
+%%     % Convert a list of strings to uppercase
+%%     map(fun string:to_upper/1, ["hello", "world"]).
+%%     % Returns: ["HELLO", "WORLD"]
+%%
+%%     % Append "!" to each word in a list
+%%     map(fun(X) -> X ++ "!" end, ["hi", "bye"]).
+%%     % Returns: ["hi!", "bye!"]
+%%
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec map(Fun, List1) -> List2 when
       Fun :: fun((A) -> B),
       List1 :: [A],
@@ -3111,7 +4035,15 @@ map(F, List) when is_function(F, 1) ->
         [Hd | Tail] -> [F(Hd) | map_1(F, Tail)];
         [] -> []
     end.
-
+%% @doc Helper function that recursively applies a function to each element in a list.
+%% This function processes the elements of the list and applies the function `Fun` 
+%% to each element, constructing the result list.
+%%
+%% @param Fun The function to apply to each element.
+%% @param List1 The remaining list elements to be processed.
+%% @return A new list where each element is transformed by `Fun`.
+%%
+%% @complexity O(N), where N is the length of List1.
 map_1(F, [Hd | Tail]) ->
     [F(Hd) | map_1(F, Tail)];
 map_1(_F, []) ->
@@ -3136,6 +4068,31 @@ _Example:_
 [a,a,b,b,c,c]
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Applies a function to each element in a list and flattens the result.
+%% This function maps the provided function over the elements of the input list, 
+%% expecting the function to return lists, and then concatenates the results into a single list.
+%%
+%% @param Fun A function that takes one argument and returns a list.
+%% @param List1 The list of elements to be processed.
+%% @return A flattened list containing the concatenated results of applying `Fun` to each element in `List1`.
+%%
+%% @example
+%%     % Duplicate each number in a list
+%%     flatmap(fun(X) -> [X, X] end, [1, 2, 3]).
+%%     % Returns: [1, 1, 2, 2, 3, 3]
+%%
+%%     % Convert a list of words into a list of characters
+%%     flatmap(fun string:chars/1, ["hello", "world"]).
+%%     % Returns: "helloworld"
+%%
+%%     % Generate a list of factors for each number
+%%     flatmap(fun(X) -> [X * 1, X * 2, X * 3] end, [2, 3]).
+%%     % Returns: [2, 4, 6, 3, 6, 9]
+%%
+%%
+%% @complexity O(N + M), where N is the length of List1 and M is the total number of elements in the returned lists.
+%%END_DOC_BLOCK
 -spec flatmap(Fun, List1) -> List2 when
       Fun :: fun((A) -> [B]),
       List1 :: [A],
@@ -3145,7 +4102,15 @@ _Example:_
 
 flatmap(F, List) when is_function(F, 1) ->
     flatmap_1(F, List).
-
+%% @doc Helper function that recursively applies a function to each element in a list and flattens the result.
+%% This function processes the elements of the list, applying `Fun` and concatenating 
+%% the results into a single list.
+%%
+%% @param Fun The function to apply to each element, returning a list.
+%% @param List1 The remaining list elements to be processed.
+%% @return A flattened list containing the concatenated results.
+%%
+%% @complexity O(N + M), where N is the length of List1 and M is the total number of elements in the returned lists.
 flatmap_1(F, [Hd | Tail]) ->
     case F(Hd) of
         %% The two first clauses are an optimization.
@@ -3171,6 +4136,31 @@ _Example:_
 120
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Accumulates a result by applying a function to each element of a list from left to right.
+%% This function iterates over the list, applying `Fun` to each element along with an accumulator value.
+%%
+%% @param Fun A function that takes an element and an accumulator and returns a new accumulator.
+%% @param Acc0 The initial accumulator value.
+%% @param List The list of elements to be processed.
+%% @return The final accumulator value after processing all elements.
+%%
+%% @example
+%%     % Sum a list of numbers
+%%     foldl(fun(X, Acc) -> X + Acc end, 0, [1, 2, 3, 4]).
+%%     % Returns: 10
+%%
+%%     % Concatenate a list of strings
+%%     foldl(fun(X, Acc) -> Acc ++ X end, "", ["hello", " ", "world"]).
+%%     % Returns: "hello world"
+%%
+%%     % Find the product of a list of numbers
+%%     foldl(fun(X, Acc) -> X * Acc end, 1, [2, 3, 4]).
+%%     % Returns: 24
+%%
+%%
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -spec foldl(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
       Acc0 :: term(),
@@ -3185,7 +4175,15 @@ foldl(F, Accu, List) when is_function(F, 2) ->
         [Hd | Tail] -> foldl_1(F, F(Hd, Accu), Tail);
         [] -> Accu
     end.
-
+%% @doc Helper function for accumulating a result by applying a function to each element of a list.
+%% This function processes the elements recursively, passing the updated accumulator at each step.
+%%
+%% @param Fun The function to apply to each element and accumulator.
+%% @param Accu The current accumulator value.
+%% @param List The remaining list elements to be processed.
+%% @return The final accumulator value.
+%%
+%% @complexity O(N), where N is the length of List.
 foldl_1(F, Accu, [Hd | Tail]) ->
     foldl_1(F, F(Hd, Accu), Tail);
 foldl_1(_F, Accu, []) ->
@@ -3208,6 +4206,31 @@ _Example:_
 [`foldl/3`](`foldl/3`) is tail recursive and is usually preferred to
 [`foldr/3`](`foldr/3`).
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Accumulates a result by applying a function to each element of a list from right to left.
+%% This function iterates over the list in reverse order, applying `Fun` to each element along with an accumulator value.
+%%
+%% @param Fun A function that takes an element and an accumulator and returns a new accumulator.
+%% @param Acc0 The initial accumulator value.
+%% @param List The list of elements to be processed.
+%% @return The final accumulator value after processing all elements.
+%%
+%% @example
+%%     % Reverse a list using foldr
+%%     foldr(fun(X, Acc) -> Acc ++ [X] end, [], [1, 2, 3, 4]).
+%%     % Returns: [4, 3, 2, 1]
+%%
+%%     % Construct a string from a list of characters
+%%     foldr(fun(X, Acc) -> X ++ Acc end, "", ["h", "e", "l", "l", "o"]).
+%%     % Returns: "hello"
+%%
+%%     % Compute a factorial using foldr
+%%     foldr(fun(X, Acc) -> X * Acc end, 1, [1, 2, 3, 4]).
+%%     % Returns: 24
+%%
+%%
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -spec foldr(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
       Acc0 :: term(),
@@ -3219,7 +4242,15 @@ _Example:_
 
 foldr(F, Accu, List) when is_function(F, 2) ->
     foldr_1(F, Accu, List).
-
+%% @doc Helper function for accumulating a result by applying a function to each element of a list from right to left.
+%% This function processes the elements recursively, passing the updated accumulator at each step.
+%%
+%% @param Fun The function to apply to each element and accumulator.
+%% @param Accu The current accumulator value.
+%% @param List The remaining list elements to be processed.
+%% @return The final accumulator value.
+%%
+%% @complexity O(N), where N is the length of List.
 foldr_1(F, Accu, [Hd | Tail]) ->
     F(Hd, foldr_1(F, Accu, Tail));
 foldr_1(_F, Accu, []) ->
@@ -3229,6 +4260,30 @@ foldr_1(_F, Accu, []) ->
 `List2` is a list of all elements `Elem` in `List1` for which `Pred(Elem)`
 returns `true`. The `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Filters elements of a list based on a predicate function.
+%% This function applies the given predicate to each element in the list 
+%% and returns a new list containing only the elements for which the predicate returns `true`.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List1 The list of elements to be filtered.
+%% @return A new list containing only the elements that satisfy the predicate.
+%%
+%% @example
+%%     % Filter even numbers from a list
+%%     filter(fun(X) -> X rem 2 == 0 end, [1, 2, 3, 4, 5, 6]).
+%%     % Returns: [2, 4, 6]
+%%
+%%     % Filter strings that start with "a"
+%%     filter(fun(X) -> hd(X) == $a end, ["apple", "banana", "avocado", "cherry"]).
+%%     % Returns: ["apple", "avocado"]
+%%
+%%     % Filter positive numbers
+%%     filter(fun(X) -> X > 0 end, [-3, -2, -1, 0, 1, 2, 3]).
+%%     % Returns: [1, 2, 3]
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec filter(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
       List1 :: [T],
@@ -3257,6 +4312,33 @@ _Examples:_
 
 For a different way to partition a list, see `splitwith/2`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Splits a list into two lists based on a predicate function.
+%% This function applies the given predicate to each element in the list 
+%% and returns a tuple containing two lists: one with elements that satisfy the predicate 
+%% and another with elements that do not.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List The list of elements to be partitioned.
+%% @return A tuple `{Satisfying, NotSatisfying}`, where `Satisfying` contains elements 
+%%         for which the predicate returns `true`, and `NotSatisfying` contains the rest.
+%%
+%% @example
+%%     % Partition a list into even and odd numbers
+%%     partition(fun(X) -> X rem 2 == 0 end, [1, 2, 3, 4, 5, 6]).
+%%     % Returns: {[2, 4, 6], [1, 3, 5]}
+%%
+%%     % Partition words that start with "a"
+%%     partition(fun(X) -> hd(X) == $a end, ["apple", "banana", "avocado", "cherry"]).
+%%     % Returns: {["avocado", "apple"], ["banana", "cherry"]}
+%%
+%%     % Partition a list of numbers into positive and non-positive
+%%     partition(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).
+%%     Returns: {[a,b,c,d,e],[1,2,3,4]}
+%%
+%%
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -spec partition(Pred, List) -> {Satisfying, NotSatisfying} when
       Pred :: fun((Elem :: T) -> boolean()),
       List :: [T],
@@ -3266,7 +4348,18 @@ For a different way to partition a list, see `splitwith/2`.
 
 partition(Pred, L) when is_function(Pred, 1) ->
     partition_1(Pred, L, [], []).
-
+%% @doc Helper function that recursively partitions a list based on a predicate function.
+%% This function iterates through the list, placing elements in separate accumulator lists 
+%% based on whether they satisfy the predicate.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List The remaining list elements to be processed.
+%% @param As The accumulator list for elements satisfying the predicate.
+%% @param Bs The accumulator list for elements not satisfying the predicate.
+%% @return A tuple `{Satisfying, NotSatisfying}`, where `Satisfying` contains elements 
+%%         for which the predicate returns `true`, and `NotSatisfying` contains the rest.
+%%
+%% @complexity O(N), where N is the length of List.
 partition_1(Pred, [H | T], As, Bs) ->
     case Pred(H) of
         true -> partition_1(Pred, T, [H | As], Bs);
@@ -3303,6 +4396,35 @@ _Example:_
 [1,2]
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Filters and optionally transforms elements in a list based on a function.
+%% This function applies `Fun` to each element in `List1` and constructs a new list:
+%% - If `Fun(Elem)` returns `true`, `Elem` is included in the result.
+%% - If `Fun(Elem)` returns `{true, Value}`, `Value` is included instead.
+%% - If `Fun(Elem)` returns `false`, `Elem` is discarded.
+%%
+%% @param Fun A function that takes an element and returns `true`, `{true, Value}`, or `false`.
+%% @param List1 The list of elements to be processed.
+%% @return A new list containing filtered and optionally transformed elements.
+%%
+%% @example
+%%     % Keep even numbers and replace odd numbers with their negative
+%%     filtermap(fun(X) -> if X rem 2 == 0 -> true; true -> {true, -X} end end, [1, 2, 3, 4, 5]).
+%%     Returns: [-1, 2, -3, 4, -5]
+%%
+%%     % Keep words containing "a" and replace them with uppercase versions
+%%     lists:filtermap(fun(X) -> 
+%%       case lists:member($a, X) of
+%%         true -> {true, string:to_upper(X)};
+%%         false -> false
+%%       end 
+%%    end, ["apple", "banana", "cherry", "date"]).
+%%    Returns: ["APPLE", "BANANA", "DATE"]
+%%
+%%
+%% @since OTP R16B01
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP R16B01">>}).
 -spec filtermap(Fun, List1) -> List2 when
       Fun :: fun((Elem) -> boolean() | {'true', Value}),
@@ -3313,7 +4435,14 @@ _Example:_
 
 filtermap(F, List) when is_function(F, 1) ->
     filtermap_1(F, List).
-
+%% @doc Helper function that recursively processes a list, filtering and transforming elements.
+%% This function applies `Fun` to each element and constructs the resulting list accordingly.
+%%
+%% @param Fun The function to apply to each element.
+%% @param List1 The remaining list elements to be processed.
+%% @return A new list containing filtered and optionally transformed elements.
+%%
+%% @complexity O(N), where N is the length of List1.
 filtermap_1(F, [Hd|Tail]) ->
     case F(Hd) of
         true ->
@@ -3327,6 +4456,30 @@ filtermap_1(_F, []) ->
     [].
 
 -doc false.
+%% @doc Filters and optionally transforms elements in a list based on a function.
+%% This function applies `F` to each element in `L` and constructs a new list:
+%% - If `F(Elem)` returns `true`, `Elem` is included in the result.
+%% - If `F(Elem)` returns `{true, X}`, `X` is included instead.
+%% - If `F(Elem)` returns `false`, `Elem` is discarded.
+%%
+%% This function is equivalent to `filtermap/2`.
+%%
+%% @param F A function that takes an element and returns `true`, `{true, X}`, or `false`.
+%% @param L The list of elements to be processed.
+%% @return A new list containing filtered and optionally transformed elements.
+%%
+%% @example
+%%     % Keep even numbers and replace odd numbers with their negative
+%%     zf(fun(X) -> if X rem 2 == 0 -> true; true -> {true, -X} end end, [1, 2, 3, 4, 5]).
+%%     % Returns: [-1, 2, -3, 4, -5]
+%%
+%%     % Keep words containing "a" and replace them with uppercase versions
+%%     zf(fun(X) -> case lists:member($a, X) of true -> {true, string:to_upper(X)}; false -> false end end,
+%%        ["apple", "banana", "cherry", "date"]).
+%%     % Returns: ["APPLE", "BANANA", "DATE"]
+%%
+%%
+%% @complexity O(N), where N is the length of L.
 -spec zf(fun((T) -> boolean() | {'true', X}), [T]) -> [(T | X)].
 
 zf(F, L) ->
@@ -3337,6 +4490,30 @@ Calls `Fun(Elem)` for each element `Elem` in `List`. This function is used for
 its side effects and the evaluation order is defined to be the same as the order
 of the elements in the list.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Applies a function to each element in a list for side effects.
+%% This function iterates over `List`, applying `Fun` to each element. The function `Fun` is expected 
+%% to perform side effects, such as printing values or modifying external state.
+%%
+%% @param Fun A function that takes one argument and returns any value (typically for side effects).
+%% @param List The list of elements to be processed.
+%% @return Always returns `ok`.
+%%
+%% @example
+%%     % Print each element in a list
+%%     lists:foreach(fun(X)-> io:format("~p~n", [X]) end, [1, 2, 3]).
+%%     % Prints:
+%%     % 1
+%%     % 2
+%%     % 3
+%%     % Returns: ok
+%%
+%%     % Log elements in a list
+%%     foreach(fun(X) -> logger:info("Processing: ~p", [X]) end, ["task1", "task2"]).
+%%
+%%
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -spec foreach(Fun, List) -> ok when
       Fun :: fun((Elem :: T) -> term()),
       List :: [T],
@@ -3344,7 +4521,14 @@ of the elements in the list.
 
 foreach(F, List) when is_function(F, 1) ->
     foreach_1(F, List).
-
+%% @doc Helper function for iterating over a list and applying a function to each element.
+%% This function processes elements one by one, applying `Fun` for side effects.
+%%
+%% @param Fun The function to apply to each element.
+%% @param List The remaining list elements to be processed.
+%% @return Always returns `ok`.
+%%
+%% @complexity O(N), where N is the length of List.
 foreach_1(F, [Hd | Tail]) ->
     F(Hd),
     foreach_1(F, Tail);
@@ -3364,6 +4548,29 @@ Summing the elements in a list and double them at the same time:
 {[2,4,6,8,10],15}
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Combines the 'map/2' and 'foldl\3' behaviors.
+%% This function applies `Fun` to each element of `List1`, collecting the transformed elements into `List2`
+%% while also updating an accumulator value.
+%%
+%% @param Fun A function that takes an element and an accumulator, returning `{TransformedElem, NewAcc}`.
+%% @param Acc0 The initial accumulator value.
+%% @param List1 The list of elements to be mapped and processed.
+%% @return A tuple `{List2, Acc1}`, where `List2` contains the transformed elements 
+%%         and `Acc1` is the final accumulator value.
+%%
+%% @example
+%%     % Compute the running sum of a list
+%%     mapfoldl(fun(X, Acc) -> {X + 1, Acc + X} end, 0, [1, 2, 3]).
+%%     % Returns: {[2, 3, 4], 6}
+%%
+%%     % Convert strings to uppercase while counting them
+%%     mapfoldl(fun(X, Acc) -> {string:to_upper(X), Acc + 1} end, 0, ["hello", "world"]).
+%%     % Returns: {["HELLO", "WORLD"], 2}
+%%
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec mapfoldl(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
       Acc0 :: term(),
@@ -3377,7 +4584,16 @@ Summing the elements in a list and double them at the same time:
 
 mapfoldl(F, Accu, List) when is_function(F, 2) ->
     mapfoldl_1(F, Accu, List).
-
+%% @doc Helper function for mapping and accumulating values over a list.
+%% This function applies `Fun` to each element, collecting transformed values and updating the accumulator.
+%%
+%% @param Fun The function to apply to each element.
+%% @param Accu0 The current accumulator value.
+%% @param List1 The remaining list elements to be processed.
+%% @return A tuple `{List2, Acc1}`, where `List2` contains transformed elements 
+%%         and `Acc1` is the current accumulator value.
+%%
+%% @complexity O(N), where N is the length of List1.
 mapfoldl_1(F, Accu0, [Hd | Tail]) ->
     {R, Accu1} = F(Hd, Accu0),
     {Rs, Accu2} = mapfoldl_1(F, Accu1, Tail),
@@ -3386,6 +4602,29 @@ mapfoldl_1(_F, Accu, []) ->
     {[], Accu}.
 
 -doc "Combines the operations of `map/2` and `foldr/3` into one pass.".
+%%BEGIN_DOC_BLOCK
+%% @doc Combines the 'map/2' and 'foldr\3' behaviors.
+%% This function applies `Fun` to each element of `List1`, starting from the rightmost element,
+%% collecting the transformed elements into `List2` while also updating an accumulator value.
+%%
+%% @param Fun A function that takes an element and an accumulator, returning `{TransformedElem, NewAcc}`.
+%% @param Acc0 The initial accumulator value.
+%% @param List1 The list of elements to be mapped and processed.
+%% @return A tuple `{List2, Acc1}`, where `List2` contains the transformed elements 
+%%         and `Acc1` is the final accumulator value.
+%%
+%% @example
+%%     % Compute the running sum of a list from right to left
+%%     mapfoldr(fun(X, Acc) -> {X + 1, Acc + X} end, 0, [1, 2, 3]).
+%%     % Returns: {[2, 3, 4], 6}
+%%
+%%     % Convert strings to uppercase while counting them, processing from right to left
+%%     mapfoldr(fun(X, Acc) -> {string:to_upper(X), Acc + 1} end, 0, ["hello", "world"]).
+%%     % Returns: {["HELLO", "WORLD"], 2}
+%%
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec mapfoldr(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
       Acc0 :: term(),
@@ -3399,7 +4638,17 @@ mapfoldl_1(_F, Accu, []) ->
 
 mapfoldr(F, Accu, List) when is_function(F, 2) ->
     mapfoldr_1(F, Accu, List).
-
+%% @doc Helper function for mapping and accumulating values over a list from right to left.
+%% This function applies `Fun` to each element, starting from the last element of `List1`, 
+%% collecting transformed values and updating the accumulator.
+%%
+%% @param Fun The function to apply to each element.
+%% @param Accu0 The current accumulator value.
+%% @param List1 The remaining list elements to be processed.
+%% @return A tuple `{List2, Acc1}`, where `List2` contains transformed elements 
+%%         and `Acc1` is the final accumulator value.
+%%
+%% @complexity O(N), where N is the length of List1.
 mapfoldr_1(F, Accu0, [Hd|Tail]) ->
     {Rs, Accu1} = mapfoldr_1(F, Accu0, Tail),
     {R, Accu2} = F(Hd, Accu1),
@@ -3412,6 +4661,31 @@ Takes elements `Elem` from `List1` while `Pred(Elem)` returns `true`, that is,
 the function returns the longest prefix of the list for which all elements
 satisfy the predicate. The `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Takes elements from a list while a predicate holds true.
+%% This function iterates over `List1`, collecting elements as long as `Pred` returns `true`.
+%% Once `Pred` returns `false`, iteration stops, and the collected elements are returned.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List1 The list of elements to be processed.
+%% @return A list containing the longest prefix of `List1` where all elements satisfy `Pred`.
+%%
+%% @example
+%%     % Take numbers from a list while they are less than 5
+%%     takewhile(fun(X) -> X < 5 end, [1, 2, 3, 5, 4, 6]).
+%%     % Returns: [1, 2, 3]
+%%
+%%     % Take words from a list while they start with "a"
+%%     takewhile(fun(X) -> hd(X) == $a end, ["apple", "avocado", "banana", "apricot"]).
+%%     % Returns: ["apple", "avocado"]
+%%
+%%     % Take positive numbers from a list
+%%     takewhile(fun(X) -> X > 0 end, [3, 2, 1, 0, -1, -2]).
+%%     % Returns: [3, 2, 1]
+%%
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec takewhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
       List1 :: [T],
@@ -3420,7 +4694,15 @@ satisfy the predicate. The `Pred` function must return a boolean.
 
 takewhile(Pred, List) when is_function(Pred, 1) ->
     takewhile_1(Pred, List).
-
+%% @doc Helper function that recursively collects elements while a predicate holds true.
+%% This function iterates through `List1`, adding elements to the result list 
+%% until `Pred` returns `false`.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List1 The remaining list elements to be processed.
+%% @return A list containing the longest prefix of `List1` where all elements satisfy `Pred`.
+%%
+%% @complexity O(N), where N is the length of List1.
 takewhile_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
         true -> [Hd | takewhile_1(Pred, Tail)];
@@ -3433,6 +4715,32 @@ takewhile_1(_Pred, []) ->
 Drops elements `Elem` from `List1` while `Pred(Elem)` returns `true` and returns
 the remaining list. The `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Drops elements from a list while a predicate holds true.
+%% This function iterates over `List1`, removing elements as long as `Pred` returns `true`.
+%% Once `Pred` returns `false`, the remaining elements of the list are returned as is.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List1 The list of elements to be processed.
+%% @return A list containing the elements of `List1` starting from the first element 
+%%         that does not satisfy `Pred`.
+%%
+%% @example
+%%     % Drop numbers from a list while they are less than 5
+%%     dropwhile(fun(X) -> X < 5 end, [1, 2, 3, 5, 4, 6]).
+%%     % Returns: [5, 4, 6]
+%%
+%%     % Drop words from a list while they start with "a"
+%%     dropwhile(fun(X) -> hd(X) == $a end, ["apple", "avocado", "banana", "apricot"]).
+%%     % Returns: ["banana", "apricot"]
+%%
+%%     % Drop positive numbers from a list
+%%     dropwhile(fun(X) -> X > 0 end, [3, 2, 1, 0, -1, -2]).
+%%     % Returns: [0, -1, -2]
+%%
+%%
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -spec dropwhile(Pred, List1) -> List2 when
       Pred :: fun((Elem :: T) -> boolean()),
       List1 :: [T],
@@ -3441,7 +4749,15 @@ the remaining list. The `Pred` function must return a boolean.
 
 dropwhile(Pred, List) when is_function(Pred, 1) ->
     dropwhile_1(Pred, List).
-
+%% @doc Helper function that recursively drops elements while a predicate holds true.
+%% This function iterates through `List1`, discarding elements until `Pred` returns `false`.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List1 The remaining list elements to be processed.
+%% @return A list containing the elements of `List1` starting from the first element 
+%%         that does not satisfy `Pred`.
+%%
+%% @complexity O(N), where N is the length of List1.
 dropwhile_1(Pred, [Hd | Tail]=Rest) ->
     case Pred(Hd) of
         true -> dropwhile_1(Pred, Tail);
@@ -3455,6 +4771,33 @@ If there is a `Value` in `List` such that `Pred(Value)` returns `true`, returns
 `{value, Value}` for the first such `Value`, otherwise returns `false`. The
 `Pred` function must return a boolean.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Searches for the first element in a list that satisfies a predicate.
+%% This function iterates over `List`, applying `Pred` to each element until it finds one 
+%% that returns `true`. If a matching element is found, it returns `{value, Value}`; 
+%% otherwise, it returns `false`.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List The list of elements to be searched.
+%% @return `{value, Value}` if an element satisfies `Pred`, otherwise `false`.
+%%
+%% @example
+%%     % Search for the first even number in a list
+%%     search(fun(X) -> X rem 2 == 0 end, [1, 3, 5, 6, 7]).
+%%     % Returns: {value, 6}
+%%
+%%     % Search for a word that starts with "a"
+%%     search(fun(X) -> hd(X) == $a end, ["pear", "banana", "avocado", "cherry"]).
+%%     % Returns: {value, "avocado"}
+%%
+%%     % Search for a negative number
+%%     search(fun(X) -> X < 0 end, [4, 7, 10]).
+%%     % Returns: false
+%%
+%%
+%% @since OTP 21.0
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 21.0">>}).
 -spec search(Pred, List) -> {value, Value} | false when
       Pred :: fun((T) -> boolean()),
@@ -3463,7 +4806,14 @@ If there is a `Value` in `List` such that `Pred(Value)` returns `true`, returns
 
 search(Pred, List) when is_function(Pred, 1) ->
     search_1(Pred, List).
-
+%% @doc Helper function that recursively searches for the first element satisfying a predicate.
+%% This function iterates through `List`, applying `Pred` to each element until a match is found.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List The remaining list elements to be searched.
+%% @return `{value, Value}` if an element satisfies `Pred`, otherwise `false`.
+%%
+%% @complexity O(N), where N is the length of List.
 search_1(Pred, [Hd | Tail]) ->
     case Pred(Hd) of
         true -> {value, Hd};
@@ -3493,6 +4843,32 @@ _Examples:_
 The `Pred` function must return a boolean. For a different way to partition a
 list, see `partition/2`.
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Splits a list into two parts based on a predicate.
+%% This function iterates over `List`, collecting elements in `List1` as long as `Pred` returns `true`.
+%% Once `Pred` returns `false`, the remaining elements are returned as `List2`.
+%%
+%% @param Pred A function that takes one argument and returns a boolean.
+%% @param List The list of elements to be split.
+%% @return A tuple `{List1, List2}`, where `List1` contains the longest prefix 
+%%         of `List` where all elements satisfy `Pred`, and `List2` contains the rest.
+%%
+%% @example
+%%     % Split a list at the first number that is 5 or greater
+%%     splitwith(fun(X) -> X < 5 end, [1, 2, 3, 5, 4, 6]).
+%%     % Returns: {[1, 2, 3], [5, 4, 6]}
+%%
+%%     % Split a list of words at the first word that does not start with "a"
+%%     splitwith(fun(X) -> hd(X) == $a end, ["apple", "avocado", "banana", "apricot"]).
+%%     % Returns: {["apple", "avocado"], ["banana", "apricot"]}
+%%
+%%     % Split a list of numbers at the first non-positive number
+%%     splitwith(fun(X) -> X > 0 end, [3, 2, 1, 0, -1, -2]).
+%%     % Returns: {[3, 2, 1], [0, -1, -2]}
+%%
+%%
+%% @complexity O(N), where N is the length of List.
+%%END_DOC_BLOCK
 -spec splitwith(Pred, List) -> {List1, List2} when
       Pred :: fun((T) -> boolean()),
       List :: [T],
@@ -3502,7 +4878,17 @@ list, see `partition/2`.
 
 splitwith(Pred, List) when is_function(Pred, 1) ->
     splitwith_1(Pred, List, []).
-
+%% @doc Helper function that recursively splits a list based on a predicate.
+%% This function iterates through `List`, collecting elements in `Taken` 
+%% until `Pred` returns `false`, then returns both parts.
+%%
+%% @param Pred The predicate function to evaluate each element.
+%% @param List The remaining list elements to be processed.
+%% @param Taken The accumulator list storing elements that satisfy `Pred`.
+%% @return A tuple `{List1, List2}`, where `List1` contains elements satisfying `Pred`,
+%%         and `List2` contains the remaining elements.
+%%
+%% @complexity O(N), where N is the length of List.
 splitwith_1(Pred, [Hd|Tail], Taken) ->
     case Pred(Hd) of
     true -> splitwith_1(Pred, Tail, [Hd|Taken]);
@@ -3515,6 +4901,36 @@ splitwith_1(_Pred, [], Taken) ->
 Splits `List1` into `List2` and `List3`. `List2` contains the first `N` elements
 and `List3` the remaining elements (the `N`th tail).
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Splits a list into two parts at a given position.
+%% This function takes the first `N` elements from `List1` and returns them as `List2`, 
+%% with the remaining elements as `List3`.
+%%
+%% If `N` is greater than the length of `List1`, `List2` will contain all elements, 
+%% and `List3` will be empty. If `N` is `0`, `List2` will be empty, and `List3` 
+%% will contain all elements of `List1`.
+%%
+%% @param N The number of elements to take for the first part (must be non-negative).
+%% @param List1 The list to be split.
+%% @return A tuple `{List2, List3}`, where `List2` contains the first `N` elements of `List1`,
+%%         and `List3` contains the remaining elements.
+%% @throws `badarg` if `N` is negative or `List1` is an empty list.
+%%
+%% @example
+%%     % Split a list into two parts, taking the first 3 elements
+%%     split(3, [a, b, c, d, e]).
+%%     % Returns: {[a, b, c], [d, e]}
+%%
+%%     % Split at zero, keeping all elements in the second part
+%%     split(0, [1, 2, 3]).
+%%     % Returns: {[], [1, 2, 3]}
+%%
+%%     % Split with `N` greater than the list length
+%%     split(10, [x, y]).
+%%     % Returns: {[x, y], []}
+%%
+%% @complexity O(N), where N is the minimum of `N` or the length of List1.
+%%END_DOC_BLOCK
 -spec split(N, List1) -> {List2, List3} when
       N :: non_neg_integer(),
       List1 :: [T],
@@ -3551,6 +4967,32 @@ and on a singleton list. For example:
 []
 ```
 """.
+%%BEGIN_DOC_BLOCK
+%% @doc Joins elements of a list using a separator.
+%% This function inserts `Sep` between each element in `List1`, producing a new list `List2`.
+%% If `List1` is empty, an empty list is returned.
+%%
+%% @param Sep The separator to insert between elements.
+%% @param List1 The list of elements to be joined.
+%% @return A new list where `Sep` is placed between each element of `List1`.
+%%
+%% @example
+%%     % Join a list of atoms with a separator
+%%     join('-', [a, b, c, d]).
+%%     % Returns: [a, '-', b, '-', c, '-', d]
+%%
+%%     % Join a list of numbers with zero as a separator
+%%     join(0, [1, 2, 3]).
+%%     % Returns: [1, 0, 2, 0, 3]
+%%
+%%     % Join a list of strings with a space as a separator
+%%     join(" ", ["hello", "world"]).
+%%     % Returns: ["hello", " ", "world"]
+%%
+%%
+%% @since OTP 19.0
+%% @complexity O(N), where N is the length of List1.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 19.0">>}).
 -spec join(Sep, List1) -> List2 when
       Sep :: T,
@@ -3560,7 +5002,14 @@ and on a singleton list. For example:
 
 join(_Sep, []) -> [];
 join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
-
+%% @doc Helper function that recursively inserts a separator between elements.
+%% This function processes `List1`, prepending `Sep` before each element except the first.
+%%
+%% @param Sep The separator to insert between elements.
+%% @param List1 The remaining list elements to be processed.
+%% @return A new list with `Sep` inserted between elements.
+%%
+%% @complexity O(N), where N is the length of List1.
 join_prepend(_Sep, []) -> [];
 join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
@@ -3590,7 +5039,23 @@ join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 %% sort/1
 
-%% Ascending.
+%%
+%% Increasing.
+%%
+
+
+%% @doc Helper function for splitting a list based on comparison conditions.
+%% This function processes elements recursively, grouping them based on comparisons 
+%% between `X`, `Y`, and subsequent elements in the list.
+%%
+%% @param X The first reference element.
+%% @param Y The second reference element.
+%% @param List The remaining elements to be processed.
+%% @param R An accumulator list for collected elements.
+%% @param Rs An accumulator list storing intermediate results.
+%% @return A nested list structure after applying the split logic.
+%%
+%% @complexity O(N), where N is the length of List.
 split_1(X, Y, [Z | L], R, Rs) when Z >= Y ->
     split_1(Y, Z, L, [X | R], Rs);
 split_1(X, Y, [Z | L], R, Rs) when Z >= X ->
@@ -3602,6 +5067,19 @@ split_1(X, Y, [Z | L], R, Rs) ->
 split_1(X, Y, [], R, Rs) ->
     rmergel([[Y, X | R] | Rs], []).
 
+%% @doc Helper function for refining list splitting based on additional comparison logic.
+%% This function extends `split_1/5` by introducing a third reference value, `S`, 
+%% which affects how elements are grouped and processed.
+%%
+%% @param X The first reference element.
+%% @param Y The second reference element.
+%% @param List The remaining elements to be processed.
+%% @param R An accumulator list for collected elements.
+%% @param Rs An accumulator list storing intermediate results.
+%% @param S A third reference value used to determine splitting behavior.
+%% @return A nested list structure after applying the refined split logic.
+%%
+%% @complexity O(N), where N is the length of List.
 split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= Y ->
     split_1_1(Y, Z, L, [X | R], Rs, S);
 split_1_1(X, Y, [Z | L], R, Rs, S) when Z >= X ->
@@ -3613,7 +5091,23 @@ split_1_1(X, Y, [Z | L], R, Rs, S) ->
 split_1_1(X, Y, [], R, Rs, S) ->
     rmergel([[S], [Y, X | R] | Rs], []).
 
-%% Descending.
+%%
+%% Non-increasing.
+%%
+
+%% @doc Helper function for splitting a list based on non-increasing order conditions.
+%% This function processes elements recursively, grouping them based on comparisons 
+%% between `X`, `Y`, and subsequent elements in the list, ensuring that the order follows 
+%% a non-increasing pattern.
+%%
+%% @param X The first reference element.
+%% @param Y The second reference element.
+%% @param List The remaining elements to be processed.
+%% @param R An accumulator list for collected elements.
+%% @param Rs An accumulator list storing intermediate results.
+%% @return A nested list structure after applying the split logic.
+%%
+%% @complexity O(N), where N is the length of List.
 split_2(X, Y, [Z | L], R, Rs) when Z =< Y ->
     split_2(Y, Z, L, [X | R], Rs);
 split_2(X, Y, [Z | L], R, Rs) when Z =< X ->
@@ -3625,6 +5119,19 @@ split_2(X, Y, [Z | L], R, Rs) ->
 split_2(X, Y, [], R, Rs) ->
     mergel([[Y, X | R] | Rs], []).
 
+%% @doc Helper function for refining list splitting based on additional non-increasing order logic.
+%% This function extends `split_2/5` by introducing a third reference value, `S`, 
+%% which affects how elements are grouped and processed.
+%%
+%% @param X The first reference element.
+%% @param Y The second reference element.
+%% @param List The remaining elements to be processed.
+%% @param R An accumulator list for collected elements.
+%% @param Rs An accumulator list storing intermediate results.
+%% @param S A third reference value used to determine splitting behavior.
+%% @return A nested list structure after applying the refined split logic.
+%%
+%% @complexity O(N), where N is the length of List.
 split_2_1(X, Y, [Z | L], R, Rs, S) when Z =< Y ->
     split_2_1(Y, Z, L, [X | R], Rs, S);
 split_2_1(X, Y, [Z | L], R, Rs, S) when Z =< X ->
@@ -3637,7 +5144,7 @@ split_2_1(X, Y, [], R, Rs, S) ->
     mergel([[S], [Y, X | R] | Rs], []).
 
 %% merge/1
-%% @private
+
 %% @doc Merges multiple lists into a single list, preserving order and combining efficiently.
 %%
 %% The `mergel/2` function processes a collection of lists and combines them into a single, 
@@ -3677,7 +5184,7 @@ mergel([[_|_]=T1, [H2 | T2], [H3 | T3] | L], Acc) ->
 mergel([[_|_]=T1, [H2 | T2]], Acc) ->
     rmergel([merge2_1(T1, H2, T2, []) | Acc], []).
 
-%% @private
+
 %% @doc Recursively merges and processes a list of lists, reversing the intermediate results as needed.
 %%
 %% The `rmergel/2` function is a helper function used in conjunction with `mergel/2` to reverse and 
@@ -3708,7 +5215,7 @@ rmergel([], Acc) ->
 %% merge3/3
 
 %% Take L1 apart.
-%% @private
+
 %% @doc Merges three sorted lists into a single sorted list by comparing their heads recursively.
 %%
 %% The `merge3_1/6` function takes three sorted lists and an accumulator, and merges the elements 
@@ -3740,7 +5247,8 @@ merge3_1([], M, H2, T2, H3, T3) ->
     merge2_2(T2, H3, T3, M, H2).
 
 %% Take L2 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing the first and second lists.
 %%
 %% The `merge3_2/6` function merges three sorted lists (`T1`, `T2`, `T3`) into one sorted list by 
@@ -3772,7 +5280,8 @@ merge3_2(T1, H1, M, [], H3, T3) ->
     merge2_2(T1, H3, T3, M, H1).
 
 % H1 =< H2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing the first and second lists in comparisons.
 %%
 %% The `merge3_12/7` function recursively merges three sorted lists (`T1`, `T2`, `T3`) into one sorted list 
@@ -3801,7 +5310,8 @@ merge3_12(T1, H1, H2, T2, H3, T3, M) ->
     merge3_12_3(T1, H1, H2, T2, [H3 | M], T3).
 
 % H1 =< H2, take L3 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing the first and second lists but handling the third efficiently.
 %%
 %% The `merge3_12_3/6` function is a continuation of the `merge3_12/7` logic. It merges three sorted lists 
@@ -3832,7 +5342,8 @@ merge3_12_3(T1, H1, H2, T2, M, []) ->
     merge2_1(T1, H2, T2, [H1 | M]).
 
 % H1 > H2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing the second and third lists when `H1 > H2`.
 %%
 %% The `merge3_21/7` function handles cases where the head of the first list (`H1`) is greater than the head of the second list (`H2`). 
@@ -3861,7 +5372,7 @@ merge3_21(T1, H1, H2, T2, H3, T3, M) ->
     merge3_21_3(T1, H1, H2, T2, [H3 | M], T3).
 
 % H1 > H2, take L3 apart.
-%% @private
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing the second list when `H1 > H2` and taking apart the third list.
 %%
 %% The `merge3_21_3/6` function handles cases where the head of the first list (`H1`) is greater than the head of the second list (`H2`), 
@@ -3893,7 +5404,8 @@ merge3_21_3(T1, H1, H2, T2, M, []) ->
 %% rmerge/3
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the first list when applicable.
 %%
 %% The `rmerge3_1/6` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -3926,7 +5438,8 @@ rmerge3_1([], M, H2, T2, H3, T3) ->
     rmerge2_1(T2, H3, T3, [H2 | M]).
 
 %% Take L2 apart.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the first and second lists.
 %%
 %% The `rmerge3_2/6` function is part of the reverse merging process for three sorted lists. It handles cases 
@@ -3959,7 +5472,8 @@ rmerge3_2(T1, H1, M, [], H3, T3) ->
     rmerge2_1(T1, H3, T3, [H1 | M]).
 
 % H1 =< H2. Inlined.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the second and third lists.
 %%
 %% The `rmerge3_12/7` function processes three sorted lists in reverse order, focusing on comparisons 
@@ -3990,7 +5504,8 @@ rmerge3_12(T1, H1, H2, T2, H3, T3, M) ->
     rmerge3_2(T1, H1, [H2 | M], T2, H3, T3).
 
 % H1 =< H2, take L3 apart.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the second and third lists.
 %%
 %% The `rmerge3_12_3/6` function processes three sorted lists in reverse order, focusing on comparisons 
@@ -4022,7 +5537,8 @@ rmerge3_12_3(T1, H1, H2, T2, M, []) ->
     rmerge2_2(T1, H2, T2, M, H1).
 
 % H1 > H2. Inlined.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the first and third lists.
 %%
 %% The `rmerge3_21/7` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4052,7 +5568,8 @@ rmerge3_21(T1, H1, H2, T2, H3, T3, M) ->
     rmerge3_1(T1, [H1 | M], H2, T2, H3, T3).
 
 % H1 > H2, take L3 apart.
-%% @private
+
+
 %% @doc Recursively merges three sorted lists in reverse order, prioritizing the first and third lists.
 %%
 %% The `rmerge3_21_3/6` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4090,7 +5607,7 @@ rmerge3_21_3(T1, H1, H2, T2, M, []) ->
 
 %% merge/2
 
-%% @private
+
 %% @doc Merges two sorted lists into a single sorted list in reverse order, prioritizing the first list.
 %%
 %% The `merge2_1/4` function merges two sorted lists (`T1` and `T2`) in reverse order, appending results 
@@ -4126,7 +5643,7 @@ merge2_1([H1 | T1], H2, T2, M) ->
 merge2_1([], H2, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
 %% @doc Merges two sorted lists into a single sorted list in reverse order, prioritizing the first list when applicable.
 %%
 %% The `merge2_2/5` function merges two sorted lists (`T1` and `T2`) into a single sorted list in reverse order. 
@@ -4164,7 +5681,7 @@ merge2_2(T1, HdM, [], M, H1) ->
 
 %% rmerge/2
 
-%% @private
+
 %% @doc Recursively merges two sorted lists in reverse order, prioritizing the first list when applicable.
 %%
 %% The `rmerge2_1/4` function merges two sorted lists (`T1` and `T2`) into a single list in reverse order. 
@@ -4199,7 +5716,8 @@ rmerge2_1([H1 | T1], H2, T2, M) ->
 rmerge2_1([], H2, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
+
 %% @doc Recursively merges two sorted lists in reverse order, prioritizing the first list when applicable.
 %%
 %% The `rmerge2_2/5` function merges two sorted lists (`T1` and `T2`) into a single list in reverse order. 
@@ -4237,8 +5755,10 @@ rmerge2_2(T1, HdM, [], M, H1) ->
 
 %% usort/1
 
+%%
 %% Ascending.
-%% @private
+%%
+
 %% @doc Splits a list into sublists based on ascending order, with duplicates handled explicitly.
 %%
 %% The `usplit_1/5` function processes a list, dividing it into sublists based on ascending order. 
@@ -4282,7 +5802,8 @@ usplit_1(X, Y, [Z | L], R, Rs) ->
 usplit_1(X, Y, [], R, Rs) ->
     rumergel([[Y, X | R] | Rs], [], asc).
 
-%% @private
+
+
 %% @doc Processes a list to split it into sublists based on ascending order with additional criteria.
 %%
 %% The `usplit_1_1/6` function is a helper function for splitting lists into sublists based on ascending order. 
@@ -4328,9 +5849,10 @@ usplit_1_1(X, Y, [Z | L], R, Rs, S) ->
     usplit_1(Z, S, L, [], [[Y, X | R] | Rs]);
 usplit_1_1(X, Y, [], R, Rs, S) ->
     rumergel([[S], [Y, X | R] | Rs], [], asc).
-
+%%
 %% Descending.
-%% @private
+%%
+
 %% @doc Splits a list into sublists based on descending order, with duplicates handled explicitly.
 %%
 %% The `usplit_2/5` function processes a list, dividing it into sublists based on descending order. 
@@ -4374,7 +5896,8 @@ usplit_2(X, Y, [Z | L], R, Rs) ->
 usplit_2(X, Y, [], R, Rs) ->
     umergel([[Y, X | R] | Rs], [], desc).
 
-%% @private
+
+
 %% @doc Processes a list to split it into sublists based on descending order with an additional comparison value.
 %%
 %% The `usplit_2_1/6` function is a helper function for splitting lists into sublists based on descending order. 
@@ -4423,7 +5946,8 @@ usplit_2_1(X, Y, [], R, Rs, S) ->
 
 %% umerge/1
 
-%% @private
+
+
 %% @doc Merges a list of lists into a single list, handling both ascending and descending order.
 %%
 %% The `umergel/1` and `umergel/3` functions process a list of sublists (`L`) and merge them into a single list. 
@@ -4483,7 +6007,7 @@ umergel([[H1 | T1], [_|_]=T2 | L], Acc, asc) ->
 umergel([[_|_]=T2, [H1 | T1] | L], Acc, desc) ->
     umergel(L, [umerge2_2(T1, T2, [], H1) | Acc], desc).
 
-%% @private
+
 %% @doc Recursively merges lists in ascending or descending order using reverse merging.
 %%
 %% The `rumergel/3` function processes a list of sublists (`L`) and merges them into a single list. 
@@ -4527,7 +6051,8 @@ rumergel([], Acc, O) ->
 %% umerge3/3
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list in ascending order, prioritizing comparisons between all three heads.
 %%
 %% The `umerge3_1/7` function merges three sorted lists recursively by comparing the head elements (`H1`, `H2`, and `H3`). 
@@ -4575,7 +6100,8 @@ umerge3_1([], _HdM, T2, H2, M, T3, H3) ->
     umerge2_2(T2, T3, [H3 | M], H2).
 
 %% Take L2 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list, prioritizing comparisons between the first and second lists.
 %%
 %% The `umerge3_2/7` function merges three sorted lists (`T1`, `T2`, `T3`) by prioritizing comparisons between the first (`H1`) 
@@ -4619,7 +6145,8 @@ umerge3_2(T1, H1, [], _HdM, M, T3, H3) ->
     umerge2_2(T1, T3, [H3 | M], H1).
 
 % H1 =< H2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list, prioritizing the first and second lists, while handling comparisons with the third.
 %%
 %% The `umerge3_12/8` function merges three sorted lists (`T1`, `T2`, `T3`) into a single sorted list. 
@@ -4660,7 +6187,8 @@ umerge3_12(T1, H1, T2, H2, M, T3, H3, _HdM) ->
     umerge3_12_3(T1, H1, T2, H2, [H3 | M], T3).
 
 % H1 =< H2, take L3 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list, prioritizing the first and second lists, with detailed handling for the third list.
 %%
 %% The `umerge3_12_3/6` function continues merging three sorted lists (`T1`, `T2`, `T3`), focusing on comparisons 
@@ -4699,7 +6227,8 @@ umerge3_12_3(T1, H1, T2, H2, M, []) ->
     umerge2_1(T1, T2, [H1 | M], H1, H2).
 
 % H1 > H2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list, prioritizing the second and third lists, with detailed handling for the first list.
 %%
 %% The `umerge3_21/8` function merges three sorted lists (`T1`, `T2`, `T3`), focusing on comparisons between the second (`H2`) 
@@ -4739,7 +6268,8 @@ umerge3_21(T1, H1, T2, H2, M, T3, H3, _HdM) ->
     umerge3_21_3(T1, H1, T2, H2, [H3 | M], T3).
 
 % H1 > H2, take L3 apart.
-%% @private
+
+
 %% @doc Continues merging three sorted lists, focusing on the second and third lists, while maintaining the first list.
 %%
 %% The `umerge3_21_3/6` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in ascending order. 
@@ -4777,7 +6307,8 @@ umerge3_21_3(T1, H1, T2, H2, M, []) ->
     umerge2_2(T1, T2, [H2 | M], H1).
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list in reverse order, prioritizing comparisons among all three heads.
 %%
 %% The `rumerge3_1/6` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4820,7 +6351,8 @@ rumerge3_1([], T2, H2, M, T3, H3) ->
     rumerge2_1(T2, T3, [H2 | M], H3).
 
 % H1 =< H2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list in reverse order, prioritizing the first and second lists.
 %%
 %% The `rumerge3_12a/6` function continues merging three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4856,7 +6388,8 @@ rumerge3_12a(T1, H1, T2, H2, M, T3, H3) ->
     rumerge3_2(T1, T2, H2, M, T3, H3, H1).
 
 %% Take L2 apart. H2M > H3. H2M > H2.
-%% @private
+
+
 %% @doc Merges three sorted lists in reverse order, prioritizing comparisons between the first and second lists.
 %%
 %% The `rumerge3_2/7` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4909,7 +6442,8 @@ rumerge3_2(T1, [], H2M, M, T3, H3, H1) ->
     rumerge2_1(T1, T3, [H1, H2M | M], H3).
 
 % H1 =< H2. Inlined.
-%% @private
+
+
 %% @doc Continues merging three sorted lists in reverse order, prioritizing the first and second lists, with comparisons to the third.
 %%
 %% The `rumerge3_12b/7` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4946,7 +6480,8 @@ rumerge3_12b(T1, H1, T2, H2, M, T3, H3, H2M) ->
     rumerge3_2(T1, T2, H2, [H2M | M], T3, H3, H1).
 
 % H1 =< H2, take L3 apart.
-%% @private
+
+
 %% @doc Continues merging three sorted lists in reverse order, focusing on the second and third lists, with comparisons to the first.
 %%
 %% The `rumerge3_12_3/7` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -4990,7 +6525,8 @@ rumerge3_12_3(T1, T2, H2, M, [], H3M, H1) ->
     rumerge2_2(T1, T2, [H3M | M], H2, H1).
 
 % H1 > H2, take L3 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists in reverse order, focusing on the first and third lists, with comparisons to the second.
 %%
 %% The `rumerge3_21_3/7` function merges three sorted lists (`T1`, `T2`, `T3`) into a single list in reverse order. 
@@ -5036,7 +6572,8 @@ rumerge3_21_3(T1, T2, H2, M, [], H3M, H1) ->
 %% umerge/2
 
 %% Elements from the first list are kept and prioritized.
-%% @private
+
+
 %% @doc Merges two sorted lists into a single list in ascending order, prioritizing the first list.
 %%
 %% The `umerge2_1/5` function merges two sorted lists (`T1` and `T2`) into a single sorted list. It processes 
@@ -5078,7 +6615,8 @@ umerge2_1([], T2, M, HdM, H2) when H2 == HdM ->
 umerge2_1([], T2, M, _HdM, H2) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
+
 %% @doc Merges two sorted lists into a single list in ascending order, prioritizing the second list.
 %%
 %% The `umerge2_2/4` function merges two sorted lists (`T1` and `T2`) into a single sorted list. 
@@ -5117,7 +6655,8 @@ umerge2_2(T1, [], M, H1) ->
 %% rumerge/2
 
 %% Elements from the first list are kept and prioritized.
-%% @private
+
+
 %% @doc Merges two sorted lists in reverse order, prioritizing the first list.
 %%
 %% The `rumerge2_1/4` function merges two sorted lists (`T1` and `T2`) into a single list in reverse order. 
@@ -5154,7 +6693,8 @@ rumerge2_1([], T2, M, H2) ->
     lists:reverse(T2, [H2 | M]).
 
 % H1 =< H2M.
-%% @private
+
+
 %% @doc Merges two sorted lists in reverse order, prioritizing the second list with comparisons to the first.
 %%
 %% The `rumerge2_2/5` function merges two sorted lists (`T1` and `T2`) into a single list in reverse order. 
@@ -5198,8 +6738,10 @@ rumerge2_2(T1, [], M, H2M, H1) ->
 
 %% keysort/2
 
+%%
 %% Ascending.
-%% @private
+%%
+
 %% @doc Splits a list of tuples based on key comparisons, using two pivot keys, and finalizes the result with merging.
 %%
 %% The `keysplit_1/8` function processes a list of tuples (`[Z | L]`) and splits it into sublists based on comparisons 
@@ -5245,7 +6787,8 @@ keysplit_1(I, X, EX, Y, EY, [Z | L], R, Rs) ->
 keysplit_1(I, X, _EX, Y, _EY, [], R, Rs) ->
     rkeymergel(I, [[Y, X | R] | Rs], [], asc).
 
-%% @private
+
+
 %% @doc Handles intermediate splitting logic for tuples based on key comparisons, using three pivot keys, and finalizes results when the input list is empty.
 %%
 %% The `keysplit_1_1/10` function is an intermediate step in splitting a list of tuples (`[Z | L]`) based on key comparisons.
@@ -5293,8 +6836,10 @@ keysplit_1_1(I, X, EX, Y, EY, ES, R, Rs, S, [Z | L]) ->
 keysplit_1_1(I, X, _EX, Y, _EY, _ES, R, Rs, S, []) ->
     rkeymergel(I, [[S], [Y, X | R] | Rs], [], asc).
 
+%%
 %% Descending.
-%% @private
+%% 
+
 %% @doc Splits a list of tuples based on key comparisons, prioritizing descending order, and finalizes results when the input list is empty.
 %%
 %% The `keysplit_2/8` function processes a list of tuples (`[Z | L]`) and splits it into sublists based on comparisons 
@@ -5340,7 +6885,7 @@ keysplit_2(I, X, EX, Y, EY, [Z | L], R, Rs) ->
 keysplit_2(I, X, _EX, Y, _EY, [], R, Rs) ->
     keymergel(I, [[Y, X | R] | Rs], [], desc).
 
-%% @private
+
 %% @doc Performs intermediate splitting for tuples based on descending key comparisons, using three pivot keys, and finalizes results when the input list is empty.
 %%
 %% The `keysplit_2_1/10` function is an intermediate step in splitting a list of tuples (`[Z | L]`) based on descending comparisons of a specified key (`I`). 
@@ -5388,7 +6933,7 @@ keysplit_2_1(I, X, EX, Y, EY, ES, R, Rs, S, [Z | L]) ->
 keysplit_2_1(I, X, _EX, Y, _EY, _ES, R, Rs, S, []) ->
     keymergel(I, [[S], [Y, X | R] | Rs], [], desc).
 
-%% @private
+
 %% @doc Merges a list of sorted sublists into a single list, based on a specified key and order (ascending or descending).
 %%
 %% The `keymergel/4` function recursively merges sorted sublists (`[T1, T2, T3, ...]`) into a single sorted list. 
@@ -5436,7 +6981,7 @@ keymergel(I, [L], Acc, O) ->
 keymergel(I, [], Acc, O) ->
     rkeymergel(I, Acc, [], O).
 
-%% @private
+
 %% @doc Merges multiple sorted sublists into a single list in reverse order, then finalizes the result in ascending or descending order.
 %%
 %% The `rkeymergel/4` function merges sorted sublists (`[T1, T2, T3, ...]`) into a single list in reverse order based on a specified key (`I`), 
@@ -5486,7 +7031,8 @@ rkeymergel(I, [], Acc, O) ->
 %%% An extra argument, D, just to avoid some move instructions.
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list based on comparisons of a specified key, handling cases where one list is empty.
 %%
 %% The `keymerge3_1/10` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list by comparing their keys (`I`):
@@ -5533,7 +7079,8 @@ keymerge3_1(I, [], M, _D, E2, H2, T2, _E3, H3, T3) ->
     keymerge2_2(I, T2, E2, H3, T3, M, H2).
 
 %% Take L2 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single list, prioritizing comparisons between the first and second lists.
 %%
 %% The `keymerge3_2/10` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list, prioritizing comparisons between the first (`H1`) and second (`H2`) list heads. It handles cases where the second list (`T2`) is empty and delegates to appropriate helper functions:
@@ -5580,7 +7127,8 @@ keymerge3_2(I, E1, H1, T1, [], M, _D, _E3, H3, T3) ->
     keymerge2_2(I, T1, E1, H3, T3, M, H1).
 
 % E1 =< E2. Inlined.
-%% @private
+
+
 %% @doc Merges three sorted lists, focusing on the first and second lists, with comparisons to the third.
 %%
 %% The `keymerge3_12/12` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list. 
@@ -5620,7 +7168,7 @@ keymerge3_12(I, E1, H1, T1, E2, H2, T2, _E3, H3, T3, M, _D) ->
     keymerge3_12_3(I, E1, H1, T1, E2, H2, T2, T3, [H3 | M]).
 
 % E1 =< E2, take L3 apart.
-%% @private
+
 %% @doc Merges three sorted lists, prioritizing the first and second lists while iterating through the third list.
 %%
 %% The `keymerge3_12_3/9` function continues merging three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`), focusing on 
@@ -5664,7 +7212,7 @@ keymerge3_12_3(I, _E1, H1, T1, E2, H2, T2, [], M) ->
     keymerge2_1(I, T1, E2, H2, T2, [H1 | M]).
 
 % E1 > E2. Inlined.
-%% @private
+
 %% @doc Merges three sorted lists, focusing on the second and third lists, while managing the first.
 %%
 %% The `keymerge3_21/12` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list. 
@@ -5705,7 +7253,7 @@ keymerge3_21(I, E1, H1, T1, E2, H2, T2, _E3, H3, T3, M, _D) ->
     keymerge3_21_3(I, E1, H1, T1, E2, H2, T2, T3, [H3 | M]).
 
 % E1 > E2, take L3 apart.
-%% @private
+
 %% @doc Continues merging three sorted lists, focusing on the second and third lists, while iterating through the third.
 %%
 %% The `keymerge3_21_3/9` function processes three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`), prioritizing comparisons 
@@ -5749,7 +7297,7 @@ keymerge3_21_3(I, E1, H1, T1, _E2, H2, T2, [], M) ->
     keymerge2_2(I, T1, E1, H2, T2, M, H1).
 
 %% Take L1 apart.
-%% @private
+
 %% @doc Merges three sorted lists in reverse order, focusing on the first and second lists, while managing the third.
 %%
 %% The `rkeymerge3_1/10` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list in reverse order:
@@ -5796,7 +7344,7 @@ rkeymerge3_1(I, [], M, _D, _E2, H2, T2, E3, H3, T3) ->
     rkeymerge2_1(I, T2, E3, H3, T3, [H2 | M]).
 
 %% Take L2 apart.
-%% @private
+
 %% @doc Merges three sorted lists in reverse order, focusing on the first and second lists, while managing the third.
 %%
 %% The `rkeymerge3_2/10` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list in reverse order. 
@@ -5844,7 +7392,7 @@ rkeymerge3_2(I, _E1, H1, T1, [], M, _D, E3, H3, T3) ->
     rkeymerge2_1(I, T1, E3, H3, T3, [H1 | M]).
 
 % E1 =< E2. Inlined.
-%% @private
+
 %% @doc Merges three sorted lists in reverse order, focusing on the first and second lists, while managing the third.
 %%
 %% The `rkeymerge3_12/12` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) into a single sorted list in reverse order:
@@ -5884,7 +7432,7 @@ rkeymerge3_12(I, E1, H1, T1, _E2, H2, T2, E3, H3, T3, M, D) ->
     rkeymerge3_2(I, E1, H1, T1, T2, [H2 | M], D, E3, H3, T3).
 
 % E1 =< E2, take L3 apart.
-%% @private
+
 %% @doc Continues merging three sorted lists in reverse order, focusing on the second and third lists while managing the first.
 %%
 %% The `rkeymerge3_12_3/9` function processes three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) by comparing the second (`H2`) and third (`H3`) lists, while keeping the first list (`H1` and `T1`) in context:
@@ -5926,7 +7474,7 @@ rkeymerge3_12_3(I, E1, H1, T1, _E2, H2, T2, [], M) ->
     rkeymerge2_2(I, E1, T1, H2, T2, M, H1).
 
 % E1 > E2. Inlined.
-%% @private
+
 %% @doc Merges three sorted lists in reverse order, focusing on the first and third lists, while managing the second.
 %%
 %% The `rkeymerge3_21/12` function processes three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) by prioritizing comparisons 
@@ -5967,7 +7515,7 @@ rkeymerge3_21(I, _E1, H1, T1, E2, H2, T2, E3, H3, T3, M, D) ->
     rkeymerge3_1(I, T1, [H1 | M], D, E2, H2, T2, E3, H3, T3).
 
 % E1 > E2, take L3 apart.
-%% @private
+
 %% @doc Continues merging three sorted lists in reverse order, focusing on the first and third lists while managing the second.
 %%
 %% The `rkeymerge3_21_3/9` function processes three sorted lists (`[H1 | T1]`, `[H2 | T2]`, `[H3 | T3]`) by prioritizing comparisons 
@@ -6013,7 +7561,7 @@ rkeymerge3_21_3(I, _E1, H1, T1, E2, H2, T2, [], M) ->
 %% keymerge/3
 
 %% Elements from the first list are prioritized.
-%% @private
+
 %% @doc Merges two sorted lists, focusing on the first list, with comparisons against the second.
 %%
 %% The `keymerge2_1/6` function processes two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into a single sorted list:
@@ -6064,7 +7612,7 @@ keymerge2_2(_I, T1, _E1, HdM, [], M, H1) ->
 
 %% rkeymerge/3
 
-%% @private
+
 %% @doc Merges two sorted lists in reverse order, focusing on the first list, with comparisons against the second.
 %%
 %% The `rkeymerge2_1/6` function processes two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into a single sorted list in reverse order:
@@ -6103,7 +7651,8 @@ rkeymerge2_1(I, [H1 | T1], E2, H2, T2, M) ->
 rkeymerge2_1(_I, [], _E2, H2, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
+
 %% @doc Merges two sorted lists in reverse order, focusing on the second list, while managing the first.
 %%
 %% The `rkeymerge2_2/7` function processes two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into a single sorted list in reverse order:
@@ -6144,8 +7693,10 @@ rkeymerge2_2(_I, _E1, T1, HdM, [], M, H1) ->
 
 %% ukeysort/2
 
+%%
 %% Ascending.
-%% @private
+%% 
+
 %% @doc Splits a list into ascending runs based on a specified key, starting from two initial elements.
 %%
 %% The `ukeysplit_1/8` function takes a list and iteratively splits it into ascending "runs" based on comparisons of keys from a specified index:
@@ -6195,7 +7746,7 @@ ukeysplit_1(I, X, EX, Y, EY, [Z | L], R, Rs) ->
 ukeysplit_1(I, X, _EX, Y, _EY, [], R, Rs) ->
     rukeymergel(I, [[Y, X | R] | Rs], []).
 
-%% @private
+
 %% @doc Handles cases where a new run is detected during list splitting into ascending runs based on a specified key.
 %%
 %% The `ukeysplit_1_1/10` function is a helper for `ukeysplit_1/8`, processing an element and deciding whether to continue the current run, start a new run, or finalize an existing run:
@@ -6247,8 +7798,10 @@ ukeysplit_1_1(I, X, EX, Y, EY, [Z | L], R, Rs, S, ES) ->
 ukeysplit_1_1(I, X, _EX, Y, _EY, [], R, Rs, S, _ES) ->
     rukeymergel(I, [[S], [Y, X | R] | Rs], []).
 
+%%
 %% Descending.
-%% @private
+%% 
+
 %% @doc Splits a list into descending runs based on a specified key.
 %%
 %% The `ukeysplit_2/5` function processes a list to split it into descending runs, using a specified key for comparisons:
@@ -6289,7 +7842,7 @@ ukeysplit_2(I, Y, EY, [Z | L], R) ->
 ukeysplit_2(_I, Y, _EY, [], R) ->
     [Y | R].
 
-%% @private
+
 %% @doc Merges multiple sorted lists into a single sorted list while maintaining ascending order, based on a specified key.
 %%
 %% The `ukeymergel/3` function recursively merges multiple sorted lists by splitting them into pairs or triples and applying merge operations:
@@ -6335,6 +7888,16 @@ ukeymergel(I, [L], Acc) ->
 ukeymergel(I, [], Acc) ->
     rukeymergel(I, Acc, []).
 
+%% @doc Helper function for merging multiple sorted lists based on a key in reverse order.
+%% This function recursively merges lists while maintaining order based on the `I`-th element 
+%% of tuples and ensuring uniqueness.
+%%
+%% @param I The index position in the tuples used for comparison (1-based index).
+%% @param List A list of sorted lists to be merged.
+%% @param Acc An accumulator list storing intermediate merged results.
+%% @return A merged list preserving order based on the `I`-th element.
+%%
+%% @complexity O(N log M), where N is the total number of elements, and M is the number of lists.
 rukeymergel(I, [[H3 | T3], [H2 | T2], T1 | L], Acc) ->
     M = rukeymerge3_1(I, T1, Acc, [], element(I, H2), H2, T2, [],
                       element(I, H3), H3, T3),
@@ -6349,7 +7912,8 @@ rukeymergel(I, [], Acc) ->
 %%% An extra argument, D, just to avoid some move instructions.
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Merges three sorted lists into a single sorted list based on a specified key.
 %%
 %% The `ukeymerge3_1/11` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, and `[H3 | T3]`) while maintaining ascending order:
@@ -6406,7 +7970,7 @@ ukeymerge3_1(I, [], _D, _HdM, E2, H2, T2, M, _E3, H3, T3) ->
     ukeymerge2_2(I, T2, E2, H2, T3, [H3 | M]).
 
 %% Take L2 apart.
-%% @private
+
 %% @doc Merges three sorted lists into a single sorted list, prioritizing comparisons between the first and second lists.
 %%
 %% The `ukeymerge3_2/11` function merges three sorted lists (`[H1 | T1]`, `[H2 | T2]`, and `[H3 | T3]`) in ascending order:
@@ -6458,7 +8022,8 @@ ukeymerge3_2(I, E1, T1, H1, [], _HdM, _D, M, _E3, H3, T3) ->
     ukeymerge2_2(I, T1, E1, H1, T3, [H3 | M]).
 
 % E1 =< E2. Inlined.
-%% @private
+
+
 %% @doc Merges the first and second sorted lists into a single sorted list, while considering a third list for future merges.
 %%
 %% The `ukeymerge3_12/13` function focuses on merging the first (`[H1 | T1]`) and second (`[H2 | T2]`) sorted lists based on a specified key. 
@@ -6505,7 +8070,8 @@ ukeymerge3_12(I, E1, T1, H1, E2, H2, T2, _E3, H3, T3, M, _HdM, _D) ->
     ukeymerge3_12_3(I, E1, T1, H1, E2, H2, T2, [H3 | M], T3).
 
 % E1 =< E2, take L3 apart.
-%% @private
+
+
 %% @doc Continues merging the first and second lists while processing the third list for further integration.
 %%
 %% The `ukeymerge3_12_3/9` function merges the first (`[H1 | T1]`) and second (`[H2 | T2]`) lists while iterating through the third list (`[H3 | T3]`):
@@ -6548,7 +8114,7 @@ ukeymerge3_12_3(I, E1, T1, H1, E2, H2, T2, M, []) ->
     ukeymerge2_1(I, T1, E2, E1, T2, [H1 | M], H2).
 
 % E1 > E2. Inlined.
-%% @private
+
 %% @doc Merges the second and third lists into a single sorted list, while considering the first list for further integration.
 %%
 %% The `ukeymerge3_21/13` function focuses on merging the second (`[H2 | T2]`) and third (`[H3 | T3]`) sorted lists based on a specified key. 
@@ -6595,7 +8161,7 @@ ukeymerge3_21(I, E1, T1, H1, E2, H2, T2, _E3, H3, T3, M, _HdM, _D) ->
     ukeymerge3_21_3(I, E1, T1, H1, E2, H2, T2, [H3 | M], T3).
 
 % E1 > E2, take L3 apart.
-%% @private
+
 %% @doc Continues merging the second and third lists while processing the first list for further integration.
 %%
 %% The `ukeymerge3_21_3/9` function handles the merging of the second (`[H2 | T2]`) and third (`[H3 | T3]`) lists while integrating elements from the first list (`[H1 | T1]`):
@@ -6640,7 +8206,8 @@ ukeymerge3_21_3(I, E1, T1, H1, _E2, H2, T2, M, []) ->
 %%% Two extra arguments, D1 and D2, just to avoid some move instructions.
 
 %% Take L1 apart.
-%% @private
+
+
 %% @doc Merges three reverse-sorted lists into a single list, prioritizing comparisons between the first and second lists.
 %%
 %% The `rukeymerge3_1/11` function merges three reverse-sorted lists (`[H1 | T1]`, `[H2 | T2]`, and `[H3 | T3]`) in descending order:
@@ -6689,7 +8256,7 @@ rukeymerge3_1(I, [], _D1, _D2, _E2, H2, T2, M, E3, H3, T3) ->
     rukeymerge2_1(I, T2, E3, T3, [H2 | M], H3).
 
 % E1 =< E2. Inlined.
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with potential fallback to the third list for further integration.
 %%
 %% The `rukeymerge3_12a/11` function merges the first (`[H1 | T1]`) and second (`[H2 | T2]`) reverse-sorted lists:
@@ -6728,7 +8295,7 @@ rukeymerge3_12a(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M) ->
     rukeymerge3_2(I, E1, H1, T1, T2, H2, E2, M, E3, H3, T3).
 
 % E1 > E2. Inlined
-%% @private
+
 %% @doc Merges the first and third reverse-sorted lists, integrating the second list as needed.
 %%
 %% The `rukeymerge3_21a/13` function handles merging of the first (`[H1 | T1]`) and third (`[H3 | T3]`) reverse-sorted lists while integrating the second list (`[H2 | T2]`):
@@ -6770,7 +8337,7 @@ rukeymerge3_21a(I, _E1, H1, T1, E2, H2, T2, E3, H3, T3, M, D1, D2) ->
     rukeymerge3_1(I, T1, D1, D2, E2, H2, T2, [H1 | M], E3, H3, T3).
 
 %% Take L2 apart. E2M > E3. E2M > E2.
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with fallback to the third list if necessary.
 %%
 %% The `rukeymerge3_2/11` function focuses on merging the first (`[H1 | T1]`) and second (`[H2 | T2]`) reverse-sorted lists while integrating the third list (`[H3 | T3]`):
@@ -6828,7 +8395,7 @@ rukeymerge3_2(I, _E1, H1, T1, [], H2M, _E2M, M, E3, H3, T3) ->
     rukeymerge2_1(I, T1, E3, T3, [H1, H2M | M], H3).
 
 % E1 =< E2. Inlined.
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with fallback to the third list as needed.
 %%
 %% The `rukeymerge3_12b/12` function merges the first (`[H1 | T1]`) and second (`[H2 | T2]`) reverse-sorted lists while handling integration with the third list (`[H3 | T3]`):
@@ -6869,7 +8436,7 @@ rukeymerge3_12b(I, E1, H1, T1, E2, H2, T2, E3, H3, T3, M, H2M) ->
     rukeymerge3_2(I, E1, H1, T1, T2, H2, E2, [H2M | M], E3, H3, T3).
 
 % E1 > E2. Inlined
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with integration of the third list as needed.
 %%
 %% The `rukeymerge3_21b/12` function processes the first (`[H1 | T1]`) and second (`[H2 | T2]`) reverse-sorted lists, integrating the third list (`[H3 | T3]`) as necessary:
@@ -6909,7 +8476,7 @@ rukeymerge3_21b(I, _E1, H1, T1, E2, H2, T2, E3, H3, T3, M, H2M) ->
     rukeymerge3_1(I, T1, H1, T1, E2, H2, T2, [H1, H2M | M], E3, H3, T3).
 
 % E1 =< E2, take L3 apart.
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with fallback integration of the third list when necessary.
 %%
 %% The `rukeymerge3_12_3/11` function processes the first (`[H1 | T1]`), second (`[H2 | T2]`), and third (`[H3 | T3]`) reverse-sorted lists:
@@ -6962,7 +8529,7 @@ rukeymerge3_12_3(I, E1, H1, T1, E2, H2, T2, M, _E3M, H3M, []) ->
     rukeymerge2_2(I, T1, E1, T2, [H3M | M], E2, H2, H1).
 
 % E1 > E2, take L3 apart.
-%% @private
+
 %% @doc Merges the first and second reverse-sorted lists, with fallback integration of the third list when necessary.
 %%
 %% The `rukeymerge3_21_3/11` function processes the first (`[H1 | T1]`), second (`[H2 | T2]`), and third (`[H3 | T3]`) reverse-sorted lists:
@@ -7017,7 +8584,7 @@ rukeymerge3_21_3(I, _E1, H1, T1, E2, H2, T2, M, _E3M, H3M, []) ->
 %% ukeymerge/3
 
 %% Elements from the first list are kept and prioritized.
-%% @private
+
 %% @doc Merges two reverse-sorted lists while maintaining order and integrating elements as necessary.
 %%
 %% The `ukeymerge2_1/7` function processes two reverse-sorted lists (`[H1 | T1]` and `[H2 | T2]`):
@@ -7066,7 +8633,7 @@ ukeymerge2_1(_I, [], E2, HdM, T2, M, _H2) when E2 == HdM ->
 ukeymerge2_1(_I, [], _E2, _HdM, T2, M, H2) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
 %% @doc Merges two reverse-sorted lists, integrating the second list's elements into the result.
 %%
 %% The `ukeymerge2_2/6` function processes two reverse-sorted lists:
@@ -7110,7 +8677,7 @@ ukeymerge2_2(_I, T1, _E1, H1, [], M) ->
 
 %% rukeymerge/3
 
-%% @private
+
 %% @doc Merges two reverse-sorted lists by integrating elements from the first list (`[H1 | T1]`) into the second list (`[H2 | T2]`) while maintaining reverse order.
 %%
 %% The `rukeymerge2_1/6` function performs the following:
@@ -7152,7 +8719,7 @@ rukeymerge2_1(I, [H1 | T1], E2, T2, M, H2) ->
 rukeymerge2_1(_I, [], _E2, T2, M, H2) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
 %% @doc Merges two reverse-sorted lists, integrating elements from the second list (`[H2 | T2]`) into the result.
 %%
 %% The `rukeymerge2_2/8` function processes two reverse-sorted lists:
@@ -7204,8 +8771,10 @@ rukeymerge2_2(_I, T1, _E1, [], M, _E2M, H2M, H1) ->
 
 %% sort/2
 
+%%
 %% Ascending.
-%% @private
+%%
+
 %% @doc Splits a list into sublists based on a comparison function, creating groups that maintain a specified ordering.
 %%
 %% The `fsplit_1/6` function processes a list of elements to divide it into sublists according to the provided comparison function (`Fun`). 
@@ -7257,7 +8826,7 @@ fsplit_1(Y, X, Fun, [Z | L], R, Rs) ->
 fsplit_1(Y, X, Fun, [], R, Rs) ->
     rfmergel([[Y, X | R] | Rs], [], Fun, asc).
 
-%% @private
+
 %% @doc Handles secondary splitting logic for lists, ensuring groups are finalized and new groups are started based on a comparison fun.
 %%
 %% The `fsplit_1_1/7` function is a helper for `fsplit_1/6` that deals with situations where the comparison logic involves an additional "pivot" element (`S`). 
@@ -7313,8 +8882,10 @@ fsplit_1_1(Y, X, Fun, [Z | L], R, Rs, S) ->
 fsplit_1_1(Y, X, Fun, [], R, Rs, S) ->
     rfmergel([[S], [Y, X | R] | Rs], [], Fun, asc).
 
+%%
 %% Descending.
-%% @private
+%%
+
 %% @doc Splits a list into sublists based on a comparison fun, creating groups in descending order.
 %%
 %% The `fsplit_2/6` function processes a list of elements to divide it into sublists according to the provided comparison fun (`Fun`). 
@@ -7366,7 +8937,8 @@ fsplit_2(Y, X, Fun, [Z | L], R, Rs) ->
 fsplit_2(Y, X, Fun, [], R, Rs) ->
     fmergel([[Y, X | R] | Rs], [], Fun, desc).
 
-%% @private
+
+
 %% @doc Handles secondary splitting logic for lists in descending order, ensuring groups are finalized and new groups are started based on a comparison fun.
 %%
 %% The `fsplit_2_1/7` function is a helper for `fsplit_2/6` that deals with situations where the comparison logic involves an additional "pivot" element (`S`).
@@ -7422,7 +8994,8 @@ fsplit_2_1(Y, X, Fun, [Z | L], R, Rs, S) ->
 fsplit_2_1(Y, X, Fun, [], R, Rs, S) ->
     fmergel([[S], [Y, X | R] | Rs], [], Fun, desc).
 
-%% @private
+
+
 %% @doc Merges sublists into a single list, processing in ascending or descending order based on a comparison function.
 %%
 %% The `fmergel/4` function merges a collection of sublists using the provided comparison function (`Fun`) to produce a single sorted list. 
@@ -7465,7 +9038,8 @@ fmergel([L], Acc, Fun, O) ->
 fmergel([], Acc, Fun, O) ->
     rfmergel(Acc, [], Fun, O).
 
-%% @private
+
+
 %% @doc Recursively merges sublists into a single list, processing them in reverse order based on a comparison function.
 %%
 %% The `rfmergel/4` function combines sublists in reverse order to produce a single sorted list. It works with both ascending and descending orders, as determined by the `O` argument.
@@ -7510,7 +9084,7 @@ rfmergel([], Acc, Fun, O) ->
 
 %% Elements from the first list are prioritized.
 
-%% @private
+
 %% @doc Merges two sorted lists into a single sorted list using a comparison fun, starting with the first list.
 %%
 %% The `fmerge2_1/5` function merges two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into one sorted list. 
@@ -7556,7 +9130,7 @@ fmerge2_1([H1 | T1], H2, Fun, T2, M) ->
 fmerge2_1([], H2, _Fun, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
 %% @doc Merges two sorted lists into a single sorted list using a comparison function, starting with the second list.
 %%
 %% The `fmerge2_2/5` function merges two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into one sorted list. 
@@ -7604,7 +9178,7 @@ fmerge2_2(H1, T1, _Fun, [], M) ->
 
 %% rmerge/3
 
-%% @private
+
 %% @doc Merges two sorted lists into a single sorted list using a comparison function, prioritizing the first list.
 %%
 %% The `rfmerge2_1/5` function merges two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into a single sorted list. 
@@ -7650,7 +9224,8 @@ rfmerge2_1([H1 | T1], H2, Fun, T2, M) ->
 rfmerge2_1([], H2, _Fun, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
-%% @private
+
+
 %% @doc Merges two sorted lists into a single sorted list using a comparison function, prioritizing the second list.
 %%
 %% The `rfmerge2_2/5` function merges two sorted lists (`[H1 | T1]` and `[H2 | T2]`) into one sorted list. 
@@ -7698,8 +9273,10 @@ rfmerge2_2(H1, T1, _Fun, [], M) ->
 
 %% usort/2
 
+%%
 %% Ascending. X < Y
-%% @private
+%%
+
 %% @doc Splits a list into multiple ordered sublists based on a user-provided comparison function.
 %%
 %% The `ufsplit_1/6` function processes a list `[Z | L]` element by element, comparing each element `Z` with two pivot elements `Y` and `X` using the user-provided comparison function `Fun`. It determines whether `Z` should:
@@ -7767,7 +9344,8 @@ ufsplit_1(Y, X, Fun, [], R, Rs) ->
     rufmergel([[Y, X | R] | Rs], [], Fun).
 
 %% X < Y
-%% @private
+
+
 %% @doc Further splits a list into ordered sublists based on a user-defined comparison function, considering an additional pivot.
 %%
 %% The `ufsplit_1_1/7` function processes a list `[Z | L]`, comparing each element `Z` with three pivot elements: `Y`, `X`, and `S`.
@@ -7850,8 +9428,10 @@ ufsplit_1_1(Y, X, Fun, [Z | L], R, Rs, S) ->
 ufsplit_1_1(Y, X, Fun, [], R, Rs, S) ->
     rufmergel([[S], [Y, X | R] | Rs], [], Fun).
 
+%%
 %% Descending.
-%% @private
+%%
+
 %% @doc Splits a list into ordered sublists using a user-defined comparison function, starting from a single pivot.
 %%
 %% The `ufsplit_2/4` function processes a list `[Z | L]`, comparing each element `Z` with a single pivot `Y` using a user-provided 
@@ -7906,7 +9486,8 @@ ufsplit_2(Y, [Z | L], Fun, R) ->
 ufsplit_2(Y, [], _Fun, R) ->
     [Y | R].
 
-%% @private
+
+
 %% @doc Merges a list of sorted sublists into a single sorted list using a user-defined comparison function.
 %%
 %% The `ufmergel/3` function iteratively merges pairs of sorted sublists from the input list using a user-defined 
@@ -7965,7 +9546,8 @@ rufmergel([], Acc, Fun) ->
 
 %% Elements from the first list are kept and prioritized.
 %% HdM before H2.
-%% @private
+
+
 %% @doc Merges two sorted lists based on a user-defined comparison function, while maintaining stability and detecting duplicates.
 %%
 %% The `ufmerge2_1/6` function merges the head of the first sorted list (`[H1 | T1]`) with the second list (`H2`, `T2`),
@@ -8032,7 +9614,8 @@ ufmerge2_1([], H2, Fun, T2, M, HdM) ->
             lists:reverse(T2, [H2 | M])
     end.
 
-%% @private
+
+
 %% @doc Merges two sorted lists based on a user-defined comparison function, starting with the head of the second list.
 %%
 %% The `ufmerge2_2/5` function merges the first list (`H1`, `T1`) with the second list (`[H2 | T2]`),
@@ -8088,7 +9671,8 @@ ufmerge2_2(H1, T1, _Fun, [], M) ->
 
 %% rumerge/3
 
-%% @private
+
+
 %% @doc Merges two sorted lists in reverse order based on a user-defined comparison function, prioritizing the head of the second list.
 %%
 %% The `rufmerge2_1/5` function merges the first sorted list (`[H1 | T1]`) with the second list (`[H2 | T2]`),
@@ -8139,7 +9723,8 @@ rufmerge2_1([], H2, _Fun, T2, M) ->
     lists:reverse(T2, [H2 | M]).
 
 %% H1 before H2M
-%% @private
+
+
 %% @doc Merges two sorted lists in reverse order using a user-defined comparison function, prioritizing the head of the first list.
 %%
 %% The `rufmerge2_2/6` function merges the head and tail of the first list (`H1`, `T1`) with the second list (`H2`, `T2`),
@@ -8216,6 +9801,7 @@ _Examples:_
 [a, 1, b, 2, 3]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Removes duplicate elements from a list while preserving the order of the first occurrences.
 %%
 %% The `uniq/1` function is a wrapper around `uniq_1/2`, designed to simplify the removal of duplicates in a list. 
@@ -8242,12 +9828,9 @@ _Examples:_
 %% - Returns a list containing unique elements from the input list, preserving their order of first appearance.
 %%
 %% @since OTP 25.0
-%% @spec uniq(List1) -> List2 when
-%%       List1 :: [T],
-%%       List2 :: [T],
-%%       T :: term().
 %%
 %% @complexity O(N), where `N` is the number of elements in the input list.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 25.0">>}).
 -spec uniq(List1) -> List2 when
       List1 :: [T],
@@ -8257,7 +9840,7 @@ _Examples:_
 uniq(L) ->
     uniq_1(L, #{}).
 
-%% @private
+
 %% @doc Removes duplicate elements from a list while preserving the order of the first occurrences.
 %%
 %% The `uniq_1/2` function processes a list (`[X | Xs]`) and uses a map (`M`) to track elements that have already been seen. 
@@ -8309,6 +9892,7 @@ _Examples:_
 [{b, 2}, {a, 1}, {c, 3}]
 ```
 """.
+%%BEGIN_DOC_BLOCK
 %% @doc Removes duplicate elements from a list based on keys extracted by a user-defined function, preserving the order of the first occurrences.
 %%
 %% The `uniq/2` function uses a key-extraction function to determine the uniqueness of elements in the input list.
@@ -8339,13 +9923,9 @@ _Examples:_
 %% - The key-extraction function `F` must be a valid function of arity 1.
 %%
 %% @since OTP 25.0
-%% @spec uniq(Fun, List1) -> List2 when
-%%       Fun :: fun((T) -> any()),
-%%       List1 :: [T],
-%%       List2 :: [T],
-%%       T :: term().
 %%
 %% @complexity O(N), where `N` is the number of elements in the input list.
+%%END_DOC_BLOCK
 -doc(#{since => <<"OTP 25.0">>}).
 -spec uniq(Fun, List1) -> List2 when
       Fun :: fun((T) -> any()),
