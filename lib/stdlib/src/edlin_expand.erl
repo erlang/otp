@@ -961,7 +961,7 @@ expand_name(ModStr, Type, Prefix, CompleteChar, FT) ->
                                     Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{group := G}}<-Docs, Type1 =:= Type, lists:member({Name,Arity},Exports)],
                                     Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false, lists:member({Name,Arity},Exports)];
                                 type ->
-                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true, group := G}}<-Docs, Type1 =:= Type, lists ],
+                                    Grouped = [{pp(G),{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true, group := G}}<-Docs, Type1 =:= Type],
                                     Ungrouped = [{TypeStr,{Name,Arity}} || {{Type1,Name,Arity},_,_,_,#{exported := true}=MD}<-Docs, Type1 =:= Type, maps:is_key(group, MD) =:= false]
                             end,
                             Groups = maps:groups_from_list(fun (T)->element(1,T) end,
