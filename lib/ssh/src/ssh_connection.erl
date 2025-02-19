@@ -61,8 +61,7 @@ these messages are handled by
 -export([session_channel/2, session_channel/4,
 	 exec/4, shell/2, subsystem/4, send/3, send/4, send/5, 
 	 send_eof/2, adjust_window/3, setenv/5, close/2, reply_request/4,
-	 ptty_alloc/3, ptty_alloc/4,
-	 set_window_handling_mode/3]).
+	 ptty_alloc/3, ptty_alloc/4]).
 
 %% Potential API currently unsupported and not tested
 -export([window_change/4, window_change/6,
@@ -558,27 +557,6 @@ server-side channel processes.
 %%--------------------------------------------------------------------
 adjust_window(ConnectionRef, Channel, Bytes) ->
     ssh_connection_handler:adjust_window(ConnectionRef, Channel, Bytes).
-
-%%--------------------------------------------------------------------
--doc """
-Sets the SSH flow control mode. This can be done by the client- or server-side
-channel process.
-
-If the flow control mode is set to `auto` (default) then the channel process
-does not need to take any action with regard to flow control.
-If the flow control mode is set to `manual` then it is up to the channel process
-to send the window adjust messages by use of
-[ssh_connection:adjust_window/3](`adjust_window/3`).
-The flow control mode can be changed at any time when the corresponding channel
-is open.
-""".
-%%
--spec set_window_handling_mode(ConnectionRef, ChannelId, Mode) -> ok when
-      ConnectionRef :: ssh:connection_ref(),
-      ChannelId :: ssh:channel_id(),
-      Mode :: auto | manual.
-set_window_handling_mode(ConnectionRef, ChannelId, Mode) ->
-    ssh_connection_handler:set_window_handling_mode(ConnectionRef, ChannelId, Mode).
 
 %%--------------------------------------------------------------------
 -doc """

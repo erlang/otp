@@ -71,8 +71,6 @@
          gracefull_invalid_version/1,
          kex_error/1,
          interrupted_send/1,
-         manual_window_handling/1,
-         auto_window_handling/1,
          max_channels_option/1,
          no_sensitive_leak/1,
          ptty_alloc/1,
@@ -131,8 +129,6 @@ all() ->
      {group, openssh},
      small_interrupted_send,
      interrupted_send,
-     manual_window_handling,
-     auto_window_handling,
      exec_erlang_term,
      exec_erlang_term_non_default_shell,
      exec_disabled,
@@ -235,24 +231,12 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-init_per_testcase(TestCase, Config) ->
-    PktSize = 1024, % 1KiB
-    NewConfig = case TestCase of
-        manual_window_handling ->
-            [{init_win_size, 2 * PktSize}, {init_pkt_size, PktSize},
-             {window_handling_mode, manual},
-             {adjust_timeout, 2000} | Config];
-        auto_window_handling ->
-            [{init_win_size, 2 * PktSize}, {init_pkt_size, PktSize},
-             {window_handling_mode, auto},
-             {adjust_timeout, 2000} | Config];
-        _ -> Config
-    end,
+init_per_testcase(_TestCase, Config) ->
     ssh:stop(),
     ssh:start(),
     {ok, TestLogHandlerRef} = ssh_test_lib:add_log_handler(),
-    ssh_test_lib:verify_sanity_check(NewConfig),
-    [{log_handler_ref, TestLogHandlerRef} | NewConfig].
+    ssh_test_lib:verify_sanity_check(Config),
+    [{log_handler_ref, TestLogHandlerRef} | Config].
 
 end_per_testcase(TestCase, Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
@@ -793,7 +777,7 @@ small_interrupted_send(Config) ->
 interrupted_send(Config) ->
     K = 1024,
     SendSize = 10 * K * K,
-    EchoSize = 10 * K * K,
+    EchoSize = 4 * K * K,
     do_interrupted_send(Config, SendSize, EchoSize, ok).
 
 do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
@@ -893,158 +877,6 @@ do_interrupted_send(Config, SendSize, EchoSize, SenderResult) ->
 		    ct:log("~p:~p Got unexpected ~p",[?MODULE,?LINE,Msg]),
 		    {fail, "Unexpected msg"}
 	    end
-    end.
-
-manual_window_handling(Config) ->
-    do_adjusted_send(Config, 10, ok).
-
-auto_window_handling(Config) ->
-    do_adjusted_send(Config, 10, fail).
-
-sender_loop(Parent, _ConnRef, _ChannelId, _Bin, 0) ->
-    Parent ! {self(), ok};
-sender_loop(Parent, ConnRef, ChannelId, Bin, Ctr) ->
-    SendBin = <<Ctr:32, Bin/binary>>,
-    ct:log("~p:~p Sending packet number ~p", [?MODULE, ?LINE, Ctr]),
-    ssh_connection:send(ConnRef, ChannelId, SendBin, 30000),
-    sender_loop(Parent, ConnRef, ChannelId, Bin, Ctr - 1).
-
-mk_receive_loop_fun(ConnRef, ChannelId, RcvTmo, ReportAdjustFun) ->
-    fun(Continue, RcvCtr, 0) ->
-        receive
-            {ssh_cm, ConnRef, {eof, ChannelId}} ->
-                ct:log("~p:~p Received eof", [?MODULE, ?LINE]),
-                Continue(Continue, RcvCtr, 0);
-            {ssh_cm, ConnRef, {closed, ChannelId}} ->
-                ct:log("~p:~p Peer closed the channel, closing", [?MODULE, ?LINE]),
-                ssh:close(ConnRef);
-            What ->
-                ct:log("~p:~p What is this ~p?", [?MODULE, ?LINE, What]),
-                Continue(Continue, RcvCtr, 0)
-        end;
-        (Continue, RcvCtr, ExpectedCtr) ->
-            receive
-                {ssh_cm, ConnRef, {data, ChannelId, 0, <<Ctr:32, _/binary>> = Data}} when byte_size(Data) == 1024 ->
-                    ct:log("~p:~p Received back number ~p", [?MODULE, ?LINE, Ctr]),
-                    if ExpectedCtr /= Ctr ->
-                            ct:fail("Unexpected counter value: ~p (expected ~p)", [Ctr, ExpectedCtr]);
-                        true ->
-                            Continue(Continue, RcvCtr + 1, ExpectedCtr - 1)
-                    end;
-                {ssh_cm, ConnRef, {eof, ChannelId}} ->
-                    ct:fail("Unexpected eof");
-                {ssh_cm, ConnRef, {closed,ChannelId}} ->
-                    ct:fail("Unexpected eof")
-            after RcvTmo ->
-                ct:log("~p:~p After ~p packets should adjust window", [?MODULE, ?LINE, RcvCtr]),
-
-                %% This function will either send adjust_window message (if allowed)
-                %% or send a message to the parent PID, which it does not expect
-                %% The latter would mean that the sender sees our recv window as full
-                %% as no auto-adjust happened
-                ReportAdjustFun(),
-                Continue(Continue, RcvCtr, ExpectedCtr)
-            end
-    end.
-
-do_adjusted_send(Config, NPkts, IsAdjustOk) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
-    file:make_dir(UserDir),
-    PktSize = proplists:get_value(init_pkt_size, Config),
-    WHM = proplists:get_value(window_handling_mode, Config),
-    WinSize = proplists:get_value(init_win_size, Config),
-    SendSize = PktSize * NPkts,
-    SysDir = proplists:get_value(data_dir, Config),
-    EchoSS_spec = {ssh_echo_server, [SendSize, [{dbg,true}]]},
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
-                                             {user_dir, UserDir},
-					     {password, "morot"},
-					     {subsystems, [{"echo_n",EchoSS_spec}]}]),
-    ct:log("~p:~p connect", [?MODULE,?LINE]),
-    ConnectionRef = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-						      {user, "foo"},
-						      {password, "morot"},
-						      {user_interaction, false},
-						      {user_dir, UserDir}]),
-    ct:log("~p:~p connected, ref ~p", [?MODULE,?LINE, ConnectionRef]),
-    %% Spawn listener. Otherwise we could get a deadlock due to filled buffers
-    Parent = self(),
-    ResultPid = spawn(
-		  fun() ->
-			  ct:log("~p:~p open channel",[?MODULE,?LINE]),
-			  {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, WinSize, PktSize, infinity),
-			  ct:log("~p:~p set window handling mode ~p", [?MODULE,?LINE, WHM]),
-                          ssh_connection:set_window_handling_mode(ConnectionRef, ChannelId, WHM),
-			  ct:log("~p:~p start subsystem", [?MODULE,?LINE]),
-			  case ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity) of
-			      success ->
-				  Parent ! {self(), channelId, ChannelId},
-                                  ct:log("~p:~p Starting receiver loop", [?MODULE, ?LINE]),
-                                  AdjTmo = proplists:get_value(adjust_timeout, Config, 0),
-                                  ReportAdjustFun =
-                                    if IsAdjustOk == ok ->
-                                        fun() ->
-                                            ssh_connection:adjust_window(ConnectionRef, ChannelId, WinSize)
-                                        end;
-                                    true ->
-                                        fun() -> Parent ! adjust_nok end
-                                    end,
-                                  LoopFun = mk_receive_loop_fun(ConnectionRef, ChannelId, AdjTmo, ReportAdjustFun),
-                                  Result = LoopFun(LoopFun, 0, NPkts),
-				  Parent ! {self(), result, Result};
-			      Other ->
-				  Parent ! {self(), channelId, error, Other}
-			  end
-		  end),
-    ct:log("Client channel handler ~p~n", [ResultPid]),
-    receive
-	{ResultPid, channelId, error, Other} ->
-	    ct:log("~p:~p channelId error ~p", [?MODULE,?LINE,Other]),
-	    ssh:close(ConnectionRef),
-	    ssh:stop_daemon(Pid),
-	    {fail, "ssh_connection:subsystem"};
-	{ResultPid, channelId, ChannelId} ->
-            ct:log("~p:~p Starting to send data in 1Kib chunks", [?MODULE, ?LINE]),
-            %% Prepare the binary of (1 KiB - 4 bytes) size
-            %% 4-byte counter is added when sending
-            SendBin = << <<X:32>> || X <- lists:duplicate(255, 0)>>,
-	    SenderPid = spawn(fun() -> sender_loop(Parent, ConnectionRef, ChannelId, SendBin, 10) end),
-            ct:log("Sender pid ~p~n", [SenderPid]),
-            receive
-                {ResultPid, result, Result} ->
-		    ct:log("~p:~p Receiver result: ~p", [?MODULE,?LINE,Result]),
-		    ssh:close(ConnectionRef),
-		    ssh:stop_daemon(Pid),
-		    ct:log("~p:~p Check sender", [?MODULE,?LINE]),
-		    receive
-			{SenderPid, SenderResult} ->
-			    ct:log("~p:~p Sender result:  ~p",
-                                   [?MODULE,?LINE, SenderResult]),
-			    ok;
-			Msg ->
-			    ct:log("~p:~p Unexpected msg: ~p",[?MODULE,?LINE,Msg]),
-			    {fail, "Unexpected msg"}
-		    end;
-		{SenderPid, SenderResult} ->
-                    ct:log("~p:~p Sender result:  ~p", [?MODULE,?LINE, SenderResult]),
-                    receive
-			{ResultPid, result, Result} ->
-			    ct:log("~p:~p Receiver result: ~p", [?MODULE,?LINE,Result]),
-			    ssh:close(ConnectionRef),
-			    ssh:stop_daemon(Pid),
-			    ok;
-			Msg ->
-			    ct:log("~p:~p Unexpected msg: ~p",[?MODULE,?LINE,Msg]),
-			    {fail, "Unexpected msg"}
-		    end;
-                Msg ->
-		    ct:log("~p:~p Unexpected msg: ~p",[?MODULE,?LINE,Msg]),
-		    ssh:stop_daemon(Pid),
-                    catch exit(ResultPid, terminate),
-                    catch exit(SenderPid, terminate),
-		    {fail, "Unexpected msg"}
-            end
     end.
 
 %%--------------------------------------------------------------------

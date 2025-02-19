@@ -56,14 +56,13 @@ handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) 
     M = N - size(Data),
     case M > 0 of
 	true ->
-            <<DWord:32, _/binary>> = Data,
-	    ?DBG(State, "ssh_cm data(~p) Cid=~p size(Data)=~p M=~p",[DWord, ChannelId,size(Data),M]),
+	    ?DBG(State, "ssh_cm data Cid=~p size(Data)=~p M=~p",[ChannelId,size(Data),M]),
+            ssh_connection:adjust_window(CM, ChannelId, size(Data)),
 	    ssh_connection:send(CM, ChannelId, Data),
 	    {ok, State#state{n = M}};
 	false ->
 	    <<SendData:N/binary, _/binary>> = Data,
-	    ?DBG(State, "ssh_cm data Cid=~p size(Data)=~p M=~p size(SendData)=~p~nSend eof",
-                [ChannelId, size(Data), M, size(SendData)]),
+	    ?DBG(State, "ssh_cm data Cid=~p size(Data)=~p M=~p size(SendData)=~p~nSend eof",[ChannelId,size(Data),M,size(SendData)]),
 	    ssh_connection:send(CM, ChannelId, SendData),
 	    ssh_connection:send_eof(CM, ChannelId),
 	    {stop, ChannelId, State}
