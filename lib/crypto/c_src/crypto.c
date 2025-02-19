@@ -393,6 +393,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
         destroy_engine_mutex(env);
 
 #ifdef HAS_3_0_API
+        fini_mac_types();
 # ifdef FIPS_SUPPORT
         if (fips_provider) {
             OSSL_PROVIDER_unload(fips_provider);
