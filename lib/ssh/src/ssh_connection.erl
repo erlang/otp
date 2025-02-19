@@ -112,7 +112,6 @@ If not, the `t:reason/0` indicates what went wrong:
 """.
 -type reason() :: closed | timeout .
 
--doc(#{}).
 -type result() :: req_status() | {error, reason()} .
 
 -doc """

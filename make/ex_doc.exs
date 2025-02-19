@@ -72,16 +72,17 @@ modules =
 
 titles =
   modules
-    |> Enum.reduce(
+  |> Enum.reduce(
     [],
     fn module, acc ->
       case Code.fetch_docs(module) do
         {:docs_v1, _, :erlang, _, _, _, fun_docs} ->
-          ts = for {{type,_,_},_,_,_,%{group: group}}<-fun_docs, do: {type, group}
+          ts = for {{type, _, _}, _, _, _, %{group: group}} <- fun_docs, do: {type, group}
           acc ++ ts
+
         _ ->
-           acc
-       end
+          acc
+      end
     end
   )
   |> Enum.group_by(fn e -> elem(e, 0) end)
@@ -106,16 +107,16 @@ groups_for_docs =
          end}
       end
     ) ++
-      [Callbacks: &(&1[:kind] == :callback)] ++
-      Enum.map(
-        Enum.sort(Access.get(titles, :function, [])),
-        fn {:function, title} ->
-          {"#{title}",
-           fn a ->
-             a[:kind] == :function && String.equivalent?(Access.get(a, :group, ""), title)
-           end}
-        end
-      )
+    [Callbacks: &(&1[:kind] == :callback)] ++
+    Enum.map(
+      Enum.sort(Access.get(titles, :function, [])),
+      fn {:function, title} ->
+        {"#{title}",
+         fn a ->
+           a[:kind] == :function && String.equivalent?(Access.get(a, :group, ""), title)
+         end}
+      end
+    )
 
 ## Create the correct source url to github
 base_url = "https://github.com/" <> System.get_env("BASE_URL", "erlang/otp/blob/master/")

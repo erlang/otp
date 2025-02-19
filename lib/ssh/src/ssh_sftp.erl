@@ -122,7 +122,6 @@ exit-signal. If that information is empty, the reason is the exit signal name.
 
 The `t:tuple/0` reason are other errors like for example `{exit_status,1}`.
 """.
--doc(#{}).
 -type reason() :: atom() | string() | tuple() .
 
 %%====================================================================
