@@ -2157,16 +2157,16 @@ according to `ServerName`.
        ) ->
                         no_return().
 %%
-enter_loop(Mod, Options, State, ServerName, Action0)
+enter_loop(Mod, Options, State, ServerName, Action)
   when is_atom(Mod), is_list(Options) ->
     Name = gen:get_proc_name(ServerName),
-    case extract_action(Action0) of
+    case handle_action(Action) of
         error ->
             gen:unregister_name(Name),
-            exit({bad_action, Action0});
-        Action ->
+            exit({bad_action, Action});
+        LoopAction ->
             loop(server_data(gen:get_parent(), Name, Mod, gen:hibernate_after(Options)),
-                 State, Action, gen:debug_options(Name, Options))
+                 State, LoopAction, gen:debug_options(Name, Options))
     end.
 
 %%%========================================================================
@@ -2191,14 +2191,14 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	{ok, {ok, State}} ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(ServerData, State, infinity, Debug);
-	{ok, {ok, State, Action0} = Return} ->
-            case extract_action(Action0) of
+	{ok, {ok, State, Action} = Return} ->
+            case handle_action(Action) of
 		error ->
 		    gen:unregister_name(Name0),
 		    exit({bad_return_value, Return});
-                Action ->
+                LoopAction ->
                     proc_lib:init_ack(Starter, {ok, self()}),
-                    loop(ServerData, State, Action, Debug)
+                    loop(ServerData, State, LoopAction, Debug)
             end;
 	{ok, {stop, Reason}} ->
 	    %% For consistency, we must make sure that the
@@ -2251,45 +2251,26 @@ loop(ServerData, State, {continue, Continue} = Msg, Debug) ->
             Debug1 = sys:handle_debug(Debug, fun print_event/3, ServerData#server_data.name, Msg),
             handle_common_reply(ServerData, State, Msg, From, Reply, Debug1)
     end;
-
-loop(ServerData, State, {timeout, 0, TimeoutMsg}, Debug) ->
-    decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
-loop(ServerData, State, {timeout, 0, TimeoutMsg, [{abs, false}]}, Debug) ->
-    decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
-loop(ServerData, State, {timeout_and_hibernate, 0, TimeoutMsg}, Debug) ->
-    garbage_collect(),
-    decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
-loop(ServerData, State, {timeout_and_hibernate, 0, TimeoutMsg, [{abs, false}]}, Debug) ->
-    garbage_collect(),
-    decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
-
-loop(ServerData, State, {timeout, Time, TimeoutMsg}, Debug) ->
-    TRef = erlang:start_timer(Time, self(), TimeoutMsg),
-    loop(ServerData, State, infinity, TRef, Debug);
-loop(ServerData, State, {timeout, Time, TimeoutMsg, TimeoutOpts}, Debug) ->
-    TRef = erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
-    loop(ServerData, State, infinity, TRef, Debug);
-
-loop(ServerData, State, {timeout_and_hibernate, Time, TimeoutMsg}, Debug) ->
-    TRef = erlang:start_timer(Time, self(), TimeoutMsg),
-    loop(ServerData, State, hibernate, TRef, Debug);
-loop(ServerData, State, {timeout_and_hibernate, Time, TimeoutMsg, TimeoutOpts}, Debug) ->
-    TRef = erlang:start_timer(Time, self(), TimeoutMsg, TimeoutOpts),
-    loop(ServerData, State, hibernate, TRef, Debug);
-
-loop(ServerData, State, Action, Debug) ->
-    loop(ServerData, State, Action, undefined, Debug).
-
+%%
+loop(ServerData, State, LoopAction, Debug) ->
+    case LoopAction of
+        {timeout_zero, TimeoutMsg} ->
+            decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
+        {timeout, TRef, HibInf} ->
+            loop(ServerData, State, HibInf, TRef, Debug);
+        HibT ->
+            loop(ServerData, State, HibT, undefined, Debug)
+    end.
 
 loop(ServerData, State, hibernate, TRef, Debug) ->
     receive
 	Msg ->
-	    _ = erlang:garbage_collect(),
+	    erlang:garbage_collect(),
 	    decode_msg(ServerData, State, Msg, TRef, Debug, true)
     after 0 ->
 	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
     end;
-
+%%
 loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, TRef, Debug) ->
     receive
 	Msg ->
@@ -2297,7 +2278,7 @@ loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, 
     after HibernateAfterTimeout ->
 	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
     end;
-
+%%
 loop(ServerData, State, Time, TRef, Debug)
   when ?is_rel_timeout(Time) ->
     Msg = receive
@@ -2357,11 +2338,11 @@ decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, TRef, Debug, 
 	{timeout, TRef, Msg1} when TRef =/= undefined ->
             decode_msg(ServerData, State, Msg1, Debug);
         _ ->
-	    ok = cancel_timer(TRef),
+	    cancel_timer(TRef),
             decode_msg(ServerData, State, Msg, Debug)
 
     end.
-
+%%
 decode_msg(ServerData, State, Msg, []) ->
     handle_msg(ServerData, State, Msg);
 decode_msg(#server_data{name = Name} = ServerData, State, Msg, Debug) ->
@@ -2470,55 +2451,19 @@ try_terminate(#server_data{module = Mod}, State, Reason) ->
 %%% Message handling functions
 %%% ---------------------------------------------------
 
-extract_action(Action) ->
-    case Action of
-        {continue, _}                           -> Action;
-        hibernate                               -> Action;
-        Timeout when ?is_rel_timeout(Timeout)   -> Action;
-        {timeout, T, M} ->
-            extract_action(Action, T, M);
-        {timeout_and_hibernate, T, M} ->
-            extract_action(Action, T, M);
-        {timeout, T, M, Opts} ->
-            extract_action(Action, T, M, Opts);
-        {timeout_and_hibernate, T, M, Opts} ->
-            extract_action(Action, T, M, Opts);
-        _ ->
-            error
-    end.
-
-extract_action(Action, T, _M) ->
-    if
-        ?is_rel_timeout(T) -> Action;
-        true               -> error
-    end.
-
-extract_action(Action, T, _M, [{abs,Abs}]) when is_boolean(Abs), ?is_timeout(Abs, T) ->
-    Action;
-extract_action(Action, T, M, Opts) ->
-    extract_timeout(element(1, Action), T, M, Opts, false).
-
-extract_timeout(Tag, T, M, [], Abs) when ?is_timeout(Abs, T) ->
-    {Tag, T, M, [{abs,Abs}]};
-extract_timeout(Tag, T, M, [{abs,Abs} | Opts], _) when is_boolean(Abs) ->
-    extract_timeout(Tag, T, M, Opts, Abs);
-extract_timeout(_Tag, _T, _M, _Opts, _Abs) ->
-    error.
-
-
 handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
     Result = try_handle_call(ServerData, State, Msg, From),
     case Result of
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
 	    loop(ServerData, NState, infinity, []);
-	{ok, {reply, Reply, NState, Action0} = Return} ->
-            case extract_action(Action0) of
+	{ok, {reply, Reply, NState, Action} = Return} ->
+            case handle_action(Action) of
                 error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), []);
-                Action ->
+                LoopAction ->
                     reply(From, Reply),
-                    loop(ServerData, NState, Action, [])
+                    loop(ServerData, NState, LoopAction, [])
             end;
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
@@ -2539,13 +2484,13 @@ handle_msg(#server_data{name = Name} = ServerData, State, {'$gen_call', From, Ms
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(ServerData, NState, infinity, Debug1);
-	{ok, {reply, Reply, NState, Action0} = Return} ->
-            case extract_action(Action0) of
+	{ok, {reply, Reply, NState, Action} = Return} ->
+            case handle_action(Action) of
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), []);
-                Action ->
+                LoopAction ->
                     Debug1 = reply(Name, From, Reply, NState, Debug),
-                    loop(ServerData, NState, Action, Debug1)
+                    loop(ServerData, NState, LoopAction, Debug1)
             end;
 	{ok, {stop, Reason, Reply, NState}} ->
 	    try
@@ -2564,14 +2509,12 @@ handle_common_reply(ServerData, State, Msg, From, Reply) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    loop(ServerData, NState, infinity, []);
-	{ok, {noreply, NState, {continue, _}=Continue}} ->
-	    loop(ServerData, NState, Continue, []);
-	{ok, {noreply, NState, Action0} = Return} ->
-            case extract_action(Action0) of
+	{ok, {noreply, NState, Action} = Return} ->
+            case handle_action(Action) of
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), []);
-                Action ->
-                    loop(ServerData, NState, Action, [])
+                LoopAction ->
+                    loop(ServerData, NState, LoopAction, [])
 	    end;
 	{ok, {stop, Reason, NState}} ->
 	    terminate(ServerData, NState, Msg, From, Reason, ?STACKTRACE(), []);
@@ -2587,13 +2530,13 @@ handle_common_reply(#server_data{name = Name} = ServerData, State, Msg, From, Re
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(ServerData, NState, infinity, Debug1);
-	{ok, {noreply, NState, Action0} = Return} ->
-            case extract_action(Action0) of
+	{ok, {noreply, NState, Action} = Return} ->
+            case handle_action(Action) of
 		error ->
 		    terminate(ServerData, State, Msg, From, {bad_return_value, Return}, ?STACKTRACE(), Debug);
-                Action ->
+                LoopAction ->
                     Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, {noreply, NState}),
-                    loop(ServerData, NState, Action, Debug1)
+                    loop(ServerData, NState, LoopAction, Debug1)
 	    end;
 	{ok, {stop, Reason, NState}} ->
 	    terminate(ServerData, NState, Msg, From, Reason, ?STACKTRACE(), Debug);
@@ -2608,6 +2551,53 @@ reply(Name, From, Reply, State, Debug) ->
     sys:handle_debug(Debug, fun print_event/3, Name,
                      {out, Reply, From, State} ).
 
+handle_action(Action) ->
+    case Action of
+        {continue, _} = Cont                    -> Cont;
+        hibernate                               -> hibernate;
+        Timeout when ?is_rel_timeout(Timeout)   -> Timeout;
+        {timeout, T, M} ->
+            handle_timeout(T, M, infinity);
+        {timeout_and_hibernate, T, M} ->
+            handle_timeout(T, M, hibernate);
+        {timeout, T, M, Opts} ->
+            handle_timeout(T, M, infinity, Opts, false);
+        {timeout_and_hibernate, T, M, Opts} ->
+            handle_timeout(T, M, hibernate, Opts, false);
+        _ ->
+            error
+    end.
+
+handle_timeout(T, M, HibInf) ->
+    if
+        ?is_rel_timeout(T) ->
+            handle_timer(T, M, HibInf, false);
+        true ->
+            error
+    end.
+
+handle_timeout(T, M, HibInf, [], Abs) when ?is_timeout(Abs, T) ->
+    handle_timer(T, M, HibInf, Abs);
+handle_timeout(T, M, HibInf, [{abs,Abs} | Opts], _Abs) when is_boolean(Abs) ->
+    handle_timeout(T, M, HibInf, Opts, Abs);
+handle_timeout(_T, _M, _HibInf, _Opts, _Abs) ->
+    error.
+
+handle_timer(0, M, HibInf, false) ->
+    case HibInf of
+        hibernate -> garbage_collect();
+        infinity  -> true
+    end,
+    {timeout_zero, M};
+handle_timer(T, M, HibInf, Abs) ->
+    TRef =
+        case Abs of
+            true ->
+                erlang:start_timer(T, self(), M, [{abs,Abs}]);
+            false ->
+                erlang:start_timer(T, self(), M)
+        end,
+    {timeout, TRef, HibInf}.
 
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
