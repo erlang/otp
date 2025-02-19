@@ -69,7 +69,6 @@
 	 info/1, info/2,
 	 connection_info/2,
 	 channel_info/3,
-	 set_window_handling_mode/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
 	 get_print_info/1,
@@ -321,12 +320,6 @@ connection_info(ConnectionHandler, Options) ->
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 channel_info(ConnectionHandler, ChannelId, Options) ->
     call(ConnectionHandler, {channel_info, ChannelId, Options}).
-
--spec set_window_handling_mode(connection_ref(),
-                               channel_id(),
-                               auto | manual) -> ok.
-set_window_handling_mode(ConnectionHandler, Channel, Mode) ->
-    cast(ConnectionHandler, {set_window_handling_mode, Channel, Mode}).
 
 %%--------------------------------------------------------------------
 -spec adjust_window(connection_ref(),
@@ -850,16 +843,6 @@ handle_event({call,From}, get_alg, _, D) ->
 
 handle_event(cast, _, StateName, _) when not ?CONNECTED(StateName) ->
     {keep_state_and_data, [postpone]};
-
-handle_event(cast, {set_window_handling_mode, ChannelId, NewMode}, StateName, D) when ?CONNECTED(StateName) ->
-    case ssh_client_channel:cache_lookup(cache(D), ChannelId) of
-        #channel{window_handling_mode = OldMode} = Channel when OldMode /= NewMode ->
-            ssh_client_channel:cache_update(cache(D),
-                                    Channel#channel{window_handling_mode = NewMode});
-        _ ->
-            ok
-    end,
-    keep_state_and_data;
 
 handle_event(cast, {adjust_window,ChannelId,Bytes}, StateName, D) when ?CONNECTED(StateName) ->
     case ssh_client_channel:cache_lookup(cache(D), ChannelId) of

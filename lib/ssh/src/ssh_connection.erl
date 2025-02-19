@@ -1853,14 +1853,10 @@ handle_cli_msg(C0, ChId, Reply0) ->
 
 channel_data_reply_msg(ChannelId, Connection, DataType, Data) ->
     case ssh_client_channel:cache_lookup(Connection#connection.channel_cache, ChannelId) of
-	#channel{recv_window_size = Size, window_handling_mode = Mode} = Channel ->
+	#channel{recv_window_size = Size} = Channel ->
 	    WantedSize = Size - byte_size(Data),
 	    ssh_client_channel:cache_update(Connection#connection.channel_cache, 
                                      Channel#channel{recv_window_size = WantedSize}),
-            if Mode == auto ->
-                    adjust_window(self(), ChannelId, byte_size(Data));
-                true -> ok
-            end,
             reply_msg(Channel, Connection, {data, ChannelId, DataType, Data});
 	undefined ->
 	    {[], Connection}

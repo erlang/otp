@@ -257,8 +257,7 @@
 	  send_window_size,
 	  send_packet_size,
 	  sent_close = false,
-	  send_buf = [],
-	  window_handling_mode = auto
+	  send_buf = []
 	 }).
 
 -record(connection, {
