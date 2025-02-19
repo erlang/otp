@@ -5632,7 +5632,22 @@ illegal_zip_generator(Config) ->
             bar() -> [X + Y || X <- [[1,2],[3,4]] && lists:sum(X) > 0 && Y <- [5,6,7]].
             ">>,
            {[]},
-           {errors,[{{2,67},erl_lint,illegal_zip_generator}],[]}}
+           {errors,[{{2,67},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X || X <- [a, b] && F()].
+            ">>,
+           {[]},
+           {errors,[{{2,43},erl_lint,illegal_zip_generator}],[]}},
+           {not_generator,
+           <<"-compile({nowarn_unused_function,[{foo,0}]}).
+            foo() -> [X || a && b].
+            ">>,
+           {[]},
+           {errors,[{{2,23},erl_lint,{unbound_var,'X'}},
+                    {{2,28},erl_lint,illegal_zip_generator},
+                    {{2,33},erl_lint,illegal_zip_generator}],
+                    []}}
            ],
     [] = run(Config,Ts),
 
