@@ -36,7 +36,8 @@
 	 ex_binaries_errors_utf32_big/1,
          normalize/1,
          huge_illegal_code_points/1,
-         error_info/1
+         error_info/1,
+         bin_is_7bit/1
         ]).
 
 suite() ->
@@ -51,7 +52,8 @@ all() ->
      normalize,
      {group,binaries_errors},
      huge_illegal_code_points,
-     error_info].
+     error_info,
+     bin_is_7bit].
 
 groups() -> 
     [{binaries_errors,[parallel],
@@ -1453,6 +1455,11 @@ error_info(_Config) ->
          {characters_to_list_int, 2}
         ],
     error_info_lib:test_error_info(unicode, L).
+
+bin_is_7bit(_Config) ->
+    true = unicode:bin_is_7bit(<<"d"/utf8>>),
+    false = unicode:bin_is_7bit(<<"ö"/utf8>>),
+    ok.
 
 %%%
 %%% Utilities.
