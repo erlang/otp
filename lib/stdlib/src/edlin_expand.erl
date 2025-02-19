@@ -393,8 +393,8 @@ is_type(Type, Cs, String) ->
     catch
         _:_ ->
             %% Types not possible to deduce with erl_parse
-            % If string contains variables, erl_parse:parse_term will fail, but we
-            % consider them valid sooo.. lets replace them with the atom var
+            %% If string contains variables, erl_parse:parse_term will fail, but we
+            %% consider them valid sooo.. lets replace them with the atom var
             B = [(fun({var, Anno, _}) -> {atom, Anno, var}; (Token) -> Token end)(X) || X <- A],
             try
                 {ok, Term2} = erl_parse:parse_term(B),
@@ -733,12 +733,6 @@ shell(Fun) when is_atom(Fun) ->
     case lists:member(Fun, [E || {E,_}<-get_exports(shell)]) of
         true -> "shell";
         _ -> "user_defined"
-    end;
-shell(Fun) ->
-    case erl_scan:string(Fun) of
-        {ok, [{var, _, _}], _} -> [];
-        {ok, [{atom, _, Fun1}], _} ->
-            shell(Fun1)
     end.
 
 -doc false.
@@ -750,8 +744,7 @@ shell_default_or_bif(Fun) when is_atom(Fun) ->
 shell_default_or_bif(Fun) ->
     case erl_scan:string(Fun) of
         {ok, [{var, _, _}], _} -> [];
-        {ok, [{atom, _, Fun1}], _} ->
-            shell_default_or_bif(Fun1)
+        {ok, [{atom, _, Fun1}], _} -> shell_default_or_bif(Fun1)
     end.
 
 -doc false.

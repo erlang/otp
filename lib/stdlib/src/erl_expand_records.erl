@@ -99,9 +99,9 @@ forms([F | Fs0], St0) ->
     {[F | Fs], St};
 forms([], #exprec{new_forms=FsN}=St) ->
     {[{'function', Anno,
-                   maps:get(Def,FsN),
-                   0,
-                   [{'clause', Anno, [], [], [Def]}]}
+       maps:get(Def, FsN),
+       0,
+       [{'clause', Anno, [], [], [Def]}]}
       || {_,Anno,_}=Def <- maps:keys(FsN)], St};
 forms([], St) -> {[],St}.
 

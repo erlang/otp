@@ -1213,7 +1213,7 @@ expand_records(UsedRecords, E0, FT) ->
     [NE2]=reconstruct1(NE, [],0, []),
     ets:insert(FT, [begin  {value, Fun, []} = erl_eval:expr({'fun', A, {clauses, F}}, []),
                            {{function, {shell_default, FunName, 0}}, Fun}
-                    end || {function,_,FunName,0,F}=_F1<-Forms, FunName=/=foo]),
+                    end || {function,_,FunName,0,F}<-Forms, FunName=/=foo]),
     prep_rec(NE2).
 
 prep_rec({value,_CommandN,_V}=Value) ->
@@ -1851,20 +1851,9 @@ inc_paths(Opts) ->
     [P || {i,P} <- Opts, is_list(P)].
 
 record_attrs(Forms, Mod) ->
-    Exports = case erlang:module_loaded(Mod) of
-                  true ->
-                      Mod:module_info(exports);
-                  false ->
-                      case beam_lib:chunks(code:which(Mod), [exports]) of
-                          {ok, {Mod, [{exports,E}]}} ->
-                              E;
-                          _ ->
-                              []
-                      end
-              end,
     %% Add module Mod to exported local functions, add shell_default otherwise
     [begin [X] = reconstruct1([A], [], 0,
-                              [{module,Mod},{exports,Exports}]),
+                              [{module,Mod},{exports,edlin_expand:get_exports(Mod)}]),
            X
      end || A = {attribute,_,record,_D} <- Forms].
 %%% End of reading record information from file(s)
