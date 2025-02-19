@@ -7324,6 +7324,10 @@ reported to the owning process using signals of the form
 
 The maximum number of ports that can be open at the same time can be configured
 by passing command-line flag [`+Q`](erl_cmd.md#max_ports) to [erl](erl_cmd.md).
+
+When the VM shuts down, it tries to terminate all spawned executables by sending
+a `SIGTERM` to each child's process group. The child may still outlive the VM if
+it traps the signal or if it has changed its process group since starting.
 """.
 -doc #{ category => ports }.
 -spec open_port(PortName, PortSettings) -> port() when

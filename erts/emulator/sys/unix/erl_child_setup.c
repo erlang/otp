@@ -174,6 +174,7 @@ static ssize_t write_all(int fd, const char *buff, size_t size) {
     return pos;
 }
 
+static void kill_all_children(void);
 static void add_os_pid_to_port_id_mapping(Eterm, pid_t);
 static Eterm get_port_id(pid_t);
 static int forker_hash_init(void);
@@ -564,6 +565,7 @@ main(int argc, char *argv[])
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
+                kill_all_children();
                 _exit(0);
             }
 
@@ -572,6 +574,7 @@ main(int argc, char *argv[])
                 if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
+                kill_all_children();
                 _exit(0);
             }
             /* Since we use unix domain sockets and send the entire data in
@@ -641,6 +644,23 @@ typedef struct exit_status {
 } ErtsSysExitStatus;
 
 static Hash *forker_hash;
+
+/* Kill child process groups on VM termination, so they don't become orphaned.
+ * If the child should continue running after the VM stops, the child will need
+ * to either trap the TERM signal, or change its process group eg. by calling
+ * `setsid` */
+
+static void fun_kill_foreach(ErtsSysExitStatus *es, void *unused) {
+    DEBUG_PRINT("killing process group %d", es->os_pid);
+    if (kill(-es->os_pid, SIGTERM) != 0) {
+        DEBUG_PRINT("error killing process group %d: %d", es->os_pid, errno);
+    }
+}
+
+static void kill_all_children(void) {
+    DEBUG_PRINT("cleaning up by killing all %d child process groups", forker_hash->nobjs);
+    hash_foreach(forker_hash, (HFOREACH_FUN)fun_kill_foreach, NULL);
+}
 
 static void add_os_pid_to_port_id_mapping(Eterm port_id, pid_t os_pid)
 {
