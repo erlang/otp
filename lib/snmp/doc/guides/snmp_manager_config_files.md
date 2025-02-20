@@ -86,6 +86,23 @@ The following example shows a `manager.conf` file:
 The value of `engine_id` is a string, which should have a very specific
 structure. See RFC 2271/2571 for details.
 
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+ManagerDir    = "/tmp",
+Port          = 5000,
+Addr4         = {141,213,11,24},
+Addr6         = {0,0,0,0,0,0,0,1},
+Transports    = [{transportDomainUdpIpv4, {Addr4, Port}},
+                 {transportDomainUdpIpv6, {Addr6, Port}}],
+EngineID      = "mgrEngine",
+MMS           = 484,
+ManagerConfig = [snmpm_conf:manager_entry(transports,       Transports),
+                 snmpm_conf:manager_entry(engine_id,        EngineID),
+                 snmpm_conf:manager_entry(max_message_size, MMS)],
+snmpm_conf:write_manager_config(ManagerDir, ManagerConfig),
+```
+
 ## Users
 
 For each _manager user_, the manager needs some information. This information is
@@ -103,6 +120,20 @@ Each entry is a tuple of size four:
 - `UserData` is any term (passed on to the user when calling the `UserMod`.
 - `DefaultAgentConfig` is a list of default agent config's. These values are
   used as default values when this user registers agents.
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+ManagerDir         = "/tmp",
+UserID             = make_ref(),
+UserMod            = my_manager_callback_mod,
+UserData           = self(),
+DefaultAgentConfig = [{version, v1}, {timeout, 2500}, {max_message_size, 484}],
+UsersConfig = [snmpm_conf:users_entry(UserID, UserMod, UserData,
+                                      DefaultAgentConfig)],
+snmpm_conf:write_users_config(ManagerDir, UsersConfig),
+```
+
 
 ## Agents
 
@@ -136,6 +167,32 @@ Each entry is a tuple:
 
 Legacy configurations using tuples without `Domain` element, as well as with all
 `TDomain`, `Ip` and `Port` elements still work.
+
+
+And this is a code (snippet) example of how to generate this file in runtime:
+
+```erlang
+ManagerDir   = "/tmp",
+UserID       = ...
+AgentsConfig = [snmpm_conf:agents_entry(UserID,
+                                        "target 1",
+					"FOOBAR",
+					transportDomainUdpIpv4, {{1,2,3,4},161},
+					"agent Engine 1"
+					1500,
+					484.
+					v1, v1, "sec name 1", noAuthNoPriv),
+		snmpm_conf:agents_entry(UserID,
+                                        "target 2",
+					"FOOBAR",
+					transportDomainUdpIpv4, {{5,6,7,8},161},
+					"agent Engine 2"
+					1500,
+					1000.
+					v1, v1, "sec name 2", noAuthNoPriv)],
+snmpm_conf:write_agents_config(ManagerDir, UsersConfig),
+```
+
 
 ## Security data for USM
 
@@ -177,3 +234,15 @@ The first case is when we have the identity-function (`SecName` = `UserName`).
 - `PrivKey` is a list (of integer). This is the User's secret localized
   encryption key. It is not visible in the MIB. The length of this key needs to
   be 16 if `usmDESPrivProtocol` or `usmAesCfb128Protocol` is used.
+
+
+```erlang
+ManagerDir = "/tmp",
+UsmConfig  = [snmpm_conf:usm_entry("engine",
+                                   "user 1",
+	                           usmNoAuthProtocol,
+	 			   [],
+	 			   usmNoPrivProtocol,
+	 			   [])],
+snmpm_conf:write_usm_config(ManagerDir, UsmConfig),
+```
