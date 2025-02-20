@@ -19,6 +19,15 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.18.1
+
+### Fixed Bugs and Malfunctions
+
+- SNMP Agent transports type (intAgentTransports) was incorrectly not documented as a list of transports.
+  Also add a couple of config file generation examples.
+
+  Own Id: OTP-19438 Aux Id: ERIERL-1180
+
 ## SNMP 5.18
 
 ### Improvements and New Features
