@@ -67,7 +67,8 @@
          groups/1,
          group_to_enum/1,
          enum_to_group/1,
-         default_groups/0]).
+         default_groups/0,
+         default_suites/1]).
 
 -export([derive_secret/4,
          hkdf_expand_label/5,
