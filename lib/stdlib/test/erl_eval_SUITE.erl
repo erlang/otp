@@ -337,6 +337,12 @@ zlc(Config) when is_list(Config) ->
     error_check("begin
         X = 32, Y = 32, [{X, Y} || X <- [1,2,3] && Y:=_V <- #{1=>1}] end.",
     {bad_generators,{[2,3],#{}}}),
+    error_check("[X || X <- [b] && X <:- [a]].",{bad_generators,{[b],[a]}}),
+    error_check("[X || X <:- [b] && X <- [a]].",{bad_generators,{[b],[a]}}),
+    error_check("[X || X <- [a,a] && X <:- [a,b]].",{bad_generators,{[a],[b]}}),
+    error_check("[{X,Y} || {X,Y} <- [{a,b}] && Y <:- [a] && X <- [a]].",
+    {bad_generators,{[{a,b}],[a],[a]}}),
+
     ok.
 
 zbc(Config) when is_list(Config) ->
@@ -438,6 +444,9 @@ zmc(Config) when is_list(Config) ->
     {bad_generators,{#{},#{c=>4}}}),
     error_check("begin #{X=>Y || X <- [1] && Y <- a && K1:=V1 <- #{b=>3}} end.",
         {bad_generators,{[1], a, #{b=>3}}}),
+
+    error_check("begin #{K => V || K := V <- #{1=>2} && K := _ <:- #{2=>3}} end.",
+        {bad_generators,{#{1 => 2},#{2 => 3}}}),
     ok.
 
 %% Simple cases, just to cover some code.
