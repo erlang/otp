@@ -243,6 +243,7 @@ validate_extensions(OtpCert, ValidationState, UserState, VerifyFun) ->
 	_ -> %% Extensions not present in versions 1 & 2
 	    {ValidationState, UserState}
     end.
+
 %%--------------------------------------------------------------------
 -spec normalize_general_name({rdnSequence, term()}| binary()) -> {rdnSequence, term()}. 
 %%
@@ -360,6 +361,7 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 		    UserState
 	    end
     end.
+
 %%--------------------------------------------------------------------
 -spec select_extension(Oid ::tuple(),[#'Extension'{}]) ->
 			      #'Extension'{} | undefined.
@@ -968,7 +970,6 @@ strip_many_spaces(Strings, KeepDeep) ->
         false -> unicode:characters_to_list(DeepList)
     end.
 
-
 is_valid_key_usage(KeyUse, Use) ->
     lists:member(Use, KeyUse).
 
@@ -1246,50 +1247,72 @@ is_digitally_sign_cert(OtpCert) ->
 	    lists:member(keyCertSign, KeyUse)
     end.
 
-compatible_ext_key_usage(undefined, _, endentity) -> %% keyusage (first arg )is mandantory in CAs
+
+compatible_ext_key_usage(undefined, _, endentity) ->
     true;
 compatible_ext_key_usage(_, undefined, _) ->
     true;
-compatible_ext_key_usage(#'Extension'{extnValue = KeyUse}, #'Extension'{extnValue = Purposes}, _) ->
+compatible_ext_key_usage(#'Extension'{extnID = ?'id-ce-keyUsage',
+                                      extnValue = KeyUses},
+                         #'Extension'{extnID = ?'id-ce-extKeyUsage',
+                                      extnValue = Purposes}, Type) ->
     case ext_keyusage_includes_any(Purposes) of
         true ->
             true;
         false ->
-            is_compatible_purposes(KeyUse, Purposes)
+            is_compatible_purposes(KeyUses, Purposes, Type)
     end.
 
-is_compatible_purposes(_, []) ->
+is_compatible_purposes(_, [], _) ->
     true;
-is_compatible_purposes(KeyUse, [?'id-kp-serverAuth'| Rest]) ->
-    (lists:member(digitalSignature, KeyUse) orelse
-     lists:member(keyAgreement, KeyUse)) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-clientAuth'| Rest]) ->
-    (lists:member(digitalSignature, KeyUse)
-     orelse
-       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
-        andalso is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-codeSigning'| Rest]) ->
-    lists:member(digitalSignature, KeyUse) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [?'id-kp-emailProtection'| Rest]) ->
-    ((lists:member(digitalSignature, KeyUse) orelse
-      lists:member(nonRepudiation, KeyUse))
-     orelse
-       (lists:member(keyAgreement, KeyUse) orelse lists:member(keyEncipherment, KeyUse)))
-        andalso is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [Id| Rest]) when Id == ?'id-kp-timeStamping';
-                                                Id == ?'id-kp-OCSPSigning'->
-    (lists:member(digitalSignature, KeyUse) orelse
-     lists:member(nonRepudiation, KeyUse)) andalso
-        is_compatible_purposes(KeyUse, Rest);
-is_compatible_purposes(KeyUse, [_| Rest]) -> %% Unknown purposes are for user verify_fun to care about
-    is_compatible_purposes(KeyUse, Rest).
+is_compatible_purposes(KeyUses, [?'id-kp-serverAuth'| Rest], ca = Type) ->
+    %% keyCertSign is already verified for a ca and considered compatible
+    is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [?'id-kp-serverAuth'| Rest], endentity = Type) ->
+    IsServerAuthComp = case lists:member(digitalSignature, KeyUses) of
+                           true ->
+                               true;
+                           false ->
+                               lists:member(keyAgreement, KeyUses)  orelse
+                                   lists:member(keyEncipherment, KeyUses)
+                       end,
+    IsServerAuthComp andalso is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [?'id-kp-clientAuth'| Rest], ca = Type) ->
+    %% keyCertSign is already verified for a ca and considered compatible
+    is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [?'id-kp-clientAuth'| Rest], endentity = Type) ->
+    IsClientAuthComp = case lists:member(digitalSignature, KeyUses) of
+                           true ->
+                               true;
+                           false ->
+                               lists:member(keyAgreement, KeyUses)
+                       end,
+    IsClientAuthComp andalso is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [?'id-kp-codeSigning'| Rest], Type) ->
+    lists:member(digitalSignature, KeyUses) andalso
+        is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [?'id-kp-emailProtection'| Rest], Type) ->
+    IsEmailProtCompatible = case (lists:member(digitalSignature, KeyUses) orelse
+                                  lists:member(nonRepudiation, KeyUses)) of
+                                true ->
+                                    true;
+                                false ->
+                                    lists:member(keyAgreement, KeyUses) orelse
+                                        lists:member(keyEncipherment, KeyUses)
+                            end,
+    IsEmailProtCompatible andalso is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [Id| Rest],Type) when Id == ?'id-kp-timeStamping';
+                                                      Id == ?'id-kp-OCSPSigning'->
+    (lists:member(digitalSignature, KeyUses) orelse
+     lists:member(nonRepudiation, KeyUses)) andalso
+        is_compatible_purposes(KeyUses, Rest, Type);
+is_compatible_purposes(KeyUses, [_| Rest], Type) -> %% Unknown purposes are for user verify_fun to care about
+    is_compatible_purposes(KeyUses, Rest, Type).
 
-ca_known_extend_key_use(ExtKeyUse) ->
+ca_known_extend_key_use(ExtKeyUses) ->
     CAExtSet = ca_known_ext_key_usage(),
-    Intersertion = sets:intersection(CAExtSet, sets:from_list(ExtKeyUse)),
-    not sets:is_empty(Intersertion).
+    Intersection = sets:intersection(CAExtSet, sets:from_list(ExtKeyUses)),
+    not sets:is_empty(Intersection).
 
 ca_known_ext_key_usage() ->
     %% Following extended key usages are known
