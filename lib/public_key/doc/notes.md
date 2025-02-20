@@ -280,6 +280,14 @@ limitations under the License.
 
   Own Id: OTP-18447
 
+## Public_Key 1.13.3.6
+
+### Fixed Bugs and Malfunctions
+
+* Consider keyCertSign to compatible with extended key usage for TLS client/server auth in CAs, adhere to wide spread implementations
+
+  Own Id: OTP-19240 Aux Id: PR-9286, GH-9208
+
 ## Public_Key 1.13.3.5
 
 ### Fixed Bugs and Malfunctions
