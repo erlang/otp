@@ -3543,8 +3543,10 @@ event_string(Event) ->
 
 -doc false.
 wakeup_from_hibernate(P, Debug, S) ->
-    %% It is a new message that woke us up so we have to receive it now
-    loop_receive(P, Debug, S).
+    %% A new process message woke us up; receive it
+    receive Msg ->
+            loop_msg(P, Debug, S, Msg)
+    end.
 
 %%%==========================================================================
 %%% State Machine engine implementation on proc_lib/gen
@@ -3565,105 +3567,105 @@ wakeup_from_hibernate(P, Debug, S) ->
 
 %% Entry point for system_continue/3
 %%
-loop(P, Debug, #state{hibernate = true} = S) ->
-    loop_hibernate(P, Debug, S);
-loop(P, Debug, S) ->
-    loop_receive(P, Debug, S).
-
-%% Go to hibernation
+%% Receive a new process message
 %%
+loop(P, Debug, #state{hibernate = Hibernate} = S) ->
+    case Hibernate of
+        true ->
+            receive Msg ->
+                    %% We already had a message, so hibernation
+                    %% would be pointless
+                    %% - emulate hibernate and immediate wake-up
+                    garbage_collect(),
+                    loop_msg(P, Debug, S, Msg)
+            after 0 ->
+                    loop_hibernate(P, Debug, S)
+            end;
+        false ->
+            receive Msg ->
+                    loop_msg(P, Debug, S, Msg)
+            after P#params.hibernate_after ->
+                    loop_hibernate(P, Debug, S)
+            end
+    end.
+
 loop_hibernate(P, Debug, S) ->
-    %%
-    %% does not return but restarts process at
-    %% wakeup_from_hibernate/3 that jumps to loop_receive/3
-    %%
     proc_lib:hibernate(?MODULE, wakeup_from_hibernate, [P, Debug, S]),
     error(
       {should_not_have_arrived_here_but_instead_in,
        {?MODULE,wakeup_from_hibernate,3}}).
+%% wakeup_from_hibernate/3 receives Msg
+%% and jumps to loop_msg(P, Debug, S, Msg) below
 
-
-%% Entry point for wakeup_from_hibernate/3
+%% Handle a received message
 %%
-%% Receive a new process message
-%%
-loop_receive(
-  #params{hibernate_after = HibernateAfterTimeout} = P, Debug, S) ->
-    %%
-    receive
-	Msg ->
-	    case Msg of
-                {'$gen_call',From,Request} ->
-                    loop_receive_result(P, Debug, S, {{call,From},Request});
-                {'$gen_cast',Cast} ->
-                    loop_receive_result(P, Debug, S, {cast,Cast});
-                %%
-		{timeout,TimerRef,TimeoutType} ->
-                    case S#state.timers of
-                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers
-                          when TimeoutType =/= t0q->
-                            %% Our timer
-                            Timers_1 = maps:remove(TimeoutType, Timers),
-                            S_1 = S#state{timers = Timers_1},
-                            loop_receive_result(
-                              P, Debug, S_1, {TimeoutType,TimeoutMsg});
-                        #{} ->
-			    loop_receive_result(P, Debug, S, {info,Msg})
-		    end;
-                %%
-		{system,Pid,Req} ->
-		    %% does not return but tail recursively calls
-		    %% system_continue/3 that jumps to loop/3
-		    sys:handle_system_msg(
-		      Req, Pid, P#params.parent, ?MODULE, Debug,
-                      {P,S},
-		      S#state.hibernate);
-		{'EXIT',Pid,Reason} ->
-                    case P#params.parent of
-                        Pid ->
-                            terminate(
-                              exit, Reason, ?STACKTRACE(), P, Debug, S, []);
-                        _ ->
-                            loop_receive_result(P, Debug, S, {info,Msg})
-                    end;
-                %%
+loop_msg(P, Debug, S, Msg) ->
+    case Msg of
+        {'$gen_call',From,Request} ->
+            loop_msg_event(P, Debug, S, {{call,From},Request});
+        {'$gen_cast',Cast} ->
+            loop_msg_event(P, Debug, S, {cast,Cast});
+        %%
+        {timeout,TimerRef,TimeoutType} ->
+            case S#state.timers of
+                #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers
+                  when TimeoutType =/= t0q->
+                    %% Our timer
+                    Timers_1 = maps:remove(TimeoutType, Timers),
+                    S_1 = S#state{timers = Timers_1},
+                    loop_msg_event(P, Debug, S_1, {TimeoutType,TimeoutMsg});
+                #{} ->
+                    loop_msg_event(P, Debug, S, {info,Msg})
+            end;
+        %%
+        {system,Pid,Req} ->
+            %% does not return but tail recursively calls
+            %% system_continue/3 that jumps to loop/3
+            sys:handle_system_msg(
+              Req, Pid, P#params.parent, ?MODULE, Debug,
+              {P,S},
+              S#state.hibernate);
+        {'EXIT',Pid,Reason} ->
+            case P#params.parent of
+                Pid ->
+                    terminate(
+                      exit, Reason, ?STACKTRACE(), P, Debug, S, []);
                 _ ->
-                    loop_receive_result(P, Debug, S, {info,Msg})
-	    end
-    after
-        HibernateAfterTimeout ->
-            loop_hibernate(P, Debug, S#state{hibernate = true})
+                    loop_msg_event(P, Debug, S, {info,Msg})
+            end;
+        %%
+        _ ->
+            loop_msg_event(P, Debug, S, {info,Msg})
     end.
 
--compile({inline, [loop_receive_result/4]}).
-loop_receive_result(P, Debug, S, Event) ->
+%% Handle a received event
+%%
+-compile({inline, [loop_msg_event/4]}).
+loop_msg_event(P, Debug, S, Event) ->
     %%
     %% The field 'hibernate' in S is now invalid and will be restored
     %% at the end of the loop in loop_next_events/10 or loop_timeouts/12,
     %% before looping back to loop/3.
     %%
     Hibernate = false,
-    loop_receive_result(P, Debug, S, Event, Hibernate).
-%%
-%% We have received an event
+    loop_msg_event(P, Debug, S, Event, Hibernate).
 %%
 %% Here is the queue of not yet handled events created
 %%
-loop_receive_result(P, ?not_sys_debug = Debug, S, Event, Hibernate) ->
-    Events = [],
-    loop_event(P, Debug, S, Event, Events, Hibernate);
-loop_receive_result(
+loop_msg_event(P, ?not_sys_debug = Debug, S, Event, Hibernate) ->
+    Q = [Event],
+    loop_event(P, Debug, S, Q, Hibernate);
+loop_msg_event(
   #params{name = Name} = P, Debug,
   #state{state_data = {State,_Data}} = S, Event, Hibernate) ->
     Debug_1 = sys_debug(Debug, Name, {in,Event,State}),
-    Events = [],
-    loop_event(P, Debug_1, S, Event, Events, Hibernate).
+    Q = [Event],
+    loop_event(P, Debug_1, S, Q, Hibernate).
 
 %% Handle one event; received or enqueued
 %%
 loop_event(
-  P, Debug, #state{state_data = State_Data} = S, Event, Events, Hibernate) ->
-    Q = [Event|Events],
+  P, Debug, #state{state_data = State_Data} = S, [Event|_] = Q, Hibernate) ->
     case Hibernate of
         true ->
             %%
@@ -3892,7 +3894,7 @@ loop_state_callback_result(
               Q)
     end.
 
-%% Ensure that Actions are a list
+%% Ensure that Actions is a list
 %%
 loop_actions(
   P, Debug, S, Q, NextState_NewData,
@@ -4778,16 +4780,16 @@ loop_done(P, Debug, S, Q) ->
                     #{TimeoutType := {0 = TimerRef, TimeoutMsg}} = Timers,
                     Timers_1 = cancel_timer(TimeoutType, TimerRef, Timers),
                     S_1 = S#state{timers = Timers_1},
-                    Event = {TimeoutType, TimeoutMsg},
-                    loop_receive_result(
+                    Event = {TimeoutType,TimeoutMsg},
+                    loop_msg_event(
                       P, Debug, S_1, Event, S#state.hibernate);
                 #{} ->
                     %% Get a new event
                     loop(P, Debug, S)
             end;
-        [Event|Events] ->
+        [_|_] ->
 	    %% Loop until out of enqueued events
-	    loop_event(P, Debug, S, Event, Events, S#state.hibernate)
+	    loop_event(P, Debug, S, Q, S#state.hibernate)
     end.
 
 
