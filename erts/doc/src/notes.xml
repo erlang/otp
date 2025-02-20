@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 14.2.5.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed BEAM crash when a custom thread sends a large
+	    map (>128 keys) externally encoded with for example
+	    <c>erl_drv_send_term()</c>.</p>
+          <p>
+	    Own Id: OTP-19495 Aux Id: GH-8208, PR-8209 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 14.2.5.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

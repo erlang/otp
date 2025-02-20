@@ -30,6 +30,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 5.1.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>SFTP packets exceeding max packet size are not
+	    processed and dropped.</p>
+          <p>
+	    Own Id: OTP-19466 Aux Id: ERIERL-1173, CVE-2025-26618 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 5.1.4.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
