@@ -332,6 +332,14 @@ limitations under the License.
 
   Own Id: OTP-18490 Aux Id: OTP-18471, GH-6339, PR-6843
 
+## Ssh 4.15.3.10
+
+### Fixed Bugs and Malfunctions
+
+* SFTP packets exceeding max packet size are not processed and dropped.
+
+  Own Id: OTP-19466 Aux Id: ERIERL-1173, CVE-2025-26618
+
 ## Ssh 4.15.3.9
 
 ### Fixed Bugs and Malfunctions
