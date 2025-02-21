@@ -423,6 +423,14 @@ jobs:
                  make && make TYPE=debug &&
                  cerl -noshell -s init stop && cerl -debug -noshell -s init stop'
 
+      - name: Start Erlang with various start options
+        if: ${{ matrix.flavor == 'jit' }}
+        run: |
+            OPTIONS=("+JPperf true" "+JMsingle true" "+JDdump true")
+            for OPTION in "${OPTIONS[@]}"; do
+                docker run otp "erl ${OPTION} -noshell -s init stop"
+            done
+
   build:
     name: Build Erlang/OTP
     runs-on: ubuntu-latest
