@@ -314,16 +314,16 @@ cont(F, Exception, S) ->
 
 
 cont2(F, Exception, Sofar, Fd, Fname, T, S) ->
-    case catch read_chunk(Fd, Fname, Sofar) of
-	{ok, Bin} ->
-	    find_good_split(list_to_binary([Sofar,Bin]),
+    case read_chunk(Fd, Fname, Sofar) of
+        {ok, Bin} ->
+            find_good_split(list_to_binary([Sofar,Bin]),
 			    F,Exception,Fd,Fname,T,S);
 	eof ->
 	    ok = file:close(Fd),
 	    NewS = xmerl_scan:cont_state([{Fname, eof}|T], S),
 	    F(binary_to_list(Sofar), NewS);
-	Error ->
-	    exit(Error)
+        Error ->
+            exit(Error)
     end.
 
 read_chunk(Fd, _Fname, _Sofar) ->
@@ -468,11 +468,12 @@ rules_read(Context, Name, #xmerl_scanner{rules = T}) ->
 %%% Generic helper functions
 
 scanner_options([H|T], Opts) ->
-    case catch keyreplace(H, 1, Opts) of
-	false ->
-	    scanner_options(T, [H|Opts]);
-	NewOpts ->
+    try keyreplace(H, 1, Opts) of
+        NewOpts ->
 	    scanner_options(T, NewOpts)
+    catch
+        throw:false ->
+            scanner_options(T, [H|Opts])
     end;
 scanner_options([], Opts) ->
     Opts.
