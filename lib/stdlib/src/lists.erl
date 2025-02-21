@@ -101,7 +101,7 @@ equal to `Key`.
 
 Returns `Tuple` if such a tuple is found; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:keyfind(b, 1, [{a,10}, {b,20}, {c,30}]).
@@ -124,7 +124,7 @@ keyfind(_, _, _) ->
 Returns `true` if `TupleList` contains a tuple whose `N`th element compares
 equal to `Key`; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:keymember(b, 1, [{a,10}, {b,20}, {c,30}]).
@@ -168,7 +168,7 @@ keysearch(_, _, _) ->
 -doc """
 Returns `true` if `Elem` matches some element of `List`; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:member(2, [1,2,3]).
@@ -190,7 +190,7 @@ member(_, _) ->
 Returns a list containing the elements of `List1` in reverse order,
 with tail `Tail` appended.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:reverse([1, 2, 3, 4], [a, b, c]).
@@ -212,7 +212,7 @@ reverse(_, _) ->
 Returns a new list, `List3`, consisting of the elements of
 `List1`, followed by the elements of `List2`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:append("abc", "def").
@@ -232,7 +232,7 @@ append(L1, L2) -> L1 ++ L2.
 -doc """
 Returns a list in which all sublists of `ListOfLists` have been concatenated.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:append([[1, 2, 3], [a, b], [4, 5, 6]]).
@@ -254,7 +254,7 @@ Returns a new list, `List3`, which is a copy of `List1` with the
 following modification: for each element in `List2`, its first
 occurrence in `List1` is removed.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:subtract("123212", "212").
@@ -274,7 +274,7 @@ subtract(L1, L2) -> L1 -- L2.
 -doc """
 Returns a list containing the elements in `List1` in reverse order.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:reverse([1,2,3]).
@@ -299,7 +299,7 @@ reverse([A, B | L]) ->
 -doc """
 Returns the `N`th element of `List`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:nth(3, [a, b, c, d, e]).
@@ -324,7 +324,7 @@ nth_1(N, [_|T]) ->
 Returns the `N`th tail of `List`, meaning the sublist of `List`
 starting at `N+1` and continuing to the end of the list.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:nthtail(3, [a, b, c, d, e]).
@@ -356,7 +356,7 @@ nthtail_1(N, [_|T]) ->
 -doc """
 Returns `true` if `List1` is a prefix of `List2`; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:prefix("abc", "abcdef").
@@ -378,7 +378,7 @@ prefix([_|_], List) when is_list(List) -> false.
 -doc """
 Returns `true` if `List1` is a suffix of `List2`; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:suffix("abc", "abcdef").
@@ -402,7 +402,7 @@ Drops the last element of a `List`.
 The list must be non-empty; otherwise, the function raises a
 `function_clause` exception.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:droplast([1]).
@@ -426,7 +426,7 @@ droplast([H|T]) -> [H|droplast(T)].
 -doc """
 Returns the last element in `List`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:last([1]).
@@ -484,7 +484,7 @@ length(lists:seq(From, To)) =:= To - From + 1
 length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr
 ```
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:seq(1, 10).
@@ -531,7 +531,7 @@ seq_loop(0, _, _, L) ->
 -doc """
 Returns the sum of the elements in `List`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:sum([]).
@@ -551,7 +551,7 @@ sum([], Sum)    -> Sum.
 -doc """
 Returns a list containing `N` copies of term `Elem`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:duplicate(5, xx).
@@ -573,7 +573,7 @@ duplicate(N, X, L) -> duplicate(N-1, X, [X|L]).
 Returns the first element of `List` that compares less than or equal to all
 other elements of `List`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:min([17,19,7,55]).
@@ -595,7 +595,7 @@ min([],    Min)              -> Min.
 Returns the first element of `List` that compares greater than or equal to all
 other elements of `List`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:max([17,19,7,55]).
@@ -619,7 +619,7 @@ elements.
 
 It is not an error for `Start+Len` to exceed the length of the list.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:sublist([1,2,3,4], 2, 2).
@@ -651,7 +651,7 @@ elements.
 It is not an error for `Len` to exceed the length of the list, in which
 case the whole list is returned.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:sublist([1,2,3,4,5], 2)
@@ -680,7 +680,7 @@ sublist_2(List, L) when is_list(List), L > 0 ->
 Returns a copy of `List1` where the first element matching `Elem` is removed, if
 there is such an element.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:delete(b, [a,b,c]).
@@ -723,7 +723,7 @@ lengths.
 
 - **`trim`** - Surplus elements from the longer list will be ignored.
 
-  _Examples:_
+  ## Examples
 
   ```erlang
   > lists:zip([a, b], [1, 2, 3], trim).
@@ -735,7 +735,7 @@ lengths.
 - **`{pad, Defaults}`** - The shorter list will be padded to the length of the
   longer list, using the respective elements from the given `Defaults` tuple.
 
-  _Examples:_
+  ## Examples
 
   ```erlang
   > lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).
@@ -778,7 +778,7 @@ zip([_ | _]=Xs, [], {pad, {_, Y}}) ->
 first element of each tuple, and the second list contains the second element of
 each tuple.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:unzip([{1, a}, {2, b}]).
@@ -817,7 +817,7 @@ the corresponding element in the third list.
 
 For a description of the `How` parameter, see `zip/3`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:zip3([a], [1, 2, 3], [17, 19], trim).
@@ -868,7 +868,7 @@ zip3([X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 the first element of each tuple, the second list contains the second element of
 each tuple, and the third list contains the third element of each tuple.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:unzip3([{a, 1, 2}, {b, 777, 999}]).
@@ -914,7 +914,7 @@ For a description of the `How` parameter, see `zip/3`.
 [`zipwith(fun(X, Y) -> {X,Y} end, List1, List2)`](`zipwith/3`) is equivalent to
 [`zip(List1, List2)`](`zip/2`).
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:zipwith(fun(X, Y) -> X+Y end, [1,2,3], [4,5,6], fail).
@@ -977,7 +977,7 @@ For a description of the `How` parameter, see `zip/3`.
 [`zipwith3(fun(X, Y, Z) -> {X,Y,Z} end, List1, List2, List3)`](`zipwith3/4`) is
 equivalent to [`zip3(List1, List2, List3)`](`zip3/3`).
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:zipwith3(fun(X, Y, Z) -> X+Y+Z end, [1,2,3], [4,5,6], [7,8,9], fail).
@@ -1028,7 +1028,7 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 -doc """
 Returns a list containing the sorted elements of `List1`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:sort([4,1,3,2]).
@@ -1092,7 +1092,7 @@ All sublists must be sorted before evaluating this function.
 When two elements compare equal, the element from the sublist with the lowest
 position in `ListOfLists` is picked before the other element.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:merge([[b,l,l], [g,k,q]]).
@@ -1118,7 +1118,7 @@ When two elements compare equal, the element from `List1`, if there is such an
 element, is picked before the other element, otherwise the element from `List2`
 is picked before the element from `List3`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:merge3([a,o], [g,q], [j]).
@@ -1182,7 +1182,7 @@ Both `List1` and `List2` must be sorted before evaluating this function.
 When two elements compare equal, the element from `List1` is picked before the
 element from `List2`.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:merge([a,o], [b,x]).
@@ -1227,7 +1227,7 @@ Concatenates the text representation of the elements of `Things`.
 
 The elements of `Things` can be atoms, integers, floats, or strings.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:concat([doc, '/', file, '.', 3]).
@@ -1249,7 +1249,7 @@ thing_to_list(X) when is_list(X)    -> X.	%Assumed to be a string
 -doc """
 Returns a flattened version of `DeepList`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:flatten([a,[b,c,[d,e]],f]).
@@ -1266,7 +1266,7 @@ flatten(List) when is_list(List) ->
 -doc """
 Returns a flattened version of `DeepList` with tail `Tail` appended.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:flatten([a,[b,c,[d,e]],f], [g,h,i]).
@@ -1294,7 +1294,7 @@ do_flatten([], Tail) ->
 -doc """
 Equivalent to [`length(flatten(DeepList))`](`length/1`), but more efficient.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:flatlength([a,[b,c,[d,e]],f,[[g,h,i]]]).
@@ -1335,7 +1335,7 @@ Returns a copy of `TupleList1`, where the first occurrence of a tuple
 whose `N`th element compares equal to `Key` is removed, if there is
 such a tuple.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:keydelete(c, 1, [{b,1}, {c,55}, {d,75}]).
@@ -1364,7 +1364,7 @@ Returns a copy of `TupleList1` where the first occurrence of a tuple `T` whose
 `N`th element compares equal to `Key` is replaced with `NewTuple`, if there is
 such a tuple `T`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:keyreplace(c, 1, [{b,1}, {c,55}, {d,75}], {new,tuple}).
@@ -1398,7 +1398,7 @@ with the first occurrence of `Tuple` removed.
 
 Otherwise, returns `false` if no such tuple is found.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:keytake(b, 1, [{a, 10}, {b, 23}, {c, 99}]).
@@ -1428,7 +1428,7 @@ Returns a copy of `TupleList1` with the first tuple whose `N`th
 element compares equal to `Key` replaced by `NewTuple`, or with
 `[NewTuple]` appended if no such tuple exists.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:keystore(b, 1, [{a, 10}, {b, 23}, {c, 99}], {bb, 1}).
@@ -1462,7 +1462,7 @@ element of each tuple.
 
 The sort is stable.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:keysort(2, [{a, 99}, {b, 17}, {c, 50}, {d, 50}]).
@@ -1539,7 +1539,7 @@ this function. When the key elements of the two tuples compare equal,
 the tuple from `TupleList1` is picked before the tuple from
 `TupleList2`.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:keymerge(2, [{b, 50}], [{c, 20}, {a, 50}]).
@@ -1595,7 +1595,7 @@ first occurrence of tuples whose `N`th elements compare equal.
 
 Sorting is performed on the `N`th element of the tuples.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:ukeysort(2, [{a, 27}, {d, 23}, {e, 23}]).
@@ -1681,7 +1681,7 @@ duplicates before evaluating this function.
 When the `N`th elements of two tuples compare equal, the tuple
 from `TupleList1` is picked and the one from `TupleList2` is removed.
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:ukeymerge(1, [{a, 33}, {c, 15}], [{a, 59}, {d, 39}]).
@@ -1736,7 +1736,7 @@ Returns a list of tuples where, for each tuple in `TupleList1`, the `N`th
 element `Term1` of the tuple has been replaced with the result of calling
 `Fun(Term1)`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > Fun = fun(Atom) -> atom_to_list(Atom) end.
@@ -1794,7 +1794,7 @@ enumerate(I, S, List) ->
 
 The default values for `Index` and `Step` are both `1`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:enumerate([a,b,c]).
@@ -1826,7 +1826,7 @@ Returns a list of the elements in `List1`, sorted according to the
 B)` returns `true` if `A` compares less than or equal to `B` in the
 ordering; otherwise, it returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > F = fun(A, B) -> tuple_size(A) =< tuple_size(B) end.
@@ -1863,7 +1863,7 @@ function.
 `B` in the ordering, otherwise `false`. When two elements compare equal, the
 element from `List1` is picked before the element from `List2`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > F = fun(A, B) -> tuple_size(A) =< tuple_size(B) end.
@@ -1916,7 +1916,7 @@ first element of the elements comparing equal according to the
 `Fun(A, B)` is to return `true` if `A` compares less than or equal to `B` in the
 ordering, otherwise `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > F = fun(A, B) -> tuple_size(A) =< tuple_size(B) end.
@@ -1966,7 +1966,7 @@ pre-sorted according to `Fun` and contain no duplicates.
 elements compare equal, the element from `List1` is picked and the one
 from `List2` is removed.
 
-_Examples:_
+## Examples
 
 ```erlang
 > F = fun(A, B) -> tuple_size(A) =< tuple_size(B) end.
@@ -2015,7 +2015,7 @@ rumerge_1(_Fun, [], []) ->
 Returns a sorted list of the elements of `List1`, keeping only the
 first occurrence of elements that compare equal.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:usort([a,x,y,b,c,x,a]).
@@ -2089,7 +2089,7 @@ evaluating this function.
 When two elements compare equal, the element from the sublist with the
 lowest position in `ListOfLists` is picked and the other is removed.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:umerge([[a,b], [a,d,e]]).
@@ -2116,7 +2116,7 @@ When two elements compare equal, the element from
 `List1` is picked if there is such an element, otherwise the element from
 `List2` is picked, and the other is removed.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:umerge3([a,b], [a,d,e], [b,f]).
@@ -2183,7 +2183,7 @@ before evaluating this function.
 When two elements compare equal, the element from `List1` is picked
 and the one from `List2` is removed.
 
-_Examples_:
+## Examples
 
 ```erlang
 > lists:umerge([a,b], [a,d,e]).
@@ -2250,7 +2250,7 @@ rumerge([], []) ->
 Returns `true` if `Pred(Elem)` returns `true` for all elements `Elem` in `List`;
 otherwise, returns `false`.
 
-_Examples_:
+## Examples
 
 ```erlang
 > IsEven = fun(N) -> N rem 2 =:= 0 end.
@@ -2287,7 +2287,7 @@ all_1(_Pred, []) ->
 Returns `true` if `Pred(Elem)` returns `true` for at least one element `Elem` in
 `List`; otherwise, returns `false`.
 
-_Examples_:
+## Examples
 
 ```erlang
 > IsEven = fun(N) -> N rem 2 =:= 0 end.
@@ -2324,7 +2324,7 @@ any_1(_Pred, []) ->
 Takes a function from `A`s to `B`s and a list of `A`s, producing a list of
 `B`s by applying the function to each element in the list.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:map(fun(N) -> N + 1 end, [1,2,3]).
@@ -2361,7 +2361,7 @@ flatmap(Fun, List1) ->
     lists:append(lists:map(Fun, List1)).
 ```
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:flatmap(fun(X)-> [X,X] end, [a,b,c]).
@@ -2401,7 +2401,7 @@ Calls `Fun(Elem, AccIn)` on successive elements `A` of `List`, starting with
 call. The function returns the final value of the accumulator. `Acc0`
 is returned if the list is empty.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:foldl(fun(X, Sum) -> X + Sum end, 0, [1,2,3,4,5]).
@@ -2433,7 +2433,7 @@ foldl_1(_F, Accu, []) ->
 -doc """
 Like `foldl/3`, but the list is traversed from right to left.
 
-_Example:_
+## Examples
 
 ```erlang
 > P = fun(A, AccIn) -> [A|AccIn] end.
@@ -2467,7 +2467,7 @@ foldr_1(_F, Accu, []) ->
 Returns a list of elements `Elem` in `List1` for which `Pred(Elem)`
 returns `true`.
 
-_Examples_:
+## Examples
 
 ```erlang
 > IsEven = fun(N) -> N rem 2 =:= 0 end.
@@ -2490,7 +2490,7 @@ Partitions `List` into two lists: the first containing elements for
 which `Pred(Elem)` returns `true`, and the second containing elements
 for which `Pred(Elem)` returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:partition(fun(A) -> A rem 2 =:= 1 end, [1,2,3,4,5,6,7]).
@@ -2540,7 +2540,7 @@ filtermap(Fun, List1) ->
                   end, List1).
 ```
 
-_Example:_
+## Examples
 
 ```erlang
 > lists:filtermap(fun(X) ->
@@ -2604,7 +2604,7 @@ foreach_1(_F, []) ->
 -doc """
 Combines the operations of `map/2` and `foldl/3` into one pass.
 
-_Example:_
+## Examples
 
 Summing the elements in a list and double them at the same time:
 
@@ -2642,7 +2642,7 @@ Combines the operations of `map/2` and `foldr/3` into one pass.
 > Unless the order in which the elements are accumulated is important,
 > prefer [`mapfoldl/3`](`mapfoldl/3`) as it is slighly more efficient.
 
-_Example:_
+## Examples
 
 Doubling the elements in list and producing a list of squares at the
 same time:
@@ -2677,7 +2677,7 @@ mapfoldr_1(_F, Accu, []) ->
 Takes elements `Elem` from `List1` while `Pred(Elem)` returns `true`,
 returning the longest prefix in which all elements satisfy the predicate.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:takewhile(fun is_atom/1, [a,b,c,1,2,3,x,y,z]).
@@ -2707,7 +2707,7 @@ takewhile_1(_Pred, []) ->
 Drops elements `Elem` from `List1` while `Pred(Elem)` returns `true`,
 and then returns the remaining list.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:dropwhile(fun is_atom/1, [a,b,c,1,2,3,x,y,z]).
@@ -2737,7 +2737,7 @@ dropwhile_1(_Pred, []) ->
 If there is a `Value` in `List` such that `Pred(Value)` returns `true`, returns
 `{value, Value}` for the first such `Value`; otherwise, returns `false`.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:search(fun is_atom/1, [1,2,3,a,b,c]).
@@ -2774,7 +2774,7 @@ splitwith(Pred, List) ->
     {takewhile(Pred, List), dropwhile(Pred, List)}.
 ```
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:splitwith(fun(A) -> A rem 2 =:= 1 end, [1,2,3,4,5,6,7]).
@@ -2807,7 +2807,7 @@ splitwith_1(_Pred, [], Taken) ->
 Splits `List1` into `List2`, containing the first `N` elements, and
 `List3`, containing the rest.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:split(3, [1,2,3,4,5,6,7]).
@@ -2842,7 +2842,7 @@ Inserts `Sep` between each element in `List1`.
 
 Has no effect on an empty list or a singleton list.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:join(x, [a,b,c]).
@@ -2873,7 +2873,7 @@ removed (preserving the order of the elements).
 
 The first occurrence of each element is kept.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:uniq([3, 3, 1, 2, 1, 2, 3]).
@@ -2907,7 +2907,7 @@ Returns a list containing the elements of `List1` without the elements for which
 
 The first occurrence of each element is kept.
 
-_Examples:_
+## Examples
 
 ```erlang
 > lists:uniq(fun({X, _}) -> X end, [{b, 2}, {a, 1}, {c, 3}, {a, 2}]).
