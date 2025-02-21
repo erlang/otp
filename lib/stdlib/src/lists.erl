@@ -445,11 +445,6 @@ last([E|Es]) -> last(E, Es).
 last(_, [E|Es]) -> last(E, Es);
 last(E, []) -> E.
 
-%% seq(Min, Max) -> [Min,Min+1, ..., Max]
-%% seq(Min, Max, Incr) -> [Min,Min+Incr, ..., Max]
-%%  returns the sequence Min..Max
-%%  Min <= Max and Min and Max must be integers
-
 -doc(#{equiv => seq(From, To, 1)}).
 -spec seq(From, To) -> Seq when
       From :: integer(),
@@ -457,15 +452,15 @@ last(E, []) -> E.
       Seq :: [integer()].
 
 seq(First, Last)
-    when is_integer(First), is_integer(Last), First-1 =< Last -> 
+  when is_integer(First), is_integer(Last), First-1 =< Last ->
     seq_loop(Last-First+1, Last, []).
 
 seq_loop(N, X, L) when N >= 4 ->
-     seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
+    seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
 seq_loop(N, X, L) when N >= 2 ->
-     seq_loop(N-2, X-2, [X-1,X|L]);
+    seq_loop(N-2, X-2, [X-1,X|L]);
 seq_loop(1, X, L) ->
-     [X|L];
+    [X|L];
 seq_loop(0, _, L) ->
      L.
 
