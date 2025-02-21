@@ -283,6 +283,8 @@ AC_SUBST(ODBC_INCLUDE)
 
  ]) dnl "$with_odbc" != "no"
 
+ERL_OSSF_FLAGS
+
 dnl ----------------------------------------------------------------------
 dnl Check for GCC diagnostic ignored "-Wstringop-truncation"
 dnl ----------------------------------------------------------------------
