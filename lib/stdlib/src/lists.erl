@@ -356,6 +356,9 @@ nthtail_1(N, [_|T]) ->
 -doc """
 Returns `true` if `List1` is a prefix of `List2`; otherwise, returns `false`.
 
+A prefix of a list is the first part of the list, starting from the
+beginning and stopping at any point.
+
 ## Examples
 
 ```erlang
@@ -363,6 +366,10 @@ Returns `true` if `List1` is a prefix of `List2`; otherwise, returns `false`.
 true
 > lists:prefix("def", "abcdef").
 false
+> lists:prefix([], "any list").
+true
+> lists:prefix("abc", "abc").
+true
 ```
 """.
 -spec prefix(List1, List2) -> boolean() when
@@ -378,12 +385,19 @@ prefix([_|_], List) when is_list(List) -> false.
 -doc """
 Returns `true` if `List1` is a suffix of `List2`; otherwise, returns `false`.
 
+A suffix of a list is the last part of the list, starting from any position
+and going all the way to the end.
+
 ## Examples
 
 ```erlang
 > lists:suffix("abc", "abcdef").
 false
 > lists:suffix("def", "abcdef").
+true
+> lists:suffix([], "any list").
+true
+> lists:suffix("abc", "abc").
 true
 ```
 """.
@@ -1028,6 +1042,8 @@ zipwith3(F, [X | Xs], [Y | Ys], [], {pad, {_, _, Z}} = How) ->
 -doc """
 Returns a list containing the sorted elements of `List1`.
 
+The sort is stable.
+
 ## Examples
 
 ```erlang
@@ -1035,6 +1051,15 @@ Returns a list containing the sorted elements of `List1`.
 [1,2,3,4]
 > lists:sort([a,4,3,b,9]).
 [3,4,9,a,b]
+```
+Since the sort is stable, the relative order of elements that compare
+equal is not changed:
+
+```erlang
+> lists:sort([1.0,1]).
+[1.0,1]
+> lists:sort([1,1.0]).
+[1,1.0]
 ```
 """.
 -spec sort(List1) -> List2 when
@@ -2022,6 +2047,10 @@ first occurrence of elements that compare equal.
 [a,b,c,x,y]
 > lists:usort([3,2,a,3,2,a,1,3,b,2,2,1]).
 [1,2,3,a,b]
+> lists:usort([1.0,1]).
+[1.0]
+> lists:usort([1,1.0]).
+[1]
 ```
 """.
 -spec usort(List1) -> List2 when
