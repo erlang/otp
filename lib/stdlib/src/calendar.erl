@@ -829,7 +829,7 @@ universal_time() ->
     erlang:universaltime().
 
 -doc(#{equiv => universal_time_to_system_time(LocalTime, [])}).
--doc(#{since => <<"OTP 28.0">>}).
+-doc(#{since => <<"OTP @OTP-19505@">>}).
 -spec universal_time_to_system_time(datetime()) -> integer().
 universal_time_to_system_time(UniversalTime) ->
     universal_time_to_system_time(UniversalTime, []).
