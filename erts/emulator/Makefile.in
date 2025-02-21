@@ -247,12 +247,6 @@ endif # DIRTY_SCHEDULER_TEST
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
 
-ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
-VOID_EMULATOR = '*** valgrind emulator disabled by configure'
-else
-VOID_EMULATOR =
-endif
-
 OPSYS=@OPSYS@
 
 sol2CFLAGS=
