@@ -898,7 +898,8 @@ do_read_file(File) ->
                             case check_dump_version(Id) of
                                 {ok,DumpVsn} ->
                                     reset_tables(),
-                                    insert_index(Tag,Id,Pos=N1+1),
+                                    Pos = N1+1,
+                                    insert_index(Tag,Id,Pos),
                                     put_last_tag(Tag,"",Pos),
                                     DecodeOpts = get_decode_opts(DumpVsn),
                                     indexify(Fd,DecodeOpts,Rest,N1),
