@@ -76,7 +76,8 @@ titles =
     [],
     fn module, acc ->
       case Code.fetch_docs(module) do
-        {:docs_v1, _, :erlang, _, _, %{:titles => ts}, _} ->
+        {:docs_v1, _, :erlang, _, _, _, fun_docs} ->
+          ts = for {{type, _, _}, _, _, _, %{group: group}} <- fun_docs, do: {type, group}
           acc ++ ts
 
         _ ->
@@ -88,31 +89,31 @@ titles =
 
 groups_for_docs =
   Enum.map(
-    Access.get(titles, :type, []),
+    Enum.sort(Access.get(titles, :type, [])),
     fn {:type, title} ->
       {"Types: #{title}",
        fn a ->
-         a[:kind] == :type && String.equivalent?(Access.get(a, :title, ""), title)
+         a[:kind] == :type && String.equivalent?(Access.get(a, :group, ""), title)
        end}
     end
   ) ++
     [Types: &(&1[:kind] == :type)] ++
     Enum.map(
-      Access.get(titles, :callback, []),
+      Enum.sort(Access.get(titles, :callback, [])),
       fn {:callback, title} ->
         {"Callbacks: #{title}",
          fn a ->
-           a[:kind] == :callback && String.equivalent?(Access.get(a, :title, ""), title)
+           a[:kind] == :callback && String.equivalent?(Access.get(a, :group, ""), title)
          end}
       end
     ) ++
     [Callbacks: &(&1[:kind] == :callback)] ++
     Enum.map(
-      Access.get(titles, :function, []),
+      Enum.sort(Access.get(titles, :function, [])),
       fn {:function, title} ->
         {"#{title}",
          fn a ->
-           a[:kind] == :function && String.equivalent?(Access.get(a, :title, ""), title)
+           a[:kind] == :function && String.equivalent?(Access.get(a, :group, ""), title)
          end}
       end
     )

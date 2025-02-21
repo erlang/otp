@@ -796,9 +796,6 @@ The fields of record `mod` have the following meaning:
 
 [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), `m:inets`, `m:ssl`
 """.
--moduledoc(#{titles =>
-                 [{callback,<<"Web server API callback functions">>},
-                  {function,<<"Web server API help functions">>}]}).
 
 -behaviour(inets_service).
 
@@ -866,7 +863,7 @@ atom `sent` if the HTTP response is sent back to the client. If `close` is
 returned from the fun, something has gone wrong and the server signals this to
 the client by closing the connection.
 """.
--doc(#{title => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
+-doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback do(ModData) -> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done when
       ModData :: [{data,NewData} | {'Body', Body} | {'Head',Head}],
       OldData :: list(),
@@ -885,7 +882,7 @@ When `httpd` is shut down, it tries to execute [`remove/1`](`c:remove/1`) in
 each Erlang web server callback module. The programmer can use this function to
 clean up resources created in the store function.
 """.
--doc(#{title => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
+-doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback remove(ConfigDB) -> ok | {error, Reason} when
       ConfigDB :: ets:tid(), Reason :: term().
 
@@ -897,7 +894,7 @@ resolve possible dependencies among configuration options by changing the value
 of the option. This function only needs clauses for the options implemented by
 this particular callback module.
 """.
--doc(#{title => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
+-doc(#{group => <<"ERLANG WEB SERVER API CALLBACK FUNCTIONS">>}).
 -callback store({Option, Value}, Config) ->
     {ok, {Option, NewValue}} | {error, Reason} when
       Option :: property(),
@@ -917,7 +914,7 @@ this particular callback module.
 scripts (see `m:mod_esi`) as defined in the standard URL format, that is, '+'
 becomes 'space' and decoding of hexadecimal characters (`%xx`).
 """.
--doc(#{title => <<"Web server API help functions">>}).
+-doc(#{group => <<"Web server API help functions">>}).
 -spec parse_query(QueryString) -> QueryList | uri_string:error() when
       QueryString :: string(),
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}].
