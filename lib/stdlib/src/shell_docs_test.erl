@@ -161,45 +161,27 @@ run_test(Code, InitialBindings) ->
                         run_tests(Test, Bindings)
                 end, InitialBindings, Tests).
 
+-define(RE_CAPTURE, "(?'indent'^\s*)(((?'line_number'[0-9]+)(?'prefix'>\s|\s))|(?'prefix'%))(?'content'[^%]*)(?'comment'(?:.*%.*)?)").
+-define(RE_OPTIONS, [ {capture, [indent, line_number, prefix, content, comment] ,binary}, dupnames ]).
 parse_tests([], []) ->
     [];
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([<<>>|T], Cmd) ->
+parse_tests([{match,[<<>>,<<>>,<<>>,<<>>]}], Cmd) ->
+    [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"%">>, _Comment, <<"", _Nothing/binary>>]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([<<"%", _Skip/binary>> | T], Cmd) ->
-    parse_tests(T, Cmd);
-parse_tests([<<"> ", NewCmd/binary>> | T], []) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"> ">>, NewCmd, _MaybeComment]} | T], []) ->
     parse_tests(T, [NewCmd]);
-parse_tests([<<"> ", NewCmd/binary>> | T], Cmd) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"> ">>, NewCmd, _MaybeComment]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
-parse_tests([<<" ", More/binary>> | T], Acc) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<" ">>, More, _MaybeComment]} | T], Acc) ->
     parse_tests(T, [More | Acc]);
+parse_tests([nomatch | T], Cmd) ->
+    parse_tests(T, Cmd);
 parse_tests([NewMatch | T], Cmd) ->
-    %% `NewMatch` maybe either `<<"> SomeCode.">>` or `<<"419> OtherCode.">>`
-    %% `NewMatch` maybe `<<" Value > Thang.">>` too and treated as `test` which
-    %% maybe a bug
-    case string:split(NewMatch, ">") of
-        [MaybeInt, MaybeNewCmd] ->
-            case string:to_integer(MaybeInt) of
-                {_Int, <<>>} -> parse_tests([MaybeNewCmd | T], Cmd);
-                {error, _} ->
-                    {Match, Rest} = parse_match(T, [NewMatch]),
-                    [{test, lists:join($\n, lists:reverse(Cmd)),
-                      lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])]
-            end;
-        [_] ->
-            {Match, Rest} = parse_match(T, [NewMatch]),
-            [{test, lists:join($\n, lists:reverse(Cmd)),
-              lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])]
-    end.
-
-parse_match([<<"%", _Skip/binary>> | T], Acc) ->
-    parse_match(T, Acc);
-parse_match([<<" ", More/binary>> | T], Acc) ->
-    parse_match(T, [More | Acc]);
-parse_match(Rest, Acc) ->
-    {Acc, Rest}.
+    ReResult = re:run(NewMatch, ?RE_CAPTURE, ?RE_OPTIONS),
+    parse_tests([ReResult | T], Cmd).
 
 run_tests({test, Test, Match}, Bindings) ->
     maybe
