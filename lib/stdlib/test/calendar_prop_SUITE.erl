@@ -21,13 +21,17 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2,
-         rfc3339_lists_binaries/1]).
+         rfc3339_lists_binaries/1,
+         universal_time_system_time_symmetry/1,
+         local_time_system_time_symmetry/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [rfc3339_lists_binaries].
+    [rfc3339_lists_binaries,
+    universal_time_system_time_symmetry,
+    local_time_system_time_symmetry].
 
 groups() ->
     [].
@@ -47,4 +51,14 @@ end_per_group(_GroupName, Config) ->
 rfc3339_lists_binaries(Config) when is_list(Config) ->
     ct_property_test:quickcheck(
         calendar_prop:rfc3339_lists_binaries(),
+        Config).
+
+universal_time_system_time_symmetry(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:universal_time_system_time_symmetry(),
+        Config).
+
+local_time_system_time_symmetry(Config) when is_list(Config) ->
+    ct_property_test:quickcheck(
+        calendar_prop:local_time_system_time_symmetry(),
         Config).
