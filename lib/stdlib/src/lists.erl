@@ -324,7 +324,7 @@ nth_1(N, [_|T]) ->
 Returns the `N`th tail of `List`, meaning the sublist of `List`
 starting at `N+1` and continuing to the end of the list.
 
-_Example_
+_Examples:_
 
 ```erlang
 > lists:nthtail(3, [a, b, c, d, e]).
@@ -1686,7 +1686,7 @@ duplicates before evaluating this function.
 When the `N`th elements of two tuples compare equal, the tuple
 from `TupleList1` is picked and the one from `TupleList2` is removed.
 
-_Example_:
+_Example:_
 
 ```erlang
 > lists:ukeymerge(1, [{a, 33}, {c, 15}], [{a, 59}, {d, 39}]).
