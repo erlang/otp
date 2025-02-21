@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2330,6 +2330,10 @@ handle_recv(P, #{buffer := Buffer} = D, ActionsR, CS) ->
             handle_recv(
               P, D, ActionsR, buffer(Data, Buffer),
               BufferSize + byte_size(Data), recv);
+        {more, <<Data/binary>>} ->
+            handle_recv(
+              P, D, ActionsR, buffer(Data, Buffer),
+              BufferSize + byte_size(Data), recv);
         {error, {Reason, <<Data/binary>>}} ->
             handle_recv(
               P, D, ActionsR, buffer(Data, Buffer),
@@ -2695,9 +2699,10 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
             {next_state, 'closed', {P, D_1}, [Reply]}
     end.
 
+
 %% -> CuratedReason
 %% This is a special "verbose" (Extra Error Info) map
-%% that we *currently* only produce with the esaio backend (=Windows).
+%% that we *currently* only produce with the async I/O backend (esaio=Windows).
 curated_error_reason(D, {completion_status, Reason}) ->
     curated_error_reason(D, Reason);
 curated_error_reason(D, #{info := netname_deleted}) ->
@@ -2718,16 +2723,19 @@ curated_error_reason(D, Reason) ->
             Reason
     end.
 
-%% curate_error({error, {completion_status, CS}}) ->
-%%     curate_error({error, CS});
-%% curate_error({error, #{info := netname_deleted}}) ->
-%%     curate_error({error, econnreset});
-%% curate_error({error, #{info := too_many_cmds}}) ->
-%%     curate_error({error, closed});
-%% curate_error({error, #{info := Info}}) ->
-%%     curate_error({error, Info});
-%% curate_error({error, _} = ERROR) ->
-%%     ERROR.
+%% curate_error_reason({completion_status, CS}) ->
+%%     curate_error_reason(CS);
+%% curate_error_reason(#{info := Info}) ->
+%%     curate_error_reason(Info);
+%% curate_error_reason(more_data) ->
+%%     emsgsize;
+%% curate_error_reason(netname_deleted) ->
+%%     econnreset;
+%% curate_error_reason(too_many_cmds) ->
+%%     closed;
+%% curate_error_reason(Reason) ->
+%%     Reason.
+
 
 
 handle_active(P, D, State, ActionsR) ->
@@ -2747,6 +2755,7 @@ handle_active(P, D, State, ActionsR) ->
         _ ->
             {keep_state, {P, D}, reverse(ActionsR)}
     end.
+
 
 %% -------------------------------------------------------------------------
 %% Callback Helpers

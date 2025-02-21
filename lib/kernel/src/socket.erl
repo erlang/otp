@@ -5019,7 +5019,7 @@ On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there is some but not enough data available,
 this function will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
 with partial `Data`.  A repeated call to complete the operation
-will probably need an updated `Length` argument.
+may need an updated `Length` argument.
 
 On `select` systems, if the option
 [`{otp, select_read}`](`t:otp_socket_option/0`) is set,
@@ -5242,56 +5242,67 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
         %%
         completion ->
             %% There is nothing just now, but we will be notified
-            %% when the data has been read (with a completion message).
-            %%
-            %% Since these (completion-) messages can also be received
-            %% directly by the user (nowait), the I/O completion threads
-            %% do not use the more-construct.
-            %% But since there is no conflict with how the sync I/O backend
-            %% (essio = unix) here, they can instead safely send {ok, Bin}
-            %% and let us handle possible loop'ing...
-            %%
+	    %% when the data has been read (with a completion message).
+	    %%
+	    %% Since these (completion-) messages can also be received
+	    %% directly by the user (nowait), the I/O completion threads
+	    %% do not use the more-construct.
+	    %% But since there is no conflict with how the sync I/O backend
+	    %% (essio = unix) here, they can instead safely send {ok, Bin}
+	    %% and let us handle possible loop'ing...
+	    %%
             Timeout = timeout(Deadline),
             receive
-
-                %% For Length = 0; The async I/O backend do not use
-                %% the rNum+rNumCnt and therefor cannot break a possible
-                %% loop. Therefor we are done when we receive this result.
-                %% Buf "should be" empty here, but just in case...
+                %% On Windows we are *always* done when we get {ok, Bin}
+                %% If we should/can read more, the result is {more, Bin}
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}}) when (Length =:= 0) ->
+                            {Handle, {ok, Bin}}) ->
                     {ok, condense_buffer([Bin | Buf])};
 
+                %% Do we actually (currently) ever get this when Length =:= 0?
+                %% Future proofing?
+                %% This actually depends on the nif to stop reading
+                %% (stop returning 'more').
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
                 %% We got the last chunk
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
+			    {Handle, {more, Bin}})
                   when (Length =:= byte_size(Bin)) ->
                     {ok, condense_buffer([Bin | Buf])};
 
                 %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
-                  when (Length > byte_size(Bin)) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, [Bin | Buf]);
-                        true ->
-                            {error, {timeout, condense_buffer([Bin | Buf])}}
-                    end;
+			    {Handle, {more, Bin}}) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length - byte_size(Bin), Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
 
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
-                    recv_error(Reason, Buf);
+                    recv_error(Buf, Reason);
 
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    recv_error(Reason, Buf)
+                    recv_error(Buf, Reason)
 
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
-                    recv_error(timeout, Buf)
+                    recv_error(Buf, timeout)
             end;
 
         %%
