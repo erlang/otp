@@ -4205,7 +4205,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM data, result;
+    ERL_NIF_TERM data, eres;
     DWORD        read = 0, flags = 0;
 
     SSDBG( descP,
@@ -4244,7 +4244,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_fails, &descP->readFails, 1);
 
-            result = esock_make_error(env, esock_atom_closed);
+            eres = esock_make_error(env, esock_atom_closed);
             
         } else {
 
@@ -4274,7 +4274,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 data = MKBIN(env, &opP->data.recv.buf);
 
-                result = esock_make_ok2(env, data);
+                eres = esock_make_ok2(env, data);
 
             } else if ((toRead == 0) ||
                        (descP->type != SOCK_STREAM)) {
@@ -4299,7 +4299,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                 data = MKBIN(env, &opP->data.recv.buf);
                 data = MKSBIN(env, data, 0, read);
 
-                result = esock_make_ok2(env, data);
+                eres = esock_make_ok2(env, data);
 
             } else {
                 
@@ -4322,7 +4322,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                 data = MKBIN(env, &opP->data.recv.buf);
                 data = MKSBIN(env, data, 0, read);
 
-                result = MKT2(env, esock_atom_more, data);
+                eres = MKT2(env, esock_atom_more, data);
 
             }
 
@@ -4353,9 +4353,8 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
             if (! IS_ZERO(recvRef)) {
                 
-                result = recv_check_pending(env, descP, opP, caller,
-                                            sockRef, recvRef);
-
+                eres = recv_check_pending(env, descP, opP, caller,
+                                          sockRef, recvRef);
             } else {
 
                 /* But we are not allowed to wait! => cancel */
@@ -4378,12 +4377,12 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                             "\r\n   %T"
                             "\r\n", sockRef, descP->sock, reason) );
 
-                    result = esock_make_error(env, MKT2(env, tag, reason));
+                    eres = esock_make_error(env, MKT2(env, tag, reason));
 
                 } else {
 
                     // Will trigger {error, timeout}
-                    result = esock_atom_timeout;
+                    eres = esock_atom_timeout;
 
                 }
             }
@@ -4405,7 +4404,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 MUNLOCK(ctrl.cntMtx);
 
-                result = esock_make_error(env, reason);
+                eres = esock_make_error(env, reason);
             }
             break;
         }
@@ -4416,7 +4415,7 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             "\r\n",
             sockRef, descP->sock) );
 
-    return result;
+    return eres;
 }
 
 
@@ -9438,15 +9437,6 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
- * We do *not* want to risk ending up in a "never ending" read loop
- * here (by trying to read more data (and yet again getting partial)).
- * [worst case, we could end up with all our worker threads busy trying
- * to read more data, and no one ready to respond to new requests].
- * So we simply return what we got to the user and let the user
- * decide what to do.
- *
- * We return the data as a complete result, and let "the user" figure
- * out what to do (done or continue).
  */
 
 static
@@ -9482,7 +9472,7 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
             "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
             sockRef, descP->sock) );
 
-    return esock_make_ok2(opEnv, data);
+    return MKT2(env, esock_atom_more, data);
 
 }
 
