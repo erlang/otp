@@ -5010,8 +5010,8 @@ at the start of this module reference manual page.
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there isn't enough data available, this function
 will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
-with partial `Data`.  A repeated call to complete the operation
-will probably need an updated `Length` argument.
+with partial `Data`. A repeated call to complete the operation
+mey need an updated `Length` argument.
 """.
 -spec recv(Socket, Length, Flags, Timeout :: 'infinity') ->
           {'ok', Data} |
@@ -5291,25 +5291,36 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 	    %%
             Timeout = timeout(Deadline),
             receive
-
-                %% For Length = 0; The async I/O backend do not use
-		%% the rNum+rNumCnt and therefor cannot break a possible
-		%% loop. Therefor we are done when we receive this result.
-		%% Buf "should be" empty here, but just in case...
+                %% On Windows we are *always* done when we get {ok, Bin}
+                %% If we should/can read more, the result is {more, Bin}
                 ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}}) when (Length =:= 0) ->
+                            {Handle, {ok, Bin}}) ->
                     {ok, condense_buffer([Bin | Buf])};
 
+                %% Do we actually (currently) ever get this when Length =:= 0?
+                %% Future proofing?
+                %% This actually depends on the nif to stop reading
+                %% (stop returning 'more').
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
                 %% We got the last chunk
                 ?socket_msg(?socket(SockRef), completion,
-			    {Handle, {ok, Bin}})
+			    {Handle, {more, Bin}})
                   when (Length =:= byte_size(Bin)) ->
                     {ok, condense_buffer([Bin | Buf])};
 
                 %% Just another chunk, but not the last
                 ?socket_msg(?socket(SockRef), completion,
-			    {Handle, {ok, Bin}})
-                  when (Length > byte_size(Bin)) ->
+			    {Handle, {more, Bin}}) ->
 		    if
 			0 < Timeout ->
 			    %% Recv more
