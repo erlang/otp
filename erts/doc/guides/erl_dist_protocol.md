@@ -819,6 +819,18 @@ following capability flags are defined:
   [`ALIAS_SEND_TT`](erl_dist_protocol.md#ALIAS_SEND_TT) control messages.
   Introduced in OTP 24.
 
+  > #### Warning {: .warning }
+  >
+  > `DFLAG_ALIAS` is deprecated and is scheduled for removal in OTP 30. It has
+  > been replaced by
+  > [`DFLAG_ALTACT_SIG`](erl_dist_protocol.md#DFLAG_ALTACT_SIG).
+
+- **`-define(DFLAG_ALTACT_SIG, (1 bsl 37)).`{: #DFLAG_ALTACT_SIG }** - The node
+  supports alternate action messages (alias and priority messages) and can by
+  this handle the
+  [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) control messages.
+  Introduced in OTP 28.
+
 There is also function `dist_util:strict_order_flags/0` returning all flags
 (bitwise or:ed together) corresponding to features that require strict ordering
 of data over distribution channels.
@@ -1133,20 +1145,64 @@ distributed operation it encodes:
 
 - **`ALIAS_SEND`{: #ALIAS_SEND }** - `{33, FromPid, Alias}`
 
+  > #### Warning {: .warning }
+  >
+  > This signal is deprecated and has been scheduled for removal in OTP 30.
+  > It has been replaced by the
+  > the [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) signal.
+
   Followed by `Message`.
 
   This control message is used when sending the message `Message` to the process
   identified by the process alias `Alias`. Nodes that can handle this control
   message sets the distribution flag
-  [`DFLAG_ALIAS`](erl_dist_protocol.md#dflags) in the connection setup
+  [`DFLAG_ALIAS`](erl_dist_protocol.md#DFLAG_ALIAS) in the connection setup
   handshake.
 
 - **`ALIAS_SEND_TT`{: #ALIAS_SEND_TT }** - `{34, FromPid, Alias, Token}`
+
+  > #### Warning {: .warning }
+  >
+  > This signal is deprecated and has been scheduled for removal in OTP 30.
+  > It has been replaced by the
+  > the [`ALTACT_SIG_SEND`](erl_dist_protocol.md#ALTACT_SIG_SEND) signal.
 
   Followed by `Message`.
 
   Same as [`ALIAS_SEND`](erl_dist_protocol.md#ALIAS_SEND), but also with a
   sequential trace `Token`.
+
+### New Ctrlmessages for Erlang/OTP 28
+
+- **`ALTACT_SIG_SEND`{: #ALTACT_SIG_SEND }** - `{37, Flags, SenderPid, To}` or `{37, Flags, SenderPid, To, Token}`
+
+  Followed by `Data`.
+
+  This control message is used when sending an alternate action signal with
+  associated `Data` to the process identified by `To`. Currently defined
+  alternate action signals are alias and priority message signals and exit
+  signals. That is, signals with an action upon reception which is different
+  than the default action.
+
+  Currently the following bitwise flags are defined:
+  * `ALTACT_SIG_FLG_PRIO` - **`1`** - This is a priority signal
+  * `ALTACT_SIG_FLG_TOKEN` - **`2`** - The control message is a 5-tuple with
+    token as element 5; otherwise, the control message is a 4-tuple.
+  * `ALTACT_SIG_FLG_ALIAS` - **`4`** - Send to an alias, i.e., `To` is a reference
+  * `ALTACT_SIG_FLG_NAME` - **`8`** - Send to a registered name, i.e., `To` is an atom
+  * `ALTACT_SIG_FLG_EXIT` - **`16`** - The signal is an exit signal
+
+  If neither `ALTACT_SIG_FLG_ALIAS` nor `ALTACT_SIG_FLG_NAME` is set, `To` is
+  a process identifier.
+
+  If `ALTACT_SIG_FLG_EXIT` is not set, the signal is a message signal.
+
+  For a message signal `Data` corresponds to the actual message term, and for
+  an exit signal `Data` corresponds to the exit reason term.
+
+  Nodes that can handle this control message sets the distribution flag
+  [`DFLAG_ALTACT_SIG`](erl_dist_protocol.md#DFLAG_ALTACT_SIG) in the connection
+  setup handshake.
 
 [](){: #link_protocol } [](){: #new_link_protocol } [](){: #old_link_protocol }
 

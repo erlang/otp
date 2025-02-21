@@ -64,6 +64,7 @@
 #define DFLAG_V4_NC            (((Uint64)0x4) << 32)
 #define DFLAG_ALIAS            (((Uint64)0x8) << 32)
 #define DFLAG_LOCAL_EXT        (((Uint64)0x10) << 32) /* internal */
+#define DFLAG_ALTACT_SIG       (((Uint64)0x20) << 32)
 
 /*
  * In term_to_binary/2, we will use DFLAG_ATOM_CACHE to mean
@@ -101,6 +102,7 @@
 #define DFLAG_DIST_HOPEFULLY (DFLAG_DIST_MONITOR                \
                               | DFLAG_DIST_MONITOR_NAME         \
                               | DFLAG_SPAWN                     \
+                              | DFLAG_ALTACT_SIG                \
 			      | DFLAG_ALIAS)
 
 /* Our preferred set of flags. Used for connection setup handshake */
@@ -171,11 +173,19 @@ enum dop {
     DOP_ALIAS_SEND_TT       = 34,
 
     DOP_UNLINK_ID           = 35,
-    DOP_UNLINK_ID_ACK       = 36
+    DOP_UNLINK_ID_ACK       = 36,
+
+    DOP_ALTACT_SIG_SEND     = 37
 };
 
 #define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
 #define ERTS_DIST_SPAWN_FLAG_MONITOR    (1 << 1)
+
+#define ERTS_DOP_ALTACT_SIG_FLG_PRIO    (1 << 0)
+#define ERTS_DOP_ALTACT_SIG_FLG_TOKEN   (1 << 1)
+#define ERTS_DOP_ALTACT_SIG_FLG_ALIAS   (1 << 2)
+#define ERTS_DOP_ALTACT_SIG_FLG_NAME    (1 << 3)
+#define ERTS_DOP_ALTACT_SIG_FLG_EXIT    (1 << 4)
 
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
@@ -220,7 +230,7 @@ extern int erts_is_alive;
 #define ERTS_DIST_CTRL_OPT_GET_SIZE     ((Uint32) (1 << 0))
 
 /* for emulator internal testing... */
-extern Uint64 erts_dflags_test_remove_hopefull_flags;
+extern Uint64 erts_dflags_test_remove;
 
 #ifdef DEBUG
 #define ERTS_DBG_CHK_NO_DIST_LNK(D, R, L) \
@@ -409,15 +419,14 @@ struct dist_sequences {
 #define ERTS_DSIG_SEND_CONTINUE 2
 #define ERTS_DSIG_SEND_TOO_LRG  3
 
-extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
-extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm, int);
 extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Process *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
 extern int erts_dsig_send_unlink_ack(ErtsDSigSendContext *, Eterm, Eterm, Uint64);
 extern int erts_dsig_send_group_leader(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
-extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm, int);
 extern int erts_dsig_send_demonitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_monitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_m_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);

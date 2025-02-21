@@ -312,6 +312,8 @@ type    DSIG_HNDL_NTFY  SHORT_LIVED     PROCESSES       dirty_signal_handler_not
 type    SCHD_SIG_NTFY   SHORT_LIVED     PROCESSES       scheduled_signal_notify
 type	CODE_COVERAGE   STANDARD        SYSTEM          code_coverage
 
+type    PRIO_Q_INFO     STANDARD        PROCESSES       message_prio_queue_info
+
 #
 # Types used for special emulators
 #

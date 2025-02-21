@@ -3038,7 +3038,7 @@ void erts_fire_nif_monitor(ErtsMonitor *tmon)
     Uint mrefc, brefc;
     int active, is_dying;
 
-    ASSERT(tmon->type == ERTS_MON_TYPE_RESOURCE);
+    ASSERT(ERTS_ML_GET_TYPE(tmon) == ERTS_MON_TYPE_RESOURCE);
     ASSERT(erts_monitor_is_target(tmon));
 
     resource = tmon->other.ptr;

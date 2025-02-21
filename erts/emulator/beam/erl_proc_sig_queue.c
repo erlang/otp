@@ -43,6 +43,8 @@
 #include "erl_bif_unique.h"
 #include "erl_proc_sig_queue.h"
 #include "erl_check_io.h"
+#include "erl_global_literals.h"
+#include "erl_map.h"
 #include "dtrace-wrapper.h"
 
 #define ERTS_SIG_REDS_CNT_FACTOR 4
@@ -56,6 +58,10 @@
 
 #define ERTS_SIG_LNK_X_FLAG_NORMAL_KILLS        (((Uint32) 1) << 0)
 #define ERTS_SIG_LNK_X_FLAG_CONNECTION_LOST     (((Uint32) 1) << 1)
+
+#define ERTS_SIG_ALTACT_SIG_X_PRIO              (1 << 0)
+#define ERTS_SIG_ALTACT_SIG_X_TOKEN             (1 << 1)
+#define ERTS_SIG_ALTACT_SIG_X_ALIAS             (1 << 2)
 
 #define ERTS_PROC_SIG_ADJ_MSGQ_SCAN_FACTOR \
     (ERTS_CLA_SCAN_WORDS_PER_RED / ERTS_SIG_REDS_CNT_FACTOR)
@@ -230,6 +236,22 @@ typedef struct {
     ErtsMessage **last;
 } ErtsSavedNMSignals;
 
+#define ERTS_PRIO_Q_MARK_END            0
+#define ERTS_PRIO_Q_MARK_CONT           1
+
+#define ERTS_PRIO_Q_MARK_IX_MIN         ERTS_PRIO_Q_MARK_END
+#define ERTS_PRIO_Q_MARK_IX_MAX         ERTS_PRIO_Q_MARK_CONT
+
+typedef struct {
+    Uint32 saved_save_info;
+    Sint alias;
+    Sint link;
+    Sint monitor;
+    ErtsRecvMarker marker[ERTS_PRIO_Q_MARK_IX_MAX
+                          - ERTS_PRIO_Q_MARK_IX_MIN
+                          + 1];
+} ErtsPrioQInfo;
+
 static void wake_handle_signals(Process *proc);
 
 static int handle_msg_tracing(Process *c_p,
@@ -275,6 +297,27 @@ static void proc_sig_queue_flush_buffers(Process *proc,
                                          ErtsSignalInQueueBufferArray *buffers);
 static void proc_sig_queue_lock_buffer(ErtsSignalInQueueBuffer* slot);
 static void proc_sig_queue_unlock_buffer(ErtsSignalInQueueBuffer* slot);
+static void handle_message_enqueued_tracing(Process *c_p,
+                                            ErtsSigRecvTracing *tracing,
+                                            ErtsMessage *msg);
+static void
+insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
+                         ErtsMessage *sig, Eterm message, Eterm token,
+                         ErtsMessage ***next_nm_sig);
+static void
+insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
+                                  ErtsMessage *sig, void *attached,
+                                  Eterm message, Eterm token,
+                                  ErtsMessage ***next_nm_sig);
+
+static ERTS_INLINE ErtsPrioQInfo *
+get_prio_queue_info(Process *c_p)
+{
+    ErtsPrioQInfo *pq_info = ERTS_PROC_GET_PRIO_Q_INFO(c_p);
+    ASSERT(pq_info);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+    return pq_info;
+}
 
 #ifdef ERTS_PROC_SIG_HARD_DEBUG
 #define ERTS_PROC_SIG_HDBG_PRIV_CHKQ(P, T, NMN)                 \
@@ -1050,7 +1093,7 @@ proc_queue_signal(ErtsPTabElementCommon *sender, Eterm from, Eterm pid,
     if (is_normal_sched) {
         pend_sig = esdp->pending_signal.sig;
         if (op == ERTS_SIG_Q_OP_MONITOR
-            && ((ErtsMonitor*)sig)->type == ERTS_MON_TYPE_PROC) {
+            && ERTS_ML_GET_TYPE((ErtsMonitor *) sig) == ERTS_MON_TYPE_PROC) {
 
             if (!pend_sig) {
                 esdp->pending_signal.sig = sig;
@@ -1239,6 +1282,8 @@ maybe_elevate_sig_handling_prio(Process *c_p, int prio, Eterm other)
         res = -1;
         if (prio >= 0)
             min_prio = prio;
+        else if (!c_p)
+            return res;
         else {
             /* inherit from caller... */
             state = erts_atomic32_read_nob(&c_p->state);
@@ -1521,14 +1566,19 @@ get_external_non_msg_signal(ErtsMessage *sig)
 {
     ASSERT(ERTS_SIG_IS_NON_MSG(sig));
 
-    if (ERTS_SIG_IS_DIST_ALIAS_MSG(sig)) {
+    if (ERTS_SIG_IS_DIST_ALTACT_MSG(sig)) {
+        Eterm tag = ((ErtsSignal *) (sig))->common.tag;
         ErlHeapFragment *hfrag;
-        if (sig->hfrag.alloc_size != 1)
+        switch (ERTS_PROC_SIG_TYPE(tag)) {
+        case ERTS_SIG_Q_TYPE_DIST:
             hfrag = &sig->hfrag;
-        else {
+            break;
+        case ERTS_SIG_Q_TYPE_DIST_FRAG:
             hfrag = sig->hfrag.next;
-            if (!hfrag)
-                return NULL;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid dist altact message type");
+            return NULL;
         }
         return erts_get_dist_ext(hfrag);
     }
@@ -1539,8 +1589,9 @@ get_external_non_msg_signal(ErtsMessage *sig)
                == ERTS_SIG_Q_TYPE_GEN_EXIT);
         ASSERT(is_non_value(xsigd->reason));
         if (sig->hfrag.next == NULL) {
+            int extra = ERTS_PROC_SIG_XTRA(((ErtsSignal *) sig)->common.tag);
             char *ptr = (char *) xsigd;
-            ptr += (ERTS_PROC_SIG_XTRA(((ErtsSignal *) sig)->common.tag)
+            ptr += ((extra & ERTS_SIG_ALTACT_SIG_X_TOKEN)
                     ? sizeof(ErtsSeqTokenExitSignalData)
                     : sizeof(ErtsExitSignalData));
             return (ErtsDistExternal *) ptr;
@@ -1561,7 +1612,7 @@ erts_proc_sig_get_external(ErtsMessage *msgp)
     return NULL;
 }
 
-static void do_seq_trace_output(Eterm to, Eterm token, Eterm msg);
+static void do_seq_trace_output(Eterm to_pid, Eterm to, Eterm token, Eterm msg);
 
 static void
 send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
@@ -1569,20 +1620,36 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
                      Sint16 op, Eterm reason, ErtsDistExternal *dist_ext,
                      ErlHeapFragment *dist_ext_hfrag,
                      Eterm ref, Eterm token, int normal_kills,
-                     Uint32 conn_lost, Uint32 conn_id)
+                     Uint32 conn_lost, Uint32 conn_id, int prio)
 {
     ErtsExitSignalData *xsigd;
-    Eterm *hp, *start_hp, s_reason, s_ref, s_message, s_token, s_from;
+    Eterm *hp, *start_hp, s_reason, s_ref, s_message, s_token, s_from, pid;
     ErtsMessage *mp;
     ErlHeapFragment *hfrag;
     ErlOffHeap *ohp;
     Uint hsz = 0, from_sz, reason_sz, ref_sz, token_sz, dist_ext_sz = 0;
-    int seq_trace, has_token;
+    int seq_trace, has_token, extra = 0;
     Process *c_p;
 #ifdef USE_VM_PROBES
     Eterm s_utag, utag;
     Uint utag_sz;
 #endif
+
+    if (is_internal_pid(to)) {
+        pid = to;
+    }
+    else {
+        ASSERT(is_ref(to));
+        ASSERT(is_nil(ref));
+        pid = erts_get_pid_of_ref(to);
+        if (!is_internal_pid(pid))
+            return;
+        ref = to;
+        extra |= ERTS_SIG_ALTACT_SIG_X_ALIAS;
+    }
+
+    if (prio)
+        extra |= ERTS_SIG_ALTACT_SIG_X_PRIO;
 
     if (sender && is_internal_pid(from)) {
         c_p = ErtsContainerStruct(sender, Process, common);
@@ -1614,6 +1681,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
         hsz += sizeof(ErtsSeqTokenExitSignalData)/sizeof(Eterm);
         token_sz = size_object(token);
         hsz += token_sz;
+        extra |= ERTS_SIG_ALTACT_SIG_X_TOKEN;
     }
     else {
         hsz += sizeof(ErtsExitSignalData)/sizeof(Eterm);
@@ -1708,7 +1776,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
 #endif
     ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(op,
                                                   ERTS_SIG_Q_TYPE_GEN_EXIT,
-                                                  has_token);
+                                                  extra);
     ERL_MESSAGE_FROM(mp) = from_tag; /* immediate... */
 
     hfrag->used_size = hp - start_hp;
@@ -1747,7 +1815,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
     ASSERT(hp == mp->hfrag.mem + mp->hfrag.alloc_size);
 
     if (seq_trace) {
-        do_seq_trace_output(to, s_token, s_message);
+        do_seq_trace_output(pid, to, s_token, s_message);
     }
 
     {
@@ -1755,7 +1823,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
          * exists, and not `from` as it may be a name instead of a pid. */
         Eterm order_by = sender ? sender->id : from;
 
-        if (!proc_queue_signal(sender, order_by, to, (ErtsSignal *)mp,
+        if (!proc_queue_signal(sender, order_by, pid, (ErtsSignal *)mp,
                                !(is_pid(order_by) || is_port(order_by)), op)) {
             mp->next = NULL;
             erts_cleanup_messages(mp);
@@ -1764,7 +1832,7 @@ send_gen_exit_signal(ErtsPTabElementCommon *sender, Eterm from_tag,
 }
 
 static void
-do_seq_trace_output(Eterm to, Eterm token, Eterm msg)
+do_seq_trace_output(Eterm to_pid, Eterm to, Eterm token, Eterm msg)
 {
     /*
      * We could do this when enqueuing the signal and avoid some
@@ -1777,9 +1845,9 @@ do_seq_trace_output(Eterm to, Eterm token, Eterm msg)
     Process *rp;
 
     if (is_normal_sched)
-        rp = erts_proc_lookup_raw(to);
+        rp = erts_proc_lookup_raw(to_pid);
     else
-        rp = erts_proc_lookup_raw_inc_refc(to);
+        rp = erts_proc_lookup_raw_inc_refc(to_pid);
 
     if (rp) {
         erts_proc_lock(rp, ERTS_PROC_LOCK_MSGQ);
@@ -1795,107 +1863,121 @@ do_seq_trace_output(Eterm to, Eterm token, Eterm msg)
 }
 
 static ERTS_INLINE int
-get_alias_msg_data(ErtsMessage *sig, Eterm *fromp, Eterm *aliasp,
-                   Eterm *msgp, void **attachedp, Eterm *tokenp)
+get_altact_msg_data(ErtsMessage *sig, void **attachedp,
+                    Eterm *msgp, Eterm *fromp,
+                    int *priop, Eterm *senderp,
+                    Eterm *aliasp, Eterm *tokenp)
 {
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
     int type = ERTS_PROC_SIG_TYPE(tag);
-    int seq_token = (int) ERTS_PROC_SIG_XTRA(tag);
-    Eterm *tp;
-    
-    
-    if (type == ERTS_SIG_Q_TYPE_DIST) {
-        ASSERT(sig->hfrag.alloc_size >= (seq_token ? 2 : 1));
-        if (fromp)
-            *fromp = ERL_MESSAGE_FROM(sig);
-        if (aliasp)
-            *aliasp = sig->hfrag.mem[0];
-        if (msgp)
-            *msgp = THE_NON_VALUE;
-        if (attachedp)
-            *attachedp = ERTS_MSG_COMBINED_HFRAG;
-        if (tokenp)
-            *tokenp = seq_token ? sig->hfrag.mem[1] : NIL;
-        return type;
-    }
+    int extra = (int) ERTS_PROC_SIG_XTRA(tag);
+    int prio;
+    Eterm from, msg, alias, token, sender;
+    void *attached;
 
-    ASSERT(is_tuple(ERL_MESSAGE_FROM(sig)));
+    prio = !!(extra & ERTS_SIG_ALTACT_SIG_X_PRIO);
 
-    tp = tuple_val(ERL_MESSAGE_FROM(sig));
-
-    ASSERT(seq_token
-           ? (arityval(tp[0]) == 4 || arityval(tp[0]) == 6)
-           : (arityval(tp[0]) == 3 || arityval(tp[0]) == 5));
-
-    if (fromp)
-        *fromp = tp[1];
-    if (aliasp)
-        *aliasp = tp[2];
-    if (msgp)
-        *msgp = tp[3];
-
-    if (!attachedp)
-        return type;
-
-    if (arityval(tp[0]) < 5) {
-        ASSERT(arityval(tp[0]) == (seq_token ? 4: 3));
-        if (type == ERTS_SIG_Q_TYPE_HEAP)
-            *attachedp = NULL;
-        else {
-            ASSERT(type == ERTS_SIG_Q_TYPE_OFF_HEAP);
-            *attachedp = ERTS_MSG_COMBINED_HFRAG;
-        }
-        if (tokenp)
-            *tokenp = seq_token ? tp[4] : NIL;
+    if (type == ERTS_SIG_Q_TYPE_DIST || type == ERTS_SIG_Q_TYPE_DIST_FRAG) {
+        int ix = 0;
+        ASSERT(sig->hfrag.alloc_size
+               >= (!!(extra & ERTS_SIG_ALTACT_SIG_X_PRIO)
+                   + !!(extra & ERTS_SIG_ALTACT_SIG_X_ALIAS)
+                   + !!(extra & ERTS_SIG_ALTACT_SIG_X_TOKEN)));
+        from = ERL_MESSAGE_FROM(sig);
+        msg = THE_NON_VALUE;
+        sender = ((extra & ERTS_SIG_ALTACT_SIG_X_PRIO)
+                  ? sig->hfrag.mem[ix++] /* pid */
+                  : from); /* node name */
+        alias = ((extra & ERTS_SIG_ALTACT_SIG_X_ALIAS)
+                 ? sig->hfrag.mem[ix++]
+                 : THE_NON_VALUE);
+        token = ((extra & ERTS_SIG_ALTACT_SIG_X_TOKEN)
+                 ? sig->hfrag.mem[ix++]
+                 : NIL);
+        attached = ERTS_MSG_COMBINED_HFRAG;
     }
     else {
-        Uint low, high;
-        ASSERT(type == ERTS_SIG_Q_TYPE_HEAP_FRAG);
-        ASSERT(arityval(tp[0]) == (seq_token ? 6: 5));
-        /*
-         * Heap fragment pointer in element 4 and 5. See
-         * erts_proc_sig_send_to_alias().
-         */
-        low = unsigned_val(tp[4]);
-        high = unsigned_val(tp[5]);
+        Eterm *tp;
+        int ix;
+
+        ASSERT(is_tuple(ERL_MESSAGE_FROM(sig)));
+
+        tp = tuple_val(ERL_MESSAGE_FROM(sig));
+
+        ix = 0;
+        from = tp[++ix];
+        msg = tp[++ix];
+        sender = from;
+        alias = (extra & ERTS_SIG_ALTACT_SIG_X_ALIAS) ? tp[++ix] : THE_NON_VALUE;
+        token = (extra & ERTS_SIG_ALTACT_SIG_X_TOKEN) ? tp[++ix] : NIL;
+        switch (type) {
+        case ERTS_SIG_Q_TYPE_HEAP:
+            attached = NULL;
+            break;
+        case ERTS_SIG_Q_TYPE_OFF_HEAP:
+            attached = ERTS_MSG_COMBINED_HFRAG;
+            break;
+        case ERTS_SIG_Q_TYPE_HEAP_FRAG: {
+            Uint low, high;
+            low = unsigned_val(tp[++ix]);
+            high = unsigned_val(tp[++ix]);
 #ifdef ARCH_64
-        ASSERT((((Uint) 1) << 32) > low);
-        ASSERT((((Uint) 1) << 32) > high);
-        *attachedp = (void *) ((((Uint) high) << 32) | ((Uint) low));
+            ASSERT((((Uint) 1) << 32) > low);
+            ASSERT((((Uint) 1) << 32) > high);
+            attached = (void *) ((((Uint) high) << 32) | ((Uint) low));
 #else /* ARCH_32 */
-        ASSERT((((Uint) 1) << 16) > low);
-        ASSERT((((Uint) 1) << 16) > high);
-        *attachedp = (void *) ((((Uint) high) << 16) | ((Uint) low));
+            ASSERT((((Uint) 1) << 16) > low);
+            ASSERT((((Uint) 1) << 16) > high);
+            attached = (void *) ((((Uint) high) << 16) | ((Uint) low));
 #endif
-        ASSERT(*attachedp != NULL);
-        if (tokenp)
-            *tokenp = seq_token ? tp[6] : NIL;
+            ASSERT(attached != NULL);
+            break;
+        }
+        default:
+            attached = NULL;
+            ERTS_INTERNAL_ERROR("Invalid altact message type");
+        }
+        ASSERT(arityval(tp[0]) == ix);
     }
+
+    if (fromp)
+        *fromp = from;
+    if (senderp)
+        *senderp = sender;
+    if (msgp)
+        *msgp = msg;
+    if (aliasp)
+        *aliasp = alias;
+    if (attachedp)
+        *attachedp = attached;
+    if (tokenp)
+        *tokenp = token;
+    if (priop)
+        *priop = prio;
 
     return type;
 }
 
 static ERTS_INLINE void
-clear_seq_token_alias_msg(ErtsMessage *sig)
+clear_seq_token_altact_msg(ErtsMessage *sig)
 {
     Uint tag = ((ErtsSignal *) sig)->common.tag;
-    ASSERT(ERTS_SIG_Q_OP_ALIAS_MSG == ERTS_PROC_SIG_OP(tag));
-    if (ERTS_PROC_SIG_XTRA(tag)) {
+    int extra = (int) ERTS_PROC_SIG_XTRA(tag);
+    ASSERT(ERTS_SIG_Q_OP_ALTACT_MSG == ERTS_PROC_SIG_OP(tag));
+    if (extra & ERTS_SIG_ALTACT_SIG_X_TOKEN) {
+        int ix;
         switch (ERTS_PROC_SIG_TYPE(tag)) {
         case ERTS_SIG_Q_TYPE_DIST:
-            sig->hfrag.mem[1] = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
+            ix = (extra & ERTS_SIG_ALTACT_SIG_X_ALIAS) ? 1 : 0;
+            sig->hfrag.mem[ix] = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
             break;
+        case ERTS_SIG_Q_TYPE_HEAP:
+        case ERTS_SIG_Q_TYPE_OFF_HEAP:
         case ERTS_SIG_Q_TYPE_HEAP_FRAG: {
             Eterm *tp = tuple_val(ERL_MESSAGE_FROM(sig));
-            ASSERT(arityval(tp[0]) == 6);
-            tp[6] = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
-            break;
-        }
-        case ERTS_SIG_Q_TYPE_HEAP:
-        case ERTS_SIG_Q_TYPE_OFF_HEAP: {
-            Eterm *tp = tuple_val(ERL_MESSAGE_FROM(sig));
-            ASSERT(arityval(tp[0]) == 4);
-            tp[4] = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
+            ix = (extra & ERTS_SIG_ALTACT_SIG_X_ALIAS) ? 4 : 3;
+            ASSERT(arityval(tp[0]) >= ix);
+            tp[ix] = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
             break;
         }
         default:
@@ -1912,20 +1994,21 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
     
     /*
-     * Heap alias message and heap frag alias message are
+     * Heap altact message and heap frag altact message are
      * the only non-message signals, which are allocated as
      * messages, which do not use a combined message / heap
      * fragment.
      */
-    if (ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(tag)) {
+    if (ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(tag)) {
         sig->data.heap_frag = NULL;
         return;
     }
 
-    if (ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(tag)) {
+    if (ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG_TAG(tag)) {
         /* Retrieve pointer to heap fragment (may not be NULL). */
         void *attached;
-        (void) get_alias_msg_data(sig, NULL, NULL, NULL, &attached, NULL);
+        (void) get_altact_msg_data(sig, &attached, NULL, NULL,
+                                   NULL, NULL, NULL, NULL);
         sig->data.heap_frag = hfrag = (ErlHeapFragment *) attached;
         ASSERT(hfrag);
     }
@@ -1982,7 +2065,7 @@ erts_proc_sig_cleanup_non_msg_signal(ErtsMessage *sig)
 }
 
 void
-erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm token)
+erts_proc_sig_send_altact_msg(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm token, int prio)
 {
     Process *rp;
     ErlHeapFragment *hfrag;
@@ -1991,8 +2074,8 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     ErtsMessage *mp;
     ErlOffHeap *ohp;
     Uint hsz, to_sz, token_sz, msg_sz;
-    Eterm *hp, pid, to_copy, token_copy, msg_copy;
-    int type, has_token;
+    Eterm *hp, *end_hp, *itpl, pid, to_copy, token_copy, msg_copy;
+    int ix, type, has_token, alias, extra;
 #ifdef SHCOPY_SEND
     erts_shcopy_t info;
 #else
@@ -2003,22 +2086,36 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     Uint utag_sz;
 #endif
 
-    ASSERT(is_ref(to));
-    ASSERT(is_internal_pid(from) || is_atom(from));
-    
-    if (ERTS_IS_P_TRACED_FL(c_p, F_TRACE_SEND))
-        trace_send(c_p, to, msg);
-    if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p))
-        save_calls(c_p, &exp_send);
+    hsz = 3; /*
+              * Base info-tuple with from and message values. See comment below
+              * for more info on the content of this info tuple...
+              */
 
-    pid = erts_get_pid_of_ref(to);
+    extra = 0;
+    if (prio)
+        extra |= ERTS_SIG_ALTACT_SIG_X_PRIO;
+
+    ASSERT(is_internal_ref(to) || is_internal_pid(to));
+    ASSERT(is_internal_pid(from) || is_atom(from));
+
+    if (is_internal_pid(to)) {
+        pid = to;
+        alias = 0;
+        to_sz = 0;
+    }
+    else {
+        to_sz = size_object(to);
+        hsz += to_sz;
+        pid = erts_get_pid_of_ref(to);
+        extra |= ERTS_SIG_ALTACT_SIG_X_ALIAS;
+        alias = !0;
+        hsz += 1; /* extra element in info-tuple */
+    }
     rp = erts_proc_lookup(pid);
     if (!rp)
         return;
 
     rp_locks = c_p == rp ? ERTS_PROC_LOCK_MAIN : 0;
-
-    hsz = 0;
 
     if (c_p && have_seqtrace(token)) {
         seq_trace_update_serial(c_p);
@@ -2038,13 +2135,11 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     hsz += utag_sz;
 #endif
 
-    to_sz = size_object(to);
-    hsz += to_sz;
-
     has_token = !is_nil(token);
     if (has_token) {
         token_sz = size_object(token);
-        hsz += 1 /* extra element in from-tuple */ + token_sz;
+        hsz += 1 /* extra element in info-tuple */ + token_sz;
+        extra |= ERTS_SIG_ALTACT_SIG_X_TOKEN;
     }
     else {
         token_sz = 0;
@@ -2072,43 +2167,34 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     rp_state = erts_atomic32_read_nob(&rp->state);
     if (rp_state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
         type = ERTS_SIG_Q_TYPE_OFF_HEAP;
-        hsz += 4; /*
-                   * 3-tuple containing from, alias, and message.
-                   * If a non-nil token is passed this tuple will
-                   * be increased to a 4-tuple. That extra element
-                   * has already been accounted for above though...
-                   */
 	mp = erts_alloc_message(hsz, &hp);
 	ohp = &mp->hfrag.off_heap;
         hfrag = NULL;
+#ifdef DEBUG
+        end_hp = hp + hsz;
+#endif
     }
     else {
         int on_heap;
-        hsz += 6; /*
-                   * 5-tuple containing from, alias, message, high part
-                   * of heap frag address, and low part of heap frag
-                   * address. If a non-nil token is passed this tuple will
-                   * be increased to a 6-tuple. That extra element
-                   * has already been accounted for above though...
-                   *
-                   * If we manage to allocate on the heap, we
-                   * omit the heap frag address elements and use a
-                   * 3-tuple or 4-tuple instead.
-                   */
+        hsz += 2; /* extra elements in info-tuple if we get a heap fragment */
         mp = erts_try_alloc_message_on_heap(rp, &rp_state, &rp_locks,
                                             hsz, &hp, &ohp, &on_heap);
         if (!on_heap) {
             type = ERTS_SIG_Q_TYPE_HEAP_FRAG;
             hfrag = mp->data.heap_frag;
             ASSERT(hfrag);
+#ifdef DEBUG
+            end_hp = hp + hsz;
+#endif
         }
         else {
             /* no need to save heap fragment pointer... */
-            Eterm *tmp_hp, *end_hp;
+            Eterm *alloc_end_hp;
             type = ERTS_SIG_Q_TYPE_HEAP;
-            end_hp = hp + hsz;
-            tmp_hp = end_hp - 2;
-            HRelease(rp, end_hp, tmp_hp);
+            alloc_end_hp = hp + hsz;
+            end_hp = alloc_end_hp - 2;
+            HRelease(rp, alloc_end_hp, end_hp);
+            hsz -= 2;
             hfrag = NULL;
         }
     }
@@ -2125,8 +2211,8 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
 	msg_copy = copy_struct_litopt(msg, msg_sz, &hp, ohp, &litarea);
 #endif
     }
-    to_copy = copy_struct(to, to_sz, &hp, ohp);
-    token_copy = copy_struct(token, token_sz, &hp, ohp);
+    to_copy = !to_sz ? to : copy_struct(to, to_sz, &hp, ohp);
+    token_copy = !token_sz ? token : copy_struct(token, token_sz, &hp, ohp);
 #ifdef USE_VM_PROBES
     utag_copy = (is_immed(utag)
                  ? utag
@@ -2134,27 +2220,32 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
     ERL_MESSAGE_DT_UTAG(mp) = utag_copy;
 #endif
 
-    ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,
-                                                  type, has_token);
+    ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,
+                                                  type, extra);
 
-    if (type != ERTS_SIG_Q_TYPE_HEAP_FRAG) {
-        /*
-         * 3-tuple or 4-tuple containing from, alias, message,
-         * and perhaps a non-nil token.
-         */
-        ERL_MESSAGE_FROM(mp) = (has_token
-                                ? TUPLE4(hp, from, to_copy, msg_copy,
-                                         token_copy)
-                                : TUPLE3(hp, from, to_copy, msg_copy));
-    }
-    else {
-        /*
-         * 5-tuple or 6-tuple containing from, alias, and message,
-         * low halfword of heap frag address, high halfword of heap
-         * frag address, and perhaps a non-nil token.
-         */
+    /*
+     * Info-tuple referred from the ERL_MESSAGE_FROM(mp) field of the
+     * message while in transit:
+     * - From value - always present
+     * - Message value - always present
+     * - Alias value - iff send using an alias
+     * - Token value - iff message with non-nil token
+     * - Low part of heap fragment pointer - iff contained in heap fragment
+     * - High part of heap fragment pointer - iff contained in heap fragment
+     *
+     * That is, the info tuple might be of arity 2-6
+     */
+    
+    ix = 0;
+    itpl = hp;
+    itpl[++ix] = from;
+    itpl[++ix] = msg_copy;
+    if (alias)
+        itpl[++ix] = to_copy;
+    if (has_token)
+        itpl[++ix] = token_copy;
+    if (type == ERTS_SIG_Q_TYPE_HEAP_FRAG) {
         Uint low, high;
-        Eterm hfrag_low, hfrag_high;
 #ifdef ARCH_64
         low = ((UWord) hfrag) & ((UWord) 0xffffffff);
         high = (((UWord) hfrag) >> 32) & ((UWord) 0xffffffff);
@@ -2162,17 +2253,17 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
         low = ((UWord) hfrag) & ((UWord) 0xffff);
         high = (((UWord) hfrag) >> 16) & ((UWord) 0xffff);
 #endif
-        hfrag_low = make_small(low);
-        hfrag_high = make_small(high);
-        ERL_MESSAGE_FROM(mp) = (has_token
-                                ? TUPLE6(hp, from, to_copy, msg_copy,
-                                         hfrag_low, hfrag_high, token_copy)
-                                : TUPLE5(hp, from, to_copy, msg_copy,
-                                         hfrag_low, hfrag_high));
+        itpl[++ix] = make_small(low);
+        itpl[++ix] = make_small(high);
     }
 
+    ASSERT(end_hp == hp + 1 + ix);
+
+    itpl[0] = make_arityval(ix);
+    ERL_MESSAGE_FROM(mp) = make_tuple(itpl);
+
     if (!proc_queue_signal(&c_p->common, from, pid, (ErtsSignal *) mp, 0,
-                           ERTS_SIG_Q_OP_ALIAS_MSG)) {
+                           ERTS_SIG_Q_OP_ALTACT_MSG)) {
         mp->next = NULL;
         erts_cleanup_messages(mp);
     }
@@ -2190,81 +2281,125 @@ erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to, Eterm msg, Eterm
 }
 
 void
-erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
-                                 ErtsDistExternal *edep,
-                                 ErlHeapFragment *hfrag, Eterm token)
+erts_proc_sig_send_dist_altact_msg(Eterm from,
+                                   Eterm to,
+                                   ErtsDistExternal *edep,
+                                   ErlHeapFragment *hfrag,
+                                   Eterm token,
+                                   int prio)
 {
     ErtsMessage* mp;
-    Eterm *hp;
-    Eterm pid;
-    int has_token = !is_nil(token);
+    Eterm *hp, pid, from_copy, to_copy, token_copy;
+    Uint extra_hsz;
+    int extra, has_alias, has_token, type;
 
 #ifdef USE_VM_PROBES
     if (token == am_have_dt_utag)
 	token = NIL;
 #endif
 
-    ASSERT(is_ref(alias));
-    pid = erts_get_pid_of_ref(alias);
-    if (!is_internal_pid(pid)) {
-        if (hfrag) {
-            /* Fragmented message... */
-            erts_free_dist_ext_copy(erts_get_dist_ext(hfrag));
-            free_message_buffer(hfrag);
+    extra = 0;
+    if (prio)
+        extra |= ERTS_SIG_ALTACT_SIG_X_PRIO;
+
+    if (is_internal_pid(to)) {
+        pid = to;
+        has_alias = 0;
+    }
+    else {
+        ASSERT(is_ref(to));
+        has_alias = !0;
+        pid = erts_get_pid_of_ref(to);
+        extra |= ERTS_SIG_ALTACT_SIG_X_ALIAS;
+        if (!is_internal_pid(pid)) {
+            if (hfrag) {
+                /* Fragmented message... */
+                erts_free_dist_ext_copy(erts_get_dist_ext(hfrag));
+                free_message_buffer(hfrag);
+            }
+            return;
         }
-        return;
     }
 
-    /*
-     * The receiver can distinguish between these two scenarios by
-     * size of combined heap fragment (1 and > 1).
-     */
-    
+    has_token = !is_nil(token);
+    if (has_token)
+        extra |= ERTS_SIG_ALTACT_SIG_X_TOKEN;
+
+    extra_hsz = 0;
+    if (prio)
+        extra_hsz++; /* from */
+    if (has_alias)
+        extra_hsz++;
+    if (has_token)
+        extra_hsz++;
+
     if (hfrag) {
-        Uint hsz = has_token ? 2 : 1;
         /*
          * Fragmented message. Data already allocated in heap fragment
-         * including 'token' and 'to' ref. Only need room for the
-         * 'alias' boxed pointer and a pointer to the heap fragment...
+         * including 'from', 'token' and 'to' ref.
          */
-        mp = erts_alloc_message(hsz, &hp);
-        ASSERT(mp->hfrag.alloc_size == 1);
-        hp[0] = alias;
-        if (hsz == 2)
-            hp[1] = token;
+        mp = erts_alloc_message(extra_hsz, &hp);
+        from_copy = from;
+        to_copy = to;
+        token_copy = token;
         mp->hfrag.next = hfrag;
+        type = ERTS_SIG_Q_TYPE_DIST_FRAG;
     } else {
-        /* Un-fragmented message, allocate space for
+        /* Un-fragmented message, allocate space for from, alias,
            token and dist_ext in message. */
         Uint dist_ext_sz = erts_dist_ext_size(edep) / sizeof(Eterm);
-        Uint token_sz = is_immed(token) ? 0 : size_object(token);
-        Uint alias_sz = size_object(alias);
-        Uint usz = (has_token ? 2 : 1) + alias_sz + token_sz;
-        Uint asz = usz + dist_ext_sz;
-        Eterm *aliasp;
+        Uint from_sz = 0, to_sz = 0, token_sz = 0, usz, asz;
+
+        usz = extra_hsz;
+        if (prio) {
+            from_sz = size_object(from);
+            usz += from_sz;
+        }
+        if (has_alias) {
+            to_sz = size_object(to);
+            usz += to_sz;
+        }
+        if (has_token) {
+            token_sz = size_object(token);
+            usz += token_sz;
+        }
+
+        asz = usz + dist_ext_sz;
 
         mp = erts_alloc_message(asz, &hp);
-        ASSERT(mp->hfrag.alloc_size > 2);
-        aliasp = hp++;
-        if (has_token) {
-            Eterm *tokenp = hp++;
-            *tokenp = (is_immed(token)
-                       ? token
-                       : copy_struct(token, token_sz, &hp,
-                                     &mp->hfrag.off_heap));
-        }
-        *aliasp = copy_struct(alias, alias_sz, &hp, &mp->hfrag.off_heap);
+        hp += extra_hsz;
+        from_copy = (!prio
+                     ? NIL
+                     : copy_struct(from, from_sz, &hp, &mp->hfrag.off_heap));
+        to_copy = (!has_alias
+                   ? NIL
+                   : copy_struct(to, to_sz, &hp, &mp->hfrag.off_heap));
+        token_copy = (!has_token
+                      ? NIL
+                      : copy_struct(token, token_sz, &hp, &mp->hfrag.off_heap));
+        ASSERT(usz == hp - &mp->hfrag.mem[0]);
         mp->hfrag.used_size = usz;
         erts_make_dist_ext_copy(edep, erts_get_dist_ext(&mp->hfrag));
+        type = ERTS_SIG_Q_TYPE_DIST;
+    }
+
+    if (extra_hsz) {
+        int ix = 0;
+        hp = &mp->hfrag.mem[0];
+        if (prio)
+            hp[ix++] = from_copy;
+        if (has_alias)
+            hp[ix++] = to_copy;
+        if (has_token)
+            hp[ix++] = token_copy;
     }
 
     ERL_MESSAGE_FROM(mp) = edep->dep->sysname;
-    ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,
-                                                  ERTS_SIG_Q_TYPE_DIST,
-                                                  has_token);
+    ERL_MESSAGE_TERM(mp) = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,
+                                                  type, extra);
 
     if (!proc_queue_signal(NULL, from, pid, (ErtsSignal *) mp, 0,
-                           ERTS_SIG_Q_OP_ALIAS_MSG)) {
+                           ERTS_SIG_Q_OP_ALTACT_MSG)) {
         mp->next = NULL;
         erts_cleanup_messages(mp);
     }
@@ -2369,8 +2504,7 @@ get_persist_mon_msg(ErtsMessage *sig, Eterm *msg)
 
 void
 erts_proc_sig_send_exit(ErtsPTabElementCommon *sender, Eterm from, Eterm to,
-                        Eterm reason, Eterm token,
-                        int normal_kills)
+                        Eterm reason, Eterm token, int normal_kills, int prio)
 {
     Eterm from_tag, from_type;
 
@@ -2391,7 +2525,7 @@ erts_proc_sig_send_exit(ErtsPTabElementCommon *sender, Eterm from, Eterm to,
 
     send_gen_exit_signal(sender, from_tag, from, from_type, to,
                          ERTS_SIG_Q_OP_EXIT, reason, NULL, NULL, NIL, token,
-                         normal_kills, 0, 0);
+                         normal_kills, 0, 0, prio);
 }
 
 void
@@ -2399,12 +2533,11 @@ erts_proc_sig_send_dist_exit(DistEntry *dep,
                              Eterm from, Eterm to,
                              ErtsDistExternal *dist_ext,
                              ErlHeapFragment *hfrag,
-                             Eterm reason, Eterm token)
+                             Eterm reason, Eterm token, int prio)
 {
     send_gen_exit_signal(NULL, dep->sysname, from, am_process, to,
                          ERTS_SIG_Q_OP_EXIT, reason, dist_ext, hfrag, NIL, token,
-                         0, 0, 0);
-
+                         0, 0, 0, prio);
 }
 
 void
@@ -2418,7 +2551,7 @@ erts_proc_sig_send_link_exit_noconnection(ErtsLink *lnk)
     to = lnk->other.item;
 
     ASSERT(lnk->flags & ERTS_ML_FLG_EXTENDED);
-    ASSERT(lnk->type == ERTS_LNK_TYPE_DIST_PROC);
+    ASSERT(ERTS_ML_GET_TYPE(lnk) == ERTS_LNK_TYPE_DIST_PROC);
 
     olnk = erts_link_to_other(lnk, &elnk);
 
@@ -2428,7 +2561,7 @@ erts_proc_sig_send_link_exit_noconnection(ErtsLink *lnk)
 
     send_gen_exit_signal(NULL, from_tag, from_item, am_process, to,
                          ERTS_SIG_Q_OP_EXIT_LINKED, am_noconnection, NULL, NULL,
-                         NIL, NIL, 0, !0, conn_id);
+                         NIL, NIL, 0, !0, conn_id, 0);
 
     erts_link_release(lnk);
 }
@@ -2450,7 +2583,7 @@ erts_proc_sig_send_link_exit(ErtsPTabElementCommon *sender, Eterm from,
 
     send_gen_exit_signal(sender, from, from, from_type, to,
                          ERTS_SIG_Q_OP_EXIT_LINKED, reason, NULL, NULL, NIL,
-                         token, 0, 0, 0);
+                         token, 0, 0, 0, 0);
 
     erts_link_release(lnk);
 }
@@ -2460,7 +2593,7 @@ erts_proc_sig_send_link(ErtsPTabElementCommon *sender, Eterm from,
                         Eterm to, ErtsLink *lnk)
 {
     ErtsSignal *sig;
-    Uint16 type = lnk->type;
+    Uint32 type = ERTS_ML_GET_TYPE(lnk);
 
     ASSERT(!sender || sender->id == from);
     ASSERT(lnk && eq(from, lnk->other.item));
@@ -2507,8 +2640,8 @@ erts_proc_sig_send_unlink(ErtsPTabElementCommon *sender, Eterm from,
     ErtsSigUnlinkOp *sulnk;
     Uint64 id;
 
-    ASSERT(lnk->type != ERTS_LNK_TYPE_PROC
-           || lnk->type != ERTS_LNK_TYPE_PORT);
+    ASSERT(ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_PROC
+           || ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_PORT);
     ASSERT(lnk->flags & ERTS_ML_FLG_IN_TABLE);
 
     sulnk = erts_proc_sig_make_unlink_op(sender, from);
@@ -2516,7 +2649,7 @@ erts_proc_sig_send_unlink(ErtsPTabElementCommon *sender, Eterm from,
     sig = (ErtsSignal *) sulnk;
     to = lnk->other.item;
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_UNLINK,
-                                             lnk->type, 0);
+                                             ERTS_ML_GET_TYPE(lnk), 0);
 
     ASSERT(is_internal_pid(to));
     res = proc_queue_signal(sender, from, to, sig, 0, ERTS_SIG_Q_OP_UNLINK);
@@ -2557,7 +2690,7 @@ erts_proc_sig_send_dist_link_exit(DistEntry *dep,
 {
     send_gen_exit_signal(NULL, dep->sysname, from, am_process, to,
                          ERTS_SIG_Q_OP_EXIT_LINKED, reason, dist_ext, hfrag,
-                         NIL, token, 0, 0, 0);
+                         NIL, token, 0, 0, 0, 0);
 
 }
 
@@ -2665,7 +2798,7 @@ erts_proc_sig_send_dist_monitor_down(DistEntry *dep, Eterm ref,
 
     send_gen_exit_signal(NULL, dep->sysname, monitored, am_process,
                          to, ERTS_SIG_Q_OP_MONITOR_DOWN,
-                         reason, dist_ext, hfrag, ref, NIL, 0, 0, 0);
+                         reason, dist_ext, hfrag, ref, NIL, 0, 0, 0, 0);
 }
 
 void
@@ -2689,7 +2822,7 @@ erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
         mon->other.item = reason; /* Pass immed reason via other.item... */
         sig = (ErtsSignal *) mon;
         sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_MONITOR_DOWN,
-                                                 mon->type, 0);
+                                                 ERTS_ML_GET_TYPE(mon), 0);
         if (proc_queue_signal(sender, from, to, sig,
                               !(is_pid(from) || is_port(from)),
                               ERTS_SIG_Q_OP_MONITOR_DOWN)) {
@@ -2700,7 +2833,7 @@ erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
         ErtsMonitorData *mdp = erts_monitor_to_data(mon);
         Eterm from_tag, monitored, from_type, heap[3];
 
-        if (mon->type == ERTS_MON_TYPE_SUSPEND) {
+        if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND) {
             /*
              * Set reason to 'undefined', since exit
              * reason is not used for suspend monitors,
@@ -2745,7 +2878,7 @@ erts_proc_sig_send_monitor_down(ErtsPTabElementCommon *sender, Eterm from,
         send_gen_exit_signal(sender, from_tag, monitored, from_type,
                              to, ERTS_SIG_Q_OP_MONITOR_DOWN,
                              reason, NULL, NULL, mdp->ref, NIL,
-                             0, 0, 0);
+                             0, 0, 0, 0);
     }
 
     erts_monitor_release(mon);
@@ -2789,7 +2922,7 @@ erts_proc_sig_send_demonitor(ErtsPTabElementCommon *sender, Eterm from,
                              int system, ErtsMonitor *mon)
 {
     ErtsSignal *sig = (ErtsSignal *) mon;
-    Uint16 type = mon->type;
+    Uint32 type = ERTS_ML_GET_TYPE(mon);
     Eterm to = mon->other.item;
 
     ASSERT(is_internal_pid(to) || to == am_undefined);
@@ -2813,7 +2946,7 @@ erts_proc_sig_send_monitor(ErtsPTabElementCommon *sender, Eterm from,
                            ErtsMonitor *mon, Eterm to)
 {
     ErtsSignal *sig = (ErtsSignal *) mon;
-    Uint16 type = mon->type;
+    Uint32 type = ERTS_ML_GET_TYPE(mon);
 
     ASSERT(is_internal_pid(to) || to == am_undefined);
     ASSERT(erts_monitor_is_target(mon));
@@ -3266,8 +3399,8 @@ erts_proc_sig_send_rpc_request_prio(Process *c_p,
         erts_msgq_set_save_end(c_p);
     }
 
-    if (proc_queue_signal(&c_p->common, c_p->common.id, to, (ErtsSignal *)sig,
-                          0, ERTS_SIG_Q_OP_RPC)) {
+    if (proc_queue_signal(c_p ? &c_p->common : NULL, c_p->common.id, to,
+                          (ErtsSignal *)sig, 0, ERTS_SIG_Q_OP_RPC)) {
         (void) maybe_elevate_sig_handling_prio(c_p, prio, to);
     } else {
         erts_free(ERTS_ALC_T_SIG_DATA, sig);
@@ -3639,7 +3772,7 @@ inc_converted_msgs_len(Process *c_p,
         if (!*next_nm_sig) {
             c_p->sig_qs.mlenoffs += len;
         }
-        else {
+       else {
             ErtsNonMsgSignal *nmsig = (ErtsNonMsgSignal *) **next_nm_sig;
             ASSERT(nmsig);
             nmsig->mlenoffs += len;
@@ -3738,7 +3871,9 @@ convert_prepared_sig_to_external_msg(Process *c_p, ErtsSigRecvTracing *tracing,
      * restored...
      */
     *next_nm_sig = ((ErtsSignal *) sig)->common.specific.next;
-    sig->data.attached = &sig->hfrag;
+    sig->data.attached = &sig->hfrag; /* <- will be adjusted to
+                                       * ERTS_MSG_COMBINED_HFRAG
+                                       * when message is decoded */
     ERL_MESSAGE_TERM(sig) = THE_NON_VALUE;
     ERL_MESSAGE_TOKEN(sig) = token;
     inc_converted_msgs_len(c_p, tracing, next_nm_sig, 1);
@@ -3846,7 +3981,7 @@ recv_marker_deallocate(Process *c_p, ErtsRecvMarker *markp)
     ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
     int ix, nix;
 
-    ASSERT(!markp->is_yield_mark);
+    ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
     
     ASSERT(blkp);
     ERTS_HDBG_CHK_RECV_MRKS(c_p);
@@ -3892,7 +4027,7 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
 {
     ErtsMessage *sigp;
 
-    ASSERT(!markp->is_yield_mark);
+    ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
     ASSERT(markp->proc == c_p);
 
     if (markp->in_sigq <= 0) {
@@ -3913,7 +4048,7 @@ recv_marker_dequeue(Process *c_p, ErtsRecvMarker *markp)
     }
     else {
         remove_innerq_sig(c_p, sigp, markp->prev_next);
-        markp->in_sigq = markp->in_msgq = 0;
+        markp->in_prioq = markp->in_msgq = markp->in_sigq = 0;
 	ASSERT(!markp->set_save);
 #ifdef DEBUG
         markp->prev_next = NULL;
@@ -3958,7 +4093,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     /* Allocate marker for 'uniqp' in index zero... */    
     *ixp = 0;
     blkp->ref[0] = recv_marker_uniq(c_p, uniqp);
-    blkp->marker[0].is_yield_mark = 0;
+    blkp->marker[0].mark_type = ERTS_RECV_MARKER_TYPE_RECV;
     markp = &blkp->marker[0];
     markp->next_ix = markp->prev_ix = 0;
     blkp->used_ix = 0;
@@ -3967,7 +4102,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
     blkp->free_ix = 1;
     for (ix = 1; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	blkp->ref[ix] = am_free;
-        blkp->marker[ix].is_yield_mark = 0;
+        blkp->marker[ix].mark_type = ERTS_RECV_MARKER_TYPE_RECV;
 	if (ix == ERTS_RECV_MARKER_BLOCK_SIZE - 1)
 	    blkp->marker[ix].next_ix = -1; /* End of list */
 	else
@@ -3976,7 +4111,7 @@ recv_marker_alloc_block(Process *c_p, ErtsRecvMarkerBlock **blkpp,
 
     blkp->unused = 0;
     blkp->pending_set_save_ix = -1;
-    
+
 #ifdef DEBUG
     for (ix = 0; ix < ERTS_RECV_MARKER_BLOCK_SIZE; ix++) {
 	blkp->marker[ix].used = ix == 0 ? !0 : 0;
@@ -4074,7 +4209,7 @@ recv_marker_reuse(Process *c_p, int *ixp)
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
 
     remove_innerq_sig(c_p, sigp, markp->prev_next);
-    markp->in_sigq = markp->in_msgq = 0;
+    markp->in_prioq = markp->in_msgq = markp->in_sigq = 0;
 #ifdef DEBUG
     markp->prev_next = NULL;
 #endif
@@ -4143,6 +4278,7 @@ recv_marker_insert(Process *c_p, ErtsRecvMarker *markp, int setting)
     markp->pass = 0;
     markp->set_save = 0;
     markp->in_sigq = 1;
+    markp->in_prioq = 0;
     if (!c_p->sig_qs.cont) {
         /* Insert in message queue... */
         markp->in_msgq = !0;
@@ -4231,55 +4367,211 @@ erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id)
     }
 }
 
-void
-erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p)
+static ERTS_INLINE void
+remove_prio_q_marker(Process *c_p, ErtsRecvMarker *markp)
 {
-    ErtsMessage **save;
-    /*
-     * Receive markers in the front of the queue does not
-     * add any value, so we just remove them. We need to
-     * keep and pass yield markers though...
-     */
-    ASSERT(c_p->sig_qs.first
-	   && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first));
-    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
-    save = &c_p->sig_qs.first;
-    do {
-	ErtsRecvMarker *markp = (ErtsRecvMarker *) *save;
-        if (markp->is_yield_mark)
-            save = &markp->sig.common.next;
-        else
-            recv_marker_dequeue(c_p, markp);
-    } while (*save && ERTS_SIG_IS_RECV_MARKER(*save));
-
-    c_p->sig_qs.save = save;
-
-    ASSERT(!*save || ERTS_SIG_IS_MSG(*save));
-    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+    remove_innerq_sig(c_p, (ErtsMessage *) markp, markp->prev_next);
+    markp->in_msgq = markp->in_sigq = 0;
 }
 
-ErtsMessage **
-erts_msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp)
+static ErtsMessage **
+msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **markpp);
+
+static ERTS_INLINE ErtsMessage **
+msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp, int leading)
 {
     ErtsMessage **sigpp = markpp;
     ErtsMessage *sigp = *sigpp;
     ASSERT(ERTS_SIG_IS_RECV_MARKER(sigp));
     do {
 	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
-	if (!markp->is_yield_mark
-            && ++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
-	    recv_marker_dequeue(c_p, markp);
-	    sigp = *sigpp;
-	}
-	else {
-	    sigpp = &markp->sig.common.next;
-	    sigp = markp->sig.common.next;
-	}
+        switch (markp->mark_type) {
+        case ERTS_RECV_MARKER_TYPE_RECV:
+            if (leading || ++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
+                recv_marker_dequeue(c_p, markp);
+                break;
+            }
+            /* Fall through... */
+        case ERTS_RECV_MARKER_TYPE_YIELD:
+        pass_it:
+            sigpp = &markp->sig.common.next;
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_END:
+            ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+            if (leading
+                && ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST) {
+                /* empty prio queue; remove end marker */
+                sigpp = markp->prev_next;
+                remove_prio_q_marker(c_p, markp);
+                c_p->sig_qs.flags &= ~(FS_PRIO_MQ_SAVE|FS_PRIO_MQ_END_MARK);
+            }
+            else {
+                c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+                if (ERTS_MQ_GET_SAVE_INFO(c_p) != FS_SET_SAVE_INFO_FIRST)
+                    return msgq_pass_recv_markers_prioq_end(c_p, sigpp);
+                goto pass_it;
+            }
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
+            /* remove it */
+            sigpp = markp->prev_next;
+            remove_prio_q_marker(c_p, markp);
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid recv marker");
+            break;
+        }
+        sigp = *sigpp;
     } while (sigp && ERTS_SIG_IS_RECV_MARKER(sigp));
 
     return sigpp;
 }
 
+static ErtsMessage **
+msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **pq_endpp)
+{
+    /*
+     * We've reached the end of the prio queue and may need to move
+     * the save pointer to some place else than the next message...
+     */
+    ErtsMessage **sigpp = pq_endpp;
+    ErtsMessage *sigp = *sigpp;
+
+    ASSERT(ERTS_SIG_IS_RECV_MARKER((ErtsRecvMarker *) sigp));
+    ASSERT(((ErtsRecvMarker *) sigp)->mark_type
+           == ERTS_RECV_MARKER_TYPE_PRIO_Q_END);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+    ASSERT(get_prio_queue_info(c_p));
+
+    switch (ERTS_MQ_GET_SAVE_INFO(c_p)) {
+
+    case FS_SET_SAVE_INFO_FIRST:
+        sigpp = &sigp->next;
+        break;
+
+    case FS_SET_SAVE_INFO_LAST:
+        /* 
+         * The save pointer should always point past the end of the prio
+         * queue when these are set.
+         */
+        ERTS_INTERNAL_ERROR("Invalid message queue state");
+        break;
+
+    case FS_SET_SAVE_INFO_MARK: {
+        /* Continue at previously marked place... */
+        ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+        ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
+
+        ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+        ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
+        ASSERT(pq_cont->in_msgq);
+
+        ERTS_MQ_SET_SAVE_INFO(c_p, pq_info->saved_save_info);
+
+        sigpp = pq_cont->prev_next;
+        remove_prio_q_marker(c_p, pq_cont);
+        break;
+    }
+
+    case FS_SET_SAVE_INFO_RCVM: {
+        /* Continue at identified recv-marker... */
+        ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
+        ErtsRecvMarker *markp;
+        int ix = blkp->set_save_ix;
+
+        ASSERT(blkp);
+
+        if (ix < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= ix)
+            ERTS_INTERNAL_ERROR("Invalid message queue state");
+
+        markp = &blkp->marker[ix];
+
+        ASSERT(markp->in_sigq);
+
+        sigpp = (markp->in_msgq
+                 ? &markp->sig.common.next
+                 : erts_msgq_recv_marker_pending_set_save__(c_p, blkp,
+                                                            markp, ix));
+        break;
+    }
+
+    default:
+        ERTS_INTERNAL_ERROR("Non-existing message queue state");
+        break;
+    }
+
+    sigp = *sigpp;
+
+    /* Pass possible receive markers... */
+
+    while (sigp && ERTS_SIG_IS_RECV_MARKER(sigp)) {
+	ErtsRecvMarker *markp = (ErtsRecvMarker *) sigp;
+        switch (markp->mark_type) {
+        case ERTS_RECV_MARKER_TYPE_RECV:
+            if (++markp->pass > ERTS_RECV_MARKER_PASS_MAX) {
+                recv_marker_dequeue(c_p, markp);
+                break;
+            }
+            /* Fall through... */
+        case ERTS_RECV_MARKER_TYPE_YIELD:
+            sigpp = &markp->sig.common.next;
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_END:
+            ERTS_INTERNAL_ERROR("Unexpected prio msgq end marker");
+            break;
+        case ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT:
+            /* remove it */
+            sigpp = markp->prev_next;
+            remove_prio_q_marker(c_p, markp);
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Invalid recv marker");
+            break;
+        }
+        sigp = *sigpp;
+    }
+
+    return sigpp;
+
+}
+
+void
+erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p)
+{
+    /*
+     * Receive markers in the front of the queue does not
+     * add any value, so we just remove them. We need to
+     * keep and pass non-recv markers though...
+     */
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
+        c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+    }
+    else {
+        ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    }
+
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_FIRST);
+    c_p->sig_qs.save = msgq_pass_recv_markers(c_p, &c_p->sig_qs.first, !0);
+
+    ASSERT(!*c_p->sig_qs.save || ERTS_SIG_IS_MSG(*c_p->sig_qs.save));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+}
+
+ErtsMessage **
+erts_msgq_pass_recv_markers(Process *c_p, ErtsMessage **markpp)
+{
+    ErtsMessage **sigpp;
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    sigpp = msgq_pass_recv_markers(c_p, markpp, 0);
+
+    ASSERT(!*sigpp || ERTS_SIG_IS_MSG(*sigpp));
+    ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
+
+    return sigpp;
+}
 
 /*
  * Handle signals...
@@ -4294,6 +4586,8 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     ErtsExitSignalData *xsigd = NULL;
     Eterm tag = ((ErtsSignal *) sig)->common.tag;
     int op = ERTS_PROC_SIG_OP(tag);
+    int extra = ERTS_PROC_SIG_XTRA(tag);
+    int prio = 0;
     int destroy = 0;
     int ignore = 0;
     int save = 0;
@@ -4305,17 +4599,33 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
 
     ERTS_UNDEF(reason, THE_NON_VALUE);
     ASSERT(ERTS_PROC_SIG_TYPE(tag) == ERTS_SIG_Q_TYPE_GEN_EXIT);
-    
+
     xsigd = get_exit_signal_data(sig);
     from = xsigd->from;
 
-    if (op == ERTS_SIG_Q_OP_EXIT_LINKED) {
+    if (extra & ERTS_SIG_ALTACT_SIG_X_ALIAS) {
+        ErtsMonitor *mon;
+        Uint32 flags;
+        ASSERT(is_internal_ref(xsigd->u.ref));
+        mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), xsigd->u.ref);
+        flags = mon ? mon->flags : (Uint32) 0;
+        if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
+            | !!(flags & ERTS_ML_FLG_SPAWN_PENDING)) {
+            destroy = ignore = !0; /* Not an active alias... */
+        }
+        else {
+            prio = (!!(extra & ERTS_SIG_ALTACT_SIG_X_PRIO)
+                    & !!(flags & ERTS_ML_FLG_PRIO_ALIAS));
+        }
+    }
+    else if (op == ERTS_SIG_Q_OP_EXIT_LINKED) {
         ErtsLink *lnk, *dlnk = NULL;
         ErtsELink *elnk = NULL;
         lnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p), from);
         if (!lnk)
             ignore = destroy = !0; /* No longer active */
-        else if (lnk->type != ERTS_LNK_TYPE_DIST_PROC) {
+        else if (ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PROC
+                 && ERTS_ML_GET_TYPE(lnk) != ERTS_LNK_TYPE_DIST_PORT) {
             if (((ErtsILink *) lnk)->unlinking)
                 ignore = destroy = !0; /* No longer active */
             else
@@ -4343,6 +4653,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
             }
         }
         if (lnk) {
+            prio = linked && !!(lnk->flags & ERTS_ML_FLG_PRIO_ML);
             /* Remove link... */
             erts_link_tree_delete(&ERTS_P_LINKS(c_p), lnk);
             if (!elnk)
@@ -4372,11 +4683,20 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
 
         if ((op != ERTS_SIG_Q_OP_EXIT || reason != am_kill)
             && (c_p->flags & F_TRAP_EXIT)) {
-            Eterm token = (!ERTS_PROC_SIG_XTRA(tag)
+            Eterm token = (!(extra & ERTS_SIG_ALTACT_SIG_X_TOKEN)
                            ? NIL
                            : ((ErtsSeqTokenExitSignalData *) xsigd)->token);
-            convert_prepared_sig_to_msg(c_p, tracing, sig, xsigd->message,
-                                        token, next_nm_sig);
+            if (prio) {
+                remove_nm_sig(c_p, sig, next_nm_sig);
+                insert_prepared_prio_msg(c_p, tracing, sig,
+                                         xsigd->message, token,
+                                         next_nm_sig);
+            }
+            else {
+                convert_prepared_sig_to_msg(c_p, tracing, sig,
+                                            xsigd->message, token,
+                                            next_nm_sig);
+            }
             conv_msg = sig;
         }
         else if (reason == am_normal
@@ -4431,11 +4751,18 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
 
 static ERTS_INLINE int
 convert_prepared_down_message(Process *c_p, ErtsSigRecvTracing *tracing,
-                              ErtsMessage *sig, Eterm msg,
+                              int prio, ErtsMessage *sig, Eterm msg,
                               ErtsMessage ***next_nm_sig)
 {
-    convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
-                                next_nm_sig);
+    if (prio) {
+        remove_nm_sig(c_p, sig, next_nm_sig);
+        insert_prepared_prio_msg(c_p, tracing, sig, msg, am_undefined,
+                                 next_nm_sig);
+    }
+    else {
+        convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
+                                    next_nm_sig);
+    }
     erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
     return 1;
 }
@@ -4443,10 +4770,11 @@ convert_prepared_down_message(Process *c_p, ErtsSigRecvTracing *tracing,
 static int
 convert_to_down_message(Process *c_p,
                         ErtsSigRecvTracing *tracing,
+                        int *priop,
                         ErtsMessage *sig,
                         ErtsMonitorData *mdp,
                         ErtsMonitor **omon,
-                        Uint16 mon_type,
+                        Uint32 mon_type,
                         ErtsMessage ***next_nm_sig)
 {
     int cnt = 0;
@@ -4522,6 +4850,7 @@ convert_to_down_message(Process *c_p,
          * Create a 'DOWN' message and replace the signal
          * with it...
          */
+        Eterm message;
 
         hsz = 6; /* 5-tuple */
 
@@ -4561,7 +4890,7 @@ convert_to_down_message(Process *c_p,
             hp += 3;
         }
 
-        ASSERT(mdp->origin.type == mon_type);
+        ASSERT(ERTS_ML_GET_TYPE(&mdp->origin) == mon_type);
         switch (mon_type) {
         case ERTS_MON_TYPE_PORT:
             type = am_port;
@@ -4637,10 +4966,21 @@ convert_to_down_message(Process *c_p,
             tag = save_heap_frag_eterm(c_p, mp, tag_storage);
         }
 
-        ERL_MESSAGE_TERM(mp) = TUPLE5(hp, tag, ref,
-                                      type, from, reason);
+        message = TUPLE5(hp, tag, ref, type, from, reason);
         hp += 6;
 
+        *priop = !!((*omon)->flags & ERTS_ML_FLG_PRIO_ML);
+        if (*priop) {
+            remove_nm_sig(c_p, sig, next_nm_sig);
+            insert_prepared_prio_msg_attached(c_p, tracing, mp,
+                                              mp->data.attached, message,
+                                              am_undefined,
+                                              next_nm_sig);
+            cnt += 4;
+            goto notify_new_message;
+        }
+
+        ERL_MESSAGE_TERM(mp) = message;
     }
 
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
@@ -4648,6 +4988,8 @@ convert_to_down_message(Process *c_p,
     convert_to_msg(c_p, tracing, sig, mp, next_nm_sig);
 
     cnt += 4;
+
+notify_new_message:
 
     erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
 
@@ -4762,16 +5104,23 @@ handle_nodedown(Process *c_p,
 
 static void
 handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
-                          Uint16 type, ErtsMonitor *mon, ErtsMessage *sig,
+                          Uint32 type, ErtsMonitor *mon, ErtsMessage *sig,
                           Eterm msg, ErtsMessage ***next_nm_sig)
 {
-    convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
-                                next_nm_sig);
+    if (!(mon->flags & ERTS_ML_FLG_PRIO_ML)) {
+        convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
+                                    next_nm_sig);
+    }
+    else {
+        remove_nm_sig(c_p, sig, next_nm_sig);
+        insert_prepared_prio_msg(c_p, tracing, sig, msg, am_undefined,
+                                 next_nm_sig);
+    }
 
     switch (type) {
 
     case ERTS_MON_TYPE_TIME_OFFSET:
-        ASSERT(mon->type == ERTS_MON_TYPE_TIME_OFFSET);
+        ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_TIME_OFFSET);
         if (mon->flags & ERTS_ML_FLG_TAG) {
             ErtsMonitorData *mdp = erts_monitor_to_data(mon);
             Eterm *tpl, tag_storage;
@@ -4790,7 +5139,8 @@ handle_persistent_mon_msg(Process *c_p, ErtsSigRecvTracing *tracing,
     case ERTS_MON_TYPE_NODES: {
         ErtsMonitorDataExtended *mdep;
         Uint n;
-        ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+        ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
+        ASSERT(!(mon->flags & ERTS_ML_FLG_PRIO_ML));
         mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
         ERTS_ML_ASSERT(mdep->u.refc > 0);
         n = mdep->u.refc;
@@ -5010,7 +5360,7 @@ handle_suspend(Process *c_p, ErtsMonitor *mon, int *yieldp)
 {
     erts_aint32_t state = erts_atomic32_read_nob(&c_p->state);
 
-    ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND);
 
     if (!(state & ERTS_PSFLG_DIRTY_RUNNING)) {
         ErtsMonitorSuspend *msp;
@@ -5412,6 +5762,10 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         if (datap->link) {
             cnt++;
             erts_link_tree_insert(&ERTS_P_LINKS(c_p), datap->link);
+            if (omon->flags & ERTS_ML_FLG_SPAWN_LINK_PRIO) {
+                datap->link->flags |= ERTS_ML_FLG_PRIO_ML;
+                erts_proc_sig_prio_item_added(c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+            }
             if (tracing->procs)
                 linking(c_p, result);
         }
@@ -5566,114 +5920,155 @@ handle_dist_spawn_reply_exiting(Process *c_p,
 }
 
 static int
-handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
-                     ErtsMessage *sig, ErtsMessage ***next_nm_sig)
+handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
+                  ErtsMessage *sig, ErtsMessage ***next_nm_sig)
 {
     void *data_attached;
-    Eterm from, alias, msg, token;
+    Eterm from, sender, alias, msg, token;
     ErtsMonitor *mon;
-    Uint16 flags;
-    int type, cnt = 0;
+    int type, prio, cnt = 0, prio_alias_deactivated = 0;
 
-    type = get_alias_msg_data(sig, &from, &alias, &msg, &data_attached, &token);
+    type = get_altact_msg_data(sig, &data_attached, &msg, &from,
+                               &prio, &sender, &alias, &token);
 
     ASSERT(is_internal_pid(from) || is_atom(from));
-    ASSERT(is_internal_pid_ref(alias));
 
-    mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), alias);
-    flags = mon ? mon->flags : (Uint16) 0;
-    if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
-        | !!(flags & ERTS_ML_FLG_SPAWN_PENDING)) {
-        /*
-         * Not an alias (never has been, not anymore, or not yet);
-         * drop message...
-         */
-        remove_nm_sig(c_p, sig, next_nm_sig);
-        sig->next = NULL;;
-        erts_cleanup_messages(sig);
-        return 2;
+    if (!is_value(alias)) {
+        prio = 0;
+    }
+    else {
+        Uint32 flags;
+
+        ASSERT(is_internal_pid_ref(alias));
+
+        mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(c_p), alias);
+        flags = mon ? mon->flags : (Uint32) 0;
+        if (!(flags & ERTS_ML_STATE_ALIAS_MASK)
+            | !!(flags & ERTS_ML_FLG_SPAWN_PENDING)) {
+            /*
+             * Not an alias (never has been, not anymore, or not yet);
+             * drop message...
+             */
+            remove_nm_sig(c_p, sig, next_nm_sig);
+            sig->next = NULL;;
+            erts_cleanup_messages(sig);
+            return 2;
+        }
+
+        if (prio && !(flags & ERTS_ML_FLG_PRIO_ALIAS))
+            prio = 0;
+
+        if ((flags & ERTS_ML_STATE_ALIAS_MASK) == ERTS_ML_STATE_ALIAS_ONCE) {
+            mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
+
+            erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
+            if (flags & ERTS_ML_FLG_PRIO_ALIAS)
+                prio_alias_deactivated = !0;
+
+            switch (ERTS_ML_GET_TYPE(mon)) {
+            case ERTS_MON_TYPE_DIST_PORT:
+            case ERTS_MON_TYPE_ALIAS:
+                erts_monitor_release(mon);
+                break;
+            case ERTS_MON_TYPE_PROC:
+                erts_proc_sig_send_demonitor(&c_p->common, c_p->common.id, 0, mon);
+                break;
+            case ERTS_MON_TYPE_DIST_PROC: {
+                ErtsMonitorData *mdp;
+                ErtsMonLnkDist *dist;
+                DistEntry *dep;
+                Eterm watched;
+                mdp = erts_monitor_to_data(mon);
+                dist = ((ErtsMonitorDataExtended *) mdp)->dist;
+                ASSERT(dist);
+                if (flags & ERTS_ML_FLG_NAME) {
+                    watched = ((ErtsMonitorDataExtended *) mdp)->u.name;
+                    ASSERT(is_atom(watched));
+                    dep = erts_sysname_to_connected_dist_entry(dist->nodename);
+                }
+                else {
+                    watched = mon->other.item;
+                    ASSERT(is_external_pid(watched));
+                    dep = external_pid_dist_entry(watched);
+                }
+                erts_proc_exit_dist_demonitor(c_p, dep, dist->connection_id,
+                                              mdp->ref, watched);
+                if (!erts_monitor_dist_delete(&mdp->u.target))
+                    erts_monitor_release(mon);
+                else
+                    erts_monitor_release_both(mdp);
+                break;
+            }
+            case ERTS_MON_TYPE_TIME_OFFSET:
+                erts_demonitor_time_offset(mon);
+                break;
+            case ERTS_MON_TYPE_PORT: {
+                Port *prt;
+                ASSERT(is_internal_port(mon->other.item));
+                prt = erts_port_lookup(mon->other.item, ERTS_PORT_SFLGS_DEAD);
+                if (!prt || erts_port_demonitor(c_p, prt, mon) == ERTS_PORT_OP_DROPPED)
+                    erts_monitor_release(mon);
+                break;
+            }
+            default:
+                break;
+            }
+        }
     }
 
     ERL_MESSAGE_FROM(sig) = from;
-    
-    if ((flags & ERTS_ML_STATE_ALIAS_MASK) == ERTS_ML_STATE_ALIAS_ONCE) {
-        mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
 
-        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-        
-        switch (mon->type) {
-        case ERTS_MON_TYPE_DIST_PORT:
-        case ERTS_MON_TYPE_ALIAS:
-            erts_monitor_release(mon);
-            break;
-        case ERTS_MON_TYPE_PROC:
-            erts_proc_sig_send_demonitor(&c_p->common, c_p->common.id, 0, mon);
-            break;
-        case ERTS_MON_TYPE_DIST_PROC: {
-            ErtsMonitorData *mdp;
-            ErtsMonLnkDist *dist;
-            DistEntry *dep;
-            Eterm watched;
-            mdp = erts_monitor_to_data(mon);
-            dist = ((ErtsMonitorDataExtended *) mdp)->dist;
-            ASSERT(dist);
-            if (flags & ERTS_ML_FLG_NAME) {
-                watched = ((ErtsMonitorDataExtended *) mdp)->u.name;
-                ASSERT(is_atom(watched));
-                dep = erts_sysname_to_connected_dist_entry(dist->nodename);
-            }
-            else {
-                watched = mon->other.item;
-                ASSERT(is_external_pid(watched));
-		dep = external_pid_dist_entry(watched);
-            }
-            erts_proc_exit_dist_demonitor(c_p, dep, dist->connection_id,
-                                          mdp->ref, watched);
-            if (!erts_monitor_dist_delete(&mdp->u.target))
-                erts_monitor_release(mon);
-            else
-                erts_monitor_release_both(mdp);
-            break;
-        }
-        case ERTS_MON_TYPE_TIME_OFFSET:
-            erts_demonitor_time_offset(mon);
-            break;
-        case ERTS_MON_TYPE_PORT: {
-            Port *prt;
-            ASSERT(is_internal_port(mon->other.item));
-            prt = erts_port_lookup(mon->other.item, ERTS_PORT_SFLGS_DEAD);
-            if (!prt || erts_port_demonitor(c_p, prt, mon) == ERTS_PORT_OP_DROPPED)
-                erts_monitor_release(mon);
-            break;
-        }
-        default:
-            break;
-        }
-    }
+    if (prio)
+        remove_nm_sig(c_p, sig, next_nm_sig);
 
-    if (type != ERTS_SIG_Q_TYPE_DIST) {
-        convert_prepared_sig_to_msg_attached(c_p, tracing, sig, msg, token,
-                                             data_attached, next_nm_sig);
+    switch (type) {
+
+    case ERTS_SIG_Q_TYPE_HEAP:
+    case ERTS_SIG_Q_TYPE_OFF_HEAP:
+    case ERTS_SIG_Q_TYPE_HEAP_FRAG:
+        if (!prio) {
+            convert_prepared_sig_to_msg_attached(c_p, tracing, sig, msg, token,
+                                                 data_attached, next_nm_sig);
+        }
+        else {
+            insert_prepared_prio_msg_attached(c_p, tracing, sig,
+                                              data_attached, msg, token,
+                                              next_nm_sig);
+        }
         cnt++;
-    }
-    else {
+        break;
+
+    case ERTS_SIG_Q_TYPE_DIST:
+    {
+        ERTS_UNDEF(ErtsMessage *mp, NULL); /* shut up faulty warning... */
         /*
          * Convert to external message...
          *
-         * See erts_proc_sig_send_dist_to_alias() for info on
+         * See erts_proc_sig_send_dist_altact_msg() for info on
          * how the signal was constructed...
          */
-        if (sig->hfrag.alloc_size > 2) {
+        if (prio) {
+            mp = sig;
+            ERL_MESSAGE_TERM(mp) = THE_NON_VALUE;
+            ERL_MESSAGE_TOKEN(mp) = token;
+            sig->data.attached = &sig->hfrag; /* <- will be adjusted to
+                                               * ERTS_MSG_COMBINED_HFRAG
+                                               * when message is decoded */
+        }
+        else {
             convert_prepared_sig_to_external_msg(c_p, tracing, sig, token,
                                                  next_nm_sig);
             cnt++;
         }
-        else {
+
+        if (0) {
+        case ERTS_SIG_Q_TYPE_DIST_FRAG:
+
             /*
              * Fragmented message. Need to replace message
              * reference...
              */
-            ErtsMessage *mp = erts_alloc_message(0, NULL);
+            mp = erts_alloc_message(0, NULL);
             sys_memcpy((void *) &mp->m[0],
                        (void *) &sig->m[0],
                        ERL_MESSAGE_REF_ARRAY_SZ*sizeof(Eterm));
@@ -5681,9 +6076,11 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
             ERL_MESSAGE_TOKEN(mp) = token;
             ASSERT(sig->hfrag.next);
             mp->data.heap_frag = sig->hfrag.next;
-            
-            /* Replace original signal with the external message... */
-            convert_to_msg(c_p, tracing, sig, mp, next_nm_sig);
+
+            if (!prio) {
+                /* Replace original signal with the external message... */
+                convert_to_msg(c_p, tracing, sig, mp, next_nm_sig);
+            }
 
             ERL_MESSAGE_TERM(sig) = NIL;
             sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
@@ -5691,8 +6088,34 @@ handle_alias_message(Process *c_p, ErtsSigRecvTracing *tracing,
             sig->next = NULL;
             erts_cleanup_messages(sig);
             cnt += 8;
-        }        
+        }
+
+        if (prio) {
+            cnt += 50; /* Decode is expensive... */
+            if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN, mp, !0)) {
+                /* drop faulty encoded external message... */
+                return cnt;
+            }
+            insert_prepared_prio_msg(c_p, tracing, mp, ERL_MESSAGE_TERM(mp),
+                                     token, next_nm_sig);
+        }
+        break;
     }
+
+    default:
+        ERTS_INTERNAL_ERROR("Invalid altact message type");
+        break;
+    }
+
+    if (prio_alias_deactivated) {
+        /*
+         * This needs to be done after the message has been inserted; otherwise,
+         * the prio message might not be prioritized due to the prio queue being
+         * removed prior to the message insertion.
+         */
+        erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_ALIAS);
+    }
+
     erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
     return cnt;
 }
@@ -5821,6 +6244,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             ErtsExitSignalData *xsigd = NULL;
             ErtsMonitorData *mdp = NULL;
             ErtsMonitor *omon = NULL, *tmon = NULL;
+            int prio = 0;
 
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
 
@@ -5835,7 +6259,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 mdp = erts_monitor_to_data(tmon);
                 if (erts_monitor_is_in_table(&mdp->origin)) {
                     omon = &mdp->origin;
-                    cnt += convert_to_down_message(c_p, &tracing,
+                    cnt += convert_to_down_message(c_p, &tracing, &prio,
                                                    sig, mdp, &omon,
                                                    type, next_nm_sig);
                 }
@@ -5852,7 +6276,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                                 xsigd->u.ref);
                 if (omon) {
                     ASSERT(erts_monitor_is_origin(omon));
-                    if (omon->type == ERTS_MON_TYPE_ALIAS) {
+                    if (ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_ALIAS) {
                         omon = NULL;
                         break;
                     }
@@ -5868,12 +6292,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         break;
                     }
                     mdp = erts_monitor_to_data(omon);
-                    if (omon->type == ERTS_MON_TYPE_DIST_PROC) {
+                    if (ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_DIST_PROC) {
                         if (erts_monitor_dist_delete(&mdp->u.target))
                             tmon = &mdp->u.target;
                     }
                     ASSERT(!(omon->flags & ERTS_ML_FLGS_SPAWN));
-                    cnt += convert_prepared_down_message(c_p, &tracing, sig,
+                    prio = !!(omon->flags & ERTS_ML_FLG_PRIO_ML);
+                    cnt += convert_prepared_down_message(c_p, &tracing, prio, sig,
                                                          xsigd->message,
                                                          next_nm_sig);
                     if (omon->flags & ERTS_ML_FLG_TAG) {
@@ -5915,6 +6340,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             }
 
             if (!omon) {
+                ASSERT(!prio);
                 remove_nm_sig(c_p, sig, next_nm_sig);
                 if (xsigd) {
                     sig->next = NULL;
@@ -5926,13 +6352,17 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             else {
                 switch (omon->flags & ERTS_ML_STATE_ALIAS_MASK) {
                 case ERTS_ML_STATE_ALIAS_UNALIAS: {
+                    Uint32 add_flags;
                     ErtsMonitorData *amdp;
                     ASSERT(is_internal_pid_ref(mdp->ref));
                     amdp = erts_monitor_create(ERTS_MON_TYPE_ALIAS,
                                                mdp->ref, c_p->common.id,
                                                NIL, NIL, THE_NON_VALUE);
-                    amdp->origin.flags = ERTS_ML_STATE_ALIAS_UNALIAS;
-                    omon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
+                    add_flags = omon->flags & (ERTS_ML_STATE_ALIAS_MASK
+                                               | ERTS_ML_FLG_PRIO_ALIAS);
+                    amdp->origin.flags |= add_flags;
+                    omon->flags &= ~(ERTS_ML_STATE_ALIAS_MASK
+                                     | ERTS_ML_FLG_PRIO_ALIAS);
                     erts_monitor_tree_replace(&ERTS_P_MONITORS(c_p),
                                               omon,
                                               &amdp->origin);
@@ -5947,6 +6377,18 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), omon);
                     break;
                 }
+
+                if (prio) {
+                    /*
+                     * This needs to be done after the message has been
+                     * inserted; otherwise, the prio message might not be
+                     * prioritized due to the prio queue being removed prior
+                     * to the message insertion.
+                     */
+                    erts_proc_sig_prio_item_deleted(
+                        c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
+                }
+
                 if (tmon)
                     erts_monitor_release_both(mdp);
                 else
@@ -5998,11 +6440,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 
             remove_nm_sig(c_p, sig, next_nm_sig);
 
-            if (mon->type == ERTS_MON_TYPE_DIST_PROC)
+            if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_DIST_PROC)
                 erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), mon);
             else {
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(c_p), mon);
-                if (mon->type == ERTS_MON_TYPE_SUSPEND)
+                if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_SUSPEND)
                     handle_suspend(c_p, mon, &yield);
             }
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
@@ -6038,14 +6480,14 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             else {
                 ErtsMonitor *omon = (ErtsMonitor *) sig;
                 ErtsMonitorData *mdp = erts_monitor_to_data(omon);
-                ASSERT(omon->type == type);
+                ASSERT(ERTS_ML_GET_TYPE(omon) == type);
                 ASSERT(erts_monitor_is_origin(omon));
                 ASSERT(!erts_monitor_is_in_table(omon));
                 if (!erts_monitor_is_in_table(&mdp->u.target))
                     erts_monitor_release(omon);
                 else {
                     ErtsMonitor *tmon = &mdp->u.target;
-                    ASSERT(tmon->type == type);
+                    ASSERT(ERTS_ML_GET_TYPE(tmon) == type);
                     if (type == ERTS_MON_TYPE_DIST_PROC)
                         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), tmon);
                     else {
@@ -6092,7 +6534,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             }
             else {
                 /* Already linked or unlinking... */
-                if (nlnk->type != ERTS_LNK_TYPE_DIST_PROC)
+                ASSERT(ERTS_ML_GET_TYPE(nlnk) != ERTS_LNK_TYPE_DIST_PORT);
+                if (ERTS_ML_GET_TYPE(nlnk) != ERTS_LNK_TYPE_DIST_PROC)
                     erts_link_internal_release(nlnk);
                 else {
                     ErtsELink *elnk;
@@ -6319,9 +6762,9 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
             break;
         }
 
-        case ERTS_SIG_Q_OP_ALIAS_MSG: {
+        case ERTS_SIG_Q_OP_ALTACT_MSG: {
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
-            cnt += handle_alias_message(c_p, &tracing, sig, next_nm_sig);
+            cnt += handle_altact_msg(c_p, &tracing, sig, next_nm_sig);
             ERTS_PROC_SIG_HDBG_PRIV_CHKQ(c_p, &tracing, next_nm_sig);
             break;
         }
@@ -6329,7 +6772,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
         case ERTS_SIG_Q_OP_RECV_MARK: {
             ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
             ASSERT(markp->in_sigq);
-            ASSERT(!markp->is_yield_mark);
+            ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
 
             if (markp->in_sigq < 0) {
                 /* Marked for removal... */
@@ -6339,14 +6782,22 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
+                    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_LAST
+                           /* mark due to erts_msgq_set_save_end() */);
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
 		    save_in_msgq = 0;
+                    /* all recv-markers are outside of prio queue */
+                    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
                 }
-                markp->in_msgq = markp->in_sigq = markp->set_save = 0;
+                markp->in_prioq = markp->in_msgq = markp->in_sigq = markp->set_save = 0;
                 remove_nm_sig(c_p, sig, next_nm_sig);
 		recv_marker_deallocate(c_p, markp);
             }
             else {
+                ASSERT(!markp->in_prioq); /* It is not possible that a reference
+                                             corresponding to this marker have
+                                             been seen in a message in the prio
+                                             queue... */
                 markp->prev_next = *next_nm_sig;
                 ASSERT(*markp->prev_next == sig);
                 *next_nm_sig = ((ErtsSignal *) sig)->common.specific.next;
@@ -6361,8 +6812,13 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
 			   == ERTS_RECV_MARKER_IX__(c_p->sig_qs.recv_mrk_blk,
 						    markp));
+                    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_RCVM);
+                    ASSERT(c_p->sig_qs.recv_mrk_blk->pending_set_save_ix
+                           == c_p->sig_qs.recv_mrk_blk->set_save_ix);
                     c_p->sig_qs.recv_mrk_blk->pending_set_save_ix = -1;
 		    save_in_msgq = 0;
+                    /* all recv-markers are outside of prio queue */
+                    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
                 }
             }
 
@@ -6674,6 +7130,9 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
     return !0;
 }
 
+static void destroy_prio_q_info(Process *c_p,
+                                ErtsPrioQInfo *pq_info,
+                                int terminating);
 
 int
 erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
@@ -6686,6 +7145,11 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
 
     ERTS_HDBG_CHECK_SIGNAL_PRIV_QUEUE(c_p, 0);
     ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == ERTS_PROC_LOCK_MAIN);
+
+    if (c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_PENDING_RM)) {
+        ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+        destroy_prio_q_info(c_p, pq_info, !0);
+    }
 
     limit = *redsp;
     limit *= ERTS_SIG_REDS_CNT_FACTOR;
@@ -6736,6 +7200,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
             case ERTS_LNK_TYPE_PORT:
             case ERTS_LNK_TYPE_PROC:
             case ERTS_LNK_TYPE_DIST_PROC:
+            case ERTS_LNK_TYPE_DIST_PORT:
                 erts_link_release((ErtsLink *) sig);
                 break;
             case ERTS_MON_TYPE_PORT:
@@ -6755,7 +7220,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
 
         case ERTS_SIG_Q_OP_NIF_SELECT:
         case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
-        case ERTS_SIG_Q_OP_ALIAS_MSG:
+        case ERTS_SIG_Q_OP_ALTACT_MSG:
             sig->next = NULL;
             erts_cleanup_messages(sig);
             break;
@@ -6864,7 +7329,7 @@ erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
 
         case ERTS_SIG_Q_OP_RECV_MARK: {
             ErtsRecvMarker *markp = (ErtsRecvMarker *) sig;
-            ASSERT(!markp->is_yield_mark);
+            ASSERT(markp->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
             markp->in_msgq = markp->in_sigq = markp->set_save = 0;
             recv_marker_deallocate(c_p, markp);
             break;
@@ -6909,6 +7374,7 @@ clear_seq_trace_token(ErtsMessage *sig)
             case ERTS_LNK_TYPE_PORT:
             case ERTS_LNK_TYPE_PROC:
             case ERTS_LNK_TYPE_DIST_PROC:
+            case ERTS_LNK_TYPE_DIST_PORT:
             case ERTS_MON_TYPE_PORT:
             case ERTS_MON_TYPE_PROC:
             case ERTS_MON_TYPE_DIST_PROC:
@@ -6927,8 +7393,8 @@ clear_seq_trace_token(ErtsMessage *sig)
         case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY:
             clear_seq_token_spawn_reply(sig);
             break;
-        case ERTS_SIG_Q_OP_ALIAS_MSG:
-            clear_seq_token_alias_msg(sig);
+        case ERTS_SIG_Q_OP_ALTACT_MSG:
+            clear_seq_token_altact_msg(sig);
             break;
 
         case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
@@ -7016,6 +7482,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         case ERTS_LNK_TYPE_PORT:
         case ERTS_LNK_TYPE_PROC:
         case ERTS_LNK_TYPE_DIST_PROC:
+        case ERTS_LNK_TYPE_DIST_PORT:
             size = erts_link_size((ErtsLink *) sig);
             break;
         case ERTS_MON_TYPE_PORT:
@@ -7047,7 +7514,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
         break;
     }
 
-    case ERTS_SIG_Q_OP_ALIAS_MSG: {
+    case ERTS_SIG_Q_OP_ALTACT_MSG: {
         ErlHeapFragment *hf;
 
         size = sizeof(ErtsMessageRef);
@@ -7286,11 +7753,12 @@ static void
 init_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 {
     mrkp->prev_next = NULL;
-    mrkp->is_yield_mark = (char) !0;
+    mrkp->mark_type = (char) ERTS_RECV_MARKER_TYPE_YIELD;
     mrkp->pass = (char) 100;
     mrkp->set_save = (char) 0;
     mrkp->in_sigq = (char) 0;
     mrkp->in_msgq = (char) 0;
+    mrkp->in_prioq = (char) 0;
     mrkp->prev_ix = (char) -100;
     mrkp->next_ix = (char) -100;
 #ifdef DEBUG
@@ -7306,11 +7774,12 @@ static void
 remove_yield_marker(Process *c_p, ErtsRecvMarker *mrkp)
 {
     ASSERT(mrkp);
-    ASSERT(mrkp->is_yield_mark);
+    ASSERT(mrkp->mark_type == ERTS_RECV_MARKER_TYPE_YIELD);
     ASSERT(mrkp->in_msgq);
     remove_innerq_sig(c_p, (ErtsMessage *) mrkp, mrkp->prev_next);
     mrkp->in_msgq = 0;
     mrkp->in_sigq = 0;
+    mrkp->in_prioq = 0;
     mrkp->prev_next = NULL;
     mrkp->sig.common.next = NULL;
 }
@@ -7996,7 +8465,7 @@ linking(Process *c_p, Eterm to)
                am_link, to);
 }
 
-static ERTS_INLINE void
+static void
 handle_message_enqueued_tracing(Process *c_p,
                                 ErtsSigRecvTracing *tracing,
                                 ErtsMessage *msg)
@@ -8097,11 +8566,11 @@ handle_msg_tracing(Process *c_p, ErtsSigRecvTracing *tracing,
                 continue;
             }
         }
-        handle_message_enqueued_tracing(c_p, tracing, sig);
-        cnt++;
 
         c_p->sig_qs.mq_len++;
         erts_chk_sys_mon_long_msgq_on(c_p);
+        handle_message_enqueued_tracing(c_p, tracing, sig);
+        cnt++;
         next_sig = &(*next_sig)->next;
         sig = *next_sig;
     }
@@ -8137,7 +8606,7 @@ handle_missing_spawn_reply(Process *c_p, ErtsMonitor *omon)
 
     /* Terminate connection to the node and report it... */
 
-    if (omon->type != ERTS_MON_TYPE_DIST_PROC)
+    if (ERTS_ML_GET_TYPE(omon) != ERTS_MON_TYPE_DIST_PROC)
         ERTS_INTERNAL_ERROR("non-distributed missing spawn_reply");
     
     mdp = erts_monitor_to_data(omon);
@@ -8363,6 +8832,652 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
     }
 }
 
+/*
+ * Priority message queue...
+ */
+
+static ERTS_INLINE void
+insert_prio_q_marker(Process *c_p, ErtsRecvMarker *mark, ErtsMessage **next)
+{
+    if (c_p->sig_qs.last == next)
+        c_p->sig_qs.last = &mark->sig.common.next;
+    if (c_p->sig_qs.save == next)
+        c_p->sig_qs.save = &mark->sig.common.next;
+    if (*next && ERTS_SIG_IS_RECV_MARKER(*next))
+        ((ErtsRecvMarker *) *next)->prev_next = &mark->sig.common.next;
+    mark->prev_next = next;
+    mark->sig.common.next = *next;
+    *next = (ErtsMessage *) mark;
+
+    mark->in_sigq = mark->in_msgq = !0;
+}
+
+static void
+create_prio_q_info(Process *c_p)
+{
+    ErtsPrioQInfo *pq_info, *prev_pq_info;
+    int i;
+
+    pq_info = erts_alloc(ERTS_ALC_T_PRIO_Q_INFO, sizeof(ErtsPrioQInfo));
+
+    pq_info->saved_save_info = 0;
+    pq_info->alias = 0;
+    pq_info->link = 0;
+    pq_info->monitor = 0;
+
+    for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
+
+        pq_info->marker[i].sig.common.next = NULL;
+        pq_info->marker[i].sig.common.specific.attachment = NULL;
+        pq_info->marker[i].sig.common.tag = ERTS_RECV_MARKER_TAG;
+        pq_info->marker[i].prev_next = NULL;
+        pq_info->marker[i].in_sigq = 0;
+        pq_info->marker[i].in_msgq = 0;
+        pq_info->marker[i].in_prioq = 0;
+
+        /* not used... */
+
+        pq_info->marker[i].next_ix = -100;
+        pq_info->marker[i].pass = (char) 100;
+        pq_info->marker[i].set_save = (char) 0;
+        pq_info->marker[i].prev_ix = (char) -100;
+
+        /* specific for the different markers... */
+        switch (i) {
+        case ERTS_PRIO_Q_MARK_END:
+            pq_info->marker[i].mark_type = ERTS_RECV_MARKER_TYPE_PRIO_Q_END;
+            break;
+        case ERTS_PRIO_Q_MARK_CONT:
+            pq_info->marker[i].mark_type = ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT;
+            break;
+        default:
+            ERTS_INTERNAL_ERROR("Unknown prio queue marker");
+            break;
+        }
+
+#ifdef DEBUG
+        pq_info->marker[i].used = (char) !0;
+        pq_info->marker[i].proc = c_p;
+#endif
+
+    }
+
+    prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, pq_info);
+
+    ASSERT(!prev_pq_info); (void) prev_pq_info;
+}
+
+static void
+destroy_prio_q_info(Process *c_p, ErtsPrioQInfo *pq_info, int terminating)
+{
+    ErtsPrioQInfo *prev_pq_info;
+    int i;
+
+    ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
+    ASSERT(terminating || !pq_info->alias);
+    ASSERT(terminating || !pq_info->link);
+    ASSERT(terminating || !pq_info->monitor);
+
+    for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
+        ErtsRecvMarker *mark = &pq_info->marker[i];
+        if (mark->in_msgq)
+            remove_prio_q_marker(c_p, mark);
+    }
+
+    prev_pq_info = ERTS_PROC_SET_PRIO_Q_INFO(c_p, NULL);
+    ASSERT(prev_pq_info == pq_info); (void) prev_pq_info;
+
+    erts_free(ERTS_ALC_T_PRIO_Q_INFO, (void *) pq_info);
+
+    if (c_p->sig_qs.recv_mrk_blk) {
+        ErtsRecvMarkerBlock *blk = c_p->sig_qs.recv_mrk_blk;
+        int i;
+        for (i = 0; i < ERTS_RECV_MARKER_BLOCK_SIZE; i++) {
+            blk->marker[i].in_prioq = 0;
+        }
+    }
+}
+
+static ERTS_INLINE int
+is_same_internal_ref(Eterm x, Eterm y)
+{
+    int i;
+    Uint xlen, ylen;
+    Uint32 *xnum, *ynum;
+
+    ERTS_CT_ASSERT(ERTS_REF_NUMBERS == 3 && ERTS_PID_REF_NUMBERS >= 3);
+
+    ASSERT(is_internal_ref(x) && is_internal_ref(y));
+
+    ASSERT(internal_ref_no_numbers(x) >= 3);
+    ASSERT(internal_ref_no_numbers(y) >= 3);
+
+    xnum = internal_ref_numbers(x);
+    ynum = internal_ref_numbers(y);
+
+    if (xnum[0] != ynum[0] || xnum[1] != ynum[1] || xnum[2] != ynum[2])
+        return 0;
+
+    xlen = internal_ref_no_numbers(x);
+    ylen = internal_ref_no_numbers(y);
+
+    if (xlen != ylen)
+        return 0;
+
+    for (i = 3; i < xlen; i++) {
+        if (xnum[i] != ynum[i])
+            return 0;
+    }
+
+    return !0;
+}
+
+static void
+prio_queue_check_recv_marks(Eterm obj, Eterm *ref,
+                            int *pq, int *n_pqp,
+                            int *not_pq, int *n_not_pqp)
+{
+    Eterm *ptr;
+    int arity, n_pq, n_not_pq;
+    DECLARE_ESTACK(s);
+
+    n_pq = *n_pqp;
+    n_not_pq = *n_not_pqp;
+
+    ASSERT(n_not_pq != 0);
+
+    while (!0) {
+
+	switch (primary_tag(obj)) {
+	case TAG_PRIMARY_LIST:
+	    ptr = list_val(obj);
+	    obj = *ptr++;
+	    if (!IS_CONST(obj)) {
+		ESTACK_PUSH(s, obj);
+	    }
+	    obj = *ptr;
+	    break;
+	case TAG_PRIMARY_BOXED:
+	    {
+		Eterm hdr;
+                ptr = boxed_val(obj);
+                hdr = *ptr;
+		ASSERT(is_header(hdr));
+		switch (hdr & _TAG_HEADER_MASK) {
+		case ARITYVAL_SUBTAG:
+		    arity = header_arity(hdr);
+		    if (arity == 0) {
+                        ASSERT(obj == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+			goto pop_next;
+		    }
+                    ptr = tuple_val(obj);
+		    while (arity-- > 1) {
+			obj = *++ptr;
+			if (!IS_CONST(obj)) {
+			    ESTACK_PUSH(s, obj);
+			}
+		    }
+		    obj = *++ptr;
+		    break;
+                case FUN_SUBTAG:
+                    {
+                        const ErlFunThing* funp = (ErlFunThing*)fun_val(obj);
+
+                        ASSERT(ERL_FUN_SIZE == (1 + thing_arityval(hdr)));
+
+                        for (int i = 1; i < fun_num_free(funp); i++) {
+                            obj = funp->env[i];
+                            if (!IS_CONST(obj)) {
+                                ESTACK_PUSH(s, obj);
+                            }
+                        }
+
+                        if (fun_num_free(funp) > 0) {
+                            obj = funp->env[0];
+                            break;
+                        }
+
+                        goto pop_next;
+		    }
+		case MAP_SUBTAG:
+		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_FLATMAP_HEAD :
+                            {
+                                Uint n;
+                                flatmap_t *mp;
+                                mp  = (flatmap_t*)flatmap_val(obj);
+                                ptr = (Eterm *)mp;
+                                n   = flatmap_get_size(mp) + 1;
+                                ASSERT(flatmap_get_size(mp)
+                                       <= MAP_SMALL_MAP_LIMIT);
+                                ptr += 2; /* hdr + size words */
+                                while (n--) {
+                                    obj = *ptr++;
+                                    if (!IS_CONST(obj)) {
+                                        ESTACK_PUSH(s, obj);
+                                    }
+                                }
+                                goto pop_next;
+                            }
+			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			    {
+				Eterm *head;
+				Uint sz;
+				head  = hashmap_val(obj);
+				sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+				head += 1 + header_arity(hdr);
+
+				if (sz == 0) {
+				    goto pop_next;
+				}
+				while(sz-- > 1) {
+				    obj = head[sz];
+				    if (!IS_CONST(obj)) {
+					ESTACK_PUSH(s, obj);
+				    }
+				}
+				obj = head[0];
+			    }
+			    break;
+			default:
+			    erts_exit(ERTS_ABORT_EXIT,
+                                      "prio_queue_check_recv_marks(): "
+                                      "bad hashmap type %d\n",
+                                      MAP_HEADER_TYPE(hdr));
+		    }
+		    break;
+                case REF_SUBTAG: {
+                    int i = 0;
+                    while (i < n_not_pq) {
+                        int r = not_pq[i];
+                        ASSERT(0 <= r && r < ERTS_RECV_MARKER_BLOCK_SIZE);
+                        if (is_same_internal_ref(obj, ref[r])) {
+                            /* this recv marker needs to be pq... */
+                            pq[n_pq++] = not_pq[i];
+                            n_not_pq--;
+                            if (i < n_not_pq) {
+                                not_pq[i] = not_pq[n_not_pq];
+                                continue;
+                            }
+                            break;
+                        }
+                        i++;
+                    }
+                    if (n_not_pq == 0)
+                        goto done;
+                }
+		default:
+		    goto pop_next;
+		}
+	    }
+	    break;
+	case TAG_PRIMARY_IMMED1:
+	pop_next:
+	    if (ESTACK_ISEMPTY(s)) {
+            done:
+		DESTROY_ESTACK(s);
+
+                *n_pqp = n_pq;
+                *n_not_pqp = n_not_pq;
+		return;
+	    }
+	    obj = ESTACK_POP(s);
+	    break;
+	default:
+	    erts_exit(ERTS_ABORT_EXIT,
+                      "prio_queue_check_recv_marks(): bad tag for %#x\n",
+                      obj);
+	}
+    }
+}
+
+static void
+insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
+                                  ErtsMessage *sig, void *data_attached,
+                                  Eterm message, Eterm token,
+                                  ErtsMessage ***next_nm_sig)
+{
+    int i, empty_prio_q = !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+    ErtsRecvMarkerBlock *blk = c_p->sig_qs.recv_mrk_blk;
+    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+    ErtsRecvMarker *pq_end = &pq_info->marker[ERTS_PRIO_Q_MARK_END];
+
+    ASSERT(pq_end->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_END);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+    if (blk) {
+        int n_pq = 0, n_not_pq = 0;
+        int pq[ERTS_RECV_MARKER_BLOCK_SIZE], not_pq[ERTS_RECV_MARKER_BLOCK_SIZE];
+
+        /*
+         * Check if references corresponding to receive markers not already
+         * seen in the prio queue can be found in this prio message.
+         */
+
+        for (i = 0; i < ERTS_RECV_MARKER_BLOCK_SIZE; i++) {
+            if (empty_prio_q)
+                blk->marker[i].in_prioq = 0;
+            if (blk->marker[i].in_sigq
+                && !blk->marker[i].in_prioq
+                && is_internal_ref(blk->ref[i])) {
+                not_pq[n_not_pq++] = i;
+            }
+        }
+
+        if (n_not_pq) {
+
+            /* inspect message */
+            prio_queue_check_recv_marks(message, &blk->ref[0],
+                                        &pq[0], &n_pq,
+                                        &not_pq[0], &n_not_pq);
+
+            for (i = 0; i < n_pq; i++) {
+                int mix;
+                ErtsRecvMarker *mark;
+
+                mix = pq[i];
+
+                ASSERT(0 <= mix && mix < ERTS_RECV_MARKER_BLOCK_SIZE);
+
+                mark = &blk->marker[mix];
+
+                ASSERT(!mark->in_prioq);
+
+                /* Note that this ref has been seen in the prio queue... */
+                mark->in_prioq = !0;
+            }
+        }
+    }
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_SAVE) {
+        /*
+         * Save pointer points into the prio queue, we know that it points to
+         * a point before where we insert this prio message. We also know that
+         * we already have determined where to continue when we reach the end of
+         * the prio queue, so nothing more to do than inserting the message...
+         */
+        ASSERT(!empty_prio_q);
+        ASSERT(pq_end->in_msgq);
+    }
+    else {
+        /* Save pointer *do not* point into the prio queue. */
+
+        int set_save = !0;
+
+        switch (ERTS_MQ_GET_SAVE_INFO(c_p)) {
+
+        case FS_SET_SAVE_INFO_FIRST:
+            /*
+             * We must set the save pointer otherwise we might miss to match
+             * out this prio message.
+             */
+            break;
+
+        case FS_SET_SAVE_INFO_LAST:
+            /*
+             * This process is waiting for a message sent from the emulator
+             * containing a reference, but we don't know which reference that
+             * is. However, messages containing such references are never sent
+             * as priority messages, so we can safely leave the save marker
+             * where it is.
+             */
+            set_save = 0;
+            break;
+
+        case FS_SET_SAVE_INFO_MARK:
+            /*
+             * The save mark should *only* be set while save pointer points
+             * into the prio queue...
+             */
+            ERTS_INTERNAL_ERROR("Invalid message queue state");
+            break;
+
+        case FS_SET_SAVE_INFO_RCVM:
+
+            i = blk->set_save_ix;
+
+            if (i < 0 || ERTS_RECV_MARKER_BLOCK_SIZE <= i)
+                ERTS_INTERNAL_ERROR("Invalid message queue state");
+
+            if (blk && !blk->marker[i].in_prioq) {
+                /*
+                 * We know that the reference of the receive marker we are
+                 * waiting for has not been seen in the prio queue, so we
+                 * can safely continue where we are...
+                 */
+                set_save = 0;
+            }
+            break;
+
+        default:
+
+            ERTS_INTERNAL_ERROR("Non-existing message queue state");
+            break;
+        }
+
+        if (empty_prio_q) {
+            /* end marker not in queue; insert it */
+            ASSERT(!pq_end->in_msgq);
+            insert_prio_q_marker(c_p, pq_end, &c_p->sig_qs.first);
+            c_p->sig_qs.flags |= FS_PRIO_MQ_END_MARK;
+        }
+
+        if (set_save) {
+            ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
+            ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
+            if (c_p->sig_qs.save == *next_nm_sig) {
+                /*
+                 * We do *not* want to handle the continuation marker we are
+                 * about to insert as next non-msg signal; adjust
+                 * '*next_nm_sig'...
+                 */
+                *next_nm_sig = &pq_cont->sig.common.next;
+            }
+            /*
+             * Save a marker where save pointer points now, so we know where to
+             * continue when we reach the end of the prio queue.
+             */
+            if (pq_cont->in_msgq)
+                remove_prio_q_marker(c_p, pq_cont);
+            insert_prio_q_marker(c_p, pq_cont, c_p->sig_qs.save);
+            pq_info->saved_save_info = ERTS_MQ_GET_SAVE_INFO(c_p);
+            ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_MARK);
+
+            /*
+             * Set save pointer to the end of the prio queue, so it will precede
+             * the prio message that we are about to insert.
+             */
+            c_p->sig_qs.save = pq_end->prev_next;
+            c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+            ASSERT(*c_p->sig_qs.save == (ErtsMessage *) pq_end);
+        }
+    }
+
+    /* Append the actual prio message to the prio queue... */
+    sig->data.attached = data_attached;
+
+    ERL_MESSAGE_TERM(sig) = message;
+    ERL_MESSAGE_TOKEN(sig) = token;
+
+    *pq_end->prev_next = sig;
+    pq_end->prev_next = &sig->next;
+    sig->next = (ErtsMessage *) pq_end;
+
+    c_p->sig_qs.mq_len++;
+    erts_chk_sys_mon_long_msgq_on(c_p);
+
+    if (tracing->messages.active)
+        handle_message_enqueued_tracing(c_p, tracing, sig);
+
+}
+
+static void
+insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
+                         ErtsMessage *sig, Eterm message, Eterm token,
+                         ErtsMessage ***next_nm_sig)
+{
+    insert_prepared_prio_msg_attached(c_p, tracing, sig,
+                                      ERTS_MSG_COMBINED_HFRAG,
+                                      message, token,
+                                      next_nm_sig);
+}
+
+static void
+send_try_destroy_prio_q_info(void *vpid);
+
+static Eterm
+try_destroy_prio_q_info(Process *c_p, void *arg, int *redsp, ErlHeapFragment **hpp)
+{
+    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+
+    ASSERT(pq_info);
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM);
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ) {
+        /* Prio messages have been enabled again; do not remove info... */
+        c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
+        return THE_NON_VALUE;
+    }
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
+        /* Cannot remove until prio queue is empty; try again in 5 minutes... */
+        erts_start_timer_callback(5*60*1000, send_try_destroy_prio_q_info,
+                                  (void *) c_p->common.id);
+        return THE_NON_VALUE;
+    }
+
+    destroy_prio_q_info(c_p, pq_info, 0);
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ_PENDING_RM;
+
+    return THE_NON_VALUE;
+}
+
+static void
+send_try_destroy_prio_q_info(void *vpid)
+{
+    ASSERT(is_internal_pid((Eterm) vpid));
+    (void) erts_proc_sig_send_rpc_request(NULL, (Eterm) vpid, 0,
+                                          try_destroy_prio_q_info,
+                                          NULL);
+
+}
+
+static void
+install_prio_msg_queue(Process *c_p)
+{
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ));
+
+    c_p->sig_qs.flags |= FS_PRIO_MQ;
+
+    /*
+     * If FS_PRIO_MQ_PENDING_RM is set, the prio q info is already there
+     * and we just aborted the operation. We leave the flag and let the
+     * scheduled job remove the flag. If we remove it here, we might end
+     * up with multiple remove jobs...
+     */
+    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM))
+        create_prio_q_info(c_p);
+
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+    ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
+    ASSERT(!!get_prio_queue_info(c_p));
+}
+
+static void
+uninstall_prio_msg_queue(Process *c_p, ErtsPrioQInfo *pq_info)
+{
+    ASSERT(pq_info == get_prio_queue_info(c_p));
+
+    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ;
+
+    if (c_p->sig_qs.flags & FS_PRIO_MQ_PENDING_RM) {
+        /* removal already ongoing... */
+        return;
+    }
+
+    if (!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)) {
+        /* Prio queue empty so we can safely remove it at once... */
+        destroy_prio_q_info(c_p, pq_info, 0);
+    }
+    else {
+        /*
+         * Prio queue not empty so we cannot remove it now, set a timer
+         * and try again in 10 seconds...
+         */
+        c_p->sig_qs.flags |= FS_PRIO_MQ_PENDING_RM;
+        (void) erts_start_timer_callback(10*1000,
+                                         send_try_destroy_prio_q_info,
+                                         (void *) c_p->common.id);
+    }
+}
+
+void
+erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type)
+{
+    ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
+    int uninstall_pq;
+
+    switch (type) {
+    case ERTS_PRIO_ITEM_TYPE_ALIAS:
+        uninstall_pq = (--pq_info->alias == 0
+                        && pq_info->link == 0
+                        && pq_info->monitor == 0);
+        break;
+    case ERTS_PRIO_ITEM_TYPE_LINK:
+        uninstall_pq = (--pq_info->link == 0
+                        && pq_info->alias == 0
+                        && pq_info->monitor == 0);
+        break;
+    case ERTS_PRIO_ITEM_TYPE_MONITOR:
+        uninstall_pq = (--pq_info->monitor == 0
+                        && pq_info->alias == 0
+                        && pq_info->link == 0);
+        break;
+    default:
+        ERTS_INTERNAL_ERROR("Invalid priority item type");
+        uninstall_pq = 0;
+        break;
+    }
+
+    ASSERT(pq_info->alias >= 0
+           && pq_info->link >= 0
+           && pq_info->monitor >= 0);
+
+    if (uninstall_pq)
+        uninstall_prio_msg_queue(c_p, pq_info);
+}
+
+void
+erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
+{
+    ErtsPrioQInfo *pq_info;
+
+    if (!(c_p->sig_qs.flags & FS_PRIO_MQ))
+        install_prio_msg_queue(c_p);
+
+    pq_info = get_prio_queue_info(c_p);
+
+    switch (type) {
+    case ERTS_PRIO_ITEM_TYPE_ALIAS:
+        ++pq_info->alias;
+        break;
+    case ERTS_PRIO_ITEM_TYPE_LINK:
+        ++pq_info->link;
+        break;
+    case ERTS_PRIO_ITEM_TYPE_MONITOR:
+        ++pq_info->monitor;
+        break;
+    default:
+        ERTS_INTERNAL_ERROR("Invalid priority item type");
+        break;
+    }
+}
+
 /* Cleanup */
 
 void
@@ -8381,7 +9496,7 @@ erts_proc_sig_cleanup_queues(Process *c_p)
 	    sig = sig->next;
 	    if (ERTS_SIG_IS_RECV_MARKER(free_sig)) {
                 ErtsRecvMarker *recv_mark = (ErtsRecvMarker *) free_sig;
-                ASSERT(!recv_mark->is_yield_mark);
+                ASSERT(recv_mark->mark_type == ERTS_RECV_MARKER_TYPE_RECV);
                 recv_marker_deallocate(c_p, recv_mark);
             }
 	    else {
@@ -8572,6 +9687,7 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     case ERTS_LNK_TYPE_PORT:
                     case ERTS_LNK_TYPE_PROC:
                     case ERTS_LNK_TYPE_DIST_PROC:
+                    case ERTS_LNK_TYPE_DIST_PORT:
                         lnk_func((ErtsLink *) sig, arg, -1);
                         break;
                     case ERTS_MON_TYPE_PORT:
@@ -8592,11 +9708,11 @@ erts_proc_sig_debug_foreach_sig(Process *c_p,
                     debug_foreach_sig_heap_frags(&sig->hfrag, oh_func, arg);
                     break;
 
-                case ERTS_SIG_Q_OP_ALIAS_MSG: {
+                case ERTS_SIG_Q_OP_ALTACT_MSG: {
                     void *attached;
                     ErlHeapFragment *hfp;
-                    (void) get_alias_msg_data(sig, NULL, NULL, NULL, &attached,
-                                              NULL);
+                    (void) get_altact_msg_data(sig, &attached, NULL, NULL,
+                                               NULL, NULL, NULL, NULL);
                     if (!attached)
                         break; /* on heap */
                     if (attached == ERTS_MSG_COMBINED_HFRAG)
