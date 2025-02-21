@@ -417,13 +417,21 @@ It is assigned a value in Erlang as follows:
 
 ```text
 R1value1 = "2.14",
-R1value2 = {256,10,-2},
+R1value2 = {256,10,-2}
 ```
 
 In the last line, notice that the tuple \{256,10,-2\} is the real number 2.56 in
 a special notation, which encodes faster than simply stating the number as
 `"2.56"`. The arity three tuple is `{Mantissa,Base,Exponent}`, that is,
-Mantissa \* Base^Exponent.
+`Mantissa * Base^Exponent`.
+
+The following special values are also recognized:
+
+```text
+R1value3 = 0,
+R1value4 = 'PLUS-INFINITY',
+R1value5 = 'MINUS-INFINITY'
+```
 
 ### NULL
 
