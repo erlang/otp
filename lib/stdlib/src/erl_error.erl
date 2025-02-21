@@ -526,7 +526,7 @@ location(L) ->
     Line = proplists:get_value(line, L),
     if
 	File =/= undefined, Line =/= undefined ->
-	    io_lib:format("(~ts, line ~w)", [File, Line]);
+	    io_lib:format("(~ts:~w)", [File, Line]);
 	true ->
 	    ""
     end.
