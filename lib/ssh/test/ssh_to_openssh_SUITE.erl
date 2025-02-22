@@ -285,8 +285,12 @@ eserver_oclient_renegotiate_helper1(Config) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
 
+    %% Having the erlang sending a banner is accepted by openssh
+    BannerFun = fun(_U) -> <<"Banner to the client">> end,
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-                                             {failfun, fun ssh_test_lib:failfun/2}]),
+                                             {failfun, fun ssh_test_lib:failfun/2},
+                                             {bannerfun, BannerFun}]),
     ct:sleep(500),
 
     RenegLimitK = 3,
