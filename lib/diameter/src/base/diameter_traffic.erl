@@ -1996,6 +1996,9 @@ get_avp(Dict, Name, Rec) ->
             undefined
     end.
 
+value('Experimental-Result' = N, [#{'Vendor-Id' := Vid,
+                                    'Experimental-Result-Code' := RC}]) ->
+    {N, Vid, RC};
 value('Experimental-Result' = N, #{'Vendor-Id' := Vid,
                                    'Experimental-Result-Code' := RC}) ->
     {N, Vid, RC};
