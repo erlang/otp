@@ -1876,7 +1876,18 @@ check_encapsulated_header([]) ->
 
 strip_superfluous_newlines(Bin) ->
     Str = string:strip(binary_to_list(Bin), right, 10),
-    re:replace(Str,"\n\n","\n", [{return,list}, global]).
+    Str1 = remove_license_header(Str),
+    re:replace(Str1,"\n\n","\n", [{return,list}, global]).
+
+remove_license_header("%%" ++ _=String) ->
+    case string:split(String, "\n") of
+        [_, Tail] ->
+            remove_license_header(Tail);
+        [Other] ->
+            Other
+    end;
+remove_license_header(Code) ->
+    Code.
 
 do_gen_ec_param(File) ->    
     {ok, KeyPem} = file:read_file(File),
