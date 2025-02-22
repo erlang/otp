@@ -162,11 +162,15 @@ An encoder that uses a heuristic to differentiate object-like
 lists of key-value pairs from plain lists:
 
 ```erlang
-> encoder([{_, _} | _] = Value, Encode) -> json:encode_key_value_list(Value, Encode);
-> encoder(Other, Encode) -> json:encode_value(Other, Encode).
-> custom_encode(Value) -> json:encode(Value, fun(Value, Encode) -> encoder(Value, Encode) end).
-> iolist_to_binary(custom_encode([{a, []}, {b, 1}])).
-<<"{\"a\":[],\"b\":1}">>
+> Encoder = fun
+      ([{_, _} | _] = Proplist, Encode) ->
+          json:encode(proplists:to_map(Proplist), Encode);
+      (Other, Encode) ->
+          json:encode_value(Other, Encode)
+  end.
+> CustomEncode = fun(Value) -> json:encode(Value, Encoder) end.
+> iolist_to_binary(CustomEncode([{a, []}, {b, 1}])).
+<<"{\"b\":1,\"a\":[]}">>
 ```
 """.
 -doc(#{since => <<"OTP 27.0">>}).
