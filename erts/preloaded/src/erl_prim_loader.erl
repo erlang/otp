@@ -85,11 +85,8 @@ The `erl_prim_loader` module interprets the following command-line flags:
 -export([prim_init/0, prim_read_file/2, prim_list_dir/2,
          prim_read_file_info/3, prim_get_cwd/2]).
 
-%% Used by escript
--export([set_primary_archive/4]).
-
 %% Used by test suites
--export([purge_archive_cache/0, get_modules/3]).
+-export([get_modules/3]).
 
 %% Used by init and the code server
 -export([get_modules/2, is_basename/1]).
@@ -98,10 +95,8 @@ The `erl_prim_loader` module interprets the following command-line flags:
 
 -type host() :: atom().
 
--record(prim_state, {debug :: boolean(),
-		     primary_archive}).
+-record(prim_state, {debug :: boolean()}).
 -type prim_state() :: #prim_state{}.
--type archive() :: {archive, file:filename(), file:filename()}.
 
 -record(state, 
         {loader            :: 'efile' | 'inet',
@@ -110,7 +105,6 @@ The `erl_prim_loader` module interprets the following command-line flags:
          timeout           :: timeout(),	 % idle timeout
          prim_state        :: prim_state()}).    % state for efile code loader
 
--define(EFILE_IDLE_TIMEOUT, (6*60*1000)).	%purge archives
 -define(INET_IDLE_TIMEOUT, (60*1000)). 		%tear down connection timeout
 
 %% Defines for inet as prim_loader
@@ -204,9 +198,9 @@ start_efile(Parent) ->
     PS = prim_init(),
     State = #state {loader = efile,
                     data = noport,
-                    timeout = ?EFILE_IDLE_TIMEOUT,
+                    timeout = infinity,
                     prim_state = PS},
-    set_loader_config({efile, PS#prim_state.primary_archive}),
+    set_loader_config(efile),
     loop(State, Parent, []).
 
 init_ack(Pid) ->
@@ -246,10 +240,6 @@ filename or only the name of the file, for example, `"lists.beam"`. If an
 internal path is set to the loader, this path is used to find the file.
 `FullName` is the complete name of the fetched file. `Bin` is the contents of
 the file as a binary.
-
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
-information about archive files, see `m:code`.
 """.
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
       Filename :: atom() | string(),
@@ -266,10 +256,6 @@ Lists all the files in a directory.
 Returns `{ok, Filenames}` if successful, otherwise `error`. `Filenames`
 is a list of the names of all the files in the directory. The names are
 not sorted.
-
-`Dir` can also be a directory in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
-archive files, see `m:code`.
 """.
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
       Dir :: string(),
@@ -282,10 +268,6 @@ Reads a file using the low-level loader.
 
 Returns `{ok, Bin}` if successful, otherwise `error`. `Bin` is the contents
 of the file as a binary.
-
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
-information about archive files, see `m:code`.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename) -> {'ok', Bin} | 'error' when
@@ -307,10 +289,6 @@ function is called:
 ```
 
 For more information about the record see `file:read_file_info/2`.
-
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia`. For information
-about archive files, see `m:code`.
 """.
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
@@ -340,7 +318,7 @@ read_link_info(File) ->
 get_cwd() ->
     Res =
         case get_loader_config() of
-            {efile, _} -> prim_file:get_cwd();
+            efile -> prim_file:get_cwd();
             inet -> request({get_cwd,[]})
         end,
     check_file_result(get_cwd, [], Res).
@@ -350,32 +328,10 @@ get_cwd() ->
 get_cwd(Drive) ->
     Res =
         case get_loader_config() of
-            {efile, _} -> prim_file:get_cwd(Drive);
+            efile -> prim_file:get_cwd(Drive);
             inet -> request({get_cwd,[Drive]})
         end,
     check_file_result(get_cwd, Drive, Res).
-
--doc false.
--spec set_primary_archive(File :: string() | 'undefined', 
-			  ArchiveBin :: binary() | 'undefined',
-			  FileInfo :: #file_info{} | 'undefined',
-			  ParserFun :: fun())
-			 -> {ok, [string()]} | {error,_}.
-
-set_primary_archive(undefined, undefined, undefined, ParserFun) ->
-    request({set_primary_archive, undefined, undefined, undefined, ParserFun});
-set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
-  when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
-    request({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}).
-
-%% NOTE: Does not close the primary archive. Only closes all
-%% open zip files kept in the cache. Should be called before an archive
-%% file is to be removed (for example in the test suites).
-
--doc false.
--spec purge_archive_cache() -> 'ok' | {'error', _}.
-purge_archive_cache() ->
-    request(purge_archive_cache).
 
 -doc false.
 -spec get_modules([module()],
@@ -408,11 +364,8 @@ request(Req) ->
 
 client_or_request(Fun, File) ->
     case get_loader_config() of
-        {efile, PrimaryArchive} ->
-            case name_split(PrimaryArchive, File) of
-                {file, SplitFile} -> prim_file:Fun(SplitFile);
-                {archive, _, _} = Archive -> request({Fun,Archive})
-            end;
+        efile ->
+            prim_file:Fun(absname(File));
         inet ->
             request({Fun,File})
     end.
@@ -523,11 +476,6 @@ handle_request(Req, Paths, St0) ->
 	    handle_get_cwd(St0, []);
 	{get_cwd,[_]=Args} ->
 	    handle_get_cwd(St0, Args);
-	{set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
-	    handle_set_primary_archive(St0, File, ArchiveBin,
-				       FileInfo, ParserFun);
-	purge_archive_cache ->
-	    handle_purge_archive_cache(St0);
 	_ ->
 	    ignore
     end.
@@ -536,13 +484,6 @@ handle_get_file(State = #state{loader = efile}, Paths, File) ->
     ?SAFE2(efile_get_file_from_port(State, File, Paths), State);
 handle_get_file(State = #state{loader = inet}, Paths, File) ->
     ?SAFE2(inet_get_file_from_port(State, File, Paths), State).
-
-handle_set_primary_archive(State= #state{loader = efile}, File, ArchiveBin, FileInfo, ParserFun) ->
-    ?SAFE2(efile_set_primary_archive(State, File, ArchiveBin, FileInfo, ParserFun), State).
-
-handle_purge_archive_cache(#state{loader = efile}=State) ->
-    prim_purge_cache(),
-    {ok,State}.
 
 handle_list_dir(State = #state{loader = efile}, Dir) ->
     ?SAFE2(efile_list_dir(State, Dir), State);
@@ -577,8 +518,8 @@ handle_exit(State = #state{loader = efile}, _Who, _Reason) ->
 handle_exit(State = #state{loader = inet}, Who, Reason) ->
     inet_exit_port(State, Who, Reason).
 
-handle_timeout(State = #state{loader = efile}, Parent) ->
-    efile_timeout_handler(State, Parent);
+handle_timeout(State = #state{loader = efile}, _Parent) ->
+    State;
 handle_timeout(State = #state{loader = inet}, Parent) ->
     inet_timeout_handler(State, Parent).
 
@@ -622,13 +563,6 @@ efile_get_file_from_port3(State, File, [P | Paths]) ->
 efile_get_file_from_port3(State, _File, []) ->
     {{error,enoent},State}.
 
-efile_set_primary_archive(#state{prim_state = PS} = State, File,
-			  ArchiveBin, FileInfo, ParserFun) ->
-    {Res, PS2} = prim_set_primary_archive(PS, File, ArchiveBin,
-					  FileInfo, ParserFun),
-    set_loader_config({efile, PS2#prim_state.primary_archive}),
-    {Res,State#state{prim_state = PS2}}.
-
 efile_list_dir(#state{prim_state = PS} = State, Dir) ->
     {Res, PS2} = prim_list_dir(PS, Dir),
     {Res, State#state{prim_state = PS2}}.
@@ -641,23 +575,12 @@ efile_read_file_info(#state{prim_state = PS} = State, File, FollowLinks) ->
     {Res, PS2} = prim_read_file_info(PS, File, FollowLinks),
     {Res, State#state{prim_state = PS2}}.
 
-efile_timeout_handler(State, _Parent) ->
-    prim_purge_cache(),
-    State.
-
 %%% --------------------------------------------------------
 %%% Read and process severals modules in parallel.
 %%% --------------------------------------------------------
 
 handle_get_modules(#state{loader=efile}=St, Ms, Process, Paths) ->
-    Primary = (St#state.prim_state)#prim_state.primary_archive,
-    Res = case efile_any_archives(Paths, Primary) of
-	      false ->
-		  efile_get_mods_par(Ms, Process, Paths);
-	      true ->
-		  Get = fun efile_get_file_from_port/3,
-		  gm_get_mods(St, Get, Ms, Process, Paths)
-	  end,
+    Res = efile_get_mods_par(Ms, Process, Paths),
     {Res,St};
 handle_get_modules(#state{loader=inet}=St, Ms, Process, Paths) ->
     Get = fun inet_get_file_from_port/3,
@@ -672,14 +595,6 @@ efile_get_mods_par(Ms, Process, Paths) ->
     _ = spawn_link(GmSpawn),
     N = length(Ms),
     efile_gm_recv(N, Ref, [], []).
-
-efile_any_archives([H|T], Primary) ->
-    case name_split(Primary, H) of
-	{file,_} -> efile_any_archives(T, Primary);
-	{archive,_,_} -> true
-    end;
-efile_any_archives([], _) ->
-    false.
 
 efile_gm_recv(0, _Ref, Succ, Fail) ->
     {ok,{Succ,Fail}};
@@ -1036,191 +951,39 @@ prim_init() ->
             {ok, _} -> true;
             error -> false
         end,
-    cache_new(#prim_state{debug = Deb}).
-
-prim_purge_cache() ->
-    do_prim_purge_cache(get()).
-
-do_prim_purge_cache([{Key,Val}|T]) ->
-    case Val of
-	{Cache,_FI} ->
-	    catch clear_cache(Key, Cache);
-	_ ->
-	    ok
-    end,
-    do_prim_purge_cache(T);
-do_prim_purge_cache([]) ->
-    ok.
-
-prim_set_primary_archive(PS, undefined, undefined, undefined, _ParserFun) ->
-    debug(PS, {set_primary_archive, clean}),
-    case PS#prim_state.primary_archive of
-        undefined ->
-            Res = {error, enoent},
-            debug(PS, {return, Res}),
-            {Res, PS};
-        ArchiveFile ->
-            {primary, PrimZip, _FI, _ParserFun2} = erase(ArchiveFile),
-            ok = prim_zip:close(PrimZip),
-            PS2 = PS#prim_state{primary_archive = undefined},
-            Res = {ok, []},
-            debug(PS2, {return, Res}),
-            {Res, PS2}
-    end;
-
-prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin,
-			 #file_info{} = FileInfo, ParserFun)
-  when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
-    %% Try the archive file
-    debug(PS, {set_primary_archive, ArchiveFile0, byte_size(ArchiveBin)}),
-    ArchiveFile = real_path(absname(ArchiveFile0)),
-    {Res3, PS3} =
-        case PS#prim_state.primary_archive of
-            undefined ->
-                case load_prim_archive(ArchiveFile, ArchiveBin, FileInfo) of
-                    {ok, PrimZip, FI, Ebins} ->
-                        debug(PS, {set_primary_archive, Ebins}),
-                        put(ArchiveFile, {primary, PrimZip, FI, ParserFun}),
-                        {{ok, Ebins},
-                         PS#prim_state{primary_archive = ArchiveFile}};
-                    Error ->
-                        debug(PS, {set_primary_archive, Error}),
-                        {Error, PS}
-                end;
-            OldArchiveFile ->
-                debug(PS, {set_primary_archive, clean}),
-                {primary, PrimZip, _FI, _ParserFun} = erase(OldArchiveFile),
-                ok = prim_zip:close(PrimZip),
-                PS2 = PS#prim_state{primary_archive = undefined},
-                prim_set_primary_archive(PS2, ArchiveFile, ArchiveBin,
-					 FileInfo, ParserFun)
-        end,
-    debug(PS3, {return, Res3}),
-    {Res3, PS3}.
+    #prim_state{debug = Deb}.
 
 -doc false.
--spec prim_read_file(prim_state(), file:filename() | archive()) -> {_, prim_state()}.
+-spec prim_read_file(prim_state(), file:filename()) -> {_, prim_state()}.
 prim_read_file(PS, File) ->
     debug(PS, {read_file, File}),
-    {Res2, PS2} =
-        case name_split(PS#prim_state.primary_archive, File) of
-            {file, PrimFile} ->
-                Res = prim_file:read_file(PrimFile),
-                {Res, PS};
-            {archive, ArchiveFile, FileInArchive} ->
-                debug(PS, {archive_read_file, ArchiveFile, FileInArchive}),
-                FileComponents = path_split(FileInArchive),
-                Fun =
-                    fun({Components, _GetInfo, GetBin}, Acc) ->
-                            if
-                                Components =:= FileComponents ->
-                                    {false, {ok, GetBin()}};
-                                true ->
-                                    {true, Acc}
-                            end
-                    end,
-                apply_archive(PS, Fun, {error, enoent}, ArchiveFile)
-        end,
-    debug(PS, {return, Res2}),
-    {Res2, PS2}.    
+    Res = prim_file:read_file(absname(File)),
+    debug(PS, {return, Res}),
+    {Res, PS}.
 
 -doc false.
--spec prim_list_dir(prim_state(), file:filename() | archive()) ->
+-spec prim_list_dir(prim_state(), file:filename()) ->
 	 {{'ok', [file:filename()]}, prim_state()}
        | {{'error', term()}, prim_state()}.
 prim_list_dir(PS, Dir) ->
     debug(PS, {list_dir, Dir}),
-    {Res2, PS3} =
-        case name_split(PS#prim_state.primary_archive, Dir) of
-            {file, PrimDir} ->
-                Res = prim_file:list_dir(PrimDir),
-                {Res, PS};
-            {archive, ArchiveFile, FileInArchive} ->
-                debug(PS, {archive_list_dir, ArchiveFile, FileInArchive}),
-                DirComponents = path_split(FileInArchive),
-                Fun =
-                    fun({Components, _GetInfo, _GetBin}, {Status, Names} = Acc) ->
-                            case Components of
-                                [RevName | DC] when DC =:= DirComponents ->
-                                    case RevName of
-                                        "" ->
-                                            %% The listed directory
-                                            {true, {ok, Names}};
-                                        _ ->
-                                            %% Plain file
-                                            Name = reverse(RevName),
-                                            {true, {Status, [Name | Names]}}
-                                    end;
-                                ["", RevName | DC] when DC =:= DirComponents ->
-                                    %% Directory
-                                    Name = reverse(RevName),
-                                    {true, {Status, [Name | Names]}};
-                                [RevName] when DirComponents =:= [""] ->
-                                    %% File in top directory
-                                    Name = reverse(RevName),
-                                    {true, {ok, [Name | Names]}};
-                                ["", RevName] when DirComponents =:= [""] ->
-                                    %% Directory in top directory
-                                    Name = reverse(RevName),
-                                    {true, {ok, [Name | Names]}};
-                                _ ->
-                                    %% No match
-                                    {true, Acc}
-                            end
-                    end,
-                {{Status, Names}, PS2} =
-                    apply_archive(PS, Fun, {error, []}, ArchiveFile),
-                case Status of
-                    ok    -> {{ok, Names}, PS2};
-                    error -> {{error, enotdir}, PS2}
-                end
-        end,
-    debug(PS, {return, Res2}),
-    {Res2, PS3}.
+    Res = prim_file:list_dir(absname(Dir)),
+    debug(PS, {return, Res}),
+    {Res, PS}.
 
 -doc false.
--spec prim_read_file_info(prim_state(), file:filename() | archive(), boolean()) ->
+-spec prim_read_file_info(prim_state(), file:filename(), boolean()) ->
 	{{'ok', #file_info{}}, prim_state()}
       | {{'error', term()}, prim_state()}.
 prim_read_file_info(PS, File, FollowLinks) ->
     debug(PS, {read_file_info, File}),
-    {Res2, PS2} =
-        case name_split(PS#prim_state.primary_archive, File) of
-            {file, PrimFile} ->
-                case FollowLinks of
-                    true -> {prim_file:read_file_info(PrimFile), PS};
-                    false -> {prim_file:read_link_info(PrimFile), PS}
-                end;
-            {archive, ArchiveFile, []} ->
-                %% Fake top directory
-                debug(PS, {archive_read_file_info, ArchiveFile}),
-                case prim_file:read_file_info(ArchiveFile) of
-                    {ok, FI} ->
-                        {{ok, FI#file_info{type = directory}}, PS};
-                    Other ->
-                        {Other, PS}
-                end;
-            {archive, ArchiveFile, FileInArchive} ->
-                debug(PS, {archive_read_file_info, File}),
-                FileComponents = path_split(FileInArchive),
-                Fun =
-                    fun({Components, GetInfo, _GetBin}, Acc)  ->
-			    case Components of
-				["" | F] when F =:= FileComponents ->
-                                    %% Directory
-                                    {false, {ok, GetInfo()}};
-                                F when F =:= FileComponents ->
-                                    %% Plain file
-                                    {false, {ok, GetInfo()}};
-                                _ ->
-                                    %% No match
-                                    {true, Acc}
-                            end
-                    end,
-                apply_archive(PS, Fun, {error, enoent}, ArchiveFile)
+    PrimFile = absname(File),
+    Res = case FollowLinks of
+            true -> prim_file:read_file_info(PrimFile);
+            false -> prim_file:read_link_info(PrimFile)
         end,
-    debug(PS2, {return, Res2}),
-    {Res2, PS2}.
+    debug(PS, {return, Res}),
+    {Res, PS}.
 
 -doc false.
 -spec prim_get_cwd(prim_state(), [file:filename()]) ->
@@ -1235,162 +998,6 @@ prim_get_cwd(PS, [Drive]) ->
     Res = prim_file:get_cwd(Drive),
     debug(PS, {return, Res}),
     {Res, PS}.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-apply_archive(PS, Fun, Acc, Archive) ->
-    case get(Archive) of
-        undefined ->
-	    case open_archive(Archive, Acc, Fun) of
-		{ok, PrimZip, {Acc2, FI, _}} ->
-		    debug(PS, {cache, ok}),
-		    put(Archive, {{ok, PrimZip}, FI}),
-		    {Acc2, PS};
-		Error ->
-		    debug(PS, {cache, Error}),
-		    %% put(Archive, {Error, FI}),
-		    {Error, PS}
-	    end;
-        {primary, PrimZip, FI, ParserFun} ->
-	    case prim_file:read_file_info(Archive) of
-                {ok, FI2} 
-		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
-		    case foldl_archive(PrimZip, Acc, Fun) of
-			{ok, _PrimZip2, Acc2} ->
-			    {Acc2, PS};
-			Error ->
-			    debug(PS, {primary, Error}),
-			    {Error, PS}
-		    end;
-		{ok, FI2} ->
-		    ok = clear_cache(Archive, {ok, PrimZip}),
-		    case load_prim_archive(Archive, FI2, ParserFun) of
-			{ok, PrimZip2, FI3, _Ebins} ->
-			    debug(PS, {cache, {update, Archive}}),
-			    put(Archive, {primary, PrimZip2, FI3, ParserFun});
-			Error2 ->
-			    debug(PS, {cache, {clear, Error2}})
-		    end,
-		    apply_archive(PS, Fun, Acc, Archive);
-		Error ->
-		    debug(PS, {cache, {clear, Error}}),
-		    ok = clear_cache(Archive, {ok, PrimZip}),
-		    apply_archive(PS, Fun, Acc, Archive)
-	    end;
-        {Cache, FI} ->
-            case prim_file:read_file_info(Archive) of
-                {ok, FI2} 
-		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
-                    case Cache of
-                        {ok, PrimZip} ->
-                            case foldl_archive(PrimZip, Acc, Fun) of
-                                {ok, _PrimZip2, Acc2} ->
-                                    {Acc2, PS};
-                                Error ->
-                                    debug(PS, {cache, {clear, Error}}),
-                                    ok = clear_cache(Archive, Cache),
-                                    debug(PS, {cache, Error}),
-				    erase(Archive),
-                                    %% put(Archive, {Error, FI}),
-                                    {Error, PS}
-                            end;
-                        Error ->
-                            debug(PS, {cache, Error}),
-                            {Error, PS}
-                    end;
-                Error ->
-                    debug(PS, {cache, {clear, Error}}),
-                    ok = clear_cache(Archive, Cache),
-                    apply_archive(PS, Fun, Acc, Archive)
-            end
-    end.
-
-open_archive(Archive, Acc, Fun) ->
-    case prim_file:read_file_info(Archive) of
-	{ok, FileInfo} ->
-	    open_archive(Archive, FileInfo, Acc, Fun);
-	{error, Reason} ->
-	    {error, Reason}
-    end.
-
-%% Open the given archive and iterate through all files with an own
-%% wrapper fun in order to identify each file as a component list as
-%% returned from path_split/1.
-%%
-%% In the archive (zip) file, directory elements might or might not be
-%% present. To ensure consistency, a directory element is added if it
-%% does not already exist (ensure_virtual_dirs/6). NOTE that there will
-%% be no such directory element for the top directory of the archive.
-open_archive(Archive, FileInfo, Acc, Fun) ->
-    FakeFI = FileInfo#file_info{type = directory},
-    Wrapper =
-	fun({N, GI, GB}, {A, I, Dirs}) ->
-		Components = path_split(N),
-		Dirs2 =
-		    case Components of
-			["" | Dir] ->
-			    %% This is a directory
-			    [Dir | Dirs];
-			_ ->
-			    %% This is a regular file
-			    Dirs
-		    end,
-		{Includes, Dirs3, A2} =
-		    ensure_virtual_dirs(Components, Fun, FakeFI,
-					[{true, Components}], Dirs2, A),
-		{_Continue, A3} = Fun({Components, GI, GB}, A2),
-		{true, Includes, {A3, I, Dirs3}}
-	end,
-    prim_zip:open(Wrapper, {Acc, FakeFI, []}, Archive).
-
-ensure_virtual_dirs(Components, Fun, FakeFI, Includes, Dirs, Acc) ->
-    case Components of
-	[_] ->
-	    %% Don't add virtual dir for top directory
-	    {Includes, Dirs, Acc};
-	[_ | Dir] ->
-	    case lists:member(Dir, Dirs) of % BIF
-		false ->
-		    %% The directory does not yet exist - add it
-		    GetInfo = fun() -> FakeFI end,
-		    GetBin = fun() -> <<>> end,
-		    VirtualDir = ["" | Dir],
-		    Includes2 = [{true, VirtualDir, GetInfo, GetBin} | Includes],
-		    Dirs2 = [Dir | Dirs],
-
-		    %% Recursively ensure dir elements on all levels
-		    {I, F, Acc2} = ensure_virtual_dirs(Dir, Fun, FakeFI,
-						       Includes2, Dirs2, Acc),
-
-		    {_Continue, Acc3} = Fun({VirtualDir, GetInfo, GetBin}, Acc2),
-		    {I, F, Acc3};
-		true ->
-		    %% The directory element does already exist
-		    %% Recursively ensure dir elements on all levels
-		    ensure_virtual_dirs(Dir,Fun,FakeFI,Includes,Dirs,Acc)
-	    end
-    end.
-
-foldl_archive(PrimZip, Acc, Fun) ->
-    Wrapper =
-        fun({Components, GI, GB}, A) ->
-                %% Allow partial iteration at foldl
-                {Continue, A2} = Fun({Components, GI, GB}, A),
-                {Continue, true, A2}
-        end,                        
-    prim_zip:foldl(Wrapper, Acc, PrimZip).
-
-cache_new(PS) ->
-    PS.
-
-clear_cache(Archive, Cache) ->
-    erase(Archive),
-    case Cache of
-        {ok, PrimZip} ->
-            prim_zip:close(PrimZip);
-        {error, _} ->
-            ok
-    end.
 
 %%% --------------------------------------------------------
 %%% Misc. functions.
@@ -1471,87 +1078,6 @@ reverse([A, B]) ->
     [B, A];
 reverse([A, B | L]) ->
     lists:reverse(L, [B, A]). % BIF
-                        
-%% Returns a reversed list of path components, each component itself a
-%% reversed list (string), e.g.
-%% /path/to/file -> ["elif","ot","htap",""]
-%% /path/to/dir/ -> ["","rid","ot","htap",""]
-%% Note the "" marking leading and trailing / (slash).
-path_split(List) ->
-   path_split(List, [], []).
-
-path_split([$/ | Tail], Path, Paths) ->
-    path_split(Tail, [], [Path | Paths]);
-path_split([Head | Tail], Path, Paths) ->
-    path_split(Tail, [Head | Path], Paths);
-path_split([], Path, Paths) ->
-    [Path | Paths].
-
-%% The opposite of path_split/1
-path_join(Paths) ->
-    path_join(Paths,[]).
-
-path_join([""],Acc) ->
-    Acc;
-path_join([Path],Acc) ->
-    reverse(Path) ++ Acc;
-path_join([Path|Paths],Acc) ->
-    path_join(Paths,"/" ++ reverse(Path) ++ Acc).
-
-name_split(_PrimaryArchive, {archive, _, _} = Archive) ->
-    Archive;
-name_split(undefined, File) ->
-    %% Ignore primary archive
-    RevExt = reverse(init:archive_extension()),
-    case archive_split(File, RevExt, []) of
-        no_split ->
-            {file, File};
-	Archive ->
-	    Archive
-    end;
-name_split(ArchiveFile, File0) ->
-    %% Look first in primary archive
-    File = absname(File0),
-    case string_match(real_path(File), ArchiveFile) of
-        no_match ->
-            %% Archive or plain file
-            name_split(undefined, File);
-        {match, FileInArchive} ->
-            %% Primary archive
-	    {archive, ArchiveFile, FileInArchive}
-    end.
-
-string_match([Char | File], [Char | Archive]) ->
-    string_match(File, Archive);
-string_match([] = File, []) ->
-    {match, File};
-string_match([$/ | File], []) ->
-    {match, File};
-string_match(_File, _Archive) ->
-    no_match.
-
-archive_split("/"++File, RevExt, Acc) ->
-    case is_prefix(RevExt, Acc) of
-	false ->
-	    archive_split(File, RevExt, [$/|Acc]);
-	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, File}
-    end;
-archive_split([H|T], RevExt, Acc) ->
-    archive_split(T, RevExt, [H|Acc]);
-archive_split([], RevExt, Acc) ->
-    case is_prefix(RevExt, Acc) of
-	false ->
-	    no_split;
-	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, []}
-    end.
-
-is_prefix([H|T1], [H|T2]) -> is_prefix(T1, T2);
-is_prefix([_|_], _) -> false;
-is_prefix([], _ ) -> true.
 
 %% Parse list of ipv4 addresses 
 ipv4_list([H | T]) ->
@@ -1677,78 +1203,4 @@ normalize(Name, Acc) ->
 	    normalize(Chars, [Char | Acc]);
 	[] ->
 	    reverse(Acc)
-    end.
-
-%% Remove .. and . from the path, e.g.
-%% /path/./to/this/../file -> /path/to/file
-%% This includes resolving symlinks.
-%%
-%% This is done to ensure that paths are totally normalized before
-%% comparing to find out if a file is inside the primary archive or
-%% not.
-real_path(Name) ->
-    real_path(Name,reverse(path_split(Name)),[],[]).
-
-real_path(_Name,[],Acc,_Links) ->
-    path_join(Acc);
-real_path(Name,["."|Paths],Acc,Links) ->
-    real_path(Name,Paths,Acc,Links);
-real_path(Name,[".."|Paths],[""]=Acc,Links) ->
-    %% /.. -> / (can't get higher than root)
-    real_path(Name,Paths,Acc,Links);
-real_path(Name,[".."|Paths],[Prev|Acc],Links) when Prev=/=".." ->
-    real_path(Name,Paths,Acc,Links);
-real_path(Name,[Path|Paths],Acc,Links) ->
-    This = [Path|Acc],
-    ThisFile = path_join(This),
-    case lists:member(ThisFile,Links) of
-	true -> % circular!!
-	    Name;
-	false ->
-	    case prim_file:read_link(ThisFile) of
-		{ok,Link} ->
-		    case reverse(path_split(Link)) of
-			[""|_] = LinkPaths ->
-			    real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
-			LinkPaths ->
-                % windows currently does not allow creation of relative symlinks
-                % across different drives
-				case erlang:system_info(os_type) of
-                 {win32, _} ->
-                     real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
-                 _ ->
-                     real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
-                end
-		    end;
-		_ ->
-		    real_path(Name,Paths,This,Links)
-	    end
-    end.
-
-load_prim_archive(ArchiveFile, ArchiveBin, #file_info{}=FileInfo) ->
-    Fun = fun({Components, _GI, _GB}, A) ->
-		  case Components of
-		      ["", "nibe", RevApp] -> % Reverse ebin
-			  %% Collect ebin directories in archive
-			  Ebin = lists:reverse(RevApp, "/ebin"),
-			  {true, [Ebin | A]};
-		      _ ->
-			  {true, A}
-		  end
-	  end,
-    Ebins0 = [ArchiveFile],
-    case open_archive({ArchiveFile, ArchiveBin}, FileInfo,
-		      Ebins0, Fun) of
-	{ok, PrimZip, {RevEbins, FI, _}} ->
-	    Ebins = reverse(RevEbins),
-	    {ok, PrimZip, FI, Ebins};
-	Error ->
-	    Error
-    end;
-load_prim_archive(ArchiveFile, FileInfo, ParserFun) ->
-    case ParserFun(ArchiveFile) of
-	{ok, ArchiveBin} ->
-	    load_prim_archive(ArchiveFile, ArchiveBin, FileInfo);
-	Error ->
-	    Error
     end.

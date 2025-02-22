@@ -109,8 +109,6 @@ all() ->
      create_embedded,
      create_standalone,
      create_standalone_beam,
-     create_standalone_app,
-     create_standalone_app_clash,
      create_multiple_standalone,
      create_old_target,
      create_slim,
@@ -126,7 +124,6 @@ all() ->
      get_sys,
      set_app_and_undo,
      set_apps_and_undo,
-     set_apps_inlined,
      set_sys_and_undo,
      load_config_and_undo,
      load_config_fail,
@@ -1030,95 +1027,6 @@ create_standalone_beam(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Generate standalone system with inlined archived application
-
-create_standalone_app(Config) ->
-    %% Create archive
-    DataDir = ?config(data_dir,Config),
-    EscriptDir = filename:join(DataDir,escript),
-    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
-				     [memory,
-				      {cwd,EscriptDir},
-				      {compress,all},
-				      {uncompress,[".beam",".app"]}]),
-
-    %% Create the escript
-    EscriptName = "someapp.escript",
-    Escript = filename:join(?WORK_DIR,EscriptName),
-    ok = escript:create(Escript,[shebang,
-				 {emu_args,"-escript main mymod"},
-				 {archive,Bin}]),
-    ok = file:change_mode(Escript,8#00744),
-
-    %% Configure the server
-    Sys =
-        {sys,
-         [
-          {lib_dirs, []},
-          {escript, Escript, [{incl_cond, include}]},
-          {profile, standalone}
-         ]},
-
-    %% Generate target file
-    TargetDir = filename:join([?WORK_DIR, "target_standalone_app"]),
-    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
-    ?m(ok, file:make_dir(TargetDir)),
-    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
-
-    %% Start the target system and fetch root dir
-    BinDir = filename:join([TargetDir, "bin"]),
-    Erl = filename:join([BinDir, "erl"]),
-    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
-    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
-    ?msym(ok, stop_node(Node)),
-
-    %% Execute escript
-    Expected =  s2b(["Module: mymod\n"
-		     "Root dir: ", RootDir, "\n"
-		     "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
-		     "ExitCode:0"]),
-    io:format("Expected: ~ts\n", [Expected]),
-    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
-
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Generate standalone system with inlined archived application
-%% Check that the inlined app cannot be explicitly configured
-
-create_standalone_app_clash(Config) ->
-    %% Create archive
-    DataDir = ?config(data_dir,Config),
-    EscriptDir = filename:join(DataDir,escript),
-    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
-				     [memory,
-				      {cwd,EscriptDir},
-				      {compress,all},
-				      {uncompress,[".beam",".app"]}]),
-
-    %% Create the escript
-    EscriptName = "someapp.escript",
-    Escript = filename:join(?WORK_DIR,EscriptName),
-    ok = escript:create(Escript,[shebang,
-				 {emu_args,"-escript main mymod"},
-				 {archive,Bin}]),
-    ok = file:change_mode(Escript,8#00744),
-
-    %% Configure the server
-    Sys =
-        {sys,
-         [
-          {lib_dirs, []},
-          {escript, Escript, [{incl_cond, include}]},
-          {profile, standalone},
-	  {app, someapp, [{incl_cond,include}]}
-         ]},
-
-    ?msym({error,"someapp: Application name clash. Escript "++_},
-	  reltool:start_server([{config,Sys}])),
-    ok.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system with multiple escripts
 
 create_multiple_standalone(Config) ->
@@ -1651,77 +1559,6 @@ set_apps_and_undo(Config) ->
 
     ?m(ok, reltool:stop(Pid)),
     ok.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Test that escript can be configured, but not its inlined applications
-set_apps_inlined(Config) ->
-    %% Create archive
-    DataDir = ?config(data_dir,Config),
-    EscriptDir = filename:join(DataDir,escript),
-    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
-				     [memory,
-				      {cwd,EscriptDir},
-				      {compress,all},
-				      {uncompress,[".beam",".app"]}]),
-
-    %% Create the escript
-    EscriptName = "someapp.escript",
-    Escript = filename:join(?WORK_DIR,EscriptName),
-    ok = escript:create(Escript,[shebang,
-				 {emu_args,"-escript main mymod"},
-				 {archive,Bin}]),
-    ok = file:change_mode(Escript,8#00744),
-
-    %% Configure the server
-    Sys = {sys,[{incl_cond, exclude},
-		{escript,Escript,[]},
-		{app,kernel,[{incl_cond,include}]},
-		{app,sasl,[{incl_cond,include}]},
-		{app,stdlib,[{incl_cond,include}]}]},
-    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
-    ?msym({ok,[]},reltool_server:get_status(Pid)),
-
-    %% Get app and mod
-    {ok,EApp} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
-    {ok,Someapp} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
-    ?m(undefined, EApp#app.incl_cond),
-    ?m(undefined, Someapp#app.incl_cond),
-    ?m(false, Someapp#app.is_included),
-    ?m(false, Someapp#app.is_pre_included),
-
-    %% Include escript
-    EApp1 = EApp#app{incl_cond=include},
-    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp1])),
-    ExpectedEApp = EApp1#app{is_included=true,is_pre_included=true},
-    ?m({ok,ExpectedEApp}, reltool_server:get_app(Pid,'*escript* someapp')),
-    {ok,Someapp1} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
-    ?m(include, Someapp1#app.incl_cond),
-    ?m(true, Someapp1#app.is_included),
-    ?m(true, Someapp1#app.is_pre_included),
-
-    %% Check that inlined app cannot be configured
-    Someapp2 = Someapp1#app{incl_cond=exclude},
-    ?msym({error,
-	   "Application someapp is inlined in '*escript* someapp'. "
-	   "Can not change configuration for an inlined application."},
-	  reltool_server:set_apps(Pid,[Someapp2])),
-    ?m({ok,Someapp1}, reltool_server:get_app(Pid,someapp)),
-
-    %% Exclude escript
-    {ok,EApp2} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
-    EApp3 = EApp2#app{incl_cond=exclude},
-    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp3])),
-    ExpectedEApp3 = EApp3#app{is_included=false,is_pre_included=false},
-    ?m({ok,ExpectedEApp3}, reltool_server:get_app(Pid,'*escript* someapp')),
-    {ok,Someapp3} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
-    ?m(exclude, Someapp3#app.incl_cond),
-    ?m(false, Someapp3#app.is_included),
-    ?m(false, Someapp3#app.is_pre_included),
-
-    ?m(ok, reltool:stop(Pid)),
-    ok.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 set_sys_and_undo(Config) ->

@@ -29,8 +29,6 @@
 -export([get_path/1, set_path/1, get_file/1, normalize_and_backslash/1,
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
 	 multiple_slaves/1, file_requests/1,
-	 local_archive/1, remote_archive/1,
-	 primary_archive/1, virtual_dir_in_archive/1,
 	 get_modules/1]).
 
 -define(PRIM_FILE, prim_file).
@@ -47,8 +45,7 @@ all() ->
     [get_path, set_path, get_file,
      normalize_and_backslash, inet_existing,
      inet_coming_up, inet_disconnects, multiple_slaves,
-     file_requests, local_archive, remote_archive,
-     primary_archive, virtual_dir_in_archive,
+     file_requests,
      get_modules].
 
 groups() -> 
@@ -369,169 +366,6 @@ file_requests(Config) when is_list(Config) ->
     exit(BootPid, kill),
     ok.
 
-%% Read files from local archive.
-local_archive(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    KernelDir = filename:basename(code:lib_dir(kernel)),
-    Archive = filename:join([PrivDir, KernelDir ++ init:archive_extension()]),
-    file:delete(Archive),
-    {ok, Archive} = create_archive(Archive, [KernelDir]),
-
-    Node = node(),
-    BeamName = "inet.beam",
-    ok = test_archive(Node, Archive, KernelDir, BeamName),
-
-    %% Cleanup
-    ok = rpc:call(Node, erl_prim_loader, purge_archive_cache, []),
-    ok = file:delete(Archive),
-    ok.
-
-%% Read files from remote archive.
-remote_archive(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    KernelDir = filename:basename(code:lib_dir(kernel)),
-    Archive = filename:join([PrivDir, KernelDir ++ init:archive_extension()]),
-    file:delete(Archive),
-    {ok, Archive} = create_archive(Archive, [KernelDir]),
-
-    {ok, Peer, Node, BootPid} = complete_start_node(),
-
-    BeamName = "inet.beam",
-    ok = test_archive(Node, Archive, KernelDir, BeamName),
-
-    %% Cleanup
-    peer:stop(Peer),
-    unlink(BootPid),
-    exit(BootPid, kill),
-    ok.
-
-%% Read files from primary archive.
-primary_archive(Config) when is_list(Config) ->
-    %% Copy the orig files to priv_dir
-    PrivDir = proplists:get_value(priv_dir, Config),
-    Archive = filename:join([PrivDir, "primary_archive.zip"]),
-    file:delete(Archive),
-    DataDir = proplists:get_value(data_dir, Config),
-    {ok, _} = zip:create(Archive, ["primary_archive"],
-			 [{compress, []}, {cwd, DataDir}]),
-    {ok, _} = zip:extract(Archive, [{cwd, PrivDir}]),
-    TopDir = filename:join([PrivDir, "primary_archive"]),
-
-    %% Compile the code
-    DictDir = "primary_archive_dict-1.0",
-    DummyDir = "primary_archive_dummy",
-    ok = compile_app(TopDir, DictDir),
-    ok = compile_app(TopDir, DummyDir),
-
-    %% Create the archive
-    {ok, TopFiles} = file:list_dir(TopDir),
-    {ok, {_, ArchiveBin}} = zip:create(Archive, TopFiles,
-				       [memory, {compress, []}, {cwd, TopDir}]),
-
-    %% Use temporary node to simplify cleanup
-    {ok,Peer,Node} = ?CT_PEER(),
-    {_,_,_} = rpc:call(Node, erlang, date, []),
-
-    %% Set primary archive 
-    ExpectedEbins = [Archive, DictDir ++ "/ebin", DummyDir ++ "/ebin"],
-    io:format("ExpectedEbins: ~p\n", [ExpectedEbins]),
-    {ok, FileInfo} = ?PRIM_FILE:read_file_info(Archive),
-    {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive,
-			   [Archive, ArchiveBin, FileInfo,
-			    fun escript:parse_file/1]),
-    ExpectedEbins = lists:sort(Ebins), % assert
-
-    {ok, TopFiles2} = rpc:call(Node, erl_prim_loader, list_dir, [Archive]),
-    [DictDir, DummyDir] = lists:sort(TopFiles2),
-    BeamName = "primary_archive_dict_app.beam",
-    ok = test_archive(Node, Archive, DictDir, BeamName),
-
-    %% Cleanup
-    {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive,
-			[undefined, undefined, undefined,
-			 fun escript:parse_file/1]),
-    peer:stop(Peer),
-    ok = file:delete(Archive),
-    ok.
-
-test_archive(Node, TopDir, AppDir, BeamName) ->
-    %% List dir
-    io:format("test_archive: ~p\n", [rpc:call(Node, erl_prim_loader, list_dir, [TopDir])]),
-    {ok, TopFiles} = rpc:call(Node, erl_prim_loader, list_dir, [TopDir]),
-    true = lists:member(AppDir, TopFiles),
-    AbsAppDir = TopDir ++ "/" ++ AppDir,
-    {ok, AppFiles} = rpc:call(Node, erl_prim_loader, list_dir, [AbsAppDir]),
-    true = lists:member("ebin", AppFiles),
-    Ebin = AbsAppDir ++ "/ebin",
-    {ok, EbinFiles} = rpc:call(Node, erl_prim_loader, list_dir, [Ebin]),
-    Beam = Ebin ++ "/" ++ BeamName,
-    true = lists:member(BeamName, EbinFiles),
-    error = rpc:call(Node, erl_prim_loader, list_dir, [TopDir ++ "/no_such_file"]),
-    error = rpc:call(Node, erl_prim_loader, list_dir, [TopDir ++ "/ebin/no_such_file"]),
-
-    %% File info
-    {ok, #file_info{type = directory}} =
-	rpc:call(Node, erl_prim_loader, read_file_info, [TopDir]),
-    {ok, #file_info{type = directory}} =
-	rpc:call(Node, erl_prim_loader, read_file_info, [Ebin]),
-    {ok, #file_info{type = regular} = FI}  =
-	rpc:call(Node, erl_prim_loader, read_file_info, [Beam]),
-    error = rpc:call(Node, erl_prim_loader, read_file_info, [TopDir ++ "/no_such_file"]),
-    error = rpc:call(Node, erl_prim_loader, read_file_info, [TopDir ++ "/ebin/no_such_file"]),
-
-    %% Get file
-    {ok, Bin, Beam} = rpc:call(Node, erl_prim_loader, get_file, [Beam]),
-    if
-	FI#file_info.size =:= byte_size(Bin) -> ok;
-	true -> exit({FI#file_info.size, byte_size(Bin)})
-    end,
-    error = rpc:call(Node, erl_prim_loader, get_file, ["/no_such_file"]),
-    error = rpc:call(Node, erl_prim_loader, get_file, ["/ebin/no_such_file"]),
-    ok.
-
-create_archive(Archive, AppDirs) ->
-    LibDir = code:lib_dir(),
-    Opts = [{compress, []}, {cwd, LibDir}],
-    io:format("zip:create(~p,\n\t~p,\n\t~p).\n", [Archive, AppDirs, Opts]),
-    zip:create(Archive, AppDirs, Opts).
-
-
-%% Read virtual directories from archive.
-virtual_dir_in_archive(Config) when is_list(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    Data = <<"A little piece of data.">>,
-    ArchiveBase = "archive_with_virtual_dirs",
-    Archive = filename:join([PrivDir, ArchiveBase ++ init:archive_extension()]),
-    FileBase = "a_data_file.beam",
-    EbinBase = "ebin",
-    FileInArchive = filename:join([ArchiveBase, EbinBase, FileBase]),
-    BinFiles = [{FileInArchive, Data}],
-    Opts = [{compress, []}],
-    file:delete(Archive),
-    io:format("zip:create(~p,\n\t~p,\n\t~p).\n", [Archive, BinFiles, Opts]),
-    {ok, Archive} = zip:create(Archive, BinFiles, Opts),
-
-    %% Verify that there is no directories
-    {ok, BinFiles} = zip:unzip(Archive, [memory]),
-
-    FullPath = filename:join([Archive, FileInArchive]),
-    {ok, _} = erl_prim_loader:read_file_info(FullPath),
-
-    %% Read one virtual dir
-    EbinDir = filename:dirname(FullPath),
-    {ok, _} = erl_prim_loader:read_file_info(EbinDir),
-    {ok, [FileBase]} = erl_prim_loader:list_dir(EbinDir),
-
-    %% Read another virtual dir
-    AppDir = filename:dirname(EbinDir),
-    {ok, _} = erl_prim_loader:read_file_info(AppDir),
-    {ok, [EbinBase]} = erl_prim_loader:list_dir(AppDir),
-
-    %% Cleanup
-    ok = erl_prim_loader:purge_archive_cache(),
-    ok = file:delete(Archive),
-    ok.
-
 %%%
 %%% Helper functions.
 %%%
@@ -566,27 +400,3 @@ ip_str(Host) ->
 host() ->
     {ok,Host} = inet:gethostname(),
     Host.
-
-compile_app(TopDir, AppName) ->
-    AppDir = filename:join([TopDir, AppName]),
-    SrcDir = filename:join([AppDir, "src"]),
-    OutDir = filename:join([AppDir, "ebin"]),
-    {ok, Files} = file:list_dir(SrcDir),
-    compile_files(Files, SrcDir, OutDir).
-
-compile_files([File | Files], SrcDir, OutDir) ->
-    case filename:extension(File) of
-	".erl" ->
-	    AbsFile = filename:join([SrcDir, File]),
-	    case compile:file(AbsFile, [{outdir, OutDir}]) of
-		{ok, _Mod} ->
-		    compile_files(Files, SrcDir, OutDir);
-		Error ->
-		    {compilation_error, AbsFile, OutDir, Error}
-	    end;
-	_ ->
-	    compile_files(Files, SrcDir, OutDir)
-    end;
-compile_files([], _, _) ->
-    ok.
-

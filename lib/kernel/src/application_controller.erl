@@ -54,6 +54,7 @@
 -include("logger.hrl").
 
 -define(AC, ?MODULE). % Name of process
+-define(NEW_ESCRIPT_TERM, escript_app_files).
 
 %%%-----------------------------------------------------------------
 %%% The application_controller controls local applications only.  A
@@ -1477,7 +1478,12 @@ make_appl(Name) when is_atom(Name) ->
     FName = atom_to_list(Name) ++ ".app",
     case code:where_is_file(FName) of
 	non_existing ->
-	    {error, {file:format_error(enoent), FName}};
+            case get_escript_appl(Name) of
+                {ok, [Application]} ->
+                    {ok, make_appl_i(Application)};
+                error ->
+                    {error, {file:format_error(enoent), FName}}
+            end;
 	FullName ->
 	    case prim_consult(FullName) of
 		{ok, [Application]} ->
@@ -1490,6 +1496,26 @@ make_appl(Name) when is_atom(Name) ->
     end;
 make_appl(Application) ->
     {ok, make_appl_i(Application)}.
+
+get_escript_appl(Name) ->
+    get_escript_appl_1(persistent_term:get(?NEW_ESCRIPT_TERM, []), Name).
+
+get_escript_appl_1([{Name, Bin}|_], Name) ->
+    case file_binary_to_list(Bin) of
+        {ok, String} ->
+            case erl_scan:string(String) of
+                {ok, Tokens, _EndLine} ->
+                    prim_parse(Tokens, []);
+                {error, Reason, _EndLine} ->
+                    {error, Reason}
+            end;
+        error ->
+            error
+    end;
+get_escript_appl_1([_|T], Name) ->
+    get_escript_appl_1(T, Name);
+get_escript_appl_1([], _Name) ->
+    error.
 
 prim_consult(FullName) ->
     case erl_prim_loader:read_file(FullName) of

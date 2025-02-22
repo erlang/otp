@@ -299,7 +299,7 @@ Eshell V10.0  (abort with ^G)
             [{preLoaded,[erl_prim_loader,erl_tracer,erlang,
                          erts_code_purger,erts_dirty_process_signal_handler,
                          erts_internal,erts_literal_area_collector,init,erl_init,
-                         prim_eval,prim_file,prim_inet,prim_zip,zlib]},
+                         prim_eval,prim_file,prim_inet,zlib]},
              {progress,preloaded},
              {path,["$ROOT/lib/kernel-5.2/ebin",
                     "$ROOT/lib/stdlib-3.3/ebin"]},
