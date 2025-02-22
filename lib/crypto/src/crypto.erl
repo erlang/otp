@@ -319,7 +319,13 @@ end
                pk_sign_verify_opts/0,
                rsa_digest_type/0,
                sha1/0,
-               sha2/0
+               sha2/0,
+               sha3/0
+             ]).
+
+-export_type([
+              hmac_hash_algorithm/0,
+              cmac_cipher_algorithm/0
              ]).
 
 -export_type([engine_ref/0,
