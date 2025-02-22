@@ -595,12 +595,12 @@ forced_sync(Config) when is_list(Config) ->
     {?FUNCTION_NAME, Node} ! {discover, whereis(?FUNCTION_NAME)},
     sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
-    ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
-    ?assertEqual([], lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
+    ?assertEqual(lists:sort([Pid,RemotePid, RemotePid]), lists:sort(pg:get_members(?FUNCTION_NAME, one))),
+    ?assertEqual(lists:sort([RemotePid, RemotePid]), lists:sort(pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME))),
     %% and simulate extra sync
     sync({?FUNCTION_NAME, Node}),
     sync(?FUNCTION_NAME),
-    ?assertEqual(Expected, lists:sort(pg:get_members(?FUNCTION_NAME, one))),
+    ?assertEqual(lists:sort([Pid,RemotePid, RemotePid]), lists:sort(pg:get_members(?FUNCTION_NAME, one))),
 
     peer:stop(Peer),
     ok.
