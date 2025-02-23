@@ -275,8 +275,8 @@ typedef struct TTBSizeContext_ {
 
 typedef struct TTBEncodeContext_ {
     Uint64 dflags;
-    Uint64 hopefull_flags;
-    byte *hopefull_flagsp;
+    Uint64 hopeful_flags;
+    byte *hopeful_flagsp;
     int level;
     byte* ep;
     Eterm obj;
@@ -289,7 +289,7 @@ typedef struct TTBEncodeContext_ {
     Sint vlen;
     Uint size;
     byte *payload_ixp;
-    byte *hopefull_ixp;
+    byte *hopeful_ixp;
     SysIOVec* iov;
     ErlDrvBinary** binv;
     Eterm *termv;
@@ -326,9 +326,9 @@ typedef struct TTBEncodeContext_ {
         (Ctx)->continue_make_lext_hash = 0;                     \
         (Ctx)->lext_vlen = -1;                                  \
         if ((Flags) & DFLAG_PENDING_CONNECT) {                  \
-            (Ctx)->hopefull_flags = 0;                          \
-            (Ctx)->hopefull_flagsp = NULL;                      \
-            (Ctx)->hopefull_ixp = NULL;                         \
+            (Ctx)->hopeful_flags = 0;                           \
+            (Ctx)->hopeful_flagsp = NULL;                       \
+            (Ctx)->hopeful_ixp = NULL;                          \
             (Ctx)->payload_ixp = NULL;                          \
         }                                                       \
     } while (0)
