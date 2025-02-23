@@ -140,7 +140,7 @@ parse_and_run(KFA, Docs, Bindings) ->
             {KFA, lists:flatten(Else)}
     end.
 
-test({pre,[],[{code,Attrs,[<<">",_/binary>> = Code]}]}, Bindings) ->
+test({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
     case proplists:get_value(class, Attrs, ~"language-erlang") of
         ~"language-erlang" ->
             run_test(Code, Bindings);
