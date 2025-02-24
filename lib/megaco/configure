@@ -5616,12 +5616,10 @@ if test "x$DED_LD" = "x"; then
   DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
   case $host_os in
 	win32)
-		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
 	solaris2*|sysv4*)
-                DED_LD="$CC"
 		DED_LDFLAGS="-G"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
@@ -5636,8 +5634,6 @@ if test "x$DED_LD" = "x"; then
 	;;
 	darwin*)
 		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
-
-                DED_LD="$CC"
 
                 if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
                   # EI sets this variable when building its .so file as beam.smp
@@ -5705,7 +5701,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -5716,7 +5711,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	freebsd*)
-                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -5727,7 +5721,6 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	openbsd*)
-                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -5859,8 +5852,6 @@ fi
 
 test "$DED_LD" != "false" || as_fn_error $? "No linker found" "$LINENO" 5
 
-saved_LD="$LD"
-LD="${DED_LD:-$LD}""
 
   if test "X$host" = "Xwin32"
 then :
@@ -6102,9 +6093,8 @@ else case e in #(
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -fstack-protector-strong to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-fstack-protector-strong;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-fstack-protector-strong";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6116,15 +6106,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6529,9 +6520,8 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,noexecstack to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,noexecstack to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,noexecstack;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-Wl,-z,noexecstack";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6543,15 +6533,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6572,9 +6563,8 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,relro to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,relro to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,relro;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-Wl,-z,relro";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6586,15 +6576,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6615,9 +6606,8 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,now to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,now to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,now;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-Wl,-z,now";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6629,15 +6619,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6658,9 +6649,8 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--as-needed to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--as-needed to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--as-needed;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-Wl,--as-needed";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6672,15 +6662,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6701,9 +6692,8 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--no-copy-dt-needed-entries to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--no-copy-dt-needed-entries to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries;
-    LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
-    can_enable_flag=false;
+    saved_LDFLAG="-Wl,--no-copy-dt-needed-entries";
+    LDFLAGS="$saved_LDFLAG $DED_LDFLAGS";
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6715,15 +6705,16 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
-then :
-  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
+if ac_fn_c_try_link "$LINENO"
 then :
   can_enable_flag=true
+else case e in #(
+  e) can_enable_flag=false
+     ;;
+esac
 fi
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6743,7 +6734,6 @@ fi
 
 fi
 
-LD="$saved_LD"
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static compiler flags" >&5
 printf %s "checking for static compiler flags... " >&6; }
