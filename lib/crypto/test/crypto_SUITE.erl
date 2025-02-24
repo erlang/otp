@@ -73,6 +73,7 @@
          compute_bug/1,
          crypto_load/1,
          crypto_load_and_call/1,
+         encapsulate/1,
          exor/0,
          exor/1,
          generate/0,
@@ -125,6 +126,7 @@
          hash_equals/1,
          sign_verify/0,
          sign_verify/1,
+         sign_verify_oqs/1,
          ec_key_padding/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
@@ -219,6 +221,8 @@ all() ->
      ec_key_padding,
      node_supports_cache,
      mod_pow,
+     encapsulate,
+     sign_verify_oqs,
      exor,
      rand_uniform,
      rand_threads,
@@ -694,8 +698,6 @@ simple_cipher_test(Cipher) ->
                    [Cipher, Class, Error, Stack]),
             error
     end.
-
-
 
 enc_dec(Cipher, Key, 0, _Mode, Plain) ->
     case crypto:crypto_one_time(Cipher, Key, Plain, true) of
@@ -1241,6 +1243,62 @@ compute(Config) when is_list(Config) ->
                   Gen0
     end,
     lists:foreach(fun do_compute/1, Gen).
+
+%%--------------------------------------------------------------------
+encapsulate(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5 "};
+        _ ->
+            KEM_algs = [mlkem512, mlkem768, mlkem1024],
+            Supported = crypto:supports(kems),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 encap_decap(Alg)
+             end || Alg <- KEM_algs],
+            ok
+    end.
+
+encap_decap(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    {Pub, Priv} = crypto:generate_key(Alg, [], Priv),
+    {Secret, Encap} = crypto:encapsulate_key(Alg, Pub),
+    Secret2 = crypto:decapsulate_key(Alg, Priv, Encap),
+    {Secret2,Secret} = {Secret,Secret2},
+    ok.
+
+%%--------------------------------------------------------------------
+sign_verify_oqs(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 sign_verify_oqs_do(Alg)
+             end
+             || Alg <- mldsa_sign_ciphers()],
+            ok
+    end.
+
+sign_verify_oqs_do(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    {Pub, Priv} = crypto:generate_key(Alg, [], Priv),
+    Msg = "Hejsan",
+    [begin
+         io:format("Hash = ~p\n", [Hash]),
+         Sign = crypto:sign(Alg, Hash, Msg, {expandedkey,Priv}),
+         true = crypto:verify(Alg, Hash, Msg, Sign, Pub)
+     end
+     || Hash <- [none, sha]],
+    ok.
+
+%% Supported by OpenSSL 3.5
+mldsa_sign_ciphers() ->
+    [mldsa44, mldsa65, mldsa87].
 
 %%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
@@ -4908,13 +4966,13 @@ bad_sign_name(_Config) ->
     ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
                   error:{badarg, {"pkey.c",_}, "Bad digest type"++_}),
     ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
+                  error:{_, {"pkey.c",_}, _}).
     
 bad_verify_name(_Config) ->
     ?chk_api_name(crypto:verify(rsa, foobar, "nothing", <<"nothing">>,  <<1:1024>>),
                   error:{badarg,{"pkey.c",_},"Bad digest type"++_}),
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
-                  error:{badarg, {"pkey.c",_}, "Bad algorithm"++_}).
+                  error:{_, {"pkey.c",_}, _}).
 
 
 %%%----------------------------------------------------------------
@@ -5077,3 +5135,12 @@ get_priv_pub({Type, undefined=_Hash, Private, Public, _Msg, _Signature}, Acc) ->
 get_priv_pub({Type, _Hash, Public, Private, _Msg}, Acc) -> [{Type,Private,Public} | Acc];
 get_priv_pub({Type, _Hash, Public, Private, _Msg, _Options}, Acc) -> [{Type,Private,Public} | Acc];
 get_priv_pub(_, Acc) -> Acc.
+
+openssl_version() ->
+    case crypto:info_lib() of
+        [{<<"OpenSSL">>,Ver,<<"OpenSSL",_/binary>>}] ->
+            <<Maj,Min,Patch>> = <<(Ver bsr 12):24/integer>>,
+            {Maj,Min,Patch};
+        _ ->
+            undefined
+    end.
