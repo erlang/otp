@@ -345,8 +345,8 @@ AC_DEFUN(LM_PROG_LD,
    AC_CHECK_TOOL(LD, ld, [:])
    AS_IF([test "$LD" = ":"],
      [AC_MSG_ERROR([No linker found])],
-     [LM_LOG('setting LD to $(CC)')
-      LD='$(CC)'])
+     [LM_LOG('setting LD to ${CC}')
+      LD=${CC}])
 ])
 
 dnl ----------------------------------------------------------------------

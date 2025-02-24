@@ -5203,9 +5203,9 @@ then :
   as_fn_error $? "No linker found" "$LINENO" 5
 else case e in #(
   e)
-    printf "configure:$LINENO: %s\n" 'setting LD to $(CC)' >&5
+    printf "configure:$LINENO: %s\n" 'setting LD to ${CC}' >&5
 
-      LD='$(CC)' ;;
+      LD=${CC} ;;
 esac
 fi
 
