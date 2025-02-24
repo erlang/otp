@@ -236,7 +236,7 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 	    asn1ct_name:new(realsize),
 	    emit(["begin",nl,
 		  {curr,realval}," = ",
-		  {call,real_common,ber_encode_real,[Value]},com,nl,
+                  {call,real_common,encode_real,[Value]},com,nl,
 		  {curr,realsize}," = ",
 		  {call,erlang,byte_size,[{curr,realval}]},com,nl,
 		  {call,ber,encode_tags,
