@@ -425,6 +425,36 @@ jobs:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
             TYPE: ${{ matrix.type }}
 
+  freebsd:
+    name: Build Erlang/OTP (FreeBSD)
+    runs-on: ubuntu-latest
+    needs: pack
+    if: needs.pack.outputs.c-code-changes
+    steps:
+      - name: Download source archive
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # ratchet:actions/download-artifact@v4.1.8
+        with:
+          name: otp_prebuilt
+      - name: Build on FreeBSD
+        uses: vmactions/freebsd-vm@848dac7e118679d08e2c2f9d42cd96608d834323 # ratchet:vmactions/freebsd-vm@v1
+        with:
+            usesh: true
+            copyback: false
+            prepare: |
+              pkg update
+              pkg upgrade
+              pkg install -y bash gmake gtar autoconf ncurses pkgconf
+
+            run: |
+                tar -xzf ./otp_src.tar.gz
+                cd otp
+                export ERL_TOP=`pwd`
+                export MAKEFLAGS=-j$(($(nproc) + 2))
+                export ERLC_USE_SERVER=true
+                export ERTS_SKIP_DEPEND=true
+                ./configure
+                gmake
+
   documentation:
     name: Build and check documentation
     runs-on: ubuntu-latest
