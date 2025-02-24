@@ -5295,14 +5295,14 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
 
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
-                    recv_error(Buf, Reason);
+                    recv_error(Reason, Buf);
 
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    recv_error(Buf, Reason)
+                    recv_error(Reason, Buf)
 
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
-                    recv_error(Buf, timeout)
+                    recv_error(timeout, Buf)
             end;
 
         %%
