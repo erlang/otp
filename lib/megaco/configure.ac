@@ -41,6 +41,9 @@ dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
 
+AC_CHECK_PROGS(LD, ld.sh)
+AC_CHECK_TOOL(LD, ${CC}, '$(CC)')
+
 LM_WINDOWS_ENVIRONMENT
 
 AC_DEFUN(ERL_REENTRANT_FLEX,

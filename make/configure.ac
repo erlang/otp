@@ -121,7 +121,8 @@ dnl Checks for programs.
 
 AC_PROG_CC
 AC_PROG_CXX
-AC_CHECK_TOOL(LD, [ld])
+AC_CHECK_PROGS(LD, ld.sh)
+AC_CHECK_TOOL(LD, ${CC}, '$(CC)')
 
 LM_WINDOWS_ENVIRONMENT
 

@@ -88,6 +88,11 @@ WXERL_CAN_BUILD_DRIVER=false
 AC_MSG_NOTICE(Building for [$host_os])
 WXERL_CAN_BUILD_DRIVER=true
 
+AC_CHECK_PROGS(LD, ld.sh)
+AC_CHECK_TOOL(LD, ${CC}, '$(CC)')
+
+ERL_OSSF_FLAGS
+
 LM_WINDOWS_ENVIRONMENT
 
 USER_CFLAGS=$CFLAGS
@@ -734,8 +739,6 @@ AS_IF([test "x$GCC" = xyes],
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
   ])
-
-ERL_OSSF_FLAGS
 
 #############################################################################
 

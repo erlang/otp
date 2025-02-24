@@ -53,7 +53,9 @@ LM_WINDOWS_ENVIRONMENT
 AC_PROG_MAKE_SET
 
 AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ld, '$(CC)')
+AC_CHECK_TOOL(LD, ${CC}, '$(CC)')
+
+ERL_OSSF_FLAGS
 
 AC_SUBST(LD)
 
@@ -282,8 +284,6 @@ AC_SUBST(ODBC_LIB)
 AC_SUBST(ODBC_INCLUDE)
 
  ]) dnl "$with_odbc" != "no"
-
-ERL_OSSF_FLAGS
 
 dnl ----------------------------------------------------------------------
 dnl Check for GCC diagnostic ignored "-Wstringop-truncation"
