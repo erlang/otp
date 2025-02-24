@@ -40,9 +40,7 @@ dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
-
-AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ${CC}, '$(CC)')
+LM_PROG_LD
 
 LM_WINDOWS_ENVIRONMENT
 

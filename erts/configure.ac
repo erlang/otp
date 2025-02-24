@@ -94,6 +94,7 @@ AC_LANG([C])
 
 AC_PROG_CC
 AC_PROG_CXX
+LM_PROG_LD
 
 AC_SUBST(GCC)
 AC_SUBST(CXXFLAGS)
@@ -111,10 +112,6 @@ AC_CHECK_TOOL([AR], [ar], [false])
 if test "$ac_cv_prog_AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
-
-dnl We use CC as linker for erts, set it here to make ERL_OSSF_FLAGS
-dnl use gcc instead of ld for linking.
-LD=$CC
 
 ERL_OSSF_FLAGS
 

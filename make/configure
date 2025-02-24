@@ -3329,6 +3329,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
+
 no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
 if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"
@@ -5087,9 +5091,9 @@ fi
   test -n "$LD" && break
 done
 
-if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}${CC}", so it can be a program name with args.
-set dummy ${ac_tool_prefix}${CC}; ac_word=$2
+   if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ld; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_prog_LD+y}
@@ -5110,7 +5114,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_LD="${ac_tool_prefix}${CC}"
+    ac_cv_prog_LD="${ac_tool_prefix}ld"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -5134,8 +5138,8 @@ fi
 fi
 if test -z "$ac_cv_prog_LD"; then
   ac_ct_LD=$LD
-  # Extract the first word of "${CC}", so it can be a program name with args.
-set dummy ${CC}; ac_word=$2
+  # Extract the first word of "ld", so it can be a program name with args.
+set dummy ld; ac_word=$2
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 printf %s "checking for $ac_word... " >&6; }
 if test ${ac_cv_prog_ac_ct_LD+y}
@@ -5156,7 +5160,7 @@ do
   esac
     for ac_exec_ext in '' $ac_executable_extensions; do
   if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_LD="${CC}"
+    ac_cv_prog_ac_ct_LD="ld"
     printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
     break 2
   fi
@@ -5190,6 +5194,7 @@ esac
 else
   LD="$ac_cv_prog_LD"
 fi
+
 
 
 

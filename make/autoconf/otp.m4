@@ -319,6 +319,24 @@ fi
 fi
 ])
 
+
+dnl ----------------------------------------------------------------------
+dnl
+dnl LM_PROG_LD
+dnl
+dnl
+dnl Sets LD to the either ld.sh or '$(CC)'. We force LD to be $CC so that
+dnl we know that LDFLAGS will have to be in the form acceped by $CC and not
+dnl the form used to ld.
+dnl
+dnl Windows is a bit of a special case as we control ld.sh ourselves, so there
+dnl we use ld.sh instead of cc.sh.
+
+AC_DEFUN(LM_PROG_LD,
+  [AC_CHECK_PROGS(LD, ld.sh)
+   AC_CHECK_TOOL(LD, ld, '$(CC)')
+])
+
 dnl ----------------------------------------------------------------------
 dnl
 dnl LM_FIND_EMU_CC
