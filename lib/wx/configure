@@ -1994,54 +1994,6 @@ printf "%s\n" "$ac_res" >&6; }
   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
 
 } # ac_fn_c_check_type
-
-# ac_fn_c_try_link LINENO
-# -----------------------
-# Try to link conftest.$ac_ext, and return whether this succeeded.
-ac_fn_c_try_link ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  rm -f conftest.$ac_objext conftest.beam conftest$ac_exeext
-  if { { ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-printf "%s\n" "$ac_try_echo"; } >&5
-  (eval "$ac_link") 2>conftest.err
-  ac_status=$?
-  if test -s conftest.err; then
-    grep -v '^ *+' conftest.err >conftest.er1
-    cat conftest.er1 >&5
-    mv -f conftest.er1 conftest.err
-  fi
-  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext && {
-	 test "$cross_compiling" = yes ||
-	 test -x conftest$ac_exeext
-       }
-then :
-  ac_retval=0
-else case e in #(
-  e) printf "%s\n" "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_retval=1 ;;
-esac
-fi
-  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
-  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
-  # interfere with the next link command; also delete a directory that is
-  # left behind by Apple's compiler.  We do this before executing the actions.
-  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-  as_fn_set_status $ac_retval
-
-} # ac_fn_c_try_link
 ac_configure_args_raw=
 for ac_arg
 do
@@ -7639,8 +7591,9 @@ else case e in #(
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -fstack-protector-strong to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-fstack-protector-strong
+    saved_LDFLAG=-fstack-protector-strong;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -7652,15 +7605,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -8112,8 +8065,9 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,noexecstack to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,noexecstack
+    saved_LDFLAG=-Wl,-z,noexecstack;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8125,15 +8079,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -8154,8 +8108,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,relro to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,relro
+    saved_LDFLAG=-Wl,-z,relro;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8167,15 +8122,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -8196,8 +8151,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,now to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,now
+    saved_LDFLAG=-Wl,-z,now;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8209,15 +8165,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -8238,8 +8194,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--as-needed to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--as-needed
+    saved_LDFLAG=-Wl,--as-needed;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8251,15 +8208,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -8280,8 +8237,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--no-copy-dt-needed-entries to LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries
+    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries;
     LDFLAGS="-Werror $saved_LDFLAG $LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -8293,15 +8251,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :

@@ -112,6 +112,10 @@ if test "$ac_cv_prog_AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
 
+dnl We use CC as linker for erts, set it here to make ERL_OSSF_FLAGS
+dnl use gcc instead of ld for linking.
+LD=$CC
+
 ERL_OSSF_FLAGS
 
 AC_SEARCH_LIBS([strerror],[cposix])

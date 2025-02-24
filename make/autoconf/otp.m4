@@ -2952,11 +2952,13 @@ dnl
 AC_DEFUN([LM_TRY_ENABLE_LDFLAG], [
     AC_MSG_CHECKING([if we can add $1 to $2 (via LDFLAGS)])
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=$1
+    saved_LDFLAG=$1;
     LDFLAGS="-Werror $saved_LDFLAG $$2";
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],
-      [can_enable_flag=true],
-      [can_enable_flag=false])
+    can_enable_flag=false;
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;]])],
+      [AS_IF([$LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5],
+        [can_enable_flag=true])
+      ])
     LDFLAGS=$saved_LDFLAGS;
     AS_IF(
       [test "X$can_enable_flag" = "Xtrue"],
@@ -3248,8 +3250,6 @@ DED_GCC=$GCC
 DED_CFLAGS=
 DED_OSTYPE=unix
 
-ERL_OSSF
-
 case $host_os in
      linux*)
 	DED_CFLAGS="-D_GNU_SOURCE" ;;
@@ -3330,21 +3330,21 @@ fi
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-DED_LDFLAGS_CONFTEST=
+  DED_LDFLAGS_CONFTEST=
 
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
+  DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+  case $host_os in
 	win32)
 		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
 	solaris2*|sysv4*)
+                DED_LD="$CC"
 		DED_LDFLAGS="-G"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
 		fi
-                DED_LD="$CC"
 	;;
 	aix*|os400*)
 		DED_LDFLAGS="-G -bnoentry -bexpall"
@@ -3355,6 +3355,8 @@ case $host_os in
 	;;
 	darwin*)
 		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                DED_LD="$CC"
 
                 if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
                   # EI sets this variable when building its .so file as beam.smp
@@ -3385,11 +3387,10 @@ case $host_os in
 		    esac
 		  fi
 		fi
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -3400,7 +3401,7 @@ case $host_os in
 		fi
 	;;	
 	freebsd*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -3411,7 +3412,7 @@ case $host_os in
 		fi
 	;;	
 	openbsd*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -3425,20 +3426,13 @@ case $host_os in
 		DED_LDFLAGS="-shared"
 		# GNU linker has no option for 64bit build, should not propagate -m64
 	;;
-esac
+  esac
 
-
-## OFFS FLAGS
-ERL_OSSF
-ERL_OSSF_CFLAGS([DED_CFLAGS], [DED_LDFLAGS])
-ERL_OSSF_LDFLAGS([DED_LDFLAGS])
-
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-DED_LIBS=$LIBS
+  if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+        DED_LD="$USER_LD"
+        DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+  fi
+  DED_LIBS=$LIBS
 
 fi # "x$DED_LD" = "x"
 
@@ -3446,6 +3440,13 @@ test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
 
 AC_CHECK_TOOL(DED_LD, ld, false)
 test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
+
+saved_LD="$LD"
+LD="${DED_LD:-$LD}""
+ERL_OSSF
+ERL_OSSF_CFLAGS([DED_CFLAGS], [DED_LDFLAGS])
+ERL_OSSF_LDFLAGS([DED_LDFLAGS])
+LD="$saved_LD"
 
 AC_MSG_CHECKING(for static compiler flags)
 DED_STATIC_CFLAGS="$DED_WERRORFLAGS $DED_WARN_FLAGS $DED_THR_DEFS $DED_STATIC_CFLAGS"

@@ -5282,28 +5282,6 @@ DED_GCC=$GCC
 DED_CFLAGS=
 DED_OSTYPE=unix
 
-
-  if test "X$host" = "Xwin32"
-then :
-   ossf_security_hardening_default=no
-else case e in #(
-  e)  ossf_security_hardening_default=yes ;;
-esac
-fi
-  # Check whether --enable-security-hardening-flags was given.
-if test ${enable_security_hardening_flags+y}
-then :
-  enableval=$enable_security_hardening_flags; case "$enableval" in
-       no) ossf_security_hardening=no ;;
-       *)  ossf_security_hardening=yes ;;
-     esac
-else case e in #(
-  e) ossf_security_hardening=$ossf_security_hardening_default ;;
-esac
-fi
-
-
-
 case $host_os in
      linux*)
 	DED_CFLAGS="-D_GNU_SOURCE" ;;
@@ -5580,21 +5558,21 @@ fi
 # to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-DED_LDFLAGS_CONFTEST=
+  DED_LDFLAGS_CONFTEST=
 
-DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-case $host_os in
+  DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+  case $host_os in
 	win32)
 		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
 	solaris2*|sysv4*)
+                DED_LD="$CC"
 		DED_LDFLAGS="-G"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-64 $DED_LDFLAGS"
 		fi
-                DED_LD="$CC"
 	;;
 	aix*|os400*)
 		DED_LDFLAGS="-G -bnoentry -bexpall"
@@ -5605,6 +5583,8 @@ case $host_os in
 	;;
 	darwin*)
 		# Mach-O linker: a shared lib and a loadable object file is not the same thing.
+
+                DED_LD="$CC"
 
                 if test "X${ERL_DED_FLAT_BUNDLE}" = "Xtrue"; then
                   # EI sets this variable when building its .so file as beam.smp
@@ -5669,11 +5649,10 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		    esac
 		  fi
 		fi
-		DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
@@ -5684,7 +5663,7 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	freebsd*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
@@ -5695,7 +5674,7 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		fi
 	;;
 	openbsd*)
-		DED_LD="$CC"
+                DED_LD="$CC"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 	;;
@@ -5709,10 +5688,126 @@ printf "%s\n" "#define SIZEOF_VOID_P $ac_cv_sizeof_void_p" >>confdefs.h
 		DED_LDFLAGS="-shared"
 		# GNU linker has no option for 64bit build, should not propagate -m64
 	;;
+  esac
+
+  if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+        DED_LD="$USER_LD"
+        DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
+  fi
+  DED_LIBS=$LIBS
+
+fi # "x$DED_LD" = "x"
+
+test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
+
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_DED_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$DED_LD"; then
+  ac_cv_prog_DED_LD="$DED_LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_DED_LD="${ac_tool_prefix}ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
 esac
+fi
+DED_LD=$ac_cv_prog_DED_LD
+if test -n "$DED_LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
+printf "%s\n" "$DED_LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
 
 
-## OFFS FLAGS
+fi
+if test -z "$ac_cv_prog_DED_LD"; then
+  ac_ct_DED_LD=$DED_LD
+  # Extract the first word of "ld", so it can be a program name with args.
+set dummy ld; ac_word=$2
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_prog_ac_ct_DED_LD+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) if test -n "$ac_ct_DED_LD"; then
+  ac_cv_prog_ac_ct_DED_LD="$ac_ct_DED_LD" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_DED_LD="ld"
+    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi ;;
+esac
+fi
+ac_ct_DED_LD=$ac_cv_prog_ac_ct_DED_LD
+if test -n "$ac_ct_DED_LD"; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_DED_LD" >&5
+printf "%s\n" "$ac_ct_DED_LD" >&6; }
+else
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+fi
+
+  if test "x$ac_ct_DED_LD" = x; then
+    DED_LD="false"
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    DED_LD=$ac_ct_DED_LD
+  fi
+else
+  DED_LD="$ac_cv_prog_DED_LD"
+fi
+
+test "$DED_LD" != "false" || as_fn_error $? "No linker found" "$LINENO" 5
+
+saved_LD="$LD"
+LD="${DED_LD:-$LD}""
 
   if test "X$host" = "Xwin32"
 then :
@@ -5954,8 +6049,9 @@ else case e in #(
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -fstack-protector-strong to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -fstack-protector-strong to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-fstack-protector-strong
+    saved_LDFLAG=-fstack-protector-strong;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -5967,15 +6063,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6380,8 +6476,9 @@ then :
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,noexecstack to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,noexecstack to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,noexecstack
+    saved_LDFLAG=-Wl,-z,noexecstack;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6393,15 +6490,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6422,8 +6519,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,relro to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,relro to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,relro
+    saved_LDFLAG=-Wl,-z,relro;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6435,15 +6533,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6464,8 +6562,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,-z,now to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,-z,now to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,-z,now
+    saved_LDFLAG=-Wl,-z,now;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6477,15 +6576,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6506,8 +6605,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--as-needed to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--as-needed to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--as-needed
+    saved_LDFLAG=-Wl,--as-needed;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6519,15 +6619,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6548,8 +6648,9 @@ fi
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wl,--no-copy-dt-needed-entries to DED_LDFLAGS (via LDFLAGS)" >&5
 printf %s "checking if we can add -Wl,--no-copy-dt-needed-entries to DED_LDFLAGS (via LDFLAGS)... " >&6; }
     saved_LDFLAGS=$LDFLAGS;
-    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries
+    saved_LDFLAG=-Wl,--no-copy-dt-needed-entries;
     LDFLAGS="-Werror $saved_LDFLAG $DED_LDFLAGS";
+    can_enable_flag=false;
     cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -6561,15 +6662,15 @@ return 0;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
+then :
+  if $LD -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$OBJEXT $LIBS >&5
 then :
   can_enable_flag=true
-else case e in #(
-  e) can_enable_flag=false ;;
-esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
     LDFLAGS=$saved_LDFLAGS;
     if test "X$can_enable_flag" = "Xtrue"
 then :
@@ -6589,123 +6690,7 @@ fi
 
 fi
 
-
-if test "$DED_LD" = "" && test "$USER_LD" != ""; then
-    DED_LD="$USER_LD"
-    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
-fi
-
-DED_LIBS=$LIBS
-
-fi # "x$DED_LD" = "x"
-
-test "$DED_LDFLAGS_CONFTEST" != "" || DED_LDFLAGS_CONFTEST="$DED_LDFLAGS"
-
-if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}ld", so it can be a program name with args.
-set dummy ${ac_tool_prefix}ld; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_DED_LD+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test -n "$DED_LD"; then
-  ac_cv_prog_DED_LD="$DED_LD" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_DED_LD="${ac_tool_prefix}ld"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi ;;
-esac
-fi
-DED_LD=$ac_cv_prog_DED_LD
-if test -n "$DED_LD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $DED_LD" >&5
-printf "%s\n" "$DED_LD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-
-fi
-if test -z "$ac_cv_prog_DED_LD"; then
-  ac_ct_DED_LD=$DED_LD
-  # Extract the first word of "ld", so it can be a program name with args.
-set dummy ld; ac_word=$2
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_prog_ac_ct_DED_LD+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) if test -n "$ac_ct_DED_LD"; then
-  ac_cv_prog_ac_ct_DED_LD="$ac_ct_DED_LD" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_prog_ac_ct_DED_LD="ld"
-    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi ;;
-esac
-fi
-ac_ct_DED_LD=$ac_cv_prog_ac_ct_DED_LD
-if test -n "$ac_ct_DED_LD"; then
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_DED_LD" >&5
-printf "%s\n" "$ac_ct_DED_LD" >&6; }
-else
-  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-fi
-
-  if test "x$ac_ct_DED_LD" = x; then
-    DED_LD="false"
-  else
-    case $cross_compiling:$ac_tool_warned in
-yes:)
-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
-printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
-ac_tool_warned=yes ;;
-esac
-    DED_LD=$ac_ct_DED_LD
-  fi
-else
-  DED_LD="$ac_cv_prog_DED_LD"
-fi
-
-test "$DED_LD" != "false" || as_fn_error $? "No linker found" "$LINENO" 5
+LD="$saved_LD"
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for static compiler flags" >&5
 printf %s "checking for static compiler flags... " >&6; }
