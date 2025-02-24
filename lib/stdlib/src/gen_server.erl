@@ -283,7 +283,7 @@ using exit signals.
 -type action() :: timeout() |
                   'hibernate' |
                   {'timeout', timeout(), term()} |
-                  {'timeout_and_hibernate', timeout(), term()}.
+                  {'hibernate', timeout(), term()}.
 
 -doc """
 Initialize the server.
@@ -2558,11 +2558,11 @@ handle_action(Action) ->
         Timeout when ?is_rel_timeout(Timeout)   -> Timeout;
         {timeout, T, M} ->
             handle_timeout(T, M, infinity);
-        {timeout_and_hibernate, T, M} ->
+        {hibernate, T, M} ->
             handle_timeout(T, M, hibernate);
         {timeout, T, M, Opts} ->
             handle_timeout(T, M, infinity, Opts, false);
-        {timeout_and_hibernate, T, M, Opts} ->
+        {hibernate, T, M, Opts} ->
             handle_timeout(T, M, hibernate, Opts, false);
         _ ->
             error
