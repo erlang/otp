@@ -1243,10 +1243,35 @@ terminate(Reason, S) ->
 	    undefined -> infinity;
 	    {ok,T} -> T
 	end,
+    [terminate_starting(AppName, Id, ShutdownTimeout) 
+     || {AppName, _RestartType, _Type, _From, Id} <- S#state.starting, is_pid(Id)],
     [terminate_started(Id, ShutdownTimeout) 
      || {_AppName, Id} <- S#state.running, is_pid(Id)],
     true = ets:delete(ac_tab),
     ok.
+
+terminate_starting(AppName, Starter, ShutdownTimeout) ->
+    receive
+        %% starter died before replying
+        {'EXIT', Starter, _} ->
+            ok;
+        {'$gen_cast', {application_started, AppName, {ok, Id}}} when is_pid(Id) ->
+            terminate_started(Id, ShutdownTimeout);
+        {'$gen_cast', {application_started, AppName, _}} ->
+            ok;
+        %% We need to handle any gen_server:call here
+        %% and reply to them so that they don't deadlock
+        {'$gen_call', From, _Msg} ->
+            gen_server:reply(From, {error, terminating}),
+            terminate_starting(AppName, Starter, ShutdownTimeout)
+    after ShutdownTimeout ->
+        Ref = erlang:monitor(process, Starter),
+        unlink(Starter),
+        exit(Starter, kill),
+        receive
+            {'DOWN', Ref, process, Starter, _} -> ok
+        end
+    end.
 
 terminate_started(Id, ShutdownTimeout) ->
     Ref = erlang:monitor(process, Id),
