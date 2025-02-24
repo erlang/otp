@@ -29,6 +29,14 @@ dnl The Local Macros which could be part of autoconf are prefixed LM_,
 dnl macros specific dnl to the Erlang system are prefixed ERL_ (this is
 dnl not always consistently made...).
 dnl
+dnl To make it easier to debug, sprinkle some calls to LM_LOG in the macros
+
+dnl Log a message to config.log
+AC_DEFUN(LM_LOG,
+  [
+    printf "configure:$LINENO: %s\n" $1 >&AS_MESSAGE_LOG_FD
+  ])
+
 
 dnl We check if -Werror was given on command line and if so
 dnl we disable it for the configure and only use it when
@@ -334,7 +342,11 @@ dnl we use ld.sh instead of cc.sh.
 
 AC_DEFUN(LM_PROG_LD,
   [AC_CHECK_PROGS(LD, ld.sh)
-   AC_CHECK_TOOL(LD, ld, '$(CC)')
+   AC_CHECK_TOOL(LD, ld, [:])
+   AS_IF([test "$LD" = ":"],
+     [AC_MSG_ERROR([No linker found])],
+     [LM_LOG('setting LD to $(CC)')
+      LD='$(CC)'])
 ])
 
 dnl ----------------------------------------------------------------------
@@ -3260,6 +3272,7 @@ AC_DEFUN(ERL_DED_FLAGS,
 AC_SYS_YEAR2038_RECOMMENDED
 
 USER_LD=$LD
+AS_IF([ test "$USER_LD" = '$(CC)' ], [USER_LD='$(DED_CC)'])
 USER_LDFLAGS="$LDFLAGS"
 
 DED_CC=$CC
@@ -3439,7 +3452,8 @@ if test "x$DED_LD" = "x"; then
 	;;
   esac
 
-  if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+  if test "x$DED_LD" = "x" && test "$USER_LD" != ""; then
+        LM_LOG("setting DED_LD to $USER_LD")
         DED_LD="$USER_LD"
         DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
   fi

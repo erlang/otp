@@ -3697,6 +3697,9 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+
 no_werror_CFLAGS=$(echo " $CFLAGS " | sed 's/ -Werror / /g')
 if test "X $CFLAGS " != "X$no_werror_CFLAGS"; then
    CFLAGS="$no_werror_CFLAGS"
@@ -5523,7 +5526,7 @@ printf "%s\n" "no" >&6; }
 fi
 
   if test "x$ac_ct_LD" = x; then
-    LD="'$(CC)'"
+    LD=":"
   else
     case $cross_compiling:$ac_tool_warned in
 yes:)
@@ -5537,6 +5540,16 @@ else
   LD="$ac_cv_prog_LD"
 fi
 
+   if test "$LD" = ":"
+then :
+  as_fn_error $? "No linker found" "$LINENO" 5
+else case e in #(
+  e)
+    printf "configure:$LINENO: %s\n" 'setting LD to $(CC)' >&5
+
+      LD='$(CC)' ;;
+esac
+fi
 
 
 
