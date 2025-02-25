@@ -423,7 +423,7 @@ static int db_max_tabs;
 
 static void fix_table_locked(Process* p, DbTable* tb);
 static void unfix_table_locked(Process* p,  DbTable* tb, db_lock_kind_t* kind);
-static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data);
+static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data);
 static void free_heir_data(DbTable*);
 static SWord free_fixations_locked(Process* p, DbTable *tb);
 
@@ -2479,7 +2479,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Eterm val;
     Eterm ret;
     Eterm heir;
-    UWord heir_data;
+    Eterm heir_data;
     Uint32 status;
     Sint keypos;
     bool is_named, is_compressed;
@@ -2507,7 +2507,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     is_decentralized_counters = false;
     decentralized_counters_option = -1;
     heir = am_none;
-    heir_data = (UWord) am_undefined;
+    heir_data = am_undefined;
     is_compressed = erts_ets_always_compress;
     number_of_locks = 0;
     is_explicit_lock_granularity = false;
@@ -3065,7 +3065,7 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     Eterm* tp;
     Eterm opt;
     Eterm heir = THE_NON_VALUE;
-    UWord heir_data = (UWord) THE_NON_VALUE;
+    Eterm heir_data = THE_NON_VALUE;
     Uint32 protection = 0;
     DeclareTmpHeap(fakelist,2,BIF_P);
     Eterm tail;
@@ -4780,7 +4780,7 @@ static int give_away_to_heir(Process* p, DbTable* tb)
     Process* to_proc;
     ErtsProcLocks to_locks = ERTS_PROC_LOCK_MAIN;
     Eterm to_pid;
-    UWord heir_data;
+    Eterm heir_data;
 
     ASSERT(tb->common.owner == p->common.id);
     ASSERT(is_internal_pid(tb->common.heir));
@@ -4830,8 +4830,8 @@ retry:
 
     db_unlock(tb,LCK_WRITE);
     heir_data = tb->common.heir_data;
-    if (!is_immed(heir_data)) {
-	Eterm* tpv = ((DbTerm*)heir_data)->tpl; /* tuple_val */
+    if (is_boxed(heir_data)) {
+	Eterm* tpv = ((DbTerm*)boxed_val(heir_data))->tpl; /* tuple_val */
 	ASSERT(arityval(*tpv) == 1);
 	heir_data = tpv[1];
     }
@@ -4850,6 +4850,8 @@ send_ets_transfer_message(Process *c_p, Process *proc,
     Eterm *hp;
     ErlOffHeap *ohp;
     Eterm tid, hd_copy, msg, sender;
+
+    ASSERT(is_value(heir_data));
 
     hsz = 5;
     if (!is_table_named(tb))
@@ -5218,8 +5220,10 @@ static SWord free_fixations_locked(Process* p, DbTable *tb)
     return ctx.cnt;
 }
 
-static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
-{	
+static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
+{
+    ASSERT(is_value(heir_data));
+
     tb->common.heir = heir;
     if (heir == am_none) {
 	return;
@@ -5239,14 +5243,13 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
     }
 
     if (!is_immed(heir_data)) {
-	DeclareTmpHeap(tmp,2,me);
+	Eterm tmp[2];
 	Eterm wrap_tpl;
 	int size;
 	DbTerm* dbterm;
 	Eterm* top;
 	ErlOffHeap tmp_offheap;
 
-	UseTmpHeap(2,me);
 	/* Make a dummy 1-tuple around data to use DbTerm */
 	wrap_tpl = TUPLE1(tmp,heir_data);
 	size = size_object(wrap_tpl);
@@ -5257,17 +5260,15 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 	tmp_offheap.first  = NULL;
 	copy_struct(wrap_tpl, size, &top, &tmp_offheap);
 	dbterm->first_oh = tmp_offheap.first;
-	heir_data = (UWord)dbterm;
-	UnUseTmpHeap(2,me);
-	ASSERT(!is_immed(heir_data));
+	heir_data = make_boxed((Eterm*)dbterm);
     }
     tb->common.heir_data = heir_data;
 }
 
 static void free_heir_data(DbTable* tb)
 {
-    if (tb->common.heir != am_none && !is_immed(tb->common.heir_data)) {
-	DbTerm* p = (DbTerm*) tb->common.heir_data;
+    if (tb->common.heir != am_none && is_boxed(tb->common.heir_data)) {
+	DbTerm* p = (DbTerm*) boxed_val(tb->common.heir_data);
 	db_cleanup_offheap_comp(p);
 	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,
 		     sizeof(DbTerm) + (p->size-1)*sizeof(Eterm));
