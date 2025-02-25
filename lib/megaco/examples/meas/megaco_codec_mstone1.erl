@@ -84,7 +84,20 @@ application.
 start() ->
     start(?DEFAULT_FACTOR).
 
--doc(#{equiv => start/2}).
+
+-doc """
+start([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start time_test 1 1
+```
+
+""".
+
 start([Factor]) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start([MessagePackage, Factor]) ->
@@ -103,15 +116,26 @@ config.
 
 Each process encodes and decodes their messages. The number of messages
 processed in total (for all processes) is the mstone value.
+
 """.
+
+-spec start(RunTime, Factor) -> ok when
+      RunTime :: pos_integer(),
+      Factor  :: default | pos_integer();
+           (MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start(RunTime, default = _Factor)
-  when is_integer(RunTime) ->
+  when is_integer(RunTime) andalso (RunTime > 0) ->
     start(?DEFAULT_MESSAGE_PACKAGE, RunTime, ?DEFAULT_FACTOR);
 start(RunTime, Factor)
-  when is_integer(RunTime) andalso is_integer(Factor) ->
+  when is_integer(RunTime) andalso (RunTime > 0) andalso
+       is_integer(Factor) andalso (Factor > 0) ->
     start(?DEFAULT_MESSAGE_PACKAGE, RunTime, Factor);
 start(MessagePackage, Factor)
-  when is_atom(MessagePackage) andalso is_integer(Factor) ->
+  when is_atom(MessagePackage) andalso
+       is_integer(Factor) andalso (Factor > 0) ->
     start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
 
 -doc false.
