@@ -1251,13 +1251,13 @@ shell_expand_location_below(Config) ->
         send_tty(Term, "escript:"),
         send_tty(Term, "\t"),
         %% Cursor at correct place
-        check_location(Term, {-3, width("escript:")}),
+        check_location(Term, {-2, width("escript:")}),
         %% Nothing after the start( completion
         check_content(Term, "start\\($"),
 
         %% Check that completion is cleared when we type
         send_tty(Term, "s"),
-        check_location(Term, {-3, width("escript:s")}),
+        check_location(Term, {-2, width("escript:s")}),
         check_content(Term, "escript:s$"),
 
         %% Check that completion works when in the middle of a term
@@ -1267,7 +1267,7 @@ shell_expand_location_below(Config) ->
         send_tty(Term, ", test_after]"),
         [send_tty(Term, "Left") || _ <- ", test_after]"],
         send_tty(Term, "\t"),
-        check_location(Term, {-3, width("[escript:s")}),
+        check_location(Term, {-2, width("[escript:s")}),
         check_content(Term, "script_name\\([ ]+start\\($"),
         send_tty(Term, "C-K"),
 
@@ -1291,7 +1291,7 @@ shell_expand_location_below(Config) ->
         Rows1 = 48,
         send_tty(Term, "long_module:" ++ FunctionName),
         send_tty(Term, "\t"),
-        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nFunctions(\n|.)*a_long_function_name0\\("),
 
         %% Check that correct text is printed below expansion
         check_content(Term, io_lib:format("rows ~w to ~w of ~w",
@@ -1330,7 +1330,7 @@ shell_expand_location_below(Config) ->
         tmux(["resize-window -t ", tty_name(Term), " -y ", integer_to_list(Row+10)]),
         timer:sleep(1000), %% Sleep to make sure window has resized
         send_tty(Term, "\t\t"),
-        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nfunctions(\n|.)*a_long_function_name99\\($"),
+        check_content(Term, "3> long_module:" ++ FunctionName ++ "\nFunctions(\n|.)*a_long_function_name99\\($"),
 
         %% Check that doing an expansion when cursor is in xnfix position works
         send_tty(Term, "BSpace"),
@@ -1342,7 +1342,7 @@ shell_expand_location_below(Config) ->
         send_tty(Term, "\t"),
         check_location(Term, {-Rows + 2, -Col}),
         send_tty(Term, "\t"),
-        check_content(Term, "3> a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_content(Term, "3> a+, long_module:" ++ FunctionName ++ "\n\nFunctions(\n|.)*a_long_function_name0\\("),
         check_location(Term, {-Rows + 2, -Col}),
         send_tty(Term, "Down"),
         check_location(Term, {-Rows + 2, -Col}),
@@ -1353,7 +1353,7 @@ shell_expand_location_below(Config) ->
         send_tty(Term, lists:duplicate(Cols, "b")),
         send_tty(Term, "End"),
         send_tty(Term, "\t"),
-        check_content(Term, "3> b+\nb+a+, long_module:" ++ FunctionName ++ "\n\nfunctions(\n|.)*a_long_function_name0\\("),
+        check_content(Term, "3> b+\nb+a+, long_module:" ++ FunctionName ++ "\n\nFunctions(\n|.)*a_long_function_name0\\("),
         check_location(Term, {-Rows + 3, -Col}),
         send_tty(Term, "Down"),
         check_location(Term, {-Rows + 3, -Col}),

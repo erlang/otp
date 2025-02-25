@@ -36,8 +36,7 @@ information.
 `m:calendar`, `m:error_logger`, `m:io`, `m:io_lib`, `m:logger`, `m:maps`,
 [`sasl(6)`](`e:sasl:sasl_app.md`), `m:unicode`
 """.
--moduledoc(#{since => "OTP 21.0",
-             titles => [{callback,<<"Formatter Callback Functions">>}]}).
+-moduledoc(#{since => "OTP 21.0"}).
 
 -export([format/2]).
 -export([check_config/1]).
@@ -251,7 +250,7 @@ The following Logger API functions can trigger this callback:
 See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
--doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback check_config(FConfig) -> ok | {error, Reason} when
       FConfig :: logger:formatter_config(),
       Reason :: term().
@@ -264,7 +263,7 @@ to the console or a file using [`io:put_chars/1,2`](`io:put_chars/1`).
 See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
 """.
--doc(#{title => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
+-doc(#{group => <<"Formatter Callback Functions">>,since => <<"OTP 21.0">>}).
 -callback format(LogEvent, FConfig) -> FormattedLogEntry when
       LogEvent :: logger:log_event(),
       FConfig :: logger:formatter_config(),
