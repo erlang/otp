@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,19 @@ start(MessagePackage, RunTime, Factor) ->
 start_flex() ->
     start_flex(?DEFAULT_FACTOR).
 
--doc(#{equiv => start_flex/2}).
+-doc """
+start_flex([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start_flex time_test 1 1
+```
+
+""".
+
 start_flex([Factor]) ->
     start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_flex([MessagePackage, Factor]) ->
@@ -164,6 +176,11 @@ are started as when running the standard test (using the `start/0,1` function).
 Each process encodes and decodes their messages. The number of messages
 processed in total (for all processes) is the mstone value.
 """.
+
+-spec start_flex(MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start_flex(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
 
