@@ -2249,37 +2249,37 @@ loop(ServerData, State, {continue, Continue} = Msg, Debug) ->
             handle_common_reply(ServerData, State, Msg, From, Reply);
         _ ->
             Debug1 = sys:handle_debug(Debug, fun print_event/3, ServerData#server_data.name, Msg),
-            handle_common_reply(ServerData, State, Msg, From, Reply, Debug1)
+            handle_common_reply(ServerData, State, Msg, Debug1, From, Reply)
     end;
 %%
 loop(ServerData, State, LoopAction, Debug) ->
     case LoopAction of
         {timeout_zero, TimeoutMsg} ->
-            decode_msg(ServerData, State, TimeoutMsg, undefined, Debug, false);
+            decode_msg(ServerData, State, TimeoutMsg, Debug, undefined, false);
         {timeout, TRef, HibInf} ->
-            loop(ServerData, State, HibInf, TRef, Debug);
+            loop(ServerData, State, HibInf, Debug, TRef);
         HibT ->
-            loop(ServerData, State, HibT, undefined, Debug)
+            loop(ServerData, State, HibT, Debug, undefined)
     end.
 
-loop(ServerData, State, hibernate, TRef, Debug) ->
+loop(ServerData, State, hibernate, Debug, TRef) ->
     receive
 	Msg ->
 	    erlang:garbage_collect(),
-	    decode_msg(ServerData, State, Msg, TRef, Debug, true)
+	    decode_msg(ServerData, State, Msg, Debug, TRef, true)
     after 0 ->
 	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
     end;
 %%
-loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, TRef, Debug) ->
+loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, Debug, TRef) ->
     receive
 	Msg ->
-	    decode_msg(ServerData, State, Msg, TRef, Debug, false)
+	    decode_msg(ServerData, State, Msg, Debug, TRef, false)
     after HibernateAfterTimeout ->
 	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, TRef, Debug])
     end;
 %%
-loop(ServerData, State, Time, TRef, Debug)
+loop(ServerData, State, Time, Debug, TRef)
   when ?is_rel_timeout(Time) ->
     Msg = receive
 	      Input ->
@@ -2287,7 +2287,7 @@ loop(ServerData, State, Time, TRef, Debug)
 	  after Time ->
 	      timeout
 	  end,
-    decode_msg(ServerData, State, Msg, TRef, Debug, false).
+    decode_msg(ServerData, State, Msg, Debug, TRef, false).
 
 
 cancel_timer(undefined) ->
@@ -2326,9 +2326,9 @@ wake_hib(ServerData, State, TRef, Debug) ->
               Input ->
                   Input
           end,
-    decode_msg(update_callback_cache(ServerData), State, Msg, TRef, Debug, true).
+    decode_msg(update_callback_cache(ServerData), State, Msg, Debug, TRef, true).
 
-decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, TRef, Debug, Hib) ->
+decode_msg(#server_data{parent = Parent} = ServerData, State, Msg, Debug, TRef, Hib) ->
     case Msg of
         {system, From, Req} ->
             sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
@@ -2452,8 +2452,7 @@ try_terminate(#server_data{module = Mod}, State, Reason) ->
 %%% ---------------------------------------------------
 
 handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
-    Result = try_handle_call(ServerData, State, Msg, From),
-    case Result of
+    case try_handle_call(ServerData, State, Msg, From) of
 	{ok, {reply, Reply, NState}} ->
 	    reply(From, Reply),
 	    loop(ServerData, NState, infinity, []);
@@ -2471,16 +2470,15 @@ handle_msg(ServerData, State, {'$gen_call', From, Msg}) ->
 	    after
 		reply(From, Reply)
 	    end;
-	Other ->
-	    handle_common_reply(ServerData, State, Msg, From, Other)
+	Result ->
+	    handle_common_reply(ServerData, State, Msg, From, Result)
     end;
 handle_msg(ServerData, State, Msg) ->
     Reply = try_dispatch(ServerData, State, Msg),
     handle_common_reply(ServerData, State, Msg, undefined, Reply).
 
 handle_msg(#server_data{name = Name} = ServerData, State, {'$gen_call', From, Msg}, Debug) ->
-    Result = try_handle_call(ServerData, State, Msg, From),
-    case Result of
+    case try_handle_call(ServerData, State, Msg, From) of
 	{ok, {reply, Reply, NState}} ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(ServerData, NState, infinity, Debug1);
@@ -2498,12 +2496,12 @@ handle_msg(#server_data{name = Name} = ServerData, State, {'$gen_call', From, Ms
 	    after
 		_ = reply(Name, From, Reply, NState, Debug)
 	    end;
-	Other ->
-	    handle_common_reply(ServerData, State, Msg, From, Other, Debug)
+	Result ->
+	    handle_common_reply(ServerData, State, Msg, Debug, From, Result)
     end;
 handle_msg(ServerData, State, Msg, Debug) ->
     Reply = try_dispatch(ServerData, State, Msg),
-    handle_common_reply(ServerData, State, Msg, undefined, Reply, Debug).
+    handle_common_reply(ServerData, State, Msg, Debug, undefined, Reply).
 
 handle_common_reply(ServerData, State, Msg, From, Reply) ->
     case Reply of
@@ -2524,7 +2522,7 @@ handle_common_reply(ServerData, State, Msg, From, Reply) ->
 	    terminate(ServerData, State, Msg, From, {bad_return_value, BadReturn}, ?STACKTRACE(), [])
     end.
 
-handle_common_reply(#server_data{name = Name} = ServerData, State, Msg, From, Reply, Debug) ->
+handle_common_reply(#server_data{name = Name} = ServerData, State, Msg, Debug, From, Reply) ->
     case Reply of
 	{ok, {noreply, NState}} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
@@ -2608,7 +2606,7 @@ system_continue(Parent, Debug, [#server_data{parent=Parent} = ServerData, State,
 		 true -> hibernate;
 		 false -> infinity
 	     end,
-    loop(update_callback_cache(ServerData), State, Action, TRef, Debug).
+    loop(update_callback_cache(ServerData), State, Action, Debug, TRef).
 
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
