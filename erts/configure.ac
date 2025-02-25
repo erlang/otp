@@ -86,6 +86,35 @@ AC_SUBST(CROSS_COMPILING)
 
 ERL_XCOMP_SYSROOT_INIT
 
+dnl ----------------------------------------------------------------------
+dnl Checks for programs.
+dnl ----------------------------------------------------------------------
+
+AC_LANG([C])
+
+AC_PROG_CC
+AC_PROG_CXX
+LM_PROG_LD
+
+AC_SUBST(GCC)
+AC_SUBST(CXXFLAGS)
+
+AC_PROG_EGREP
+AC_PROG_CPP
+AC_PROG_RANLIB
+AC_PROG_YACC
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
+fi
+AC_PROG_LN_S
+AC_CHECK_TOOL([AR], [ar], [false])
+if test "$ac_cv_prog_AR" = false; then
+  AC_MSG_ERROR([No 'ar' command found in PATH])
+fi
+
+ERL_OSSF_FLAGS
+
 AC_SEARCH_LIBS([strerror],[cposix])
 
 AC_CONFIG_HEADERS([$host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in])
@@ -429,33 +458,6 @@ AC_DEFINE_UNQUOTED(ERTS_NO_RETPOLINE, $i_noretpoline_attr,
 # Next line should be before first output to CONF_INFO.
 rm -f "$ERL_TOP/erts/CONF_INFO"
 
-dnl ----------------------------------------------------------------------
-dnl Checks for programs.
-dnl ----------------------------------------------------------------------
-
-AC_LANG([C])
-
-AC_PROG_CC
-AC_SUBST(GCC)
-
-AC_PROG_CXX
-AC_SUBST(CXXFLAGS)
-
-AC_PROG_EGREP
-AC_PROG_CPP
-AC_PROG_RANLIB
-AC_PROG_YACC
-LM_PROG_PERL5
-if test "$ac_cv_path_PERL" = false; then
-  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
-fi
-AC_PROG_LN_S
-AC_CHECK_TOOL([AR], [ar], [false])
-if test "$ac_cv_prog_AR" = false; then
-  AC_MSG_ERROR([No 'ar' command found in PATH])
-fi
-
-
 #
 # Get programs needed for building the documentation 
 #
@@ -603,7 +605,6 @@ AS_IF([test "x$GCC" = xyes],
   # such dubious duplicates.
   LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
   
-  LM_TRY_ENABLE_CFLAG([-fno-strict-aliasing], [CFLAGS])
  ],
  [
   WFLAGS=""
@@ -1856,10 +1857,6 @@ AC_CHECK_HEADERS([linux/types.h linux/errqueue.h], [], [],
 # include <linux/types.h>
 #endif
 ]])
-
-HAVE_VALGRIND=no
-AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
-AC_SUBST(HAVE_VALGRIND)
 
 LM_DECL_SO_BSDCOMPAT
 LM_DECL_INADDR_LOOPBACK
@@ -3652,6 +3649,10 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[_Pragma("GCC diagnostic push")
            define if compiler support _Pragma('GCC diagnostic ignored '-Wformat-nonliteral''))],[])
 CFLAGS="$saved_CFLAGS"
 
+NO_MAYBE_UNINITIALIZED=""
+LM_TRY_ENABLE_CFLAG([-Wno-maybe-uninitialized], [NO_MAYBE_UNINITIALIZED])
+AC_SUBST(NO_MAYBE_UNINITIALIZED)
+
 dnl ----------------------------------------------------------------------
 dnl Enable any -Werror flags
 dnl ----------------------------------------------------------------------
@@ -3685,7 +3686,7 @@ DEBUG_CFLAGS="-g -Og $no_opt_CFLAGS"
 AC_SUBST(DEBUG_CFLAGS)
 
 no_opt_CXXFLAGS=$(echo " $CXXFLAGS" | sed 's/ -O[[^ ]]*/ /g')
-DEBUG_CXXFLAGS="-g -O0 $no_opt_CXXFLAGS"
+DEBUG_CXXFLAGS="-g -Og $no_opt_CXXFLAGS"
 AC_SUBST(DEBUG_CXXFLAGS)
 
 dnl
@@ -3697,7 +3698,8 @@ dnl
 
 AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
 "$STATIC_CFLAGS $CFLAGS $CXXFLAGS $DEBUG_CFLAGS $DEBUG_CXXFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
-[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
+[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification
+ of config.h when the emulator command line flags are modified by configure])
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

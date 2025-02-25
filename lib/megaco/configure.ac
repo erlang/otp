@@ -40,6 +40,7 @@ dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
+LM_PROG_LD
 
 LM_WINDOWS_ENVIRONMENT
 

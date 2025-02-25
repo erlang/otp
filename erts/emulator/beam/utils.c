@@ -1525,6 +1525,7 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     Eterm a, b;
     int ai, bi;
     Sint res;
+    ERTS_UNDEF(res, 0);
 
     ASSERT(n_atoms > 0);
     ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
