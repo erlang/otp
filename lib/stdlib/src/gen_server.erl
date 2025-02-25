@@ -220,6 +220,7 @@ using exit signals.
 
 -export_type(
    [from/0,
+    action/0,
     reply_tag/0,
     request_id/0,
     request_id_collection/0,
@@ -258,22 +259,22 @@ using exit signals.
 		      hibernate_after :: timeout(),
 		      handle_call :: fun((Request :: term(), From :: from(), State :: term()) ->
                           {reply, Reply :: term(), NewState :: term()} |
-                          {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {reply, Reply :: term(), NewState :: term(), Action :: action()} |
                           {noreply, NewState :: term()} |
-                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {noreply, NewState :: term(), action()} |
                           {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
                           {stop, Reason :: term(), NewState :: term()}),
                       handle_cast :: fun((Request :: term(), State :: term()) ->
                           {noreply, NewState :: term()} |
-                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {noreply, NewState :: term(), Action :: action()} |
                           {stop, Reason :: term(), NewState :: term()}),
                       handle_info :: fun((Info :: timeout | term(), State :: term()) ->
                           {noreply, NewState :: term()} |
-                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {noreply, NewState :: term(), Action :: action()} |
                           {stop, Reason :: term(), NewState :: term()}),
                       handle_continue :: fun((Info :: term(), State :: term()) ->
                           {noreply, NewState :: term()} |
-                          {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+                          {noreply, NewState :: term(), Action :: action()} |
                           {stop, Reason :: term(), NewState :: term()})}).
 
 %%%=========================================================================
@@ -283,7 +284,8 @@ using exit signals.
 -type action() :: timeout() |
                   'hibernate' |
                   {'timeout', timeout(), term()} |
-                  {'hibernate', timeout(), term()}.
+                  {'hibernate', timeout(), term()} |
+		  {'continue', term()}.
 
 -doc """
 Initialize the server.
@@ -319,7 +321,7 @@ See function [`start_link/3,4`](`start_link/3`)'s return value
 """.
 -callback init(Args :: term()) ->
     {ok, State :: term()} |
-    {ok, State :: term(), action() | {'continue', term()}} |
+    {ok, State :: term(), action()} |
     {stop, Reason :: term()} |
     ignore |
     {error, Reason :: term()}.
@@ -387,9 +389,9 @@ The return value `Result` is interpreted as follows:
 -callback handle_call(Request :: term(), From :: from(),
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), action() | {'continue', term()}} |
+    {reply, Reply :: term(), NewState :: term(), action()} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action() | {'continue', term()}} |
+    {noreply, NewState :: term(), action()} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 
@@ -405,7 +407,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action() | {'continue', term()}} |
+    {noreply, NewState :: term(), action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -431,7 +433,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 """.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action() | {'continue', term()}} |
+    {noreply, NewState :: term(), action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -459,7 +461,7 @@ see [`Module:handle_call/3`](`c:handle_call/3`).
 -doc(#{since => <<"OTP 21.0">>}).
 -callback handle_continue(Info :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), action() | {'continue', term()}} |
+    {noreply, NewState :: term(), action()} |
     {stop, Reason :: term(), NewState :: term()}.
 
 -doc """
@@ -2079,14 +2081,7 @@ With argument `How` equivalent to
         Module     :: module(),
         Options    :: [enter_loop_opt()],
         State      :: term(),
-	Actions    :: timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}]
-       ) ->
-          no_return();
-                (
-        Module     :: module(),
-        Options    :: [enter_loop_opt()],
-        State      :: term(),
-        Cont       :: {'continue', term()}
+	Action     :: action()
        ) ->
           no_return().
 %%
@@ -2146,14 +2141,7 @@ according to `ServerName`.
 	   Options    :: [enter_loop_opt()],
 	   State      :: term(),
 	   ServerName :: server_name() | pid(),
-	   Actions    :: timeout() | 'hibernate' | [{'timeout', timeout(), term()} | 'hibernate' | {'hibernate', boolean()}]
-       ) ->             no_return();
-                (
-           Module     :: module(),
-           Options    :: [enter_loop_opt()],
-           State      :: term(),
-           ServerName :: server_name() | pid(),
-           Cont       :: {'continue', term()}
+	   Action     :: action()
        ) ->
                         no_return().
 %%
