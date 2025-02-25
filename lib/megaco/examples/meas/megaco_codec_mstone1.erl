@@ -221,7 +221,19 @@ start_only_drv(MessagePackage, RunTime, Factor) ->
 start_no_drv() ->
     start_no_drv(?DEFAULT_FACTOR).
 
--doc(#{equiv => start_no_drv/2}).
+-doc """
+start_no_drv([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start_no_drv time_test 1 1
+```
+
+""".
+
 start_no_drv([Factor]) ->
     start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_no_drv([MessagePackage, Factor]) ->
@@ -239,6 +251,11 @@ started as when running the standard test (using the `start/0,1` function). Each
 process encodes and decodes their messages. The number of messages processed in
 total (for all processes) is the mstone value.
 """.
+
+-spec start_no_drv(MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start_no_drv(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
 
