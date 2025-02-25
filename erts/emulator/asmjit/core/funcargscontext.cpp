@@ -102,9 +102,23 @@ ASMJIT_FAVOR_SIZE Error FuncArgsContext::initWorkData(const FuncFrame& frame, co
           ASMJIT_ASSERT(dstWd != nullptr);
           dstWd->assign(varId, srcId);
 
-          // The best case, register is allocated where it is expected to be.
-          if (dstId == srcId)
-            var.markDone();
+          // The best case, register is allocated where it is expected to be. However, we should
+          // not mark this as done if both registers are GP and sign or zero extension is required.
+          if (dstId == srcId) {
+            if (dstGroup != RegGroup::kGp) {
+              var.markDone();
+            }
+            else {
+              TypeId dt = dst.typeId();
+              TypeId st = src.typeId();
+
+              uint32_t dstSize = TypeUtils::sizeOf(dt);
+              uint32_t srcSize = TypeUtils::sizeOf(st);
+
+              if (dt == TypeId::kVoid || st == TypeId::kVoid || dstSize <= srcSize)
+                var.markDone();
+            }
+          }
         }
         else {
           if (ASMJIT_UNLIKELY(srcGroup > RegGroup::kMaxVirt))

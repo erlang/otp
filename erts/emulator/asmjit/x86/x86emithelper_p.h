@@ -34,6 +34,8 @@ public:
       _avxEnabled(avxEnabled || avx512Enabled),
       _avx512Enabled(avx512Enabled) {}
 
+  ASMJIT_INLINE_NODEBUG virtual ~EmitHelper() noexcept = default;
+
   Error emitRegMove(
     const Operand_& dst_,
     const Operand_& src_, TypeId typeId, const char* comment = nullptr) override;
