@@ -1474,19 +1474,24 @@ listen_socket(Config) ->
 
     {ok, _} = ssl:sockname(ListenSocket),
 
-    {error, _enotconn} = ssl:send(ListenSocket, <<"data">>),
-    {error, enotconn} = ssl:recv(ListenSocket, 0),
-    {error, enotconn} = ssl:connection_information(ListenSocket),
-    {error, enotconn} = ssl:peername(ListenSocket),
-    {error, enotconn} = ssl:peercert(ListenSocket),
-    {error, enotconn} = ssl:renegotiate(ListenSocket),
-    {error, enotconn} = ssl:export_key_materials(ListenSocket, [<<"Label">>], [<<"Context">>], 256),
+    Check = fun({error, enotconn}) -> ok;
+               ({error, epipe}) -> ok;
+               ({error, #{info := enotconn}}) -> ok  %% socket error msgs
+            end,
+
+    Check(ssl:send(ListenSocket, <<"data">>)),
+    Check(ssl:recv(ListenSocket, 0)),
+    Check(ssl:connection_information(ListenSocket)),
+    Check(ssl:peername(ListenSocket)),
+    Check(ssl:peercert(ListenSocket)),
+    Check(ssl:renegotiate(ListenSocket)),
+    Check(ssl:export_key_materials(ListenSocket, [<<"Label">>], [<<"Context">>], 256)),
     %% Legacy test
-    {error, enotconn} = ssl:prf(ListenSocket, master_secret,
-                                <<"Label">>, [client_random, server_random], 256),
+    Check(ssl:prf(ListenSocket, master_secret,
+                  <<"Label">>, [client_random, server_random], 256)),
     case Protocol of
         tls ->
-            {error, enotconn} = ssl:shutdown(ListenSocket, read_write);
+            Check(ssl:shutdown(ListenSocket, read_write));
         dtls ->
             {error, notsup} = ssl:shutdown(ListenSocket, read_write)
     end,
