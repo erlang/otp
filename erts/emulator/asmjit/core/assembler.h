@@ -25,6 +25,7 @@ ASMJIT_BEGIN_NAMESPACE
 //! Check out architecture specific assemblers for more details and examples:
 //!
 //!   - \ref x86::Assembler - X86/X64 assembler implementation.
+//!   - \ref a64::Assembler - AArch64 assembler implementation.
 class ASMJIT_VIRTAPI BaseAssembler : public BaseEmitter {
 public:
   ASMJIT_NONCOPYABLE(BaseAssembler)
