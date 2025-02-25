@@ -2587,6 +2587,10 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    heir = am_none;
 		    heir_data = am_undefined;
 		}
+		else if (tp[1] == am_heir && is_internal_pid(tp[2])) {
+                    heir = tp[2];
+                    heir_data = THE_NON_VALUE;
+		}
                 else if (tp[1] == am_decentralized_counters) {
 		    if (tp[2] == am_true) {
 			decentralized_counters_option = 1;
@@ -3069,6 +3073,7 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     Uint32 protection = 0;
     DeclareTmpHeap(fakelist,2,BIF_P);
     Eterm tail;
+    bool do_update_heir = false;
 
     DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE, BIF_ets_setopts_2);
     if (tb == NULL) {
@@ -3091,11 +3096,15 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
 	    heir = tp[2];
 	    if (arityval(tp[0]) == 2 && heir == am_none) {
 		heir_data = am_undefined;
+	    }
+	    else if (arityval(tp[0]) == 2 && is_internal_pid(heir)) {
+		heir_data = THE_NON_VALUE;
 	    } 
 	    else if (arityval(tp[0]) == 3 && is_internal_pid(heir)) {
 		heir_data = tp[3];
 	    }
 	    else goto badarg;
+	    do_update_heir = true;
 	    break;
 
 	case am_protection:
@@ -3118,7 +3127,7 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     if (tb->common.owner != BIF_P->common.id)
 	goto badarg;
 
-    if (heir_data != THE_NON_VALUE) {
+    if (do_update_heir) {
 	free_heir_data(tb);
 	set_heir(BIF_P, tb, heir, heir_data);
     }
@@ -4830,12 +4839,17 @@ retry:
 
     db_unlock(tb,LCK_WRITE);
     heir_data = tb->common.heir_data;
-    if (is_boxed(heir_data)) {
-	Eterm* tpv = ((DbTerm*)boxed_val(heir_data))->tpl; /* tuple_val */
-	ASSERT(arityval(*tpv) == 1);
-	heir_data = tpv[1];
+    if (is_value(heir_data)) {
+	if (is_boxed(heir_data)) {
+	    Eterm* tpv = ((DbTerm*)boxed_val(heir_data))->tpl; /* tuple_val */
+	    ASSERT(arityval(*tpv) == 1);
+	    heir_data = tpv[1];
+	}
+        else {
+            ASSERT(is_immed(heir_data));
+        }
+	send_ets_transfer_message(p, to_proc, &to_locks, tb, heir_data);
     }
-    send_ets_transfer_message(p, to_proc, &to_locks, tb, heir_data);
     erts_proc_unlock(to_proc, to_locks);
     return !0;
 }
@@ -5222,8 +5236,6 @@ static SWord free_fixations_locked(Process* p, DbTable *tb)
 
 static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
 {
-    ASSERT(is_value(heir_data));
-
     tb->common.heir = heir;
     if (heir == am_none) {
 	return;
@@ -5242,8 +5254,8 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
 	}
     }
 
-    if (!is_immed(heir_data)) {
-	Eterm tmp[2];
+    if (is_value(heir_data) && !is_immed(heir_data)) {
+        Eterm tmp[2];
 	Eterm wrap_tpl;
 	int size;
 	DbTerm* dbterm;
@@ -5267,7 +5279,10 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
 
 static void free_heir_data(DbTable* tb)
 {
-    if (tb->common.heir != am_none && is_boxed(tb->common.heir_data)) {
+    if (tb->common.heir != am_none
+        && is_value(tb->common.heir_data)
+        && is_boxed(tb->common.heir_data)) {
+
 	DbTerm* p = (DbTerm*) boxed_val(tb->common.heir_data);
 	db_cleanup_offheap_comp(p);
 	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,
