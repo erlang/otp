@@ -87,8 +87,7 @@
 %%
 %% Some (Microsoft-) official info about AF_UNIX
 %% https://devblogs.microsoft.com/commandline/windowswsl-interop-with-af_unix/
-
-
+%%
 
 -module(socket_SUITE).
 
@@ -52023,7 +52022,6 @@ do_otp19469_read_all(#{lsa := LSA}) ->
 
 
 %% ----------------------------------------------------------------------
-
 
 %% Tests that results are correct when only parts of the requested
 %% amount of data is available when using socket:recv.
