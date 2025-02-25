@@ -1243,35 +1243,36 @@ terminate(Reason, S) ->
 	    undefined -> infinity;
 	    {ok,T} -> T
 	end,
-    foreach(fun({_AppName, Id}) when is_pid(Id) -> 
-		    Ref = erlang:monitor(process, Id),
-		    unlink(Id),
-		    exit(Id, shutdown),
-		    receive
-			%% Proc died before link
-			{'EXIT', Id, _} -> ok
-		    after 0 ->
-                            (fun F() ->
-                                     receive
-                                         {'DOWN', Ref, process, Id, _} -> ok;
-                                         %% We need to handle any gen_server:call here
-                                         %% and reply to them so that they don't deadlock
-                                         {'$gen_call', From, _Msg} ->
-                                             gen_server:reply(From, {error, terminating}),
-                                             F()
-                                     after ShutdownTimeout ->
-                                             exit(Id, kill),
-                                             receive
-                                                 {'DOWN', Ref, process, Id, _} -> ok
-                                             end
-                                     end
-                             end)()
-		    end;
-	       (_) -> ok
-	    end,
-	    S#state.running),
+    [terminate_started(Id, ShutdownTimeout) 
+     || {_AppName, Id} <- S#state.running, is_pid(Id)],
     true = ets:delete(ac_tab),
     ok.
+
+terminate_started(Id, ShutdownTimeout) ->
+    Ref = erlang:monitor(process, Id),
+    unlink(Id),
+    exit(Id, shutdown),
+    receive
+        %% Proc died before link
+        {'EXIT', Id, _} -> ok
+    after 0 ->
+        wait_terminated(Ref, Id, ShutdownTimeout)
+    end.
+
+wait_terminated(Ref, Id, ShutdownTimeout) ->
+    receive
+        {'DOWN', Ref, process, Id, _} -> ok;
+        %% We need to handle any gen_server:call here
+        %% and reply to them so that they don't deadlock
+        {'$gen_call', From, _Msg} ->
+            gen_server:reply(From, {error, terminating}),
+            wait_terminated(Ref, Id, ShutdownTimeout)
+    after ShutdownTimeout ->
+        exit(Id, kill),
+        receive
+            {'DOWN', Ref, process, Id, _} -> ok
+        end
+    end.
 
 -spec code_change(term(), state(), term()) -> {'ok', state()}.
 
