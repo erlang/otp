@@ -441,7 +441,7 @@ A list of binaries. This datatype is useful to use together with
 -export([get_module_info/1, group_leader/0]).
 -export([group_leader/2]).
 -export([halt/0, halt/1, halt/2,
-	 has_prepared_code_on_load/1, hibernate/3]).
+	 has_prepared_code_on_load/1, hibernate/0, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
 -export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
@@ -3303,6 +3303,24 @@ halt(_, _) ->
       PreparedCode :: prepared_code().
 has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
+
+%% hibernate/0
+-doc """
+Puts the calling process into a wait state where its memory allocation has been
+reduced as much as possible. This is useful if the process does not expect to
+receive any messages soon.
+
+The process is awakened when a message is sent to it, and control resumes
+normally to the caller. Unlike `erlang:hibernate/3`, it does not discard the
+call stack.
+""".
+-doc #{ since => <<"OTP @OTP-19503@">> }.
+-doc #{ category => processes }.
+-spec hibernate() -> ok.
+hibernate() ->
+    %% This function is a fallback used on apply/3; the loader turns this
+    %% remote call of ourselves into a special instruction.
+    erlang:hibernate().
 
 %% hibernate/3
 -doc """

@@ -1612,88 +1612,19 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     return ep;
 }
 
-int
-erts_hibernate(Process* c_p, Eterm* reg)
-{
-    int arity;
-    Eterm tmp;
-    Eterm module = reg[0];
-    Eterm function = reg[1];
-    Eterm args = reg[2];
+void erts_hibernate(Process *c_p, Eterm *regs, int arity) {
+    const Uint max_default_arg_reg =
+        sizeof(c_p->def_arg_reg) / sizeof(c_p->def_arg_reg[0]);
 
-    if (is_not_atom(module) || is_not_atom(function)) {
-	/*
-	 * No need to test args here -- done below.
-	 */
-    error:
-	c_p->freason = BADARG;
-
-    error2:
-	reg[0] = module;
-	reg[1] = function;
-	reg[2] = args;
-	return 0;
+    /* Save some memory if possible. */
+    if (arity <= max_default_arg_reg && c_p->arg_reg != c_p->def_arg_reg) {
+        erts_free(ERTS_ALC_T_ARG_REG, c_p->arg_reg);
+        c_p->max_arg_reg = max_default_arg_reg;
+        c_p->arg_reg = c_p->def_arg_reg;
     }
 
-    arity = 0;
-    tmp = args;
-    while (is_list(tmp)) {
-	if (arity < MAX_REG) {
-	    tmp = CDR(list_val(tmp));
-	    arity++;
-	} else {
-	    c_p->freason = SYSTEM_LIMIT;
-	    goto error2;
-	}
-    }
-    if (is_not_nil(tmp)) {	/* Must be well-formed list */
-	goto error;
-    }
-
-    /*
-     * At this point, arguments are known to be good.
-     */
-
-    if (c_p->arg_reg != c_p->def_arg_reg) {
-	/* Save some memory */
-	erts_free(ERTS_ALC_T_ARG_REG, c_p->arg_reg);
-	c_p->arg_reg = c_p->def_arg_reg;
-	c_p->max_arg_reg = sizeof(c_p->def_arg_reg)/sizeof(c_p->def_arg_reg[0]);
-    }
-
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(process_hibernate)) {
-        ErtsCodeMFA cmfa = { module, function, arity};
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(mfa_buf, DTRACE_TERM_BUF_SIZE);
-        dtrace_fun_decode(c_p, &cmfa, process_name, mfa_buf);
-        DTRACE2(process_hibernate, process_name, mfa_buf);
-    }
-#endif
-    /*
-     * Arrange for the process to be resumed at the given MFA with
-     * the stack cleared.
-     */
-    c_p->arity = 3;
-    c_p->arg_reg[0] = module;
-    c_p->arg_reg[1] = function;
-    c_p->arg_reg[2] = args;
-    c_p->stop = c_p->hend - CP_SIZE; /* Keep first continuation pointer */
-
-    switch(erts_frame_layout) {
-    case ERTS_FRAME_LAYOUT_RA:
-        ASSERT(c_p->stop[0] == make_cp(beam_normal_exit));
-        break;
-    case ERTS_FRAME_LAYOUT_FP_RA:
-        FRAME_POINTER(c_p) = &c_p->stop[0];
-        ASSERT(c_p->stop[0] == make_cp(NULL));
-        ASSERT(c_p->stop[1] == make_cp(beam_normal_exit));
-        break;
-    }
-
-    c_p->catches = 0;
-    c_p->return_trace_frames = 0;
-    c_p->i = beam_run_process;
+    sys_memcpy(c_p->arg_reg, regs, arity * sizeof(Eterm));
+    c_p->arity = arity;
 
     /*
      * If there are no waiting messages, garbage collect and
@@ -1712,10 +1643,9 @@ erts_hibernate(Process* c_p, Eterm* reg)
 	    erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
+
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    c_p->current = &BIF_TRAP_EXPORT(BIF_hibernate_3)->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
-    return 1;
 }
 
 ErtsCodePtr
