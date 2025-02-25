@@ -178,7 +178,7 @@ static char *erts_dop_to_string(enum dop dop) {
 int erts_is_alive; /* System must be blocked on change */
 int erts_dist_buf_busy_limit;
 
-Uint64 erts_dflags_test_remove_hopefull_flags;
+Uint64 erts_dflags_test_remove;
 
 Export spawn_request_yield_export;
 
@@ -895,7 +895,7 @@ kill_dist_ctrl_proc(void *vpid)
     /* Send a 'kill' exit signal from init process */
     Process *init_proc = erts_proc_lookup_raw(erts_init_process_id);
     erts_proc_sig_send_exit(&init_proc->common, erts_init_process_id,
-                            (Eterm)vpid, am_kill, NIL, 0);
+                            (Eterm)vpid, am_kill, NIL, 0, 0);
 }
 
 static void
@@ -1582,7 +1582,8 @@ static int can_send_seqtrace_token(ErtsDSigSendContext* ctx, Eterm token) {
 }
 
 int
-erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
+erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm full_remote,
+                   Eterm message, int prio)
 {
     Eterm ctl;
     Eterm token = NIL;
@@ -1595,15 +1596,17 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
     Uint msize = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
-    DTRACE_CHARBUF(receiver_name, 64);
+    DTRACE_CHARBUF(receiver_name, 2050);
 #endif
 
-    ASSERT(is_external_pid(remote) || is_external_ref(remote));
-    
+    ASSERT(is_external_pid(remote)
+           || is_external_ref(remote)
+           || is_atom(remote));
+
     if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_serial(sender);
 	token = SEQ_TRACE_TOKEN(sender);
-	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
+	seq_trace_output(token, message, SEQ_TRACE_SEND, full_remote, sender);
     }
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
@@ -1612,8 +1615,12 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
                       "%T", ctx->dep->sysname);
         erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
                       "%T", sender->common.id);
-        erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
-                      "%T", remote);
+        if (is_not_atom(remote))
+            erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
+                          "%T", remote);
+        else
+            erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
+                          "{%T,%s}", remote, node_name);
         msize = size_object(message);
         if (have_seqtrace(token)) {
             tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
@@ -1629,28 +1636,61 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
 
         send_token = (token != NIL && can_send_seqtrace_token(ctx, token));
 
-        if (is_external_ref(remote)) {
-            dist_op = make_small(send_token ?
-                                 DOP_ALIAS_SEND_TT :
-                                 DOP_ALIAS_SEND);
+        if ((prio || is_external_ref(remote))
+            && (ctx->dflags & DFLAG_ALTACT_SIG)) {
+            int fs = 0;
+            Eterm flags, *hp = &ctx->ctl_heap[0];
+            if (is_external_ref(remote))
+                fs |= ERTS_DOP_ALTACT_SIG_FLG_ALIAS;
+            else if (is_atom(remote))
+                fs |= ERTS_DOP_ALTACT_SIG_FLG_NAME;
+            if (prio)
+                fs |= ERTS_DOP_ALTACT_SIG_FLG_PRIO;
+            if (send_token)
+                fs |= ERTS_DOP_ALTACT_SIG_FLG_TOKEN;
+            dist_op = make_small(DOP_ALTACT_SIG_SEND);
+            flags = make_small(fs);
             sender_id = sender->common.id;
+            if (send_token) {
+                ctl = TUPLE5(hp, dist_op, flags, sender_id, remote, token);
+            }
+            else {
+                ctl = TUPLE4(hp, dist_op, flags, sender_id, remote);
+            }
         }
-        else if (ctx->dflags & DFLAG_SEND_SENDER) {
-            dist_op = make_small(send_token ?
-                                 DOP_SEND_SENDER_TT :
-                                 DOP_SEND_SENDER);
-            sender_id = sender->common.id;
-        } else {
-            dist_op = make_small(send_token ?
-                                 DOP_SEND_TT :
-                                 DOP_SEND);
-            sender_id = am_Empty;
+        else if (is_atom(remote)) {
+            if (send_token)
+                ctl = TUPLE5(&ctx->ctl_heap[0], make_small(DOP_REG_SEND_TT),
+                             sender->common.id, am_Empty, remote, token);
+            else
+                ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_REG_SEND),
+                             sender->common.id, am_Empty, remote);
         }
+        else {
 
-        if (send_token) {
-            ctl = TUPLE4(&ctx->ctl_heap[0], dist_op, sender_id, remote, token);
-        } else {
-            ctl = TUPLE3(&ctx->ctl_heap[0], dist_op, sender_id, remote);
+            if (is_external_ref(remote)) {
+                dist_op = make_small(send_token ?
+                                     DOP_ALIAS_SEND_TT :
+                                     DOP_ALIAS_SEND);
+                sender_id = sender->common.id;
+            }
+            else if (ctx->dflags & DFLAG_SEND_SENDER) {
+                dist_op = make_small(send_token ?
+                                     DOP_SEND_SENDER_TT :
+                                     DOP_SEND_SENDER);
+                sender_id = sender->common.id;
+            } else {
+                dist_op = make_small(send_token ?
+                                     DOP_SEND_TT :
+                                     DOP_SEND);
+                sender_id = am_Empty;
+            }
+
+            if (send_token) {
+                ctl = TUPLE4(&ctx->ctl_heap[0], dist_op, sender_id, remote, token);
+            } else {
+                ctl = TUPLE3(&ctx->ctl_heap[0], dist_op, sender_id, remote);
+            }
         }
     }
 
@@ -1662,62 +1702,6 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
     ctx->msg = message;
     res = erts_dsig_send(ctx);
     return res;
-}
-
-int
-erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name,
-                       Eterm full_to, Eterm message)
-{
-    Eterm ctl;
-    Eterm token = NIL;
-    Process *sender = ctx->c_p;
-#ifdef USE_VM_PROBES
-    Sint tok_label = 0;
-    Sint tok_lastcnt = 0;
-    Sint tok_serial = 0;
-    Uint32 msize = 0;
-    DTRACE_CHARBUF(node_name, 64);
-    DTRACE_CHARBUF(sender_name, 64);
-    DTRACE_CHARBUF(receiver_name, 128);
-#endif
-
-    if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
-	seq_trace_update_serial(sender);
-	token = SEQ_TRACE_TOKEN(sender);
-	seq_trace_output(token, message, SEQ_TRACE_SEND, full_to, sender);
-    }
-#ifdef USE_VM_PROBES
-    *node_name = *sender_name = *receiver_name = '\0';
-    if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
-        erts_snprintf(node_name, sizeof(DTRACE_CHARBUF_NAME(node_name)),
-                      "%T", ctx->dep->sysname);
-        erts_snprintf(sender_name, sizeof(DTRACE_CHARBUF_NAME(sender_name)),
-                      "%T", sender->common.id);
-        erts_snprintf(receiver_name, sizeof(DTRACE_CHARBUF_NAME(receiver_name)),
-                      "{%T,%s}", remote_name, node_name);
-        msize = size_object(message);
-        if (have_seqtrace(token)) {
-            tok_label = SEQ_TRACE_T_DTRACE_LABEL(token);
-            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
-            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
-        }
-    }
-#endif
-
-    if (token != NIL && can_send_seqtrace_token(ctx, token))
-	ctl = TUPLE5(&ctx->ctl_heap[0], make_small(DOP_REG_SEND_TT),
-		     sender->common.id, am_Empty, remote_name, token);
-    else
-	ctl = TUPLE4(&ctx->ctl_heap[0], make_small(DOP_REG_SEND),
-		     sender->common.id, am_Empty, remote_name);
-
-    DTRACE6(message_send, sender_name, receiver_name,
-            msize, tok_label, tok_lastcnt, tok_serial);
-    DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
-            msize, tok_label, tok_lastcnt, tok_serial);
-    ctx->ctl = ctl;
-    ctx->msg = message;
-    return erts_dsig_send(ctx);
 }
 
 /* local has died, deliver the exit signal to remote */
@@ -1794,18 +1778,43 @@ erts_dsig_send_exit(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Eterm r
 }
 
 int
-erts_dsig_send_exit2(ErtsDSigSendContext *ctx, Eterm local, Eterm remote, Eterm reason)
+erts_dsig_send_exit2(ErtsDSigSendContext *ctx, Eterm local, Eterm remote,
+                     Eterm reason, int prio)
 {
     Eterm ctl, msg;
 
-    if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
-        ctl = TUPLE3(&ctx->ctl_heap[0],
-                     make_small(DOP_PAYLOAD_EXIT2), local, remote);
+    if (!(prio || is_ref(remote))) {
+    non_altact_sig:
+        if (ctx->dep->dflags & DFLAG_EXIT_PAYLOAD) {
+            ctl = TUPLE3(&ctx->ctl_heap[0],
+                         make_small(DOP_PAYLOAD_EXIT2), local, remote);
+            msg = reason;
+        } else {
+            ctl = TUPLE4(&ctx->ctl_heap[0],
+                         make_small(DOP_EXIT2), local, remote, reason);
+            msg = THE_NON_VALUE;
+        }
+    }
+    else {
+        int fs = ERTS_DOP_ALTACT_SIG_FLG_EXIT;
+        Eterm flags, *hp = &ctx->ctl_heap[0];
+
+        if (!(ctx->dep->dflags & DFLAG_ALTACT_SIG)) {
+            if (is_ref(remote)) {
+                /* not supported by receiver node; drop it... */
+                return ERTS_DSIG_SEND_OK;
+            }
+            goto non_altact_sig;
+        }
+
+        if (is_ref(remote))
+            fs |= ERTS_DOP_ALTACT_SIG_FLG_ALIAS;
+        if (prio)
+            fs |= ERTS_DOP_ALTACT_SIG_FLG_PRIO;
+        flags = make_small(fs);
+
+        ctl = TUPLE4(hp, make_small(DOP_ALTACT_SIG_SEND), flags, local, remote);
         msg = reason;
-    } else {
-        ctl = TUPLE4(&ctx->ctl_heap[0],
-                     make_small(DOP_EXIT2), local, remote, reason);
-        msg = THE_NON_VALUE;
     }
 
     return dsig_send_exit(ctx, ctl, msg);
@@ -2559,9 +2568,117 @@ int erts_net_message(Port *prt,
         if (is_not_ref(to)) {
             goto invalid_message;
         }
-        erts_proc_sig_send_dist_to_alias(from, to, edep, ede_hfrag, token);
+        erts_proc_sig_send_dist_altact_msg(from, to, edep, ede_hfrag, token, 0);
         break;
-        
+
+    case DOP_ALTACT_SIG_SEND: {
+        /*
+         * {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To}
+         * | {DOP_ALTACT_SIG_SEND, Flags, SenderPid, To, Token}
+         *
+         * The tuple might be extended with more elements in the
+         * future, so we should only verify that it is large enough.
+         *
+         * The Flags element is an integer which currently have these
+         * bit flags defined in the 4 least significant bits:
+         * - ERTS_DOP_ALTACT_SIG_FLG_PRIO
+         *   This is a priority message
+         * - ERTS_DOP_ALTACT_SIG_FLG_TOKEN
+         *   Control message also contains a token (control message is
+         *   a 5-tuple instead of a 4-tuple).
+         * - ERTS_DOP_ALTACT_SIG_FLG_ALIAS
+         *   An alias message (To is a reference)
+         * - ERTS_DOP_ALTACT_SIG_FLG_NAME
+         *   Send to a registered name (To is an atom)
+         * - ERTS_DOP_ALTACT_SIG_FLG_EXIT
+         *   The signal is an exit signal; otherwise, a message signal
+         * If neither ERTS_DOP_ALTACT_SIG_FLG_ALIAS nor
+         * ERTS_DOP_ALTACT_SIG_FLG_NAME is set, 'To' is a process
+         * identifier.
+         *
+         * Other flags should be ignored. However, we should be able to
+         * handle a flags field of an arbitrary size (for future use), so
+         * we must be prepared for a bignum of an arbitrary size...
+         */
+        int prio;
+        byte flags;
+
+#ifdef ERTS_DIST_MSG_DBG
+	dist_msg_dbg(edep, "ALTACT MSG", buf, orig_len);
+#endif
+	if (tuple_arity < 4)
+	    goto invalid_message;
+
+        if (is_small(tuple[2])) {
+            Sint val = signed_val(tuple[2]);
+            if (val < 0)
+                goto invalid_message;
+            flags = (byte) (val & 0xff);
+        }
+        else if (is_big(tuple[2])) {
+            Eterm *val = big_val(tuple[2]);
+            ASSERT(BIG_ARITY(val) >= 1);
+            if (BIG_SIGN(val))
+                goto invalid_message;
+            flags = (byte) (BIG_V(val)[0] & 0xff); /* least significant byte */
+        }
+        else {
+            /* Not an integer... */
+            goto invalid_message;
+        }
+
+        from = tuple[3];
+        if (is_not_pid(from)) {
+            goto invalid_message;
+        }
+        to = tuple[4];
+        if (!(flags & ERTS_DOP_ALTACT_SIG_FLG_TOKEN)) {
+            token = NIL;
+        }
+	else if (tuple_arity < 5) {
+            goto invalid_message;
+        }
+        else {
+            token = tuple[5];
+        }
+        if ((flags & ERTS_DOP_ALTACT_SIG_FLG_ALIAS)) {
+            if (is_not_ref(to) || (flags & ERTS_DOP_ALTACT_SIG_FLG_NAME)) {
+                goto invalid_message;
+            }
+        }
+        else if (flags & ERTS_DOP_ALTACT_SIG_FLG_NAME) {
+            if (!is_atom(to)) {
+                goto invalid_message;
+            }
+            to = erts_whereis_name_to_id(NULL, to);
+            if (is_not_internal_pid(to)) {
+                /* No such process registered; drop message... */
+                if (ede_hfrag) {
+                    erts_free_dist_ext_copy(erts_get_dist_ext(ede_hfrag));
+                    free_message_buffer(ede_hfrag);
+                }
+                break;
+            }
+        }
+        else {
+            if (is_not_pid(to)) {
+                goto invalid_message;
+            }
+        }
+
+        prio = !!(flags & ERTS_DOP_ALTACT_SIG_FLG_PRIO);
+        /* Dispatch it to identified process... */
+        if (flags & ERTS_DOP_ALTACT_SIG_FLG_EXIT) {
+            erts_proc_sig_send_dist_exit(dep, from, to, edep, ede_hfrag,
+                                         THE_NON_VALUE, token, prio);
+        }
+        else {
+            erts_proc_sig_send_dist_altact_msg(from, to, edep, ede_hfrag,
+                                               token, prio);
+        }
+        break;
+    }
+
     case DOP_PAYLOAD_MONITOR_P_EXIT:
     case DOP_MONITOR_P_EXIT: {
 
@@ -2743,7 +2860,7 @@ int erts_net_message(Port *prt,
         }
 #endif
 
-        erts_proc_sig_send_dist_exit(dep, from, to, edep, ede_hfrag, reason, token);
+        erts_proc_sig_send_dist_exit(dep, from, to, edep, ede_hfrag, reason, token, 0);
 	break;
     }
     case DOP_GROUP_LEADER:
@@ -5421,9 +5538,9 @@ badarg:
 
 BIF_RETTYPE erts_internal_get_dflags_0(BIF_ALIST_0)
 {
-    if (erts_dflags_test_remove_hopefull_flags) {
+    if (erts_dflags_test_remove) {
         /* For internal emulator tests only! */
-        const Uint64 mask = ~erts_dflags_test_remove_hopefull_flags;
+        const Uint64 mask = ~erts_dflags_test_remove;
         Eterm *hp, **hpp = NULL;
         Uint sz = 0, *szp = &sz;
         Eterm res;
@@ -5713,14 +5830,15 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm monitor_tag = THE_NON_VALUE;
     Eterm mod, func, alist, new_opts, error, ref,
         ok_result;
-    Uint nargs, nopts, rm_opts, rebuild_opts, add_monitor;
+    Uint nargs, nopts, rm_opts, rebuild_opts, add_monitor, add_link;
     DistEntry *dep = NULL;
     Eterm list;
     ErtsDSigSendContext ctx;
     int code;
-    Uint16 monitor_oflags = 0, monitor_opts_oflags = 0;
+    Uint32 monitor_oflags = 0, monitor_opts_oflags = 0;
 
     add_monitor = 0;
+    add_link = 0;
     ok_result = THE_NON_VALUE;
     
     if (!is_atom(node))
@@ -5809,7 +5927,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                     case am_monitor:
                         monitor_opts_oflags = erts_monitor_opts(tp[2],
                                                                 &monitor_tag);
-                        if (monitor_opts_oflags == (Uint16) ~0) {
+                        if (monitor_opts_oflags == (Uint32) ~0) {
                             if (BIF_ARG_4 != am_spawn_request)
                                 goto badarg;
                             ok_result = ref = erts_make_ref(BIF_P);
@@ -5818,10 +5936,26 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                         monitor_opts_oflags |= ERTS_ML_FLG_SPAWN_MONITOR;
                         add_monitor = 1;
                     }
-                    
+
+                    if (0) {
+                        Uint32 link_opts_oflags;
+                    case am_link:
+                        link_opts_oflags = erts_link_opts(tp[2], NULL);
+                        if (link_opts_oflags == (Uint32) ~0) {
+                            if (BIF_ARG_4 != am_spawn_request)
+                                goto badarg;
+                            ok_result = ref = erts_make_ref(BIF_P);
+                            goto badopt;
+                        }
+                        monitor_oflags |= ERTS_ML_FLG_SPAWN_LINK;
+                        if (link_opts_oflags & ERTS_ML_FLG_PRIO_ML)
+                            monitor_oflags |= ERTS_ML_FLG_SPAWN_LINK_PRIO;
+                        add_link = 1;
+                    }
+
                     rm_opts++;
                     new_opts = list;
-                    rebuild_opts = nopts - rm_opts + add_monitor;
+                    rebuild_opts = nopts - rm_opts + add_monitor + add_link;
                     break;
                     
                 default:
@@ -5869,7 +6003,16 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             prev_cp = NULL;
             list = opts;
             rm_cnt = 0;
-            
+
+            if (add_link) {
+#ifdef DEBUG
+                rebuild_opts--;
+#endif
+                CAR(hp) = am_link;
+                prev_cp = hp;
+                hp -= 2;
+                CDR(prev_cp) = make_list(hp);
+            }
             if (add_monitor) {
 #ifdef DEBUG
                 rebuild_opts--;
@@ -5972,6 +6115,9 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         ASSERT(inserted); (void)inserted;
         
         erts_de_runlock(dep);
+
+        if (monitor_oflags & ERTS_ML_FLG_PRIO_ML)
+            erts_proc_sig_prio_item_added(BIF_P, ERTS_PRIO_ITEM_TYPE_MONITOR);
 
         ctx.reds = (Sint) (ERTS_BIF_REDS_LEFT(BIF_P) * TERM_TO_BINARY_LOOP_FACTOR);
 
@@ -6698,7 +6844,7 @@ erts_monitor_nodes_delete(ErtsMonitor *omon)
 {
     ErtsMonitorData *mdp;
 
-    ASSERT(omon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(omon) == ERTS_MON_TYPE_NODES);
     ASSERT(erts_monitor_is_origin(omon));
 
     mdp = erts_monitor_to_data(omon);
@@ -6729,7 +6875,7 @@ save_nodes_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
 
     ASSERT(erts_monitor_is_target(mon));
-    ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
 
     ctxt->nmdp[ctxt->i].pid = mon->other.item;
     ctxt->nmdp[ctxt->i].options = mdp->origin.other.item;
@@ -6967,7 +7113,7 @@ nodes_monitor_info(ErtsMonitor *mon, void *vctxt, Sint reds)
     res = ctxt->res;
 
     ASSERT(erts_monitor_is_target(mon));
-    ASSERT(mon->type == ERTS_MON_TYPE_NODES);
+    ASSERT(ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_NODES);
     mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(mon);
     no = mdep->u.refc;
 

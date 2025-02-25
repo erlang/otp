@@ -186,14 +186,14 @@ typedef struct {
 #define ERTS_SIG_Q_OP_SYNC_SUSPEND              12
 #define ERTS_SIG_Q_OP_RPC                       13
 #define ERTS_SIG_Q_OP_DIST_SPAWN_REPLY          14
-#define ERTS_SIG_Q_OP_ALIAS_MSG                 15
+#define ERTS_SIG_Q_OP_ALTACT_MSG                15
 #define ERTS_SIG_Q_OP_RECV_MARK                 16
 #define ERTS_SIG_Q_OP_UNLINK_ACK                17
 #define ERTS_SIG_Q_OP_ADJ_MSGQ                  18
 #define ERTS_SIG_Q_OP_FLUSH			19
 #define ERTS_SIG_Q_OP_NIF_SELECT		ERTS_SIG_Q_OP_MAX
 
-#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 10)
+#define ERTS_SIG_Q_TYPE_MAX (ERTS_MON_LNK_TYPE_MAX + 11)
 
 #define ERTS_SIG_Q_TYPE_UNDEFINED \
     (ERTS_MON_LNK_TYPE_MAX + 1)
@@ -207,54 +207,63 @@ typedef struct {
     (ERTS_MON_LNK_TYPE_MAX + 5)
 #define ERTS_SIG_Q_TYPE_DIST \
     (ERTS_MON_LNK_TYPE_MAX + 6)
-#define ERTS_SIG_Q_TYPE_HEAP \
+#define ERTS_SIG_Q_TYPE_DIST_FRAG \
     (ERTS_MON_LNK_TYPE_MAX + 7)
-#define ERTS_SIG_Q_TYPE_OFF_HEAP \
+#define ERTS_SIG_Q_TYPE_HEAP \
     (ERTS_MON_LNK_TYPE_MAX + 8)
-#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+#define ERTS_SIG_Q_TYPE_OFF_HEAP \
     (ERTS_MON_LNK_TYPE_MAX + 9)
+#define ERTS_SIG_Q_TYPE_HEAP_FRAG \
+    (ERTS_MON_LNK_TYPE_MAX + 10)
 #define ERTS_SIG_Q_TYPE_CLA \
     ERTS_SIG_Q_TYPE_MAX
 
-#define ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(Tag)                          \
-    (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
-               | ERTS_PROC_SIG_OP_MASK                               \
-               | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
-                               ERTS_SIG_Q_TYPE_DIST,                 \
-                               0))
-#define ERTS_SIG_IS_DIST_ALIAS_MSG(sig)                              \
-    ERTS_SIG_IS_DIST_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_DIST_ALTACT_MSG_TAG(Tag)                            \
+    ((((Tag) & (ERTS_PROC_SIG_TYPE_MASK                                 \
+                | ERTS_PROC_SIG_OP_MASK                                 \
+                | ERTS_PROC_SIG_BASE_TAG_MASK))                         \
+      == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,               \
+                                ERTS_SIG_Q_TYPE_DIST,                   \
+                                0))                                     \
+     | (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
+                  | ERTS_PROC_SIG_OP_MASK                               \
+                  | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
+        == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,             \
+                                  ERTS_SIG_Q_TYPE_DIST_FRAG,            \
+                                  0)))
 
-#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(Tag)                      \
+#define ERTS_SIG_IS_DIST_ALTACT_MSG(sig)                                \
+    ERTS_SIG_IS_DIST_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+
+#define ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG_TAG(Tag)                      \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_OFF_HEAP,             \
                                0))
-#define ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG(sig)                          \
-    ERTS_SIG_IS_OFF_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG(sig)                          \
+    ERTS_SIG_IS_OFF_HEAP_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
-#define ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(Tag)                          \
+#define ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(Tag)                          \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_HEAP,                 \
                                0))
-#define ERTS_SIG_IS_HEAP_ALIAS_MSG(sig)                              \
-    ERTS_SIG_IS_HEAP_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_HEAP_ALTACT_MSG(sig)                              \
+    ERTS_SIG_IS_HEAP_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
-#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(Tag)                     \
+#define ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG_TAG(Tag)                     \
     (((Tag) & (ERTS_PROC_SIG_TYPE_MASK                               \
                | ERTS_PROC_SIG_OP_MASK                               \
                | ERTS_PROC_SIG_BASE_TAG_MASK))                       \
-     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALIAS_MSG,              \
+     == ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_ALTACT_MSG,              \
                                ERTS_SIG_Q_TYPE_HEAP_FRAG,            \
                                0))
-#define ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG(sig)                         \
-    ERTS_SIG_IS_HEAP_FRAG_ALIAS_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
+#define ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG(sig)                         \
+    ERTS_SIG_IS_HEAP_FRAG_ALTACT_MSG_TAG(((ErtsSignal *) (sig))->common.tag)
 
 #define ERTS_RECV_MARKER_TAG                                         \
     (ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_RECV_MARK,		     \
@@ -415,10 +424,11 @@ struct dist_entry_;
  *                              reason will kill the receiver
  *                              if it is not trapping exit.
  *
+ * @param[in]     prio          Priority exit signal?
  */
 void
 erts_proc_sig_send_exit(ErtsPTabElementCommon *sender, Eterm from, Eterm to,
-                        Eterm reason, Eterm token, int normal_kills);
+                        Eterm reason, Eterm token, int normal_kills, int prio);
 
 /**
  *
@@ -444,13 +454,14 @@ erts_proc_sig_send_exit(ErtsPTabElementCommon *sender, Eterm from, Eterm to,
  *
  * @param[in]     token         Seq trace token.
  *
+ * @param[in]     prio          Priority exit signal?
  */
 void
 erts_proc_sig_send_dist_exit(DistEntry *dep,
                              Eterm from, Eterm to,
                              ErtsDistExternal *dist_ext,
                              ErlHeapFragment *hfrag,
-                             Eterm reason, Eterm token);
+                             Eterm reason, Eterm token, int prio);
 
 /**
  *
@@ -1470,13 +1481,14 @@ erts_proc_sig_send_pending(Process *c_p, ErtsSchedulerData* esdp);
 
 
 void
-erts_proc_sig_send_to_alias(Process *c_p, Eterm from, Eterm to,
-                            Eterm msg, Eterm token);
+erts_proc_sig_send_altact_msg(Process *c_p, Eterm from, Eterm to,
+                              Eterm msg, Eterm token, int prio);
 
 void
-erts_proc_sig_send_dist_to_alias(Eterm from, Eterm alias,
-                                 ErtsDistExternal *edep,
-                                 ErlHeapFragment *hfrag, Eterm token);
+erts_proc_sig_send_dist_altact_msg(Eterm from, Eterm alias,
+                                   ErtsDistExternal *edep,
+                                   ErlHeapFragment *hfrag, Eterm token,
+                                   int prio);
 
 /**
  *
@@ -1821,6 +1833,14 @@ ERTS_GLB_INLINE void erts_msgq_set_save_end(Process *c_p);
  */
 void erts_proc_sig_cleanup_queues(Process *c_p);
 
+typedef enum {
+    ERTS_PRIO_ITEM_TYPE_ALIAS,
+    ERTS_PRIO_ITEM_TYPE_LINK,
+    ERTS_PRIO_ITEM_TYPE_MONITOR,
+} ErtsPrioItemType;
+
+void erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type);
+void erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type);
 
 /**
  * @brief Initialize this functionality
@@ -1841,16 +1861,23 @@ extern Process *erts_dirty_process_signal_handler_high;
 extern Process *erts_dirty_process_signal_handler_max;
 
 /* Helpers... */
+
 void erts_proc_sig_fetch__(Process *proc,
                            ErtsSignalInQueueBufferArray* buffers,
                            int need_unget_buffers);
 ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_on(Process *proc);
 ERTS_GLB_INLINE void erts_chk_sys_mon_long_msgq_off(Process *proc);
 ERTS_GLB_INLINE int erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2);
-ERTS_GLB_INLINE void erts_msgq_recv_marker_set_save__(Process *c_p,
-				 ErtsRecvMarkerBlock *blkp,
-				 ErtsRecvMarker *markp,
-				 int ix);
+ERTS_GLB_INLINE ErtsMessage **
+erts_msgq_recv_marker_pending_set_save__(Process *c_p,
+                                         ErtsRecvMarkerBlock *blkp,
+                                         ErtsRecvMarker *markp,
+                                         int ix);
+ERTS_GLB_INLINE void
+erts_msgq_recv_marker_set_save__(Process *c_p,
+                                 ErtsRecvMarkerBlock *blkp,
+                                 ErtsRecvMarker *markp,
+                                 int ix);
 Eterm erts_msgq_recv_marker_create_insert(Process *c_p, Eterm id);
 void erts_msgq_recv_marker_create_insert_set_save(Process *c_p, Eterm id);
 ErtsMessage **erts_msgq_pass_recv_markers(Process *c_p,
@@ -1859,6 +1886,19 @@ void erts_msgq_remove_leading_recv_markers_set_save_first(Process *c_p);
 
 #define ERTS_RECV_MARKER_IX__(BLKP, MRKP) \
     ((int) ((MRKP) - &(BLKP)->marker[0]))
+
+#define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
+    do {								\
+	if ((BLKP)->pending_set_save_ix >= 0) {				\
+	    int clr_ix__ = (BLKP)->pending_set_save_ix;			\
+	    ErtsRecvMarker *clr_markp__ = &(BLKP)->marker[clr_ix__];	\
+	    ASSERT(!clr_markp__->in_msgq);				\
+	    ASSERT(clr_markp__->in_sigq);				\
+	    ASSERT(clr_markp__->set_save);				\
+	    clr_markp__->set_save = 0;					\
+	    (BLKP)->pending_set_save_ix = -1;				\
+	}								\
+    } while (0)
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -2046,21 +2086,6 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
     }
 }
 
-
-#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
-#define ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(BLKP) 		\
-    do {								\
-	if ((BLKP)->pending_set_save_ix >= 0) {				\
-	    int clr_ix__ = (BLKP)->pending_set_save_ix;			\
-	    ErtsRecvMarker *clr_markp__ = &(BLKP)->marker[clr_ix__];	\
-	    ASSERT(!clr_markp__->in_msgq);				\
-	    ASSERT(clr_markp__->in_sigq);				\
-	    ASSERT(clr_markp__->set_save);				\
-	    clr_markp__->set_save = 0;					\
-	    (BLKP)->pending_set_save_ix = -1;				\
-	}								\
-    } while (0)
-
 ERTS_GLB_INLINE int
 erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
 {
@@ -2092,6 +2117,34 @@ erts_msgq_eq_recv_mark_id__(Eterm term1, Eterm term2)
     return !0;
 }
 
+ERTS_GLB_INLINE ErtsMessage **
+erts_msgq_recv_marker_pending_set_save__(Process *c_p,
+                                         ErtsRecvMarkerBlock *blkp,
+                                         ErtsRecvMarker *markp,
+                                         int ix)
+{
+    /*
+     * Marker is in the middle queue of signals not
+     * processed yet. Trigger handling of signals in loop_rec
+     * by setting save pointer to the end of message queue
+     * (inner queue). This in order to get the recv marker
+     * into the message queue.
+     */
+    c_p->sig_qs.save = c_p->sig_qs.last;
+    ASSERT(!(*c_p->sig_qs.save));
+    /* save past the prio queue */
+    c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+    /*
+     * Set save pointer when marker enters message queue...
+     */
+    markp->set_save = !0;
+    ASSERT(blkp->pending_set_save_ix == -1);
+    ASSERT(ix == ERTS_RECV_MARKER_IX__(blkp, markp));
+    blkp->pending_set_save_ix = ix;
+
+    return c_p->sig_qs.last;
+}
+
 ERTS_GLB_INLINE void
 erts_msgq_recv_marker_set_save__(Process *c_p,
 				 ErtsRecvMarkerBlock *blkp,
@@ -2104,30 +2157,44 @@ erts_msgq_recv_marker_set_save__(Process *c_p,
     ASSERT(!markp->set_save);
     ASSERT(markp->in_sigq);
 
-    if (markp->in_msgq) {
-        ErtsMessage **sigpp = &markp->sig.common.next;
-	if (*sigpp && ERTS_SIG_IS_RECV_MARKER(*sigpp))
+    if (!markp->in_msgq) {
+        (void) erts_msgq_recv_marker_pending_set_save__(c_p, blkp,
+                                                        markp, ix);
+    }
+    else {
+        ErtsMessage **sigpp, *sigp;
+
+        if (!markp->in_prioq) {
+        empty_prioq:
+            sigpp = &markp->sig.common.next;
+            sigp = *sigpp;
+
+            /* all recv-markers are outside of prio queue */
+            c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+        }
+        else {
+            /*
+             * Messages containing the corresponding reference has been
+             * seen in the prio queue, so we need to scan the prio
+             * first...
+             */
+            if (!(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK)) {
+                /* prio queue is empty now... */
+                markp->in_prioq = 0;
+                goto empty_prioq;
+            }
+            sigpp = &c_p->sig_qs.first;
+            sigp = *sigpp;
+            ASSERT(sigp && c_p->sig_qs.flags & FS_PRIO_MQ);
+            c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+        }
+	if (sigp && ERTS_SIG_IS_RECV_MARKER(sigp))
 	    sigpp = erts_msgq_pass_recv_markers(c_p, sigpp);
         c_p->sig_qs.save = sigpp;
     }
-    else {
-        /*
-         * Marker is in the middle queue of signals not
-         * processed yet. Trigger handling of signals in loop_rec
-         * by setting save pointer to the end of message queue
-         * (inner queue). This in order to get the recv marker
-         * into the message queue.
-         */
-        c_p->sig_qs.save = c_p->sig_qs.last;
-        ASSERT(!(*c_p->sig_qs.save));
-        /*
-         * Set save pointer when marker enters message queue...
-         */
-        markp->set_save = !0;
-        ASSERT(blkp->pending_set_save_ix == -1);
-	ASSERT(ix == ERTS_RECV_MARKER_IX__(blkp, markp));
-        blkp->pending_set_save_ix = ix;
-    }
+
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_RCVM);
+    blkp->set_save_ix = ix;
 }
 
 ERTS_GLB_INLINE void
@@ -2212,6 +2279,7 @@ ERTS_GLB_INLINE void
 erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 {
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
+
     if (is_internal_ref(id)) {
 	ErtsRecvMarkerBlock *blkp = c_p->sig_qs.recv_mrk_blk;
 
@@ -2225,7 +2293,6 @@ erts_msgq_recv_marker_set_save(Process *c_p, Eterm id)
 		}
 	    }
 	}
-
     }
 }
 
@@ -2265,7 +2332,7 @@ erts_msgq_set_save_first(Process *c_p)
     ASSERT(!(c_p->sig_qs.flags & FS_HANDLING_SIGS));
     if (blkp) {
 	ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__(blkp);
-    }    
+    }
 
     /*
      * Remove any receive markers at the front of the
@@ -2274,8 +2341,23 @@ erts_msgq_set_save_first(Process *c_p)
      */
     if (c_p->sig_qs.first && ERTS_SIG_IS_RECV_MARKER(c_p->sig_qs.first))
 	erts_msgq_remove_leading_recv_markers_set_save_first(c_p);
-    else
+    else {
+        if (c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK) {
+            c_p->sig_qs.flags |= FS_PRIO_MQ_SAVE;
+        }
+        else {
+            ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
+        }
+        ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_FIRST);
         c_p->sig_qs.save = &c_p->sig_qs.first;
+    }
+
+    /*
+     * We are leaving a receive expression in one way or the other. We should
+     * have prepared for the next receive expression by setting the save ptr
+     * to the first message...
+     */
+    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST);
 }
 
 ERTS_GLB_INLINE void
@@ -2319,8 +2401,13 @@ erts_msgq_set_save_end(Process *c_p)
     erts_proc_sig_fetch(c_p);
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
-    if (!c_p->sig_qs.cont)
+    /* Previous receive should have prepared by setting save ptr to first msg */
+    ASSERT(ERTS_MQ_GET_SAVE_INFO(c_p) == FS_SET_SAVE_INFO_FIRST);
+
+    if (!c_p->sig_qs.cont) {
         c_p->sig_qs.save = c_p->sig_qs.last;
+        c_p->sig_qs.flags &= ~FS_PRIO_MQ_SAVE;
+    }
     else {
         /*
          * Unhandled signals in middle queue; we need to
@@ -2328,9 +2415,9 @@ erts_msgq_set_save_end(Process *c_p)
          */
 	erts_msgq_recv_marker_create_insert_set_save(c_p, NIL);
     }
+    ERTS_MQ_SET_SAVE_INFO(c_p, FS_SET_SAVE_INFO_LAST);
 }
 
-#undef ERTS_PROC_SIG_RECV_MARK_CLEAR_PENDING_SET_SAVE__
 #undef ERTS_PROC_SIG_RECV_MARK_CLEAR_OLD_MARK__
 
 ERTS_GLB_INLINE erts_aint32_t

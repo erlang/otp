@@ -377,9 +377,16 @@ format_erlang_error(element, [Index, Tuple], _) ->
      end,
      must_be_tuple(Tuple)];
 format_erlang_error(exit, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
+format_erlang_error(exit, [_,_,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],[],must_be_list(Options, bad_option)];
+        _ ->
+            [bad_destination]
+    end;
 format_erlang_error(exit_signal, [_,_], _) ->
-    [not_pid];
+    [bad_destination];
 format_erlang_error(external_size, [_Term,Options], _) ->
     [[],must_be_option_list(Options)];
 format_erlang_error(float, [_], _) ->
@@ -481,7 +488,19 @@ format_erlang_error(length, [_], _) ->
 format_erlang_error(link, [Pid], _) ->
     if
         is_pid(Pid) -> [dead_process];
-        true -> [not_pid]
+        is_port(Pid) -> [dead_port];
+        true -> [not_pid_or_port]
+    end;
+format_erlang_error(link, [Pid,Options], Cause) ->
+    case Cause of
+        badopt ->
+            [[],must_be_list(Options, bad_option)];
+        _ ->
+            if
+                is_pid(Pid) -> [dead_process];
+                is_port(Pid) -> [dead_port];
+                true -> [not_pid_or_port]
+            end
     end;
 format_erlang_error(list_to_atom, [List], _) ->
     [must_be_list(List, not_string)];
@@ -1550,6 +1569,8 @@ expand_error(beyond_end_time) ->
     <<"exceeds the maximum supported time value">>;
 expand_error(dead_process) ->
     <<"the pid does not refer to an existing process">>;
+expand_error(dead_port) ->
+    <<"the port identifier does not refer to an existing port">>;
 expand_error({not_encodable,Type}) ->
     [<<"not a textual representation of ">>,Type];
 expand_error(non_existing_atom) ->
@@ -1590,6 +1611,8 @@ expand_error(not_pid) ->
     <<"not a pid">>;
 expand_error(not_port) ->
     <<"not a port">>;
+expand_error(not_pid_or_port) ->
+    <<"not a pid or a port">>;
 expand_error(not_ref) ->
     <<"not a reference">>;
 expand_error(not_string) ->

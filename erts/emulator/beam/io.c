@@ -1248,7 +1248,7 @@ send_badsig(Port *prt) {
     ERTS_LC_ASSERT(erts_get_scheduler_id());
     ASSERT(is_internal_pid(connected));
     erts_proc_sig_send_exit(&prt->common, prt->common.id, connected,
-                            am_badsig, NIL, 0);
+                            am_badsig, NIL, 0, 0);
 } /* send_badsig */
 
 static void
@@ -5027,7 +5027,7 @@ static int prt_one_monitor(ErtsMonitor *mon, void *vprtd, Sint reds)
 {
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     prt_one_lnk_data *prtd = (prt_one_lnk_data *) vprtd;
-    if (mon->type == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
+    if (ERTS_ML_GET_TYPE(mon) == ERTS_MON_TYPE_RESOURCE && erts_monitor_is_target(mon))
         erts_print(prtd->to, prtd->arg, "(%p,%T)", mon->other.ptr, mdp->ref);
     else
         erts_print(prtd->to, prtd->arg, "(%T,%T)", mon->other.item, mdp->ref);
