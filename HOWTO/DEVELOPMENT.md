@@ -355,6 +355,7 @@ switches are:
   * Set environment variable `ASAN_OPTIONS` for any extra asan options you want to pass.
 * -gcov
   * Start a gcov run-time system.
+  * Generate results by running: `$ERL_TOP/erts/etc/unix/gcov-gen-html $ERL_TOP <OUTPUT_DIR>`
 * -gdb
   * Start an Emacs gdb debugging session. Can be combined with -debug.
 * -core /path/to/core/file
