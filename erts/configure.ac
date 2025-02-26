@@ -1303,6 +1303,145 @@ AC_SUBST(Z_LIB)
 
 
 dnl -------------
+dnl inet (driver)
+dnl -------------
+
+dnl *** INET_BUFFER_TCP_DEFAULT
+
+AC_ARG_WITH(inet-buffer-tcp-default, 
+AS_HELP_STRING([--with-inet-buffer-tcp-default=SZ], 
+               [Default size of the internal buffer (for a tcp socket) in bytes (default value is 8192)]), 
+[], 
+[with_inet_buffer_tcp_default=8192])
+
+AC_MSG_CHECKING([Validate (tcp) buffer size])
+dnl This takes care of the case when its not even a number ("foobar")
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_tcp_default;
+   return (int) sz;
+}
+]])],[inet_tcp_buf_sz=yes],[inet_tcp_buf_sz=no])
+dnl This takes care of the case when its an "invalid" number (-10)
+AS_IF([test "$inet_tcp_buf_sz" = yes],
+      [
+       AS_CASE([$with_inet_buffer_tcp_default],
+               [1*|2*|3*|4*|5*|6*|7*|8*|9*],
+               [
+                AC_DEFINE_UNQUOTED(INET_BUFFER_TCP_DEFAULT,
+                                   $with_inet_buffer_tcp_default,
+                                   [Default size of the buffer for an TCP socket (in bytes)])
+               ],
+               [
+                dnl Its a number but not a "valid" one... 01000?
+                dnl Shall we fail instead?
+                AC_MSG_WARN([--with-inet-buffer-tcp-default - Invalid buffer size - using default])
+                AC_DEFINE_UNQUOTED(INET_BUFFER_TCP_DEFAULT,
+                                   8192,
+                                   [Default size of the buffer for an TCP socket (in bytes)])
+               ])
+      ],
+      [
+        dnl Shall we fail instead?
+        AC_MSG_WARN([--with-inet-buffer-tcp-default - Invalid buffer size - using default])
+        AC_DEFINE_UNQUOTED(INET_BUFFER_TCP_DEFAULT,
+                           8192,
+                           [Default size of the buffer for an TCP socket (in bytes)])
+      ])
+
+
+dnl *** INET_BUFFER_UDP_DEFAULT
+
+AC_ARG_WITH(inet-buffer-udp-default, 
+AS_HELP_STRING([--with-inet-buffer-udp-default=SZ], 
+               [Default size of the internal buffer (for a udp socket) in bytes (default value is 8192)]), 
+[], 
+[with_inet_buffer_udp_default=8192])
+
+AC_MSG_CHECKING([Validate (udp) buffer size])
+dnl This takes care of the case when its not even a number ("foobar")
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_udp_default;
+   return (int) sz;
+}
+]])],[inet_udp_buf_sz=yes],[inet_udp_buf_sz=no])
+dnl This takes care of the case when its an "invalid" number (-10)
+AS_IF([test "$inet_udp_buf_sz" = yes],
+      [
+       AS_CASE([$with_inet_buffer_udp_default],
+               [1*|2*|3*|4*|5*|6*|7*|8*|9*],
+               [
+                AC_DEFINE_UNQUOTED(INET_BUFFER_UDP_DEFAULT,
+                                   $with_inet_buffer_udp_default,
+                                   [Default size of the buffer for an UDP socket (in bytes)])
+               ],
+               [
+                dnl Its a number but not a "valid" one... 01000?
+                dnl Shall we fail instead?
+                AC_MSG_WARN([--with-inet-buffer-udp-default - Invalid buffer size - using default])
+                AC_DEFINE_UNQUOTED(INET_BUFFER_UDP_DEFAULT,
+                                   8192,
+                                   [Default size of the buffer for an UDP socket (in bytes)])
+               ])
+      ],
+      [
+        dnl Shall we fail instead?
+        AC_MSG_WARN([--with-inet-buffer-udp-default - Invalid buffer size - using default])
+        AC_DEFINE_UNQUOTED(INET_BUFFER_UDP_DEFAULT,
+                           8192,
+                           [Default size of the buffer for an UDP socket (in bytes)])
+      ])
+
+
+dnl *** INET_BUFFER_SCTP_DEFAULT
+
+AC_ARG_WITH(inet-buffer-sctp-default, 
+AS_HELP_STRING([--with-inet-buffer-sctp-default=SZ], 
+               [Default size of the internal buffer (for a sctp socket) in bytes (default value is 8192)]), 
+[], 
+[with_inet_buffer_sctp_default=8192])
+
+AC_MSG_CHECKING([Validate (sctp) buffer size])
+dnl This takes care of the case when its not even a number ("foobar")
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_sctp_default;
+   return (int) sz;
+}
+]])],[inet_sctp_buf_sz=yes],[inet_sctp_buf_sz=no])
+dnl This takes care of the case when its an "invalid" number (-10)
+AS_IF([test "$inet_sctp_buf_sz" = yes],
+      [
+       AS_CASE([$with_inet_buffer_sctp_default],
+               [1*|2*|3*|4*|5*|6*|7*|8*|9*],
+               [
+                AC_DEFINE_UNQUOTED(INET_BUFFER_SCTP_DEFAULT,
+                                   $with_inet_buffer_sctp_default,
+                                   [Default size of the buffer for an SCTP socket (in bytes)])
+               ],
+               [
+                dnl Its a number but not a "valid" one... 01000?
+                dnl Shall we fail instead?
+                AC_MSG_WARN([--with-inet-buffer-sctp-default - Invalid buffer size - using default])
+                AC_DEFINE_UNQUOTED(INET_BUFFER_SCTP_DEFAULT,
+                                   8192,
+                                   [Default size of the buffer for an SCTP socket (in bytes)])
+               ])
+      ],
+      [
+        dnl Shall we fail instead?
+        AC_MSG_WARN([--with-inet-buffer-sctp-default - Invalid buffer size - using default])
+        AC_DEFINE_UNQUOTED(INET_BUFFER_SCTP_DEFAULT,
+                           8192,
+                           [Default size of the buffer for an SCTP socket (in bytes)])
+      ])
+
+
+dnl -------------
 dnl esock
 dnl -------------
 
