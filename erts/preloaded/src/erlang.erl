@@ -8120,6 +8120,8 @@ Valid `InfoTuple`s with corresponding `Item`s:
   `undefined` is returned. Only the initial process (`init`) on a node lacks a
   parent, though.
 
+  Since: OTP 25.0
+
 - **`{priority, Level}`** - `Level` is the current priority level for the
   process. For more information on priorities, see
   [`process_flag(priority, Level)`](#process_flag_priority).
