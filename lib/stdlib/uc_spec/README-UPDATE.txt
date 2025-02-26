@@ -1,7 +1,7 @@
-Unicode 15.0.0 was updated from:
-- https://www.unicode.org/Public/15.0.0/ucd/
-- https://www.unicode.org/Public/15.0.0/ucd/auxiliary/
-- https://www.unicode.org/Public/15.0.0/ucd/emoji/
+Unicode 16.0.0 was updated from:
+- https://www.unicode.org/Public/16.0.0/ucd/
+- https://www.unicode.org/Public/16.0.0/ucd/auxiliary/
+- https://www.unicode.org/Public/16.0.0/ucd/emoji/
 
 When updating the Unicode version please follow these steps:
 
