@@ -168,7 +168,9 @@ parse_tests([], []) ->
     [];
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([{match,[<<>>,<<>>,<<>>,<<>>]}], Cmd) ->
+parse_tests([{match, [<<>>, <<>>, <<>>, <<>>, <<>>]}], []) ->
+    [];
+parse_tests([{match, [<<>>, <<>>, <<>>, <<>>, <<>>]}], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
 parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"%">>, _Comment, <<"", _Nothing/binary>>]} | T], Cmd) ->
     parse_tests(T, Cmd);
