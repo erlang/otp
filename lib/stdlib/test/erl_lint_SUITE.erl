@@ -2846,10 +2846,8 @@ otp_5878(Config) when is_list(Config) ->
               t() -> #r2{}.
              ">>,
            [warn_unused_record],
-           {error,[{{1,44},erl_lint,{variable_in_record_def,'A'}},
-                   {{1,54},erl_lint,{unbound_var,'B'}},
-                   {{2,38},erl_lint,{variable_in_record_def,'A'}}],
-            [{{1,22},erl_lint,{unused_record,r1}}]}},
+           {errors,[{{1,54},erl_lint,{unbound_var,'B'}}],
+            []}},
 
           {otp_5878_30,
            <<"-record(r1, {t = case foo of _ -> 3 end}).
@@ -2859,9 +2857,7 @@ otp_5878(Config) when is_list(Config) ->
               t() -> {#r1{},#r2{},#r3{},#r4{}}.
              ">>,
            [warn_unused_record],
-           {errors,[{{2,44},erl_lint,{variable_in_record_def,'A'}},
-                    {{3,44},erl_lint,{variable_in_record_def,'A'}}],
-            []}},
+            []},
 
           {otp_5878_40,
            <<"-record(r1, {foo = A}). % A unbound
@@ -2898,9 +2894,7 @@ otp_5878(Config) when is_list(Config) ->
              ">>,
            [warn_unused_record],
            {error,[{{1,39},erl_lint,{unbound_var,'A'}},
-                   {{2,33},erl_lint,{unbound_var,'A'}},
-                   {{4,42},erl_lint,{variable_in_record_def,'A'}},
-                   {{17,44},erl_lint,{variable_in_record_def,'A'}}],
+                   {{2,33},erl_lint,{unbound_var,'A'}}],
             [{{8,36},erl_lint,{unused_var,'X'}}]}},
 
           {otp_5878_60,
@@ -2922,8 +2916,7 @@ otp_5878(Config) when is_list(Config) ->
               t() -> #r1{}.
              ">>,
            [warn_unused_record],
-           {errors,[{{3,40},erl_lint,{unbound_var,'Y'}},
-                    {{4,38},erl_lint,{variable_in_record_def,'Y'}}],
+           {errors,[{{3,40},erl_lint,{unbound_var,'Y'}}],
             []}},
 
           {otp_5878_80,
@@ -3042,8 +3035,7 @@ otp_5878(Config) when is_list(Config) ->
                 t() ->
                     {#u2{}}.
                ">>,
-    {warnings,[{{5,18},erl_lint,{unused_record,u3}},
-               {{6,18},erl_lint,{unused_record,u4}}]} = 
+    {warnings,[{{6,18},erl_lint,{unused_record,u4}}]} =
         run_test2(Config, Usage1, [warn_unused_record]),
 
     Usage2 = <<"-module(lint_test).

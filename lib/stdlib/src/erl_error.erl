@@ -536,10 +536,21 @@ location(L) ->
 sep(1, S) -> S;
 sep(_, S) -> [$\n | S].
 
+is_rec_init(F) when is_atom(F) ->
+    case atom_to_binary(F) of
+        <<"rec_init$^", _/binary>> -> true;
+        _ -> false
+    end;
+is_rec_init(_) -> false.
+
 origin(1, M, F, A) ->
     case is_op({M, F}, n_args(A)) of
         {yes, F} -> <<"in operator ">>;
-        no -> <<"in function ">>
+        no ->
+            case is_rec_init(F) of
+                true -> <<"in record">>;
+                false -> <<"in function ">>
+            end
     end;
 origin(_N, _M, _F, _A) ->
     <<"in call from">>.
@@ -625,7 +636,13 @@ printable_list(_, As) ->
     io_lib:printable_list(As).
 
 mfa_to_string(M, F, A, Enc) ->
-    io_lib:fwrite(<<"~ts/~w">>, [mf_to_string({M, F}, A, Enc), A]).
+    case is_rec_init(F) of
+        true ->
+            <<"default value">>;
+        false ->
+            io_lib:fwrite(<<"~ts/~w">>,
+                          [mf_to_string({M, F}, A, Enc), A])
+    end.
 
 mf_to_string({M, F}, A, Enc) ->
     case erl_internal:bif(M, F, A) of
