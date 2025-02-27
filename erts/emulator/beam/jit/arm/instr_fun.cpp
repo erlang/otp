@@ -380,7 +380,8 @@ a64::Gp BeamModuleAssembler::emit_call_fun(bool skip_box_test,
         a.ldp(TMP2, ARG1, arm::Mem(TMP2));
 
         /* Combined fun type and arity test. */
-        a.cmp(ARG3, TMP2, a64::uxth(0));
+        a.and_(TMP2, TMP2, imm(0xffff));
+        a.cmp(ARG3, TMP2);
         a.b_ne(next);
     }
 
