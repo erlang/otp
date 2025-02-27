@@ -56,7 +56,8 @@ typedef struct ErtsSysForkerProto_ {
         ErtsSysForkerProtoAction_StartAck,
         ErtsSysForkerProtoAction_Go,
         ErtsSysForkerProtoAction_SigChld,
-        ErtsSysForkerProtoAction_Ack
+        ErtsSysForkerProtoAction_Ack,
+        ErtsSysForkerProtoAction_Stop
     } action;
     union {
         struct {
@@ -71,6 +72,9 @@ typedef struct ErtsSysForkerProto_ {
             ErtsSysPortId port_id;
             int error_number;
         } sigchld;
+        struct {
+            pid_t os_pid;
+        } stop;
     } u;
 } ErtsSysForkerProto;
 
