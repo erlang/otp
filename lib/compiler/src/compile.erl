@@ -1905,6 +1905,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 -define(META_USED_FEATURES, enabled_features).
 -define(META_CHUNK_NAME, <<"Meta">>).
 
+metadata_add_features([], St) ->
+    St;
 metadata_add_features(Ftrs, #compile{options = CompOpts,
                                      extra_chunks = Extra} = St) ->
     MetaData =
