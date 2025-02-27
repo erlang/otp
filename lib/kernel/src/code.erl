@@ -1867,6 +1867,13 @@ get_doc(Mod, #{sources:=[Source|Sources]}=Options) ->
                 ErtsDir ->
                     GetDoc(filename:join([ErtsDir, "ebin", atom_to_list(Mod) ++ ".beam"]))
             end;
+        cover_compiled ->
+            case which(Mod, get_path()) of
+                non_existing ->
+                    {error, missing};
+                Fn when is_list(Fn) ->
+                    GetDoc(Fn)
+            end;
         Error when is_atom(Error) ->
             {error, Error};
         Fn ->
