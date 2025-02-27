@@ -703,7 +703,8 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         proto->u.start.fds[0] = ofd[0];
         proto->u.start.fds[1] = ifd[1];
         proto->u.start.fds[2] = stderrfd;
-        proto->u.start.port_id = opts->exit_status ? erts_drvport2id(port_num) : THE_NON_VALUE;
+        proto->u.start.port_id = erts_drvport2id(port_num);
+        proto->u.start.want_exit_status = opts->exit_status;
         if (erl_drv_port_control(forker_port, ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER,
                                  (char*)proto, sizeof(*proto))) {
             /* The forker port has been killed, we close both fd's which will

@@ -63,6 +63,7 @@ typedef struct ErtsSysForkerProto_ {
         struct {
             ErtsSysPortId port_id;
             int fds[3];
+            bool want_exit_status;
         } start;
         struct {
             pid_t os_pid;
