@@ -553,7 +553,6 @@ atom parent
 atom Plus='+'
 atom PlusPlus='++'
 atom pause
-atom pause_proc_timer
 atom pending
 atom pending_driver
 atom pending_process
@@ -616,7 +615,6 @@ atom reset
 atom reset_seq_trace
 atom restart
 atom resume
-atom resume_proc_timer
 atom return_from
 atom return_to
 atom return_to_trace

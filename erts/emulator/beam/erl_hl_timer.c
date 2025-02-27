@@ -209,7 +209,7 @@ typedef union {
 typedef struct {
     ErtsTmrHead head;  /* NEED to be first! */
     Sint64 time_left_in_msec;
-    int count;
+    Sint count;
 } ErtsPausedProcTimer;
 
 typedef ErtsTimer *(*ErtsCreateTimerFunc)(ErtsSchedulerData *esdp,
@@ -2779,8 +2779,7 @@ erts_pause_proc_timer(Process *c_p)
 {
     ErtsPausedProcTimer *pptmr;
 
-    ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_STATUS)
-                   & erts_proc_lc_my_proc_locks(c_p));
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
     pptmr = create_paused_proc_timer(c_p);
     if (!pptmr) {
@@ -2798,18 +2797,17 @@ erts_resume_paused_proc_timer(Process *c_p)
     erts_aint_t timer;
     int resumed_timer = 0;
 
-    ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_STATUS)
-                   & erts_proc_lc_my_proc_locks(c_p));
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
-    timer = erts_atomic_xchg_nob(&c_p->common.timer, ERTS_PTMR_NONE);
+    timer = erts_atomic_read_nob(&c_p->common.timer);
 
-    ASSERT(timer != ERTS_PTMR_TIMEDOUT);
-
-    if (timer != ERTS_PTMR_NONE) {
+    if (timer != ERTS_PTMR_NONE && timer != ERTS_PTMR_TIMEDOUT) {
         UWord tmo = 0;
         ErtsPausedProcTimer *pptmr = (ErtsPausedProcTimer *)timer;
 
         ASSERT(pptmr->head.roflgs & ERTS_TMR_ROFLG_PAUSED);
+
+        erts_atomic_set_nob(&c_p->common.timer, ERTS_PTMR_NONE);
 
         pptmr->count -= 1;
         if (pptmr->count == 0) {

@@ -4997,6 +4997,7 @@ activate_suspend_monitor(Process *c_p, ErtsMonitorSuspend *msp)
 {
     erts_aint_t mstate;
 
+    erts_pause_proc_timer(c_p);
     mstate = erts_atomic_read_bor_acqb(&msp->state,
                                        ERTS_MSUSPEND_STATE_FLG_ACTIVE);
     ASSERT(!(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE)); (void) mstate;
@@ -6050,6 +6051,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                                 &msp->state, ~ERTS_MSUSPEND_STATE_FLG_ACTIVE);
                             if (mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE) {
                                 erts_resume(c_p, ERTS_PROC_LOCK_MAIN);
+                                erts_resume_paused_proc_timer(c_p);
                             }
                             break;
                         }

@@ -839,8 +839,7 @@ gather_carrier_info(_) ->
       Result :: boolean() | 'badarg' | reference(),
       Suspendee :: pid(),
       OptList :: [Opt],
-      Opt :: unless_suspending | pause_proc_timer
-           | asynchronous | {asynchronous, term()}.
+      Opt :: unless_suspending | asynchronous | {asynchronous, term()}.
 
 suspend_process(_Suspendee, _OptList) ->
     erlang:nif_error(undefined).

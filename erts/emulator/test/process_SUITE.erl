@@ -58,10 +58,6 @@
          process_info_dict_lookup/1,
          process_info_label/1,
          suspend_process_pausing_proc_timer/1,
-         suspend_process_pausing_proc_timer_after_suspended/1,
-         resume_process_resuming_proc_timer_can_resume_timer_early/1,
-         suspend_process_pausing_proc_timer_needs_balanced_resume_procs/1,
-         suspend_process_pausing_proc_timer_stress_test/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -195,11 +191,7 @@ groups() ->
        process_info_dict_lookup,
        process_info_label]},
      {suspend_process_bif, [],
-      [suspend_process_pausing_proc_timer,
-       suspend_process_pausing_proc_timer_after_suspended,
-       resume_process_resuming_proc_timer_can_resume_timer_early,
-       suspend_process_pausing_proc_timer_needs_balanced_resume_procs,
-       suspend_process_pausing_proc_timer_stress_test]},
+      [suspend_process_pausing_proc_timer]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1796,13 +1788,6 @@ suspend_process_pausing_proc_timer(_Config) ->
     suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
     ok.
 
-suspend_process_pausing_proc_timer_after_suspended(_Config) ->
-    % We suspend the process once before using pause_proc_timer
-    BeforeSuspend = fun(Pid) -> true = erlang:suspend_process(Pid) end,
-    AfterResume = fun(Pid) -> true = erlang:resume_process(Pid) end,
-    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
-    ok.
-
 suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
     TcProc = self(),
     Pid = erlang:spawn_link(
@@ -1832,9 +1817,9 @@ suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
     EnsureWaiting(),
 
     BeforeSuspend(Pid),
-    true = erlang:suspend_process(Pid, [pause_proc_timer]),
+    true = erlang:suspend_process(Pid),
     timer:sleep(5_000),
-    true = erlang:resume_process(Pid, [resume_proc_timer]),
+    true = erlang:resume_process(Pid),
     AfterResume(Pid),
     timer:sleep(1_000),
     Pid ! go,
@@ -1843,138 +1828,10 @@ suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
     EnsureWaiting(),
 
     BeforeSuspend(Pid),
-    true = erlang:suspend_process(Pid, [pause_proc_timer]),
-    true = erlang:resume_process(Pid, [resume_proc_timer]),
+    true = erlang:suspend_process(Pid),
+    true = erlang:resume_process(Pid),
     AfterResume(Pid),
     WaitForSync(),
-    ok.
-
-resume_process_resuming_proc_timer_can_resume_timer_early(_Config) ->
-    TcProc = self(),
-    Pid = erlang:spawn_link(
-        fun() ->
-            TcProc ! {sync, self()},
-            receive go -> error(received_go)
-            after 2_000 -> TcProc ! {sync, self()}
-            end
-        end
-    ),
-
-    WaitForSync = fun () ->
-        receive {sync, Pid} -> ok
-        after 10_000 -> error(timeout)
-        end
-    end,
-    EnsureWaiting = fun() ->
-        wait_until(fun () -> process_info(Pid, status) == {status, waiting} end)
-    end,
-
-
-    WaitForSync(),
-    EnsureWaiting(),
-
-    % Suspend twice, but pause the proc timer only once
-    true = erlang:suspend_process(Pid),
-    true = erlang:suspend_process(Pid, [pause_proc_timer]),
-
-    % Pid is suspended so will not process it just yet
-    Pid ! go,
-
-    % At this point the process is still suspended but the timer is running again
-    true = erlang:resume_process(Pid, [resume_proc_timer]),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-    % The timer must have expired by now
-    timer:sleep(5_000),
-
-    true = erlang:resume_process(Pid),
-    WaitForSync(),
-
-    ok.
-
-suspend_process_pausing_proc_timer_needs_balanced_resume_procs(_Config) ->
-    Pid = erlang:spawn_link(timer, sleep, [infinity]),
-
-    true = erlang:suspend_process(Pid),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-    % No pause_proc_timer so far, so fail
-    ?assertMatch({'EXIT', {badarg, _}},
-                 catch erlang:resume_process(Pid, [resume_proc_timer])),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-
-    true = erlang:suspend_process(Pid),
-    true = erlang:suspend_process(Pid, [pause_proc_timer]),
-    true = erlang:suspend_process(Pid, [pause_proc_timer]),
-
-    % It is ok to do out-of-order resumes; here one that doesn't resume the timer
-    true = erlang:resume_process(Pid),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-    % Do more resumes, in any order
-    true = erlang:resume_process(Pid, [resume_proc_timer]),
-    true = erlang:resume_process(Pid),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-    % Only one suspend remains, and it used pause_proc_timer, so fail if not resuming timer
-    ?assertMatch({'EXIT', {badarg, _}},
-                 catch erlang:resume_process(Pid)),
-    ?assertEqual({status, suspended}, process_info(Pid, status)),
-
-    % Final resume, now running
-    true = erlang:resume_process(Pid, [resume_proc_timer]),
-    ?assertEqual({status, running}, process_info(Pid, status)),
-
-    ok.
-
-suspend_process_pausing_proc_timer_stress_test(_Config) ->
-    TestCaseProc = self(),
-    RunTest = fun() ->
-        TestRunner = self(),
-        ActionDoneRef = erlang:make_ref(),
-        P = erlang:spawn(fun() ->
-            receive
-                 _ ->
-                    TestRunner ! {recv, ActionDoneRef}
-            after
-                0 -> TestRunner ! {timeout, ActionDoneRef}
-            end
-        end),
-
-        try erlang:suspend_process(P, [pause_proc_timer]) of
-            true -> ok
-        catch
-            error:badarg ->
-                false = erlang:is_process_alive(P),
-                ok;
-            error:exited ->
-                ok
-        end,
-
-        P ! 'wake up!',
-
-        try erlang:resume_process(P, [resume_proc_timer]) of
-            true -> ok
-        catch
-            error:badarg ->
-                false = erlang:is_process_alive(P),
-                ok
-        end,
-
-        receive
-            {_, ActionDoneRef} -> TestCaseProc ! {ok, TestRunner}
-        end
-    end,
-
-    NumInstances = 100_000,
-    TestRunners = [erlang:spawn(RunTest) || _ <- lists:seq(1, NumInstances)],
-    [
-        receive {ok, P} -> ok
-        after 2_000 -> error({timeout, waiting_for_runner})
-        end
-        || P <- TestRunners
-    ],
     ok.
 
 %% Tests erlang:bump_reductions/1.

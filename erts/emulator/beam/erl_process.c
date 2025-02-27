@@ -8896,11 +8896,6 @@ erts_start_schedulers(void)
     }
 }
 
-static Eterm
-sched_pause_proc_timer(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp);
-static Eterm
-sched_resume_paused_proc_timer(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp);
-
 BIF_RETTYPE
 erts_internal_suspend_process_2(BIF_ALIST_2)
 {
@@ -8911,7 +8906,6 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
     int sync = 0;
     int async = 0;
     int unless_suspending = 0;
-    int pause_proc_timer = 0;
     erts_aint_t mstate;
     ErtsMonitorSuspend *msp;
     ErtsMonitorData *mdp;
@@ -8936,9 +8930,6 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 	    case am_asynchronous:
 		async = 1;
 		break;
-            case am_pause_proc_timer:
-                pause_proc_timer = 1;
-                break;
 	    default: {
                 if (is_tuple_arity(arg, 2)) {
                     Eterm *tp = tuple_val(arg);
@@ -8971,6 +8962,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 
         mstate = erts_atomic_inc_read_relb(&msp->state);
         ASSERT(suspend || (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 1);
+
+        if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == ERTS_AINT_T_MAX) {
+            ASSERT(!suspend);
+            erts_atomic_dec_nob(&msp->state);
+            BIF_RET(am_system_limit);
+        }
+
         sync = !async & !suspend & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
         suspend = !!suspend; /* ensure 0|1 */
         res = am_true;
@@ -9026,6 +9024,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         else {
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
+                erts_pause_proc_timer(rp);
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
@@ -9038,29 +9037,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
                 sync = !async;
             }
             else {
-                goto noproc;
+            noproc:
+                erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
+                erts_monitor_release_both(mdp);
+                if (!async)
+                    res = am_badarg;
             }
         }
-    }
-
-    if (pause_proc_timer) {
-        int proc_timer_already_paused = msp->ptimer_count++;
-
-        if (!proc_timer_already_paused) {
-            erts_proc_sig_send_rpc_request(BIF_P,
-                                           BIF_ARG_1,
-                                           0, /* no reply */
-                                           sched_pause_proc_timer,
-                                           NULL);
-        }
-    }
-
-    while(0) {
-    noproc:
-        erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), &mdp->origin);
-        erts_monitor_release_both(mdp);
-        if (!async)
-            res = am_badarg;
     }
 
     if (sync) {
@@ -9077,42 +9060,21 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 }
 
 /*
- * The erlang:resume_process/2 BIF
+ * The erlang:resume_process/1 BIF
  */
 
 BIF_RETTYPE
-resume_process_2(BIF_ALIST_2)
+resume_process_1(BIF_ALIST_1)
 {
     ErtsMonitor *mon;
     ErtsMonitorSuspend *msp;
     erts_aint_t mstate;
-    int prev_suspend_count;
-    int resume_proc_timer = 0;
-
+ 
     if (BIF_P->common.id == BIF_ARG_1)
 	BIF_ERROR(BIF_P, BADARG);
 
     if (!is_internal_pid(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
-
-    if (is_not_nil(BIF_ARG_2)) {
-        /* Parse option list */
-        Eterm arg = BIF_ARG_2;
-                while (is_list(arg)) {
-            Eterm *lp = list_val(arg);
-            arg = CAR(lp);
-            switch (arg) {
-            case am_resume_proc_timer:
-                resume_proc_timer = 1;
-                break;
-        default:
-                BIF_ERROR(BIF_P, BADARG);
-            }
-        arg = CDR(lp);
-        }
-    if (is_not_nil(arg))
-            BIF_ERROR(BIF_P, BADARG);
-    }
 
     mon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P),
                                    BIF_ARG_1);
@@ -9124,55 +9086,17 @@ resume_process_2(BIF_ALIST_2)
     ASSERT(mon->type == ERTS_MON_TYPE_SUSPEND);
     msp = (ErtsMonitorSuspend *) erts_monitor_to_data(mon);
 
-    if (resume_proc_timer && msp->ptimer_count == 0) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
     mstate = erts_atomic_dec_read_relb(&msp->state);
-    prev_suspend_count = mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK;
 
-    ASSERT(prev_suspend_count >= 0);
+    ASSERT((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) >= 0);
 
-    if (msp->ptimer_count == prev_suspend_count + 1 && !resume_proc_timer) {
-        erts_atomic_inc_nob(&msp->state);
-        BIF_ERROR(BIF_P, BADARG);
-    }
-
-    if (resume_proc_timer) {
-        int needs_to_resume_timer = --msp->ptimer_count == 0;
-        if (needs_to_resume_timer) {
-            erts_proc_sig_send_rpc_request(BIF_P,
-                                           BIF_ARG_1,
-                                           0, /* no reply */
-                                           sched_resume_paused_proc_timer,
-                                           NULL);
-        }
-    }
-
-    if (prev_suspend_count == 0) {
+    if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == 0) {
         erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), mon);
         erts_proc_sig_send_demonitor(&BIF_P->common, BIF_P->common.id, 0, mon);
     }
 
     BIF_RET(am_true);
 }
-
-static Eterm
-sched_pause_proc_timer(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp)
-{
-    erts_pause_proc_timer(c_p);
-    *redsp = 1;
-    return THE_NON_VALUE;
-}
-
-static Eterm
-sched_resume_paused_proc_timer(Process *c_p, void *vst, int *redsp, ErlHeapFragment **bp)
-{
-    erts_resume_paused_proc_timer(c_p);
-    *redsp = 1;
-    return THE_NON_VALUE;
-}
-
 
 BIF_RETTYPE
 erts_internal_is_process_executing_dirty_1(BIF_ALIST_1)
