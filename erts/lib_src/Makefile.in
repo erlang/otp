@@ -43,7 +43,9 @@ INSTALL_PROGRAM=@INSTALL_PROGRAM@
 ERLANG_OSTYPE=@ERLANG_OSTYPE@
 
 OMIT_FP=false
-CFLAGS=$(subst O2,O3, @CFLAGS@)
+empty:=
+space:=$(empty) $(empty)
+CFLAGS:=$(subst $(space)-O2$(space), -O3 , @CFLAGS@)
 LDFLAGS=@LDFLAGS@
 
 ifeq ($(TYPE),debug)

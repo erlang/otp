@@ -51,7 +51,8 @@ ifeq ($(TYPE),debug)
 ZSTD_CFLAGS = -DDEBUGLEVEL=1 $(DEBUG_CFLAGS) $(DEFS) $(THR_DEFS)
 else # !debug && !gcov
 
-ZSTD_CFLAGS = $(subst -O2, -O3, $(CONFIGURE_CFLAGS) $(DEFS) $(THR_DEFS))
+space:=$(subst ,, )
+ZSTD_CFLAGS = $(subst $(space)-O2$(space), -O3 , $(CONFIGURE_CFLAGS) $(DEFS) $(THR_DEFS))
 ifeq ($(TYPE), asan)
 ZSTD_CFLAGS += -DZSTD_ADDRESS_SANITIZER
 endif # asan
