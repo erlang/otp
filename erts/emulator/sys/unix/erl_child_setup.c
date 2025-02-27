@@ -96,6 +96,14 @@
 #  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
+typedef struct exit_status {
+    HashBucket hb;
+    pid_t os_pid;
+    Eterm port_id;
+} ErtsSysExitStatus;
+
+static Hash *forker_hash;
+
 static char abort_reason[200]; /* for core dump inspection */
 
 static void ABORT(const char* fmt, ...)
@@ -577,34 +585,45 @@ main(int argc, char *argv[])
             /* Since we use unix domain sockets and send the entire data in
                one go we *should* get the entire payload at once. */
             ASSERT(res == sizeof(proto));
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Start);
+            if (proto.action == ErtsSysForkerProtoAction_Start) {
+                sys_sigblock(SIGCHLD);
 
-            sys_sigblock(SIGCHLD);
+                errno = 0;
 
-            errno = 0;
+                os_pid = fork();
+                if (os_pid == 0)
+                    start_new_child(pipes);
 
-            os_pid = fork();
-            if (os_pid == 0)
-                start_new_child(pipes);
+                add_os_pid_to_port_id_mapping(proto.u.start.port_id, os_pid);
 
-            add_os_pid_to_port_id_mapping(proto.u.start.port_id, os_pid);
-
-            /* We write an ack here, but expect the reply on
-               the pipes[0] inside the fork */
-            proto.action = ErtsSysForkerProtoAction_Go;
-            proto.u.go.os_pid = os_pid;
-            proto.u.go.error_number = errno;
-            write_all(pipes[1], (char *)&proto, sizeof(proto));
+                /* We write an ack here, but expect the reply on
+                the pipes[0] inside the fork */
+                proto.action = ErtsSysForkerProtoAction_Go;
+                proto.u.go.os_pid = os_pid;
+                proto.u.go.error_number = errno;
+                write_all(pipes[1], (char *)&proto, sizeof(proto));
 
 #ifdef FORKER_PROTO_START_ACK
-            proto.action = ErtsSysForkerProtoAction_StartAck;
-            write_all(uds_fd, (char *)&proto, sizeof(proto));
+                proto.action = ErtsSysForkerProtoAction_StartAck;
+                write_all(uds_fd, (char *)&proto, sizeof(proto));
 #endif
 
-            sys_sigrelease(SIGCHLD);
-            close(pipes[0]);
-            close(pipes[1]);
-            close(pipes[2]);
+                sys_sigrelease(SIGCHLD);
+                close(pipes[0]);
+                close(pipes[1]);
+                close(pipes[2]);
+            } else if (proto.action == ErtsSysForkerProtoAction_Stop) {
+                ErtsSysExitStatus est, *es;
+                est.os_pid = proto.u.stop.os_pid;
+                es = hash_remove(forker_hash, &est);
+                if (es) {
+                    free(es);
+                }
+            } else {
+#ifdef DEBUG
+                ABORT("Unknown command from parent: %d", proto.action);
+#endif
+            }
         }
 
         if (FD_ISSET(sigchld_pipe[0], &read_fds)) {
@@ -633,14 +652,6 @@ main(int argc, char *argv[])
     }
     return 1;
 }
-
-typedef struct exit_status {
-    HashBucket hb;
-    pid_t os_pid;
-    Eterm port_id;
-} ErtsSysExitStatus;
-
-static Hash *forker_hash;
 
 static void add_os_pid_to_port_id_mapping(Eterm port_id, pid_t os_pid)
 {

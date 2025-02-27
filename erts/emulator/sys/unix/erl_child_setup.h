@@ -56,7 +56,8 @@ typedef struct ErtsSysForkerProto_ {
         ErtsSysForkerProtoAction_StartAck,  /* Response to guarantee that start was not lost */
         ErtsSysForkerProtoAction_Go,        /* Response after the child process is forked */
         ErtsSysForkerProtoAction_SigChld,   /* Response when a child process stops */
-        ErtsSysForkerProtoAction_Ack        /* Acknowledgement of Go, allowing the child to start */
+        ErtsSysForkerProtoAction_Ack,       /* Acknowledgement of Go, allowing the child to start */
+        ErtsSysForkerProtoAction_Stop       /* Command informing of port_close */
     } action;
     union {
         struct {
@@ -71,6 +72,9 @@ typedef struct ErtsSysForkerProto_ {
             ErtsSysPortId port_id;
             int error_number;
         } sigchld;
+        struct {
+            pid_t os_pid;
+        } stop;
     } u;
 } ErtsSysForkerProto;
 

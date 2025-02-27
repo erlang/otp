@@ -1046,6 +1046,16 @@ static void stop(ErlDrvData ev)
 	driver_select(prt, abs(dd->ofd->fd), ERL_DRV_USE, 0);  /* close(ofd); */
     }
 
+    if (dd->pid > 0) {
+        ErtsSysForkerProto *proto =
+            erts_alloc(ERTS_ALC_T_DRV_CTRL_DATA, sizeof(ErtsSysForkerProto));
+        memset(proto, 0, sizeof(ErtsSysForkerProto));
+        proto->action = ErtsSysForkerProtoAction_Stop;
+        proto->u.stop.os_pid = dd->pid;
+        erl_drv_port_control(forker_port, ERTS_FORKER_DRV_CONTROL_MAGIC_NUMBER,
+            (char*)proto, sizeof(*proto));
+    }
+
     erts_free(ERTS_ALC_T_DRV_TAB, dd);
 }
 
@@ -1814,29 +1824,37 @@ static ErlDrvSSizeT forker_control(ErlDrvData e, unsigned int cmd, char *buf,
         first_call = 0;
     }
 
-    driver_enq(port_num, buf, len);
-    if (driver_sizeq(port_num) > sizeof(*proto)) {
-        return 0;
-    }
-
-    if ((res = sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
-                             proto->u.start.fds, 3, 0)) < 0) {
-        if (errno == ERRNO_BLOCK || errno == EINTR) {
-            driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+    if (proto->action == ErtsSysForkerProtoAction_Start) {
+        driver_enq(port_num, buf, len);
+        if (driver_sizeq(port_num) > sizeof(*proto)) {
             return 0;
-        } else if (errno == EMFILE) {
-            forker_sigchld(proto->u.start.port_id, errno);
-            forker_deq(port_num, proto);
-            return 0;
-        } else {
-            erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
         }
-    }
+
+        if ((res = sys_uds_write(forker_fd, (char*)proto, sizeof(*proto),
+                                proto->u.start.fds, 3, 0)) < 0) {
+            if (errno == ERRNO_BLOCK || errno == EINTR) {
+                driver_select(port_num, forker_fd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
+                return 0;
+            } else if (errno == EMFILE) {
+                forker_sigchld(proto->u.start.port_id, errno);
+                forker_deq(port_num, proto);
+                return 0;
+            } else {
+                erts_exit(ERTS_DUMP_EXIT, "Failed to write to erl_child_setup: %d\n", errno);
+            }
+        }
 
 #ifndef FORKER_PROTO_START_ACK
-    ASSERT(res == sizeof(*proto));
-    forker_deq(port_num, proto);
+        ASSERT(res == sizeof(*proto));
+        forker_deq(port_num, proto);
 #endif
+    } else if (proto->action == ErtsSysForkerProtoAction_Stop) {
+        if ((res = write(forker_fd, (char*)proto, sizeof(*proto))) < 0) {
+            if (errno != EAGAIN && errno != EINTR) {
+                erts_exit(ERTS_DUMP_EXIT, "Failed to write stop to erl_child_setup: %d\n", errno);
+            }
+        }
+    }
 
     return 0;
 }
