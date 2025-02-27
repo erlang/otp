@@ -140,7 +140,7 @@ parse_and_run(KFA, Docs, Bindings) ->
             {KFA, lists:flatten(Else)}
     end.
 
-test({pre,[],[{code,Attrs,[<<">",_/binary>> = Code]}]}, Bindings) ->
+test({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
     case proplists:get_value(class, Attrs, ~"language-erlang") of
         ~"language-erlang" ->
             run_test(Code, Bindings);
@@ -154,9 +154,12 @@ test([H | T], Bindings) ->
 test(Text, _Bindings) when is_binary(Text); Text =:= [] ->
     [].
 
+-define(RE_CAPTURE, "(?'indent'^\s*)(?:((?'line_number'[0-9]+)(?'prefix'>\s|\s))|(?'prefix'%))?(?'content'[^%]*)(?'comment'(?:.*%.*)?)").
+-define(RE_OPTIONS, [ {capture, [indent, line_number, prefix, content, comment] ,binary}, dupnames ]).
 run_test(Code, InitialBindings) ->
     Lines = string:split(Code, "\n", all),
-    Tests = inspect(parse_tests(Lines, [])),
+    ReLines = [ re:run(Line, ?RE_CAPTURE, ?RE_OPTIONS) || Line <- Lines],
+    Tests = inspect(parse_tests(ReLines, [])),
     lists:foldl(fun(Test, Bindings) ->
                         run_tests(Test, Bindings)
                 end, InitialBindings, Tests).
@@ -165,24 +168,32 @@ parse_tests([], []) ->
     [];
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([<<>>|T], Cmd) ->
+parse_tests([{match, [<<>>, <<>>, <<>>, <<>>, <<>>]}], []) ->
+    [];
+parse_tests([{match, [<<>>, <<>>, <<>>, <<>>, <<>>]}], Cmd) ->
+    [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"%">>, _Comment, <<"", _Nothing/binary>>]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([<<"%", _Skip/binary>> | T], Cmd) ->
-    parse_tests(T, Cmd);
-parse_tests([<<"> ", NewCmd/binary>> | T], []) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"> ">>, NewCmd, _MaybeComment]} | T], []) ->
     parse_tests(T, [NewCmd]);
-parse_tests([<<"> ", NewCmd/binary>> | T], Cmd) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<"> ">>, NewCmd, _MaybeComment]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
-parse_tests([<<" ", More/binary>> | T], Acc) ->
+parse_tests([{match, [_Indent, _Line_Number, _Prefix = <<" ">>, More, _MaybeComment]} | T], Acc) ->
     parse_tests(T, [More | Acc]);
-parse_tests([NewMatch | T], Cmd) ->
+parse_tests([nomatch | T], Cmd) ->
+    parse_tests(T, Cmd);
+parse_tests([{match, [_Indent, _Line_Number = <<"">>, _Prefix = <<"">>, NewMatch, _MaybeComment]} | T], Cmd) ->
     {Match, Rest} = parse_match(T, [NewMatch]),
     [{test, lists:join($\n, lists:reverse(Cmd)),
       lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
 
-parse_match([<<"%", _Skip/binary>> | T], Acc) ->
+parse_match([nomatch | T], Acc) ->
     parse_match(T, Acc);
-parse_match([<<" ", More/binary>> | T], Acc) ->
+parse_match([{match, [_Indent, _Line_Number, _Prefix = <<"%">>, _Comment, <<"", _Nothing/binary>>]} | T], Acc) ->
+    parse_match(T, Acc);
+parse_match([{match, [_Indent, _Line_Number, _Prefix = <<"> ">>, NewCmd, _MaybeComment]} | T], Acc) ->
+    parse_match(T, [NewCmd | Acc]);
+parse_match([{match, [_Indent, _Line_Number, _Prefix = <<" ">>, More, _MaybeComment]} | T], Acc) ->
     parse_match(T, [More | Acc]);
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
