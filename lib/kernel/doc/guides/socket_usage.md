@@ -372,6 +372,7 @@ which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
 
 ## Socket Options
 
+[](){: #socket_options_otp }
 Options for level `otp`:
 
 | Option Name         | Value Type                                                    | Set | Get | Other Requirements and comments                                                                                                                |
@@ -388,6 +389,7 @@ Options for level `otp`:
 
 _Table: option levels_
 
+[](){: #socket_options_socket }
 Options for level `socket`:
 
 | Option Name      | Value Type        | Set | Get | Other Requirements and comments                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -421,6 +423,7 @@ Options for level `socket`:
 
 _Table: socket options_
 
+[](){: #socket_options_ip }
 Options for level `ip`:
 
 | Option Name            | Value Type            | Set | Get | Other Requirements and comments                            |
@@ -458,6 +461,7 @@ Options for level `ip`:
 
 _Table: ip options_
 
+[](){: #socket_options_ipv6 }
 Options for level `ipv6`:
 
 | Option Name            | Value Type         | Set | Get | Other Requirements and comments                                                                                                                                                                         |
@@ -487,6 +491,7 @@ Options for level `ipv6`:
 
 _Table: ipv6 options_
 
+[](){: #socket_options_tcp }
 Options for level `tcp`:
 
 | Option Name | Value Type | Set | Get | Other Requirements and comments                                                                          |
@@ -502,6 +507,7 @@ Options for level `tcp`:
 
 _Table: tcp options_
 
+[](){: #socket_options_udp }
 Options for level `udp`:
 
 | Option Name | Value Type | Set | Get | Other Requirements and comments |
@@ -510,6 +516,7 @@ Options for level `udp`:
 
 _Table: udp options_
 
+[](){: #socket_options_sctp }
 Options for level `sctp`:
 
 | Option Name       | Value Type             | Set | Get | Other Requirements and comments |
@@ -525,8 +532,6 @@ Options for level `sctp`:
 
 _Table: sctp options_
 
-
-[](){: #socket_configure_flags }
 
 ## Socket Configure Flags
 
@@ -544,7 +549,8 @@ disabled:
 
 ### RCVTIMEO/SNDTIMEO socket options
 
-Support for these (socket) options has to be explicitly enabled (see why above):
+Support for these (socket) options has to be explicitly enabled (see why
+[above](socket_usage.md#socket_options_socket)):
 
 ```text
 --enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
@@ -589,4 +595,4 @@ This can be explicitly enabled and disabled:
 --enable-esock-socket-registry (default) | --disable-esock-socket-registry
 ```
 
-See above for more info.
+See [socket registry](socket_usage.md#socket-registry) for more info.
