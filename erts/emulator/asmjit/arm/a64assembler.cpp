@@ -53,6 +53,21 @@ static constexpr uint32_t kWX = InstDB::kWX;
 static const uint8_t armShiftOpToLdStOptMap[] = { ASMJIT_LOOKUP_TABLE_16(VALUE, 0) };
 #undef VALUE
 
+// a64::Assembler - ExtendOpToRegType
+// ==================================
+
+static inline RegType extendOptionToRegType(uint32_t option) noexcept {
+  uint32_t pred = (uint32_t(RegType::kARM_GpW) << (0x0 * 4)) | // 0b000 - UXTB.
+                  (uint32_t(RegType::kARM_GpW) << (0x1 * 4)) | // 0b001 - UXTH.
+                  (uint32_t(RegType::kARM_GpW) << (0x2 * 4)) | // 0b010 - UXTW.
+                  (uint32_t(RegType::kARM_GpX) << (0x3 * 4)) | // 0b011 - UXTX|LSL.
+                  (uint32_t(RegType::kARM_GpW) << (0x4 * 4)) | // 0b100 - SXTB.
+                  (uint32_t(RegType::kARM_GpW) << (0x5 * 4)) | // 0b101 - SXTH.
+                  (uint32_t(RegType::kARM_GpW) << (0x6 * 4)) | // 0b110 - SXTW.
+                  (uint32_t(RegType::kARM_GpX) << (0x7 * 4)) ; // 0b111 - SXTX.
+  return RegType((pred >> (option * 4u)) & 0xFu);
+}
+
 // asmjit::a64::Assembler - SizeOp
 // ===============================
 
@@ -467,7 +482,7 @@ static inline bool matchSignature(const Operand_& o0, const Operand_& o1, const 
 }
 
 static inline bool matchSignature(const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_& o3, uint32_t instFlags) noexcept {
-  return matchSignature(o0, o1, instFlags) && o1.signature() == o2.signature() && o2.signature() == o3.signature();;
+  return matchSignature(o0, o1, instFlags) && o1.signature() == o2.signature() && o2.signature() == o3.signature();
 }
 
 // Memory must be either:
@@ -1228,9 +1243,6 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
       }
 
       if (isign4 == ENC_OPS3(Reg, Reg, Reg) || isign4 == ENC_OPS4(Reg, Reg, Reg, Imm)) {
-        if (!checkSignature(o1, o2))
-          goto InvalidInstruction;
-
         uint32_t opSize = x ? 64 : 32;
         uint64_t shift = 0;
         uint32_t sType = uint32_t(ShiftOp::kLSL);
@@ -1247,11 +1259,17 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
         if (sType <= uint32_t(ShiftOp::kASR)) {
           bool hasSP = o0.as<Gp>().isSP() || o1.as<Gp>().isSP();
           if (!hasSP) {
-            if (!checkGpId(o0, o1, kZR))
-              goto InvalidPhysId;
+            if (!checkSignature(o1, o2)) {
+              goto InvalidInstruction;
+            }
 
-            if (shift >= opSize)
+            if (!checkGpId(o0, o1, kZR)) {
+              goto InvalidPhysId;
+            }
+
+            if (shift >= opSize) {
               goto InvalidImmediate;
+            }
 
             opcode.reset(uint32_t(opData.shiftedOp) << 21);
             opcode.addImm(x, 31);
@@ -1264,8 +1282,10 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
           }
 
           // SP register can only be used with LSL or Extend.
-          if (sType != uint32_t(ShiftOp::kLSL))
+          if (sType != uint32_t(ShiftOp::kLSL)) {
             goto InvalidImmediate;
+          }
+
           sType = x ? uint32_t(ShiftOp::kUXTX) : uint32_t(ShiftOp::kUXTW);
         }
 
@@ -1273,8 +1293,9 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
         opcode.reset(uint32_t(opData.extendedOp) << 21);
         sType -= uint32_t(ShiftOp::kUXTB);
 
-        if (sType > 7 || shift > 4)
+        if (sType > 7 || shift > 4) {
           goto InvalidImmediate;
+        }
 
         if (!(opcode.get() & B(29))) {
           // ADD|SUB (extend) - ZR is not allowed.
@@ -1285,6 +1306,11 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
           // ADDS|SUBS (extend) - ZR allowed in Rd, SP allowed in Rn.
           if (!checkGpId(o0, kZR) || !checkGpId(o1, kSP))
             goto InvalidPhysId;
+        }
+
+        // Validate whether the register operands match extend option.
+        if (o2.as<Reg>().type() != extendOptionToRegType(sType) || o1.as<Reg>().type() < o2.as<Reg>().type()) {
+          goto InvalidInstruction;
         }
 
         opcode.addImm(x, 31);
@@ -1412,9 +1438,6 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
       }
 
       if (isign4 == ENC_OPS2(Reg, Reg) || isign4 == ENC_OPS3(Reg, Reg, Imm)) {
-        if (!checkSignature(o0, o1))
-          goto InvalidInstruction;
-
         uint32_t opSize = x ? 64 : 32;
         uint32_t sType = 0;
         uint64_t shift = 0;
@@ -1429,8 +1452,13 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
         // Shift operation - LSL, LSR, ASR.
         if (sType <= uint32_t(ShiftOp::kASR)) {
           if (!hasSP) {
-            if (shift >= opSize)
+            if (!checkSignature(o0, o1)) {
+              goto InvalidInstruction;
+            }
+
+            if (shift >= opSize) {
               goto InvalidImmediate;
+            }
 
             opcode.reset(uint32_t(opData.shiftedOp) << 21);
             opcode.addImm(x, 31);
@@ -1451,8 +1479,14 @@ Error Assembler::_emit(InstId instId, const Operand_& o0, const Operand_& o1, co
 
         // Extend operation - UXTB, UXTH, UXTW, UXTX, SXTB, SXTH, SXTW, SXTX.
         sType -= uint32_t(ShiftOp::kUXTB);
-        if (sType > 7 || shift > 4)
+        if (sType > 7 || shift > 4) {
           goto InvalidImmediate;
+        }
+
+        // Validate whether the register operands match extend option.
+        if (o1.as<Reg>().type() != extendOptionToRegType(sType) || o0.as<Reg>().type() < o1.as<Reg>().type()) {
+          goto InvalidInstruction;
+        }
 
         opcode.reset(uint32_t(opData.extendedOp) << 21);
         opcode.addImm(x, 31);

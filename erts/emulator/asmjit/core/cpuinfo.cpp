@@ -7,16 +7,14 @@
 #include "../core/cpuinfo.h"
 #include "../core/support.h"
 
+#include <atomic>
+
 // Required by `__cpuidex()` and `_xgetbv()`.
 #if ASMJIT_ARCH_X86
   #if defined(_MSC_VER)
     #include <intrin.h>
   #endif
 #endif // ASMJIT_ARCH_X86
-
-#if !defined(_WIN32)
-  #include <unistd.h>
-#endif
 
 #if ASMJIT_ARCH_ARM
   // Required by various utilities that are required by features detection.
@@ -50,6 +48,17 @@
     #include <machine/cpu.h>
   #endif
 #endif // ASMJIT_ARCH_ARM
+
+#if !defined(_WIN32) && (ASMJIT_ARCH_X86 || ASMJIT_ARCH_ARM)
+  #include <unistd.h>
+#endif
+
+// Unfortunately when compiling in C++11 mode MSVC would warn about unused functions as
+// [[maybe_unused]] attribute is not used in that case (it's used only by C++17 mode and later).
+#if defined(_MSC_VER)
+  #pragma warning(push)
+  #pragma warning(disable: 4505) // unreferenced local function has been removed.
+#endif // _MSC_VER
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -196,7 +205,7 @@ static ASMJIT_FAVOR_SIZE void simplifyCpuBrand(char* s) noexcept {
     if (!c)
       break;
 
-    if (!(c == ' ' && (prev == '@' || s[1] == ' ' || s[1] == '@'))) {
+    if (!(c == ' ' && (prev == '@' || s[1] == ' ' || s[1] == '@' || s[1] == '\0'))) {
       *d++ = c;
       prev = c;
     }
@@ -569,6 +578,7 @@ static ASMJIT_FAVOR_SIZE void detectX86Cpu(CpuInfo& cpu) noexcept {
 // Other resources:
 //   https://en.wikipedia.org/wiki/AArch64
 //   https://en.wikipedia.org/wiki/Apple_silicon#List_of_Apple_processors
+//   https://developer.arm.com/downloads/-/exploration-tools/feature-names-for-a-profile
 //   https://developer.arm.com/architectures/learn-the-architecture/understanding-the-armv8-x-extensions/single-page
 
 #if ASMJIT_ARCH_ARM
@@ -662,8 +672,8 @@ static inline void populateBaseARMFeatures(CpuInfo& cpu) noexcept {
 #endif
 }
 
-// CpuInfo - Detect - ARM - Madatory Features of ARM Architectures
-// ===============================================================
+// CpuInfo - Detect - ARM - Mandatory Features of ARM Architectures
+// ================================================================
 
 // Populates mandatory ARMv8.[v]A features.
 ASMJIT_MAYBE_UNUSED
@@ -681,16 +691,15 @@ static ASMJIT_FAVOR_SIZE void populateARMv8AFeatures(CpuFeatures::ARM& features,
       features.add(Ext::kHCX, Ext::kPAN3, Ext::kWFXT, Ext::kXS);
       ASMJIT_FALLTHROUGH;
     case 6: // ARMv8.6
-      // Missing: AMUv1p1.
-      features.add(Ext::kBF16, Ext::kECV, Ext::kFGT, Ext::kI8MM);
+      features.add(Ext::kAMU1_1, Ext::kBF16, Ext::kECV, Ext::kFGT, Ext::kI8MM);
       ASMJIT_FALLTHROUGH;
     case 5: // ARMv8.5
-      // Missing: CSV2_2.
-      features.add(Ext::kBTI, Ext::kDPB2, Ext::kFLAGM2, Ext::kFRINTTS, Ext::kSB, Ext::kSPECRES, Ext::kSSBS);
+      features.add(Ext::kBTI, Ext::kCSV2, Ext::kDPB2, Ext::kFLAGM2, Ext::kFRINTTS, Ext::kSB, Ext::kSPECRES, Ext::kSSBS);
       ASMJIT_FALLTHROUGH;
     case 4: // ARMv8.4
-      // Missing: AMUv1, SEL2, TLBIOS, TLBIRANGE.
-      features.add(Ext::kDIT, Ext::kDOTPROD, Ext::kFLAGM, Ext::kLRCPC2, Ext::kLSE2, Ext::kMPAM, Ext::kNV, Ext::kTRF);
+      features.add(Ext::kAMU1, Ext::kDIT, Ext::kDOTPROD, Ext::kFLAGM,
+                   Ext::kLRCPC2, Ext::kLSE2, Ext::kMPAM, Ext::kNV,
+                   Ext::kSEL2, Ext::kTLBIOS, Ext::kTLBIRANGE, Ext::kTRF);
       ASMJIT_FALLTHROUGH;
     case 3: // ARMv8.3
       features.add(Ext::kCCIDX, Ext::kFCMA, Ext::kJSCVT, Ext::kLRCPC, Ext::kPAUTH);
@@ -755,9 +764,25 @@ static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeatureNA(CpuFeatures::ARM& fea
   if (f3 != Ext::kNone) features.addIf(val >= 3, f3);
 }
 
-// Merges a feature that contains 0b0000 when it doesn't exist and starts at 0b0001 when it does.
+// Merges a feature identified by a single bit at `offset`.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeatureExt(CpuFeatures::ARM& features, uint64_t regBits, uint32_t offset,
+static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeature1B(CpuFeatures::ARM& features, uint64_t regBits, uint32_t offset, Ext::Id f1) noexcept {
+  features.addIf((regBits & (uint64_t(1) << offset)) != 0, f1);
+}
+
+// Merges a feature-list starting from 0b01 when it does (0b00 means feature not supported).
+ASMJIT_MAYBE_UNUSED
+static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeature2B(CpuFeatures::ARM& features, uint64_t regBits, uint32_t offset, Ext::Id f1, Ext::Id f2, Ext::Id f3) noexcept {
+  uint32_t val = uint32_t((regBits >> offset) & 0x3u);
+
+  if (f1 != Ext::kNone) features.addIf(val >= 1, f1);
+  if (f2 != Ext::kNone) features.addIf(val >= 2, f2);
+  if (f3 != Ext::kNone) features.addIf(val == 3, f3);
+}
+
+// Merges a feature-list starting from 0b0001 when it does (0b0000 means feature not supported).
+ASMJIT_MAYBE_UNUSED
+static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeature4B(CpuFeatures::ARM& features, uint64_t regBits, uint32_t offset,
   Ext::Id f1,
   Ext::Id f2 = Ext::kNone,
   Ext::Id f3 = Ext::kNone,
@@ -773,65 +798,70 @@ static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeatureExt(CpuFeatures::ARM& fe
   if (f4 != Ext::kNone) features.addIf(val >= 4, f4);
 }
 
-#define MERGE_FEATURE_N_A(identifier, reg, offset, ...) mergeAArch64CPUIDFeatureNA(cpu.features().arm(), reg, offset, __VA_ARGS__)
-#define MERGE_FEATURE_EXT(identifier, reg, offset, ...) mergeAArch64CPUIDFeatureExt(cpu.features().arm(), reg, offset, __VA_ARGS__)
+// Merges a feature that is identified by an exact bit-combination of 4 bits.
+ASMJIT_MAYBE_UNUSED
+static ASMJIT_FORCE_INLINE void mergeAArch64CPUIDFeature4S(CpuFeatures::ARM& features, uint64_t regBits, uint32_t offset, uint32_t value, Ext::Id f1) noexcept {
+  features.addIf(uint32_t((regBits >> offset) & 0xFu) == value, f1);
+}
+
+#define MERGE_FEATURE_NA(identifier, reg, offset, ...) mergeAArch64CPUIDFeatureNA(cpu.features().arm(), reg, offset, __VA_ARGS__)
+#define MERGE_FEATURE_1B(identifier, reg, offset, ...) mergeAArch64CPUIDFeature1B(cpu.features().arm(), reg, offset, __VA_ARGS__)
+#define MERGE_FEATURE_2B(identifier, reg, offset, ...) mergeAArch64CPUIDFeature2B(cpu.features().arm(), reg, offset, __VA_ARGS__)
+#define MERGE_FEATURE_4B(identifier, reg, offset, ...) mergeAArch64CPUIDFeature4B(cpu.features().arm(), reg, offset, __VA_ARGS__)
+#define MERGE_FEATURE_4S(identifier, reg, offset, ...) mergeAArch64CPUIDFeature4S(cpu.features().arm(), reg, offset, __VA_ARGS__)
 
 // Detects features based on the content of ID_AA64PFR0_EL1 and ID_AA64PFR1_EL1 registers.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64PFR0_AA64PFR1(CpuInfo& cpu, uint64_t fpr0, uint64_t fpr1) noexcept {
+static inline void detectAArch64FeaturesViaCPUID_AA64PFR0_AA64PFR1(CpuInfo& cpu, uint64_t fpr0, uint64_t fpr1) noexcept {
   // ID_AA64PFR0_EL1
   // ===============
 
   // FP and AdvSIMD bits should match (i.e. if FP features FP16, ASIMD must feature it too).
-  MERGE_FEATURE_N_A("FP bits [19:16]"          , fpr0, 16, Ext::kFP, Ext::kFP16);
-  MERGE_FEATURE_N_A("AdvSIMD bits [23:20]"     , fpr0, 20, Ext::kASIMD, Ext::kFP16);
+  MERGE_FEATURE_NA("FP bits [19:16]"          , fpr0, 16, Ext::kFP, Ext::kFP16);
+  MERGE_FEATURE_NA("AdvSIMD bits [23:20]"     , fpr0, 20, Ext::kASIMD, Ext::kFP16);
   /*
-  MERGE_FEATURE_EXT("GIC bits [27:24]"         , fpr0, 24, ...);
+  MERGE_FEATURE_4B("GIC bits [27:24]"         , fpr0, 24, ...);
   */
-  MERGE_FEATURE_EXT("RAS bits [31:28]"         , fpr0, 28, Ext::kRAS, Ext::kRAS1_1, Ext::kRAS2);
-  MERGE_FEATURE_EXT("SVE bits [35:32]"         , fpr0, 32, Ext::kSVE);
-  /*
-  MERGE_FEATURE_EXT("SEL2 bits [39:36]"        , fpr0, 36, ...);
-  MERGE_FEATURE_EXT("MPAM bits [43:40]"        , fpr0, 40, ...);
-  MERGE_FEATURE_EXT("AMU bits [47:44]"         , fpr0, 44, ...);
-  */
-  MERGE_FEATURE_EXT("DIT bits [51:48]"         , fpr0, 48, Ext::kDIT);
-  MERGE_FEATURE_EXT("RME bits [55:52]"         , fpr0, 52, Ext::kRME);
-  /*
-  MERGE_FEATURE_EXT("CSV2 bits [59:56]"        , fpr0, 56, ...);
-  MERGE_FEATURE_EXT("CSV3 bits [63:60]"        , fpr0, 60, ...);
-  */
+  MERGE_FEATURE_4B("RAS bits [31:28]"         , fpr0, 28, Ext::kRAS, Ext::kRAS1_1, Ext::kRAS2);
+  MERGE_FEATURE_4B("SVE bits [35:32]"         , fpr0, 32, Ext::kSVE);
+  MERGE_FEATURE_4B("SEL2 bits [39:36]"        , fpr0, 36, Ext::kSEL2);
+  MERGE_FEATURE_4B("MPAM bits [43:40]"        , fpr0, 40, Ext::kMPAM);
+  MERGE_FEATURE_4B("AMU bits [47:44]"         , fpr0, 44, Ext::kAMU1, Ext::kAMU1_1);
+  MERGE_FEATURE_4B("DIT bits [51:48]"         , fpr0, 48, Ext::kDIT);
+  MERGE_FEATURE_4B("RME bits [55:52]"         , fpr0, 52, Ext::kRME);
+  MERGE_FEATURE_4B("CSV2 bits [59:56]"        , fpr0, 56, Ext::kCSV2, Ext::kCSV2, Ext::kCSV2, Ext::kCSV2_3);
+  MERGE_FEATURE_4B("CSV3 bits [63:60]"        , fpr0, 60, Ext::kCSV3);
 
   // ID_AA64PFR1_EL1
   // ===============
 
-  MERGE_FEATURE_EXT("BT bits [3:0]"            , fpr1,  0, Ext::kBTI);
-  MERGE_FEATURE_EXT("SSBS bits [7:4]"          , fpr1,  4, Ext::kSSBS, Ext::kSSBS2);
-  MERGE_FEATURE_EXT("MTE bits [11:8]"          , fpr1,  8, Ext::kMTE, Ext::kMTE2, Ext::kMTE3);
+  MERGE_FEATURE_4B("BT bits [3:0]"            , fpr1,  0, Ext::kBTI);
+  MERGE_FEATURE_4B("SSBS bits [7:4]"          , fpr1,  4, Ext::kSSBS, Ext::kSSBS2);
+  MERGE_FEATURE_4B("MTE bits [11:8]"          , fpr1,  8, Ext::kMTE, Ext::kMTE2, Ext::kMTE3);
   /*
-  MERGE_FEATURE_EXT("RAS_frac bits [15:12]"    , fpr1, 12, ...);
-  MERGE_FEATURE_EXT("MPAM_frac bits [19:16]"   , fpr1, 16, ...);
+  MERGE_FEATURE_4B("RAS_frac bits [15:12]"    , fpr1, 12, ...);
+  MERGE_FEATURE_4B("MPAM_frac bits [19:16]"   , fpr1, 16, ...);
   */
-  MERGE_FEATURE_EXT("SME bits [27:24]"         , fpr1, 24, Ext::kSME, Ext::kSME2);
-  MERGE_FEATURE_EXT("RNDR_trap bits [31:28]"   , fpr1, 28, Ext::kRNG_TRAP);
+  MERGE_FEATURE_4B("SME bits [27:24]"         , fpr1, 24, Ext::kSME, Ext::kSME2);
+  MERGE_FEATURE_4B("RNDR_trap bits [31:28]"   , fpr1, 28, Ext::kRNG_TRAP);
   /*
-  MERGE_FEATURE_EXT("CSV2_frac bits [35:32]"   , fpr1, 32, ...);
+  MERGE_FEATURE_4B("CSV2_frac bits [35:32]"   , fpr1, 32, ...);
   */
-  MERGE_FEATURE_EXT("NMI bits [39:36]"         , fpr1, 36, Ext::kNMI);
+  MERGE_FEATURE_4B("NMI bits [39:36]"         , fpr1, 36, Ext::kNMI);
   /*
-  MERGE_FEATURE_EXT("MTE_frac bits [43:40]"    , fpr1, 40, ...);
-  MERGE_FEATURE_EXT("GCS bits [47:44]"         , fpr1, 44, ...);
+  MERGE_FEATURE_4B("MTE_frac bits [43:40]"    , fpr1, 40, ...);
   */
-  MERGE_FEATURE_EXT("THE bits [51:48]"         , fpr1, 48, Ext::kTHE);
+  MERGE_FEATURE_4B("GCS bits [47:44]"         , fpr1, 44, Ext::kGCS);
+  MERGE_FEATURE_4B("THE bits [51:48]"         , fpr1, 48, Ext::kTHE);
 
   // MTEX extensions are only available when MTE3 is available.
   if (cpu.features().arm().hasMTE3())
-    MERGE_FEATURE_EXT("MTEX bits [55:52]"      , fpr1, 52, Ext::kMTE4);
+    MERGE_FEATURE_4B("MTEX bits [55:52]"      , fpr1, 52, Ext::kMTE4);
 
   /*
-  MERGE_FEATURE_EXT("DF2 bits [59:56]"         , fpr1, 56, ...);
-  MERGE_FEATURE_EXT("PFAR bits [63:60]"        , fpr1, 60, ...);
+  MERGE_FEATURE_4B("DF2 bits [59:56]"         , fpr1, 56, ...);
   */
+  MERGE_FEATURE_4B("PFAR bits [63:60]"        , fpr1, 60, Ext::kPFAR);
 
   // ID_AA64PFR0_EL1 + ID_AA64PFR1_EL1
   // =================================
@@ -852,176 +882,212 @@ static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64PFR0_AA64PFR1(Cp
 
 // Detects features based on the content of ID_AA64ISAR0_EL1 and ID_AA64ISAR1_EL1 registers.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64ISAR0_AA64ISAR1(CpuInfo& cpu, uint64_t isar0, uint64_t isar1) noexcept {
+static inline void detectAArch64FeaturesViaCPUID_AA64ISAR0_AA64ISAR1(CpuInfo& cpu, uint64_t isar0, uint64_t isar1) noexcept {
   // ID_AA64ISAR0_EL1
   // ================
 
-  MERGE_FEATURE_EXT("AES bits [7:4]"           , isar0,  4, Ext::kAES, Ext::kPMULL);
-  MERGE_FEATURE_EXT("SHA1 bits [11:8]"         , isar0,  8, Ext::kSHA1);
-  MERGE_FEATURE_EXT("SHA2 bits [15:12]"        , isar0, 12, Ext::kSHA256, Ext::kSHA512);
-  MERGE_FEATURE_EXT("CRC32 bits [19:16]"       , isar0, 16, Ext::kCRC32);
-  MERGE_FEATURE_EXT("Atomic bits [23:20]"      , isar0, 20, Ext::kNone, Ext::kLSE, Ext::kLSE128);
-  MERGE_FEATURE_EXT("TME bits [27:24]"         , isar0, 24, Ext::kTME);
-  MERGE_FEATURE_EXT("RDM bits [31:28]"         , isar0, 28, Ext::kRDM);
-  MERGE_FEATURE_EXT("SHA3 bits [35:32]"        , isar0, 32, Ext::kSHA3);
-  MERGE_FEATURE_EXT("SM3 bits [39:36]"         , isar0, 36, Ext::kSM3);
-  MERGE_FEATURE_EXT("SM4 bits [43:40]"         , isar0, 40, Ext::kSM4);
-  MERGE_FEATURE_EXT("DP bits [47:44]"          , isar0, 44, Ext::kDOTPROD);
-  MERGE_FEATURE_EXT("FHM bits [51:48]"         , isar0, 48, Ext::kFHM);
-  MERGE_FEATURE_EXT("TS bits [55:52]"          , isar0, 52, Ext::kFLAGM, Ext::kFLAGM2);
+  MERGE_FEATURE_4B("AES bits [7:4]"           , isar0,  4, Ext::kAES, Ext::kPMULL);
+  MERGE_FEATURE_4B("SHA1 bits [11:8]"         , isar0,  8, Ext::kSHA1);
+  MERGE_FEATURE_4B("SHA2 bits [15:12]"        , isar0, 12, Ext::kSHA256, Ext::kSHA512);
+  MERGE_FEATURE_4B("CRC32 bits [19:16]"       , isar0, 16, Ext::kCRC32);
+  MERGE_FEATURE_4B("Atomic bits [23:20]"      , isar0, 20, Ext::kNone, Ext::kLSE, Ext::kLSE128);
+  MERGE_FEATURE_4B("TME bits [27:24]"         , isar0, 24, Ext::kTME);
+  MERGE_FEATURE_4B("RDM bits [31:28]"         , isar0, 28, Ext::kRDM);
+  MERGE_FEATURE_4B("SHA3 bits [35:32]"        , isar0, 32, Ext::kSHA3);
+  MERGE_FEATURE_4B("SM3 bits [39:36]"         , isar0, 36, Ext::kSM3);
+  MERGE_FEATURE_4B("SM4 bits [43:40]"         , isar0, 40, Ext::kSM4);
+  MERGE_FEATURE_4B("DP bits [47:44]"          , isar0, 44, Ext::kDOTPROD);
+  MERGE_FEATURE_4B("FHM bits [51:48]"         , isar0, 48, Ext::kFHM);
+  MERGE_FEATURE_4B("TS bits [55:52]"          , isar0, 52, Ext::kFLAGM, Ext::kFLAGM2);
   /*
-  MERGE_FEATURE_EXT("TLB bits [59:56]"         , isar0, 56, ...);
+  MERGE_FEATURE_4B("TLB bits [59:56]"         , isar0, 56, ...);
   */
-  MERGE_FEATURE_EXT("RNDR bits [63:60]"        , isar0, 60, Ext::kFLAGM, Ext::kRNG);
+  MERGE_FEATURE_4B("RNDR bits [63:60]"        , isar0, 60, Ext::kFLAGM, Ext::kRNG);
 
   // ID_AA64ISAR1_EL1
   // ================
 
-  MERGE_FEATURE_EXT("DPB bits [3:0]"           , isar1,  0, Ext::kDPB, Ext::kDPB2);
+  MERGE_FEATURE_4B("DPB bits [3:0]"           , isar1,  0, Ext::kDPB, Ext::kDPB2);
   /*
-  MERGE_FEATURE_EXT("APA bits [7:4]"           , isar1,  4, ...);
-  MERGE_FEATURE_EXT("API bits [11:8]"          , isar1,  8, ...);
+  MERGE_FEATURE_4B("APA bits [7:4]"           , isar1,  4, ...);
+  MERGE_FEATURE_4B("API bits [11:8]"          , isar1,  8, ...);
   */
-  MERGE_FEATURE_EXT("JSCVT bits [15:12]"       , isar1, 12, Ext::kJSCVT);
-  MERGE_FEATURE_EXT("FCMA bits [19:16]"        , isar1, 16, Ext::kFCMA);
-  MERGE_FEATURE_EXT("LRCPC bits [23:20]"       , isar1, 20, Ext::kLRCPC, Ext::kLRCPC2, Ext::kLRCPC3);
+  MERGE_FEATURE_4B("JSCVT bits [15:12]"       , isar1, 12, Ext::kJSCVT);
+  MERGE_FEATURE_4B("FCMA bits [19:16]"        , isar1, 16, Ext::kFCMA);
+  MERGE_FEATURE_4B("LRCPC bits [23:20]"       , isar1, 20, Ext::kLRCPC, Ext::kLRCPC2, Ext::kLRCPC3);
   /*
-  MERGE_FEATURE_EXT("GPA bits [27:24]"         , isar1, 24, ...);
-  MERGE_FEATURE_EXT("GPI bits [31:28]"         , isar1, 28, ...);
+  MERGE_FEATURE_4B("GPA bits [27:24]"         , isar1, 24, ...);
+  MERGE_FEATURE_4B("GPI bits [31:28]"         , isar1, 28, ...);
   */
-  MERGE_FEATURE_EXT("FRINTTS bits [35:32]"     , isar1, 32, Ext::kFRINTTS);
-  MERGE_FEATURE_EXT("SB bits [39:36]"          , isar1, 36, Ext::kSB);
-  MERGE_FEATURE_EXT("SPECRES bits [43:40]"     , isar1, 40, Ext::kSPECRES, Ext::kSPECRES2);
-  MERGE_FEATURE_EXT("BF16 bits [47:44]"        , isar1, 44, Ext::kBF16, Ext::kEBF16);
-  MERGE_FEATURE_EXT("DGH bits [51:48]"         , isar1, 48, Ext::kDGH);
-  MERGE_FEATURE_EXT("I8MM bits [55:52]"        , isar1, 52, Ext::kI8MM);
-  MERGE_FEATURE_EXT("XS bits [59:56]"          , isar1, 56, Ext::kXS);
-  MERGE_FEATURE_EXT("LS64 bits [63:60]"        , isar1, 60, Ext::kLS64, Ext::kLS64_V, Ext::kLS64_ACCDATA);
+  MERGE_FEATURE_4B("FRINTTS bits [35:32]"     , isar1, 32, Ext::kFRINTTS);
+  MERGE_FEATURE_4B("SB bits [39:36]"          , isar1, 36, Ext::kSB);
+  MERGE_FEATURE_4B("SPECRES bits [43:40]"     , isar1, 40, Ext::kSPECRES, Ext::kSPECRES2);
+  MERGE_FEATURE_4B("BF16 bits [47:44]"        , isar1, 44, Ext::kBF16, Ext::kEBF16);
+  MERGE_FEATURE_4B("DGH bits [51:48]"         , isar1, 48, Ext::kDGH);
+  MERGE_FEATURE_4B("I8MM bits [55:52]"        , isar1, 52, Ext::kI8MM);
+  MERGE_FEATURE_4B("XS bits [59:56]"          , isar1, 56, Ext::kXS);
+  MERGE_FEATURE_4B("LS64 bits [63:60]"        , isar1, 60, Ext::kLS64, Ext::kLS64_V, Ext::kLS64_ACCDATA);
 }
 
 // Detects features based on the content of ID_AA64ISAR2_EL1 register.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64ISAR2(CpuInfo& cpu, uint64_t isar2) noexcept {
-  MERGE_FEATURE_EXT("WFxT bits [3:0]"          , isar2,  0, Ext::kNone, Ext::kWFXT);
-  MERGE_FEATURE_EXT("RPRES bits [7:4]"         , isar2,  4, Ext::kRPRES);
+static inline void detectAArch64FeaturesViaCPUID_AA64ISAR2(CpuInfo& cpu, uint64_t isar2) noexcept {
+  MERGE_FEATURE_4B("WFxT bits [3:0]"          , isar2,  0, Ext::kNone, Ext::kWFXT);
+  MERGE_FEATURE_4B("RPRES bits [7:4]"         , isar2,  4, Ext::kRPRES);
   /*
-  MERGE_FEATURE_EXT("GPA3 bits [11:8]"         , isar2,  8, ...);
-  MERGE_FEATURE_EXT("APA3 bits [15:12]"        , isar2, 12, ...);
+  MERGE_FEATURE_4B("GPA3 bits [11:8]"         , isar2,  8, ...);
+  MERGE_FEATURE_4B("APA3 bits [15:12]"        , isar2, 12, ...);
   */
-  MERGE_FEATURE_EXT("MOPS bits [19:16]"        , isar2, 16, Ext::kMOPS);
-  MERGE_FEATURE_EXT("BC bits [23:20]"          , isar2, 20, Ext::kHBC);
-  /*
-  MERGE_FEATURE_EXT("PAC_frac bits [27:24]"    , isar2, 24, ...);
-  */
-  MERGE_FEATURE_EXT("CLRBHB bits [31:28]"      , isar2, 28, Ext::kCLRBHB);
-  MERGE_FEATURE_EXT("SYSREG128 bits [35:32]"   , isar2, 32, Ext::kSYSREG128);
-  MERGE_FEATURE_EXT("SYSINSTR128 bits [39:36]" , isar2, 36, Ext::kSYSINSTR128);
-  MERGE_FEATURE_EXT("PRFMSLC bits [43:40]"     , isar2, 40, Ext::kPRFMSLC);
-  MERGE_FEATURE_EXT("RPRFM bits [51:48]"       , isar2, 48, Ext::kRPRFM);
-  MERGE_FEATURE_EXT("CSSC bits [55:52]"        , isar2, 52, Ext::kCSSC);
+  MERGE_FEATURE_4B("MOPS bits [19:16]"        , isar2, 16, Ext::kMOPS);
+  MERGE_FEATURE_4B("BC bits [23:20]"          , isar2, 20, Ext::kHBC);
+  MERGE_FEATURE_4B("PAC_frac bits [27:24]"    , isar2, 24, Ext::kCONSTPACFIELD);
+  MERGE_FEATURE_4B("CLRBHB bits [31:28]"      , isar2, 28, Ext::kCLRBHB);
+  MERGE_FEATURE_4B("SYSREG128 bits [35:32]"   , isar2, 32, Ext::kSYSREG128);
+  MERGE_FEATURE_4B("SYSINSTR128 bits [39:36]" , isar2, 36, Ext::kSYSINSTR128);
+  MERGE_FEATURE_4B("PRFMSLC bits [43:40]"     , isar2, 40, Ext::kPRFMSLC);
+  MERGE_FEATURE_4B("RPRFM bits [51:48]"       , isar2, 48, Ext::kRPRFM);
+  MERGE_FEATURE_4B("CSSC bits [55:52]"        , isar2, 52, Ext::kCSSC);
+  MERGE_FEATURE_4B("LUT bits [59:56]"         , isar2, 56, Ext::kLUT);
 }
 
+// TODO: This register is not accessed at the moment.
+#if 0
+// Detects features based on the content of ID_AA64ISAR3_EL1register.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64MMFR0(CpuInfo& cpu, uint64_t mmfr0) noexcept {
+static inline void detectAArch64FeaturesViaCPUID_AA64ISAR3(CpuInfo& cpu, uint64_t isar3) noexcept {
+  // ID_AA64ISAR3_EL1
+  // ================
+
+  MERGE_FEATURE_4B("CPA bits [3:0]"           , isar3, 0, Ext::kCPA, Ext::kCPA2);
+  MERGE_FEATURE_4B("FAMINMAX bits [7:4]"      , isar3, 4, Ext::kFAMINMAX);
+  MERGE_FEATURE_4B("TLBIW bits [11:8]"        , isar3, 8, Ext::kTLBIW);
+}
+#endif
+
+ASMJIT_MAYBE_UNUSED
+static inline void detectAArch64FeaturesViaCPUID_AA64MMFR0(CpuInfo& cpu, uint64_t mmfr0) noexcept {
   // ID_AA64MMFR0_EL1
   // ================
 
   /*
-  MERGE_FEATURE_EXT("PARange bits [3:0]"       , mmfr0,  0, ...);
-  MERGE_FEATURE_EXT("ASIDBits bits [7:4]"      , mmfr0,  4, ...);
-  MERGE_FEATURE_EXT("BigEnd bits [11:8]"       , mmfr0,  8, ...);
-  MERGE_FEATURE_EXT("SNSMem bits [15:12]"      , mmfr0, 12, ...);
-  MERGE_FEATURE_EXT("BigEndEL0 bits [19:16]"   , mmfr0, 16, ...);
-  MERGE_FEATURE_EXT("TGran16 bits [23:20]"     , mmfr0, 20, ...);
-  MERGE_FEATURE_EXT("TGran64 bits [27:24]"     , mmfr0, 24, ...);
-  MERGE_FEATURE_EXT("TGran4 bits [31:28]"      , mmfr0, 28, ...);
-  MERGE_FEATURE_EXT("TGran16_2 bits [35:32]"   , mmfr0, 32, ...);
-  MERGE_FEATURE_EXT("TGran64_2 bits [39:36]"   , mmfr0, 36, ...);
-  MERGE_FEATURE_EXT("TGran4_2 bits [43:40]"    , mmfr0, 40, ...);
-  MERGE_FEATURE_EXT("ExS bits [47:44]"         , mmfr0, 44, ...);
+  MERGE_FEATURE_4B("PARange bits [3:0]"       , mmfr0,  0, ...);
+  MERGE_FEATURE_4B("ASIDBits bits [7:4]"      , mmfr0,  4, ...);
+  MERGE_FEATURE_4B("BigEnd bits [11:8]"       , mmfr0,  8, ...);
+  MERGE_FEATURE_4B("SNSMem bits [15:12]"      , mmfr0, 12, ...);
+  MERGE_FEATURE_4B("BigEndEL0 bits [19:16]"   , mmfr0, 16, ...);
+  MERGE_FEATURE_4B("TGran16 bits [23:20]"     , mmfr0, 20, ...);
+  MERGE_FEATURE_4B("TGran64 bits [27:24]"     , mmfr0, 24, ...);
+  MERGE_FEATURE_4B("TGran4 bits [31:28]"      , mmfr0, 28, ...);
+  MERGE_FEATURE_4B("TGran16_2 bits [35:32]"   , mmfr0, 32, ...);
+  MERGE_FEATURE_4B("TGran64_2 bits [39:36]"   , mmfr0, 36, ...);
+  MERGE_FEATURE_4B("TGran4_2 bits [43:40]"    , mmfr0, 40, ...);
+  MERGE_FEATURE_4B("ExS bits [47:44]"         , mmfr0, 44, ...);
   */
-  MERGE_FEATURE_EXT("FGT bits [59:56]"         , mmfr0, 56, Ext::kFGT, Ext::kFGT2);
-  MERGE_FEATURE_EXT("ECV bits [63:60]"         , mmfr0, 60, Ext::kECV);
+  MERGE_FEATURE_4B("FGT bits [59:56]"         , mmfr0, 56, Ext::kFGT, Ext::kFGT2);
+  MERGE_FEATURE_4B("ECV bits [63:60]"         , mmfr0, 60, Ext::kECV);
 }
 
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64MMFR1(CpuInfo& cpu, uint64_t mmfr1) noexcept {
+static inline void detectAArch64FeaturesViaCPUID_AA64MMFR1(CpuInfo& cpu, uint64_t mmfr1) noexcept {
   // ID_AA64MMFR1_EL1
   // ================
 
+  MERGE_FEATURE_4B("HAFDBS bits [3:0]"        , mmfr1,  0, Ext::kHAFDBS, Ext::kNone, Ext::kHAFT, Ext::kHDBSS);
+  MERGE_FEATURE_4B("VMIDBits bits [7:4]"      , mmfr1,  4, Ext::kVMID16);
+  MERGE_FEATURE_4B("VH bits [11:8]"           , mmfr1,  8, Ext::kVHE);
+  MERGE_FEATURE_4B("HPDS bits [15:12]"        , mmfr1, 12, Ext::kHPDS, Ext::kHPDS2);
+  MERGE_FEATURE_4B("LO bits [19:16]"          , mmfr1, 16, Ext::kLOR);
+  MERGE_FEATURE_4B("PAN bits [23:20]"         , mmfr1, 20, Ext::kPAN, Ext::kPAN2, Ext::kPAN3);
   /*
-  MERGE_FEATURE_EXT("HAFDBS bits [3:0]"        , mmfr1,  0, ...);
-  MERGE_FEATURE_EXT("VMIDBits bits [7:4]"      , mmfr1,  4, ...);
+  MERGE_FEATURE_4B("SpecSEI bits [27:24]"     , mmfr1, 24, ...);
   */
-  MERGE_FEATURE_EXT("VH bits [11:8]"           , mmfr1,  8, Ext::kVHE);
+  MERGE_FEATURE_4B("XNX bits [31:28]"         , mmfr1, 28, Ext::kXNX);
   /*
-  MERGE_FEATURE_EXT("HPDS bits [15:12]"        , mmfr1, 12, ...);
+  MERGE_FEATURE_4B("TWED bits [35:32]"        , mmfr1, 32, ...);
+  MERGE_FEATURE_4B("ETS bits [39:36]"         , mmfr1, 36, ...);
   */
-  MERGE_FEATURE_EXT("LO bits [19:16]"          , mmfr1, 16, Ext::kLOR);
-  MERGE_FEATURE_EXT("PAN bits [23:20]"         , mmfr1, 20, Ext::kPAN, Ext::kPAN2, Ext::kPAN3);
+  MERGE_FEATURE_4B("HCX bits [43:40]"         , mmfr1, 40, Ext::kHCX);
+  MERGE_FEATURE_4B("AFP bits [47:44]"         , mmfr1, 44, Ext::kAFP);
   /*
-  MERGE_FEATURE_EXT("SpecSEI bits [27:24]"     , mmfr1, 24, ...);
-  MERGE_FEATURE_EXT("XNX bits [31:28]"         , mmfr1, 28, ...);
-  MERGE_FEATURE_EXT("TWED bits [35:32]"        , mmfr1, 32, ...);
-  MERGE_FEATURE_EXT("ETS bits [39:36]"         , mmfr1, 36, ...);
+  MERGE_FEATURE_4B("nTLBPA bits [51:48]"      , mmfr1, 48, ...);
+  MERGE_FEATURE_4B("TIDCP1 bits [55:52]"      , mmfr1, 52, ...);
   */
-  MERGE_FEATURE_EXT("HCX bits [43:40]"         , mmfr1, 40, Ext::kHCX);
-  MERGE_FEATURE_EXT("AFP bits [47:44]"         , mmfr1, 44, Ext::kAFP);
-  /*
-  MERGE_FEATURE_EXT("nTLBPA bits [51:48]"      , mmfr1, 48, ...);
-  MERGE_FEATURE_EXT("TIDCP1 bits [55:52]"      , mmfr1, 52, ...);
-  MERGE_FEATURE_EXT("CMOW bits [59:56]"        , mmfr1, 56, ...);
-  MERGE_FEATURE_EXT("ECBHB bits [63:60]"       , mmfr1, 60, ...);
-  */
+  MERGE_FEATURE_4B("CMOW bits [59:56]"        , mmfr1, 56, Ext::kCMOW);
+  MERGE_FEATURE_4B("ECBHB bits [63:60]"       , mmfr1, 60, Ext::kECBHB);
 }
 
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64MMFR2(CpuInfo& cpu, uint64_t mmfr2) noexcept {
+static inline void detectAArch64FeaturesViaCPUID_AA64MMFR2(CpuInfo& cpu, uint64_t mmfr2) noexcept {
   // ID_AA64MMFR2_EL1
   // ================
 
   /*
-  MERGE_FEATURE_EXT("CnP bits [3:0]"           , mmfr2,  0, ...);
+  MERGE_FEATURE_4B("CnP bits [3:0]"           , mmfr2,  0, ...);
   */
-  MERGE_FEATURE_EXT("UAO bits [7:4]"           , mmfr2,  4, Ext::kUAO);
+  MERGE_FEATURE_4B("UAO bits [7:4]"           , mmfr2,  4, Ext::kUAO);
   /*
-  MERGE_FEATURE_EXT("LSM bits [11:8]"          , mmfr2,  8, ...);
-  MERGE_FEATURE_EXT("IESB bits [15:12]"        , mmfr2, 12, ...);
-  MERGE_FEATURE_EXT("VARange bits [19:16]"     , mmfr2, 16, ...);
+  MERGE_FEATURE_4B("LSM bits [11:8]"          , mmfr2,  8, ...);
+  MERGE_FEATURE_4B("IESB bits [15:12]"        , mmfr2, 12, ...);
   */
-  MERGE_FEATURE_EXT("CCIDX bits [23:20]"       , mmfr2, 20, Ext::kCCIDX);
-  MERGE_FEATURE_EXT("NV bits [27:24]"          , mmfr2, 24, Ext::kNV, Ext::kNV2);
+  MERGE_FEATURE_4B("VARange bits [19:16]"     , mmfr2, 16, Ext::kLVA, Ext::kLVA3);
+  MERGE_FEATURE_4B("CCIDX bits [23:20]"       , mmfr2, 20, Ext::kCCIDX);
+  MERGE_FEATURE_4B("NV bits [27:24]"          , mmfr2, 24, Ext::kNV, Ext::kNV2);
   /*
-  MERGE_FEATURE_EXT("ST bits [31:28]"          , mmfr2, 28, ...);
+  MERGE_FEATURE_4B("ST bits [31:28]"          , mmfr2, 28, ...);
   */
-  MERGE_FEATURE_EXT("AT bits [35:32]"          , mmfr2, 32, Ext::kLSE2);
+  MERGE_FEATURE_4B("AT bits [35:32]"          , mmfr2, 32, Ext::kLSE2);
   /*
-  MERGE_FEATURE_EXT("IDS bits [39:36]"         , mmfr2, 36, ...);
-  MERGE_FEATURE_EXT("FWB bits [43:40]"         , mmfr2, 40, ...);
-  MERGE_FEATURE_EXT("TTL bits [51:48]"         , mmfr2, 48, ...);
-  MERGE_FEATURE_EXT("BBM bits [55:52]"         , mmfr2, 52, ...);
-  MERGE_FEATURE_EXT("EVT bits [59:56]"         , mmfr2, 56, ...);
-  MERGE_FEATURE_EXT("E0PD bits [63:60]"        , mmfr2, 60, ...);
+  MERGE_FEATURE_4B("IDS bits [39:36]"         , mmfr2, 36, ...);
+  MERGE_FEATURE_4B("FWB bits [43:40]"         , mmfr2, 40, ...);
+  MERGE_FEATURE_4B("TTL bits [51:48]"         , mmfr2, 48, ...);
+  MERGE_FEATURE_4B("BBM bits [55:52]"         , mmfr2, 52, ...);
+  MERGE_FEATURE_4B("EVT bits [59:56]"         , mmfr2, 56, ...);
+  MERGE_FEATURE_4B("E0PD bits [63:60]"        , mmfr2, 60, ...);
   */
 }
 
 // Detects features based on the content of ID_AA64ZFR0_EL1 register.
 ASMJIT_MAYBE_UNUSED
-static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID_AA64ZFR0(CpuInfo& cpu, uint64_t zfr0) noexcept {
-  MERGE_FEATURE_EXT("SVEver bits [3:0]"        , zfr0,  0, Ext::kSVE2, Ext::kSVE2_1);
-  MERGE_FEATURE_EXT("AES bits [7:4]"           , zfr0,  4, Ext::kSVE_AES, Ext::kSVE_PMULL128);
-  MERGE_FEATURE_EXT("BitPerm bits [19:16]"     , zfr0, 16, Ext::kSVE_BITPERM);
-  MERGE_FEATURE_EXT("BF16 bits [23:20]"        , zfr0, 20, Ext::kSVE_BF16, Ext::kSVE_EBF16);
-  MERGE_FEATURE_EXT("B16B16 bits [27:24]"      , zfr0, 24, Ext::kSVE_B16B16);
-  MERGE_FEATURE_EXT("SHA3 bits [35:32]"        , zfr0, 32, Ext::kSVE_SHA3);
-  MERGE_FEATURE_EXT("SM4 bits [43:40]"         , zfr0, 40, Ext::kSVE_SM4);
-  MERGE_FEATURE_EXT("I8MM bits [47:44]"        , zfr0, 44, Ext::kSVE_I8MM);
-  MERGE_FEATURE_EXT("F32MM bits [55:52]"       , zfr0, 52, Ext::kSVE_F32MM);
-  MERGE_FEATURE_EXT("F64MM bits [59:56]"       , zfr0, 56, Ext::kSVE_F64MM);
+static inline void detectAArch64FeaturesViaCPUID_AA64ZFR0(CpuInfo& cpu, uint64_t zfr0) noexcept {
+  MERGE_FEATURE_4B("SVEver bits [3:0]"        , zfr0,  0, Ext::kSVE2, Ext::kSVE2_1);
+  MERGE_FEATURE_4B("AES bits [7:4]"           , zfr0,  4, Ext::kSVE_AES, Ext::kSVE_PMULL128);
+  MERGE_FEATURE_4B("BitPerm bits [19:16]"     , zfr0, 16, Ext::kSVE_BITPERM);
+  MERGE_FEATURE_4B("BF16 bits [23:20]"        , zfr0, 20, Ext::kSVE_BF16, Ext::kSVE_EBF16);
+  MERGE_FEATURE_4B("B16B16 bits [27:24]"      , zfr0, 24, Ext::kSVE_B16B16);
+  MERGE_FEATURE_4B("SHA3 bits [35:32]"        , zfr0, 32, Ext::kSVE_SHA3);
+  MERGE_FEATURE_4B("SM4 bits [43:40]"         , zfr0, 40, Ext::kSVE_SM4);
+  MERGE_FEATURE_4B("I8MM bits [47:44]"        , zfr0, 44, Ext::kSVE_I8MM);
+  MERGE_FEATURE_4B("F32MM bits [55:52]"       , zfr0, 52, Ext::kSVE_F32MM);
+  MERGE_FEATURE_4B("F64MM bits [59:56]"       , zfr0, 56, Ext::kSVE_F64MM);
 }
 
-#undef MERGE_FEATURE_EXT
-#undef MERGE_FEATURE_N_A
+ASMJIT_MAYBE_UNUSED
+static inline void detectAArch64FeaturesViaCPUID_AA64SMFR0(CpuInfo& cpu, uint64_t smfr0) noexcept {
+  MERGE_FEATURE_1B("SF8DP2 bit [28]"          , smfr0, 29, Ext::kSSVE_FP8DOT2);
+  MERGE_FEATURE_1B("SF8DP4 bit [29]"          , smfr0, 29, Ext::kSSVE_FP8DOT4);
+  MERGE_FEATURE_1B("SF8FMA bit [30]"          , smfr0, 30, Ext::kSSVE_FP8FMA);
+  MERGE_FEATURE_1B("F32F32 bit [32]"          , smfr0, 32, Ext::kSME_F32F32);
+  MERGE_FEATURE_1B("BI32I32 bit [33]"         , smfr0, 33, Ext::kSME_BI32I32);
+  MERGE_FEATURE_1B("B16F32 bit [34]"          , smfr0, 34, Ext::kSME_B16F32);
+  MERGE_FEATURE_1B("F16F32 bit [35]"          , smfr0, 35, Ext::kSME_F16F32);
+  MERGE_FEATURE_4S("I8I32 bits [39:36]"       , smfr0, 36, 0xF, Ext::kSME_I8I32);
+  MERGE_FEATURE_1B("F8F32 bit [40]"           , smfr0, 40, Ext::kSME_F8F32);
+  MERGE_FEATURE_1B("F8F16 bit [41]"           , smfr0, 41, Ext::kSME_F8F16);
+  MERGE_FEATURE_1B("F16F16 bit [42]"          , smfr0, 42, Ext::kSME_F16F16);
+  MERGE_FEATURE_1B("B16B16 bit [43]"          , smfr0, 43, Ext::kSME_B16B16);
+  MERGE_FEATURE_4S("I16I32 bits [47:44]"      , smfr0, 44, 0x5, Ext::kSME_I16I32);
+  MERGE_FEATURE_1B("F64F64 bit [48]"          , smfr0, 48, Ext::kSME_F64F64);
+  MERGE_FEATURE_4S("I16I64 bits [55:52]"      , smfr0, 52, 0xF, Ext::kSME_I16I64);
+  MERGE_FEATURE_4B("SMEver bits [59:56]"      , smfr0, 56, Ext::kSME2, Ext::kSME2_1);
+  MERGE_FEATURE_1B("LUTv2 bit [60]"           , smfr0, 60, Ext::kSME_LUTv2);
+  MERGE_FEATURE_1B("FA64 bit [63]"            , smfr0, 63, Ext::kSME_FA64);
+}
+
+#undef MERGE_FEATURE_4S
+#undef MERGE_FEATURE_4B
+#undef MERGE_FEATURE_2B
+#undef MERGE_FEATURE_1B
+#undef MERGE_FEATURE_NA
 
 // CpuInfo - Detect - ARM - CPU Vendor Features
 // ============================================
@@ -1084,11 +1150,10 @@ static ASMJIT_FAVOR_SIZE bool detectARMFeaturesViaAppleFamilyId(CpuInfo& cpu) no
 
     // Apple A14/M1 (ARMv8.5-A).
     case uint32_t(Id::kFIRESTORM_ICESTORM):
-      // Missing: CSV2, CSV3.
       populateARMv8AFeatures(features, 4);
-      features.add(Ext::kAES, Ext::kDPB2, Ext::kECV, Ext::kFHM, Ext::kFLAGM2, Ext::kFP16, Ext::kFP16CONV,
-                   Ext::kFRINTTS, Ext::kPMU, Ext::kPMULL, Ext::kSB, Ext::kSHA1, Ext::kSHA256, Ext::kSHA3,
-                   Ext::kSHA512, Ext::kSSBS);
+      features.add(Ext::kAES, Ext::kCSV2, Ext::kCSV3, Ext::kDPB2, Ext::kECV, Ext::kFHM, Ext::kFLAGM2,
+                   Ext::kFP16, Ext::kFP16CONV, Ext::kFRINTTS, Ext::kPMU, Ext::kPMULL, Ext::kSB,
+                   Ext::kSHA1, Ext::kSHA256, Ext::kSHA3, Ext::kSHA512, Ext::kSSBS);
       return true;
 
     // Apple A15/M2.
@@ -1393,7 +1458,7 @@ ASMJIT_AARCH64_DEFINE_CPUID_READ_FN(aarch64ReadZFR0, S3_0_C0_C4_4) // ID_AA64ZFR
 // dependent is zeroed, only the bits that are used for CPU feature identification would be present.
 //
 // References:
-//   - https://docs.kernel.org/arm64/cpu-feature-registers.html
+//   - https://docs.kernel.org/arch/arm64/cpu-feature-registers.html
 ASMJIT_MAYBE_UNUSED
 static ASMJIT_FAVOR_SIZE void detectAArch64FeaturesViaCPUID(CpuInfo& cpu) noexcept {
   populateBaseARMFeatures(cpu);
@@ -1596,7 +1661,7 @@ static ASMJIT_FAVOR_SIZE void detectARMCpu(CpuInfo& cpu) noexcept {
 #else
 
 // Reference:
-//   - https://docs.kernel.org/arm64/elf_hwcaps.html
+//   - https://docs.kernel.org/arch/arm64/elf_hwcaps.html
 //   - https://github.com/torvalds/linux/blob/master/arch/arm64/include/uapi/asm/hwcap.h
 static const HWCapMapping hwCapMapping[] = {
   { uint8_t(Ext::kFP)           , 0  }, // HWCAP_FP
@@ -1680,7 +1745,12 @@ static const HWCapMapping hwCap2Mapping[] = {
   { uint8_t(Ext::kSME_I16I32)   , 39 }, // HWCAP2_SME_I16I32
   { uint8_t(Ext::kSME_BI32I32)  , 40 }, // HWCAP2_SME_BI32I32
   { uint8_t(Ext::kSME_B16B16)   , 41 }, // HWCAP2_SME_B16B16
-  { uint8_t(Ext::kSME_F16F16)   , 42 }  // HWCAP2_SME_F16F16
+  { uint8_t(Ext::kSME_F16F16)   , 42 }, // HWCAP2_SME_F16F16
+  { uint8_t(Ext::kMOPS)         , 43 }, // HWCAP2_MOPS
+  { uint8_t(Ext::kHBC)          , 44 }, // HWCAP2_HBC
+  { uint8_t(Ext::kSVE_B16B16)   , 45 }, // HWCAP2_SVE_B16B16
+  { uint8_t(Ext::kLRCPC3)       , 46 }, // HWCAP2_LRCPC3
+  { uint8_t(Ext::kLSE128)       , 47 }, // HWCAP2_LSE128
 };
 
 static ASMJIT_FAVOR_SIZE void detectARMCpu(CpuInfo& cpu) noexcept {
@@ -1754,6 +1824,9 @@ static ASMJIT_FAVOR_SIZE void detectARMCpu(CpuInfo& cpu) noexcept {
   // Only read CPU_ID_AA64ZFR0 when either SVE or SME is available.
   if (cpu.features().arm().hasAny(Ext::kSVE, Ext::kSME)) {
     detectAArch64FeaturesViaCPUID_AA64ZFR0(cpu, openbsdReadAArch64CPUID(ID::kAA64ZFR0));
+
+    if (cpu.features().arm().hasSME())
+      detectAArch64FeaturesViaCPUID_AA64SMFR0(cpu, openbsdReadAArch64CPUID(ID::kAA64SMFR0));
   }
 
   postProcessARMCpuInfo(cpu);
@@ -1886,7 +1959,7 @@ static ASMJIT_FAVOR_SIZE void detectARMCpu(CpuInfo& cpu) noexcept {
 #else
 
 #if ASMJIT_ARCH_ARM == 32
-  #pragma message("[asmjit] Disabling runtime CPU detection - unsupported OS/CPU combination (Unknown OS with ARM CPU)")
+  #pragma message("[asmjit] Disabling runtime CPU detection - unsupported OS/CPU combination (Unknown OS with AArch32 CPU)")
 #else
   #pragma message("[asmjit] Disabling runtime CPU detection - unsupported OS/CPU combination (Unknown OS with AArch64 CPU)")
 #endif
@@ -1905,13 +1978,13 @@ static ASMJIT_FAVOR_SIZE void detectARMCpu(CpuInfo& cpu) noexcept {
 // CpuInfo - Detect - Host
 // =======================
 
-static uint32_t cpuInfoInitialized;
-static CpuInfo cpuInfoGlobal(Globals::NoInit);
-
 const CpuInfo& CpuInfo::host() noexcept {
-  // This should never cause a problem as the resulting information should always be the same.
-  // In the worst case it would just be overwritten non-atomically.
-  if (!cpuInfoInitialized) {
+  static std::atomic<uint32_t> cpuInfoInitialized;
+  static CpuInfo cpuInfoGlobal(Globals::NoInit);
+
+  // This should never cause a problem as the resulting information should always
+  // be the same. In the worst case it would just be overwritten non-atomically.
+  if (!cpuInfoInitialized.load(std::memory_order_relaxed)) {
     CpuInfo cpuInfoLocal;
 
     cpuInfoLocal._arch = Arch::kHost;
@@ -1921,16 +1994,18 @@ const CpuInfo& CpuInfo::host() noexcept {
     x86::detectX86Cpu(cpuInfoLocal);
 #elif ASMJIT_ARCH_ARM
     arm::detectARMCpu(cpuInfoLocal);
-#else
-    #pragma message("[asmjit] Disabling runtime CPU detection - unsupported OS/CPU combination (Unknown CPU)")
 #endif
 
     cpuInfoLocal._hwThreadCount = detectHWThreadCount();
     cpuInfoGlobal = cpuInfoLocal;
-    cpuInfoInitialized = 1;
+    cpuInfoInitialized.store(1, std::memory_order_seq_cst);
   }
 
   return cpuInfoGlobal;
 }
+
+#if defined(_MSC_VER)
+  #pragma warning(pop)
+#endif // _MSC_VER
 
 ASMJIT_END_NAMESPACE

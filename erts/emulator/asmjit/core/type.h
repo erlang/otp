@@ -202,9 +202,13 @@ static ASMJIT_INLINE_NODEBUG constexpr bool isInt64(TypeId typeId) noexcept { re
 //! Tests whether a given type is a scalar 64-bit integer (unsigned).
 static ASMJIT_INLINE_NODEBUG constexpr bool isUInt64(TypeId typeId) noexcept { return typeId == TypeId::kUInt64; }
 
+//! Tests whether a given type is an 8-bit general purpose register representing either signed or unsigned 8-bit integer.
 static ASMJIT_INLINE_NODEBUG constexpr bool isGp8(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt8, TypeId::kUInt8); }
+//! Tests whether a given type is a 16-bit general purpose register representing either signed or unsigned 16-bit integer
 static ASMJIT_INLINE_NODEBUG constexpr bool isGp16(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt16, TypeId::kUInt16); }
+//! Tests whether a given type is a 32-bit general purpose register representing either signed or unsigned 32-bit integer
 static ASMJIT_INLINE_NODEBUG constexpr bool isGp32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt32, TypeId::kUInt32); }
+//! Tests whether a given type is a 64-bit general purpose register representing either signed or unsigned 64-bit integer
 static ASMJIT_INLINE_NODEBUG constexpr bool isGp64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::kInt64, TypeId::kUInt64); }
 
 //! Tests whether a given type is a scalar floating point of any size.
@@ -216,21 +220,41 @@ static ASMJIT_INLINE_NODEBUG constexpr bool isFloat64(TypeId typeId) noexcept { 
 //! Tests whether a given type is a scalar 80-bit float.
 static ASMJIT_INLINE_NODEBUG constexpr bool isFloat80(TypeId typeId) noexcept { return typeId == TypeId::kFloat80; }
 
+//! Tests whether a given type is a mask register of any size.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMask(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMaskStart, TypeId::_kMaskEnd); }
+//! Tests whether a given type is an 8-bit mask register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMask8(TypeId typeId) noexcept { return typeId == TypeId::kMask8; }
+//! Tests whether a given type is an 16-bit mask register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMask16(TypeId typeId) noexcept { return typeId == TypeId::kMask16; }
+//! Tests whether a given type is an 32-bit mask register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMask32(TypeId typeId) noexcept { return typeId == TypeId::kMask32; }
+//! Tests whether a given type is an 64-bit mask register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMask64(TypeId typeId) noexcept { return typeId == TypeId::kMask64; }
 
+//! Tests whether a given type is an MMX register.
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMmx(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kMmxStart, TypeId::_kMmxEnd); }
+//! Tests whether a given type is an MMX register, which only uses the low 32 bits of data (only specific cases).
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMmx32(TypeId typeId) noexcept { return typeId == TypeId::kMmx32; }
+//! Tests whether a given type is an MMX register, which uses 64 bits of data (default).
+//!
+//! \note MMX functionality is in general deprecated on X86 architecture. AsmJit provides it just for completeness.
 static ASMJIT_INLINE_NODEBUG constexpr bool isMmx64(TypeId typeId) noexcept { return typeId == TypeId::kMmx64; }
 
+//! Tests whether a given type is a vector register of any size.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec512End); }
+//! Tests whether a given type is a 32-bit or 32-bit view of a vector register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec32(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec32Start, TypeId::_kVec32End); }
+//! Tests whether a given type is a 64-bit or 64-bit view of a vector register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec64(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec64Start, TypeId::_kVec64End); }
+//! Tests whether a given type is a 128-bit or 128-bit view of a vector register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec128(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec128Start, TypeId::_kVec128End); }
+//! Tests whether a given type is a 256-bit or 256-bit view of a vector register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec256(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec256Start, TypeId::_kVec256End); }
+//! Tests whether a given type is a 512-bit or 512-bit view of a vector register.
 static ASMJIT_INLINE_NODEBUG constexpr bool isVec512(TypeId typeId) noexcept { return isBetween(typeId, TypeId::_kVec512Start, TypeId::_kVec512End); }
 
 //! \cond

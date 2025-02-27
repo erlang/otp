@@ -216,14 +216,17 @@ ASMJIT_FAVOR_SIZE Error BaseEmitHelper::emitArgsAssignment(const FuncFrame& fram
       }
       else {
         WorkData& wd = workData[outGroup];
-        if (!wd.isAssigned(outId)) {
+        if (!wd.isAssigned(outId) || curId == outId) {
 EmitMove:
           ASMJIT_PROPAGATE(
             emitArgMove(
               BaseReg(archTraits.regTypeToSignature(out.regType()), outId), out.typeId(),
               BaseReg(archTraits.regTypeToSignature(cur.regType()), curId), cur.typeId()));
 
-          wd.reassign(varId, outId, curId);
+          // Only reassign if this is not a sign/zero extension that happens on the same in/out register.
+          if (curId != outId)
+            wd.reassign(varId, outId, curId);
+
           cur.initReg(out.regType(), outId, out.typeId());
 
           if (outId == out.regId())
