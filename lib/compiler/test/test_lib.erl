@@ -24,7 +24,7 @@
 -export([id/1,recompile/1,recompile_core/1,parallel/0,
          uniq/0,opt_opts/1,get_data_dir/1,
          smoke_disasm/1,
-         p_run/2,p_run/3,
+         p_run/2,
          highest_opcode/1,
          get_unique_files/1,get_unique_files/2]).
 
@@ -184,17 +184,20 @@ is_lfe_module(File, Ext) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    %% Limit the number of parallel processes to avoid running out of
-    %% virtual address space or memory. This is especially important
-    %% on 32-bit Windows, where only 2 GB of virtual address space is
-    %% available.
-    N = case {erlang:system_info(schedulers),erlang:system_info(wordsize)} of
-            {_,4} ->
-                1;
-            {N0,8} ->
-                min(N0, 8)
-        end,
-    p_run(Test, List, N).
+    case erlang:system_info(wordsize) of
+        4 ->
+            %% A 32-bit system. If this is Windows, only 2 GiB of
+            %% virtual address space is available. In an attempt to
+            %% avoid fragmenting the memory, we don't spawn any new
+            %% processes, and instead run the tests sequentially in
+            %% the same process.
+            s_run(Test, List);
+        8 ->
+            %% Limit the number of parallel processes to avoid running
+            %% out of virtual address space or memory.
+            N = min(erlang:system_info(schedulers), 8),
+            p_run(Test, List, N)
+    end.
 
 p_run(Test, List, N) ->
     io:format("p_run: ~p parallel processes; ~p jobs\n",
@@ -202,16 +205,7 @@ p_run(Test, List, N) ->
     p_run_loop(Test, List, N, [], 0, 0).
 
 p_run_loop(_, [], _, [], Errors, Ws) ->
-    case Errors of
-	0 ->
-	    case Ws of
-		0 -> ok;
-		1 -> {comment,"1 warning"};
-		N -> {comment,integer_to_list(N)++" warnings"}
-	    end;
-	N ->
-	    ct:fail({N,errors})
-    end;
+    run_result(Errors, Ws);
 p_run_loop(Test, [H|T], N, Refs, Errors, Ws) when length(Refs) < N ->
     {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
     p_run_loop(Test, T, N, [Ref|Refs], Errors, Ws);
@@ -225,6 +219,35 @@ p_run_loop(Test, List, N, Refs0, Errors0, Ws0) ->
 			  end,
 	    Refs = Refs0 -- [Ref],
 	    p_run_loop(Test, List, N, Refs, Errors, Ws)
+    end.
+
+s_run(Test, List) ->
+    io:format("p_run: a single process; ~p jobs\n",
+              [length(List)]),
+    s_run_loop(Test, List, 0, 0).
+
+s_run_loop(_Test, [], Errors, Ws) ->
+    run_result(Errors, Ws);
+s_run_loop(Test, [H|T], Errors, Ws)  ->
+    case Test(H) of
+        ok ->
+            s_run_loop(Test, T, Errors, Ws);
+        error ->
+            s_run_loop(Test, T, Errors + 1, Ws);
+        warning ->
+            s_run_loop(Test, T, Errors, Ws + 1)
+    end.
+
+run_result(Errors, Ws) ->
+    case Errors of
+	0 ->
+	    case Ws of
+		0 -> ok;
+		1 -> {comment,"1 warning"};
+		N -> {comment,integer_to_list(N)++" warnings"}
+	    end;
+	N ->
+	    ct:fail({N,errors})
     end.
 
 %% This is for the misc_SUITE:override_bif testcase
