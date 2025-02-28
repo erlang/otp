@@ -851,6 +851,9 @@ with_with_sparc_memory_order
 enable_ppc_lwsync_instruction
 with_threadnames
 enable_builtin_zlib
+with_inet_buffer_tcp_default
+with_inet_buffer_udp_default
+with_inet_buffer_sctp_default
 enable_esock
 enable_esock_use_rcvsndtimeo
 enable_esock_extended_error_info
@@ -1665,6 +1668,15 @@ Optional Packages:
   --with-threadnames      use pthread_setname to set the thread names
                           (default)
   --without-threadnames   do not set any thread names
+  --with-inet-buffer-tcp-default=SZ
+                          Default size of the internal buffer (for a tcp
+                          socket) in bytes (default value is 8192)
+  --with-inet-buffer-udp-default=SZ
+                          Default size of the internal buffer (for a udp
+                          socket) in bytes (default value is 8192)
+  --with-inet-buffer-sctp-default=SZ
+                          Default size of the internal buffer (for a sctp
+                          socket) in bytes (default value is 8192)
   --with-esock-counter-size=SZ
                           Size of the esock counters, in number of bits: 16 |
                           24 | 32 | 48 | 64; default is 64
@@ -16451,6 +16463,199 @@ esac
 fi
 
 
+
+
+
+
+
+# Check whether --with-inet-buffer-tcp-default was given.
+if test ${with_inet_buffer_tcp_default+y}
+then :
+  withval=$with_inet_buffer_tcp_default;
+else case e in #(
+  e) with_inet_buffer_tcp_default=8192 ;;
+esac
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking Validate (tcp) buffer size" >&5
+printf %s "checking Validate (tcp) buffer size... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_tcp_default;
+   return (int) sz;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  inet_tcp_buf_sz=yes
+else case e in #(
+  e) inet_tcp_buf_sz=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+if test "$inet_tcp_buf_sz" = yes
+then :
+
+       case $with_inet_buffer_tcp_default in #(
+  1*|2*|3*|4*|5*|6*|7*|8*|9*) :
+
+
+printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT $with_inet_buffer_tcp_default" >>confdefs.h
+
+                ;; #(
+  *) :
+
+                                                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 8192" >>confdefs.h
+
+                ;;
+esac
+
+else case e in #(
+  e)
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-tcp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_TCP_DEFAULT 8192" >>confdefs.h
+
+       ;;
+esac
+fi
+
+
+
+
+# Check whether --with-inet-buffer-udp-default was given.
+if test ${with_inet_buffer_udp_default+y}
+then :
+  withval=$with_inet_buffer_udp_default;
+else case e in #(
+  e) with_inet_buffer_udp_default=8192 ;;
+esac
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking Validate (udp) buffer size" >&5
+printf %s "checking Validate (udp) buffer size... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_udp_default;
+   return (int) sz;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  inet_udp_buf_sz=yes
+else case e in #(
+  e) inet_udp_buf_sz=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+if test "$inet_udp_buf_sz" = yes
+then :
+
+       case $with_inet_buffer_udp_default in #(
+  1*|2*|3*|4*|5*|6*|7*|8*|9*) :
+
+
+printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT $with_inet_buffer_udp_default" >>confdefs.h
+
+                ;; #(
+  *) :
+
+                                                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 8192" >>confdefs.h
+
+                ;;
+esac
+
+else case e in #(
+  e)
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-udp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_UDP_DEFAULT 8192" >>confdefs.h
+
+       ;;
+esac
+fi
+
+
+
+
+# Check whether --with-inet-buffer-sctp-default was given.
+if test ${with_inet_buffer_sctp_default+y}
+then :
+  withval=$with_inet_buffer_sctp_default;
+else case e in #(
+  e) with_inet_buffer_sctp_default=8192 ;;
+esac
+fi
+
+
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking Validate (sctp) buffer size" >&5
+printf %s "checking Validate (sctp) buffer size... " >&6; }
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int main(void)
+{
+   unsigned int sz = $with_inet_buffer_sctp_default;
+   return (int) sz;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  inet_sctp_buf_sz=yes
+else case e in #(
+  e) inet_sctp_buf_sz=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+if test "$inet_sctp_buf_sz" = yes
+then :
+
+       case $with_inet_buffer_sctp_default in #(
+  1*|2*|3*|4*|5*|6*|7*|8*|9*) :
+
+
+printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT $with_inet_buffer_sctp_default" >>confdefs.h
+
+                ;; #(
+  *) :
+
+                                                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 8192" >>confdefs.h
+
+                ;;
+esac
+
+else case e in #(
+  e)
+                { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&5
+printf "%s\n" "$as_me: WARNING: --with-inet-buffer-sctp-default - Invalid buffer size - using default" >&2;}
+
+printf "%s\n" "#define INET_BUFFER_SCTP_DEFAULT 8192" >>confdefs.h
+
+       ;;
+esac
+fi
 
 
 
