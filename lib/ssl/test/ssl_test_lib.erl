@@ -4301,7 +4301,8 @@ assert_mfl(Socket, MFL) ->
     ?CT_LOG("Connection MFL ~p, Expecting: ~p ~n", [InfoMFL, MFL]),
     {ok, [{max_fragment_length, ConnMFL}]} = InfoMFL,
     ConnMFL = MFL.
--define(BIG_BUF, 10000000).
+
+-define(BIG_BUF, 64_000).
 %% Workaround data delivery issues on solaris | openbsd  when kernel buffers are small
 bigger_buffers() ->
     case os:type() of
