@@ -14,8 +14,50 @@ ASMJIT_BEGIN_NAMESPACE
 
 static const char String_baseN[] = "0123456789ABCDEF";
 
-constexpr size_t kMinAllocSize = 64;
+constexpr size_t kMinAllocSize = 128;
 constexpr size_t kMaxAllocSize = SIZE_MAX - Globals::kGrowThreshold;
+
+// Based on ZoneVector_growCapacity().
+//
+// NOTE: The sizes here include null terminators - that way we can have aligned allocations that are power of 2s
+// initially.
+static ASMJIT_FORCE_INLINE size_t String_growCapacity(size_t byteSize, size_t minimumByteSize) noexcept {
+  static constexpr size_t kGrowThreshold = Globals::kGrowThreshold;
+
+  ASMJIT_ASSERT(minimumByteSize < kMaxAllocSize);
+
+  // This is more than exponential growth at the beginning.
+  if (byteSize < kMinAllocSize) {
+    byteSize = kMinAllocSize;
+  }
+  else if (byteSize < 512) {
+    byteSize = 512;
+  }
+
+  if (byteSize < minimumByteSize) {
+    // Exponential growth before we reach `kGrowThreshold`.
+    byteSize = Support::alignUpPowerOf2(minimumByteSize);
+
+    // Bail to `minimumByteSize` in case of overflow - most likely whatever that is happening afterwards would just fail.
+    if (byteSize < minimumByteSize) {
+      return minimumByteSize;
+    }
+
+    // Pretty much chunked growth advancing by `kGrowThreshold` after we exceed it.
+    if (byteSize > kGrowThreshold) {
+      // Align to kGrowThreshold.
+      size_t remainder = minimumByteSize % kGrowThreshold;
+
+      byteSize = minimumByteSize + remainder;
+
+      // Bail to `minimumByteSize` in case of overflow.
+      if (byteSize < minimumByteSize)
+        return minimumByteSize;
+    }
+  }
+
+  return Support::min<size_t>(byteSize, kMaxAllocSize);
+}
 
 // String - Clear & Reset
 // ======================
@@ -49,13 +91,13 @@ char* String::prepare(ModifyOp op, size_t size) noexcept {
   size_t curCapacity;
 
   if (isLargeOrExternal()) {
-    curData = this->_large.data;
-    curSize = this->_large.size;
-    curCapacity = this->_large.capacity;
+    curData = _large.data;
+    curSize = _large.size;
+    curCapacity = _large.capacity;
   }
   else {
-    curData = this->_small.data;
-    curSize = this->_small.type;
+    curData = _small.data;
+    curSize = _small.type;
     curCapacity = kSSOCapacity;
   }
 
@@ -90,25 +132,20 @@ char* String::prepare(ModifyOp op, size_t size) noexcept {
   }
   else {
     // Prevent arithmetic overflow.
-    if (ASMJIT_UNLIKELY(size >= kMaxAllocSize - curSize))
+    if (ASMJIT_UNLIKELY(size >= kMaxAllocSize - curSize - 1))
       return nullptr;
 
     size_t newSize = size + curSize;
     size_t newSizePlusOne = newSize + 1;
 
-    if (newSizePlusOne > curCapacity) {
-      size_t newCapacity = Support::max<size_t>(curCapacity + 1, kMinAllocSize);
+    if (newSize > curCapacity) {
+      size_t newCapacityPlusOne = String_growCapacity(size + 1u, newSizePlusOne);
+      ASMJIT_ASSERT(newCapacityPlusOne >= newSizePlusOne);
 
-      if (newCapacity < newSizePlusOne && newCapacity < Globals::kGrowThreshold)
-        newCapacity = Support::alignUpPowerOf2(newCapacity);
-
-      if (newCapacity < newSizePlusOne)
-        newCapacity = Support::alignUp(newSizePlusOne, Globals::kGrowThreshold);
-
-      if (ASMJIT_UNLIKELY(newCapacity < newSizePlusOne))
+      if (ASMJIT_UNLIKELY(newCapacityPlusOne < newSizePlusOne))
         return nullptr;
 
-      char* newData = static_cast<char*>(::malloc(newCapacity));
+      char* newData = static_cast<char*>(::malloc(newCapacityPlusOne));
       if (ASMJIT_UNLIKELY(!newData))
         return nullptr;
 
@@ -119,7 +156,7 @@ char* String::prepare(ModifyOp op, size_t size) noexcept {
 
       _large.type = kTypeLarge;
       _large.size = newSize;
-      _large.capacity = newCapacity - 1;
+      _large.capacity = newCapacityPlusOne - 1;
       _large.data = newData;
 
       newData[newSize] = '\0';
@@ -254,7 +291,7 @@ Error String::_opNumber(ModifyOp op, uint64_t i, uint32_t base, size_t width, St
   // -----------
 
   if (Support::test(flags, StringFormatFlags::kSigned) && int64_t(i) < 0) {
-    i = uint64_t(-int64_t(i));
+    i = Support::neg(i);
     sign = '-';
   }
   else if (Support::test(flags, StringFormatFlags::kShowSign)) {
@@ -463,7 +500,7 @@ Error String::truncate(size_t newSize) noexcept {
   return kErrorOk;
 }
 
-bool String::eq(const char* other, size_t size) const noexcept {
+bool String::equals(const char* other, size_t size) const noexcept {
   const char* aData = data();
   const char* bData = other;
 
@@ -488,8 +525,27 @@ bool String::eq(const char* other, size_t size) const noexcept {
 // ==============
 
 #if defined(ASMJIT_TEST)
+static void test_string_grow() noexcept {
+  String s;
+  size_t c = s.capacity();
+
+  INFO("Testing string grow strategy (SSO capacity: %zu)", c);
+  for (size_t i = 0; i < 1000000; i++) {
+    s.append('x');
+    if (s.capacity() != c) {
+      c = s.capacity();
+      INFO("  String reallocated to new capacity: %zu", c);
+    }
+  }
+
+  // We don't expect a 1 million character string to occupy 4MiB, for example. So verify that!
+  EXPECT_LT(c, size_t(4 * 1024 * 1024));
+}
+
 UNIT(core_string) {
   String s;
+
+  INFO("Testing string functionality");
 
   EXPECT_FALSE(s.isLargeOrExternal());
   EXPECT_FALSE(s.isExternal());
@@ -499,8 +555,8 @@ UNIT(core_string) {
   EXPECT_EQ(s.capacity(), String::kSSOCapacity);
   EXPECT_EQ(s.data()[0], 'a');
   EXPECT_EQ(s.data()[1], '\0');
-  EXPECT_TRUE(s.eq("a"));
-  EXPECT_TRUE(s.eq("a", 1));
+  EXPECT_TRUE(s.equals("a"));
+  EXPECT_TRUE(s.equals("a", 1));
 
   EXPECT_EQ(s.assignChars('b', 4), kErrorOk);
   EXPECT_EQ(s.size(), 4u);
@@ -510,8 +566,8 @@ UNIT(core_string) {
   EXPECT_EQ(s.data()[2], 'b');
   EXPECT_EQ(s.data()[3], 'b');
   EXPECT_EQ(s.data()[4], '\0');
-  EXPECT_TRUE(s.eq("bbbb"));
-  EXPECT_TRUE(s.eq("bbbb", 4));
+  EXPECT_TRUE(s.equals("bbbb"));
+  EXPECT_TRUE(s.equals("bbbb", 4));
 
   EXPECT_EQ(s.assign("abc"), kErrorOk);
   EXPECT_EQ(s.size(), 3u);
@@ -520,16 +576,16 @@ UNIT(core_string) {
   EXPECT_EQ(s.data()[1], 'b');
   EXPECT_EQ(s.data()[2], 'c');
   EXPECT_EQ(s.data()[3], '\0');
-  EXPECT_TRUE(s.eq("abc"));
-  EXPECT_TRUE(s.eq("abc", 3));
+  EXPECT_TRUE(s.equals("abc"));
+  EXPECT_TRUE(s.equals("abc", 3));
 
   const char* large = "Large string that will not fit into SSO buffer";
   EXPECT_EQ(s.assign(large), kErrorOk);
   EXPECT_TRUE(s.isLargeOrExternal());
   EXPECT_EQ(s.size(), strlen(large));
   EXPECT_GT(s.capacity(), String::kSSOCapacity);
-  EXPECT_TRUE(s.eq(large));
-  EXPECT_TRUE(s.eq(large, strlen(large)));
+  EXPECT_TRUE(s.equals(large));
+  EXPECT_TRUE(s.equals(large, strlen(large)));
 
   const char* additional = " (additional content)";
   EXPECT_TRUE(s.isLargeOrExternal());
@@ -543,16 +599,18 @@ UNIT(core_string) {
   EXPECT_TRUE(s.isLargeOrExternal()); // Clear should never release the memory.
 
   EXPECT_EQ(s.appendUInt(1234), kErrorOk);
-  EXPECT_TRUE(s.eq("1234"));
+  EXPECT_TRUE(s.equals("1234"));
 
   EXPECT_EQ(s.assignUInt(0xFFFF, 16, 0, StringFormatFlags::kAlternate), kErrorOk);
-  EXPECT_TRUE(s.eq("0xFFFF"));
+  EXPECT_TRUE(s.equals("0xFFFF"));
 
   StringTmp<64> sTmp;
   EXPECT_TRUE(sTmp.isLargeOrExternal());
   EXPECT_TRUE(sTmp.isExternal());
   EXPECT_EQ(sTmp.appendChars(' ', 1000), kErrorOk);
   EXPECT_FALSE(sTmp.isExternal());
+
+  test_string_grow();
 }
 #endif
 

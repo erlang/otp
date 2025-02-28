@@ -477,6 +477,20 @@ Error RACFGBuilder::onInst(InstNode* inst, InstControlFlow& cf, RAInstBuilder& i
           }
         }
       }
+      else if (opCount == 4 && inst->op(3).isImm()) {
+        const Imm& imm = inst->op(3).as<Imm>();
+
+        switch (inst->id()) {
+          case Inst::kIdVpternlogd:
+          case Inst::kIdVpternlogq: {
+            uint32_t predicate = uint32_t(imm.value() & 0xFFu);
+            if (predicate == 0x00u || predicate == 0xFFu) {
+              ib[0]->makeWriteOnly();
+            }
+            break;
+          }
+        }
+      }
 
       switch (sameRegHint) {
         case InstSameRegHint::kNone:
@@ -1306,6 +1320,54 @@ ASMJIT_FAVOR_SPEED Error X86RAPass::_rewrite(BaseNode* first, BaseNode* stop) no
           while (outIt.hasNext()) {
             maxRegId = Support::max(maxRegId, outId);
             inst->rewriteIdAtIndex(outIt.next(), outId);
+          }
+        }
+
+        // If one operand was rewritten from Reg to Mem, we have to ensure that we are using the correct instruction.
+        if (raInst->isRegToMemPatched()) {
+          switch (inst->id()) {
+            case Inst::kIdKmovb: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(1);
+                inst->setId(Inst::kIdMovzx);
+              }
+              break;
+            }
+
+            case Inst::kIdVmovw: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(2);
+                inst->setId(Inst::kIdMovzx);
+              }
+              break;
+            }
+
+            case Inst::kIdMovd:
+            case Inst::kIdVmovd:
+            case Inst::kIdKmovd: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVD to MOV.
+                operands[1].as<Mem>().setSize(4);
+                inst->setId(Inst::kIdMov);
+              }
+              break;
+            }
+
+            case Inst::kIdMovq:
+            case Inst::kIdVmovq:
+            case Inst::kIdKmovq: {
+              if (operands[0].isGp() && operands[1].isMem()) {
+                // Transform from [V]MOVQ to MOV.
+                operands[1].as<Mem>().setSize(8);
+                inst->setId(Inst::kIdMov);
+              }
+              break;
+            }
+
+            default:
+              break;
           }
         }
 

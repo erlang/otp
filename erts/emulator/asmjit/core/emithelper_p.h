@@ -24,6 +24,8 @@ public:
   ASMJIT_INLINE_NODEBUG explicit BaseEmitHelper(BaseEmitter* emitter = nullptr) noexcept
     : _emitter(emitter) {}
 
+  ASMJIT_INLINE_NODEBUG virtual ~BaseEmitHelper() noexcept = default;
+
   ASMJIT_INLINE_NODEBUG BaseEmitter* emitter() const noexcept { return _emitter; }
   ASMJIT_INLINE_NODEBUG void setEmitter(BaseEmitter* emitter) noexcept { _emitter = emitter; }
 

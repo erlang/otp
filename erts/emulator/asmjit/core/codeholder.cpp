@@ -132,8 +132,8 @@ CodeHolder::~CodeHolder() noexcept {
   CodeHolder_resetInternal(this, ResetPolicy::kHard);
 }
 
-// CodeHolder - Init & Reset
-// =========================
+// CodeHolder - Initialization & Reset
+// ===================================
 
 inline void CodeHolder_setSectionDefaultName(
   Section* section,

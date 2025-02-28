@@ -137,11 +137,13 @@ Error queryRWInfo(const BaseInst& inst, const Operand_* operands, size_t opCount
 
         if (memOp.hasBase()) {
           op.addOpFlags(OpRWFlags::kMemBaseRead);
+          if ((memOp.hasIndex() || memOp.hasOffset()) && memOp.isPreOrPost()) {
+            op.addOpFlags(OpRWFlags::kMemBaseWrite);
+          }
         }
 
         if (memOp.hasIndex()) {
           op.addOpFlags(OpRWFlags::kMemIndexRead);
-          op.addOpFlags(memOp.isPreOrPost() ? OpRWFlags::kMemIndexWrite : OpRWFlags::kNone);
         }
       }
     }
@@ -191,10 +193,13 @@ Error queryRWInfo(const BaseInst& inst, const Operand_* operands, size_t opCount
 
         if (memOp.hasBase()) {
           op.addOpFlags(OpRWFlags::kMemBaseRead);
+          if ((memOp.hasIndex() || memOp.hasOffset()) && memOp.isPreOrPost()) {
+            op.addOpFlags(OpRWFlags::kMemBaseWrite);
+          }
         }
 
         if (memOp.hasIndex()) {
-          op.addOpFlags(memOp.isPreOrPost() ? OpRWFlags::kMemIndexRW : OpRWFlags::kMemIndexRead);
+          op.addOpFlags(OpRWFlags::kMemIndexRead);
         }
       }
     }

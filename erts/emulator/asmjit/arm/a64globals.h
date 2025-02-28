@@ -21,7 +21,7 @@ ASMJIT_BEGIN_SUB_NAMESPACE(a64)
 //! AArch64 instruction.
 //!
 //! \note Only used to hold ARM-specific enumerations and static functions.
-struct Inst {
+namespace Inst {
   //! Instruction id.
   enum Id : uint32_t {
     // ${InstId:Begin}
