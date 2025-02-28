@@ -356,7 +356,7 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
                                  Uint fragments)
 {
     if (ctx->dflags & DFLAG_PENDING_CONNECT) {
-        /* HOPEFUL_DATA + hopefull flags + hopefull ix + payload ix */
+        /* HOPEFUL_DATA + hopeful flags + hopeful ix + payload ix */
         return 1 + 8 + 4 + 4;
     }
     else if (!acmp && !(ctx->dflags & DFLAG_FRAGMENTS))
@@ -396,10 +396,10 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
         ctx->payload_ixp = ep;
         put_int32(0, ep);
         ep -= 4;
-        ctx->hopefull_ixp = ep;
+        ctx->hopeful_ixp = ep;
         put_int32(ERTS_NO_HIX, ep);
         ep -= 8;
-        ctx->hopefull_flagsp = ep;
+        ctx->hopeful_flagsp = ep;
         put_int64(0, ep);
         *--ep = HOPEFUL_DATA;
         return ep;
@@ -787,8 +787,8 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint64 flags, ErtsAtomCacheMap 
     if (fragmentsp)
         *fragmentsp = res == 0 ? ctx->frag_ix + 1 : ctx->frag_ix;
     if (flags & DFLAG_PENDING_CONNECT) {
-        ASSERT(ctx->hopefull_flagsp);
-        put_int64(ctx->hopefull_flags, ctx->hopefull_flagsp);
+        ASSERT(ctx->hopeful_flagsp);
+        put_int64(ctx->hopeful_flags, ctx->hopeful_flagsp);
     }
     return res;
 }
@@ -6382,17 +6382,17 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
      * element 1:
      *
      * +---+--------------+-----------+----------+
-     * |'H'|Hopefull Flags|Hopefull IX|Payload IX|
+     * |'H'|Hopeful Flags|Hopeful IX|Payload IX|
      * +---+--------------+-----------+----------+
      *   1         8            4          4
      *
-     * Hopefull flags: Flags corresponding to actual
-     *                 hopefull encodings in this
+     * Hopeful flags:  Flags corresponding to actual
+     *                 hopeful encodings in this
      *                 buffer.
-     * Hopefull IX:    Vector index of first hopefull
-     *                 encoding. Each hopefull encoding
+     * Hopeful IX:     Vector index of first hopeful
+     *                 encoding. Each hopeful encoding
      *                 is preceeded by 4 bytes containing
-     *                 next vector index of hopefull
+     *                 next vector index of hopeful
      *                 encoding. ERTS_NO_HIX marks the
      *                 end.
      * Payload IX:     Vector index of the beginning
@@ -6437,7 +6437,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         return reds;
     }
 
-    /* Currently, the hopefull flags and IX are not used. */
+    /* Currently, the hopeful flags and IX are not used. */
     hdr++;
     hdr += 8;
 
@@ -6793,7 +6793,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     start_r = r = reds*ERTS_TRANSCODE_REDS_FACT;
 
     /*
-     * Replace hopefull data header with actual header...
+     * Replace hopeful data header with actual header...
      */
     ep = (byte *) iov[1].iov_base;
     eiov->size -= iov[1].iov_len;
