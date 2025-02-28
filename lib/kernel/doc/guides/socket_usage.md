@@ -524,3 +524,69 @@ Options for level `sctp`:
 | rtoinfo           | sctp_rtoinfo()         | yes | yes | none                            |
 
 _Table: sctp options_
+
+
+[](){: #socket_configure_flags }
+
+## Socket Configure Flags
+
+There are a couple of configure flags, that can be used when (configure and)
+building Erlang/OTP, which effect the functionality of the 'socket' nif.
+
+### Builtin Socket Support
+
+Support for the builtin 'socket' (as a nif) can be explicitly enabled and
+disabled:
+
+```text
+--enable-esock (default) | --disable-esock
+```
+
+### RCVTIMEO/SNDTIMEO socket options
+
+Support for these (socket) options has to be explicitly enabled (see why above):
+
+```text
+--enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
+```
+
+### Extended Error Info
+
+The use of Extended Error Info (currently only used on Windows) can be
+explicitly enabled and disabled:
+
+```text
+--enable-esock-extended-error-info (default) | --disable-esock-extended-error-info
+```
+
+### Verbose Mutex Names
+
+The use of verbose mutex names (in the 'socket' nif) can be explicitly
+enabled and disabled:
+
+```text
+--enable-esock-verbose-mtx-names (default) | --disable-esock-verbose-mtx-names
+```
+
+### Counter Size
+
+The 'socket' nif uses counters for various things (e.g. number of send
+attempts). The size (in number of bits) of these counters can be explictly
+configured:
+
+```text
+--with-esock-counter-size=SZ
+```
+
+Where SZ is one of 16 | 24 | 32 | 48 | 64. Defaults to 64.
+
+### Socket Registry
+
+The socket registry keeps track of 'socket' sockets.
+This can be explicitly enabled and disabled:
+
+```text
+--enable-esock-socket-registry (default) | --disable-esock-socket-registry
+```
+
+See above for more info.
