@@ -483,89 +483,119 @@ gen_norm(Fd) ->
                  "decompose_compat_1([]) -> [].\n\n"),
 
 
+    %% See: https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-3/#G49537
+
     io:put_chars(Fd,
-                 "compose(CP) when is_integer(CP) -> CP;\n"
-                 "compose([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
-                 "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
-                 "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
-                 "            case Trail of\n"
-                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
-                 "                     nolist(CP+T-16#11A7,Acc);\n"
-                 "                Acc -> nolist(CP,Acc)\n"
-                 "            end;\n"
-                 "       true ->\n"
-                 "            case compose([Vowel|Trail]) of\n"
-                 "                [_|_] = CPs -> [Lead|CPs];\n"
-                 "                CP -> [Lead,CP]\n"
-                 "            end\n"
-                 "    end;\n"
-                 "compose([Base,Accent]=GC0) ->\n"
-                 "    case compose_pair(Base,Accent) of\n"
-                 "        false -> GC0;\n"
-                 "        GC -> GC\n"
-                 "    end;\n"
-                 "compose([CP|Many]) ->\n"
-                 "    compose_many(Many, CP, [], class(CP)).\n"
-                 "\n"
-                 "compose_many([CP|Rest], Base, Accents, Prev) ->\n"
-                 "    Class = class(CP),\n"
-                 "    case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of\n"
-                 "        false -> compose_many(Rest, Base, [CP|Accents], Class);\n"
-                 "        Combined -> compose_many(Rest, Combined, Accents, Prev)\n"
-                 "    end;\n"
-                 "compose_many([], Base, [], Prev) ->\n"
-                 "    Base;\n"
-                 "compose_many([], Base, Accents, Prev) ->\n"
-                 "    [Base|lists:reverse(Accents)].\n"
-                 "\n\n"),
+                 """
+                 compose(CP) when is_integer(CP) -> CP;
+                 compose([Lead,Vowel|Trail]) %% Hangul
+                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
+                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
+                             case Trail of
+                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                      nolist(CP+T-16#11A7,Acc);
+                                 Acc -> nolist(CP,Acc)
+                             end;
+                        true ->
+                             case compose([Vowel|Trail]) of
+                                 [_|_] = CPs -> [Lead|CPs];
+                                 CP -> [Lead,CP]
+                             end
+                     end;
+                 compose([Base,Accent]=GC0) ->
+                     case compose_pair(Base,Accent) of
+                         false -> GC0;
+                         GC -> GC
+                     end;
+                 compose([CP|Many]) ->
+                     compose_many(Many, CP, [], class(CP)).
+
+                 compose_many([CP|Rest], Base, Accents, Prev) ->
+                     Class = class(CP),
+                     case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of
+                         false ->
+                             if Class =:= 0 ->
+                                   Begin = [Base|lists:reverse(Accents)],
+                                   case compose_many(Rest, CP, [], 0) of
+                                       [_|_] = GC -> Begin ++ GC;
+                                       Composed -> Begin ++ [Composed]
+                                   end;
+                                true ->
+                                   compose_many(Rest, Base, [CP|Accents], Class)
+                             end;
+                         Combined ->
+                             compose_many(Rest, Combined, Accents, Prev)
+                     end;
+                 compose_many([], Base, [], Prev) ->
+                     Base;
+                 compose_many([], Base, Accents, Prev) ->
+                     [Base|lists:reverse(Accents)].
+
+
+                 """
+                 ),
     io:put_chars(Fd,
-                 "compose_compat_0(CP) when is_integer(CP) ->\n"
-                 "    CP;\n"
-                 "compose_compat_0(L) ->\n"
-                 "    case gc(L) of\n"
-                 "        [First|Rest] ->\n"
-                 "            case compose_compat(First) of\n"
-                 "                [_|_] = GC -> GC ++ compose_compat_0(Rest);\n"
-                 "                CP -> [CP|compose_compat_0(Rest)]\n"
-                 "            end;\n"
-                 "        [] -> []\n"
-                 "    end.\n\n"
-                 "compose_compat(CP) when is_integer(CP) -> CP;\n"
-                 "compose_compat([Lead,Vowel|Trail]) %% Hangul\n"
-                 "  when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->\n"
-                 "    if 16#1161 =< Vowel, Vowel =< 16#1175 ->\n"
-                 "            CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),\n"
-                 "            case Trail of\n"
-                 "                [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->"
-                 "                    nolist(CP+T-16#11A7,Acc);\n"
-                 "                Acc -> nolist(CP,Acc)\n"
-                 "            end;\n"
-                 "       true ->\n"
-                 "            case compose_compat([Vowel|Trail]) of\n"
-                 "                [_|_] = CPs -> [Lead|CPs];\n"
-                 "                CP -> [Lead,CP]\n"
-                 "            end\n"
-                 "    end;\n"
-                 "compose_compat([Base,Accent]=GC0) ->\n"
-                 "    case compose_pair(Base,Accent) of\n"
-                 "        false -> GC0;\n"
-                 "        GC -> GC\n"
-                 "    end;\n"
-                 "compose_compat([CP|Many]) ->\n"
-                 "    compose_compat_many(Many, CP, [], class(CP)).\n"
-                 "\n"
-                 "compose_compat_many([CP|Rest], Base, Accents, Prev) ->\n"
-                 "    Class = class(CP),\n"
-                 "    case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of\n"
-                 "        false -> compose_compat_many(Rest, Base, [CP|Accents], Class);\n"
-                 "        Combined -> compose_compat_many(Rest, Combined, Accents, Prev)\n"
-                 "    end;\n"
-                 "compose_compat_many([], Base, [], Prev) ->\n"
-                 "    Base;\n"
-                 "compose_compat_many([], Base, Accents, Prev) ->\n"
-                 "    [Base|lists:reverse(Accents)].\n"
-                 "\n\n"),
+                 """
+                 compose_compat_0(CP) when is_integer(CP) ->
+                     CP;
+                 compose_compat_0(L) ->
+                     case gc(L) of
+                         [First|Rest] ->
+                             case compose_compat(First) of
+                                 [_|_] = GC -> GC ++ compose_compat_0(Rest);
+                                 CP -> [CP|compose_compat_0(Rest)]
+                             end;
+                         [] -> []
+                     end.
+
+                 compose_compat(CP) when is_integer(CP) -> CP;
+                 compose_compat([Lead,Vowel|Trail]) %% Hangul
+                   when is_integer(Lead), 16#1100 =< Lead, Lead =< 16#1112, is_integer(Vowel) ->
+                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
+                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
+                             case Trail of
+                                 [T|Acc] when is_integer(T), 16#11A7 =< T, T =< 16#11C2 ->
+                                     nolist(CP+T-16#11A7,Acc);
+                                 Acc -> nolist(CP,Acc)
+                             end;
+                        true ->
+                             case compose_compat([Vowel|Trail]) of
+                                 [_|_] = CPs -> [Lead|CPs];
+                                 CP -> [Lead,CP]
+                             end
+                     end;
+                 compose_compat([Base,Accent]=GC0) ->
+                     case compose_pair(Base,Accent) of
+                         false -> GC0;
+                         GC -> GC
+                     end;
+                 compose_compat([CP|Many]) ->
+                     compose_compat_many(Many, CP, [], class(CP)).
+
+                 compose_compat_many([CP|Rest], Base, Accents, Prev) ->
+                     Class = class(CP),
+                     case (Prev =:= 0 orelse Prev < Class) andalso compose_pair(Base, CP) of
+                         false ->
+                             if Class =:= 0 ->
+                                   Begin = [Base|lists:reverse(Accents)],
+                                   case compose_compat_many(Rest, CP, [], 0) of
+                                       [_|_] = GC -> Begin ++ GC;
+                                       Composed -> Begin ++ [Composed]
+                                   end;
+                                true ->
+                                   compose_compat_many(Rest, Base, [CP|Accents], Class)
+                             end;
+                         Combined ->
+                             compose_compat_many(Rest, Combined, Accents, Prev)
+                     end;
+                 compose_compat_many([], Base, [], Prev) ->
+                     Base;
+                 compose_compat_many([], Base, Accents, Prev) ->
+                     [Base|lists:reverse(Accents)].
+
+
+                 """),
 
     ok.
 
@@ -956,6 +986,7 @@ gen_gc(Fd, GBP) ->
 
                  add_acc([CP], R) -> [CP|R];
                  add_acc(CPs, R) -> [lists:reverse(CPs)|R].
+
 
                  """),
 
