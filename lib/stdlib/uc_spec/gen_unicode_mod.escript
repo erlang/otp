@@ -852,11 +852,12 @@ gen_gc(Fd, GBP) ->
                  "gc_extend2({error,R}, _, Acc) ->\n"
                  "    [lists:reverse(Acc)] ++ [R].\n\n"
                  ),
-    [ZWJ] = maps:get(zwj, GBP),
-    GenExtend = fun(R) when R =:= ZWJ -> io:format(Fd, "is_extend~s zwj;\n", [gen_single_clause(ZWJ)]);
+    [{ZWJ, undefined}=ZWJRange] = maps:get(zwj, GBP),
+    GenExtend = fun(R) when R =:= ZWJRange -> ok;
                    (Range) -> io:format(Fd, "is_extend~s true;\n", [gen_single_clause(Range)])
                 end,
-    Extends = merge_ranges(maps:get(extend,GBP)++maps:get(spacingmark, GBP) ++ maps:get(zwj, GBP), split),
+    io:format(Fd, "is_extend(~w) -> zwj;\n", [ZWJ]),
+    Extends = merge_ranges(maps:get(extend,GBP)++maps:get(spacingmark, GBP), true),
     [GenExtend(CP) || CP <- Extends],
     io:put_chars(Fd, "is_extend(_) -> false.\n\n"),
 
