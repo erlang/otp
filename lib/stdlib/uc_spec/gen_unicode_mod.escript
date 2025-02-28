@@ -59,7 +59,10 @@ main(Args) ->
     PropF = file_open("../uc_spec/PropList.txt"),
     Props2 = foldl(fun parse_properties/2, Props1, PropF),
     ok = file:close(PropF),
-    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props2))),
+    Indic = file_open("../uc_spec/IndicSyllabicCategory.txt"),
+    Props3 = foldl(fun parse_properties/2, Props2, Indic),
+    ok = file:close(Indic),
+    Props = sofs:to_external(sofs:relation_to_family(sofs:relation(Props3))),
 
     WidthF = file_open("../uc_spec/EastAsianWidth.txt"),
     WideCs = foldl(fun parse_widths/2, [], WidthF),
@@ -759,10 +762,21 @@ gen_gc(Fd, GBP) ->
     %% GenEBG = fun(Range) -> io:format(Fd, "gc_1~s gc_e_cont(R1,[CP]);\n", [gen_clause(Range)]) end,
     %% [GenEBG(CP) || CP <- merge_ranges(maps:get(e_base_gaz,GBP))],
 
-    io:put_chars(Fd, "%% Handle extended_pictographic\n"),
+    io:put_chars(Fd, "\n%% Handle extended_pictographic\n"),
     [GenExtP(CP) || CP <- merge_ranges(ExtendedPictographicHigh)],
+
     io:put_chars(Fd, "\n%% default clauses\n"),
-    io:put_chars(Fd, "gc_1([CP|R]) -> gc_extend(cp(R), R, CP).\n\n"),
+    io:put_chars(Fd,
+                 """
+                 gc_1([CP|R]) ->
+                     case is_indic_consonant(CP) of
+                         true ->
+                             gc_indic(cp(R), R, false, [CP]);
+                         false ->
+                             gc_extend(cp(R), R, CP)
+                     end.
+
+                 """),
 
     io:put_chars(Fd, "%% Handle Prepend\n"),
     io:put_chars(Fd,
@@ -823,34 +837,20 @@ gen_gc(Fd, GBP) ->
                  "    case is_extend(CP) of\n"
                  "        zwj -> gc_ext_pict_zwj(cp(R1), R1, [CP|Acc]);\n"
                  "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
-                 "        false ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|T0];\n"
-                 "                _ -> [lists:reverse(Acc)|T0]\n"
-                 "            end\n"
+                 "        false -> add_acc(Acc, T0)\n"
                  "    end;\n"
                  "gc_ext_pict([], T0, Acc) ->\n"
-                 "    case Acc of\n"
-                 "        [A] -> [A|T0];\n"
-                 "        _ -> [lists:reverse(Acc)|T0]\n"
-                 "    end;\n"
+                 "    add_acc(Acc, T0);\n"
                  "gc_ext_pict({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
     io:put_chars(Fd,
                  "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
                  "    case is_ext_pict(CP) of\n"
                  "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
-                 "        false ->\n"
-                 "            case Acc of\n"
-                 "                [A] -> [A|T0];\n"
-                 "                _ -> [lists:reverse(Acc)|T0]\n"
-                 "            end\n"
+                 "        false -> add_acc(Acc, T0)\n"
                  "    end;\n"
                  "gc_ext_pict_zwj([], T0, Acc) ->\n"
-                 "    case Acc of\n"
-                 "        [A] -> [A|T0];\n"
-                 "        _ -> [lists:reverse(Acc)|T0]\n"
-                 "    end;\n"
+                 "    add_acc(Acc, T0);\n"
                  "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
                  "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),
 
@@ -918,6 +918,47 @@ gen_gc(Fd, GBP) ->
     io:put_chars(Fd, "%% Also handles error tuples\n"),
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, [CP]) -> gc_extend(R1, R0, CP);\n"),
     io:put_chars(Fd, "gc_h_lv_lvt(R1, R0, Acc) -> gc_extend2(R1, R0, Acc).\n\n"),
+
+    %% Indic
+    io:put_chars(Fd, "\n%% Handle Indic Conjunt Break\n"),
+    GenIndicC = fun(Range) -> io:format(Fd, "is_indic_consonant~s true;\n", [gen_single_clause(Range)]) end,
+    [GenIndicC(CP) || CP <- merge_ranges(maps:get(consonant, GBP))],
+    io:format(Fd, "is_indic_consonant(_) -> false.\n\n", []),
+
+    GenIndicL = fun(Range) -> io:format(Fd, "is_indic_linker~s true;\n", [gen_single_clause(Range)]) end,
+    [GenIndicL(CP) || CP <- merge_ranges(maps:get(virama, GBP))],
+    io:format(Fd, "is_indic_linker(_) -> false.\n\n", []),
+    %% io:format("Consonants: ~p~n", [merge_ranges(maps:get(consonant, GBP))]),
+
+    io:put_chars(Fd,
+                 """
+                 gc_indic([CP|R1], R0, FetchedLinker, CPs) ->
+                     case is_indic_linker(CP) of
+                         true ->
+                             gc_indic(cp(R1), R1, true, [CP|CPs]);
+                         false ->
+                             case is_extend(CP) of
+                                 false when FetchedLinker ->
+                                     case is_indic_consonant(CP) of
+                                         true -> gc_indic(cp(R1), R1, false, [CP|CPs]);
+                                         false -> add_acc(CPs, R0)
+                                     end;
+                                 false ->
+                                     add_acc(CPs, R0);
+                                 _ ->
+                                     gc_indic(cp(R1), R1, FetchedLinker, [CP|CPs])
+                             end
+                     end;
+                 gc_indic([], R0, _, CPs) ->
+                     add_acc(CPs, R0);
+                 gc_indic({error, R0}, _, _, CPs) ->
+                     add_acc(CPs, R0).
+
+                 add_acc([CP], R) -> [CP|R];
+                 add_acc(CPs, R) -> [lists:reverse(CPs)|R].
+
+                 """),
+
     ok.
 
 gen_compose_pairs(Fd, ExclData, Data) ->
