@@ -1700,6 +1700,17 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
                       element(2, SigilSuffix),
                       "illegal sigil suffix")
             end;
+        Type =:= 'f' ->
+            case Suffix of
+                "" ->
+                    Str = erl_syntax:string_value(String),
+                    Elems = f_sigil_elems(?anno(SigilPrefix), list_to_binary(Str)),
+                    {bin,?anno(SigilPrefix),Elems};
+                _ ->
+                    ret_err(
+                      element(2, SigilSuffix),
+                      "illegal sigil suffix")
+            end;
 %%%         Type =:= 'r' -> % Regular expression
 %%%             %% Convert to {re,RE,Flags}
 %%%             {tuple, ?anno(SigilPrefix),
@@ -1711,6 +1722,96 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
               element(2, SigilPrefix),
               "illegal sigil prefix")
     end.
+
+
+%%%%%%%%%%%%%%%%%%
+
+
+f_sigil_elems(Anno, Bin) when is_binary(Bin) ->
+    State = #{
+        line => erl_anno:line(Anno),
+        column => 1,
+        position => 0
+    },
+    f_sigil_elems(Bin, Bin, State).
+
+f_sigil_elems(Rest, Bin, State) ->
+    f_sigil_elems(Rest, Bin, 0, State, State).
+
+f_sigil_elems(<<$\\, ${, Rest/binary>>, Bin, Len, TextState, State) ->
+    f_sigil_elems(Rest, Bin, Len + 2, TextState, f_sigil_incr_col(2, State));
+f_sigil_elems(<<${, Rest/binary>>, Bin, Len, TextState, State) ->
+    Elems = f_sigil_expr_elems(Rest, Bin, 1, f_sigil_incr_pos(Len + 1, State)),
+    f_sigils_str_elems(Bin, Len, TextState, Elems);
+f_sigil_elems(<<$\r, $\n, Rest/binary>>, Bin, Len, TextState, State) ->
+    f_sigil_elems(Rest, Bin, Len + 2, TextState, f_sigil_new_ln(State));
+f_sigil_elems(<<$\r, Rest/binary>>, Bin, Len, TextState, State) ->
+    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_new_ln(State));
+f_sigil_elems(<<$\n, Rest/binary>>, Bin, Len, TextState, State) ->
+    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_new_ln(State));
+f_sigil_elems(<<_, Rest/binary>>, Bin, Len, TextState, State) ->
+    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_incr_col(1, State));
+f_sigil_elems(<<>>, Bin, Len, TextState, _State) ->
+    f_sigils_str_elems(Bin, Len, TextState, []).
+
+f_sigils_str_elems(Bin, Len, State, Elems) ->
+    case f_sigil_bin_part(Bin, Len, State) of
+        <<>> ->
+            Elems;
+        BinPart ->
+            Anno = f_sigil_anno(State),
+            Str = binary_to_list(BinPart),
+            Elem = {bin_element,Anno,{string,Anno,Str},default,[utf8]},
+            [Elem | Elems]
+    end.
+
+f_sigil_expr_elems(Rest0, Bin, StartMarkerLen, State0) ->
+    {Len, EndMarkerLen, Rest1, State1} = f_sigil_scan_expr_end(Rest0, 0, 0, State0),
+    Expr = f_sigil_bin_part(Bin, Len, State0),
+    State = f_sigil_incr_col(StartMarkerLen, f_sigil_incr_pos(Len + EndMarkerLen, State1)),
+    Anno = f_sigil_anno(State0),
+    {ok, Tokens, _} = erl_scan:string(binary_to_list(<<Expr/binary, $.>>)),
+    {ok, Forms} = parse_exprs(Tokens),
+    Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
+    Elem = {bin_element,Anno,Block,default,[binary]},
+    [Elem | f_sigil_elems(Rest1, Bin, State)].
+
+f_sigil_scan_expr_end(<<$}, Rest/binary>>, 0, Len, State) ->
+    {Len, _MarkerLen = 1, Rest, f_sigil_incr_col(1, State)};
+f_sigil_scan_expr_end(<<$}, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth - 1, Len + 1, f_sigil_incr_col(1, State));
+f_sigil_scan_expr_end(<<${, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth + 1, Len + 1, f_sigil_incr_col(1, State));
+f_sigil_scan_expr_end(<<$\r, $\n, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth, Len + 2, f_sigil_new_ln(State));
+f_sigil_scan_expr_end(<<$\r, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_new_ln(State));
+f_sigil_scan_expr_end(<<$\n, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_new_ln(State));
+f_sigil_scan_expr_end(<<_, Rest/binary>>, Depth, Len, State) ->
+    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_incr_col(1, State));
+f_sigil_scan_expr_end(<<>>, _Depth, Len, State) ->
+    Anno = f_sigil_anno(f_sigil_incr_pos(Len, State)),
+    ret_err(Anno, "Unterminated interpolation expression in ~f string. Expected '}'.").
+
+f_sigil_new_ln(#{line := Ln} = State) ->
+    State#{line => Ln + 1, column => 1}.
+
+f_sigil_incr_col(N, #{column := Col} = State) ->
+    State#{column => Col + N}.
+
+f_sigil_incr_pos(N, #{position := Pos} = State) ->
+    State#{position => Pos + N}.
+
+f_sigil_bin_part(Bin, Len, #{position := Pos}) ->
+    binary_part(Bin, Pos, Len).
+
+f_sigil_anno(#{line := Ln, column := Col}) ->
+    erl_anno:new({Ln, Col}).
+
+
+%%%%%%%%%%%%%%%%%
+
 
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->

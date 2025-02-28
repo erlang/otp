@@ -22,12 +22,12 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
--export([compiled_sigils/1, scan_sigils/1, parse_sigils/1]).
+-export([compiled_sigils/1, scan_sigils/1, parse_sigils/1, parse_format_sigil/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [compiled_sigils, scan_sigils, parse_sigils].
+    [compiled_sigils, scan_sigils, parse_sigils, parse_format_sigil].
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -214,7 +214,7 @@ parse_sigils(Config) when is_list(Config) ->
     %%
     IllegalPrefix = "illegal sigil prefix",
     IllegalSuffix = "illegal sigil suffix",
-    AllSigils = [" ~","~s","~S","~b","~B"],
+    AllSigils = [" ~","~s","~S","~b","~B","~f"],
     [{_, {error,{1,1},erl_parse,IllegalPrefix,{2,5}}} =
          {String, parse_term("~_"++String)}
      || String <-
@@ -273,6 +273,98 @@ parse_sigils(Config) when is_list(Config) ->
 parse_term(String) ->
     {ok,Tokens,EndPos} = erl_scan:string(String, {1,1}, []),
     case erl_parse:parse_term(Tokens) of
+        {ok, Parsed} ->
+            {ok, Parsed, EndPos};
+        {error, {Pos,Mod,Str}} ->
+            {error, Pos, Mod, lists:flatten(Str), EndPos}
+    end.
+
+parse_format_sigil(Config) when is_list(Config) ->
+    {ok, Exprs, {3,48}} =
+        parse_exprs(
+          """
+          OO = ~"oo",
+          Baz = ~"baz",
+          ~f[f{OO}b{A=~"a",~f"{A}r{Baz}"}\{qux}\{\{quux].
+          """),
+    {value, ~"foobarbaz\\{qux}\\{\\{quux", _} =
+        erl_eval:exprs(Exprs, []),
+    Exprs =
+        [{match,
+           {1,1},
+           {var,{1,1},'OO'},
+           {bin,
+            {1,6},
+            [{bin_element,
+              {1,7},
+              {string,{1,7},"oo"},
+              default,
+              [utf8]}]}},
+          {match,
+           {2,1},
+           {var,{2,1},'Baz'},
+           {bin,
+            {2,7},
+            [{bin_element,
+              {2,8},
+              {string,{2,8},"baz"},
+              default,
+              [utf8]}]}},
+          {bin,
+           {3,1},
+           [{bin_element,{3,1},{string,{3,1},"f"},default,[utf8]},
+            {bin_element,
+             {3,2},
+             {block,{3,2},[{var,1,'OO'}]},
+             default,
+             [binary]},
+            {bin_element,{3,6},{string,{3,6},"b"},default,[utf8]},
+            {bin_element,
+             {3,7},
+             {block,
+              {3,7},
+              [{match,1,
+                {var,1,'A'},
+                {bin,1,
+                 [{bin_element,1,{string,1,"a"},default,[utf8]}]}},
+               {bin,1,
+                [{bin_element,
+                  {1,1},
+                  {block,{1,1},[{var,1,'A'}]},
+                  default,
+                  [binary]},
+                 {bin_element,
+                  {1,4},
+                  {string,{1,4},"r"},
+                  default,
+                  [utf8]},
+                 {bin_element,
+                  {1,5},
+                  {block,{1,5},[{var,1,'Baz'}]},
+                  default,
+                  [binary]}]}]},
+             default,
+             [binary]},
+            {bin_element,
+             {3,29},
+             {string,{3,29},"\\{qux}\\{\\{quux"},
+             default,
+             [utf8]}]}],
+    {error,{1,6},erl_parse,
+     "Unterminated interpolation expression in ~f string. Expected '}'.",{1,11}} =
+        parse_exprs("""
+        ~f"error{"
+        """),
+    InvalidValues = [~"1", ~"{}", ~"[]", ~"#{}", ~"$x", ~"fun() -> foo end", ~"self()",
+                     ~[erlang:list_to_port("#Port<0.486>")], ~"erlang:make_ref()"],
+    [{error,_,erl_parse,"syntax error before: ",_} =
+        parse_exprs(binary_to_list(~f"""
+        {~f"{X}"}
+        """)) || X <- InvalidValues].
+
+parse_exprs(String) ->
+    {ok,Tokens,EndPos} = erl_scan:string(String, {1,1}, []),
+    case erl_parse:parse_exprs(Tokens) of
         {ok, Parsed} ->
             {ok, Parsed, EndPos};
         {error, {Pos,Mod,Str}} ->
