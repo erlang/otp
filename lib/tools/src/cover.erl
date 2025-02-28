@@ -1143,7 +1143,10 @@ call(Request) ->
     Ref = erlang:monitor(process,?SERVER),
     receive {'DOWN', Ref, _Type, _Object, noproc} -> 
 	    erlang:demonitor(Ref),
-            {ok,_} = start(),
+            case start() of
+                {ok,_} -> ok;
+                {error,{already_started,_}} -> ok
+            end,
 	    call(Request)
     after 0 ->
 	    ?SERVER ! {self(),Request},
