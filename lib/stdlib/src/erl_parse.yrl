@@ -1700,12 +1700,26 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
                       element(2, SigilSuffix),
                       "illegal sigil suffix")
             end;
-        Type =:= 'f' ->
+        Type =:= 'fs';
+        Type =:= 'fS';
+        Type =:= 'sf';
+        Type =:= 'Sf' ->
             case Suffix of
                 "" ->
-                    Str = erl_syntax:string_value(String),
-                    Elems = f_sigil_elems(?anno(SigilPrefix), list_to_binary(Str)),
-                    {bin,?anno(SigilPrefix),Elems};
+                    build_f_sigil_str(?anno(SigilPrefix), String);
+                _ ->
+                    ret_err(
+                      element(2, SigilSuffix),
+                      "illegal sigil suffix")
+            end;
+        Type =:= 'f';
+        Type =:= 'fb';
+        Type =:= 'fB';
+        Type =:= 'bf';
+        Type =:= 'Bf' ->
+            case Suffix of
+                "" ->
+                    build_f_sigil_bin(?anno(SigilPrefix), String);
                 _ ->
                     ret_err(
                       element(2, SigilSuffix),
@@ -1726,6 +1740,26 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
 
 %%%%%%%%%%%%%%%%%%
 
+
+build_f_sigil_str(Anno, String) ->
+    Str = erl_syntax:string_value(String),
+    Elems = [f_sigil_str_elem(Elem) || Elem <- f_sigil_elems(Anno, list_to_binary(Str))],
+    erl_syntax:revert(erl_syntax:list(Elems)).
+
+f_sigil_str_elem({string,Anno,Str}) ->
+    {string,Anno,Str};
+f_sigil_str_elem({block,_Anno,Block}) ->
+    Block.
+
+build_f_sigil_bin(Anno, String) ->
+    Str = erl_syntax:string_value(String),
+    Elems = [f_sigil_bin_elem(Elem) || Elem <- f_sigil_elems(Anno, list_to_binary(Str))],
+    {bin,Anno,Elems}.
+
+f_sigil_bin_elem({string,Anno,Str}) ->
+    {bin_element,Anno,{string,Anno,Str},default,[utf8]};
+f_sigil_bin_elem({block,Anno,Block}) ->
+    {bin_element,Anno,Block,default,[binary]}.
 
 f_sigil_elems(Anno, Bin) when is_binary(Bin) ->
     State = #{
@@ -1761,8 +1795,7 @@ f_sigils_str_elems(Bin, Len, State, Elems) ->
         BinPart ->
             Anno = f_sigil_anno(State),
             Str = binary_to_list(BinPart),
-            Elem = {bin_element,Anno,{string,Anno,Str},default,[utf8]},
-            [Elem | Elems]
+            [{string,Anno,Str} | Elems]
     end.
 
 f_sigil_expr_elems(Rest0, Bin, StartMarkerLen, State0) ->
@@ -1773,8 +1806,7 @@ f_sigil_expr_elems(Rest0, Bin, StartMarkerLen, State0) ->
     {ok, Tokens, _} = erl_scan:string(binary_to_list(<<Expr/binary, $.>>)),
     {ok, Forms} = parse_exprs(Tokens),
     Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
-    Elem = {bin_element,Anno,Block,default,[binary]},
-    [Elem | f_sigil_elems(Rest1, Bin, State)].
+    [{block,Anno,Block} | f_sigil_elems(Rest1, Bin, State)].
 
 f_sigil_scan_expr_end(<<$}, Rest/binary>>, 0, Len, State) ->
     {Len, _MarkerLen = 1, Rest, f_sigil_incr_col(1, State)};
