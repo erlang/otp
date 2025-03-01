@@ -104,8 +104,8 @@ _Example:_
 
 ```erlang
 1> Key = 1337,
-  Map = #{42 => value_two,1337 => "value one","a" => 1},
-  maps:get(Key, Map).
+   Map = #{42 => value_two,1337 => "value one","a" => 1},
+   maps:get(Key, Map).
 "value one"
 ```
 """.
@@ -127,8 +127,8 @@ _Example:_
 
 ```erlang
 1> Map = #{"hi" => 42},
-  Key = "hi",
-  maps:find(Key,Map).
+   Key = "hi",
+   maps:find(Key,Map).
 {ok,42}
 ```
 """.
@@ -151,7 +151,7 @@ _Example:_
 
 ```erlang
 1> List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
-  maps:from_list(List).
+   maps:from_list(List).
 #{42 => value_three,1337 => "value two","a" => 1}
 ```
 """.
@@ -194,8 +194,8 @@ _Example:_
 
 ```erlang
 1> Map1 = #{a => "value_one", b => "value_two"},
-  Map2 = #{a => 1, c => 2},
-  maps:intersect(Map1,Map2).
+   Map2 = #{a => 1, c => 2},
+   maps:intersect(Map1,Map2).
 #{a => 1}
 ```
 """.
@@ -234,8 +234,8 @@ _Example:_
 
 ```erlang
 1> Map1 = #{a => "value_one", b => "value_two"},
-  Map2 = #{a => 1, c => 2},
-  maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+   Map2 = #{a => 1, c => 2},
+   maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
 #{a => {"value_one",1}}
 ```
 """.
@@ -312,7 +312,7 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_three,1337 => "value two","a" => 1},
-  maps:keys(Map).
+   maps:keys(Map).
 [42,1337,"a"]
 ```
 """.
@@ -335,8 +335,8 @@ _Example:_
 
 ```erlang
 1> Map1 = #{a => "value_one", b => "value_two"},
-  Map2 = #{a => 1, c => 2},
-  maps:merge(Map1,Map2).
+   Map2 = #{a => 1, c => 2},
+   maps:merge(Map1,Map2).
 #{a => 1,b => "value_two",c => 2}
 ```
 """.
@@ -364,8 +364,8 @@ _Example:_
 
 ```erlang
 1> Map1 = #{a => "value_one", b => "value_two"},
-  Map2 = #{a => 1, c => 2},
-  maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
+   Map2 = #{a => 1, c => 2},
+   maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
 #{a => {"value_one",1},b => "value_two",c => 2}
 ```
 """.
@@ -499,7 +499,7 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_three,1337 => "value two","a" => 1},
-  maps:to_list(Map).
+   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]
 ```
 
@@ -570,7 +570,7 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_three,1337 => "value two","a" => 1},
-  maps:values(Map).
+   maps:values(Map).
 [value_three,"value two",1]
 ```
 """.
@@ -608,8 +608,8 @@ Example:
 
 ```erlang
 1> Map = #{"counter" => 1},
-  Fun = fun(V) -> V + 1 end,
-  maps:update_with("counter",Fun,Map).
+   Fun = fun(V) -> V + 1 end,
+   maps:update_with("counter",Fun,Map).
 #{"counter" => 2}
 ```
 """.
@@ -637,8 +637,8 @@ Example:
 
 ```erlang
 1> Map = #{"counter" => 1},
-  Fun = fun(V) -> V + 1 end,
-  maps:update_with("new counter",Fun,42,Map).
+   Fun = fun(V) -> V + 1 end,
+   maps:update_with("new counter",Fun,42,Map).
 #{"counter" => 1,"new counter" => 42}
 ```
 """.
@@ -696,8 +696,8 @@ _Example:_
 
 ```erlang
 1> M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
-  Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
-  maps:filter(Pred,M).
+   Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
+   maps:filter(Pred,M).
 #{a => 2,c => 4}
 ```
 """.
@@ -747,8 +747,8 @@ _Example:_
 
 ```erlang
 1> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
-  Map = #{k1 => 1, "k2" => 2, "k3" => 3},
-  maps:filtermap(Fun,Map).
+   Map = #{k1 => 1, "k2" => 2, "k3" => 3},
+   maps:filtermap(Fun,Map).
 #{k1 => 2,"k2" => 2}
 ```
 """.
@@ -842,8 +842,8 @@ _Example:_
 
 ```erlang
 1> Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
-  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
-  maps:fold(Fun,0,Map).
+   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+   maps:fold(Fun,0,Map).
 6
 ```
 """.
@@ -885,8 +885,8 @@ _Example:_
 
 ```erlang
 1> Fun = fun(K,V1) when is_list(K) -> V1*2 end,
-  Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
-  maps:map(Fun,Map).
+   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
+   maps:map(Fun,Map).
 #{"k1" => 2,"k2" => 4,"k3" => 6}
 ```
 """.
@@ -924,7 +924,7 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_two,1337 => "value one","a" => 1},
-  maps:size(Map).
+   maps:size(Map).
 3
 ```
 """.
@@ -1090,8 +1090,8 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_three,1337 => "value two","a" => 1},
-  Ks = ["a",42,"other key"],
-  maps:without(Ks,Map).
+   Ks = ["a",42,"other key"],
+   maps:without(Ks,Map).
 #{1337 => "value two"}
 ```
 """.
@@ -1116,8 +1116,8 @@ _Example:_
 
 ```erlang
 1> Map = #{42 => value_three,1337 => "value two","a" => 1},
-  Ks = ["a",42,"other key"],
-  maps:with(Ks,Map).
+   Ks = ["a",42,"other key"],
+   maps:with(Ks,Map).
 #{42 => value_three,"a" => 1}
 ```
 """.
@@ -1154,7 +1154,7 @@ _Examples:_
 
 ```erlang
 1> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
-  maps:groups_from_list(EvenOdd, [1, 2, 3]).
+   maps:groups_from_list(EvenOdd, [1, 2, 3]).
 #{even => [2], odd => [1, 3]}
 2> maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}
@@ -1204,13 +1204,13 @@ _Examples:_
 
 ```erlang
 1> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
-  Square = fun(X) -> X * X end,
-  maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).
+   Square = fun(X) -> X * X end,
+   maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).
 #{even => [4], odd => [1, 9]}
 2> maps:groups_from_list(
-    fun erlang:length/1,
-    fun lists:reverse/1,
-    ["ant", "buffalo", "cat", "dingo"]).
+     fun erlang:length/1,
+     fun lists:reverse/1,
+     ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["tna", "tac"],5 => ["ognid"],7 => ["olaffub"]}
 ```
 """.

@@ -42,15 +42,15 @@ Example:
 
 ```erlang
 1> Compress = fun F(Ctx, D) ->
-                     case file:read(D, 5) of
-                         {ok, Data} ->
-                             {continue, C} = zstd:stream(Ctx, Data),
-                             [C|F(Ctx, D)];
-                         eof ->
-                             {done, C} = zstd:finish(Ctx, ""),
-                             C
-                     end
-             end.
+                      case file:read(D, 5) of
+                          {ok, Data} ->
+                              {continue, C} = zstd:stream(Ctx, Data),
+                              [C|F(Ctx, D)];
+                          eof ->
+                              {done, C} = zstd:finish(Ctx, ""),
+                              C
+                      end
+              end.
 2> {ok, Ctx} = zstd:context(compress).
 3> {ok, D} = file:open(File,[read,binary]).
 4> Compressed = iolist_to_binary(Compress(Ctx, D)).

@@ -2640,7 +2640,7 @@ Summing the elements in a list and double them at the same time:
 
 ```erlang
 1> lists:mapfoldl(fun(X, Sum) -> {2*X, X+Sum} end,
-  0, [1,2,3,4,5]).
+   0, [1,2,3,4,5]).
 {[2,4,6,8,10],15}
 ```
 """.
