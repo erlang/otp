@@ -168,11 +168,9 @@ parse_tests([], []) ->
     [];
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([{match, [<<>>, <<>>, <<>>]}], []) ->
-    [];
-parse_tests([{match, [<<>>, <<>>, <<>>]}], Cmd) ->
-    [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Comment]} | T], Cmd) ->
+parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd) ->
+    parse_tests(T, Cmd);
+parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Cmd) ->
     parse_tests(T, Cmd);
 parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], []) ->
     parse_tests(T, [NewCmd]);
@@ -180,19 +178,13 @@ parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
 parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<" ">>, More]} | T], Acc) ->
     parse_tests(T, [More | Acc]);
-parse_tests([nomatch | T], Cmd) ->
-    parse_tests(T, Cmd);
 parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<>>, NewMatch]} | T], Cmd) ->
     {Match, Rest} = parse_match(T, [NewMatch]),
     [{test, lists:join($\n, lists:reverse(Cmd)),
       lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
 
-parse_match([nomatch | T], Acc) ->
+parse_match([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Acc) ->
     parse_match(T, Acc);
-parse_match([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Comment]} | T], Acc) ->
-    parse_match(T, Acc);
-parse_match([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], Acc) ->
-    parse_match(T, [NewCmd | Acc]);
 parse_match([{match, [_Line_Number, _Prefix = <<" ">>, More]} | T], Acc) ->
     parse_match(T, [More | Acc]);
 parse_match(Rest, Acc) ->
