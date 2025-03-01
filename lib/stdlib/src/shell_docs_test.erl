@@ -20,21 +20,21 @@ Here are some examples of what should work:
 ## Basic example:
 
 ```
-> 1+2.
+1> 1+2.
 3
 ```
 
 ## Basic example using erlang code:
 
 ```erlang
-> 1+2.
+1> 1+2.
 3
 ```
 
 ## Multi-line prompt example:
 
 ```erlang
-> 1
+1> 1
   +
   2
   .
@@ -44,7 +44,7 @@ Here are some examples of what should work:
 ## Multi-line with comma example:
 
 ```erlang
-> A = 1,
+1> A = 1,
   A + 2.
 3
 ```
@@ -52,7 +52,7 @@ Here are some examples of what should work:
 ## Multi-match example:
 
 ```erlang
-> [1, 2].
+1> [1, 2].
 [
  1
  ,
@@ -63,36 +63,36 @@ Here are some examples of what should work:
 ## Multiple prompts:
 
 ```
-> 1 + 2.
+1> 1 + 2.
 3
-> 3 + 4.
+2> 3 + 4.
 7
 ```
 
 ## Ignore result:
 
 ```
-> 1 + 2.
+1> 1 + 2.
 ```
 
 ## Defining variables:
 
 ```
-> A = 1+2.
-> A + 3.
+1> A = 1+2.
+2> A + 3.
 6
 ```
 
 ## Comments:
 
 ```
-> [1, 
+1> [1, 
 % A comment in between prompts
   2].
 [1,
 % A comment in a match
  2]
-> [1, 
+2> [1, 
   % Indented comment in between prompts
   2].
 [1,
@@ -103,14 +103,14 @@ Here are some examples of what should work:
 ## Prebound variables:
 
 ```
-> Prebound.
+1> Prebound.
 hello
 ```
 
 ## Matching of maps:
 
 ```
-> #{ a => b }.
+1> #{ a => b }.
 #{ a => b }
 ```
 
