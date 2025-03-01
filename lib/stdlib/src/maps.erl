@@ -103,7 +103,7 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map, or with a
 _Example:_
 
 ```erlang
-> Key = 1337,
+1> Key = 1337,
   Map = #{42 => value_two,1337 => "value one","a" => 1},
   maps:get(Key, Map).
 "value one"
@@ -126,7 +126,7 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{"hi" => 42},
+1> Map = #{"hi" => 42},
   Key = "hi",
   maps:find(Key,Map).
 {ok,42}
@@ -150,7 +150,7 @@ and the previous values are ignored.
 _Example:_
 
 ```erlang
-> List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
+1> List = [{"a",ignored},{1337,"value two"},{42,value_three},{"a",1}],
   maps:from_list(List).
 #{42 => value_three,1337 => "value two","a" => 1}
 ```
@@ -172,7 +172,7 @@ same value. The key can be in any order, and keys and value can be of any term.
 _Example:_
 
 ```erlang
-> Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
+1> Keys = ["a", "b", "c"], maps:from_keys(Keys, ok).
 #{"a" => ok,"b" => ok,"c" => ok}
 ```
 """.
@@ -193,7 +193,7 @@ The call fails with a `{badmap,Map}` exception if `Map1` or `Map2` is not a map.
 _Example:_
 
 ```erlang
-> Map1 = #{a => "value_one", b => "value_two"},
+1> Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:intersect(Map1,Map2).
 #{a => 1}
@@ -233,7 +233,7 @@ three arguments.
 _Example:_
 
 ```erlang
-> Map1 = #{a => "value_one", b => "value_two"},
+1> Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:intersect_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
 #{a => {"value_one",1}}
@@ -287,11 +287,11 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{"42" => value}.
+1> Map = #{"42" => value}.
 #{"42" => value}
-> maps:is_key("42",Map).
+2> maps:is_key("42",Map).
 true
-> maps:is_key(value,Map).
+3> maps:is_key(value,Map).
 false
 ```
 """.
@@ -311,7 +311,7 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{42 => value_three,1337 => "value two","a" => 1},
+1> Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:keys(Map).
 [42,1337,"a"]
 ```
@@ -334,7 +334,7 @@ The call fails with a `{badmap,Map}` exception if `Map1` or `Map2` is not a map.
 _Example:_
 
 ```erlang
-> Map1 = #{a => "value_one", b => "value_two"},
+1> Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:merge(Map1,Map2).
 #{a => 1,b => "value_two",c => 2}
@@ -363,7 +363,7 @@ three arguments.
 _Example:_
 
 ```erlang
-> Map1 = #{a => "value_one", b => "value_two"},
+1> Map1 = #{a => "value_one", b => "value_two"},
   Map2 = #{a => 1, c => 2},
   maps:merge_with(fun(_Key, Value1, Value2) -> {Value1, Value2} end, Map1, Map2).
 #{a => {"value_one",1},b => "value_two",c => 2}
@@ -418,11 +418,11 @@ The call fails with a `{badmap,Map}` exception if `Map1` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{"a" => 1}.
+1> Map = #{"a" => 1}.
 #{"a" => 1}
-> maps:put("a", 42, Map).
+2> maps:put("a", 42, Map).
 #{"a" => 42}
-> maps:put("b", 1337, Map).
+3> maps:put("b", 1337, Map).
 #{"a" => 1,"b" => 1337}
 ```
 """.
@@ -446,11 +446,11 @@ The call fails with a `{badmap,Map}` exception if `Map1` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{"a" => 1}.
+1> Map = #{"a" => 1}.
 #{"a" => 1}
-> maps:remove("a",Map).
+2> maps:remove("a",Map).
 #{}
-> maps:remove("b",Map).
+3> maps:remove("b",Map).
 #{"a" => 1}
 ```
 """.
@@ -472,11 +472,11 @@ The call will fail with a `{badmap,Map}` exception if `Map1` is not a map.
 Example:
 
 ```erlang
-> Map = #{"a" => "hello", "b" => "world"}.
+1> Map = #{"a" => "hello", "b" => "world"}.
 #{"a" => "hello", "b" => "world"}
-> maps:take("a",Map).
+2> maps:take("a",Map).
 {"hello",#{"b" => "world"}}
-> maps:take("does not exist",Map).
+3> maps:take("does not exist",Map).
 error
 ```
 """.
@@ -498,7 +498,7 @@ or an iterator obtained by a call to `iterator/1` or `iterator/2`.
 _Example:_
 
 ```erlang
-> Map = #{42 => value_three,1337 => "value two","a" => 1},
+1> Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:to_list(Map).
 [{42,value_three},{1337,"value two"},{"a",1}]
 ```
@@ -506,9 +506,9 @@ _Example:_
 _Example (using _`iterator/2`_):_
 
 ```erlang
-> Map = #{ z => 1, y => 2, x => 3 }.
+1> Map = #{ z => 1, y => 2, x => 3 }.
 #{x => 3,y => 2,z => 1}
-> maps:to_list(maps:iterator(Map, ordered)).
+2> maps:to_list(maps:iterator(Map, ordered)).
 [{x,3},{y,2},{z,1}]
 ```
 """.
@@ -547,9 +547,9 @@ The call fails with a `{badmap,Map}` exception if `Map1` is not a map, or with a
 _Example:_
 
 ```erlang
-> Map = #{"a" => 1}.
+1> Map = #{"a" => 1}.
 #{"a" => 1}
-> maps:update("a", 42, Map).
+2> maps:update("a", 42, Map).
 #{"a" => 42}
 ```
 """.
@@ -569,7 +569,7 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{42 => value_three,1337 => "value two","a" => 1},
+1> Map = #{42 => value_three,1337 => "value two","a" => 1},
   maps:values(Map).
 [value_three,"value two",1]
 ```
@@ -589,7 +589,7 @@ Returns a new empty map.
 _Example:_
 
 ```text
-> maps:new().
+1> maps:new().
 #{}
 ```
 """.
@@ -607,7 +607,7 @@ not present in the map.
 Example:
 
 ```erlang
-> Map = #{"counter" => 1},
+1> Map = #{"counter" => 1},
   Fun = fun(V) -> V + 1 end,
   maps:update_with("counter",Fun,Map).
 #{"counter" => 2}
@@ -636,7 +636,7 @@ associated with `Key`.
 Example:
 
 ```erlang
-> Map = #{"counter" => 1},
+1> Map = #{"counter" => 1},
   Fun = fun(V) -> V + 1 end,
   maps:update_with("new counter",Fun,42,Map).
 #{"counter" => 1,"new counter" => 42}
@@ -666,11 +666,11 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> Map = #{ key1 => val1, key2 => val2 }.
+1> Map = #{ key1 => val1, key2 => val2 }.
 #{key1 => val1,key2 => val2}
-> maps:get(key1, Map, "Default value").
+2> maps:get(key1, Map, "Default value").
 val1
-> maps:get(key3, Map, "Default value").
+3> maps:get(key3, Map, "Default value").
 "Default value"
 ```
 """.
@@ -695,7 +695,7 @@ valid iterator, or with `badarg` if `Pred` is not a function of arity 2.
 _Example:_
 
 ```erlang
-> M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
+1> M = #{a => 2, b => 3, c=> 4, "a" => 1, "b" => 2, "c" => 4},
   Pred = fun(K,V) -> is_atom(K) andalso (V rem 2) =:= 0 end,
   maps:filter(Pred,M).
 #{a => 2,c => 4}
@@ -746,7 +746,7 @@ valid iterator, or with `badarg` if `Fun` is not a function of arity 2.
 _Example:_
 
 ```erlang
-> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
+1> Fun = fun(K,V) when is_atom(K) -> {true, V*2}; (_,V) -> (V rem 2) =:= 0 end,
   Map = #{k1 => 1, "k2" => 2, "k3" => 3},
   maps:filtermap(Fun,Map).
 #{k1 => 2,"k2" => 2}
@@ -794,11 +794,11 @@ valid iterator, or with `badarg` if `Fun` is not a function of arity 2.
 _Example:_
 
 ```erlang
-> Fun = fun(K,V) -> io:format("% ~p:~p~n",[K,V]) end.
+1> Fun = fun(K,V) -> io:format("% ~p:~p~n",[K,V]) end.
 
-> Map = #{"x" => 10, "y" => 20, "z" => 30}.
+2> Map = #{"x" => 10, "y" => 20, "z" => 30}.
 #{"x" => 10,"y" => 20,"z" => 30}
-> maps:foreach(Fun,Map).
+3> maps:foreach(Fun,Map).
 % "x":10
 % "y":20
 % "z":30
@@ -841,7 +841,7 @@ valid iterator, or with `badarg` if `Fun` is not a function of arity 3.
 _Example:_
 
 ```erlang
-> Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
+1> Fun = fun(K,V,AccIn) when is_list(K) -> AccIn + V end,
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:fold(Fun,0,Map).
 6
@@ -884,7 +884,7 @@ valid iterator, or with `badarg` if `Fun` is not a function of arity 2.
 _Example:_
 
 ```erlang
-> Fun = fun(K,V1) when is_list(K) -> V1*2 end,
+1> Fun = fun(K,V1) when is_list(K) -> V1*2 end,
   Map = #{"k1" => 1, "k2" => 2, "k3" => 3},
   maps:map(Fun,Map).
 #{"k1" => 2,"k2" => 4,"k3" => 6}
@@ -923,7 +923,7 @@ constant time.
 _Example:_
 
 ```erlang
-> Map = #{42 => value_two,1337 => "value one","a" => 1},
+1> Map = #{42 => value_two,1337 => "value one","a" => 1},
   maps:size(Map).
 3
 ```
@@ -951,14 +951,14 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map.
 _Example:_
 
 ```erlang
-> M = #{ "foo" => 1, "bar" => 2 }.
+1> M = #{ "foo" => 1, "bar" => 2 }.
 #{"foo" => 1,"bar" => 2}
-> I = maps:iterator(M).
-> {K1, V1, I2} = maps:next(I), {K1, V1}.
+2> I = maps:iterator(M).
+3> {K1, V1, I2} = maps:next(I), {K1, V1}.
 {"bar",2}
-> {K2, V2, I3} = maps:next(I2),{K2, V2}.
+4> {K2, V2, I3} = maps:next(I2),{K2, V2}.
 {"foo",1}
-> maps:next(I3).
+5> maps:next(I3).
 none
 ```
 """.
@@ -981,41 +981,41 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map or if
 _Example (when _`Order`_ is _`ordered`_):_
 
 ```erlang
-> M = #{ a => 1, b => 2 }.
+1> M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> OrdI = maps:iterator(M, ordered).
-> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
+2> OrdI = maps:iterator(M, ordered).
+3> {K1, V1, OrdI2} = maps:next(OrdI), {K1, V1}.
 {a,1}
-> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
+4> {K2, V2, OrdI3} = maps:next(OrdI2),{K2, V2}.
 {b,2}
-> maps:next(OrdI3).
+5> maps:next(OrdI3).
 none
 ```
 
 _Example (when _`Order`_ is _`reversed`_):_
 
 ```erlang
-> M = #{ a => 1, b => 2 }.
+1> M = #{ a => 1, b => 2 }.
 #{a => 1,b => 2}
-> RevI = maps:iterator(M, reversed).
-> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
+2> RevI = maps:iterator(M, reversed).
+3> {K2, V2, RevI2} = maps:next(RevI), {K2, V2}.
 {b,2}
-> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
+4> {K1, V1, RevI3} = maps:next(RevI2),{K1, V1}.
 {a,1}
-> maps:next(RevI3).
+5> maps:next(RevI3).
 none
 ```
 
 _Example (when _`Order`_ is an arithmetic sorting function):_
 
 ```erlang
-> M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
+1> M = #{ -1 => a, -1.0 => b, 0 => c, 0.0 => d }.
 #{-1 => a,0 => c,-1.0 => b,0.0 => d}
-> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end).
-> maps:to_list(ArithOrdI).
+2> ArithOrdI = maps:iterator(M, fun(A, B) -> A =< B end).
+3> maps:to_list(ArithOrdI).
 [{-1,a},{-1.0,b},{0,c},{0.0,d}]
-> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end).
-> maps:to_list(ArithRevI).
+4> ArithRevI = maps:iterator(M, fun(A, B) -> B < A end).
+5> maps:to_list(ArithRevI).
 [{0.0,d},{0,c},{-1.0,b},{-1,a}]
 ```
 """.
@@ -1050,16 +1050,16 @@ If there are no more associations in the iterator, `none` is returned.
 _Example:_
 
 ```erlang
-> Map = #{a => 1, b => 2, c => 3}.
+1> Map = #{a => 1, b => 2, c => 3}.
 #{a => 1,b => 2,c => 3}
-> I = maps:iterator(Map, ordered).
-> {K1, V1, I1} = maps:next(I), {K1, V1}.
+2> I = maps:iterator(Map, ordered).
+3> {K1, V1, I1} = maps:next(I), {K1, V1}.
 {a,1}
-> {K2, V2, I2} = maps:next(I1), {K2, V2}.
+4> {K2, V2, I2} = maps:next(I1), {K2, V2}.
 {b,2}
-> {K3, V3, I3} = maps:next(I2), {K3, V3}.
+5> {K3, V3, I3} = maps:next(I2), {K3, V3}.
 {c,3}
-> maps:next(I3).
+6> maps:next(I3).
 none
 ```
 """.
@@ -1089,7 +1089,7 @@ values from map `Map1`. Any key in `Ks` that does not exist in `Map1` is ignored
 _Example:_
 
 ```erlang
-> Map = #{42 => value_three,1337 => "value two","a" => 1},
+1> Map = #{42 => value_three,1337 => "value two","a" => 1},
   Ks = ["a",42,"other key"],
   maps:without(Ks,Map).
 #{1337 => "value two"}
@@ -1115,7 +1115,7 @@ ignored.
 _Example:_
 
 ```erlang
-> Map = #{42 => value_three,1337 => "value two","a" => 1},
+1> Map = #{42 => value_three,1337 => "value two","a" => 1},
   Ks = ["a",42,"other key"],
   maps:with(Ks,Map).
 #{42 => value_three,"a" => 1}
@@ -1153,10 +1153,10 @@ list.
 _Examples:_
 
 ```erlang
-> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
+1> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
   maps:groups_from_list(EvenOdd, [1, 2, 3]).
 #{even => [2], odd => [1, 3]}
-> maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).
+2> maps:groups_from_list(fun erlang:length/1, ["ant", "buffalo", "cat", "dingo"]).
 #{3 => ["ant", "cat"], 5 => ["dingo"], 7 => ["buffalo"]}
 ```
 """.
@@ -1203,11 +1203,11 @@ list.
 _Examples:_
 
 ```erlang
-> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
+1> EvenOdd = fun(X) -> case X rem 2 of 0 -> even; 1 -> odd end end,
   Square = fun(X) -> X * X end,
   maps:groups_from_list(EvenOdd, Square, [1, 2, 3]).
 #{even => [4], odd => [1, 9]}
-> maps:groups_from_list(
+2> maps:groups_from_list(
     fun erlang:length/1,
     fun lists:reverse/1,
     ["ant", "buffalo", "cat", "dingo"]).

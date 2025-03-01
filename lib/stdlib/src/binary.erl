@@ -99,7 +99,7 @@ Converts `Subject` to a list of `t:byte/0`s, each representing the value of one 
 _Example:_
 
 ```erlang
-> binary:bin_to_list(<<"erlang">>).
+1> binary:bin_to_list(<<"erlang">>).
 "erlang"
 %% or [101,114,108,97,110,103] in list notation.
 ```
@@ -142,7 +142,7 @@ converted.
 _Example:_
 
 ```erlang
-> binary:bin_to_list(<<"erlang">>, {1,3}).
+1> binary:bin_to_list(<<"erlang">>, {1,3}).
 "rla"
 %% or [114,108,97] in list notation.
 ```
@@ -259,11 +259,11 @@ positive integer in `Subject` to an Erlang `t:integer/0`.
 _Example:_
 
 ```erlang
-> binary:decode_unsigned(<<169,138,199>>).
+1> binary:decode_unsigned(<<169,138,199>>).
 11111111
-> binary:decode_unsigned(<<169,138,199>>, big).
+2> binary:decode_unsigned(<<169,138,199>>, big).
 11111111
-> binary:decode_unsigned(<<169,138,199>>, little).
+3> binary:decode_unsigned(<<169,138,199>>, little).
 13077161
 ```
 """.
@@ -291,11 +291,11 @@ digit representation, either big endian or little endian.
 _Example:_
 
 ```erlang
-> binary:encode_unsigned(11111111).
+1> binary:encode_unsigned(11111111).
 <<169,138,199>>
-> binary:encode_unsigned(11111111, big).
+2> binary:encode_unsigned(11111111, big).
 <<169,138,199>>
-> binary:encode_unsigned(11111111, little).
+3> binary:encode_unsigned(11111111, little).
 <<199,138,169>>
 ```
 """.
@@ -344,9 +344,9 @@ Returns the length of the longest common prefix of the binaries in list
 _Example:_
 
 ```erlang
-> binary:longest_common_prefix([<<"erlang">>, <<"ergonomy">>]).
+1> binary:longest_common_prefix([<<"erlang">>, <<"ergonomy">>]).
 2
-> binary:longest_common_prefix([<<"erlang">>, <<"perl">>]).
+2> binary:longest_common_prefix([<<"erlang">>, <<"perl">>]).
 0
 ```
 
@@ -367,9 +367,9 @@ Returns the length of the longest common suffix of the binaries in list
 _Example:_
 
 ```erlang
-> binary:longest_common_suffix([<<"erlang">>, <<"fang">>]).
+1> binary:longest_common_suffix([<<"erlang">>, <<"fang">>]).
 3
-> binary:longest_common_suffix([<<"erlang">>, <<"perl">>]).
+2> binary:longest_common_suffix([<<"erlang">>, <<"perl">>]).
 0
 ```
 
@@ -404,7 +404,7 @@ the lowest position in `Subject`.
 _Example:_
 
 ```erlang
-> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>],[]).
+1> binary:match(<<"abcde">>, [<<"bcde">>, <<"cd">>],[]).
 {1,4}
 ```
 
@@ -457,7 +457,7 @@ The first and longest match is preferred to a shorter, which is illustrated by
 the following example:
 
 ```erlang
-> binary:matches(<<"abcde">>,
+1> binary:matches(<<"abcde">>,
                   [<<"bcde">>,<<"bc">>,<<"de">>],[]).
 [{1,4}]
 ```
@@ -504,8 +504,8 @@ Extracts the part of binary `Subject` described by `PosLen`.
 A negative length can be used to extract bytes at the end of a binary:
 
 ```erlang
-> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
-> binary:part(Bin, {byte_size(Bin), -5}).
+1> Bin = <<1,2,3,4,5,6,7,8,9,10>>.
+2> binary:part(Bin, {byte_size(Bin), -5}).
 <<6,7,8,9,10>>
 ```
 
@@ -564,17 +564,17 @@ for memory use.
 Example of binary sharing:
 
 ```erlang
-> A = binary:copy(<<1>>, 1000).
+1> A = binary:copy(<<1>>, 1000).
 <<1,1,1,1,1,_/binary>>
-> byte_size(A).
+2> byte_size(A).
 1000
-> binary:referenced_byte_size(A).
+3> binary:referenced_byte_size(A).
 1000
-> <<B:10/binary, C/binary>> = A.
+4> <<B:10/binary, C/binary>> = A.
 _
-> {byte_size(B), binary:referenced_byte_size(B)}.
+5> {byte_size(B), binary:referenced_byte_size(B)}.
 {10,10}
-> {byte_size(C), binary:referenced_byte_size(C)}.
+6> {byte_size(C), binary:referenced_byte_size(C)}.
 {990,1000}
 ```
 
@@ -618,9 +618,9 @@ The parts of `Pattern` found in `Subject` are not included in the result.
 _Example:_
 
 ```erlang
-> binary:split(<<1,255,4,0,0,0,2,3>>, [<<0,0,0>>,<<2>>],[]).
+1> binary:split(<<1,255,4,0,0,0,2,3>>, [<<0,0,0>>,<<2>>],[]).
 [<<1,255,4>>, <<2,3>>]
-> binary:split(<<0,1,0,0,4,255,255,9>>, [<<0,0>>, <<255,255>>],[global]).
+2> binary:split(<<0,1,0,0,4,255,255,9>>, [<<0,0>>, <<255,255>>],[global]).
 [<<0,1>>,<<4>>,<<9>>]
 ```
 
@@ -644,9 +644,9 @@ Example of the difference between a scope and taking the binary apart before
 splitting:
 
 ```erlang
-> binary:split(<<"banana">>, [<<"a">>],[{scope,{2,3}}]).
+1> binary:split(<<"banana">>, [<<"a">>],[{scope,{2,3}}]).
 [<<"ban">>,<<"na">>]
-> binary:split(binary:part(<<"banana">>,{2,3}), [<<"a">>],[]).
+2> binary:split(binary:part(<<"banana">>,{2,3}), [<<"a">>],[]).
 [<<"n">>,<<"n">>]
 ```
 
@@ -714,28 +714,28 @@ For a description of `Pattern`, see `compile_pattern/1`.
 _Examples:_
 
 ```erlang
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, []).
+1> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, []).
 <<"aXcde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, [global]).
+2> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"X">>, [global]).
 <<"aXcXe">>
 
-> binary:replace(<<"abcde">>, <<"b">>, <<"[]">>, [{insert_replaced, 1}]).
+3> binary:replace(<<"abcde">>, <<"b">>, <<"[]">>, [{insert_replaced, 1}]).
 <<"a[b]cde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, 1}]).
+4> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, 1}]).
 <<"a[b]c[d]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, [1, 1]}]).
+5> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[]">>, [global, {insert_replaced, [1, 1]}]).
 <<"a[bb]c[dd]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[-]">>, [global, {insert_replaced, [1, 2]}]).
+6> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], <<"[-]">>, [global, {insert_replaced, [1, 2]}]).
 <<"a[b-b]c[d-d]e">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, []).
+7> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, []).
 <<"a[b]cde">>
 
-> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, [global]).
+8> binary:replace(<<"abcde">>, [<<"b">>, <<"d">>], fun(M) -> <<$[, M/binary, $]>> end, [global]).
 <<"a[b]c[d]e">>
 ```
 """.
@@ -839,13 +839,13 @@ The default case is `uppercase`.
 _Example:_
 
 ```erlang
-> binary:encode_hex(<<"f">>).
+1> binary:encode_hex(<<"f">>).
 <<"66">>
-> binary:encode_hex(<<"/">>).
+2> binary:encode_hex(<<"/">>).
 <<"2F">>
-> binary:encode_hex(<<"/">>, lowercase).
+3> binary:encode_hex(<<"/">>, lowercase).
 <<"2f">>
-> binary:encode_hex(<<"/">>, uppercase).
+4> binary:encode_hex(<<"/">>, uppercase).
 <<"2F">>
 ```
 """.
@@ -918,7 +918,7 @@ Decodes a hex encoded binary into a binary.
 _Example_
 
 ```erlang
-> binary:decode_hex(<<"66">>).
+1> binary:decode_hex(<<"66">>).
 <<"f">>
 ```
 """.
@@ -967,7 +967,7 @@ Equivalent to `iolist_to_binary(lists:join(Separator, Binaries))`, but faster.
 _Example:_
 
 ```erlang
-> binary:join([<<"a">>, <<"b">>, <<"c">>], <<", ">>).
+1> binary:join([<<"a">>, <<"b">>, <<"c">>], <<", ">>).
 <<"a, b, c">>
 ```
 """.

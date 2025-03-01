@@ -193,7 +193,7 @@ with tail `Tail` appended.
 ## Examples
 
 ```erlang
-> lists:reverse([1, 2, 3, 4], [a, b, c]).
+1> lists:reverse([1, 2, 3, 4], [a, b, c]).
 [4,3,2,1,a,b,c]
 ```
 """.
@@ -215,7 +215,7 @@ Returns a new list, `List3`, consisting of the elements of
 ## Examples
 
 ```erlang
-> lists:append("abc", "def").
+1> lists:append("abc", "def").
 "abcdef"
 ```
 
@@ -235,7 +235,7 @@ Returns a list in which all sublists of `ListOfLists` have been concatenated.
 ## Examples
 
 ```erlang
-> lists:append([[1, 2, 3], [a, b], [4, 5, 6]]).
+1> lists:append([[1, 2, 3], [a, b], [4, 5, 6]]).
 [1,2,3,a,b,4,5,6]
 ```
 """.
@@ -257,7 +257,7 @@ occurrence in `List1` is removed.
 ## Examples
 
 ```erlang
-> lists:subtract("123212", "212").
+1> lists:subtract("123212", "212").
 "312"
 ```
 
@@ -302,7 +302,7 @@ Returns the `N`th element of `List`.
 ## Examples
 
 ```erlang
-> lists:nth(3, [a, b, c, d, e]).
+1> lists:nth(3, [a, b, c, d, e]).
 c
 ```
 """.
@@ -327,13 +327,13 @@ starting at `N+1` and continuing to the end of the list.
 ## Examples
 
 ```erlang
-> lists:nthtail(3, [a, b, c, d, e]).
+1> lists:nthtail(3, [a, b, c, d, e]).
 [d,e]
-> tl(tl(tl([a, b, c, d, e]))).
+2> tl(tl(tl([a, b, c, d, e]))).
 [d,e]
-> lists:nthtail(0, [a, b, c, d, e]).
+3> lists:nthtail(0, [a, b, c, d, e]).
 [a,b,c,d,e]
-> lists:nthtail(5, [a, b, c, d, e]).
+4> lists:nthtail(5, [a, b, c, d, e]).
 []
 ```
 """.
@@ -501,15 +501,15 @@ length(lists:seq(From, To, Incr)) =:= (To - From + Incr) div Incr
 ## Examples
 
 ```erlang
-> lists:seq(1, 10).
+1> lists:seq(1, 10).
 [1,2,3,4,5,6,7,8,9,10]
-> lists:seq(1, 20, 3).
+2> lists:seq(1, 20, 3).
 [1,4,7,10,13,16,19]
-> lists:seq(1, 0, 1).
+3> lists:seq(1, 0, 1).
 []
-> lists:seq(10, 6, 4).
+4> lists:seq(10, 6, 4).
 []
-> lists:seq(1, 1, 0).
+5> lists:seq(1, 1, 0).
 [1]
 ```
 """.
@@ -568,7 +568,7 @@ Returns a list containing `N` copies of term `Elem`.
 ## Examples
 
 ```erlang
-> lists:duplicate(5, xx).
+1> lists:duplicate(5, xx).
 [xx,xx,xx,xx,xx]
 ```
 """.
@@ -636,11 +636,11 @@ It is not an error for `Start+Len` to exceed the length of the list.
 ## Examples
 
 ```erlang
-> lists:sublist([1,2,3,4], 2, 2).
+1> lists:sublist([1,2,3,4], 2, 2).
 [2,3]
-> lists:sublist([1,2,3,4], 2, 5).
+2> lists:sublist([1,2,3,4], 2, 5).
 [2,3,4]
-> lists:sublist([1,2,3,4], 5, 2).
+3> lists:sublist([1,2,3,4], 5, 2).
 []
 ```
 """.
@@ -740,9 +740,9 @@ lengths.
   ## Examples
 
   ```erlang
-  > lists:zip([a, b], [1, 2, 3], trim).
+  1> lists:zip([a, b], [1, 2, 3], trim).
   [{a,1},{b,2}]
-  > lists:zip([a, b, c], [1, 2], trim).
+  2> lists:zip([a, b, c], [1, 2], trim).
   [{a,1},{b,2}]
   ```
 
@@ -752,9 +752,9 @@ lengths.
   ## Examples
 
   ```erlang
-  > lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).
+  1> lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).
   [{a,1},{b,2},{x,3}]
-  > lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).
+  2> lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).
   [{a,1},{b,2},{c,0}]
   ```
 """.
@@ -931,7 +931,7 @@ For a description of the `How` parameter, see `zip/3`.
 ## Examples
 
 ```erlang
-> lists:zipwith(fun(X, Y) -> X+Y end, [1,2,3], [4,5,6], fail).
+1> lists:zipwith(fun(X, Y) -> X+Y end, [1,2,3], [4,5,6]).
 [5,7,9]
 ```
 """.
@@ -994,9 +994,9 @@ equivalent to [`zip3(List1, List2, List3)`](`zip3/3`).
 ## Examples
 
 ```erlang
-> lists:zipwith3(fun(X, Y, Z) -> X+Y+Z end, [1,2,3], [4,5,6], [7,8,9], fail).
+1> lists:zipwith3(fun(X, Y, Z) -> X+Y+Z end, [1,2,3], [4,5,6], [7,8,9]).
 [12,15,18]
-> lists:zipwith3(fun(X, Y, Z) -> [X,Y,Z] end, [a,b,c], [x,y,z], [1,2,3], fail).
+2> lists:zipwith3(fun(X, Y, Z) -> [X,Y,Z] end, [a,b,c], [x,y,z], [1,2,3]).
 [[a,x,1],[b,y,2],[c,z,3]]
 ```
 """.
@@ -1255,7 +1255,7 @@ The elements of `Things` can be atoms, integers, floats, or strings.
 ## Examples
 
 ```erlang
-> lists:concat([doc, '/', file, '.', 3]).
+1> lists:concat([doc, '/', file, '.', 3]).
 "doc/file.3"
 ```
 """.
@@ -1764,8 +1764,8 @@ element `Term1` of the tuple has been replaced with the result of calling
 ## Examples
 
 ```erlang
-> Fun = fun(Atom) -> atom_to_list(Atom) end.
-> lists:keymap(Fun, 2, [{name,jane,22},{name,lizzie,20},{name,lydia,15}]).
+1> Fun = fun(Atom) -> atom_to_list(Atom) end.
+2> lists:keymap(Fun, 2, [{name,jane,22},{name,lizzie,20},{name,lydia,15}]).
 [{name,"jane",22},{name,"lizzie",20},{name,"lydia",15}]
 ```
 """.
@@ -1822,11 +1822,17 @@ The default values for `Index` and `Step` are both `1`.
 ## Examples
 
 ```erlang
-> lists:enumerate([a,b,c]).
+1> lists:enumerate([a,b,c]).
 [{1,a},{2,b},{3,c}]
-> lists:enumerate(10, [a,b,c]).
+```
+
+```erlang
+1> lists:enumerate(10, [a,b,c]).
 [{10,a},{11,b},{12,c}]
-> lists:enumerate(0, -2, [a,b,c]).
+```
+
+```erlang
+1> lists:enumerate(0, -2, [a,b,c]).
 [{0,a},{-2,b},{-4,c}]
 ```
 """.
@@ -2393,7 +2399,7 @@ flatmap(Fun, List1) ->
 ## Examples
 
 ```erlang
-> lists:flatmap(fun(X)-> [X,X] end, [a,b,c]).
+1> lists:flatmap(fun(X)->[X,X] end, [a,b,c]).
 [a,a,b,b,c,c]
 > F = fun(N) when is_integer(N) -> [10 * N];
          (_) -> []
@@ -2433,9 +2439,9 @@ is returned if the list is empty.
 ## Examples
 
 ```erlang
-> lists:foldl(fun(X, Sum) -> X + Sum end, 0, [1,2,3,4,5]).
+1> lists:foldl(fun(X, Sum) -> X + Sum end, 0, [1,2,3,4,5]).
 15
-> lists:foldl(fun(X, Prod) -> X * Prod end, 1, [1,2,3,4,5]).
+2> lists:foldl(fun(X, Prod) -> X * Prod end, 1, [1,2,3,4,5]).
 120
 ```
 """.
@@ -2465,10 +2471,10 @@ Like `foldl/3`, but the list is traversed from right to left.
 ## Examples
 
 ```erlang
-> P = fun(A, AccIn) -> [A|AccIn] end.
-> lists:foldl(P, [], [1,2,3]).
+1> P = fun(A, AccIn) -> [A|AccIn] end.
+2> lists:foldl(P, [], [1,2,3]).
 [3,2,1]
-> lists:foldr(P, [], [1,2,3]).
+3> lists:foldr(P, [], [1,2,3]).
 [1,2,3]
 ```
 
@@ -2522,9 +2528,9 @@ for which `Pred(Elem)` returns `false`.
 ## Examples
 
 ```erlang
-> lists:partition(fun(A) -> A rem 2 =:= 1 end, [1,2,3,4,5,6,7]).
+1> lists:partition(fun(A) -> A rem 2 == 1 end, [1,2,3,4,5,6,7]).
 {[1,3,5,7],[2,4,6]}
-> lists:partition(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).
+2> lists:partition(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).
 {[a,b,c,d,e],[1,2,3,4]}
 ```
 
@@ -2572,12 +2578,7 @@ filtermap(Fun, List1) ->
 ## Examples
 
 ```erlang
-> lists:filtermap(fun(X) ->
-                          case X rem 2 of
-                              0 -> {true, X div 2};
-                              1 -> false
-                          end
-                  end, [1,2,3,4,5]).
+1> lists:filtermap(fun(X) -> case X rem 2 of 0 -> {true, X div 2}; _ -> false end end, [1,2,3,4,5]).
 [1,2]
 ```
 """.
@@ -2638,7 +2639,8 @@ Combines the operations of `map/2` and `foldl/3` into one pass.
 Summing the elements in a list and double them at the same time:
 
 ```erlang
-> lists:mapfoldl(fun(X, Sum) -> {2*X, X+Sum} end, 0, [1,2,3,4,5]).
+1> lists:mapfoldl(fun(X, Sum) -> {2*X, X+Sum} end,
+  0, [1,2,3,4,5]).
 {[2,4,6,8,10],15}
 ```
 """.
@@ -2806,9 +2808,9 @@ splitwith(Pred, List) ->
 ## Examples
 
 ```erlang
-> lists:splitwith(fun(A) -> A rem 2 =:= 1 end, [1,2,3,4,5,6,7]).
+1> lists:splitwith(fun(A) -> A rem 2 == 1 end, [1,2,3,4,5,6,7]).
 {[1],[2,3,4,5,6,7]}
-> lists:splitwith(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).
+2> lists:splitwith(fun(A) -> is_atom(A) end, [a,b,1,c,d,2,3,4,e]).
 {[a,b],[1,c,d,2,3,4,e]}
 ```
 
@@ -2874,11 +2876,11 @@ Has no effect on an empty list or a singleton list.
 ## Examples
 
 ```erlang
-> lists:join(x, [a,b,c]).
+1> lists:join(x, [a,b,c]).
 [a,x,b,x,c]
-> lists:join(x, [a]).
+2> lists:join(x, [a]).
 [a]
-> lists:join(x, []).
+3> lists:join(x, []).
 []
 ```
 """.
@@ -4350,7 +4352,72 @@ rufmerge2_2(H1, T1, Fun, [], M, H2M) ->
             lists:reverse(T1, [H1, H2M | M])
     end.
 
-%%%
-%%% Don't place new functions here; place them before the
-%%% implementation of sort functions.
-%%%
+%% uniq/1: return a new list with the unique elements of the given list
+
+-doc """
+Returns a list containing the elements of `List1` with duplicated elements
+removed (preserving the order of the elements). The first occurrence of each
+element is kept.
+
+_Examples:_
+
+```erlang
+1> lists:uniq([3,3,1,2,1,2,3]).
+[3,1,2]
+2> lists:uniq([a, a, 1, b, 2, a, 3]).
+[a, 1, b, 2, 3]
+```
+""".
+-doc(#{since => <<"OTP 25.0">>}).
+-spec uniq(List1) -> List2 when
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(L) ->
+    uniq_1(L, #{}).
+
+uniq_1([X | Xs], M) ->
+    case is_map_key(X, M) of
+        true ->
+            uniq_1(Xs, M);
+        false ->
+            [X | uniq_1(Xs, M#{X => true})]
+    end;
+uniq_1([], _) ->
+    [].
+
+%% uniq/2: return a new list with the unique elements of the given list using a function key
+
+-doc """
+Returns a list containing the elements of `List1` without the elements for which
+`Fun` returned duplicate values (preserving the order of the elements). The
+first occurrence of each element is kept.
+
+_Examples:_
+
+```erlang
+1> lists:uniq(fun({X, _}) -> X end, [{b, 2}, {a, 1}, {c, 3}, {a, 2}]).
+[{b, 2}, {a, 1}, {c, 3}]
+```
+""".
+-doc(#{since => <<"OTP 25.0">>}).
+-spec uniq(Fun, List1) -> List2 when
+      Fun :: fun((T) -> any()),
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+uniq(F, L) when is_function(F, 1) ->
+    uniq_2(L, F, #{}).
+
+uniq_2([X | Xs], F, M) ->
+    Key = F(X),
+    case is_map_key(Key, M) of
+        true ->
+            uniq_2(Xs, F, M);
+        false ->
+            [X | uniq_2(Xs, F, M#{Key => true})]
+    end;
+uniq_2([], _, _) ->
+    [].
