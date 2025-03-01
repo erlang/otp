@@ -86,13 +86,13 @@ Here are some examples of what should work:
 ## Comments:
 
 ```
-1> [1, 
+1> [1,
 % A comment in between prompts
   2].
 [1,
 % A comment in a match
  2]
-2> [1, 
+2> [1,
   % Indented comment in between prompts
   2].
 [1,
