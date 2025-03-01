@@ -362,12 +362,12 @@ parse_format_sigil(Config) when is_list(Config) ->
     %%
     ExpectedValues = [
         {"~f", ~"foobar"},
-        {"~fs", ["foo", ~"bar"]},
-        {"~fS", ["foo", ~"bar"]},
+        {"~fs", [~"foo", ~"bar"]},
+        {"~fS", [~"foo", ~"bar"]},
         {"~fb", ~"foobar"},
         {"~fB", ~"foobar"},
-        {"~sf", ["foo", ~"bar"]},
-        {"~Sf", ["foo", ~"bar"]},
+        {"~sf", [~"foo", ~"bar"]},
+        {"~Sf", [~"foo", ~"bar"]},
         {"~bf", ~"foobar"},
         {"~Bf", ~"foobar"}],
     [Value = eval_exprs(Sigil ++ "[foo{~\"bar\"}].", []) || {Sigil, Value} <- ExpectedValues].

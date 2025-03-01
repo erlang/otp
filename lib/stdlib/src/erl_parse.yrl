@@ -1747,7 +1747,7 @@ build_f_sigil_str(Anno, String) ->
     erl_syntax:revert(erl_syntax:list(Elems)).
 
 f_sigil_str_elem({string,Anno,Str}) ->
-    {string,Anno,Str};
+    {bin,Anno,[{bin_element,Anno,{string,Anno,Str},default,[utf8]}]};
 f_sigil_str_elem({block,_Anno,Block}) ->
     Block.
 
