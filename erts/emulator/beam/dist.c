@@ -6023,7 +6023,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                     Eterm *tp = tuple_val(car);
                     if (am_reply_tag == tp[1]
                         || am_reply == tp[1]
-                        || am_monitor == tp[1]) {
+                        || am_monitor == tp[1]
+                        || am_link == tp[1]) {
                         rm_cnt++;
                         /* skip option */
                         if (rm_cnt == rm_opts) {

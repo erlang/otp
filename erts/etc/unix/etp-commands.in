@@ -2395,21 +2395,15 @@ define etp-mon-lnk-flags-int
     printf "SPAWN_NO_EMSG "
   end
   if ($arg0) & (1 << 18)
-    printf "ALIAS_BIT1 "
-  end
-  if ($arg0) & (1 << 19)
-    printf "ALIAS_BIT2 "
-  end
-  if ($arg0) & (1 << 20)
     printf "TAG "
   end
-  if ($arg0) & (1 << 21)
+  if ($arg0) & (1 << 19)
     printf "PRIO_ML "
   end
-  if ($arg0) & (1 << 22)
+  if ($arg0) & (1 << 20)
     printf "PRIO_ALIAS "
   end
-  if ($arg0) & (1 << 23)
+  if ($arg0) & (1 << 21)
     printf "SPAWN_LINK_PRIO "
   end
   if ($arg0) & (1 << 31)

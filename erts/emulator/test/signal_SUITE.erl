@@ -67,7 +67,10 @@
          parallel_signal_enqueue_race_1/1,
          parallel_signal_enqueue_race_2/1,
          dirty_schedule/1,
-         priority_messages_basic/1,
+         priority_messages_link_enable_disable/1,
+         priority_messages_monitor_enable_disable/1,
+         priority_messages_alias_enable_disable/1,
+         priority_messages_order/1,
          priority_messages_hopefull_encoding/1,
          priority_messages_old_nodes/1]).
 
@@ -130,7 +133,10 @@ groups() ->
        simultaneous_signals_exit,
        simultaneous_signals_recv_exit]},
      {priority_messages, [],
-      [priority_messages_basic,
+      [priority_messages_link_enable_disable,
+       priority_messages_monitor_enable_disable,
+       priority_messages_alias_enable_disable,
+       priority_messages_order,
        priority_messages_hopefull_encoding,
        priority_messages_old_nodes]}].
 
@@ -1507,18 +1513,228 @@ dirty_schedule_test() ->
     false = is_process_alive(Proc),
     ok.
 
-priority_messages_basic(Config) when is_list(Config) ->
+priority_messages_link_enable_disable(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {priority_messages, false} = process_info(self(), priority_messages),
     ct:log("Testing against local process~n", []),
-    priority_messages_basic_test(node()),
+    priority_messages_link_enable_disable_test(node()),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_link_enable_disable_test(Node),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    P1 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    peer:stop(Peer),
+    receive {'EXIT', P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    P2 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    receive {'EXIT', P2, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_link_enable_disable_test(Node) ->
+    P1 = spawn(Node, fun () -> receive bye -> ok end end),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    link(P1, []),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unlink(P1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    link(P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    P1 ! bye,
+    receive {'EXIT', P1, normal} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    P2 = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                   [{link, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    exit(P2, bye),
+    receive {'EXIT', P2, bye} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    erlang:yield(),
+    M = spawn_request(Node, fun () -> ok end, [{link, [priority]}]),
+    case spawn_request_abandon(M) of
+        true ->
+            ct:log("spawn request abandoned"),
+            ok;
+        false ->
+            ct:log("spawn request not abandoned"),
+            receive
+                {spawn_reply, M, ok, P3} ->
+                    receive
+                        {'EXIT', P3, Reason} ->
+                            normal = Reason
+                    end;
+                {spawn_reply, M, error, Error} ->
+                    ct:fail({spawn_error, Error})
+            end
+    end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ok.
+
+priority_messages_monitor_enable_disable(Config) when is_list(Config) ->
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process~n", []),
+    priority_messages_monitor_enable_disable_test(node()),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M1 = monitor(time_offset, clock_service, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    demonitor(M1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_monitor_enable_disable_test(Node),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    {P1, M2} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    peer:stop(Peer),
+    receive {'DOWN', M2, process, P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M3 = monitor(process, P1),
+    receive {'DOWN', M3, process, P1, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    {P2, M4} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    receive {'DOWN', M4, process, P2, noconnection} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_monitor_enable_disable_test(Node) ->
+    P1 = spawn(Node, fun () -> receive bye -> ok end end),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M1 = monitor(process, P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    demonitor(M1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    M2 = monitor(process, P1, [priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    P1 ! bye,
+    receive {'DOWN', M2, process, P1, normal} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    {P2, M3} = spawn_opt(Node, fun () -> receive after infinity -> ok end end,
+                         [{monitor, [priority]}]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    exit(P2, bye),
+    receive {'DOWN', M3, process, P2, bye} -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    erlang:yield(),
+    M4 = spawn_request(Node, fun () -> ok end, [{monitor, [priority]}]),
+    case spawn_request_abandon(M4) of
+        true ->
+            ct:log("spawn request abandoned"),
+            ok;
+        false ->
+            ct:log("spawn request not abandoned"),
+            receive
+                {spawn_reply,M4,ok,P3} ->
+                    receive
+                        {'DOWN', M4, process, P3, Reason} ->
+                            normal = Reason
+                    end;
+                {spawn_reply,M4,error,Error} ->
+                    ct:fail({spawn_error, Error})
+            end
+    end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ok.
+
+priority_messages_alias_enable_disable(Config) when is_list(Config) ->
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process~n", []),
+    priority_messages_alias_enable_disable_test(node()),
+    {priority_messages, false} = process_info(self(), priority_messages),
+    ct:log("Testing against local process succeeded~n", []),
+
+    {ok, Peer, Node} = ?CT_PEER(),
+    ct:log("Testing against remote process~n", []),
+    priority_messages_alias_enable_disable_test(Node),
+    peer:stop(Peer),
+    ct:log("Testing against remote process succeeded~n", []),
+
+    ok.
+
+priority_messages_alias_enable_disable_test(Node) ->
+    process_flag(trap_exit, true),
+    {PS, MS} = spawn_opt(Node, fun SendPrioAlias () ->
+                                       receive
+                                           A -> erlang:send(A, A, [priority])
+                                       end,
+                                       SendPrioAlias()
+                               end, [monitor,link]),
+    {PE, ME} = spawn_opt(Node, fun ExitPrioAlias () ->
+                                       receive
+                                           A -> erlang:exit(A, A, [priority])
+                                       end,
+                                       ExitPrioAlias()
+                               end, [monitor,link]),
+
+    {priority_messages, false} = process_info(self(), priority_messages),
+    A1 = alias([explicit_unalias, priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A1,
+    receive {'EXIT', PE, A1} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A1,
+    receive A1 -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unalias(A1),
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    A2 = alias([priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A2,
+    receive {'EXIT', PE, A2} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A2,
+    receive A2 -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    unalias(A2),
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    A3 = alias([reply, priority]),
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PE ! A3,
+    receive {'EXIT', PE, A3} -> ok end,
+    {priority_messages, true} = process_info(self(), priority_messages),
+    PS ! A3,
+    receive A3 -> ok end,
+    {priority_messages, false} = process_info(self(), priority_messages),
+
+    unlink(PS),
+    unlink(PE),
+    exit(PS, kill),
+    exit(PE, kill),
+    receive {'DOWN', MS, process, PS, killed} -> ok end,
+    receive {'DOWN', ME, process, PE, killed} -> ok end.
+
+priority_messages_order(Config) when is_list(Config) ->
+    ct:log("Testing against local process~n", []),
+    priority_messages_order_test(node()),
     ct:log("Testing against local process succeeded~n", []),
     {ok, Peer, Node} = ?CT_PEER(),
     ct:log("Testing against remote process~n", []),
-    priority_messages_basic_test(Node),
+    priority_messages_order_test(Node),
     ct:log("Testing against remote process succeeded~n", []),
     peer:stop(Peer),
     ok.
 
-priority_messages_basic_test(Node) ->
+priority_messages_order_test(Node) ->
     Parent = self(),
     LinkProc1 = spawn(fun () -> receive after infinity -> ok end end),
     LinkProc2 = spawn(fun () -> receive after infinity -> ok end end),

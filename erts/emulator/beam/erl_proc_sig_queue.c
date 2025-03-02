@@ -315,7 +315,7 @@ get_prio_queue_info(Process *c_p)
 {
     ErtsPrioQInfo *pq_info = ERTS_PROC_GET_PRIO_Q_INFO(c_p);
     ASSERT(pq_info);
-    ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
+    ASSERT(c_p->sig_qs.flags & (FS_PRIO_MQ|FS_PRIO_MQ_PENDING_RM));
     return pq_info;
 }
 
@@ -3373,7 +3373,8 @@ erts_proc_sig_send_rpc_request_prio(Process *c_p,
                                     void *arg,
                                     int prio)
 {
-    Eterm res;
+    Eterm res, from;
+    ErtsPTabElementCommon *sender;
     ErtsProcSigRPC *sig = erts_alloc(ERTS_ALC_T_SIG_DATA,
                                      sizeof(ErtsProcSigRPC));
     sig->common.tag = ERTS_PROC_SIG_MAKE_TAG(ERTS_SIG_Q_OP_RPC,
@@ -3399,8 +3400,17 @@ erts_proc_sig_send_rpc_request_prio(Process *c_p,
         erts_msgq_set_save_end(c_p);
     }
 
-    if (proc_queue_signal(c_p ? &c_p->common : NULL, c_p->common.id, to,
-                          (ErtsSignal *)sig, 0, ERTS_SIG_Q_OP_RPC)) {
+    if (c_p) {
+        sender = &c_p->common;
+        from = c_p->common.id;
+    }
+    else {
+        sender = NULL;
+        from = am_system;
+    }
+
+    if (proc_queue_signal(sender, from, to, (ErtsSignal *)sig,
+                          0, ERTS_SIG_Q_OP_RPC)) {
         (void) maybe_elevate_sig_handling_prio(c_p, prio, to);
     } else {
         erts_free(ERTS_ALC_T_SIG_DATA, sig);
@@ -4461,8 +4471,6 @@ msgq_pass_recv_markers_prioq_end(Process *c_p, ErtsMessage **pq_endpp)
         ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
         ErtsRecvMarker *pq_cont = &pq_info->marker[ERTS_PRIO_Q_MARK_CONT];
 
-        ASSERT(c_p->sig_qs.flags & FS_PRIO_MQ);
-
         ASSERT(pq_cont->mark_type == ERTS_RECV_MARKER_TYPE_PRIO_Q_CONT);
         ASSERT(pq_cont->in_msgq);
 
@@ -4588,6 +4596,7 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
     int op = ERTS_PROC_SIG_OP(tag);
     int extra = ERTS_PROC_SIG_XTRA(tag);
     int prio = 0;
+    int prio_link_removed = 0;
     int destroy = 0;
     int ignore = 0;
     int save = 0;
@@ -4653,7 +4662,10 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
             }
         }
         if (lnk) {
-            prio = linked && !!(lnk->flags & ERTS_ML_FLG_PRIO_ML);
+            if (lnk->flags & ERTS_ML_FLG_PRIO_ML) {
+                prio_link_removed = !0;
+                prio = linked;
+            }
             /* Remove link... */
             erts_link_tree_delete(&ERTS_P_LINKS(c_p), lnk);
             if (!elnk)
@@ -4744,6 +4756,15 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
         erts_cleanup_messages(sig);
     }
 
+    if (prio_link_removed) {
+        /*
+         * This needs to be done after the message has been inserted; otherwise,
+         * the prio message might not be prioritized due to the prio queue being
+         * removed prior to the message insertion.
+         */
+        erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+    }
+
     *exited = exit;
 
     return cnt;
@@ -4803,6 +4824,8 @@ convert_to_down_message(Process *c_p,
 
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
+
+        *priop = !!(mdp->origin.flags & ERTS_ML_FLG_PRIO_ML);
 
         if (mdp->origin.flags & (ERTS_ML_FLG_SPAWN_ABANDONED
                                  | ERTS_ML_FLG_SPAWN_NO_EMSG)) {
@@ -5696,6 +5719,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         if (omon->flags & (ERTS_ML_FLG_SPAWN_ABANDONED
                            | ERTS_ML_FLG_SPAWN_NO_EMSG))
             convert_to_message = 0;
+        if (omon->flags & ERTS_ML_FLG_PRIO_ML)
+            erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
     }
     else if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
         /*
@@ -5712,7 +5737,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         dist = mdep->dist;
 
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
-        
+        ASSERT(!(omon->flags & ERTS_ML_FLG_PRIO_ML));
+
         lnk = datap->link;
         if (lnk) {
             ErtsELink *elnk;
