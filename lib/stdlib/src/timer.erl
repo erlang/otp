@@ -154,7 +154,7 @@ done
          code_change/3, handle_cast/2, terminate/2]).
 
 %% Types which can be used by other modules
--export_type([tref/0]).
+-export_type([tref/0, time/0]).
 
 %% Max value for a receive's after clause.
 -define(MAX_RECEIVE_AFTER, 16#ffffffff).
