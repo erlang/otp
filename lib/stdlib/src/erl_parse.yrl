@@ -1788,12 +1788,12 @@ f_sigil_expr_elem([$} | T], Depth, ExprLn, StrLn, Acc) ->
         0 ->
             Elem = f_sigil_block_tuple(ExprLn, Acc),
             case T of
-                [$\r, $\n | T1] ->
-                    {Elem, T1, StrLn + 1};
-                [$\r | T1] ->
-                    {Elem, T1, StrLn + 1};
-                [$\n | T1] ->
-                    {Elem, T1, StrLn + 1};
+                [$\r, $\n | _] ->
+                    {Elem, T, StrLn + 1};
+                [$\r | _] ->
+                    {Elem, T, StrLn + 1};
+                [$\n | _] ->
+                    {Elem, T, StrLn + 1};
                 _ ->
                     {Elem, T, StrLn}
             end;

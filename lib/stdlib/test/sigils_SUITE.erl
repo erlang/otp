@@ -325,7 +325,7 @@ parse_f_sigil(Config) when is_list(Config) ->
          default,
          [binary]},
         {bin_element,4,
-         {string,4,"   {qux}{{quux"},
+         {string,4,"\n   {qux}{{quux"},
          default,
          [utf8]}]}],
      {4,20}} =
