@@ -324,16 +324,17 @@ parse_f_sigil(Config) when is_list(Config) ->
               [binary]}]}]},
          default,
          [binary]},
-        {bin_element,3,
-         {string,3,"{qux}{{quux"},
+        {bin_element,4,
+         {string,4,"   {qux}{{quux"},
          default,
          [utf8]}]}],
-     {3,48}} =
+     {4,20}} =
         parse_exprs(
           """
           OO = ~"oo",
           Baz = ~"baz",
-          ~f[f{OO}b{A=~"a",~f"{A}r{Baz}"}\{qux}\{\{quux].
+          ~f[f{OO}b{A=~"a",~f"{A}r{Baz}"}
+             \{qux}\{\{quux].
           """),
     {error,1,erl_parse,
      "Unterminated interpolation expression in ~f string. Expected '}'.",{1,11}} =
