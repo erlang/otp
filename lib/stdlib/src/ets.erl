@@ -496,7 +496,7 @@ table, `undefined` is returned. If `Table` is not of the correct type, a
                  | {protection, table_access()}
                  | {size, non_neg_integer()}
                  | {type, table_type()}
-		 | {write_concurrency, boolean()}
+		 | {write_concurrency, boolean() | auto}
 		 | {read_concurrency, boolean()}.
 
 info(_) ->
