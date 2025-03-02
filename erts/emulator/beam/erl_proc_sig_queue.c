@@ -244,9 +244,12 @@ typedef struct {
 
 typedef struct {
     Uint32 saved_save_info;
+    Sint refc;
+#ifdef DEBUG
     Sint alias;
     Sint link;
     Sint monitor;
+#endif
     ErtsRecvMarker marker[ERTS_PRIO_Q_MARK_IX_MAX
                           - ERTS_PRIO_Q_MARK_IX_MIN
                           + 1];
@@ -8887,9 +8890,12 @@ create_prio_q_info(Process *c_p)
     pq_info = erts_alloc(ERTS_ALC_T_PRIO_Q_INFO, sizeof(ErtsPrioQInfo));
 
     pq_info->saved_save_info = 0;
+    pq_info->refc = 0;
+#ifdef DEBUG
     pq_info->alias = 0;
     pq_info->link = 0;
     pq_info->monitor = 0;
+#endif
 
     for (i = ERTS_PRIO_Q_MARK_IX_MIN; i <= ERTS_PRIO_Q_MARK_IX_MAX; i++) {
 
@@ -8941,6 +8947,7 @@ destroy_prio_q_info(Process *c_p, ErtsPrioQInfo *pq_info, int terminating)
 
     ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
     ASSERT(terminating || !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK));
+    ASSERT(terminating || !pq_info->refc);
     ASSERT(terminating || !pq_info->alias);
     ASSERT(terminating || !pq_info->link);
     ASSERT(terminating || !pq_info->monitor);
@@ -9446,33 +9453,29 @@ void
 erts_proc_sig_prio_item_deleted(Process *c_p, ErtsPrioItemType type)
 {
     ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
-    int uninstall_pq;
+    int uninstall_pq = --pq_info->refc == 0;
 
+#ifdef DEBUG
     switch (type) {
     case ERTS_PRIO_ITEM_TYPE_ALIAS:
-        uninstall_pq = (--pq_info->alias == 0
-                        && pq_info->link == 0
-                        && pq_info->monitor == 0);
+        --pq_info->alias;
         break;
     case ERTS_PRIO_ITEM_TYPE_LINK:
-        uninstall_pq = (--pq_info->link == 0
-                        && pq_info->alias == 0
-                        && pq_info->monitor == 0);
+        --pq_info->link;
         break;
     case ERTS_PRIO_ITEM_TYPE_MONITOR:
-        uninstall_pq = (--pq_info->monitor == 0
-                        && pq_info->alias == 0
-                        && pq_info->link == 0);
+        --pq_info->monitor;
         break;
     default:
         ERTS_INTERNAL_ERROR("Invalid priority item type");
         uninstall_pq = 0;
         break;
     }
-
-    ASSERT(pq_info->alias >= 0
-           && pq_info->link >= 0
+    ASSERT(pq_info->refc >= 0 && pq_info->alias >= 0 && pq_info->link >= 0
            && pq_info->monitor >= 0);
+    ASSERT(pq_info->refc == pq_info->alias + pq_info->link + pq_info->monitor);
+#endif
+
 
     if (uninstall_pq)
         uninstall_prio_msg_queue(c_p, pq_info);
@@ -9487,7 +9490,9 @@ erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
         install_prio_msg_queue(c_p);
 
     pq_info = get_prio_queue_info(c_p);
+    ++pq_info->refc;
 
+#ifdef DEBUG
     switch (type) {
     case ERTS_PRIO_ITEM_TYPE_ALIAS:
         ++pq_info->alias;
@@ -9502,6 +9507,11 @@ erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
         ERTS_INTERNAL_ERROR("Invalid priority item type");
         break;
     }
+    ASSERT(pq_info->refc >= 0 && pq_info->alias >= 0 && pq_info->link >= 0
+           && pq_info->monitor >= 0);
+    ASSERT(pq_info->refc == pq_info->alias + pq_info->link + pq_info->monitor);
+#endif
+
 }
 
 /* Cleanup */
