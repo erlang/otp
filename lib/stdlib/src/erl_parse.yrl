@@ -1759,64 +1759,63 @@ f_sigil_bin_elem({block, Anno, Block}) ->
 
 f_sigil_elems(Anno, Str) ->
     Ln = erl_anno:line(Anno),
-    Col = case erl_anno:column(Anno) of undefined -> 1; X -> X end,
-    Loc = {Ln, Col},
-    f_sigil_elems(Str, Loc, Loc, []).
+    f_sigil_elems(Str, Ln, Ln, []).
 
-f_sigil_elems([], _StrLoc, _LocAcc, []) ->
+f_sigil_elems([], _StrLn, _ExprLn, []) ->
     [];
-f_sigil_elems([], StrLoc, _LocAcc, Acc) ->
-    [f_sigil_str_tuple(StrLoc, Acc)];
-f_sigil_elems([$\\, ${ | T], StrLoc, {Ln, Col}, Acc) ->
-    f_sigil_elems(T, StrLoc, {Ln, Col + 2}, [${ | Acc]);
-f_sigil_elems([${ | T0], _StrLoc, {Ln, Col} = ExprLoc, []) ->
-    {ExprElem, T, EndLoc} = f_sigil_expr_elem(T0, 1, ExprLoc, {Ln, Col + 1}, []),
-    [ExprElem | f_sigil_elems(T, EndLoc, EndLoc, [])];
-f_sigil_elems([${ | T0], StrLoc, {Ln, Col} = ExprLoc, Acc) ->
-    StrElem = f_sigil_str_tuple(StrLoc, Acc),
-    {ExprElem, T, EndLoc} = f_sigil_expr_elem(T0, 1, ExprLoc, {Ln, Col + 1}, []),
-    [StrElem, ExprElem | f_sigil_elems(T, EndLoc, EndLoc, [])];
-f_sigil_elems([$\r, $\n | T], StrLoc, {Ln, _Col}, Acc) ->
-    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\n, $\r | Acc]);
-f_sigil_elems([$\r | T], StrLoc, {Ln, _Col}, Acc) ->
-    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\r | Acc]);
-f_sigil_elems([$\n | T], StrLoc, {Ln, _Col}, Acc) ->
-    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\n | Acc]);
-f_sigil_elems([H | T], StrLoc, {Ln, Col}, Acc) ->
-    f_sigil_elems(T, StrLoc, {Ln, Col + 1}, [H | Acc]).
+f_sigil_elems([], StrLn, _ExprLn, Acc) ->
+    [f_sigil_str_tuple(StrLn, Acc)];
+f_sigil_elems([$\\, ${ | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn, [${ | Acc]);
+f_sigil_elems([${ | T0], _StrLn, ExprLn, []) ->
+    {ExprElem, T, EndLn} = f_sigil_expr_elem(T0, 1, ExprLn, ExprLn, []),
+    [ExprElem | f_sigil_elems(T, EndLn, EndLn, [])];
+f_sigil_elems([${ | T0], StrLn, ExprLn, Acc) ->
+    StrElem = f_sigil_str_tuple(StrLn, Acc),
+    {ExprElem, T, EndLn} = f_sigil_expr_elem(T0, 1, ExprLn, ExprLn, []),
+    [StrElem, ExprElem | f_sigil_elems(T, EndLn, EndLn, [])];
+f_sigil_elems([$\r, $\n | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\n, $\r | Acc]);
+f_sigil_elems([$\r | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\r | Acc]);
+f_sigil_elems([$\n | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn + 1, [$\n | Acc]);
+f_sigil_elems([H | T], StrLn, ExprLn, Acc) ->
+    f_sigil_elems(T, StrLn, ExprLn, [H | Acc]).
 
-f_sigil_expr_elem([$} | T], Depth, Loc, {Ln, Col}, Acc) ->
+f_sigil_expr_elem([$} | T], Depth, ExprLn, StrLn, Acc) ->
     case Depth - 1 of
         0 ->
-            Elem = f_sigil_block_tuple(Loc, Acc),
-            {Elem, T, {Ln, Col + 1}};
+            Elem = f_sigil_block_tuple(ExprLn, Acc),
+            {Elem, T, StrLn};
         _ ->
-            f_sigil_expr_elem(T, Depth - 1, Loc, {Ln, Col}, [$} | Acc])
+            f_sigil_expr_elem(T, Depth - 1, ExprLn, StrLn, [$} | Acc])
     end;
-f_sigil_expr_elem([${ | T], Depth, Loc, {Ln, Col}, Acc) ->
-    f_sigil_expr_elem(T, Depth + 1, Loc, {Ln, Col + 1}, [${ | Acc]);
-f_sigil_expr_elem([$\r, $\n | T], Depth, Loc, {Ln, _Col}, Acc) ->
-    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\n, $\r | Acc]);
-f_sigil_expr_elem([$\r | T], Depth, Loc, {Ln, _Col}, Acc) ->
-    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\r | Acc]);
-f_sigil_expr_elem([$\n | T], Depth, Loc, {Ln, _Col}, Acc) ->
-    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\n | Acc]);
-f_sigil_expr_elem([H | T], Depth, Loc, {Ln, Col}, Acc) ->
-    f_sigil_expr_elem(T, Depth, Loc, {Ln, Col + 1}, [H | Acc]);
-f_sigil_expr_elem([], _Depth, Loc, _LocAcc, _Acc) ->
-    Anno = erl_anno:new(Loc),
+f_sigil_expr_elem([${ | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth + 1, ExprLn, StrLn, [${ | Acc]);
+f_sigil_expr_elem([$\r, $\n | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\n, $\r | Acc]);
+f_sigil_expr_elem([$\r | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\r | Acc]);
+f_sigil_expr_elem([$\n | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn + 1, [$\n | Acc]);
+f_sigil_expr_elem([H | T], Depth, ExprLn, StrLn, Acc) ->
+    f_sigil_expr_elem(T, Depth, ExprLn, StrLn, [H | Acc]);
+f_sigil_expr_elem([], _Depth, ExprLn, _StrLn, _Acc) ->
+    Anno = erl_anno:new(ExprLn),
     ret_err(Anno, "Unterminated interpolation expression in ~f string. Expected '}'.").
 
-f_sigil_str_tuple(Loc, Acc) ->
+f_sigil_str_tuple(Ln, Acc) ->
+    Anno = erl_anno:new(Ln),
     Str = lists:reverse(Acc),
-    Anno = erl_anno:set_text(Str, erl_anno:new(Loc)),
     {string, Anno, Str}.
 
-f_sigil_block_tuple(Loc, Acc) ->
-    Anno = erl_anno:new(Loc),
+f_sigil_block_tuple(Ln, Acc) ->
+    Anno = erl_anno:new(Ln),
     Expr = lists:reverse([$. | Acc]),
     {ok, Tokens, _} = erl_scan:string(Expr),
-    {ok, Forms} = parse_exprs(Tokens),
+    {ok, Forms0} = parse_exprs(Tokens),
+    Forms = map_anno(fun(_Anno) -> Anno end, Forms0),
     Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
     {block, Anno, Block}.
 
