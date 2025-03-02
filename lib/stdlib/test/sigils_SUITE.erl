@@ -22,12 +22,12 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 
--export([compiled_sigils/1, scan_sigils/1, parse_sigils/1, parse_format_sigil/1]).
+-export([compiled_sigils/1, scan_sigils/1, parse_sigils/1, parse_f_sigil/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [compiled_sigils, scan_sigils, parse_sigils, parse_format_sigil].
+    [compiled_sigils, scan_sigils, parse_sigils, parse_f_sigil].
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -279,7 +279,7 @@ parse_term(String) ->
             {error, Pos, Mod, lists:flatten(Str), EndPos}
     end.
 
-parse_format_sigil(Config) when is_list(Config) ->
+parse_f_sigil(Config) when is_list(Config) ->
     {ok,
      [{match,
        {1,1},
@@ -303,13 +303,21 @@ parse_format_sigil(Config) when is_list(Config) ->
           [utf8]}]}},
       {bin,
        {3,1},
-       [{bin_element,{3,1},{string,{3,1},"f"},default,[utf8]},
+       [{bin_element,
+         [{text,"f"},{location,{3,1}}],
+         {string,[{text,"f"},{location,{3,1}}],"f"},
+         default,
+         [utf8]},
         {bin_element,
          {3,2},
          {block,{3,2},[{var,1,'OO'}]},
          default,
          [binary]},
-        {bin_element,{3,6},{string,{3,6},"b"},default,[utf8]},
+        {bin_element,
+         [{text,"b"},{location,{3,6}}],
+         {string,[{text,"b"},{location,{3,6}}],"b"},
+         default,
+         [utf8]},
         {bin_element,
          {3,7},
          {block,
@@ -325,8 +333,8 @@ parse_format_sigil(Config) when is_list(Config) ->
               default,
               [binary]},
              {bin_element,
-              {1,4},
-              {string,{1,4},"r"},
+              [{text,"r"},{location,{1,4}}],
+              {string,[{text,"r"},{location,{1,4}}],"r"},
               default,
               [utf8]},
              {bin_element,
@@ -337,8 +345,10 @@ parse_format_sigil(Config) when is_list(Config) ->
          default,
          [binary]},
         {bin_element,
-         {3,29},
-         {string,{3,29},"\\{qux}\\{\\{quux"},
+         [{text,"{qux}{{quux"},{location,{3,27}}],
+         {string,
+          [{text,"{qux}{{quux"},{location,{3,27}}],
+          "{qux}{{quux"},
          default,
          [utf8]}]}],
      {3,48}} =

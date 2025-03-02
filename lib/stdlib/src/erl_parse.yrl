@@ -1737,113 +1737,88 @@ build_sigil(SigilPrefix, String, SigilSuffix) ->
               "illegal sigil prefix")
     end.
 
-
-%%%%%%%%%%%%%%%%%%
-
-
 build_f_sigil_str(Anno, String) ->
     Str = erl_syntax:string_value(String),
-    Elems = [f_sigil_str_elem(Elem) || Elem <- f_sigil_elems(Anno, list_to_binary(Str))],
+    Elems = [f_sigil_str_elem(Elem) || Elem <- f_sigil_elems(Anno, Str)],
     erl_syntax:revert(erl_syntax:list(Elems)).
 
-f_sigil_str_elem({string,Anno,Str}) ->
-    {bin,Anno,[{bin_element,Anno,{string,Anno,Str},default,[utf8]}]};
-f_sigil_str_elem({block,_Anno,Block}) ->
+f_sigil_str_elem({string, Anno, Str}) ->
+    {bin, Anno, [{bin_element, Anno, {string, Anno, Str}, default, [utf8]}]};
+f_sigil_str_elem({block, _Anno, Block}) ->
     Block.
 
 build_f_sigil_bin(Anno, String) ->
     Str = erl_syntax:string_value(String),
-    Elems = [f_sigil_bin_elem(Elem) || Elem <- f_sigil_elems(Anno, list_to_binary(Str))],
-    {bin,Anno,Elems}.
+    Elems = [f_sigil_bin_elem(Elem) || Elem <- f_sigil_elems(Anno, Str)],
+    {bin, Anno, Elems}.
 
-f_sigil_bin_elem({string,Anno,Str}) ->
-    {bin_element,Anno,{string,Anno,Str},default,[utf8]};
-f_sigil_bin_elem({block,Anno,Block}) ->
-    {bin_element,Anno,Block,default,[binary]}.
+f_sigil_bin_elem({string, Anno, Str}) ->
+    {bin_element, Anno, {string, Anno, Str}, default, [utf8]};
+f_sigil_bin_elem({block, Anno, Block}) ->
+    {bin_element, Anno, Block, default, [binary]}.
 
-f_sigil_elems(Anno, Bin) when is_binary(Bin) ->
-    State = #{
-        line => erl_anno:line(Anno),
-        column => 1,
-        position => 0
-    },
-    f_sigil_elems(Bin, Bin, State).
+f_sigil_elems(Anno, Str) ->
+    Ln = erl_anno:line(Anno),
+    Col = case erl_anno:column(Anno) of undefined -> 1; X -> X end,
+    Loc = {Ln, Col},
+    f_sigil_elems(Str, Loc, Loc, []).
 
-f_sigil_elems(Rest, Bin, State) ->
-    f_sigil_elems(Rest, Bin, 0, State, State).
+f_sigil_elems([], _StrLoc, _LocAcc, []) ->
+    [];
+f_sigil_elems([], StrLoc, _LocAcc, Acc) ->
+    [f_sigil_str_tuple(StrLoc, Acc)];
+f_sigil_elems([$\\, ${ | T], StrLoc, {Ln, Col}, Acc) ->
+    f_sigil_elems(T, StrLoc, {Ln, Col + 2}, [${ | Acc]);
+f_sigil_elems([${ | T0], _StrLoc, {Ln, Col} = ExprLoc, []) ->
+    {ExprElem, T, EndLoc} = f_sigil_expr_elem(T0, 1, ExprLoc, {Ln, Col + 1}, []),
+    [ExprElem | f_sigil_elems(T, EndLoc, EndLoc, [])];
+f_sigil_elems([${ | T0], StrLoc, {Ln, Col} = ExprLoc, Acc) ->
+    StrElem = f_sigil_str_tuple(StrLoc, Acc),
+    {ExprElem, T, EndLoc} = f_sigil_expr_elem(T0, 1, ExprLoc, {Ln, Col + 1}, []),
+    [StrElem, ExprElem | f_sigil_elems(T, EndLoc, EndLoc, [])];
+f_sigil_elems([$\r, $\n | T], StrLoc, {Ln, _Col}, Acc) ->
+    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\n, $\r | Acc]);
+f_sigil_elems([$\r | T], StrLoc, {Ln, _Col}, Acc) ->
+    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\r | Acc]);
+f_sigil_elems([$\n | T], StrLoc, {Ln, _Col}, Acc) ->
+    f_sigil_elems(T, StrLoc, {Ln + 1, 1}, [$\n | Acc]);
+f_sigil_elems([H | T], StrLoc, {Ln, Col}, Acc) ->
+    f_sigil_elems(T, StrLoc, {Ln, Col + 1}, [H | Acc]).
 
-f_sigil_elems(<<$\\, ${, Rest/binary>>, Bin, Len, TextState, State) ->
-    f_sigil_elems(Rest, Bin, Len + 2, TextState, f_sigil_incr_col(2, State));
-f_sigil_elems(<<${, Rest/binary>>, Bin, Len, TextState, State) ->
-    Elems = f_sigil_expr_elems(Rest, Bin, 1, f_sigil_incr_pos(Len + 1, State)),
-    f_sigils_str_elems(Bin, Len, TextState, Elems);
-f_sigil_elems(<<$\r, $\n, Rest/binary>>, Bin, Len, TextState, State) ->
-    f_sigil_elems(Rest, Bin, Len + 2, TextState, f_sigil_new_ln(State));
-f_sigil_elems(<<$\r, Rest/binary>>, Bin, Len, TextState, State) ->
-    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_new_ln(State));
-f_sigil_elems(<<$\n, Rest/binary>>, Bin, Len, TextState, State) ->
-    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_new_ln(State));
-f_sigil_elems(<<_, Rest/binary>>, Bin, Len, TextState, State) ->
-    f_sigil_elems(Rest, Bin, Len + 1, TextState, f_sigil_incr_col(1, State));
-f_sigil_elems(<<>>, Bin, Len, TextState, _State) ->
-    f_sigils_str_elems(Bin, Len, TextState, []).
-
-f_sigils_str_elems(Bin, Len, State, Elems) ->
-    case f_sigil_bin_part(Bin, Len, State) of
-        <<>> ->
-            Elems;
-        BinPart ->
-            Anno = f_sigil_anno(State),
-            Str = binary_to_list(BinPart),
-            [{string,Anno,Str} | Elems]
-    end.
-
-f_sigil_expr_elems(Rest0, Bin, StartMarkerLen, State0) ->
-    {Len, EndMarkerLen, Rest1, State1} = f_sigil_scan_expr_end(Rest0, 0, 0, State0),
-    Expr = f_sigil_bin_part(Bin, Len, State0),
-    State = f_sigil_incr_col(StartMarkerLen, f_sigil_incr_pos(Len + EndMarkerLen, State1)),
-    Anno = f_sigil_anno(State0),
-    {ok, Tokens, _} = erl_scan:string(binary_to_list(<<Expr/binary, $.>>)),
-    {ok, Forms} = parse_exprs(Tokens),
-    Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
-    [{block,Anno,Block} | f_sigil_elems(Rest1, Bin, State)].
-
-f_sigil_scan_expr_end(<<$}, Rest/binary>>, 0, Len, State) ->
-    {Len, _MarkerLen = 1, Rest, f_sigil_incr_col(1, State)};
-f_sigil_scan_expr_end(<<$}, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth - 1, Len + 1, f_sigil_incr_col(1, State));
-f_sigil_scan_expr_end(<<${, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth + 1, Len + 1, f_sigil_incr_col(1, State));
-f_sigil_scan_expr_end(<<$\r, $\n, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth, Len + 2, f_sigil_new_ln(State));
-f_sigil_scan_expr_end(<<$\r, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_new_ln(State));
-f_sigil_scan_expr_end(<<$\n, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_new_ln(State));
-f_sigil_scan_expr_end(<<_, Rest/binary>>, Depth, Len, State) ->
-    f_sigil_scan_expr_end(Rest, Depth, Len + 1, f_sigil_incr_col(1, State));
-f_sigil_scan_expr_end(<<>>, _Depth, Len, State) ->
-    Anno = f_sigil_anno(f_sigil_incr_pos(Len, State)),
+f_sigil_expr_elem([$} | T], Depth, Loc, {Ln, Col}, Acc) ->
+    case Depth - 1 of
+        0 ->
+            Elem = f_sigil_block_tuple(Loc, Acc),
+            {Elem, T, {Ln, Col + 1}};
+        _ ->
+            f_sigil_expr_elem(T, Depth - 1, Loc, {Ln, Col}, [$} | Acc])
+    end;
+f_sigil_expr_elem([${ | T], Depth, Loc, {Ln, Col}, Acc) ->
+    f_sigil_expr_elem(T, Depth + 1, Loc, {Ln, Col + 1}, [${ | Acc]);
+f_sigil_expr_elem([$\r, $\n | T], Depth, Loc, {Ln, _Col}, Acc) ->
+    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\n, $\r | Acc]);
+f_sigil_expr_elem([$\r | T], Depth, Loc, {Ln, _Col}, Acc) ->
+    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\r | Acc]);
+f_sigil_expr_elem([$\n | T], Depth, Loc, {Ln, _Col}, Acc) ->
+    f_sigil_expr_elem(T, Depth, Loc, {Ln + 1, 1}, [$\n | Acc]);
+f_sigil_expr_elem([H | T], Depth, Loc, {Ln, Col}, Acc) ->
+    f_sigil_expr_elem(T, Depth, Loc, {Ln, Col + 1}, [H | Acc]);
+f_sigil_expr_elem([], _Depth, Loc, _LocAcc, _Acc) ->
+    Anno = erl_anno:new(Loc),
     ret_err(Anno, "Unterminated interpolation expression in ~f string. Expected '}'.").
 
-f_sigil_new_ln(#{line := Ln} = State) ->
-    State#{line => Ln + 1, column => 1}.
+f_sigil_str_tuple(Loc, Acc) ->
+    Str = lists:reverse(Acc),
+    Anno = erl_anno:set_text(Str, erl_anno:new(Loc)),
+    {string, Anno, Str}.
 
-f_sigil_incr_col(N, #{column := Col} = State) ->
-    State#{column => Col + N}.
-
-f_sigil_incr_pos(N, #{position := Pos} = State) ->
-    State#{position => Pos + N}.
-
-f_sigil_bin_part(Bin, Len, #{position := Pos}) ->
-    binary_part(Bin, Pos, Len).
-
-f_sigil_anno(#{line := Ln, column := Col}) ->
-    erl_anno:new({Ln, Col}).
-
-
-%%%%%%%%%%%%%%%%%
-
+f_sigil_block_tuple(Loc, Acc) ->
+    Anno = erl_anno:new(Loc),
+    Expr = lists:reverse([$. | Acc]),
+    {ok, Tokens, _} = erl_scan:string(Expr),
+    {ok, Forms} = parse_exprs(Tokens),
+    Block = erl_syntax:revert(erl_syntax:set_pos(erl_syntax:block_expr(Forms), Anno)),
+    {block, Anno, Block}.
 
 -spec ret_err(_, _) -> no_return().
 ret_err(Anno, S) ->
