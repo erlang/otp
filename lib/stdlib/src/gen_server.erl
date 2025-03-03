@@ -2278,6 +2278,12 @@ loop(ServerData, State, Time, Debug, Timer)
 	  end,
     decode_msg(ServerData, State, Msg, Debug, Timer, false).
 
+loop_continue(ServerData, State, Hib, Debug, Timer) ->
+    Action = case Hib of
+		 true -> hibernate;
+		 false -> infinity
+	     end,
+    loop(ServerData, State, Action, Debug, Timer).
 
 cancel_timer(undefined) ->
     ok;
@@ -2322,11 +2328,7 @@ decode_msg(#server_data{parent = Parent, tag = Tag} = ServerData, State, Msg, De
 	{timeout, TRef, Tag} when TRef =:= hd(Timer) ->
             decode_msg(ServerData, State, tl(Timer), Debug);
 	{timeout, _Stale, Tag} ->
-	    LoopAction = case Hib of
-			     true -> hibernate;
-			     false -> infinity
-			 end,
-	    loop(ServerData, State, LoopAction, Debug, Timer);
+	    loop_continue(ServerData, State, Hib, Debug, Timer);
         _ ->
 	    cancel_timer(Timer),
             decode_msg(ServerData, State, Msg, Debug)
@@ -2592,11 +2594,7 @@ handle_timer(#server_data{tag = Tag}, T, M, HibInf, Abs) ->
 %%-----------------------------------------------------------------
 -doc false.
 system_continue(Parent, Debug, [#server_data{parent=Parent} = ServerData, State, Timer, Hib]) ->
-    Action = case Hib of
-		 true -> hibernate;
-		 false -> infinity
-	     end,
-    loop(update_callback_cache(ServerData), State, Action, Debug, Timer).
+    loop_continue(update_callback_cache(ServerData), State, Hib, Debug, Timer).
 
 -doc false.
 -spec system_terminate(_, _, _, [_]) -> no_return().
