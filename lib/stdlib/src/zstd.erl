@@ -29,9 +29,9 @@ and offers the same compression ratio as `m:zlib` but at a lower CPU cost.
 Example:
 
 ```
-> Data = ~"my data to be compressed".
-> Compressed = zstd:compress(Data).
-> zstd:decompress(Compressed).
+1> Data = ~"my data to be compressed".
+2> Compressed = zstd:compress(Data).
+3> zstd:decompress(Compressed).
 [~"my data to be compressed"]
 ```
 
@@ -41,21 +41,21 @@ it is also possible to do streamed compression/decompression.
 Example:
 
 ```erlang
-> Compress = fun F(Ctx, D) ->
-                     case file:read(D, 5) of
-                         {ok, Data} ->
-                             {continue, C} = zstd:stream(Ctx, Data),
-                             [C|F(Ctx, D)];
-                         eof ->
-                             {done, C} = zstd:finish(Ctx, ""),
-                             C
-                     end
-             end.
-> {ok, Ctx} = zstd:context(compress).
-> {ok, D} = file:open(File,[read,binary]).
-> Compressed = iolist_to_binary(Compress(Ctx, D)).
+1> Compress = fun F(Ctx, D) ->
+                      case file:read(D, 5) of
+                          {ok, Data} ->
+                              {continue, C} = zstd:stream(Ctx, Data),
+                              [C|F(Ctx, D)];
+                          eof ->
+                              {done, C} = zstd:finish(Ctx, ""),
+                              C
+                      end
+              end.
+2> {ok, Ctx} = zstd:context(compress).
+3> {ok, D} = file:open(File,[read,binary]).
+4> Compressed = iolist_to_binary(Compress(Ctx, D)).
 <<40,181,47,253,0,88,89,0,0,108,111,114,101,109,32,105,112,115,117,109>>
-> zstd:decompress(Compressed).
+5> zstd:decompress(Compressed).
 [~"lorem ipsum"]
 ```
 
@@ -252,13 +252,13 @@ Returns `ok` on success, raises an error on failure.
 Example:
 
 ```
-> {ok, CCtx} = zstd:context(compress).
+1> {ok, CCtx} = zstd:context(compress).
 {ok, _}
-> ok = zstd:set_parameter(CCtx, compressionLevel, 15).
+2> ok = zstd:set_parameter(CCtx, compressionLevel, 15).
 ok
-> zstd:stream(CCtx, "abc").
+3> zstd:stream(CCtx, "abc").
 {continue, _}
-> catch zstd:set_parameter(CCtx, dictionary, "abc").
+4> catch zstd:set_parameter(CCtx, dictionary, "abc").
 {'EXIT', {{zstd_error, <<"Operation not authorized at current processing stage">>}, _}}
 ```
 """.
@@ -297,13 +297,13 @@ Returns `ok` on success, raises an error on failure.
 Example:
 
 ```
-> {ok, CCtx} = zstd:context(compress).
+1> {ok, CCtx} = zstd:context(compress).
 {ok, _}
-> zstd:get_parameter(CCtx, compressionLevel).
+2> zstd:get_parameter(CCtx, compressionLevel).
 3
-> zstd:set_parameter(CCtx, compressionLevel, 15).
+3> zstd:set_parameter(CCtx, compressionLevel, 15).
 ok
-> zstd:get_parameter(CCtx, compressionLevel).
+4> zstd:get_parameter(CCtx, compressionLevel).
 15
 ```
 """.
@@ -341,12 +341,12 @@ set in the `t:context/0`.
 Example:
 
 ```
-> {ok, CDict} = zstd:dict(compress, Dict).
-> Data = lists:duplicate(100, 1).
+1> {ok, CDict} = zstd:dict(compress, Dict).
+2> Data = lists:duplicate(100, 1).
 [1, 1, 1 | _]
-> iolist_size(zstd:compress(Data)).
+3> iolist_size(zstd:compress(Data)).
 17
-> iolist_size(zstd:compress(Data, #{ dictionary => CDict, dictIDFlag => false })).
+4> iolist_size(zstd:compress(Data, #{ dictionary => CDict, dictIDFlag => false })).
 16
 ```
 
@@ -371,10 +371,10 @@ The dictionary ID 0 represents no dictionary.
 Example:
 
 ```
-> {ok, CDict} = zstd:dict(compress, Dict).
-> zstd:get_dict_id(CDict).
+1> {ok, CDict} = zstd:dict(compress, Dict).
+2> zstd:get_dict_id(CDict).
 1850243626
-> zstd:get_dict_id(zstd:compress("abc")).
+3> zstd:get_dict_id(zstd:compress("abc")).
 0
 ```
 """.
@@ -402,8 +402,8 @@ can be useful when debugging corrupted Zstandard streams.
 Example:
 
 ```
-> Compressed = zstd:compress(~"abc").
-> zstd:get_frame_header(Compressed).
+1> Compressed = zstd:compress(~"abc").
+2> zstd:get_frame_header(Compressed).
 {ok,#{frameContentSize => 3,windowSize => 3,blockSizeMax => 3,
       frameType => 'ZSTD_frame',headerSize => 6,
       dictID => 0, checksumFlag => false}}
@@ -459,12 +459,12 @@ with `finish/2` to complete the compression/decompression.
 Example:
 
 ```
-> {ok, CCtx} = zstd:context(compress).
-> {continue, C1} = zstd:stream(CCtx, ~"a").
-> {done, C2} = zstd:finish(CCtx, ~"b").
-> Compressed = iolist_to_binary([C1, C2]).
+1> {ok, CCtx} = zstd:context(compress).
+2> {continue, C1} = zstd:stream(CCtx, ~"a").
+3> {done, C2} = zstd:finish(CCtx, ~"b").
+4> Compressed = iolist_to_binary([C1, C2]).
 <<40,181,47,253,0,88,17,0,0,97,98>>
-> zstd:decompress(Compressed).
+5> zstd:decompress(Compressed).
 [<<"ab">>]
 ```
 """.
@@ -504,10 +504,10 @@ that it can be used for compressing/decompressing again.
 Example:
 
 ```
-> {ok, DCtx} = zstd:context(decompress).
-> {continue, D1} = zstd:stream(DCtx, <<40,181,47,253,32>>).
-> {done, D2} = zstd:finish(DCtx, <<2,17,0,0,97,98>>).
-> iolist_to_binary([D1,D2]).
+1> {ok, DCtx} = zstd:context(decompress).
+2> {continue, D1} = zstd:stream(DCtx, <<40,181,47,253,32>>).
+3> {done, D2} = zstd:finish(DCtx, <<2,17,0,0,97,98>>).
+4> iolist_to_binary([D1,D2]).
 <<"ab">>
 ```
 """.
@@ -566,13 +566,13 @@ if it is in the middle of a (de)compression stream.
 Example:
 
 ```
-> {ok, CCtx} = zstd:context(compress).
-> zstd:stream(CCtx, "a").
+1> {ok, CCtx} = zstd:context(compress).
+2> zstd:stream(CCtx, "a").
 {continue, _}
-> zstd:reset(CCtx).
+3> zstd:reset(CCtx).
 ok
-> {done, Compressed} = zstd:finish(CCtx, "b").
-> zstd:decompress(Compressed).
+4> {done, Compressed} = zstd:finish(CCtx, "b").
+5> zstd:decompress(Compressed).
 [~"b"]
 ```
 """.
@@ -612,8 +612,8 @@ Compress `Data` using the given `t:compress_parameters/0` or the `t:context/0`.
 Example:
 
 ```
-> zstd:compress("abc").
-> zstd:compress("abc", #{ compressionLevel => 20 }).
+1> zstd:compress("abc").
+2> zstd:compress("abc", #{ compressionLevel => 20 }).
 ```
 """.
 -doc #{ since => "OTP @OTP-19477@" }.
@@ -647,8 +647,8 @@ Decompress `Data` using the given `t:compress_parameters/0` or the `t:context/0`
 Example:
 
 ```
-> Compressed = zstd:compress("abc").
-> zstd:decompress(Compressed).
+1> Compressed = zstd:compress("abc").
+2> zstd:decompress(Compressed).
 [~"abc"]
 ```
 """.

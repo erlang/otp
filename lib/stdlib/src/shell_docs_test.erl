@@ -20,21 +20,21 @@ Here are some examples of what should work:
 ## Basic example:
 
 ```
-> 1+2.
+1> 1+2.
 3
 ```
 
 ## Basic example using erlang code:
 
 ```erlang
-> 1+2.
+1> 1+2.
 3
 ```
 
 ## Multi-line prompt example:
 
 ```erlang
-> 1
+1> 1
   +
   2
   .
@@ -44,7 +44,7 @@ Here are some examples of what should work:
 ## Multi-line with comma example:
 
 ```erlang
-> A = 1,
+1> A = 1,
   A + 2.
 3
 ```
@@ -52,7 +52,7 @@ Here are some examples of what should work:
 ## Multi-match example:
 
 ```erlang
-> [1, 2].
+1> [1, 2].
 [
  1
  ,
@@ -63,36 +63,36 @@ Here are some examples of what should work:
 ## Multiple prompts:
 
 ```
-> 1 + 2.
+1> 1 + 2.
 3
-> 3 + 4.
+2> 3 + 4.
 7
 ```
 
 ## Ignore result:
 
 ```
-> 1 + 2.
+1> 1 + 2.
 ```
 
 ## Defining variables:
 
 ```
-> A = 1+2.
-> A + 3.
+1> A = 1+2.
+2> A + 3.
 6
 ```
 
 ## Comments:
 
 ```
-> [1, 
+1> [1,
 % A comment in between prompts
   2].
 [1,
 % A comment in a match
  2]
-> [1, 
+2> [1,
   % Indented comment in between prompts
   2].
 [1,
@@ -103,14 +103,14 @@ Here are some examples of what should work:
 ## Prebound variables:
 
 ```
-> Prebound.
+1> Prebound.
 hello
 ```
 
 ## Matching of maps:
 
 ```
-> #{ a => b }.
+1> #{ a => b }.
 #{ a => b }
 ```
 
@@ -140,7 +140,7 @@ parse_and_run(KFA, Docs, Bindings) ->
             {KFA, lists:flatten(Else)}
     end.
 
-test({pre,[],[{code,Attrs,[<<">",_/binary>> = Code]}]}, Bindings) ->
+test({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
     case proplists:get_value(class, Attrs, ~"language-erlang") of
         ~"language-erlang" ->
             run_test(Code, Bindings);
@@ -154,9 +154,12 @@ test([H | T], Bindings) ->
 test(Text, _Bindings) when is_binary(Text); Text =:= [] ->
     [].
 
+-define(RE_CAPTURE, "(?:(?'line_number'[0-9]+(?'prefix'>\s))|(?'prefix'%))?(?'content'.*)").
+-define(RE_OPTIONS, [ {capture, [line_number, prefix, content] ,binary}, dupnames ]).
 run_test(Code, InitialBindings) ->
     Lines = string:split(Code, "\n", all),
-    Tests = inspect(parse_tests(Lines, [])),
+    ReLines = [ re:run(Line, ?RE_CAPTURE, ?RE_OPTIONS) || Line <- Lines],
+    Tests = inspect(parse_tests(ReLines, [])),
     lists:foldl(fun(Test, Bindings) ->
                         run_tests(Test, Bindings)
                 end, InitialBindings, Tests).
@@ -165,24 +168,24 @@ parse_tests([], []) ->
     [];
 parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
-parse_tests([<<>>|T], Cmd) ->
+parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([<<"%", _Skip/binary>> | T], Cmd) ->
+parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([<<"> ", NewCmd/binary>> | T], []) ->
+parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], []) ->
     parse_tests(T, [NewCmd]);
-parse_tests([<<"> ", NewCmd/binary>> | T], Cmd) ->
+parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
-parse_tests([<<" ", More/binary>> | T], Acc) ->
+parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<>>, <<" ", More/binary>>]} | T], Acc) ->
     parse_tests(T, [More | Acc]);
-parse_tests([NewMatch | T], Cmd) ->
+parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<>>, NewMatch]} | T], Cmd) ->
     {Match, Rest} = parse_match(T, [NewMatch]),
     [{test, lists:join($\n, lists:reverse(Cmd)),
       lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
 
-parse_match([<<"%", _Skip/binary>> | T], Acc) ->
+parse_match([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Acc) ->
     parse_match(T, Acc);
-parse_match([<<" ", More/binary>> | T], Acc) ->
+parse_match([{match, [_Line_Number = <<>>, _Prefix = <<>>, <<" ", More/binary>>]} | T], Acc) ->
     parse_match(T, [More | Acc]);
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
