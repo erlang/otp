@@ -1446,35 +1446,35 @@ hibernate(Config) when is_list(Config) ->
     true = gen_server:call(my_test_name_hibernate, {hibernate_noreply,Pid2}),
 
     gen_server:cast(my_test_name_hibernate, hibernate_later),
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
     is_in_erlang_hibernate(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
 
     gen_server:cast(my_test_name_hibernate, hibernate_now),
     is_in_erlang_hibernate(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
 
     Pid ! hibernate_later,
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
     is_in_erlang_hibernate(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
 
     Pid ! hibernate_now,
     is_in_erlang_hibernate(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
-    true = ({current_function,{erlang,hibernate,3}} =/=
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/=
 		erlang:process_info(Pid, current_function)),
     receive
 	{result,R} ->
-	    {current_function,{erlang,hibernate,3}} = R
+	    {current_function,{gen_server, loop_hibernate, 4}} = R
     end,
 
     true = gen_server:call(my_test_name_hibernate, hibernate),
@@ -1484,7 +1484,7 @@ hibernate(Config) when is_list(Config) ->
     sys:resume(my_test_name_hibernate),
     is_in_erlang_hibernate(Pid),
     ok = gen_server:call(my_test_name_hibernate, started_p),
-    true = ({current_function,{erlang,hibernate,3}} =/= erlang:process_info(Pid,current_function)),
+    true = ({current_function,{gen_server, loop_hibernate, 4}} =/= erlang:process_info(Pid,current_function)),
 
     ok = gen_server:call(my_test_name_hibernate, stop),
     receive 
@@ -1558,6 +1558,8 @@ is_in_erlang_hibernate_1(0, Pid) ->
 is_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
+	{gen_server, loop_hibernate, 4} ->
+	    ok;
 	{erlang,hibernate,3} ->
 	    ok;
 	_ ->
@@ -1575,6 +1577,9 @@ is_not_in_erlang_hibernate_1(0, Pid) ->
 is_not_in_erlang_hibernate_1(N, Pid) ->
     {current_function,MFA} = erlang:process_info(Pid, current_function),
     case MFA of
+        {gen_server, loop_hibernate, 4} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
         {erlang,hibernate,3} ->
             receive after 10 -> ok end,
             is_not_in_erlang_hibernate_1(N-1, Pid);

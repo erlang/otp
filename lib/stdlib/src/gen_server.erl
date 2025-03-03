@@ -198,7 +198,7 @@ using exit signals.
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
-	 enter_loop/3, enter_loop/4, enter_loop/5, wake_hib/4]).
+	 enter_loop/3, enter_loop/4, enter_loop/5]).
 
 %% System exports
 -export([system_continue/3,
@@ -2257,7 +2257,7 @@ loop(ServerData, State, hibernate, Debug, Timer) ->
 	    erlang:garbage_collect(),
 	    decode_msg(ServerData, State, Msg, Debug, Timer, true)
     after 0 ->
-	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, Timer, Debug])
+	loop_hibernate(ServerData, State, Debug, Timer)
     end;
 %%
 loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, infinity, Debug, Timer) ->
@@ -2265,7 +2265,7 @@ loop(#server_data{hibernate_after = HibernateAfterTimeout} = ServerData, State, 
 	Msg ->
 	    decode_msg(ServerData, State, Msg, Debug, Timer, false)
     after HibernateAfterTimeout ->
-	proc_lib:hibernate(?MODULE, wake_hib, [ServerData, State, Timer, Debug])
+	loop_hibernate(ServerData, State, Debug, Timer)
     end;
 %%
 loop(ServerData, State, Time, Debug, Timer)
@@ -2277,6 +2277,16 @@ loop(ServerData, State, Time, Debug, Timer)
 	      timeout
 	  end,
     decode_msg(ServerData, State, Msg, Debug, Timer, false).
+
+loop_hibernate(ServerData, State, Debug, Timer) ->
+    erlang:hibernate(),
+    loop_wakeup(ServerData, State, Debug, Timer).
+
+loop_wakeup(ServerData, State, Debug, Timer) ->
+    receive
+	Msg ->
+	    decode_msg(update_callback_cache(ServerData), State, Msg, Debug, Timer, true)
+    end.
 
 loop_continue(ServerData, State, Hib, Debug, Timer) ->
     Action = case Hib of
@@ -2309,14 +2319,6 @@ update_callback_cache(#server_data{module = Mod} = ServerData) ->
       handle_cast     = fun Mod:handle_cast/2,
       handle_info     = fun Mod:handle_info/2,
       handle_continue = fun Mod:handle_continue/2}.
-
--doc false.
-wake_hib(ServerData, State, Timer, Debug) ->
-    Msg = receive
-              Input ->
-                  Input
-          end,
-    decode_msg(update_callback_cache(ServerData), State, Msg, Debug, Timer, true).
 
 decode_msg(#server_data{parent = Parent, tag = Tag} = ServerData, State, Msg, Debug, Timer, Hib) ->
     case Msg of
