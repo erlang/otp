@@ -2244,11 +2244,11 @@ loop(ServerData, State, {continue, Continue} = Msg, Debug) ->
 loop(ServerData, State, LoopAction, Debug) ->
     case LoopAction of
         {timeout_zero, TimeoutMsg} ->
-            decode_msg(ServerData, State, TimeoutMsg, Debug, undefined, false);
+            decode_msg(ServerData, State, TimeoutMsg, Debug, [], false);
         {timeout, Timer, HibInf} ->
             loop(ServerData, State, HibInf, Debug, Timer);
         HibT ->
-            loop(ServerData, State, HibT, Debug, undefined)
+            loop(ServerData, State, HibT, Debug, [])
     end.
 
 loop(ServerData, State, hibernate, Debug, Timer) ->
@@ -2295,7 +2295,7 @@ loop_continue(ServerData, State, Hib, Debug, Timer) ->
 	     end,
     loop(ServerData, State, Action, Debug, Timer).
 
-cancel_timer(undefined) ->
+cancel_timer([]) ->
     ok;
 cancel_timer([TRef | _]) ->
     ok = erlang:cancel_timer(TRef, [{async, true}, {info, false}]).
