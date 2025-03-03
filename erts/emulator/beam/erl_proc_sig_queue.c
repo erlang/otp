@@ -6040,7 +6040,9 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
 
     case ERTS_SIG_Q_TYPE_DIST:
     {
-        ERTS_UNDEF(ErtsMessage *mp, NULL); /* shut up faulty warning... */
+        ErtsMessage *mp;
+        ERTS_UNDEF(mp, NULL);
+
         /*
          * Convert to external message...
          *
