@@ -1326,38 +1326,38 @@ or using the special match variables `'$_'` (the whole matching object) and
 `'$$'` (all match variables in a list), so that the following
 [`match/2`](`match/2`) expression:
 
-```text
+```erlang
 ets:match(Table,{'$1','$2','$3'})
 ```
 
 is exactly equivalent to:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 And that the following [`match_object/2`](`match_object/2`) call:
 
-```text
+```erlang
 ets:match_object(Table,{'$1','$2','$1'})
 ```
 
 is exactly equivalent to
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
 Composite terms can be constructed in the `Result` part either by simply writing
 a list, so that the following code:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],['$$']}])
 ```
 
 gives the same output as:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$3'},[],[['$1','$2','$3']]}])
 ```
 
@@ -1368,7 +1368,7 @@ mistaken for a `Guard`).
 
 Therefore the following call:
 
-```text
+```erlang
 ets:select(Table,[{{'$1','$2','$1'},[],['$_']}])
 ```
 
@@ -1393,13 +1393,13 @@ The `Guard` section can also contain logic and arithmetic operations, which are
 written with the same syntax as the guard tests (prefix notation), so that the
 following guard test written in Erlang:
 
-```text
+```erlang
 is_integer(X), is_integer(Y), X + Y < 4711
 ```
 
 is expressed as follows (`X` replaced with `'$1'` and `Y` with `'$2'`):
 
-```text
+```erlang
 [{is_integer, '$1'}, {is_integer, '$2'}, {'<', {'+', '$1', '$2'}, 4711}]
 ```
 
