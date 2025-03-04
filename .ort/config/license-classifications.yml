@@ -28,6 +28,12 @@ categories:
   description: "Licenses that are disallowed alone, but allowed in an OR rule"
 
 categorizations:
+- id: NOASSERTION
+  categories:
+  - "allow"
+- id: NONE
+  categories:
+  - "allow"
 - id: "Apache-2.0"
   categories:
   - "allow"
