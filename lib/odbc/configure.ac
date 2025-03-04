@@ -44,6 +44,7 @@ ERL_XCOMP_SYSROOT_INIT
 
 dnl Checks for programs.
 AC_PROG_CC
+LM_PROG_LD
 
 dnl ---------------------------------------------------------------------
 dnl Special windows stuff regarding CFLAGS and details in the environment...
@@ -52,8 +53,7 @@ LM_WINDOWS_ENVIRONMENT
 
 AC_PROG_MAKE_SET
 
-AC_CHECK_PROGS(LD, ld.sh)
-AC_CHECK_TOOL(LD, ld, '$(CC)')
+ERL_OSSF_FLAGS
 
 AC_SUBST(LD)
 
