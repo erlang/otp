@@ -63,7 +63,9 @@
 	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
          spec_init_anonymous/1,
 	 spec_init_anonymous_default_timeout/1,
-	 spec_init_not_proc_lib/1, cast_fast_messup/0]).
+	 spec_init_not_proc_lib/1,
+	 spec_init_action/2,
+	 cast_fast_messup/0]).
 
 %% Internal test specific exports
 -export([multicall_srv_ctrlr/2, multicall_suspender/2]).
@@ -363,9 +365,8 @@ start_event_timeout(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     lists:foreach(
-	fun({{Action, _, _} = Arg, Interrupt}) ->
-	    {ok, Pid} =
-		gen_server:start(gen_server_SUITE, Arg, []),
+	fun({StartFun, {Action, _, _} = Arg, Interrupt}) ->
+	    {ok, Pid} = StartFun(Arg),
 	    sys:get_status(Pid),
 	    case Action of
 		timeout ->
@@ -391,14 +392,20 @@ start_event_timeout(Config) when is_list(Config) ->
 	    end,
 	    is_not_in_erlang_hibernate(Pid),
 	    ok = gen_server:call(Pid, stop),
-	    busy_wait_for_process(Pid, 600),
-	    {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1))
+	    receive
+		{'EXIT', Pid, _} ->
+		    ok
+	    after 5000 ->
+		ct:fail(gen_server_did_not_die)
+	    end
 	end,
-	[{Arg, Interrupt} || Arg <- [{timeout, 500, self()},
-				     {continue_timeout, 500, self()},
-				     {hibernate, 500, self()},
-				     {continue_hibernate, 500, self()}],
-			     Interrupt <- [false, true]]),
+	[{StartFun, Arg, Interrupt} || StartFun <- [fun(X) -> start_link(spec_init_action, [[], X]) end,
+						    fun(X) -> gen_server:start_link(gen_server_SUITE, X, []) end],
+				       Arg <- [{timeout, 500, self()},
+					       {continue_timeout, 500, self()},
+					       {hibernate, 500, self()},
+					       {continue_hibernate, 500, self()}],
+				       Interrupt <- [false, true]]),
 
     process_flag(trap_exit, OldFl),
     ok.
@@ -407,9 +414,8 @@ start_event_timeout_zero(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     lists:foreach(
-	fun(Arg) ->
-	    {ok, Pid} =
-		gen_server:start(gen_server_SUITE, Arg, []),
+	fun({StartFun, Arg}) ->
+	    {ok, Pid} = StartFun(Arg),
 	    receive
 		{Pid, after_event_timeout_zero} ->
 		    ct:fail(after_event_timeout_zero_message_received);
@@ -426,13 +432,19 @@ start_event_timeout_zero(Config) when is_list(Config) ->
 	    end,
 	    is_not_in_erlang_hibernate(Pid),
 	    ok = gen_server:call(Pid, stop),
-	    busy_wait_for_process(Pid, 600),
-	    {'EXIT', {noproc, _}} = (catch gen_server:call(Pid, started_p, 1))
+	    receive
+		{'EXIT', Pid, _} ->
+		    ok
+	    after 5000 ->
+		ct:fail(gen_server_did_not_die)
+	    end
 	end,
-	[{timeout_zero, self()},
-	 {continue_timeout_zero, self()},
-	 {hibernate_zero, self()},
-	 {continue_hibernate_zero, self()}]),
+	[{StartFun, Arg} || StartFun <- [fun(X) -> start_link(spec_init_action, [[], X]) end,
+					 fun(X) -> gen_server:start_link(gen_server_SUITE, X, []) end],
+			    Arg <- [{timeout_zero, self()},
+				    {continue_timeout_zero, self()},
+				    {hibernate_zero, self()},
+				    {continue_hibernate_zero, self()}]]),
 
     process_flag(trap_exit, OldFl),
     ok.
@@ -3059,6 +3071,12 @@ spec_init_anonymous_default_timeout(Options) ->
 
 spec_init_not_proc_lib(Options) ->
     gen_server:enter_loop(?MODULE, Options, {}, infinity).
+
+spec_init_action(Options, Arg) ->
+    process_flag(trap_exit, true),
+    proc_lib:init_ack({ok, self()}),
+    {ok, State, Action} = init(Arg),
+    gen_server:enter_loop(?MODULE, Options, State, Action).
 
 %%% --------------------------------------------------------
 %%% Here is the tested gen_server behaviour.
