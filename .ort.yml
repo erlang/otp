@@ -29,6 +29,13 @@ curations:
         detected_license: "Apache-2.0"
         concluded_license: "Apache-2.0 AND LicenseRef-wxwindows-free-doc"
 
+      - path: "lib/wx/src/gen/**/wx*.erl"
+        reason: "INCORRECT"
+        comment: >-
+          Documentation was taken from wxWidgets, source code is Apache-2.0
+        detected_license: "LicenseRef-wxwindows-free-doc"
+        concluded_license: "Apache-2.0 AND LicenseRef-wxwindows-free-doc"
+
       - path: "lib/edoc/doc/guides/chapter.md"
         reason: "INCORRECT"
         comment: >-
