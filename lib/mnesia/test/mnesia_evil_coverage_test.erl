@@ -47,7 +47,9 @@
          record_name_dirty_access_ram/1,
          record_name_dirty_access_disc/1,
          record_name_dirty_access_disc_only/1,
-         record_name_dirty_access_xets/1]).
+         record_name_dirty_access_xets/1,
+         change_table_copy_type_node_down_allowed/1,
+         change_table_copy_type_node_down_not_allowed/1]).
 
 -export([info_check/8, index_size/1]).
 
@@ -78,7 +80,8 @@ all() ->
      {group, debug_support}, sorted_ets, index_cleanup,
      {mnesia_dirty_access_test, all},
      {mnesia_trans_access_test, all},
-     {mnesia_evil_backup, all}].
+     {mnesia_evil_backup, all},
+     {group, change_table_copy_type_node_down}].
 
 groups() -> 
     [{table_access_modifications, [],
@@ -103,7 +106,10 @@ groups() ->
        record_name_dirty_access_disc,
        record_name_dirty_access_disc_only,
        record_name_dirty_access_xets
-      ]}].
+      ]},
+     {change_table_copy_type_node_down, [],
+      [change_table_copy_type_node_down_allowed,
+       change_table_copy_type_node_down_not_allowed]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -2678,3 +2684,93 @@ index_size(Tab) ->
         {index, _, [{_, {ram, Ref}}=Dbg]} -> {Tab, node(), ets:info(Ref, size), Dbg};
         {index, _, [{_, {dets, Ref}}=Dbg]} -> {Tab, node(), dets:info(Ref, size), Dbg}
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+change_table_copy_type_node_down_allowed(suite) ->
+    [];
+change_table_copy_type_node_down_allowed(Config) when is_list(Config) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+
+    ?match({atomic, ok}, mnesia:create_table(tab, [{ram_copies, All}])),
+
+    ?match([], mnesia_test_lib:kill_mnesia([N2])),
+    ?match(ok, mnesia:delete_schema([N2])),
+
+    ?match({atomic, ok}, mnesia:change_table_copy_type(tab, N1, disc_copies)),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
+
+    ?verify_mnesia(All, []),
+    ?match({[[N1], [N1]], []}, rpc:multicall(All, mnesia, table_info, [tab, disc_copies])),
+    ?match({[[N2], [N2]], []}, rpc:multicall(All, mnesia, table_info, [tab, ram_copies])),
+    ?match({[Schema1, Schema1], []}, rpc:multicall(All, ets, tab2list, [schema])),
+
+    ?match([], mnesia_test_lib:kill_mnesia([N2])),
+    ?match(ok, mnesia:delete_schema([N2])),
+
+    ?match({atomic, ok}, mnesia:change_table_copy_type(tab, N1, disc_only_copies)),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
+
+    ?verify_mnesia(All, []),
+    ?match({[[N1], [N1]], []}, rpc:multicall(All, mnesia, table_info, [tab, disc_only_copies])),
+    ?match({[[N2], [N2]], []}, rpc:multicall(All, mnesia, table_info, [tab, ram_copies])),
+    ?match({[Schema2, Schema2], []}, rpc:multicall(All, ets, tab2list, [schema])).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+change_table_copy_type_node_down_not_allowed(suite) ->
+    [];
+change_table_copy_type_node_down_not_allowed(Config) when is_list(Config) ->
+    %% built-in types <-> built-in types
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_copies, ram_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_only_copies, disc_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, ram_copies, disc_only_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_only_copies, ram_copies),
+
+    %% built-in types <-> ext_ram_copies
+    verify_change_table_copy_type_node_down_not_allowed(Config, ram_copies, ext_ram_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_ram_copies, ram_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_copies, ext_ram_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_ram_copies, disc_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_only_copies, ext_ram_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_ram_copies, disc_only_copies),
+
+    %% built-in types <-> ext_disc_only_copies
+    verify_change_table_copy_type_node_down_not_allowed(Config, ram_copies, ext_disc_only_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_disc_only_copies, ram_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_copies, ext_disc_only_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_disc_only_copies, disc_copies),
+
+    verify_change_table_copy_type_node_down_not_allowed(Config, disc_only_copies, ext_disc_only_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_disc_only_copies, disc_only_copies),
+
+    %% ext_ram_copies <-> ext_disc_only_copies
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_ram_copies, ext_disc_only_copies),
+    verify_change_table_copy_type_node_down_not_allowed(Config, ext_disc_only_copies, ext_ram_copies).
+
+verify_change_table_copy_type_node_down_not_allowed(Config, From, To) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+
+    ?match({atomic, ok}, mnesia:create_table(tab, [{From, All}])),
+
+    ?match([], mnesia_test_lib:kill_mnesia([N2])),
+    ?match(ok, mnesia:delete_schema([N2])),
+
+    ?match({aborted, Reason} when element(1, Reason) == not_active, mnesia:change_table_copy_type(tab, N1, To)),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
+
+    ?verify_mnesia(All, []),
+    ?match({[All, All], []}, rpc:multicall(All, mnesia, table_info, [tab, From])),
+    ?match({[Schema, Schema], []}, rpc:multicall(All, ets, tab2list, [schema])).
