@@ -39,6 +39,7 @@ configure.result.*
 aarch64-unknown-linux-android
 arm-unknown-linux-androideabi
 armv7l-unknown-linux-gnueabihf
+armv8l-unknown-linux-gnueabihf
 i686-pc-linux-gnu
 x86_64-pc-linux-gnu
 i386-apple-darwin[0-9]*.[0-9]*.[0-9]*
