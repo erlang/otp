@@ -35,7 +35,7 @@
          zip64_central_headers/0, unzip64_central_headers/0,
          zip64_central_headers/1, unzip64_central_headers/1,
          zip64_central_directory/1,
-         basic_timestamp/1, extended_timestamp/1,
+         basic_timestamp/1, extended_timestamp/1, capped_timestamp/1,
          uid_gid/1]).
 
 -export([zip/5, unzip/3]).
@@ -97,7 +97,7 @@ un_z64(Mode) ->
     end.
 
 zip_testcases() ->
-    [mode, basic_timestamp, extended_timestamp, uid_gid].
+    [mode, basic_timestamp, extended_timestamp, capped_timestamp, uid_gid].
 
 zip64_testcases() ->
     [unzip64_central_headers,
@@ -1556,6 +1556,39 @@ extended_timestamp(Config) ->
 
     assert_timestamp(UnzipMode, UnzipFI, ZMtime ),
 
+    ok.
+
+% checks that the timestamps in the zip file are wrapped if > 59
+capped_timestamp(Config) ->
+
+    DataDir = get_value(data_dir, Config),
+    Archive = filename:join(DataDir, "bad_seconds.zip"),
+    PrivDir =  get_value(pdir, Config),
+    ExtractDir = filename:join(PrivDir, "extract"),
+
+    {ok, [#zip_comment{},
+          #zip_file{ info = ZipFI = #file_info{ mtime = ZMtime }} ]} =
+        zip:list_dir(Archive),
+
+    ct:log("in zip : ~p",[ZipFI]),
+
+    %% zipinfo shows something different from what unzip
+    ct:log("zipinfo:~n~ts",[os:cmd("zipinfo -v "++Archive)]),
+
+    % and not {{2024, 12, 31}, {23, 59, 60}}
+    ?assertEqual({{2025, 1, 1}, {0, 0, 0}}, ZMtime),
+
+    ok = file:make_dir(ExtractDir),
+    ?assertMatch(
+       {ok, ["testfile.txt"]},
+       unzip(Config, Archive, [{cwd,ExtractDir}])),
+
+    {ok, UnzipFI } =
+        file:read_file_info(filename:join(ExtractDir, "testfile.txt"),[raw]),
+
+    ct:log("extract: ~p",[UnzipFI]),
+    UnzipMode = un_z64(get_value(unzip, Config)),
+    assert_timestamp(UnzipMode, UnzipFI, ZMtime),
     ok.
 
 assert_timestamp(unemzip, _FI, _ZMtime) ->
