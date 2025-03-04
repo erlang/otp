@@ -972,11 +972,8 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(
         a.sub(TMP1, TMP1, imm(32));
         a.stur(TMP1, emit_boxed_val(ctx_reg.reg, start_offset));
 
-        if (Fail.get() != 0) {
-            a.b(resolve_beam_label(Fail, disp128MB));
-        } else {
-            emit_error(BADARG);
-        }
+        ASSERT(Fail.get() != 0);
+        a.b(resolve_beam_label(Fail, disp128MB));
     }
 
     a.bind(next);
@@ -3519,6 +3516,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             break;
         }
         case BsmSegment::action::GET_INTEGER: {
+            /* Match integer segments with more than 64 bits. */
             Uint live = seg.live.as<ArgWord>().get();
             Uint flags = seg.flags;
             auto bits = seg.size;
@@ -3532,20 +3530,10 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             a.mov(ARG3, flags);
             emit_untag_ptr(ARG4, ctx.reg);
 
-            if (bits >= SMALL_BITS) {
-                emit_enter_runtime<Update::eHeapOnlyAlloc>(live);
-            } else {
-                emit_enter_runtime(live);
-            }
-
+            emit_enter_runtime<Update::eHeapOnlyAlloc>(live);
             runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
                          erts_bs_get_integer_2>();
-
-            if (bits >= SMALL_BITS) {
-                emit_leave_runtime<Update::eHeapOnlyAlloc>(live);
-            } else {
-                emit_leave_runtime(live);
-            }
+            emit_leave_runtime<Update::eHeapOnlyAlloc>(live);
 
             mov_arg(Dst, ARG1);
 
@@ -3559,11 +3547,8 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             comment("get binary %ld", seg.size);
             auto ctx = load_source(Ctx, TMP1);
 
-            if (position_is_valid) {
-                a.mov(ARG5, bin_position);
-            } else {
-                a.ldur(ARG5, emit_boxed_val(ctx.reg, start_offset));
-            }
+            a.ldur(ARG5, emit_boxed_val(ctx.reg, start_offset));
+
             lea(ARG1, arm::Mem(c_p, offsetof(Process, htop)));
             if (seg.size <= ERL_ONHEAP_BITS_LIMIT) {
                 comment("skipped setting registers not used for heap binary");
