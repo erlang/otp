@@ -262,23 +262,41 @@ code fragment:”
 
 For code examples with several steps and for long examples:
 - Ensure that it is obvious for the reader what belongs to the example.
-- Use either a subheading `#### Example` or use a separate paragraph
-  with the text `*Example*:`.
+- Use a subheading `## Examples`.
 
-*Example*:
+All examples should be tested if possible using [`shell_docs:test/2`](../lib/stdlib/src/shell_docs.erl).
+See [lists_SUITE:doctests/1](../lib/stdlib/test/lists_SUITE.erl) for an example
+on how to do that.
+
+##### Examples
 
 ````markdown
-The compiler gives a warning for some code fragments.
-
-*Example*:
+The compiler gives a warning for some code fragments:
 
 ```erlang
-> erlc test.erl
+1> erlc test.erl
 test.erl:3:6: Warning: variable 'Data' is unused
 %    3| main(Data) ->
 %     |      ^
 ```
 
+````
+
+````markdown
+Searches the list of tuples `TupleList` for a tuple whose `N`th element compares
+equal to `Key`.
+
+Returns `Tuple` if such a tuple is found; otherwise, returns `false`.
+
+## Examples
+
+```erlang
+1> lists:keyfind(b, 1, [{a,10}, {b,20}, {c,30}]).
+{b,20}
+2> lists:keyfind(unknown, 1, [{a,10}, {b,20}, {c,30}]).
+false
+```
+""".
 ````
 
 #### Headings
