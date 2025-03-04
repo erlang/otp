@@ -241,8 +241,8 @@ void BeamGlobalAssembler::emit_new_map_shared() {
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    runtime_call<Eterm (*)(Process * p,
-                           Eterm * reg,
+    runtime_call<Eterm (*)(Process *p,
+                           Eterm *reg,
                            Uint live,
                            Uint n,
                            const Eterm *ptr),

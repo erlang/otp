@@ -67,7 +67,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
     (void)objects;
 
     hi->name  = h->name;
-    hi->size  = hash_get_slots(h);
+    hi->size  = size;
     hi->used  = used;
     hi->objs  = h->nobjs;
     hi->depth = max_depth;
