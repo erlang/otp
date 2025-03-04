@@ -10,6 +10,7 @@
 #ifndef ASMJIT_NO_JIT
 
 #include "../core/globals.h"
+#include "../core/support.h"
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -215,15 +216,31 @@ enum class HardenedRuntimeFlags : uint32_t {
   //! architecture.
   kEnabled = 0x00000001u,
 
-  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific, only available on OSX).
-  kMapJit = 0x00000002u
+  //! Read+Write+Execute can only be allocated with MAP_JIT flag (Apple specific, only available on Apple platforms).
+  kMapJit = 0x00000002u,
+
+  //! Read+Write+Execute can be allocated with dual mapping approach (one region with RW and the other with RX).
+  kDualMapping = 0x00000004u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(HardenedRuntimeFlags)
 
 //! Hardened runtime information.
 struct HardenedRuntimeInfo {
+  //! \name Members
+  //! \{
+
   //! Hardened runtime flags.
   HardenedRuntimeFlags flags;
+
+  //! \}
+
+  //! \name Accessors
+  //! \{
+
+  //! Tests whether the hardened runtime `flag` is set.
+  ASMJIT_INLINE_NODEBUG bool hasFlag(HardenedRuntimeFlags flag) const noexcept { return Support::test(flags, flag); }
+
+  //! \}
 };
 
 //! Returns runtime features provided by the OS.
