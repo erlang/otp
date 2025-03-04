@@ -550,7 +550,7 @@ disabled:
 ### RCVTIMEO/SNDTIMEO socket options
 
 Support for these (socket) options has to be explicitly enabled (see why
-[above](socket_usage.md#socket_options_socket)):
+in the [socket option](socket_usage.md#socket_options_socket) table above):
 
 ```text
 --enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
@@ -558,8 +558,8 @@ Support for these (socket) options has to be explicitly enabled (see why
 
 ### Extended Error Info
 
-The use of Extended Error Info (currently only used on Windows) can be
-explicitly enabled and disabled:
+The use of [`Extended Error Info`](`t:socket:eei/0`) (currently only used on
+Windows) can be explicitly enabled and disabled:
 
 ```text
 --enable-esock-extended-error-info (default) | --disable-esock-extended-error-info
@@ -567,8 +567,16 @@ explicitly enabled and disabled:
 
 ### Verbose Mutex Names
 
-The use of verbose mutex names (in the 'socket' nif) can be explicitly
-enabled and disabled:
+The 'socket' nif uses several mutex(s). Specifically, two for each
+socket; One for read and one for write. These mutex(s) are named as:
+esock.r[FD] & and esock.w[FD] (where FD is the file descriptor).
+Example: esock.r[10].
+This is not normally a problem, but in some uses cases, it can become
+a bottleneck. Therefor these name can be simplified to just e.g. "esock.r".
+(that is, all read mutex(s) have the same "name").
+
+The use of these verbose mutex names (in the 'socket' nif) can be
+explicitly enabled and disabled:
 
 ```text
 --enable-esock-verbose-mtx-names (default) | --disable-esock-verbose-mtx-names
@@ -576,8 +584,8 @@ enabled and disabled:
 
 ### Counter Size
 
-The 'socket' nif uses counters for various things (e.g. number of send
-attempts). The size (in number of bits) of these counters can be explictly
+The 'socket' nif uses counters for various things (diagnistics and statistics).
+The size (in number of bits) of these counters can be explictly
 configured:
 
 ```text
