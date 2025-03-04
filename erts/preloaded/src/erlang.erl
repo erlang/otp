@@ -7992,10 +7992,10 @@ Reference Manual_.
 
 Valid `InfoTuple`s with corresponding `Item`s:
 
-- **`{async_dist, Enabled}`{: #process_info_async_dist }** - Since: OTP 25.3
+- **`{async_dist, Enabled}`{: #process_info_async_dist }** - Current value of the
+  [`async_dist`](#process_flag_async_dist) process flag.
 
-  Current value of the [`async_dist`](#process_flag_async_dist)
-  process flag.
+  Since: OTP 25.3
 
 - **`{backtrace, Bin}`** - Binary `Bin` contains the same information as the
   output from `erlang:process_display(Pid, backtrace)`. Use
@@ -8119,6 +8119,8 @@ Valid `InfoTuple`s with corresponding `Item`s:
   that spawned current process. When the process does not have a parent
   `undefined` is returned. Only the initial process (`init`) on a node lacks a
   parent, though.
+
+  Since: OTP 25.0
 
 - **`{priority, Level}`** - `Level` is the current priority level for the
   process. For more information on priorities, see
@@ -10474,11 +10476,12 @@ Options:
   information, see the documentation of
   [`process_flag(message_queue_data, MQD)`](#process_flag_message_queue_data).
 
-- **`{async_dist, Enabled}`{: #spawn_opt_async_dist }** - Since: OTP 25.3
+- **`{async_dist, Enabled}`{: #spawn_opt_async_dist }** - Sets the
+  [`async_dist`](#process_flag_async_dist) process flag of the spawned process.
+  This option will override the default value set by the command line argument
+  [`+pad <boolean>`](erl_cmd.md#%2Bpad).
 
-  Set the [`async_dist`](#process_flag_async_dist) process flag of the
-  spawned process. This option will override the default value set by the
-  command line argument [`+pad <boolean>`](erl_cmd.md#%2Bpad).
+  Since: OTP 25.3
 """.
 -doc #{ category => processes }.
 -spec spawn_opt(Module, Function, Args, Options) ->
