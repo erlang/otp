@@ -70,11 +70,18 @@ fun RuleSet.unhandledLicenseRule() = packageRule("UNHANDLED_LICENSE") {
       -isHandled()
     }
 
+    var filenames = "";
+
+    resolvedLicense.locations.forEach {
+        filenames += " " + it.location.path;
+    }
+
     // Throw an error message including guidance how to fix the issue.
     error(
       "The license $license is currently not covered by policy rules. " +
         "The license was ${licenseSource.name.lowercase()} in package " +
-        "${pkg.metadata.id.toCoordinates()}.",
+        "${pkg.metadata.id.toCoordinates()}. " +
+        "The files that have the license are: ${filenames}",
       howToFixDefault()
     )
   }
@@ -93,7 +100,6 @@ fun RuleSet.unmappedDeclaredLicenseRule() = packageRule("UNMAPPED_DECLARED_LICEN
     )
   }
 }
-
 
 val ruleSet = ruleSet(ortResult, licenseInfoResolver, resolutionProvider) {
   unhandledLicenseRule()
