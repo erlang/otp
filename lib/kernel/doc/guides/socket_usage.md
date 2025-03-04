@@ -372,6 +372,7 @@ which_family(Addr) when is_tuple(Addr) andalso (tuple_size(Addr) =:= 8) ->
 
 ## Socket Options
 
+[](){: #socket_options_otp }
 Options for level `otp`:
 
 | Option Name         | Value Type                                                    | Set | Get | Other Requirements and comments                                                                                                                |
@@ -388,6 +389,7 @@ Options for level `otp`:
 
 _Table: option levels_
 
+[](){: #socket_options_socket }
 Options for level `socket`:
 
 | Option Name      | Value Type        | Set | Get | Other Requirements and comments                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -421,6 +423,7 @@ Options for level `socket`:
 
 _Table: socket options_
 
+[](){: #socket_options_ip }
 Options for level `ip`:
 
 | Option Name            | Value Type            | Set | Get | Other Requirements and comments                            |
@@ -458,6 +461,7 @@ Options for level `ip`:
 
 _Table: ip options_
 
+[](){: #socket_options_ipv6 }
 Options for level `ipv6`:
 
 | Option Name            | Value Type         | Set | Get | Other Requirements and comments                                                                                                                                                                         |
@@ -487,6 +491,7 @@ Options for level `ipv6`:
 
 _Table: ipv6 options_
 
+[](){: #socket_options_tcp }
 Options for level `tcp`:
 
 | Option Name | Value Type | Set | Get | Other Requirements and comments                                                                          |
@@ -502,6 +507,7 @@ Options for level `tcp`:
 
 _Table: tcp options_
 
+[](){: #socket_options_udp }
 Options for level `udp`:
 
 | Option Name | Value Type | Set | Get | Other Requirements and comments |
@@ -510,6 +516,7 @@ Options for level `udp`:
 
 _Table: udp options_
 
+[](){: #socket_options_sctp }
 Options for level `sctp`:
 
 | Option Name       | Value Type             | Set | Get | Other Requirements and comments |
@@ -524,3 +531,76 @@ Options for level `sctp`:
 | rtoinfo           | sctp_rtoinfo()         | yes | yes | none                            |
 
 _Table: sctp options_
+
+
+## Socket Configure Flags
+
+There are a couple of configure flags, that can be used when (configure and)
+building Erlang/OTP, which effect the functionality of the 'socket' nif.
+
+### Builtin Socket Support
+
+Support for the builtin 'socket' (as a nif) can be explicitly enabled and
+disabled:
+
+```text
+--enable-esock (default) | --disable-esock
+```
+
+### RCVTIMEO/SNDTIMEO socket options
+
+Support for these (socket) options has to be explicitly enabled (see why
+in the [socket option](socket_usage.md#socket_options_socket) table above):
+
+```text
+--enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
+```
+
+### Extended Error Info
+
+The use of [`Extended Error Info`](`t:socket:eei/0`) (currently only used on
+Windows) can be explicitly enabled and disabled:
+
+```text
+--enable-esock-extended-error-info (default) | --disable-esock-extended-error-info
+```
+
+### Verbose Mutex Names
+
+The 'socket' nif uses several mutex(s). Specifically, two for each
+socket; One for read and one for write. These mutex(s) are named as:
+esock.r[FD] & and esock.w[FD] (where FD is the file descriptor).
+Example: esock.r[10].
+This is not normally a problem, but in some uses cases, it can become
+a bottleneck. Therefor these name can be simplified to just e.g. "esock.r".
+(that is, all read mutex(s) have the same "name").
+
+The use of these verbose mutex names (in the 'socket' nif) can be
+explicitly enabled and disabled:
+
+```text
+--enable-esock-verbose-mtx-names (default) | --disable-esock-verbose-mtx-names
+```
+
+### Counter Size
+
+The 'socket' nif uses counters for various things (diagnistics and statistics).
+The size (in number of bits) of these counters can be explictly
+configured:
+
+```text
+--with-esock-counter-size=SZ
+```
+
+Where SZ is one of 16 | 24 | 32 | 48 | 64. Defaults to 64.
+
+### Socket Registry
+
+The socket registry keeps track of 'socket' sockets.
+This can be explicitly enabled and disabled:
+
+```text
+--enable-esock-socket-registry (default) | --disable-esock-socket-registry
+```
+
+See [socket registry](socket_usage.md#socket-registry) for more info.
