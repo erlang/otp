@@ -332,7 +332,7 @@ Options details:
 - **`body_format`** - Defines if the body is to be delivered as a string or
   binary. This option is only valid for the synchronous request.
 
-  Default is `string`.
+  Default is `string`. Asynchronous requests always use `binary`.
 
 - **`full_result`** - Defines if a "full result" is to be returned to the caller
   (that is, the body, the headers, and the entire status line) or not (the body
