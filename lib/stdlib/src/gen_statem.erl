@@ -499,10 +499,6 @@ handle_event(_, _, State, Data) ->
 
 -behaviour(sys).
 
-%% Internal callbacks
--export(
-   [wakeup_from_hibernate/3]).
-
 %% logger callback
 -export([format_log/1, format_log/2]).
 
@@ -3551,16 +3547,6 @@ event_string(Event) ->
     end.
 
 %%%==========================================================================
-%%% Internal callbacks
-
--doc false.
-wakeup_from_hibernate(P, Debug, S) ->
-    %% A new process message woke us up; receive it
-    receive Msg ->
-            loop_msg(P, Debug, S, Msg)
-    end.
-
-%%%==========================================================================
 %%% State Machine engine implementation on proc_lib/gen
 
 %% Server loop, consists of all loop* functions
@@ -3602,12 +3588,18 @@ loop(P, Debug, #state{hibernate = Hibernate} = S) ->
     end.
 
 loop_hibernate(P, Debug, S) ->
-    proc_lib:hibernate(?MODULE, wakeup_from_hibernate, [P, Debug, S]),
-    error(
-      {should_not_have_arrived_here_but_instead_in,
-       {?MODULE,wakeup_from_hibernate,3}}).
-%% wakeup_from_hibernate/3 receives Msg
-%% and jumps to loop_msg(P, Debug, S, Msg) below
+    erlang:hibernate(),
+    loop_wakeup(P, Debug, S).
+%%
+%% loop_wakeup/3 below is only needed so we can, when debugging,
+%% tell the difference between waiting in hibernation
+%% and stuck in a receive after being awakened
+%%
+loop_wakeup(P, Debug, S) ->
+    %% A new process message woke us up; receive it
+    receive Msg ->
+            loop_msg(P, Debug, S, Msg)
+    end.
 
 %% Handle a received message
 %%
