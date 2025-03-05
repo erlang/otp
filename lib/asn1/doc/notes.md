@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Multiple bugs in decoding of the `REAL` type has been eliminated. Also, the documentation for `REAL` has been updated to mention the special values `0`, `PLUS-INFINITY`, and `MINUS-INFINITY`.
+
+  Own Id: OTP-19504 Aux Id: [GH-9096], [PR-9469]
+
+[GH-9096]: https://github.com/erlang/otp/issues/9096
+[PR-9469]: https://github.com/erlang/otp/pull/9469
+
 ## Asn1 5.3.1
 
 ### Fixed Bugs and Malfunctions

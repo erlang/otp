@@ -19,6 +19,21 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.27.7
+
+### Fixed Bugs and Malfunctions
+
+- Reduced the memory usage when testcases prints a lot to the log.
+
+  Own Id: OTP-19489 Aux Id: [PR-9424]
+
+- Fixed the built-in hook `cth_surefire` to not crash when a group within a skipped group is skipped.
+
+  Own Id: OTP-19491 Aux Id: [PR-9419]
+
+[PR-9424]: https://github.com/erlang/otp/pull/9424
+[PR-9419]: https://github.com/erlang/otp/pull/9419
+
 ## Common_Test 1.27.6
 
 ### Fixed Bugs and Malfunctions

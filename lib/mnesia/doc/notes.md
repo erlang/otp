@@ -25,6 +25,16 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.4
+
+### Fixed Bugs and Malfunctions
+
+- Mnesia could fail to load a table, if one of the copy holders was moved during startup.
+
+  Own Id: OTP-19501 Aux Id: ERIERL-1195, [PR-9499]
+
+[PR-9499]: https://github.com/erlang/otp/pull/9499
+
 ## Mnesia 4.23.3
 
 ### Fixed Bugs and Malfunctions

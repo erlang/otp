@@ -21,6 +21,30 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 10.2.3
+
+### Fixed Bugs and Malfunctions
+
+- Clarify inet:setopts documentation
+
+  Own Id: OTP-19416 Aux Id: [PR-9248]
+
+- Fix bug where log printouts would go missing when `application_controller` is stopping while log messages are being sent.
+  
+  This bug was introduced by OTP-19078 in Erlang/OTP 26.2.5.
+
+  Own Id: OTP-19418 Aux Id: [GH-9163], [PR-9274]
+
+- Fixes a bug in the socket type spec, which caused Dialyzer to reject some valid programs.
+
+  Own Id: OTP-19429 Aux Id: [PR-9295], [PR-9379]
+
+[PR-9248]: https://github.com/erlang/otp/pull/9248
+[GH-9163]: https://github.com/erlang/otp/issues/9163
+[PR-9274]: https://github.com/erlang/otp/pull/9274
+[PR-9295]: https://github.com/erlang/otp/pull/9295
+[PR-9379]: https://github.com/erlang/otp/pull/9379
+
 ## Kernel 10.2.2
 
 ### Fixed Bugs and Malfunctions
