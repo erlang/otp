@@ -94,7 +94,7 @@ start_slave(NodeName, Config, Level) when is_atom(NodeName) ->
 
 start_slave(NodeName, Config, Level) ->
     [_,Host] = string:lexemes(atom_to_list(node()), "@"),
-    test_server:format(0, "Trying to start ~s~n", [NodeName++"@"++Host]),
+    ct:log("Trying to start ~s~n", [NodeName++"@"++Host]),
     PR = proplists:get_value(printable_range,Config,io:printable_range()),
     PeerOpts = #{
       host => Host,
@@ -107,7 +107,7 @@ start_slave(NodeName, Config, Level) ->
 	{error,Reason} ->
 	    ct:fail(Reason);
 	{ok, Controller, CTNode} ->
-	    test_server:format(0, "Node ~p started~n", [CTNode]),
+            ct:log("Node ~p started~n", [CTNode]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
 		    cover:start(CTNode);
@@ -129,14 +129,13 @@ start_slave(NodeName, Config, Level) ->
 	    TestSupDir = filename:dirname(code:which(?MODULE)),
 	    PathDirs = [PrivDir,TSDir,TestSupDir | AddPathDirs],
 	    [true = rpc:call(CTNode, code, add_patha, [D]) || D <- PathDirs],
-	    test_server:format(Level, "Dirs added to code path (on ~w):~n",
-			       [CTNode]),
+	    ct:log("Dirs added to code path (on ~w):~n", [CTNode]),
 	    [io:format("~ts~n", [D]) || D <- PathDirs],
 	    
 	    case proplists:get_value(start_sasl, Config) of
 		true ->
 		    rpc:call(CTNode, application, start, [sasl]),
-		    test_server:format(Level, "SASL started on ~w~n", [CTNode]);
+		    ct:log("SASL started on ~w~n", [CTNode]);
 		_ ->
 		    ok
 	    end,
@@ -211,8 +210,8 @@ write_testspec(TestSpec, TSFile) ->
     {ok,Dev} = file:open(TSFile, [write,{encoding,utf8}]),
     [io:format(Dev, "~tp.~n", [Entry]) || Entry <- TestSpec],
     file:close(Dev),
-    io:format("Test specification written to: ~tp~n", [TSFile]),
-    io:format(user, "Test specification written to: ~tp~n", [TSFile]),
+    ct:log("Test specification written to: ~tp~n", [TSFile]),
+    ct:log("Test specification written to: ~tp~n", [TSFile]),
     TSFile.
     
 
@@ -275,8 +274,8 @@ run(Opts0, Config) when is_list(Opts0) ->
 			    {ok,OROpts} ->
 				Override =
 				    fun(O={Key,_}, Os) ->
-					    io:format(user, "ADDING START "
-						      "OPTION: ~tp~n", [O]),
+					    ct:log("ADDING START "
+						   "OPTION: ~tp~n", [O]),
 					    [O | lists:keydelete(Key, 1, Os)]
 				    end,
 				lists:foldl(Override, Opts0, OROpts);
@@ -438,12 +437,12 @@ random_error(Config) when is_list(Config) ->
     Type = lists:nth(rand:uniform(length(ErrorTypes)), ErrorTypes),
     Where = case rand:uniform(2) of
 		1 ->
-		    io:format("ct_test_support *returning* error of type ~w",
-			      [Type]),
+		    ct:log("ct_test_support *returning* error of type ~w",
+			   [Type]),
 		    tc;
 		2 ->
-		    io:format("ct_test_support *generating* error of type ~w",
-			      [Type]),
+		    ct:log("ct_test_support *generating* error of type ~w",
+			  [Type]),
 		    lib
 	    end,
     ErrorFun =
@@ -485,17 +484,15 @@ handle_event(EH, Event) ->
     
 start_event_receiver(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
-    Level = proplists:get_value(trace_level, Config),
     ER = spawn_link(CTNode, fun() -> er() end),
-    test_server:format(Level, "~nEvent receiver ~w started!~n", [ER]),
+    ct:log("Event receiver ~w started!~n", [ER]),
     ER.
 
 get_events(_, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
-    Level = proplists:get_value(trace_level, Config),
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
-    test_server:format(Level, "Stopping event receiver!~n", []),
+    ct:log("Stopping event receiver!~n"),
     {event_receiver,CTNode} ! {self(),stop},
     receive {event_receiver,stopped} -> ok end,
     Events.
@@ -1249,8 +1246,7 @@ log_events(TC, Events, EvLogDir, Opts) ->
     FullLogFile = join_abs_dirs(proplists:get_value(net_dir, Opts),
 				LogFile),
     ct:log("Events written to logfile: <a href=\"file://~ts\">~ts</a>~n",
-	   [FullLogFile,FullLogFile],[no_css]),
-    io:format(user, "Events written to logfile: ~tp~n", [LogFile]).
+	   [FullLogFile,FullLogFile],[no_css]).
 
 log_events1(Evs, Dev, "") ->
     log_events1(Evs, Dev, " ");
