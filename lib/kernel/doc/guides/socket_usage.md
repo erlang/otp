@@ -551,7 +551,7 @@ disabled:
 
 Support for these (socket) options has to be explicitly enabled.
 For details, see the specific option descriptions in the
-[socket option](socket_usage.md#socket_options_socket) table above):
+[socket option](socket_usage.md#socket_options_socket) table):
 
 ```text
 --enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
@@ -572,7 +572,7 @@ The 'socket' nif uses several mutex(s). Specifically, two for each
 socket; One for read and one for write. These mutex(s) are named as:
 esock.r[FD] & and esock.w[FD] (where FD is the file descriptor).
 Example: esock.r[10].
-This is *not* normally a problem, but in some very specific debug scenarious,
+This is *not* normally a problem, but in some *very specific debug scenarious*,
 it can become a bottleneck.
 Therefor these names can be simplified to just e.g. "esock.r".
 (that is, all read mutex(s) have the same "name").
