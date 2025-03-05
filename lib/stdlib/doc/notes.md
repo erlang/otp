@@ -21,6 +21,44 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 6.2.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `argparse:help/2` to accept the program name as part of the command path.
+
+  Own Id: OTP-19397 Aux Id: [PR-9160]
+
+- Fixed `argparse:format_help/2` crash on 'hidden' command.
+
+  Own Id: OTP-19400 Aux Id: [PR-9151], [GH-9150]
+
+- Fixed the type specification for `timer:sleep/1` by adding the value `infinity` to its input type.
+
+  Own Id: OTP-19442 Aux Id: [PR-9303]
+
+- Eliminated a crash in `zip:unzip/1` while unzipping an archive where a directory within was read-only. This bug was introduced in Erlang/OTP 27.1.
+
+  Own Id: OTP-19447 Aux Id: [GH-9332], [PR-9335]
+
+- Fixed map comprehension result when a key value is replaced.
+
+  Own Id: OTP-19459 Aux Id: [GH-9348], [PR-9358]
+
+- Fixed `string:jaro_similarity/1` for matching strings of length 1.
+
+  Own Id: OTP-19468 Aux Id: [PR-9371]
+
+[PR-9160]: https://github.com/erlang/otp/pull/9160
+[PR-9151]: https://github.com/erlang/otp/pull/9151
+[GH-9150]: https://github.com/erlang/otp/issues/9150
+[PR-9303]: https://github.com/erlang/otp/pull/9303
+[GH-9332]: https://github.com/erlang/otp/issues/9332
+[PR-9335]: https://github.com/erlang/otp/pull/9335
+[GH-9348]: https://github.com/erlang/otp/issues/9348
+[PR-9358]: https://github.com/erlang/otp/pull/9358
+[PR-9371]: https://github.com/erlang/otp/pull/9371
+
 ## STDLIB 6.2
 
 ### Fixed Bugs and Malfunctions

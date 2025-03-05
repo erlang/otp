@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Some old-style `catch` expressions in the xmerl_sax_parser when the continuation fun was called caused the stack to grow until all free memory was exhausted. These parts have been rewritten so that the parser now runs correctly without growing the stack. At the same time all old-style `catch` expressions in xmerl were replaced with `try`/`catch`.
+
+  Own Id: OTP-19496 Aux Id: [GH-9190], [PR-9463]
+
+[GH-9190]: https://github.com/erlang/otp/issues/9190
+[PR-9463]: https://github.com/erlang/otp/pull/9463
+
 ## Xmerl 2.1
 
 ### Fixed Bugs and Malfunctions

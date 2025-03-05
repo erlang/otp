@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
+## Syntax_Tools 3.2.2
+
+### Fixed Bugs and Malfunctions
+
+- Annotation of `maybe` expressions has been corrected.
+
+  Own Id: OTP-19405 Aux Id: [PR-8811]
+
+[PR-8811]: https://github.com/erlang/otp/pull/8811
+
 ## Syntax_Tools 3.2.1
 
 ### Fixed Bugs and Malfunctions

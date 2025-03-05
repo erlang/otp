@@ -21,6 +21,17 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.5.3
+
+### Fixed Bugs and Malfunctions
+
+- `crypto` will now work when ED25519 and X25519 are available while ED448 and X448 are not, which is the case in LibreSSL. This is necessary for supporting TLS1.3 using LibreSSL.
+
+  Own Id: OTP-19399 Aux Id: [GH-9000], [PR-9136]
+
+[GH-9000]: https://github.com/erlang/otp/issues/9000
+[PR-9136]: https://github.com/erlang/otp/pull/9136
+
 ## Crypto 5.5.2
 
 ### Fixed Bugs and Malfunctions

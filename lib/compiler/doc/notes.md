@@ -21,6 +21,16 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 8.6
+
+### Improvements and New Features
+
+- The `beam_validator` pass in the compiler that validates generated BEAM now does stronger checks for binary syntax matching.
+
+  Own Id: OTP-19449 Aux Id: [PR-9338]
+
+[PR-9338]: https://github.com/erlang/otp/pull/9338
+
 ## Compiler 8.5.5
 
 ### Fixed Bugs and Malfunctions

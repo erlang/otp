@@ -21,6 +21,40 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed failed runtime assert in debug VM when built with statically linked NIFs.
+
+  Own Id: OTP-19443 Aux Id: [GH-9306], [PR-9307]
+
+- Fixed a bug where reading a binary from `m:persistent_term` could cause a segmentation fault on Windows. This bug was introduced in Erlang/OTP 27.0.
+
+  Own Id: OTP-19458 Aux Id: [PR-9349], [GH-9222]
+
+- Fixed a crash in `erlexec` (an executable used by `erl` during startup) when a `PATH` longer than 10240 was set.
+
+  Own Id: OTP-19471 Aux Id: [PR-9331]
+
+- Fixed bug in `erlang:halt`. Two processes calling `erlang:halt` at the same time could lead to one of them crashing with `badarg` as if it called `erlang:halt(undefined,undefined)`.
+
+  Own Id: OTP-19490 Aux Id: [PR-8640], [GH-8634]
+
+- Fixed BEAM crash when a custom thread sends a large map (>128 keys) externally encoded with, for example, `erl_drv_send_term()`.
+
+  Own Id: OTP-19495 Aux Id: [GH-8208], [PR-8209]
+
+[GH-9306]: https://github.com/erlang/otp/issues/9306
+[PR-9307]: https://github.com/erlang/otp/pull/9307
+[PR-9349]: https://github.com/erlang/otp/pull/9349
+[GH-9222]: https://github.com/erlang/otp/issues/9222
+[PR-9331]: https://github.com/erlang/otp/pull/9331
+[PR-8640]: https://github.com/erlang/otp/pull/8640
+[GH-8634]: https://github.com/erlang/otp/issues/8634
+[GH-8208]: https://github.com/erlang/otp/issues/8208
+[PR-8209]: https://github.com/erlang/otp/pull/8209
+
 ## Erts 15.2.2
 
 ### Fixed Bugs and Malfunctions
