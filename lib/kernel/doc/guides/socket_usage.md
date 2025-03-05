@@ -412,12 +412,12 @@ Options for level `socket`:
 | protocol         | protocol()        | no  | yes | _Not_ on (some) Darwin (for instance)                                                                                                                                                                                                                                                                                                                                                                                                                |
 | rcvbuf           | non_neg_integer() | yes | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | rcvlowat         | non_neg_integer() | yes | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| rcvtimeo         | timeval()         | yes | yes | This option is not normally supported (see why below). OTP has to be explicitly built with the `--enable-esock-rcvsndtime` configure option for this to be available. Since our implementation is _nonblocking_, its unknown if and how this option works, or even if it may cause malfunctions. Therefore, we do not recommend setting this option. Instead, use the `Timeout` argument to, for instance, the [`recv/3`](`socket:recv/3`) function. |
+| rcvtimeo         | timeval()         | yes | yes | This option is not normally supported. OTP has to be explicitly built with the `--enable-esock-rcvsndtime` configure option for this to be available. Since our implementation is _nonblocking_, its unknown if and how this option works, or even if it may cause malfunctions. Therefore, we do not recommend setting this option. Instead, use the `Timeout` argument to, for instance, the [`recv/3`](`socket:recv/3`) function. |
 | reuseaddr        | boolean()         | yes | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | reuseport        | boolean()         | yes | yes | domain = inet \| inet6                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | sndbuf           | non_neg_integer() | yes | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | sndlowat         | non_neg_integer() | yes | yes | not changeable on Linux                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| sndtimeo         | timeval()         | yes | yes | This option is not normally supported (see why below). OTP has to be explicitly built with the `--enable-esock-rcvsndtime` configure option for this to be available. Since our implementation is _nonblocking_, its unknown if and how this option works, or even if it may cause malfunctions. Therefore, we do not recommend setting this option. Instead, use the `Timeout` argument to, for instance, the [`send/3`](`socket:send/3`) function. |
+| sndtimeo         | timeval()         | yes | yes | This option is not normally supported. OTP has to be explicitly built with the `--enable-esock-rcvsndtime` configure option for this to be available. Since our implementation is _nonblocking_, its unknown if and how this option works, or even if it may cause malfunctions. Therefore, we do not recommend setting this option. Instead, use the `Timeout` argument to, for instance, the [`send/3`](`socket:send/3`) function. |
 | timestamp        | boolean()         | yes | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | type             | type()            | no  | yes | none                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
@@ -549,8 +549,9 @@ disabled:
 
 ### RCVTIMEO/SNDTIMEO socket options
 
-Support for these (socket) options has to be explicitly enabled (see why
-in the [socket option](socket_usage.md#socket_options_socket) table above):
+Support for these (socket) options has to be explicitly enabled.
+For details, see the specific option descriptions in the
+[socket option](socket_usage.md#socket_options_socket) table above):
 
 ```text
 --enable-esock-rcvsndtimeo | --disable-esock-rcvsndtimeo (default)
@@ -571,8 +572,9 @@ The 'socket' nif uses several mutex(s). Specifically, two for each
 socket; One for read and one for write. These mutex(s) are named as:
 esock.r[FD] & and esock.w[FD] (where FD is the file descriptor).
 Example: esock.r[10].
-This is not normally a problem, but in some uses cases, it can become
-a bottleneck. Therefor these name can be simplified to just e.g. "esock.r".
+This is *not* normally a problem, but in some very specific debug scenarious,
+it can become a bottleneck.
+Therefor these names can be simplified to just e.g. "esock.r".
 (that is, all read mutex(s) have the same "name").
 
 The use of these verbose mutex names (in the 'socket' nif) can be
