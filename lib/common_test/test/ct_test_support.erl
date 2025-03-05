@@ -37,7 +37,7 @@
 	 verify_events/3, verify_events/4, reformat/2, log_events/4,
 	 join_abs_dirs/2]).
 
--export([start_slave/3, slave_stop/1]).
+-export([start_slave/3, slave_stop/2]).
 
 -export([ct_test_halt/1, ct_rpc/2]).
 
@@ -87,17 +87,26 @@ init_per_suite(Config, Level) ->
     start_slave(Config, Level).
 
 start_slave(Config, Level) ->
-    start_slave(ct, Config, Level).
+    start_slave(peer:random_name(ct), Config, Level).
+
+start_slave(NodeName, Config, Level) when is_atom(NodeName) ->
+    start_slave(atom_to_list(NodeName), Config, Level);
 
 start_slave(NodeName, Config, Level) ->
     [_,Host] = string:lexemes(atom_to_list(node()), "@"),
-    test_server:format(0, "Trying to start ~s~n",
-		       [atom_to_list(NodeName)++"@"++Host]),
+    test_server:format(0, "Trying to start ~s~n", [NodeName++"@"++Host]),
     PR = proplists:get_value(printable_range,Config,io:printable_range()),
-    case slave:start(Host, NodeName, "+pc " ++ atom_to_list(PR)) of
+    PeerOpts = #{
+      host => Host,
+      name => NodeName,
+      args => ["+pc", atom_to_list(PR)],
+      shutdown => timer:seconds(60),
+      wait_boot => timer:seconds(10)
+    },
+    case peer:start(PeerOpts) of
 	{error,Reason} ->
 	    ct:fail(Reason);
-	{ok,CTNode} ->
+	{ok, Controller, CTNode} ->
 	    test_server:format(0, "Node ~p started~n", [CTNode]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
@@ -136,11 +145,13 @@ start_slave(NodeName, Config, Level) ->
 		{ok,_} -> 
 		    [{trace_level,0},
 		     {ct_opts,[{ct_trace,TraceFile}]},
-		     {ct_node,CTNode} | Config];
+		     {ct_node,CTNode},
+                     {ct_node_controller,Controller} | Config];
 		_ -> 
 		    [{trace_level,Level},
 		     {ct_opts,[]},
-		     {ct_node,CTNode} | Config]     
+		     {ct_node,CTNode},
+                     {ct_node_controller,Controller} | Config]
 	    end
     end.
 
@@ -149,9 +160,10 @@ start_slave(NodeName, Config, Level) ->
 
 end_per_suite(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
+    Controller = proplists:get_value(ct_node_controller, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
-    slave_stop(CTNode),
+    slave_stop(CTNode, Controller),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -179,10 +191,11 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(_TestCase, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
+    Controller = proplists:get_value(ct_node_controller, Config),
     case wait_for_ct_stop(CTNode) of
 	%% Common test was not stopped to we restart node.
 	false ->
-	    slave_stop(CTNode),
+	    slave_stop(CTNode, Controller),
 	    start_slave(Config,proplists:get_value(trace_level,Config)),
 	    {fail, "Could not stop common_test"};
 	true ->
@@ -1454,13 +1467,13 @@ unique_timestamp(TS0, N) ->
 
 %%%-----------------------------------------------------------------
 %%%
-slave_stop(Node) ->
+slave_stop(Node, Controller) when is_pid(Controller) ->
     Cover = test_server:is_cover(),
     if Cover-> cover:flush(Node);
        true -> ok
     end,
     erlang:monitor_node(Node, true),
-    slave:stop(Node),
+    ok = peer:stop(Controller),
     receive
 	{nodedown, Node} ->
 	    if Cover -> cover:stop(Node);

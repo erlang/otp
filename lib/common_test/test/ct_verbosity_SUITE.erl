@@ -57,14 +57,16 @@ end_per_suite(Config) ->
 init_per_testcase(no_crashing, Config) ->
     Opts = ct_test_support:start_slave(ctX, Config, 50),
     XNode = proplists:get_value(ct_node, Opts),
+    XNodeController = proplists:get_value(ct_node_controller, Opts),
     ct:pal("Node ~p started!", [XNode]),
-    [{xnode,XNode} | Config];
+    [{xnode_controller,XNodeController}, {xnode,XNode} | Config];
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(no_crashing, Config) ->
     XNode = proplists:get_value(xnode, Config),
-    ct_test_support:slave_stop(XNode),
+    XNodeController = proplists:get_value(xnode_controller, Config),
+    ct_test_support:slave_stop(XNode, XNodeController),
     ct:pal("Node ~p stopped!", [XNode]),
     ok;
 end_per_testcase(TestCase, Config) ->
