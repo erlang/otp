@@ -450,9 +450,13 @@ daemon(_, _, _) ->
       NewUserOptions :: daemon_options().
 
 daemon_replace_options(DaemonRef, NewUserOptions) ->
-    {ok,Os0} = ssh_system_sup:get_acceptor_options(DaemonRef),
-    Os1 = ssh_options:merge_options(server, NewUserOptions, Os0),
-    ssh_system_sup:replace_acceptor_options(DaemonRef, Os1).
+    case ssh_system_sup:get_acceptor_options(DaemonRef) of
+        {ok, Os0} ->
+            Os1 = ssh_options:merge_options(server, NewUserOptions, Os0),
+            ssh_system_sup:replace_acceptor_options(DaemonRef, Os1);
+        {error, _Reason} = Error ->
+            Error
+    end.
 
 %%--------------------------------------------------------------------
 -type daemon_info_tuple() ::
