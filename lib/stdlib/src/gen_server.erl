@@ -282,12 +282,6 @@ using exit signals.
 %%%  API
 %%%=========================================================================
 
--type action() :: timeout() |
-                  'hibernate' |
-                  {'timeout', timeout(), term()} |
-                  {'hibernate', timeout(), term()} |
-		  {'continue', term()}.
-
 -doc """
 Initialize the server.
 
@@ -690,6 +684,23 @@ format_status(Status) ->
 
 
 -doc """
+Time-out timer start option, to select absolute time of expiry.
+
+If `Abs` is `true` an absolute timer is started,
+and if it is `false` a relative, which is the default.
+See [`erlang:start_timer/4`](`erlang:start_timer/4`) for details.
+""".
+-type timeout_option() :: {abs, Abs :: boolean()}.
+
+-type action() :: Timeout :: timeout() |
+                  'hibernate' |
+                  {'timeout', Time :: timeout(), Message :: term()} |
+                  {'timeout', Time :: timeout(), Message :: term(), Options :: timeout_option() | [timeout_option()]} |
+                  {'hibernate', Time :: timeout(), Message :: term()} |
+                  {'hibernate', Time :: timeout(), Message :: term(), Options :: timeout_option() | [timeout_option()]} |
+		  {'continue', Continue :: term()}.
+
+-doc """
 A call's reply destination.
 
 Destination, given to the `gen_server` as the first argument
@@ -700,6 +711,7 @@ that has called the `gen_server` using [`call/2,3`](`call/2`).
 `Tag` is a term that is unique for this call/request instance.
 """.
 -type from() ::	{Client :: pid(), Tag :: reply_tag()}.
+
 -doc "A handle that associates a reply to the corresponding request.".
 -opaque reply_tag() :: gen:reply_tag().
 
@@ -2568,10 +2580,13 @@ handle_timeout(ServerData, T, M, HibInf) ->
             error
     end.
 
+handle_timeout(ServerData, T, M, HibInf, {abs, Abs}, _Abs) when is_boolean(Abs),
+								?is_timeout(Abs, T) ->
+    handle_timer(ServerData, T, M, HibInf, Abs);
+handle_timeout(ServerData, T, M, HibInf, [{abs, Abs} | Opts], _Abs) when is_boolean(Abs) ->
+    handle_timeout(ServerData, T, M, HibInf, Opts, Abs);
 handle_timeout(ServerData, T, M, HibInf, [], Abs) when ?is_timeout(Abs, T) ->
     handle_timer(ServerData, T, M, HibInf, Abs);
-handle_timeout(ServerData, T, M, HibInf, [{abs,Abs} | Opts], _Abs) when is_boolean(Abs) ->
-    handle_timeout(ServerData, T, M, HibInf, Opts, Abs);
 handle_timeout(_ServerData, _T, _M, _HibInf, _Opts, _Abs) ->
     error.
 
