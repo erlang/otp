@@ -2565,9 +2565,9 @@ handle_action(ServerData, Action) ->
         {hibernate, T, M} ->
             handle_timeout(ServerData, T, M, hibernate);
         {timeout, T, M, Opts} ->
-            handle_timeout(ServerData, T, M, infinity, Opts, false);
+            handle_timeout(ServerData, T, M, infinity, listify(Opts), false);
         {hibernate, T, M, Opts} ->
-            handle_timeout(ServerData, T, M, hibernate, Opts, false);
+            handle_timeout(ServerData, T, M, hibernate, listify(Opts), false);
         _ ->
             error
     end.
@@ -2580,13 +2580,10 @@ handle_timeout(ServerData, T, M, HibInf) ->
             error
     end.
 
-handle_timeout(ServerData, T, M, HibInf, {abs, Abs}, _Abs) when is_boolean(Abs),
-								?is_timeout(Abs, T) ->
+handle_timeout(ServerData, T, M, HibInf, [], Abs) when ?is_timeout(Abs, T) ->
     handle_timer(ServerData, T, M, HibInf, Abs);
 handle_timeout(ServerData, T, M, HibInf, [{abs, Abs} | Opts], _Abs) when is_boolean(Abs) ->
     handle_timeout(ServerData, T, M, HibInf, Opts, Abs);
-handle_timeout(ServerData, T, M, HibInf, [], Abs) when ?is_timeout(Abs, T) ->
-    handle_timer(ServerData, T, M, HibInf, Abs);
 handle_timeout(_ServerData, _T, _M, _HibInf, _Opts, _Abs) ->
     error.
 
@@ -2605,6 +2602,12 @@ handle_timer(#server_data{tag = Tag}, T, M, HibInf, Abs) ->
                 erlang:start_timer(T, self(), Tag)
         end,
     {timeout, [TRef | M], HibInf}.
+
+-compile({inline, [listify/1]}).
+listify(Opts) when is_list(Opts) ->
+    Opts;
+listify(Opt) ->
+    [Opt].
 
 %%-----------------------------------------------------------------
 %% Callback functions for system messages handling.
