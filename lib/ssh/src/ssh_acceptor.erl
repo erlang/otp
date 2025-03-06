@@ -24,10 +24,10 @@
 -moduledoc false.
 
 -include("ssh.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% Internal application API
--export([start_link/3,
-	 number_of_connections/1]).
+-export([start_link/3]).
 
 %% spawn export
 -export([acceptor_init/4, acceptor_loop/6]).
@@ -147,25 +147,21 @@ handle_error(Reason, ToAddress, ToPort, _) ->
 handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
     case Reason of
         {max_sessions, MaxSessions} ->
-            error_logger:info_report(
-              lists:concat(["Ssh login attempt to ",ssh_lib:format_address_port(ToAddress,ToPort),
-                            " from ",ssh_lib:format_address_port(FromAddress,FromPort),
-                            " denied due to option max_sessions limits to ",
-                            MaxSessions, " sessions."
-                           ])
-             );
+            ?SSH_NOTICE_REPORT("Ssh login attempt to ~s from ~s denied due to "
+                               "option max_sessions limits to ~B sessions.",
+                               [ssh_lib:format_address_port(ToAddress,ToPort),
+                                ssh_lib:format_address_port(FromAddress,FromPort),
+                                MaxSessions]);
 
         Limit when Limit==enfile ; Limit==emfile ->
             %% Out of sockets...
-            error_logger:info_report([atom_to_list(Limit),": out of accept sockets on ",
-                                      ssh_lib:format_address_port(ToAddress, ToPort),
-                                      " - retrying"]),
+            ?SSH_NOTICE_REPORT("~s: out of accept sockets on ~s - retrying",
+                               [atom_to_list(Limit), ssh_lib:format_address_port(ToAddress, ToPort)]),
             timer:sleep(?SLEEP_TIME);
 
         closed ->
-            error_logger:info_report(["The ssh accept socket on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      "was closed by a third party."]
-                                    );
+            ?SSH_NOTICE_REPORT("The ssh accept socket on ~s was closed by a third party.",
+                               [ssh_lib:format_address_port(ToAddress,ToPort)]);
 
         timeout ->
             ok;
@@ -174,12 +170,14 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
             ok;
         Error when FromAddress=/=undefined,
                    FromPort=/=undefined ->
-            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      " for connect from ",ssh_lib:format_address_port(FromAddress,FromPort),
-                                      io_lib:format(": ~p", [Error])]);
+            ?SSH_NOTICE_REPORT("Accept failed on ~s for connect from ~s: ~p",
+                               [ssh_lib:format_address_port(ToAddress,ToPort),
+                                ssh_lib:format_address_port(FromAddress,FromPort),
+                                Error]);
         Error ->
-            error_logger:info_report(["Accept failed on ",ssh_lib:format_address_port(ToAddress,ToPort),
-                                      io_lib:format(": ~p", [Error])])
+            ?SSH_NOTICE_REPORT("Accept failed on ~s: ~p",
+                               [ssh_lib:format_address_port(ToAddress,ToPort),
+                                Error])
     end.
 
 %%%----------------------------------------------------------------

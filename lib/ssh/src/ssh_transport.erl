@@ -27,7 +27,7 @@
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
-
+-include_lib("kernel/include/logger.hrl").
 -include("ssh_transport.hrl").
 -include("ssh.hrl").
 
@@ -507,8 +507,8 @@ verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
 verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
                             #ssh{send_sequence = SendSequence,
                                  recv_sequence = RecvSequence}, init) ->
-    error_logger:warning_report(
-      lists:concat(["KEX strict violation (", SendSequence, ", ", RecvSequence, ")."])),
+    ?SSH_WARNING_REPORT("KEX strict violation (~p, ~p).",
+                     [SendSequence, RecvSequence]),
     {false, "kex_strict"}.
 
 %%%----------------------------------------------------------------

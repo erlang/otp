@@ -33,6 +33,7 @@ file transfer service available for SSH.
 -behaviour(ssh_client_channel).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("kernel/include/logger.hrl").
 -include("ssh.hrl").
 -include("ssh_xfer.hrl").
 
@@ -1397,7 +1398,7 @@ handle_ssh_msg({ssh_cm, _ConnectionManager,
 
 handle_ssh_msg({ssh_cm, _ConnectionManager,
 		{data, _ChannelId, 1, Data}}, State) ->
-    error_logger:format("ssh: STDERR: ~s\n", [binary_to_list(Data)]),
+    ?SSH_ERROR_REPORT("ssh: STDERR: ~s\n", [binary_to_list(Data)]),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->
