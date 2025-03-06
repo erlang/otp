@@ -161,7 +161,8 @@
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
          otp19063/1,
-         otp19251/1
+         otp19251/1,
+         otp19469_read_all/1, otp19469_read_part/1
         ]).
 
 
@@ -234,7 +235,8 @@ groups() ->
      %% Ticket groups
      {tickets,                     [], tickets_cases()},
      {otp16359,                    [], otp16359_cases()},
-     {otp18240,                    [], otp18240_cases()}
+     {otp18240,                    [], otp18240_cases()},
+     {otp19469,                    [], otp19469_cases()}
     ].
      
 %% Socket Registry "simple" test cases
@@ -377,7 +379,8 @@ tickets_cases() ->
      {group, otp18240},
      otp18635,
      otp19063,
-     otp19251
+     otp19251,
+     {group, otp19469}
     ].
 
 otp16359_cases() ->
@@ -392,6 +395,12 @@ otp18240_cases() ->
     [
      otp18240_accept_mon_leak_tcp4,
      otp18240_accept_mon_leak_tcp6
+    ].
+
+otp19469_cases() ->
+    [
+     otp19469_read_all,
+     otp19469_read_part
     ].
 
 
@@ -12427,7 +12436,251 @@ do_otp19251(_) ->
     _ = socket:close(Sock1),
 
     ?P("done"),
+    ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Tests that results are correct when only parts of the requested
+%% amount of data is available when using socket:recv.
+%% Behaviour should be as expected for both STREAM and DGRAM sockets.
+%% That is;
+%%   STREAM: read until buffer is full or timeout
+%%   DGRAM:  - do never wait for *more* data - return with *any* available data
+%%           - only wait if there is currently *no* data.
+%% Client connects to server and sends chunks of data with 1 sec between
+%% sends. Server reads all in one read.
+
+otp19469_read_all(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otp19469_read_all(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+otp19469_ra_client(SSA, Data) when is_list(Data) ->
+    ?P("[client] create socket"),
+    Socket = case socket:open(inet, stream) of
+		 {ok, Sock} ->
+		     Sock;
+		 {error, Reason} ->
+		     exit({failed_create_socket, Reason})
+	     end,
+    %% We are on the same host as the server so we can reuse the
+    %% SockAddr of the server, except for the port.
+    ?P("[client] bind socket"),
+    ok = socket:bind(Socket, SSA#{port => 0}),
+    
+    ?P("[client] connect to server"),
+    ok = socket:connect(Socket, SSA),
+    
+    ok = otp19469_ra_client(Socket, Data, 1),
+
+    _ = socket:close(Socket),
+
+    ok.
+
+otp19469_ra_client(_Socket, [] = _Data, _N) ->
+    ?P("[client] all chunks sent"),
+    ok;
+otp19469_ra_client(Socket, [Chunk|Data], N) when is_binary(Chunk) ->
+    ?P("[client,~w] sleep some before send", [N]),
+    ?SLEEP(500),
+    ?P("[client,~w] try send chunk (~w bytes)", [N, byte_size(Chunk)]),
+    ok = socket:send(Socket, Chunk),
+    ?P("[client,~w] chunk sent", [N]),
+    otp19469_ra_client(Socket, Data, N + 1).
+
+
+do_otp19469_read_all(#{lsa := LSA}) ->
+
+    ?P("[ctrl] create listen socket"),
+    {ok, S1} = socket:open(inet, stream),
+    ?P("[ctrl] bind socket"),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ?P("[ctrl] make listen socket"),
+    ok = socket:listen(S1),
+ 
+    ?P("[ctrl] create data"),
+    Chunk   = <<"0123456789">>,
+    Data    = lists:duplicate(10, Chunk),
+    DataSz  = iolist_size(Data),
+    DataBin = iolist_to_binary(Data),
+    
+    ?P("[ctrl] create data"),
+    _ = spawn_link(fun() -> otp19469_ra_client(SA1, Data) end),
+    		        
+    ?P("[ctrl] accept connection"),
+    {ok, S2} = socket:accept(S1),
+
+    ?P("[ctrl] try read ~w bytes", [DataSz]),
+    {ok, DataBin} = socket:recv(S2, DataSz),
+
+    ?P("[ctrl] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+    
+    ?P("[ctrl] done"),			
+    ok.
+
+
+%% ----------------------------------------------------------------------
+
+%% Tests that results are correct when only parts of the requested
+%% amount of data is available when using socket:recv.
+%% Behaviour should be as expected for both STREAM and DGRAM sockets.
+%% That is;
+%%   STREAM: read until buffer is full or timeout
+%%   DGRAM:  - do never wait for *more* data - return with *any* available data
+%%           - only wait if there is currently *no* data.
+
+otp19469_read_part(Config) when is_list(Config) ->
+    ?TT(?SECS(10)),
+    Cond = fun() -> 
+                   has_support_ipv4()
+           end,
+    Pre  = fun() ->
+                   Fam = inet,
+                   case ?KLIB:which_local_addr(Fam) of
+                       {ok, LA} ->
+                           LSA = #{family => Fam,
+                                   addr   => LA},
+                           #{lsa => LSA};
+                       _ ->
+                           skip(no_local_addr)
+                   end
+           end,
+    TC   = fun(InitState) ->
+                   ok = do_otp19469_read_part(InitState)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?KLIB:tc_try(?FUNCTION_NAME, Cond, Pre, TC, Post).
+
+
+do_otp19469_read_part(#{lsa := LSA}) ->
+
+    ?P("try stream"),
+    ok = do_otp19469_stream(LSA),
+    ?P("try dgram"),
+    ok = do_otp19469_dgram(LSA),
+    
+    ?P("done"),
+    ok.
+
+
+do_otp19469_stream(#{family := Fam} = LSA) ->
+
+    ?P("[stream] create listen socket"),
+    {ok, S1} = socket:open(Fam, stream),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+    ok = socket:listen(S1),
+
+    ?P("[stream] create connector socket"),
+    {ok, S2} = socket:open(Fam, stream),
+    ok = socket:bind(S2, LSA#{port => 0}),
+    ok = socket:connect(S2, SA1),
+
+    ?P("[stream] accept connection (acceptor socket)"),
+    {ok, S3} = socket:accept(S1),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[stream] try send and recv ~w bytes", [DataSz]),
+    ok = socket:send(S2, Data),
+    {ok, Data} = socket:recv(S3, DataSz, ?SECS(5)),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect timeout with data
+    Data = <<"0123456789">>,
+    ?P("[stream] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:send(S2, Data),
+    put(debug, true),
+    _ = socket:setopt(S3, otp, debug, true),
+    case os:type() of
+        {unix, _} ->
+            %% As of 28 we are back to this behaviour
+            {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5));
+        {win32, _} ->
+            {error, {timeout, Data}} = socket:recv(S3, 2*DataSz, ?SECS(5))
+    end,
+    _ = socket:setopt(S3, otp, debug, false),
+    put(debug, false),
+
+    ?P("[stream] cleanup"),
+    _ = socket:close(S3),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[stream] done"),
+    ok.
+
+
+do_otp19469_dgram(#{family := Fam} = LSA) ->
+
+    ?P("[dgram] create socket 1"),
+    {ok, S1} = socket:open(Fam, dgram),
+    ok = socket:bind(S1, LSA#{port => 0}),
+    {ok, SA1} = socket:sockname(S1),
+
+    ?P("[dgram] create socket 2"),
+    {ok, S2} = socket:open(Fam, dgram),
+    ok = socket:bind(S2, LSA#{port => 0}),
+
+    %% send and receive the same amount =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    DataSz = byte_size(Data),
+    ?P("[dgram] try send and recv ~w bytes", [DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    {ok, Data} = socket:recv(S1, DataSz, ?SECS(5)),
+    ?P("[dgram] success"),
+
+    %% send 10 bytes and try receive 20 bytes =>
+    %% expect plain success
+    Data = <<"0123456789">>,
+    ?P("[dgram] try send ~w bytes and recv ~w bytes", [DataSz, 2*DataSz]),
+    ok = socket:sendto(S2, Data, SA1),
+    %% On Windows the behaviour seems to depend on the (OS) version...
+    case socket:recv(S1, 2*DataSz, ?SECS(5)) of
+        {ok, Data} ->
+            ?P("[dgram] success"),
+            ok;
+        {error, {timeout, Data}} ->
+            ?P("[dgram] timeout success"),
+            ok;
+        {error, Reason} ->
+            ?P("unexpected error result:"
+               "~n   Reason: ~p", [Reason]),
+            ?FAIL({unexpected_failure, Reason})
+    end,
+
+    ?P("[dgram] cleanup"),
+    _ = socket:close(S2),
+    _ = socket:close(S1),
+
+    ?P("[dgram] done"),
     ok.
 
 

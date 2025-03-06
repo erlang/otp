@@ -8963,8 +8963,8 @@ sm_await_down(Pid, Mon, ExpRes) ->
 	    ok;
 	{'DOWN', Mon, process, Pid, UnexpRes} ->
 	    ?P("received unexpected process down message from ~p: "
-	       "~n   ~p, Expected:"
-               "~n   ~p", [Pid, UnexpRes, ExpRes]),
+	       "~n   ~p"
+	       "~n   Expected: ~p", [Pid, UnexpRes, ExpRes]),
 	    ct:fail({unexpected_down, UnexpRes, ExpRes})
     end.
 
