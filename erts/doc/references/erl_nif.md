@@ -722,7 +722,7 @@ calling NIF API functions. Functions exist for the following functionality:
   ```
 
   Initialization structure read by
-  [enif_open_resource_type_x](erl_nif.md#enif_open_resource_type_x)
+  [enif_open_resource_type_x](erl_nif.md#enif_open_resource_type_x) and
   [enif_init_resource_type](erl_nif.md#enif_init_resource_type).
 
 - **`ErlNifResourceDtor`{: #ErlNifResourceDtor }**

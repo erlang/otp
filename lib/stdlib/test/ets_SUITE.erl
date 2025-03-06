@@ -1113,17 +1113,18 @@ delete_all_objects_trap(Opts, Mode) ->
                 io:format("Wait for ets:delete_all_objects/1 to yield...\n", []),
                 Tester ! {ready, self()},
                 repeat_while(
-                  fun() ->
+                  fun(N) ->
                           case receive_any() of
                               {trace, Tester, out, {ets,internal_delete_all,2}} ->
-                                  false;
+                                  %% Wait for second reschedule as on DEBUG we get a forced trap
+                                  {N =:= 2, N+1};
                               "delete_all_objects done" ->
                                   ct:fail("No trap detected");
                               _M ->
                                   %%io:format("Ignored msg: ~p\n", [_M]),
-                                  true
+                                  {true, N}
                           end
-                  end),
+                  end, 1),
                 case Mode of
                     unfix ->
                         io:format("Unfix table and then exit...\n",[]),
