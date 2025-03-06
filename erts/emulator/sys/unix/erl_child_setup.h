@@ -52,11 +52,11 @@ typedef unsigned long long ErtsSysPortId;
 
 typedef struct ErtsSysForkerProto_ {
     enum {
-        ErtsSysForkerProtoAction_Start,
-        ErtsSysForkerProtoAction_StartAck,
-        ErtsSysForkerProtoAction_Go,
-        ErtsSysForkerProtoAction_SigChld,
-        ErtsSysForkerProtoAction_Ack
+        ErtsSysForkerProtoAction_Start,     /* Command to spawn a new OS process */
+        ErtsSysForkerProtoAction_StartAck,  /* Response to guarantee that start was not lost */
+        ErtsSysForkerProtoAction_Go,        /* Response after the child process is forked */
+        ErtsSysForkerProtoAction_SigChld,   /* Response when a child process stops */
+        ErtsSysForkerProtoAction_Ack        /* Acknowledgement of Go, allowing the child to start */
     } action;
     union {
         struct {
