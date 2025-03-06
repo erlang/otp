@@ -154,13 +154,9 @@ update_revision(
                 deep_replace(OldID, NewID, ScanResult)).
 
 deep_replace(Old, New, Map) when is_map(Map) ->
-    maps:from_list(
-      lists:map(
-        fun({Key, Value}) ->
-                {deep_replace(Old, New, Key), deep_replace(Old, New, Value)}
-        end,
-        maps:to_list(Map))
-     );
+    maps:fold(fun (K, V, Acc) ->
+                      Acc#{deep_replace(Old, New, K) => deep_replace(Old, New, V)}
+              end, #{}, Map);
 deep_replace(Old, New, List) when is_list(List) ->
     lists:sort(lists:map(fun(Item) -> deep_replace(Old, New, Item) end, List));
 deep_replace(Old, New, Value) when is_binary(Value) ->
