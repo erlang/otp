@@ -377,8 +377,21 @@ end_per_group(_GroupName, _Config) ->
     ok.
 
 init_per_testcase(Func, Conf) ->
-    case proplists:is_defined(effort, Conf) of
-        false ->
+    PerfRecord = proplists:get_value(perf_record, Conf, false),
+    Effort = proplists:is_defined(effort, Conf),
+    if
+        PerfRecord ->
+            case atom_to_list(Func) of
+                "throughput_65536" ->
+                    Conf;
+                "throughput_"++_ ->
+                    {skipped, "Don't perf record all sizes"};
+                _ ->
+                    Conf
+            end;
+        Effort ->
+            Conf;
+        true ->
             %% Not a benchmark run
             case atom_to_list(Func) of
                 "throughput_64" ->
@@ -387,9 +400,7 @@ init_per_testcase(Func, Conf) ->
                     {skipped, "Benchmarks run separately"};
                 _ ->
                     Conf
-            end;
-        true ->
-            Conf
+            end
     end.
 
 end_per_testcase(_Func, _Conf) ->
@@ -1529,7 +1540,7 @@ perf_starter(Name, Config) ->
                      %% will per default write the collected data to it
                      PerfCmd =
                          "perf record -p " ++ NodePid ++ " "
-                         "--output=" ++ Name ++ ".data --call-graph=fp",
+                         "--output=" ++ Name ++ ".data --call-graph=lbr",
                      ?CT_PAL("~nPerfCmd: ~s~n", [PerfCmd]),
                      _ = spawn_link(
                            fun () ->
