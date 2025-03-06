@@ -7607,12 +7607,24 @@ ttest_manager_loop() ->
             ?LOGGER:format("manager stopping~n", []),
             ttest_manager_done();
 
-        #ttest_report{id    = _ID,
+        #ttest_report{id    = ID,
                       time  = _RunTime,
                       bytes = _NumBytes,
                       msgs  = _NumMsgs} = Report ->
-            true = ets:insert_new(?TTEST_MANAGER, Report),
-            ttest_manager_loop()
+            %% true = ets:insert_new(?TTEST_MANAGER, Report),
+            %% ttest_manager_loop()
+            case ets:insert_new(?TTEST_MANAGER, Report) of
+		true ->
+		    ttest_manager_loop();
+		false ->
+		    [Current] = ets:lookup(?TTEST_MANAGER, ID),
+		    ?LOGGER:format("manager received duplicate report:"
+				   "~n   ID:      ~p"
+				   "~n   Current: ~p"
+				   "~n   New:     ~p"
+				   "~n", [ID, Current, Report]),
+		    ttest_manager_loop()
+	    end
     end.
 
 %% We are supposed to pretty print the result here...

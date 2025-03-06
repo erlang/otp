@@ -4938,10 +4938,42 @@ or if the OS reports an error for the operation.
 [](){: #recv-timeout }
 
 If the `Timeout` argument is a time-out value
-(`t:non_neg_integer/0`); return `{error, timeout}`
+(`t:non_neg_integer/0`); on Windows return `{error, timeout}`
 if no data has arrived after `Timeout` milliseconds,
 or `{error, {timeout, Data}}` if some but not enough data
 has been received on a socket of [type `stream`](`t:type/0`).
+It *can* also return directly with `{ok, Data}` ([type `dgram`](`t:type/0`)).
+On Unix, if will return `{error, timeout}` either if no data
+has arrived or if not enough data (Length > 0) has arrived.
+It is then up to the caller to make another all to see if 
+some data has arrived (and was stored internally):
+
+
+```erlang
+    case socket:recv(Socket, 10, 5000) of
+        {ok, Data} -> % 10 bytes of data
+            "Do something with this data..."
+            ok;
+
+        {error, timeout} ->
+            %% We *may* have gotten *some* data, just less then 10,
+            %% so try read again.
+            case socket:recv(Socket, 0, 0) of
+                {ok, Data} -> % We *did* get some data
+                    "Do something with this data..."
+                    ok;
+                {error, timeout} -> % Actually nothing to read
+                    :
+                {error, _} -> % Proper error
+                    :
+            end;                    
+
+        {error, {timeout, Data}} -> % Only on Windows
+            "Do something with this data..."
+            ok;
+        :
+```
+
 
 `Timeout = 0` only polls the OS receive call and doesn't
 engage the Asynchronous Calls mechanisms.  If no data
@@ -4966,8 +4998,8 @@ at the start of this module reference manual page.
 On `select` systems, for a socket of type [`stream`](`t:type/0`),
 if `Length > 0` and there isn't enough data available, this function
 will return [`{select, {SelectInfo, Data}}`](`t:select_info/0`)
-with partial `Data`.  A repeated call to complete the operation
-will probably need an updated `Length` argument.
+with partial `Data`. A repeated call to complete the operation
+mey need an updated `Length` argument.
 """.
 -spec recv(Socket, Length, Flags, Timeout :: 'infinity') ->
           {'ok', Data} |
@@ -5121,10 +5153,12 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 %% if got 0, type == STREAM                             -> {error, closed}
 %% if got full buffer ->
 %%     if asked for 0, type == STREAM ->
-%%         if rNum =< rNumCnt                           -> {ok, Bin}
-%%         else rNumCnt < rNum                          -> {more, Bin}
-%%         end
-%%     else asked for N; type != STREAM                 -> {ok, Bin}
+%%         if OS /= Windows ->
+%%             if rNum =< rNumCnt                       -> {ok, Bin}
+%%             else rNumCnt < rNum                      -> {more, Bin}
+%%             end
+%%         else                                         -> {ok, Bin}
+%%     else                                             -> {ok, Bin}
 %%     end
 %% else got less than buffer ->
 %%     if asked for N, type == STREAM ->
@@ -5145,9 +5179,40 @@ recv_nowait(SockRef, Length, Flags, Handle) ->
 recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
     Handle = make_ref(),
     case prim_socket:recv(SockRef, Length, Flags, Handle) of
-        {more, Bin} -> % Type = stream, Length = 0, default buffer filled
-            0 = Length,
-            recv_zero(SockRef, Length, Flags, [Bin]);
+        {more, Bin} when (Length =:= 0) ->
+            %% There may be more data available
+            %% - repeat unless time's up
+            %%
+            %% Not on Windows:
+            %% Do not yet use the rNum and rNumCnt fields,
+            %% so cannot break the read loop, and will therefor
+            %% never return '{more, Bin}' in this case!
+            %%
+            %% Type = stream, Length = 0, default buffer filled
+            %%
+            %% Note that Buf "should" be empty in this case, but
+            %% just in case...
+            recv_zero(SockRef, Length, Flags, [Bin | Buf]);
+
+        %% This next two cases are Windows only
+        {more, Bin} when (Length =:= byte_size(Bin)) ->
+            %% We got the last chunk
+            {ok, condense_buffer([Bin | Buf])};
+        {more, Bin} 
+          when (Length > byte_size(Bin)) ->
+            %% There may be more data available
+            %% - repeat unless time's up
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    %% Recv more
+                    recv_deadline(
+                      SockRef, Length-byte_size(Bin),
+		      Flags, Deadline, [Bin | Buf]);
+                true ->
+                    {ok, condense_buffer([Bin | Buf])}
+            end;
+
         %%
         {select, Bin} ->
             %% We got less than requested on a stream socket
@@ -5173,7 +5238,6 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
         select
           when 0 < Length;   % Requested a specific amount of data
                Buf =:= [] -> % or Buf empty (and requested any amount of data)
-            %%
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
             Timeout = timeout(Deadline),
@@ -5195,65 +5259,80 @@ recv_deadline(SockRef, Length, Flags, Deadline, Buf) ->
             end;
         %%
         select -> % Length is 0 (request any amount of data), Buf not empty
-            %%
             %% We first got some data and are then asked to wait,
             %% but what we already got will do just fine;
             %% - cancel and return what we have
             _ = cancel(SockRef, recv, Handle),
             {ok, condense_buffer(Buf)};
+
         %%
         completion ->
-            %% There is nothing just now, but we will be notified when the
-            %% data has been read (with a completion message).
+            %% There is nothing just now, but we will be notified
+	    %% when the data has been read (with a completion message).
+	    %%
+	    %% Since these (completion-) messages can also be received
+	    %% directly by the user (nowait), the I/O completion threads
+	    %% do not use the more-construct.
+	    %% But since there is no conflict with how the sync I/O backend
+	    %% (essio = unix) here, they can instead safely send {ok, Bin}
+	    %% and let us handle possible loop'ing...
+	    %%
             Timeout = timeout(Deadline),
             receive
-                ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
-                  when Length =:= 0 ->
-                    {ok, condense_buffer([Bin | Buf])};
-                ?socket_msg(?socket(SockRef), completion,
-                            {Handle, {ok, Bin}})
-                  when Length =:= byte_size(Bin) ->
-                    {ok, condense_buffer([Bin | Buf])};
+                %% On Windows we are *always* done when we get {ok, Bin}
+                %% If we should/can read more, the result is {more, Bin}
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {ok, Bin}}) ->
-                    if
-                        0 < Timeout ->
-                            %% Recv more
-                            recv_deadline(
-                              SockRef, Length - byte_size(Bin), Flags,
-                              Deadline, [Bin | Buf]);
-                        true ->
-                            recv_error([Bin | Buf], timeout)
-                    end;
+                    {ok, condense_buffer([Bin | Buf])};
+
+                %% Do we actually (currently) ever get this when Length =:= 0?
+                %% Future proofing?
+                %% This actually depends on the nif to stop reading
+                %% (stop returning 'more').
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) when (Length =:= 0) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length, Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
+                %% We got the last chunk
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}})
+                  when (Length =:= byte_size(Bin)) ->
+                    {ok, condense_buffer([Bin | Buf])};
+
+                %% Just another chunk, but not the last
+                ?socket_msg(?socket(SockRef), completion,
+			    {Handle, {more, Bin}}) ->
+		    if
+			0 < Timeout ->
+			    %% Recv more
+			    recv_deadline(
+			      SockRef, Length - byte_size(Bin), Flags,
+			      Deadline, [Bin | Buf]);
+			true ->
+			    {error, {timeout, condense_buffer([Bin | Buf])}}
+		    end;
+
                 ?socket_msg(?socket(SockRef), completion,
                             {Handle, {error, Reason}}) ->
                     recv_error(Buf, Reason);
+
                 ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                    {error, Reason}
+                    recv_error(Buf, Reason)
+
             after Timeout ->
                     _ = cancel(SockRef, recv, Handle),
                     recv_error(Buf, timeout)
             end;
 
-
-        %% All requested data
-        {ok, Bin} when (Length =:= 0) orelse
-                       (Length =:= byte_size(Bin)) -> % All requested data
+        {ok, Bin} ->
             {ok, condense_buffer([Bin | Buf])};
-
-        {ok, Bin} -> % Only part of the requested data
-            Timeout = timeout(Deadline),
-            if
-                0 < Timeout ->
-                    %% Recv more
-                    recv_deadline(
-                      SockRef, Length - byte_size(Bin), Flags,
-                      Deadline, [Bin | Buf]);
-                true ->
-                    recv_error([Bin | Buf], timeout)
-            end;
-
 
         %%
         {error, Reason} ->
@@ -6732,6 +6811,11 @@ flush_abort_msg(SockRef, Ref) ->
 %%
 %% ===========================================================================
 
+%% sz(B) when is_binary(B) ->
+%%     byte_size(B);
+%% sz(L) when is_list(L) ->
+%%     iolist_size(L).
+
 deadline(Timeout) ->
     case Timeout of
         nowait ->
@@ -6805,8 +6889,22 @@ f(F, A) ->
 %%                       [YYYY, MM, DD, Hour, Min, Sec] ++ ArgsExtra),
 %%     lists:flatten(FormatDate).
 
-%% p(F) ->
-%%     p(F, []).
+
+%% d(F) ->
+%%     %% d(get(debug), F, []).
+%%     d(true, F, []).
+
+%% d(F, A) ->
+%%     %% d(get(debug), F, A).
+%%     d(true, F, A).
+
+%% d(true, F, A) ->
+%%     p(F, A);
+%% d(_, _, _) ->
+%%     ok.
+
+%% %% p(F) ->
+%% %%     p(F, []).
 
 %% p(F, A) ->
 %%     p(get(sname), F, A).

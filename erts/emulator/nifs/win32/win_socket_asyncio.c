@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2023-2024. All Rights Reserved.
+ * Copyright Ericsson AB 2023-2025. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -931,6 +931,7 @@ static ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                        ESockDescriptor* descP,
                                                        ErlNifEnv*       opEnv,
                                                        ESAIOOpDataRecv* opDataP,
+                                                       DWORD            toRead,
                                                        ssize_t          read,
                                                        DWORD            flags);
 static void esaio_completion_recv_not_active(ESockDescriptor* descP);
@@ -4247,9 +4248,61 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
-                        "recv_check_ok(%T, %d) -> complete success"
-                        "\r\n", sockRef, descP->sock) );
+                        "recv_check_ok(%T, %d) -> complete success (%d)"
+                        "\r\n", sockRef, descP->sock, read) );
+
+                /* There *may* be more data available,
+                 * so we could return {more, Bin}. But that requires
+                 * the use of rNum and rNumCnt to work properly.
+                 * (otherwise we may end up in an infinite read loop).
+                 * But sine we do not (yet) have those fields on Windows,
+                 * we will just return {ok, Bin} and be done with it.
+                 *
+                 * This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+
+                /*
+                 * result = recv_check_ok_maybe_done(env, descP, read,
+                 *                                   &opP->data.recv.buf,
+                 *                                   sockRef, recvRef);
+                 */
+
+                data = MKBIN(env, &opP->data.recv.buf);
+
+                eres = esock_make_ok2(env, data);
+
+            } else if ((toRead == 0) ||
+                       (descP->type != SOCK_STREAM)) {
+
+                /* On Windows, we do not (yet) use rNum and rNumCnt,
+                 * so we can't loop when we do not specify a actual
+                 * length (toRead = 0). Therefor, when toRead = 0 we
+                 * stop reading directly and return {ok, Data}.
+                 */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_ok(%T, %d) -> complete success (%d, %d)"
+                        "\r\n",
+                        sockRef, descP->sock, read, opP->data.recv.buf.size) );
+
+                ESOCK_ASSERT( REALLOC_BIN(&opP->data.recv.buf, read) );
+
+                /* This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+                data = MKSBIN(env, data, 0, read);
+
+                eres = esock_make_ok2(env, data);
+
             } else {
+                
+                /*
+                 * We did not get everything we asked for,
+                 * make another attempt: {more, Data}
+                 */
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
@@ -4257,11 +4310,17 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                         "\r\n", sockRef, descP->sock, read) );
 
                 ESOCK_ASSERT( REALLOC_BIN(&opP->data.recv.buf, read) );
+
+                /*
+                 * This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+                data = MKSBIN(env, data, 0, read);
+
+                eres = MKT2(env, esock_atom_more, data);
+
             }
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            data = MKBIN(env, &opP->data.recv.buf);
 
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_pkg, &descP->readPkgCnt, 1);
@@ -4271,8 +4330,6 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             /* (maybe) Update max */
             if (read > descP->readPkgMax)
                 descP->readPkgMax = read;
-
-            eres = esock_make_ok2(env, data);
 
         }
 
@@ -4321,7 +4378,8 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_timeout; // Will trigger {error, timeout}
+                    // Will trigger {error, timeout}
+                    eres = esock_atom_timeout;
 
                 }
             }
@@ -4603,7 +4661,13 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
 
                 } else {
 
-                    eres = esock_atom_timeout; // Will trigger {error, timeout}
+                    /*
+                     * Operation successfully canceled!
+                     *
+                     * Returning 'timeout' will trigger {error, timeout}
+                     */
+
+                    eres = esock_atom_timeout;
 
                 }
 
@@ -9019,13 +9083,15 @@ void esaio_completion_recv_failure(ErlNifEnv*       env,
                       esock_atom_completion_status,
                       ENO2T(env, error));
 
-        /* Inform the user waiting for a reply */
+        /* Inform (send abort) the user waiting for the reply */
         esock_send_abort_msg(env, descP, opDataP->sockRef,
                              &req, reason);
         esaio_completion_recv_fail(env, descP, error, FALSE);
 
     } else {
+
         esaio_completion_recv_fail(env, descP, error, TRUE);
+
     }
 
     FREE_BIN( &opDataP->buf );
@@ -9297,7 +9363,8 @@ ERL_NIF_TERM esaio_completion_recv_partial(ErlNifEnv*       env,
 
         res = esaio_completion_recv_partial_part(env, descP,
                                                  opEnv, opDataP,
-                                                 read, flags);
+                                                 toRead, read,
+                                                 flags);
     }
 
     SSDBG( descP,
@@ -9376,6 +9443,7 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
                                                 ErlNifEnv*       opEnv,
                                                 ESAIOOpDataRecv* opDataP,
+                                                DWORD            toRead,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {

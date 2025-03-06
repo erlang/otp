@@ -131,7 +131,7 @@ effects _that_ specific socket).
 ## Example
 
 This example is intended to show how to create a simple (echo) server
-(and client).
+(and client), handling both 'select' and 'completion' (Unix and Windows).
 
 ```erlang
 -module(example).
@@ -173,8 +173,9 @@ client(ServerPort, ServerAddr, Msg)
 client_exchange(Sock, Msg) when is_list(Msg) ->
     client_exchange(Sock, list_to_binary(Msg));
 client_exchange(Sock, Msg) when is_binary(Msg) ->
-    ok = socket:send(Sock, Msg, infinity),
+    ok        = socket:send(Sock, Msg, infinity),
     {ok, Msg} = socket:recv(Sock, byte_size(Msg), infinity),
+    ok        = socket:close(Sock),
     ok.
 
 
@@ -237,15 +238,78 @@ acceptor_init(Parent, LSock) ->
 	{Parent, continue} ->
 	    ok
     end,
-    acceptor_loop(LSock).
+    acceptor_loop(LSock, undefined).
 
-acceptor_loop(LSock) ->
-    case socket:accept(LSock, infinity) of
+acceptor_loop(LSock, undefined = Info) ->
+    case socket:accept(LSock, nowait) of
 	{ok, ASock} ->
 	    start_handler(ASock),
-	    acceptor_loop(LSock);
+	    acceptor_loop(LSock, Info);
+	{select, SelectInfo} ->
+	    acceptor_loop(LSock, SelectInfo);
+	{completion, CompletionInfo} ->
+	    acceptor_loop(LSock, CompletionInfo);
 	{error, Reason} ->
 	    erlang:error({accept_failed, Reason})
+    end;
+
+acceptor_loop(LSock, {select_info, accept, SelectHandle}) ->
+    receive
+	{'$socket', LSock, select, SelectHandle} ->
+	    case socket:accept(LSock, SelectHandle) of
+		{ok, ASock} ->
+		    start_handler(ASock),
+		    acceptor_loop(LSock, undefined);
+
+		{select, NewSelectInfo} ->
+		    acceptor_loop(LSock, NewSelectInfo);
+
+		{error, Reason} ->
+		    case Reason of
+			closed ->
+			    exit(normal);
+			_ ->
+			    erlang:error({select, accept, Reason})
+		    end
+	    end;
+
+	{'$socket', LSock, abort, {SelectHandle, Reason}} ->
+	    case Reason of
+		closed ->
+		    exit(normal);
+		_ ->
+		    erlang:error({select, abort, Reason})
+	    end
+
+    end;
+	
+%% This is the (asyncronous) behaviour on platforms that support 'completion',
+%% currently only Windows.
+acceptor_loop(LSock, {completion_info, accept, CompletionHandle}) ->
+    receive
+	{'$socket', LSock, completion, {CompletionHandle, CompletionStatus}} ->
+	    case CompletionStatus of
+		{ok, ASock} ->
+		    start_handler(ASock),
+		    acceptor_loop(LSock, undefined);
+
+		{error, Reason} ->
+		    case Reason of
+			closed ->
+			    exit(normal);
+			_ ->
+			    erlang:error({completion, accept, Reason})
+		    end
+	    end;
+
+	{'$socket', LSock, abort, {CompletionHandle, Reason}} ->
+	    case Reason of
+		closed ->
+		    exit(normal);
+		_ ->
+		    erlang:error({completion, abort, Reason})
+	    end
+
     end.
 
 
@@ -289,7 +353,15 @@ handler_loop(Sock, undefined) ->
 	    handler_loop(Sock, CompletionInfo);
 
 	{error, Reason} ->
-	    erlang:error({recv_failed, Reason})
+	    io:format("handle_loop(undef) -> error: "
+		      "~n   Reason: ~p"
+		      "~n", [Reason]),
+	    case Reason of
+		closed ->
+		    exit(normal);
+		_ ->
+		    erlang:error({recv_failed, Reason})
+	    end
     end;
 
 %% This is the standard (asyncronous) behaviour.
@@ -305,8 +377,22 @@ handler_loop(Sock, {select_info, recv, SelectHandle}) ->
 		    handler_loop(Sock, NewSelectInfo);
 
 		{error, Reason} ->
-		    erlang:error({recv_failed, Reason})
+		    case Reason of
+			closed ->
+			    exit(normal);
+			_ ->
+			    erlang:error({select, recv, Reason})
+		    end
+	    end;
+
+	{'$socket', Sock, abort, {SelectHandle, Reason}} ->
+	    case Reason of
+		closed ->
+		    exit(normal);
+		_ ->
+		    erlang:error({select, abort, Reason})
 	    end
+
     end;
 
 %% This is the (asyncronous) behaviour on platforms that support 'completion',
@@ -319,8 +405,22 @@ handler_loop(Sock, {completion_info, recv, CompletionHandle}) ->
 		    echo(Sock, Data),
 		    handler_loop(Sock, undefined);
 		{error, Reason} ->
-		    erlang:error({recv_failed, Reason})
+		    case Reason of
+			closed ->
+			    exit(normal);
+			_ ->
+			    erlang:error({completion, Reason})
+		    end
+	    end;
+
+	{'$socket', Sock, abort, {CompletionHandle, Reason}} ->
+	    case Reason of
+		closed ->
+		    exit(normal);
+		_ ->
+		    erlang:error({abort, Reason})
 	    end
+
     end.
 
 echo(Sock, Data) when is_binary(Data) ->
@@ -353,7 +453,10 @@ get_local_addr(Family) ->
     Filter =
 	fun(#{addr  := #{family := Fam},
 	      flags := Flags}) ->
-		(Fam =:= Family) andalso (not lists:member(loopback, Flags));
+		(Fam =:= Family) andalso
+		    lists:member(up, Flags) andalso
+		    lists:member(running, Flags) andalso
+		    (not lists:member(loopback, Flags));
 	   (_) ->
 		false
 	end,
