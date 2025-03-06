@@ -123,6 +123,7 @@ i_hibernate() {
 
     erts_hibernate(c_p, reg, 0);
 
+    c_p->flags &= ~F_HIBERNATE_SCHED;
     c_p->arg_reg[0] = am_ok;
     c_p->arity = 1;
 
