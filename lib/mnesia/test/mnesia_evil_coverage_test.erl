@@ -176,7 +176,7 @@ table_info(Config) when is_list(Config) ->
     Size = 10,
     Keys = lists:seq(1, Size),
     Records = [{Tab, A, 7} || A <- Keys],
-    lists:foreach(fun(Rec) -> ?match(ok, mnesia:dirty_write(Rec)) end, Records),
+    mnesia:sync_dirty(fun() -> lists:foreach(fun(Rec) -> ?match(ok, mnesia:write(Rec)) end, Records) end),
 
     case mnesia_test_lib:diskless(Config) of
 	true -> 
