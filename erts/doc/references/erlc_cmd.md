@@ -241,7 +241,8 @@ of situations that force a restart:
 
 ## Environment Variables
 
-- **`ERLC_EMULATOR`** - The command for starting the emulator. Defaults to `erl`
+- **`ERLC_EMULATOR`** - The command for starting the emulator, which must be
+  just the path for the emulator without any parameters. Defaults to `erl`
   in the same directory as the `erlc` program itself, or, if it does not exist,
   `erl` in any of the directories specified in environment variable `PATH`.
 
