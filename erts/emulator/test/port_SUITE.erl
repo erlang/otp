@@ -130,6 +130,8 @@
     stream_small/1,
     t_binary/1,
     t_exit/1,
+    terminate_children_on_halt/1,
+    terminate_children_on_killed/1,
     tps_16_bytes/1,
     tps_1K/1,
     unregister_name/1,
@@ -178,6 +180,8 @@ all() ->
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
      spawn_executable, close_deaf_port, unregister_name,
+     terminate_children_on_halt,
+     terminate_children_on_killed,
      port_setget_data,
      parallelism_option,
      mon_port_invalid_type,
@@ -1698,6 +1702,61 @@ spawn_executable(Config) when is_list(Config) ->
             test_sh_file(SpaceDir)
     end,
     ok.
+
+
+terminate_children_on_halt(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileWhileAlive = os:find_executable("file_while_alive", DataDir),
+    TmpFile = filename:join(PrivDir, "file_while_alive_file"),
+    ok = file:write_file(TmpFile, ""),
+
+    Port = open_port({spawn_executable, os:find_executable("erl")}, [
+        {args, ["-noshell", "-eval",
+            "Port_1 = open_port(" ++
+                "{spawn_executable, \"" ++ FileWhileAlive ++ "\"}," ++
+                "[{args, [\"" ++ TmpFile ++ "\"]}, use_stdio, in])," ++
+            "receive {Port_1, {data, \"waiting.\"}} -> ok " ++
+            "after 10000 -> error(no_child) end," ++
+            "halt()."
+        ]},
+        exit_status
+    ]),
+    true = is_port(Port),
+    receive
+        {Port, {exit_status, 0}} -> ok;
+        {Port, {exit_status, _}} -> ?assert(false)
+    after 10000 -> ?assert(false) end,
+    receive after 1000 -> ok end,
+    {error, enoent} = file:read_file(TmpFile),
+    ok.
+
+
+terminate_children_on_killed(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileWhileAlive = os:find_executable("file_while_alive", DataDir),
+    TmpFile = filename:join(PrivDir, "file_while_alive_file"),
+    ok = file:write_file(TmpFile, ""),
+
+    Port = open_port({spawn_executable, os:find_executable("erl")}, [
+        {args, ["-noshell", "-eval",
+            "Port_1 = open_port(" ++
+                "{spawn_executable, \"" ++ FileWhileAlive ++ "\"}," ++
+                "[{args, [\"" ++ TmpFile ++ "\", os:getpid()]}])," ++
+            "receive after 10000 -> error(not_killed) end."
+        ]},
+        exit_status
+    ]),
+    true = is_port(Port),
+    receive
+        {Port, {exit_status, 0}} -> ?assert(false);
+        {Port, {exit_status, _}} -> ok
+    after 10000 -> ?assert(false) end,
+    receive after 1000 -> ok end,
+    {error, enoent} = file:read_file(TmpFile),
+    ok.
+
 
 unregister_name(Config) when is_list(Config) ->
     Cmd = case os:getenv("WSLENV") of
