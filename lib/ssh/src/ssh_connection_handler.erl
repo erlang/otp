@@ -1329,40 +1329,42 @@ handle_event({call,From},
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of
 	report ->
-	    Msg = lists:flatten(
-		    io_lib:format(
-                      "*** SSH: "
-		      "Unexpected message '~p' received in state '~p'\n"
-		      "Role: ~p\n"
-		      "Peer: ~p\n"
-		      "Local Address: ~p\n",
-                      [UnexpectedMessage,
-                       StateName,
-                       Ssh#ssh.role,
-                       Ssh#ssh.peer,
-                       ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)])),
-            ?SSH_NOTICE_REPORT(Msg, []),
+	    MsgFun =
+                ?LAZY(lists:flatten(
+                        io_lib:format(
+                          "*** SSH: "
+                          "Unexpected message '~p' received in state '~p'\n"
+                          "Role: ~p\n"
+                          "Peer: ~p\n"
+                          "Local Address: ~p\n",
+                          [UnexpectedMessage,
+                           StateName,
+                           Ssh#ssh.role,
+                           Ssh#ssh.peer,
+                           ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]))),
+            ?SSH_NOTICE_REPORT("~s", [MsgFun]),
 	    keep_state_and_data;
 
 	skip ->
 	    keep_state_and_data;
 
 	Other ->
-	    Msg = lists:flatten(
-		    io_lib:format("*** SSH: "
-                                  "Call to fun in 'unexpectedfun' failed:~n"
-				  "Return: ~p\n"
-				  "Message: ~p\n"
-				  "Role: ~p\n"
-				  "Peer: ~p\n"
-				  "Local Address: ~p\n",
-                                  [Other,
-                                   UnexpectedMessage,
-                                   Ssh#ssh.role,
-                                   Ssh#ssh.peer,
-                                   ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]
-				 )),
-            ?SSH_ERROR_REPORT(Msg, []),
+	    MsgFun =
+                ?LAZY(lists:flatten(
+                        io_lib:format("*** SSH: "
+                                      "Call to fun in 'unexpectedfun' failed:~n"
+                                      "Return: ~p\n"
+                                      "Message: ~p\n"
+                                      "Role: ~p\n"
+                                      "Peer: ~p\n"
+                                      "Local Address: ~p\n",
+                                      [Other,
+                                       UnexpectedMessage,
+                                       Ssh#ssh.role,
+                                       Ssh#ssh.peer,
+                                       ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]
+                                     ))),
+            ?SSH_ERROR_REPORT("~s", [MsgFun]),
 	    keep_state_and_data
     end;
 

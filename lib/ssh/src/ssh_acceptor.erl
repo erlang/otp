@@ -149,19 +149,20 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
         {max_sessions, MaxSessions} ->
             ?SSH_NOTICE_REPORT("Ssh login attempt to ~s from ~s denied due to "
                                "option max_sessions limits to ~B sessions.",
-                               [ssh_lib:format_address_port(ToAddress,ToPort),
-                                ssh_lib:format_address_port(FromAddress,FromPort),
+                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
+                                ?LAZY(ssh_lib:format_address_port(FromAddress,FromPort)),
                                 MaxSessions]);
 
         Limit when Limit==enfile ; Limit==emfile ->
             %% Out of sockets...
             ?SSH_NOTICE_REPORT("~s: out of accept sockets on ~s - retrying",
-                               [atom_to_list(Limit), ssh_lib:format_address_port(ToAddress, ToPort)]),
+                               [?LAZY(atom_to_list(Limit)),
+                                ?LAZY(ssh_lib:format_address_port(ToAddress, ToPort))]),
             timer:sleep(?SLEEP_TIME);
 
         closed ->
             ?SSH_NOTICE_REPORT("The ssh accept socket on ~s was closed by a third party.",
-                               [ssh_lib:format_address_port(ToAddress,ToPort)]);
+                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort))]);
 
         timeout ->
             ok;
@@ -171,12 +172,12 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
         Error when FromAddress=/=undefined,
                    FromPort=/=undefined ->
             ?SSH_NOTICE_REPORT("Accept failed on ~s for connect from ~s: ~p",
-                               [ssh_lib:format_address_port(ToAddress,ToPort),
-                                ssh_lib:format_address_port(FromAddress,FromPort),
+                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
+                                ?LAZY(ssh_lib:format_address_port(FromAddress,FromPort)),
                                 Error]);
         Error ->
             ?SSH_NOTICE_REPORT("Accept failed on ~s: ~p",
-                               [ssh_lib:format_address_port(ToAddress,ToPort),
+                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
                                 Error])
     end.
 
