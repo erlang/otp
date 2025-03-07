@@ -2,7 +2,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -120,6 +120,6 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-15.0","crypto-4.5",
+  {runtime_dependencies, ["sasl-3.0","kernel-10.0","erts-@OTP-19503@","crypto-4.5",
 			  "compiler-5.0", "syntax_tools-3.2.1"]}
 ]}.
