@@ -189,11 +189,11 @@ comm_err(<<"ugly().">>),
 comm_err(<<"1 - 2.">>),
 %% Make sure we test all local shell functions in a restricted shell.
 LocalFuncs = shell:local_func(),
-[] = lists:subtract(LocalFuncs, [v,h,b,f,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
+[] = lists:subtract(LocalFuncs, [v,h,b,f,fd,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
 
 LocalFuncs2 = [
     <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
-    <<"fl()">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
+    <<"fl()">>, <<"fd(a, fun(X)->X end,\"a(X)->X.\")">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
     <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
     <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>, <<"tf()">>, <<"tf(hej)">>, 
     <<"save_module(\"src/my_module.erl\")">>, <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
@@ -519,6 +519,19 @@ records(Config) when is_list(Config) ->
                  ">>,
     ok = file:write_file(Test, Contents),
     {ok, test} = compile:file(Test, [{outdir, BeamDir}]),
+
+    ErrorMod = """
+        -module(error_record_init).
+        -export([t/0]).
+        -record(r_error, {a=case 1 of X -> X=2 end}).
+        t() ->
+            #r_error{}.
+    """,
+    ErrorModFile = filename:join(proplists:get_value(priv_dir, Config), "error_record_init.erl"),
+    ok = file:write_file(ErrorModFile, ErrorMod),
+    {ok, error_record_init} = compile:file(ErrorModFile, [outdir, BeamDir]),
+    "** exception error: no match of right hand side value 2\n     in record default value (" ++ Rest1 = t("error_record_init:t()."),
+    true = (nomatch =/= string:find(Rest1, "error_record_init.erl, line 5).\n", trailing)),
 
     RR5 = "rr(\"" ++ Test ++ "\", '_', {d,test1}), rl([test1,test2]).",
     A1 = erl_anno:new(1),
