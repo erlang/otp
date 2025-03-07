@@ -1,3 +1,6 @@
+SPDX-License-Identifier: Apache-2.0
+SPDX-FileCopyrightText: Copyright Ericsson AB 2025. All Rights Reserved.
+
 Unicode 16.0.0 was updated from:
 - https://www.unicode.org/Public/16.0.0/ucd/
 - https://www.unicode.org/Public/16.0.0/ucd/auxiliary/
