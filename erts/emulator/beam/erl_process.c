@@ -6423,12 +6423,12 @@ check_dirty_enqueue_in_prio_queue(Process *c_p,
 	return ERTS_ENQUEUE_NORMAL_QUEUE;
     }
 
-    if (actual & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
-		  | ERTS_PSFLG_DIRTY_CPU_PROC)) {
+    if ((*newp) & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                   | ERTS_PSFLG_DIRTY_CPU_PROC)) {
 	queue = ERTS_ENQUEUE_DIRTY_CPU_QUEUE;
     }
     else {
-	ASSERT(actual & ERTS_PSFLG_DIRTY_IO_PROC);
+	ASSERT((*newp) & ERTS_PSFLG_DIRTY_IO_PROC);
 	queue = ERTS_ENQUEUE_DIRTY_IO_QUEUE;
     }
 
@@ -6616,7 +6616,7 @@ static ERTS_INLINE int
 schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 		     Process *proxy, int is_normal_sched)
 {
-    erts_aint32_t a, e, n, enq_prio = -1, running_flgs;
+    erts_aint32_t a, e, n, enq_prio = -1, set_psflags = 0, unset_psflags = 0;
     int enqueue; /* < 0 -> use proxy */
     ErtsRunQueue* runq;
 
@@ -6626,41 +6626,46 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
            || (BeamIsOpCode(*(const BeamInstr*)p->i, op_call_nif_WWW)
                || BeamIsOpCode(*(const BeamInstr*)p->i, op_call_bif_W)));
 
-    /*
-     * Clear or set active-sys if needed...
-     *
-     * active-sys should be set if sig-q, nmsg-sig-in-q or sys-tasks is set
-     * and free is not set.
-     */
-    while (1) {
-        n = e = a;
-        if (a & ERTS_PSFLG_ACTIVE_SYS) {
-            if (a & (ERTS_PSFLG_SIG_Q
-                     | ERTS_PSFLG_NMSG_SIG_IN_Q
-                     | ERTS_PSFLG_SYS_TASKS)) {
-                break;
-            }
-            n &= ~ERTS_PSFLG_ACTIVE_SYS;
-        }
-        else {
-            if (!!(a & (ERTS_PSFLG_SIG_Q
-                        | ERTS_PSFLG_NMSG_SIG_IN_Q
-                        | ERTS_PSFLG_SYS_TASKS))
-                & !(a & ERTS_PSFLG_FREE)) {
-                n |= ERTS_PSFLG_ACTIVE_SYS;
-            }
-        }
-        a = erts_atomic32_cmpxchg_nob(&p->state, n, e);
-        if (a == e) {
-            a = n;
-            break;
-        }
+    if (!!(a & (ERTS_PSFLG_SIG_Q
+                | ERTS_PSFLG_NMSG_SIG_IN_Q
+                | ERTS_PSFLG_SYS_TASKS))
+        & !(a & (ERTS_PSFLG_ACTIVE_SYS
+                 | ERTS_PSFLG_FREE))) {
+        /*
+         * ERTS_PSFLG_ACTIVE_SYS should be set if any of ERTS_PSFLG_SIG_Q,
+         * ERTS_PSFLG_NMSG_SIG_IN_Q, or ERTS_PSFLG_SYS_TASKS are set and
+         * ERTS_PSFLG_FREE is not set. When a process is being scheduled out
+         * this might however not be the case if current process:
+         * - is being receive traced, and
+         * - has called erts_proc_sig_fetch() which have brought in a message
+         *   into the middle queue where no non-message signals exist (due to
+         *   being receive traced), and
+         * - is waiting in a 'receive' expression without clauses matching on
+         *   messages (timed wait), or is just not entering 'receive'
+         *   expressions for a very long time.
+         * ERTS_PSFLG_SIG_Q will in this case be set, but not
+         * ERTS_PSFLG_ACTIVE_SYS, so we need to set ERTS_PSFLG_ACTIVE_SYS.
+         * Otherwise, the message will not be receive traced until another
+         * non-message signal arrives, or the process time out and enter a
+         * 'receive' expression matching on messages.
+         *
+         * If ERTS_PSFLG_NMSG_SIG_IN_Q and/or ERTS_PSFLG_SYS_TASKS have been
+         * set, it has been done by another thread that later will set
+         * ERTS_PSFLG_ACTIVE_SYS and wake us up, so we do not necessarily need
+         * to set ERTS_PSFLG_ACTIVE_SYS if only ERTS_PSFLG_NMSG_SIG_IN_Q and/or
+         * ERTS_PSFLG_SYS_TASKS are set, but it is good to do in order to
+         * schedule the process at once instead of waiting for the wakeup.
+         */
+        set_psflags |= ERTS_PSFLG_ACTIVE_SYS;
     }
 
-    if (!is_normal_sched)
-	running_flgs = ERTS_PSFLG_DIRTY_RUNNING|ERTS_PSFLG_DIRTY_RUNNING_SYS;
+    if (!is_normal_sched) {
+        unset_psflags |= (ERTS_PSFLG_DIRTY_RUNNING
+                          | ERTS_PSFLG_DIRTY_RUNNING_SYS);
+    }
     else {
-	running_flgs = ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS;
+        unset_psflags |= (ERTS_PSFLG_RUNNING
+                          | ERTS_PSFLG_RUNNING_SYS);
         if ((a & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
             && (p->flags & (F_DELAY_GC|F_DISABLE_GC))) {
             /*
@@ -6676,16 +6681,12 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
                                  | F_DIRTY_CLA
                                  | F_DIRTY_GC_HIBERNATE)));
 
-            a = erts_atomic32_read_band_nob(&p->state,
-                                            ~ERTS_PSFLG_DIRTY_ACTIVE_SYS);
-            a &= ~ERTS_PSFLG_DIRTY_ACTIVE_SYS;
+            unset_psflags |= ERTS_PSFLG_DIRTY_ACTIVE_SYS;
         }
     }
 
     while (1) {
 	n = e = a;
-
-	ASSERT(a & running_flgs);
 
 	enqueue = ERTS_ENQUEUE_NOT;
 
@@ -6694,8 +6695,23 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
                || ((a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED))
                    == ERTS_PSFLG_ACTIVE));
 
-	n &= ~running_flgs;
-	if (a & (ERTS_PSFLG_ACTIVE_SYS
+        if ((a & (ERTS_PSFLG_ACTIVE_SYS
+                  | ERTS_PSFLG_SIG_Q
+                  | ERTS_PSFLG_NMSG_SIG_IN_Q
+                  | ERTS_PSFLG_SYS_TASKS))
+            == ERTS_PSFLG_ACTIVE_SYS) {
+            /*
+             * ERTS_PSFLG_ACTIVE_SYS should be set if any of ERTS_PSFLG_SIG_Q,
+             * ERTS_PSFLG_NMSG_SIG_IN_Q, or ERTS_PSFLG_SYS_TASKS are set. This
+             * is the only place where we clear ERTS_PSFLG_ACTIVE_SYS.
+             */
+            n &= ~ERTS_PSFLG_ACTIVE_SYS;
+        }
+
+        n |= set_psflags;
+        n &= ~unset_psflags;
+
+	if (n & (ERTS_PSFLG_ACTIVE_SYS
                  | ERTS_PSFLG_DIRTY_ACTIVE_SYS
                  | ERTS_PSFLG_ACTIVE)) {
 	    enqueue = check_enqueue_in_prio_queue(p, &enq_prio, &n, a);
@@ -6716,8 +6732,8 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
 	    /* Status lock prevents out of order "runnable proc" trace msgs */
 	    ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-	    if (!(a & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
-		&& (!(a & ERTS_PSFLG_ACTIVE) || (a & ERTS_PSFLG_SUSPENDED))) {
+	    if (!(n & (ERTS_PSFLG_ACTIVE_SYS|ERTS_PSFLG_DIRTY_ACTIVE_SYS))
+		&& (!(n & ERTS_PSFLG_ACTIVE) || (n & ERTS_PSFLG_SUSPENDED))) {
 		/* Process inactive */
 		profile_runnable_proc(p, am_inactive);
 	    }
