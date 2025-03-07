@@ -452,6 +452,7 @@ typedef struct {
      */
     ESockRequestor     currentReader;
     ESockRequestor*    currentReaderP; // NULL or &currentReader
+    ErlNifBinary       buf;
 #endif
     ESockRequestQueue  readersQ;
 
