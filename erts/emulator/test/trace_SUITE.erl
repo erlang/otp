@@ -30,6 +30,7 @@
          init_per_testcase/2, end_per_testcase/2,
          link_receive_call_correlation/0,
          receive_trace/1, receive_trace_non_fetching_receiver/1,
+         receive_trace_priority_messages/1,
          link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
@@ -69,6 +70,7 @@ groups() ->
 
 testcases() ->
     [cpu_timestamp, receive_trace, receive_trace_non_fetching_receiver,
+     receive_trace_priority_messages,
      link_receive_call_correlation, self_send, timeout_trace,
      send_trace, procs_trace, dist_procs_trace, suspend,
      suspend_exit, suspender_exit,
@@ -308,6 +310,68 @@ receive_trace_non_fetching_receiver_test(Node) ->
     receive {'EXIT', Receiver, _} -> ok end,
     receive {'EXIT', Sender, _} -> ok end,
     _ = process_flag(trap_exit, TrapExit),
+    ok.
+
+receive_trace_priority_messages(Config) when is_list(Config) ->
+    receive_trace_priority_messages_test(node()),
+    {ok, Peer, Node} = ?CT_PEER(),
+    receive_trace_priority_messages_test(Node),
+    peer:stop(Peer),
+    ok.
+
+receive_trace_priority_messages_test(Node) ->
+    Tester = self(),
+
+    PrioReceiver = spawn_link(fun () ->
+                                      Tester ! {self(), alias([priority])},
+                                      receive after infinity -> ok end
+                              end),
+    PriorityAlias = receive
+                        {PrioReceiver, PrioAlias} ->
+                            PrioAlias
+                    end,
+
+    1 = erlang_trace(PrioReceiver, true, ['receive']),
+
+    Msgs = [{msg, 1}, {prio_msg, 1}, {msg, 2}, {prio_msg, 2}, {msg, 3},
+            {msg, 4}, {prio_msg, 3}, {prio_msg, 4}, {msg, 5}, {prio_msg, 5},
+            {msg, 6}, {msg, 7}, {msg, 8}, {prio_msg, 6}, {prio_msg, 7}],
+
+    ok = erpc:call(Node,
+                   fun () ->
+                           lists:foreach(
+                             fun (Msg) ->
+                                     Tmo = rand:uniform(101) - 1,
+                                     receive after Tmo -> ok end,
+                                     case Msg of
+                                         {msg, _} ->
+                                             PrioReceiver ! Msg;
+                                         {prio_msg, _} ->
+                                             erlang:send(PriorityAlias, Msg,
+                                                         [priority])
+                                     end
+                             end, Msgs),
+                           ok
+                   end),
+
+    lists:foreach(fun (Msg) ->
+                          {trace, PrioReceiver, 'receive', Msg}
+                              = receive_first_trace()
+                  end, Msgs),
+
+    MsgQ = lists:sort(fun ({X, XA}, {X, XB}) ->
+                              XA =< XB;
+                          ({prio_msg, _}, {msg, _}) ->
+                              true;
+                          ({msg, _}, {prio_msg, _}) ->
+                              false
+                      end, Msgs),
+
+    {messages, MsgQ} = process_info(PrioReceiver, messages),
+
+    unlink(PrioReceiver),
+    exit(PrioReceiver, kill),
+    false = is_process_alive(PrioReceiver),
     ok.
 
 %% Tests that receive of a message always happens before a call with
