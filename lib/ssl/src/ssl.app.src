@@ -57,6 +57,7 @@
 	       tls_bloom_filter,
 	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
+	       inet_epmd_tls_socket,
 	       inet_tls_dist,
 	       inet6_tls_dist,
 	       ssl_dist_sup,

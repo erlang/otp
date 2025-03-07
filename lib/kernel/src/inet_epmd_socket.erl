@@ -26,7 +26,7 @@
          accept_open/2, accept_controller/3, accepted/3,
          connect/3]).
 
--export([supported/0]).
+-export([check_ip/2, supported/0]).
 
 -export([start_dist_ctrl/2]).
 
@@ -100,7 +100,7 @@ accept_open(_NetAddress, ListenSocket) ->
             socket:sockname(Socket),
         {ok, #{ addr := PeerIp, port := PeerPort }} ?=
             socket:peername(Socket),
-        inet_epmd_dist:check_ip(Ip, PeerIp),
+        check_ip(Ip, PeerIp),
         {Socket, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
@@ -627,3 +627,57 @@ supported() ->
     %% catch error : notsup ->
     %%         "Module 'socket' not supported"
     %% end.
+
+%% ------------------------------------------------------------
+check_ip(Ip, PeerIp) ->
+    try
+        case application:get_env(kernel, check_ip) of
+            {ok, true} ->
+                maybe
+                    {ok, Ifaddrs} ?= net:getifaddrs(),
+                    {ok, Netmask} ?= find_netmask(Ip, Ifaddrs),
+                    mask(Ip, Netmask) =:= mask(PeerIp, Netmask) orelse
+                        begin
+                            error_logger:error_msg(
+                              "** Connection attempt from "
+                              "disallowed IP ~w ** ~n",
+                              [PeerIp]),
+                            ?shutdown(no_node)
+                        end,
+                    ok
+                else
+                    Error ->
+                        exit({check_ip, Error})
+                end;
+            _ ->
+                ok
+        end
+    catch error : Reason : Stacktrace ->
+            error_logger:error_msg(
+              "error : ~p in ~n    ~p~n", [Reason, Stacktrace]),
+            erlang:raise(error, Reason, Stacktrace)
+    end.
+
+find_netmask(
+  Ip,
+  [#{addr := #{addr := Ip},
+     netmask := #{addr := Netmask}} | _IfAddrs]) ->
+    {ok, Netmask};
+find_netmask(Ip, [_ | IfAddrs]) ->
+    find_netmask(Ip, IfAddrs);
+find_netmask(_, []) ->
+    {error, no_netmask}.
+
+mask(Addr, Mask) when tuple_size(Addr) =:= tuple_size(Mask)->
+    N = tuple_size(Mask),
+    if
+        tuple_size(Addr) == N ->
+            mask(Addr, Mask, N, 1);
+        true ->
+            {error, {ip_size, Addr, N}}
+    end.
+%%
+mask(Addr, Mask, N, I) when I =< N ->
+    [element(N, Addr) band element(N, Mask) | mask(Addr, Mask, N, I + 1)];
+mask(_, _, _, _) ->
+    [].
