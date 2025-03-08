@@ -925,10 +925,8 @@ types(maps, from_list, [Pairs]) ->
                       SKey = beam_types:get_tuple_element(1, Es),
                       SValue = beam_types:get_tuple_element(2, Es),
                       #t_map{super_key=SKey,super_value=SValue};
-                  none when PairType =:= none ->
-                      #t_map{super_key=none,super_value=none};
-                  none when PairType =/= none ->
-                      none
+                  none ->
+                      #t_map{super_key=none,super_value=none}
               end,
     sub_unsafe(RetType, [proper_list()]);
 types(maps, get, [_Key, _Map]=Args) ->
