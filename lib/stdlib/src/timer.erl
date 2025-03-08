@@ -154,7 +154,7 @@ done
          code_change/3, handle_cast/2, terminate/2]).
 
 %% Types which can be used by other modules
--export_type([tref/0]).
+-export_type([tref/0, time/0]).
 
 %% Max value for a receive's after clause.
 -define(MAX_RECEIVE_AFTER, 16#ffffffff).
@@ -171,8 +171,10 @@ done
 -doc "A timer reference.".
 -opaque tref() :: {type(), reference()}.
 -type type()   :: 'once' | 'interval' | 'instant' | 'send_local'.
+
 -doc "Time in milliseconds.".
--type time()   :: non_neg_integer().
+-doc #{since => ~"OTP @OTP-19526@"}.
+-nominal time() :: non_neg_integer().
 
 %%
 %% Interface functions
@@ -678,21 +680,21 @@ now_diff({A2, B2, C2}, {A1, B1, C1}) ->
 -doc "Returns the number of milliseconds in `Seconds`.".
 -spec seconds(Seconds) -> MilliSeconds
               when Seconds :: non_neg_integer(),
-                   MilliSeconds :: non_neg_integer().
+                   MilliSeconds :: time().
 seconds(Seconds) ->
     1000*Seconds.
 
 -doc "Returns the number of milliseconds in `Minutes`.".
 -spec minutes(Minutes) -> MilliSeconds
               when Minutes :: non_neg_integer(),
-                   MilliSeconds :: non_neg_integer().
+                   MilliSeconds :: time().
 minutes(Minutes) ->
     1000*60*Minutes.
 
 -doc "Returns the number of milliseconds in `Hours`.".
 -spec hours(Hours) -> MilliSeconds
               when Hours :: non_neg_integer(),
-                   MilliSeconds :: non_neg_integer().
+                   MilliSeconds :: time().
 hours(Hours) ->
     1000*60*60*Hours.
 
@@ -701,7 +703,7 @@ hours(Hours) ->
               when Hours :: non_neg_integer(),
                    Minutes :: non_neg_integer(),
                    Seconds :: non_neg_integer(),
-                   MilliSeconds :: non_neg_integer().
+                   MilliSeconds :: time().
 hms(H, M, S) ->
     hours(H) + minutes(M) + seconds(S).
 
