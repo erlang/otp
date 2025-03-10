@@ -605,12 +605,14 @@ static void encode_cmsgs(ErlNifEnv*       env,
 static ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ESAIOOperation*  opP,
+                                  ssize_t          toRead,
                                   ErlNifPid        caller,
                                   ERL_NIF_TERM     sockRef,
                                   ERL_NIF_TERM     recvRef);
 
 static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
+                                      ssize_t          toRead,
                                       ESAIOOperation*  opP,
                                       ErlNifPid        caller,
                                       int              recv_result,
@@ -4095,7 +4097,7 @@ ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
 
     rres = sock_recv_O(descP->sock, &wbuf, &f, (OVERLAPPED*) opP);
 
-    return recv_check_result(env, descP, opP, caller, rres,
+    return recv_check_result(env, descP, len, opP, caller, rres,
                              sockRef, recvRef);
 }
 
@@ -4108,6 +4110,7 @@ ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                ESockDescriptor* descP,
+                               ssize_t          toRead,
                                ESAIOOperation*  opP,
                                ErlNifPid        caller,
                                int              recv_result,
@@ -4120,7 +4123,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         /* +++ Success +++ */
 
-        eres = recv_check_ok(env, descP, opP, caller, sockRef, recvRef);
+        eres = recv_check_ok(env, descP, opP, toRead, caller, sockRef, recvRef);
 
     } else {
         int err;
@@ -4197,6 +4200,7 @@ static
 ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ESockDescriptor* descP,
                            ESAIOOperation*  opP,
+                           ssize_t          toRead,
                            ErlNifPid        caller,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
