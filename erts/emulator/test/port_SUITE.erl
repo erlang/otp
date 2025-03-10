@@ -1723,14 +1723,11 @@ terminate_children_on_halt(Config) when is_list(Config) ->
         exit_status
     ]),
     true = is_port(Port),
-    receive
-        {Port, {exit_status, 0}} -> ok;
-        {Port, {exit_status, _}} -> ?assert(false)
+    receive {Port, {exit_status, 0}} -> ok
     after 10000 -> ?assert(false) end,
-    receive after 1000 -> ok end,
+    ct:sleep(1000),
     {error, enoent} = file:read_file(TmpFile),
     ok.
-
 
 terminate_children_on_killed(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -1740,8 +1737,8 @@ terminate_children_on_killed(Config) when is_list(Config) ->
     ok = file:write_file(TmpFile, ""),
 
     Port = open_port({spawn_executable, os:find_executable("erl")}, [
-        {args, ["-noshell", "-eval",
-            "Port_1 = open_port(" ++
+        {args, ["-eval",
+            "open_port(" ++
                 "{spawn_executable, \"" ++ FileWhileAlive ++ "\"}," ++
                 "[{args, [\"" ++ TmpFile ++ "\", os:getpid()]}])," ++
             "receive after 10000 -> error(not_killed) end."
@@ -1749,11 +1746,8 @@ terminate_children_on_killed(Config) when is_list(Config) ->
         exit_status
     ]),
     true = is_port(Port),
-    receive
-        {Port, {exit_status, 0}} -> ?assert(false);
-        {Port, {exit_status, _}} -> ok
-    after 10000 -> ?assert(false) end,
-    receive after 1000 -> ok end,
+    port_close(Port),
+    ct:sleep(1000),
     {error, enoent} = file:read_file(TmpFile),
     ok.
 
