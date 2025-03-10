@@ -919,7 +919,7 @@ start(Module, Args, Options) ->
     error(badarg, [Module, Args, Options]).
 
 -doc """
-Start a server, neither linked nor registered.
+Start a server, registered but not linked.
 
 Creates a standalone `gen_server` process, that is,
 a `gen_server` process that is not part of a supervision tree,
@@ -961,7 +961,7 @@ start_link(Module, Args, Options) ->
     error(badarg, [Module, Args, Options]).
 
 -doc """
-Start a server, linked but not registered.
+Start a server, linked and registered.
 
 Creates a `gen_server` process as part of a supervision tree.
 This function is to be called, directly or indirectly, by the supervisor.
