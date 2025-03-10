@@ -88,7 +88,8 @@
          daemon_replace_options_simple/1,
          daemon_replace_options_algs/1,
          daemon_replace_options_algs_connect/1,
-         daemon_replace_options_algs_conf_file/1
+         daemon_replace_options_algs_conf_file/1,
+         daemon_replace_options_not_found/1
 	]).
 
 %%% Common test callbacks
@@ -159,6 +160,7 @@ all() ->
      daemon_replace_options_algs,
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
+     daemon_replace_options_not_found,
      {group, hardening_tests}
     ].
 
@@ -2031,6 +2033,14 @@ daemon_replace_options_algs_conf_file(Config) ->
         [] ->
             {skip, "No non-default kex"}
     end.
+
+%%--------------------------------------------------------------------
+daemon_replace_options_not_found(_Config) ->
+    %% when the daemon doesn't exist the error should be the same
+    %% in daemon_info and daemon_replace_options
+    %% which is {error, bad_daemon_ref}
+    Error = ssh:daemon_info(self()),
+    Error = ssh:daemon_replace_options(self(), []).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
