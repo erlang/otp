@@ -547,7 +547,7 @@ the following example:
 ```
 
 The result shows that <<"bcde">> is selected instead of the shorter match
-<<"bc">> (which would have given rise to one more match, <<"de">>). This
+<<"bc">> (which would have resulted in one more match, <<"de">>). This
 corresponds to the behavior of POSIX regular expressions (and programs such as
 `awk`), but is not consistent with alternative matches in `m:re` (and Perl), where
 lexical ordering in the search pattern determines which string matches.
@@ -795,7 +795,7 @@ Constructs a new binary by replacing the parts in `Subject` matching
 `Replacement` to a matching subpart if given as a `fun`.
 
 If `Replacement` is given as a [`binary()`](`t:binary/0`) and the matching subpart of
-`Subject` giving raise to the replacement is to be inserted in the result,
+`Subject` giving rise to the replacement is to be inserted in the result,
 option `{insert_replaced, InsPos}` inserts the matching part into `Replacement`
 at the specified position (or positions) before inserting `Replacement` into
 `Subject`. If `Replacement` is given as a `fun` instead, this option is ignored.
