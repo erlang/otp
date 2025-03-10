@@ -130,6 +130,7 @@
     stream_small/1,
     t_binary/1,
     t_exit/1,
+    no_terminate_on_close/1,
     terminate_children_on_halt/1,
     terminate_children_on_killed/1,
     tps_16_bytes/1,
@@ -180,6 +181,7 @@ all() ->
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
      spawn_executable, close_deaf_port, unregister_name,
+     no_terminate_on_close,
      terminate_children_on_halt,
      terminate_children_on_killed,
      port_setget_data,
@@ -1703,6 +1705,35 @@ spawn_executable(Config) when is_list(Config) ->
     end,
     ok.
 
+
+no_terminate_on_close(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    FileWhileAlive = os:find_executable("file_while_alive", DataDir),
+    TmpFile = filename:join(PrivDir, "file_while_alive_file"),
+    ok = file:write_file(TmpFile, ""),
+
+    Port = open_port({spawn_executable, os:find_executable("erl")}, [
+        {args, ["-eval",
+            "Port_1 = open_port(" ++
+                "{spawn_executable, \"" ++ FileWhileAlive ++ "\"}," ++
+                "[{args, [\"" ++ TmpFile ++ "\"]}, use_stdio, in])," ++
+            "receive {Port_1, {data, \"waiting.\"}} -> ok " ++
+            "after 10000 -> error(no_child) end," ++
+            "port_close(Port_1)," ++
+            "receive after 10000 -> error(not_killed) end."
+        ]},
+        exit_status
+    ]),
+    true = is_port(Port),
+    ct:sleep(500),
+    {ok, _} = file:read_file(TmpFile),
+    port_close(Port),
+    ct:sleep(1000),
+    receive {Port, {exit_status, _}} -> ?assert(false)
+    after 0 -> ok end,
+    {error, enoent} = file:read_file(TmpFile),
+    ok.
 
 terminate_children_on_halt(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir, Config),

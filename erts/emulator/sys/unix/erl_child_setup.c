@@ -624,9 +624,9 @@ main(int argc, char *argv[])
             } else if (proto.action == ErtsSysForkerProtoAction_Stop) {
                 ErtsSysExitStatus est, *es;
                 est.os_pid = proto.u.stop.os_pid;
-                es = hash_remove(forker_hash, &est);
+                es = hash_get(forker_hash, &est);
                 if (es) {
-                    free(es);
+                    es->want_exit_status = false;
                 }
             } else {
 #ifdef DEBUG
