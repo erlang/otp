@@ -4251,9 +4251,55 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
-                        "recv_check_ok(%T, %d) -> complete success"
-                        "\r\n", sockRef, descP->sock) );
+                        "recv_check_ok(%T, %d) -> complete success (%d)"
+                        "\r\n", sockRef, descP->sock, read) );
+
+                /* There *may* be more data available,
+                 * so we could return {more, Bin}. But that requires
+                 * the use of rNum and rNumCnt to work properly.
+                 * (otherwise we may end up in an infinite read loop).
+                 * But sine we do not (yet) have those fields on Windows,
+                 * we will just return {ok, Bin} and be done with it.
+                 *
+                 * This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+
+                data = MKBIN(env, &opP->data.recv.buf);
+
+                eres = esock_make_ok2(env, data);
+
+            } else if ((toRead == 0) ||
+                       (descP->type != SOCK_STREAM)) {
+
+                /* On Windows, we do not (yet) use rNum and rNumCnt,
+                 * so we can't loop when we do not specify a actual
+                 * length (toRead = 0). Therefor, when toRead = 0 we
+                 * stop reading directly and return {ok, Data}.
+                 */
+
+                SSDBG( descP,
+                       ("WIN-ESAIO",
+                        "recv_check_ok(%T, %d) -> complete success (%d, %d)"
+                        "\r\n",
+                        sockRef, descP->sock, read, opP->data.recv.buf.size) );
+
+                ESOCK_ASSERT( REALLOC_BIN(&opP->data.recv.buf, read) );
+
+                /* This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+                data = MKSBIN(env, data, 0, read);
+
+                eres = esock_make_ok2(env, data);
+
             } else {
+                
+                /*
+                 * We did not get everything we asked for,
+                 * make another attempt: {more, Data}
+                 */
 
                 SSDBG( descP,
                        ("WIN-ESAIO",
@@ -4261,11 +4307,17 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                         "\r\n", sockRef, descP->sock, read) );
 
                 ESOCK_ASSERT( REALLOC_BIN(&opP->data.recv.buf, read) );
+
+                /*
+                 * This transfers "ownership" of the *allocated* binary to an
+                 * erlang term (no need for an explicit free).
+                 */
+                data = MKBIN(env, &opP->data.recv.buf);
+                data = MKSBIN(env, data, 0, read);
+
+                eres = MKT2(env, esock_atom_more, data);
+
             }
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
-            data = MKBIN(env, &opP->data.recv.buf);
 
             ESOCK_CNT_INC(env, descP, sockRef,
                           esock_atom_read_pkg, &descP->readPkgCnt, 1);
@@ -4275,8 +4327,6 @@ ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
             /* (maybe) Update max */
             if (read > descP->readPkgMax)
                 descP->readPkgMax = read;
-
-            eres = esock_make_ok2(env, data);
 
         }
 
@@ -9113,6 +9163,17 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                                                opEnv, opDataP,
                                                flags);
 
+            } else if (descP->type != SOCK_STREAM) {
+
+                /* Only used a part of the buffer => needs splitting!
+                 * Since this is *not* a STREAM socket (most likely a DGRAM),
+                 * we are done!
+                 */
+
+                completionStatus =
+                    esaio_completion_recv_partial(env, descP,
+                                                  opEnv, opDataP,
+                                                  reqP, read, flags);
             } else {
 
                 /* Only used a part of the buffer =>
@@ -9360,19 +9421,6 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
- * We do *not* want to risk ending up in a "never ending" read loop
- * here (by trying to read more data (and yet again getting partial)).
- * [worst case, we could up with all our worker threads busy trying
- * to read more data, and no one ready to respond to new requests].
- * So we simply return what we got to the user and let the user
- * decide what to do.
- *
- * What shall we send? {ok, Bin} | {more, Bin}
- * Presumably the user knows how much to expect, so is therefor
- * able to check:
- *
- *           "Expected > byte_size(Bin)"   -> read again
- *           "Expected =:= byte_size(Bin)" -> done
  */
 
 static
@@ -9383,10 +9431,32 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {
-    /* This is just a "placeholder". Is this really all we need to do? */
-    return esaio_completion_recv_partial_done(env, descP,
-                                              opEnv, opDataP,
-                                              read, flags);
+    ERL_NIF_TERM sockRef = opDataP->sockRef;
+    ERL_NIF_TERM data;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, read);
+
+    if (read > descP->readPkgMax)
+        descP->readPkgMax = read;
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(opEnv, &opDataP->buf);
+    data = MKSBIN(opEnv, data, 0, read);
+
+    (void) flags;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
+            sockRef, descP->sock) );
+
+    return MKT2(env, esock_atom_more, data);
+
 }
 
 
