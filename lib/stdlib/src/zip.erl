@@ -2469,7 +2469,7 @@ dos_date_time_to_datetime(DosDate, DosTime) ->
     <<Hour:5, Min:6, Sec:5>> = <<DosTime:16>>,
     <<YearFrom1980:7, Month:4, Day:5>> = <<DosDate:16>>,
     {{YearFrom1980+1980, Month, Day},
-     {Hour, Min, Sec * 2}}.
+     {Hour, Min, min(Sec * 2, 59)}}.
 
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
