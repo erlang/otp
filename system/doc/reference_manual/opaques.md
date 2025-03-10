@@ -26,6 +26,12 @@ type, enabling evolving the API while minimizing the risk of breaking consumers.
 The runtime does not check opacity. Dialyzer provides some opacity-checking, but
 the rest is up to convention.
 
+> #### Change {: .info }
+>
+> Since OTP 28, Dialyzer checks opaques in their defining module in the same way
+> as nominals. Outside of the defining module, Dialyzer checks opaques for
+> opacity violations.
+
 This document explains what Erlang opacity is (and the trade-offs involved) via
 the example of the [`sets:set()`](`t:sets:set/0`) data type. This type _was_
 defined in the `sets` module like this:
@@ -62,8 +68,11 @@ end.
 recommendations:**
 
 - Don't examine the underlying type using pattern-matching, guards, or functions
-  that reveal the type, such as [`tuple_size/1`](`tuple_size/1`) .
-- Instead, use functions provided by the module for working with the type. For
+  that reveal the type, such as [`tuple_size/1`](`tuple_size/1`) . One exception
+  is that `=:=` and `=/=` can be used between two opaques with the same name, or
+  between an opaque and `any()`, as those comparisons do not reveal underlying
+  types.
+- Use functions provided by the module for working with the type. For
   example, `sets` module provides `sets:new/0`, `sets:add_element/2`,
   `sets:is_element/2`, and so on.
 - [`sets:set(a)`](`t:sets:set/1`) is a subtype of `sets:set(a | b)` and not the
@@ -80,7 +89,16 @@ recommendations:**
 - Don't define an opaque with a type variable in parameter position. This breaks
   the normal and expected behavior that (for example) `my_type(a)` is a subtype
   of `my_type(a | b)`
+- Don't write case statements that can produce either an opaque or a non-opaque
+  output.
 - Add [specs](typespec.md) to exported functions that use the opaque type
+
+> #### Change {: .info }
+>
+> Since OTP 28, Dialyzer warns whenever a union of opaque and non-opaque types
+> is produced outside the opaque's defining module. Dialyzer option
+> `no_opaque_union` was also introduced in OTP 28 in order to turn off those
+> warnings.
 
 Note that opaques can be harder to work with for consumers, since the consumer
 is expected not to pattern-match and must instead use functions that the author
