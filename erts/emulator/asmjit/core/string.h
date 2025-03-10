@@ -53,9 +53,12 @@ union FixedString {
   //! \name Utilities
   //! \{
 
-  inline bool eq(const char* other) const noexcept {
-    return strcmp(str, other) == 0;
-  }
+  inline bool equals(const char* other) const noexcept { return strcmp(str, other) == 0; }
+
+#if !defined(ASMJIT_NO_DEPRECATED)
+  ASMJIT_DEPRECATED("Use FixedString::equals() instead")
+  inline bool eq(const char* other) const noexcept { return equals(other); }
+#endif // !ASMJIT_NO_DEPRECATED
 
   //! \}
 };
@@ -158,11 +161,11 @@ public:
     return *this;
   }
 
-  ASMJIT_INLINE_NODEBUG bool operator==(const char* other) const noexcept { return  eq(other); }
-  ASMJIT_INLINE_NODEBUG bool operator!=(const char* other) const noexcept { return !eq(other); }
+  ASMJIT_INLINE_NODEBUG bool operator==(const char* other) const noexcept { return  equals(other); }
+  ASMJIT_INLINE_NODEBUG bool operator!=(const char* other) const noexcept { return !equals(other); }
 
-  ASMJIT_INLINE_NODEBUG bool operator==(const String& other) const noexcept { return  eq(other); }
-  ASMJIT_INLINE_NODEBUG bool operator!=(const String& other) const noexcept { return !eq(other); }
+  ASMJIT_INLINE_NODEBUG bool operator==(const String& other) const noexcept { return  equals(other); }
+  ASMJIT_INLINE_NODEBUG bool operator!=(const String& other) const noexcept { return !equals(other); }
 
   //! \}
 
@@ -312,8 +315,16 @@ public:
   //! Truncate the string length into `newSize`.
   ASMJIT_API Error truncate(size_t newSize) noexcept;
 
-  ASMJIT_API bool eq(const char* other, size_t size = SIZE_MAX) const noexcept;
-  ASMJIT_INLINE_NODEBUG bool eq(const String& other) const noexcept { return eq(other.data(), other.size()); }
+  ASMJIT_API bool equals(const char* other, size_t size = SIZE_MAX) const noexcept;
+  ASMJIT_INLINE_NODEBUG bool equals(const String& other) const noexcept { return equals(other.data(), other.size()); }
+
+#if !defined(ASMJIT_NO_DEPRECATED)
+  ASMJIT_DEPRECATED("Use String::equals() instead")
+  ASMJIT_INLINE_NODEBUG bool eq(const char* other, size_t size = SIZE_MAX) const noexcept { return equals(other, size); }
+
+  ASMJIT_DEPRECATED("Use String::equals() instead")
+  ASMJIT_INLINE_NODEBUG bool eq(const String& other) const noexcept { return equals(other.data(), other.size()); }
+#endif // !ASMJIT_NO_DEPRECATED
 
   //! \}
 

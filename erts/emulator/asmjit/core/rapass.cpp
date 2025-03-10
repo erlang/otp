@@ -762,6 +762,13 @@ namespace LiveOps {
   static ASMJIT_FORCE_INLINE bool op(BitWord* dst, const BitWord* a, const BitWord* b, const BitWord* c, uint32_t n) noexcept {
     BitWord changed = 0;
 
+#if defined(_MSC_VER) && _MSC_VER <= 1938
+    // MSVC workaround (see #427).
+    //
+    // MSVC incorrectly auto-vectorizes this loop when used with <In> operator. For some reason it trashes a content
+    // of a register, which causes the result to be incorrect. It's a compiler bug we have to prevent unfortunately.
+    #pragma loop(no_vector)
+#endif
     for (uint32_t i = 0; i < n; i++) {
       BitWord before = dst[i];
       BitWord after = Operator::op(before, a[i], b[i], c[i]);
@@ -773,7 +780,7 @@ namespace LiveOps {
     return changed != 0;
   }
 
-  static ASMJIT_FORCE_INLINE bool recalcInOut(RABlock* block, uint32_t numBitWords, bool initial = false) noexcept {
+  static ASMJIT_NOINLINE bool recalcInOut(RABlock* block, uint32_t numBitWords, bool initial = false) noexcept {
     bool changed = initial;
 
     const RABlocks& successors = block->successors();
@@ -873,7 +880,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::buildLiveness() noexcept {
 
           if (tiedReg->hasConsecutiveParent()) {
             RAWorkReg* consecutiveParentReg = workRegById(tiedReg->consecutiveParent());
-            consecutiveParentReg->addImmediateConsecutive(allocator(), workId);
+            ASMJIT_PROPAGATE(consecutiveParentReg->addImmediateConsecutive(allocator(), workId));
           }
         }
 
@@ -1216,6 +1223,7 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
 
   uint32_t numWorkRegs = workRegs.size();
   RegMask availableRegs = _availableRegs[group];
+  RegMask preservedRegs = func()->frame().preservedRegs(group);
 
   // First try to pack everything that provides register-id hint as these are most likely function arguments and fixed
   // (precolored) virtual registers.
@@ -1347,18 +1355,30 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
       if (workReg->isAllocated())
         continue;
 
-      RegMask physRegs = availableRegs;
-      if (physRegs & workReg->preferredMask())
-        physRegs &= workReg->preferredMask();
+      RegMask remainingPhysRegs = availableRegs;
+      if (remainingPhysRegs & workReg->preferredMask())
+        remainingPhysRegs &= workReg->preferredMask();
 
-      while (physRegs) {
-        RegMask preferredMask = physRegs;
-        uint32_t physId = Support::ctz(preferredMask);
+      RegMask physRegs = remainingPhysRegs & ~preservedRegs;
+      remainingPhysRegs &= preservedRegs;
+
+      for (;;) {
+        if (!physRegs) {
+          if (!remainingPhysRegs)
+            break;
+          physRegs = remainingPhysRegs;
+          remainingPhysRegs = 0;
+        }
+
+        uint32_t physId = Support::ctz(physRegs);
 
         if (workReg->clobberSurvivalMask()) {
-          preferredMask &= workReg->clobberSurvivalMask();
-          if (preferredMask)
+          RegMask preferredMask = (physRegs | remainingPhysRegs) & workReg->clobberSurvivalMask();
+          if (preferredMask) {
+            if (preferredMask & ~remainingPhysRegs)
+              preferredMask &= ~remainingPhysRegs;
             physId = Support::ctz(preferredMask);
+          }
         }
 
         LiveRegSpans& live = _globalLiveSpans[group][physId];
@@ -1374,7 +1394,8 @@ ASMJIT_FAVOR_SPEED Error BaseRAPass::binPack(RegGroup group) noexcept {
         if (ASMJIT_UNLIKELY(err != 0xFFFFFFFFu))
           return err;
 
-        physRegs ^= Support::bitMask(physId);
+        physRegs &= ~Support::bitMask(physId);
+        remainingPhysRegs &= ~Support::bitMask(physId);
       }
 
       // Keep it in `workRegs` if it was not allocated.
