@@ -142,7 +142,7 @@ atanh(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the smallest floating point number not less than `Number`.
+Returns the ceiling of `X`.
 
 ## Examples
 
@@ -162,7 +162,7 @@ ceil(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the cosine of `X` (measured in radians).
+Returns the cosine of `X` in radians.
 
 ## Examples
 
@@ -242,7 +242,7 @@ exp(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the largest floating point number not greater than `Number`.
+Returns the floor of `X`.
 
 ## Examples
 
@@ -352,7 +352,7 @@ pow(_, _) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the sine of `X` (measured in radians).
+Returns the sine of `X` in radians.
 
 ## Examples
 
@@ -399,7 +399,7 @@ sqrt(_) ->
     erlang:nif_error(undef).
 
 -doc """
-Returns the tangent of `X` (measured in radians).
+Returns the tangent of `X` in radians.
 
 ## Examples
 
