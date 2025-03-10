@@ -716,7 +716,7 @@ child_adm(Config) when is_list(Config) ->
     {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
 
     %% Test that supervisors of static nature are hibernated after start
-    {current_function, {erlang, hibernate, 3}} =
+    {current_function, {gen_server, loop_hibernate, 4}} =
 	process_info(Pid, current_function),
 
     [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
