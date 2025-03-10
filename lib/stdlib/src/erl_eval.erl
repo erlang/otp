@@ -982,185 +982,119 @@ convert_gen_values([{Generate, Anno, P, Map0}|Qs], Acc, Bs0, Lf, Ef,FUVs)
 convert_gen_values([], Acc, Bs0, _Lf, _Ef, _FUVs) ->
     {reverse(Acc), Bs0}.
 
-bind_all_generators(Gens, Bs0, Lf, Ef, FUVs) ->
-    bind_all_generators1(Gens, [], new_bindings(Bs0), Lf, Ef, FUVs, continue).
+bind_all_generators(Gens, Bs0, Lf, Ef, FUVs, StrictPats) ->
+    Bs1 = new_bindings(Bs0),
+    Bs2 = case is_map(Bs1) of
+              true -> Bs1#{strict_pats => StrictPats};
+              false -> orddict:store(strict_pats, StrictPats, Bs1)
+    end,
+    bind_all_generators1(Gens, [], Bs2, Lf, Ef, FUVs, continue).
 
-bind_all_generators1([{b_generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
-                     Acc, Bs0, Lf, Ef, FUVs, continue) ->
+bind_all_generators1([{Generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
     Mfun = match_fun(Bs0, Ef),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
-    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-        {match, Rest, Bs1} ->
+    case {eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun,
+                            Efun, ErrorFun),
+          Generate} of
+        {{match, Rest, Bs1}, _} ->
             Bs2 = zip_add_bindings(Bs1, Bs0),
-            case Bs2 of
-                nomatch ->
-                    bind_all_generators1(Qs,[{b_generate, Anno, P, Rest}|Acc],
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, b_generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
                                          Bs0, Lf, Ef, FUVs, skip);
-                _ ->
-                    bind_all_generators1(Qs,[{b_generate, Anno, P, Rest}|Acc],
-                                         Bs2, Lf, Ef, FUVs, continue)
-            end;
-        {nomatch, Rest} ->
-            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
-                                 Bs0, Lf, Ef, FUVs, skip);
-        done ->
-            {[], done}
-    end;
-bind_all_generators1([{b_generate_strict, Anno, P, <<_/bitstring>>=Bin}|Qs],
-                     Acc, Bs0, Lf, Ef, FUVs, continue) ->
-    Mfun = match_fun(Bs0, Ef),
-    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
-    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
-    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-        {match, Rest, Bs1} ->
-            Bs2 = zip_add_bindings(Bs1, Bs0),
-            case Bs2 of
-                nomatch -> {Acc, error};
-                _ ->
-                    bind_all_generators1(Qs,[{b_generate_strict, Anno, P, Rest}|Acc],
-                                         Bs2, Lf, Ef, FUVs, continue)
-            end;
-        {nomatch, _Rest} ->
-            {Acc, error};
-        done when Bin =/= <<>> ->
-            {Acc, error};
-        done ->
-            {[], done}
-    end;
-bind_all_generators1([{b_generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
-                     Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    Mfun = match_fun(Bs0, Ef),
-    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
-    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
-    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-        {match, Rest, _} ->
-            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
-                                 Bs0, Lf, Ef, FUVs, skip);
-        {nomatch, Rest} ->
-            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
-                                 Bs0, Lf, Ef, FUVs, skip);
-        done ->
-            {[], skip}
-    end;
-bind_all_generators1([{b_generate_strict, Anno, P, <<_/bitstring>>=Bin}|Qs],
-                     Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    Mfun = match_fun(Bs0, Ef),
-    Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
-    ErrorFun = fun(A, R, S) -> apply_error(R, S, A, Bs0, Ef, none) end,
-    case eval_bits:bin_gen(P, Bin, new_bindings(Bs0), Bs0, Mfun, Efun, ErrorFun) of
-        {match, Rest, _} ->
-            bind_all_generators1(Qs, [{b_generate_strict, Anno, P, Rest}|Acc],
-                                 Bs0, Lf, Ef, FUVs, skip);
-        {nomatch, _Rest} ->
-            {Acc, error};
-        done when Bin =/= <<>> ->
-            {Acc, error};
-        done ->
-            {[], skip}
-    end;
-bind_all_generators1([{generate, Anno, P, [H|T]}|Qs], Acc, Bs0, Lf, Ef, FUVs, continue) ->
-    case match(P, H, Anno, new_bindings(Bs0), Bs0, Ef) of
-        {match,Bsn} ->
-            Bs2 = zip_add_bindings(Bsn, Bs0),
-            case Bs2 of
-                nomatch ->
-                    bind_all_generators1(Qs,[{generate, Anno, P, T}|Acc],
-                                         Bs0, Lf, Ef, FUVs, skip);
-                _ -> bind_all_generators1(Qs,[{generate, Anno, P, T}|Acc],
-                                          Bs2, Lf, Ef, FUVs, continue)
-            end;
-        nomatch ->
-            %% match/6 returns nomatch. Skip this value
-            bind_all_generators1(Qs,[{generate, Anno, P, T}|Acc], Bs0, Lf, Ef, FUVs, skip)
-    end;
-bind_all_generators1([{generate_strict, Anno, P, [H|T]}|Qs], Acc, Bs0, Lf, Ef, FUVs, continue) ->
-    case match(P, H, Anno, new_bindings(Bs0), Bs0, Ef) of
-        {match,Bsn} ->
-            Bs2 = zip_add_bindings(Bsn, Bs0),
-            case Bs2 of
-                nomatch -> {Acc, error};
-                _ -> bind_all_generators1(Qs,[{generate_strict, Anno, P, T}|Acc],
-                                          Bs2, Lf, Ef, FUVs, continue)
-            end;
-        nomatch ->
-            {Acc, error}
-    end;
-bind_all_generators1([{generate, Anno, P, [_H|T]}|Qs], Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    bind_all_generators1(Qs,[{generate, Anno, P, T}|Acc], Bs0, Lf, Ef, FUVs, skip);
-bind_all_generators1([{generate_strict, Anno, P, [H|T]}|Qs], Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    case match(P, H, Anno, new_bindings(Bs0), Bs0, Ef) of
-        {match,Bsn} ->
-            Bs2 = zip_add_bindings(Bsn, Bs0),
-            case Bs2 of
-                nomatch ->
+                {nomatch_strict, _, _} ->
                     {Acc, error};
-                _ -> bind_all_generators1(Qs,[{generate_strict, Anno, P, T}|Acc],
-                                          Bs2, Lf, Ef, FUVs, skip)
+                {nomatch, b_generate_strict, _} ->
+                    {Acc, error};
+                {_, b_generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs0, Lf, Ef, FUVs, ContinueSkip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, Rest}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
             end;
-        nomatch ->
+        {{nomatch, Rest}, b_generate} ->
+            bind_all_generators1(Qs, [{b_generate, Anno, P, Rest}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {{nomatch, _Rest}, b_generate_strict} ->
+            {Acc, error};
+        {done, b_generate} when Bin =/= <<>> ->
+            {[], done};
+        {done, b_generate_strict} when Bin =/= <<>> ->
+            {Acc, error};
+        {done, b_generate} ->
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
+    end;
+bind_all_generators1([{Generate, Anno, P, [H|T]}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
+    case {match(P, H, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+        {{match,Bsn}, _} ->
+            Bs2 = zip_add_bindings(Bsn, Bs0),
+            case {Bs2, Generate, ContinueSkip} of
+                {nomatch, generate, _} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch_strict, _, _} ->
+                    {Acc, error};
+                {nomatch, generate_strict, _} ->
+                    {Acc, error};
+                {_, generate, skip} ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs0, Lf, Ef, FUVs, skip);
+                _ ->
+                    bind_all_generators1(Qs,[{Generate, Anno, P, T}|Acc],
+                                         Bs2, Lf, Ef, FUVs, ContinueSkip)
+            end;
+        {nomatch, generate} ->
+            %% match/6 returns nomatch. Skip this value
+            bind_all_generators1(Qs, [{generate, Anno, P, T}|Acc],
+                                 Bs0, Lf, Ef, FUVs, skip);
+        {nomatch, generate_strict} ->
             {Acc, error}
     end;
-bind_all_generators1([{m_generate, Anno, P, Iter0}|Qs], Acc, Bs0, Lf, Ef, FUVs, continue) ->
+bind_all_generators1([{Generate, Anno, P, Iter0}|Qs],
+                     Acc, Bs0, Lf, Ef, FUVs, ContinueSkip)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict->
     case maps:next(Iter0) of
         {K,V,Iter} ->
-            case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
-                {match,Bsn} ->
+            case {match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef), Generate} of
+                {{match,Bsn}, _} ->
                     Bs2 = zip_add_bindings(Bsn, Bs0),
-                    case Bs2 of
-                        nomatch->
-                            bind_all_generators1(Qs,[{m_generate, Anno, P, Iter}|Acc],
+                    case {Bs2, Generate, ContinueSkip} of
+                        {nomatch, m_generate, _} ->
+                            bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
                                                  Bs0, Lf, Ef, FUVs, skip);
-                        _ -> bind_all_generators1(Qs,[{m_generate, Anno, P, Iter}|Acc],
-                                                  Bs2, Lf, Ef, FUVs, continue)
+                        {nomatch_strict, _, _} ->
+                            {Acc, error};
+                        {nomatch, m_generate_strict, _} ->
+                            {Acc, error};
+                        {_, m_generate, skip} ->
+                            bind_all_generators1(Qs, [{Generate, Anno, P, Iter}|Acc],
+                                                 Bs0, Lf, Ef, FUVs, skip);
+                        _ -> bind_all_generators1(Qs,[{Generate, Anno, P, Iter}|Acc],
+                                                  Bs2, Lf, Ef, FUVs, ContinueSkip)
                     end;
-                nomatch ->
+                {nomatch, m_generate} ->
                     bind_all_generators1(Qs, [{m_generate, Anno, P, Iter}|Acc],
-                                         Bs0, Lf, Ef, FUVs, skip)
-            end;
-        none ->
-            {[], done}
-    end;
-bind_all_generators1([{m_generate_strict, Anno, P, Iter0}|Qs], Acc, Bs0, Lf, Ef, FUVs, continue) ->
-    case maps:next(Iter0) of
-        {K,V,Iter} ->
-            case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
-                {match,Bsn} ->
-                    Bs2 = zip_add_bindings(Bsn, Bs0),
-                    case Bs2 of
-                        nomatch -> {Acc, error};
-                        _ -> bind_all_generators1(Qs,[{m_generate_strict, Anno, P, Iter}|Acc],
-                                                  Bs2, Lf, Ef, FUVs, continue)
-                    end;
-                nomatch ->
+                                         Bs0, Lf, Ef, FUVs, skip);
+                {nomatch, m_generate_strict} ->
                     {Acc, error}
             end;
         none ->
-            {[], done}
-    end;
-bind_all_generators1([{m_generate, Anno, P, Iter0}|Qs], Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    case maps:next(Iter0) of
-        {_K,_V,Iter} ->
-            bind_all_generators1(Qs, [{m_generate, Anno, P, Iter}|Acc],
-                                 Bs0, Lf, Ef, FUVs, skip);
-        none ->
-            {[], skip}
-    end;
-bind_all_generators1([{m_generate_strict, Anno, P, Iter0}|Qs], Acc, Bs0, Lf, Ef, FUVs, skip) ->
-    case maps:next(Iter0) of
-        {K,V,Iter} ->
-            case match(P, {K,V}, Anno, new_bindings(Bs0), Bs0, Ef) of
-                {match,Bsn} ->
-                    Bs2 = zip_add_bindings(Bsn, Bs0),
-                    case Bs2 of
-                        nomatch -> {Acc, error};
-                        _ -> bind_all_generators1(Qs,[{m_generate_strict, Anno, P, Iter}|Acc],
-                                                  Bs2, Lf, Ef, FUVs, continue)
-                    end;
-                nomatch -> {Acc, error}
-            end;
-        none ->
-            {[], done}
+            case ContinueSkip of
+                continue -> {[], done};
+                skip -> {[], skip}
+            end
     end;
 bind_all_generators1([{generate,_,_,[]}|_], _, _, _, _, _,_) ->
     %% no more values left for a var, time to return
@@ -1228,6 +1162,37 @@ is_generator_end([]) -> true;
 is_generator_end(<<>>) -> true;
 is_generator_end(Other) -> Other =:= #{}.
 
+get_vars(Lit) ->
+    get_vars(Lit, []).
+
+get_vars({tuple,_,Es}, Vs) -> get_list_vars(Es, Vs);
+get_vars({var,_,V}, Vs) -> ordsets:add_element(V, Vs);
+get_vars([{bin_element,_,V,_,_}|BinElements], Vs0) ->
+    Vs1 = get_vars(V, Vs0),
+    get_list_vars(BinElements, Vs1);
+get_vars([_|_]=Ls, Vs) -> get_list_vars(Ls, Vs);
+get_vars(_, Vs) -> Vs.
+
+get_list_vars(Ls, Vs) ->
+    foldl(fun (L, Vs0) -> get_vars(L, Vs0) end, Vs, Ls).
+
+get_strict_patterns([{Generate,_,P,_}|Qs], Acc)
+  when Generate =:= generate_strict;
+       Generate =:= m_generate_strict ->
+    Vars = get_vars(P),
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([{b_generate_strict,_,P,_}|Qs], Acc) ->
+    Vars = case P of
+        {bin,_,BinElements} ->
+            get_vars(BinElements, Acc);
+        _ -> []
+    end,
+    get_strict_patterns(Qs, Vars ++ Acc);
+get_strict_patterns([_|Qs], Acc) ->
+    get_strict_patterns(Qs, Acc);
+get_strict_patterns([], Acc) ->
+    sets:to_list(sets:from_list(Acc)).
+
 %% eval_bc(Expr, [Qualifier], Bindings, LocalFunctionHandler,
 %%         ExternalFuncHandler, RetBindings) ->
 %%	{value,Value,Bindings} | Value
@@ -1282,7 +1247,8 @@ eval_zip(E, [{zip, Anno, VarList}|Qs], Bs0, Lf, Ef, FUVs, Acc0, Fun) ->
                {error, Reason} ->
                    apply_error(Reason, ?STACKTRACE, Anno, Bs0, Ef, none)
            end,
-    {Rest, Bs1} = bind_all_generators(VarList, Bs0, Lf, Ef, FUVs),
+    StrictPats = get_strict_patterns(VarList, []),
+    {Rest, Bs1} = bind_all_generators(VarList, Bs0, Lf, Ef, FUVs, StrictPats),
     case {Rest, Qs, Bs1} of
         {_, _, error} -> apply_error({bad_generators,Gens}, ?STACKTRACE, Anno, Bs0, Ef, none);
         {[], [], _} -> Acc0;
@@ -1947,7 +1913,12 @@ zip_add_bindings(Bs1, Bs2) when is_list(Bs1), is_list(Bs2) ->
 zip_add_bindings_map([Key | Keys], Bs1, Bs2) ->
     case {Bs1, Bs2} of
         {#{Key := Same}, #{Key := Same}} -> zip_add_bindings_map(Keys, Bs1, Bs2);
-        {_, #{Key := _}} -> nomatch;
+        {_, #{Key := _}} ->
+            #{strict_pats := StrictPats} = Bs2,
+            case lists:member(Key, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
         {#{Key := Value},_} -> zip_add_bindings_map(Keys, Bs1, Bs2#{Key => Value})
     end;
 zip_add_bindings_map([], _, Bs2) ->
@@ -1957,7 +1928,12 @@ zip_add_bindings1([{Name,Val}|Bs1], Bs2) ->
     case orddict:find(Name, Bs2) of
         {ok, Val} ->
             zip_add_bindings1(Bs1, Bs2);
-        {ok, _Value} -> nomatch;
+        {ok, _Value} ->
+            {ok, StrictPats} = orddict:find(strict_pats, Bs2),
+            case lists:member(Name, StrictPats) of
+                true -> nomatch_strict;
+                false -> nomatch
+            end;
         error ->
             zip_add_bindings1(Bs1, orddict:store(Name, Val, Bs2))
     end;
@@ -1985,7 +1961,7 @@ merge_bindings(Bs1, Bs2, Anno, Ef) ->
 		  end end,
 	  Bs2, orddict:to_list(Bs1)).
 
--doc #{since => ~"OTP @OTP-19184@"}.
+-doc false.
 -spec(new_bindings(binding_struct()) -> binding_struct()).
 new_bindings(Bs) when is_map(Bs) -> maps:new();
 new_bindings(Bs) when is_list(Bs) -> orddict:new().
