@@ -52,10 +52,18 @@ help=no
 user_srcdir=
 config_arguments=
 skip_applications=
+
+# Cleanup temporary files on exit
+cleanup() {
+    rm -f "$ERL_TOP"/lib/*/configure.result.* "$ERL_TOP"/erts/configure.result.*
+    rm -f "$ERL_TOP"/config.dir.check.* 2>/dev/null
+}
+trap cleanup EXIT INT TERM
+
 while test $# != 0; do
     case $1 in
 	-srcdir=* | --srcdir=*)
-        user_srcdir=`echo "$1" | sed 's/^[^=]*=//'`
+        user_srcdir=$(echo "$1" | sed 's/^[^=]*=//')
 	    if test "$ERL_TOP" != ""; then
 		echo "WARNING: Overriding ERL_TOP with $user_srcdir" 1>&2
 		echo "" 1>&2
@@ -95,7 +103,7 @@ while test $# != 0; do
 	    echo "" 1>&2
 	    ;;
 	-cache-file=* | --cache-file=* )
-        static_cache=`echo "$1" | sed 's/^[^=]*=//'`
+        static_cache=$(echo "$1" | sed 's/^[^=]*=//')
 	    if test "$static_cache" != "/dev/null"; then
 		echo "WARNING: Only using config cache file '$static_cache' as static cache" 1>&2
 		echo "" 1>&2
@@ -144,8 +152,8 @@ while test $# != 0; do
 	--disable-deterministic-build)
       config_arguments="$config_arguments --disable-deterministic-build";;
 	CFLAGS=* | LDFLAGS=*)
-        flgs_var=`echo "$1" | sed 's/=.*$//'`
-        flgs_val=`echo "$1" | sed 's/^[^=]*=//'`
+        flgs_var=$(echo "$1" | sed 's/=.*$//')
+        flgs_val=$(echo "$1" | sed 's/^[^=]*=//')
 	    eval $flgs_var=\$flgs_val
 	    ;;
 	--help=r* | -help=r*)
@@ -155,7 +163,8 @@ while test $# != 0; do
         *)
 	    case $1 in
 		--without-*)
-            skip_app=`echo "$1" | sed 's/^--without-//'`
+            skip_app=$(echo "$1" | sed 's/^--without-//' | tr '[:upper:]' '[:lower:]')
+                    # Check for mandatory applications (case-insensitive)
                     if [ "$skip_app" = "stdlib" ] ||
                            [ "$skip_app" = "kernel" ] ||
                            [ "$skip_app" = "sasl" ] ||
@@ -163,15 +172,15 @@ while test $# != 0; do
                            [ "$skip_app" = "erl_interface" ]; then
                         echo "ERROR: $skip_app is a mandatory application" 1>&2
                         exit 1
-		    elif test -d "lib/$skip_app"; then
-			skip_applications="$skip_applications $skip_app"
-		    fi;;
+                    elif test -d "lib/$skip_app"; then
+                        skip_applications="$skip_applications $skip_app"
+                    fi;;
 		*)
 		    ;;
 	    esac
             case $1 in
 		*\'*)
-                    1=`echo "$1" | sed "s/'/'\\\\\\\\''/g"` ;;
+                    1=$(echo "$1" | sed "s/'/'\\\\\\\\''/g") ;;
 		*)
                 ;;
             esac
@@ -402,42 +411,43 @@ if test $parallel_otp_configure = yes; then
     done
 fi
 
-
 echo ""
-
 pattern="lib/*/SKIP"
-files=`echo $pattern`
-if test "$files" != "$pattern" || test "$skip_applications" != ""; then
+if find "$ERL_TOP/lib" -maxdepth 2 -name SKIP | grep -q .; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS DISABLED  **********************'
   echo '*********************************************************************'
   echo
-  if test "$files" != "$pattern"; then
-    for skipfile in $files; do
-      app=`dirname $skipfile`; app=`basename $app`
-      printf "%-15s: " $app; cat $skipfile
-    done
-  fi
+  find "$ERL_TOP/lib" -maxdepth 2 -name SKIP | while read -r skipfile; do
+    app=$(dirname "$skipfile")
+    app=$(basename "$app")
+    printf "%-15s: " "$app"
+    cat "$skipfile"
+  done
   for skipapp in $skip_applications; do
-    printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    printf "%-15s: User gave --without-%s option\n" "$skipapp" "$skipapp"
     echo "$skipapp" >> "$ERL_TOP/lib/SKIP-APPLICATIONS"
   done
   echo
   echo '*********************************************************************'
 fi
+
 pattern="lib/*/CONF_INFO"
-files=`echo $pattern`
-if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
+if find "$ERL_TOP/lib" -maxdepth 2 -name CONF_INFO | grep -q . || test -f "$ERL_TOP/erts/CONF_INFO"; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS INFORMATION  *******************'
   echo '*********************************************************************'
   echo
-  test "$files" != "$pattern" || files=""
-  test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
-  for infofile in $files; do
-    app=`dirname $infofile`; app=`basename $app`
-    printf "%-15s: " $app; cat $infofile
+  find "$ERL_TOP/lib" -maxdepth 2 -name CONF_INFO | while read -r infofile; do
+    app=$(dirname "$infofile")
+    app=$(basename "$app")
+    printf "%-15s: " "$app"
+    cat "$infofile"
   done
+  if [ -f "$ERL_TOP/erts/CONF_INFO" ]; then
+    printf "%-15s: " "erts"
+    cat "$ERL_TOP/erts/CONF_INFO"
+  fi
   echo
   echo '*********************************************************************'
 fi
