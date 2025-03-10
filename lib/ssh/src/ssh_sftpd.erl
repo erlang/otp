@@ -174,19 +174,15 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, Signal, Error, _}}, State) ->
-    Report = io_lib:format("Connection closed by peer signal ~p~n Error ~p~n",
-			   [Signal,Error]),
-    error_logger:error_report(Report),
+    ?SSH_ERROR_REPORT("Connection closed by peer signal ~p~n Error ~p~n",
+                      [Signal, Error]),
     {stop, ChannelId,  State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, 0}}, State) ->
     {stop, ChannelId, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
-    
-    Report = io_lib:format("Connection closed by peer ~n Status ~p~n",
-			   [Status]),
-    error_logger:error_report(Report),
+    ?SSH_ERROR_REPORT("Connection closed by peer ~n Status ~p~n", [Status]),
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------
