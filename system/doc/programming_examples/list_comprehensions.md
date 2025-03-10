@@ -24,31 +24,44 @@ limitations under the License.
 This section starts with a simple example, showing a generator and a filter:
 
 ```erlang
-> [X || X <- [1,2,a,3,4,b,5,6], X > 3].
+> [X || X <:- [1,2,a,3,4,b,5,6], X > 3].
 [a,4,b,5,6]
 ```
 
 This is read as follows: The list of X such that X is taken from the list
 `[1,2,a,...]` and X is greater than 3.
 
-The notation `X <- [1,2,a,...]` is a generator and the expression `X > 3` is a
+The notation `X <:- [1,2,a,...]` is a generator and the expression `X > 3` is a
 filter.
 
 An additional filter, [`is_integer(X)`](`is_integer/1`), can be added to
 restrict the result to integers:
 
 ```erlang
-> [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].
+> [X || X <:- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].
 [4,5,6]
 ```
 
-Generators can be combined. For example, the Cartesian product of two lists can
-be written as follows:
+Generators can be combined in two ways. For example, the Cartesian product of
+two lists can be written as follows:
 
 ```erlang
-> [{X, Y} || X <- [1,2,3], Y <- [a,b]].
+> [{X, Y} || X <:- [1,2,3], Y <:- [a,b]].
 [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]
 ```
+
+Alternatively, two lists can be zipped together using a zip generator as
+follows:
+
+```erlang
+> [{X, Y} || X <:- [1,2,3] && Y <:- [a,b,c]].
+[{1,a},{2,b},{3,c}]
+```
+
+> #### Change {: .info }
+>
+> Using strict generators is a better practice when either strict or relaxed
+> generators work.
 
 ## Quick Sort
 
@@ -58,15 +71,15 @@ The well-known quick sort routine can be written as follows:
 sort([]) -> [];
 sort([_] = L) -> L;
 sort([Pivot|T]) ->
-    sort([ X || X <- T, X < Pivot]) ++
+    sort([ X || X <:- T, X < Pivot]) ++
     [Pivot] ++
-    sort([ X || X <- T, X >= Pivot]).
+    sort([ X || X <:- T, X >= Pivot]).
 ```
 
-The expression `[X || X <- T, X < Pivot]` is the list of all elements in `T`
+The expression `[X || X <:- T, X < Pivot]` is the list of all elements in `T`
 that are less than `Pivot`.
 
-`[X || X <- T, X >= Pivot]` is the list of all elements in `T` that are greater
+`[X || X <:- T, X >= Pivot]` is the list of all elements in `T` that are greater
 than or equal to `Pivot`.
 
 With the algorithm above, a list is sorted as follows:
@@ -100,7 +113,7 @@ The following example generates all permutations of the elements in a list:
 
 ```erlang
 perms([]) -> [[]];
-perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
+perms(L)  -> [[H|T] || H <:- L, T <:- perms(L--[H])].
 ```
 
 This takes `H` from `L` in all possible ways. The result is the set of all lists
@@ -124,9 +137,9 @@ The function `pyth(N)` generates a list of all integers `{A,B,C}` such that
 ```erlang
 pyth(N) ->
     [ {A,B,C} ||
-        A <- lists:seq(1,N),
-        B <- lists:seq(1,N),
-        C <- lists:seq(1,N),
+        A <:- lists:seq(1,N),
+        B <:- lists:seq(1,N),
+        C <:- lists:seq(1,N),
         A+B+C =< N,
         A*A+B*B == C*C
     ].
@@ -159,9 +172,9 @@ The following code reduces the search space and is more efficient:
 ```erlang
 pyth1(N) ->
    [{A,B,C} ||
-       A <- lists:seq(1,N-2),
-       B <- lists:seq(A+1,N-1),
-       C <- lists:seq(B+1,N),
+       A <:- lists:seq(1,N-2),
+       B <:- lists:seq(A+1,N-1),
+       C <:- lists:seq(B+1,N),
        A+B+C =< N,
        A*A+B*B == C*C ].
 ```
@@ -172,9 +185,10 @@ As an example, list comprehensions can be used to simplify some of the functions
 in `lists.erl`:
 
 ```erlang
-append(L)   ->  [X || L1 <- L, X <- L1].
-map(Fun, L) -> [Fun(X) || X <- L].
-filter(Pred, L) -> [X || X <- L, Pred(X)].
+append(L)   ->  [X || L1 <:- L, X <:- L1].
+map(Fun, L) -> [Fun(X) || X <:- L].
+filter(Pred, L) -> [X || X <:- L, Pred(X)].
+zip(L1, L2) -> [{X,Y} || X <:- L1 && Y <:- L2].
 ```
 
 ## Variable Bindings in List Comprehensions
