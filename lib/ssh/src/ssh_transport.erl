@@ -507,8 +507,7 @@ verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
 verify_kexinit_is_first_msg(#alg{kex_strict_negotiated = true},
                             #ssh{send_sequence = SendSequence,
                                  recv_sequence = RecvSequence}, init) ->
-    ?SSH_WARNING_REPORT("KEX strict violation (~p, ~p).",
-                     [SendSequence, RecvSequence]),
+    ?LOG_WARNING("KEX strict violation (~p, ~p).", [SendSequence, RecvSequence]),
     {false, "kex_strict"}.
 
 %%%----------------------------------------------------------------

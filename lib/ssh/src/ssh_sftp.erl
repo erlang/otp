@@ -1398,7 +1398,7 @@ handle_ssh_msg({ssh_cm, _ConnectionManager,
 
 handle_ssh_msg({ssh_cm, _ConnectionManager,
 		{data, _ChannelId, 1, Data}}, State) ->
-    ?SSH_ERROR_REPORT("ssh: STDERR: ~s\n", [binary_to_list(Data)]),
+    ?LOG_ERROR(fun(_) -> {"ssh: STDERR: ~s\n", [binary_to_list(Data)]} end, []),
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->

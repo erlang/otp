@@ -147,23 +147,29 @@ handle_error(Reason, ToAddress, ToPort, _) ->
 handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
     case Reason of
         {max_sessions, MaxSessions} ->
-            ?SSH_NOTICE_REPORT("Ssh login attempt to ~s from ~s denied due to "
+            FmtFun = fun(_) ->
+                             {"Ssh login attempt to ~s from ~s denied due to "
                                "option max_sessions limits to ~B sessions.",
-                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
-                                ?LAZY(ssh_lib:format_address_port(FromAddress,FromPort)),
-                                MaxSessions]);
-
+                              [ssh_lib:format_address_port(ToAddress,ToPort),
+                               ssh_lib:format_address_port(FromAddress,FromPort),
+                               MaxSessions]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []);
         Limit when Limit==enfile ; Limit==emfile ->
             %% Out of sockets...
-            ?SSH_NOTICE_REPORT("~s: out of accept sockets on ~s - retrying",
-                               [?LAZY(atom_to_list(Limit)),
-                                ?LAZY(ssh_lib:format_address_port(ToAddress, ToPort))]),
+            FmtFun = fun(_) ->
+                             {"~s: out of accept sockets on ~s - retrying",
+                              [atom_to_list(Limit),
+                              ssh_lib:format_address_port(ToAddress, ToPort)]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []),
             timer:sleep(?SLEEP_TIME);
-
         closed ->
-            ?SSH_NOTICE_REPORT("The ssh accept socket on ~s was closed by a third party.",
-                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort))]);
-
+            FmtFun = fun(_) ->
+                             {"The ssh accept socket on ~s was closed by a third party.",
+                              [ssh_lib:format_address_port(ToAddress,ToPort)]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []);
         timeout ->
             ok;
 
@@ -171,14 +177,20 @@ handle_error(Reason, ToAddress, ToPort, FromAddress, FromPort) ->
             ok;
         Error when FromAddress=/=undefined,
                    FromPort=/=undefined ->
-            ?SSH_NOTICE_REPORT("Accept failed on ~s for connect from ~s: ~p",
-                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
-                                ?LAZY(ssh_lib:format_address_port(FromAddress,FromPort)),
-                                Error]);
+            FmtFun = fun(_) ->
+                             {"Accept failed on ~s for connect from ~s: ~p",
+                              [ssh_lib:format_address_port(ToAddress,ToPort),
+                               ssh_lib:format_address_port(FromAddress,FromPort),
+                               Error]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []);
         Error ->
-            ?SSH_NOTICE_REPORT("Accept failed on ~s: ~p",
-                               [?LAZY(ssh_lib:format_address_port(ToAddress,ToPort)),
-                                Error])
+            FmtFun = fun(_) ->
+                             {"Accept failed on ~s: ~p",
+                              [ssh_lib:format_address_port(ToAddress,ToPort),
+                               Error]}
+                     end,
+            ?LOG_NOTICE(FmtFun, [])
     end.
 
 %%%----------------------------------------------------------------

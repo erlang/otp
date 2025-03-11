@@ -1329,42 +1329,40 @@ handle_event({call,From},
 handle_event(info, UnexpectedMessage, StateName, D = #data{ssh_params = Ssh}) ->
     case unexpected_fun(UnexpectedMessage, D) of
 	report ->
-	    MsgFun =
-                ?LAZY(lists:flatten(
-                        io_lib:format(
-                          "*** SSH: "
-                          "Unexpected message '~p' received in state '~p'\n"
-                          "Role: ~p\n"
-                          "Peer: ~p\n"
-                          "Local Address: ~p\n",
-                          [UnexpectedMessage,
-                           StateName,
-                           Ssh#ssh.role,
-                           Ssh#ssh.peer,
-                           ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]))),
-            ?SSH_NOTICE_REPORT("~s", [MsgFun]),
+	    FmtFun = fun(_) ->
+                             {"*** SSH: "
+                              "Unexpected message '~p' received in state '~p'\n"
+                              "Role: ~p\n"
+                              "Peer: ~p\n"
+                              "Local Address: ~p\n",
+                              [UnexpectedMessage,
+                               StateName,
+                               Ssh#ssh.role,
+                               Ssh#ssh.peer,
+                               ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]}
+                     end,
+            ?LOG_NOTICE(FmtFun, []),
 	    keep_state_and_data;
 
 	skip ->
 	    keep_state_and_data;
 
 	Other ->
-	    MsgFun =
-                ?LAZY(lists:flatten(
-                        io_lib:format("*** SSH: "
-                                      "Call to fun in 'unexpectedfun' failed:~n"
-                                      "Return: ~p\n"
-                                      "Message: ~p\n"
-                                      "Role: ~p\n"
-                                      "Peer: ~p\n"
-                                      "Local Address: ~p\n",
-                                      [Other,
-                                       UnexpectedMessage,
-                                       Ssh#ssh.role,
-                                       Ssh#ssh.peer,
-                                       ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]
-                                     ))),
-            ?SSH_ERROR_REPORT("~s", [MsgFun]),
+	    FmtFun = fun(_) ->
+                             {"*** SSH: "
+                              "Call to fun in 'unexpectedfun' failed:~n"
+                              "Return: ~p\n"
+                              "Message: ~p\n"
+                              "Role: ~p\n"
+                              "Peer: ~p\n"
+                              "Local Address: ~p\n",
+                              [Other,
+                               UnexpectedMessage,
+                               Ssh#ssh.role,
+                               Ssh#ssh.peer,
+                               ?GET_INTERNAL_OPT(address, Ssh#ssh.opts, undefined)]}
+                     end,
+            ?LOG_ERROR(FmtFun, []),
 	    keep_state_and_data
     end;
 
@@ -1424,8 +1422,8 @@ terminate(shutdown, _StateName, D0) ->
 
 terminate(Reason, StateName, D0) ->
     %% Others, e.g  undef, {badmatch,_}, ...
-    {Fmt, Args} = prepare_fargs(Reason, D0),
-    ?SSH_ERROR_MSG(Fmt, Args),
+    FmtFun = fun(_) -> prepare_fargs(Reason, D0) end,
+    ?LOG_ERROR(FmtFun, []),
     {_ShutdownReason, D} = ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
                                             "Internal error",
                                             io_lib:format("Reason: ~p",[Reason]),
@@ -1803,14 +1801,17 @@ send_disconnect(Code, Reason, DetailedText, Module, Line, StateName, D0) ->
 call_disconnectfun_and_log_cond(LogMsg, DetailedText, Module, Line, StateName, D) ->
     case disconnect_fun(LogMsg, D) of
         void ->
-            Fmt =
-                "~s~n"
-                "State = ~p~n"
-                "Module = ~p, Line = ~p.~n"
-                "Details:~n  ~s~n",
-            Args = [LogMsg, StateName, Module, Line, DetailedText],
-            {Fmt2, Args2} = prepare_fargs(io_lib:format(Fmt, Args), D),
-            ?SSH_NOTICE_MSG(Fmt2, Args2);
+            FmtFun =
+                fun(_) ->
+                        Fmt =
+                            "~s~n"
+                            "State = ~p~n"
+                            "Module = ~p, Line = ~p.~n"
+                            "Details:~n  ~s~n",
+                        Args = [LogMsg, StateName, Module, Line, DetailedText],
+                        prepare_fargs(io_lib:format(Fmt, Args), D)
+                end,
+            ?LOG_NOTICE(FmtFun, []);
         _ ->
             ok
     end.

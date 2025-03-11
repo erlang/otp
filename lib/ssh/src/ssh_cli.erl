@@ -255,14 +255,14 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}}, State) ->
-    ?SSH_ERROR_REPORT("Connection closed by peer ~n Error ~p~n", [Error]),
+    ?LOG_ERROR("Connection closed by peer ~n Error ~p~n", [Error]),
     {stop, ChannelId,  State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, 0}}, State) ->
     {stop, ChannelId, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
-    ?SSH_ERROR_REPORT("Connection closed by peer ~n Status ~p~n", [Status]),
+    ?LOG_ERROR("Connection closed by peer ~n Status ~p~n", [Status]),
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------
