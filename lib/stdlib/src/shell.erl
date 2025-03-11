@@ -33,6 +33,7 @@
 -export([default_multiline_prompt/1, inverted_space_prompt/1]).
 -export([prompt_width/1, prompt_width/2]).
 -export([help/0,whereis/0]).
+-export([report_exception/3, report_exception/4]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
