@@ -1192,6 +1192,8 @@ elements that are present in all sets.
 []
 6> gb_sets:to_list(gb_sets:intersection([S0, S1])).
 [d]
+7> gb_sets:intersection([]).
+** exception error: no function clause matching gb_sets:intersection([])
 ```
 """.
 -spec intersection(SetList) -> Set when

@@ -95,6 +95,10 @@ is raised.
 5
 2> binary:at(<<5,19,72,33>>, 1).
 19
+3> binary:at(<<5,19,72,33>>, 4).
+** exception error: bad argument
+     in function  binary:at/2
+        called as binary:at(<<5,19,72,33>>,4)
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -157,6 +161,11 @@ the value of one byte.
 1> binary:bin_to_list(<<"erlang">>, 1, 3).
 "rla"
 %% or [114,108,97] in list notation.
+2> binary:bin_to_list(<<"erlang">>, 5, 3).
+** exception error: bad argument
+     in function  binary:bin_to_list/3
+        called as binary:bin_to_list(<<"erlang">>,5,3)
+        *** argument 3: out of range
 ```
 
 If `Pos` and `Len` reference outside the binary in any way, a `badarg`
@@ -375,6 +384,11 @@ If the size of `Subject` is zero, a `badarg` exception is raised.
 ```erlang
 1> binary:first(<<42,99,100>>).
 42
+2> binary:first(<<>>).
+** exception error: bad argument
+     in function  binary:first/1
+        called as binary:first(<<>>)
+        *** argument 1: a zero-sized binary is not allowed
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -394,6 +408,11 @@ If the size of `Subject` is zero, a `badarg` exception is raised.
 ```erlang
 1> binary:last(<<42,99,100>>).
 100
+2> binary:last(<<>>).
+** exception error: bad argument
+     in function  binary:last/1
+        called as binary:last(<<>>)
+        *** argument 1: a zero-sized binary is not allowed
 ```
 """.
 -doc(#{since => <<"OTP R14B">>}).
@@ -1050,6 +1069,11 @@ or if the binary contains any characters that do not represent hex digits.
 ```erlang
 1> binary:decode_hex(<<"666f6f">>).
 <<"foo">>
+2> binary:decode_hex(<<"A">>).
+** exception error: bad argument
+     in function  binary:decode_hex/1
+        called as binary:decode_hex(<<"A">>)
+        *** argument 1: must contain an even number of bytes
 ```
 """.
 -doc(#{since => <<"OTP 24.0">>}).

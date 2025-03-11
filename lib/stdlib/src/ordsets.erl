@@ -367,6 +367,8 @@ elements that are present in all sets.
 []
 6> ordsets:intersection([S0, S1]).
 [d]
+7> ordsets:intersection([]).
+** exception error: no function clause matching ordsets:intersection([])
 ```
 """.
 -spec intersection(OrdsetList) -> Ordset when

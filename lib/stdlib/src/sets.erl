@@ -624,6 +624,8 @@ elements that are present in all sets.
 []
 6> sets:to_list(sets:intersection([S0, S1])).
 [d]
+7> sets:intersection([]).
+** exception error: no function clause matching sets:intersection([])
 ```
 """.
 -spec intersection(SetList) -> Set when
