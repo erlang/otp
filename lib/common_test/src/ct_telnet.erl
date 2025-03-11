@@ -58,7 +58,7 @@ term:
                    {tcp_nodelay,Bool}]}.
 ```
 
-`Millisec = integer(), N = integer()`
+`Millisec = timer:time(), N = integer()`
 
 Enter the `telnet_settings` term in a configuration file included in the test
 and `ct_telnet` retrieves the information automatically.

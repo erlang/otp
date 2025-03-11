@@ -290,7 +290,7 @@ way, option `send_timeout` comes in handy.
         {reuseaddr,       boolean()} |
         {reuseport,       boolean()} |
         {reuseport_lb,    boolean()} |
-        {send_timeout,    non_neg_integer() | infinity} |
+        {send_timeout,    timer:time() | infinity} |
         {send_timeout_close, boolean()} |
         {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |

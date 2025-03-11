@@ -277,7 +277,7 @@ dealing with a known underlying database.
           {error, Reason} when
       ConnectionStr :: string(),
       Options :: [{auto_commit, on | off} |
-                  {timeout, erlang:timeout()} |
+                  {timeout, timeout()} |
                   {binary_strings, on | off} |
                   {tuple_row, on | off} |
                   {scrollable_cursors, on | off} |
