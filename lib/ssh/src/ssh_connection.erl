@@ -946,9 +946,19 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                        connection_supervisor = ConnectionSup
                       } = C,
 	   server, _SSH) ->
+    Allowed = case ?GET_OPT(tcpip_tunnel_in, Options) of
+                  T when is_boolean(T) -> T;
+                  AllowedFun when is_function(AllowedFun, 2) ->
+                      AllowedFun(binary_to_list(HostToConnect), PortToConnect)
+              end,
     {ReplyMsg, NextChId} =
-        case ?GET_OPT(tcpip_tunnel_in, Options) of
-            %% May add more to the option, like allowed ip/port pairs to connect to
+        case Allowed of
+            denied ->
+                {channel_open_failure_msg(RemoteId,
+                                          ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
+                                          "Not allowed", "en"),
+                 ChId};
+
             false ->
                 {channel_open_failure_msg(RemoteId, 
                                           ?SSH_OPEN_CONNECT_FAILED,

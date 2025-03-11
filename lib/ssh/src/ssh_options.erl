@@ -454,7 +454,7 @@ default(server) ->
 
       tcpip_tunnel_in =>
            #{default => false,
-             chk => fun(V) -> erlang:is_boolean(V) end,
+             chk => fun(V) -> check_function2(V) orelse erlang:is_boolean(V) end,
              class => user_option
             },
 
