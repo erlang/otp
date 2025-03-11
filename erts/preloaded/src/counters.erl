@@ -121,7 +121,7 @@ new(Size, Options) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec get(Ref, Ix) -> integer() when
       Ref  :: counters_ref(),
-      Ix :: integer().
+      Ix :: pos_integer().
 get(Ref, Ix) ->
     try
         case Ref of
@@ -142,7 +142,7 @@ get(Ref, Ix) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec add(Ref, Ix, Incr) -> ok when
       Ref  :: counters_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Incr :: integer().
 add(Ref, Ix, Incr) ->
     try
@@ -164,7 +164,7 @@ add(Ref, Ix, Incr) ->
 -doc(#{since => <<"OTP 21.2">>}).
 -spec sub(Ref, Ix, Decr) -> ok when
       Ref  :: counters_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Decr :: integer().
 sub(Ref, Ix, Decr) ->
     try
@@ -197,7 +197,7 @@ Write `Value` to counter at index `Ix`.
 -doc(#{since => <<"OTP 21.2">>}).
 -spec put(Ref, Ix, Value) -> ok when
       Ref  :: counters_ref(),
-      Ix :: integer(),
+      Ix :: pos_integer(),
       Value :: integer().
 put(Ref, Ix, Value) ->
     try
