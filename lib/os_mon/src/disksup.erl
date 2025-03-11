@@ -172,7 +172,7 @@ get_disk_info(Path) ->
 -doc """
 Returns the time interval, in milliseconds, for the periodic disk space check.
 """.
--spec get_check_interval() -> Milliseconds :: integer().
+-spec get_check_interval() -> Milliseconds :: timer:time().
 get_check_interval() ->
     os_mon:call(disksup, get_check_interval, infinity).
 

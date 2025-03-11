@@ -27,13 +27,7 @@
 
 
 
-%% Help function, elapsed milliseconds since T0
-millisec_passed({_,_,_} = T0 ) ->
-    %% OTP 17 and earlier
-    timer:now_diff(erlang:timestamp(), T0) div 1000;
-
 millisec_passed(T0) ->
-    %% OTP 18
     erlang:convert_time_unit(erlang:monotonic_time() - T0,
 			     native,
 			     micro_seconds) div 1000.
