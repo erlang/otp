@@ -244,6 +244,33 @@ parse_match([{match, [_Line_Number = <<>>, _Prefix = <<>>, <<" ", More/binary>>]
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
 
+-doc """
+TODO: maybe rewrite shell:report_exception/4 to return something that can be captured?
+""".
+run_tests({test, Test, [<<"** ", ExpectedException/binary>> | _]}, Bindings) ->
+    maybe
+        Cmd = [" try ",
+                  string:trim(string:trim(unicode:characters_to_list(Test)), trailing, "."),
+               " catch E:R:ST ->",
+               "  shell:report_exception(E, {R, ST}, [doctest])",
+               " end."],
+        {ok, T, _} ?= erl_scan:string(lists:flatten(Cmd)),
+        io:format("Cmd -> ~p~n", [Cmd]),
+        {ok, Ast0} ?= inspect(erl_parse:parse_exprs(T)),
+        io:format("Ast0 -> ~p~n", [Ast0]),
+        % Ast = rewrite(Ast0),
+        try
+            % {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
+            {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast0, Bindings)),
+            NewBindings
+        catch E:R:ST ->
+            io:format("~p~n", [Ast0]),
+            % io:format("~p~n", [Ast]),
+            erlang:raise(E,R,ST)
+        end
+    else
+        Else -> throw({iolist_to_binary(Test), iolist_to_binary(ExpectedException), Else})
+    end;
 run_tests({test, Test, Match}, Bindings) ->
     maybe
         Cmd = [unicode:characters_to_list(Match), " = begin ",
