@@ -27,7 +27,8 @@
 -export([
     conversion_from_external_to_disc_copies_should_not_result_in_data_loss_after_node_restart/1,
     backup_and_restore_should_work_with_external_backend/1,
-    schema_creation_should_work_when_external_tables_exist/1
+    schema_creation_should_work_when_external_tables_exist/1,
+    schema_merge_should_work_when_node_is_removed_from_the_cluster_and_later_rejoins/1
 ]).
 
 -include("mnesia_test_lib.hrl").
@@ -37,7 +38,8 @@
 all() -> [
     conversion_from_external_to_disc_copies_should_not_result_in_data_loss_after_node_restart,
     backup_and_restore_should_work_with_external_backend,
-    schema_creation_should_work_when_external_tables_exist
+    schema_creation_should_work_when_external_tables_exist,
+    schema_merge_should_work_when_node_is_removed_from_the_cluster_and_later_rejoins
 ].
 
 groups() ->
@@ -165,6 +167,22 @@ schema_creation_should_work_when_external_tables_exist(Config) when is_list(Conf
 
     Ext = proplists:get_value(default_properties, Config, ?BACKEND),
     ?match(ok, mnesia:create_schema([Node], Ext)).
+
+schema_merge_should_work_when_node_is_removed_from_the_cluster_and_later_rejoins(Config) when is_list(Config) ->
+    [N1, N2] = All = ?acquire_nodes(2, Config),
+
+    ?match({atomic,ok}, mnesia:create_table(table, [
+        {type, set},
+        {record_name, some_rec},
+        {attributes, record_info(fields, some_rec)},
+        {ext_ram_copies, [N1, N2]}
+    ])),
+
+    ?match([], mnesia_test_lib:kill_mnesia([N2])),
+    ?match({atomic, ok}, mnesia:del_table_copy(schema, N2)),
+
+    ?match([], mnesia_test_lib:start_mnesia([N2])),
+    ?verify_mnesia(All, []).
 
 load_backup(BUP) ->
     ?match(ok, mnesia:install_fallback(BUP)),
