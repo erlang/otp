@@ -605,12 +605,14 @@ static void encode_cmsgs(ErlNifEnv*       env,
 static ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
                                   ESAIOOperation*  opP,
+                                  ssize_t          toRead,
                                   ErlNifPid        caller,
                                   ERL_NIF_TERM     sockRef,
                                   ERL_NIF_TERM     recvRef);
 
 static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
+                                      ssize_t          toRead,
                                       ESAIOOperation*  opP,
                                       ErlNifPid        caller,
                                       int              recv_result,
@@ -4095,7 +4097,7 @@ ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
 
     rres = sock_recv_O(descP->sock, &wbuf, &f, (OVERLAPPED*) opP);
 
-    return recv_check_result(env, descP, opP, caller, rres,
+    return recv_check_result(env, descP, len, opP, caller, rres,
                              sockRef, recvRef);
 }
 
@@ -4108,6 +4110,7 @@ ERL_NIF_TERM esaio_recv(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                ESockDescriptor* descP,
+                               ssize_t          toRead,
                                ESAIOOperation*  opP,
                                ErlNifPid        caller,
                                int              recv_result,
@@ -4120,7 +4123,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         /* +++ Success +++ */
 
-        eres = recv_check_ok(env, descP, opP, caller, sockRef, recvRef);
+        eres = recv_check_ok(env, descP, opP, toRead, caller, sockRef, recvRef);
 
     } else {
         int err;
@@ -4197,6 +4200,7 @@ static
 ERL_NIF_TERM recv_check_ok(ErlNifEnv*       env,
                            ESockDescriptor* descP,
                            ESAIOOperation*  opP,
+                           ssize_t          toRead,
                            ErlNifPid        caller,
                            ERL_NIF_TERM     sockRef,
                            ERL_NIF_TERM     recvRef)
@@ -9175,6 +9179,17 @@ void esaio_completion_recv_completed(ErlNifEnv*       env,
                                                opEnv, opDataP,
                                                flags);
 
+            } else if (descP->type != SOCK_STREAM) {
+
+                /* Only used a part of the buffer => needs splitting!
+                 * Since this is *not* a STREAM socket (most likely a DGRAM),
+                 * we are done!
+                 */
+
+                completionStatus =
+                    esaio_completion_recv_partial(env, descP,
+                                                  opEnv, opDataP,
+                                                  reqP, read, flags);
             } else {
 
                 /* Only used a part of the buffer =>
@@ -9423,19 +9438,6 @@ ERL_NIF_TERM esaio_completion_recv_partial_done(ErlNifEnv*       env,
  *
  * A successful but only partial recv, which only partly fulfilled
  * the required read.
- * We do *not* want to risk ending up in a "never ending" read loop
- * here (by trying to read more data (and yet again getting partial)).
- * [worst case, we could up with all our worker threads busy trying
- * to read more data, and no one ready to respond to new requests].
- * So we simply return what we got to the user and let the user
- * decide what to do.
- *
- * What shall we send? {ok, Bin} | {more, Bin}
- * Presumably the user knows how much to expect, so is therefor
- * able to check:
- *
- *           "Expected > byte_size(Bin)"   -> read again
- *           "Expected =:= byte_size(Bin)" -> done
  */
 
 static
@@ -9447,10 +9449,32 @@ ERL_NIF_TERM esaio_completion_recv_partial_part(ErlNifEnv*       env,
                                                 ssize_t          read,
                                                 DWORD            flags)
 {
-    /* This is just a "placeholder". Is this really all we need to do? */
-    return esaio_completion_recv_partial_done(env, descP,
-                                              opEnv, opDataP,
-                                              read, flags);
+    ERL_NIF_TERM sockRef = opDataP->sockRef;
+    ERL_NIF_TERM data;
+
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  esock_atom_read_byte, &descP->readByteCnt, read);
+
+    if (read > descP->readPkgMax)
+        descP->readPkgMax = read;
+
+    /* This transfers "ownership" of the *allocated* binary to an
+     * erlang term (no need for an explicit free).
+     */
+    data = MKBIN(opEnv, &opDataP->buf);
+    data = MKSBIN(opEnv, data, 0, read);
+
+    (void) flags;
+
+    SSDBG( descP,
+           ("WIN-ESAIO",
+            "esaio_completion_recv_partial_part(%T) {%d} -> done\r\n",
+            sockRef, descP->sock) );
+
+    return MKT2(env, esock_atom_more, data);
+
 }
 
 
