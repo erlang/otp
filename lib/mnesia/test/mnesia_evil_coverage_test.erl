@@ -2476,9 +2476,11 @@ record_name_dirty_access(Storage, Config) ->
     ?match(ok, mnesia:dirty_delete_object(Tab, {RecName, 2, 21})),
 
     Tens = ?sort([{RecName, 1, 10}, {RecName, 3, 10}]),
+    RevTens = lists:reverse(Tens),
     TenPat = {RecName, '_', 10},
     ?match(Tens, ?sort(mnesia:dirty_match_object(Tab, TenPat))),
     ?match(Tens, ?sort(mnesia:dirty_select(Tab, [{TenPat, [], ['$_']}]))),
+    ?match(RevTens, lists:reverse(?sort(mnesia:dirty_select_reverse(Tab, [{TenPat, [], ['$_']}])))),
 
     %% Subscription test
     E = mnesia_table_event,
@@ -2510,6 +2512,10 @@ record_name_dirty_access(Storage, Config) ->
     ?match(Twos, ?sort(mnesia:dirty_select(Tab, 
 					   [{mnesia:table_info(Tab, wild_pattern),
 					     [],['$_']}]))),
+    RevTwos = lists:reverse(Twos),
+    ?match(RevTwos, lists:reverse(?sort(mnesia:dirty_select_reverse(Tab,
+					   [{mnesia:table_info(Tab, wild_pattern),
+					     [],['$_']}])))),
 
     %% Traverse backup test
 
