@@ -37,7 +37,8 @@
          auth_none/1,
          connectfun_disconnectfun_client/1, 
 	 disconnectfun_option_client/1, 
-	 disconnectfun_option_server/1, 
+	 disconnectfun_option_server/1,
+	 bannerfun_server/1,
 	 id_string_no_opt_client/1, 
 	 id_string_no_opt_server/1, 
 	 id_string_own_string_client/1, 
@@ -114,6 +115,7 @@ suite() ->
 
 all() -> 
     [connectfun_disconnectfun_server,
+     bannerfun_server,
      connectfun_disconnectfun_client,
      server_password_option,
      server_userpassword_option,
@@ -776,6 +778,47 @@ connectfun_disconnectfun_server(Config) ->
 	    after 0 -> ok
 	    end,
 	    {fail, "No connectfun action"}
+    end.
+
+%%--------------------------------------------------------------------
+bannerfun_server(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    Ref = make_ref(),
+    BannerFun = fun(U) -> Parent ! {banner,Ref,U}, list_to_binary(U) end,
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
+					     {password, "morot"},
+					     {failfun, fun ssh_test_lib:failfun/2},
+					     {bannerfun, BannerFun}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    receive
+	{banner,Ref,U} ->
+	   "foo" = U,
+            %% Make sure no second banner is sent
+            receive
+		{banner,Ref,U} ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid),
+                    {fail, "More than 1 banner sent"}
+	    after 2000 ->
+                    ssh:close(ConnectionRef),
+                    ssh:stop_daemon(Pid)
+	    end
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
+	    {fail, "No bannerfun action"}
     end.
 
 %%--------------------------------------------------------------------

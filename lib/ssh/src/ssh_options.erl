@@ -588,6 +588,12 @@ default(server) ->
             class => user_option
            },
 
+      bannerfun =>
+          #{default => fun(_) -> <<>> end,
+            chk => fun(V) -> check_function1(V) end,
+            class => user_option
+           },
+
 %%%%% Undocumented
       infofun =>
           #{default => fun(_,_,_) -> void end,

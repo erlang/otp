@@ -1174,11 +1174,16 @@ in the User's Guide chapter.
 
 - **`failfun`** - Provides a fun to implement your own logging when a user fails
   to authenticate.
+
+- **`bannerfun`** - Provides a fun to implement the construction of a banner
+  text that is sent at the beginning of the user authentication. The banner will
+  not be sent if the function does not return a binary.
 """.
 -doc(#{group => <<"Daemon Options">>}).
 -type callbacks_daemon_options() ::
         {failfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Reason::term()) -> _)}
-      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)} .
+      | {connectfun, fun((User::string(), Peer::{inet:ip_address(), inet:port_number()}, Method::string()) ->_)}
+      | {bannerfun, fun((User::string()) -> binary())}.
 
 -doc(#{group => <<"Other data types">>}).
 -type opaque_daemon_options()  ::
@@ -1277,7 +1282,8 @@ in the User's Guide chapter.
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,
-	  authenticated = false
+	  authenticated = false,
+	  userauth_banner_sent = false
 	 }).
 
 -record(alg,
