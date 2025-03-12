@@ -28,7 +28,7 @@
 %%% Properties:
 
 prop_seq(Config) ->
-    error_logger:tty(false),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
     {ok, Ref} = ssh_eqc_event_handler:add_report_handler(),
     {_, _, Port} = init_daemon(Config),
     numtests(1000,

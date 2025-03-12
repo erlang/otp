@@ -235,20 +235,11 @@ handle_data(Type, ChannelId, Data0, State = #state{pending = Pending}) ->
     Size = byte_size(Data),
     case Size > ?SSH_MAX_PACKET_SIZE of
         true ->
-            ReportFun =
-                fun([S]) ->
-                        Report =
-                            #{label => {error_logger, error_report},
-                              report =>
-                                  io_lib:format("SFTP packet size (~B) exceeds the limit!",
-                                                [S])},
-                        Meta =
-                            #{error_logger =>
-                                  #{tag => error_report,type => std_error},
-                             report_cb => fun(#{report := Msg}) -> {Msg, []} end},
-                        {Report, Meta}
+            FormatFun =
+                fun([]) ->
+                        {"SFTP packet size (~B) exceeds the limit!", [Size]}
                 end,
-            ?LOG_ERROR(ReportFun, [Size]),
+            ?LOG_ERROR(FormatFun, []),
             {stop, ChannelId, State};
         _ ->
             handle_data(Type, ChannelId, Data, State#state{pending = <<>>})
