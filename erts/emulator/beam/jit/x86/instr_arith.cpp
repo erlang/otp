@@ -1088,7 +1088,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         }
     }
 
-    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
+    if (always_small(Src1) && always_small(Src2) && always_small(Src4) &&
         is_product_small && is_sum_small) {
         comment("multiplication and addition without overflow check");
         if (Src2.isSmall()) {

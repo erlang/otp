@@ -57,7 +57,6 @@ int index_table_sz(IndexTable *);
 int index_get(IndexTable*, void*);
 
 IndexSlot* index_put_entry(IndexTable*, void*);
-void erts_index_merge(Hash*, IndexTable*);
 
 /* Erase all entries with index 'ix' and higher
 */

@@ -1055,11 +1055,8 @@ void BeamModuleAssembler::emit_i_bs_validate_unicode_retract(
 
         a.sub(emit_boxed_val(ARG1, offsetof(ErlSubBits, start)), imm(32));
 
-        if (Fail.get() != 0) {
-            a.jmp(resolve_beam_label(Fail));
-        } else {
-            emit_error(BADARG);
-        }
+        ASSERT(Fail.get() != 0);
+        a.jmp(resolve_beam_label(Fail));
     }
 
     a.bind(next);
@@ -3791,6 +3788,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             break;
         }
         case BsmSegment::action::GET_INTEGER: {
+            /* Match integer segments with more than 64 bits. */
             Uint flags = seg.flags;
             auto bits = seg.size;
             auto Dst = seg.dst;
@@ -3802,12 +3800,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 a.mov(ARG4, ctx);
             }
 
-            if (bits >= SMALL_BITS) {
-                emit_enter_runtime<Update::eReductions |
-                                   Update::eHeapOnlyAlloc>();
-            } else {
-                emit_enter_runtime();
-            }
+            emit_enter_runtime<Update::eReductions | Update::eHeapOnlyAlloc>();
 
             a.mov(ARG1, c_p);
             a.mov(ARG2, bits);
@@ -3816,12 +3809,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
             runtime_call<Eterm (*)(Process *, Uint, unsigned, ErlSubBits *),
                          erts_bs_get_integer_2>();
 
-            if (bits >= SMALL_BITS) {
-                emit_leave_runtime<Update::eReductions |
-                                   Update::eHeapOnlyAlloc>();
-            } else {
-                emit_leave_runtime();
-            }
+            emit_leave_runtime<Update::eReductions | Update::eHeapOnlyAlloc>();
 
             mov_arg(Dst, RET);
 
@@ -3837,11 +3825,7 @@ void BeamModuleAssembler::emit_i_bs_match_test_heap(ArgLabel const &Fail,
                 mov_arg(RET, Ctx);
             }
             emit_enter_runtime<Update::eHeapOnlyAlloc>();
-            if (is_position_valid) {
-                a.mov(ARG5, bin_position);
-            } else {
-                a.mov(ARG5, emit_boxed_val(RET, start_offset));
-            }
+            a.mov(ARG5, emit_boxed_val(RET, start_offset));
             a.lea(ARG1, x86::qword_ptr(c_p, offsetof(Process, htop)));
             if (seg.size <= ERL_ONHEAP_BITS_LIMIT) {
                 comment("skipped setting registers not used for heap binary");

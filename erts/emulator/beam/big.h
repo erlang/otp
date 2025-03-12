@@ -144,7 +144,6 @@ Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
 
 Eterm big_plus_small(Eterm, Uint, Eterm*);
-Eterm big_times_small(Eterm, Uint, Eterm*);
 
 Eterm big_band(Eterm, Eterm, Eterm*);
 Eterm big_bor(Eterm, Eterm, Eterm*);
@@ -161,7 +160,6 @@ Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);
 Eterm erts_make_integer(Uint, Process *);
 Eterm erts_make_integer_fact(Uint, ErtsHeapFactory *);
-Eterm erts_make_integer_from_uword(UWord x, Process *p);
 
 dsize_t big_bytes(Eterm);
 Eterm bytes_to_big(const byte*, dsize_t, int, Eterm*);
