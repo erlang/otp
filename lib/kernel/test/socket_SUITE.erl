@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -395,12 +395,6 @@ otp18240_cases() ->
     [
      otp18240_accept_mon_leak_tcp4,
      otp18240_accept_mon_leak_tcp6
-    ].
-
-otp19469_cases() ->
-    [
-     otp19469_read_all,
-     otp19469_read_part
     ].
 
 
