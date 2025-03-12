@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +110,23 @@ start(MessagePackage)
 
 This function runs the measurement on all the _official_ codecs; pretty,
 compact, ber, per and erlang.
+
+This function is intended to be called from the _meas_ script, which
+uses the '-s' arguments to run the function:
+
+```text
+erl -s megaco_codec_meas start time_test
+```
+
 """.
+
+-spec start([MessagePackage]) -> ok when
+      MessagePackage :: atom();
+           (MessagePackage) -> ok when
+      MessagePackage :: atom();
+           (Factor) -> ok when
+      Factor :: pos_integer().
+
 start([MessagePackage]) ->
     do_start(1, ?DEFAULT_OPTS, MessagePackage, ?MEASURE_CODECS);
 start(Factor) when is_integer(Factor) andalso (Factor > 0) ->

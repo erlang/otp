@@ -153,6 +153,11 @@ structure:
                   erlang/<message-files>
 ```
 """.
+
+-spec export_messages(MessagePackage) -> ok | {error, Reason} when
+      MessagePackage :: atom(),
+      Reason         :: term().
+
 export_messages(MessagePackage) when is_atom(MessagePackage) ->
     case messages(MessagePackage) of
 	TMsgs when is_list(TMsgs) ->

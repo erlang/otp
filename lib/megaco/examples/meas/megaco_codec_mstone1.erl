@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,20 @@ application.
 start() ->
     start(?DEFAULT_FACTOR).
 
--doc(#{equiv => start/2}).
+
+-doc """
+start([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start time_test 1 1
+```
+
+""".
+
 start([Factor]) ->
     start(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start([MessagePackage, Factor]) ->
@@ -103,15 +116,26 @@ config.
 
 Each process encodes and decodes their messages. The number of messages
 processed in total (for all processes) is the mstone value.
+
 """.
+
+-spec start(RunTime, Factor) -> ok when
+      RunTime :: pos_integer(),
+      Factor  :: default | pos_integer();
+           (MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start(RunTime, default = _Factor)
-  when is_integer(RunTime) ->
+  when is_integer(RunTime) andalso (RunTime > 0) ->
     start(?DEFAULT_MESSAGE_PACKAGE, RunTime, ?DEFAULT_FACTOR);
 start(RunTime, Factor)
-  when is_integer(RunTime) andalso is_integer(Factor) ->
+  when is_integer(RunTime) andalso (RunTime > 0) andalso
+       is_integer(Factor) andalso (Factor > 0) ->
     start(?DEFAULT_MESSAGE_PACKAGE, RunTime, Factor);
 start(MessagePackage, Factor)
-  when is_atom(MessagePackage) andalso is_integer(Factor) ->
+  when is_atom(MessagePackage) andalso
+       is_integer(Factor) andalso (Factor > 0) ->
     start(MessagePackage, ?MSTONE_RUN_TIME, Factor).
 
 -doc false.
@@ -123,7 +147,19 @@ start(MessagePackage, RunTime, Factor) ->
 start_flex() ->
     start_flex(?DEFAULT_FACTOR).
 
--doc(#{equiv => start_flex/2}).
+-doc """
+start_flex([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start_flex time_test 1 1
+```
+
+""".
+
 start_flex([Factor]) ->
     start_flex(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_flex([MessagePackage, Factor]) ->
@@ -140,6 +176,11 @@ are started as when running the standard test (using the `start/0,1` function).
 Each process encodes and decodes their messages. The number of messages
 processed in total (for all processes) is the mstone value.
 """.
+
+-spec start_flex(MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start_flex(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, flex).
 
@@ -151,7 +192,19 @@ start_flex(MessagePackage, RunTime, Factor) ->
 start_only_drv() ->
     start_only_drv(?DEFAULT_FACTOR).
 
--doc(#{equiv => start_only_drv/2}).
+-doc """
+start_no_drv([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start_no_drv time_test 1 1
+```
+
+""".
+
 start_only_drv([Factor]) ->
     start_only_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_only_drv([MessagePackage, Factor]) ->
@@ -169,6 +222,11 @@ started as when running the standard test (using the `start/0,1` function). Each
 process encodes and decodes their messages. The number of messages processed in
 total (for all processes) is the mstone value.
 """.
+
+-spec start_only_drv(MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start_only_drv(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, only_drv).
 
@@ -180,7 +238,19 @@ start_only_drv(MessagePackage, RunTime, Factor) ->
 start_no_drv() ->
     start_no_drv(?DEFAULT_FACTOR).
 
--doc(#{equiv => start_no_drv/2}).
+-doc """
+start_no_drv([MessagePackage, RunTime, Factor])
+
+This function is intended to be called from the _mstone1_ script, which
+uses the '-s' arguments to run the function (argument order; message package,
+run time (in minutes in the example) and factor):
+
+```text
+erl -s megaco_codec_mstone1 start_no_drv time_test 1 1
+```
+
+""".
+
 start_no_drv([Factor]) ->
     start_no_drv(?DEFAULT_MESSAGE_PACKAGE, ?MSTONE_RUN_TIME, Factor);
 start_no_drv([MessagePackage, Factor]) ->
@@ -198,6 +268,11 @@ started as when running the standard test (using the `start/0,1` function). Each
 process encodes and decodes their messages. The number of messages processed in
 total (for all processes) is the mstone value.
 """.
+
+-spec start_no_drv(MessagePackage, Factor) -> ok when
+      MessagePackage :: atom(),
+      Factor         :: pos_integer().
+
 start_no_drv(MessagePackage, Factor) ->
     do_start(MessagePackage, ?MSTONE_RUN_TIME, Factor, no_drv).
 
