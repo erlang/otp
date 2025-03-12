@@ -1,7 +1,7 @@
 -module(ssh_eqc_event_handler).
 
 -export([add_report_handler/0,
-         get_reports/0,
+         get_reports/1,
          log/2]).
 -define(HANDLER_ID, ssh_eqc_handler_id).
 -behaviour(logger_handler).
