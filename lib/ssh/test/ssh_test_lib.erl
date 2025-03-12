@@ -1321,7 +1321,7 @@ kex_strict_negotiated(SearchFun, Events) when is_function(SearchFun) ->
 
 event_logged(Role, Events, Reason) ->
     SearchF =
-        fun(#{msg := {report, #{args := Args}}}) ->
+        fun(#{msg := {_Fmt, Args}}) ->
                 AnyF = fun (E) when is_list(E) ->
                                case string:find(E, Reason) of
                                    nomatch -> false;

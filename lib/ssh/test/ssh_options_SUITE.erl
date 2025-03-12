@@ -1411,7 +1411,7 @@ max_log_item_len(Config) ->
     ct:log("~p:~p Listen ~p:~p. Mangled Host = ~p",
            [?MODULE,?LINE,Host0,Port,Host]),
 
-    {ok,ReportHandlerPid} = ssh_eqc_event_handler:add_report_handler(),
+    {ok, Ref} = ssh_eqc_event_handler:add_report_handler(),
 
     %% Connect to it with the {Type,Alg} to force a failure and log entry:
     {error,_} = R =
@@ -1426,7 +1426,7 @@ max_log_item_len(Config) ->
                      {password, "meat"}
                     ]),
 
-    {ok, Reports} = ssh_eqc_event_handler:get_reports(ReportHandlerPid),
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(Ref),
     ct:log("~p:~p ssh:connect -> ~p~n~p", [?MODULE,?LINE,R,Reports]),
 
     [ok] =
@@ -1435,8 +1435,8 @@ max_log_item_len(Config) ->
              string:tokens(
                lists:flatten(io_lib:format(Fmt,Args)),
                " \n"))
-           || {info_msg,_,{_,Fmt,Args}} <- Reports]
-          ).
+           || #{level := notice, msg := {Fmt,Args}} <- Reports]
+         ).
 
 
 check_skip_part(["Disconnect","...","("++_NumSkipped, "bytes","skipped)"]) ->
