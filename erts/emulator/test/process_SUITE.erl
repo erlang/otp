@@ -24,6 +24,7 @@
 %% 	exit/1
 %%	exit/2
 %%	process_info/1,2
+%%      suspend_process/2 (partially)
 %%	register/2 (partially)
 
 -include_lib("stdlib/include/assert.hrl").
@@ -56,6 +57,7 @@
          process_info_msgq_len_no_very_long_delay/1,
          process_info_dict_lookup/1,
          process_info_label/1,
+         suspend_process_pausing_proc_timer/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 otp_4725/1, dist_unlink_ack_exit_leak/1, bad_register/1,
          garbage_collect/1, otp_6237/1,
@@ -132,6 +134,7 @@ all() ->
      otp_6237,
      {group, spawn_request},
      {group, process_info_bif},
+     {group, suspend_process_bif},
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
      {group, system_task},
@@ -187,6 +190,8 @@ groups() ->
        process_info_msgq_len_no_very_long_delay,
        process_info_dict_lookup,
        process_info_label]},
+     {suspend_process_bif, [],
+      [suspend_process_pausing_proc_timer]},
      {otp_7738, [],
       [otp_7738_waiting, otp_7738_suspended,
        otp_7738_resume]},
@@ -1776,6 +1781,58 @@ proc_dict_helper() ->
             _ = erase(Key)
     end,
     proc_dict_helper().
+
+suspend_process_pausing_proc_timer(_Config) ->
+    BeforeSuspend = fun(_Pid) -> ok end,
+    AfterResume = fun(_Pid) -> ok end,
+    suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume),
+    ok.
+
+suspend_process_pausing_proc_timer_aux(BeforeSuspend, AfterResume) ->
+    TcProc = self(),
+    Pid = erlang:spawn_link(
+        fun() ->
+            TcProc ! {sync, self()},
+            receive go -> ok
+            after 2_000 -> exit(timer_not_paused)
+            end,
+            TcProc ! {sync, self()},
+            receive _ -> error(unexpected)
+            after 2_000 -> ok
+            end,
+            TcProc ! {sync, self()}
+        end
+    ),
+
+    WaitForSync = fun () ->
+        receive {sync, Pid} -> ok
+        after 10_000 -> error(timeout)
+        end
+    end,
+    EnsureWaiting = fun() ->
+        wait_until(fun () -> process_info(Pid, status) == {status, waiting} end)
+    end,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    timer:sleep(5_000),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    timer:sleep(1_000),
+    Pid ! go,
+
+    WaitForSync(),
+    EnsureWaiting(),
+
+    BeforeSuspend(Pid),
+    true = erlang:suspend_process(Pid),
+    true = erlang:resume_process(Pid),
+    AfterResume(Pid),
+    WaitForSync(),
+    ok.
 
 %% Tests erlang:bump_reductions/1.
 bump_reductions(Config) when is_list(Config) ->

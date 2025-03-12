@@ -8981,6 +8981,13 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
 
         mstate = erts_atomic_inc_read_relb(&msp->state);
         ASSERT(suspend || (mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) > 1);
+
+        if ((mstate & ERTS_MSUSPEND_STATE_COUNTER_MASK) == ERTS_AINT_T_MAX) {
+            ASSERT(!suspend);
+            erts_atomic_dec_nob(&msp->state);
+            BIF_RET(am_system_limit);
+        }
+
         sync = !async & !suspend & !(mstate & ERTS_MSUSPEND_STATE_FLG_ACTIVE);
         suspend = !!suspend; /* ensure 0|1 */
         res = am_true;
@@ -9036,6 +9043,7 @@ erts_internal_suspend_process_2(BIF_ALIST_2)
         else {
             send_sig = !suspend_process(BIF_P, rp);
             if (!send_sig) {
+                erts_pause_proc_timer(rp);
                 erts_monitor_list_insert(&ERTS_P_LT_MONITORS(rp), &mdp->u.target);
                 erts_atomic_read_bor_relb(&msp->state,
                                           ERTS_MSUSPEND_STATE_FLG_ACTIVE);
