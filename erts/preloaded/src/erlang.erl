@@ -6032,7 +6032,10 @@ start_timer(_Time, _Dest, _Msg, _Options) ->
 -doc """
 Increases the suspend count on the process identified by `Suspendee` and puts it
 in the suspended state if it is not already in that state. A suspended process
-is not scheduled for execution until the process has been resumed.
+is not scheduled for execution until the process has been resumed. If the
+suspended process currently is waiting in a `receive ... after` expression, the
+timer for the timeout will, as of OTP 28.0, also be suspended until the process
+is resumed.
 
 A process can be suspended by multiple processes and can be suspended multiple
 times by a single process. A suspended process does not leave the suspended
