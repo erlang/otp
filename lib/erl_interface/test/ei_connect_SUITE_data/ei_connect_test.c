@@ -133,9 +133,9 @@ static void cmd_ei_connect_init(char* buf, int len)
     if (ei_decode_atom_as(buf, &index, socket_impl,
                           sizeof(socket_impl), ERLANG_ASCII, NULL, NULL) < 0)
 	fail("expected atom (socket_impl)");
-    if (strcmp(socket_impl, "default") == 0)
+    if (my_strcmp(socket_impl, "default") == 0)
         use_ussi = 0;
-    else if (strcmp(socket_impl, "ussi") == 0)
+    else if (my_strcmp(socket_impl, "ussi") == 0)
         use_ussi = 1;
     else
 	fail1("expected atom 'default' or 'ussi', got '%s'", socket_impl);

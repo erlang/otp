@@ -410,3 +410,18 @@ dump(buf, sz, max)
     }
 }
 
+/* Own stupid strcmp as the standard strcmp seems to
+** cause valgrind false positives
+** "Conditional jump or move depends on uninitialised value(s)"
+*/
+int my_strcmp(const char *s1, const char *s2)
+{
+    while (1) {
+        int r = (*s1 - *s2);
+        if (r || !*s1) {
+            return r;
+        }
+        s1++;
+        s2++;
+    }
+}
