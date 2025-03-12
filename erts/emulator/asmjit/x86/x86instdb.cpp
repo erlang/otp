@@ -1236,44 +1236,44 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vminss           , VexRvm             , V(F30F00,5D,_,I,I,0,2,T1S), 0                         , 109, 0  , 264, 147), // #1187
   INST(Vmlaunch         , X86Op              , O(000F01,C2,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 67 ), // #1188
   INST(Vmload           , X86Op_xAX          , O(000F01,DA,_,_,_,_,_,_  ), 0                         , 23 , 0  , 334, 23 ), // #1189
-  INST(Vmmcall          , X86Op              , O(000F01,D9,_,_,_,_,_,_  ), 0                         , 23 , 0  , 335, 23 ), // #1190
-  INST(Vmovapd          , VexRmMr_Lx         , V(660F00,28,_,x,I,1,4,FVM), V(660F00,29,_,x,I,1,4,FVM), 104, 86 , 336, 173), // #1191
-  INST(Vmovaps          , VexRmMr_Lx         , V(000F00,28,_,x,I,0,4,FVM), V(000F00,29,_,x,I,0,4,FVM), 106, 87 , 336, 173), // #1192
-  INST(Vmovd            , VexMovdMovq        , V(660F00,6E,_,0,0,0,2,T1S), V(660F00,7E,_,0,0,0,2,T1S), 198, 88 , 337, 147), // #1193
-  INST(Vmovddup         , VexRm_Lx           , V(F20F00,12,_,x,I,1,3,DUP), 0                         , 199, 0  , 338, 145), // #1194
-  INST(Vmovdqa          , VexRmMr_Lx         , V(660F00,6F,_,x,I,_,_,_  ), V(660F00,7F,_,x,I,_,_,_  ), 71 , 89 , 339, 174), // #1195
-  INST(Vmovdqa32        , VexRmMr_Lx         , E(660F00,6F,_,x,_,0,4,FVM), E(660F00,7F,_,x,_,0,4,FVM), 200, 90 , 340, 175), // #1196
-  INST(Vmovdqa64        , VexRmMr_Lx         , E(660F00,6F,_,x,_,1,4,FVM), E(660F00,7F,_,x,_,1,4,FVM), 136, 91 , 340, 175), // #1197
-  INST(Vmovdqu          , VexRmMr_Lx         , V(F30F00,6F,_,x,I,_,_,_  ), V(F30F00,7F,_,x,I,_,_,_  ), 201, 92 , 339, 174), // #1198
-  INST(Vmovdqu16        , VexRmMr_Lx         , E(F20F00,6F,_,x,_,1,4,FVM), E(F20F00,7F,_,x,_,1,4,FVM), 167, 93 , 340, 176), // #1199
-  INST(Vmovdqu32        , VexRmMr_Lx         , E(F30F00,6F,_,x,_,0,4,FVM), E(F30F00,7F,_,x,_,0,4,FVM), 202, 94 , 340, 175), // #1200
-  INST(Vmovdqu64        , VexRmMr_Lx         , E(F30F00,6F,_,x,_,1,4,FVM), E(F30F00,7F,_,x,_,1,4,FVM), 150, 95 , 340, 175), // #1201
-  INST(Vmovdqu8         , VexRmMr_Lx         , E(F20F00,6F,_,x,_,0,4,FVM), E(F20F00,7F,_,x,_,0,4,FVM), 165, 96 , 340, 176), // #1202
-  INST(Vmovhlps         , VexRvm             , V(000F00,12,_,0,I,0,_,_  ), 0                         , 74 , 0  , 341, 147), // #1203
-  INST(Vmovhpd          , VexRvmMr           , V(660F00,16,_,0,I,1,3,T1S), V(660F00,17,_,0,I,1,3,T1S), 126, 97 , 342, 147), // #1204
-  INST(Vmovhps          , VexRvmMr           , V(000F00,16,_,0,I,0,3,T2 ), V(000F00,17,_,0,I,0,3,T2 ), 203, 98 , 342, 147), // #1205
-  INST(Vmovlhps         , VexRvm             , V(000F00,16,_,0,I,0,_,_  ), 0                         , 74 , 0  , 341, 147), // #1206
-  INST(Vmovlpd          , VexRvmMr           , V(660F00,12,_,0,I,1,3,T1S), V(660F00,13,_,0,I,1,3,T1S), 126, 99 , 342, 147), // #1207
-  INST(Vmovlps          , VexRvmMr           , V(000F00,12,_,0,I,0,3,T2 ), V(000F00,13,_,0,I,0,3,T2 ), 203, 100, 342, 147), // #1208
-  INST(Vmovmskpd        , VexRm_Lx           , V(660F00,50,_,x,I,_,_,_  ), 0                         , 71 , 0  , 343, 149), // #1209
-  INST(Vmovmskps        , VexRm_Lx           , V(000F00,50,_,x,I,_,_,_  ), 0                         , 74 , 0  , 343, 149), // #1210
-  INST(Vmovntdq         , VexMr_Lx           , V(660F00,E7,_,x,I,0,4,FVM), 0                         , 145, 0  , 344, 145), // #1211
-  INST(Vmovntdqa        , VexRm_Lx           , V(660F38,2A,_,x,I,0,4,FVM), 0                         , 111, 0  , 345, 157), // #1212
-  INST(Vmovntpd         , VexMr_Lx           , V(660F00,2B,_,x,I,1,4,FVM), 0                         , 104, 0  , 344, 145), // #1213
-  INST(Vmovntps         , VexMr_Lx           , V(000F00,2B,_,x,I,0,4,FVM), 0                         , 106, 0  , 344, 145), // #1214
-  INST(Vmovq            , VexMovdMovq        , V(660F00,6E,_,0,I,1,3,T1S), V(660F00,7E,_,0,I,1,3,T1S), 126, 101, 346, 177), // #1215
-  INST(Vmovsd           , VexMovssMovsd      , V(F20F00,10,_,I,I,1,3,T1S), V(F20F00,11,_,I,I,1,3,T1S), 107, 102, 347, 177), // #1216
-  INST(Vmovsh           , VexMovssMovsd      , E(F3MAP5,10,_,I,_,0,1,T1S), E(F3MAP5,11,_,I,_,0,1,T1S), 108, 103, 348, 148), // #1217
-  INST(Vmovshdup        , VexRm_Lx           , V(F30F00,16,_,x,I,0,4,FVM), 0                         , 162, 0  , 349, 145), // #1218
-  INST(Vmovsldup        , VexRm_Lx           , V(F30F00,12,_,x,I,0,4,FVM), 0                         , 162, 0  , 349, 145), // #1219
-  INST(Vmovss           , VexMovssMovsd      , V(F30F00,10,_,I,I,0,2,T1S), V(F30F00,11,_,I,I,0,2,T1S), 109, 104, 350, 177), // #1220
-  INST(Vmovupd          , VexRmMr_Lx         , V(660F00,10,_,x,I,1,4,FVM), V(660F00,11,_,x,I,1,4,FVM), 104, 105, 336, 173), // #1221
-  INST(Vmovups          , VexRmMr_Lx         , V(000F00,10,_,x,I,0,4,FVM), V(000F00,11,_,x,I,0,4,FVM), 106, 106, 336, 173), // #1222
-  INST(Vmovw            , VexMovdMovq        , E(66MAP5,6E,_,0,_,I,1,T1S), E(66MAP5,7E,_,0,_,I,1,T1S), 204, 107, 351, 148), // #1223
+  INST(Vmmcall          , X86Op              , O(000F01,D9,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 23 ), // #1190
+  INST(Vmovapd          , VexRmMr_Lx         , V(660F00,28,_,x,I,1,4,FVM), V(660F00,29,_,x,I,1,4,FVM), 104, 86 , 335, 173), // #1191
+  INST(Vmovaps          , VexRmMr_Lx         , V(000F00,28,_,x,I,0,4,FVM), V(000F00,29,_,x,I,0,4,FVM), 106, 87 , 335, 173), // #1192
+  INST(Vmovd            , VexMovdMovq        , V(660F00,6E,_,0,0,0,2,T1S), V(660F00,7E,_,0,0,0,2,T1S), 198, 88 , 336, 147), // #1193
+  INST(Vmovddup         , VexRm_Lx           , V(F20F00,12,_,x,I,1,3,DUP), 0                         , 199, 0  , 337, 145), // #1194
+  INST(Vmovdqa          , VexRmMr_Lx         , V(660F00,6F,_,x,I,_,_,_  ), V(660F00,7F,_,x,I,_,_,_  ), 71 , 89 , 338, 174), // #1195
+  INST(Vmovdqa32        , VexRmMr_Lx         , E(660F00,6F,_,x,_,0,4,FVM), E(660F00,7F,_,x,_,0,4,FVM), 200, 90 , 339, 175), // #1196
+  INST(Vmovdqa64        , VexRmMr_Lx         , E(660F00,6F,_,x,_,1,4,FVM), E(660F00,7F,_,x,_,1,4,FVM), 136, 91 , 339, 175), // #1197
+  INST(Vmovdqu          , VexRmMr_Lx         , V(F30F00,6F,_,x,I,_,_,_  ), V(F30F00,7F,_,x,I,_,_,_  ), 201, 92 , 338, 174), // #1198
+  INST(Vmovdqu16        , VexRmMr_Lx         , E(F20F00,6F,_,x,_,1,4,FVM), E(F20F00,7F,_,x,_,1,4,FVM), 167, 93 , 339, 176), // #1199
+  INST(Vmovdqu32        , VexRmMr_Lx         , E(F30F00,6F,_,x,_,0,4,FVM), E(F30F00,7F,_,x,_,0,4,FVM), 202, 94 , 339, 175), // #1200
+  INST(Vmovdqu64        , VexRmMr_Lx         , E(F30F00,6F,_,x,_,1,4,FVM), E(F30F00,7F,_,x,_,1,4,FVM), 150, 95 , 339, 175), // #1201
+  INST(Vmovdqu8         , VexRmMr_Lx         , E(F20F00,6F,_,x,_,0,4,FVM), E(F20F00,7F,_,x,_,0,4,FVM), 165, 96 , 339, 176), // #1202
+  INST(Vmovhlps         , VexRvm             , V(000F00,12,_,0,I,0,_,_  ), 0                         , 74 , 0  , 340, 147), // #1203
+  INST(Vmovhpd          , VexRvmMr           , V(660F00,16,_,0,I,1,3,T1S), V(660F00,17,_,0,I,1,3,T1S), 126, 97 , 341, 147), // #1204
+  INST(Vmovhps          , VexRvmMr           , V(000F00,16,_,0,I,0,3,T2 ), V(000F00,17,_,0,I,0,3,T2 ), 203, 98 , 341, 147), // #1205
+  INST(Vmovlhps         , VexRvm             , V(000F00,16,_,0,I,0,_,_  ), 0                         , 74 , 0  , 340, 147), // #1206
+  INST(Vmovlpd          , VexRvmMr           , V(660F00,12,_,0,I,1,3,T1S), V(660F00,13,_,0,I,1,3,T1S), 126, 99 , 341, 147), // #1207
+  INST(Vmovlps          , VexRvmMr           , V(000F00,12,_,0,I,0,3,T2 ), V(000F00,13,_,0,I,0,3,T2 ), 203, 100, 341, 147), // #1208
+  INST(Vmovmskpd        , VexRm_Lx           , V(660F00,50,_,x,I,_,_,_  ), 0                         , 71 , 0  , 342, 149), // #1209
+  INST(Vmovmskps        , VexRm_Lx           , V(000F00,50,_,x,I,_,_,_  ), 0                         , 74 , 0  , 342, 149), // #1210
+  INST(Vmovntdq         , VexMr_Lx           , V(660F00,E7,_,x,I,0,4,FVM), 0                         , 145, 0  , 343, 145), // #1211
+  INST(Vmovntdqa        , VexRm_Lx           , V(660F38,2A,_,x,I,0,4,FVM), 0                         , 111, 0  , 344, 157), // #1212
+  INST(Vmovntpd         , VexMr_Lx           , V(660F00,2B,_,x,I,1,4,FVM), 0                         , 104, 0  , 343, 145), // #1213
+  INST(Vmovntps         , VexMr_Lx           , V(000F00,2B,_,x,I,0,4,FVM), 0                         , 106, 0  , 343, 145), // #1214
+  INST(Vmovq            , VexMovdMovq        , V(660F00,6E,_,0,I,1,3,T1S), V(660F00,7E,_,0,I,1,3,T1S), 126, 101, 345, 177), // #1215
+  INST(Vmovsd           , VexMovssMovsd      , V(F20F00,10,_,I,I,1,3,T1S), V(F20F00,11,_,I,I,1,3,T1S), 107, 102, 346, 177), // #1216
+  INST(Vmovsh           , VexMovssMovsd      , E(F3MAP5,10,_,I,_,0,1,T1S), E(F3MAP5,11,_,I,_,0,1,T1S), 108, 103, 347, 148), // #1217
+  INST(Vmovshdup        , VexRm_Lx           , V(F30F00,16,_,x,I,0,4,FVM), 0                         , 162, 0  , 348, 145), // #1218
+  INST(Vmovsldup        , VexRm_Lx           , V(F30F00,12,_,x,I,0,4,FVM), 0                         , 162, 0  , 348, 145), // #1219
+  INST(Vmovss           , VexMovssMovsd      , V(F30F00,10,_,I,I,0,2,T1S), V(F30F00,11,_,I,I,0,2,T1S), 109, 104, 349, 177), // #1220
+  INST(Vmovupd          , VexRmMr_Lx         , V(660F00,10,_,x,I,1,4,FVM), V(660F00,11,_,x,I,1,4,FVM), 104, 105, 335, 173), // #1221
+  INST(Vmovups          , VexRmMr_Lx         , V(000F00,10,_,x,I,0,4,FVM), V(000F00,11,_,x,I,0,4,FVM), 106, 106, 335, 173), // #1222
+  INST(Vmovw            , VexMovdMovq        , E(66MAP5,6E,_,0,_,I,1,T1S), E(66MAP5,7E,_,0,_,I,1,T1S), 204, 107, 350, 148), // #1223
   INST(Vmpsadbw         , VexRvmi_Lx         , V(660F3A,42,_,x,I,_,_,_  ), 0                         , 75 , 0  , 219, 178), // #1224
   INST(Vmptrld          , X86M_Only          , O(000F00,C7,6,_,_,_,_,_  ), 0                         , 82 , 0  , 33 , 67 ), // #1225
   INST(Vmptrst          , X86M_Only          , O(000F00,C7,7,_,_,_,_,_  ), 0                         , 24 , 0  , 33 , 67 ), // #1226
-  INST(Vmread           , X86Mr_NoSize       , O(000F00,78,_,_,_,_,_,_  ), 0                         , 5  , 0  , 352, 67 ), // #1227
+  INST(Vmread           , X86Mr_NoSize       , O(000F00,78,_,_,_,_,_,_  ), 0                         , 5  , 0  , 351, 67 ), // #1227
   INST(Vmresume         , X86Op              , O(000F01,C3,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 67 ), // #1228
   INST(Vmrun            , X86Op_xAX          , O(000F01,D8,_,_,_,_,_,_  ), 0                         , 23 , 0  , 334, 23 ), // #1229
   INST(Vmsave           , X86Op_xAX          , O(000F01,DB,_,_,_,_,_,_  ), 0                         , 23 , 0  , 334, 23 ), // #1230
@@ -1283,19 +1283,19 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vmulsd           , VexRvm             , V(F20F00,59,_,I,I,1,3,T1S), 0                         , 107, 0  , 203, 147), // #1234
   INST(Vmulsh           , VexRvm             , E(F3MAP5,59,_,_,_,0,1,T1S), 0                         , 108, 0  , 204, 148), // #1235
   INST(Vmulss           , VexRvm             , V(F30F00,59,_,I,I,0,2,T1S), 0                         , 109, 0  , 205, 147), // #1236
-  INST(Vmwrite          , X86Rm_NoSize       , O(000F00,79,_,_,_,_,_,_  ), 0                         , 5  , 0  , 353, 67 ), // #1237
+  INST(Vmwrite          , X86Rm_NoSize       , O(000F00,79,_,_,_,_,_,_  ), 0                         , 5  , 0  , 352, 67 ), // #1237
   INST(Vmxoff           , X86Op              , O(000F01,C4,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 67 ), // #1238
   INST(Vmxon            , X86M_Only          , O(F30F00,C7,6,_,_,_,_,_  ), 0                         , 26 , 0  , 33 , 67 ), // #1239
   INST(Vorpd            , VexRvm_Lx          , V(660F00,56,_,x,I,1,4,FV ), 0                         , 104, 0  , 214, 153), // #1240
   INST(Vorps            , VexRvm_Lx          , V(000F00,56,_,x,I,0,4,FV ), 0                         , 106, 0  , 215, 153), // #1241
-  INST(Vp2intersectd    , VexRvm_Lx_2xK      , E(F20F38,68,_,_,_,0,4,FV ), 0                         , 132, 0  , 354, 179), // #1242
-  INST(Vp2intersectq    , VexRvm_Lx_2xK      , E(F20F38,68,_,_,_,1,4,FV ), 0                         , 205, 0  , 355, 179), // #1243
+  INST(Vp2intersectd    , VexRvm_Lx_2xK      , E(F20F38,68,_,_,_,0,4,FV ), 0                         , 132, 0  , 353, 179), // #1242
+  INST(Vp2intersectq    , VexRvm_Lx_2xK      , E(F20F38,68,_,_,_,1,4,FV ), 0                         , 205, 0  , 354, 179), // #1243
   INST(Vp4dpwssd        , VexRm_T1_4X        , E(F20F38,52,_,2,_,0,4,T4X), 0                         , 102, 0  , 198, 180), // #1244
   INST(Vp4dpwssds       , VexRm_T1_4X        , E(F20F38,53,_,2,_,0,4,T4X), 0                         , 102, 0  , 198, 180), // #1245
-  INST(Vpabsb           , VexRm_Lx           , V(660F38,1C,_,x,I,_,4,FVM), 0                         , 111, 0  , 349, 181), // #1246
-  INST(Vpabsd           , VexRm_Lx           , V(660F38,1E,_,x,I,0,4,FV ), 0                         , 111, 0  , 356, 157), // #1247
-  INST(Vpabsq           , VexRm_Lx           , E(660F38,1F,_,x,_,1,4,FV ), 0                         , 114, 0  , 357, 152), // #1248
-  INST(Vpabsw           , VexRm_Lx           , V(660F38,1D,_,x,I,_,4,FVM), 0                         , 111, 0  , 349, 181), // #1249
+  INST(Vpabsb           , VexRm_Lx           , V(660F38,1C,_,x,I,_,4,FVM), 0                         , 111, 0  , 348, 181), // #1246
+  INST(Vpabsd           , VexRm_Lx           , V(660F38,1E,_,x,I,0,4,FV ), 0                         , 111, 0  , 355, 157), // #1247
+  INST(Vpabsq           , VexRm_Lx           , E(660F38,1F,_,x,_,1,4,FV ), 0                         , 114, 0  , 356, 152), // #1248
+  INST(Vpabsw           , VexRm_Lx           , V(660F38,1D,_,x,I,_,4,FVM), 0                         , 111, 0  , 348, 181), // #1249
   INST(Vpackssdw        , VexRvm_Lx          , V(660F00,6B,_,x,I,0,4,FV ), 0                         , 145, 0  , 213, 181), // #1250
   INST(Vpacksswb        , VexRvm_Lx          , V(660F00,63,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1251
   INST(Vpackusdw        , VexRvm_Lx          , V(660F38,2B,_,x,I,0,4,FV ), 0                         , 111, 0  , 213, 181), // #1252
@@ -1309,49 +1309,49 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vpaddusw         , VexRvm_Lx          , V(660F00,DD,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1260
   INST(Vpaddw           , VexRvm_Lx          , V(660F00,FD,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1261
   INST(Vpalignr         , VexRvmi_Lx         , V(660F3A,0F,_,x,I,I,4,FVM), 0                         , 206, 0  , 321, 181), // #1262
-  INST(Vpand            , VexRvm_Lx          , V(660F00,DB,_,x,I,_,_,_  ), 0                         , 71 , 0  , 358, 178), // #1263
-  INST(Vpandd           , VexRvm_Lx          , E(660F00,DB,_,x,_,0,4,FV ), 0                         , 200, 0  , 359, 152), // #1264
-  INST(Vpandn           , VexRvm_Lx          , V(660F00,DF,_,x,I,_,_,_  ), 0                         , 71 , 0  , 360, 178), // #1265
-  INST(Vpandnd          , VexRvm_Lx          , E(660F00,DF,_,x,_,0,4,FV ), 0                         , 200, 0  , 361, 152), // #1266
-  INST(Vpandnq          , VexRvm_Lx          , E(660F00,DF,_,x,_,1,4,FV ), 0                         , 136, 0  , 362, 152), // #1267
-  INST(Vpandq           , VexRvm_Lx          , E(660F00,DB,_,x,_,1,4,FV ), 0                         , 136, 0  , 363, 152), // #1268
+  INST(Vpand            , VexRvm_Lx          , V(660F00,DB,_,x,I,_,_,_  ), 0                         , 71 , 0  , 357, 178), // #1263
+  INST(Vpandd           , VexRvm_Lx          , E(660F00,DB,_,x,_,0,4,FV ), 0                         , 200, 0  , 358, 152), // #1264
+  INST(Vpandn           , VexRvm_Lx          , V(660F00,DF,_,x,I,_,_,_  ), 0                         , 71 , 0  , 359, 178), // #1265
+  INST(Vpandnd          , VexRvm_Lx          , E(660F00,DF,_,x,_,0,4,FV ), 0                         , 200, 0  , 360, 152), // #1266
+  INST(Vpandnq          , VexRvm_Lx          , E(660F00,DF,_,x,_,1,4,FV ), 0                         , 136, 0  , 361, 152), // #1267
+  INST(Vpandq           , VexRvm_Lx          , E(660F00,DB,_,x,_,1,4,FV ), 0                         , 136, 0  , 362, 152), // #1268
   INST(Vpavgb           , VexRvm_Lx          , V(660F00,E0,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1269
   INST(Vpavgw           , VexRvm_Lx          , V(660F00,E3,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1270
   INST(Vpblendd         , VexRvmi_Lx         , V(660F3A,02,_,x,0,_,_,_  ), 0                         , 75 , 0  , 219, 156), // #1271
-  INST(Vpblendmb        , VexRvm_Lx          , E(660F38,66,_,x,_,0,4,FVM), 0                         , 115, 0  , 364, 163), // #1272
+  INST(Vpblendmb        , VexRvm_Lx          , E(660F38,66,_,x,_,0,4,FVM), 0                         , 115, 0  , 363, 163), // #1272
   INST(Vpblendmd        , VexRvm_Lx          , E(660F38,64,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1273
   INST(Vpblendmq        , VexRvm_Lx          , E(660F38,64,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1274
-  INST(Vpblendmw        , VexRvm_Lx          , E(660F38,66,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1275
+  INST(Vpblendmw        , VexRvm_Lx          , E(660F38,66,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1275
   INST(Vpblendvb        , VexRvmr_Lx         , V(660F3A,4C,_,x,0,_,_,_  ), 0                         , 75 , 0  , 220, 178), // #1276
   INST(Vpblendw         , VexRvmi_Lx         , V(660F3A,0E,_,x,I,_,_,_  ), 0                         , 75 , 0  , 219, 178), // #1277
-  INST(Vpbroadcastb     , VexRm_Lx_Bcst      , V(660F38,78,_,x,0,0,0,T1S), E(660F38,7A,_,x,0,0,0,T1S), 30 , 108, 365, 182), // #1278
-  INST(Vpbroadcastd     , VexRm_Lx_Bcst      , V(660F38,58,_,x,0,0,2,T1S), E(660F38,7C,_,x,0,0,0,T1S), 123, 109, 366, 169), // #1279
-  INST(Vpbroadcastmb2q  , VexRm_Lx           , E(F30F38,2A,_,x,_,1,_,_  ), 0                         , 207, 0  , 367, 183), // #1280
-  INST(Vpbroadcastmw2d  , VexRm_Lx           , E(F30F38,3A,_,x,_,0,_,_  ), 0                         , 208, 0  , 367, 183), // #1281
-  INST(Vpbroadcastq     , VexRm_Lx_Bcst      , V(660F38,59,_,x,0,1,3,T1S), E(660F38,7C,_,x,0,1,0,T1S), 122, 110, 368, 169), // #1282
-  INST(Vpbroadcastw     , VexRm_Lx_Bcst      , V(660F38,79,_,x,0,0,1,T1S), E(660F38,7B,_,x,0,0,0,T1S), 209, 111, 369, 182), // #1283
-  INST(Vpclmulqdq       , VexRvmi_Lx         , V(660F3A,44,_,x,I,_,4,FVM), 0                         , 206, 0  , 370, 184), // #1284
+  INST(Vpbroadcastb     , VexRm_Lx_Bcst      , V(660F38,78,_,x,0,0,0,T1S), E(660F38,7A,_,x,0,0,0,T1S), 30 , 108, 364, 182), // #1278
+  INST(Vpbroadcastd     , VexRm_Lx_Bcst      , V(660F38,58,_,x,0,0,2,T1S), E(660F38,7C,_,x,0,0,0,T1S), 123, 109, 365, 169), // #1279
+  INST(Vpbroadcastmb2q  , VexRm_Lx           , E(F30F38,2A,_,x,_,1,_,_  ), 0                         , 207, 0  , 366, 183), // #1280
+  INST(Vpbroadcastmw2d  , VexRm_Lx           , E(F30F38,3A,_,x,_,0,_,_  ), 0                         , 208, 0  , 366, 183), // #1281
+  INST(Vpbroadcastq     , VexRm_Lx_Bcst      , V(660F38,59,_,x,0,1,3,T1S), E(660F38,7C,_,x,0,1,0,T1S), 122, 110, 367, 169), // #1282
+  INST(Vpbroadcastw     , VexRm_Lx_Bcst      , V(660F38,79,_,x,0,0,1,T1S), E(660F38,7B,_,x,0,0,0,T1S), 209, 111, 368, 182), // #1283
+  INST(Vpclmulqdq       , VexRvmi_Lx         , V(660F3A,44,_,x,I,_,4,FVM), 0                         , 206, 0  , 369, 184), // #1284
   INST(Vpcmov           , VexRvrmRvmr_Lx     , V(XOP_M8,A2,_,x,x,_,_,_  ), 0                         , 210, 0  , 296, 168), // #1285
-  INST(Vpcmpb           , VexRvmi_Lx         , E(660F3A,3F,_,x,_,0,4,FVM), 0                         , 112, 0  , 371, 163), // #1286
-  INST(Vpcmpd           , VexRvmi_Lx         , E(660F3A,1F,_,x,_,0,4,FV ), 0                         , 112, 0  , 372, 152), // #1287
-  INST(Vpcmpeqb         , VexRvm_Lx_KEvex    , V(660F00,74,_,x,I,I,4,FV ), 0                         , 145, 0  , 373, 181), // #1288
-  INST(Vpcmpeqd         , VexRvm_Lx_KEvex    , V(660F00,76,_,x,I,0,4,FVM), 0                         , 145, 0  , 374, 157), // #1289
-  INST(Vpcmpeqq         , VexRvm_Lx_KEvex    , V(660F38,29,_,x,I,1,4,FVM), 0                         , 211, 0  , 375, 157), // #1290
-  INST(Vpcmpeqw         , VexRvm_Lx_KEvex    , V(660F00,75,_,x,I,I,4,FV ), 0                         , 145, 0  , 373, 181), // #1291
-  INST(Vpcmpestri       , VexRmi             , V(660F3A,61,_,0,I,_,_,_  ), 0                         , 75 , 0  , 376, 185), // #1292
-  INST(Vpcmpestrm       , VexRmi             , V(660F3A,60,_,0,I,_,_,_  ), 0                         , 75 , 0  , 377, 185), // #1293
-  INST(Vpcmpgtb         , VexRvm_Lx_KEvex    , V(660F00,64,_,x,I,I,4,FV ), 0                         , 145, 0  , 373, 181), // #1294
-  INST(Vpcmpgtd         , VexRvm_Lx_KEvex    , V(660F00,66,_,x,I,0,4,FVM), 0                         , 145, 0  , 374, 157), // #1295
-  INST(Vpcmpgtq         , VexRvm_Lx_KEvex    , V(660F38,37,_,x,I,1,4,FVM), 0                         , 211, 0  , 375, 157), // #1296
-  INST(Vpcmpgtw         , VexRvm_Lx_KEvex    , V(660F00,65,_,x,I,I,4,FV ), 0                         , 145, 0  , 373, 181), // #1297
-  INST(Vpcmpistri       , VexRmi             , V(660F3A,63,_,0,I,_,_,_  ), 0                         , 75 , 0  , 378, 185), // #1298
-  INST(Vpcmpistrm       , VexRmi             , V(660F3A,62,_,0,I,_,_,_  ), 0                         , 75 , 0  , 379, 185), // #1299
-  INST(Vpcmpq           , VexRvmi_Lx         , E(660F3A,1F,_,x,_,1,4,FV ), 0                         , 113, 0  , 380, 152), // #1300
-  INST(Vpcmpub          , VexRvmi_Lx         , E(660F3A,3E,_,x,_,0,4,FVM), 0                         , 112, 0  , 371, 163), // #1301
-  INST(Vpcmpud          , VexRvmi_Lx         , E(660F3A,1E,_,x,_,0,4,FV ), 0                         , 112, 0  , 372, 152), // #1302
-  INST(Vpcmpuq          , VexRvmi_Lx         , E(660F3A,1E,_,x,_,1,4,FV ), 0                         , 113, 0  , 380, 152), // #1303
-  INST(Vpcmpuw          , VexRvmi_Lx         , E(660F3A,3E,_,x,_,1,4,FVM), 0                         , 113, 0  , 380, 163), // #1304
-  INST(Vpcmpw           , VexRvmi_Lx         , E(660F3A,3F,_,x,_,1,4,FVM), 0                         , 113, 0  , 380, 163), // #1305
+  INST(Vpcmpb           , VexRvmi_Lx         , E(660F3A,3F,_,x,_,0,4,FVM), 0                         , 112, 0  , 370, 163), // #1286
+  INST(Vpcmpd           , VexRvmi_Lx         , E(660F3A,1F,_,x,_,0,4,FV ), 0                         , 112, 0  , 371, 152), // #1287
+  INST(Vpcmpeqb         , VexRvm_Lx_KEvex    , V(660F00,74,_,x,I,I,4,FV ), 0                         , 145, 0  , 372, 181), // #1288
+  INST(Vpcmpeqd         , VexRvm_Lx_KEvex    , V(660F00,76,_,x,I,0,4,FVM), 0                         , 145, 0  , 373, 157), // #1289
+  INST(Vpcmpeqq         , VexRvm_Lx_KEvex    , V(660F38,29,_,x,I,1,4,FVM), 0                         , 211, 0  , 374, 157), // #1290
+  INST(Vpcmpeqw         , VexRvm_Lx_KEvex    , V(660F00,75,_,x,I,I,4,FV ), 0                         , 145, 0  , 372, 181), // #1291
+  INST(Vpcmpestri       , VexRmi             , V(660F3A,61,_,0,I,_,_,_  ), 0                         , 75 , 0  , 375, 185), // #1292
+  INST(Vpcmpestrm       , VexRmi             , V(660F3A,60,_,0,I,_,_,_  ), 0                         , 75 , 0  , 376, 185), // #1293
+  INST(Vpcmpgtb         , VexRvm_Lx_KEvex    , V(660F00,64,_,x,I,I,4,FV ), 0                         , 145, 0  , 372, 181), // #1294
+  INST(Vpcmpgtd         , VexRvm_Lx_KEvex    , V(660F00,66,_,x,I,0,4,FVM), 0                         , 145, 0  , 373, 157), // #1295
+  INST(Vpcmpgtq         , VexRvm_Lx_KEvex    , V(660F38,37,_,x,I,1,4,FVM), 0                         , 211, 0  , 374, 157), // #1296
+  INST(Vpcmpgtw         , VexRvm_Lx_KEvex    , V(660F00,65,_,x,I,I,4,FV ), 0                         , 145, 0  , 372, 181), // #1297
+  INST(Vpcmpistri       , VexRmi             , V(660F3A,63,_,0,I,_,_,_  ), 0                         , 75 , 0  , 377, 185), // #1298
+  INST(Vpcmpistrm       , VexRmi             , V(660F3A,62,_,0,I,_,_,_  ), 0                         , 75 , 0  , 378, 185), // #1299
+  INST(Vpcmpq           , VexRvmi_Lx         , E(660F3A,1F,_,x,_,1,4,FV ), 0                         , 113, 0  , 379, 152), // #1300
+  INST(Vpcmpub          , VexRvmi_Lx         , E(660F3A,3E,_,x,_,0,4,FVM), 0                         , 112, 0  , 370, 163), // #1301
+  INST(Vpcmpud          , VexRvmi_Lx         , E(660F3A,1E,_,x,_,0,4,FV ), 0                         , 112, 0  , 371, 152), // #1302
+  INST(Vpcmpuq          , VexRvmi_Lx         , E(660F3A,1E,_,x,_,1,4,FV ), 0                         , 113, 0  , 379, 152), // #1303
+  INST(Vpcmpuw          , VexRvmi_Lx         , E(660F3A,3E,_,x,_,1,4,FVM), 0                         , 113, 0  , 379, 163), // #1304
+  INST(Vpcmpw           , VexRvmi_Lx         , E(660F3A,3F,_,x,_,1,4,FVM), 0                         , 113, 0  , 379, 163), // #1305
   INST(Vpcomb           , VexRvmi            , V(XOP_M8,CC,_,0,0,_,_,_  ), 0                         , 210, 0  , 283, 168), // #1306
   INST(Vpcomd           , VexRvmi            , V(XOP_M8,CE,_,0,0,_,_,_  ), 0                         , 210, 0  , 283, 168), // #1307
   INST(Vpcompressb      , VexMr_Lx           , E(660F38,63,_,x,_,0,0,T1S), 0                         , 212, 0  , 237, 186), // #1308
@@ -1364,56 +1364,56 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vpcomuq          , VexRvmi            , V(XOP_M8,EF,_,0,0,_,_,_  ), 0                         , 210, 0  , 283, 168), // #1315
   INST(Vpcomuw          , VexRvmi            , V(XOP_M8,ED,_,0,0,_,_,_  ), 0                         , 210, 0  , 283, 168), // #1316
   INST(Vpcomw           , VexRvmi            , V(XOP_M8,CD,_,0,0,_,_,_  ), 0                         , 210, 0  , 283, 168), // #1317
-  INST(Vpconflictd      , VexRm_Lx           , E(660F38,C4,_,x,_,0,4,FV ), 0                         , 115, 0  , 381, 183), // #1318
-  INST(Vpconflictq      , VexRm_Lx           , E(660F38,C4,_,x,_,1,4,FV ), 0                         , 114, 0  , 381, 183), // #1319
+  INST(Vpconflictd      , VexRm_Lx           , E(660F38,C4,_,x,_,0,4,FV ), 0                         , 115, 0  , 380, 183), // #1318
+  INST(Vpconflictq      , VexRm_Lx           , E(660F38,C4,_,x,_,1,4,FV ), 0                         , 114, 0  , 380, 183), // #1319
   INST(Vpdpbssd         , VexRvm_Lx          , V(F20F38,50,_,x,0,_,_,_  ), 0                         , 85 , 0  , 206, 187), // #1320
   INST(Vpdpbssds        , VexRvm_Lx          , V(F20F38,51,_,x,0,_,_,_  ), 0                         , 85 , 0  , 206, 187), // #1321
   INST(Vpdpbsud         , VexRvm_Lx          , V(F30F38,50,_,x,0,_,_,_  ), 0                         , 89 , 0  , 206, 187), // #1322
   INST(Vpdpbsuds        , VexRvm_Lx          , V(F30F38,51,_,x,0,_,_,_  ), 0                         , 89 , 0  , 206, 187), // #1323
-  INST(Vpdpbusd         , VexRvm_Lx          , V(660F38,50,_,x,_,0,4,FV ), 0                         , 111, 0  , 382, 188), // #1324
-  INST(Vpdpbusds        , VexRvm_Lx          , V(660F38,51,_,x,_,0,4,FV ), 0                         , 111, 0  , 382, 188), // #1325
+  INST(Vpdpbusd         , VexRvm_Lx          , V(660F38,50,_,x,_,0,4,FV ), 0                         , 111, 0  , 381, 188), // #1324
+  INST(Vpdpbusds        , VexRvm_Lx          , V(660F38,51,_,x,_,0,4,FV ), 0                         , 111, 0  , 381, 188), // #1325
   INST(Vpdpbuud         , VexRvm_Lx          , V(000F38,50,_,x,0,_,_,_  ), 0                         , 11 , 0  , 206, 187), // #1326
   INST(Vpdpbuuds        , VexRvm_Lx          , V(000F38,51,_,x,0,_,_,_  ), 0                         , 11 , 0  , 206, 187), // #1327
-  INST(Vpdpwssd         , VexRvm_Lx          , V(660F38,52,_,x,_,0,4,FV ), 0                         , 111, 0  , 382, 188), // #1328
-  INST(Vpdpwssds        , VexRvm_Lx          , V(660F38,53,_,x,_,0,4,FV ), 0                         , 111, 0  , 382, 188), // #1329
+  INST(Vpdpwssd         , VexRvm_Lx          , V(660F38,52,_,x,_,0,4,FV ), 0                         , 111, 0  , 381, 188), // #1328
+  INST(Vpdpwssds        , VexRvm_Lx          , V(660F38,53,_,x,_,0,4,FV ), 0                         , 111, 0  , 381, 188), // #1329
   INST(Vpdpwsud         , VexRvm_Lx          , V(F30F38,D2,_,x,0,_,_,_  ), 0                         , 89 , 0  , 206, 189), // #1330
   INST(Vpdpwsuds        , VexRvm_Lx          , V(F30F38,D3,_,x,0,_,_,_  ), 0                         , 89 , 0  , 206, 189), // #1331
   INST(Vpdpwusd         , VexRvm_Lx          , V(660F38,D2,_,x,0,_,_,_  ), 0                         , 30 , 0  , 206, 189), // #1332
   INST(Vpdpwusds        , VexRvm_Lx          , V(660F38,D3,_,x,0,_,_,_  ), 0                         , 30 , 0  , 206, 189), // #1333
   INST(Vpdpwuud         , VexRvm_Lx          , V(000F38,D2,_,x,0,_,_,_  ), 0                         , 11 , 0  , 206, 189), // #1334
   INST(Vpdpwuuds        , VexRvm_Lx          , V(000F38,D3,_,x,0,_,_,_  ), 0                         , 11 , 0  , 206, 189), // #1335
-  INST(Vperm2f128       , VexRvmi            , V(660F3A,06,_,1,0,_,_,_  ), 0                         , 174, 0  , 383, 149), // #1336
-  INST(Vperm2i128       , VexRvmi            , V(660F3A,46,_,1,0,_,_,_  ), 0                         , 174, 0  , 383, 156), // #1337
-  INST(Vpermb           , VexRvm_Lx          , E(660F38,8D,_,x,_,0,4,FVM), 0                         , 115, 0  , 364, 190), // #1338
-  INST(Vpermd           , VexRvm_Lx          , V(660F38,36,_,x,0,0,4,FV ), 0                         , 111, 0  , 384, 169), // #1339
-  INST(Vpermi2b         , VexRvm_Lx          , E(660F38,75,_,x,_,0,4,FVM), 0                         , 115, 0  , 364, 190), // #1340
+  INST(Vperm2f128       , VexRvmi            , V(660F3A,06,_,1,0,_,_,_  ), 0                         , 174, 0  , 382, 149), // #1336
+  INST(Vperm2i128       , VexRvmi            , V(660F3A,46,_,1,0,_,_,_  ), 0                         , 174, 0  , 382, 156), // #1337
+  INST(Vpermb           , VexRvm_Lx          , E(660F38,8D,_,x,_,0,4,FVM), 0                         , 115, 0  , 363, 190), // #1338
+  INST(Vpermd           , VexRvm_Lx          , V(660F38,36,_,x,0,0,4,FV ), 0                         , 111, 0  , 383, 169), // #1339
+  INST(Vpermi2b         , VexRvm_Lx          , E(660F38,75,_,x,_,0,4,FVM), 0                         , 115, 0  , 363, 190), // #1340
   INST(Vpermi2d         , VexRvm_Lx          , E(660F38,76,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1341
   INST(Vpermi2pd        , VexRvm_Lx          , E(660F38,77,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1342
   INST(Vpermi2ps        , VexRvm_Lx          , E(660F38,77,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1343
   INST(Vpermi2q         , VexRvm_Lx          , E(660F38,76,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1344
-  INST(Vpermi2w         , VexRvm_Lx          , E(660F38,75,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1345
-  INST(Vpermil2pd       , VexRvrmiRvmri_Lx   , V(660F3A,49,_,x,x,_,_,_  ), 0                         , 75 , 0  , 385, 168), // #1346
-  INST(Vpermil2ps       , VexRvrmiRvmri_Lx   , V(660F3A,48,_,x,x,_,_,_  ), 0                         , 75 , 0  , 385, 168), // #1347
-  INST(Vpermilpd        , VexRvmRmi_Lx       , V(660F38,0D,_,x,0,1,4,FV ), V(660F3A,05,_,x,0,1,4,FV ), 211, 112, 386, 145), // #1348
-  INST(Vpermilps        , VexRvmRmi_Lx       , V(660F38,0C,_,x,0,0,4,FV ), V(660F3A,04,_,x,0,0,4,FV ), 111, 113, 387, 145), // #1349
-  INST(Vpermpd          , VexRvmRmi_Lx       , E(660F38,16,_,x,1,1,4,FV ), V(660F3A,01,_,x,1,1,4,FV ), 214, 114, 388, 169), // #1350
-  INST(Vpermps          , VexRvm_Lx          , V(660F38,16,_,x,0,0,4,FV ), 0                         , 111, 0  , 384, 169), // #1351
-  INST(Vpermq           , VexRvmRmi_Lx       , E(660F38,36,_,x,_,1,4,FV ), V(660F3A,00,_,x,1,1,4,FV ), 114, 115, 388, 169), // #1352
-  INST(Vpermt2b         , VexRvm_Lx          , E(660F38,7D,_,x,_,0,4,FVM), 0                         , 115, 0  , 364, 190), // #1353
+  INST(Vpermi2w         , VexRvm_Lx          , E(660F38,75,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1345
+  INST(Vpermil2pd       , VexRvrmiRvmri_Lx   , V(660F3A,49,_,x,x,_,_,_  ), 0                         , 75 , 0  , 384, 168), // #1346
+  INST(Vpermil2ps       , VexRvrmiRvmri_Lx   , V(660F3A,48,_,x,x,_,_,_  ), 0                         , 75 , 0  , 384, 168), // #1347
+  INST(Vpermilpd        , VexRvmRmi_Lx       , V(660F38,0D,_,x,0,1,4,FV ), V(660F3A,05,_,x,0,1,4,FV ), 211, 112, 385, 145), // #1348
+  INST(Vpermilps        , VexRvmRmi_Lx       , V(660F38,0C,_,x,0,0,4,FV ), V(660F3A,04,_,x,0,0,4,FV ), 111, 113, 386, 145), // #1349
+  INST(Vpermpd          , VexRvmRmi_Lx       , E(660F38,16,_,x,1,1,4,FV ), V(660F3A,01,_,x,1,1,4,FV ), 214, 114, 387, 169), // #1350
+  INST(Vpermps          , VexRvm_Lx          , V(660F38,16,_,x,0,0,4,FV ), 0                         , 111, 0  , 383, 169), // #1351
+  INST(Vpermq           , VexRvmRmi_Lx       , E(660F38,36,_,x,_,1,4,FV ), V(660F3A,00,_,x,1,1,4,FV ), 114, 115, 387, 169), // #1352
+  INST(Vpermt2b         , VexRvm_Lx          , E(660F38,7D,_,x,_,0,4,FVM), 0                         , 115, 0  , 363, 190), // #1353
   INST(Vpermt2d         , VexRvm_Lx          , E(660F38,7E,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1354
   INST(Vpermt2pd        , VexRvm_Lx          , E(660F38,7F,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1355
   INST(Vpermt2ps        , VexRvm_Lx          , E(660F38,7F,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1356
   INST(Vpermt2q         , VexRvm_Lx          , E(660F38,7E,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1357
-  INST(Vpermt2w         , VexRvm_Lx          , E(660F38,7D,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1358
-  INST(Vpermw           , VexRvm_Lx          , E(660F38,8D,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1359
+  INST(Vpermt2w         , VexRvm_Lx          , E(660F38,7D,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1358
+  INST(Vpermw           , VexRvm_Lx          , E(660F38,8D,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1359
   INST(Vpexpandb        , VexRm_Lx           , E(660F38,62,_,x,_,0,0,T1S), 0                         , 212, 0  , 286, 186), // #1360
   INST(Vpexpandd        , VexRm_Lx           , E(660F38,89,_,x,_,0,2,T1S), 0                         , 130, 0  , 286, 152), // #1361
   INST(Vpexpandq        , VexRm_Lx           , E(660F38,89,_,x,_,1,3,T1S), 0                         , 129, 0  , 286, 152), // #1362
   INST(Vpexpandw        , VexRm_Lx           , E(660F38,62,_,x,_,1,1,T1S), 0                         , 213, 0  , 286, 186), // #1363
-  INST(Vpextrb          , VexMri             , V(660F3A,14,_,0,0,I,0,T1S), 0                         , 75 , 0  , 389, 191), // #1364
+  INST(Vpextrb          , VexMri             , V(660F3A,14,_,0,0,I,0,T1S), 0                         , 75 , 0  , 388, 191), // #1364
   INST(Vpextrd          , VexMri             , V(660F3A,16,_,0,0,0,2,T1S), 0                         , 179, 0  , 290, 192), // #1365
-  INST(Vpextrq          , VexMri             , V(660F3A,16,_,0,1,1,3,T1S), 0                         , 215, 0  , 390, 192), // #1366
-  INST(Vpextrw          , VexMri_Vpextrw     , V(660F3A,15,_,0,0,I,1,T1S), 0                         , 216, 0  , 391, 191), // #1367
+  INST(Vpextrq          , VexMri             , V(660F3A,16,_,0,1,1,3,T1S), 0                         , 215, 0  , 389, 192), // #1366
+  INST(Vpextrw          , VexMri_Vpextrw     , V(660F3A,15,_,0,0,I,1,T1S), 0                         , 216, 0  , 390, 191), // #1367
   INST(Vpgatherdd       , VexRmvRm_VM        , V(660F38,90,_,x,0,_,_,_  ), E(660F38,90,_,x,_,0,2,T1S), 30 , 116, 309, 169), // #1368
   INST(Vpgatherdq       , VexRmvRm_VM        , V(660F38,90,_,x,1,_,_,_  ), E(660F38,90,_,x,_,1,3,T1S), 191, 117, 308, 169), // #1369
   INST(Vpgatherqd       , VexRmvRm_VM        , V(660F38,91,_,x,0,_,_,_  ), E(660F38,91,_,x,_,0,2,T1S), 30 , 118, 314, 169), // #1370
@@ -1440,85 +1440,85 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vphsubsw         , VexRvm_Lx          , V(660F38,07,_,x,I,_,_,_  ), 0                         , 30 , 0  , 206, 178), // #1391
   INST(Vphsubw          , VexRvm_Lx          , V(660F38,05,_,x,I,_,_,_  ), 0                         , 30 , 0  , 206, 178), // #1392
   INST(Vphsubwd         , VexRm              , V(XOP_M9,E2,_,0,0,_,_,_  ), 0                         , 81 , 0  , 208, 168), // #1393
-  INST(Vpinsrb          , VexRvmi            , V(660F3A,20,_,0,0,I,0,T1S), 0                         , 75 , 0  , 392, 191), // #1394
-  INST(Vpinsrd          , VexRvmi            , V(660F3A,22,_,0,0,0,2,T1S), 0                         , 179, 0  , 393, 192), // #1395
-  INST(Vpinsrq          , VexRvmi            , V(660F3A,22,_,0,1,1,3,T1S), 0                         , 215, 0  , 394, 192), // #1396
-  INST(Vpinsrw          , VexRvmi            , V(660F00,C4,_,0,0,I,1,T1S), 0                         , 217, 0  , 395, 191), // #1397
-  INST(Vplzcntd         , VexRm_Lx           , E(660F38,44,_,x,_,0,4,FV ), 0                         , 115, 0  , 381, 183), // #1398
-  INST(Vplzcntq         , VexRm_Lx           , E(660F38,44,_,x,_,1,4,FV ), 0                         , 114, 0  , 357, 183), // #1399
-  INST(Vpmacsdd         , VexRvmr            , V(XOP_M8,9E,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1400
-  INST(Vpmacsdqh        , VexRvmr            , V(XOP_M8,9F,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1401
-  INST(Vpmacsdql        , VexRvmr            , V(XOP_M8,97,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1402
-  INST(Vpmacssdd        , VexRvmr            , V(XOP_M8,8E,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1403
-  INST(Vpmacssdqh       , VexRvmr            , V(XOP_M8,8F,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1404
-  INST(Vpmacssdql       , VexRvmr            , V(XOP_M8,87,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1405
-  INST(Vpmacsswd        , VexRvmr            , V(XOP_M8,86,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1406
-  INST(Vpmacssww        , VexRvmr            , V(XOP_M8,85,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1407
-  INST(Vpmacswd         , VexRvmr            , V(XOP_M8,96,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1408
-  INST(Vpmacsww         , VexRvmr            , V(XOP_M8,95,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1409
-  INST(Vpmadcsswd       , VexRvmr            , V(XOP_M8,A6,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1410
-  INST(Vpmadcswd        , VexRvmr            , V(XOP_M8,B6,_,0,0,_,_,_  ), 0                         , 210, 0  , 396, 168), // #1411
-  INST(Vpmadd52huq      , VexRvm_Lx          , V(660F38,B5,_,x,1,1,4,FV ), 0                         , 184, 0  , 397, 193), // #1412
-  INST(Vpmadd52luq      , VexRvm_Lx          , V(660F38,B4,_,x,1,1,4,FV ), 0                         , 184, 0  , 397, 193), // #1413
+  INST(Vpinsrb          , VexRvmi            , V(660F3A,20,_,0,0,I,0,T1S), 0                         , 75 , 0  , 391, 191), // #1394
+  INST(Vpinsrd          , VexRvmi            , V(660F3A,22,_,0,0,0,2,T1S), 0                         , 179, 0  , 392, 192), // #1395
+  INST(Vpinsrq          , VexRvmi            , V(660F3A,22,_,0,1,1,3,T1S), 0                         , 215, 0  , 393, 192), // #1396
+  INST(Vpinsrw          , VexRvmi            , V(660F00,C4,_,0,0,I,1,T1S), 0                         , 217, 0  , 394, 191), // #1397
+  INST(Vplzcntd         , VexRm_Lx           , E(660F38,44,_,x,_,0,4,FV ), 0                         , 115, 0  , 380, 183), // #1398
+  INST(Vplzcntq         , VexRm_Lx           , E(660F38,44,_,x,_,1,4,FV ), 0                         , 114, 0  , 356, 183), // #1399
+  INST(Vpmacsdd         , VexRvmr            , V(XOP_M8,9E,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1400
+  INST(Vpmacsdqh        , VexRvmr            , V(XOP_M8,9F,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1401
+  INST(Vpmacsdql        , VexRvmr            , V(XOP_M8,97,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1402
+  INST(Vpmacssdd        , VexRvmr            , V(XOP_M8,8E,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1403
+  INST(Vpmacssdqh       , VexRvmr            , V(XOP_M8,8F,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1404
+  INST(Vpmacssdql       , VexRvmr            , V(XOP_M8,87,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1405
+  INST(Vpmacsswd        , VexRvmr            , V(XOP_M8,86,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1406
+  INST(Vpmacssww        , VexRvmr            , V(XOP_M8,85,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1407
+  INST(Vpmacswd         , VexRvmr            , V(XOP_M8,96,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1408
+  INST(Vpmacsww         , VexRvmr            , V(XOP_M8,95,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1409
+  INST(Vpmadcsswd       , VexRvmr            , V(XOP_M8,A6,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1410
+  INST(Vpmadcswd        , VexRvmr            , V(XOP_M8,B6,_,0,0,_,_,_  ), 0                         , 210, 0  , 395, 168), // #1411
+  INST(Vpmadd52huq      , VexRvm_Lx          , V(660F38,B5,_,x,1,1,4,FV ), 0                         , 184, 0  , 396, 193), // #1412
+  INST(Vpmadd52luq      , VexRvm_Lx          , V(660F38,B4,_,x,1,1,4,FV ), 0                         , 184, 0  , 396, 193), // #1413
   INST(Vpmaddubsw       , VexRvm_Lx          , V(660F38,04,_,x,I,I,4,FVM), 0                         , 111, 0  , 322, 181), // #1414
   INST(Vpmaddwd         , VexRvm_Lx          , V(660F00,F5,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1415
   INST(Vpmaskmovd       , VexRvmMvr_Lx       , V(660F38,8C,_,x,0,_,_,_  ), V(660F38,8E,_,x,0,_,_,_  ), 30 , 120, 329, 156), // #1416
   INST(Vpmaskmovq       , VexRvmMvr_Lx       , V(660F38,8C,_,x,1,_,_,_  ), V(660F38,8E,_,x,1,_,_,_  ), 191, 121, 329, 156), // #1417
-  INST(Vpmaxsb          , VexRvm_Lx          , V(660F38,3C,_,x,I,I,4,FVM), 0                         , 111, 0  , 398, 181), // #1418
+  INST(Vpmaxsb          , VexRvm_Lx          , V(660F38,3C,_,x,I,I,4,FVM), 0                         , 111, 0  , 397, 181), // #1418
   INST(Vpmaxsd          , VexRvm_Lx          , V(660F38,3D,_,x,I,0,4,FV ), 0                         , 111, 0  , 215, 157), // #1419
   INST(Vpmaxsq          , VexRvm_Lx          , E(660F38,3D,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1420
-  INST(Vpmaxsw          , VexRvm_Lx          , V(660F00,EE,_,x,I,I,4,FVM), 0                         , 145, 0  , 398, 181), // #1421
-  INST(Vpmaxub          , VexRvm_Lx          , V(660F00,DE,_,x,I,I,4,FVM), 0                         , 145, 0  , 398, 181), // #1422
+  INST(Vpmaxsw          , VexRvm_Lx          , V(660F00,EE,_,x,I,I,4,FVM), 0                         , 145, 0  , 397, 181), // #1421
+  INST(Vpmaxub          , VexRvm_Lx          , V(660F00,DE,_,x,I,I,4,FVM), 0                         , 145, 0  , 397, 181), // #1422
   INST(Vpmaxud          , VexRvm_Lx          , V(660F38,3F,_,x,I,0,4,FV ), 0                         , 111, 0  , 215, 157), // #1423
   INST(Vpmaxuq          , VexRvm_Lx          , E(660F38,3F,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1424
-  INST(Vpmaxuw          , VexRvm_Lx          , V(660F38,3E,_,x,I,I,4,FVM), 0                         , 111, 0  , 398, 181), // #1425
-  INST(Vpminsb          , VexRvm_Lx          , V(660F38,38,_,x,I,I,4,FVM), 0                         , 111, 0  , 398, 181), // #1426
+  INST(Vpmaxuw          , VexRvm_Lx          , V(660F38,3E,_,x,I,I,4,FVM), 0                         , 111, 0  , 397, 181), // #1425
+  INST(Vpminsb          , VexRvm_Lx          , V(660F38,38,_,x,I,I,4,FVM), 0                         , 111, 0  , 397, 181), // #1426
   INST(Vpminsd          , VexRvm_Lx          , V(660F38,39,_,x,I,0,4,FV ), 0                         , 111, 0  , 215, 157), // #1427
   INST(Vpminsq          , VexRvm_Lx          , E(660F38,39,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1428
-  INST(Vpminsw          , VexRvm_Lx          , V(660F00,EA,_,x,I,I,4,FVM), 0                         , 145, 0  , 398, 181), // #1429
-  INST(Vpminub          , VexRvm_Lx          , V(660F00,DA,_,x,I,_,4,FVM), 0                         , 145, 0  , 398, 181), // #1430
+  INST(Vpminsw          , VexRvm_Lx          , V(660F00,EA,_,x,I,I,4,FVM), 0                         , 145, 0  , 397, 181), // #1429
+  INST(Vpminub          , VexRvm_Lx          , V(660F00,DA,_,x,I,_,4,FVM), 0                         , 145, 0  , 397, 181), // #1430
   INST(Vpminud          , VexRvm_Lx          , V(660F38,3B,_,x,I,0,4,FV ), 0                         , 111, 0  , 215, 157), // #1431
   INST(Vpminuq          , VexRvm_Lx          , E(660F38,3B,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1432
-  INST(Vpminuw          , VexRvm_Lx          , V(660F38,3A,_,x,I,_,4,FVM), 0                         , 111, 0  , 398, 181), // #1433
-  INST(Vpmovb2m         , VexRm_Lx           , E(F30F38,29,_,x,_,0,_,_  ), 0                         , 208, 0  , 399, 163), // #1434
-  INST(Vpmovd2m         , VexRm_Lx           , E(F30F38,39,_,x,_,0,_,_  ), 0                         , 208, 0  , 399, 155), // #1435
-  INST(Vpmovdb          , VexMr_Lx           , E(F30F38,31,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1436
-  INST(Vpmovdw          , VexMr_Lx           , E(F30F38,33,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1437
-  INST(Vpmovm2b         , VexRm_Lx           , E(F30F38,28,_,x,_,0,_,_  ), 0                         , 208, 0  , 367, 163), // #1438
-  INST(Vpmovm2d         , VexRm_Lx           , E(F30F38,38,_,x,_,0,_,_  ), 0                         , 208, 0  , 367, 155), // #1439
-  INST(Vpmovm2q         , VexRm_Lx           , E(F30F38,38,_,x,_,1,_,_  ), 0                         , 207, 0  , 367, 155), // #1440
-  INST(Vpmovm2w         , VexRm_Lx           , E(F30F38,28,_,x,_,1,_,_  ), 0                         , 207, 0  , 367, 163), // #1441
-  INST(Vpmovmskb        , VexRm_Lx           , V(660F00,D7,_,x,I,_,_,_  ), 0                         , 71 , 0  , 343, 178), // #1442
-  INST(Vpmovq2m         , VexRm_Lx           , E(F30F38,39,_,x,_,1,_,_  ), 0                         , 207, 0  , 399, 155), // #1443
-  INST(Vpmovqb          , VexMr_Lx           , E(F30F38,32,_,x,_,0,1,OVM), 0                         , 220, 0  , 402, 152), // #1444
-  INST(Vpmovqd          , VexMr_Lx           , E(F30F38,35,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1445
-  INST(Vpmovqw          , VexMr_Lx           , E(F30F38,34,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1446
-  INST(Vpmovsdb         , VexMr_Lx           , E(F30F38,21,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1447
-  INST(Vpmovsdw         , VexMr_Lx           , E(F30F38,23,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1448
-  INST(Vpmovsqb         , VexMr_Lx           , E(F30F38,22,_,x,_,0,1,OVM), 0                         , 220, 0  , 402, 152), // #1449
-  INST(Vpmovsqd         , VexMr_Lx           , E(F30F38,25,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1450
-  INST(Vpmovsqw         , VexMr_Lx           , E(F30F38,24,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1451
-  INST(Vpmovswb         , VexMr_Lx           , E(F30F38,20,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 163), // #1452
-  INST(Vpmovsxbd        , VexRm_Lx           , V(660F38,21,_,x,I,I,2,QVM), 0                         , 221, 0  , 403, 157), // #1453
-  INST(Vpmovsxbq        , VexRm_Lx           , V(660F38,22,_,x,I,I,1,OVM), 0                         , 222, 0  , 404, 157), // #1454
-  INST(Vpmovsxbw        , VexRm_Lx           , V(660F38,20,_,x,I,I,3,HVM), 0                         , 140, 0  , 405, 181), // #1455
-  INST(Vpmovsxdq        , VexRm_Lx           , V(660F38,25,_,x,I,0,3,HVM), 0                         , 140, 0  , 405, 157), // #1456
-  INST(Vpmovsxwd        , VexRm_Lx           , V(660F38,23,_,x,I,I,3,HVM), 0                         , 140, 0  , 405, 157), // #1457
-  INST(Vpmovsxwq        , VexRm_Lx           , V(660F38,24,_,x,I,I,2,QVM), 0                         , 221, 0  , 403, 157), // #1458
-  INST(Vpmovusdb        , VexMr_Lx           , E(F30F38,11,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1459
-  INST(Vpmovusdw        , VexMr_Lx           , E(F30F38,13,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1460
-  INST(Vpmovusqb        , VexMr_Lx           , E(F30F38,12,_,x,_,0,1,OVM), 0                         , 220, 0  , 402, 152), // #1461
-  INST(Vpmovusqd        , VexMr_Lx           , E(F30F38,15,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 152), // #1462
-  INST(Vpmovusqw        , VexMr_Lx           , E(F30F38,14,_,x,_,0,2,QVM), 0                         , 218, 0  , 400, 152), // #1463
-  INST(Vpmovuswb        , VexMr_Lx           , E(F30F38,10,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 163), // #1464
-  INST(Vpmovw2m         , VexRm_Lx           , E(F30F38,29,_,x,_,1,_,_  ), 0                         , 207, 0  , 399, 163), // #1465
-  INST(Vpmovwb          , VexMr_Lx           , E(F30F38,30,_,x,_,0,3,HVM), 0                         , 219, 0  , 401, 163), // #1466
-  INST(Vpmovzxbd        , VexRm_Lx           , V(660F38,31,_,x,I,I,2,QVM), 0                         , 221, 0  , 403, 157), // #1467
-  INST(Vpmovzxbq        , VexRm_Lx           , V(660F38,32,_,x,I,I,1,OVM), 0                         , 222, 0  , 404, 157), // #1468
-  INST(Vpmovzxbw        , VexRm_Lx           , V(660F38,30,_,x,I,I,3,HVM), 0                         , 140, 0  , 405, 181), // #1469
-  INST(Vpmovzxdq        , VexRm_Lx           , V(660F38,35,_,x,I,0,3,HVM), 0                         , 140, 0  , 405, 157), // #1470
-  INST(Vpmovzxwd        , VexRm_Lx           , V(660F38,33,_,x,I,I,3,HVM), 0                         , 140, 0  , 405, 157), // #1471
-  INST(Vpmovzxwq        , VexRm_Lx           , V(660F38,34,_,x,I,I,2,QVM), 0                         , 221, 0  , 403, 157), // #1472
+  INST(Vpminuw          , VexRvm_Lx          , V(660F38,3A,_,x,I,_,4,FVM), 0                         , 111, 0  , 397, 181), // #1433
+  INST(Vpmovb2m         , VexRm_Lx           , E(F30F38,29,_,x,_,0,_,_  ), 0                         , 208, 0  , 398, 163), // #1434
+  INST(Vpmovd2m         , VexRm_Lx           , E(F30F38,39,_,x,_,0,_,_  ), 0                         , 208, 0  , 398, 155), // #1435
+  INST(Vpmovdb          , VexMr_Lx           , E(F30F38,31,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1436
+  INST(Vpmovdw          , VexMr_Lx           , E(F30F38,33,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1437
+  INST(Vpmovm2b         , VexRm_Lx           , E(F30F38,28,_,x,_,0,_,_  ), 0                         , 208, 0  , 366, 163), // #1438
+  INST(Vpmovm2d         , VexRm_Lx           , E(F30F38,38,_,x,_,0,_,_  ), 0                         , 208, 0  , 366, 155), // #1439
+  INST(Vpmovm2q         , VexRm_Lx           , E(F30F38,38,_,x,_,1,_,_  ), 0                         , 207, 0  , 366, 155), // #1440
+  INST(Vpmovm2w         , VexRm_Lx           , E(F30F38,28,_,x,_,1,_,_  ), 0                         , 207, 0  , 366, 163), // #1441
+  INST(Vpmovmskb        , VexRm_Lx           , V(660F00,D7,_,x,I,_,_,_  ), 0                         , 71 , 0  , 342, 178), // #1442
+  INST(Vpmovq2m         , VexRm_Lx           , E(F30F38,39,_,x,_,1,_,_  ), 0                         , 207, 0  , 398, 155), // #1443
+  INST(Vpmovqb          , VexMr_Lx           , E(F30F38,32,_,x,_,0,1,OVM), 0                         , 220, 0  , 401, 152), // #1444
+  INST(Vpmovqd          , VexMr_Lx           , E(F30F38,35,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1445
+  INST(Vpmovqw          , VexMr_Lx           , E(F30F38,34,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1446
+  INST(Vpmovsdb         , VexMr_Lx           , E(F30F38,21,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1447
+  INST(Vpmovsdw         , VexMr_Lx           , E(F30F38,23,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1448
+  INST(Vpmovsqb         , VexMr_Lx           , E(F30F38,22,_,x,_,0,1,OVM), 0                         , 220, 0  , 401, 152), // #1449
+  INST(Vpmovsqd         , VexMr_Lx           , E(F30F38,25,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1450
+  INST(Vpmovsqw         , VexMr_Lx           , E(F30F38,24,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1451
+  INST(Vpmovswb         , VexMr_Lx           , E(F30F38,20,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 163), // #1452
+  INST(Vpmovsxbd        , VexRm_Lx           , V(660F38,21,_,x,I,I,2,QVM), 0                         , 221, 0  , 402, 157), // #1453
+  INST(Vpmovsxbq        , VexRm_Lx           , V(660F38,22,_,x,I,I,1,OVM), 0                         , 222, 0  , 403, 157), // #1454
+  INST(Vpmovsxbw        , VexRm_Lx           , V(660F38,20,_,x,I,I,3,HVM), 0                         , 140, 0  , 404, 181), // #1455
+  INST(Vpmovsxdq        , VexRm_Lx           , V(660F38,25,_,x,I,0,3,HVM), 0                         , 140, 0  , 404, 157), // #1456
+  INST(Vpmovsxwd        , VexRm_Lx           , V(660F38,23,_,x,I,I,3,HVM), 0                         , 140, 0  , 404, 157), // #1457
+  INST(Vpmovsxwq        , VexRm_Lx           , V(660F38,24,_,x,I,I,2,QVM), 0                         , 221, 0  , 402, 157), // #1458
+  INST(Vpmovusdb        , VexMr_Lx           , E(F30F38,11,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1459
+  INST(Vpmovusdw        , VexMr_Lx           , E(F30F38,13,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1460
+  INST(Vpmovusqb        , VexMr_Lx           , E(F30F38,12,_,x,_,0,1,OVM), 0                         , 220, 0  , 401, 152), // #1461
+  INST(Vpmovusqd        , VexMr_Lx           , E(F30F38,15,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 152), // #1462
+  INST(Vpmovusqw        , VexMr_Lx           , E(F30F38,14,_,x,_,0,2,QVM), 0                         , 218, 0  , 399, 152), // #1463
+  INST(Vpmovuswb        , VexMr_Lx           , E(F30F38,10,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 163), // #1464
+  INST(Vpmovw2m         , VexRm_Lx           , E(F30F38,29,_,x,_,1,_,_  ), 0                         , 207, 0  , 398, 163), // #1465
+  INST(Vpmovwb          , VexMr_Lx           , E(F30F38,30,_,x,_,0,3,HVM), 0                         , 219, 0  , 400, 163), // #1466
+  INST(Vpmovzxbd        , VexRm_Lx           , V(660F38,31,_,x,I,I,2,QVM), 0                         , 221, 0  , 402, 157), // #1467
+  INST(Vpmovzxbq        , VexRm_Lx           , V(660F38,32,_,x,I,I,1,OVM), 0                         , 222, 0  , 403, 157), // #1468
+  INST(Vpmovzxbw        , VexRm_Lx           , V(660F38,30,_,x,I,I,3,HVM), 0                         , 140, 0  , 404, 181), // #1469
+  INST(Vpmovzxdq        , VexRm_Lx           , V(660F38,35,_,x,I,0,3,HVM), 0                         , 140, 0  , 404, 157), // #1470
+  INST(Vpmovzxwd        , VexRm_Lx           , V(660F38,33,_,x,I,I,3,HVM), 0                         , 140, 0  , 404, 157), // #1471
+  INST(Vpmovzxwq        , VexRm_Lx           , V(660F38,34,_,x,I,I,2,QVM), 0                         , 221, 0  , 402, 157), // #1472
   INST(Vpmuldq          , VexRvm_Lx          , V(660F38,28,_,x,I,1,4,FV ), 0                         , 211, 0  , 212, 157), // #1473
   INST(Vpmulhrsw        , VexRvm_Lx          , V(660F38,0B,_,x,I,I,4,FVM), 0                         , 111, 0  , 322, 181), // #1474
   INST(Vpmulhuw         , VexRvm_Lx          , V(660F00,E4,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1475
@@ -1529,97 +1529,97 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vpmultishiftqb   , VexRvm_Lx          , E(660F38,83,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 190), // #1480
   INST(Vpmuludq         , VexRvm_Lx          , V(660F00,F4,_,x,I,1,4,FV ), 0                         , 104, 0  , 212, 157), // #1481
   INST(Vpopcntb         , VexRm_Lx           , E(660F38,54,_,x,_,0,4,FV ), 0                         , 115, 0  , 286, 194), // #1482
-  INST(Vpopcntd         , VexRm_Lx           , E(660F38,55,_,x,_,0,4,FVM), 0                         , 115, 0  , 381, 195), // #1483
-  INST(Vpopcntq         , VexRm_Lx           , E(660F38,55,_,x,_,1,4,FVM), 0                         , 114, 0  , 357, 195), // #1484
+  INST(Vpopcntd         , VexRm_Lx           , E(660F38,55,_,x,_,0,4,FVM), 0                         , 115, 0  , 380, 195), // #1483
+  INST(Vpopcntq         , VexRm_Lx           , E(660F38,55,_,x,_,1,4,FVM), 0                         , 114, 0  , 356, 195), // #1484
   INST(Vpopcntw         , VexRm_Lx           , E(660F38,54,_,x,_,1,4,FV ), 0                         , 114, 0  , 286, 194), // #1485
-  INST(Vpor             , VexRvm_Lx          , V(660F00,EB,_,x,I,_,_,_  ), 0                         , 71 , 0  , 358, 178), // #1486
-  INST(Vpord            , VexRvm_Lx          , E(660F00,EB,_,x,_,0,4,FV ), 0                         , 200, 0  , 359, 152), // #1487
-  INST(Vporq            , VexRvm_Lx          , E(660F00,EB,_,x,_,1,4,FV ), 0                         , 136, 0  , 363, 152), // #1488
-  INST(Vpperm           , VexRvrmRvmr        , V(XOP_M8,A3,_,0,x,_,_,_  ), 0                         , 210, 0  , 406, 168), // #1489
-  INST(Vprold           , VexVmi_Lx          , E(660F00,72,1,x,_,0,4,FV ), 0                         , 223, 0  , 407, 152), // #1490
-  INST(Vprolq           , VexVmi_Lx          , E(660F00,72,1,x,_,1,4,FV ), 0                         , 224, 0  , 408, 152), // #1491
+  INST(Vpor             , VexRvm_Lx          , V(660F00,EB,_,x,I,_,_,_  ), 0                         , 71 , 0  , 357, 178), // #1486
+  INST(Vpord            , VexRvm_Lx          , E(660F00,EB,_,x,_,0,4,FV ), 0                         , 200, 0  , 358, 152), // #1487
+  INST(Vporq            , VexRvm_Lx          , E(660F00,EB,_,x,_,1,4,FV ), 0                         , 136, 0  , 362, 152), // #1488
+  INST(Vpperm           , VexRvrmRvmr        , V(XOP_M8,A3,_,0,x,_,_,_  ), 0                         , 210, 0  , 405, 168), // #1489
+  INST(Vprold           , VexVmi_Lx          , E(660F00,72,1,x,_,0,4,FV ), 0                         , 223, 0  , 406, 152), // #1490
+  INST(Vprolq           , VexVmi_Lx          , E(660F00,72,1,x,_,1,4,FV ), 0                         , 224, 0  , 407, 152), // #1491
   INST(Vprolvd          , VexRvm_Lx          , E(660F38,15,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1492
   INST(Vprolvq          , VexRvm_Lx          , E(660F38,15,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1493
-  INST(Vprord           , VexVmi_Lx          , E(660F00,72,0,x,_,0,4,FV ), 0                         , 200, 0  , 407, 152), // #1494
-  INST(Vprorq           , VexVmi_Lx          , E(660F00,72,0,x,_,1,4,FV ), 0                         , 136, 0  , 408, 152), // #1495
+  INST(Vprord           , VexVmi_Lx          , E(660F00,72,0,x,_,0,4,FV ), 0                         , 200, 0  , 406, 152), // #1494
+  INST(Vprorq           , VexVmi_Lx          , E(660F00,72,0,x,_,1,4,FV ), 0                         , 136, 0  , 407, 152), // #1495
   INST(Vprorvd          , VexRvm_Lx          , E(660F38,14,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 152), // #1496
   INST(Vprorvq          , VexRvm_Lx          , E(660F38,14,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1497
-  INST(Vprotb           , VexRvmRmvRmi       , V(XOP_M9,90,_,0,x,_,_,_  ), V(XOP_M8,C0,_,0,x,_,_,_  ), 81 , 122, 409, 168), // #1498
-  INST(Vprotd           , VexRvmRmvRmi       , V(XOP_M9,92,_,0,x,_,_,_  ), V(XOP_M8,C2,_,0,x,_,_,_  ), 81 , 123, 409, 168), // #1499
-  INST(Vprotq           , VexRvmRmvRmi       , V(XOP_M9,93,_,0,x,_,_,_  ), V(XOP_M8,C3,_,0,x,_,_,_  ), 81 , 124, 409, 168), // #1500
-  INST(Vprotw           , VexRvmRmvRmi       , V(XOP_M9,91,_,0,x,_,_,_  ), V(XOP_M8,C1,_,0,x,_,_,_  ), 81 , 125, 409, 168), // #1501
+  INST(Vprotb           , VexRvmRmvRmi       , V(XOP_M9,90,_,0,x,_,_,_  ), V(XOP_M8,C0,_,0,x,_,_,_  ), 81 , 122, 408, 168), // #1498
+  INST(Vprotd           , VexRvmRmvRmi       , V(XOP_M9,92,_,0,x,_,_,_  ), V(XOP_M8,C2,_,0,x,_,_,_  ), 81 , 123, 408, 168), // #1499
+  INST(Vprotq           , VexRvmRmvRmi       , V(XOP_M9,93,_,0,x,_,_,_  ), V(XOP_M8,C3,_,0,x,_,_,_  ), 81 , 124, 408, 168), // #1500
+  INST(Vprotw           , VexRvmRmvRmi       , V(XOP_M9,91,_,0,x,_,_,_  ), V(XOP_M8,C1,_,0,x,_,_,_  ), 81 , 125, 408, 168), // #1501
   INST(Vpsadbw          , VexRvm_Lx          , V(660F00,F6,_,x,I,I,4,FVM), 0                         , 145, 0  , 207, 181), // #1502
-  INST(Vpscatterdd      , VexMr_VM           , E(660F38,A0,_,x,_,0,2,T1S), 0                         , 130, 0  , 410, 152), // #1503
-  INST(Vpscatterdq      , VexMr_VM           , E(660F38,A0,_,x,_,1,3,T1S), 0                         , 129, 0  , 411, 152), // #1504
-  INST(Vpscatterqd      , VexMr_VM           , E(660F38,A1,_,x,_,0,2,T1S), 0                         , 130, 0  , 412, 152), // #1505
-  INST(Vpscatterqq      , VexMr_VM           , E(660F38,A1,_,x,_,1,3,T1S), 0                         , 129, 0  , 413, 152), // #1506
-  INST(Vpshab           , VexRvmRmv          , V(XOP_M9,98,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1507
-  INST(Vpshad           , VexRvmRmv          , V(XOP_M9,9A,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1508
-  INST(Vpshaq           , VexRvmRmv          , V(XOP_M9,9B,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1509
-  INST(Vpshaw           , VexRvmRmv          , V(XOP_M9,99,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1510
-  INST(Vpshlb           , VexRvmRmv          , V(XOP_M9,94,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1511
-  INST(Vpshld           , VexRvmRmv          , V(XOP_M9,96,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1512
+  INST(Vpscatterdd      , VexMr_VM           , E(660F38,A0,_,x,_,0,2,T1S), 0                         , 130, 0  , 409, 152), // #1503
+  INST(Vpscatterdq      , VexMr_VM           , E(660F38,A0,_,x,_,1,3,T1S), 0                         , 129, 0  , 410, 152), // #1504
+  INST(Vpscatterqd      , VexMr_VM           , E(660F38,A1,_,x,_,0,2,T1S), 0                         , 130, 0  , 411, 152), // #1505
+  INST(Vpscatterqq      , VexMr_VM           , E(660F38,A1,_,x,_,1,3,T1S), 0                         , 129, 0  , 412, 152), // #1506
+  INST(Vpshab           , VexRvmRmv          , V(XOP_M9,98,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1507
+  INST(Vpshad           , VexRvmRmv          , V(XOP_M9,9A,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1508
+  INST(Vpshaq           , VexRvmRmv          , V(XOP_M9,9B,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1509
+  INST(Vpshaw           , VexRvmRmv          , V(XOP_M9,99,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1510
+  INST(Vpshlb           , VexRvmRmv          , V(XOP_M9,94,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1511
+  INST(Vpshld           , VexRvmRmv          , V(XOP_M9,96,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1512
   INST(Vpshldd          , VexRvmi_Lx         , E(660F3A,71,_,x,_,0,4,FV ), 0                         , 112, 0  , 210, 186), // #1513
   INST(Vpshldq          , VexRvmi_Lx         , E(660F3A,71,_,x,_,1,4,FV ), 0                         , 113, 0  , 211, 186), // #1514
   INST(Vpshldvd         , VexRvm_Lx          , E(660F38,71,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 186), // #1515
   INST(Vpshldvq         , VexRvm_Lx          , E(660F38,71,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 186), // #1516
-  INST(Vpshldvw         , VexRvm_Lx          , E(660F38,70,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 186), // #1517
+  INST(Vpshldvw         , VexRvm_Lx          , E(660F38,70,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 186), // #1517
   INST(Vpshldw          , VexRvmi_Lx         , E(660F3A,70,_,x,_,1,4,FVM), 0                         , 113, 0  , 282, 186), // #1518
-  INST(Vpshlq           , VexRvmRmv          , V(XOP_M9,97,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1519
-  INST(Vpshlw           , VexRvmRmv          , V(XOP_M9,95,_,0,x,_,_,_  ), 0                         , 81 , 0  , 414, 168), // #1520
+  INST(Vpshlq           , VexRvmRmv          , V(XOP_M9,97,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1519
+  INST(Vpshlw           , VexRvmRmv          , V(XOP_M9,95,_,0,x,_,_,_  ), 0                         , 81 , 0  , 413, 168), // #1520
   INST(Vpshrdd          , VexRvmi_Lx         , E(660F3A,73,_,x,_,0,4,FV ), 0                         , 112, 0  , 210, 186), // #1521
   INST(Vpshrdq          , VexRvmi_Lx         , E(660F3A,73,_,x,_,1,4,FV ), 0                         , 113, 0  , 211, 186), // #1522
   INST(Vpshrdvd         , VexRvm_Lx          , E(660F38,73,_,x,_,0,4,FV ), 0                         , 115, 0  , 218, 186), // #1523
   INST(Vpshrdvq         , VexRvm_Lx          , E(660F38,73,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 186), // #1524
-  INST(Vpshrdvw         , VexRvm_Lx          , E(660F38,72,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 186), // #1525
+  INST(Vpshrdvw         , VexRvm_Lx          , E(660F38,72,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 186), // #1525
   INST(Vpshrdw          , VexRvmi_Lx         , E(660F3A,72,_,x,_,1,4,FVM), 0                         , 113, 0  , 282, 186), // #1526
   INST(Vpshufb          , VexRvm_Lx          , V(660F38,00,_,x,I,I,4,FVM), 0                         , 111, 0  , 322, 181), // #1527
-  INST(Vpshufbitqmb     , VexRvm_Lx          , E(660F38,8F,_,x,0,0,4,FVM), 0                         , 115, 0  , 415, 194), // #1528
-  INST(Vpshufd          , VexRmi_Lx          , V(660F00,70,_,x,I,0,4,FV ), 0                         , 145, 0  , 416, 157), // #1529
-  INST(Vpshufhw         , VexRmi_Lx          , V(F30F00,70,_,x,I,I,4,FVM), 0                         , 162, 0  , 417, 181), // #1530
-  INST(Vpshuflw         , VexRmi_Lx          , V(F20F00,70,_,x,I,I,4,FVM), 0                         , 225, 0  , 417, 181), // #1531
+  INST(Vpshufbitqmb     , VexRvm_Lx          , E(660F38,8F,_,x,0,0,4,FVM), 0                         , 115, 0  , 414, 194), // #1528
+  INST(Vpshufd          , VexRmi_Lx          , V(660F00,70,_,x,I,0,4,FV ), 0                         , 145, 0  , 415, 157), // #1529
+  INST(Vpshufhw         , VexRmi_Lx          , V(F30F00,70,_,x,I,I,4,FVM), 0                         , 162, 0  , 416, 181), // #1530
+  INST(Vpshuflw         , VexRmi_Lx          , V(F20F00,70,_,x,I,I,4,FVM), 0                         , 225, 0  , 416, 181), // #1531
   INST(Vpsignb          , VexRvm_Lx          , V(660F38,08,_,x,I,_,_,_  ), 0                         , 30 , 0  , 206, 178), // #1532
   INST(Vpsignd          , VexRvm_Lx          , V(660F38,0A,_,x,I,_,_,_  ), 0                         , 30 , 0  , 206, 178), // #1533
   INST(Vpsignw          , VexRvm_Lx          , V(660F38,09,_,x,I,_,_,_  ), 0                         , 30 , 0  , 206, 178), // #1534
-  INST(Vpslld           , VexRvmVmi_Lx_MEvex , V(660F00,F2,_,x,I,0,4,128), V(660F00,72,6,x,I,0,4,FV ), 226, 126, 418, 157), // #1535
-  INST(Vpslldq          , VexVmi_Lx_MEvex    , V(660F00,73,7,x,I,I,4,FVM), 0                         , 227, 0  , 419, 181), // #1536
-  INST(Vpsllq           , VexRvmVmi_Lx_MEvex , V(660F00,F3,_,x,I,1,4,128), V(660F00,73,6,x,I,1,4,FV ), 228, 127, 420, 157), // #1537
+  INST(Vpslld           , VexRvmVmi_Lx_MEvex , V(660F00,F2,_,x,I,0,4,128), V(660F00,72,6,x,I,0,4,FV ), 226, 126, 417, 157), // #1535
+  INST(Vpslldq          , VexVmi_Lx_MEvex    , V(660F00,73,7,x,I,I,4,FVM), 0                         , 227, 0  , 418, 181), // #1536
+  INST(Vpsllq           , VexRvmVmi_Lx_MEvex , V(660F00,F3,_,x,I,1,4,128), V(660F00,73,6,x,I,1,4,FV ), 228, 127, 419, 157), // #1537
   INST(Vpsllvd          , VexRvm_Lx          , V(660F38,47,_,x,0,0,4,FV ), 0                         , 111, 0  , 213, 169), // #1538
   INST(Vpsllvq          , VexRvm_Lx          , V(660F38,47,_,x,1,1,4,FV ), 0                         , 184, 0  , 212, 169), // #1539
-  INST(Vpsllvw          , VexRvm_Lx          , E(660F38,12,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1540
-  INST(Vpsllw           , VexRvmVmi_Lx_MEvex , V(660F00,F1,_,x,I,I,4,128), V(660F00,71,6,x,I,I,4,FVM), 226, 128, 421, 181), // #1541
-  INST(Vpsrad           , VexRvmVmi_Lx_MEvex , V(660F00,E2,_,x,I,0,4,128), V(660F00,72,4,x,I,0,4,FV ), 226, 129, 418, 157), // #1542
-  INST(Vpsraq           , VexRvmVmi_Lx_MEvex , E(660F00,E2,_,x,_,1,4,128), E(660F00,72,4,x,_,1,4,FV ), 229, 130, 422, 152), // #1543
+  INST(Vpsllvw          , VexRvm_Lx          , E(660F38,12,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1540
+  INST(Vpsllw           , VexRvmVmi_Lx_MEvex , V(660F00,F1,_,x,I,I,4,128), V(660F00,71,6,x,I,I,4,FVM), 226, 128, 420, 181), // #1541
+  INST(Vpsrad           , VexRvmVmi_Lx_MEvex , V(660F00,E2,_,x,I,0,4,128), V(660F00,72,4,x,I,0,4,FV ), 226, 129, 417, 157), // #1542
+  INST(Vpsraq           , VexRvmVmi_Lx_MEvex , E(660F00,E2,_,x,_,1,4,128), E(660F00,72,4,x,_,1,4,FV ), 229, 130, 421, 152), // #1543
   INST(Vpsravd          , VexRvm_Lx          , V(660F38,46,_,x,0,0,4,FV ), 0                         , 111, 0  , 213, 169), // #1544
   INST(Vpsravq          , VexRvm_Lx          , E(660F38,46,_,x,_,1,4,FV ), 0                         , 114, 0  , 217, 152), // #1545
-  INST(Vpsravw          , VexRvm_Lx          , E(660F38,11,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1546
-  INST(Vpsraw           , VexRvmVmi_Lx_MEvex , V(660F00,E1,_,x,I,I,4,128), V(660F00,71,4,x,I,I,4,FVM), 226, 131, 421, 181), // #1547
-  INST(Vpsrld           , VexRvmVmi_Lx_MEvex , V(660F00,D2,_,x,I,0,4,128), V(660F00,72,2,x,I,0,4,FV ), 226, 132, 418, 157), // #1548
-  INST(Vpsrldq          , VexVmi_Lx_MEvex    , V(660F00,73,3,x,I,I,4,FVM), 0                         , 230, 0  , 419, 181), // #1549
-  INST(Vpsrlq           , VexRvmVmi_Lx_MEvex , V(660F00,D3,_,x,I,1,4,128), V(660F00,73,2,x,I,1,4,FV ), 228, 133, 420, 157), // #1550
+  INST(Vpsravw          , VexRvm_Lx          , E(660F38,11,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1546
+  INST(Vpsraw           , VexRvmVmi_Lx_MEvex , V(660F00,E1,_,x,I,I,4,128), V(660F00,71,4,x,I,I,4,FVM), 226, 131, 420, 181), // #1547
+  INST(Vpsrld           , VexRvmVmi_Lx_MEvex , V(660F00,D2,_,x,I,0,4,128), V(660F00,72,2,x,I,0,4,FV ), 226, 132, 417, 157), // #1548
+  INST(Vpsrldq          , VexVmi_Lx_MEvex    , V(660F00,73,3,x,I,I,4,FVM), 0                         , 230, 0  , 418, 181), // #1549
+  INST(Vpsrlq           , VexRvmVmi_Lx_MEvex , V(660F00,D3,_,x,I,1,4,128), V(660F00,73,2,x,I,1,4,FV ), 228, 133, 419, 157), // #1550
   INST(Vpsrlvd          , VexRvm_Lx          , V(660F38,45,_,x,0,0,4,FV ), 0                         , 111, 0  , 213, 169), // #1551
   INST(Vpsrlvq          , VexRvm_Lx          , V(660F38,45,_,x,1,1,4,FV ), 0                         , 184, 0  , 212, 169), // #1552
-  INST(Vpsrlvw          , VexRvm_Lx          , E(660F38,10,_,x,_,1,4,FVM), 0                         , 114, 0  , 364, 163), // #1553
-  INST(Vpsrlw           , VexRvmVmi_Lx_MEvex , V(660F00,D1,_,x,I,I,4,128), V(660F00,71,2,x,I,I,4,FVM), 226, 134, 421, 181), // #1554
-  INST(Vpsubb           , VexRvm_Lx          , V(660F00,F8,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1555
-  INST(Vpsubd           , VexRvm_Lx          , V(660F00,FA,_,x,I,0,4,FV ), 0                         , 145, 0  , 424, 157), // #1556
-  INST(Vpsubq           , VexRvm_Lx          , V(660F00,FB,_,x,I,1,4,FV ), 0                         , 104, 0  , 425, 157), // #1557
-  INST(Vpsubsb          , VexRvm_Lx          , V(660F00,E8,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1558
-  INST(Vpsubsw          , VexRvm_Lx          , V(660F00,E9,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1559
-  INST(Vpsubusb         , VexRvm_Lx          , V(660F00,D8,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1560
-  INST(Vpsubusw         , VexRvm_Lx          , V(660F00,D9,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1561
-  INST(Vpsubw           , VexRvm_Lx          , V(660F00,F9,_,x,I,I,4,FVM), 0                         , 145, 0  , 423, 181), // #1562
+  INST(Vpsrlvw          , VexRvm_Lx          , E(660F38,10,_,x,_,1,4,FVM), 0                         , 114, 0  , 363, 163), // #1553
+  INST(Vpsrlw           , VexRvmVmi_Lx_MEvex , V(660F00,D1,_,x,I,I,4,128), V(660F00,71,2,x,I,I,4,FVM), 226, 134, 420, 181), // #1554
+  INST(Vpsubb           , VexRvm_Lx          , V(660F00,F8,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1555
+  INST(Vpsubd           , VexRvm_Lx          , V(660F00,FA,_,x,I,0,4,FV ), 0                         , 145, 0  , 423, 157), // #1556
+  INST(Vpsubq           , VexRvm_Lx          , V(660F00,FB,_,x,I,1,4,FV ), 0                         , 104, 0  , 424, 157), // #1557
+  INST(Vpsubsb          , VexRvm_Lx          , V(660F00,E8,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1558
+  INST(Vpsubsw          , VexRvm_Lx          , V(660F00,E9,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1559
+  INST(Vpsubusb         , VexRvm_Lx          , V(660F00,D8,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1560
+  INST(Vpsubusw         , VexRvm_Lx          , V(660F00,D9,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1561
+  INST(Vpsubw           , VexRvm_Lx          , V(660F00,F9,_,x,I,I,4,FVM), 0                         , 145, 0  , 422, 181), // #1562
   INST(Vpternlogd       , VexRvmi_Lx         , E(660F3A,25,_,x,_,0,4,FV ), 0                         , 112, 0  , 210, 152), // #1563
   INST(Vpternlogq       , VexRvmi_Lx         , E(660F3A,25,_,x,_,1,4,FV ), 0                         , 113, 0  , 211, 152), // #1564
   INST(Vptest           , VexRm_Lx           , V(660F38,17,_,x,I,_,_,_  ), 0                         , 30 , 0  , 305, 185), // #1565
-  INST(Vptestmb         , VexRvm_Lx          , E(660F38,26,_,x,_,0,4,FVM), 0                         , 115, 0  , 415, 163), // #1566
-  INST(Vptestmd         , VexRvm_Lx          , E(660F38,27,_,x,_,0,4,FV ), 0                         , 115, 0  , 426, 152), // #1567
-  INST(Vptestmq         , VexRvm_Lx          , E(660F38,27,_,x,_,1,4,FV ), 0                         , 114, 0  , 427, 152), // #1568
-  INST(Vptestmw         , VexRvm_Lx          , E(660F38,26,_,x,_,1,4,FVM), 0                         , 114, 0  , 415, 163), // #1569
-  INST(Vptestnmb        , VexRvm_Lx          , E(F30F38,26,_,x,_,0,4,FVM), 0                         , 171, 0  , 415, 163), // #1570
-  INST(Vptestnmd        , VexRvm_Lx          , E(F30F38,27,_,x,_,0,4,FV ), 0                         , 171, 0  , 426, 152), // #1571
-  INST(Vptestnmq        , VexRvm_Lx          , E(F30F38,27,_,x,_,1,4,FV ), 0                         , 231, 0  , 427, 152), // #1572
-  INST(Vptestnmw        , VexRvm_Lx          , E(F30F38,26,_,x,_,1,4,FVM), 0                         , 231, 0  , 415, 163), // #1573
+  INST(Vptestmb         , VexRvm_Lx          , E(660F38,26,_,x,_,0,4,FVM), 0                         , 115, 0  , 414, 163), // #1566
+  INST(Vptestmd         , VexRvm_Lx          , E(660F38,27,_,x,_,0,4,FV ), 0                         , 115, 0  , 425, 152), // #1567
+  INST(Vptestmq         , VexRvm_Lx          , E(660F38,27,_,x,_,1,4,FV ), 0                         , 114, 0  , 426, 152), // #1568
+  INST(Vptestmw         , VexRvm_Lx          , E(660F38,26,_,x,_,1,4,FVM), 0                         , 114, 0  , 414, 163), // #1569
+  INST(Vptestnmb        , VexRvm_Lx          , E(F30F38,26,_,x,_,0,4,FVM), 0                         , 171, 0  , 414, 163), // #1570
+  INST(Vptestnmd        , VexRvm_Lx          , E(F30F38,27,_,x,_,0,4,FV ), 0                         , 171, 0  , 425, 152), // #1571
+  INST(Vptestnmq        , VexRvm_Lx          , E(F30F38,27,_,x,_,1,4,FV ), 0                         , 231, 0  , 426, 152), // #1572
+  INST(Vptestnmw        , VexRvm_Lx          , E(F30F38,26,_,x,_,1,4,FVM), 0                         , 231, 0  , 414, 163), // #1573
   INST(Vpunpckhbw       , VexRvm_Lx          , V(660F00,68,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1574
   INST(Vpunpckhdq       , VexRvm_Lx          , V(660F00,6A,_,x,I,0,4,FV ), 0                         , 145, 0  , 213, 157), // #1575
   INST(Vpunpckhqdq      , VexRvm_Lx          , V(660F00,6D,_,x,I,1,4,FV ), 0                         , 104, 0  , 212, 157), // #1576
@@ -1628,61 +1628,61 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vpunpckldq       , VexRvm_Lx          , V(660F00,62,_,x,I,0,4,FV ), 0                         , 145, 0  , 213, 157), // #1579
   INST(Vpunpcklqdq      , VexRvm_Lx          , V(660F00,6C,_,x,I,1,4,FV ), 0                         , 104, 0  , 212, 157), // #1580
   INST(Vpunpcklwd       , VexRvm_Lx          , V(660F00,61,_,x,I,I,4,FVM), 0                         , 145, 0  , 322, 181), // #1581
-  INST(Vpxor            , VexRvm_Lx          , V(660F00,EF,_,x,I,_,_,_  ), 0                         , 71 , 0  , 360, 178), // #1582
-  INST(Vpxord           , VexRvm_Lx          , E(660F00,EF,_,x,_,0,4,FV ), 0                         , 200, 0  , 361, 152), // #1583
-  INST(Vpxorq           , VexRvm_Lx          , E(660F00,EF,_,x,_,1,4,FV ), 0                         , 136, 0  , 362, 152), // #1584
+  INST(Vpxor            , VexRvm_Lx          , V(660F00,EF,_,x,I,_,_,_  ), 0                         , 71 , 0  , 359, 178), // #1582
+  INST(Vpxord           , VexRvm_Lx          , E(660F00,EF,_,x,_,0,4,FV ), 0                         , 200, 0  , 360, 152), // #1583
+  INST(Vpxorq           , VexRvm_Lx          , E(660F00,EF,_,x,_,1,4,FV ), 0                         , 136, 0  , 361, 152), // #1584
   INST(Vrangepd         , VexRvmi_Lx         , E(660F3A,50,_,x,_,1,4,FV ), 0                         , 113, 0  , 292, 155), // #1585
   INST(Vrangeps         , VexRvmi_Lx         , E(660F3A,50,_,x,_,0,4,FV ), 0                         , 112, 0  , 293, 155), // #1586
   INST(Vrangesd         , VexRvmi            , E(660F3A,51,_,I,_,1,3,T1S), 0                         , 182, 0  , 294, 76 ), // #1587
   INST(Vrangess         , VexRvmi            , E(660F3A,51,_,I,_,0,2,T1S), 0                         , 183, 0  , 295, 76 ), // #1588
-  INST(Vrcp14pd         , VexRm_Lx           , E(660F38,4C,_,x,_,1,4,FV ), 0                         , 114, 0  , 357, 152), // #1589
-  INST(Vrcp14ps         , VexRm_Lx           , E(660F38,4C,_,x,_,0,4,FV ), 0                         , 115, 0  , 381, 152), // #1590
-  INST(Vrcp14sd         , VexRvm             , E(660F38,4D,_,I,_,1,3,T1S), 0                         , 129, 0  , 428, 78 ), // #1591
-  INST(Vrcp14ss         , VexRvm             , E(660F38,4D,_,I,_,0,2,T1S), 0                         , 130, 0  , 429, 78 ), // #1592
+  INST(Vrcp14pd         , VexRm_Lx           , E(660F38,4C,_,x,_,1,4,FV ), 0                         , 114, 0  , 356, 152), // #1589
+  INST(Vrcp14ps         , VexRm_Lx           , E(660F38,4C,_,x,_,0,4,FV ), 0                         , 115, 0  , 380, 152), // #1590
+  INST(Vrcp14sd         , VexRvm             , E(660F38,4D,_,I,_,1,3,T1S), 0                         , 129, 0  , 427, 78 ), // #1591
+  INST(Vrcp14ss         , VexRvm             , E(660F38,4D,_,I,_,0,2,T1S), 0                         , 130, 0  , 428, 78 ), // #1592
   INST(Vrcp28pd         , VexRm              , E(660F38,CA,_,2,_,1,4,FV ), 0                         , 172, 0  , 284, 164), // #1593
   INST(Vrcp28ps         , VexRm              , E(660F38,CA,_,2,_,0,4,FV ), 0                         , 173, 0  , 285, 164), // #1594
   INST(Vrcp28sd         , VexRvm             , E(660F38,CB,_,I,_,1,3,T1S), 0                         , 129, 0  , 315, 164), // #1595
   INST(Vrcp28ss         , VexRvm             , E(660F38,CB,_,I,_,0,2,T1S), 0                         , 130, 0  , 316, 164), // #1596
-  INST(Vrcpph           , VexRm_Lx           , E(66MAP6,4C,_,_,_,0,4,FV ), 0                         , 185, 0  , 430, 148), // #1597
+  INST(Vrcpph           , VexRm_Lx           , E(66MAP6,4C,_,_,_,0,4,FV ), 0                         , 185, 0  , 429, 148), // #1597
   INST(Vrcpps           , VexRm_Lx           , V(000F00,53,_,x,I,_,_,_  ), 0                         , 74 , 0  , 305, 149), // #1598
-  INST(Vrcpsh           , VexRvm             , E(66MAP6,4D,_,_,_,0,1,T1S), 0                         , 187, 0  , 431, 148), // #1599
-  INST(Vrcpss           , VexRvm             , V(F30F00,53,_,I,I,_,_,_  ), 0                         , 201, 0  , 432, 149), // #1600
-  INST(Vreducepd        , VexRmi_Lx          , E(660F3A,56,_,x,_,1,4,FV ), 0                         , 113, 0  , 408, 155), // #1601
+  INST(Vrcpsh           , VexRvm             , E(66MAP6,4D,_,_,_,0,1,T1S), 0                         , 187, 0  , 430, 148), // #1599
+  INST(Vrcpss           , VexRvm             , V(F30F00,53,_,I,I,_,_,_  ), 0                         , 201, 0  , 431, 149), // #1600
+  INST(Vreducepd        , VexRmi_Lx          , E(660F3A,56,_,x,_,1,4,FV ), 0                         , 113, 0  , 407, 155), // #1601
   INST(Vreduceph        , VexRmi_Lx          , E(000F3A,56,_,_,_,0,4,FV ), 0                         , 124, 0  , 318, 146), // #1602
-  INST(Vreduceps        , VexRmi_Lx          , E(660F3A,56,_,x,_,0,4,FV ), 0                         , 112, 0  , 407, 155), // #1603
-  INST(Vreducesd        , VexRvmi            , E(660F3A,57,_,I,_,1,3,T1S), 0                         , 182, 0  , 433, 76 ), // #1604
+  INST(Vreduceps        , VexRmi_Lx          , E(660F3A,56,_,x,_,0,4,FV ), 0                         , 112, 0  , 406, 155), // #1603
+  INST(Vreducesd        , VexRvmi            , E(660F3A,57,_,I,_,1,3,T1S), 0                         , 182, 0  , 432, 76 ), // #1604
   INST(Vreducesh        , VexRvmi            , E(000F3A,57,_,_,_,0,1,T1S), 0                         , 190, 0  , 320, 148), // #1605
-  INST(Vreducess        , VexRvmi            , E(660F3A,57,_,I,_,0,2,T1S), 0                         , 183, 0  , 434, 76 ), // #1606
+  INST(Vreducess        , VexRvmi            , E(660F3A,57,_,I,_,0,2,T1S), 0                         , 183, 0  , 433, 76 ), // #1606
   INST(Vrndscalepd      , VexRmi_Lx          , E(660F3A,09,_,x,_,1,4,FV ), 0                         , 113, 0  , 317, 152), // #1607
   INST(Vrndscaleph      , VexRmi_Lx          , E(000F3A,08,_,_,_,0,4,FV ), 0                         , 124, 0  , 318, 146), // #1608
   INST(Vrndscaleps      , VexRmi_Lx          , E(660F3A,08,_,x,_,0,4,FV ), 0                         , 112, 0  , 319, 152), // #1609
   INST(Vrndscalesd      , VexRvmi            , E(660F3A,0B,_,I,_,1,3,T1S), 0                         , 182, 0  , 294, 78 ), // #1610
   INST(Vrndscalesh      , VexRvmi            , E(000F3A,0A,_,_,_,0,1,T1S), 0                         , 190, 0  , 320, 148), // #1611
   INST(Vrndscaless      , VexRvmi            , E(660F3A,0A,_,I,_,0,2,T1S), 0                         , 183, 0  , 295, 78 ), // #1612
-  INST(Vroundpd         , VexRmi_Lx          , V(660F3A,09,_,x,I,_,_,_  ), 0                         , 75 , 0  , 435, 149), // #1613
-  INST(Vroundps         , VexRmi_Lx          , V(660F3A,08,_,x,I,_,_,_  ), 0                         , 75 , 0  , 435, 149), // #1614
-  INST(Vroundsd         , VexRvmi            , V(660F3A,0B,_,I,I,_,_,_  ), 0                         , 75 , 0  , 436, 149), // #1615
-  INST(Vroundss         , VexRvmi            , V(660F3A,0A,_,I,I,_,_,_  ), 0                         , 75 , 0  , 437, 149), // #1616
-  INST(Vrsqrt14pd       , VexRm_Lx           , E(660F38,4E,_,x,_,1,4,FV ), 0                         , 114, 0  , 357, 152), // #1617
-  INST(Vrsqrt14ps       , VexRm_Lx           , E(660F38,4E,_,x,_,0,4,FV ), 0                         , 115, 0  , 381, 152), // #1618
-  INST(Vrsqrt14sd       , VexRvm             , E(660F38,4F,_,I,_,1,3,T1S), 0                         , 129, 0  , 428, 78 ), // #1619
-  INST(Vrsqrt14ss       , VexRvm             , E(660F38,4F,_,I,_,0,2,T1S), 0                         , 130, 0  , 429, 78 ), // #1620
+  INST(Vroundpd         , VexRmi_Lx          , V(660F3A,09,_,x,I,_,_,_  ), 0                         , 75 , 0  , 434, 149), // #1613
+  INST(Vroundps         , VexRmi_Lx          , V(660F3A,08,_,x,I,_,_,_  ), 0                         , 75 , 0  , 434, 149), // #1614
+  INST(Vroundsd         , VexRvmi            , V(660F3A,0B,_,I,I,_,_,_  ), 0                         , 75 , 0  , 435, 149), // #1615
+  INST(Vroundss         , VexRvmi            , V(660F3A,0A,_,I,I,_,_,_  ), 0                         , 75 , 0  , 436, 149), // #1616
+  INST(Vrsqrt14pd       , VexRm_Lx           , E(660F38,4E,_,x,_,1,4,FV ), 0                         , 114, 0  , 356, 152), // #1617
+  INST(Vrsqrt14ps       , VexRm_Lx           , E(660F38,4E,_,x,_,0,4,FV ), 0                         , 115, 0  , 380, 152), // #1618
+  INST(Vrsqrt14sd       , VexRvm             , E(660F38,4F,_,I,_,1,3,T1S), 0                         , 129, 0  , 427, 78 ), // #1619
+  INST(Vrsqrt14ss       , VexRvm             , E(660F38,4F,_,I,_,0,2,T1S), 0                         , 130, 0  , 428, 78 ), // #1620
   INST(Vrsqrt28pd       , VexRm              , E(660F38,CC,_,2,_,1,4,FV ), 0                         , 172, 0  , 284, 164), // #1621
   INST(Vrsqrt28ps       , VexRm              , E(660F38,CC,_,2,_,0,4,FV ), 0                         , 173, 0  , 285, 164), // #1622
   INST(Vrsqrt28sd       , VexRvm             , E(660F38,CD,_,I,_,1,3,T1S), 0                         , 129, 0  , 315, 164), // #1623
   INST(Vrsqrt28ss       , VexRvm             , E(660F38,CD,_,I,_,0,2,T1S), 0                         , 130, 0  , 316, 164), // #1624
-  INST(Vrsqrtph         , VexRm_Lx           , E(66MAP6,4E,_,_,_,0,4,FV ), 0                         , 185, 0  , 430, 146), // #1625
+  INST(Vrsqrtph         , VexRm_Lx           , E(66MAP6,4E,_,_,_,0,4,FV ), 0                         , 185, 0  , 429, 146), // #1625
   INST(Vrsqrtps         , VexRm_Lx           , V(000F00,52,_,x,I,_,_,_  ), 0                         , 74 , 0  , 305, 149), // #1626
-  INST(Vrsqrtsh         , VexRvm             , E(66MAP6,4F,_,_,_,0,1,T1S), 0                         , 187, 0  , 431, 148), // #1627
-  INST(Vrsqrtss         , VexRvm             , V(F30F00,52,_,I,I,_,_,_  ), 0                         , 201, 0  , 432, 149), // #1628
-  INST(Vscalefpd        , VexRvm_Lx          , E(660F38,2C,_,x,_,1,4,FV ), 0                         , 114, 0  , 438, 152), // #1629
+  INST(Vrsqrtsh         , VexRvm             , E(66MAP6,4F,_,_,_,0,1,T1S), 0                         , 187, 0  , 430, 148), // #1627
+  INST(Vrsqrtss         , VexRvm             , V(F30F00,52,_,I,I,_,_,_  ), 0                         , 201, 0  , 431, 149), // #1628
+  INST(Vscalefpd        , VexRvm_Lx          , E(660F38,2C,_,x,_,1,4,FV ), 0                         , 114, 0  , 437, 152), // #1629
   INST(Vscalefph        , VexRvm_Lx          , E(66MAP6,2C,_,_,_,0,4,FV ), 0                         , 185, 0  , 201, 146), // #1630
   INST(Vscalefps        , VexRvm_Lx          , E(660F38,2C,_,x,_,0,4,FV ), 0                         , 115, 0  , 291, 152), // #1631
   INST(Vscalefsd        , VexRvm             , E(660F38,2D,_,I,_,1,3,T1S), 0                         , 129, 0  , 257, 78 ), // #1632
   INST(Vscalefsh        , VexRvm             , E(66MAP6,2D,_,_,_,0,1,T1S), 0                         , 187, 0  , 204, 148), // #1633
   INST(Vscalefss        , VexRvm             , E(660F38,2D,_,I,_,0,2,T1S), 0                         , 130, 0  , 265, 78 ), // #1634
-  INST(Vscatterdpd      , VexMr_VM           , E(660F38,A2,_,x,_,1,3,T1S), 0                         , 129, 0  , 411, 152), // #1635
-  INST(Vscatterdps      , VexMr_VM           , E(660F38,A2,_,x,_,0,2,T1S), 0                         , 130, 0  , 410, 152), // #1636
+  INST(Vscatterdpd      , VexMr_VM           , E(660F38,A2,_,x,_,1,3,T1S), 0                         , 129, 0  , 410, 152), // #1635
+  INST(Vscatterdps      , VexMr_VM           , E(660F38,A2,_,x,_,0,2,T1S), 0                         , 130, 0  , 409, 152), // #1636
   INST(Vscatterpf0dpd   , VexM_VM            , E(660F38,C6,5,2,_,1,3,T1S), 0                         , 232, 0  , 310, 170), // #1637
   INST(Vscatterpf0dps   , VexM_VM            , E(660F38,C6,5,2,_,0,2,T1S), 0                         , 233, 0  , 311, 170), // #1638
   INST(Vscatterpf0qpd   , VexM_VM            , E(660F38,C7,5,2,_,1,3,T1S), 0                         , 232, 0  , 312, 170), // #1639
@@ -1691,23 +1691,23 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vscatterpf1dps   , VexM_VM            , E(660F38,C6,6,2,_,0,2,T1S), 0                         , 235, 0  , 311, 170), // #1642
   INST(Vscatterpf1qpd   , VexM_VM            , E(660F38,C7,6,2,_,1,3,T1S), 0                         , 234, 0  , 312, 170), // #1643
   INST(Vscatterpf1qps   , VexM_VM            , E(660F38,C7,6,2,_,0,2,T1S), 0                         , 235, 0  , 312, 170), // #1644
-  INST(Vscatterqpd      , VexMr_VM           , E(660F38,A3,_,x,_,1,3,T1S), 0                         , 129, 0  , 413, 152), // #1645
-  INST(Vscatterqps      , VexMr_VM           , E(660F38,A3,_,x,_,0,2,T1S), 0                         , 130, 0  , 412, 152), // #1646
-  INST(Vsha512msg1      , VexRm              , V(F20F38,CC,_,1,0,_,_,_  ), 0                         , 236, 0  , 439, 196), // #1647
-  INST(Vsha512msg2      , VexRm              , V(F20F38,CD,_,1,0,_,_,_  ), 0                         , 236, 0  , 440, 196), // #1648
-  INST(Vsha512rnds2     , VexRvm             , V(F20F38,CB,_,1,0,_,_,_  ), 0                         , 236, 0  , 441, 196), // #1649
-  INST(Vshuff32x4       , VexRvmi_Lx         , E(660F3A,23,_,x,_,0,4,FV ), 0                         , 112, 0  , 442, 152), // #1650
-  INST(Vshuff64x2       , VexRvmi_Lx         , E(660F3A,23,_,x,_,1,4,FV ), 0                         , 113, 0  , 443, 152), // #1651
-  INST(Vshufi32x4       , VexRvmi_Lx         , E(660F3A,43,_,x,_,0,4,FV ), 0                         , 112, 0  , 442, 152), // #1652
-  INST(Vshufi64x2       , VexRvmi_Lx         , E(660F3A,43,_,x,_,1,4,FV ), 0                         , 113, 0  , 443, 152), // #1653
-  INST(Vshufpd          , VexRvmi_Lx         , V(660F00,C6,_,x,I,1,4,FV ), 0                         , 104, 0  , 444, 145), // #1654
-  INST(Vshufps          , VexRvmi_Lx         , V(000F00,C6,_,x,I,0,4,FV ), 0                         , 106, 0  , 445, 145), // #1655
-  INST(Vsm3msg1         , VexRvm             , V(000F38,DA,_,0,0,_,_,_  ), 0                         , 11 , 0  , 446, 197), // #1656
-  INST(Vsm3msg2         , VexRvm             , V(660F38,DA,_,0,0,_,_,_  ), 0                         , 30 , 0  , 446, 197), // #1657
+  INST(Vscatterqpd      , VexMr_VM           , E(660F38,A3,_,x,_,1,3,T1S), 0                         , 129, 0  , 412, 152), // #1645
+  INST(Vscatterqps      , VexMr_VM           , E(660F38,A3,_,x,_,0,2,T1S), 0                         , 130, 0  , 411, 152), // #1646
+  INST(Vsha512msg1      , VexRm              , V(F20F38,CC,_,1,0,_,_,_  ), 0                         , 236, 0  , 438, 196), // #1647
+  INST(Vsha512msg2      , VexRm              , V(F20F38,CD,_,1,0,_,_,_  ), 0                         , 236, 0  , 439, 196), // #1648
+  INST(Vsha512rnds2     , VexRvm             , V(F20F38,CB,_,1,0,_,_,_  ), 0                         , 236, 0  , 440, 196), // #1649
+  INST(Vshuff32x4       , VexRvmi_Lx         , E(660F3A,23,_,x,_,0,4,FV ), 0                         , 112, 0  , 441, 152), // #1650
+  INST(Vshuff64x2       , VexRvmi_Lx         , E(660F3A,23,_,x,_,1,4,FV ), 0                         , 113, 0  , 442, 152), // #1651
+  INST(Vshufi32x4       , VexRvmi_Lx         , E(660F3A,43,_,x,_,0,4,FV ), 0                         , 112, 0  , 441, 152), // #1652
+  INST(Vshufi64x2       , VexRvmi_Lx         , E(660F3A,43,_,x,_,1,4,FV ), 0                         , 113, 0  , 442, 152), // #1653
+  INST(Vshufpd          , VexRvmi_Lx         , V(660F00,C6,_,x,I,1,4,FV ), 0                         , 104, 0  , 443, 145), // #1654
+  INST(Vshufps          , VexRvmi_Lx         , V(000F00,C6,_,x,I,0,4,FV ), 0                         , 106, 0  , 444, 145), // #1655
+  INST(Vsm3msg1         , VexRvm             , V(000F38,DA,_,0,0,_,_,_  ), 0                         , 11 , 0  , 445, 197), // #1656
+  INST(Vsm3msg2         , VexRvm             , V(660F38,DA,_,0,0,_,_,_  ), 0                         , 30 , 0  , 445, 197), // #1657
   INST(Vsm3rnds2        , VexRvmi            , V(660F3A,DE,_,0,0,_,_,_  ), 0                         , 75 , 0  , 283, 197), // #1658
   INST(Vsm4key4         , VexRvm_Lx          , V(F30F38,DA,_,x,0,_,_,_  ), 0                         , 89 , 0  , 206, 198), // #1659
   INST(Vsm4rnds4        , VexRvm_Lx          , V(F20F38,DA,_,x,0,_,_,_  ), 0                         , 85 , 0  , 206, 198), // #1660
-  INST(Vsqrtpd          , VexRm_Lx           , V(660F00,51,_,x,I,1,4,FV ), 0                         , 104, 0  , 447, 145), // #1661
+  INST(Vsqrtpd          , VexRm_Lx           , V(660F00,51,_,x,I,1,4,FV ), 0                         , 104, 0  , 446, 145), // #1661
   INST(Vsqrtph          , VexRm_Lx           , E(00MAP5,51,_,_,_,0,4,FV ), 0                         , 105, 0  , 252, 146), // #1662
   INST(Vsqrtps          , VexRm_Lx           , V(000F00,51,_,x,I,0,4,FV ), 0                         , 106, 0  , 240, 145), // #1663
   INST(Vsqrtsd          , VexRvm             , V(F20F00,51,_,I,I,1,3,T1S), 0                         , 107, 0  , 203, 147), // #1664
@@ -1729,23 +1729,23 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Vunpckhps        , VexRvm_Lx          , V(000F00,15,_,x,I,0,4,FV ), 0                         , 106, 0  , 213, 145), // #1680
   INST(Vunpcklpd        , VexRvm_Lx          , V(660F00,14,_,x,I,1,4,FV ), 0                         , 104, 0  , 212, 145), // #1681
   INST(Vunpcklps        , VexRvm_Lx          , V(000F00,14,_,x,I,0,4,FV ), 0                         , 106, 0  , 213, 145), // #1682
-  INST(Vxorpd           , VexRvm_Lx          , V(660F00,57,_,x,I,1,4,FV ), 0                         , 104, 0  , 425, 153), // #1683
-  INST(Vxorps           , VexRvm_Lx          , V(000F00,57,_,x,I,0,4,FV ), 0                         , 106, 0  , 424, 153), // #1684
-  INST(Vzeroall         , VexOp              , V(000F00,77,_,1,I,_,_,_  ), 0                         , 70 , 0  , 448, 149), // #1685
-  INST(Vzeroupper       , VexOp              , V(000F00,77,_,0,I,_,_,_  ), 0                         , 74 , 0  , 448, 149), // #1686
+  INST(Vxorpd           , VexRvm_Lx          , V(660F00,57,_,x,I,1,4,FV ), 0                         , 104, 0  , 424, 153), // #1683
+  INST(Vxorps           , VexRvm_Lx          , V(000F00,57,_,x,I,0,4,FV ), 0                         , 106, 0  , 423, 153), // #1684
+  INST(Vzeroall         , VexOp              , V(000F00,77,_,1,I,_,_,_  ), 0                         , 70 , 0  , 447, 149), // #1685
+  INST(Vzeroupper       , VexOp              , V(000F00,77,_,0,I,_,_,_  ), 0                         , 74 , 0  , 447, 149), // #1686
   INST(Wbinvd           , X86Op              , O(000F00,09,_,_,_,_,_,_  ), 0                         , 5  , 0  , 31 , 45 ), // #1687
   INST(Wbnoinvd         , X86Op              , O(F30F00,09,_,_,_,_,_,_  ), 0                         , 7  , 0  , 31 , 199), // #1688
   INST(Wrfsbase         , X86M               , O(F30F00,AE,2,_,x,_,_,_  ), 0                         , 238, 0  , 177, 122), // #1689
   INST(Wrgsbase         , X86M               , O(F30F00,AE,3,_,x,_,_,_  ), 0                         , 239, 0  , 177, 122), // #1690
   INST(Wrmsr            , X86Op              , O(000F00,30,_,_,_,_,_,_  ), 0                         , 5  , 0  , 178, 123), // #1691
-  INST(Wrssd            , X86Mr              , O(000F38,F6,_,_,_,_,_,_  ), 0                         , 1  , 0  , 449, 65 ), // #1692
-  INST(Wrssq            , X86Mr              , O(000F38,F6,_,_,1,_,_,_  ), 0                         , 240, 0  , 450, 65 ), // #1693
-  INST(Wrussd           , X86Mr              , O(660F38,F5,_,_,_,_,_,_  ), 0                         , 2  , 0  , 449, 65 ), // #1694
-  INST(Wrussq           , X86Mr              , O(660F38,F5,_,_,1,_,_,_  ), 0                         , 241, 0  , 450, 65 ), // #1695
+  INST(Wrssd            , X86Mr              , O(000F38,F6,_,_,_,_,_,_  ), 0                         , 1  , 0  , 448, 65 ), // #1692
+  INST(Wrssq            , X86Mr              , O(000F38,F6,_,_,1,_,_,_  ), 0                         , 240, 0  , 449, 65 ), // #1693
+  INST(Wrussd           , X86Mr              , O(660F38,F5,_,_,_,_,_,_  ), 0                         , 2  , 0  , 448, 65 ), // #1694
+  INST(Wrussq           , X86Mr              , O(660F38,F5,_,_,1,_,_,_  ), 0                         , 241, 0  , 449, 65 ), // #1695
   INST(Xabort           , X86Op_Mod11RM_I8   , O(000000,C6,7,_,_,_,_,_  ), 0                         , 29 , 0  , 84 , 200), // #1696
-  INST(Xadd             , X86Xadd            , O(000F00,C0,_,_,x,_,_,_  ), 0                         , 5  , 0  , 451, 40 ), // #1697
-  INST(Xbegin           , X86JmpRel          , O(000000,C7,7,_,_,_,_,_  ), 0                         , 29 , 0  , 452, 200), // #1698
-  INST(Xchg             , X86Xchg            , O(000000,86,_,_,x,_,_,_  ), 0                         , 0  , 0  , 453, 0  ), // #1699
+  INST(Xadd             , X86Xadd            , O(000F00,C0,_,_,x,_,_,_  ), 0                         , 5  , 0  , 450, 40 ), // #1697
+  INST(Xbegin           , X86JmpRel          , O(000000,C7,7,_,_,_,_,_  ), 0                         , 29 , 0  , 451, 200), // #1698
+  INST(Xchg             , X86Xchg            , O(000000,86,_,_,x,_,_,_  ), 0                         , 0  , 0  , 452, 0  ), // #1699
   INST(Xend             , X86Op              , O(000F01,D5,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 200), // #1700
   INST(Xgetbv           , X86Op              , O(000F01,D0,_,_,_,_,_,_  ), 0                         , 23 , 0  , 178, 201), // #1701
   INST(Xlatb            , X86Op              , O(000000,D7,_,_,_,_,_,_  ), 0                         , 0  , 0  , 31 , 0  ), // #1702
@@ -1753,18 +1753,18 @@ const InstDB::InstInfo InstDB::_instInfoTable[] = {
   INST(Xorpd            , ExtRm              , O(660F00,57,_,_,_,_,_,_  ), 0                         , 4  , 0  , 155, 5  ), // #1704
   INST(Xorps            , ExtRm              , O(000F00,57,_,_,_,_,_,_  ), 0                         , 5  , 0  , 155, 6  ), // #1705
   INST(Xresldtrk        , X86Op              , O(F20F01,E9,_,_,_,_,_,_  ), 0                         , 93 , 0  , 31 , 202), // #1706
-  INST(Xrstor           , X86M_Only_EDX_EAX  , O(000F00,AE,5,_,_,_,_,_  ), 0                         , 79 , 0  , 454, 201), // #1707
-  INST(Xrstor64         , X86M_Only_EDX_EAX  , O(000F00,AE,5,_,1,_,_,_  ), 0                         , 242, 0  , 455, 201), // #1708
-  INST(Xrstors          , X86M_Only_EDX_EAX  , O(000F00,C7,3,_,_,_,_,_  ), 0                         , 80 , 0  , 454, 203), // #1709
-  INST(Xrstors64        , X86M_Only_EDX_EAX  , O(000F00,C7,3,_,1,_,_,_  ), 0                         , 243, 0  , 455, 203), // #1710
-  INST(Xsave            , X86M_Only_EDX_EAX  , O(000F00,AE,4,_,_,_,_,_  ), 0                         , 98 , 0  , 454, 201), // #1711
-  INST(Xsave64          , X86M_Only_EDX_EAX  , O(000F00,AE,4,_,1,_,_,_  ), 0                         , 244, 0  , 455, 201), // #1712
-  INST(Xsavec           , X86M_Only_EDX_EAX  , O(000F00,C7,4,_,_,_,_,_  ), 0                         , 98 , 0  , 454, 204), // #1713
-  INST(Xsavec64         , X86M_Only_EDX_EAX  , O(000F00,C7,4,_,1,_,_,_  ), 0                         , 244, 0  , 455, 204), // #1714
-  INST(Xsaveopt         , X86M_Only_EDX_EAX  , O(000F00,AE,6,_,_,_,_,_  ), 0                         , 82 , 0  , 454, 205), // #1715
-  INST(Xsaveopt64       , X86M_Only_EDX_EAX  , O(000F00,AE,6,_,1,_,_,_  ), 0                         , 245, 0  , 455, 205), // #1716
-  INST(Xsaves           , X86M_Only_EDX_EAX  , O(000F00,C7,5,_,_,_,_,_  ), 0                         , 79 , 0  , 454, 203), // #1717
-  INST(Xsaves64         , X86M_Only_EDX_EAX  , O(000F00,C7,5,_,1,_,_,_  ), 0                         , 242, 0  , 455, 203), // #1718
+  INST(Xrstor           , X86M_Only_EDX_EAX  , O(000F00,AE,5,_,_,_,_,_  ), 0                         , 79 , 0  , 453, 201), // #1707
+  INST(Xrstor64         , X86M_Only_EDX_EAX  , O(000F00,AE,5,_,1,_,_,_  ), 0                         , 242, 0  , 454, 201), // #1708
+  INST(Xrstors          , X86M_Only_EDX_EAX  , O(000F00,C7,3,_,_,_,_,_  ), 0                         , 80 , 0  , 453, 203), // #1709
+  INST(Xrstors64        , X86M_Only_EDX_EAX  , O(000F00,C7,3,_,1,_,_,_  ), 0                         , 243, 0  , 454, 203), // #1710
+  INST(Xsave            , X86M_Only_EDX_EAX  , O(000F00,AE,4,_,_,_,_,_  ), 0                         , 98 , 0  , 453, 201), // #1711
+  INST(Xsave64          , X86M_Only_EDX_EAX  , O(000F00,AE,4,_,1,_,_,_  ), 0                         , 244, 0  , 454, 201), // #1712
+  INST(Xsavec           , X86M_Only_EDX_EAX  , O(000F00,C7,4,_,_,_,_,_  ), 0                         , 98 , 0  , 453, 204), // #1713
+  INST(Xsavec64         , X86M_Only_EDX_EAX  , O(000F00,C7,4,_,1,_,_,_  ), 0                         , 244, 0  , 454, 204), // #1714
+  INST(Xsaveopt         , X86M_Only_EDX_EAX  , O(000F00,AE,6,_,_,_,_,_  ), 0                         , 82 , 0  , 453, 205), // #1715
+  INST(Xsaveopt64       , X86M_Only_EDX_EAX  , O(000F00,AE,6,_,1,_,_,_  ), 0                         , 245, 0  , 454, 205), // #1716
+  INST(Xsaves           , X86M_Only_EDX_EAX  , O(000F00,C7,5,_,_,_,_,_  ), 0                         , 79 , 0  , 453, 203), // #1717
+  INST(Xsaves64         , X86M_Only_EDX_EAX  , O(000F00,C7,5,_,1,_,_,_  ), 0                         , 242, 0  , 454, 203), // #1718
   INST(Xsetbv           , X86Op              , O(000F01,D1,_,_,_,_,_,_  ), 0                         , 23 , 0  , 178, 201), // #1719
   INST(Xsusldtrk        , X86Op              , O(F20F01,E8,_,_,_,_,_,_  ), 0                         , 93 , 0  , 31 , 202), // #1720
   INST(Xtest            , X86Op              , O(000F01,D6,_,_,_,_,_,_  ), 0                         , 23 , 0  , 31 , 206)  // #1721
@@ -2187,8 +2187,8 @@ const uint32_t InstDB::_altOpcodeTable[] = {
 #define SAME_REG_HINT(VAL) uint8_t(InstSameRegHint::k##VAL)
 const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { 0                                                 , 0                             , 0  , 0 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #0 [ref=1x]
-  { 0                                                 , 0                             , 457, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #1 [ref=4x]
-  { 0                                                 , 0                             , 458, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #2 [ref=2x]
+  { 0                                                 , 0                             , 455, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #1 [ref=4x]
+  { 0                                                 , 0                             , 456, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #2 [ref=2x]
   { 0                                                 , 0                             , 108, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #3 [ref=6x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 20 , 13, CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #4 [ref=2x]
   { 0                                                 , 0                             , 50 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #5 [ref=2x]
@@ -2199,199 +2199,199 @@ const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 33 , 12, CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #10 [ref=1x]
   { F(Vex)                                            , 0                             , 325, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #11 [ref=3x]
   { F(Vec)                                            , 0                             , 72 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #12 [ref=12x]
-  { 0                                                 , 0                             , 459, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #13 [ref=1x]
+  { 0                                                 , 0                             , 457, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #13 [ref=1x]
   { F(Vex)                                            , 0                             , 327, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #14 [ref=5x]
   { F(Vex)                                            , 0                             , 50 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #15 [ref=12x]
-  { F(Vec)                                            , 0                             , 460, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #16 [ref=4x]
+  { F(Vec)                                            , 0                             , 458, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #16 [ref=4x]
   { 0                                                 , 0                             , 329, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #17 [ref=3x]
-  { F(Mib)                                            , 0                             , 461, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #18 [ref=1x]
-  { 0                                                 , 0                             , 462, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #19 [ref=1x]
+  { F(Mib)                                            , 0                             , 459, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #18 [ref=1x]
+  { 0                                                 , 0                             , 460, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #19 [ref=1x]
   { 0                                                 , 0                             , 331, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #20 [ref=1x]
-  { F(Mib)                                            , 0                             , 463, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #21 [ref=1x]
+  { F(Mib)                                            , 0                             , 461, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #21 [ref=1x]
   { 0                                                 , 0                             , 333, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #22 [ref=1x]
   { 0                                                 , 0                             , 49 , 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #23 [ref=35x]
   { 0                                                 , 0                             , 335, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #24 [ref=3x]
   { 0                                                 , 0                             , 134, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #25 [ref=1x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 134, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #26 [ref=3x]
   { F(Rep)|F(RepIgnored)                              , 0                             , 235, 3 , CONTROL_FLOW(Call), SAME_REG_HINT(None)}, // #27 [ref=1x]
-  { 0                                                 , 0                             , 464, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #28 [ref=1x]
-  { 0                                                 , 0                             , 465, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #29 [ref=2x]
+  { 0                                                 , 0                             , 462, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #28 [ref=1x]
+  { 0                                                 , 0                             , 463, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #29 [ref=2x]
   { 0                                                 , 0                             , 436, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #30 [ref=1x]
-  { 0                                                 , 0                             , 110, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #31 [ref=87x]
-  { 0                                                 , 0                             , 466, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #32 [ref=24x]
-  { 0                                                 , 0                             , 467, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #33 [ref=6x]
-  { 0                                                 , 0                             , 468, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #34 [ref=14x]
-  { 0                                                 , 0                             , 469, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #35 [ref=1x]
+  { 0                                                 , 0                             , 110, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #31 [ref=88x]
+  { 0                                                 , 0                             , 464, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #32 [ref=24x]
+  { 0                                                 , 0                             , 465, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #33 [ref=6x]
+  { 0                                                 , 0                             , 466, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #34 [ref=14x]
+  { 0                                                 , 0                             , 467, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #35 [ref=1x]
   { 0                                                 , 0                             , 20 , 13, CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #36 [ref=1x]
   { F(Vex)                                            , 0                             , 337, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #37 [ref=16x]
   { F(Rep)                                            , 0                             , 179, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #38 [ref=1x]
-  { F(Vec)                                            , 0                             , 470, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #39 [ref=2x]
-  { F(Vec)                                            , 0                             , 471, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #40 [ref=3x]
+  { F(Vec)                                            , 0                             , 468, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #39 [ref=2x]
+  { F(Vec)                                            , 0                             , 469, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #40 [ref=3x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 183, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #41 [ref=1x]
-  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 472, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #42 [ref=1x]
-  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 473, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #43 [ref=1x]
-  { 0                                                 , 0                             , 474, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #44 [ref=1x]
-  { 0                                                 , 0                             , 475, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #45 [ref=1x]
+  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 470, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #42 [ref=1x]
+  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 471, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #43 [ref=1x]
+  { 0                                                 , 0                             , 472, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #44 [ref=1x]
+  { 0                                                 , 0                             , 473, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #45 [ref=1x]
   { 0                                                 , 0                             , 339, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #46 [ref=1x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 476, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #47 [ref=2x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 477, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #48 [ref=2x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 478, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #49 [ref=2x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 474, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #47 [ref=2x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 475, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #48 [ref=2x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 476, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #49 [ref=2x]
   { F(Vec)                                            , 0                             , 341, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #50 [ref=2x]
   { F(Vec)                                            , 0                             , 343, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #51 [ref=1x]
   { F(Vec)                                            , 0                             , 345, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #52 [ref=1x]
   { F(Vec)                                            , 0                             , 347, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #53 [ref=1x]
   { F(Vec)                                            , 0                             , 349, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #54 [ref=1x]
-  { 0                                                 , 0                             , 479, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #55 [ref=1x]
-  { 0                                                 , 0                             , 480, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #56 [ref=3x]
+  { 0                                                 , 0                             , 477, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #55 [ref=1x]
+  { 0                                                 , 0                             , 478, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #56 [ref=3x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 238, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #57 [ref=1x]
   { 0                                                 , 0                             , 45 , 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #58 [ref=3x]
   { F(Mmx)                                            , 0                             , 110, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #59 [ref=1x]
   { 0                                                 , 0                             , 351, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #60 [ref=2x]
-  { 0                                                 , 0                             , 481, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #61 [ref=1x]
-  { F(Vec)                                            , 0                             , 482, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #62 [ref=2x]
+  { 0                                                 , 0                             , 479, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #61 [ref=1x]
+  { F(Vec)                                            , 0                             , 480, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #62 [ref=2x]
   { F(Vec)                                            , 0                             , 353, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #63 [ref=1x]
   { F(FpuM32)|F(FpuM64)                               , 0                             , 241, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #64 [ref=6x]
   { 0                                                 , 0                             , 355, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #65 [ref=9x]
-  { F(FpuM80)                                         , 0                             , 483, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #66 [ref=2x]
+  { F(FpuM80)                                         , 0                             , 481, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #66 [ref=2x]
   { 0                                                 , 0                             , 356, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #67 [ref=13x]
   { F(FpuM32)|F(FpuM64)                               , 0                             , 357, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #68 [ref=2x]
-  { F(FpuM16)|F(FpuM32)                               , 0                             , 484, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #69 [ref=9x]
-  { F(FpuM16)|F(FpuM32)|F(FpuM64)                     , 0                             , 485, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #70 [ref=3x]
-  { F(FpuM32)|F(FpuM64)|F(FpuM80)                     , 0                             , 486, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #71 [ref=2x]
-  { F(FpuM16)                                         , 0                             , 487, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #72 [ref=3x]
-  { F(FpuM16)                                         , 0                             , 488, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #73 [ref=2x]
+  { F(FpuM16)|F(FpuM32)                               , 0                             , 482, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #69 [ref=9x]
+  { F(FpuM16)|F(FpuM32)|F(FpuM64)                     , 0                             , 483, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #70 [ref=3x]
+  { F(FpuM32)|F(FpuM64)|F(FpuM80)                     , 0                             , 484, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #71 [ref=2x]
+  { F(FpuM16)                                         , 0                             , 485, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #72 [ref=3x]
+  { F(FpuM16)                                         , 0                             , 486, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #73 [ref=2x]
   { F(FpuM32)|F(FpuM64)                               , 0                             , 358, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #74 [ref=1x]
-  { 0                                                 , 0                             , 489, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #75 [ref=4x]
-  { 0                                                 , 0                             , 490, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #76 [ref=1x]
+  { 0                                                 , 0                             , 487, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #75 [ref=4x]
+  { 0                                                 , 0                             , 488, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #76 [ref=1x]
   { 0                                                 , 0                             , 45 , 10, CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #77 [ref=1x]
-  { 0                                                 , 0                             , 491, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #78 [ref=1x]
+  { 0                                                 , 0                             , 489, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #78 [ref=1x]
   { F(Lock)                                           , 0                             , 238, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #79 [ref=1x]
   { 0                                                 , 0                             , 379, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #80 [ref=2x]
   { 0                                                 , 0                             , 336, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #81 [ref=3x]
-  { F(Rep)                                            , 0                             , 492, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #82 [ref=1x]
+  { F(Rep)                                            , 0                             , 490, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #82 [ref=1x]
   { F(Vec)                                            , 0                             , 359, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #83 [ref=1x]
-  { 0                                                 , 0                             , 493, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #84 [ref=2x]
-  { 0                                                 , 0                             , 494, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #85 [ref=8x]
+  { 0                                                 , 0                             , 491, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #84 [ref=2x]
+  { 0                                                 , 0                             , 492, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #85 [ref=8x]
   { 0                                                 , 0                             , 361, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #86 [ref=3x]
   { 0                                                 , 0                             , 363, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #87 [ref=1x]
   { 0                                                 , 0                             , 365, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #88 [ref=1x]
   { 0                                                 , 0                             , 110, 1 , CONTROL_FLOW(Return), SAME_REG_HINT(None)}, // #89 [ref=2x]
-  { 0                                                 , 0                             , 468, 1 , CONTROL_FLOW(Return), SAME_REG_HINT(None)}, // #90 [ref=1x]
+  { 0                                                 , 0                             , 466, 1 , CONTROL_FLOW(Return), SAME_REG_HINT(None)}, // #90 [ref=1x]
   { F(Rep)                                            , 0                             , 244, 1 , CONTROL_FLOW(Branch), SAME_REG_HINT(None)}, // #91 [ref=30x]
   { F(Rep)                                            , 0                             , 367, 2 , CONTROL_FLOW(Branch), SAME_REG_HINT(None)}, // #92 [ref=1x]
   { F(Rep)                                            , 0                             , 244, 3 , CONTROL_FLOW(Jump), SAME_REG_HINT(None)}, // #93 [ref=1x]
-  { F(Vex)                                            , 0                             , 495, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #94 [ref=19x]
+  { F(Vex)                                            , 0                             , 493, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #94 [ref=19x]
   { F(Vex)                                            , 0                             , 369, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #95 [ref=1x]
   { F(Vex)                                            , 0                             , 371, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #96 [ref=1x]
   { F(Vex)                                            , 0                             , 187, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #97 [ref=1x]
   { F(Vex)                                            , 0                             , 373, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #98 [ref=1x]
-  { F(Vex)                                            , 0                             , 496, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #99 [ref=12x]
-  { F(Vex)                                            , 0                             , 497, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #100 [ref=8x]
-  { F(Vex)                                            , 0                             , 495, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #101 [ref=8x]
-  { 0                                                 , 0                             , 498, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #102 [ref=2x]
+  { F(Vex)                                            , 0                             , 494, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #99 [ref=12x]
+  { F(Vex)                                            , 0                             , 495, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #100 [ref=8x]
+  { F(Vex)                                            , 0                             , 493, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #101 [ref=8x]
+  { 0                                                 , 0                             , 496, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #102 [ref=2x]
   { 0                                                 , 0                             , 253, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #103 [ref=1x]
   { 0                                                 , 0                             , 247, 3 , CONTROL_FLOW(Call), SAME_REG_HINT(None)}, // #104 [ref=1x]
   { F(Vec)                                            , 0                             , 169, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #105 [ref=2x]
-  { 0                                                 , 0                             , 499, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #106 [ref=2x]
+  { 0                                                 , 0                             , 497, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #106 [ref=2x]
   { 0                                                 , 0                             , 375, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #107 [ref=2x]
-  { F(Vex)                                            , 0                             , 500, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #108 [ref=2x]
+  { F(Vex)                                            , 0                             , 498, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #108 [ref=2x]
   { 0                                                 , 0                             , 377, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #109 [ref=1x]
   { 0                                                 , 0                             , 250, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #110 [ref=3x]
   { 0                                                 , 0                             , 247, 3 , CONTROL_FLOW(Jump), SAME_REG_HINT(None)}, // #111 [ref=1x]
-  { 0                                                 , 0                             , 501, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #112 [ref=5x]
+  { 0                                                 , 0                             , 499, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #112 [ref=5x]
   { F(Vex)                                            , 0                             , 379, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #113 [ref=2x]
   { F(Rep)                                            , 0                             , 191, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #114 [ref=1x]
   { 0                                                 , 0                             , 367, 2 , CONTROL_FLOW(Branch), SAME_REG_HINT(None)}, // #115 [ref=3x]
   { 0                                                 , 0                             , 253, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #116 [ref=1x]
   { F(Vex)                                            , 0                             , 381, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #117 [ref=2x]
-  { F(Vec)                                            , 0                             , 502, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #118 [ref=1x]
-  { F(Mmx)                                            , 0                             , 503, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #119 [ref=1x]
-  { 0                                                 , 0                             , 504, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #120 [ref=2x]
+  { F(Vec)                                            , 0                             , 500, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #118 [ref=1x]
+  { F(Mmx)                                            , 0                             , 501, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #119 [ref=1x]
+  { 0                                                 , 0                             , 502, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #120 [ref=2x]
   { F(XRelease)                                       , 0                             , 0  , 20, CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #121 [ref=1x]
   { 0                                                 , 0                             , 55 , 9 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #122 [ref=1x]
   { F(Vec)                                            , 0                             , 72 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #123 [ref=6x]
   { 0                                                 , 0                             , 104, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #124 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 383, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #125 [ref=1x]
   { 0                                                 , 0                             , 385, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #126 [ref=1x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 505, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #127 [ref=1x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 503, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #127 [ref=1x]
   { F(Vec)                                            , 0                             , 354, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #128 [ref=2x]
   { F(Vec)                                            , 0                             , 80 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #129 [ref=4x]
-  { F(Vec)                                            , 0                             , 506, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #130 [ref=2x]
+  { F(Vec)                                            , 0                             , 504, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #130 [ref=2x]
   { F(Vec)                                            , 0                             , 73 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #131 [ref=3x]
-  { F(Mmx)                                            , 0                             , 507, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #132 [ref=1x]
+  { F(Mmx)                                            , 0                             , 505, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #132 [ref=1x]
   { F(Vec)                                            , 0                             , 80 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #133 [ref=1x]
   { F(Vec)                                            , 0                             , 88 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #134 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 139, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #135 [ref=1x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 508, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #136 [ref=1x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 506, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #136 [ref=1x]
   { F(Rep)                                            , 0                             , 195, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #137 [ref=1x]
   { F(Vec)                                            , 0                             , 387, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #138 [ref=1x]
   { F(Vec)                                            , 0                             , 389, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #139 [ref=1x]
   { 0                                                 , 0                             , 256, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #140 [ref=2x]
   { 0                                                 , 0                             , 391, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #141 [ref=1x]
   { F(Vex)                                            , 0                             , 393, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #142 [ref=1x]
-  { 0                                                 , 0                             , 509, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #143 [ref=1x]
-  { 0                                                 , 0                             , 510, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #144 [ref=1x]
+  { 0                                                 , 0                             , 507, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #143 [ref=1x]
+  { 0                                                 , 0                             , 508, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #144 [ref=1x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 239, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #145 [ref=2x]
   { 0                                                 , 0                             , 110, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #146 [ref=1x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 20 , 13, CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #147 [ref=1x]
-  { 0                                                 , 0                             , 511, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #148 [ref=1x]
-  { F(Rep)                                            , 0                             , 512, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #149 [ref=1x]
+  { 0                                                 , 0                             , 509, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #148 [ref=1x]
+  { F(Rep)                                            , 0                             , 510, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #149 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 395, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #150 [ref=37x]
   { F(Mmx)|F(Vec)                                     , 0                             , 397, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #151 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 395, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #152 [ref=6x]
   { F(Mmx)|F(Vec)                                     , 0                             , 395, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #153 [ref=16x]
   { F(Mmx)                                            , 0                             , 139, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #154 [ref=26x]
   { F(Vec)                                            , 0                             , 72 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #155 [ref=4x]
-  { F(Vec)                                            , 0                             , 513, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #156 [ref=1x]
-  { F(Vec)                                            , 0                             , 514, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #157 [ref=1x]
-  { F(Vec)                                            , 0                             , 515, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #158 [ref=1x]
-  { F(Vec)                                            , 0                             , 516, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #159 [ref=1x]
-  { F(Vec)                                            , 0                             , 517, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #160 [ref=1x]
-  { F(Vec)                                            , 0                             , 518, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #161 [ref=1x]
+  { F(Vec)                                            , 0                             , 511, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #156 [ref=1x]
+  { F(Vec)                                            , 0                             , 512, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #157 [ref=1x]
+  { F(Vec)                                            , 0                             , 513, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #158 [ref=1x]
+  { F(Vec)                                            , 0                             , 514, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #159 [ref=1x]
+  { F(Vec)                                            , 0                             , 515, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #160 [ref=1x]
+  { F(Vec)                                            , 0                             , 516, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #161 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 399, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #162 [ref=1x]
-  { F(Vec)                                            , 0                             , 519, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #163 [ref=1x]
-  { F(Vec)                                            , 0                             , 520, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #164 [ref=1x]
-  { F(Vec)                                            , 0                             , 521, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #165 [ref=1x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 522, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #166 [ref=1x]
-  { F(Mmx)|F(Vec)                                     , 0                             , 523, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #167 [ref=1x]
+  { F(Vec)                                            , 0                             , 517, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #163 [ref=1x]
+  { F(Vec)                                            , 0                             , 518, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #164 [ref=1x]
+  { F(Vec)                                            , 0                             , 519, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #165 [ref=1x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 520, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #166 [ref=1x]
+  { F(Mmx)|F(Vec)                                     , 0                             , 521, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #167 [ref=1x]
   { F(Vec)                                            , 0                             , 313, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #168 [ref=2x]
   { 0                                                 , 0                             , 144, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #169 [ref=1x]
   { F(Mmx)                                            , 0                             , 397, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #170 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 401, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #171 [ref=8x]
-  { F(Vec)                                            , 0                             , 524, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #172 [ref=2x]
+  { F(Vec)                                            , 0                             , 522, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #172 [ref=2x]
   { 0                                                 , 0                             , 403, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #173 [ref=1x]
   { F(Mmx)|F(Vec)                                     , 0                             , 405, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #174 [ref=3x]
   { 0                                                 , 0                             , 149, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #175 [ref=1x]
   { 0                                                 , 0                             , 407, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #176 [ref=8x]
-  { 0                                                 , 0                             , 525, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #177 [ref=4x]
-  { 0                                                 , 0                             , 526, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #178 [ref=8x]
+  { 0                                                 , 0                             , 523, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #177 [ref=4x]
+  { 0                                                 , 0                             , 524, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #178 [ref=8x]
   { 0                                                 , 0                             , 409, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #179 [ref=1x]
   { F(Rep)|F(RepIgnored)                              , 0                             , 411, 2 , CONTROL_FLOW(Return), SAME_REG_HINT(None)}, // #180 [ref=1x]
   { 0                                                 , 0                             , 411, 2 , CONTROL_FLOW(Return), SAME_REG_HINT(None)}, // #181 [ref=1x]
   { F(Vex)                                            , 0                             , 413, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #182 [ref=1x]
   { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 20 , 13, CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #183 [ref=3x]
   { F(Rep)                                            , 0                             , 199, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #184 [ref=1x]
-  { 0                                                 , 0                             , 527, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #185 [ref=30x]
+  { 0                                                 , 0                             , 525, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #185 [ref=30x]
   { 0                                                 , 0                             , 259, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #186 [ref=2x]
   { 0                                                 , 0                             , 415, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #187 [ref=3x]
   { F(Rep)                                            , 0                             , 203, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #188 [ref=1x]
-  { F(Vex)                                            , 0                             , 528, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #189 [ref=8x]
+  { F(Vex)                                            , 0                             , 526, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #189 [ref=8x]
   { 0                                                 , 0                             , 64 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #190 [ref=1x]
-  { F(Tsib)|F(Vex)                                    , 0                             , 529, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #191 [ref=2x]
-  { F(Vex)                                            , 0                             , 468, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #192 [ref=1x]
-  { F(Tsib)|F(Vex)                                    , 0                             , 530, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #193 [ref=1x]
-  { F(Vex)                                            , 0                             , 531, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #194 [ref=1x]
-  { 0                                                 , 0                             , 532, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #195 [ref=2x]
+  { F(Tsib)|F(Vex)                                    , 0                             , 527, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #191 [ref=2x]
+  { F(Vex)                                            , 0                             , 466, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #192 [ref=1x]
+  { F(Tsib)|F(Vex)                                    , 0                             , 528, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #193 [ref=1x]
+  { F(Vex)                                            , 0                             , 529, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #194 [ref=1x]
+  { 0                                                 , 0                             , 530, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #195 [ref=2x]
   { 0                                                 , 0                             , 50 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #196 [ref=2x]
   { 0                                                 , 0                             , 417, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #197 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(T4X)|X(Z)              , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #198 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(T4X)|X(Z)              , 534, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #199 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(T4X)|X(Z)              , 531, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #198 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(T4X)|X(Z)              , 532, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #199 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #200 [ref=22x]
   { F(Evex)|F(Vec)                                    , X(B16)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #201 [ref=23x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #202 [ref=22x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(K)|X(SAE)|X(Z)        , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #203 [ref=18x]
-  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 536, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #204 [ref=18x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(K)|X(SAE)|X(Z)        , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #205 [ref=17x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(K)|X(SAE)|X(Z)        , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #203 [ref=18x]
+  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 534, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #204 [ref=18x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(K)|X(SAE)|X(Z)        , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #205 [ref=17x]
   { F(Vec)|F(Vex)                                     , 0                             , 262, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #206 [ref=29x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #207 [ref=5x]
   { F(Vec)|F(Vex)                                     , 0                             , 72 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #208 [ref=17x]
@@ -2402,24 +2402,24 @@ const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #213 [ref=12x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #214 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #215 [ref=6x]
-  { F(Vec)|F(Vex)                                     , 0                             , 538, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #216 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 536, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #216 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #217 [ref=17x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #218 [ref=12x]
   { F(Vec)|F(Vex)                                     , 0                             , 265, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #219 [ref=6x]
   { F(Vec)|F(Vex)                                     , 0                             , 419, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #220 [ref=3x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 539, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #221 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 540, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #222 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 541, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #223 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 542, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #224 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 447, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #225 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 540, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #226 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 543, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #227 [ref=1x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B64)|X(K)|X(SAE)            , 268, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #228 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B16)|X(K)|X(SAE)            , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #229 [ref=1x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B32)|X(K)|X(SAE)            , 268, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #230 [ref=1x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(K)|X(SAE)                   , 544, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #231 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)                   , 545, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #232 [ref=1x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(K)|X(SAE)                   , 546, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #233 [ref=1x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #221 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 538, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #222 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 539, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #223 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 540, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #224 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 445, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #225 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 538, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #226 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 541, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #227 [ref=1x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B64)|X(ImplicitZ)|X(K)|X(SAE), 268, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #228 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B16)|X(ImplicitZ)|X(K)|X(SAE), 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #229 [ref=1x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B32)|X(ImplicitZ)|X(K)|X(SAE), 268, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #230 [ref=1x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(ImplicitZ)|X(K)|X(SAE)      , 542, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #231 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(ImplicitZ)|X(K)|X(SAE)      , 543, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #232 [ref=1x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(ImplicitZ)|X(K)|X(SAE)      , 544, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #233 [ref=1x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(SAE)                        , 143, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #234 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(SAE)                        , 313, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #235 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(SAE)                        , 283, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #236 [ref=2x]
@@ -2430,7 +2430,7 @@ const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { F(Vec)|F(Vex)                                     , 0                             , 169, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #241 [ref=5x]
   { F(Evex)|F(EvexCompat)|F(PreferEvex)|F(Vec)|F(Vex) , X(B32)|X(K)|X(Z)              , 421, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #242 [ref=1x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 421, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #243 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 547, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #244 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 545, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #244 [ref=3x]
   { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #245 [ref=4x]
   { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 421, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #246 [ref=3x]
   { F(Evex)|F(Vec)                                    , X(B16)|X(ER)|X(K)|X(SAE)|X(Z) , 277, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #247 [ref=2x]
@@ -2443,15 +2443,15 @@ const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(SAE)|X(Z)              , 286, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #254 [ref=1x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(ER)|X(K)|X(SAE)|X(Z) , 277, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #255 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(ER)|X(K)|X(SAE)|X(Z) , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #256 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #257 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #257 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(SAE)                  , 341, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #258 [ref=1x]
   { F(Evex)|F(Vec)                                    , X(ER)|X(SAE)                  , 341, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #259 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 536, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #260 [ref=5x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 534, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #260 [ref=5x]
   { F(Evex)|F(Vec)                                    , X(ER)|X(SAE)                  , 423, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #261 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(SAE)                  , 425, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #262 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(ER)|X(SAE)                  , 427, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #263 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(SAE)|X(Z)              , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #264 [ref=3x]
-  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #265 [ref=6x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(SAE)|X(Z)              , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #264 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(ER)|X(K)|X(SAE)|X(Z)        , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #265 [ref=6x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(ER)|X(SAE)                  , 347, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #266 [ref=1x]
   { F(Evex)|F(Vec)                                    , X(ER)|X(SAE)                  , 347, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #267 [ref=1x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(SAE)|X(Z)       , 421, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #268 [ref=1x]
@@ -2474,174 +2474,173 @@ const InstDB::CommonInfo InstDB::_commonInfoTable[] = {
   { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(SAE)|X(Z)       , 78 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #285 [ref=3x]
   { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #286 [ref=8x]
   { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 287, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #287 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 548, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #288 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 546, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #288 [ref=4x]
   { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 288, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #289 [ref=4x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 482, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #290 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 480, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #290 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #291 [ref=5x]
   { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(SAE)|X(Z)       , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #292 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(SAE)|X(Z)       , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #293 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #294 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 550, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #295 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 547, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #294 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 548, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #295 [ref=4x]
   { F(Vec)|F(Vex)                                     , 0                             , 207, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #296 [ref=13x]
   { F(Vec)|F(Vex)                                     , 0                             , 429, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #297 [ref=4x]
   { F(Vec)|F(Vex)                                     , 0                             , 431, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #298 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)                   , 551, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #299 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B16)|X(K)                   , 551, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #300 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)                   , 551, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #301 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)                          , 552, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #302 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)                          , 553, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #303 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)                          , 554, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #304 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(ImplicitZ)|X(K)      , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #299 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B16)|X(K)                   , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #300 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(ImplicitZ)|X(K)      , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #301 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(ImplicitZ)|X(K)             , 550, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #302 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)                          , 551, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #303 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(ImplicitZ)|X(K)             , 552, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #304 [ref=1x]
   { F(Vec)|F(Vex)                                     , 0                             , 280, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #305 [ref=7x]
   { F(Vec)|F(Vex)                                     , 0                             , 143, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #306 [ref=1x]
   { F(Vec)|F(Vex)                                     , 0                             , 283, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #307 [ref=1x]
   { F(Evex)|F(EvexTwoOp)|F(Vec)|F(Vex)|F(Vsib)        , X(K)                          , 211, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #308 [ref=2x]
   { F(Evex)|F(EvexTwoOp)|F(Vec)|F(Vex)|F(Vsib)        , X(K)                          , 154, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #309 [ref=2x]
-  { F(Evex)|F(Vsib)                                   , X(K)                          , 555, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #310 [ref=4x]
-  { F(Evex)|F(Vsib)                                   , X(K)                          , 556, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #311 [ref=4x]
-  { F(Evex)|F(Vsib)                                   , X(K)                          , 557, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #312 [ref=8x]
+  { F(Evex)|F(Vsib)                                   , X(K)                          , 553, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #310 [ref=4x]
+  { F(Evex)|F(Vsib)                                   , X(K)                          , 554, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #311 [ref=4x]
+  { F(Evex)|F(Vsib)                                   , X(K)                          , 555, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #312 [ref=8x]
   { F(Evex)|F(EvexTwoOp)|F(Vec)|F(Vex)|F(Vsib)        , X(K)                          , 159, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #313 [ref=2x]
   { F(Evex)|F(EvexTwoOp)|F(Vec)|F(Vex)|F(Vsib)        , X(K)                          , 289, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #314 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #315 [ref=3x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #316 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #315 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #316 [ref=3x]
   { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(SAE)|X(Z)       , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #317 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B16)|X(K)|X(SAE)|X(Z)       , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #318 [ref=3x]
   { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(SAE)|X(Z)       , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #319 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 558, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #320 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(SAE)|X(Z)              , 556, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #320 [ref=3x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #321 [ref=3x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #322 [ref=22x]
   { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 433, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #323 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 433, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #324 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 559, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #325 [ref=4x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 550, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #326 [ref=1x]
-  { F(Vex)                                            , 0                             , 499, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #327 [ref=2x]
-  { F(Vec)|F(Vex)                                     , 0                             , 502, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #328 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 557, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #325 [ref=4x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 548, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #326 [ref=1x]
+  { F(Vex)                                            , 0                             , 497, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #327 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 500, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #328 [ref=1x]
   { F(Vec)|F(Vex)                                     , 0                             , 215, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #329 [ref=4x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(SAE)|X(Z)       , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #330 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(B16)|X(K)|X(SAE)|X(Z)       , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #331 [ref=2x]
   { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(SAE)|X(Z)       , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #332 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(SAE)|X(Z)              , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #333 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(SAE)|X(Z)              , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #333 [ref=2x]
   { 0                                                 , 0                             , 435, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #334 [ref=3x]
-  { 0                                                 , 0                             , 437, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #335 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 72 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #336 [ref=4x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 439, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #337 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 295, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #338 [ref=1x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 72 , 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #339 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 116, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #340 [ref=6x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 82 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #341 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 219, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #342 [ref=4x]
-  { F(Vec)|F(Vex)                                     , 0                             , 560, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #343 [ref=3x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 164, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #344 [ref=3x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 169, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #345 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 174, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #346 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 80 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #347 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 223, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #348 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #349 [ref=4x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 88 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #350 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 441, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #351 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 72 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #335 [ref=4x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 437, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #336 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 295, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #337 [ref=1x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 72 , 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #338 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 116, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #339 [ref=6x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 82 , 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #340 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 219, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #341 [ref=4x]
+  { F(Vec)|F(Vex)                                     , 0                             , 558, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #342 [ref=3x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 164, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #343 [ref=3x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 169, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #344 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 174, 5 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #345 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 80 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #346 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 223, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #347 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #348 [ref=4x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 88 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #349 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 439, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #350 [ref=1x]
+  { 0                                                 , 0                             , 441, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #351 [ref=1x]
   { 0                                                 , 0                             , 443, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #352 [ref=1x]
-  { 0                                                 , 0                             , 445, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #353 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B32)                        , 298, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #354 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B64)                        , 298, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #355 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #356 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #357 [ref=5x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 262, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #358 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #359 [ref=2x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 262, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #360 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #361 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #362 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #363 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #364 [ref=13x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 561, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #365 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 562, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #366 [ref=1x]
-  { F(Evex)|F(Vec)                                    , 0                             , 563, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #367 [ref=6x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 447, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #368 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 564, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #369 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #370 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)                          , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #371 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)                   , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #372 [ref=2x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(K)                          , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #373 [ref=4x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B32)|X(K)                   , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #374 [ref=2x]
-  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B64)|X(K)                   , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #375 [ref=2x]
-  { F(Vec)|F(Vex)                                     , 0                             , 513, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #376 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 514, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #377 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 515, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #378 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 516, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #379 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)                   , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #380 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #381 [ref=6x]
-  { F(Evex)|F(EvexCompat)|F(PreferEvex)|F(Vec)|F(Vex) , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #382 [ref=4x]
-  { F(Vec)|F(Vex)                                     , 0                             , 266, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #383 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 263, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #384 [ref=2x]
-  { F(Vec)|F(Vex)                                     , 0                             , 227, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #385 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 96 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #386 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 96 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #387 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 231, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #388 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 517, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #389 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 518, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #390 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 565, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #391 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 566, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #392 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 567, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #393 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 568, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #394 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 569, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #395 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 419, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #396 [ref=12x]
-  { F(Evex)|F(EvexCompat)|F(PreferEvex)|F(Vec)|F(Vex) , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #397 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #398 [ref=8x]
-  { F(Evex)|F(Vec)                                    , 0                             , 570, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #399 [ref=4x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 304, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #400 [ref=6x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 307, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #401 [ref=9x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 310, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #402 [ref=3x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 283, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #403 [ref=4x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 313, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #404 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 277, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #405 [ref=6x]
-  { F(Vec)|F(Vex)                                     , 0                             , 207, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #406 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #407 [ref=3x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #408 [ref=3x]
-  { F(Vec)|F(Vex)                                     , 0                             , 449, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #409 [ref=4x]
-  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 316, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #410 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B32)                        , 298, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #353 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B64)                        , 298, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #354 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #355 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #356 [ref=5x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 262, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #357 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #358 [ref=2x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 262, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #359 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #360 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #361 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #362 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #363 [ref=13x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 559, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #364 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 560, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #365 [ref=1x]
+  { F(Evex)|F(Vec)                                    , 0                             , 561, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #366 [ref=6x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 445, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #367 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 562, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #368 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #369 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(ImplicitZ)|X(K)             , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #370 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(ImplicitZ)|X(K)      , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #371 [ref=2x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(ImplicitZ)|X(K)             , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #372 [ref=4x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B32)|X(ImplicitZ)|X(K)      , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #373 [ref=2x]
+  { F(Evex)|F(EvexKReg)|F(Vec)|F(Vex)                 , X(B64)|X(ImplicitZ)|X(K)      , 301, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #374 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 511, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #375 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 512, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #376 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 513, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #377 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 514, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #378 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(ImplicitZ)|X(K)      , 271, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #379 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #380 [ref=6x]
+  { F(Evex)|F(EvexCompat)|F(PreferEvex)|F(Vec)|F(Vex) , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #381 [ref=4x]
+  { F(Vec)|F(Vex)                                     , 0                             , 266, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #382 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 263, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #383 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 227, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #384 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 96 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #385 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 96 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #386 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 231, 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #387 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 515, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #388 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 516, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #389 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 563, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #390 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 564, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #391 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 565, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #392 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 566, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #393 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 567, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #394 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 419, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #395 [ref=12x]
+  { F(Evex)|F(EvexCompat)|F(PreferEvex)|F(Vec)|F(Vex) , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #396 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #397 [ref=8x]
+  { F(Evex)|F(Vec)                                    , 0                             , 568, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #398 [ref=4x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 304, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #399 [ref=6x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 307, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #400 [ref=9x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 310, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #401 [ref=3x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 283, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #402 [ref=4x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 313, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #403 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 277, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #404 [ref=6x]
+  { F(Vec)|F(Vex)                                     , 0                             , 207, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #405 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #406 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #407 [ref=3x]
+  { F(Vec)|F(Vex)                                     , 0                             , 447, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #408 [ref=4x]
+  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 316, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #409 [ref=2x]
+  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 449, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #410 [ref=2x]
   { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 451, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #411 [ref=2x]
-  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 453, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #412 [ref=2x]
-  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 319, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #413 [ref=2x]
-  { F(Vec)|F(Vex)                                     , 0                             , 455, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #414 [ref=8x]
-  { F(Evex)|F(Vec)                                    , X(K)                          , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #415 [ref=5x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #416 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #417 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #418 [ref=3x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #419 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #420 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #421 [ref=3x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 128, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #422 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #423 [ref=6x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #424 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #425 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)                   , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #426 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)                   , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #427 [ref=2x]
+  { F(Evex)|F(Vec)|F(Vsib)                            , X(K)                          , 319, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #412 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 453, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #413 [ref=8x]
+  { F(Evex)|F(Vec)                                    , X(ImplicitZ)|X(K)             , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #414 [ref=5x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #415 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #416 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #417 [ref=3x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , 0                             , 292, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #418 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #419 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 122, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #420 [ref=3x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 128, 6 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #421 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(K)|X(Z)                     , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #422 [ref=6x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #423 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(WO)}, // #424 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(ImplicitZ)|X(K)      , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #425 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(ImplicitZ)|X(K)      , 322, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #426 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 533, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #427 [ref=2x]
   { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #428 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #429 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B16)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #430 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 536, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #431 [ref=2x]
-  { F(Vec)|F(Vex)                                     , 0                             , 537, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #432 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #433 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 550, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #434 [ref=1x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 292, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #435 [ref=2x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 549, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #436 [ref=1x]
-  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 550, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #437 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #438 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 571, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #439 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 572, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #440 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 573, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #441 [ref=1x]
-  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 266, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #442 [ref=2x]
-  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 266, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #443 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #444 [ref=1x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #445 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 262, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #446 [ref=2x]
-  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #447 [ref=1x]
-  { F(Vec)|F(Vex)                                     , 0                             , 110, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #448 [ref=2x]
-  { 0                                                 , 0                             , 27 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #449 [ref=2x]
-  { 0                                                 , 0                             , 28 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #450 [ref=2x]
-  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 25 , 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #451 [ref=1x]
-  { 0                                                 , 0                             , 236, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #452 [ref=1x]
-  { F(XAcquire)                                       , 0                             , 25 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #453 [ref=1x]
-  { 0                                                 , 0                             , 574, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #454 [ref=6x]
-  { 0                                                 , 0                             , 575, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}  // #455 [ref=6x]
+  { F(Evex)|F(Vec)                                    , X(B16)|X(K)|X(Z)              , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #429 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 534, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #430 [ref=2x]
+  { F(Vec)|F(Vex)                                     , 0                             , 535, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #431 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 547, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #432 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(K)|X(Z)                     , 548, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #433 [ref=1x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 292, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #434 [ref=2x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 547, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #435 [ref=1x]
+  { F(EvexTransformable)|F(Vec)|F(Vex)                , 0                             , 548, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #436 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 262, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #437 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 569, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #438 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 570, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #439 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 571, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #440 [ref=1x]
+  { F(Evex)|F(Vec)                                    , X(B32)|X(K)|X(Z)              , 266, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #441 [ref=2x]
+  { F(Evex)|F(Vec)                                    , X(B64)|X(K)|X(Z)              , 266, 2 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #442 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(K)|X(Z)              , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #443 [ref=1x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B32)|X(K)|X(Z)              , 265, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #444 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 262, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #445 [ref=2x]
+  { F(Evex)|F(EvexCompat)|F(Vec)|F(Vex)               , X(B64)|X(ER)|X(K)|X(SAE)|X(Z) , 280, 3 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #446 [ref=1x]
+  { F(Vec)|F(Vex)                                     , 0                             , 110, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #447 [ref=2x]
+  { 0                                                 , 0                             , 27 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #448 [ref=2x]
+  { 0                                                 , 0                             , 28 , 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #449 [ref=2x]
+  { F(Lock)|F(XAcquire)|F(XRelease)                   , 0                             , 25 , 4 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #450 [ref=1x]
+  { 0                                                 , 0                             , 236, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #451 [ref=1x]
+  { F(XAcquire)                                       , 0                             , 25 , 8 , CONTROL_FLOW(Regular), SAME_REG_HINT(RO)}, // #452 [ref=1x]
+  { 0                                                 , 0                             , 572, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}, // #453 [ref=6x]
+  { 0                                                 , 0                             , 573, 1 , CONTROL_FLOW(Regular), SAME_REG_HINT(None)}  // #454 [ref=6x]
 };
 #undef SAME_REG_HINT
 #undef CONTROL_FLOW
@@ -5160,145 +5159,143 @@ const InstDB::InstSignature InstDB::_instSignatureTable[] = {
   ROW(4, 1, 1, 0, 55 , 55 , 50 , 10 , 0  , 0  ), //      {zmm, zmm, xmm|m128|mem, i8|u8}
   ROW(1, 1, 0, 1, 39 , 0  , 0  , 0  , 0  , 0  ), // #435 {<eax>}
   ROW(1, 0, 1, 1, 41 , 0  , 0  , 0  , 0  , 0  ), // #436 {<rax>}
-  ROW(0, 1, 1, 0, 0  , 0  , 0  , 0  , 0  , 0  ), // #437 {}
-  ROW(0, 1, 1, 0, 0  , 0  , 0  , 0  , 0  , 0  ), //      {}
-  ROW(2, 1, 1, 0, 28 , 49 , 0  , 0  , 0  , 0  ), // #439 {r32|m32|mem, xmm}
+  ROW(2, 1, 1, 0, 28 , 49 , 0  , 0  , 0  , 0  ), // #437 {r32|m32|mem, xmm}
   ROW(2, 1, 1, 0, 49 , 28 , 0  , 0  , 0  , 0  ), //      {xmm, r32|m32|mem}
-  ROW(2, 1, 1, 0, 111, 49 , 0  , 0  , 0  , 0  ), // #441 {r32|m16|mem, xmm}
+  ROW(2, 1, 1, 0, 111, 49 , 0  , 0  , 0  , 0  ), // #439 {r32|m16|mem, xmm}
   ROW(2, 1, 1, 0, 49 , 111, 0  , 0  , 0  , 0  ), //      {xmm, r32|m16|mem}
-  ROW(2, 1, 0, 0, 28 , 6  , 0  , 0  , 0  , 0  ), // #443 {r32|m32|mem, r32}
+  ROW(2, 1, 0, 0, 28 , 6  , 0  , 0  , 0  , 0  ), // #441 {r32|m32|mem, r32}
   ROW(2, 0, 1, 0, 29 , 8  , 0  , 0  , 0  , 0  ), //      {r64|m64|mem, r64}
-  ROW(2, 1, 0, 0, 6  , 28 , 0  , 0  , 0  , 0  ), // #445 {r32, r32|m32|mem}
+  ROW(2, 1, 0, 0, 6  , 28 , 0  , 0  , 0  , 0  ), // #443 {r32, r32|m32|mem}
   ROW(2, 0, 1, 0, 8  , 29 , 0  , 0  , 0  , 0  ), //      {r64, r64|m64|mem}
-  ROW(2, 1, 1, 0, 144, 64 , 0  , 0  , 0  , 0  ), // #447 {xmm|ymm|zmm, xmm|m64|mem}
+  ROW(2, 1, 1, 0, 144, 64 , 0  , 0  , 0  , 0  ), // #445 {xmm|ymm|zmm, xmm|m64|mem}
   ROW(2, 0, 1, 0, 144, 8  , 0  , 0  , 0  , 0  ), //      {xmm|ymm|zmm, r64}
-  ROW(3, 1, 1, 0, 49 , 49 , 58 , 0  , 0  , 0  ), // #449 {xmm, xmm, xmm|m128|mem|i8|u8}
+  ROW(3, 1, 1, 0, 49 , 49 , 58 , 0  , 0  , 0  ), // #447 {xmm, xmm, xmm|m128|mem|i8|u8}
   ROW(3, 1, 1, 0, 49 , 51 , 145, 0  , 0  , 0  ), //      {xmm, m128|mem, i8|u8|xmm}
-  ROW(2, 1, 1, 0, 71 , 96 , 0  , 0  , 0  , 0  ), // #451 {vm32x, xmm|ymm}
+  ROW(2, 1, 1, 0, 71 , 96 , 0  , 0  , 0  , 0  ), // #449 {vm32x, xmm|ymm}
   ROW(2, 1, 1, 0, 72 , 55 , 0  , 0  , 0  , 0  ), //      {vm32y, zmm}
-  ROW(2, 1, 1, 0, 118, 49 , 0  , 0  , 0  , 0  ), // #453 {vm64x|vm64y, xmm}
+  ROW(2, 1, 1, 0, 118, 49 , 0  , 0  , 0  , 0  ), // #451 {vm64x|vm64y, xmm}
   ROW(2, 1, 1, 0, 76 , 52 , 0  , 0  , 0  , 0  ), //      {vm64z, ymm}
-  ROW(3, 1, 1, 0, 49 , 49 , 50 , 0  , 0  , 0  ), // #455 {xmm, xmm, xmm|m128|mem}
+  ROW(3, 1, 1, 0, 49 , 49 , 50 , 0  , 0  , 0  ), // #453 {xmm, xmm, xmm|m128|mem}
   ROW(3, 1, 1, 0, 49 , 51 , 49 , 0  , 0  , 0  ), //      {xmm, m128|mem, xmm}
-  ROW(1, 1, 0, 1, 36 , 0  , 0  , 0  , 0  , 0  ), // #457 {<ax>}
-  ROW(2, 1, 0, 1, 36 , 10 , 0  , 0  , 0  , 0  ), // #458 {<ax>, i8|u8}
-  ROW(2, 1, 0, 0, 27 , 4  , 0  , 0  , 0  , 0  ), // #459 {r16|m16|mem, r16}
-  ROW(3, 1, 1, 1, 49 , 50 , 146, 0  , 0  , 0  ), // #460 {xmm, xmm|m128|mem, <xmm0>}
-  ROW(2, 1, 1, 0, 120, 147, 0  , 0  , 0  , 0  ), // #461 {bnd, mib}
-  ROW(2, 1, 1, 0, 120, 122, 0  , 0  , 0  , 0  ), // #462 {bnd, mem}
-  ROW(2, 1, 1, 0, 147, 120, 0  , 0  , 0  , 0  ), // #463 {mib, bnd}
-  ROW(1, 1, 1, 1, 36 , 0  , 0  , 0  , 0  , 0  ), // #464 {<ax>}
-  ROW(2, 1, 1, 2, 38 , 39 , 0  , 0  , 0  , 0  ), // #465 {<edx>, <eax>}
-  ROW(1, 1, 1, 0, 122, 0  , 0  , 0  , 0  , 0  ), // #466 {mem}
-  ROW(1, 1, 1, 0, 31 , 0  , 0  , 0  , 0  , 0  ), // #467 {m64|mem}
-  ROW(0, 0, 1, 0, 0  , 0  , 0  , 0  , 0  , 0  ), // #468 {}
-  ROW(1, 1, 1, 1, 148, 0  , 0  , 0  , 0  , 0  ), // #469 {<ds:[mem|m512|memBase|zax]>}
-  ROW(3, 1, 1, 0, 49 , 64 , 10 , 0  , 0  , 0  ), // #470 {xmm, xmm|m64|mem, i8|u8}
-  ROW(3, 1, 1, 0, 49 , 117, 10 , 0  , 0  , 0  ), // #471 {xmm, xmm|m32|mem, i8|u8}
-  ROW(5, 0, 1, 4, 51 , 40 , 41 , 149, 150, 0  ), // #472 {m128|mem, <rdx>, <rax>, <rcx>, <rbx>}
-  ROW(5, 1, 1, 4, 31 , 38 , 39 , 126, 151, 0  ), // #473 {m64|mem, <edx>, <eax>, <ecx>, <ebx>}
-  ROW(4, 1, 1, 4, 39 , 151, 126, 38 , 0  , 0  ), // #474 {<eax>, <ebx>, <ecx>, <edx>}
-  ROW(2, 0, 1, 2, 40 , 41 , 0  , 0  , 0  , 0  ), // #475 {<rdx>, <rax>}
-  ROW(2, 1, 1, 0, 61 , 50 , 0  , 0  , 0  , 0  ), // #476 {mm, xmm|m128|mem}
-  ROW(2, 1, 1, 0, 49 , 62 , 0  , 0  , 0  , 0  ), // #477 {xmm, mm|m64|mem}
-  ROW(2, 1, 1, 0, 61 , 64 , 0  , 0  , 0  , 0  ), // #478 {mm, xmm|m64|mem}
-  ROW(2, 1, 1, 2, 37 , 36 , 0  , 0  , 0  , 0  ), // #479 {<dx>, <ax>}
-  ROW(1, 1, 1, 1, 39 , 0  , 0  , 0  , 0  , 0  ), // #480 {<eax>}
-  ROW(2, 1, 1, 0, 12 , 10 , 0  , 0  , 0  , 0  ), // #481 {i16|u16, i8|u8}
-  ROW(3, 1, 1, 0, 28 , 49 , 10 , 0  , 0  , 0  ), // #482 {r32|m32|mem, xmm, i8|u8}
-  ROW(1, 1, 1, 0, 109, 0  , 0  , 0  , 0  , 0  ), // #483 {m80|mem}
-  ROW(1, 1, 1, 0, 152, 0  , 0  , 0  , 0  , 0  ), // #484 {m16|m32}
-  ROW(1, 1, 1, 0, 153, 0  , 0  , 0  , 0  , 0  ), // #485 {m16|m32|m64}
-  ROW(1, 1, 1, 0, 154, 0  , 0  , 0  , 0  , 0  ), // #486 {m32|m64|m80|st}
-  ROW(1, 1, 1, 0, 21 , 0  , 0  , 0  , 0  , 0  ), // #487 {m16|mem}
-  ROW(1, 1, 1, 0, 155, 0  , 0  , 0  , 0  , 0  ), // #488 {ax|m16|mem}
-  ROW(1, 0, 1, 0, 122, 0  , 0  , 0  , 0  , 0  ), // #489 {mem}
-  ROW(2, 1, 1, 1, 10 , 39 , 0  , 0  , 0  , 0  ), // #490 {i8|u8, <eax>}
-  ROW(2, 1, 1, 0, 156, 157, 0  , 0  , 0  , 0  ), // #491 {al|ax|eax, i8|u8|dx}
-  ROW(2, 1, 1, 0, 158, 159, 0  , 0  , 0  , 0  ), // #492 {es:[memBase|zdi|m8|m16|m32], dx}
-  ROW(1, 1, 1, 0, 10 , 0  , 0  , 0  , 0  , 0  ), // #493 {i8|u8}
-  ROW(0, 1, 0, 0, 0  , 0  , 0  , 0  , 0  , 0  ), // #494 {}
-  ROW(3, 1, 1, 0, 86 , 86 , 86 , 0  , 0  , 0  ), // #495 {k, k, k}
-  ROW(2, 1, 1, 0, 86 , 86 , 0  , 0  , 0  , 0  ), // #496 {k, k}
-  ROW(3, 1, 1, 0, 86 , 86 , 10 , 0  , 0  , 0  ), // #497 {k, k, i8|u8}
-  ROW(1, 1, 1, 1, 160, 0  , 0  , 0  , 0  , 0  ), // #498 {<ah>}
-  ROW(1, 1, 1, 0, 30 , 0  , 0  , 0  , 0  , 0  ), // #499 {m32|mem}
-  ROW(1, 0, 1, 0, 57 , 0  , 0  , 0  , 0  , 0  ), // #500 {m512|mem}
-  ROW(1, 1, 1, 0, 27 , 0  , 0  , 0  , 0  , 0  ), // #501 {r16|m16|mem}
-  ROW(3, 1, 1, 1, 49 , 49 , 161, 0  , 0  , 0  ), // #502 {xmm, xmm, <ds:[mem|m128|memBase|zdi]>}
-  ROW(3, 1, 1, 1, 61 , 61 , 162, 0  , 0  , 0  ), // #503 {mm, mm, <ds:[mem|m64|memBase|zdi]>}
-  ROW(3, 1, 1, 3, 163, 126, 38 , 0  , 0  , 0  ), // #504 {<ds:[mem|memBase|zax]>, <ecx>, <edx>}
-  ROW(2, 1, 1, 0, 61 , 49 , 0  , 0  , 0  , 0  ), // #505 {mm, xmm}
-  ROW(2, 1, 1, 0, 6  , 49 , 0  , 0  , 0  , 0  ), // #506 {r32, xmm}
-  ROW(2, 1, 1, 0, 31 , 61 , 0  , 0  , 0  , 0  ), // #507 {m64|mem, mm}
-  ROW(2, 1, 1, 0, 49 , 61 , 0  , 0  , 0  , 0  ), // #508 {xmm, mm}
-  ROW(2, 1, 1, 2, 39 , 126, 0  , 0  , 0  , 0  ), // #509 {<eax>, <ecx>}
-  ROW(3, 1, 1, 3, 39 , 126, 151, 0  , 0  , 0  ), // #510 {<eax>, <ecx>, <ebx>}
-  ROW(2, 1, 1, 0, 164, 156, 0  , 0  , 0  , 0  ), // #511 {u8|dx, al|ax|eax}
-  ROW(2, 1, 1, 0, 159, 165, 0  , 0  , 0  , 0  ), // #512 {dx, ds:[memBase|zsi|m8|m16|m32]}
-  ROW(6, 1, 1, 3, 49 , 50 , 10 , 126, 39 , 38 ), // #513 {xmm, xmm|m128|mem, i8|u8, <ecx>, <eax>, <edx>}
-  ROW(6, 1, 1, 3, 49 , 50 , 10 , 146, 39 , 38 ), // #514 {xmm, xmm|m128|mem, i8|u8, <xmm0>, <eax>, <edx>}
-  ROW(4, 1, 1, 1, 49 , 50 , 10 , 126, 0  , 0  ), // #515 {xmm, xmm|m128|mem, i8|u8, <ecx>}
-  ROW(4, 1, 1, 1, 49 , 50 , 10 , 146, 0  , 0  ), // #516 {xmm, xmm|m128|mem, i8|u8, <xmm0>}
-  ROW(3, 1, 1, 0, 132, 49 , 10 , 0  , 0  , 0  ), // #517 {r32|m8|mem, xmm, i8|u8}
-  ROW(3, 0, 1, 0, 29 , 49 , 10 , 0  , 0  , 0  ), // #518 {r64|m64|mem, xmm, i8|u8}
-  ROW(3, 1, 1, 0, 49 , 132, 10 , 0  , 0  , 0  ), // #519 {xmm, r32|m8|mem, i8|u8}
-  ROW(3, 1, 1, 0, 49 , 28 , 10 , 0  , 0  , 0  ), // #520 {xmm, r32|m32|mem, i8|u8}
-  ROW(3, 0, 1, 0, 49 , 29 , 10 , 0  , 0  , 0  ), // #521 {xmm, r64|m64|mem, i8|u8}
-  ROW(3, 1, 1, 0, 63 , 111, 10 , 0  , 0  , 0  ), // #522 {mm|xmm, r32|m16|mem, i8|u8}
-  ROW(2, 1, 1, 0, 6  , 63 , 0  , 0  , 0  , 0  ), // #523 {r32, mm|xmm}
-  ROW(2, 1, 1, 0, 49 , 10 , 0  , 0  , 0  , 0  ), // #524 {xmm, i8|u8}
-  ROW(1, 0, 1, 0, 136, 0  , 0  , 0  , 0  , 0  ), // #525 {r32|r64}
-  ROW(3, 1, 1, 3, 38 , 39 , 126, 0  , 0  , 0  ), // #526 {<edx>, <eax>, <ecx>}
-  ROW(1, 1, 1, 0, 1  , 0  , 0  , 0  , 0  , 0  ), // #527 {r8lo|r8hi|m8|mem}
-  ROW(3, 0, 1, 0, 166, 166, 166, 0  , 0  , 0  ), // #528 {tmm, tmm, tmm}
-  ROW(2, 0, 1, 0, 166, 167, 0  , 0  , 0  , 0  ), // #529 {tmm, tmem}
-  ROW(2, 0, 1, 0, 167, 166, 0  , 0  , 0  , 0  ), // #530 {tmem, tmm}
-  ROW(1, 0, 1, 0, 166, 0  , 0  , 0  , 0  , 0  ), // #531 {tmm}
-  ROW(3, 1, 1, 2, 6  , 38 , 39 , 0  , 0  , 0  ), // #532 {r32, <edx>, <eax>}
-  ROW(6, 1, 1, 0, 55 , 55 , 55 , 55 , 55 , 51 ), // #533 {zmm, zmm, zmm, zmm, zmm, m128|mem}
-  ROW(6, 1, 1, 0, 49 , 49 , 49 , 49 , 49 , 51 ), // #534 {xmm, xmm, xmm, xmm, xmm, m128|mem}
-  ROW(3, 1, 1, 0, 49 , 49 , 64 , 0  , 0  , 0  ), // #535 {xmm, xmm, xmm|m64|mem}
-  ROW(3, 1, 1, 0, 49 , 49 , 119, 0  , 0  , 0  ), // #536 {xmm, xmm, xmm|m16|mem}
-  ROW(3, 1, 1, 0, 49 , 49 , 117, 0  , 0  , 0  ), // #537 {xmm, xmm, xmm|m32|mem}
-  ROW(2, 1, 1, 0, 96 , 21 , 0  , 0  , 0  , 0  ), // #538 {xmm|ymm, m16|mem}
-  ROW(2, 1, 1, 0, 52 , 51 , 0  , 0  , 0  , 0  ), // #539 {ymm, m128|mem}
-  ROW(2, 1, 1, 0, 168, 64 , 0  , 0  , 0  , 0  ), // #540 {ymm|zmm, xmm|m64|mem}
-  ROW(2, 1, 1, 0, 168, 51 , 0  , 0  , 0  , 0  ), // #541 {ymm|zmm, m128|mem}
-  ROW(2, 1, 1, 0, 55 , 54 , 0  , 0  , 0  , 0  ), // #542 {zmm, m256|mem}
-  ROW(2, 1, 1, 0, 144, 117, 0  , 0  , 0  , 0  ), // #543 {xmm|ymm|zmm, m32|mem|xmm}
-  ROW(4, 1, 1, 0, 115, 49 , 64 , 10 , 0  , 0  ), // #544 {xmm|k, xmm, xmm|m64|mem, i8|u8}
-  ROW(4, 1, 1, 0, 86 , 49 , 119, 10 , 0  , 0  ), // #545 {k, xmm, xmm|m16|mem, i8|u8}
-  ROW(4, 1, 1, 0, 115, 49 , 117, 10 , 0  , 0  ), // #546 {xmm|k, xmm, xmm|m32|mem, i8|u8}
-  ROW(2, 1, 1, 0, 49 , 169, 0  , 0  , 0  , 0  ), // #547 {xmm, xmm|m128|ymm|m256|zmm|m512}
-  ROW(3, 1, 1, 0, 50 , 168, 10 , 0  , 0  , 0  ), // #548 {xmm|m128|mem, ymm|zmm, i8|u8}
-  ROW(4, 1, 1, 0, 49 , 49 , 64 , 10 , 0  , 0  ), // #549 {xmm, xmm, xmm|m64|mem, i8|u8}
-  ROW(4, 1, 1, 0, 49 , 49 , 117, 10 , 0  , 0  ), // #550 {xmm, xmm, xmm|m32|mem, i8|u8}
-  ROW(3, 1, 1, 0, 86 , 169, 10 , 0  , 0  , 0  ), // #551 {k, xmm|m128|ymm|m256|zmm|m512, i8|u8}
-  ROW(3, 1, 1, 0, 86 , 64 , 10 , 0  , 0  , 0  ), // #552 {k, xmm|m64|mem, i8|u8}
-  ROW(3, 1, 1, 0, 86 , 119, 10 , 0  , 0  , 0  ), // #553 {k, xmm|m16|mem, i8|u8}
-  ROW(3, 1, 1, 0, 86 , 117, 10 , 0  , 0  , 0  ), // #554 {k, xmm|m32|mem, i8|u8}
-  ROW(1, 1, 1, 0, 72 , 0  , 0  , 0  , 0  , 0  ), // #555 {vm32y}
-  ROW(1, 1, 1, 0, 73 , 0  , 0  , 0  , 0  , 0  ), // #556 {vm32z}
-  ROW(1, 1, 1, 0, 76 , 0  , 0  , 0  , 0  , 0  ), // #557 {vm64z}
-  ROW(4, 1, 1, 0, 49 , 49 , 119, 10 , 0  , 0  ), // #558 {xmm, xmm, xmm|m16|mem, i8|u8}
-  ROW(4, 1, 1, 0, 55 , 55 , 53 , 10 , 0  , 0  ), // #559 {zmm, zmm, ymm|m256|mem, i8|u8}
-  ROW(2, 1, 1, 0, 6  , 96 , 0  , 0  , 0  , 0  ), // #560 {r32, xmm|ymm}
-  ROW(2, 1, 1, 0, 144, 170, 0  , 0  , 0  , 0  ), // #561 {xmm|ymm|zmm, xmm|m8|mem|r32}
-  ROW(2, 1, 1, 0, 144, 171, 0  , 0  , 0  , 0  ), // #562 {xmm|ymm|zmm, xmm|m32|mem|r32}
-  ROW(2, 1, 1, 0, 144, 86 , 0  , 0  , 0  , 0  ), // #563 {xmm|ymm|zmm, k}
-  ROW(2, 1, 1, 0, 144, 172, 0  , 0  , 0  , 0  ), // #564 {xmm|ymm|zmm, xmm|m16|mem|r32}
-  ROW(3, 1, 1, 0, 111, 49 , 10 , 0  , 0  , 0  ), // #565 {r32|m16|mem, xmm, i8|u8}
-  ROW(4, 1, 1, 0, 49 , 49 , 132, 10 , 0  , 0  ), // #566 {xmm, xmm, r32|m8|mem, i8|u8}
-  ROW(4, 1, 1, 0, 49 , 49 , 28 , 10 , 0  , 0  ), // #567 {xmm, xmm, r32|m32|mem, i8|u8}
-  ROW(4, 0, 1, 0, 49 , 49 , 29 , 10 , 0  , 0  ), // #568 {xmm, xmm, r64|m64|mem, i8|u8}
-  ROW(4, 1, 1, 0, 49 , 49 , 111, 10 , 0  , 0  ), // #569 {xmm, xmm, r32|m16|mem, i8|u8}
-  ROW(2, 1, 1, 0, 86 , 144, 0  , 0  , 0  , 0  ), // #570 {k, xmm|ymm|zmm}
-  ROW(2, 1, 1, 0, 52 , 49 , 0  , 0  , 0  , 0  ), // #571 {ymm, xmm}
-  ROW(2, 1, 1, 0, 52 , 52 , 0  , 0  , 0  , 0  ), // #572 {ymm, ymm}
-  ROW(3, 1, 1, 0, 52 , 52 , 49 , 0  , 0  , 0  ), // #573 {ymm, ymm, xmm}
-  ROW(3, 1, 1, 2, 122, 38 , 39 , 0  , 0  , 0  ), // #574 {mem, <edx>, <eax>}
-  ROW(3, 0, 1, 2, 122, 38 , 39 , 0  , 0  , 0  )  // #575 {mem, <edx>, <eax>}
+  ROW(1, 1, 0, 1, 36 , 0  , 0  , 0  , 0  , 0  ), // #455 {<ax>}
+  ROW(2, 1, 0, 1, 36 , 10 , 0  , 0  , 0  , 0  ), // #456 {<ax>, i8|u8}
+  ROW(2, 1, 0, 0, 27 , 4  , 0  , 0  , 0  , 0  ), // #457 {r16|m16|mem, r16}
+  ROW(3, 1, 1, 1, 49 , 50 , 146, 0  , 0  , 0  ), // #458 {xmm, xmm|m128|mem, <xmm0>}
+  ROW(2, 1, 1, 0, 120, 147, 0  , 0  , 0  , 0  ), // #459 {bnd, mib}
+  ROW(2, 1, 1, 0, 120, 122, 0  , 0  , 0  , 0  ), // #460 {bnd, mem}
+  ROW(2, 1, 1, 0, 147, 120, 0  , 0  , 0  , 0  ), // #461 {mib, bnd}
+  ROW(1, 1, 1, 1, 36 , 0  , 0  , 0  , 0  , 0  ), // #462 {<ax>}
+  ROW(2, 1, 1, 2, 38 , 39 , 0  , 0  , 0  , 0  ), // #463 {<edx>, <eax>}
+  ROW(1, 1, 1, 0, 122, 0  , 0  , 0  , 0  , 0  ), // #464 {mem}
+  ROW(1, 1, 1, 0, 31 , 0  , 0  , 0  , 0  , 0  ), // #465 {m64|mem}
+  ROW(0, 0, 1, 0, 0  , 0  , 0  , 0  , 0  , 0  ), // #466 {}
+  ROW(1, 1, 1, 1, 148, 0  , 0  , 0  , 0  , 0  ), // #467 {<ds:[mem|m512|memBase|zax]>}
+  ROW(3, 1, 1, 0, 49 , 64 , 10 , 0  , 0  , 0  ), // #468 {xmm, xmm|m64|mem, i8|u8}
+  ROW(3, 1, 1, 0, 49 , 117, 10 , 0  , 0  , 0  ), // #469 {xmm, xmm|m32|mem, i8|u8}
+  ROW(5, 0, 1, 4, 51 , 40 , 41 , 149, 150, 0  ), // #470 {m128|mem, <rdx>, <rax>, <rcx>, <rbx>}
+  ROW(5, 1, 1, 4, 31 , 38 , 39 , 126, 151, 0  ), // #471 {m64|mem, <edx>, <eax>, <ecx>, <ebx>}
+  ROW(4, 1, 1, 4, 39 , 151, 126, 38 , 0  , 0  ), // #472 {<eax>, <ebx>, <ecx>, <edx>}
+  ROW(2, 0, 1, 2, 40 , 41 , 0  , 0  , 0  , 0  ), // #473 {<rdx>, <rax>}
+  ROW(2, 1, 1, 0, 61 , 50 , 0  , 0  , 0  , 0  ), // #474 {mm, xmm|m128|mem}
+  ROW(2, 1, 1, 0, 49 , 62 , 0  , 0  , 0  , 0  ), // #475 {xmm, mm|m64|mem}
+  ROW(2, 1, 1, 0, 61 , 64 , 0  , 0  , 0  , 0  ), // #476 {mm, xmm|m64|mem}
+  ROW(2, 1, 1, 2, 37 , 36 , 0  , 0  , 0  , 0  ), // #477 {<dx>, <ax>}
+  ROW(1, 1, 1, 1, 39 , 0  , 0  , 0  , 0  , 0  ), // #478 {<eax>}
+  ROW(2, 1, 1, 0, 12 , 10 , 0  , 0  , 0  , 0  ), // #479 {i16|u16, i8|u8}
+  ROW(3, 1, 1, 0, 28 , 49 , 10 , 0  , 0  , 0  ), // #480 {r32|m32|mem, xmm, i8|u8}
+  ROW(1, 1, 1, 0, 109, 0  , 0  , 0  , 0  , 0  ), // #481 {m80|mem}
+  ROW(1, 1, 1, 0, 152, 0  , 0  , 0  , 0  , 0  ), // #482 {m16|m32}
+  ROW(1, 1, 1, 0, 153, 0  , 0  , 0  , 0  , 0  ), // #483 {m16|m32|m64}
+  ROW(1, 1, 1, 0, 154, 0  , 0  , 0  , 0  , 0  ), // #484 {m32|m64|m80|st}
+  ROW(1, 1, 1, 0, 21 , 0  , 0  , 0  , 0  , 0  ), // #485 {m16|mem}
+  ROW(1, 1, 1, 0, 155, 0  , 0  , 0  , 0  , 0  ), // #486 {ax|m16|mem}
+  ROW(1, 0, 1, 0, 122, 0  , 0  , 0  , 0  , 0  ), // #487 {mem}
+  ROW(2, 1, 1, 1, 10 , 39 , 0  , 0  , 0  , 0  ), // #488 {i8|u8, <eax>}
+  ROW(2, 1, 1, 0, 156, 157, 0  , 0  , 0  , 0  ), // #489 {al|ax|eax, i8|u8|dx}
+  ROW(2, 1, 1, 0, 158, 159, 0  , 0  , 0  , 0  ), // #490 {es:[memBase|zdi|m8|m16|m32], dx}
+  ROW(1, 1, 1, 0, 10 , 0  , 0  , 0  , 0  , 0  ), // #491 {i8|u8}
+  ROW(0, 1, 0, 0, 0  , 0  , 0  , 0  , 0  , 0  ), // #492 {}
+  ROW(3, 1, 1, 0, 86 , 86 , 86 , 0  , 0  , 0  ), // #493 {k, k, k}
+  ROW(2, 1, 1, 0, 86 , 86 , 0  , 0  , 0  , 0  ), // #494 {k, k}
+  ROW(3, 1, 1, 0, 86 , 86 , 10 , 0  , 0  , 0  ), // #495 {k, k, i8|u8}
+  ROW(1, 1, 1, 1, 160, 0  , 0  , 0  , 0  , 0  ), // #496 {<ah>}
+  ROW(1, 1, 1, 0, 30 , 0  , 0  , 0  , 0  , 0  ), // #497 {m32|mem}
+  ROW(1, 0, 1, 0, 57 , 0  , 0  , 0  , 0  , 0  ), // #498 {m512|mem}
+  ROW(1, 1, 1, 0, 27 , 0  , 0  , 0  , 0  , 0  ), // #499 {r16|m16|mem}
+  ROW(3, 1, 1, 1, 49 , 49 , 161, 0  , 0  , 0  ), // #500 {xmm, xmm, <ds:[mem|m128|memBase|zdi]>}
+  ROW(3, 1, 1, 1, 61 , 61 , 162, 0  , 0  , 0  ), // #501 {mm, mm, <ds:[mem|m64|memBase|zdi]>}
+  ROW(3, 1, 1, 3, 163, 126, 38 , 0  , 0  , 0  ), // #502 {<ds:[mem|memBase|zax]>, <ecx>, <edx>}
+  ROW(2, 1, 1, 0, 61 , 49 , 0  , 0  , 0  , 0  ), // #503 {mm, xmm}
+  ROW(2, 1, 1, 0, 6  , 49 , 0  , 0  , 0  , 0  ), // #504 {r32, xmm}
+  ROW(2, 1, 1, 0, 31 , 61 , 0  , 0  , 0  , 0  ), // #505 {m64|mem, mm}
+  ROW(2, 1, 1, 0, 49 , 61 , 0  , 0  , 0  , 0  ), // #506 {xmm, mm}
+  ROW(2, 1, 1, 2, 39 , 126, 0  , 0  , 0  , 0  ), // #507 {<eax>, <ecx>}
+  ROW(3, 1, 1, 3, 39 , 126, 151, 0  , 0  , 0  ), // #508 {<eax>, <ecx>, <ebx>}
+  ROW(2, 1, 1, 0, 164, 156, 0  , 0  , 0  , 0  ), // #509 {u8|dx, al|ax|eax}
+  ROW(2, 1, 1, 0, 159, 165, 0  , 0  , 0  , 0  ), // #510 {dx, ds:[memBase|zsi|m8|m16|m32]}
+  ROW(6, 1, 1, 3, 49 , 50 , 10 , 126, 39 , 38 ), // #511 {xmm, xmm|m128|mem, i8|u8, <ecx>, <eax>, <edx>}
+  ROW(6, 1, 1, 3, 49 , 50 , 10 , 146, 39 , 38 ), // #512 {xmm, xmm|m128|mem, i8|u8, <xmm0>, <eax>, <edx>}
+  ROW(4, 1, 1, 1, 49 , 50 , 10 , 126, 0  , 0  ), // #513 {xmm, xmm|m128|mem, i8|u8, <ecx>}
+  ROW(4, 1, 1, 1, 49 , 50 , 10 , 146, 0  , 0  ), // #514 {xmm, xmm|m128|mem, i8|u8, <xmm0>}
+  ROW(3, 1, 1, 0, 132, 49 , 10 , 0  , 0  , 0  ), // #515 {r32|m8|mem, xmm, i8|u8}
+  ROW(3, 0, 1, 0, 29 , 49 , 10 , 0  , 0  , 0  ), // #516 {r64|m64|mem, xmm, i8|u8}
+  ROW(3, 1, 1, 0, 49 , 132, 10 , 0  , 0  , 0  ), // #517 {xmm, r32|m8|mem, i8|u8}
+  ROW(3, 1, 1, 0, 49 , 28 , 10 , 0  , 0  , 0  ), // #518 {xmm, r32|m32|mem, i8|u8}
+  ROW(3, 0, 1, 0, 49 , 29 , 10 , 0  , 0  , 0  ), // #519 {xmm, r64|m64|mem, i8|u8}
+  ROW(3, 1, 1, 0, 63 , 111, 10 , 0  , 0  , 0  ), // #520 {mm|xmm, r32|m16|mem, i8|u8}
+  ROW(2, 1, 1, 0, 6  , 63 , 0  , 0  , 0  , 0  ), // #521 {r32, mm|xmm}
+  ROW(2, 1, 1, 0, 49 , 10 , 0  , 0  , 0  , 0  ), // #522 {xmm, i8|u8}
+  ROW(1, 0, 1, 0, 136, 0  , 0  , 0  , 0  , 0  ), // #523 {r32|r64}
+  ROW(3, 1, 1, 3, 38 , 39 , 126, 0  , 0  , 0  ), // #524 {<edx>, <eax>, <ecx>}
+  ROW(1, 1, 1, 0, 1  , 0  , 0  , 0  , 0  , 0  ), // #525 {r8lo|r8hi|m8|mem}
+  ROW(3, 0, 1, 0, 166, 166, 166, 0  , 0  , 0  ), // #526 {tmm, tmm, tmm}
+  ROW(2, 0, 1, 0, 166, 167, 0  , 0  , 0  , 0  ), // #527 {tmm, tmem}
+  ROW(2, 0, 1, 0, 167, 166, 0  , 0  , 0  , 0  ), // #528 {tmem, tmm}
+  ROW(1, 0, 1, 0, 166, 0  , 0  , 0  , 0  , 0  ), // #529 {tmm}
+  ROW(3, 1, 1, 2, 6  , 38 , 39 , 0  , 0  , 0  ), // #530 {r32, <edx>, <eax>}
+  ROW(6, 1, 1, 0, 55 , 55 , 55 , 55 , 55 , 51 ), // #531 {zmm, zmm, zmm, zmm, zmm, m128|mem}
+  ROW(6, 1, 1, 0, 49 , 49 , 49 , 49 , 49 , 51 ), // #532 {xmm, xmm, xmm, xmm, xmm, m128|mem}
+  ROW(3, 1, 1, 0, 49 , 49 , 64 , 0  , 0  , 0  ), // #533 {xmm, xmm, xmm|m64|mem}
+  ROW(3, 1, 1, 0, 49 , 49 , 119, 0  , 0  , 0  ), // #534 {xmm, xmm, xmm|m16|mem}
+  ROW(3, 1, 1, 0, 49 , 49 , 117, 0  , 0  , 0  ), // #535 {xmm, xmm, xmm|m32|mem}
+  ROW(2, 1, 1, 0, 96 , 21 , 0  , 0  , 0  , 0  ), // #536 {xmm|ymm, m16|mem}
+  ROW(2, 1, 1, 0, 52 , 51 , 0  , 0  , 0  , 0  ), // #537 {ymm, m128|mem}
+  ROW(2, 1, 1, 0, 168, 64 , 0  , 0  , 0  , 0  ), // #538 {ymm|zmm, xmm|m64|mem}
+  ROW(2, 1, 1, 0, 168, 51 , 0  , 0  , 0  , 0  ), // #539 {ymm|zmm, m128|mem}
+  ROW(2, 1, 1, 0, 55 , 54 , 0  , 0  , 0  , 0  ), // #540 {zmm, m256|mem}
+  ROW(2, 1, 1, 0, 144, 117, 0  , 0  , 0  , 0  ), // #541 {xmm|ymm|zmm, m32|mem|xmm}
+  ROW(4, 1, 1, 0, 115, 49 , 64 , 10 , 0  , 0  ), // #542 {xmm|k, xmm, xmm|m64|mem, i8|u8}
+  ROW(4, 1, 1, 0, 86 , 49 , 119, 10 , 0  , 0  ), // #543 {k, xmm, xmm|m16|mem, i8|u8}
+  ROW(4, 1, 1, 0, 115, 49 , 117, 10 , 0  , 0  ), // #544 {xmm|k, xmm, xmm|m32|mem, i8|u8}
+  ROW(2, 1, 1, 0, 49 , 169, 0  , 0  , 0  , 0  ), // #545 {xmm, xmm|m128|ymm|m256|zmm|m512}
+  ROW(3, 1, 1, 0, 50 , 168, 10 , 0  , 0  , 0  ), // #546 {xmm|m128|mem, ymm|zmm, i8|u8}
+  ROW(4, 1, 1, 0, 49 , 49 , 64 , 10 , 0  , 0  ), // #547 {xmm, xmm, xmm|m64|mem, i8|u8}
+  ROW(4, 1, 1, 0, 49 , 49 , 117, 10 , 0  , 0  ), // #548 {xmm, xmm, xmm|m32|mem, i8|u8}
+  ROW(3, 1, 1, 0, 86 , 169, 10 , 0  , 0  , 0  ), // #549 {k, xmm|m128|ymm|m256|zmm|m512, i8|u8}
+  ROW(3, 1, 1, 0, 86 , 64 , 10 , 0  , 0  , 0  ), // #550 {k, xmm|m64|mem, i8|u8}
+  ROW(3, 1, 1, 0, 86 , 119, 10 , 0  , 0  , 0  ), // #551 {k, xmm|m16|mem, i8|u8}
+  ROW(3, 1, 1, 0, 86 , 117, 10 , 0  , 0  , 0  ), // #552 {k, xmm|m32|mem, i8|u8}
+  ROW(1, 1, 1, 0, 72 , 0  , 0  , 0  , 0  , 0  ), // #553 {vm32y}
+  ROW(1, 1, 1, 0, 73 , 0  , 0  , 0  , 0  , 0  ), // #554 {vm32z}
+  ROW(1, 1, 1, 0, 76 , 0  , 0  , 0  , 0  , 0  ), // #555 {vm64z}
+  ROW(4, 1, 1, 0, 49 , 49 , 119, 10 , 0  , 0  ), // #556 {xmm, xmm, xmm|m16|mem, i8|u8}
+  ROW(4, 1, 1, 0, 55 , 55 , 53 , 10 , 0  , 0  ), // #557 {zmm, zmm, ymm|m256|mem, i8|u8}
+  ROW(2, 1, 1, 0, 6  , 96 , 0  , 0  , 0  , 0  ), // #558 {r32, xmm|ymm}
+  ROW(2, 1, 1, 0, 144, 170, 0  , 0  , 0  , 0  ), // #559 {xmm|ymm|zmm, xmm|m8|mem|r32}
+  ROW(2, 1, 1, 0, 144, 171, 0  , 0  , 0  , 0  ), // #560 {xmm|ymm|zmm, xmm|m32|mem|r32}
+  ROW(2, 1, 1, 0, 144, 86 , 0  , 0  , 0  , 0  ), // #561 {xmm|ymm|zmm, k}
+  ROW(2, 1, 1, 0, 144, 172, 0  , 0  , 0  , 0  ), // #562 {xmm|ymm|zmm, xmm|m16|mem|r32}
+  ROW(3, 1, 1, 0, 111, 49 , 10 , 0  , 0  , 0  ), // #563 {r32|m16|mem, xmm, i8|u8}
+  ROW(4, 1, 1, 0, 49 , 49 , 132, 10 , 0  , 0  ), // #564 {xmm, xmm, r32|m8|mem, i8|u8}
+  ROW(4, 1, 1, 0, 49 , 49 , 28 , 10 , 0  , 0  ), // #565 {xmm, xmm, r32|m32|mem, i8|u8}
+  ROW(4, 0, 1, 0, 49 , 49 , 29 , 10 , 0  , 0  ), // #566 {xmm, xmm, r64|m64|mem, i8|u8}
+  ROW(4, 1, 1, 0, 49 , 49 , 111, 10 , 0  , 0  ), // #567 {xmm, xmm, r32|m16|mem, i8|u8}
+  ROW(2, 1, 1, 0, 86 , 144, 0  , 0  , 0  , 0  ), // #568 {k, xmm|ymm|zmm}
+  ROW(2, 1, 1, 0, 52 , 49 , 0  , 0  , 0  , 0  ), // #569 {ymm, xmm}
+  ROW(2, 1, 1, 0, 52 , 52 , 0  , 0  , 0  , 0  ), // #570 {ymm, ymm}
+  ROW(3, 1, 1, 0, 52 , 52 , 49 , 0  , 0  , 0  ), // #571 {ymm, ymm, xmm}
+  ROW(3, 1, 1, 2, 122, 38 , 39 , 0  , 0  , 0  ), // #572 {mem, <edx>, <eax>}
+  ROW(3, 0, 1, 2, 122, 38 , 39 , 0  , 0  , 0  )  // #573 {mem, <edx>, <eax>}
 };
 #undef ROW
 
@@ -5629,26 +5626,26 @@ const uint8_t InstDB::rwInfoIndexB[Inst::_kIdCount] = {
   3, 3, 3, 3, 3, 104, 3, 0, 0, 0, 0, 0, 0, 3, 130, 105, 105, 3, 3, 3, 3, 69, 70,
   3, 3, 3, 3, 71, 72, 105, 105, 105, 105, 105, 105, 118, 118, 0, 0, 0, 0, 118,
   118, 118, 118, 118, 118, 0, 0, 124, 124, 124, 124, 124, 124, 124, 124, 124,
-  124, 124, 124, 124, 124, 124, 124, 161, 161, 3, 3, 3, 124, 3, 3, 124, 124, 130,
-  130, 162, 162, 162, 3, 162, 3, 124, 124, 124, 124, 124, 3, 0, 0, 0, 0, 73, 23,
-  74, 163, 140, 139, 141, 140, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0,
-  0, 3, 0, 3, 3, 0, 164, 103, 101, 102, 0, 0, 165, 165, 165, 165, 165, 165, 165,
-  165, 165, 165, 165, 165, 124, 124, 3, 3, 148, 148, 3, 3, 3, 3, 3, 3, 3, 3,
-  3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3,
-  3, 3, 3, 3, 0, 0, 0, 0, 3, 3, 3, 166, 86, 86, 3, 3, 86, 86, 3, 3, 167, 167, 167,
-  167, 3, 0, 0, 0, 0, 167, 167, 167, 167, 167, 167, 3, 3, 124, 124, 124, 3, 167,
-  167, 3, 3, 124, 124, 124, 3, 3, 105, 86, 86, 86, 3, 3, 3, 168, 169, 168, 3,
-  3, 3, 170, 168, 171, 3, 3, 3, 170, 168, 169, 168, 3, 3, 3, 170, 3, 3, 3, 3,
-  3, 3, 3, 3, 172, 172, 0, 105, 105, 105, 105, 105, 105, 105, 105, 3, 3, 3, 3, 3,
-  3, 3, 3, 3, 3, 3, 3, 3, 142, 144, 0, 0, 142, 144, 0, 0, 142, 144, 0, 0, 143,
-  144, 86, 86, 86, 142, 143, 144, 86, 86, 86, 142, 143, 144, 86, 86, 142, 144,
-  0, 0, 142, 144, 0, 0, 142, 144, 0, 0, 143, 144, 3, 3, 3, 101, 102, 103, 0, 0,
-  10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 173, 3, 3, 3, 3, 3, 3, 174, 174, 174,
-  3, 3, 0, 0, 0, 142, 143, 144, 94, 3, 3, 3, 101, 102, 103, 0, 0, 0, 0, 0, 3,
-  3, 3, 3, 3, 3, 0, 0, 0, 0, 58, 58, 175, 0, 0, 0, 0, 0, 0, 0, 0, 0, 82, 0, 0,
-  0, 0, 0, 176, 176, 176, 176, 177, 177, 177, 177, 177, 177, 177, 177, 175, 0,
-  0
+  124, 124, 124, 124, 124, 124, 124, 161, 161, 3, 3, 124, 124, 3, 3, 124, 124, 130,
+  130, 162, 162, 162, 3, 162, 124, 124, 124, 124, 124, 124, 3, 0, 0, 0, 0, 73,
+  23, 74, 163, 140, 139, 141, 140, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 3, 0,
+  0, 0, 0, 3, 0, 3, 3, 0, 164, 103, 101, 102, 0, 0, 165, 165, 165, 165, 165, 165,
+  165, 165, 165, 165, 165, 165, 124, 124, 3, 3, 148, 148, 3, 3, 3, 3, 3, 3, 3,
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 3,
+  3, 3, 3, 3, 3, 0, 0, 0, 0, 3, 3, 3, 166, 86, 86, 3, 3, 86, 86, 3, 3, 167, 167,
+  167, 167, 3, 0, 0, 0, 0, 167, 167, 167, 167, 167, 167, 3, 3, 124, 124, 124,
+  3, 167, 167, 3, 3, 124, 124, 124, 3, 3, 105, 86, 86, 86, 3, 3, 3, 168, 169, 168,
+  3, 3, 3, 170, 168, 171, 3, 3, 3, 170, 168, 169, 168, 3, 3, 3, 170, 3, 3, 3,
+  3, 3, 3, 3, 3, 172, 172, 0, 105, 105, 105, 105, 105, 105, 105, 105, 3, 3, 3,
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 142, 144, 0, 0, 142, 144, 0, 0, 142, 144, 0, 0,
+  143, 144, 86, 86, 86, 142, 143, 144, 86, 86, 86, 142, 143, 144, 86, 86, 142, 144,
+  0, 0, 142, 144, 0, 0, 142, 144, 0, 0, 143, 144, 3, 3, 3, 101, 102, 103, 0,
+  0, 10, 10, 10, 10, 10, 10, 10, 10, 0, 0, 0, 0, 173, 3, 3, 3, 3, 3, 3, 174, 174,
+  174, 3, 3, 0, 0, 0, 142, 143, 144, 94, 3, 3, 3, 101, 102, 103, 0, 0, 0, 0,
+  0, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 58, 58, 175, 0, 0, 0, 0, 0, 0, 0, 0, 0, 82, 0,
+  0, 0, 0, 0, 176, 176, 176, 176, 177, 177, 177, 177, 177, 177, 177, 177, 175,
+  0, 0
 };
 
 const InstDB::RWInfo InstDB::rwInfoA[] = {
@@ -5798,7 +5795,7 @@ const InstDB::RWInfo InstDB::rwInfoB[] = {
   { InstDB::RWInfo::kCategoryGeneric   , 0 , { 0 , 0 , 0 , 0 , 0 , 0  } }, // #0 [ref=791x]
   { InstDB::RWInfo::kCategoryGeneric   , 0 , { 1 , 0 , 0 , 0 , 0 , 0  } }, // #1 [ref=5x]
   { InstDB::RWInfo::kCategoryGeneric   , 3 , { 10, 5 , 0 , 0 , 0 , 0  } }, // #2 [ref=7x]
-  { InstDB::RWInfo::kCategoryGeneric   , 6 , { 11, 3 , 3 , 0 , 0 , 0  } }, // #3 [ref=195x]
+  { InstDB::RWInfo::kCategoryGeneric   , 6 , { 11, 3 , 3 , 0 , 0 , 0  } }, // #3 [ref=193x]
   { InstDB::RWInfo::kCategoryGeneric   , 2 , { 11, 3 , 3 , 0 , 0 , 0  } }, // #4 [ref=5x]
   { InstDB::RWInfo::kCategoryGeneric   , 3 , { 4 , 5 , 0 , 0 , 0 , 0  } }, // #5 [ref=14x]
   { InstDB::RWInfo::kCategoryGeneric   , 3 , { 4 , 5 , 14, 0 , 0 , 0  } }, // #6 [ref=4x]
@@ -5919,7 +5916,7 @@ const InstDB::RWInfo InstDB::rwInfoB[] = {
   { InstDB::RWInfo::kCategoryGeneric   , 53, { 81, 44, 0 , 0 , 0 , 0  } }, // #121 [ref=4x]
   { InstDB::RWInfo::kCategoryGeneric   , 6 , { 84, 3 , 3 , 0 , 0 , 0  } }, // #122 [ref=4x]
   { InstDB::RWInfo::kCategoryGeneric   , 42, { 85, 5 , 5 , 0 , 0 , 0  } }, // #123 [ref=4x]
-  { InstDB::RWInfo::kCategoryGeneric   , 6 , { 2 , 3 , 3 , 0 , 0 , 0  } }, // #124 [ref=88x]
+  { InstDB::RWInfo::kCategoryGeneric   , 6 , { 2 , 3 , 3 , 0 , 0 , 0  } }, // #124 [ref=90x]
   { InstDB::RWInfo::kCategoryGeneric   , 40, { 4 , 64, 7 , 0 , 0 , 0  } }, // #125 [ref=1x]
   { InstDB::RWInfo::kCategoryGeneric   , 42, { 4 , 83, 9 , 0 , 0 , 0  } }, // #126 [ref=1x]
   { InstDB::RWInfo::kCategoryGeneric   , 40, { 6 , 7 , 7 , 0 , 0 , 0  } }, // #127 [ref=11x]
@@ -5978,7 +5975,7 @@ const InstDB::RWInfo InstDB::rwInfoB[] = {
 const InstDB::RWInfoOp InstDB::rwInfoOp[] = {
   { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kNone }, // #0 [ref=17086x]
   { 0x0000000000000003u, 0x0000000000000003u, 0x00, 0, { 0 }, OpRWFlags::kRW | OpRWFlags::kRegPhysId }, // #1 [ref=10x]
-  { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRW | OpRWFlags::kZExt }, // #2 [ref=280x]
+  { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRW | OpRWFlags::kZExt }, // #2 [ref=282x]
   { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRead }, // #3 [ref=1132x]
   { 0x000000000000FFFFu, 0x000000000000FFFFu, 0xFF, 0, { 0 }, OpRWFlags::kRW | OpRWFlags::kZExt }, // #4 [ref=107x]
   { 0x000000000000FFFFu, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRead }, // #5 [ref=356x]
@@ -5987,7 +5984,7 @@ const InstDB::RWInfoOp InstDB::rwInfoOp[] = {
   { 0x000000000000000Fu, 0x000000000000000Fu, 0xFF, 0, { 0 }, OpRWFlags::kRW }, // #8 [ref=18x]
   { 0x000000000000000Fu, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRead }, // #9 [ref=135x]
   { 0x0000000000000000u, 0x000000000000FFFFu, 0xFF, 0, { 0 }, OpRWFlags::kWrite | OpRWFlags::kZExt }, // #10 [ref=184x]
-  { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kWrite | OpRWFlags::kZExt }, // #11 [ref=461x]
+  { 0x0000000000000000u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kWrite | OpRWFlags::kZExt }, // #11 [ref=459x]
   { 0x0000000000000003u, 0x0000000000000003u, 0xFF, 0, { 0 }, OpRWFlags::kRW }, // #12 [ref=1x]
   { 0x0000000000000003u, 0x0000000000000000u, 0xFF, 0, { 0 }, OpRWFlags::kRead }, // #13 [ref=65x]
   { 0x000000000000FFFFu, 0x0000000000000000u, 0x00, 0, { 0 }, OpRWFlags::kRead | OpRWFlags::kRegPhysId }, // #14 [ref=4x]

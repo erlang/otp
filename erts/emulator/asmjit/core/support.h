@@ -203,7 +203,7 @@ static ASMJIT_INLINE_NODEBUG constexpr bool bitTest(T x, IndexT n) noexcept {
 // Tests whether the given `value` is a consecutive mask of bits that starts at
 // the least significant bit.
 template<typename T>
-static ASMJIT_INLINE_NODEBUG constexpr bool isLsbMask(const T& value) {
+static ASMJIT_INLINE_NODEBUG constexpr bool isLsbMask(const T& value) noexcept {
   typedef typename std::make_unsigned<T>::type U;
   return value && ((U(value) + 1u) & U(value)) == 0;
 }
@@ -214,7 +214,7 @@ static ASMJIT_INLINE_NODEBUG constexpr bool isLsbMask(const T& value) {
 // This function is similar to \ref isLsbMask(), but the mask doesn't have to
 // start at a least significant bit.
 template<typename T>
-static ASMJIT_INLINE_NODEBUG constexpr bool isConsecutiveMask(const T& value) {
+static ASMJIT_INLINE_NODEBUG constexpr bool isConsecutiveMask(const T& value) noexcept {
   typedef typename std::make_unsigned<T>::type U;
   return value && isLsbMask((U(value) - 1u) | U(value));
 }
@@ -1566,6 +1566,75 @@ template<typename T, class CompareT = Compare<SortOrder::kAscending>>
 static ASMJIT_INLINE_NODEBUG void qSort(T* base, size_t size, const CompareT& cmp = CompareT()) noexcept {
   Internal::QSortImpl<T, CompareT>::sort(base, size, cmp);
 }
+
+// Support - ReverseIterator
+// =========================
+
+//! Reverse iterator to avoid including `<iterator>` header for iteration over arrays, specialized for
+//! AsmJit use (noexcept by design).
+template<typename T>
+class ArrayReverseIterator {
+public:
+  //! \name Members
+  //! \{
+
+  T* _ptr {};
+
+  //! \}
+
+  //! \name Construction & Destruction
+  //! \{
+
+  ASMJIT_INLINE_NODEBUG constexpr ArrayReverseIterator() noexcept = default;
+  ASMJIT_INLINE_NODEBUG constexpr ArrayReverseIterator(const ArrayReverseIterator& other) noexcept = default;
+  ASMJIT_INLINE_NODEBUG constexpr ArrayReverseIterator(T* ptr) noexcept : _ptr(ptr) {}
+
+  //! \}
+
+  //! \name Overloaded Operators
+  //! \{
+
+  ASMJIT_INLINE_NODEBUG ArrayReverseIterator& operator=(const ArrayReverseIterator& other) noexcept = default;
+
+  ASMJIT_INLINE_NODEBUG bool operator==(const T* other) const noexcept { return _ptr == other; }
+  ASMJIT_INLINE_NODEBUG bool operator==(const ArrayReverseIterator& other) const noexcept { return _ptr == other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG bool operator!=(const T* other) const noexcept { return _ptr != other; }
+  ASMJIT_INLINE_NODEBUG bool operator!=(const ArrayReverseIterator& other) const noexcept { return _ptr != other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG bool operator<(const T* other) const noexcept { return _ptr < other; }
+  ASMJIT_INLINE_NODEBUG bool operator<(const ArrayReverseIterator& other) const noexcept { return _ptr < other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG bool operator<=(const T* other) const noexcept { return _ptr <= other; }
+  ASMJIT_INLINE_NODEBUG bool operator<=(const ArrayReverseIterator& other) const noexcept { return _ptr <= other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG bool operator>(const T* other) const noexcept { return _ptr > other; }
+  ASMJIT_INLINE_NODEBUG bool operator>(const ArrayReverseIterator& other) const noexcept { return _ptr > other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG bool operator>=(const T* other) const noexcept { return _ptr >= other; }
+  ASMJIT_INLINE_NODEBUG bool operator>=(const ArrayReverseIterator& other) const noexcept { return _ptr >= other._ptr; }
+
+  ASMJIT_INLINE_NODEBUG ArrayReverseIterator& operator++() noexcept { _ptr--; return *this; }
+  ASMJIT_INLINE_NODEBUG ArrayReverseIterator& operator--() noexcept { _ptr++; return *this; }
+
+  ASMJIT_INLINE_NODEBUG ArrayReverseIterator operator++(int) noexcept { ArrayReverseIterator prev(*this); _ptr--; return prev; }
+  ASMJIT_INLINE_NODEBUG ArrayReverseIterator operator--(int) noexcept { ArrayReverseIterator prev(*this); _ptr++; return prev; }
+
+  template<typename Diff> ASMJIT_INLINE_NODEBUG ArrayReverseIterator operator+(const Diff& n) noexcept { return ArrayReverseIterator(_ptr -= n); }
+  template<typename Diff> ASMJIT_INLINE_NODEBUG ArrayReverseIterator operator-(const Diff& n) noexcept { return ArrayReverseIterator(_ptr += n); }
+
+  template<typename Diff> ASMJIT_INLINE_NODEBUG ArrayReverseIterator& operator+=(const Diff& n) noexcept { _ptr -= n; return *this; }
+  template<typename Diff> ASMJIT_INLINE_NODEBUG ArrayReverseIterator& operator-=(const Diff& n) noexcept { _ptr += n; return *this; }
+
+  ASMJIT_INLINE_NODEBUG constexpr T& operator*() const noexcept { return _ptr[-1]; }
+  ASMJIT_INLINE_NODEBUG constexpr T* operator->() const noexcept { return &_ptr[-1]; }
+
+  template<typename Diff> ASMJIT_INLINE_NODEBUG T& operator[](const Diff& n) noexcept { return *(_ptr - n - 1); }
+
+  ASMJIT_INLINE_NODEBUG operator T*() const noexcept { return _ptr; }
+
+  //! \}
+};
 
 // Support - Array
 // ===============

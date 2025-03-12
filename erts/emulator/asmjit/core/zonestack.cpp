@@ -9,8 +9,8 @@
 
 ASMJIT_BEGIN_NAMESPACE
 
-// ZoneStackBase - Init & Reset
-// ============================
+// ZoneStackBase - Initialization & Reset
+// ======================================
 
 Error ZoneStackBase::_init(ZoneAllocator* allocator, size_t middleIndex) noexcept {
   ZoneAllocator* oldAllocator = _allocator;
