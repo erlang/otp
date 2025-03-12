@@ -83,20 +83,31 @@ Here are some examples of what should work:
 6
 ```
 
+## Matching exceptions.
+
+```
+1> hello + 1.
+** exception error: an error occurred when evaluating an arithmetic expression
+     in operator  +/2
+        called as hello + 1
+2> lists:last([]).
+** exception error: no function clause matching lists:last([])
+```
+
 ## Comments:
 
 ```
 1> [1,
-% A comment in between prompts
+%% A comment between prompts
   2].
 [1,
-% A comment in a match
+%% A comment in a match
  2]
 2> [1,
-  % Indented comment in between prompts
+  %% Indented comment between prompts
   2].
 [1,
- % Indented comment in a match
+ %% Indented comment in a match
  2]
 ```
 
@@ -134,53 +145,76 @@ should not be tested
 ```
 
 ```
-% should probably be tested?
+%% should probably be tested?
 1> ok.
 ```
 
 ```
-% should probably be tested?
+%% should probably be tested?
 
 1> ok.
 ```
 """.
 -spec module(#docs_v1{}, erl_eval:binding_struct()) -> _.
 module(#docs_v1{ docs = Docs, module_doc = MD }, Bindings) ->
-    MDRes = parse_and_run(module_doc, MD, Bindings),
-    case lists:flatten(
-           [parse_and_run(KFA, EntryDocs, Bindings)
-            || {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs, is_map(EntryDocs)] ++ MDRes) of
-        [] ->
-            ok;
-        Else ->
-            Else
+    MDRes = [parse_and_run(module_doc, MD, Bindings)],
+    Res0 = [parse_and_run(KFA, EntryDocs, Bindings) ||
+               {KFA, _Anno, _Sig, EntryDocs, _Meta} <- Docs,
+               is_map(EntryDocs)] ++ MDRes,
+    Res = lists:append(Res0),
+    Errors = [{{F,A},E} || {{function,F,A},[{error,E}]} <- Res],
+    _ = [print_error(E) || E <- Errors],
+    case length(Errors) of
+        0 ->
+            NoTests = lists:sort([io_lib:format("  ~p/~p\n", [F,A]) ||
+                                     {{function,F,A},[]} <- Res]),
+            case length(NoTests) of
+                0 ->
+                    ok;
+                N ->
+                    io:format("The following functions have no tests:~n~n~ts~n",
+                              [NoTests]),
+                    {comment,
+                     lists:flatten(io_lib:format("~p functions lack tests", [N]))}
+            end;
+        N ->
+            error({N,errors})
     end.
+
+print_error({{Name,Arity},{Message,Context}}) ->
+    io:format("~p/~p: ~ts~n~ts~n", [Name,Arity,Context,Message]).
 
 parse_and_run(_, hidden, _) -> [];
 parse_and_run(_, none, _) -> [];
 parse_and_run(KFA, #{} = Ds, Bindings) ->
-    [parse_and_run(KFA, D, Bindings) || _ := D <- Ds];
-parse_and_run(KFA, Docs, Bindings) ->
-    InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
-    io:format("Testing: ~p~n",[KFA]),
-    case test(inspect(shell_docs_markdown:parse_md(Docs)), InitialBindings) of
-        [] -> [];
-        Else ->
-            {KFA, lists:flatten(Else)}
+    [do_parse_and_run(KFA, D, Bindings) || _ := D <- Ds].
+
+do_parse_and_run(KFA, Docs, Bindings) ->
+    try
+        InitialBindings = proplists:get_value(KFA, Bindings, erl_eval:new_bindings()),
+        Items = inspect(shell_docs_markdown:parse_md(Docs)),
+        {KFA, test(Items, InitialBindings)}
+    catch
+        throw:{error,_}=Error ->
+            {KFA, [Error]};
+        C:R:ST ->
+            io:format("Uncaught exception in ~p~n", [KFA]),
+            erlang:raise(C, R, ST)
     end.
 
-test({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
+test(Tests, Bindings) ->
+    lists:flatmap(fun(Test) -> test_item(Test, Bindings) end, Tests).
+
+test_item({pre,[],[{code,Attrs,[Code]}]}, Bindings) when is_binary(Code) ->
     case proplists:get_value(class, Attrs, ~"language-erlang") of
         ~"language-erlang" ->
             run_test(Code, Bindings);
         _ ->
-            test(Code, Bindings)
+            []
     end;
-test({_Tag,_Attr, Content}, Bindings) ->
+test_item({_Tag,_Attr, Content}, Bindings) ->
     test(Content, Bindings);
-test([H | T], Bindings) ->
-    [test(H, Bindings) | test(T, Bindings)];
-test(Text, _Bindings) when is_binary(Text); Text =:= [] ->
+test_item(Header, _Bindings) when is_binary(Header) ->
     [].
 
 -define(RE_CAPTURE, ~"(?:(?'line_number'[0-9]+)(?'prefix'>\s)|(?'prefix'%))?(?'content'.*)").
@@ -193,16 +227,17 @@ run_test(Code, InitialBindings) ->
         [{match, [_Line_Number, _Prefix = <<"> ">>, _Code]} | _] ->
             check_line_numbers(ReLines, 1),
             Tests = inspect(parse_tests(ReLines, [])),
-            lists:foldl(fun(Test, Bindings) ->
-                                run_tests(Test, Bindings)
-                        end, InitialBindings, Tests);
+            _ = lists:foldl(fun(Test, Bindings) ->
+                                    run_tests(Test, Bindings)
+                            end, InitialBindings, Tests),
+            [ok];
         [{match, [_Line_Number, _Prefix = <<"%">>, _Skip]} | _] ->
             Tests = inspect(parse_tests(ReLines, [])),
-            lists:foldl(fun(Test, Bindings) ->
-                                run_tests(Test, Bindings)
-                        end, InitialBindings, Tests);
+            _ = lists:foldl(fun(Test, Bindings) ->
+                                    run_tests(Test, Bindings)
+                            end, InitialBindings, Tests),
+            [ok];
         _ ->
-            io:format("Note: No doc tests"),
             []
     end.
 
@@ -215,7 +250,9 @@ check_line_numbers([{match, [LineNumber, _, Code]} | T], Expected) ->
         Expected ->
             check_line_numbers(T, Expected + 1);
         Actual ->
-            error({bad_line_number,Actual,expected,Expected,code,Code})
+            Message = io_lib:format("Bad line number ~p; expected ~p",
+                                    [Actual,Expected]),
+            throw({error,{Message,Code}})
     end.
 
 parse_tests([], []) ->
@@ -224,43 +261,107 @@ parse_tests([], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"}];
 parse_tests([{match, [<<>>, <<>>, <<>>]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Cmd) ->
+parse_tests([{match, [<<>>, <<"%">>, _Skip]} | T], Cmd) ->
     parse_tests(T, Cmd);
-parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], []) ->
+parse_tests([{match, [_, <<"> ">>, NewCmd]} | T], []) ->
     parse_tests(T, [NewCmd]);
-parse_tests([{match, [_Line_Number, _Prefix = <<"> ">>, NewCmd]} | T], Cmd) ->
+parse_tests([{match, [_, <<"> ">>, NewCmd]} | T], Cmd) ->
     [{test, lists:join($\n, lists:reverse(Cmd)), "_"} | parse_tests(T, [NewCmd])];
-parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<>>, <<" ", More/binary>>]} | T], Acc) ->
+parse_tests([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
     parse_tests(T, [More | Acc]);
-parse_tests([{match, [_Line_Number = <<>>, _Prefix = <<>>, NewMatch]} | T], Cmd) ->
+parse_tests([{match, [<<>>, <<>>, NewMatch]} | T], Cmd) ->
     {Match, Rest} = parse_match(T, [NewMatch]),
     [{test, lists:join($\n, lists:reverse(Cmd)),
       lists:join($\n, lists:reverse(Match))} | parse_tests(Rest, [])].
 
-parse_match([{match, [_Line_Number = <<>>, _Prefix = <<"%">>, _Skip]} | T], Acc) ->
+parse_match([{match, [<<>>, <<"%">>, _Skip]} | T], Acc) ->
     parse_match(T, Acc);
-parse_match([{match, [_Line_Number = <<>>, _Prefix = <<>>, <<" ", More/binary>>]} | T], Acc) ->
+parse_match([{match, [<<>>, <<>>, <<" ", _/binary>> = More]} | T], Acc) ->
     parse_match(T, [More | Acc]);
 parse_match(Rest, Acc) ->
     {Acc, Rest}.
 
-run_tests({test, Test, Match}, Bindings) ->
-    maybe
-        Cmd = [unicode:characters_to_list(Match), " = begin ",
-                string:trim(string:trim(unicode:characters_to_list(Test)), trailing, "."), " end."],
-        {ok, T, _} ?= erl_scan:string(lists:flatten(Cmd)),
-        {ok, Ast0} ?= inspect(erl_parse:parse_exprs(T)),
-        Ast = rewrite(Ast0),
-        try
-            {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
-            NewBindings
-        catch E:R:ST ->
-                io:format("~p~n", [Ast]),
-                erlang:raise(E,R,ST)
-        end
-    else
-        Else -> throw({iolist_to_binary(Test), iolist_to_binary(Match), Else})
+run_tests({test, Test0, Match0}, Bindings) ->
+    Test1 = unicode:characters_to_list(Test0),
+    Test = string:trim(string:trim(Test1), trailing, "."),
+    case Match0 of
+        [<<"** ", _/binary>> | _] ->
+            Match = unicode:characters_to_list(Match0),
+            Cmd = Test ++ ".",
+            run_failing(Cmd, Test, Match, Bindings);
+        _ ->
+            Cmd = [unicode:characters_to_list(Match0),
+                   " = begin ",
+                   Test,
+                   " end."],
+            run_successful(Cmd, Test, Match0, Bindings)
     end.
+
+run_successful(Cmd, Test, Match, Bindings) ->
+    Ast0 = parse(Cmd, Test, Match),
+    Ast = rewrite(Ast0),
+    try
+        {value, _Res, NewBindings} = inspect(erl_eval:exprs(Ast, Bindings)),
+        NewBindings
+    catch C:R:ST ->
+            Actual = format_exception(C, R, ST),
+            Message = io_lib:format("Expected value:~n~ts~n"
+                                    "Got failure:~n~ts~n",
+                                    [Match,Actual]),
+            throw({error,{Message,Match}})
+    end.
+
+run_failing(Cmd, Test, Match, Bindings) ->
+    Ast = parse(Cmd, Test, Match),
+    try inspect(erl_eval:exprs(Ast, Bindings)) of
+        {value, Res, _} ->
+            Message = io_lib:format("Expected failure ~ts; got ~ts",
+                                    [Match,Res]),
+            throw({error,{Message,Match}})
+    catch C:R:ST ->
+            case format_exception(C, R, ST) of
+                Match ->
+                    Bindings;
+                Actual ->
+                    Message = io_lib:format("Expected failure:~n~ts~n"
+                                            "Got failure:~n~ts~n",
+                                            [Match,Actual]),
+                    throw({error,{Message,Match}})
+            end
+    end.
+
+parse(Cmd0, _Test, _Match) ->
+    Cmd = lists:flatten(Cmd0),
+    maybe
+        {ok, T, _} ?= erl_scan:string(Cmd),
+        {ok, Ast} ?= inspect(erl_parse:parse_exprs(T)),
+        Ast
+    else
+        {error, {_Line,Mod,Reason}, _} ->
+            Message = Mod:format_error(Reason),
+            throw({error,{Message,Cmd}});
+        {error, {_Line,Mod,Reason}} ->
+            Message = Mod:format_error(Reason),
+            throw({error,{Message,Cmd}})
+    end.
+
+format_exception(Class, Reason, [{M,F,A,Info0},Item|_]) ->
+    Info = lists:keydelete(line, 1, Info0),
+    Stacktrace = [{M,F,A,Info},Item],
+    Tag = "** ",
+    I = iolist_size(Tag) + 1,
+    PF = fun pp/2,
+    SF = fun(Mod, _, _) -> Mod =:= erl_eval end,
+    Enc = unicode,
+    Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
+    Tag ++ string:trim(lists:flatten(Str), trailing).
+
+pp(V, I) ->
+    D = 30,
+    io_lib_pretty:print(V, [{column, I}, {line_length, 120},
+                            {depth, D}, {line_max_chars, 100},
+                            {strings, true},
+                            {encoding, unicode}]).
 
 rewrite([{match, Ann, LHS, RHS} | Rest]) ->
     [{match, Ann, rewrite_map_match(LHS), RHS} | Rest].

@@ -423,6 +423,8 @@ The list must be non-empty; otherwise, the function raises a
 []
 2> lists:droplast([1,2,3]).
 [1,2]
+3> lists:droplast([]).
+** exception error: no function clause matching lists:droplast([])
 ```
 """.
 -doc(#{since => <<"OTP 17.0">>}).
@@ -440,6 +442,9 @@ droplast([H|T]) -> [H|droplast(T)].
 -doc """
 Returns the last element in `List`.
 
+The list must be non-empty; otherwise, the function raises a
+`function_clause` exception.
+
 ## Examples
 
 ```erlang
@@ -447,6 +452,8 @@ Returns the last element in `List`.
 1
 2> lists:last([1,2,3]).
 3
+3> lists:last([]).
+** exception error: no function clause matching lists:last([])
 ```
 """.
 -spec last(List) -> Last when
@@ -592,6 +599,8 @@ other elements of `List`.
 ```erlang
 1> lists:min([17,19,7,55]).
 7
+2> lists:min([]).
+** exception error: no function clause matching lists:min([])
 ```
 """.
 -spec min(List) -> Min when
@@ -614,6 +623,8 @@ other elements of `List`.
 ```erlang
 1> lists:max([17,19,7,55]).
 55
+2> lists:max([]).
+** exception error: no function clause matching lists:max([])
 ```
 """.
 -spec max(List) -> Max when
@@ -740,9 +751,9 @@ lengths.
   ## Examples
 
   ```erlang
-  > lists:zip([a, b], [1, 2, 3], trim).
+  1> lists:zip([a, b], [1, 2, 3], trim).
   [{a,1},{b,2}]
-  > lists:zip([a, b, c], [1, 2], trim).
+  2> lists:zip([a, b, c], [1, 2], trim).
   [{a,1},{b,2}]
   ```
 
@@ -752,9 +763,9 @@ lengths.
   ## Examples
 
   ```erlang
-  > lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).
+  1> lists:zip([a, b], [1, 2, 3], {pad, {x, 0}}).
   [{a,1},{b,2},{x,3}]
-  > lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).
+  2> lists:zip([a, b, c], [1, 2], {pad, {x, 0}}).
   [{a,1},{b,2},{c,0}]
   ```
 """.
