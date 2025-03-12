@@ -516,6 +516,8 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Eterm)
   zero on heaps. One should instead use the literal that can be
   obtained by use the literal identified by ERTS_GLOBAL_LIT_EMPTY_TUPLE.
  */
+extern Eterm ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+#define TUPLE0 ERTS_GLOBAL_LIT_EMPTY_TUPLE
 #define TUPLE1(t,e1) \
         ((t)[0] = make_arityval(1), \
         (t)[1] = (e1), \
@@ -1294,14 +1296,19 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
      (hp)[1] = sz,                              \
      (hp)[2] = keys)
 
-#define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + 1)
+/* NB. When sz is 0, TUPLE0 is shared, so takes no space */
+#define MAP_SZ(sz) (MAP_HEADER_FLATMAP_SZ + 2*sz + !!sz)
 
+#define MAP0_SZ MAP_SZ(0)
 #define MAP1_SZ MAP_SZ(1)
 #define MAP2_SZ MAP_SZ(2)
 #define MAP3_SZ MAP_SZ(3)
 #define MAP4_SZ MAP_SZ(4)
 #define MAP5_SZ MAP_SZ(5)
 
+#define MAP0(hp)                                                        \
+    (MAP_HEADER(hp, 0, TUPLE0),                    \
+     make_flatmap(hp))
 #define MAP1(hp, k1, v1)                                                \
     (MAP_HEADER(hp, 1, TUPLE1(hp+1+MAP_HEADER_FLATMAP_SZ, k1)),         \
      (hp)[MAP_HEADER_FLATMAP_SZ+0] = v1,                                \
