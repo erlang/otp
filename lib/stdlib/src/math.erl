@@ -232,8 +232,10 @@ Returns *e* raised to the power of `X`.
 ## Examples
 
 ```erlang
-1> math:exp(1).
-2.718281828459045
+1> math:exp(0).
+1.0
+2> trunc(100 * math:exp(1)).
+271
 ```
 """.
 -spec exp(X) -> float() when
