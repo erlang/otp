@@ -8174,6 +8174,19 @@ MK: B
     D 
 No match, mark = B
 
+/(*COMMIT)ABC/no_start_optimize
+    ABC
+ 0: ABC
+\= Expect no match
+    DEFABC
+No match
+
+/(*COMMIT)ABC/
+    ABC
+ 0: ABC
+    DEFABC
+ 0: ABC
+
 # This should fail, as the skip causes a bump to offset 3 (the skip).
 
 /A(*MARK:A)A+(*SKIP)(B|Z) | AC/x,mark
@@ -8919,10 +8932,18 @@ No match
  1: <unset>
  2: B
  3: A
-    
-/^A\xZ/
-    A\0Z 
- 0: A\x00Z
+
+/^A\xBz/
+    A\x{0B}z
+ 0: A\x0bz
+
+/^A\xABz/
+    A\x{AB}z
+ 0: A\xabz
+
+/^A\xABCz/
+    A\x{AB}Cz
+ 0: A\xabCz
 
 /^A\o{123}B/
     A\123B
@@ -9242,14 +9263,6 @@ No match
  2: a
 
 /(?'c')XX(?'YYYYYYYYYYYYYYYYYYYYYYYCl')/
-
-/[s[:digit:]\E-H]+/
-    s09-H
- 0: s09-H
-
-/[s[:digit:]\Q\E-H]+/
-    s09-H
- 0: s09-H
 
 /a+(?:|b)a/
     aaaa
@@ -10159,7 +10172,22 @@ No match
 /\214748364/
     >\x{8c}748364<
  0: \x8c748364
-    
+
+# smaller than GROUP_MAX
+/\21300/
+    \x8b00
+ 0: \x8b00
+
+# larger than GROUP_MAX
+/\213000/
+    \x8b000
+ 0: \x8b000
+
+# larger than INT_MAX
+/\21300000000/
+    \x8b00000000
+ 0: \x8b00000000
+
 /a{65536/
     >a{65536<
  0: a{65536
@@ -10502,5 +10530,596 @@ No match
 /(?<!a?)/
     a
 No match
+
+/\Qab*\E{2,}/
+    ab***z
+ 0: ab***
+
+/[\Qabc\E-z]+/
+    abcdwxyz
+ 0: abcdwxyz
+
+/[\Qa-\Ez]+/
+    xz-zaax
+ 0: z-zaa
+
+/a{(?#XYZ),2}/
+    xa{,2}x
+ 0: a{,2}
+\= Expect no match     
+    xaax
+No match
+ 
+/(?<=PQ|Pc.b?)(.?)(b?)/
+    Pc.b
+ 0: b
+ 1: b
+ 2: 
+    
+/(?(?<=aa.b|ab)b).b/
+    aaab
+ 0: ab
+
+/(?(?<=a(?:a.b|b))b).b/
+    aaab
+ 0: ab
+
+/(?=a)b?a/
+    a
+ 0: a
+
+/(?=a)b?a./
+    ab
+ 0: ab
+
+/\w(?R)*\w/
+    grtgt
+ 0: grtg
+    abcdef
+ 0: abcdef
+    abcdefg
+ 0: abcdef
+    .a.bc.d.
+ 0: bc
+\= Expect no match
+    .a.b.c.
+No match
+
+/65 00 64/hex
+    e\0d
+ 0: e\x00d
+
+/[[:digit:]-   ]/xx
+    1
+ 0: 1
+    -
+ 0: -
+\= Expect no match
+    z
+No match
+    \ \
+No match
+
+/[\d-   ]/xx
+    1
+ 0: 1
+    -
+ 0: -
+\= Expect no match
+    z
+No match
+    \ \
+No match
+
+# --------------
+
+# EXTENDED CHARACTER CLASSES (Perl)
+
+/(?[\n])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \\
+No match
+    n
+No match
+
+/^(?[\x61])b/
+    ab
+ 0: ab
+\= Expect no match
+    b
+No match
+    a
+No match
+
+/^(?[\x61])+b/
+    ab
+ 0: ab
+    aab
+ 0: aab
+\= Expect no match
+    b
+No match
+
+/(?[ [[:graph:]] ])/
+    a
+ 0: a
+\= Expect no match
+    \x01
+No match
+
+/(?[ [:graph:] ])/
+    a
+ 0: a
+\= Expect no match
+    \x01
+No match
+
+/(?[ [[:graph:]\x02] ])/
+    a
+ 0: a
+    \x02
+ 0: \x02
+\= Expect no match
+    \x01
+No match
+
+/(?[\E\n])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \\
+No match
+    E
+No match
+
+/(?[\n \Q\E])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \\
+No match
+    Q
+No match
+
+/(?[ ( \x02 + [:graph:] ) | [ \x02 [:graph:] ] ])/
+    a
+ 0: a
+    \x02
+ 0: \x02
+\= Expect no match
+    \x01
+No match
+
+/(?[ \d ])/
+    1
+ 0: 1
+\= Expect no match
+    d
+No match
+
+/(?[[1]])/
+    1
+ 0: 1
+\= Expect no match
+    ]
+No match
+
+/(?[[a]])/
+    a
+ 0: a
+\= Expect no match
+    ]
+No match
+
+/(?[[a-c]])/
+    a
+ 0: a
+    b
+ 0: b
+\= Expect no match
+    -
+No match
+    ]
+No match
+
+/(?[ [\t] + [\n] ])/
+    \t
+ 0: \x09
+    \n
+ 0: \x0a
+\= Expect no match
+    t
+No match
+    \\
+No match
+    [
+No match
+
+/(?[ \t + \n ])/
+    \t
+ 0: \x09
+    \n
+ 0: \x0a
+\= Expect no match
+    t
+No match
+    \\
+No match
+    [
+No match
+
+/(?[ [()] ])/
+    )
+ 0: )
+    (
+ 0: (
+\= Expect no match
+    ]
+No match
+
+/(?[ ( [()] ) ])/
+    )
+ 0: )
+    (
+ 0: (
+\= Expect no match
+    ]
+No match
+
+/(?[ (( [\n\t] )) ])/
+    \n
+ 0: \x0a
+    \t
+ 0: \x09
+\= Expect no match
+    )
+No match
+    (
+No match
+    t
+No match
+
+# Each syntax element, with unary operator applied to it
+
+/(?[ !\n ])/
+    z
+ 0: z
+\= Expect no match
+    \n
+No match
+
+/(?[ !\d ])/
+    a
+ 0: a
+\= Expect no match
+    1
+No match
+
+/(?[ ![:alpha:] ])/
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ ![\n] ])/
+    z
+ 0: z
+\= Expect no match
+    \n
+No match
+
+/(?[ !(\n) ])/
+    z
+ 0: z
+\= Expect no match
+    \n
+No match
+
+/(?[ !!\n ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    z
+No match
+
+# Each syntax element, as contents of parens
+
+/(?[ (\n) ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    z
+No match
+
+/(?[ (\d) ])/
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ ([:alpha:]) ])/
+    a
+ 0: a
+\= Expect no match
+    1
+No match
+
+/(?[ ([\n]) ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    z
+No match
+
+/(?[ ((\n)) ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    z
+No match
+
+/(?[ (!\n) ])/
+    z
+ 0: z
+\= Expect no match
+    \n
+No match
+
+/(?[ (\n + \t) ])/
+    \n
+ 0: \x0a
+    \t
+ 0: \x09
+\= Expect no match
+    z
+No match
+
+# Each syntax element, as LHS of a binary operator
+
+/(?[ \n & [\n\t] ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    t
+No match
+
+/(?[ \d & [\d\t] ])/
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ [:alpha:] & [a-z\t] ])/
+    a
+ 0: a
+\= Expect no match
+    A
+No match
+    \t
+No match
+
+/(?[ [\n] & [\n\t] ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \t
+No match
+
+/(?[ (\n) & [\n\t] ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \t
+No match
+
+/(?[ !\n & [^\n\t] ])/
+    a
+ 0: a
+\= Expect no match
+    \n
+No match
+    \t
+No match
+
+/(?[ \n & [\n\t] + [\d] ])/
+    \n
+ 0: \x0a
+    1
+ 0: 1
+\= Expect no match
+    \t
+No match
+    a
+No match
+
+# Each syntax element, as RHS of a binary operator
+
+/(?[ [\n\t] & \n ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    t
+No match
+
+/(?[ [\d\t] & \d ])/
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ [a-z\t] & [:alpha:] ])/
+    a
+ 0: a
+\= Expect no match
+    A
+No match
+    \t
+No match
+
+/(?[ [\n\t] & [\n] ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \t
+No match
+
+/(?[ [\n\t] & (\n) ])/
+    \n
+ 0: \x0a
+\= Expect no match
+    \t
+No match
+
+/(?[ [^\n\t] & !\n ])/
+    a
+ 0: a
+\= Expect no match
+    \n
+No match
+    \t
+No match
+
+/(?[ [\d] + \n & [\n\t] ])/
+    \n
+ 0: \x0a
+    1
+ 0: 1
+\= Expect no match
+    \t
+No match
+    a
+No match
+
+/(?[ [\d] + \n + [\t] ])/
+    \n
+ 0: \x0a
+    \t
+ 0: \x09
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+# end op surrounding syntax tests
+
+/(?[ \d + \n ])/
+    \n
+ 0: \x0a
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ \d | \n ])/
+    \n
+ 0: \x0a
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+
+/(?[ \d - [2] ])/
+    1
+ 0: 1
+    3
+ 0: 3
+\= Expect no match
+    2
+No match
+
+/(?[ [AC] ^ [BC] ])/
+    A
+ 0: A
+    B
+ 0: B
+\= Expect no match
+    C
+No match
+    D
+No match
+
+/(?[	(	[	^	z	]	) ])/
+    j
+ 0: j
+\= Expect no match
+    z
+No match
+
+/^.{4}/s
+    abcdef
+ 0: abcd
+    abcde
+ 0: abcd
+    abcd
+ 0: abcd
+\= Expect no match
+    abc
+No match
+    ab
+No match
+    a
+No match
+
+/^(.{3,6}!)+$/s
+  abc!defghi!
+ 0: abc!defghi!
+ 1: defghi!
+  abcdef!ghi!
+ 0: abcdef!ghi!
+ 1: ghi!
+  abc!def!ghi!jkl!
+ 0: abc!def!ghi!jkl!
+ 1: jkl!
+  ab!cd!
+ 0: ab!cd!
+ 1: ab!cd!
+\= Expect no match
+  abcd!ef!
+No match
+  ab!cdefg!
+No match
+
+/[a-z]{5,}b|x/
+  abcdefghbijb
+ 0: abcdefghbijb
+  abcdefghbij
+ 0: abcdefghb
+  abcdeb
+ 0: abcdeb
+  abcdefghijx
+ 0: x
+\= Expect no match
+  abcdb
+No match
+  abcdefghijk
+No match
+
+/[a-z]{1,6}?s|x/
+  asbs
+ 0: as
+  abcdefs
+ 0: abcdefs
+  abcdefghijkss
+ 0: fghijks
+  abcdefghijkx
+ 0: x
+  ss
+ 0: ss
+\= Expect no match
+  s
+No match
+  aaa
+No match
+
+# --------------
 
 # End of testinput1 

@@ -92,7 +92,7 @@ Subject length lower bound = 3
 
 /a*bc/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 2
 
@@ -172,7 +172,7 @@ Subject length lower bound = 1
 
 /cat|dog|elephant/I
 Capture group count = 0
-Starting code units: c d e 
+Starting code units: c d e
 Subject length lower bound = 3
     this sentence eventually mentions a cat
  0: cat
@@ -181,7 +181,7 @@ Subject length lower bound = 3
 
 /cat|dog|elephant/I
 Capture group count = 0
-Starting code units: c d e 
+Starting code units: c d e
 Subject length lower bound = 3
     this sentence eventually mentions a cat
  0: cat
@@ -191,7 +191,7 @@ Subject length lower bound = 3
 /cat|dog|elephant/Ii
 Capture group count = 0
 Options: caseless
-Starting code units: C D E c d e 
+Starting code units: C D E c d e
 Subject length lower bound = 3
     this sentence eventually mentions a CAT cat
  0: CAT
@@ -200,30 +200,30 @@ Subject length lower bound = 3
 
 /a|[bcd]/I
 Capture group count = 0
-Starting code units: a b c d 
+Starting code units: a b c d
 Subject length lower bound = 1
 
 /(a|[^\dZ])/I
 Capture group count = 1
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = > 
-  ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y [ \ ] ^ _ ` a b c d 
-  e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82 \x83 
-  \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 
-  \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 
-  \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 
-  \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf 
-  \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce 
-  \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd 
-  \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec 
-  \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb 
-  \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = >
+  ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y [ \ ] ^ _ ` a b c d
+  e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82 \x83
+  \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92
+  \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1
+  \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0
+  \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf
+  \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce
+  \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd
+  \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec
+  \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb
+  \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /(a|b)*[\s]/I
 Capture group count = 1
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 a b 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 a b
 Subject length lower bound = 1
 
 /(ab\2)/
@@ -354,7 +354,7 @@ Failed: error 111 at offset 4: unrecognized character after (? or (?-
 
 /^abc|def/I
 Capture group count = 0
-Starting code units: a d 
+Starting code units: a d
 Subject length lower bound = 3
     abcdef
  0: abc
@@ -383,20 +383,20 @@ Failed: error 106 at offset 4: missing terminating ] for character class
 
 /[^aeiou ]{3,}/I
 Capture group count = 0
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 
-  7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ 
-  \ ] ^ _ ` b c d f g h j k l m n p q r s t v w x y z { | } ~ \x7f \x80 \x81 
-  \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 
-  \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f 
-  \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae 
-  \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd 
-  \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc 
-  \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb 
-  \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea 
-  \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 
-  \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6
+  7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [
+  \ ] ^ _ ` b c d f g h j k l m n p q r s t v w x y z { | } ~ \x7f \x80 \x81
+  \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90
+  \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f
+  \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae
+  \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd
+  \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc
+  \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb
+  \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea
+  \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9
+  \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 3
     co-processors, and for
  0: -pr
@@ -503,7 +503,7 @@ Subject length lower bound = 4
 Capture group count = 1
 Compile options: <none>
 Overall options: anchored
-Starting code units: D b d 
+Starting code units: D b d
 Subject length lower bound = 1
 
 /(?s).*/I
@@ -515,17 +515,17 @@ Subject length lower bound = 0
 
 /[abcd]/I
 Capture group count = 0
-Starting code units: a b c d 
+Starting code units: a b c d
 Subject length lower bound = 1
 
 /(?i)[abcd]/I
 Capture group count = 0
-Starting code units: A B C D a b c d 
+Starting code units: A B C D a b c d
 Subject length lower bound = 1
 
 /(?m)[xy]|(b|c)/I
 Capture group count = 1
-Starting code units: b c x y 
+Starting code units: b c x y
 Subject length lower bound = 1
 
 /(^a|^b)/Im
@@ -553,13 +553,13 @@ Failed: error 124 at offset 4: missing closing parenthesis for condition
 Failed: error 124 at offset 4: missing closing parenthesis for condition
 
 /(?(?i))/
-Failed: error 128 at offset 2: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 2: atomic assertion expected after (?( or (?(?C)
 
 /(?(abc))/
 Failed: error 115 at offset 3: reference to non-existent subpattern
 
 /(?(?<ab))/
-Failed: error 128 at offset 2: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 2: atomic assertion expected after (?( or (?(?C)
 
 /((?s)blah)\s+\1/I
 Capture group count = 1
@@ -590,7 +590,7 @@ Subject length lower bound = 1
 
 /(a*b|(?i:c*(?-i)d))/I
 Capture group count = 1
-Starting code units: C a b c d 
+Starting code units: C a b c d
 Subject length lower bound = 1
 
 /a$/I
@@ -654,19 +654,19 @@ Subject length lower bound = 3
 /(?<=foo)[ab]/I
 Capture group count = 0
 Max lookbehind = 3
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /(?<!foo)(alpha|omega)/I
 Capture group count = 1
 Max lookbehind = 3
-Starting code units: a o 
+Starting code units: a o
 Last code unit = 'a'
 Subject length lower bound = 5
 
 /(?!alphabet)[ab]/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /(?<=foo\n)^bar/Im
@@ -990,7 +990,7 @@ Subject length lower bound = 16
 Capture group count = 3
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 4
     adef\=get=1,get=2,get=3,get=4,getall
  0: adef
@@ -1313,25 +1313,25 @@ Subject length lower bound = 3
 
 /abc|bac/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 3
 
 /(abc|bac)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 3
 
 /(abc|(c|dc))/I
 Capture group count = 2
-Starting code units: a c d 
+Starting code units: a c d
 Last code unit = 'c'
 Subject length lower bound = 1
 
 /(abc|(d|de)c)/I
 Capture group count = 2
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'c'
 Subject length lower bound = 2
 
@@ -1347,7 +1347,7 @@ Subject length lower bound = 1
 
 /(baa|a+)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'a'
 Subject length lower bound = 1
 
@@ -1379,8 +1379,8 @@ Subject length lower bound = 1
 
 /a|ba|\w/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /abc(?=pqr)/I
@@ -1440,7 +1440,7 @@ Subject length lower bound = 1
 
 /(a.c*|b.c*)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /a.c*|aba/I
@@ -1766,33 +1766,33 @@ Subject length lower bound = 2
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /^[[:^alnum:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x00-/:-@[-`{-\xff] (neg)
+        [^0-9A-Za-z]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = > 
-  ? @ [ \ ] ^ _ ` { | } ~ \x7f \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 
-  \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 
-  \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 
-  \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 
-  \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 
-  \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 
-  \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 
-  \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 
-  \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / : ; < = >
+  ? @ [ \ ] ^ _ ` { | } ~ \x7f \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88
+  \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97
+  \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6
+  \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5
+  \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4
+  \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3
+  \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2
+  \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1
+  \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /^[[:alpha:]]/IB
@@ -1806,40 +1806,40 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-  a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /^[[:^alpha:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x00-@[-`{-\xff] (neg)
+        [^A-Za-z]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 
-  5 6 7 8 9 : ; < = > ? @ [ \ ] ^ _ ` { | } ~ \x7f \x80 \x81 \x82 \x83 \x84 
-  \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 
-  \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 
-  \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 
-  \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 
-  \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf 
-  \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde 
-  \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed 
-  \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc 
-  \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4
+  5 6 7 8 9 : ; < = > ? @ [ \ ] ^ _ ` { | } ~ \x7f \x80 \x81 \x82 \x83 \x84
+  \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93
+  \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2
+  \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1
+  \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0
+  \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf
+  \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde
+  \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed
+  \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc
+  \xfd \xfe \xff
 Subject length lower bound = 1
 
 /[_[:alpha:]]/I
 Capture group count = 0
-Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-  _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /^[[:ascii:]]/IB
@@ -1853,34 +1853,34 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 
-  5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y 
-  Z [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ 
-  \x7f 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4
+  5 6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y
+  Z [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~
+  \x7f
 Subject length lower bound = 1
 
 /^[[:^ascii:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x80-\xff] (neg)
+        [^\x00-\x7f]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a 
-  \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 
-  \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 
-  \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 
-  \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 
-  \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 
-  \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 
-  \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 
-  \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a
+  \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99
+  \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8
+  \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7
+  \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6
+  \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5
+  \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4
+  \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3
+  \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /^[[:blank:]]/IB
@@ -1894,40 +1894,40 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x09 \x20 
+Starting code units: \x09 \x20
 Subject length lower bound = 1
 
 /^[[:^blank:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x00-\x08\x0a-\x1f!-\xff] (neg)
+        [^\x09 ]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0a \x0b 
-  \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a 
-  \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 
-  : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ 
-  _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 
-  \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f 
-  \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e 
-  \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad 
-  \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc 
-  \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb 
-  \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda 
-  \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 
-  \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 
-  \xf9 \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0a \x0b
+  \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a
+  \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9
+  : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^
+  _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80
+  \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f
+  \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e
+  \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad
+  \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc
+  \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb
+  \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda
+  \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9
+  \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8
+  \xf9 \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /[\n\x0b\x0c\x0d[:blank:]]/I
 Capture group count = 0
 Contains explicit CR or LF match
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20
 Subject length lower bound = 1
 
 /^[[:cntrl:]]/IB
@@ -1941,9 +1941,9 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x7f 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x7f
 Subject length lower bound = 1
 
 /^[[:digit:]]/IB
@@ -1957,7 +1957,7 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Subject length lower bound = 1
 
 /^[[:graph:]]/IB
@@ -1971,9 +1971,9 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : 
-  ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ 
-  ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ 
+Starting code units: ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 :
+  ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _
+  ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~
 Subject length lower bound = 1
 
 /^[[:lower:]]/IB
@@ -1987,7 +1987,7 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /^[[:print:]]/IB
@@ -2001,9 +2001,9 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 
-  9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] 
-  ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ 
+Starting code units: \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8
+  9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ]
+  ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~
 Subject length lower bound = 1
 
 /^[[:punct:]]/IB
@@ -2017,8 +2017,8 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: ! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \ ] ^ 
-  _ ` { | } ~ 
+Starting code units: ! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \ ] ^
+  _ ` { | } ~
 Subject length lower bound = 1
 
 /^[[:space:]]/IB
@@ -2032,7 +2032,7 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20
 Subject length lower bound = 1
 
 /^[[:upper:]]/IB
@@ -2046,7 +2046,7 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
+Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 Subject length lower bound = 1
 
 /^[[:xdigit:]]/IB
@@ -2060,7 +2060,7 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F a b c d e f 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F a b c d e f
 Subject length lower bound = 1
 
 /^[[:word:]]/IB
@@ -2074,87 +2074,87 @@ Subject length lower bound = 1
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /^[[:^cntrl:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [ -~\x80-\xff] (neg)
+        [^\x00-\x1f\x7f]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 
-  9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] 
-  ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x80 \x81 
-  \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 
-  \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f 
-  \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae 
-  \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd 
-  \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc 
-  \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb 
-  \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea 
-  \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 
-  \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x20 ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8
+  9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ]
+  ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x80 \x81
+  \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90
+  \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f
+  \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae
+  \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd
+  \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc
+  \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb
+  \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea
+  \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9
+  \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /^[12[:^digit:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x00-/12:-\xff] (neg)
+        [^03-9]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 1 2 : ; < 
-  = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a 
-  b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82 
-  \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 
-  \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 
-  \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf 
-  \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe 
-  \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd 
-  \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc 
-  \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb 
-  \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa 
-  \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( ) * + , - . / 1 2 : ; <
+  = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a
+  b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82
+  \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91
+  \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0
+  \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf
+  \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe
+  \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd
+  \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc
+  \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb
+  \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa
+  \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /^[[:^blank:]]/IB
 ------------------------------------------------------------------
         Bra
         ^
-        [\x00-\x08\x0a-\x1f!-\xff] (neg)
+        [^\x09 ]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0a \x0b 
-  \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a 
-  \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 
-  : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ 
-  _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 
-  \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f 
-  \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e 
-  \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad 
-  \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc 
-  \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb 
-  \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda 
-  \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 
-  \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 
-  \xf9 \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0a \x0b
+  \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a
+  \x1b \x1c \x1d \x1e \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9
+  : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^
+  _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80
+  \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f
+  \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e
+  \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad
+  \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc
+  \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb
+  \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda
+  \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9
+  \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8
+  \xf9 \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
 
 /[01[:alpha:]%]/IB
@@ -2165,24 +2165,24 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: % 0 1 A B C D E F G H I J K L M N O P Q R S T U V W 
-  X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: % 0 1 A B C D E F G H I J K L M N O P Q R S T U V W
+  X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 
 /[[.ch.]]/I
-Failed: error 113 at offset 1: POSIX collating elements are not supported
+Failed: error 113 at offset 7: POSIX collating elements are not supported
 
 /[[=ch=]]/I
-Failed: error 113 at offset 1: POSIX collating elements are not supported
+Failed: error 113 at offset 7: POSIX collating elements are not supported
 
 /[[:rhubarb:]]/I
-Failed: error 130 at offset 3: unknown POSIX class name
+Failed: error 130 at offset 12: unknown POSIX class name
 
 /[[:upper:]]/Ii
 Capture group count = 0
 Options: caseless
-Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-  a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
     A
  0: A
@@ -2192,8 +2192,8 @@ Subject length lower bound = 1
 /[[:lower:]]/Ii
 Capture group count = 0
 Options: caseless
-Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-  a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
     A
  0: A
@@ -2203,7 +2203,7 @@ Subject length lower bound = 1
 /((?-i)[[:lower:]])[[:lower:]]/Ii
 Capture group count = 1
 Options: caseless
-Starting code units: a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 2
     ab
  0: ab
@@ -2228,7 +2228,7 @@ Failed: error 115 at offset 5: reference to non-existent subpattern
 /(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\d+(?:\s|$))(\w+)\s+(\270)/I
 Capture group count = 271
 Max back reference = 270
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Subject length lower bound = 1
      1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 ABC ABC\=ovector=300
  0: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266 267 268 269 ABC ABC
@@ -2705,31 +2705,31 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20
 Subject length lower bound = 1
 
 /[\S]/IB
 ------------------------------------------------------------------
         Bra
-        [\x00-\x08\x0e-\x1f!-\xff] (neg)
+        [^\x09-\x0d ]
         Ket
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0e \x0f 
-  \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a \x1b \x1c \x1d \x1e 
-  \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C 
-  D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h 
-  i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82 \x83 \x84 
-  \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93 
-  \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2 
-  \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1 
-  \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0 
-  \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf 
-  \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde 
-  \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed 
-  \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc 
-  \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x0e \x0f
+  \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 \x1a \x1b \x1c \x1d \x1e
+  \x1f ! " # $ % & ' ( ) * + , - . / 0 1 2 3 4 5 6 7 8 9 : ; < = > ? @ A B C
+  D E F G H I J K L M N O P Q R S T U V W X Y Z [ \ ] ^ _ ` a b c d e f g h
+  i j k l m n o p q r s t u v w x y z { | } ~ \x7f \x80 \x81 \x82 \x83 \x84
+  \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e \x8f \x90 \x91 \x92 \x93
+  \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d \x9e \x9f \xa0 \xa1 \xa2
+  \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf \xb0 \xb1
+  \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb \xbc \xbd \xbe \xbf \xc0
+  \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca \xcb \xcc \xcd \xce \xcf
+  \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 \xda \xdb \xdc \xdd \xde
+  \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 \xe9 \xea \xeb \xec \xed
+  \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 \xf8 \xf9 \xfa \xfb \xfc
+  \xfd \xfe \xff
 Subject length lower bound = 1
 
 /a(?i)b/IB
@@ -2913,8 +2913,8 @@ Subject length lower bound = 3
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Subject length lower bound = 1
 \= Expect no match
     xxxxx
@@ -2942,6 +2942,47 @@ Capture group count = 0
 First code unit = 'x'
 Subject length lower bound = 1
 
+# For comparison with the following test, which disables auto-possessification
+# In this regex, x+ should be converted to x++
+/x+y/B,auto_possess
+------------------------------------------------------------------
+        Bra
+        x++
+        y
+        Ket
+        End
+------------------------------------------------------------------
+
+# In this regex, x+ should not be converted to x++
+/x+y/B,auto_possess_off
+------------------------------------------------------------------
+        Bra
+        x+
+        y
+        Ket
+        End
+------------------------------------------------------------------
+
+# Also in this regex, x+ should not be converted to x++
+/x+y/B,optimization_none
+------------------------------------------------------------------
+        Bra
+        x+
+        y
+        Ket
+        End
+------------------------------------------------------------------
+
+# In this one too, x+ should not be converted to x++
+/x+y/B,no_auto_possess
+------------------------------------------------------------------
+        Bra
+        x+
+        y
+        Ket
+        End
+------------------------------------------------------------------
+
 /x{1,3}+/B,no_auto_possess
 ------------------------------------------------------------------
         Bra
@@ -2963,8 +3004,8 @@ Subject length lower bound = 1
 /[^x]{1,3}+/B,no_auto_possess
 ------------------------------------------------------------------
         Bra
-        [^x]
-        [^x]{0,2}+
+        [^x] (not)
+        [^x]{0,2}+ (not)
         Ket
         End
 ------------------------------------------------------------------
@@ -2972,11 +3013,24 @@ Subject length lower bound = 1
 /[^x]{1,3}+/Bi,no_auto_possess
 ------------------------------------------------------------------
         Bra
-     /i [^x]
-     /i [^x]{0,2}+
+     /i [^x] (not)
+     /i [^x]{0,2}+ (not)
         Ket
         End
 ------------------------------------------------------------------
+
+/x{1,3}+/IB,auto_possess_off
+------------------------------------------------------------------
+        Bra
+        x
+        x{0,2}+
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Optimizations: dotstar_anchor,start_optimize
+First code unit = 'x'
+Subject length lower bound = 1
 
 /(x)*+/IB
 ------------------------------------------------------------------
@@ -3007,7 +3061,7 @@ No match
 
 /(\d++)(\w)/I
 Capture group count = 2
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Subject length lower bound = 2
     12345a
  0: 12345a
@@ -3045,20 +3099,20 @@ Subject length lower bound = 2
 
 /([^()]++|\([^()]*\))+/I
 Capture group count = 1
-Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a 
-  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19 
-  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( * + , - . / 0 1 2 3 4 5 
-  6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 
-  [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f 
-  \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e 
-  \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d 
-  \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac 
-  \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb 
-  \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca 
-  \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9 
-  \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8 
-  \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7 
-  \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff 
+Starting code units: \x00 \x01 \x02 \x03 \x04 \x05 \x06 \x07 \x08 \x09 \x0a
+  \x0b \x0c \x0d \x0e \x0f \x10 \x11 \x12 \x13 \x14 \x15 \x16 \x17 \x18 \x19
+  \x1a \x1b \x1c \x1d \x1e \x1f \x20 ! " # $ % & ' ( * + , - . / 0 1 2 3 4 5
+  6 7 8 9 : ; < = > ? @ A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+  [ \ ] ^ _ ` a b c d e f g h i j k l m n o p q r s t u v w x y z { | } ~ \x7f
+  \x80 \x81 \x82 \x83 \x84 \x85 \x86 \x87 \x88 \x89 \x8a \x8b \x8c \x8d \x8e
+  \x8f \x90 \x91 \x92 \x93 \x94 \x95 \x96 \x97 \x98 \x99 \x9a \x9b \x9c \x9d
+  \x9e \x9f \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7 \xa8 \xa9 \xaa \xab \xac
+  \xad \xae \xaf \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7 \xb8 \xb9 \xba \xbb
+  \xbc \xbd \xbe \xbf \xc0 \xc1 \xc2 \xc3 \xc4 \xc5 \xc6 \xc7 \xc8 \xc9 \xca
+  \xcb \xcc \xcd \xce \xcf \xd0 \xd1 \xd2 \xd3 \xd4 \xd5 \xd6 \xd7 \xd8 \xd9
+  \xda \xdb \xdc \xdd \xde \xdf \xe0 \xe1 \xe2 \xe3 \xe4 \xe5 \xe6 \xe7 \xe8
+  \xe9 \xea \xeb \xec \xed \xee \xef \xf0 \xf1 \xf2 \xf3 \xf4 \xf5 \xf6 \xf7
+  \xf8 \xf9 \xfa \xfb \xfc \xfd \xfe \xff
 Subject length lower bound = 1
     ((abc(ade)ufh()()x
  0: abc(ade)ufh()()x
@@ -3249,6 +3303,15 @@ Failed: error 137 at offset 2: PCRE2 does not support \F, \L, \l, \N{name}, \U, 
 /\N{25,ab}/
 Failed: error 137 at offset 2: PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
 
+/[\N]/
+Failed: error 171 at offset 3: \N is not supported in a class
+
+/[\N{4}]/
+Failed: error 137 at offset 3: PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+
+/[\N{name}]/
+Failed: error 137 at offset 3: PCRE2 does not support \F, \L, \l, \N{name}, \U, or \u
+
 /a{1,3}b/ungreedy
     ab
  0: ab
@@ -3270,7 +3333,7 @@ Failed: error 106 at offset 10: missing terminating ] for character class
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20
 Subject length lower bound = 1
 
 /[[:space:]]/IB
@@ -3281,7 +3344,7 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20
 Subject length lower bound = 1
 
 /[[:space:]abcde]/IB
@@ -3292,7 +3355,7 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 a b c d e 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 a b c d e
 Subject length lower bound = 1
 
 /< (?: (?(R) \d++  | [^<>]*+) | (?R)) * >/Ix
@@ -3489,12 +3552,12 @@ Subject length lower bound = 1
 
 /[ab]/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /[ab]/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /[^a]/I
@@ -3503,13 +3566,13 @@ Subject length lower bound = 1
 
 /\d456/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = '6'
 Subject length lower bound = 4
 
 /\d456/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = '6'
 Subject length lower bound = 4
 
@@ -3535,18 +3598,18 @@ No match
 
 /c|abc/I
 Capture group count = 0
-Starting code units: a c 
+Starting code units: a c
 Last code unit = 'c'
 Subject length lower bound = 1
 
 /(?i)[ab]/I
 Capture group count = 0
-Starting code units: A B a b 
+Starting code units: A B a b
 Subject length lower bound = 1
 
 /[ab](?i)cd/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'd' (caseless)
 Subject length lower bound = 3
 
@@ -3584,7 +3647,7 @@ Subject length lower bound = 6
 
 /(?C1)\dabc(?C2)def/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = 'f'
 Subject length lower bound = 7
     1234abcdef
@@ -3601,7 +3664,7 @@ No match
 
 /(?C1)\dabc(?C2)def/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = 'f'
 Subject length lower bound = 7
     1234abcdef
@@ -3867,12 +3930,12 @@ Subject length lower bound = 3
 
 /(?C)a|b/I
 Capture group count = 0
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /a|(b)(?C)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
     b
 --->b
@@ -3984,7 +4047,7 @@ Subject length lower bound = 2
 Capture group count = 2
 Compile options: <none>
 Overall options: anchored
-Starting code units: ( - 0 1 2 3 4 5 6 7 8 9 
+Starting code units: ( - 0 1 2 3 4 5 6 7 8 9
 Subject length lower bound = 1
     12
  0: 12
@@ -4074,7 +4137,7 @@ Subject length lower bound = 9
 Capture group count = 1
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b c 
+Starting code units: a b c
 Subject length lower bound = 2
     a=a
  0: a=a
@@ -4090,7 +4153,7 @@ Subject length lower bound = 2
 Capture group count = 2
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b c 
+Starting code units: a b c
 Subject length lower bound = 2
     a=a
  0: a=a
@@ -4435,8 +4498,8 @@ Subject length lower bound = 8
  0: abcdefgh
  1: cd
  2: gh
-Number not found for group 'three'
-Copy substring 'three' failed (-49): unknown substring
+Number not found for group "three"
+Copy substring "three" failed (-49): unknown substring
 
 /(?P<Tes>)(?P<Test>)/IB
 ------------------------------------------------------------------
@@ -4743,7 +4806,7 @@ No match
 ------------------------------------------------------------------
 Capture group count = 0
 Options: auto_callout
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'b'
 Subject length lower bound = 1
   ab
@@ -4786,7 +4849,7 @@ Subject length lower bound = 1
 ------------------------------------------------------------------
 Capture group count = 0
 Options: auto_callout
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'b'
 Subject length lower bound = 1
   ab
@@ -4886,7 +4949,7 @@ No match
 ------------------------------------------------------------------
 Capture group count = 1
 Options: auto_callout
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'x'
 Subject length lower bound = 4
   abcx
@@ -4960,7 +5023,7 @@ No match
 ------------------------------------------------------------------
 Capture group count = 1
 Options: auto_callout
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'x'
 Subject length lower bound = 4
   abcx
@@ -5008,7 +5071,7 @@ No match
 /(ab|cd){3,4}/I,auto_callout
 Capture group count = 1
 Options: auto_callout
-Starting code units: a c 
+Starting code units: a c
 Subject length lower bound = 6
   ababab
 --->ababab
@@ -5098,7 +5161,7 @@ Subject length lower bound = 6
 ------------------------------------------------------------------
 Capture group count = 1
 Options: auto_callout
-Starting code units: a b x 
+Starting code units: a b x
 Subject length lower bound = 2
 \= Expect no match
     Note: that {,} does NOT introduce a quantifier
@@ -5146,7 +5209,7 @@ No match
 ------------------------------------------------------------------
 Capture group count = 1
 Options: auto_callout
-Starting code units: a b x 
+Starting code units: a b x
 Subject length lower bound = 2
 \= Expect no match
     Note: that {,} does NOT introduce a quantifier
@@ -5247,7 +5310,7 @@ No match
 ------------------------------------------------------------------
 Capture group count = 1
 Options: auto_callout
-Starting code units: a b x 
+Starting code units: a b x
 Last code unit = '3'
 Subject length lower bound = 11
     aacaacaacaacaac123
@@ -5323,7 +5386,7 @@ No match
 Capture group count = 3
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = '/'
 Subject length lower bound = 6
     13/05/04\=ps
@@ -5377,31 +5440,31 @@ No match
 
 /0{0,2}ABC/I
 Capture group count = 0
-Starting code units: 0 A 
+Starting code units: 0 A
 Last code unit = 'C'
 Subject length lower bound = 3
 
 /\d{3,}ABC/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = 'C'
 Subject length lower bound = 6
 
 /\d*ABC/I
 Capture group count = 0
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A
 Last code unit = 'C'
 Subject length lower bound = 3
 
 /[abc]+DE/I
 Capture group count = 0
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = 'E'
 Subject length lower bound = 3
 
 /[abc]?123/I
 Capture group count = 0
-Starting code units: 1 a b c 
+Starting code units: 1 a b c
 Last code unit = '3'
 Subject length lower bound = 3
     123\=ps
@@ -5421,7 +5484,7 @@ Partial match: c12
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = 'X'
 Subject length lower bound = 4
     1\=ps
@@ -5506,13 +5569,13 @@ Subject length lower bound = 4
 No match
 
 /a{11111111111111111111}/I
-Failed: error 105 at offset 8: number too big in {} quantifier
+Failed: error 105 at offset 22: number too big in {} quantifier
 
 /(){64294967295}/I
-Failed: error 105 at offset 9: number too big in {} quantifier
+Failed: error 105 at offset 14: number too big in {} quantifier
 
 /(){2,4294967295}/I
-Failed: error 105 at offset 11: number too big in {} quantifier
+Failed: error 105 at offset 15: number too big in {} quantifier
 
 "(?i:a)(?i:b)(?i:c)(?i:d)(?i:e)(?i:f)(?i:g)(?i:h)(?i:i)(?i:j)(k)(?i:l)A\1B"I
 Capture group count = 1
@@ -5812,8 +5875,8 @@ Subject length lower bound = 2
  0: a1
  1: a1
  2: a1
-Number not found for group 'Z'
-Copy substring 'Z' failed (-49): unknown substring
+Number not found for group "Z"
+Copy substring "Z" failed (-49): unknown substring
   C a1 (2) A (non-unique)
 
 /(?|(?<a>)(?<b>)(?<a>)|(?<a>)(?<b>)(?<a>))/I,dupnames
@@ -5847,7 +5910,7 @@ Named capture groups:
   A   1
   A   2
 Options: dupnames
-Starting code units: a c 
+Starting code units: a c
 Subject length lower bound = 2
     ab\=copy=A
  0: ab
@@ -5856,7 +5919,7 @@ Subject length lower bound = 2
   C a (1) A (non-unique)
     cd\=copy=A
  0: cd
-Copy substring 'A' failed (-55): requested value is not set
+Copy substring "A" failed (-55): requested value is not set
 
 /^(?P<A>a)(?P<A>b)|cd(?P<A>ef)(?P<A>gh)/I,dupnames
 Capture group count = 4
@@ -5866,7 +5929,7 @@ Named capture groups:
   A   3
   A   4
 Options: dupnames
-Starting code units: a c 
+Starting code units: a c
 Subject length lower bound = 2
     cdefgh\=copy=A
  0: cdefgh
@@ -5900,8 +5963,8 @@ Subject length lower bound = 2
  0: a1
  1: a1
  2: a1
-Number not found for group 'Z'
-Get substring 'Z' failed (-49): unknown substring
+Number not found for group "Z"
+Get substring "Z" failed (-49): unknown substring
   G a1 (2) A (non-unique)
 
 /^(?P<A>a)(?P<A>b)/I,dupnames
@@ -5925,7 +5988,7 @@ Named capture groups:
   A   1
   A   2
 Options: dupnames
-Starting code units: a c 
+Starting code units: a c
 Subject length lower bound = 2
     ab\=get=A
  0: ab
@@ -5934,7 +5997,7 @@ Subject length lower bound = 2
   G a (1) A (non-unique)
     cd\=get=A
  0: cd
-Get substring 'A' failed (-55): requested value is not set
+Get substring "A" failed (-55): requested value is not set
 
 /^(?P<A>a)(?P<A>b)|cd(?P<A>ef)(?P<A>gh)/I,dupnames
 Capture group count = 4
@@ -5944,7 +6007,7 @@ Named capture groups:
   A   3
   A   4
 Options: dupnames
-Starting code units: a c 
+Starting code units: a c
 Subject length lower bound = 2
     cdefgh\=get=A
  0: cdefgh
@@ -6098,7 +6161,7 @@ Subject length lower bound = 2
 
 /\s*,\s*/I
 Capture group count = 0
-Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 , 
+Starting code units: \x09 \x0a \x0b \x0c \x0d \x20 ,
 Last code unit = ','
 Subject length lower bound = 1
     \x0b,\x0b
@@ -6160,7 +6223,7 @@ No match
 No match
 
 /^abc/Im,newline=bad
-** Invalid value in 'newline=bad'
+** Invalid value in "newline=bad"
 
 /.*/I,newline=lf
 Capture group count = 0
@@ -6204,8 +6267,8 @@ Subject length lower bound = 0
 /\w+(.)(.)?def/Is
 Capture group count = 2
 Options: dotall
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Last code unit = 'f'
 Subject length lower bound = 5
     abc\ndef
@@ -6223,7 +6286,7 @@ Subject length lower bound = 5
 Capture group count = 1
 Named capture groups:
   B   1
-Starting code units: 0 1 2 3 4 5 6 7 8 9 
+Starting code units: 0 1 2 3 4 5 6 7 8 9
 Last code unit = '.'
 Subject length lower bound = 7
 
@@ -6343,42 +6406,42 @@ Subject length lower bound = 2
 
 /(a*b|(?i:c*(?-i)d))/I
 Capture group count = 1
-Starting code units: C a b c d 
+Starting code units: C a b c d
 Subject length lower bound = 1
 
 /()[ab]xyz/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'z'
 Subject length lower bound = 4
 
 /(|)[ab]xyz/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'z'
 Subject length lower bound = 4
 
 /(|c)[ab]xyz/I
 Capture group count = 1
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = 'z'
 Subject length lower bound = 4
 
 /(|c?)[ab]xyz/I
 Capture group count = 1
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = 'z'
 Subject length lower bound = 4
 
 /(d?|c?)[ab]xyz/I
 Capture group count = 1
-Starting code units: a b c d 
+Starting code units: a b c d
 Last code unit = 'z'
 Subject length lower bound = 4
 
 /(d?|c)[ab]xyz/I
 Capture group count = 1
-Starting code units: a b c d 
+Starting code units: a b c d
 Last code unit = 'z'
 Subject length lower bound = 4
 
@@ -6395,7 +6458,7 @@ Subject length lower bound = 4
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'b'
 Subject length lower bound = 2
 
@@ -6412,7 +6475,7 @@ Subject length lower bound = 2
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'b'
 Subject length lower bound = 2
 
@@ -6429,7 +6492,7 @@ Subject length lower bound = 2
 Capture group count = 0
 Compile options: <none>
 Overall options: anchored
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'b'
 Subject length lower bound = 2
 
@@ -6468,8 +6531,7 @@ No match
 Capture group count = 0
 Compile options: caseless
 Overall options: anchored caseless
-Starting code units: A a 
-Last code unit = 'A' (caseless)
+First code unit = 'A' (caseless)
 Subject length lower bound = 2
     aaaA5
  0: aaaA5
@@ -6480,22 +6542,22 @@ Subject length lower bound = 2
 
 /(a*|b*)[cd]/I
 Capture group count = 1
-Starting code units: a b c d 
+Starting code units: a b c d
 Subject length lower bound = 1
 
 /(a+|b*)[cd]/I
 Capture group count = 1
-Starting code units: a b c d 
+Starting code units: a b c d
 Subject length lower bound = 1
 
 /(a*|b+)[cd]/I
 Capture group count = 1
-Starting code units: a b c d 
+Starting code units: a b c d
 Subject length lower bound = 1
 
 /(a+|b+)[cd]/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((
@@ -7071,7 +7133,7 @@ Matched, but too many substrings
 /[^a]+a/B
 ------------------------------------------------------------------
         Bra
-        [^a]++
+        [^a]++ (not)
         a
         Ket
         End
@@ -7080,7 +7142,7 @@ Matched, but too many substrings
 /[^a]+a/Bi
 ------------------------------------------------------------------
         Bra
-     /i [^a]++
+     /i [^a]++ (not)
      /i a
         Ket
         End
@@ -7089,7 +7151,7 @@ Matched, but too many substrings
 /[^a]+A/Bi
 ------------------------------------------------------------------
         Bra
-     /i [^a]++
+     /i [^a]++ (not)
      /i A
         Ket
         End
@@ -7098,7 +7160,7 @@ Matched, but too many substrings
 /[^a]+b/B
 ------------------------------------------------------------------
         Bra
-        [^a]+
+        [^a]+ (not)
         b
         Ket
         End
@@ -7107,7 +7169,7 @@ Matched, but too many substrings
 /[^a]+\d/B
 ------------------------------------------------------------------
         Bra
-        [^a]+
+        [^a]+ (not)
         \d
         Ket
         End
@@ -7117,7 +7179,7 @@ Matched, but too many substrings
 ------------------------------------------------------------------
         Bra
         a*+
-        [^a]
+        [^a] (not)
         Ket
         End
 ------------------------------------------------------------------
@@ -7296,7 +7358,7 @@ No match
         ^
         CBra 1
         Cond
-      2 Cond ref
+      2 Capture ref
         y
         Ket
         [()]
@@ -7389,8 +7451,8 @@ No match
 /(?=(\w+))\1:/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Last code unit = ':'
 Subject length lower bound = 2
     abcd:
@@ -7402,8 +7464,8 @@ Capture group count = 1
 Max back reference = 1
 Named capture groups:
   abc   1
-Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P 
-  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z 
+Starting code units: 0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P
+  Q R S T U V W X Y Z _ a b c d e f g h i j k l m n o p q r s t u v w x y z
 Last code unit = ':'
 Subject length lower bound = 2
     abcd:
@@ -7820,7 +7882,7 @@ Failed: error 115 at offset 5: reference to non-existent subpattern
         abc
         Ket
         Cond
-      1 Cond ref
+      1 Capture ref
         X
         Alt
         Y
@@ -7843,7 +7905,7 @@ No match
         ^
         CBra 1
         Cond
-      2 Cond ref
+      2 Capture ref
         X
         Alt
         Y
@@ -7875,7 +7937,7 @@ Failed: error 115 at offset 5: reference to non-existent subpattern
         Bra
         CBra 1
         Cond
-      1 Cond ref
+      1 Capture ref
         a
         Ket
         Ket
@@ -7891,7 +7953,7 @@ Failed: error 115 at offset 6: reference to non-existent subpattern
         Bra
         ^
         Cond
-      1 Cond ref
+      1 Capture ref
         X
         Alt
         Y
@@ -8375,7 +8437,7 @@ No match
 Failed: error 166 at offset 7: (*MARK) must have an argument
 
 /\g6666666666/
-Failed: error 161 at offset 7: subpattern number is too big
+Failed: error 161 at offset 12: subpattern number is too big
 
 /[\g6666666666]/B
 ------------------------------------------------------------------
@@ -8713,31 +8775,31 @@ Failed: error 162 at offset 4: subpattern name expected
 Failed: error 162 at offset 4: subpattern name expected
 
 /[[:foo:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
+Failed: error 130 at offset 8: unknown POSIX class name
 
 /[[:1234:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
+Failed: error 130 at offset 9: unknown POSIX class name
 
 /[[:f\oo:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
+Failed: error 130 at offset 9: unknown POSIX class name
 
 /[[: :]]/
-Failed: error 130 at offset 3: unknown POSIX class name
-
-/[[:...:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
-
-/[[:l\ower:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
-
-/[[:abc\:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
-
-/[abc[:x\]pqr:]]/
 Failed: error 130 at offset 6: unknown POSIX class name
 
+/[[:...:]]/
+Failed: error 130 at offset 8: unknown POSIX class name
+
+/[[:l\ower:]]/
+Failed: error 130 at offset 11: unknown POSIX class name
+
+/[[:abc\:]]/
+Failed: error 130 at offset 9: unknown POSIX class name
+
+/[abc[:x\]pqr:]]/
+Failed: error 130 at offset 14: unknown POSIX class name
+
 /[[:a\dz:]]/
-Failed: error 130 at offset 3: unknown POSIX class name
+Failed: error 130 at offset 9: unknown POSIX class name
 
 /(^(a|b\g<-1'c))/
 Failed: error 157 at offset 8: \g is not followed by a braced, angle-bracketed, or quoted name/number or by a plain number
@@ -8755,6 +8817,17 @@ No match
 \= Expect no match
     cat
 No match
+
+/cat[]/B,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        cat
+        []
+        Ket
+        End
+------------------------------------------------------------------
+    cat\=ph
+Partial match: cat
 
 /(\3)(\1)(a)/allow_empty_class,match_unset_backref,dupnames
     cat
@@ -8826,9 +8899,8 @@ No match
 No match
 
 /a[]*+b/allow_empty_class,match_unset_backref,dupnames
-\= Expect no match
     ab
-No match
+ 0: ab
 
 /a[^]b/allow_empty_class,match_unset_backref,dupnames
     aXb
@@ -8876,7 +8948,7 @@ Failed: error 109 at offset 8: quantifier does not follow a repeatable item
 
 /(abc|pqr|123){0}[xyz]/I
 Capture group count = 1
-Starting code units: x y z 
+Starting code units: x y z
 Subject length lower bound = 1
 
 /(?(?=.*b)b|^)/I,auto_callout
@@ -9372,10 +9444,10 @@ Partial match: ab
         Cond false
         CBra 1
         <
-        [^m]
-        [^>]
+        [^m] (not)
+        [^>] (not)
         >
-        [^<]
+        [^<] (not)
         Ket
         CBra 2
         \w*+
@@ -9394,10 +9466,10 @@ Partial match: ab
         Cond false
         CBra 1
         <
-        [\x00-/:-\xff] (neg)
-        [^>]
+        [^0-9]
+        [^>] (not)
         >
-        [^<]
+        [^<] (not)
         Ket
         CBra 2
         \w*+
@@ -9660,42 +9732,42 @@ Failed: error 125 at offset 0: length of lookbehind assertion is not limited
 /(a|bc)\1/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /(a|bc)\1{2,3}/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 3
 
 /(a|bc)(?1)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /(a|b\1)(a|b\1)/I
 Capture group count = 2
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /(a|b\1){2}/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /(a|bbbb\1)(a|bbbb\1)/I
 Capture group count = 2
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /(a|bbbb\1){2}/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 2
 
 /^From +([^ ]+) +[a-zA-Z][a-zA-Z][a-zA-Z] +[a-zA-Z][a-zA-Z][a-zA-Z] +[0-9]?[0-9] +[0-9][0-9]:[0-9][0-9]/I
@@ -9727,12 +9799,12 @@ Subject length lower bound = 8
 /(?:(?:(?:(?:(?:(?:(?:(?:(?:(a|b|c))))))))))/Ii
 Capture group count = 1
 Options: caseless
-Starting code units: A B C a b c 
+Starting code units: A B C a b c
 Subject length lower bound = 1
 
 /(?:c|d)(?:)(?:aaaaaaaa(?:)(?:bbbbbbbb)(?:bbbbbbbb(?:))(?:bbbbbbbb(?:)(?:bbbbbbbb)))/I
 Capture group count = 0
-Starting code units: c d 
+Starting code units: c d
 Last code unit = 'b'
 Subject length lower bound = 41
 
@@ -9768,7 +9840,7 @@ Subject length lower bound = 2
 Capture group count = 1
 Named capture groups:
   a   1
-Starting code units: A B 
+Starting code units: A B
 Subject length lower bound = 1
     AB\=copy=a
  0: A
@@ -9795,7 +9867,7 @@ Named capture groups:
   realquote    3
   realquote    6
 Options: dupnames extended
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 3
     a"aaaaa
  0: a"aaaaa
@@ -9814,6 +9886,43 @@ Subject length lower bound = 3
     b"11111
 No match
     a"11111
+No match
+
+/(?:a(?<digit>[0-5])|b(?<digit>[4-7]))c(?(<digit>)d|e)/B,dupnames
+------------------------------------------------------------------
+        Bra
+        Bra
+        a
+        CBra 1
+        [0-5]
+        Ket
+        Alt
+        b
+        CBra 2
+        [4-7]
+        Ket
+        Ket
+        c
+        Cond
+        Capture ref <digit>2
+        d
+        Alt
+        e
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    a4cd
+ 0: a4cd
+ 1: 4
+    b4cd
+ 0: b4cd
+ 1: <unset>
+ 2: 4
+\= Expect no match
+    a6cd
+No match
+    a6ce
 No match
 
 /^(?|(a)(b)(c)(?<D>d)|(?<D>e)) (?('D')X|Y)/IBx,dupnames
@@ -9839,7 +9948,7 @@ No match
         Ket
         Ket
         Cond
-        Cond ref <D>2
+        Capture ref <D>2
         X
         Alt
         Y
@@ -9854,7 +9963,7 @@ Named capture groups:
   D   1
 Compile options: dupnames extended
 Overall options: anchored dupnames extended
-Starting code units: a e 
+Starting code units: a e
 Subject length lower bound = 2
     abcdX
  0: abcdX
@@ -10437,7 +10546,7 @@ No match
     abc\=offset=4
 Failed: error -33: bad offset value
     abc\=offset=-4
-** Invalid value in 'offset=-4'
+** Invalid value in "offset=-4"
 \= Valid data
     abc\=offset=0
  0: abc
@@ -10595,7 +10704,7 @@ Subject length lower bound = 5
 
 /([abc])++1234/I
 Capture group count = 1
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = '4'
 Subject length lower bound = 5
 
@@ -10747,9 +10856,8 @@ Subject length lower bound = 1
 /(?=a{3})[bcd]/Ii
 Capture group count = 0
 Options: caseless
-First code unit = 'a' (caseless)
-Last code unit = 'a' (caseless)
-Subject length lower bound = 2
+First code unit = 'A' (caseless)
+Subject length lower bound = 1
 
 /(abc)\1+/
 
@@ -10897,12 +11005,12 @@ Subject length lower bound = 0
 
 /(a(?2)|b)(b(?1)|a)(?:(?1)|(?2))/I
 Capture group count = 2
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 3
 
 /(a(?2)|b)(b(?1)|a)(?1)(?2)/I
 Capture group count = 2
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 4
 
 /(abc)(?1)/I
@@ -11200,7 +11308,7 @@ Subject length lower bound = 18
 /\btype\b\W*?\btext\b\W*?\bjavascript\b|\burl\b\W*?\bshell:|<input\b.*?\btype\b\W*?\bimage\b|\bonkeyup\b\W*?\=/I
 Capture group count = 0
 Max lookbehind = 1
-Starting code units: < o t u 
+Starting code units: < o t u
 Subject length lower bound = 8
 
 /a(*SKIP)c|b(*ACCEPT)|/I,aftertext
@@ -11213,7 +11321,7 @@ Subject length lower bound = 0
 
 /a(*SKIP)c|b(*ACCEPT)cd(*ACCEPT)|x/I
 Capture group count = 0
-Starting code units: a b x 
+Starting code units: a b x
 Subject length lower bound = 1
     ax
  0: x
@@ -11416,7 +11524,7 @@ Failed: error 171 at offset 4: \N is not supported in a class
     aNc
 
 /a[B-\Nc]/
-Failed: error 150 at offset 6: invalid range in character class
+Failed: error 171 at offset 6: \N is not supported in a class
 
 /a[B\Nc]/
 Failed: error 171 at offset 5: \N is not supported in a class
@@ -12068,7 +12176,7 @@ Capture group count = 1
 Named capture groups:
   n   1
 Options: dupnames
-Starting code units: b f 
+Starting code units: b f
 Subject length lower bound = 1
 
 /(?<a>abc)(?<a>z)\k<a>()/IB,dupnames
@@ -12974,11 +13082,11 @@ Subject length lower bound = 5
         [a-d]{5,12}+
         [0-9e-z]*+
         #
-        [\x00-`{-\xff] (neg)++
+        [^a-z]++
         [b-y]*+
         a
         [2-7]?+
-        [\x00-/:-`{-\xff] (neg)++
+        [^0-9a-z]++
         Ket
         End
 ------------------------------------------------------------------
@@ -13132,7 +13240,7 @@ Subject length lower bound = 5
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: a b c d 
+Starting code units: a b c d
 Last code unit = 'd'
 Subject length lower bound = 1
 
@@ -13145,7 +13253,7 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = 'd'
 Subject length lower bound = 2
 
@@ -13158,7 +13266,7 @@ Subject length lower bound = 2
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: a b c d 
+Starting code units: a b c d
 Last code unit = 'd'
 Subject length lower bound = 1
 
@@ -13171,7 +13279,7 @@ Subject length lower bound = 1
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: a b c 
+Starting code units: a b c
 Last code unit = 'd'
 Subject length lower bound = 5
 
@@ -13184,7 +13292,7 @@ Subject length lower bound = 5
         End
 ------------------------------------------------------------------
 Capture group count = 0
-Starting code units: a b c d 
+Starting code units: a b c d
 Last code unit = 'd'
 Subject length lower bound = 1
 
@@ -13204,7 +13312,7 @@ Failed: error 167 at offset 5: non-hex character in \x{} (closing brace missing?
 Failed: error 167 at offset 7: non-hex character in \x{} (closing brace missing?)
 
 /^A\x{/
-Failed: error 178 at offset 5: digits missing in \x{} or \o{} or \N{U+}
+Failed: error 178 at offset 5: digits missing after \x or in \x{} or \o{} or \N{U+}
 
 /[ab]++/B,no_auto_possess
 ------------------------------------------------------------------
@@ -13217,7 +13325,7 @@ Failed: error 178 at offset 5: digits missing in \x{} or \o{} or \N{U+}
 /[^ab]*+/B,no_auto_possess
 ------------------------------------------------------------------
         Bra
-        [\x00-`c-\xff] (neg)*+
+        [^ab]*+
         Ket
         End
 ------------------------------------------------------------------
@@ -13239,16 +13347,16 @@ Failed: error 178 at offset 5: digits missing in \x{} or \o{} or \N{U+}
 ------------------------------------------------------------------
 
 /[a-[:digit:]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 12: invalid range in character class
 
 /[A-[:digit:]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 12: invalid range in character class
 
 /[a-[.xxx.]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 10: invalid range in character class
 
 /[a-[=xxx=]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 10: invalid range in character class
 
 /[a-[!xxx!]]+/
 Failed: error 108 at offset 3: range out of order in character class
@@ -13368,8 +13476,31 @@ No match
     Alfred Winifred
 No match
 
+/[[:<:]]+red/B
+------------------------------------------------------------------
+        Bra
+        \b
+        Assert
+        \w
+        Ket
+        Brazero
+        Assert
+        \w
+        Ket
+        red
+        Ket
+        End
+------------------------------------------------------------------
+    little red riding hood
+ 0: red
+    red is a colour
+ 0: red
+\= Expect no match
+    Alfred
+No match
+
 /[a[:<:]] should give error/
-Failed: error 130 at offset 4: unknown POSIX class name
+Failed: error 130 at offset 7: unknown POSIX class name
 
 /(?=ab\K)/aftertext,allow_lookaround_bsk
     abcd\=startchar
@@ -13416,15 +13547,22 @@ Failed: error 133 at offset 7: parentheses are too deeply nested (stack check)
 Failed: error 155 at offset 2: missing opening brace after \o
 
 /\o{}/
-Failed: error 178 at offset 3: digits missing in \x{} or \o{} or \N{U+}
+Failed: error 178 at offset 3: digits missing after \x or in \x{} or \o{} or \N{U+}
 
 /\o{whatever}/
 Failed: error 164 at offset 3: non-octal character in \o{} (closing brace missing?)
 
 /\xthing/
+Failed: error 178 at offset 2: digits missing after \x or in \x{} or \o{} or \N{U+}
+
+/^A\xZ/
+Failed: error 178 at offset 4: digits missing after \x or in \x{} or \o{} or \N{U+}
+
+/^A\x/
+Failed: error 178 at offset 4: digits missing after \x or in \x{} or \o{} or \N{U+}
 
 /\x{}/
-Failed: error 178 at offset 3: digits missing in \x{} or \o{} or \N{U+}
+Failed: error 178 at offset 3: digits missing after \x or in \x{} or \o{} or \N{U+}
 
 /\x{whatever}/
 Failed: error 167 at offset 3: non-hex character in \x{} (closing brace missing?)
@@ -13532,7 +13670,7 @@ Capture group count = 1
 Max back reference = 1
 Named capture groups:
   VERSION   1
-Starting code units: a x 
+Starting code units: a x
 Subject length lower bound = 5
     abcyes
  0: abcyes
@@ -13557,19 +13695,30 @@ Failed: error 179 at offset 16: syntax error or number too big in (?(VERSION con
 /(?(VERSION=10.101)yes|no)/
 Failed: error 179 at offset 16: syntax error or number too big in (?(VERSION condition
 
+# We should see the starting code unit, required code unit, and minimum length set for this regex:
 /abcd/I
 Capture group count = 0
 First code unit = 'a'
 Last code unit = 'd'
 Subject length lower bound = 4
 
+# None of the following three should have the starting code unit, required code unit, and minimum length set:
 /abcd/I,no_start_optimize
 Capture group count = 0
 Options: no_start_optimize
+Optimizations: auto_possess,dotstar_anchor
+
+/abcd/I,start_optimize_off
+Capture group count = 0
+Optimizations: auto_possess,dotstar_anchor
+
+/abcd/I,optimization_none
+Capture group count = 0
+Optimizations: <none>
 
 /(|ab)*?d/I
 Capture group count = 1
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'd'
 Subject length lower bound = 1
    abd
@@ -13581,6 +13730,7 @@ Subject length lower bound = 1
 /(|ab)*?d/I,no_start_optimize
 Capture group count = 1
 Options: no_start_optimize
+Optimizations: auto_possess,dotstar_anchor
    abd
  0: abd
  1: ab
@@ -13654,7 +13804,7 @@ Failed: error -49 at offset 36 in replacement: unknown substring
 
 /abc/replace=a${A23456789012345678901234567890123}z
     123abc
-Failed: error -35 at offset 35 in replacement: invalid replacement string
+Failed: error -49 at offset 37 in replacement: unknown substring
 
 /abc/replace=a${bcd
     123abc
@@ -13752,7 +13902,66 @@ Failed: error -48: no more memory: 23 code units are needed
     apple lemon blackberry
  3: pear orange strawberry
 
+/"(*:fruit" 00 "juice)apple"/hex,g,replace=${*MARK}
+    apple lemon blackberry
+ 1: fruit\x00juice lemon blackberry
+
 /abc/
+    123abc123\=replace=XYZ
+ 1: 123XYZ123
+    123abc123\=replace=[10]XYZ
+ 1: 123XYZ123
+\= Expect error
+    123abc123\=replace=[9]XYZ
+Failed: error -48: no more memory
+    123abc123\=substitute_overflow_length,replace=[9]XYZ
+Failed: error -48: no more memory: 10 code units are needed
+    123abc123\=substitute_overflow_length,replace=[6]XYZ
+Failed: error -48: no more memory: 10 code units are needed
+    123abc123\=substitute_overflow_length,replace=[1]XYZ
+Failed: error -48: no more memory: 10 code units are needed
+    123abc123\=substitute_overflow_length,replace=[0]XYZ
+Failed: error -48: no more memory: 10 code units are needed
+
+/abc/
+    123abc123\=replace=XY
+ 1: 123XY123
+    123abc123\=replace=[9]XY
+ 1: 123XY123
+    123abc123\=replace=[9]XY,substitute_literal
+ 1: 123XY123
+\= Expect error
+    123abc123\=replace=[8]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[8]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[6]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[6]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[5]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[5]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[4]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[4]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[3]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[3]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[2]XY,substitute_overflow_length
+Failed: error -48: no more memory: 9 code units are needed
+    123abc123\=replace=[2]XY,substitute_overflow_length,substitute_literal
+Failed: error -48: no more memory: 9 code units are needed
+
+/abc/substitute_literal
+    123abc123\=replace=XYZ
+ 1: 123XYZ123
+    123abc123\=replace=[10]XYZ
+ 1: 123XYZ123
+\= Expect error
     123abc123\=replace=[9]XYZ
 Failed: error -48: no more memory
     123abc123\=substitute_overflow_length,replace=[9]XYZ
@@ -13775,6 +13984,134 @@ Failed: error -48: no more memory: 10 code units are needed
 Failed: error -48: no more memory: 10 code units are needed
     123abc123\=substitute_overflow_length,replace=[0]x$1z
 Failed: error -48: no more memory: 10 code units are needed
+
+/a(b)c/substitute_extended
+    ZabcZ\=replace=>\1<
+ 1: Z>b<Z
+    ZabcZ\=replace=>\2<
+Failed: error -49 at offset 3 in replacement: unknown substring
+    ZabcZ\=replace=>\8<
+Failed: error -49 at offset 3 in replacement: unknown substring
+    ZabcZ\=replace=>${1}<
+ 1: Z>b<Z
+    ZabcZ\=replace=>${ 1 }<
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>${2}<
+Failed: error -49 at offset 5 in replacement: unknown substring
+    ZabcZ\=replace=>${8}<
+Failed: error -49 at offset 5 in replacement: unknown substring
+    ZabcZ\=replace=>$<1><
+Failed: error -49 at offset 5 in replacement: unknown substring
+    ZabcZ\=replace=>$< 1 ><
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>$<2><
+Failed: error -49 at offset 5 in replacement: unknown substring
+    ZabcZ\=replace=>$<8><
+Failed: error -49 at offset 5 in replacement: unknown substring
+    ZabcZ\=replace=>\g<-1><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g<0><
+ 1: Z>abc<Z
+    ZabcZ\=replace=>\g<1><
+ 1: Z>b<Z
+    ZabcZ\=replace=>\g< 1 ><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g<2><
+Failed: error -49 at offset 6 in replacement: unknown substring
+    ZabcZ\=replace=>\g<8><
+Failed: error -49 at offset 6 in replacement: unknown substring
+
+/(*:pear)apple/substitute_extended
+    ZappleZ\=replace=>${*MARK}<
+ 1: Z>pear<Z
+    ZappleZ\=replace=>$<*MARK><
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZappleZ\=replace=>\g<*MARK><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+
+/a(?<named>b)c/substitute_extended
+    ZabcZ\=replace=>${named}<
+ 1: Z>b<Z
+    ZabcZ\=replace=>${noexist}<
+Failed: error -49 at offset 11 in replacement: unknown substring
+    ZabcZ\=replace=>${}<
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>${ }<
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>${ named }<
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>$<named><
+ 1: Z>b<Z
+    ZabcZ\=replace=>$<noexist><
+Failed: error -49 at offset 11 in replacement: unknown substring
+    ZabcZ\=replace=>$<><
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>$< ><
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>$< named ><
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>\g<named><
+ 1: Z>b<Z
+    ZabcZ\=replace=>\g<noexist><
+Failed: error -49 at offset 12 in replacement: unknown substring
+    ZabcZ\=replace=>\g<><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g< ><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g< named ><
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+
+/a(b)c/substitute_extended
+    ZabcZ\=replace=>${1:+ yes : no }
+ 1: Z> yes Z
+    ZabcZ\=replace=>${1:+ \o{100} : \o{100} }
+ 1: Z> @ Z
+    ZabcZ\=replace=>${1:+ \o{Z} : no }
+Failed: error -57 at offset 9 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>${1:+ yes : \o{Z} }
+Failed: error -57 at offset 15 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>${1:+ \g<1> : no }
+ 1: Z> b Z
+    ZabcZ\=replace=>${1:+ yes : \g<1> }
+ 1: Z> yes Z
+    ZabcZ\=replace=>${1:+ \g<1 : no }
+Failed: error -57 at offset 8 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>${1:+ yes : \g<1 }
+Failed: error -57 at offset 14 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>${1:+ $<1> : no }
+Failed: error -49 at offset 11 in replacement: unknown substring
+    ZabcZ\=replace=>${1:+ yes : $<1> }
+ 1: Z> yes Z
+    ZabcZ\=replace=>${1:+ $<1 : no }
+Failed: error -35 at offset 10 in replacement: invalid replacement string
+    ZabcZ\=replace=>${1:+ yes : $<1 }
+ 1: Z> yes Z
+
+/a(b)c/substitute_extended
+    ZabcZ\=replace=>${
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>${1
+Failed: error -58 at offset 4 in replacement: expected closing curly bracket in replacement string
+    ZabcZ\=replace=>${1Z
+Failed: error -58 at offset 4 in replacement: expected closing curly bracket in replacement string
+    ZabcZ\=replace=>${1;
+Failed: error -58 at offset 4 in replacement: expected closing curly bracket in replacement string
+    ZabcZ\=replace=>$<
+Failed: error -35 at offset 3 in replacement: invalid replacement string
+    ZabcZ\=replace=>$<1
+Failed: error -35 at offset 4 in replacement: invalid replacement string
+    ZabcZ\=replace=>$<1Z
+Failed: error -35 at offset 5 in replacement: invalid replacement string
+    ZabcZ\=replace=>$<1;
+Failed: error -35 at offset 4 in replacement: invalid replacement string
+    ZabcZ\=replace=>\g<
+Failed: error -57 at offset 4 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g<1
+Failed: error -57 at offset 3 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g<1Z
+Failed: error -57 at offset 3 in replacement: bad escape sequence in replacement string
+    ZabcZ\=replace=>\g<1;
+Failed: error -57 at offset 3 in replacement: bad escape sequence in replacement string
 
 "((?=(?(?=(?(?=(?(?=()))))))))"
     a
@@ -13817,9 +14154,9 @@ Start of matched string is beyond its end - displaying from end to start.
     a\=ovector=1,copy=A,get=A,get=2
 Matched, but too many substrings
  0: a
-Copy substring 'A' failed (-54): requested value is not available
+Copy substring "A" failed (-54): requested value is not available
 Get substring 2 failed (-54): requested value is not available
-Get substring 'A' failed (-54): requested value is not available
+Get substring "A" failed (-54): requested value is not available
     a\=ovector=2,copy=A,get=A,get=2
  0: a
  1: a
@@ -13830,9 +14167,9 @@ Get substring 2 failed (-54): requested value is not available
 Matched, but too many substrings
  0: b
  1: <unset>
-Copy substring 'A' failed (-55): requested value is not set
+Copy substring "A" failed (-55): requested value is not set
 Get substring 2 failed (-54): requested value is not available
-Get substring 'A' failed (-55): requested value is not set
+Get substring "A" failed (-55): requested value is not set
 
 /a(b)c(d)/
     abc\=ph,copy=0,copy=1,getall
@@ -13852,7 +14189,79 @@ Subject length lower bound = 3
 Capture group count = 0
 Compile options: no_dotstar_anchor
 Overall options: anchored no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
 First code unit = 'a'
+Subject length lower bound = 3
+
+/^abc/info,dotstar_anchor_off
+Capture group count = 0
+Compile options: <none>
+Overall options: anchored
+Optimizations: auto_possess,start_optimize
+First code unit = 'a'
+Subject length lower bound = 3
+
+# For comparison with the following tests, which disable automatic dotstar anchoring
+/.*abc/BI
+------------------------------------------------------------------
+        Bra
+        Any*
+        abc
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+First code unit at start or follows newline
+Last code unit = 'c'
+Subject length lower bound = 3
+
+/.*abc/BI,dotstar_anchor_off
+------------------------------------------------------------------
+        Bra
+        Any*
+        abc
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Optimizations: auto_possess,start_optimize
+Last code unit = 'c'
+Subject length lower bound = 3
+
+/.*abc/BI,start_optimize_off
+------------------------------------------------------------------
+        Bra
+        Any*
+        abc
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Optimizations: auto_possess,dotstar_anchor
+
+/.*abc/BI,optimization_none
+------------------------------------------------------------------
+        Bra
+        Any*
+        abc
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Optimizations: <none>
+
+/.*abc/BI,no_dotstar_anchor
+------------------------------------------------------------------
+        Bra
+        Any*
+        abc
+        Ket
+        End
+------------------------------------------------------------------
+Capture group count = 0
+Options: no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
+Last code unit = 'c'
 Subject length lower bound = 3
 
 /.*\d/info,auto_callout
@@ -13873,6 +14282,7 @@ No match
 /.*\d/info,no_dotstar_anchor,auto_callout
 Capture group count = 0
 Options: auto_callout no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
 Subject length lower bound = 1
 \= Expect no match
     aaa
@@ -13900,12 +14310,14 @@ Subject length lower bound = 1
 /.*\d/dotall,no_dotstar_anchor,info
 Capture group count = 0
 Options: dotall no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
 Subject length lower bound = 1
 
 /(*NO_DOTSTAR_ANCHOR)(?s).*\d/info
 Capture group count = 0
 Compile options: <none>
 Overall options: no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
 Subject length lower bound = 1
 
 '^(?:(a)|b)(?(1)A|B)'
@@ -14242,7 +14654,7 @@ Failed: error -52: nested recursion at the same subject position
 # Perl fails to diagnose the absence of an assertion
 
 "(?(?<E>.*!.*)?)"
-Failed: error 128 at offset 2: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 2: atomic assertion expected after (?( or (?(?C)
 
 "X((?2)()*+){2}+"B
 ------------------------------------------------------------------
@@ -14401,7 +14813,7 @@ Named capture groups:
   a   2
   b   3
 Options: dupnames
-Starting code units: 2 3 
+Starting code units: 2 3
 Subject length lower bound = 1
     A23B
  0: 2
@@ -14479,7 +14891,7 @@ Failed: error 162 at offset 4: subpattern name expected
 "(?J:(?|(?'R')(\k'R')|((?'R'))))"
 
 /(?<=|(\,\$(?73591620449005828816)\xa8.{7}){6}\x09)/
-Failed: error 161 at offset 17: subpattern number is too big
+Failed: error 161 at offset 32: subpattern number is too big
 
 /^(?:(?(1)x|)+)+$()/B
 ------------------------------------------------------------------
@@ -14487,7 +14899,7 @@ Failed: error 161 at offset 17: subpattern number is too big
         ^
         SBra
         SCond
-      1 Cond ref
+      1 Capture ref
         x
         Alt
         KetRmax
@@ -14543,7 +14955,7 @@ Failed: error 162 at offset 9: subpattern name expected
 Capture group count = 1
 Named capture groups:
   abc   1
-Starting code units: : [ \ 
+Starting code units: : [ \
 Subject length lower bound = 2
 
 "[[[.\xe8Nq\xffq\xff\xe0\x2|||::Nq\xffq\xff\xe0\x6\x2|||::[[[:[::::::[[[[[::::::::[:[[[:[:::[[[[[[[[[[[[:::::::::::::::::[[.\xe8Nq\xffq\xff\xe0\x2|||::Nq\xffq\xff\xe0\x6\x2|||::[[[:[::::::[[[[[::::::::[:[[[:[:::[[[[[[[[[[[[[[:::E[[[:[:[[:[:::[[:::E[[[:[:[[:'[:::::E[[[:[::::::[[[:[[[[[[[::E[[[:[::::::[[[:[[[[[[[[:[[::[::::[[:::::::[[:[[[[[[[:[[::[:[[:[~"
@@ -14594,17 +15006,17 @@ Subject length lower bound = 65535
 /(?|(aaa)|(b))\g{1}/I
 Capture group count = 1
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /(?|(aaa)|(b))(?1)/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 4
 
 /(?|(aaa)|(b))/I
 Capture group count = 1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /(?|(?'a'aaa)|(?'a'b))\k'a'/I
@@ -14612,7 +15024,7 @@ Capture group count = 1
 Max back reference = 1
 Named capture groups:
   a   1
-Starting code units: a b 
+Starting code units: a b
 Subject length lower bound = 1
 
 /(?|(?'a'aaa)|(?'a'b))(?'a'cccc)\k'a'/I,dupnames
@@ -14622,7 +15034,7 @@ Named capture groups:
   a   1
   a   2
 Options: dupnames
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 5
 
@@ -14670,7 +15082,7 @@ No match
  0: ab
 
 /(?(8000000000/
-Failed: error 161 at offset 8: subpattern number is too big
+Failed: error 161 at offset 13: subpattern number is too big
 
 /((?(R8000000000)))/
 Failed: error 161 at offset 9: subpattern number is too big
@@ -14797,7 +15209,7 @@ No match
 /abcd/null_context
     abcd\=null_context
  0: abcd
-\= Expect error - not allowed together
+\= Expect not allowed together
     abcd\=null_context,find_limits
 ** Not allowed together: find_limits null_context
     abcd\=allusedtext,startchar
@@ -14818,6 +15230,10 @@ No match
 /a(bc)(DE)/replace=a\u$1\U$1\E$1\l$2\L$2\Eab\Uab\LYZ\EDone,substitute_extended
     abcDE
  1: aBcBCbcdEdeabAByzDone
+
+/(Hello)|wORLD/g,replace=>${1:+\l\U$0:\u\L$0}<,substitute_extended
+    Hello between wORLD
+ 2: >hELLO< between >World<
 
 /abcd/replace=xy\kz,substitute_extended
     abcd
@@ -14898,6 +15314,56 @@ Failed: error -55 at offset 3 in replacement: requested value is not set
 /abcd/g
     >abcd1234abcd5678<\=replace=wxyz,substitute_matched
  2: >wxyz1234wxyz5678<
+
+/abc/substitute_extended,replace=>\045<
+    abc
+ 1: >%<
+
+/abc/substitute_extended,replace=>\45<
+    abc
+ 1: >%<
+
+/abc/substitute_extended,replace=>\o{45}<
+    abc
+ 1: >%<
+
+/abc/substitute_extended,replace=>\845<
+    abc
+Failed: error -49 at offset 5 in replacement: unknown substring
+
+/a(b)(c)/substitute_extended,replace=>\1<
+    abc
+ 1: >b<
+
+/a(b)(c)/substitute_extended,replace=>\2<
+    abc
+ 1: >c<
+
+/a(b)(c)/substitute_extended,replace=>\3<
+    abc
+Failed: error -49 at offset 3 in replacement: unknown substring
+
+/a(?<namED_1>b)c/substitute_extended
+    abc\=replace=>${namED_1}<
+ 1: >b<
+
+/a(?<namedverylongbutperfectlylegalsoyoushouldnthaveaproblem_1>b)c/substitute_extended
+    abc\=replace=>${namedverylongbutperfectlylegalsoyoushouldnthaveaproblem_1}<
+ 1: >b<
+
+/abc/substitute_extended
+    abc\=replace=\a\b\e\f\n\r\t\v\\
+ 1: \x07\x08\x1b\x0c\x0a\x0d\x09\x0b\
+
+/a(b)c/
+    LabcR\=replace=>$&<
+ 1: L>abc<R
+    LabcR\=replace=>$`<
+ 1: L>L<R
+    LabcR\=replace=>$'<
+ 1: L>R<R
+    LabcR\=replace=>$_<
+ 1: L>LabcR<R
 
 /^(o(\1{72}{\"{\\{00000059079}\d*){74}}){19}/I
 Capture group count = 2
@@ -15206,7 +15672,7 @@ Subject length lower bound = 0
         T?
         *MARK ;.'?`(\x{ea}p
         {!
-        [\x00- "-&+-:<->@-BD-xz-\xff] (neg)
+        [^!'-*;?Cy]
         {1;
         CBra 1
         \x08
@@ -15337,19 +15803,19 @@ Failed: error -55 at offset 3 in replacement: requested value is not set
 
 /()()()/use_offset_limit
     \=ovector=11000000000
-** Invalid value in 'ovector=11000000000'
+** Invalid value in "ovector=11000000000"
     \=callout_fail=11000000000
-** Invalid value in 'callout_fail=11000000000'
+** Invalid value in "callout_fail=11000000000"
     \=callout_fail=1:11000000000
-** Invalid value in 'callout_fail=1:11000000000'
+** Invalid value in "callout_fail=1:11000000000"
     \=callout_data=11000000000
-** Invalid value in 'callout_data=11000000000'
+** Invalid value in "callout_data=11000000000"
     \=callout_data=-11000000000
-** Invalid value in 'callout_data=-11000000000'
+** Invalid value in "callout_data=-11000000000"
     \=offset_limit=1100000000000000000000
-** Invalid value in 'offset_limit=1100000000000000000000'
+** Invalid value in "offset_limit=1100000000000000000000"
     \=copy=11000000000
-** Invalid value in 'copy=11000000000'
+** Invalid value in "copy=11000000000"
 
 /(*MARK:A\x00b)/mark
     abc
@@ -15491,11 +15957,11 @@ Failed: error 125 at offset 13: length of lookbehind assertion is not limited
 # Perl accepts these, but gives a warning. We can't warn, so give an error.
 
 /[a-[:digit:]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 12: invalid range in character class
     a-a9-a
 
 /[A-[:digit:]]+/
-Failed: error 150 at offset 4: invalid range in character class
+Failed: error 150 at offset 12: invalid range in character class
     A-A9-A
 
 /[a-\d]+/
@@ -15523,7 +15989,7 @@ Failed: error 150 at offset 5: invalid range in character class
         abc
         Ket
         Cond
-      1 Cond ref
+      1 Capture ref
         xyz
         Ket
         Ket
@@ -15554,15 +16020,15 @@ Failed: error 157 at offset 6: \g is not followed by a braced, angle-bracketed, 
 
 //
 \=get=i00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-** Group name in 'get' is too long
+** Group name in "get" is too long
 \=get=i2345678901234567890123456789012,get=i1245678901234567890123456789012
-** Too many characters in named 'get' modifiers
+** Too many characters in named "get" modifiers
 
 "(?(?C))"
-Failed: error 128 at offset 6: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 6: atomic assertion expected after (?( or (?(?C)
 
 /(?(?(?(?(?(?))))))/
-Failed: error 128 at offset 2: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 2: atomic assertion expected after (?( or (?(?C)
 
 /(?<=(?1))((?s))/anchored
 
@@ -15628,14 +16094,14 @@ Subject length lower bound = 1
 # behave unpredictably at match time.
 
 /.+(?(?C'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'))?!XXXX.=X/
-Failed: error 128 at offset 63: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 63: atomic assertion expected after (?( or (?(?C)
     .+(?(?C'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'))?!XXXX.=X
 
 /[:[:alnum:]-[[a:lnum:]+/
-Failed: error 150 at offset 11: invalid range in character class
+Failed: error 150 at offset 12: invalid range in character class
 
 /((?(?C'')\QX\E(?!((?(?C'')(?!X=X));=)r*X=X));=)/
-Failed: error 128 at offset 11: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 11: atomic assertion expected after (?( or (?(?C)
 
 /((?(?C'')\Q\E(?!((?(?C'')(?!X=X));=)r*X=X));=)/
 
@@ -15681,7 +16147,7 @@ Subject length lower bound = 11
 
 //
     \=ovector=7777777777
-** Invalid value in 'ovector=7777777777'
+** Invalid value in "ovector=7777777777"
 
 # This is here because Perl matches, even though a COMMIT is encountered
 # outside of the recursion.
@@ -15872,6 +16338,18 @@ Heap limit = 0
 First code unit = 'x'
 Last code unit = 'x'
 Subject length lower bound = 3
+
+/(*LIMIT_HEAP=123/use_length
+Failed: error 160 at offset 16: (*VERB) not recognized or malformed
+
+/(*LIMIT_MATCH=/use_length
+Failed: error 160 at offset 14: (*VERB) not recognized or malformed
+
+/(*CRLF)(*LIMIT_DEPTH=/use_length
+Failed: error 160 at offset 21: (*VERB) not recognized or malformed
+
+/(*CRLF)(*LIMIT_RECURSION=1)(*BOGUS/use_length
+Failed: error 160 at offset 34: (*VERB) not recognized or malformed
 
 /\d{0,3}(*:abc)(?C1)xxx/callout_info
 Callout 1  x
@@ -16145,7 +16623,7 @@ Failed: error -37: callout error code
 ------------------------------------------------------------------
 Capture group count = 0
 Options: extended_more
-Starting code units: a b c 
+Starting code units: a b c
 Subject length lower bound = 1
 
 /[a b c]/BxxxI
@@ -16157,7 +16635,7 @@ Subject length lower bound = 1
 ------------------------------------------------------------------
 Capture group count = 0
 Options: extended extended_more
-Starting code units: a b c 
+Starting code units: a b c
 Subject length lower bound = 1
 
 /[a b c]/B,extended_more
@@ -16230,7 +16708,7 @@ Subject length lower bound = 1
 # These test the dangerous PCRE2_EXTRA_BAD_ESCAPE_IS_LITERAL option.
 
 /\j\x{z}\o{82}\L\uabcd\u\U\g{\g/B,\bad_escape_is_literal
-** Unrecognized modifier '\' in '\bad_escape_is_literal'
+** Unrecognized modifier "\bad_escape_is_literal"
 
 /\N{\c/IB,bad_escape_is_literal
 ------------------------------------------------------------------
@@ -16254,10 +16732,10 @@ Subject length lower bound = 3
 ------------------------------------------------------------------
 
 /[Q-\N]/B,bad_escape_is_literal
-Failed: error 150 at offset 5: invalid range in character class
+Failed: error 171 at offset 5: \N is not supported in a class
 
 /[\s-_]/bad_escape_is_literal
-Failed: error 150 at offset 3: invalid range in character class
+Failed: error 150 at offset 4: invalid range in character class
 
 /[_-\s]/bad_escape_is_literal
 Failed: error 150 at offset 5: invalid range in character class
@@ -16348,7 +16826,7 @@ Failed: error 192 at offset 0: invalid option bits with PCRE2_LITERAL
 Capture group count = 0
 Max lookbehind = 1
 Extra options: match_word
-Starting code units: c d 
+Starting code units: c d
 Subject length lower bound = 3
     the cat sat
  0: cat
@@ -16378,6 +16856,51 @@ No match
 No match
     syndicate
 No match
+
+# Confirm that the pcre2_set_optimize API does not have any undesired effect on literal patterns
+/(cat)|dog/I,literal,auto_possess_off
+Capture group count = 0
+Options: literal
+Optimizations: dotstar_anchor,start_optimize
+First code unit = '('
+Last code unit = 'g'
+Subject length lower bound = 9
+    (cat)|dog
+ 0: (cat)|dog
+\= Expect no match
+    the cat sat
+No match
+
+/(cat)|dog/I,literal,dotstar_anchor_off
+Capture group count = 0
+Options: literal
+Optimizations: auto_possess,start_optimize
+First code unit = '('
+Last code unit = 'g'
+Subject length lower bound = 9
+    (cat)|dog
+ 0: (cat)|dog
+\= Expect no match
+    the cat sat
+No match
+
+/(cat)|dog/I,literal,optimization_none
+Capture group count = 0
+Options: literal
+Optimizations: <none>
+    (cat)|dog
+ 0: (cat)|dog
+\= Expect no match
+    the cat sat
+No match
+
+# These should result in errors, since it is not permitted to use the
+# PCRE2_NO_AUTO_POSSESS and PCRE2_NO_DOTSTAR_ANCHOR options on a literal pattern
+/(cat)|dog/literal,no_auto_possess
+Failed: error 192 at offset 0: invalid option bits with PCRE2_LITERAL
+
+/(cat)|dog/literal,no_dotstar_anchor
+Failed: error 192 at offset 0: invalid option bits with PCRE2_LITERAL
 
 /a whole line/match_line,multiline
     Rhubarb \na whole line\n custard
@@ -16412,19 +16935,19 @@ No match
 No match
 
 /[[:digit:]-a]/
-Failed: error 150 at offset 10: invalid range in character class
+Failed: error 150 at offset 11: invalid range in character class
 
 /[[:digit:]-[:print:]]/
-Failed: error 150 at offset 10: invalid range in character class
+Failed: error 150 at offset 11: invalid range in character class
 
 /[\d-a]/
-Failed: error 150 at offset 3: invalid range in character class
+Failed: error 150 at offset 4: invalid range in character class
 
 /[\H-z]/
-Failed: error 150 at offset 3: invalid range in character class
+Failed: error 150 at offset 4: invalid range in character class
 
 /[\d-[:print:]]/
-Failed: error 150 at offset 3: invalid range in character class
+Failed: error 150 at offset 4: invalid range in character class
 
 # Perl gets the second of these wrong, giving no match.
 
@@ -16896,6 +17419,94 @@ Subject length lower bound = 1
  1(2) Old 2 5 "abc" New 2 7 "<abc> STOPPED"
  1: 12abc34xyz
 
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[1]12
+    abc\=substitute_skip=1
+Failed: error -48: no more memory: 4 code units are needed
+    abc
+Failed: error -48: no more memory: 4 code units are needed
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[2]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+Failed: error -48: no more memory: 4 code units are needed
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+Failed: error -48: no more memory: 3 code units are needed
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[3]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+Failed: error -48: no more memory: 4 code units are needed
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+ 1: 12
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[4]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+ 1: abc
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+ 1: 12
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[2]1234
+    abc\=substitute_skip=1
+Failed: error -48: no more memory: 5 code units are needed
+    abc
+Failed: error -48: no more memory: 5 code units are needed
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[3]1234
+    abc\=substitute_skip=1
+Failed: error -48: no more memory: 5 code units are needed
+    abc
+Failed: error -48: no more memory: 5 code units are needed
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[4]1234
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 4 "1234 SKIPPED"
+ 1: abc
+    abc
+ 1(2) Old 0 3 "abc" New 0 4 "1234"
+Failed: error -48: no more memory: 5 code units are needed
+
+/a(b)c/substitute_overflow_length,substitute_callout,replace=[5]1234
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 4 "1234 SKIPPED"
+ 1: abc
+    abc
+ 1(2) Old 0 3 "abc" New 0 4 "1234"
+ 1: 1234
+
+/a(b)c/substitute_callout,replace=[1]12
+    abc\=substitute_skip=1
+Failed: error -48: no more memory
+    abc
+Failed: error -48: no more memory
+
+/a(b)c/substitute_callout,replace=[2]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+Failed: error -48: no more memory
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+Failed: error -48: no more memory
+
+/a(b)c/substitute_callout,replace=[3]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+Failed: error -48: no more memory
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+ 1: 12
+
+/a(b)c/substitute_callout,replace=[4]12
+    abc\=substitute_skip=1
+ 1(2) Old 0 3 "abc" New 0 2 "12 SKIPPED"
+ 1: abc
+    abc
+ 1(2) Old 0 3 "abc" New 0 2 "12"
+ 1: 12
+
 /abc\rdef/
     abc\ndef
 No match
@@ -16908,13 +17519,13 @@ No match
 No match
 
 /(?(*ACCEPT)xxx)/
-Failed: error 128 at offset 2: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 2: atomic assertion expected after (?( or (?(?C)
 
 /(?(*atomic:xx)xxx)/
-Failed: error 128 at offset 10: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 10: atomic assertion expected after (?( or (?(?C)
 
 /(?(*script_run:xxx)zzz)/
-Failed: error 128 at offset 14: assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 14: atomic assertion expected after (?( or (?(?C)
 
 /foobar/
     the foobar thing\=copy_matched_subject
@@ -17006,14 +17617,14 @@ Subject length lower bound = 4
 /(?|(a)|(bcde))(c)\2/I
 Capture group count = 2
 Max back reference = 2
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 3
 
 /(?|(a)|(bcde))(c)\1/I
 Capture group count = 2
 Max back reference = 1
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 2
 
@@ -17025,7 +17636,7 @@ Named capture groups:
   A   3
   B   2
 Options: dupnames
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 3
 
@@ -17037,13 +17648,13 @@ Named capture groups:
   A   3
   B   2
 Options: dupnames
-Starting code units: a b 
+Starting code units: a b
 Last code unit = 'c'
 Subject length lower bound = 2
 
 /((a|)+)+Z/I
 Capture group count = 2
-Starting code units: Z a 
+Starting code units: Z a
 Last code unit = 'Z'
 Subject length lower bound = 1
 
@@ -17123,7 +17734,7 @@ Failed: error 187 at offset 10: lookbehind assertion is too long
 
 # Expect error: not allowed as a condition
 /(?(*napla:xx)bc)/
-Failed: error 198 at offset 9: atomic assertion expected after (?( or (?(?C)
+Failed: error 128 at offset 9: atomic assertion expected after (?( or (?(?C)
 
 /\A(*pla:.*\b(\w++))(?>.*?\b\1\b){3}/
     word1 word3 word1 word2 word3 word2 word2 word1 word3 word4
@@ -17224,7 +17835,7 @@ Capture group count = 0
 May match empty string
 Compile options: <none>
 Overall options: anchored
-Starting code units: x y 
+Starting code units: x y
 Subject length lower bound = 1
 
 /(*napla:abc|abd)/I
@@ -17355,7 +17966,7 @@ Subject length lower bound = 1
         a
         Ket
         Cond
-      1 Cond ref
+      1 Capture ref
         b
         Ket
         CBra 2
@@ -17373,7 +17984,7 @@ Subject length lower bound = 1
 ------------------------------------------------------------------
         Bra
         Cond
-      1 Cond ref
+      1 Capture ref
         b
         Ket
         CBra 1
@@ -17481,8 +18092,7 @@ Subject length lower bound = 5
 
 /(a)?a/I
 Capture group count = 1
-Starting code units: a 
-Last code unit = 'a'
+First code unit = 'a'
 Subject length lower bound = 1
     manm
  0: a
@@ -17617,6 +18227,23 @@ Failed: error -55 at offset 3 in replacement: requested value is not set
  1: X*Y
     XabcY\=replace=  
  0: abc
+
+/abc/replace=\U$0,substitute_extended,substitute_case_callout
+    XabcY
+ 1: XBbKY
+\= Expect not supported
+    XabcY\=null_context
+** Replacement case callouts are not supported with null_context.
+
+/a/substitute_extended,substitute_case_callout
+    XaY\=replace=\U$0
+ 1: XBY
+    XaY\=replace=\L$0
+ 1: XaY
+    XaY\=replace=\u\L$0
+ 1: XBY
+    XaY\=replace=\l\U$0
+ 1: XaY
 
 # Expect non-fixed-length error
 
@@ -17932,9 +18559,9 @@ No match
     abc\x0adef
  0: \x0a
 
-# This test is currently broken in the interpreter
-# /|a(?0)/endanchored
-#    aaaa
+/|a(?0)/endanchored
+    aaaa
+ 0: aaaa
 
 /A +/extended
 
@@ -17983,7 +18610,7 @@ No match
 
 /a?(?=b(*COMMIT)c|)d/I
 Capture group count = 0
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'd'
 Subject length lower bound = 1
     bd
@@ -17999,19 +18626,21 @@ Subject length lower bound = 1
 /a?(?=b(*COMMIT)c|)d/I,no_start_optimize
 Capture group count = 0
 Options: no_start_optimize
+Optimizations: auto_possess,dotstar_anchor
     bd
 No match
 
 /(?=b(*COMMIT)c|)d/I,no_start_optimize
 Capture group count = 0
 Options: no_start_optimize
+Optimizations: auto_possess,dotstar_anchor
     bd
 No match
 
 /a?(?=bc|)d/I,auto_callout
 Capture group count = 0
 Options: auto_callout
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'd'
 Subject length lower bound = 1
     bd
@@ -18027,7 +18656,7 @@ Subject length lower bound = 1
 /a?(?=bc|)\bd/I 
 Capture group count = 0
 Max lookbehind = 1
-Starting code units: a d 
+Starting code units: a d
 Last code unit = 'd'
 Subject length lower bound = 1
     bd
@@ -18058,8 +18687,3139 @@ Failed: error -47: match limit exceeded
     .abc def..
 No match
 
+/(*MARK:a/y_)/debug
+** Unrecognized modifier 'y' in modifier string "y_)/debug"
+
+//i,sr
+** Unrecognized modifier "sr"
+
+# The behaviour of these tests is different from Perl because PCRE2 doesn't
+# recognize \Q or \E within a quantifier, so these examples are not treated
+# as quantifiers. Subsequent processing of the string removes the escapes.
+
+/a{\Q1\E,2}/
+    xa{1,2}x
+ 0: a{1,2}
+\= Expect no match     
+    xaax
+No match
+    
+/a{\E1,2}/
+    xa{1,2}x
+ 0: a{1,2}
+\= Expect no match     
+    xaax
+No match
+    
+# --------------
+
+/(?<=|b?)./B
+------------------------------------------------------------------
+        Bra
+        Assert back
+        Alt
+        VReverse
+        b?
+        Ket
+        Any
+        Ket
+        End
+------------------------------------------------------------------
+
+/(?=|b?)./B
+------------------------------------------------------------------
+        Bra
+        Assert
+        Alt
+        b?+
+        Ket
+        Any
+        Ket
+        End
+------------------------------------------------------------------
+
+/(?>|b?)./B
+------------------------------------------------------------------
+        Bra
+        Once
+        Alt
+        b?+
+        Ket
+        Any
+        Ket
+        End
+------------------------------------------------------------------
+
+/(?<=xy|a.b?|cd)/B
+------------------------------------------------------------------
+        Bra
+        Assert back
+        Reverse
+        xy
+        Alt
+        VReverse
+        a
+        Any
+        b?
+        Alt
+        Reverse
+        cd
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+
+# Tests for scan substring, a non Perl feature of PCRE2
+
+# Parse errors first
+
+/(*scs:/
+Failed: error 114 at offset 6: missing closing parenthesis
+
+/(*scan_substring:(/
+Failed: error 114 at offset 18: missing closing parenthesis
+
+/(*scs:('name'/
+Failed: error 114 at offset 13: missing closing parenthesis
+
+/(*scs:(1)a|b)/
+Failed: error 115 at offset 7: reference to non-existent subpattern
+
+/(*scs:(0)a)/
+Failed: error 115 at offset 8: reference to non-existent subpattern
+
+/(*scan_substring:(1)a|b)/
+Failed: error 115 at offset 18: reference to non-existent subpattern
+
+/(*scs:(<name>)a|b)/
+Failed: error 115 at offset 8: reference to non-existent subpattern
+
+/(*scan_substring:(<name>)a|b)/
+Failed: error 115 at offset 19: reference to non-existent subpattern
+
+/()(*scs:(1)+a)/
+Failed: error 109 at offset 11: quantifier does not follow a repeatable item
+
+/()(*scs:(1,1,1,1,1,1,1,1,2))/
+Failed: error 115 at offset 25: reference to non-existent subpattern
+
+/()()(*scs:(1,2,1,2,1,2,2,'XYZ'))/
+Failed: error 115 at offset 26: reference to non-existent subpattern
+
+# Tests for iterating scan_substring
+
+/(a)(*scs:(1)b)*c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)*?c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Braminzero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)*+c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Once
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)+c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)+?c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Braminzero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)++c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Once
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)?c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)??c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Braminzero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b)?+c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Once
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b){3}c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b){3,5}?c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Braminzero
+        Bra
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Braminzero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(a)(*scs:(1)b){3,}+c/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Once
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Brazero
+        Scan substring
+      1 Capture ref
+        b
+        Ket
+        Ket
+        c
+        Ket
+        End
+------------------------------------------------------------------
+
+/(\w++)=(?(*scs:(1)(abc))pqr|xyz)(\w++)/
+Failed: error 128 at offset 14: atomic assertion expected after (?( or (?(?C)
+
+# Tests for scan_substring
+
+/([a-z]++)(*scs:(1)(stx)|(ne))(.)/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        [a-z]++
+        Ket
+        Scan substring
+      1 Capture ref
+        CBra 2
+        stx
+        Ket
+        Alt
+        CBra 3
+        ne
+        Ket
+        Ket
+        CBra 4
+        Any
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    ##string##next!##
+ 0: next!
+ 1: next
+ 2: <unset>
+ 3: ne
+ 4: !
+    __aastxaa:__
+ 0: stxaa:
+ 1: stxaa
+ 2: stx
+ 3: <unset>
+ 4: :
+    __abababab:__
+No match
+
+/(?<XX>[a-z]++)##(*scan_substring:('XX').*(..)$)\2/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        [a-z]++
+        Ket
+        ##
+        Scan substring
+      1 Capture ref
+        Any*
+        CBra 2
+        Any
+        Any
+        Ket
+        $
+        Ket
+        \2
+        Ket
+        End
+------------------------------------------------------------------
+    ##abcd##abcd##cd##
+ 0: abcd##cd
+ 1: abcd
+ 2: cd
+    ##abcd##abcd##abcd##
+No match
+
+/([a-z])([a-z]++)(#+)(*scs:(2)(ab.))/
+    xab##
+No match
+    yabc###
+ 0: yabc###
+ 1: y
+ 2: abc
+ 3: ###
+ 4: abc
+    zababc####
+ 0: zababc####
+ 1: z
+ 2: ababc
+ 3: ####
+ 4: aba
+
+/(?:(?<YYY>[a-z]++)|(?<YYY>[0-9]++)|$)(*scan_substring:('YYY')((?<START>.).*\k<START>$))/dupnames
+    $$abacd$$112345$$abca$$
+ 0: abca
+ 1: abca
+ 2: <unset>
+ 3: abca
+ 4: a
+    $$abcdeaf$$1234567819$$123456781$$
+ 0: 123456781
+ 1: <unset>
+ 2: 123456781
+ 3: 123456781
+ 4: 1
+
+/([a-zA-Z]+)(*scs:(1).*?(?<ABC>[A-Z]+)(*scan_substring:('ABC').*(.)\3))#+/
+    ##abABCtuTUVXz##abCDEFGxyCDEEFGhi##
+ 0: abCDEFGxyCDEEFGhi##
+ 1: abCDEFGxyCDEEFGhi
+ 2: CDEEFG
+ 3: E
+    ##abAABCtuTUVXXz!!abCDEFGxyCDEFGGhi##
+ 0: abCDEFGxyCDEFGGhi##
+ 1: abCDEFGxyCDEFGGhi
+ 2: CDEFGG
+ 3: G
+
+/([a-zA-Z]+)(*scs:(1)(xy|ab(*ACCEPT)cd))/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        [A-Za-z]+
+        Ket
+        Scan substring
+      1 Capture ref
+        CBra 2
+        xy
+        Alt
+        ab
+        Close 2
+        *ASSERT_ACCEPT
+        cd
+        Ket
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    ##cdefgh##cdeabxy##
+ 0: abxy
+ 1: abxy
+ 2: ab
+
+/(?<AA>[a-zA-Z]+)(*scs:('AA')(ab(*ACCEPT)cd|xy))/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        [A-Za-z]+
+        Ket
+        Scan substring
+      1 Capture ref
+        CBra 2
+        ab
+        Close 2
+        *ASSERT_ACCEPT
+        cd
+        Alt
+        xy
+        Ket
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    ##cdefgh##cdeabxy##
+ 0: abxy
+ 1: abxy
+ 2: ab
+
+/([a-z]++)##(*scs:(1)(abc))?!/
+    ##xyz##abc##!
+ 0: abc##!
+ 1: abc
+ 2: abc
+    ##xyz##!
+ 0: xyz##!
+ 1: xyz
+    ##xyz##
+No match
+
+/([a-z]++)##(*scs:(1)(abc))??(?(2)!|:)/
+    ##abc##abc##!
+ 0: abc##!
+ 1: abc
+ 2: abc
+    ##abc##xyz##:
+ 0: xyz##:
+ 1: xyz
+    ##abc###
+No match
+
+/([a-z]++)##(*scs:(1)(abc)|xyz){8}(?(2)!|:)/
+    ##abc##abc##!
+ 0: abc##!
+ 1: abc
+ 2: abc
+    ##abc##xyz##:
+ 0: xyz##:
+ 1: xyz
+    ##nnn##!
+No match
+    ##nnn##:
+No match
+
+/[A-Z]{3}([A-Z]++)#(*scs:(1)(?<=BC)XY)#/
+    ABCXY##AKCXY##
+ 0: ABCXY##
+ 1: XY
+  
+/()(\w++)=(*scs:(2)(?=abc))(\w++)/
+    xabcx=pqr.
+ 0: abcx=pqr
+ 1: 
+ 2: abcx
+ 3: pqr
+      
+/(\d++)(*scs:(1)\d+\z)(\w+)/
+    X123XYZ
+ 0: 123XYZ
+ 1: 123
+ 2: XYZ
+
+/(\d++)(*scs:(1)\d+\Z)(\w+)/
+    X123XYZ
+ 0: 123XYZ
+ 1: 123
+ 2: XYZ
+
+/(\d++)(*scs:(1)\d+$)(\w+)/
+    X123XYZ
+ 0: 123XYZ
+ 1: 123
+ 2: XYZ
+
+/([a-z]{2})[a-z](*scs:(1)(.*?))\2$/
+    abcab
+ 0: abcab
+ 1: ab
+ 2: ab
+    abcabc
+ 0: bcabc
+ 1: bc
+ 2: bc
+
+/^(([a-z]([a-z]*+))(*scs:(2).(?=(?1)|$)\3)|#){5}/
+    abcdefg#hijk#!
+No match
+    abcdefg#hijk#lmnopqr#
+ 0: abcdefg#hijk#lmnopqr
+ 1: lmnopqr
+ 2: lmnopqr
+ 3: mnopqr
+
+/(*scs:(1)a)(a)|x/
+    a
+No match
+    x
+ 0: x
+
+/(*scs:(<GOOD_NAME>)a)(?<GOOD_NAME>a)(?<GOOD_NAME>b)(?<GOOD_NAME>c)(?<GOOD_NAME>d)|x/dupnames
+    abcd
+No match
+    x
+ 0: x
+
+/(*scs:(1)a)?(a)/
+    b
+No match
+    a
+ 0: a
+ 1: a
+
+/(*scs:(1)a)??(a)/
+    b
+No match
+    a
+ 0: a
+ 1: a
+
+# Custom backtrack, goes back n - 1 characters in the input (n=8)
+/x(?|(*scs:(1)(?<=(.)))|()){8}/
+    abcdefghx
+ 0: x
+ 1: c
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*PRUNE)x)).+|(.+)/
+    abcdef
+ 0: bcdef
+ 1: <unset>
+ 2: <unset>
+ 3: bcdef
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*PRUNE:markstr)x)).+|(.+)/mark
+    abcdef
+ 0: bcdef
+ 1: <unset>
+ 2: <unset>
+ 3: bcdef
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*PRUNE:markstr))).+|(.+)/mark
+    abcdef
+ 0: abcdef
+ 1: a
+ 2: b
+MK: markstr
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*COMMIT)x)).+|(.+)/
+    abcdef
+No match
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*COMMIT:markstr)x)).+|(.+)/mark
+    abcdef
+No match, mark = markstr
+
+/(a)(b)(*scs:(2)(*scs:(1)a(*COMMIT:markstr))).+|(.+)/mark
+    abcdef
+ 0: abcdef
+ 1: a
+ 2: b
+MK: markstr
+
+/(abc)(def)(*scs:(1)(*scs:(2)de(*SKIP)x)).+|(.+)/
+    abcdefghi
+ 0: fghi
+ 1: <unset>
+ 2: <unset>
+ 3: fghi
+
+/(abc)(def)(*scs:(2)(*scs:(1)(*SKIP)x)).+|(.+)/
+    abcdefghi
+ 0: bcdefghi
+ 1: <unset>
+ 2: <unset>
+ 3: bcdefghi
+
+/(?<=(abc))(def)(*scs:(2)(*scs:(1)(*SKIP)x)).+|(ef.+)/
+    abcdefghi
+ 0: efghi
+ 1: <unset>
+ 2: <unset>
+ 3: efghi
+
+/(abc)(def)(*scs:(2)(?:(*scs:(1)abc(*SKIP:notfound)x|abcd|(abc)))).+/
+    abcdefghi
+ 0: abcdefghi
+ 1: abc
+ 2: def
+ 3: abc
+
+/(abc)(def)(*MARK:markstr)(*scs:(2)(?:(*scs:(1)abc(*SKIP:markstr)x))).+|(.+)/
+    abcdefghi
+ 0: ghi
+ 1: <unset>
+ 2: <unset>
+ 3: ghi
+
+/^([a-z]++)(?:((?6))|((?7))|((?8))|(#))(?(DEFINE)((*scs:(1)abc(*PRUNE)d))((*scs:(1)abc(*COMMIT)e))((*scs:(1)abc(*SKIP)f)))/
+    abcd#
+ 0: abcd
+ 1: abcd
+ 2: 
+    abce#
+ 0: abce
+ 1: abce
+ 2: <unset>
+ 3: 
+    abcf#
+ 0: abcf
+ 1: abcf
+ 2: <unset>
+ 3: <unset>
+ 4: 
+    abc#
+ 0: abc#
+ 1: abc
+ 2: <unset>
+ 3: <unset>
+ 4: <unset>
+ 5: #
+
+/\b(\w++)(*scs:(1)^)/
+    sausages and mash
+ 0: sausages
+ 1: sausages
+\= Expect no match
+    !sausages and mash
+No match
+
+/(\b\w{3,}+\b)(*scs:(1)\W*+(?:((.)\W*+(?2)\W*+\3|)|((.)\W*+(?4)\W*+\5|\W*+.\W*+))\W*+$)/ig
+    ipsum lorem revel level able was I ere I saw Elba
+ 0: level
+ 1: level
+ 2: <unset>
+ 3: <unset>
+ 4: level
+ 5: l
+ 0: ere
+ 1: ere
+ 2: <unset>
+ 3: <unset>
+ 4: ere
+ 5: e
+
+/(?:(?'A'a)|(?<A>b))(*scs:('A')b)c/dupnames
+    abc
+ 0: bc
+ 1: <unset>
+ 2: b
+
+# Relative reference
+/(xyz)(abc)(*scs:(-1)abc)(*scs:(-2)\1)/
+    >xyzabc<
+ 0: xyzabc
+ 1: xyz
+ 2: abc
+
+/^([a-z]++)#(*scs:(1)a|ab|abc|abcd|abcde|abcdef|(abcdefg))\2/
+    abcdefg#abcdefg
+ 0: abcdefg#abcdefg
+ 1: abcdefg
+ 2: abcdefg
+
+/^([a-z]++)(*scs:(1)(a+)(*THEN)b|(a+)(*THEN)c|(aa))/
+    aaaax
+ 0: aaaax
+ 1: aaaax
+ 2: <unset>
+ 3: <unset>
+ 4: aa
+
+/^([a-z]++)(*scs:(1)((a+)(*THEN)b)|(a+)(*THEN)c|(aa))/
+    aaaax
+ 0: aaaax
+ 1: aaaax
+ 2: <unset>
+ 3: <unset>
+ 4: <unset>
+ 5: aa
+
+/^([a-z]++)(*scs:(1)((a+)(*THEN)b))?/
+    aaaax
+ 0: aaaax
+ 1: aaaax
+
+/^([a-z]++)(*scs:(1)(abc|(a+)(*THEN)b))?/
+    aaaax
+ 0: aaaax
+ 1: aaaax
+
+/^(?:(.){20,30}#|([a-z]++)(*scs:(1)(a+)(*THEN)b){20,30}#|(.){20,30}!)/
+    aaaaaaaaaaaaaaaaaaaaaaaaab!
+ 0: aaaaaaaaaaaaaaaaaaaaaaaaab!
+ 1: <unset>
+ 2: <unset>
+ 3: <unset>
+ 4: b
+
+# List of captures
+
+/(?:(abc)|(?<PP>def)|ghi)(*scs:(1,'PP').(.))/B
+------------------------------------------------------------------
+        Bra
+        Bra
+        CBra 1
+        abc
+        Ket
+        Alt
+        CBra 2
+        def
+        Ket
+        Alt
+        ghi
+        Ket
+        Scan substring
+      1 Capture ref
+      2 Capture ref
+        Any
+        CBra 3
+        Any
+        Ket
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    abc
+ 0: abc
+ 1: abc
+ 2: <unset>
+ 3: b
+    def
+ 0: def
+ 1: <unset>
+ 2: def
+ 3: e
+    ghi
+No match
+
+/(?:(?<MM>abc)|(?<MM>def)|(ghi)|(?'NN'jkl)|mno)(*scs:('MM',3,<NN>).(.))/B,dupnames
+------------------------------------------------------------------
+        Bra
+        Bra
+        CBra 1
+        abc
+        Ket
+        Alt
+        CBra 2
+        def
+        Ket
+        Alt
+        CBra 3
+        ghi
+        Ket
+        Alt
+        CBra 4
+        jkl
+        Ket
+        Alt
+        mno
+        Ket
+        Scan substring
+        Capture ref <MM>2
+      3 Capture ref
+      4 Capture ref
+        Any
+        CBra 5
+        Any
+        Ket
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    abc
+ 0: abc
+ 1: abc
+ 2: <unset>
+ 3: <unset>
+ 4: <unset>
+ 5: b
+    def
+ 0: def
+ 1: <unset>
+ 2: def
+ 3: <unset>
+ 4: <unset>
+ 5: e
+    ghi
+ 0: ghi
+ 1: <unset>
+ 2: <unset>
+ 3: ghi
+ 4: <unset>
+ 5: h
+    jkl
+ 0: jkl
+ 1: <unset>
+ 2: <unset>
+ 3: <unset>
+ 4: jkl
+ 5: k
+    mno
+No match
+
+/f(?:(*scs:(+1,+2)(?<=(.)))|()){16}/
+    1234567890abcdef
+ 0: f
+ 1: 2
+ 2: 
+    1ffffffffffffff
+ 0: f
+ 1: 1
+ 2: 
+
+/(?<AA>a)(*scan_substring:(1,'AA',1,<AA>)a)b/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        a
+        Ket
+        Scan substring
+      1 Capture ref
+      1 Capture ref
+      1 Capture ref
+      1 Capture ref
+        a
+        Ket
+        b
+        Ket
+        End
+------------------------------------------------------------------
+    ab
+ 0: ab
+ 1: a
+    ac
+No match
+
+/()()()(?<=ab(*scs:(1,2,3))cd)xyz/
+    abcdxyz
+ 0: xyz
+ 1: 
+ 2: 
+ 3: 
+
+/()()()(?<=ab(*ACCEPT)(*scs:(1,2,3))cd|efg)xyz/
+    abxyz
+ 0: xyz
+ 1: 
+ 2: 
+ 3: 
+    efgxyz
+ 0: xyz
+ 1: 
+ 2: 
+ 3: 
+
+# Tests for pcre2_set_optimize()
+
+/abc/I,optimization_none
+Capture group count = 0
+Optimizations: <none>
+
+/abc/I,optimization_none,auto_possess
+Capture group count = 0
+Optimizations: auto_possess
+
+/abc/I,optimization_none,dotstar_anchor,auto_possess
+Capture group count = 0
+Optimizations: auto_possess,dotstar_anchor
+
+/abc/I,optimization_none,start_optimize
+Capture group count = 0
+Optimizations: start_optimize
+First code unit = 'a'
+Last code unit = 'c'
+Subject length lower bound = 3
+
+/abc/I,dotstar_anchor_off,optimization_full
+Capture group count = 0
+First code unit = 'a'
+Last code unit = 'c'
+Subject length lower bound = 3
+
+# If pcre2_set_optimize() is used to turn on some optimization, but at the same time,
+# the compile options word turns it off... the compile options word "wins":
+
+/abc/I,no_auto_possess,auto_possess
+Capture group count = 0
+Options: no_auto_possess
+Optimizations: dotstar_anchor,start_optimize
+First code unit = 'a'
+Last code unit = 'c'
+Subject length lower bound = 3
+
+/abc/I,no_dotstar_anchor,dotstar_anchor
+Capture group count = 0
+Options: no_dotstar_anchor
+Optimizations: auto_possess,start_optimize
+First code unit = 'a'
+Last code unit = 'c'
+Subject length lower bound = 3
+
+/abc/I,no_start_optimize,start_optimize
+Capture group count = 0
+Options: no_start_optimize
+Optimizations: auto_possess,dotstar_anchor
+
+# --------------
+
+# larger than GROUP_MAX, smaller than INT_MAX
+/a\800000b/
+Failed: error 161 at offset 8: subpattern number is too big
+
+# coming up on INT_MAX... (used to succeed with \8 being literal 8)
+/a\800000000b/
+Failed: error 161 at offset 11: subpattern number is too big
+
+# over INT_MAX (used to succeed with \8 being literal 8)
+/a\8000000000b/
+Failed: error 161 at offset 12: subpattern number is too big
+
+# --------------
+
+# no_bs0
+
+/a\0b\x00c\00d/
+    a\x{00}b\x{00}c\x{00}d
+ 0: a\x00b\x00c\x00d
+
+/a\0b/no_bs0
+Failed: error 198 at offset 3: octal digit missing after \0 (PCRE2_EXTRA_NO_BS0 is set)
+
+/b\x00c\00d/no_bs0
+    b\x{00}c\x{00}d
+ 0: b\x00c\x00d
+
+/abc/substitute_extended
+    abc\=replace=a\0b\x00c\00d
+ 1: a\x00b\x00c\x00d
+
+/abc/substitute_extended,no_bs0
+    abc\=replace=a\0b
+Failed: error -57 at offset 3 in replacement: bad escape sequence in replacement string
+    abc\=replace=b\x00c\00d
+ 1: b\x00c\x00d
+
+# python_octal
+
+/\0-\00-\01-\012-\0123-\123-\1234/
+    \x00-\x00-\x01-\o{12}-\o{12}3-\o{123}-\o{123}4
+ 0: \x00-\x00-\x01-\x0a-\x0a3-S-S4
+
+/\1/
+Failed: error 115 at offset 1: reference to non-existent subpattern
+
+/\12/
+    \o{12}
+ 0: \x0a
+
+/abc/substitute_extended
+    abc\=replace=\0-\00-\01-\012-\0123-\123-\1234
+ 1: \x00-\x00-\x01-\x0a-\x0a3-S-S4
+    abc\=replace=\1
+Failed: error -49 at offset 2 in replacement: unknown substring
+    abc\=replace=\12
+ 1: \x0a
+
+/\0-\00-\01-\012-\0123-\123-\1234/python_octal
+    \x00-\x00-\x01-\o{12}-\o{12}3-\o{123}-\o{123}4
+ 0: \x00-\x00-\x01-\x0a-\x0a3-S-S4
+
+/\1/python_octal
+Failed: error 115 at offset 1: reference to non-existent subpattern
+
+/\12/python_octal
+Failed: error 115 at offset 2: reference to non-existent subpattern
+
+/abc/substitute_extended,python_octal
+    abc\=replace=\0-\00-\01-\012-\0123-\123-\1234
+ 1: \x00-\x00-\x01-\x0a-\x0a3-S-S4
+    abc\=replace=\1
+Failed: error -49 at offset 2 in replacement: unknown substring
+    abc\=replace=\12
+Failed: error -49 at offset 3 in replacement: unknown substring
+
+# --------------
+
+/a(?C)b/
+    abc
+--->abc
+  0 ^^      b
+ 0: ab
+    abc\=callout_none
+ 0: ab
+
+/a(?C)b/never_callout
+Failed: error 203 at offset 3: using callouts is disabled by the application
+
+# --------------
+
+# EXTENDED CHARACTER CLASSES (UTS#18)
+
+/[a[]/
+    [
+ 0: [
+
+/[a[]/alt_extended_class
+Failed: error 106 at offset 4: missing terminating ] for character class
+
+/[a[B]/alt_extended_class
+Failed: error 212 at offset 5: missing terminating ] for extended character class (note '[' must be escaped under PCRE2_ALT_EXTENDED_CLASS)
+
+/[a[B]]C/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [Ba]
+        C
+        Ket
+        End
+------------------------------------------------------------------
+    aC
+ 0: aC
+    BC
+ 0: BC
+\= Expect no match
+    [C
+No match
+
+/[[A][B]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [AB]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    B
+ 0: B
+\= Expect no match
+    [
+No match
+    ]
+No match
+
+/[[A]||[B]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [AB]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    B
+ 0: B
+\= Expect no match
+    C
+No match
+
+/[[^A][B]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^A]
+        Ket
+        End
+------------------------------------------------------------------
+    B
+ 0: B
+    C
+ 0: C
+\= Expect no match
+    A
+No match
+
+/[^[A][B]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^AB]
+        Ket
+        End
+------------------------------------------------------------------
+    C
+ 0: C
+\= Expect no match
+    A
+No match
+    B
+No match
+
+/[^[A]&&[B]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        AllAny
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    B
+ 0: B
+    C
+ 0: C
+
+/[[AC]||[BC]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A-C]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    B
+ 0: B
+    C
+ 0: C
+\= Expect no match
+    D
+No match
+
+/[[AC]&&[BC]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [C]
+        Ket
+        End
+------------------------------------------------------------------
+    C
+ 0: C
+\= Expect no match
+    A
+No match
+    B
+No match
+    D
+No match
+
+/[[AC]--[BC]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+\= Expect no match
+    B
+No match
+    C
+No match
+    D
+No match
+
+/[[AC]~~[BC]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [AB]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    B
+ 0: B
+\= Expect no match
+    C
+No match
+    D
+No match
+
+/[A[]]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A\]]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    ]
+ 0: ]
+\= Expect no match
+    [
+No match
+
+/[A[^]]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^\]]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    [
+ 0: [
+    C
+ 0: C
+\= Expect no match
+    ]
+No match
+
+/[A[]]/B,alt_extended_class,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        [A]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+\= Expect no match
+    ]
+No match
+    [
+No match
+
+/[A[^]]/B,alt_extended_class,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        AllAny
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    C
+ 0: C
+    [
+ 0: [
+    ]
+ 0: ]
+
+/[A-C--B]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [AC]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+    C
+ 0: C
+\= Expect no match
+    B
+No match
+
+/[^A-C--B]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^AC]
+        Ket
+        End
+------------------------------------------------------------------
+    B
+ 0: B
+\= Expect no match
+    A
+No match
+    C
+No match
+
+/[[\d\D]--b]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^b]
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+    c
+ 0: c
+\= Expect no match
+    b
+No match
+
+/[\dAC-E[:space:]&&[^z]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\x09-\x0d 0-9AC-E]
+        Ket
+        End
+------------------------------------------------------------------
+    0
+ 0: 0
+    A
+ 0: A
+    C
+ 0: C
+    D
+ 0: D
+    E
+ 0: E
+    \t
+ 0: \x09
+\= Expect no match
+    B
+No match
+    F
+No match
+    ;
+No match
+
+/[z||[^\dAC-E[:space:]]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [^\x09-\x0d 0-9AC-E]
+        Ket
+        End
+------------------------------------------------------------------
+    z
+ 0: z
+    B
+ 0: B
+    F
+ 0: F
+    ;
+ 0: ;
+\= Expect no match
+    0
+No match
+    A
+No match
+    C
+No match
+    D
+No match
+    E
+No match
+    \t
+No match
+
+/[ab||cd]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [a-d]
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+    c
+ 0: c
+\= Expect no match
+    e
+No match
+
+/[[a]b||[c]d]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [a-d]
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+    c
+ 0: c
+\= Expect no match
+    e
+No match
+
+/[a[b]||c[d]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [a-d]
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+    c
+ 0: c
+\= Expect no match
+    e
+No match
+
+/[-&&-]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-]
+        Ket
+        End
+------------------------------------------------------------------
+    -
+ 0: -
+\= Expect no match
+    a
+No match
+
+/[a-&&-a]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-a]
+        Ket
+        End
+------------------------------------------------------------------
+    -
+ 0: -
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/[-a&&a-]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-a]
+        Ket
+        End
+------------------------------------------------------------------
+    -
+ 0: -
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/[[a]-&&-[a]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-a]
+        Ket
+        End
+------------------------------------------------------------------
+    -
+ 0: -
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/[-[a]&&[a]-]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-a]
+        Ket
+        End
+------------------------------------------------------------------
+    -
+ 0: -
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/(?xx:[  ^  a[  ^  b]  ])/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        Bra
+        [b]
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    b
+ 0: b
+\= Expect no match
+    A
+No match
+    a
+No match
+    c
+No match
+
+/[  ^  a[  ^  b]  ]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [ ^ab]
+        Ket
+        End
+------------------------------------------------------------------
+    \x20
+ 0:  
+    ^
+ 0: ^
+    a
+ 0: a
+    b
+ 0: b
+\= Expect no match
+    c
+No match
+
+/[a-c--b]+/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [ac]++
+        Ket
+        End
+------------------------------------------------------------------
+    ac
+ 0: ac
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/[a-c--b]{2,3}/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [ac]{2,3}+
+        Ket
+        End
+------------------------------------------------------------------
+    ac
+ 0: ac
+    cac
+ 0: cac
+\= Expect no match
+    a
+No match
+    bb
+No match
+
+/x[a-c--b]+y/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        x
+        [ac]++
+        y
+        Ket
+        End
+------------------------------------------------------------------
+    xacy
+ 0: xacy
+    xaay
+ 0: xaay
+    xay
+ 0: xay
+\= Expect no match
+    zacy
+No match
+    xacz
+No match
+    xy
+No match
+    xby
+No match
+
+/[A--B--C--D]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+\= Expect no match
+    B
+No match
+
+/[A--A--A]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        []
+        Ket
+        End
+------------------------------------------------------------------
+\= Expect no match
+    A
+No match
+    B
+No match
+
+/[[A--A]--A]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        []
+        Ket
+        End
+------------------------------------------------------------------
+\= Expect no match
+    A
+No match
+    B
+No match
+
+/[A--[A--A]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+\= Expect no match
+    B
+No match
+
+/[A--^B]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [A]
+        Ket
+        End
+------------------------------------------------------------------
+    A
+ 0: A
+\= Expect no match
+    B
+No match
+    ^
+No match
+    z
+No match
+
+/([a-z--n])\1/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        [a-mo-z]
+        Ket
+        \1
+        Ket
+        End
+------------------------------------------------------------------
+    aa
+ 0: aa
+ 1: a
+    zz
+ 0: zz
+ 1: z
+\= Expect no match
+    az
+No match
+    nn
+No match
+
+/(x[a-z--n]y)\1/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        x
+        [a-mo-z]
+        y
+        Ket
+        \1
+        Ket
+        End
+------------------------------------------------------------------
+    xayxay
+ 0: xayxay
+ 1: xay
+    xzyxzy
+ 0: xzyxzy
+ 1: xzy
+\= Expect no match
+    xnyxny
+No match
+
+/(?:_\1|([a-z--n])){2}/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        Bra
+        _
+        \1
+        Alt
+        CBra 1
+        [a-mo-z]
+        Ket
+        Ket
+        Bra
+        _
+        \1
+        Alt
+        CBra 1
+        [a-mo-z]
+        Ket
+        Ket
+        Ket
+        End
+------------------------------------------------------------------
+    a_a
+ 0: a_a
+ 1: a
+    z_z
+ 0: z_z
+ 1: z
+\= Expect no match
+    a_z
+No match
+    n_n
+No match
+
+/(?:_\1|([a-z--n]))+/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        Bra
+        _
+        \1
+        Alt
+        CBra 1
+        [a-mo-z]
+        Ket
+        KetRmax
+        Ket
+        End
+------------------------------------------------------------------
+    a_a
+ 0: a_a
+ 1: a
+    z_z
+ 0: z_z
+ 1: z
+    a_partial
+ 0: a
+ 1: a
+\= Expect no match
+    n_n
+No match
+
+/[\d-[z]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-0-9z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[\d-||z]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-0-9z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[z[\d-]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-0-9z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[1-[z]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-1z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[1-||z]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-1z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[z[1-]]/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [\-1z]
+        Ket
+        End
+------------------------------------------------------------------
+    1
+ 0: 1
+    -
+ 0: -
+    z
+ 0: z
+
+/[a--/alt_extended_class
+Failed: error 106 at offset 4: missing terminating ] for character class
+
+/[a--a/alt_extended_class
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/[a--[a/alt_extended_class
+Failed: error 106 at offset 6: missing terminating ] for character class
+
+/[a--[a]/alt_extended_class
+Failed: error 212 at offset 7: missing terminating ] for extended character class (note '[' must be escaped under PCRE2_ALT_EXTENDED_CLASS)
+
+/[a--[a]--/alt_extended_class
+Failed: error 212 at offset 9: missing terminating ] for extended character class (note '[' must be escaped under PCRE2_ALT_EXTENDED_CLASS)
+
+/[a--]/alt_extended_class
+Failed: error 210 at offset 5: expected operand after operator in extended character class
+
+/[--a]/alt_extended_class
+Failed: error 209 at offset 3: unexpected operator in extended character class (no preceding operand)
+
+/[^--a]/alt_extended_class
+Failed: error 209 at offset 4: unexpected operator in extended character class (no preceding operand)
+
+/[--]/alt_extended_class
+Failed: error 209 at offset 3: unexpected operator in extended character class (no preceding operand)
+
+/[a---b]/alt_extended_class
+Failed: error 208 at offset 5: invalid operator in extended character class
+
+/[a----b]/alt_extended_class
+Failed: error 208 at offset 6: invalid operator in extended character class
+
+/[a&&&b]/alt_extended_class
+Failed: error 208 at offset 5: invalid operator in extended character class
+
+/[a|||b]/alt_extended_class
+Failed: error 208 at offset 5: invalid operator in extended character class
+
+/[a~~~b]/alt_extended_class
+Failed: error 208 at offset 5: invalid operator in extended character class
+
+/[a~~~~b]/alt_extended_class
+Failed: error 208 at offset 6: invalid operator in extended character class
+
+/[a~~/alt_extended_class
+Failed: error 106 at offset 4: missing terminating ] for character class
+
+/[a~~~/alt_extended_class
+Failed: error 208 at offset 5: invalid operator in extended character class
+
+/[a~~~~/alt_extended_class
+Failed: error 208 at offset 6: invalid operator in extended character class
+
+/[a||b&&c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a||b~~c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a~~b&&c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a--b~~c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a--b&&c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a||b--c]/alt_extended_class
+Failed: error 211 at offset 7: square brackets needed to clarify operator precedence in extended character class
+
+/[a||[b--c]]/alt_extended_class
+    a
+ 0: a
+    b
+ 0: b
+\= Expect no match
+    c
+No match
+
+/[\d-z]/B,alt_extended_class
+Failed: error 150 at offset 4: invalid range in character class
+
+/[z-\d]/B,alt_extended_class
+Failed: error 150 at offset 5: invalid range in character class
+
+/[abc -- b]+/B,alt_extended_class
+------------------------------------------------------------------
+        Bra
+        [ac]++
+        Ket
+        End
+------------------------------------------------------------------
+    acacbac
+ 0: acac
+
+/[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a&&a]]]]]]]]]]]]]]]/alt_extended_class
+    a
+ 0: a
+\= Expect no match
+    b
+No match
+
+/[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[z]&&a]]]]]]]]]]]]]]]/alt_extended_class
+Failed: error 207 at offset 115: extended character class nesting is too deep
+
+/[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a[b]&&a[a&&a[z]]]]]]]]]]]]]]]]/alt_extended_class
+Failed: error 207 at offset 118: extended character class nesting is too deep
+
+/[z&/alt_extended_class
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/[[^]~~[^]]/B,alt_extended_class,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        []
+        Ket
+        End
+------------------------------------------------------------------
+\= Expect no match
+    a
+No match
+
+/[^[[^]~~[^]]]/B,alt_extended_class,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        AllAny
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+
+# --------------
+
+# EXTENDED CHARACTER CLASSES (Perl)
+
+# allow-empty-class does nothing inside (?[...])
+/(?[ []] ])/B,allow_empty_class
+------------------------------------------------------------------
+        Bra
+        [\]]
+        Ket
+        End
+------------------------------------------------------------------
+    ]
+ 0: ]
+
+# bad-escape-is-literal does nothing inside (?[...])
+/[ \j ]/
+Failed: error 103 at offset 3: unrecognized character follows \
+
+/[ /\
+Failed: error 101 at offset 3: \ at end of pattern
+
+/(?[ \j ])/
+Failed: error 103 at offset 5: unrecognized character follows \
+
+/(?[ /\
+Failed: error 101 at offset 5: \ at end of pattern
+
+/[ \j ]/bad_escape_is_literal
+    j
+ 0: j
+\= Expect no match
+    k
+No match
+
+/[ /\bad_escape_is_literal
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/(?[ \j ])/bad_escape_is_literal
+Failed: error 103 at offset 5: unrecognized character follows \
+
+/(?[ /\bad_escape_is_literal
+Failed: error 101 at offset 5: \ at end of pattern
+
+/(?[ [\j] ])/bad_escape_is_literal
+Failed: error 103 at offset 6: unrecognized character follows \
+
+/(?[ (\j) ])/bad_escape_is_literal
+Failed: error 103 at offset 6: unrecognized character follows \
+
+# We can't test error cases in testinput1
+
+/(?[])/
+Failed: error 214 at offset 4: empty expression in extended character class
+
+/(?[/
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/(?[]/
+Failed: error 214 at offset 4: empty expression in extended character class
+
+/(?[\n/
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/(?[\n]/
+Failed: error 215 at offset 6: terminating ] with no following closing parenthesis in (?[...]
+
+/(?[\n]z)/
+Failed: error 215 at offset 6: terminating ] with no following closing parenthesis in (?[...]
+
+/(?[\n] )/
+Failed: error 215 at offset 6: terminating ] with no following closing parenthesis in (?[...]
+
+/(?[(/
+Failed: error 114 at offset 4: missing closing parenthesis
+
+/(?[( /
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/(?[(\n/
+Failed: error 106 at offset 6: missing terminating ] for character class
+
+/(?[ \n + () ])/
+Failed: error 214 at offset 11: empty expression in extended character class
+
+/(?[1])/
+Failed: error 216 at offset 4: unexpected character in (?[...]) extended character class
+
+/(?[a])/
+Failed: error 216 at offset 4: unexpected character in (?[...]) extended character class
+
+/(?[a-c])/
+Failed: error 216 at offset 4: unexpected character in (?[...]) extended character class
+
+/(?[(])/
+Failed: error 114 at offset 4: missing closing parenthesis
+
+/(?[(\n])/
+Failed: error 114 at offset 6: missing closing parenthesis
+
+/(?[\n)])/
+Failed: error 122 at offset 6: unmatched closing parenthesis
+
+/(?[^\n])/
+Failed: error 209 at offset 4: unexpected operator in extended character class (no preceding operand)
+
+/(?[ \n \t ])/
+Failed: error 213 at offset 9: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \d \t ])/
+Failed: error 213 at offset 9: unexpected expression in extended character class (no preceding operator)
+
+/(?[ [\n] \t ])/
+Failed: error 213 at offset 11: unexpected expression in extended character class (no preceding operator)
+
+/(?[ (\n) \t ])/
+Failed: error 213 at offset 11: unexpected expression in extended character class (no preceding operator)
+
+/(?[ [:alpha:] \t ])/
+Failed: error 213 at offset 16: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n + \t \d ])/
+Failed: error 213 at offset 14: unexpected expression in extended character class (no preceding operator)
+
+/(?[ !\n \t ])/
+Failed: error 213 at offset 10: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n [:alpha:] ])/
+Failed: error 213 at offset 16: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n [\d] ])/
+Failed: error 213 at offset 8: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n (\t) ])/
+Failed: error 213 at offset 8: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n !\t ])/
+Failed: error 213 at offset 8: unexpected expression in extended character class (no preceding operator)
+
+/(?[ \n \t ])/
+Failed: error 213 at offset 9: unexpected expression in extended character class (no preceding operator)
+
+/(?[:graph:])/
+Failed: error 216 at offset 4: unexpected character in (?[...]) extended character class
+
+/(?[\Qn\E])/
+Failed: error 216 at offset 6: unexpected character in (?[...]) extended character class
+
+# maximum depth tests
+
+/(?[\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n&\n))))))))))))))])/
+    \n
+ 0: \x0a
+\= Expect no match
+    a
+No match
+    b
+No match
+
+/(?[\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+([\n]&\n))))))))))))))])/
+Failed: error 207 at offset 158: extended character class nesting is too deep
+
+/(?[\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n&[\n]))))))))))))))])/
+Failed: error 207 at offset 161: extended character class nesting is too deep
+
+/(?[\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+((\n)&\n))))))))))))))])/
+Failed: error 207 at offset 158: extended character class nesting is too deep
+
+# --------------
+
+/[[:digit:]   -Z]/xx
+Failed: error 150 at offset 14: invalid range in character class
+
+/[\d   -Z]/xx
+Failed: error 150 at offset 7: invalid range in character class
+
+/[[:digit:]\E-H]/
+Failed: error 150 at offset 13: invalid range in character class
+
+/[[:digit:]\Q\E-H]+/
+Failed: error 150 at offset 15: invalid range in character class
+
+/[z-[:space:]]/
+Failed: error 150 at offset 12: invalid range in character class
+
+/[z-\d]/
+Failed: error 150 at offset 5: invalid range in character class
+
+/[[:space:]-z]/
+Failed: error 150 at offset 11: invalid range in character class
+
+/[\d-z]/
+Failed: error 150 at offset 4: invalid range in character class
+
+/[\d-\w]/
+Failed: error 150 at offset 4: invalid range in character class
+
+/[\Q/
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/[\Q/\
+Failed: error 106 at offset 4: missing terminating ] for character class
+
+/[\Q\E/
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/[\Q\n/
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/[\Q\n]/
+Failed: error 106 at offset 6: missing terminating ] for character class
+
+/[\Q\n/\
+Failed: error 106 at offset 6: missing terminating ] for character class
+
+/[\Q\n\]/
+Failed: error 106 at offset 7: missing terminating ] for character class
+
+/[\Q\n\E/
+Failed: error 106 at offset 7: missing terminating ] for character class
+
+/[\Q\n\E]/
+    \\
+ 0: \
+    n
+ 0: n
+\= Expect no match
+    \n
+No match
+    Q
+No match
+
+/[z\Q/
+Failed: error 106 at offset 4: missing terminating ] for character class
+
+/[z\Q/\
+Failed: error 106 at offset 5: missing terminating ] for character class
+
+/[z\Q\E/
+Failed: error 106 at offset 6: missing terminating ] for character class
+
+/[/\
+Failed: error 101 at offset 2: \ at end of pattern
+
+/[\n/
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/[\E/
+Failed: error 106 at offset 3: missing terminating ] for character class
+
+/[\^z]/B
+------------------------------------------------------------------
+        Bra
+        [\^z]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[ \^]/B
+------------------------------------------------------------------
+        Bra
+        [ ^]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[\\z]/B
+------------------------------------------------------------------
+        Bra
+        [\\z]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[0-z]/B
+------------------------------------------------------------------
+        Bra
+        [0-z]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[0\-z]/B
+------------------------------------------------------------------
+        Bra
+        [\-0z]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[]z]/B
+------------------------------------------------------------------
+        Bra
+        [\]z]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[ \]]/B
+------------------------------------------------------------------
+        Bra
+        [ \]]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[ --]/B
+------------------------------------------------------------------
+        Bra
+        [ -\-]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[A-\]]/B
+------------------------------------------------------------------
+        Bra
+        [A-\]]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[A-\\]/B
+------------------------------------------------------------------
+        Bra
+        [A-\\]
+        Ket
+        End
+------------------------------------------------------------------
+
+/[\A]/
+Failed: error 107 at offset 2: escape sequence is invalid in character class
+
+/[\Z]/
+Failed: error 107 at offset 2: escape sequence is invalid in character class
+
+/[\z]/
+Failed: error 107 at offset 2: escape sequence is invalid in character class
+
+/[\G]/
+Failed: error 107 at offset 2: escape sequence is invalid in character class
+
+/[\K]/
+Failed: error 107 at offset 2: escape sequence is invalid in character class
+
+/[\g<1>]/
+    <
+ 0: <
+    g
+ 0: g
+\= Expect no match
+    \\
+No match
+
+/[\k<1>]/
+    <
+ 0: <
+    k
+ 0: k
+\= Expect no match
+    \\
+No match
+
+/[\u{ 1z}]/alt_bsux,extra_alt_bsux
+    u
+ 0: u
+    {
+ 0: {
+    }
+ 0: }
+    \x20
+ 0:  
+    1
+ 0: 1
+\= Expect no match
+    \\
+No match
+
+/[a\x{e1}]/iB
+------------------------------------------------------------------
+        Bra
+        [Aa\xe1]
+        Ket
+        End
+------------------------------------------------------------------
+    a
+ 0: a
+    A
+ 0: A
+    \x{e1}
+ 0: \xe1
+
+# --------------
+
+# Attempt at full coverage of the substitution buffer-management code - not
+# just covering each line in each macro, but covering each instantiation of each
+# line in those macros.
+
+#
+# CHECKMEMCPY tests
+#
+# Four conditions for CHECKMEMCPY:
+#   no overflow;
+#   first overflow (with/without substitute_overflow_length);
+#   overflow after previous overflow
+# Additionally some CHECKMEMCPYs have a substitute_replacement_only branch.
+#
+
+# pre-start-offset fragment
+# no "overflow after previous overflow" condition
+/a/
+    XYaZ\=offset=2,replace=foo
+ 1: XYfooZ
+    XYaZ\=offset=2,replace=[1]foo
+Failed: error -48: no more memory
+    XYaZ\=offset=2,substitute_overflow_length,replace=[1]foo
+Failed: error -48: no more memory: 7 code units are needed
+    XYaZ\=offset=2,substitute_replacement_only,replace=foo
+ 1: foo
+
+# pre-match fragment
+/a/
+    XYaZ\=replace=foo
+ 1: XYfooZ
+    XYaZ\=replace=[1]foo
+Failed: error -48: no more memory
+    XYaZ\=substitute_overflow_length,replace=[1]foo
+Failed: error -48: no more memory: 7 code units are needed
+    XXYaZ\=offset=2,substitute_overflow_length,replace=[1]foo
+Failed: error -48: no more memory: 8 code units are needed
+    XYaZ\=substitute_replacement_only,replace=foo
+ 1: foo
+
+# empty match bumpalong
+/(?<=abc)(|DEF)/g
+    abcDEFabcZ\=replace=+
+ 3: abc++abc+Z
+    abcDEFabcZ\=replace=[5]+
+Failed: error -48: no more memory
+    abcDEFabcZ\=substitute_overflow_length,replace=[5]+
+Failed: error -48: no more memory: 11 code units are needed
+    abcDEFabcZ\=replace=[9]+
+Failed: error -48: no more memory
+    abcDEFabcZ\=substitute_overflow_length,replace=[9]+
+Failed: error -48: no more memory: 11 code units are needed
+    abcDEFabcZ\=substitute_overflow_length,replace=[1]+
+Failed: error -48: no more memory: 11 code units are needed
+    abcDEFabcZ\=substitute_replacement_only,replace=+
+ 3: +++
+
+# literal replacement
+/a/
+    XYaZ\=substitute_literal,replace=$0
+ 1: XY$0Z
+    XYaZ\=substitute_literal,replace=[3]$0
+Failed: error -48: no more memory
+    XYaZ\=substitute_literal,substitute_overflow_length,replace=[3]$0
+Failed: error -48: no more memory: 6 code units are needed
+    XYaZ\=substitute_literal,substitute_overflow_length,replace=[1]$0
+Failed: error -48: no more memory: 6 code units are needed
+
+# a MARK
+/(*:pear)apple/
+    XappleY\=replace=${*MARK}
+ 1: XpearY
+    XappleY\=replace=[3]${*MARK}
+Failed: error -48: no more memory
+    XappleY\=substitute_overflow_length,replace=[3]${*MARK}
+Failed: error -48: no more memory: 7 code units are needed
+    XXappleY\=substitute_overflow_length,replace=[1]${*MARK}
+Failed: error -48: no more memory: 8 code units are needed
+
+# a subject fragment
+/a(bb)c/
+    XabbcY\=replace=$1
+ 1: XbbY
+    XabbcY\=replace=[2]$1
+Failed: error -48: no more memory
+    XabbcY\=substitute_overflow_length,replace=[2]$1
+Failed: error -48: no more memory: 5 code units are needed
+    XXabbcY\=substitute_overflow_length,replace=[1]$1
+Failed: error -48: no more memory: 6 code units are needed
+
+# a zero-length subject fragment
+/a()c/
+    XacY\=replace=$1
+ 1: XY
+    XacY\=replace=[2]$1
+Failed: error -48: no more memory
+    XacY\=substitute_overflow_length,replace=[2]$1
+Failed: error -48: no more memory: 3 code units are needed
+
+# a data character via an escape
+/abc/substitute_extended
+    XabcY\=replace=\x{48}
+ 1: XHY
+    XabcY\=replace=[1]\x{48}
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[1]\x{48}
+Failed: error -48: no more memory: 4 code units are needed
+    XXabcY\=substitute_overflow_length,replace=[1]\x{48}
+Failed: error -48: no more memory: 5 code units are needed
+
+# a replacement literal character
+/abc/
+    XabcY\=replace=Z
+ 1: XZY
+    XabcY\=replace=[1]Z
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[1]Z
+Failed: error -48: no more memory: 4 code units are needed
+    XXabcY\=substitute_overflow_length,replace=[1]Z
+Failed: error -48: no more memory: 5 code units are needed
+
+# a cancelled substitution
+# no "overflow after previous overflow" condition
+/abc/substitute_skip=1
+    XabcY\=replace=Z
+ 1(1) Old 1 4 "abc" New 1 2 "Z SKIPPED"
+ 1: XabcY
+    XabcY\=replace=[3]Z
+ 1(1) Old 1 4 "abc" New 1 2 "Z SKIPPED"
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[3]Z
+ 1(1) Old 1 4 "abc" New 1 2 "Z SKIPPED"
+Failed: error -48: no more memory: 6 code units are needed
+    XabcY\=substitute_replacement_only,replace=Z
+ 1(1) Old 1 4 "abc" New 0 1 "Z SKIPPED"
+ 1: 
+
+# the rest of the subject
+/abc/
+    XabcYY\=replace=Z
+ 1: XZYY
+    XabcYY\=replace=[3]Z
+Failed: error -48: no more memory
+    XabcYY\=substitute_overflow_length,replace=[3]Z
+Failed: error -48: no more memory: 5 code units are needed
+    XabcYY\=substitute_overflow_length,replace=[1]Z
+Failed: error -48: no more memory: 5 code units are needed
+    XabcYY\=substitute_replacement_only,replace=Z
+ 1: Z
+
+# the trailing NULL
+/abc/
+    XabcY\=replace=Z
+ 1: XZY
+    XabcY\=replace=[3]Z
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[3]Z
+Failed: error -48: no more memory: 4 code units are needed
+    XabcY\=substitute_overflow_length,replace=[1]Z
+Failed: error -48: no more memory: 4 code units are needed
+
+#
+# CHECKCASECPY tests
+#
+# The same four conditions for CHECKCASECPY as for CHECKMEMCPY:
+#   no overflow;
+#   first overflow (with/without substitute_overflow_length);
+#   overflow after previous overflow
+# Also the condition where CHECKCASECPY isn't called due to a custom callout
+#
+
+# a MARK
+/(*:pear)apple/substitute_extended
+    XappleY\=replace=\U${*MARK}
+ 1: XPEARY
+    XappleY\=replace=[3]\U${*MARK}
+Failed: error -48: no more memory
+    XappleY\=substitute_overflow_length,replace=[3]\U${*MARK}
+Failed: error -48: no more memory: 7 code units are needed
+    XXappleY\=substitute_overflow_length,replace=[1]\U${*MARK}
+Failed: error -48: no more memory: 8 code units are needed
+    XappleY\=substitute_case_callout,replace=\U${*MARK}
+ 1: XpeBrY
+
+# a subject fragment
+/a(bb)c/substitute_extended
+    XabbcY\=replace=\U$1
+ 1: XBBY
+    XabbcY\=replace=[2]\U$1
+Failed: error -48: no more memory
+    XabbcY\=substitute_overflow_length,replace=[2]\U$1
+Failed: error -48: no more memory: 5 code units are needed
+    XXabbcY\=substitute_overflow_length,replace=[1]\U$1
+Failed: error -48: no more memory: 6 code units are needed
+    XabbcY\=substitute_case_callout,replace=\U$1
+ 1: XbbY
+
+# a zero-length subject fragment
+/a()c/substitute_extended
+    XacY\=replace=\U$1
+ 1: XY
+    XacY\=replace=[2]\U$1
+Failed: error -48: no more memory
+    XacY\=substitute_overflow_length,replace=[2]\U$1
+Failed: error -48: no more memory: 3 code units are needed
+
+# a data character via an escape
+/abc/substitute_extended
+    XabcY\=replace=\U\x{48}
+ 1: XHY
+    XabcY\=replace=[1]\U\x{48}
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[1]\U\x{48}
+Failed: error -48: no more memory: 4 code units are needed
+    XXabcY\=substitute_overflow_length,replace=[1]\U\x{48}
+Failed: error -48: no more memory: 5 code units are needed
+    XabcY\=substitute_case_callout,replace=\U\x{48}
+ 1: XHY
+
+# a replacement literal character
+/abc/substitute_extended
+    XabcY\=replace=\UZ
+ 1: XZY
+    XabcY\=replace=[1]\UZ
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[1]\UZ
+Failed: error -48: no more memory: 4 code units are needed
+    XXabcY\=substitute_overflow_length,replace=[1]\UZ
+Failed: error -48: no more memory: 5 code units are needed
+    XabcY\=substitute_case_callout,replace=\UZ
+ 1: XZY
+
+#
+# DELAYEDFORCECASE tests
+#
+# Some different triggering conditions for DELAYEDFORCECASE:
+#   no overflow;
+#   first overflow (with/without substitute_overflow_length);
+#   if there was a previous overflow, then the case callout can't be invoked
+# Also, the CASEERROR branch.
+# Also, the branch for where chars_outstanding is zero, both with and without
+#   a previous overflow.
+#
+
+# on set casing mode
+/abc/substitute_extended,substitute_case_callout
+    XabcY\=replace=\Uf\Lq
+ 1: XSSqY
+    XabcY\=replace=[2]\Uf\Lq
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[2]\Uf\Lq
+Failed: error -48: no more memory: 16 code units are needed
+    XabcY\=substitute_overflow_length,replace=[1]\Uf\Lq
+Failed: error -48: no more memory: 25 code units are needed
+    XabcY\=replace=\U!\Lq
+Failed: error -69: error performing replacement case transformation
+    XabcY\=replace=\U\Lq
+ 1: XqY
+    XXabcY\=substitute_overflow_length,replace=[1]\U\Lq
+Failed: error -48: no more memory: 15 code units are needed
+
+# trailing fragment
+/abc/substitute_extended,substitute_case_callout
+    XabcY\=replace=f
+ 1: XfY
+    XabcY\=replace=\Uf
+ 1: XSSY
+    XabcY\=replace=[2]\Uf
+Failed: error -48: no more memory
+    XabcY\=substitute_overflow_length,replace=[2]\Uf
+Failed: error -48: no more memory: 5 code units are needed
+    XabcY\=substitute_overflow_length,replace=[1]\Uf
+Failed: error -48: no more memory: 14 code units are needed
+    XabcY\=replace=\U!
+Failed: error -69: error performing replacement case transformation
+    XabcY\=replace=\U
+ 1: XY
+    XXabcY\=substitute_overflow_length,replace=[1]\U
+Failed: error -48: no more memory: 4 code units are needed
+
+#
+# do_case_copy tests
+#
+
+/aa/i,substitute_extended
+    XaaY\=replace=\Uaa\uaa\LAA\lAA\U\lAA\L\uaa\u\LaaA\l\UAAa
+ 1: XAAAaaaaAaAAaAaaaAAY
+    XaaY\=replace=[1]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\uaa
+ 1: XAaY
+    XaaY\=replace=[1]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\u$0
+ 1: XAaY
+    XaaY\=replace=[1]\lAA
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\lAA
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\lAA
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\lAA
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\lAA
+ 1: XaAY
+    XAAY\=replace=[1]\l$0
+Failed: error -48: no more memory
+    XAAY\=replace=[2]\l$0
+Failed: error -48: no more memory
+    XAAY\=replace=[3]\l$0
+Failed: error -48: no more memory
+    XAAY\=replace=[4]\l$0
+Failed: error -48: no more memory
+    XAAY\=replace=[5]\l$0
+ 1: XaAY
+    XaaY\=replace=[1]\l\UAa
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\l\UAa
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\l\UAa
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\l\UAa
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\l\UAa
+ 1: XaAY
+    XAaY\=replace=[1]\l\U$0
+Failed: error -48: no more memory
+    XAaY\=replace=[2]\l\U$0
+Failed: error -48: no more memory
+    XAaY\=replace=[3]\l\U$0
+Failed: error -48: no more memory
+    XAaY\=replace=[4]\l\U$0
+Failed: error -48: no more memory
+    XAaY\=replace=[5]\l\U$0
+ 1: XaAY
+    XaaY\=replace=[1]\u\LaA
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\u\LaA
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\u\LaA
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\u\LaA
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\u\LaA
+ 1: XAaY
+    XaAY\=replace=[1]\u\L$0
+Failed: error -48: no more memory
+    XaAY\=replace=[2]\u\L$0
+Failed: error -48: no more memory
+    XaAY\=replace=[3]\u\L$0
+Failed: error -48: no more memory
+    XaAY\=replace=[4]\u\L$0
+Failed: error -48: no more memory
+    XaAY\=replace=[5]\u\L$0
+ 1: XAaY
+
+/aa/i,substitute_extended,substitute_overflow_length
+    XaaY\=replace=[1]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[2]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[3]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\uaa
+ 1: XAaY
+    XaaY\=replace=[1]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[2]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[3]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\u$0
+ 1: XAaY
+    XaaY\=replace=[1]\lAA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[2]\lAA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[3]\lAA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\lAA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\lAA
+ 1: XaAY
+    XAAY\=replace=[1]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAAY\=replace=[2]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAAY\=replace=[3]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAAY\=replace=[4]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAAY\=replace=[5]\l$0
+ 1: XaAY
+    XaaY\=replace=[1]\l\UAa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[2]\l\UAa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[3]\l\UAa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\l\UAa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\l\UAa
+ 1: XaAY
+    XAaY\=replace=[1]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAaY\=replace=[2]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAaY\=replace=[3]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAaY\=replace=[4]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XAaY\=replace=[5]\l\U$0
+ 1: XaAY
+    XaaY\=replace=[1]\u\LaA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[2]\u\LaA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[3]\u\LaA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\u\LaA
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\u\LaA
+ 1: XAaY
+    XaAY\=replace=[1]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaAY\=replace=[2]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaAY\=replace=[3]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaAY\=replace=[4]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaAY\=replace=[5]\u\L$0
+ 1: XAaY
+
+/aa/i,substitute_extended,substitute_case_callout
+    XaaY\=replace=\Uaa\uaa\LBB\lBB\U\lBB\L\uaa\u\LaaB\l\UBBa
+ 1: XBBBaaaaBaBBaBaaaBBY
+    XaaY\=replace=[1]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\uaa
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\uaa
+ 1: XBaY
+    XaaY\=replace=[1]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\u$0
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\u$0
+ 1: XBaY
+    XaaY\=replace=[1]\lBB
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\lBB
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\lBB
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\lBB
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\lBB
+ 1: XaBY
+    XBBY\=replace=[1]\l$0
+Failed: error -48: no more memory
+    XBBY\=replace=[2]\l$0
+Failed: error -48: no more memory
+    XBBY\=replace=[3]\l$0
+Failed: error -48: no more memory
+    XBBY\=replace=[4]\l$0
+Failed: error -48: no more memory
+    XBBY\=replace=[5]\l$0
+ 0: XBBY
+    XaaY\=replace=[1]\l\UBa
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\l\UBa
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\l\UBa
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\l\UBa
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\l\UBa
+ 1: XaBY
+    XBaY\=replace=[1]\l\U$0
+Failed: error -48: no more memory
+    XBaY\=replace=[2]\l\U$0
+Failed: error -48: no more memory
+    XBaY\=replace=[3]\l\U$0
+Failed: error -48: no more memory
+    XBaY\=replace=[4]\l\U$0
+Failed: error -48: no more memory
+    XBaY\=replace=[5]\l\U$0
+ 0: XBaY
+    XaaY\=replace=[1]\u\LaB
+Failed: error -48: no more memory
+    XaaY\=replace=[2]\u\LaB
+Failed: error -48: no more memory
+    XaaY\=replace=[3]\u\LaB
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\u\LaB
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\u\LaB
+ 1: XBaY
+    XaBY\=replace=[1]\u\L$0
+Failed: error -48: no more memory
+    XaBY\=replace=[2]\u\L$0
+Failed: error -48: no more memory
+    XaBY\=replace=[3]\u\L$0
+Failed: error -48: no more memory
+    XaBY\=replace=[4]\u\L$0
+Failed: error -48: no more memory
+    XaBY\=replace=[5]\u\L$0
+ 0: XaBY
+
+/aa/i,substitute_extended,substitute_case_callout,substitute_overflow_length
+    XaaY\=replace=[1]\uaa
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[2]\uaa
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[3]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\uaa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\uaa
+ 1: XBaY
+    XaaY\=replace=[1]\u$0
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[2]\u$0
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[3]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\u$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\u$0
+ 1: XBaY
+    XaaY\=replace=[1]\lBB
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[2]\lBB
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[3]\lBB
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\lBB
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\lBB
+ 1: XaBY
+    XBBY\=replace=[1]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBBY\=replace=[2]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBBY\=replace=[3]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBBY\=replace=[4]\l$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBBY\=replace=[5]\l$0
+ 0: XBBY
+    XaaY\=replace=[1]\l\UBa
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[2]\l\UBa
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[3]\l\UBa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\l\UBa
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\l\UBa
+ 1: XaBY
+    XBaY\=replace=[1]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBaY\=replace=[2]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBaY\=replace=[3]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBaY\=replace=[4]\l\U$0
+Failed: error -48: no more memory: 5 code units are needed
+    XBaY\=replace=[5]\l\U$0
+ 0: XBaY
+    XaaY\=replace=[1]\u\LaB
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[2]\u\LaB
+Failed: error -48: no more memory: 15 code units are needed
+    XaaY\=replace=[3]\u\LaB
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[4]\u\LaB
+Failed: error -48: no more memory: 5 code units are needed
+    XaaY\=replace=[5]\u\LaB
+ 1: XBaY
+    XaBY\=replace=[1]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaBY\=replace=[2]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaBY\=replace=[3]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaBY\=replace=[4]\u\L$0
+Failed: error -48: no more memory: 5 code units are needed
+    XaBY\=replace=[5]\u\L$0
+ 0: XaBY
+
+/aa/substitute_extended,substitute_case_callout
+    XaaY\=replace=\l\U!a
+Failed: error -69: error performing replacement case transformation
+    XaaY\=replace=\l\Ua!
+Failed: error -69: error performing replacement case transformation
+    XaaY\=replace=\ufa
+ 1: XSSaY
+    XaaY\=replace=[3]\ufa
+Failed: error -48: no more memory
+    XaaY\=replace=\l\Uaoo
+ 1: XaOOOOY
+    XaaY\=replace=[4]\l\Uaoo
+Failed: error -48: no more memory
+    XaaY\=replace=\l\UPa
+ 1: XppBY
+    XaaY\=replace=[3]\l\UPa
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\l\UPa
+Failed: error -48: no more memory
+    XaaY\=replace=\l\UPo
+ 1: XppOOY
+    XaaY\=replace=[3]\l\UPo
+Failed: error -48: no more memory
+    XaaY\=replace=[4]\l\UPo
+Failed: error -48: no more memory
+    XaaY\=replace=\l\UPpp
+ 1: XppPY
+    XaaY\=replace=[4]\l\UPpp
+Failed: error -48: no more memory
+    XaaY\=replace=[5]\l\UPpp
+Failed: error -48: no more memory
+
+#
+# special test-callback case transformation tests
+#
+
+/aa/substitute_extended,substitute_case_callout
+    XaaY\=replace=\l!
+Failed: error -69: error performing replacement case transformation
+    XaaY\=replace=\ua\lB
+ 1: XBaY
+    XaaY\=replace=\LdDZ\UdDZ\ud\uD\uZ
+ 1: XdddZZZDDDY
+    XaaY\=replace=\uf\Uf\Lf\Us\Ls\uS\lS
+ 1: XSSSSfSsSsY
+    XaaY\=replace=\LOO\LOQ\UOO\uo\lo
+ 1: XoOQOOOOoY
+    XaaY\=replace=\upq\upp\lpp\Upp\Lpp\lP\uP
+ 1: XpqppppPppppPY
+    XaaY\=replace=\ll\ul\Ul\LMmNn\UMmNn
+ 1: XlMnMNmmnnMMNNY
+    XaaY\=replace=\Uac\Uaca\Uak\Uaka\Lck\LBK\LBKB\LBK \UK
+ 1: XBKBKBBKBKBckacakaac KY
+    Xaay\=replace=\u\Lqj\u\Lij\u\LIj\u\LiJ\u\LIJ\u\Liq\u\Lij\Uij\UiIjJ\LiIjJ
+ 1: XqjIJIJIJIJIqIJIJIIJJiijjy
+    Xaay\=replace=\Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+ 1: XBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBy
+
+# --------------
+
 # End of testinput2
-Error -70: PCRE2_ERROR_BADDATA (unknown error number)
+Error -80: PCRE2_ERROR_BADDATA (unknown error number)
 Error -62: bad serialized data
 Error -2: partial match
 Error -1: no match
