@@ -454,9 +454,9 @@ Get information about a thing.
 ```
 
 As the actual version is generally not yet certain at the time when a
-change gets merged, the an internal ticket number (for example
-`OTP-12345`) to use as a placeholder in the respective `since` tags,
-such as `-doc #{since => ~"OTP OTP-12345"}.`.  When your new
+change gets merged, an internal ticket number (for example
+`OTP-12345`) is used as a placeholder in the respective `since` tags,
+such as `-doc #{since => ~"OTP @OTP-12345@"}.`.  When your new
 functions are released with an Erlang/OTP release, this placeholder
 will get replaced with the actual OTP version, leading to something
 like "OTP 26.0".
