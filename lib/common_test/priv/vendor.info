@@ -9,7 +9,7 @@
       "name": "jquery",
       "versionInfo": "3.7.1",
       "path": "./lib/common_test/priv/jquery-latest.js",
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: The jQuery Team"
     },
     {
       "ID": "common_test-tablesorter",
@@ -21,6 +21,6 @@
       "name": "jquery-tablesorter",
       "versionInfo": "2.32",
       "path": "./lib/common_test/priv/jquery.tablesorter.min.js",
-      "supplier": "NOASSERTION"
+      "supplier": "Person: Christian Bach"
     }
 ]

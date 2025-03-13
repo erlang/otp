@@ -9,7 +9,7 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": ["./lib/common_test/test_server/config.guess", "./lib/common_test/test_server/config.sub"],
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     },
     {
       "ID": "common_test-install-sh",
@@ -21,6 +21,6 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": "./lib/common_test/test_server/install-sh",
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     }
 ]

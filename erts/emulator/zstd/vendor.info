@@ -9,5 +9,5 @@
   "name": "zstd",
   "versionInfo": "v1.5.6",
   "path": "./erts/emulator/zstd",
-  "supplier": "NOASSERTION"
+  "supplier": "Organization: Meta"
 }
