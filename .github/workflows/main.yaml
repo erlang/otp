@@ -678,10 +678,16 @@ jobs:
   sbom:
     name: Create SBOM
     runs-on: ubuntu-latest
-    if: |
-        startsWith(github.ref, 'refs/tags/OTP-') || github.event_name == 'schedule' ||
-          (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-build-and-check'))
+    env:
+        ORT_VERSION: 52.1.0
+        SCAN_RESULT_CACHE_PATH: .ort/scan-result.json
+
     steps:
+
+      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
+        with:
+            otp-version: "27"
+
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
       - name: Checkout project
@@ -691,42 +697,118 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # ratchet:actions/checkout@v4
         with:
           repository: oss-review-toolkit/ort-config
-          ref: "main"
+          ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
           path: ".ort-config"
 
       - name: Setup ORT Config
         id: setup-ort-config
         run: |
-            mkdir -p "/$HOME/.ort/"
+            mkdir -p "$HOME/.ort/"
 
             # Move Fetched Default Config into Place
-            mv .ort-config "/$HOME/.ort/config"
+            mv .ort-config "$HOME/.ort/config"
 
             # Append Global ORT Config
             cat .ort/config/config.yml >> "$HOME/.ort/config/config.yml"
 
-      - name: Run OSS Review Toolkit
-        id: ort
-        # TODO: Use released version once the following issue has been released:
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/issues/37
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/41
-        # * https://github.com/oss-review-toolkit/ort-ci-github-action/pull/43
-        uses: maennchen/ort-ci-github-action@37e64506008cb4418bf2b03eba951f26254dde0f # ratchet:maennchen/ort-ci-github-action@action-output
+      - name: Run OSS Review Toolkit (analyzer)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
         with:
-            image: ghcr.io/oss-review-toolkit/ort-minimal:sha-b71d16f
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
               labels,
               cache-dependencies,
-              cache-scan-results,
-              analyzer,
-              scanner,
-              advisor,
-              reporter,
-              'upload-results',
-              'upload-scan-result'
-            fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
+              analyzer
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Restore ORT Scanner cache
+        uses: actions/cache/restore@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache/restore@v4
+        id: ort-cache
+        with:
+          path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+          key: ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.ref_name }}-
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
+                ort-scan-result-${{ env.ORT_VERSION }}-${{ github.base_ref }}-
+
+      - name: Restore from cache
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) != ''
+        run: |
+            SCANCODE_VERSION=$(docker run --entrypoint="" ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }} bash -c "scancode --version" | grep "ScanCode version" | awk '{print $3}')
+            pip install scancode-toolkit==${SCANCODE_VERSION}
+            scancode-reindex-licenses --additional-directory scripts/licensedetection/
+            ./scripts/scan-code.escript --scan-result-cache ${{ env.SCAN_RESULT_CACHE_PATH }} \
+               --analyzer-result $HOME/.ort/ort-results/analyzer-result.json --file-or-dir . \
+               --scan-result $HOME/.ort/ort-results/scan-result.json
+            diff $HOME/.ort/ort-results/scan-result.json $HOME/.ort/ort-results/scan-result.json.old || true
+
+      - name: Run OSS Review Toolkit (scanner)
+        if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              scanner
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Upload scan results
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # ratchet:actions/upload-artifact@v4.6.1
+        with:
+          name: ort-scan-results
+          path: |
+            /home/runner/.ort/ort-results/analyzer-result.json
+            /home/runner/.ort/ort-results/scan-result.json*
+            ${{ env.SCAN_RESULT_CACHE_PATH }}
+
+      - name: Copy to cache and link results
+        run: |
+          cp $HOME/.ort/ort-results/scan-result.json ${{ env.SCAN_RESULT_CACHE_PATH }}
+          ln -f -s scan-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (reporter)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              reporter
             report-formats: "SpdxDocument"
             ort-cli-report-args: '-O SpdxDocument=outputFileFormats=JSON'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Save ORT Scanner cache
+        uses: actions/cache/save@d4323d4df104b026a6aa633fdb11d772146be0bf # ratchet:actions/cache/save@v4
+        if: steps.ort-cache.outputs.cache-hit != 'true'
+        with:
+            path: ${{ env.SCAN_RESULT_CACHE_PATH }}
+            key: ${{ steps.ort-cache.outputs.cache-primary-key }}
+
+      - name: Process SBOM
+        run: .github/scripts/otp-compliance.es sbom otp-info --sbom-file $HOME/.ort/ort-results/bom.spdx.json --input-file $HOME/.ort/ort-results/scan-result.json
+
+      - name: Run OSS Review Toolkit reporter
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              'upload-results',
+              'upload-scan-result'
+            sw-version: ${{ env.OTP_SBOM_VERSION }}
+
+      - name: Link results
+        run: ln -s scan-result.json $HOME/.ort/ort-results/current-result.json
+
+      - name: Run OSS Review Toolkit (evaluator)
+        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        with:
+            image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
+            run: >
+              advisor,
+              evaluator
+            fail-on: ${{ github.ref_type == 'tag' && '' || '' }} # 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
@@ -770,10 +852,6 @@ jobs:
         with:
           name: otp_doc_man
     
-      - uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451 # ratchet:erlef/setup-beam@v1
-        with:
-          otp-version: "27"
-
       ## We add the correct version name into the file names
       ## and create the hash files for all assets
       - name: Create pre-build and doc archives
@@ -797,11 +875,6 @@ jobs:
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # ratchet:actions/download-artifact@v4.1.9
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
-
-      - name: Process SBOM
-        run: |
-            ls *.json
-            .github/scripts/otp-compliance.es sbom otp-info --sbom-file bom.spdx.json --input-file scan-result.json
 
       - name: Attest Distribution Assets with SBoM
         id: attest-sbom
