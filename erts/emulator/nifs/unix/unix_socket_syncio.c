@@ -2735,6 +2735,7 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                    "\r\n", descP->sock,
                    (unsigned long) bufSz, descP->rNumCnt, (long) len) );
 
+
     /* Check basic state and current reader */
     if (! recv_check_entry(env, descP, recvRef, &ret)) {
         SSDBG( descP,
@@ -2744,7 +2745,15 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     }
 
     /* Allocate the receive buffer */
-    ESOCK_ASSERT( ALLOC_BIN(bufSz, &buf) );
+    if (descP->buf.data == NULL) {
+        ESOCK_ASSERT( ALLOC_BIN(bufSz, &buf) );
+    }
+    else {
+        buf = descP->buf;
+        if (buf.size != bufSz) {
+            REALLOC_BIN(&buf, bufSz);
+        }
+    }
 
     SSDBG( descP, ("UNIX-ESSIO", "essio_recv {%d} -> try read (%lu)\r\n",
                    descP->sock, (unsigned long) len) );
@@ -2763,7 +2772,8 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     /* Check for errors and end of stream */
     if (! recv_check_result(env, descP, sockRef, recvRef,
                             readResult, saveErrno, &ret) ) {
-        FREE_BIN(&buf);
+        /* Keep the buffer */
+        descP->buf = buf;
         return ret;
     }
     /* readResult >= 0 */
@@ -2780,7 +2790,21 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                 descP->sock, (unsigned long) buf.size,
                 (long) readResult) );
 
-        ESOCK_ASSERT( REALLOC_BIN(&buf, readResult) );
+        if (// Less than 4K (1 page) wasted
+            readResult >= (buf.size & ~4095) ||
+            // Less than 25% wasted
+            readResult >= (buf.size >> 1) + (buf.size >> 2)) {
+            //
+            /* Reallocate and drop buffer */
+            descP->buf.data = NULL;
+            ESOCK_ASSERT( REALLOC_BIN(&buf, readResult) );
+        }
+        else {
+            /* Keep buffer, copy content to new binary*/
+            descP->buf = buf;
+            ESOCK_ASSERT( ALLOC_BIN(readResult, &buf) );
+            sys_memcpy(buf.data, descP->buf.data, buf.size);
+        }
         /* Return {ok|timeout|select|select_read, Bin} */
         return recv_check_partial(env, descP, sockRef, recvRef, len, &buf);
 
@@ -2793,6 +2817,7 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
                 "essio_recv {%d} -> [%lu] filled the buffer\r\n",
                 descP->sock, (unsigned long) buf.size) );
 
+        descP->buf.data = NULL; // Drop buffer
         /* Return {more|ok|select_read, Bin} */
         return recv_check_full(env, descP, sockRef, recvRef, len, &buf);
     }
@@ -6547,6 +6572,10 @@ void essio_dtor(ErlNifEnv*       env,
     descP->readState  |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
     descP->writeState |= (ESOCK_STATE_DTOR | ESOCK_STATE_CLOSED);
     descP->pattern     = (ESOCK_DESC_PATTERN_DTOR | ESOCK_STATE_CLOSED);
+
+    if (descP->buf.data != NULL) {
+        FREE_BIN(&descP->buf);
+    }
 
     esock_free_env("dtor reader", descP->currentReader.env);
     descP->currentReader.env = NULL;

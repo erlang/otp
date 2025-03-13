@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2023. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -154,8 +154,8 @@ mk_node_cmdline(ListenPort, Name, Args, Verbose, LogPath, DumpPath) ->
 	++ integer_to_list(ListenPort) ++ " "
 	++ Args ++ " "
 	++ "-env ERL_CRASH_DUMP " ++ DumpPath ++ " "
-        ++ "-kernel inet_dist_connect_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
-        ++ "-kernel inet_dist_listen_options \"[{recbuf,12582912},{sndbuf,12582912},{high_watermark,8388608},{low_watermark,4194304}]\" "
+        ++ "-kernel inet_dist_connect_options \"[{recbuf,1100000},{buffer,1100000},{sndbuf,1100000},{high_watermark,8388608},{low_watermark,4194304}]\" "
+        ++ "-kernel inet_dist_listen_options \"[{recbuf,1100000},{buffer,1100000},{sndbuf,1100000},{high_watermark,8388608},{low_watermark,4194304}]\" "
 	++ "-kernel error_logger \"{file,\\\"" ++ LogPath ++ "\\\"}\" "
 	++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
 

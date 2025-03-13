@@ -12009,6 +12009,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     /* Not used on Windows - see header for more info */
     esock_requestor_init(&descP->currentReader);
     descP->currentReaderP = NULL; // currentReader not used
+    descP->buf.data = NULL;
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
