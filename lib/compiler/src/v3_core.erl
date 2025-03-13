@@ -1950,7 +1950,13 @@ make_clause(Anno, [Pat|PatExtra], Guard, Body) ->
 make_clause(_Anno, nomatch, _PatExtra, _Guard, _Body) ->
     nomatch;
 make_clause(Anno, Pat, PatExtra, Guard, Body) ->
-    #iclause{anno=#a{anno=Anno},pats=[Pat|PatExtra],guard=Guard,body=Body}.
+    case any(fun(X)-> X =:= nomatch end, [Pat|PatExtra]) of
+        true ->
+            nomatch;
+        false ->
+            #iclause{anno=#a{anno=Anno},pats=[Pat|PatExtra],
+                     guard=Guard,body=Body}
+    end.
 
 %% filter_tq(Line, Expr, Filter, Mc, State, [Qualifier], TqFun) ->
 %%     {Case,[PreExpr],State}.
@@ -1995,11 +2001,12 @@ filter_tq(Line, E, #ifilter{anno=#a{anno=LA}=LAnno,arg=Guard},
 %%  should give us better and more compact code.
 
 preprocess_quals(Line, Qs, St) ->
-    preprocess_quals(Line, Qs, St, []).
+    preprocess_quals(Line, Qs, [], St, []).
 
-preprocess_quals(Line, [{zip,Anno,Gens}|Qs], St, Acc) ->
+preprocess_quals(Line, [{zip,Anno,Gens}|Qs], [], St, Acc) ->
     LAnno = #a{anno=lineno_anno(Anno, St)},
-    {Gens1, St1} = preprocess_quals(Line, Gens, St, []),
+    StrictPats = get_strict_patterns(Gens, {Line, St}, []),
+    {Gens1, St1} = preprocess_quals(Line, Gens, StrictPats, St, []),
     [#igen{acc_guard=AccGuard}|_] = Gens1,
     Zip0 = #izip{anno=LAnno,
                  acc_guard=AccGuard},
@@ -2018,13 +2025,13 @@ preprocess_quals(Line, [{zip,Anno,Gens}|Qs], St, Acc) ->
                                    NomatchMode <- Zip1#izip.nomatch_total &&
                                        AccPat <- Zip1#izip.tail_pats],
                      nomatch_total=get_nomatch_total(Zip1#izip.nomatch_total)},
-    preprocess_quals(Line, Qs, St1, [Zip2|Acc]);
-preprocess_quals(Line, [Q|Qs0], St0, Acc) ->
+    preprocess_quals(Line, Qs, [], St1, [Zip2|Acc]);
+preprocess_quals(Line, [Q|Qs0], StrictPats, St0, Acc) ->
     case is_generator(Q) of
         true ->
             {Gs,Qs} = splitwith(fun is_guard_test/1, Qs0),
-            {Gen,St} = generator(Line, Q, Gs, St0),
-            preprocess_quals(Line, Qs, St, [Gen|Acc]);
+            {Gen,St} = generator(Line, Q, Gs, StrictPats, St0),
+            preprocess_quals(Line, Qs, StrictPats, St, [Gen|Acc]);
         false ->
             LAnno = #a{anno=lineno_anno(get_qual_anno(Q), St0)},
             case is_guard_test(Q) of
@@ -2035,16 +2042,16 @@ preprocess_quals(Line, [Q|Qs0], St0, Acc) ->
                     {Gs,Qs} = splitwith(fun is_guard_test/1, Qs0),
                     {Cg,St} = lc_guard_tests([Q|Gs], St0),
                     Filter = #ifilter{anno=LAnno,arg=Cg},
-                    preprocess_quals(Line, Qs, St, [Filter|Acc]);
+                    preprocess_quals(Line, Qs, StrictPats, St, [Filter|Acc]);
                 false ->
                     %% Otherwise, it is a pair {Pre,Arg} as in a generator
                     %% input.
                     {Ce,Pre,St} = novars(Q, St0),
                     Filter = #ifilter{anno=LAnno,arg={Pre,Ce}},
-                    preprocess_quals(Line, Qs0, St, [Filter|Acc])
+                    preprocess_quals(Line, Qs0, StrictPats, St, [Filter|Acc])
             end
     end;
-preprocess_quals(_, [], St, Acc) ->
+preprocess_quals(_, [], _, St, Acc) ->
     {reverse(Acc),St}.
 
 preprocess_zip_generators([#igen{}=Igen | Rest], #izip{}=Zip0) ->
@@ -2088,6 +2095,62 @@ is_generator({m_generate,_,_,_}) -> true;
 is_generator({m_generate_strict,_,_,_}) -> true;
 is_generator(_) -> false.
 
+%% Find all patterns in strict generators within a zip generator, so that they
+%% can be matched in the relaxed generators of the same zip generator.
+get_strict_patterns([{generate_strict,_Lg,P0,_E}|Gs], {Line, St0}, Acc) ->
+    {Pat,St1} = list_gen_pattern(P0, Line, St0),
+    Vars = lit_vars(Pat),
+    get_strict_patterns(Gs, {Line, St1}, Vars++Acc);
+get_strict_patterns([{b_generate_strict,_Lg,P,_E}|Gs], {Line, St0}, Acc) ->
+    {#ibinary{segments=Segs},St1} = pattern(P, St0),
+    Vars = ibitstr_vars(Segs),
+    get_strict_patterns(Gs, {Line, St1}, Vars++Acc);
+get_strict_patterns([{m_generate_strict,Lg,{map_field_exact,_,K0,V0},_E}|Gs],
+                    {Line, St0}, Acc) ->
+    {Pat,St1} = list_gen_pattern({cons,Lg,K0,V0}, Line, St0),
+    Vars = lit_vars(Pat),
+    get_strict_patterns(Gs, {Line, St1}, Vars++Acc);
+get_strict_patterns([_G|Gs], {Line, St0}, Acc) ->
+    get_strict_patterns(Gs, {Line, St0}, Acc);
+get_strict_patterns([], _, Acc) ->
+    sets:to_list(sets:from_list(Acc)).
+
+%% First replace all named variables in the pattern with `_`, unless they
+%% appear in the list of strict patterns. Then collapse all structures with no
+%% named variables to '_'.
+replace_vars(#c_cons{hd=H,tl=T}, Vars) ->
+    T1 = replace_vars(T, Vars),
+    H1 = replace_vars(H, Vars),
+    no_vars(#c_cons{hd=H1,tl=T1});
+replace_vars(#c_tuple{es=Es0}, Vars) ->
+    Es1 = replace_list_vars(Es0, Vars),
+    no_vars(#c_tuple{es=Es1});
+replace_vars(#imap{es=Es0}=M, Vars) ->
+    Es1 = replace_list_vars(Es0, Vars),
+    no_vars(M#imap{es=Es1});
+replace_vars(#imappair{val=V}=M, Vars) ->
+    V1 = replace_vars(V, Vars),
+    no_vars(M#imappair{val=V1});
+replace_vars(#c_var{name='_'}=V, _) ->
+    V;
+replace_vars(#c_var{name=Var}=V, Vars) ->
+    case lists:member(Var, Vars) of
+        true -> V;
+        false -> V#c_var{name='_'}
+    end;
+replace_vars(V, _) -> V.
+
+replace_list_vars(Es, Vars) ->
+    [replace_vars(E, Vars) || E <- Es].
+
+%% If the pattern contains no named variables, collapse it to '_'.
+no_vars(Pat) ->
+    Vars = lit_vars(Pat),
+    case all(fun (V) -> V =:= '_' end, Vars) of
+        true -> #c_var{name='_'};
+        false -> Pat
+    end.
+
 %% Retrieve the annotation from an Erlang AST form.
 %% (Use get_anno/1 to retrieve the annotation from Core Erlang forms).
 
@@ -2118,8 +2181,9 @@ get_qual_anno(Abstract) -> element(2, Abstract).
 %% generator(Line, Generator, Guard, State) -> {Generator',State}.
 %%  Transform a given generator into its #igen{} representation.
 
-generator(Line, {Generate,Lg,P0,E}, Gs, St0) when Generate =:= generate;
-                                                  Generate =:= generate_strict ->
+generator(Line, {Generate,Lg,P0,E}, Gs, StrictPats, St0)
+  when Generate =:= generate;
+       Generate =:= generate_strict ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),
     {Head,St1} = list_gen_pattern(P0, Line, St0),
@@ -2131,7 +2195,18 @@ generator(Line, {Generate,Lg,P0,E}, Gs, St0) when Generate =:= generate;
                  _ ->
                      ann_c_cons(LA, Head, Tail)
              end,
-    NomatchPat = ann_c_cons(LA, Nomatch, Tail),
+    NomatchPat =
+        case {StrictPats, AccPat, Generate} of
+            {[], _, _} ->
+                ann_c_cons(LA, Nomatch, Tail);
+            {_, nomatch, _} ->
+                ann_c_cons(LA, Nomatch, Tail);
+            {_, _, generate} ->
+                Head1 = replace_vars(Head, StrictPats),
+                ann_c_cons(LA, Head1, Tail);
+            {_, _, generate_strict} ->
+                AccPat
+        end,
     NomatchMode = case Generate of
                       generate ->
                           skip;
@@ -2143,8 +2218,9 @@ generator(Line, {Generate,Lg,P0,E}, Gs, St0) when Generate =:= generate;
                 nomatch_pat=NomatchPat,nomatch_mode=NomatchMode,
                 tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
-generator(Line, {Generate,Lg,P,E}, Gs, St0) when Generate =:= b_generate;
-                                                 Generate =:= b_generate_strict ->
+generator(Line, {Generate,Lg,P,E}, Gs, _StrictPats, St0)
+  when Generate =:= b_generate;
+       Generate =:= b_generate_strict ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),
     GAnno = #a{anno=GA},
@@ -2215,9 +2291,9 @@ generator(Line, {Generate,Lg,P,E}, Gs, St0) when Generate =:= b_generate;
                         arg={Pre,Ce}},
             {Gen,St1}
     end;
-generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, St0) when
-        Generate =:= m_generate;
-        Generate =:= m_generate_strict ->
+generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, StrictPats, St0)
+  when Generate =:= m_generate;
+       Generate =:= m_generate_strict ->
     %% Consider this example:
     %%
     %%   [{K,V} || K := V <:- L, is_integer(K)].
@@ -2271,12 +2347,31 @@ generator(Line, {Generate,Lg,{map_field_exact,_,K0,V0},E}, Gs, St0) when
     AccPat = case Pat of
                  nomatch ->
                      nomatch;
+                 #c_cons{hd = K, tl = V} ->
+                     #c_tuple{es=[K,V,IterVar]};
+                 #c_literal{val = [K|V]} ->
+                     #c_tuple{es=[#c_literal{val=K},#c_literal{val=V},IterVar]};
+                 %% Temporary solution to avoid Dialyzer warning
                  _ ->
-                     K = cons_hd(Pat),
-                     V = cons_tl(Pat),
-                     #c_tuple{es=[K,V,IterVar]}
+                     nomatch
              end,
-    NomatchPat = #c_tuple{es=[NomatchK,NomatchV,IterVar]},
+    NomatchPat =
+        case {StrictPats, Pat, Generate} of
+            {[], _, _} ->
+                #c_tuple{es=[NomatchK,NomatchV,IterVar]};
+            {_, nomatch, _} ->
+                #c_tuple{es=[NomatchK,NomatchV,IterVar]};
+            {_, _, m_generate} ->
+                Pat1 = replace_vars(Pat, StrictPats),
+                case Pat1 of
+                    {c_var,_,'_'} ->
+                        #c_tuple{es=[NomatchK,NomatchV,IterVar]};
+                    _ ->
+                        #c_tuple{es=[cons_hd(Pat1),cons_tl(Pat1),IterVar]}
+                end;
+            {_, _, m_generate_strict} ->
+                AccPat
+        end,
     NomatchMode = case Generate of
                       m_generate ->
                           skip;
@@ -4397,6 +4492,8 @@ lit_vars(#c_tuple{es=Es}, Vs) -> lit_list_vars(Es, Vs);
 lit_vars(#c_map{arg=V,es=Es}, Vs) -> lit_vars(V, lit_list_vars(Es, Vs));
 lit_vars(#c_map_pair{key=K,val=V}, Vs) -> lit_vars(K, lit_vars(V, Vs));
 lit_vars(#c_var{name=V}, Vs) -> add_element(V, Vs);
+lit_vars(#imap{es=Es}, Vs) -> lit_list_vars(Es, Vs);
+lit_vars(#imappair{key=K,val=V}, Vs) -> lit_list_vars(K, lit_vars(V, Vs));
 lit_vars(_, Vs) -> Vs.				%These are atomic
 
 lit_list_vars(Ls) -> lit_list_vars(Ls, []).
@@ -4411,6 +4508,14 @@ bitstr_vars(Segs, Vs) ->
     foldl(fun (#c_bitstr{val=V,size=S}, Vs0) ->
  		  lit_vars(V, lit_vars(S, Vs0))
 	  end, Vs, Segs).
+
+ibitstr_vars(Segs) ->
+    ibitstr_vars(Segs, []).
+
+ibitstr_vars(Segs, Vs) ->
+    foldl(fun (#ibitstr{val=V,size=S}, Vs0) ->
+          lit_vars(V, lit_vars(S, Vs0))
+      end, Vs, Segs).
 
 record_anno(L, #core{dialyzer=Dialyzer}=St) ->
     case erl_anno:record(L) andalso Dialyzer of
