@@ -26,19 +26,6 @@ ort:
   scanner:
     skipConcluded: false
     includeFilesWithoutFindings: true
-    config:
-      # A map from scanner plugin types to the plugin configuration.
-      ScanCode:
-        options:
-          # Command line options that affect the ScanCode output. If changed, stored scan results that were created with
-          # different options are not reused.
-          commandLine: '--copyright --license --info --license-score 50 --strip-root --timeout 30'
-
-          # Command line options that do not affect the ScanCode output.
-          commandLineNonConfig: '--processes 8'
-
-          # Use per-file license findings instead of per-line ones.
-          # preferFileLicense: true
 
   analyzer:
     allowDynamicVersions: true
