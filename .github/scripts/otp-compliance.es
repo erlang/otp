@@ -317,7 +317,8 @@ sbom_otp(#{sbom_file  := SbomFile, write_to_file := Write, input_file := Input})
 improve_sbom_with_info(Sbom, ScanResults) ->
     {Licenses, Copyrights} = fetch_license_copyrights(ScanResults),
     Spdx = generate_spdx_fixes(Sbom, Licenses, Copyrights),
-    generate_snippet_fixes(Spdx, ScanResults).
+    %% generate_snippet_fixes(Spdx, ScanResults).
+    Spdx.
 
 
 fetch_license_copyrights(Input) ->
