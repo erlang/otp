@@ -1081,6 +1081,14 @@ cname_loop(Config) when is_list(Config) ->
     ok = inet_db:add_rr("mydomain.com", in, ?S_CNAME, ttl, "mydomain.com"),
     {error,nxdomain} = inet_db:getbyname("mydomain.com", ?S_A),
     ok = inet_db:del_rr("mydomain.com", in, ?S_CNAME, "mydomain.com"),
+    %% deep loop
+    ok = inet_db:add_rr("rtest1.example.com", in, ?S_CNAME, ttl, "rtest2.example.com"),
+    ok = inet_db:add_rr("rtest2.example.com", in, ?S_CNAME, ttl, "rtest3.example.com"),
+    ok = inet_db:add_rr("rtest3.example.com", in, ?S_CNAME, ttl, "rtest1.example.com"),
+    {error,nxdomain} = inet_db:getbyname("rtest1.example.com", ?S_A),
+    ok = inet_db:del_rr("rtest1.example.com", in, ?S_CNAME, "rtest2.example.com"),
+    ok = inet_db:del_rr("rtest2.example.com", in, ?S_CNAME, "rtest3.example.com"),
+    ok = inet_db:del_rr("rtest3.example.com", in, ?S_CNAME, "rtest1.example.com"),
     %% res_hostent_by_domain
     RR = #dns_rr{domain = "mydomain.com",
 		 class = in,
@@ -2091,4 +2099,3 @@ pi(Item) ->
     {Item, Val} = process_info(self(), Item),
     Val.
     
-
