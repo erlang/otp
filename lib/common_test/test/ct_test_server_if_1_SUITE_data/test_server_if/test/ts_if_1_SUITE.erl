@@ -117,10 +117,8 @@ groups() ->
     [{g1,[],[gtc1]},
      {g2,[parallel],[{g3,[],[gtc2]}]},
      
+     {seq1,[sequence],[tc4,tc5]},
      {seq2,[sequence],[tc4,tc5]}].
-
-sequences() ->
-    [{seq1,[tc4,tc5]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -132,6 +130,7 @@ sequences() ->
 all() -> 
     [tc1, tc2, tc3,
      {sequence,seq1},
+     {group,seq1},
      {group,seq2},
      tc6, tc7, 
      tc8, tc9, tc10, 
