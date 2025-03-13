@@ -9,7 +9,7 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": ["./erts/autoconf/config.guess", "./erts/autoconf/config.sub"],
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     },
     {
       "ID": "erts-install-sh",
@@ -21,6 +21,6 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": "./erts/autoconf/install-sh",
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     }
 ]

@@ -8,5 +8,5 @@
   "name": "json-test-suite",
   "versionInfo": "984defc2deaa653cb73cd29f4144a720ec9efe7c",
   "path": "./lib/stdlib/test/json_SUITE_data",
-  "supplier": "NOASSERTION"
+  "supplier": "Person: Nicolas Seriot"
 }

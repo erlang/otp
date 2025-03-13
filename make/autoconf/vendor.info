@@ -9,7 +9,7 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": ["./make/autoconf/config.guess", "./make/autoconf/config.sub"],
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     },
     {
       "ID": "make-install-sh",
@@ -21,6 +21,6 @@
       "name": "Autoconf",
       "versionInfo": "2.71",
       "path": "./make/autoconf/install-sh",
-      "supplier": "NOASSERTION"
+      "supplier": "Organization: Free Software Foundation"
     }
 ]

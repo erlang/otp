@@ -9,7 +9,7 @@
   "name": "fp16",
   "versionInfo": "0a92994d729ff76a58f692d3028ca1b64b145d91",
   "path": "./erts/emulator/beam/erl_bits_f16.h",
-  "supplier": "NOASSERTION"
+  "supplier": "Person:  Marat Dukhan"
   },
   {
   "ID": "erts-tcl",
@@ -21,6 +21,6 @@
   "name": "tcl",
   "versionInfo": "7.6",
   "path": "./erts/emulator/beam/erl_posix_str.c",
-  "supplier": "NOASSERTION"
+  "supplier": "Organization: Tcl Core Team"
   }
 ]
