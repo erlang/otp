@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -499,10 +499,6 @@ handle_event(_, _, State, Data) ->
 
 -behaviour(sys).
 
-%% Internal callbacks
--export(
-   [wakeup_from_hibernate/3]).
-
 %% logger callback
 -export([format_log/1, format_log/2]).
 
@@ -839,7 +835,7 @@ and returns. Here are the sequence of steps for a _state transition_:
    from the top of this sequence.
 
 > #### Note {: .info }
-> The behaviour of a zero time-out (a time-out with time `0`)
+> The behaviour of a time-out zero (a time-out with time `0`)
 > differs subtly from Erlang's `receive ... after 0 ... end`.
 >
 > The latter receives one message if there is one,
@@ -2099,17 +2095,30 @@ event_type(Type) ->
         {state_data = {undefined,undefined} ::
            {State :: term(),Data :: term()},
          postponed = [] :: [{event_type(),event_content()}],
-         timers = #{t0q => []} ::
+         timers = #{} :: %% Timer table
            #{
-              %% Timeout 0 Queue.
-              %% Marked in the table with TimerRef = 0.
-              %% Stored here because they also are updated
-              %% by e.g cancel_timer/3.
-              't0q' := [timeout_event_type()],
-
-              TimeoutType :: timeout_event_type() =>
-                             {TimerRef :: reference() | 0,
-                              TimeoutMsg :: event_content()}},
+              %% Running timer:
+              (TimeoutType :: timeout_event_type()) =>
+                  {TimerRef :: reference(), TimeoutMsg :: event_content()},
+              %% Cancelled timer with pending message
+              (TimerRef :: reference()) => []},
+         %%
+         %% Time-out zero Queue.
+         %%
+         %% The t0q is in limbo between the process message mailbox
+         %% and the internal received but not processed event queue.
+         %% Head in the list is first time-out event to process.
+         %% They are processed at the end of the main loop,
+         %% before looping to the top to receive a new external event,
+         %% in loop_t0q/5.
+         %%
+         %% Time-out zero "timers" are faked by creating a reference()
+         %% that is not a timer reference.  erlang:cancel_timer/1
+         %% will return 'false' for it as if it has already triggered,
+         %% which fits our model since the event is already in this queue.
+         %%
+         t0q = [] ::
+           [{TimeoutType :: timeout_event_type(), TimeoutRef :: reference()}],
          hibernate = false :: boolean()
         }).
 
@@ -3436,10 +3445,10 @@ format_status(
            state_data = {State,Data}}}]) ->
     Header = gen:format_status_header("Status for state machine", Name),
 
-    {NumTimers, ListTimers} = list_timeouts(Timers),
+    Timeouts = list_timeouts(Timers),
     StatusMap = #{ state => State, data => Data,
                    postponed => Postponed, log => sys:get_log(Debug),
-                   timeouts => ListTimers
+                   timeouts => Timeouts
                  },
 
     NewStatusMap =
@@ -3460,7 +3469,7 @@ format_status(
       [{"Status",SysState},
        {"Parent",Parent},
        {"Modules",Modules},
-       {"Time-outs",{NumTimers,maps:get(timeouts,NewStatusMap)}},
+       {"Time-outs",{length(Timeouts),maps:get(timeouts,NewStatusMap)}},
        {"Logged Events",maps:get(log,NewStatusMap)},
        {"Postponed",maps:get(postponed,NewStatusMap)}]} |
      maps:get('$status',NewStatusMap)].
@@ -3539,14 +3548,6 @@ event_string(Event) ->
     end.
 
 %%%==========================================================================
-%%% Internal callbacks
-
--doc false.
-wakeup_from_hibernate(P, Debug, S) ->
-    %% It is a new message that woke us up so we have to receive it now
-    loop_receive(P, Debug, S).
-
-%%%==========================================================================
 %%% State Machine engine implementation on proc_lib/gen
 
 %% Server loop, consists of all loop* functions
@@ -3565,117 +3566,128 @@ wakeup_from_hibernate(P, Debug, S) ->
 
 %% Entry point for system_continue/3
 %%
-loop(P, Debug, #state{hibernate = true} = S) ->
-    loop_hibernate(P, Debug, S);
-loop(P, Debug, S) ->
-    loop_receive(P, Debug, S).
-
-%% Go to hibernation
-%%
-loop_hibernate(P, Debug, S) ->
-    %%
-    %% does not return but restarts process at
-    %% wakeup_from_hibernate/3 that jumps to loop_receive/3
-    %%
-    proc_lib:hibernate(?MODULE, wakeup_from_hibernate, [P, Debug, S]),
-    error(
-      {should_not_have_arrived_here_but_instead_in,
-       {?MODULE,wakeup_from_hibernate,3}}).
-
-
-%% Entry point for wakeup_from_hibernate/3
-%%
 %% Receive a new process message
 %%
-loop_receive(
-  #params{hibernate_after = HibernateAfterTimeout} = P, Debug, S) ->
-    %%
-    receive
-	Msg ->
-	    case Msg of
-                {'$gen_call',From,Request} ->
-                    loop_receive_result(P, Debug, S, {{call,From},Request});
-                {'$gen_cast',Cast} ->
-                    loop_receive_result(P, Debug, S, {cast,Cast});
-                %%
-		{timeout,TimerRef,TimeoutType} ->
-                    case S#state.timers of
-                        #{TimeoutType := {TimerRef,TimeoutMsg}} = Timers
-                          when TimeoutType =/= t0q->
-                            %% Our timer
-                            Timers_1 = maps:remove(TimeoutType, Timers),
-                            S_1 = S#state{timers = Timers_1},
-                            loop_receive_result(
-                              P, Debug, S_1, {TimeoutType,TimeoutMsg});
-                        #{} ->
-			    loop_receive_result(P, Debug, S, {info,Msg})
-		    end;
-                %%
-		{system,Pid,Req} ->
-		    %% does not return but tail recursively calls
-		    %% system_continue/3 that jumps to loop/3
-		    sys:handle_system_msg(
-		      Req, Pid, P#params.parent, ?MODULE, Debug,
-                      {P,S},
-		      S#state.hibernate);
-		{'EXIT',Pid,Reason} ->
-                    case P#params.parent of
-                        Pid ->
-                            terminate(
-                              exit, Reason, ?STACKTRACE(), P, Debug, S, []);
-                        _ ->
-                            loop_receive_result(P, Debug, S, {info,Msg})
-                    end;
-                %%
-                _ ->
-                    loop_receive_result(P, Debug, S, {info,Msg})
-	    end
-    after
-        HibernateAfterTimeout ->
-            loop_hibernate(P, Debug, S)
+loop(P, Debug, #state{hibernate = Hibernate} = S) ->
+    case Hibernate of
+        true ->
+            receive Msg ->
+                    %% We already had a message, so hibernation
+                    %% would be pointless
+                    %% - emulate hibernate and immediate wake-up
+                    garbage_collect(),
+                    loop_msg(P, Debug, S, Msg)
+            after 0 ->
+                    loop_hibernate(P, Debug, S)
+            end;
+        false ->
+            receive Msg ->
+                    loop_msg(P, Debug, S, Msg)
+            after P#params.hibernate_after ->
+                    loop_hibernate(P, Debug, S)
+            end
     end.
 
-%% We have received an event
+loop_hibernate(P, Debug, S) ->
+    erlang:hibernate(),
+    loop_wakeup(P, Debug, S).
 %%
-loop_receive_result(P, ?not_sys_debug = Debug, S, Event) ->
-    %% Here is the queue of not yet handled events created
-    Events = [],
-    loop_event(P, Debug, S, Event, Events);
-loop_receive_result(
+%% loop_wakeup/3 below is only needed so we can, when debugging,
+%% tell the difference between waiting in hibernation
+%% and stuck in a receive after being awakened
+%%
+loop_wakeup(P, Debug, S) ->
+    %% A new process message woke us up; receive it
+    receive Msg ->
+            loop_msg(P, Debug, S, Msg)
+    end.
+
+%% Handle a received message
+%%
+loop_msg(P, Debug, S, Msg) ->
+    case Msg of
+        {'$gen_call',From,Request} ->
+            loop_msg_event(P, Debug, S, {{call,From},Request});
+        {'$gen_cast',Cast} ->
+            loop_msg_event(P, Debug, S, {cast,Cast});
+        %%
+        {timeout,TimerRef,TimeoutType} when is_reference(TimerRef) ->
+            Timers = S#state.timers,
+            case Timers of
+                #{TimeoutType := {TimerRef,TimeoutMsg}} ->
+                    %% Our running timer
+                    Timers_1 = maps:remove(TimeoutType, Timers),
+                    S_1 = S#state{timers = Timers_1},
+                    loop_msg_event(P, Debug, S_1, {TimeoutType,TimeoutMsg});
+                #{TimerRef := _} ->
+                    %% Our cancelled timer - ignore
+                    Timers_1 = maps:remove(TimerRef, Timers),
+                    S_1 = S#state{timers = Timers_1},
+                    loop(P, Debug, S_1);
+                #{} ->
+                    loop_msg_event(P, Debug, S, {info,Msg})
+            end;
+        %%
+        {system,Pid,Req} ->
+            %% does not return but tail recursively calls
+            %% system_continue/3 that jumps to loop/3
+            sys:handle_system_msg(
+              Req, Pid, P#params.parent, ?MODULE, Debug,
+              {P,S},
+              S#state.hibernate);
+        {'EXIT',Pid,Reason} ->
+            case P#params.parent of
+                Pid ->
+                    terminate(
+                      exit, Reason, ?STACKTRACE(), P, Debug, S, []);
+                _ ->
+                    loop_msg_event(P, Debug, S, {info,Msg})
+            end;
+        %%
+        _ ->
+            loop_msg_event(P, Debug, S, {info,Msg})
+    end.
+
+%% Handle a received event
+%%
+-compile({inline, [loop_msg_event/4]}).
+loop_msg_event(P, Debug, S, Event) ->
+    %%
+    %% The field 'hibernate' in S is now invalid and will be restored
+    %% at the end of the loop in loop_next_events/10 or loop_timeouts/12,
+    %% before looping back to loop/3.
+    %%
+    Hibernate = false,
+    loop_msg_event(P, Debug, S, Event, Hibernate).
+%%
+%% Here is the queue of not yet handled events created
+%%
+loop_msg_event(P, ?not_sys_debug = Debug, S, Event, Hibernate) ->
+    Q = [Event],
+    loop_event(P, Debug, S, Q, Hibernate);
+loop_msg_event(
   #params{name = Name} = P, Debug,
-  #state{state_data = {State,_Data}} = S, Event) ->
+  #state{state_data = {State,_Data}} = S, Event, Hibernate) ->
     Debug_1 = sys_debug(Debug, Name, {in,Event,State}),
-    %% Here is the queue of not yet handled events created
-    Events = [],
-    loop_event(P, Debug_1, S, Event, Events).
+    Q = [Event],
+    loop_event(P, Debug_1, S, Q, Hibernate).
 
 %% Handle one event; received or enqueued
 %%
 loop_event(
-  P, Debug, #state{hibernate = true} = S, Event, Events) ->
-    %%
-    %% If (this old) Hibernate is true here it can only be
-    %% because it was set from an event action
-    %% and we did not go into hibernation since there were
-    %% events in queue, so we do what the user
-    %% might rely on i.e collect garbage which
-    %% would have happened if we actually hibernated
-    %% and immediately was awakened.
-    %%
-    _ = garbage_collect(),
-    %%
-    %% The field 'hibernate' in S is now invalid and will be
-    %% restored when looping back to loop/3 or loop_event/5.
-    %%
-    Q = [Event|Events],
-    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event);
-loop_event(P, Debug, S, Event, Events) ->
-    %%
-    %% The field 'hibernate' in S is now invalid and will be
-    %% restored when looping back to loop/3 or loop_event/5.
-    %%
-    Q = [Event|Events],
-    loop_state_callback(P, Debug, S, Q, S#state.state_data, Event).
+  P, Debug, #state{state_data = State_Data} = S, [Event|_] = Q, Hibernate) ->
+    case Hibernate of
+        true ->
+            %%
+            %% Hibernate is 'true' because it was set from an event action,
+            %% but since there were events in queue we shall not hibernate,
+            %% instead emulate hibernate and immediate wake-up.
+            %%
+            _ = garbage_collect(),
+            loop_state_callback(P, Debug, S, Q, State_Data, Event, Hibernate);
+        false ->
+            loop_state_callback(P, Debug, S, Q, State_Data, Event, Hibernate)
+    end.
 
 %% Make a state enter call to the state function, we loop back here
 %% from further down if state enter calls are enabled
@@ -3712,10 +3724,9 @@ loop_enter(P, Debug, S, Q, State_Data, Actions) ->
 
 %% Make a state call (not state enter call) to the state function
 %%
--compile({inline, [loop_state_callback/6]}).
-loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent) ->
+-compile({inline, [loop_state_callback/7]}).
+loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent, Hibernate) ->
     NextEventsR = [],
-    Hibernate = false,
     TimeoutsR = [],
     Postpone = false,
     StateCall = true,
@@ -3893,16 +3904,26 @@ loop_state_callback_result(
               Q)
     end.
 
-%% Ensure that Actions are a list
+%% Shorcut for no actions and exit from loop when done with Actions
 %%
 loop_actions(
   P, Debug, S, Q, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter, _StateCall, []) ->
-    loop_actions(
-      P, Debug, S, Q, NextState_NewData,
-      NextEventsR, Hibernate, TimeoutsR, Postpone,
-      CallEnter);
+  CallEnter) ->
+    %%
+    case CallEnter andalso P#params.state_enter of
+        true when CallEnter ->
+            loop_state_enter(
+              P, Debug, S, Q, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postpone);
+        false ->
+            loop_state_transition(
+              P, Debug, S, Q, NextState_NewData,
+              NextEventsR, Hibernate, TimeoutsR, Postpone)
+    end.
+
+%% Ensure that Actions is a list
+%%
 loop_actions(
   P, Debug, S, Q, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
@@ -3912,24 +3933,6 @@ loop_actions(
       P, Debug, S, Q, NextState_NewData,
       NextEventsR, Hibernate, TimeoutsR, Postpone,
       CallEnter, StateCall, listify(Actions)).
-%%
-%% Shortcut for no actions
-loop_actions(
-  P, Debug, S, Q, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter) ->
-    %%
-    %% Shortcut for no actions
-    case CallEnter andalso P#params.state_enter of
-	true ->
-            loop_state_enter(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postpone);
-	false ->
-            loop_state_transition(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postpone)
-    end.
 
 %% Process the returned actions
 %%
@@ -3938,16 +3941,10 @@ loop_actions_list(
   NextEventsR, Hibernate, TimeoutsR, Postpone,
   CallEnter, _StateCall, []) ->
     %%
-    case P#params.state_enter of
-        true when CallEnter ->
-            loop_state_enter(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postpone);
-        _ ->
-            loop_state_transition(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postpone)
-    end;
+    loop_actions(
+      P, Debug, S, Q, NextState_NewData,
+      NextEventsR, Hibernate, TimeoutsR, Postpone,
+      CallEnter);
 loop_actions_list(
   P, Debug, S, Q, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
@@ -4131,7 +4128,7 @@ loop_actions_list(
                               NextEventsR, Hibernate,
                               [RelativeTimeout|TimeoutsR], Postpone,
                               CallEnter, StateCall, Actions);
-                        _ ->
+                        error ->
                             terminate(
                               error,
                               {bad_action_from_state_function,Timeout},
@@ -4472,7 +4469,7 @@ loop_next_events(
   Timers) ->
     %%
     %% Optimization when there are no timeouts
-    %% hence no zero timeout events to append to Events
+    %% hence no time-out zero events to append to Events
     %% - avoid loop_timeouts
     loop_done(
       P, Debug,
@@ -4489,25 +4486,25 @@ loop_next_events(
   Timers) ->
     %%
     Seen = #{},
-    TimeoutEvents = [],
+    T0Events = [],
     loop_timeouts(
       P, Debug, S,
       Events, NextState_NewData,
       NextEventsR, Hibernate, TimeoutsR, Postponed,
-      Timers, Seen, TimeoutEvents).
+      Timers, Seen, T0Events).
 
-%% Continue state transition with processing of timeouts
+%% Continue state transition with processing of time-outs
 %% and finally inserted events
 %%
 loop_timeouts(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, [], Postponed,
-  Timers, _Seen, TimeoutEvents) ->
+  Timers, _Seen, T0Events) ->
     %%
-    %% End of timeouts
+    %% End of time-outs
     %%
-    case TimeoutEvents of
+    case T0Events of
         [] ->
             S_1 =
                 S#state{
@@ -4517,20 +4514,25 @@ loop_timeouts(
                   hibernate = Hibernate},
             loop_done(P, Debug, S_1, Events, NextEventsR);
         [_|_] ->
-            #{t0q := T0Q} = Timers,
+            T0Q =
+                case S#state.t0q of
+                    []    -> T0Events;
+                    [_|_] -> S#state.t0q ++ T0Events
+                end,
             S_1 =
                 S#state{
                   state_data = NextState_NewData,
-                  postponed = Postponed,
-                  timers = Timers#{t0q := T0Q ++ TimeoutEvents},
-                  hibernate = Hibernate},
+                  postponed  = Postponed,
+                  timers     = Timers,
+                  t0q        = T0Q,
+                  hibernate  = Hibernate},
             loop_done(P, Debug, S_1, Events, NextEventsR)
     end;
 loop_timeouts(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, [Timeout|TimeoutsR], Postponed,
-  Timers, Seen, TimeoutEvents) ->
+  Timers, Seen, T0Events) ->
     %%
     TimeoutType = element(1, Timeout),
     case Seen of
@@ -4540,35 +4542,35 @@ loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents);
+              Timers, Seen, T0Events);
         #{} ->
             case Timeout of
                 {_,Time,TimeoutMsg} ->
                     %% Relative timeout or update
-                    loop_timeouts_start(
+                    loop_timeouts(
                       P, Debug, S,
                       Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers, Seen, TimeoutEvents,
+                      Timers, Seen, T0Events,
                       TimeoutType, Time, TimeoutMsg, []);
                 {_,Time,TimeoutMsg,TimeoutOpts} ->
                     %% Absolute timeout
-                    loop_timeouts_start(
+                    loop_timeouts(
                       P, Debug, S,
                       Events, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postponed,
-                      Timers, Seen, TimeoutEvents,
+                      Timers, Seen, T0Events,
                       TimeoutType, Time, TimeoutMsg, listify(TimeoutOpts))
             end
     end.
 
-%% Loop helper to start or restart a timeout
+%% Loop helper to handle one time-out
 %%
-loop_timeouts_start(
+loop_timeouts(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
+  Timers, Seen, T0Events,
   TimeoutType, Time, TimeoutMsg, TimeoutOpts) ->
     %%
     case Time of
@@ -4578,24 +4580,24 @@ loop_timeouts_start(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents,
+              Timers, Seen, T0Events,
               TimeoutType);
         update ->
             loop_timeouts_update(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents,
+              Timers, Seen, T0Events,
               TimeoutType, TimeoutMsg);
         0 ->
-            %% (Re)start zero timeout
-            TimerRef = 0,
-            TimeoutEvents_1 = [TimeoutType | TimeoutEvents],
+            %% (Re)start time-out zero
+            TimerRef = make_ref(),
+            T0Events_1 = [{TimeoutType,TimerRef} | T0Events],
             loop_timeouts_register(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents_1,
+              Timers, Seen, T0Events_1,
               TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef);
         _ ->
             %% (Re)start the timer
@@ -4605,7 +4607,7 @@ loop_timeouts_start(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents,
+              Timers, Seen, T0Events,
               TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef)
     end.
 
@@ -4616,7 +4618,7 @@ loop_timeouts_register(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
+  Timers, Seen, T0Events,
   TimeoutType, Time, TimeoutMsg, TimeoutOpts, TimerRef) ->
     %%
     case Debug of
@@ -4624,7 +4626,7 @@ loop_timeouts_register(
             loop_timeouts_register(
               P, Debug, S, Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents,
+              Timers, Seen, T0Events,
               TimeoutType, TimerRef, TimeoutMsg);
         _ ->
             {State,_Data} = NextState_NewData,
@@ -4637,48 +4639,34 @@ loop_timeouts_register(
             loop_timeouts_register(
               P, Debug_1, S, Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen, TimeoutEvents,
+              Timers, Seen, T0Events,
               TimeoutType, TimerRef, TimeoutMsg)
     end.
 %%
 loop_timeouts_register(
   P, Debug, S, Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
+  Timers, Seen, T0Events,
   TimeoutType, TimerRef, TimeoutMsg) ->
     %%
     case Timers of
-        #{TimeoutType := {0,_OldTimeoutMsg},
-          t0q := T0Q} ->
-            %% Cancel the running timer,
-            %% and update timer type and ref
-            Timers_1 =
-                Timers
-                #{TimeoutType := {0,TimeoutMsg},
-                  t0q := lists:delete(TimeoutType, T0Q)},
-            loop_timeouts(
-              P, Debug, S,
-              Events, NextState_NewData,
-              NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
         #{TimeoutType := {OldTimerRef,_OldTimeoutMsg}} ->
-            %% Cancel the running timer,
-            %% and update timer type and ref
-            cancel_timer(OldTimerRef),
-            Timers_1 = Timers#{TimeoutType := {TimerRef,TimeoutMsg}},
+            Timers_1 =
+                replace_timer(
+                  TimeoutType, OldTimerRef, TimerRef, TimeoutMsg, Timers),
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
+              Timers_1, Seen#{TimeoutType => true}, T0Events);
         #{} ->
-            %% Insert the new timer type and ref
+            %% Register the new timer
             Timers_1 = Timers#{TimeoutType => {TimerRef,TimeoutMsg}},
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents)
+              Timers_1, Seen#{TimeoutType => true}, T0Events)
     end.
 
 %% Loop helper to cancel a timeout
@@ -4687,14 +4675,14 @@ loop_timeouts_cancel(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents, TimeoutType) ->
+  Timers, Seen, T0Events, TimeoutType) ->
     %% This function body should have been:
     %%    Timers_1 = cancel_timer(TimeoutType, Timers),
     %%    loop_timeouts(
     %%      P, Debug, S,
     %%      Events, NextState_NewData,
     %%      NextEventsR, Hibernate, TimeoutsR, Postponed,
-    %%      Timers_1, Seen#{TimeoutType => true}, TimeoutEvents).
+    %%      Timers_1, Seen#{TimeoutType => true}, T0Events).
     %%
     %% Explicitly separate cases to get separate code paths for when
     %% the map key exists vs. not, since otherwise the external call
@@ -4709,23 +4697,34 @@ loop_timeouts_cancel(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers_1, Seen#{TimeoutType => true}, TimeoutEvents);
+              Timers_1, Seen#{TimeoutType => true}, T0Events);
         #{} ->
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
-              Timers, Seen#{TimeoutType => true}, TimeoutEvents)
+              Timers, Seen#{TimeoutType => true}, T0Events)
     end.
 
-%% Loop helper to update the timeout message,
-%% or start a zero timeout if no timer is running
+%% Loop helper to update the time-out message for a running timer.
+%%
+%% If there is no such running timer it is probably a user mistake.
+%% But we cannot return an error, so we make the best of the situation,
+%% as in pretend that we immediately start at timer and update the message.
+%%
+%% We have no time-out value for the timer  so we must select between
+%% 0 or 'infinity' since any other would be plain stupid.
+%% We select a 0 time-out since 'infinity' would render a timer
+%% that would never expire so the user mistake would be silently ignored.
+%%
+%% With time 0 an event has to be immediately created so the user will
+%% at least get a surprising message,  which should be the best we can do...
 %%
 loop_timeouts_update(
   P, Debug, S,
   Events, NextState_NewData,
   NextEventsR, Hibernate, TimeoutsR, Postponed,
-  Timers, Seen, TimeoutEvents,
+  Timers, Seen, T0Events,
   TimeoutType, TimeoutMsg) ->
     %%
     case Timers of
@@ -4736,16 +4735,17 @@ loop_timeouts_update(
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
               Timers_1, Seen#{TimeoutType => true},
-              TimeoutEvents);
+              T0Events);
         #{} ->
-            Timers_1 = Timers#{TimeoutType => {0, TimeoutMsg}},
-            TimeoutEvents_1 = [TimeoutType|TimeoutEvents],
+            TimerRef = make_ref(),
+            Timers_1 = Timers#{TimeoutType => {TimerRef,TimeoutMsg}},
+            T0Events_1 = [{TimeoutType,TimerRef} | T0Events],
             loop_timeouts(
               P, Debug, S,
               Events, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postponed,
               Timers_1, Seen#{TimeoutType => true},
-              TimeoutEvents_1)
+              T0Events_1)
     end.
 
 %% Place inserted events first in the event queue
@@ -4763,7 +4763,7 @@ loop_done(P, Debug, S, Events, NextEventsR) ->
     end.
 %%
 %% State transition is done, keep looping if there are
-%% enqueued events, or if there are zero timeouts,
+%% enqueued events, or if there are time-out zero events,
 %% otherwise get a new event
 %%
 loop_done(P, Debug, S, Q) ->
@@ -4774,22 +4774,35 @@ loop_done(P, Debug, S, Q) ->
 %%%      [S#state.state_data,,S#state.postponed,Q,S#state.timers]),
     case Q of
         [] ->
-            case S#state.timers of
-                #{t0q := [TimeoutType|_]} = Timers ->
-                    #{TimeoutType := {0 = TimerRef, TimeoutMsg}} = Timers,
-                    Timers_1 = cancel_timer(TimeoutType, TimerRef, Timers),
-                    S_1 = S#state{timers = Timers_1},
-                    Event = {TimeoutType, TimeoutMsg},
-                    loop_receive_result(P, Debug, S_1, Event);
-                #{} ->
-                    %% Get a new event
-                    loop(P, Debug, S)
+            case S#state.t0q of
+                [] ->
+                    loop(P, Debug, S); % Get a new event
+                T0Q ->
+                    loop_t0q(P, Debug, S, S#state.timers, T0Q)
             end;
-        [Event|Events] ->
+        [_|_] ->
+            %%
 	    %% Loop until out of enqueued events
-	    loop_event(P, Debug, S, Event, Events)
+            %%
+	    loop_event(P, Debug, S, Q, S#state.hibernate)
     end.
 
+loop_t0q(P, Debug, S, Timers, []) ->
+    loop(P, Debug, S#state{timers = Timers, t0q = []}); % Get a new event
+loop_t0q(P, Debug,  S, Timers, [{TimeoutType,TimerRef} | T0Q]) ->
+    case Timers of
+        #{TimeoutType := {TimerRef,TimeoutMsg}} ->
+            Timers_1 = maps:remove(TimeoutType, Timers),
+            S_1 = S#state{timers = Timers_1, t0q = T0Q},
+            Event = {TimeoutType,TimeoutMsg},
+            loop_msg_event(P, Debug, S_1, Event, S#state.hibernate);
+        #{TimerRef := _} ->
+            %% Cancelled timer
+            Timers_1 = maps:remove(TimerRef, Timers),
+            loop_t0q(P, Debug, S, Timers_1, T0Q);
+        #{} ->
+            error({TimeoutType, TimerRef, Timers})
+    end.
 
 %%---------------------------------------------------------------------------
 %% Server loop helpers
@@ -4807,7 +4820,7 @@ parse_timeout_opts_abs(Opts, Abs) ->
         [{abs,Abs_1}|Opts] when is_boolean(Abs_1) ->
             parse_timeout_opts_abs(Opts, Abs_1);
         _ ->
-            badarg
+            error
     end.
 
 %% Get the callback mode, update #params{}
@@ -4954,7 +4967,7 @@ error_info(
      state_data = {State,Data}},
   Q) ->
 
-    {NumTimers,ListTimers} = list_timeouts(Timers),
+    Timeouts = list_timeouts(Timers),
 
     Status =
         gen:format_status(Mod, terminate,
@@ -4963,7 +4976,7 @@ error_info(
                              data => Data,
                              queue => Q,
                              postponed => Postponed,
-                             timeouts => ListTimers,
+                             timeouts => Timeouts,
                              log => sys:get_log(Debug)},
                           [get(),State,Data]),
     NewState = case maps:find('$status', Status) of
@@ -4980,7 +4993,7 @@ error_info(
                  callback_mode=>params_callback_mode(CallbackMode),
                  state_enter=>StateEnter,
                  state=>NewState,
-                 timeouts=>{NumTimers,maps:get(timeouts,Status)},
+                 timeouts=>{length(Timeouts),maps:get(timeouts,Status)},
                  log=>maps:get(log,Status),
                  reason=>{Class,maps:get(reason,Status),Stacktrace},
                  client_info=>client_stacktrace(Q),
@@ -5350,51 +5363,46 @@ listify(Item) ->
 
 -define(
    cancel_timer(TimerRef),
-   case erlang:cancel_timer(TimerRef) of
-       false ->
-           %% No timer found and we have not seen the timeout message
-           receive
-               {timeout,(TimerRef),_} ->
-                   ok
-           end;
-       _ ->
-           %% Timer was running
-           ok
-   end).
-%%
-%% Cancel erlang: timer and consume timeout message
+   begin erlang:cancel_timer(begin TimerRef end) end).
 %%
 -compile({inline, [cancel_timer/1]}).
 cancel_timer(TimerRef) ->
     ?cancel_timer(TimerRef).
 
+%% Cancel a running timer and register a new
+replace_timer(TimeoutType, OldTimerRef, TimerRef, TimeoutMsg, Timers) ->
+    case cancel_timer(OldTimerRef) of
+        false ->
+            Timers#{TimeoutType := {TimerRef,TimeoutMsg},
+                    OldTimerRef => []};
+        _ ->
+            Timers#{TimeoutType := {TimerRef,TimeoutMsg}}
+    end.
 
 -define(
    cancel_timer(TimeoutType, TimerRef, Timers),
-   case (TimerRef) of
-       0 ->
-           maps:remove(
-             begin TimeoutType end,
-             maps:update(
-               t0q,
-               lists:delete(
-                 begin TimeoutType end,
-                 maps:get(t0q, begin Timers end)),
-               begin Timers end));
-       _ ->
-           ?cancel_timer(TimerRef),
-           maps:remove(begin TimeoutType end, begin Timers end)
+   begin
+       maps:remove(
+         begin TimeoutType end,
+         case ?cancel_timer(TimerRef) of
+             false ->
+                 maps:put(begin TimerRef end, [], begin Timers end);
+             _ ->
+                 begin Timers end
+         end)
    end).
 %%
-%% Cancel timer and remove from Timers
+%% Cancel timer, remove from Timers;
+%% if message is pending mark as cancelled.
+%% Assumes that a timer message has not been seen.
 %%
 -compile({inline, [cancel_timer/3]}).
 cancel_timer(TimeoutType, TimerRef, Timers) ->
     ?cancel_timer(TimeoutType, TimerRef, Timers).
 
-%% Cancel timer if running, otherwise no op
+%% Cancel timer if running, otherwise no-op.
+%% Return updated Timers.
 %%
-%% Remove the timer from Timers
 -compile({inline, [cancel_timer/2]}).
 cancel_timer(TimeoutType, Timers) ->
     case Timers of
@@ -5404,10 +5412,7 @@ cancel_timer(TimeoutType, Timers) ->
             Timers
     end.
 
-
 %% Return a list of all pending timeouts
 list_timeouts(Timers) ->
-    {maps:size(Timers) - 1, % Subtract fixed key 't0q'
-     [{TimeoutType, TimeoutMsg}
-      || TimeoutType := {_TimerRef, TimeoutMsg} <- Timers,
-         TimeoutType =/= t0q]}.
+    [{TimeoutType, TimeoutMsg}
+     || TimeoutType := {_TimerRef, TimeoutMsg} <- Timers].
