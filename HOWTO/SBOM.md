@@ -1,3 +1,6 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors -->
+
 # Software Bill-of-Materials (SBOM)
 
 A Software Bill-of-Materials (SBOM) is a document to share information about the
