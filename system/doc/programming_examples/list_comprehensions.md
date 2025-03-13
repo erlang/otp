@@ -24,31 +24,44 @@ limitations under the License.
 This section starts with a simple example, showing a generator and a filter:
 
 ```erlang
-> [X || X <- [1,2,a,3,4,b,5,6], X > 3].
+> [X || X <:- [1,2,a,3,4,b,5,6], X > 3].
 [a,4,b,5,6]
 ```
 
 This is read as follows: The list of X such that X is taken from the list
 `[1,2,a,...]` and X is greater than 3.
 
-The notation `X <- [1,2,a,...]` is a generator and the expression `X > 3` is a
+The notation `X <:- [1,2,a,...]` is a generator and the expression `X > 3` is a
 filter.
 
 An additional filter, [`is_integer(X)`](`is_integer/1`), can be added to
 restrict the result to integers:
 
 ```erlang
-> [X || X <- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].
+> [X || X <:- [1,2,a,3,4,b,5,6], is_integer(X), X > 3].
 [4,5,6]
 ```
 
-Generators can be combined. For example, the Cartesian product of two lists can
-be written as follows:
+Generators can be combined in two ways. For example, the Cartesian product of
+two lists can be written as follows:
 
 ```erlang
-> [{X, Y} || X <- [1,2,3], Y <- [a,b]].
+> [{X, Y} || X <:- [1,2,3], Y <:- [a,b]].
 [{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]
 ```
+
+Alternatively, two lists can be zipped together using a zip generator as
+follows:
+
+```erlang
+> [{X, Y} || X <:- [1,2,3] && Y <:- [a,b,c]].
+[{1,a},{2,b},{3,c}]
+```
+
+> #### Change {: .info }
+>
+> Strict generators are used by default in the examples. More details and
+> comparisons can be found in [Strict and Relaxed Generators](#strict-and-relaxed-generators).
 
 ## Quick Sort
 
@@ -58,15 +71,15 @@ The well-known quick sort routine can be written as follows:
 sort([]) -> [];
 sort([_] = L) -> L;
 sort([Pivot|T]) ->
-    sort([ X || X <- T, X < Pivot]) ++
+    sort([ X || X <:- T, X < Pivot]) ++
     [Pivot] ++
-    sort([ X || X <- T, X >= Pivot]).
+    sort([ X || X <:- T, X >= Pivot]).
 ```
 
-The expression `[X || X <- T, X < Pivot]` is the list of all elements in `T`
+The expression `[X || X <:- T, X < Pivot]` is the list of all elements in `T`
 that are less than `Pivot`.
 
-`[X || X <- T, X >= Pivot]` is the list of all elements in `T` that are greater
+`[X || X <:- T, X >= Pivot]` is the list of all elements in `T` that are greater
 than or equal to `Pivot`.
 
 With the algorithm above, a list is sorted as follows:
@@ -100,7 +113,7 @@ The following example generates all permutations of the elements in a list:
 
 ```erlang
 perms([]) -> [[]];
-perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].
+perms(L)  -> [[H|T] || H <:- L, T <:- perms(L--[H])].
 ```
 
 This takes `H` from `L` in all possible ways. The result is the set of all lists
@@ -124,9 +137,9 @@ The function `pyth(N)` generates a list of all integers `{A,B,C}` such that
 ```erlang
 pyth(N) ->
     [ {A,B,C} ||
-        A <- lists:seq(1,N),
-        B <- lists:seq(1,N),
-        C <- lists:seq(1,N),
+        A <:- lists:seq(1,N),
+        B <:- lists:seq(1,N),
+        C <:- lists:seq(1,N),
         A+B+C =< N,
         A*A+B*B == C*C
     ].
@@ -159,9 +172,9 @@ The following code reduces the search space and is more efficient:
 ```erlang
 pyth1(N) ->
    [{A,B,C} ||
-       A <- lists:seq(1,N-2),
-       B <- lists:seq(A+1,N-1),
-       C <- lists:seq(B+1,N),
+       A <:- lists:seq(1,N-2),
+       B <:- lists:seq(A+1,N-1),
+       C <:- lists:seq(B+1,N),
        A+B+C =< N,
        A*A+B*B == C*C ].
 ```
@@ -172,9 +185,10 @@ As an example, list comprehensions can be used to simplify some of the functions
 in `lists.erl`:
 
 ```erlang
-append(L)   ->  [X || L1 <- L, X <- L1].
-map(Fun, L) -> [Fun(X) || X <- L].
-filter(Pred, L) -> [X || X <- L, Pred(X)].
+append(L)   ->  [X || L1 <:- L, X <:- L1].
+map(Fun, L) -> [Fun(X) || X <:- L].
+filter(Pred, L) -> [X || X <:- L, Pred(X)].
+zip(L1, L2) -> [{X,Y} || X <:- L1 && Y <:- L2].
 ```
 
 ## Variable Bindings in List Comprehensions
@@ -186,6 +200,7 @@ The scope rules for variables that occur in list comprehensions are as follows:
 - Any variables that are defined before the list comprehension, and that are
   used in filters, have the values they had before the list comprehension.
 - Variables cannot be exported from a list comprehension.
+- Within a zip generator, binding of all variables happen at the same time.
 
 As an example of these rules, suppose you want to write the function `select`,
 which selects certain elements from a list of tuples. Suppose you write
@@ -254,3 +269,62 @@ f(...) ->
     [ Expression || PatternInvolving Y1  <- Expr, Y == Y1, ...]
     ...
 ```
+
+## Strict and Relaxed Generators
+
+Strict and relaxed generators have different behaviors when the right-hand
+side expression does not match the left-hand side pattern. A relaxed generator
+ignores that term and continues on. A strict generator fails with an exception.
+
+Their difference can be shown in the following example. The generator
+expects a two-tuple pattern. If a relaxed generator is used, `b` will be
+silently skipped. If a strict generator is used, an exception will be raised
+when the pattern matching fails with `b`.
+
+```
+{_,_} <-  [{ok, a}, b]
+{_,_} <:- [{ok, a}, b]
+```
+
+Semantically, strict or relaxed generators convey different intentions from
+the programmer. Strict generators are used when unexpected elements in the
+input data should not be tolerated. Any element not conforming to specific
+patterns should immediately crash the comprehension, because the program may
+not be prepared to handle it.
+
+For example, the following comprehension is rewritten from one in the Erlang
+linter. It extracts arities from all defined functions. All elements in the
+list `DefinedFuns` are two-tuples, containing name and arity for functions.
+If any of them differs from this pattern, it means that something has added
+an invalid item into the list of defined functions. It is better for the linter
+to crash in the comprehension than skipping the invalid item and continue
+running. Using a strict generator here is correct, because the linter should
+not hide the presence of an internal inconsistency.
+
+```
+[Arity || {_FunName, Arity} <:- DefinedFuns]
+```
+
+In contrast, relaxed generators are used when unexpected elements in the input
+data should be _filtered out_. The programmer is aware that some elements
+may not conform to specific patterns. Those elements can be safely excluded
+from the comprehension result.
+
+For example, the following comprehension is from a compiler module that
+transforms normal Erlang code to Core Erlang. It finds all defined functions
+from an abstract form, and output them in two-tuples, each containing name and
+arity of a function. Not all forms are function declarations. All the forms
+that are not function declarations should be ignored by this comprehensions.
+Using a relaxed generator here is correct, because the programmer intends to
+exclude all elements with other patterns.
+
+```
+[{Name,Arity} || {function,_,Name,Arity,_} <- Forms]
+```
+
+Strict and relaxed generators don't always have distinct use cases. When the
+left-hand side pattern of a generator is a fresh variable, pattern matching
+cannot fail. Using either strict or relaxed generators leads to the same
+behavior. While the preference and use cases might be individual, it is
+recommended to use strict generators when either can be used. Using strict
+generators by default aligns with Erlang's "Let it crash" philosophy.
