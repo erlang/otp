@@ -14189,8 +14189,6 @@ Failed: digits missing in \x{} or \o{} at offset 1
 /\o{whatever}/
 Failed: non-octal character in \o{} (closing brace missing?) at offset 3
 
-/\xthing/
-
 /\x{}/
 Failed: digits missing in \x{} or \o{} at offset 3
 
@@ -14620,9 +14618,6 @@ copy substring C failed -7
 No match
      
 /((?J)(?'R'(?'R'(?'R'(?'R'(?'R'(?|(\k'R'))))))))/
-
-/\N(?(?C)0?!.)*/
-Failed: assertion expected after (?( or (?(?C) at offset 4
 
 /(?<RA>abc)(?(R)xyz)/BZ
 ------------------------------------------------------------------
