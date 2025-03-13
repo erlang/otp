@@ -29,7 +29,8 @@
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
          link_receive_call_correlation/0,
-         receive_trace/1, link_receive_call_correlation/1, self_send/1,
+         receive_trace/1, receive_trace_non_fetching_receiver/1,
+         link_receive_call_correlation/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1, procs_new_trace/1,
 	 suspend/1, suspend_exit/1, suspender_exit/1,
@@ -66,8 +67,8 @@ groups() ->
     trace_sessions:groups(testcases()).
 
 testcases() ->
-    [cpu_timestamp, receive_trace, link_receive_call_correlation,
-     self_send, timeout_trace,
+    [cpu_timestamp, receive_trace, receive_trace_non_fetching_receiver,
+     link_receive_call_correlation, self_send, timeout_trace,
      send_trace, procs_trace, dist_procs_trace, suspend,
      suspend_exit, suspender_exit,
      suspend_system_limit, suspend_opts, suspend_waiting,
@@ -259,6 +260,45 @@ receive_trace(Config) when is_list(Config) ->
     F3([{WC,[],[{caller}]}]),
     F3([{WC,[],[{silent,true}]}]),
 
+    ok.
+
+receive_trace_non_fetching_receiver(Config) when is_list(Config) ->
+    receive_trace_non_fetching_receiver_test(node()),
+    {ok, Peer, Node} = ?CT_PEER(),
+    receive_trace_non_fetching_receiver_test(Node),
+    peer:stop(Peer),
+    ok.
+
+receive_trace_non_fetching_receiver_test(Node) ->
+    Msgs = lists:map(fun (N) -> {msg, N} end, lists:seq(1, 20)),
+
+    Receiver = spawn_link(fun () -> receive after infinity -> ok end end),
+    Sender = spawn_link(Node, fun Sender() ->
+                                      receive Msg -> Receiver ! Msg end,
+                                      Sender()
+                              end),
+
+    1 = erlang_trace(Receiver, true, ['receive']),
+
+    lists:foreach(fun (Msg) ->
+                          Tmo = rand:uniform(101) - 1,
+                          receive after Tmo -> ok end,
+                          Sender ! Msg
+                  end, Msgs),
+
+    lists:foreach(fun (Msg) ->
+                          {trace, Receiver, 'receive', Msg}
+                              = receive_first_trace()
+                        end, Msgs),
+
+    {messages, Msgs} = process_info(Receiver, messages),
+
+    TrapExit = process_flag(trap_exit, true),
+    exit(Receiver, kill),
+    exit(Sender, kill),
+    receive {'EXIT', Receiver, _} -> ok end,
+    receive {'EXIT', Sender, _} -> ok end,
+    _ = process_flag(trap_exit, TrapExit),
     ok.
 
 %% Tests that receive of a message always happens before a call with
