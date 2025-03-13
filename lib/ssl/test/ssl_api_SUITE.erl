@@ -1445,13 +1445,13 @@ hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
     SleepAmount = max(1.5*HibernateAfter, 500),
     ?CT_LOG("HibernateAfter = ~w SleepAmount = ~w", [HibernateAfter, SleepAmount]),
     ct:sleep(SleepAmount), %% Schedule out
-    {current_function, {erlang, hibernate, 3}} =
+    {current_function, {gen_statem, loop_hibernate, 3}} =
         process_info(ReceiverPid, current_function),
     IsTls = ssl_test_lib:is_tls_version(Version),
     case IsTls of
         true ->
             SenderPid = PotentialSenderPid,
-            {current_function, {erlang, hibernate, 3}} =
+            {current_function, {gen_statem, loop_hibernate, 3}} =
                 process_info(SenderPid, current_function);
         _ -> %% DTLS (no sender process)
             ok
