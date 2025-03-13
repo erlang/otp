@@ -6626,16 +6626,29 @@ schedule_out_process(ErtsRunQueue *c_rq, erts_aint32_t *statep, Process *p,
            || (BeamIsOpCode(*(const BeamInstr*)p->i, op_call_nif_WWW)
                || BeamIsOpCode(*(const BeamInstr*)p->i, op_call_bif_W)));
 
-    /* Clear activ-sys if needed... */
+    /*
+     * Clear or set active-sys if needed...
+     *
+     * active-sys should be set if sig-q, nmsg-sig-in-q or sys-tasks is set
+     * and free is not set.
+     */
     while (1) {
         n = e = a;
         if (a & ERTS_PSFLG_ACTIVE_SYS) {
             if (a & (ERTS_PSFLG_SIG_Q
                      | ERTS_PSFLG_NMSG_SIG_IN_Q
-                     | ERTS_PSFLG_SYS_TASKS))
+                     | ERTS_PSFLG_SYS_TASKS)) {
                 break;
-            /* Clear active-sys */
+            }
             n &= ~ERTS_PSFLG_ACTIVE_SYS;
+        }
+        else {
+            if (!!(a & (ERTS_PSFLG_SIG_Q
+                        | ERTS_PSFLG_NMSG_SIG_IN_Q
+                        | ERTS_PSFLG_SYS_TASKS))
+                & !(a & ERTS_PSFLG_FREE)) {
+                n |= ERTS_PSFLG_ACTIVE_SYS;
+            }
         }
         a = erts_atomic32_cmpxchg_nob(&p->state, n, e);
         if (a == e) {
