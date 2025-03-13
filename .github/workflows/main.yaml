@@ -583,7 +583,7 @@ jobs:
           ## Remove systemd-coredump
           ! sudo apt remove systemd-coredump
           ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
-          sudo service apport stop
+          ! sudo service apport stop
           sudo sysctl -w dev.tty.legacy_tiocsti=1
           sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
@@ -633,6 +633,11 @@ jobs:
             "ct_run -refresh_logs /buildroot/otp/erts/make_test_dir"
       - name: Run system tests
         run: |
+          ## Remove systemd-coredump
+          ! sudo apt remove systemd-coredump
+          ## Removing systemd-coredump, caused apport to be installed instead, so we disable it
+          ! sudo service apport stop
+          sudo bash -c "echo 'core.%p' > /proc/sys/kernel/core_pattern"
           docker run --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 512 \
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/erts/make_test_dir/system_junit.xml\"}]" \
