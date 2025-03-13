@@ -885,6 +885,12 @@ curations:
           The scanner mixes up the copyright and license notice
         concluded_license: "Apache-2.0"
 
+      - path: "HOWTO/SBOM.md"
+        reason: "DOCUMENTATION_OF"
+        comment: >-
+          This file contains an example of copyright text
+        concluded_license: "Apache-2.0"
+
         #
         #
         # Image files
