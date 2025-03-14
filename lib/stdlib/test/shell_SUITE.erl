@@ -189,11 +189,11 @@ comm_err(<<"ugly().">>),
 comm_err(<<"1 - 2.">>),
 %% Make sure we test all local shell functions in a restricted shell.
 LocalFuncs = shell:local_func(),
-[] = lists:subtract(LocalFuncs, [v,h,b,f,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
+[] = lists:subtract(LocalFuncs, [v,h,b,f,fd,fl,ff,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception]),
 
 LocalFuncs2 = [
     <<"A = 1.\nv(1).">>, <<"h().">>, <<"b().">>, <<"f().">>, <<"f(A).">>,
-    <<"fl()">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
+    <<"fl()">>, <<"fd(a, fun(X)->X end,\"a(X)->X.\")">>, <<"ff()">>, <<"ff(my_func,1)">>, <<"lf()">>, <<"lr()">>, <<"lt()">>,
     <<"rd(foo,{bar}).">>, <<"rf().">>, <<"rf(foo).">>, <<"rl().">>, <<"rl(foo).">>, <<"rp([hej]).">>,
     <<"rr(shell).">>, <<"rr(shell, shell_state).">>, <<"rr(shell,shell_state,[]).">>, <<"tf()">>, <<"tf(hej)">>, 
     <<"save_module(\"src/my_module.erl\")">>, <<"history(20).">>, <<"results(20).">>, <<"catch_exception(0).">>],
@@ -389,12 +389,12 @@ shell_attribute_test(Config) ->
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
     receive after 1000 -> ok end,
     rtnode:run(
-        [{putline, "-record(hej, {a = 0 :: integer()})."},
+        [{putline, "-record(hej, {a = \"\", b = 0 :: integer()})."},
          {expect, "ok"},
          {putline, "rl()."},
-         {expect, "\\Q-record(hej,{a = 0 :: integer()}).\\E"},
-         {putline, "#hej{a=1}."},
-         {expect, "\\Q#hej{a = 1}\\E"}
+         {expect, "\\Q-record(hej,{a = \"\", b = 0 :: integer()}).\\E"},
+         {putline, "#hej{a = \"hej\", b=1}."},
+         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),

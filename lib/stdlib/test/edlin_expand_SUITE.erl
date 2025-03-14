@@ -448,8 +448,11 @@ get_coverage(Config) ->
     do_expand("M#"),
     do_expand("#non_existant_record"),
     do_expand("#a_record{ non_existand_field"),
-    
-    
+    do_expand("case("),
+    do_expand("catch("),
+    do_expand("case ("),
+    do_expand("catch ("),
+
     %% match_arguments coverage
     do_expand("complete_function_parameter:integer_parameter_function(atom,"), %% match_argument -> false
     do_expand("complete_function_parameter:a_zero_arity_fun()"), %% match_argument, parameters empty
