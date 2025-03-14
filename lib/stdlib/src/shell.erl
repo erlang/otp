@@ -476,34 +476,52 @@ escape_quotes([$\" | Rest], Acc) ->
 escape_quotes([Char | Rest], Acc) ->
     % In case of any other character, we keep it as is.
     escape_quotes(Rest, [Char | Acc]).
+
 reconstruct(Fun, Name) ->
-    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name))).
-reconstruct1({function, Anno, Name, Arity, Clauses}, Name) ->
-    {named_fun, Anno, 'RecursiveFuncVar', reconstruct1(Clauses, Name, Arity)}.
-reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) when length(Args) =:= Arity ->
-    [{call, Anno, {var, Anno1, 'RecursiveFuncVar'}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
-reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) -> % arity not the same
-    [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Name}}, reconstruct1(Args, Name, Arity)}|
-     reconstruct1(Body, Name, Arity)];
-reconstruct1([{call, Anno, {atom, Anno1, Fun}, Args}|Body], Name, Arity) -> % Name not the same
-    case {edlin_expand:shell_default_or_bif(atom_to_list(Fun)), shell:local_func(Fun)} of
+    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name, []))).
+reconstruct1({function, Anno, Name, Arity, Clauses}, Name, Extra) ->
+    Clauses1 = reconstruct1(Clauses, Name, Arity, Extra),
+    {named_fun, Anno, 'RecursiveFuncVar',Clauses1}.
+reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity, Extra)
+  when length(Args) =:= Arity ->
+    Args1 = reconstruct1(Args, Name, Arity, Extra),
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    [{call, Anno, {var, Anno1, 'RecursiveFuncVar'}, Args1}|Body1];
+reconstruct1([{call, Anno, {atom, Anno1, Name}=F, Args}|Body], Name, Arity, Extra) -> % arity not the same
+    Args1 = reconstruct1(Args, Name, Arity, Extra),
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    RC = {remote, Anno1, {atom, Anno1, shell_default}, F},
+    [{call, Anno, RC, Args1}|Body1];
+reconstruct1([{call, Anno, {atom, Anno1, Fun}=F, Args}|Body], Name, Arity, Extra) -> % Name not the same
+    Args1 = reconstruct1(Args, Name, Arity, Extra),
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    case {edlin_expand:shell_default_or_bif(Fun), shell:local_func(Fun)} of
         {"user_defined", false} ->
-            [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}|
-             reconstruct1(Body, Name, Arity)];
+            Module = proplists:get_value(module, Extra, shell_default),
+            Exports = proplists:get_value(exports, Extra, []),
+            case lists:member({Fun, length(Args)}, Exports) of
+                true -> [{call, Anno, {remote, Anno1, {atom, Anno1, Module}, F}, Args1}|
+                         Body1];
+                false ->  [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, F}, Args1}|
+                           Body1]
+            end;
         {"shell_default", false} ->
-            [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
+            [{call, Anno, {remote, Anno1, {atom, Anno1, shell_default}, F}, Args1}| Body1];
         {"erlang", false} ->
-            [{call, Anno, {remote, Anno1, {atom, Anno1, erlang}, {atom, Anno1, Fun}}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)];
+            [{call, Anno, {remote, Anno1, {atom, Anno1, erlang}, F}, Args1}| Body1];
         {_, true} ->
-            [{call, Anno, {atom, Anno1, Fun}, reconstruct1(Args, Name, Arity)}| reconstruct1(Body, Name, Arity)]
+            [{call, Anno, F, Args1}| Body1]
     end;
-reconstruct1([E|Body], Name, Arity) when is_tuple(E) ->
-    [list_to_tuple(reconstruct1(tuple_to_list(E), Name, Arity))|reconstruct1(Body, Name, Arity)];
-reconstruct1([E|Body], Name, Arity) when is_list(E) ->
-    [reconstruct1(E, Name, Arity)|reconstruct1(Body, Name, Arity)];
-reconstruct1([E|Body], Name, Arity) ->
-    [E|reconstruct1(Body, Name, Arity)];
-reconstruct1([], _, _) -> [].
+reconstruct1([E|Body], Name, Arity, Extra) when is_tuple(E) ->
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    [list_to_tuple(reconstruct1(tuple_to_list(E), Name, Arity, Extra))|Body1];
+reconstruct1([E|Body], Name, Arity, Extra) when is_list(E) ->
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    [reconstruct1(E, Name, Arity, Extra)|Body1];
+reconstruct1([E|Body], Name, Arity, Extra) ->
+    Body1 = reconstruct1(Body, Name, Arity, Extra),
+    [E|Body1];
+reconstruct1([], _, _, _) -> [].
 
 get_command1(Pid, Eval, Bs, RT, FT, Ds) ->
     receive
@@ -873,7 +891,7 @@ eval_loop(Shell, Bs0, RT, FT) ->
             Ef = {value,
                   fun(MForFun, As) -> apply_fun(MForFun, As, Shell) end},
             Lf = local_func_handler(Shell, RT, FT, Ef),
-            Bs = eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W),
+            Bs = eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W, FT),
             eval_loop(Shell, Bs, RT, FT)
     end.
 
@@ -882,13 +900,13 @@ restricted_eval_loop(Shell, Bs0, RT, FT, RShMod) ->
         {shell_cmd,Shell,{eval,Es}, W} ->
             {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT,  FT),
             put(restricted_expr_state, []),
-            Bs = eval_exprs(Es, Shell, Bs0, RT, {eval,LFH}, {value,NLFH}, W),
+            Bs = eval_exprs(Es, Shell, Bs0, RT, {eval,LFH}, {value,NLFH}, W, FT),
             restricted_eval_loop(Shell, Bs, RT, FT, RShMod)
     end.
 
-eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W) ->
+eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W, FT) ->
     try
-        {R,Bs2} = exprs(Es, Bs0, RT, Lf, Ef, W),
+        {R,Bs2} = exprs(Es, Bs0, RT, Lf, Ef, W, FT),
         Shell ! {shell_rep,self(),R},
         Bs2
     catch
@@ -923,15 +941,15 @@ do_catch(_Class, _Reason) ->
             false
     end.
 
-exprs(Es, Bs0, RT, Lf, Ef, W) ->
-    exprs(Es, Bs0, RT, Lf, Ef, Bs0, W).
+exprs(Es, Bs0, RT, Lf, Ef, W, FT) ->
+    exprs(Es, Bs0, RT, Lf, Ef, Bs0, W, FT).
 
-exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
+exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W, FT) ->
     UsedRecords = used_record_defs(E0, RT),
     RBs = record_bindings(UsedRecords, Bs1),
     case check_command(prep_check([E0]), RBs) of
         ok ->
-            E1 = expand_records(UsedRecords, E0),
+            E1 = expand_records(UsedRecords, E0, FT),
             {value,V0,Bs2} = expr(E1, Bs1, Lf, Ef),
             Bs = orddict:from_list([VV || {X,_}=VV <- erl_eval:bindings(Bs2),
                                           not is_expand_variable(X)]),
@@ -956,7 +974,7 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
                         end,
                     {{value,V,Bs,get()},Bs};
                 true ->
-                    exprs(Es, Bs, RT, Lf, Ef, Bs0, W)
+                    exprs(Es, Bs, RT, Lf, Ef, Bs0, W, FT)
             end;
         {error,Error} ->
             {{command_error,Error},Bs0}
@@ -1182,16 +1200,23 @@ prep_check([E | Es]) ->
 prep_check(E) ->
     E.
 
-expand_records([], E0) ->
+expand_records([], E0, _) ->
     E0;
-expand_records(UsedRecords, E0) ->
+expand_records(UsedRecords, E0, FT) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
     A = erl_anno:new(1),
     E = prep_rec(E0),
     Forms0 = RecordDefs ++ [{function,A,foo,0,[{clause,A,[],[],[E]}]}],
     Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
-    {function,A,foo,0,[{clause,A,[],[],[NE]}]} = lists:last(Forms),
-    prep_rec(NE).
+    [{function,A,foo,0,[{clause,A,[],[],NE}]}] =
+        [F || {function,A1,foo,0,_}=F <- Forms, A1=:=A],
+    %% Rewrite rec_init$^N calls to shell_default:rec_init$^N calls
+    [NE2] = reconstruct1(NE, [], 0, []),
+    ets:insert(FT, [begin
+                        {value, Fun, []} = erl_eval:expr({'fun', A, {clauses, F}}, []),
+                        {{function, {shell_default, FunName, 0}}, Fun}
+                    end || {function,_,FunName,0,F} <- Forms, FunName =/= foo]),
+    prep_rec(NE2).
 
 prep_rec({value,_CommandN,_V}=Value) ->
     %% erl_expand_records cannot handle the history expansion {value,_,_}.
@@ -1736,10 +1761,12 @@ find_file(Mod) when is_atom(Mod) ->
                     {error, nofile}
             end;
         preloaded ->
-            {_M, Beam, File} = code:get_object_code(Mod),
-            {beam, Beam, File};
+            case code:get_object_code(Mod) of
+                {_M, Beam, File} -> {beam, Beam, File};
+                error -> {error, nofile}
+            end;
         _Else -> % non_existing, interpreted, cover_compiled
-            {error,nofile}
+            {error, nofile}
     end;
 find_file(File) ->
     case catch filelib:wildcard(File) of
@@ -1759,8 +1786,8 @@ read_file_records(File, Opts) ->
 
 read_records_from_beam(Beam, File) ->
     case beam_lib:chunks(Beam, [abstract_code,"CInf"]) of
-        {ok,{_Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
-            case record_attrs(Forms) of
+        {ok,{Mod,[{abstract_code,{Version,Forms}},{"CInf",CB}]}} ->
+            case record_attrs(Forms, Mod) of
                 [] when Version =:= raw_abstract_v1 ->
                     [];
                 [] ->
@@ -1810,7 +1837,8 @@ parse_file(File, Opts) ->
     IncludePath = [Cwd,Dir|inc_paths(Opts)],
     case epp:parse_file(File, IncludePath, pre_defs(Opts)) of
         {ok,Forms} ->
-            record_attrs(Forms);
+            [Mod] = [Mod || {attribute,_,module,Mod} <- Forms],
+            record_attrs(Forms, Mod);
         Error ->
             Error
     end.
@@ -1826,9 +1854,12 @@ pre_defs([]) -> [].
 inc_paths(Opts) ->
     [P || {i,P} <- Opts, is_list(P)].
 
-record_attrs(Forms) ->
-    [A || A = {attribute,_,record,_D} <- Forms].
-
+record_attrs(Forms, Mod) ->
+    %% Add module Mod to exported local functions, add shell_default otherwise
+    [begin [X] = reconstruct1([A], [], 0,
+                              [{module,Mod},{exports,edlin_expand:get_exports(Mod)}]),
+           X
+     end || A = {attribute,_,record,_D} <- Forms].
 %%% End of reading record information from file(s)
 
 shell_req(Shell, Req) ->

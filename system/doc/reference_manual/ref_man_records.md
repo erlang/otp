@@ -39,8 +39,7 @@ used.
                FieldN [= ExprN]}).
 ```
 
-The default value for a field is an arbitrary expression, except that it must
-not use any variables.
+The default value for a field is an arbitrary expression.
 
 A record definition can be placed anywhere among the attributes and function
 declarations of a module, but the definition must come before any usage of the
@@ -54,6 +53,33 @@ definition is placed in an include file.
 > Starting from Erlang/OTP 26, records can be defined in the Erlang shell
 > using the syntax described in this section. In earlier releases, it was
 > necessary to use the `m:shell` built-in function `rd/2`.
+
+> #### Change {: .info }
+>
+> In Erlang/OTP 28, variables are allowed in the record definition.
+
+```erlang
+-record(r, {a = case my_f() of {X, _} -> X; _ -> ok end,
+            b = case my_g() of {Y, _} -> Y; _ -> ok end}).
+t(X) ->
+   #r{}. %% X will not have any effect on initialization of #r
+```
+
+Variables bound in a field are visible in subsequent fields,
+so use them with caution.
+
+```erlang
+-record(r, {a = case my_f() of {Res, _} -> Res; _ -> ok end,
+            b = case my_g() of {Res, _} -> Res; _ -> error end}).
+```
+
+Variables need to be bound, which is not the case in the following.
+
+```erlang
+-record(r, {a = X = 1, b = X}).
+
+my_mod.erl:4:17: variable 'X' is unbound
+```
 
 ## Creating Records
 

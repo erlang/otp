@@ -40,6 +40,8 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
                  strict_ra=[],         % Strict record accesses
                  checked_ra=[],        % Successfully accessed records
                  dialyzer=false,       % Compiler option 'dialyzer'
+                 rec_init_count=0,     % Number of generated record init functions
+                 new_forms=#{},        % New forms
                  strict_rec_tests=true :: boolean()
                 }).
 
@@ -95,6 +97,12 @@ forms([{function,Anno,N,A,Cs0} | Fs0], St0) ->
 forms([F | Fs0], St0) ->
     {Fs,St} = forms(Fs0, St0),
     {[F | Fs], St};
+forms([], #exprec{new_forms=FsN}=St) ->
+    {[{'function', Anno,
+       maps:get(Def, FsN),
+       0,
+       [{'clause', Anno, [], [], [Def]}]}
+      || {_,Anno,_}=Def <- maps:keys(FsN)], St};
 forms([], St) -> {[],St}.
 
 clauses([{clause,Anno,H0,G0,B0} | Cs0], St0) ->
@@ -262,6 +270,30 @@ not_a_tuple({op,_,_,_}) -> true;
 not_a_tuple({op,_,_,_,_}) -> true;
 not_a_tuple(_) -> false.
 
+variables({var,_,'_'}) ->
+    [];
+variables({var,_,V}) ->
+    [V];
+variables({'fun',_,Def}) ->
+    %% The Def tuple has no annotation. Must handle it specially.
+    case Def of
+        {clauses,Cs} -> variables(Cs);
+        {function,F,A} -> variables([F,A]);
+        {function,M,F,A} -> variables([M,F,A])
+    end;
+variables(Tuple) when is_tuple(Tuple) ->
+    [Tag,Anno|T] = tuple_to_list(Tuple),
+    true = is_atom(Tag),
+    true = erl_anno:is_anno(Anno),
+    variables(T);
+variables(List) when is_list(List) ->
+    foldl(fun(E, Vs0) ->
+                  Vs1 = variables(E),
+                  ordsets:union(Vs0, Vs1)
+          end, [], List);
+variables(_) ->
+    [].
+
 record_test_in_body(Anno, Expr, Name, St0) ->
     %% As Expr may have side effects, we must evaluate it
     %% first and bind the value to a new variable.
@@ -333,11 +365,46 @@ expr({map_field_exact,Anno,K0,V0}, St0) ->
 expr({record_index,Anno,Name,F}, St) ->
     I = index_expr(Anno, F, Name, record_fields(Name, Anno, St)),
     expr(I, St);
-expr({record,Anno0,Name,Is}, St) ->
-    Anno = mark_record(Anno0, St),
-    expr({tuple,Anno,[{atom,Anno0,Name} |
-                      record_inits(record_fields(Name, Anno0, St), Is)]},
-         St);
+expr({record,Anno0,Name,Is}, St0) ->
+    Anno = mark_record(Anno0, St0),
+
+    RInit = [{atom,Anno,Name} |
+             record_inits(record_fields(Name, Anno0, St0), Is)],
+    Vars = variables(Is),
+    %% Check if there are variables in the initialized record. If
+    %% there are, we need to initialize the record using a generated
+    %% function
+    AnyVariables = not ordsets:is_subset(variables(RInit), Vars),
+    case AnyVariables of
+        true ->
+            %% Initialize the record with only the default values.
+            %% Setting fields that has been overridden to undefined.
+            UndefIs = [setelement(4,R,{atom,Anno,undefined}) ||
+                          {record_field,_,_,_}=R <- Is],
+            RDefInit = [{atom,Anno,Name} |
+                        record_inits(record_fields(Name, Anno, St0), UndefIs)],
+            {Def,St1} = expr({tuple,Anno,RDefInit}, St0),
+            Map0 = St1#exprec.new_forms,
+            {FName,St2} =
+                case Map0 of
+                    #{Def := OldName} ->
+                        {OldName,St1};
+                    #{} ->
+                        C = St1#exprec.rec_init_count,
+                        NewName = list_to_atom("rec_init$^" ++
+                                                   integer_to_list(C)),
+                        Map = Map0#{Def => NewName},
+                        {NewName,St1#exprec{rec_init_count=C+1,
+                                            new_forms=Map}}
+                end,
+            %% Replace the init record expression with a call expression
+            %% to the newly added function followed by a record update.
+            expr({record, Anno0, {call,Anno,{atom,Anno,FName},[]}, Name, Is},St2);
+        false ->
+            %% No free variables means that we can just output the
+            %% record as a tuple.
+            expr({tuple,Anno,RInit}, St0)
+    end;
 expr({record_field,_A,R,Name,F}, St) ->
     Anno = erl_parse:first_anno(R),
     get_record_field(Anno, R, F, Name, St);
