@@ -45,6 +45,8 @@
          exec_direct_with_io_in_sshc/1,
          exec_with_io_in_sshc/1,
          tunnel_in_erlclient_erlserver/1,
+         tunnel_in_erlclient_erlserver_allowed/1,
+         tunnel_in_erlclient_erlserver_denied/1,
          tunnel_in_erlclient_openssh_server/1,
          tunnel_in_non_erlclient_erlserver/1,
          tunnel_out_erlclient_erlserver/1,
@@ -74,6 +76,8 @@ all() ->
 
 groups() -> 
     [{erlang_client, [], [tunnel_in_erlclient_erlserver,
+                          tunnel_in_erlclient_erlserver_allowed,
+                          tunnel_in_erlclient_erlserver_denied,
                           tunnel_out_erlclient_erlserver,
                           {group, tunnel_distro_server},
                           erlang_shell_client_openssh_server,
@@ -417,6 +421,59 @@ tunnel_in_erlclient_erlserver(Config) ->
     {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost,ToPort, 2000),
 
     test_tunneling(ToSock, ListenHost, ListenPort).
+
+%%--------------------------------------------------------------------
+tunnel_in_erlclient_erlserver_allowed(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    Self = self(),
+    AllowedFun = fun(HostToConnect, PortToConnect) ->
+                         Self ! {allowed, {HostToConnect, PortToConnect}},
+                         true
+                 end,
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, AllowedFun},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+
+    ListenHost = inet:ntoa({127,0,0,1}),
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost, ToPort, 2000),
+    test_tunneling(ToSock, ListenHost, ListenPort),
+    {allowed, {ListenHost, ToPort}} = receive X -> X after 500 -> timeout end,
+    {allowed, {ListenHost, ToPort}} = receive Y -> Y after 500 -> timeout end.
+
+%%--------------------------------------------------------------------
+tunnel_in_erlclient_erlserver_denied(Config) ->
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+    {ToSock, ToHost, ToPort} = tunneling_listner(),
+    Self = self(),
+    DeniedFun = fun(HostToConnect, PortToConnect) ->
+                        Self ! {denied, {HostToConnect, PortToConnect}},
+                        denied
+                end,
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{tcpip_tunnel_in, DeniedFun},
+                                              {system_dir, SystemDir},
+                                              {user_dir, UserDir},
+                                              {user_passwords, [{"foo", "bar"}]},
+                                              {failfun, fun ssh_test_lib:failfun/2}]),
+    C = ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user,"foo"},{password,"bar"},
+                                          {user_interaction, false}]),
+
+    ListenHost = inet:ntoa({127,0,0,1}),
+    {ok,ListenPort} = ssh:tcpip_tunnel_to_server(C, ListenHost,0, ToHost, ToPort, 2000),
+    {ok, Sock} = gen_tcp:connect(ListenHost, ListenPort, [{active, false}]),
+    {denied, {ListenHost, ToPort}} = receive Y -> Y after 500 -> timeout end,
+    {error, timeout} = gen_tcp:accept(ToSock, 2000),
+    {error, closed} = gen_tcp:recv(Sock, 0, 5000).
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
