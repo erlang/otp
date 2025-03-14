@@ -131,13 +131,22 @@ encode_jer({choice,Choices},{Alt,Value}) ->
 encode_jer(bit_string,Value) ->
     Str = bitstring2json(Value),
     #{value => Str, length => bit_size(Value)};
+encode_jer({bit_string,{_,_}},Value) ->
+    Str = bitstring2json(Value),
+    #{value => Str, length => bit_size(Value)};
 encode_jer({bit_string,FixedLength},Value) when is_bitstring(Value), is_integer(FixedLength) ->
     Value2 = jer_padbitstr(Value,FixedLength),
     bitstring2json(Value2);
 encode_jer(compact_bit_string,Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer(bit_string,BitStr);
-encode_jer({compact_bit_string,FixedLength},Compact = {_Unused,Binary}) when is_binary(Binary) ->
+encode_jer({compact_bit_string,{_,_}},Compact) ->
+    BitStr = jer_compact2bitstr(Compact),
+    encode_jer(bit_string,BitStr);
+encode_jer({compact_bit_string,FixedLength}, {_,Binary}=Compact) when is_binary(Binary) ->
+    BitStr = jer_compact2bitstr(Compact),
+    encode_jer({bit_string,FixedLength},BitStr);
+encode_jer({compact_bit_string,FixedLength}, Compact) when is_integer(Compact) ->
     BitStr = jer_compact2bitstr(Compact),
     encode_jer({bit_string,FixedLength},BitStr);
 encode_jer({bit_string_nnl,NNL},Value) -> 
@@ -266,7 +275,11 @@ decode_jer('NULL',null) ->
     'NULL';
 decode_jer(legacy_octet_string,Str) when is_binary(Str) ->
     json2octetstring2string(binary_to_list(Str));
+decode_jer({legacy_octet_string,_Size},Str) when is_binary(Str) ->
+    json2octetstring2string(binary_to_list(Str));
 decode_jer(octet_string,Str) when is_binary(Str) ->
+    json2octetstring2binary(binary_to_list(Str));
+decode_jer({octet_string,_Size},Str) when is_binary(Str) ->
     json2octetstring2binary(binary_to_list(Str));
 decode_jer({sof,Type},Vals) when is_list(Vals) ->
     [decode_jer(Type,Val)||Val <- Vals];
@@ -283,6 +296,9 @@ decode_jer(bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
     json2bitstring(binary_to_list(Str),Length);
 decode_jer({bit_string,FixedLength},Str) when is_binary(Str) ->
     json2bitstring(binary_to_list(Str),FixedLength);
+decode_jer({{bit_string_nnl,NNL},{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
+    BitStr = json2bitstring(binary_to_list(Str),Length),
+    jer_bitstr2names(BitStr,NNL);
 decode_jer({bit_string_nnl,NNL},#{<<"value">> := Str, <<"length">> := Length}) -> 
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2names(BitStr,NNL);
@@ -294,6 +310,9 @@ decode_jer({compact_bit_string_nnl,NNL},Value) ->
 decode_jer({{compact_bit_string_nnl,NNL},FixedLength},Value) ->
     decode_jer({{bit_string_nnl,NNL},FixedLength},Value);
 decode_jer(compact_bit_string,#{<<"value">> := Str, <<"length">> := Length}) ->
+    BitStr = json2bitstring(binary_to_list(Str),Length),
+    jer_bitstr2compact(BitStr);
+decode_jer({compact_bit_string,{_,_}},#{<<"value">> := Str, <<"length">> := Length}) ->
     BitStr = json2bitstring(binary_to_list(Str),Length),
     jer_bitstr2compact(BitStr);
 decode_jer({compact_bit_string,FixedLength},Str) ->
