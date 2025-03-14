@@ -8151,10 +8151,6 @@ MK: M
 /(?(DEFINE)(a))?b(?1)/
     backgammon
  0: ba
-
-/^\N+/
-    abc\ndef
- 0: abc
     
 /^\N{1,}/
     abc\ndef 
@@ -9191,10 +9187,6 @@ No match
  1: <unset>
  2: B
  3: A
-    
-/^A\xZ/
-    A\0Z 
- 0: A\x00Z
 
 /^A\o{123}B/
     A\123B

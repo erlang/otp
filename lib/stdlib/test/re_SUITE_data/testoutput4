@@ -1648,6 +1648,19 @@ No match
     \x{660}\x{661}\x{662}ABC
 No match
 
+/^\pN{3,}+(.)/utf
+   \x{7c0}8\x{662}\x{966}\x{95c}
+ 0: \x{7c0}8\x{662}\x{966}\x{95c}
+ 1: \x{95c}
+   \x{7c0}8\x{662}\x{95c}
+ 0: \x{7c0}8\x{662}\x{95c}
+ 1: \x{95c}
+\= Expect no match
+   \x{7c0}8\x{662}\x{966}
+No match
+   \x{7c0}8\x{95c}
+No match
+
 /(?<=A\p{Nd})XYZ/utf
     A2XYZ
  0: XYZ
@@ -1865,6 +1878,19 @@ No match
     A\x{300}\x{301}B\x{300}C\x{300}\x{301}DA\x{300}X
  0: A\x{300}\x{301}B\x{300}C
  1: C
+
+/^\X{3,}+/utf
+    A\x{300}B\x{301}U\x{303}\x{0301}
+ 0: A\x{300}B\x{301}U\x{303}\x{301}
+    A\x{300}B\x{301}U\x{303}\x{0301}X
+ 0: A\x{300}B\x{301}U\x{303}\x{301}X
+\= Expect no match
+    A\x{300}
+No match
+    A\x{300}B\x{301}
+No match
+    A\x{300}U\x{303}\x{0301}
+No match
 
 /^\X/utf
     A
@@ -3009,6 +3035,45 @@ No match
     \x{0053}\x{0073}\x{017f}
  0: Ss\x{17f}
 
+/^[a-z\x{500}-\x{1000}]{3,}[a-h]|x/utf
+    ab\x{600}ijklmh
+ 0: ab\x{600}ijklmh
+    ab\x{600}hijklm
+ 0: ab\x{600}h
+\= Expect no match
+    ab\x{600}ijklm
+No match
+
+/^[a-z\x{500}-\x{1000}]{4,7}[a-h]|x/utf
+    ab\x{600}\x{700}ijkh
+ 0: ab\x{600}\x{700}ijkh
+    ab\x{600}\x{700}hijkl
+ 0: ab\x{600}\x{700}h
+\= Expect no match
+    ab\x{600}\x{700}ijklh
+No match
+    ab\x{600}h\x{700}ijklmh
+No match
+
+/([a-z\x{1000}\x{2000}]{1,2}?u)+$/utf
+    \x{1000}uu\x{2000}u
+ 0: \x{1000}uu\x{2000}u
+ 1: u\x{2000}u
+    \x{1001}uuuu
+ 0: uuuu
+ 1: uu
+    \x{2001}uuuuu
+ 0: uuuuu
+ 1: uuu
+    uuuu\x{1fff}#u#\x{2000}\x{1000}u\x{2000}u
+ 0: \x{2000}\x{1000}u\x{2000}u
+ 1: \x{2000}u
+\= Expect no match
+    abuabuabuabu!
+No match
+    uuuuuuuuuuuu#
+No match
+
 # --------------------------------------
 
 /(ΣΆΜΟΣ) \1/i,utf
@@ -3782,6 +3847,11 @@ No match
 /[\N{U+1234}]/utf
     \x{1234}
  0: \x{1234}
+
+#/(\x{1234}) \1/utf
+#    \N{U+1234} \o{11064}
+# 0: \x{1234} \x{1234}
+# 1: \x{1234}
 
 # Test the full list of Unicode "Pattern White Space" characters that are to
 # be ignored by /x. The pattern lines below may show up oddly in text editors
@@ -4601,5 +4671,321 @@ No match
 /caf\B.+?\B/utf,ucp
     --cafe\x{300}_au\x{203f}lait!
  0: cafe
+
+# -------------------------------------------------------------------------- 
+# Case-independent matching property tests added after changing PCRE2 to be
+# compatible with Perl. All three cases (upper, lower, title) conflate.
+
+/\p{Lu}\p{Ll}\P{Lu}\P{Ll}/utf
+    >AbbD<
+ 0: AbbD
+    >Abb\x{01c5}<
+ 0: Abb\x{1c5}
+\= Expect no match
+    >aBBd<
+No match
+    >aB!!<
+No match
+
+/\p{Lu}\p{Ll}\P{Lu}\P{Ll}/i,utf
+    >aB!!<
+ 0: aB!!
+    >\x{01c5}B!!<
+ 0: \x{1c5}B!!
+\= Expect no match
+    >AbbD<
+No match
+    >aBBd<
+No match
+    >Abb\x{01c5}<
+No match
+
+/[.\p{Lu}][.\p{Ll}][.\P{Lu}][.\P{Ll}]/i,utf
+    >aB!!<
+ 0: aB!!
+\= Expect no match
+    >AbbD<
+No match
+    >aBBd<
+No match
+    >Abb\x{01c5}<
+No match
+
+/[\p{Lt}\x{36b}][\P{Lt}\x{10a0}]/i,utf
+    >A!<
+ 0: A!
+    >\x{3c9}\x{58d}<
+ 0: \x{3c9}\x{58d}
+    >\x{413}\x{940}<
+ 0: \x{413}\x{940}
+\= Expect no match
+    \x{3c9}\x{3c9}
+No match
+    \x{58d}\x{58d}
+No match
+    \x{413}\x{413}
+No match
+    \x{940}\x{940}
+No match
+
+/^\p{Lt}+/i,utf
+    \x{1c5}AB
+ 0: \x{1c5}AB
+
+# -------------------------------------------------------------------------- 
+
+/\p{  ^ L u }/
+    AbCd
+ 0: b
+
+# hex
+
+/c3 b1/hex,utf
+    \N{U+00F1}
+ 0: \x{f1}
+
+/[^\P{Lu}1]/i,utf,ucp
+    a
+ 0: a
+    A
+ 0: A
+    \x{3a3}
+ 0: \x{3a3}
+    \x{3c3}
+ 0: \x{3c3}
+\= Expect no match
+    1
+No match
+    2
+No match
+
+/[^\P{Lu}1]/utf,ucp
+    A
+ 0: A
+    \x{3a3}
+ 0: \x{3a3}
+\= Expect no match
+    1
+No match
+    2
+No match
+    a
+No match
+    \x{3c3}
+No match
+
+/[\P{Lu}1]/i,utf,ucp
+    1
+ 0: 1
+    2
+ 0: 2
+\= Expect no match
+    a
+No match
+    A
+No match
+    \x{3a3}
+No match
+    \x{3c3}
+No match
+
+/[\P{Lu}1]/utf,ucp
+    1
+ 0: 1
+    2
+ 0: 2
+    a
+ 0: a
+    \x{3c3}
+ 0: \x{3c3}
+\= Expect no match
+    A
+No match
+    \x{3a3}
+No match
+
+# --------------
+
+# EXTENDED CHARACTER CLASSES (Perl)
+
+/(?[\p{L} - \p{Lu}])/
+    a
+ 0: a
+\= Expect no match
+    A
+No match
+    1
+No match
+
+/(?[\p{L} & \p{Lu}])/
+    A
+ 0: A
+\= Expect no match
+    a
+No match
+    1
+No match
+
+/(?[[\p{Lu}z] ^ [\p{Ll}G]])/
+    A
+ 0: A
+    p
+ 0: p
+\= Expect no match
+    G
+No match
+    z
+No match
+    1
+No match
+
+/(?[\p{Ll} | \p{Nd}])/
+    a
+ 0: a
+    1
+ 0: 1
+\= Expect no match
+    A
+No match
+
+/(?[\p{Ll} + [\p{Nd}]])/
+    a
+ 0: a
+    1
+ 0: 1
+\= Expect no match
+    A
+No match
+
+/(?[ ![\p{Nd}z] ])/
+    _
+ 0: _
+    Z
+ 0: Z
+\= Expect no match
+    1
+No match
+    z
+No match
+
+/(?[ \P{Nd} + [2] ])/
+    _
+ 0: _
+    Z
+ 0: Z
+    2
+ 0: 2
+\= Expect no match
+    1
+No match
+    3
+No match
+
+/(?[ ![\P{Nd}] ])/
+    1
+ 0: 1
+    2
+ 0: 2
+\= Expect no match
+    _
+No match
+    z
+No match
+
+# caseless tests
+
+/(?[ \p{Lu} ^ \p{Ll} ])/
+    a
+ 0: a
+    A
+ 0: A
+\= Expect no match
+    _
+No match
+    1
+No match
+
+/(?[ [\p{Lu}1] ^ \p{Ll} ])/i
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+    A
+No match
+    _
+No match
+
+/(?[ [\p{Lu}1] & [\p{Ll}1] ])/
+    1
+ 0: 1
+\= Expect no match
+    a
+No match
+    A
+No match
+    _
+No match
+    2
+No match
+
+/(?[ [\p{Lu}1] & [\p{Ll}1] ])/i
+    a
+ 0: a
+    A
+ 0: A
+    1
+ 0: 1
+\= Expect no match
+    _
+No match
+    2
+No match
+
+/(?[ \p{Lu} + \p{Ll} & [a-z] ])/utf
+    \x{0411}
+ 0: \x{411}
+    a
+ 0: a
+    A
+ 0: A
+\= Expect no match
+    \x{0431}
+No match
+
+/(?[ (\p{Lu} + \p{Ll}) & [a-z] ])/utf
+    a
+ 0: a
+\= Expect no match
+    \x{0411}
+No match
+    \x{0431}
+No match
+    A
+No match
+
+/(?[ [a-z] & \p{Lu} + \p{Ll} ])/utf
+    a
+ 0: a
+    \x{0431}
+ 0: \x{431}
+\= Expect no match
+    \x{0411}
+No match
+    A
+No match
+
+/(?[ [a-z] & (\p{Lu} + \p{Ll}) ])/utf
+    a
+ 0: a
+\= Expect no match
+    \x{0431}
+No match
+    \x{0411}
+No match
+    A
+No match
+
+# --------------
 
 # End of testinput4

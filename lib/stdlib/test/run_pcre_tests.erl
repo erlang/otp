@@ -1174,7 +1174,7 @@ dodumpsplit(F,[H|T],N,Acc,FunNum) ->
     dumponesplit(F,H),
     dodumpsplit(F,T,N-1,Acc,FunNum).
 
-dumponesplit(F,{RE,Line,O,TS}) ->
+dumponesplit(F,{run,RE,Line,O,TS}) ->
     %% ScriptFormat is verbatim, however
     %% ~~ ~s ~w ~n is for io:format and \\ \" \n is for perl.
     ScriptFormat = """
@@ -1275,7 +1275,7 @@ dodump(F,[H|T],N,Acc,FunNum) ->
     dumpone(F,H),
     dodump(F,T,N-1,Acc,FunNum).
 
-dumpone(F,{RE,Line,O,TS}) ->
+dumpone(F,{run,RE,Line,O,TS}) ->
     %% ScriptFormat is verbatim, however
     %% ~~ ~s ~w ~n is for io:format and \\ \" \n is for perl.
     ScriptFormat = """
