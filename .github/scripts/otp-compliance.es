@@ -849,7 +849,7 @@ package_by_app(Spdx) ->
     Packages = generate_spdx_packages(PackageTemplates, Spdx),
     AppPackages = lists:map(fun create_spdx_package/1, Packages),
     Spdx1 = add_packages(AppPackages, Spdx),
-    Spdx2 = create_relationships(Packages, Spdx1),
+    Spdx2 = create_otp_relationships(Packages, PackageTemplates, Spdx1),
 
     %% create vendor packages
     VendorSrcFiles = find_vendor_src_files("."),
@@ -861,6 +861,11 @@ package_by_app(Spdx) ->
 
     SpdxWithVendor = add_packages(NewVendorPackages, Spdx3),
     create_vendor_relations(NewVendorPackages, SpdxWithVendor).
+
+create_otp_relationships(Packages, PackageTemplates, Spdx) ->
+    Spdx1 = create_package_relationships(Packages, Spdx),
+    Spdx2 = create_depends_on_relationships(PackageTemplates, Spdx1),
+    create_opt_depency_relationships(PackageTemplates, Spdx2).
 
 -spec add_packages(Packages :: [spdx_package()], Spdx :: map()) -> SpdxResult :: map().
 add_packages(AppPackages, Spdx) ->
@@ -937,7 +942,7 @@ create_spdx_package(Pkg) ->
 
 %% Example:
 %% https://github.com/spdx/tools-java/blob/master/testResources/SPDXJSONExample-v2.2.spdx.json#L240-L275
-create_relationships(Packages, Spdx) ->
+create_package_relationships(Packages, Spdx) ->
     Relationships =
         lists:foldl(fun (Pkg, Acc) ->
                             #{'PACKAGE_OF' := L} = Pkg#spdx_package.'relationships',
@@ -946,6 +951,35 @@ create_relationships(Packages, Spdx) ->
                                       end, Acc, L)
                     end, [], Packages),
     Spdx#{~"relationships" => Relationships}.
+
+-spec create_depends_on_relationships(PackageMappings, Spdx) -> map() when
+      PackageMappings :: #{AppName => {AppPath, app_info()}},
+      AppName :: binary(),
+      AppPath :: binary(),
+      Spdx :: map().
+create_depends_on_relationships(PackageTemplates, #{~"relationships" := Relationships}=Spdx) ->
+    DependsOn =
+        maps:fold(fun (PackageName, {_Path, AppInfo}, Acc) ->
+                          DependsOnApps = lists:map(fun erlang:atom_to_binary/1, AppInfo#app_info.applications),
+                          SpdxPackageName = generate_spdxid_name(PackageName),
+                          Relations = [create_spdx_relation('DEPENDS_ON', SpdxPackageName, generate_spdxid_name(RelatedElement))
+                                        || RelatedElement <- [~"erts" | DependsOnApps], generate_spdxid_name(RelatedElement) =/= SpdxPackageName],
+                           Relations ++ Acc
+                   end, [], PackageTemplates),
+    Spdx#{~"relationships" := DependsOn ++ Relationships}.
+
+create_opt_depency_relationships(PackageTemplates, #{~"relationships" := Relationships}=Spdx) ->
+    DependsOn =
+        maps:fold(fun (PackageName, {_Path, AppInfo}, Acc) ->
+                          Optional = AppInfo#app_info.included_applications ++ AppInfo#app_info.optional_applications,
+                          DependsOnApps = lists:map(fun erlang:atom_to_binary/1, Optional),
+                          SpdxPackageName = generate_spdxid_name(PackageName),
+                          Relations = [create_spdx_relation('OPTIONAL_DEPENDENCY_OF', generate_spdxid_name(RelatedElement), SpdxPackageName)
+                                        || RelatedElement <- DependsOnApps, generate_spdxid_name(RelatedElement) =/= SpdxPackageName],
+                           Relations ++ Acc
+                   end, [], PackageTemplates),
+    Spdx#{~"relationships" := DependsOn ++ Relationships}.
+
 
 %% adds package of to packages within packages in OTP.
 %% example: asmjit is a subpackage of erts
@@ -963,7 +997,8 @@ create_vendor_relations(NewVendorPackages, #{~"packages" := Packages, ~"relation
                   end, NewVendorPackages),
     SpdxWithVendor#{~"relationships" := Relations ++ VendorRelations}.
 
-create_spdx_relation('PACKAGE_OF'=Relation, ElementId, RelatedElement) ->
+-spec create_spdx_relation('PACKAGE_OF' | 'DEPENDS_ON', SpdxId :: binary(), RelatedId :: binary()) -> map().
+create_spdx_relation(Relation, ElementId, RelatedElement) ->
     #{~"spdxElementId" => ElementId,
       ~"relatedSpdxElement" => RelatedElement,
       ~"relationshipType" => Relation}.
@@ -1468,9 +1503,10 @@ test_package_relations(#{~"packages" := Packages}=Spdx) ->
     PackageIds = lists:map(fun (#{~"SPDXID" := Id}) -> Id end, Packages),
     Relations = maps:get(~"relationships", Spdx),
     true = lists:all(fun (#{~"relatedSpdxElement" := Related,
-                            ~"relationshipType"   := ~"PACKAGE_OF",
+                            ~"relationshipType"   := Relation,
                             ~"spdxElementId" := PackageId}) ->
-                             lists:member(Related, PackageIds) andalso
+                             lists:member(Relation, [~"PACKAGE_OF", ~"DEPENDS_ON", ~"OPTIONAL_DEPENDENCY_OF"]) andalso
+                                 lists:member(Related, PackageIds) andalso
                                  lists:member(PackageId, PackageIds) andalso
                                  PackageId =/= Related
                      end, Relations),
