@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2024. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 -define(FAMILY, inet).
 -define(PROTO,  udp).
 -define(TYPE,   dgram).
--define(RECBUF, (8*1024)).
+-define(RECBUF, (8*1024)). % No longer needed when opening a *new* socket
 
 
 %% inet_udp port lookup
@@ -52,7 +52,7 @@ open(Port) -> open(Port, []).
 -spec open(_, _) -> {ok, port()} | {error, atom()}.
 open(Port, Opts) ->
     case inet:udp_options(
-	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
+	   [{port,Port} | Opts], 
 	   ?MODULE) of
 	{error, Reason} -> exit(Reason);
 	{ok,
