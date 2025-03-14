@@ -69,19 +69,19 @@ To run ORT locally, we detail the steps running ORT from source and from Docker.
 1. Run the ORT analyzer (some paths may need tweaking depending on where you are) and choose an appropriate version, in this example `51.0.0`:
    
    ```bash
-   docker run ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml analyze -i . -o . -f JSON --repository-configuration-file=.ort.yml
+   docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml analyze -i . -o . -f JSON --repository-configuration-file=.ort.yml
    ```
    
 2. Run the ORT scanner:
    
    ```bash
-   docker run ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml scan -o . -f JSON -i analyzer-result.json
+   docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 -c .ort/config/config.yml scan -o . -f JSON -i analyzer-result.json
    ```
    
 3. Generate ORT SPDX report
 
    ```bash
-   docker run ghcr.io/oss-review-toolkit/ort:51.0.0 report -i cli/scan-result.json -o . -f SpdxDocument -O SpdxDocument=outputFileFormats=JSON
+   docker run -v $(PWD):/sbom ghcr.io/oss-review-toolkit/ort:51.0.0 report -i cli/scan-result.json -o . -f SpdxDocument -O SpdxDocument=outputFileFormats=JSON
    ```
    
 4. From the Erlang/OTP repo, run the following escript to fix some known issues from the generated SPDX,
@@ -115,7 +115,7 @@ Details for how to update Erlang/OTP applications and vendor dependencies follow
 
 **NOTE**: The source SBOM that you are generating will be based on the current
 Erlang version that runs `otp-compliance.es`. This is simply because the version of
-some dependencies cannot be known before hand.
+some dependencies cannot be known beforehand.
 
 The escript `otp-compliance.es` detects Erlang/OTP applications using a simple
 heuristic. Anything that contains an `.app.src` will be place in its own SPDX
