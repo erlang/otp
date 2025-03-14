@@ -27,6 +27,7 @@
     "reference_manual/ref_man_functions.md": [],
     "reference_manual/typespec.md": [],
     "reference_manual/opaques.md": [],
+    "reference_manual/nominals.md": [],
     "reference_manual/expressions.md": [],
     "reference_manual/macros.md": [],
     "reference_manual/ref_man_records.md": [],
