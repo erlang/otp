@@ -374,7 +374,7 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                   SpecialCase = fun(LocalFunc) ->
                                                         FakeLine = begin
                                                                        case erl_parse:parse_form(Toks) of
-                                                                           {ok, Def} -> lists:flatten(erl_pp:form(Def));
+                                                                           {ok, Def} -> lists:flatten(escape_quotes(lists:flatten(erl_pp:form(Def))));
                                                                            E ->
                                                                             exit(E)
                                                                        end

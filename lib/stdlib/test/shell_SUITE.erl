@@ -389,12 +389,12 @@ shell_attribute_test(Config) ->
       "-kernel","shell_history_drop","[\"init:stop().\"]"]),
     receive after 1000 -> ok end,
     rtnode:run(
-        [{putline, "-record(hej, {a = 0 :: integer()})."},
+        [{putline, "-record(hej, {a = \"\", b = 0 :: integer()})."},
          {expect, "ok"},
          {putline, "rl()."},
-         {expect, "\\Q-record(hej,{a = 0 :: integer()}).\\E"},
-         {putline, "#hej{a=1}."},
-         {expect, "\\Q#hej{a = 1}\\E"}
+         {expect, "\\Q-record(hej,{a = \"\", b = 0 :: integer()}).\\E"},
+         {putline, "#hej{a = \"hej\", b=1}."},
+         {expect, "\\Q#hej{a = \"hej\", b=1}\\E"}
         ],[],"", ["-kernel","shell_history","enabled",
         "-kernel","shell_history_path","\"" ++ Path ++ "\"",
         "-kernel","shell_history_drop","[\"init:stop().\"]"]),
