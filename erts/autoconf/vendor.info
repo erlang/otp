@@ -1,0 +1,28 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+[
+    {
+      "ID": "erts-config",
+      "description": "Autoconf package in ERTS includes config.{guess, sub}",
+      "copyrightText": "Copyright 1992-2021 Free Software Foundation, Inc.",
+      "downloadLocation": "https://www.gnu.org/software/autoconf/",
+      "homepage": "https://www.gnu.org/software/autoconf/",
+      "licenseDeclared": "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0",
+      "name": "Autoconf",
+      "versionInfo": "2.71",
+      "path": ["./erts/autoconf/config.guess", "./erts/autoconf/config.sub"],
+      "supplier": "Organization: Free Software Foundation"
+    },
+    {
+      "ID": "erts-install-sh",
+      "description": "Autoconf package in ERTS includes install-sh",
+      "copyrightText": "Copyright (C) 1994 X Consortium",
+      "downloadLocation": "https://www.gnu.org/software/autoconf/",
+      "homepage": "https://www.gnu.org/software/autoconf/",
+      "licenseDeclared": "MIT",
+      "name": "Autoconf",
+      "versionInfo": "2.71",
+      "path": "./erts/autoconf/install-sh",
+      "supplier": "Organization: Free Software Foundation"
+    }
+]

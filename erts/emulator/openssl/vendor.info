@@ -1,0 +1,14 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+{
+  "ID": "erts-openssl",
+  "description": "Openssl MD5 implementation in ERTS",
+  "copyrightText": "Copyright 1995-2022 The OpenSSL Project Authors. All Rights Reserved.",
+  "downloadLocation": "https://github.com/openssl/openssl",
+  "homepage": "https://www.openssl.org/",
+  "licenseDeclared": "Apache-2.0",
+  "name": "openssl",
+  "versionInfo": "3.1.4",
+  "path": "./erts/emulator/openssl",
+  "supplier": "Organization: OpenSSL Mission"
+}

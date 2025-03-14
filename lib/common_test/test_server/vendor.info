@@ -1,0 +1,28 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+[
+    {
+      "ID": "common_test-config",
+      "description": "Autoconf package in common_test includes config.{guess, sub}",
+      "copyrightText": "Copyright 1992-2021 Free Software Foundation, Inc.",
+      "downloadLocation": "https://www.gnu.org/software/autoconf/",
+      "homepage": "https://www.gnu.org/software/autoconf/",
+      "licenseDeclared": "GPL-3.0-or-later WITH Autoconf-exception-generic-3.0",
+      "name": "Autoconf",
+      "versionInfo": "2.71",
+      "path": ["./lib/common_test/test_server/config.guess", "./lib/common_test/test_server/config.sub"],
+      "supplier": "Organization: Free Software Foundation"
+    },
+    {
+      "ID": "common_test-install-sh",
+      "description": "Autoconf package in common_test includes install-sh",
+      "copyrightText": "Copyright (C) 1994 X Consortium",
+      "downloadLocation": "https://www.gnu.org/software/autoconf/",
+      "homepage": "https://www.gnu.org/software/autoconf/",
+      "licenseDeclared": "MIT",
+      "name": "Autoconf",
+      "versionInfo": "2.71",
+      "path": "./lib/common_test/test_server/install-sh",
+      "supplier": "Organization: Free Software Foundation"
+    }
+]

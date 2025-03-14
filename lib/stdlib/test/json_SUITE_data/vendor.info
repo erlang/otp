@@ -1,0 +1,14 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+{
+  "ID": "stdlib-json-suite",
+  "description": "JSON Test Suite",
+  "copyrightText": "Copyright (c) 2016 Nicolas Seriot",
+  "downloadLocation": "https://github.com/nst/JSONTestSuite",
+  "homepage": "https://github.com/nst/JSONTestSuite",
+  "licenseDeclared": "MIT",
+  "name": "json-test-suite",
+  "versionInfo": "984defc2deaa653cb73cd29f4144a720ec9efe7c",
+  "path": "./lib/stdlib/test/json_SUITE_data",
+  "supplier": "Person: Nicolas Seriot"
+}

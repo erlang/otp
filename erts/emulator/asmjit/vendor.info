@@ -1,0 +1,14 @@
+%% SPDX-License-Identifier: Apache-2.0
+%% SPDX-FileCopyrightText: 2024 Erlang/OTP and its contributors
+{
+  "ID": "erts-asmjit",
+  "description": "Asmjit library",
+  "copyrightText": "Copyright (c) 2008-2023 The AsmJit Authors",
+  "downloadLocation": "https://github.com/asmjit/asmjit",
+  "homepage": "https://github.com/asmjit/asmjit",
+  "licenseDeclared": "Zlib",
+  "name": "asmjit",
+  "versionInfo": "a465fe71ab3d0e224b2b4bd0fac69ae68ab9239d",
+  "path": "./erts/emulator/asmjit",
+  "supplier": "Person: Petr Kobalicek"
+}
