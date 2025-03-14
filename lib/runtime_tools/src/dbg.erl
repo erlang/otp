@@ -1226,7 +1226,7 @@ To start a similar tracer on a remote node, use `n/1`.
 """.
 -spec tracer() -> {ok, pid()} | {error, already_started}.
 tracer() ->
-    tracer(process, {fun dhandler/2,user}).
+    tracer(process, {fun dhandler/2, dhandler_default_out()}).
 
 -doc """
 tracer(Type, Data)
@@ -1673,13 +1673,13 @@ The pids will vary.
       Filename :: file:name_all(),
       WrapFilesSpec :: trace_wrap_files_spec().
 trace_client(file, Filename) ->
-    trace_client(file, Filename, {fun dhandler/2,user});
+    trace_client(file, Filename, {fun dhandler/2, dhandler_default_out()});
 trace_client(follow_file, Filename) ->
-    trace_client(follow_file, Filename, {fun dhandler/2,user});
+    trace_client(follow_file, Filename, {fun dhandler/2, dhandler_default_out()});
 trace_client(ip, Portno) when is_integer(Portno) ->
-    trace_client1(ip, {"localhost", Portno}, {fun dhandler/2,user});
+    trace_client1(ip, {"localhost", Portno}, {fun dhandler/2, dhandler_default_out()});
 trace_client(ip, {Host, Portno}) when is_integer(Portno) ->
-    trace_client1(ip, {Host, Portno}, {fun dhandler/2,user}).
+    trace_client1(ip, {Host, Portno}, {fun dhandler/2, dhandler_default_out()}).
 
 -type handler_spec() :: {HandlerFun :: fun((Event :: term(), Data :: term()) -> NewData :: term()),
                          InitialData :: term()}.
@@ -2373,6 +2373,20 @@ do_relay_1(RelP, Session) ->
             Modifier = modifier(user),
 	    io:format(user,"** relay got garbage: ~"++Modifier++"p~n", [Other]),
 	    do_relay_1(RelP, Session)
+    end.
+
+-doc false.
+dhandler_default_out() ->
+    %% When user (human) sets up dbg over remsh, group_leader is on other node.
+    %% In this case, pass printed info to the remote group_leader
+    %% so the user (human) can see what's happening
+    case node(group_leader()) == node() of
+        true ->
+            % On the same node use 'user' (process) as default output
+            user;
+        false ->
+            % Use remote group_leader when called via remsh
+            group_leader()
     end.
 
 -doc false.
