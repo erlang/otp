@@ -303,11 +303,11 @@ static void proc_sig_queue_unlock_buffer(ErtsSignalInQueueBuffer* slot);
 static void handle_message_enqueued_tracing(Process *c_p,
                                             ErtsSigRecvTracing *tracing,
                                             ErtsMessage *msg);
-static void
+static int
 insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                          ErtsMessage *sig, Eterm message, Eterm token,
                          ErtsMessage ***next_nm_sig);
-static void
+static int
 insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
                                   ErtsMessage *sig, void *attached,
                                   Eterm message, Eterm token,
@@ -4703,9 +4703,9 @@ handle_exit_signal(Process *c_p, ErtsSigRecvTracing *tracing,
                            : ((ErtsSeqTokenExitSignalData *) xsigd)->token);
             if (prio) {
                 remove_nm_sig(c_p, sig, next_nm_sig);
-                insert_prepared_prio_msg(c_p, tracing, sig,
-                                         xsigd->message, token,
-                                         next_nm_sig);
+                cnt += insert_prepared_prio_msg(c_p, tracing, sig,
+                                                xsigd->message, token,
+                                                next_nm_sig);
             }
             else {
                 convert_prepared_sig_to_msg(c_p, tracing, sig,
@@ -4778,17 +4778,19 @@ convert_prepared_down_message(Process *c_p, ErtsSigRecvTracing *tracing,
                               int prio, ErtsMessage *sig, Eterm msg,
                               ErtsMessage ***next_nm_sig)
 {
+    int cnt = 0;
     if (prio) {
         remove_nm_sig(c_p, sig, next_nm_sig);
-        insert_prepared_prio_msg(c_p, tracing, sig, msg, am_undefined,
-                                 next_nm_sig);
+        cnt += insert_prepared_prio_msg(c_p, tracing, sig, msg, am_undefined,
+                                        next_nm_sig);
     }
     else {
         convert_prepared_sig_to_msg(c_p, tracing, sig, msg, am_undefined,
                                     next_nm_sig);
+        cnt++;
     }
     erts_proc_notify_new_message(c_p, ERTS_PROC_LOCK_MAIN);
-    return 1;
+    return cnt;
 }
 
 static int
@@ -4998,11 +5000,10 @@ convert_to_down_message(Process *c_p,
         *priop = !!((*omon)->flags & ERTS_ML_FLG_PRIO_ML);
         if (*priop) {
             remove_nm_sig(c_p, sig, next_nm_sig);
-            insert_prepared_prio_msg_attached(c_p, tracing, mp,
-                                              mp->data.attached, message,
-                                              am_undefined,
-                                              next_nm_sig);
-            cnt += 4;
+            cnt += insert_prepared_prio_msg_attached(c_p, tracing, mp,
+                                                     mp->data.attached, message,
+                                                     am_undefined,
+                                                     next_nm_sig);
             goto notify_new_message;
         }
 
@@ -6061,9 +6062,9 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                                                  data_attached, next_nm_sig);
         }
         else {
-            insert_prepared_prio_msg_attached(c_p, tracing, sig,
-                                              data_attached, msg, token,
-                                              next_nm_sig);
+            cnt += insert_prepared_prio_msg_attached(c_p, tracing, sig,
+                                                     data_attached, msg, token,
+                                                     next_nm_sig);
         }
         cnt++;
         break;
@@ -6128,8 +6129,8 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                 /* drop faulty encoded external message... */
                 return cnt;
             }
-            insert_prepared_prio_msg(c_p, tracing, mp, ERL_MESSAGE_TERM(mp),
-                                     token, next_nm_sig);
+            cnt += insert_prepared_prio_msg(c_p, tracing, mp, ERL_MESSAGE_TERM(mp),
+                                            token, next_nm_sig);
         }
         break;
     }
@@ -9171,13 +9172,13 @@ prio_queue_check_recv_marks(Eterm obj, Eterm *ref,
     }
 }
 
-static void
+static int
 insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
                                   ErtsMessage *sig, void *data_attached,
                                   Eterm message, Eterm token,
                                   ErtsMessage ***next_nm_sig)
 {
-    int i, empty_prio_q = !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
+    int i, cnt = 1, empty_prio_q = !(c_p->sig_qs.flags & FS_PRIO_MQ_END_MARK);
     ErtsRecvMarkerBlock *blk = c_p->sig_qs.recv_mrk_blk;
     ErtsPrioQInfo *pq_info = get_prio_queue_info(c_p);
     ErtsRecvMarker *pq_end = &pq_info->marker[ERTS_PRIO_Q_MARK_END];
@@ -9225,6 +9226,7 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
 
                 /* Note that this ref has been seen in the prio queue... */
                 mark->in_prioq = !0;
+                cnt += 4;
             }
         }
     }
@@ -9333,11 +9335,26 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
         }
     }
 
-    /* Append the actual prio message to the prio queue... */
     sig->data.attached = data_attached;
 
     ERL_MESSAGE_TERM(sig) = message;
     ERL_MESSAGE_TOKEN(sig) = token;
+
+    if (tracing->messages.active) {
+        if (ERTS_SIG_IS_EXTERNAL_MSG(sig)) {
+            cnt += 50; /* Decode is expensive... */
+            if (!erts_proc_sig_decode_dist(c_p, ERTS_PROC_LOCK_MAIN,
+                                           sig, 0)) {
+                /* Bad dist message; drop it... */
+                sig->next = NULL;
+                erts_cleanup_messages(sig);
+                return cnt;
+            }
+        }
+        handle_message_enqueued_tracing(c_p, tracing, sig);
+    }
+
+    /* Append the actual prio message to the prio queue... */
 
     *pq_end->prev_next = sig;
     pq_end->prev_next = &sig->next;
@@ -9346,20 +9363,18 @@ insert_prepared_prio_msg_attached(Process *c_p, ErtsSigRecvTracing *tracing,
     c_p->sig_qs.mq_len++;
     erts_chk_sys_mon_long_msgq_on(c_p);
 
-    if (tracing->messages.active)
-        handle_message_enqueued_tracing(c_p, tracing, sig);
-
+    return cnt;
 }
 
-static void
+static int
 insert_prepared_prio_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                          ErtsMessage *sig, Eterm message, Eterm token,
                          ErtsMessage ***next_nm_sig)
 {
-    insert_prepared_prio_msg_attached(c_p, tracing, sig,
-                                      ERTS_MSG_COMBINED_HFRAG,
-                                      message, token,
-                                      next_nm_sig);
+    return insert_prepared_prio_msg_attached(c_p, tracing, sig,
+                                             ERTS_MSG_COMBINED_HFRAG,
+                                             message, token,
+                                             next_nm_sig);
 }
 
 static void

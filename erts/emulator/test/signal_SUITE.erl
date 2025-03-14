@@ -2169,23 +2169,25 @@ priority_messages_old_nodes_test(Config, Node) ->
     exit(Alias, prio_exit_1, [priority]),
     wait_until(fun () -> lists:member(Node, nodes()) end),
     exit(Alias, prio_exit_2, [priority]),
+    Pid ! msg_2,
+    wait_until(fun () -> msg_received(Pid, msg_2) end),
 
     node_disconnect(Node),
     exit(Pid, prio_exit_3, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_3}) end),
     exit(Pid, prio_exit_4, [priority]),
     wait_until(fun () -> msg_received(Pid, {'EXIT', Self, prio_exit_4}) end),
-                         case PrioMsgSupport of
+    case PrioMsgSupport of
         true ->
             {messages, [prio_msg_1, prio_msg_2, {'EXIT', Self, prio_exit_1},
                         {'EXIT', Self, prio_exit_2}, msg_1, prio_msg_3,
-                        prio_msg_4, prio_msg_5, prio_msg_6, {'EXIT', Self, prio_exit_3},
-                        {'EXIT', Self, prio_exit_4}]}
+                        prio_msg_4, prio_msg_5, prio_msg_6, msg_2,
+                        {'EXIT', Self, prio_exit_3}, {'EXIT', Self, prio_exit_4}]}
                 = proc_info(Pid, messages);
         false ->
             {messages, [msg_1, prio_msg_1, prio_msg_2, prio_msg_3, prio_msg_4,
-                        prio_msg_5, prio_msg_6, {'EXIT', Self, prio_exit_3},
-                        {'EXIT', Self, prio_exit_4}]}
+                        prio_msg_5, prio_msg_6, msg_2,
+                        {'EXIT', Self, prio_exit_3}, {'EXIT', Self, prio_exit_4}]}
                 = proc_info(Pid, messages)
     end,
 
