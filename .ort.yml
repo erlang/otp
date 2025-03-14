@@ -745,18 +745,11 @@ curations:
           The scanner incorrectly categorises the license
         concluded_license: "Apache-2.0 OR BSL-1.0"
 
-      # - path: "erts/emulator/ryu/d2s.c"
-      #   reason: "INCORRECT"
-      #   comment: >-
-      #     The scanner incorrectly categorises the license
-      #   concluded_license: "(Apache-2.0 WITH LLVM-exception AND BSL-1.0) AND (Apache-2.0 OR BSL-1.0)"
-
       - path: "erts/emulator/ryu/d2s.c"
-        reason: "DATA_OF"
+        reason: "INCORRECT"
         comment: >-
           The scanner incorrectly categorises the license
-        detected_license: "NOASSERTION WITH LLVM-exception"
-        concluded_license: "Apache-2.0 WITH LLVM-exception AND BSL-1.0"
+        concluded_license: "(Apache-2.0 WITH LLVM-exception AND BSL-1.0) AND (Apache-2.0 OR BSL-1.0)"
 
       - path: "erts/emulator/ryu/d2s_full_table.h"
         reason: "INCORRECT"
