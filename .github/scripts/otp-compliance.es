@@ -348,7 +348,7 @@ generate_snippet_fixes(Spdx, ScanResults) ->
     Spdx#{ ~"snippets" => Snippets }.
 
 %% we are doing the assumption that we only have one known snippet.
-generate_snippet(#{~"files" := Files}=_Spdx, [#{~"location" := #{~"path" := ~"erts/emulator/ryu/d2s.c"=Path}=Loc, ~"license" := License}]) ->
+generate_snippet(#{~"files" := Files}=_Spdx, [#{~"location" := #{~"path" := ~"erts/emulator/ryu/d2s.c"=Path}, ~"license" := License}]) ->
     [#{~"SPDXID" := SpdxId}=SpdxFile] = lists:filter(fun (#{~"fileName" := FileName}) -> FileName == Path end, Files),
 
     %% read file to find snippet byte range and lines
@@ -768,6 +768,16 @@ decode(Filename) ->
     {ok, Bin} = file:read_file(Filename),
     json:decode(Bin).
 
+decode_without_spdx_license(Filename) ->
+    {ok, Bin} = file:read_file(Filename),
+
+    %% remove comments
+    Lines = string:split(Bin, "\n", all),
+    Lines1 = lists:map(fun (Line) -> re:replace(Line, "%.*", "", [global]) end, Lines),
+    Bin1 = erlang:iolist_to_binary(Lines1),
+
+    json:decode(Bin1).
+
 group_by_license(ExcludeRegexes, Curations, License, Acc) ->
     #{<<"license">> := LicenseName, <<"location">> := Location} = License,
     #{<<"path">> := Path, <<"start_line">> := _StartLine, <<"end_line">> := _EndLine} = Location,
@@ -988,7 +998,7 @@ generate_vendor_info_package(VendorSrcPath) ->
 vendor_info_to_map(<<>>, Acc) ->
     Acc;
 vendor_info_to_map(Path, Acc) ->
-    case decode(Path) of
+    case decode_without_spdx_license(Path) of
         Json when is_list(Json) ->
             Json ++ Acc;
         Json when is_map(Json) ->

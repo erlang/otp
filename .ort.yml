@@ -19,13 +19,15 @@ excludes:
       reason: "OTHER"
       comment: "This file is not present in a release."
 
-    - pattern: "**/vendor.info"
-      reason: "OTHER"
-      comment: "This file is not present in a release."
-
 # Curations are used to fix wrongly detected licenses
 curations:
     license_findings:
+      - path: "**/vendor.info"
+        reason: "DATA_OF"
+        comment: >-
+          License of vendor library confuses the scanner
+        concluded_license: "Apache-2.0"
+
       - path: "lib/wx/src/gen/**/wx*.erl"
         reason: "INCORRECT"
         comment: >-
