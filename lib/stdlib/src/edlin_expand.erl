@@ -393,8 +393,8 @@ is_type(Type, Cs, String) ->
     catch
         _:_ ->
             %% Types not possible to deduce with erl_parse
-            % If string contains variables, erl_parse:parse_term will fail, but we
-            % consider them valid sooo.. lets replace them with the atom var
+            %% If string contains variables, erl_parse:parse_term will fail, but we
+            %% consider them valid sooo.. lets replace them with the atom var
             B = [(fun({var, Anno, _}) -> {atom, Anno, var}; (Token) -> Token end)(X) || X <- A],
             try
                 {ok, Term2} = erl_parse:parse_term(B),
@@ -730,29 +730,33 @@ expand_filepath(PathPrefix, Word) ->
     end.
 
 shell(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case shell:local_func(Fun1) of
+    case shell:local_func(Fun) of
         true -> "shell";
         false -> "user_defined"
     end.
 
 -doc false.
+shell_default_or_bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(shell_default)]) of
+        true -> "shell_default";
+        false -> bif(Fun)
+    end;
 shell_default_or_bif(Fun) ->
     case erl_scan:string(Fun) of
-        {ok, [{var, _, _}], _} -> [];
-        {ok, [{atom, _, Fun1}], _} ->
-            case lists:member(Fun1, [E || {E,_}<-get_exports(shell_default)]) of
-                true -> "shell_default";
-                _ -> bif(Fun)
-            end
+        {ok, [{atom, _, Fun1}], _} -> shell_default_or_bif(Fun1);
+        _ -> []
     end.
 
 -doc false.
-bif(Fun) ->
-    {ok, [{atom, _, Fun1}], _} = erl_scan:string(Fun),
-    case lists:member(Fun1, [E || {E,A}<-get_exports(erlang), erl_internal:bif(E,A)]) of
+bif(Fun) when is_atom(Fun) ->
+    case lists:member(Fun, [E || {E,_} <- get_exports(erlang)]) of
         true -> "erlang";
-        _ -> shell(Fun)
+        false -> shell(Fun)
+    end;
+bif(Fun) ->
+    case erl_scan:string(Fun) of
+        {ok, [{atom, _, Fun1}], _} -> bif(Fun1);
+        _ -> []
     end.
 
 expand_string(Bef0) ->

@@ -1176,7 +1176,7 @@ init_dict([]) -> true.
 %% non_builtin_local_func/3 (user_default/shell_default).
 %% fd, ft and td should not be exposed to the user
 -doc false.
-local_func() -> [v,h,b,f,ff,fl,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception].
+local_func() -> [v,h,b,f,fd,ff,fl,lf,lr,lt,rd,rf,rl,rp,rr,tf,save_module,history,results,catch_exception].
 -doc false.
 local_func(Func) ->
     lists:member(Func, local_func()).
