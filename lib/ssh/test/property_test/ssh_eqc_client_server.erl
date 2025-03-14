@@ -98,12 +98,12 @@
 
 %% To be called as eqc:quickcheck( ssh_eqc_client_server:prop_seq() ).
 prop_seq() ->
-    error_logger:tty(false),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
     ?TESTINGTIME(do_prop_seq(?SSH_DIR,[])).
 
 %% To be called from a common_test test suite
 prop_seq(CT_Config) ->
-    error_logger:tty(false),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
     do_prop_seq(full_path(?SSH_DIR, CT_Config), CT_Config).
 
 
@@ -120,12 +120,12 @@ full_path(SSHdir, CT_Config) ->
 		  SSHdir).
 %%%----
 prop_parallel() ->
-    error_logger:tty(false),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
     ?TESTINGTIME(do_prop_parallel(?SSH_DIR,[])).
 
 %% To be called from a common_test test suite
 prop_parallel(CT_Config) ->
-    error_logger:tty(false),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
     do_prop_parallel(full_path(?SSH_DIR, CT_Config), CT_Config).
 
 do_prop_parallel(DataDir, CT_Config) ->

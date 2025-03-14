@@ -30,6 +30,7 @@
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% ssh_server_channel callbacks
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
@@ -254,19 +255,14 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     {ok, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}}, State) ->
-    Report = io_lib:format("Connection closed by peer ~n Error ~p~n",
-			   [Error]),
-    error_logger:error_report(Report),
+    ?LOG_ERROR("Connection closed by peer ~n Error ~p~n", [Error]),
     {stop, ChannelId,  State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, 0}}, State) ->
     {stop, ChannelId, State};
 
 handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, Status}}, State) ->
-    
-    Report = io_lib:format("Connection closed by peer ~n Status ~p~n",
-			   [Status]),
-    error_logger:error_report(Report),
+    ?LOG_ERROR("Connection closed by peer ~n Status ~p~n", [Status]),
     {stop, ChannelId, State}.
 
 %%--------------------------------------------------------------------

@@ -1642,7 +1642,7 @@ kex_error(Config) ->
                                              ]),
     Ref = make_ref(),
     ok = ssh_log_h:add_fun(kex_error,
-                           fun(#{msg:={report,#{format:=Fmt,args:=As,label:={error_logger,_}}}}, Pid) ->
+                           fun(#{msg:={Fmt,As}}, Pid) ->
                                    true = (erlang:process_info(Pid) =/= undefined), % remove handler if we are dead
                                    Pid ! {Ref, lists:flatten(io_lib:format(Fmt,As))};
                               (_,Pid) ->

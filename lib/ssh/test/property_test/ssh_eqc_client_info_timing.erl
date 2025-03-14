@@ -28,14 +28,14 @@
 %%% Properties:
 
 prop_seq(Config) ->
-    error_logger:tty(false),
-    {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
+    [ok = logger:remove_handler(Id)|| Id <- logger:get_handler_ids()],
+    {ok, Ref} = ssh_eqc_event_handler:add_report_handler(),
     {_, _, Port} = init_daemon(Config),
     numtests(1000,
 	     ?FORALL(Delay, choose(0,100),%% Micro seconds
 		     try 
 			 send_bad_sequence(Port, Delay, Pid),
-			 not any_relevant_error_report(Pid)
+			 not any_relevant_error_report(Ref)
 		     catch
 			 C:E:S -> ct:log("~p:~p~n~p",[C,E,S]),
 				false
@@ -57,13 +57,17 @@ send_bad_sequence(Port, Delay, Pid, N) ->
             send_bad_sequence(Port, Delay, Pid, N-1)
     end.
 
-any_relevant_error_report(Pid) ->
-    {ok, Reports} = ssh_eqc_event_handler:get_reports(Pid),
-    lists:any(fun({error_report,_,{_,supervisor_report,L}}) when is_list(L) -> 
-		      lists:member({reason,{badmatch,{error,closed}}}, L);
-		 (_) ->
-		      false
-	      end, Reports).
+any_relevant_error_report(Ref) ->
+    {ok, Reports} = ssh_eqc_event_handler:get_reports(Ref),
+    FilterFun = fun(#{level := Level}) ->
+                        case logger:compare_levels(Level, warning) of
+                            gt -> true;
+                            _ -> false
+                        end;
+                   (_) ->
+                        false
+                end,
+    lists:any(FilterFun, Reports).
 
 %%%================================================================
 init_daemon(Config) ->

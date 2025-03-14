@@ -110,9 +110,9 @@ expected to be found in files named `ssh_host_rsa_key`, `ssh_host_dsa_key`,
 
 See [ssh_file](`m:ssh_file#FILE-ssh_host_STAR_key`) for details.
 
-## Error Logger and Event Handlers
+## Logging
 
-The `ssh` application uses the default [OTP error logger](`m:error_logger`) to
+The `ssh` application uses the default [logger](`m:logger`) to
 log unexpected errors or print information about special events.
 
 [](){: #supported }

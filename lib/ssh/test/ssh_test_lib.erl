@@ -139,6 +139,7 @@ find_handshake_parent/1
 -include("ssh_transport.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(SANITY_CHECK_NOTE,
         "For enabling test, make sure following commands work:~n"
@@ -549,7 +550,7 @@ receive_exec_result(Data, ConnectionRef, ChannelId) ->
 failfun(_User, {authmethod,none}) ->
     ok;
 failfun(User, Reason) ->
-    error_logger:format("~p failed XXX to login: ~p~n", [User, Reason]).
+    ?LOG_ERROR("~p failed XXX to login: ~p~n", [User, Reason]).
 
 hostname() ->
     {ok,Host} = inet:gethostname(),
@@ -1321,7 +1322,7 @@ kex_strict_negotiated(SearchFun, Events) when is_function(SearchFun) ->
 
 event_logged(Role, Events, Reason) ->
     SearchF =
-        fun(#{msg := {report, #{args := Args}}}) ->
+        fun(#{msg := {_Fmt, Args}}) ->
                 AnyF = fun (E) when is_list(E) ->
                                case string:find(E, Reason) of
                                    nomatch -> false;
